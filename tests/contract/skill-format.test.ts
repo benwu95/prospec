@@ -729,6 +729,51 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  describe('AI Knowledge sub-modules', () => {
+    it('module-readme-conventions defines sub-module extraction', () => {
+      const content = renderTemplate(
+        'init/module-readme-conventions.md.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(content).toContain('## Sub-Modules');
+      expect(content).toContain('content-rich, functionally-independent');
+      expect(content).toContain('modules/{module}/{sub-module}.md');
+      expect(content).toContain('NOT listed in');
+    });
+
+    it('knowledge-generate extracts sub-modules instead of lossy trimming', () => {
+      const content = renderTemplate(
+        'skills/prospec-knowledge-generate.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(content).toContain('Step 4.5');
+      expect(content).toContain('## Sub-Modules');
+      expect(content).toContain('content-rich, functionally-independent');
+    });
+
+    it('knowledge-update maintains and extracts sub-modules', () => {
+      const content = renderTemplate(
+        'skills/prospec-knowledge-update.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(content).toContain('## Sub-Modules');
+      expect(content).toContain('sub-module');
+    });
+
+    it('knowledge-consuming skills also load linked sub-modules', () => {
+      for (const name of [
+        'prospec-implement',
+        'prospec-plan',
+        'prospec-verify',
+        'prospec-tasks',
+        'prospec-ff',
+      ]) {
+        const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content).toContain('sub-module');
+      }
+    });
+  });
+
   describe('Agent config skill reference paths', () => {
     it('claude config should point references at .claude/skills', () => {
       const content = renderTemplate('agent-configs/claude.md.hbs', {

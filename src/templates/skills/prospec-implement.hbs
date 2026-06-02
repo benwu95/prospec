@@ -27,7 +27,7 @@ When triggered, briefly describe:
 | Layer | What to Load | When to Load | Budget |
 |-------|-------------|--------------|--------|
 | L0 | `_index.md` + `_conventions.md` + tasks.md + plan.md + delta-spec.md | At startup — navigate modules and understand current tasks | ≤ 1,500 tokens (knowledge) |
-| L1 | Related module `README.md` (Recipe-First) | When starting a task — understand APIs, modification patterns, and ripple effects | ≤ 400 tokens/module |
+| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | When starting a task — understand APIs, modification patterns, and ripple effects | ≤ 400 tokens/module |
 | L2 | Source code files | When implementing — verify details, read exact signatures | On-demand |
 
 **Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
@@ -89,7 +89,7 @@ After completing each task, verify Knowledge alignment:
 | Check Item | PASS | WARN |
 |------------|------|------|
 | _conventions.md patterns followed | execute()/atomicWrite()/ContentMerger used where applicable | Patterns not followed — justify deviation |
-| Module README consulted | Related module API verified before implementation | Implemented without checking module README |
+| Module README consulted | Related module API verified before implementation, incl. linked sub-modules | Implemented without checking module README / skipped a relevant sub-module |
 | Delta-spec compliance | Implementation matches specification | Deviation documented in tasks.md |
 
 WARN items do not block — document reasoning in task completion notes.

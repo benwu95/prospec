@@ -29,7 +29,7 @@ When triggered, briefly describe:
 | Layer | What to Load | When to Load | Budget |
 |-------|-------------|--------------|--------|
 | L0 | `_index.md` + `_conventions.md` + Feature Specs + Product Spec | At startup — navigate modules and understand existing requirements | ≤ 1,500 tokens (knowledge) |
-| L1 | Related module `README.md` (Recipe-First) | During architecture design — understand APIs, dependencies, and modification patterns | ≤ 400 tokens/module |
+| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | During architecture design — understand APIs, dependencies, and modification patterns | ≤ 400 tokens/module |
 | L2 | Source code files | When technical questions arise — user can request explicitly | On-demand |
 
 **Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
@@ -51,7 +51,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 
 **Step 2 — Load Knowledge by Mode:**
 
-- **Brownfield**: Load related module READMEs + `{{knowledge_base_path}}/_conventions.md`. Prepare to synthesize Technical Summary in Phase 4.
+- **Brownfield**: Load related module READMEs (and any `{sub-module}.md` they link) + `{{knowledge_base_path}}/_conventions.md`. Prepare to synthesize Technical Summary in Phase 4.
 - **Greenfield**: Skip module loading. Scan project root for tech stack indicators (`package.json`, `pyproject.toml`, `.prospec.yaml`), top-level directory structure, and 2-3 core source files. Recommend `prospec knowledge init` + `/prospec-knowledge-generate`.
 
 ### Phase 3: Create Scaffolding
