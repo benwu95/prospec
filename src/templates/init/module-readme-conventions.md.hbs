@@ -43,6 +43,7 @@ The order is fixed. Keep each section concise; the whole README stays **≤ 100 
 | `## Modification Guide` | ✅ | Numbered "to change X, edit Y → Z" recipes for the common edits. This is more valuable than an API dump — tell agents HOW to change. |
 | `## Ripple Effects` | ⬜ | Larger modules only: what downstream breaks when you touch a shared piece. Omit for small leaf modules. |
 | `## Pitfalls` | ✅ | Known traps, surprising names, non-obvious invariants, anti-patterns. |
+| `## Sub-Modules` | ⬜ | Only when this module has extracted sub-module files (see "Sub-Modules" below): a link list to each `{sub-module}.md`. Omit otherwise. |
 
 ## Skeleton
 
@@ -74,8 +75,40 @@ The order is fixed. Keep each section concise; the whole README stays **≤ 100 
 <!-- prospec:user-end -->
 ```
 
+## Sub-Modules (splitting an oversized README)
+
+A module README must stay within budget (≤ 100 lines / ≤ 400 tokens). When a module is large
+enough that trimming would discard genuinely useful detail, AND it contains a
+**content-rich, functionally-independent** area, extract that area into a sub-module file instead
+of trimming it away.
+
+- **When to extract** — both must hold; otherwise just trim:
+  1. The main README would exceed budget even after reasonable trimming.
+  2. There is a self-contained sub-area — rich enough to warrant its own Key Files / Public API /
+     Pitfalls, and independent enough to be understood on its own.
+- **Layout**: `modules/{module}/{sub-module}.md` — a sibling of the module's `README.md`, kebab-case
+  name after the sub-area (e.g. `modules/services/spec-sync.md`). Same Recipe-First structure and
+  same ≤ 100 line / ≤ 400 token budget as a README. If a sub-module would itself overflow, split it
+  again the same way.
+- **Link from the main README**: keep a `## Sub-Modules` section (inside the auto block) listing each:
+  ```markdown
+  ## Sub-Modules
+  - [Spec Sync](./spec-sync.md) — archive → Feature / Product spec synchronisation
+  - [Knowledge Engine](./knowledge-engine.md) — module scan + Recipe-First generation
+  ```
+  The main README keeps the module overview and cross-cutting sections; the extracted detail moves
+  into the sub-module file (do not duplicate it back into the README).
+- **Discovery / loading**: sub-modules are an **L1 sub-layer**, discovered ONLY through the parent
+  README's `## Sub-Modules` links — they are NOT listed in `_index.md` (L0 stays a lean top-level
+  map). Any skill that loads a module's README must also open the linked sub-module file(s) relevant
+  to its task, not stop at the main README.
+- **A sub-module is not a top-level module**: it stays under its parent's directory and is absent
+  from `_index.md` / `module-map.yaml`. If an area is independent enough to deserve its own
+  `_index.md` entry, make it a real module instead of a sub-module.
+
 ## Principles
 
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists.
-- **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into this one README.
+- **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into the README (or its sub-module files); these are the only knowledge docs per module.
 - **README is a map, not a copy** — point to source files; never duplicate source code or full signatures.
+- **Prefer extraction over lossy trimming** — when a README outgrows its budget and has an independent sub-area, extract a sub-module rather than deleting useful detail.

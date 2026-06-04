@@ -26,10 +26,11 @@ _Table format: Module | Keywords | Status | Description | Rationale | Depends On
 | Layer | Files | When to Load | Token Budget |
 |-------|-------|-------------|-------------|
 | **L0** | `_index.md` + `_conventions.md` | Every conversation (auto-injected via agent config) | ≤ 1,500 tokens total |
-| **L1** | `modules/{name}/README.md` | When Skill identifies related modules from L0 keywords | ≤ 400 tokens per module |
+| **L1** | `modules/{name}/README.md` (+ any `{sub-module}.md` it links) | When Skill identifies related modules from L0 keywords | ≤ 400 tokens per module |
 | **L2** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
 **Principles:**
 1. L0 answers "where to look" — L1 answers "how to modify" — L2 answers "how to write"
 2. Each layer must NOT duplicate information available in a lower layer
-3. L1 README is the only file per module — no api-surface.md, dependencies.md, or patterns.md
+3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+4. Sub-modules are an L1 sub-layer reached via the README's `## Sub-Modules` links — never listed in `_index.md`
