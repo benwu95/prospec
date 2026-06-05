@@ -261,8 +261,8 @@ your-project/
 ├── {base_dir}/
 │   ├── CONSTITUTION.md        # Project rules (user-defined)
 │   ├── specs/
-│   │   ├── capabilities/      # Living behavior specs (accumulated)
-│   │   └── history/           # Archived change summaries
+│   │   ├── product.md         # Product Spec (PRD entry point)
+│   │   └── features/          # Living Feature Specs (accumulated)
 │   └── ai-knowledge/
 │       ├── _index.md          # Module index (Markdown table)
 │       ├── _conventions.md    # Project conventions
@@ -359,7 +359,7 @@ Prospec's unique contribution: **CLI + Skills hybrid** — CLI for deterministic
 - [Documentation](./docs/)
 - [Onboarding Guide (Brownfield)](./docs/guides/raven-onboarding.md)
 - [AI Knowledge Index](./prospec/ai-knowledge/_index.md)
-- [Capability Specs](./prospec/specs/capabilities/)
+- [Feature Specs](./prospec/specs/features/)
 
 ---
 
