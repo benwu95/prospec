@@ -112,7 +112,7 @@ export async function execute(
     results.push(result);
   }
 
-  // 5. Compute totals
+  // 6. Compute totals
   const totalFiles = results.reduce(
     (sum, r) => sum + 1 + r.skillFiles.length + r.referenceFiles.length,
     0,
@@ -156,7 +156,8 @@ async function syncAgent(
 }
 
 /**
- * Generate skills for 'skills-dir' format agents (Claude, Antigravity, Codex).
+ * Generate skills for an agent: one SKILL.md per skill under the agent's
+ * skillPath, plus a references/ subdir for skills that declare references.
  *
  * Structure:
  *   .claude/skills/prospec-explore/SKILL.md
@@ -221,8 +222,7 @@ async function generateEntryConfig(
   templateContext: Record<string, unknown>,
   cwd: string,
 ): Promise<string> {
-  const templateName = `agent-configs/${agentConfig.name}.md.hbs`;
-  const content = renderTemplate(templateName, {
+  const content = renderTemplate('agent-configs/entry.md.hbs', {
     ...templateContext,
     skill_path: agentConfig.skillPath,
   });

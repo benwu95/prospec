@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/agent-sync.service.js';
+import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -177,5 +178,35 @@ knowledge:
       result.agents[0]!.skillFiles.length +
       result.agents[0]!.referenceFiles.length;
     expect(result.totalFiles).toBe(single);
+  });
+
+  it('renders an order-independent AGENTS.md regardless of agent list order', async () => {
+    // Echo the template name so the rendered content reveals which template
+    // was selected — this would differ per agent order if the entry config
+    // were keyed by agent name instead of a single shared template.
+    vi.mocked(renderTemplate).mockImplementation(
+      (name: string) => `TEMPLATE:${name}\n`,
+    );
+
+    const yaml = (order: string) =>
+      `project:\n  name: t\nagents:\n${order}\nknowledge:\n  base_path: docs/ai-knowledge\n`;
+
+    vol.fromJSON({
+      '/p/.prospec.yaml': yaml('  - antigravity\n  - codex\n  - copilot'),
+    });
+    await execute({ cwd: '/p' });
+    const first = fs.readFileSync('/p/AGENTS.md', 'utf8');
+
+    vol.reset();
+    vol.fromJSON({
+      '/p/.prospec.yaml': yaml('  - copilot\n  - codex\n  - antigravity'),
+    });
+    await execute({ cwd: '/p' });
+    const second = fs.readFileSync('/p/AGENTS.md', 'utf8');
+
+    expect(first).toBe(second);
+    expect(first).toContain('agent-configs/entry.md.hbs');
+
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
   });
 });
