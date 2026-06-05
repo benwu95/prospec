@@ -112,4 +112,70 @@ knowledge:
     expect(agentNames).toContain('claude');
     expect(agentNames).toContain('antigravity');
   });
+
+  it('should generate codex skills under .agents/skills with AGENTS.md entry', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - codex
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.agents[0]?.configFile).toBe('AGENTS.md');
+    for (const skillFile of result.agents[0]!.skillFiles) {
+      expect(skillFile).toContain('.agents/skills/');
+    }
+  });
+
+  it('should generate antigravity entry config as AGENTS.md', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - antigravity
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.agents[0]?.configFile).toBe('AGENTS.md');
+  });
+
+  it('should dedup agents that share .agents/skills + AGENTS.md', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - antigravity
+  - codex
+  - copilot
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    // antigravity / codex / copilot all map to (.agents/skills, AGENTS.md)
+    // → collapse into a single output entry serving all three
+    expect(result.agents).toHaveLength(1);
+    const served = result.agents[0]!.agent;
+    expect(served).toContain('antigravity');
+    expect(served).toContain('codex');
+    expect(served).toContain('copilot');
+    expect(result.agents[0]?.configFile).toBe('AGENTS.md');
+    expect(fs.existsSync('/project/AGENTS.md')).toBe(true);
+
+    // totalFiles reflects a single output set, not 3×
+    const single =
+      1 +
+      result.agents[0]!.skillFiles.length +
+      result.agents[0]!.referenceFiles.length;
+    expect(result.totalFiles).toBe(single);
+  });
 });

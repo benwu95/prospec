@@ -139,6 +139,12 @@ prospec knowledge init
 | `prospec knowledge init [--depth <n>]` | 掃描專案並生成 raw-scan.md + 骨架 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills |
 
+> **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：
+> - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
+> - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
+>
+> 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
+
 ### 變更管理命令
 
 | 命令 | 說明 |
@@ -246,7 +252,7 @@ pnpm run verify:skills
 - Integration tests：15 tests
 - E2E tests：17 tests
 
-`verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 Copilot 的 inline references。
+`verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
 ---
 

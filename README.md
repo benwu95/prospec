@@ -139,6 +139,12 @@ prospec knowledge init
 | `prospec knowledge init [--depth <n>]` | Scan project and generate raw-scan.md + skeleton |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills |
 
+> **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
+> - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
+> - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
+>
+> Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
+
 ### Change Management Commands
 
 | Command | Description |

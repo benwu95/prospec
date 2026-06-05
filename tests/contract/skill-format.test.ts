@@ -5,7 +5,7 @@
  * - YAML frontmatter with name and description
  * - Skill body with workflow instructions
  * - Reference files for skills that have them
- * - Copilot format with inline references
+ * - Agent entry config templates (all skills-dir under their skill paths)
  */
 import { describe, it, expect } from 'vitest';
 import { renderTemplate } from '../../src/lib/template.js';
@@ -700,8 +700,8 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('references/plan-format.md');
       expect(content).toContain('references/delta-spec-format.md');
       expect(content).toContain('references/tasks-format.md');
-      // must NOT reach into sibling skill directories (dangling in skills-dir
-      // layout, nonexistent under Copilot's inline model)
+      // must NOT reach into sibling skill directories (dangling in the
+      // skills-dir layout shared by every agent)
       expect(content).not.toContain('prospec-new-story/references/');
       expect(content).not.toContain('prospec-plan/references/');
       expect(content).not.toContain('prospec-tasks/references/');
@@ -817,6 +817,15 @@ describe('Skill Format Contract', () => {
       });
       expect(content).toContain('.agents/skills/prospec-archive/references/');
       expect(content).not.toContain('.prospec/skills/');
+    });
+
+    it('copilot config should point references at .agents/skills', () => {
+      const content = renderTemplate('agent-configs/copilot.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.agents/skills',
+      });
+      expect(content).toContain('.agents/skills/prospec-archive/references/');
+      expect(content).not.toContain('.instructions.md');
     });
 
     it('self-contained skills should not emit a References line', () => {
