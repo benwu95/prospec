@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createProgram } from '../../src/cli/index.js';
+import { VALID_AGENTS } from '../../src/types/config.js';
 
 // Capture stdout/stderr
 let stdoutOutput: string[] = [];
@@ -204,6 +205,21 @@ describe('CLI Output Contract', () => {
       }
       const output = stdoutOutput.join('');
       expect(output).toContain('--cli');
+    });
+
+    it('should list the supported CLIs from VALID_AGENTS', async () => {
+      const program = createProgram();
+      try {
+        await program.parseAsync(['node', 'prospec', 'agent', 'sync', '--help']);
+      } catch (err) {
+        if ((err as { exitCode?: number }).exitCode !== 0) throw err;
+      }
+      const output = stdoutOutput.join('');
+      for (const agent of VALID_AGENTS) {
+        expect(output).toContain(agent);
+      }
+      expect(output).toContain('antigravity');
+      expect(output).not.toContain('gemini');
     });
   });
 

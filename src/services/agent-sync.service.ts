@@ -3,6 +3,7 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
+import { VALID_AGENTS } from '../types/config.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
@@ -52,7 +53,7 @@ export async function execute(
   if (configuredAgents.length === 0) {
     throw new PrerequisiteError(
       '未配置任何 AI Agent',
-      '請在 .prospec.yaml 的 agents 欄位中加入至少一個 agent（如 claude、gemini），或執行 `prospec init` 重新初始化',
+      `請在 .prospec.yaml 的 agents 欄位中加入至少一個 agent（支援：${VALID_AGENTS.join('、')}），或執行 \`prospec init\` 重新初始化`,
     );
   }
 
@@ -129,7 +130,7 @@ async function syncAgent(
       skillFiles,
     );
   } else {
-    // Claude, Gemini, Codex: SKILL.md in skill directories
+    // Claude, Antigravity, Codex: SKILL.md in skill directories
     await syncSkillsDirSkills(
       agentConfig,
       templateContext,
@@ -155,7 +156,7 @@ async function syncAgent(
 }
 
 /**
- * Generate skills for 'skills-dir' format agents (Claude, Gemini, Codex).
+ * Generate skills for 'skills-dir' format agents (Claude, Antigravity, Codex).
  *
  * Structure:
  *   .claude/skills/prospec-explore/SKILL.md

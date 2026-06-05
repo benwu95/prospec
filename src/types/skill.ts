@@ -33,7 +33,7 @@ export interface SkillConfig {
  * Agent configuration describing a target AI CLI platform.
  */
 export interface AgentConfig {
-  /** Agent identifier (e.g., 'claude', 'gemini', 'copilot', 'codex') */
+  /** Agent identifier (e.g., 'claude', 'antigravity', 'copilot', 'codex') */
   name: string;
   /** Base path for Skill files relative to project root */
   skillPath: string;
@@ -46,7 +46,7 @@ export interface AgentConfig {
 /**
  * Agent output format.
  *
- * - 'skills-dir': Each Skill is a directory with SKILL.md (Claude, Gemini, Codex)
+ * - 'skills-dir': Each Skill is a directory with SKILL.md (Claude, Antigravity, Codex)
  * - 'instructions': Single .instructions.md file per Skill with inline references (Copilot)
  */
 export type AgentFormat = 'skills-dir' | 'instructions';
@@ -137,9 +137,9 @@ export const AGENT_CONFIGS: Record<string, AgentConfig> = {
     configPath: 'CLAUDE.md',
     format: 'skills-dir',
   },
-  gemini: {
-    name: 'gemini',
-    skillPath: '.gemini/skills',
+  antigravity: {
+    name: 'antigravity',
+    skillPath: '.agents/skills',
     configPath: 'GEMINI.md',
     format: 'skills-dir',
   },

@@ -36,7 +36,7 @@ agents:
   - claude
 `,
     });
-    await expect(execute({ cli: 'gemini', cwd: '/project' })).rejects.toThrow(
+    await expect(execute({ cli: 'antigravity', cwd: '/project' })).rejects.toThrow(
       PrerequisiteError,
     );
   });
@@ -65,7 +65,7 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
@@ -100,7 +100,7 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
@@ -110,6 +110,6 @@ knowledge:
     expect(result.agents).toHaveLength(2);
     const agentNames = result.agents.map((a) => a.agent);
     expect(agentNames).toContain('claude');
-    expect(agentNames).toContain('gemini');
+    expect(agentNames).toContain('antigravity');
   });
 });

@@ -112,11 +112,11 @@ describe('init.service', () => {
 
     const result = await execute({
       name: 'test',
-      agents: ['claude', 'gemini'],
+      agents: ['claude', 'antigravity'],
       cwd: '/project',
     });
 
-    expect(result.selectedAgents).toEqual(['claude', 'gemini']);
+    expect(result.selectedAgents).toEqual(['claude', 'antigravity']);
   });
 
   it('should write valid YAML config', async () => {

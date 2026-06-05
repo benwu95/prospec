@@ -77,7 +77,7 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
@@ -131,14 +131,14 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
     });
 
-    const result = await execute({ cli: 'gemini', cwd: '/project' });
+    const result = await execute({ cli: 'antigravity', cwd: '/project' });
     expect(result.agents).toHaveLength(1);
-    expect(result.agents[0]?.agent).toBe('gemini');
+    expect(result.agents[0]?.agent).toBe('antigravity');
   });
 });

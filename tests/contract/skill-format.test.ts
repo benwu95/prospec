@@ -810,12 +810,12 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('.prospec/skills/');
     });
 
-    it('gemini config should point references at .gemini/skills', () => {
-      const content = renderTemplate('agent-configs/gemini.md.hbs', {
+    it('antigravity config should point references at .agents/skills', () => {
+      const content = renderTemplate('agent-configs/antigravity.md.hbs', {
         ...TEMPLATE_CONTEXT,
-        skill_path: '.gemini/skills',
+        skill_path: '.agents/skills',
       });
-      expect(content).toContain('.gemini/skills/prospec-archive/references/');
+      expect(content).toContain('.agents/skills/prospec-archive/references/');
       expect(content).not.toContain('.prospec/skills/');
     });
 
@@ -834,7 +834,7 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Agent config templates', () => {
-    const AGENT_CONFIGS = ['claude', 'gemini', 'copilot', 'codex'];
+    const AGENT_CONFIGS = ['claude', 'antigravity', 'copilot', 'codex'];
 
     for (const agent of AGENT_CONFIGS) {
       it(`should render ${agent}.md.hbs without errors`, () => {

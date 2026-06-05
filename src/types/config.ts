@@ -49,7 +49,7 @@ const KnowledgeSchema = z.object({
 
 export const DEFAULT_BASE_DIR = 'prospec';
 
-export const VALID_AGENTS = ['claude', 'gemini', 'copilot', 'codex'] as const;
+export const VALID_AGENTS = ['claude', 'antigravity', 'copilot', 'codex'] as const;
 
 export const ProspecConfigSchema = z
   .object({

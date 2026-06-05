@@ -50,14 +50,14 @@ describe('Init Flow Integration', () => {
     // Execute init
     const result = await execute({
       name: 'my-project',
-      agents: ['claude', 'gemini'],
+      agents: ['claude', 'antigravity'],
       cwd: '/project',
     });
 
     // Verify result structure
     expect(result.projectName).toBe('my-project');
     expect(result.techStack.language).toBe('typescript');
-    expect(result.selectedAgents).toEqual(['claude', 'gemini']);
+    expect(result.selectedAgents).toEqual(['claude', 'antigravity']);
     expect(result.createdFiles.length).toBeGreaterThan(0);
 
     // Verify .prospec.yaml can be read back and validated

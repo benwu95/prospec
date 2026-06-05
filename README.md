@@ -26,7 +26,7 @@ Prospec is a **CLI tool** that bridges the gap between human requirements and AI
 
 - **AI Knowledge Generation** — Auto-generate structured knowledge from existing codebases (brownfield) or bootstrap new projects (greenfield)
 - **Architecture Analysis** — Detect tech stacks, architecture patterns (MVC, Clean Architecture, etc.), and module dependencies
-- **AI Agent Agnostic** — Works with Claude Code, Gemini CLI, GitHub Copilot, and Codex CLI
+- **AI Agent Agnostic** — Works with Claude Code, Antigravity CLI, GitHub Copilot, and Codex CLI
 - **Progressive Disclosure** — Save 70%+ tokens by loading context on-demand
 - **Change Management** — Structured story → design → plan → tasks workflow with Constitution validation
 - **Dual-Layer Specs** — Capability specs (living truth) + delta specs (per-change patches) with automatic Spec Sync
@@ -63,7 +63,7 @@ prospec --help
 - **Node.js** >= 20.0.0
 - **AI CLI** (one or more):
   - [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended)
-  - [Gemini CLI](https://ai.google.dev/gemini-api/docs/cli)
+  - [Antigravity CLI](https://antigravity.google/)
   - [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli)
   - Codex CLI
 
@@ -179,7 +179,7 @@ Explore → Story → [Design] → Plan → Tasks → Implement → Verify → A
 ### Skill Example
 
 ```bash
-# In Claude Code / Gemini CLI / Copilot
+# In Claude Code / Antigravity CLI / Copilot
 /prospec-ff add-authentication
 
 # AI will:

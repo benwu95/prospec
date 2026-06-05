@@ -43,11 +43,11 @@ tech_stack:
   language: typescript
 agents:
   - claude
-  - gemini
+  - antigravity
 `;
     const config = validateConfig(yaml);
     expect(config.tech_stack?.language).toBe('typescript');
-    expect(config.agents).toEqual(['claude', 'gemini']);
+    expect(config.agents).toEqual(['claude', 'antigravity']);
   });
 
   it('should throw ConfigInvalid when project.name is missing', () => {
@@ -80,7 +80,7 @@ project:
   name: test
 agents:
   - claude
-  - gemini
+  - antigravity
   - copilot
   - codex
 `;
