@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-03-02
+last_updated: 2026-06-04
 story_count: 10
-req_count: 44
+req_count: 45
 ---
 
 # SDD 開發流程
@@ -48,7 +48,11 @@ req_count: 44
 - WHEN no match, THEN Related Modules is empty
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
-透過 metadata.yaml 追蹤狀態：`story` → `plan` → `tasks` → `verified` → `archived`。
+透過 metadata.yaml 追蹤狀態，以 `ai-knowledge/_status-lifecycle.md` 為單一真實來源：`story` → `plan` → `tasks` → `implemented` → `verified` → `archived`。
+- WHEN each workflow skill completes, THEN advance status per the canonical lifecycle: new-story → `story`, plan → `plan`, tasks → `tasks`, implement → `implemented`
+- WHEN verify reaches grade S/A, THEN status → `verified`; WHEN grade B/C/D, THEN status unchanged (re-run after fixing)
+- WHEN archive runs, THEN accept only `verified` changes
+- WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit
@@ -95,6 +99,11 @@ req_count: 44
 - WHEN plan generated, THEN delta-spec.md created with ADDED/MODIFIED/REMOVED
 - WHEN added, THEN includes Description, Acceptance Criteria, Priority
 - WHEN modified, THEN includes Before, After, Reason
+
+#### REQ-TEMPLATES-059: Plan Call Chain and Layering Check
+- WHEN prospec-plan produces plan.md, THEN include a Call Chain section (and plan-format.hbs defines it)
+- WHEN Plan Phase 6 runs, THEN check the call chain's layering against the Constitution's dependency rule
+- WHEN verify dimension 3/5 runs, THEN re-check layering against the Constitution
 
 ---
 
@@ -390,3 +399,4 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-03-01 | remove-skill-language-directives | Reference format 語言中立性 | US-7; REQ-REF-001 |
 | 2026-03-02 | v2-product-first migration | 重組為 product-first feature spec | All |
 | 2026-03-02 | redesign-spec-architecture | Product-First 架構：Feature Spec Sync、Product Spec 自動生成、Spec Health、Feature/Story 路由、deprecated Capability Spec Format | US-3,5,6,7; REQ-SPEC-010~013, REQ-TEMPLATES-010/033/034, REQ-SPECS-001; -REQ-TEMPLATES-031 |
+| 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |

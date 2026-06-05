@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-03-02
+last_updated: 2026-06-04
 story_count: 5
-req_count: 16
+req_count: 18
 ---
 
 # Agent Integration
@@ -83,6 +83,16 @@ req_count: 16
 #### REQ-AGNT-013: Skill Reference Mapping
 - WHEN agent sync executes prospec-design, THEN generates 6 reference files
 - WHEN reference mapping added, THEN references/ has corresponding .md files
+
+#### REQ-AGNT-014: Agent-Specific Skill Reference Paths
+- WHEN rendering an entry config, THEN reference paths point at the agent's own skill dir (`{skill_path}/{name}/references/`), not a hardcoded `.prospec/skills/...` path
+- WHEN deploying to Claude / Gemini / Codex, THEN pass `skill_path` and `base_dir` into the entry-config context
+- WHEN deploying to Copilot, THEN drop the References line because references are inlined
+
+#### REQ-AGNT-015: Self-Contained Skills
+- WHEN a skill declares no references (e.g. knowledge-generate / knowledge-update), THEN emit no References line and no empty references dir
+- WHEN a skill declares references (archive, prospec-ff), THEN bundle its own reference files so the MANDATORY reads resolve, never pointing at sibling skill dirs
+- WHEN agent sync runs, THEN no skill emits a dangling or dead reference path
 
 #### REQ-TYPES-011: Skill Definition Constants
 - WHEN new Skill added, THEN SKILL_DEFINITIONS updated
@@ -190,3 +200,4 @@ _(None)_
 | 2026-02-16 | add-design-phase | 新增 prospec-design + 6 reference mappings | REQ-TYPES-011, REQ-AGNT-013 |
 | 2026-03-01 | remove-skill-language-directives | Skill 語言中立化 | US-410, REQ-SKILL-009~010 |
 | 2026-03-02 | v2-product-first migration | 遷移至 feature spec 格式 | All |
+| 2026-06-04 | skill-alignment (PR #2) | Skill reference 路徑對齊各 agent skill dir + self-contained skills（移除 8 個 legacy ref templates） | REQ-AGNT-014~015 (ADDED) |

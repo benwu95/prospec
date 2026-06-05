@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 57 files (54 .hbs + 3 .md) across 7 subdirectories, consumed via renderTemplate()
+> Handlebars template library — 48 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
 
 <!-- prospec:auto-start -->
 
@@ -13,9 +13,9 @@
 | `src/templates/knowledge/index.md.hbs` | _index.md with Rationale column and Loading Rules |
 | `src/templates/knowledge/raw-scan.md.hbs` | Raw scan output template |
 | `src/templates/skills/*.hbs` | 11 skill templates (plan, implement, verify, knowledge-generate, etc.) |
-| `src/templates/skills/references/*.md` | 25 reference documents for skills |
+| `src/templates/skills/references/*.hbs` | 15 reference templates, rendered to `.md` per skill (format specs + design adapters) |
 | `src/templates/change/*.hbs` | 5 change workflow templates (proposal, plan, delta-spec, tasks, metadata) |
-| `src/templates/agent-configs/*.hbs` | 5 agent config templates (Claude, Gemini, Copilot, Codex, common) |
+| `src/templates/agent-configs/*.hbs` | 4 agent entry-config templates (Claude, Gemini, Copilot, Codex) |
 
 ## Public API
 
@@ -39,7 +39,7 @@
 - `module-readme.hbs` changes affect ALL module README output — verify with `knowledge-format.test.ts`
 - `index.md.hbs` changes affect _index.md format — update knowledge-generate and knowledge-update skills
 - Skill template changes require `prospec agent sync` to redeploy to `.claude/skills/` and other agent dirs
-- Reference files in `skills/references/` are copied verbatim (not Handlebars-processed)
+- Reference files in `skills/references/` are `.hbs` rendered via `renderTemplate()` to `.md` on `agent sync` — NOT copied verbatim (templateName → outputName mapping lives in `agent-sync.service.ts`)
 
 ## Pitfalls
 

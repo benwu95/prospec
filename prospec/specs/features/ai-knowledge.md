@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-03-02
-story_count: 6
-req_count: 12
+last_updated: 2026-06-04
+story_count: 7
+req_count: 24
 ---
 
 # AI Knowledge
@@ -52,6 +52,11 @@ req_count: 12
 - WHEN module-map.yaml exists, THEN use predefined classification, preserving `keywords` and `relationships`
 - WHEN module-map.yaml doesn't exist, THEN AI auto-determines module boundaries from raw-scan.md
 
+#### REQ-KNOW-014: Flexible Granularity Strategy
+- WHEN `.prospec.yaml` sets `knowledge.strategy` (auto/architecture/domain/package), THEN module-detector splits accordingly
+- WHEN strategy is `domain`, THEN split modules by business domain
+- WHEN strategy is `auto`, THEN try package → domain → architecture and pick the best result
+
 ---
 
 ### US-302: 生成模組 README 文件 [P0]
@@ -65,13 +70,28 @@ req_count: 12
 - WHEN 使用 `--dry-run` THEN 預覽輸出但不寫入檔案
 - WHEN README.md 已存在 THEN 使用 ContentMerger 保留使用者自訂區段
 
-#### REQ-KNOW-004: Generate Module README
+#### REQ-KNOW-004: Generate Module README (Recipe-First)
 - WHEN module detected, THEN create `{base_dir}/ai-knowledge/modules/{name}/README.md`
-- WHEN `--dry-run` specified, THEN preview output without writing files
+- WHEN generating README, THEN follow Recipe-First order: Overview → Key Files → Public API → Dependencies → Modification Guide → Ripple Effects → Pitfalls
+- WHEN module directory written, THEN contain only README.md (no api-surface.md or redundant files)
 - WHEN README.md already exists, THEN use ContentMerger to preserve user sections
 
 #### REQ-KNOW-006: Dry-run Preview Mode
 - WHEN executing `prospec knowledge generate --dry-run`, THEN display file list without creating
+- WHEN `--dry-run` specified, THEN show estimated line count per file and L0/L1 token totals
+
+#### REQ-KNOW-010: Recipe-First README Sections
+- WHEN generating module README, THEN include `## Modification Guide` listing 2-5 modification scenarios
+- WHEN generating module README, THEN include `## Ripple Effects` listing cross-module impacts
+- WHEN generating module README, THEN include `## Pitfalls` listing 2-3 common mistakes
+
+#### REQ-KNOW-011: Module README Token Budget
+- WHEN generating module README, THEN keep within 100 lines and a ≤400 token budget
+- WHEN listing Public API, THEN include only public signatures with a one-line purpose
+
+#### REQ-KNOW-015: Convention Docs as Single Source of Truth
+- WHEN generating or updating module READMEs, THEN defer to `ai-knowledge/_module-readme-conventions.md`, `_diagram-conventions.md` and `_status-lifecycle.md` as the single source of truth
+- WHEN a convention is defined in those docs, THEN reference them instead of duplicating the rules inline in skill references
 
 ---
 
@@ -88,10 +108,20 @@ req_count: 12
 #### REQ-KNOW-005: Update Module Index
 - WHEN module generation complete, THEN `_index.md` reflects all modules with dependencies
 - WHEN re-executing knowledge generate, THEN update index rather than recreate
+- WHEN rendering the index table, THEN use columns Module | Keywords | Status | Description | Rationale | Depends On
+- WHEN writing `_index.md`, THEN append a `## Loading Rules` section
 
 #### REQ-KNOW-008: Index Idempotent Update
 - WHEN `_index.md` already exists, THEN update auto section, preserve user section
 - WHEN module directory already exists, THEN update README.md rather than rebuild
+
+#### REQ-KNOW-012: Module Split Rationale Transparency
+- WHEN rendering `_index.md`, THEN each module has a Rationale cell explaining the split decision
+- WHEN knowledge.service generates `_index.md`, THEN auto-infer and fill the Rationale
+
+#### REQ-KNOW-013: L0/L1/L2 Layered Loading
+- WHEN generating `_index.md`, THEN append a Loading Rules section reflecting L0 (≤1,500 tokens, always) → L1 (≤400 tokens/module, on demand) → L2 (source code, unlimited)
+- WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0/L1/L2 definitions
 
 ---
 
@@ -151,6 +181,33 @@ req_count: 12
 
 ---
 
+### US-330: 模組 Knowledge 子模組化 [P1]
+
+身為一名開發者，
+我想要過大的模組 README 能把功能獨立的子領域抽取成 sub-module 檔，
+以便在維持 README token 預算的同時保留有價值的細節，而非有損裁切。
+
+**Acceptance Scenarios:**
+- WHEN 模組 README 超出 ≤100 行/≤400 token 預算且含內容豐富、功能獨立的子領域 THEN 抽取為 `modules/{module}/{sub-module}.md`
+- WHEN 抽取 sub-module THEN 主 README 以 `## Sub-Modules` 區段連結
+- WHEN 載入模組 README（L1）THEN 一併載入其連結的 sub-modules
+
+#### REQ-KNOW-016: Sub-Module Extraction over Lossy Trimming
+- WHEN a module README would exceed its ≤100 line / ≤400 token budget and contains a content-rich, functionally-independent sub-area, THEN extract it to `modules/{module}/{sub-module}.md` instead of trimming away detail
+- WHEN extraction happens, THEN the main README links each sub-module from a `## Sub-Modules` section
+- WHEN knowledge-generate runs, THEN Step 4.5 performs extraction and emits a skeleton `## Sub-Modules` section
+
+#### REQ-KNOW-017: Sub-Module Loading and Index Exclusion
+- WHEN loading a module README (L1), THEN also load the `{sub-module}.md` files it links
+- WHEN building `_index.md`, THEN never list sub-modules so L0 stays a lean top-level map; sub-modules are discovered only through `## Sub-Modules` links
+- WHEN `_index.md` Loading Rules render, THEN L1 covers README + linked sub-modules
+
+#### REQ-SERVICES-024: Sub-Module Maintenance on Update
+- WHEN knowledge-update scans a module, THEN read its linked sub-modules
+- WHEN a MODIFIED requirement enriches a module, THEN maintain or extract sub-modules instead of cramming detail back into the README
+
+---
+
 ## Edge Cases
 
 - delta-spec.md 不存在：允許手動指定模組進行更新
@@ -158,6 +215,8 @@ req_count: 12
 - Knowledge 更新在 archive 期間失敗：non-fatal，建議手動執行
 - raw-scan.md 過大（巨型專案）：限制每模組最多 20 個檔案
 - module-map.yaml 不存在時執行增量更新：gracefully skip
+- 極小型專案（1-2 模組）：模組化可能增加負擔——最低模組數閾值為 2
+- 模組切割爭議：自動切割可能不符合維護者認知——user section 允許手動調整
 
 ## Success Criteria
 
@@ -165,6 +224,8 @@ req_count: 12
 - **SC-2**: `_index.md` 和 `module-map.yaml` 與模組目錄保持一致
 - **SC-3**: AI Knowledge 節省 70%+ 的 AI 對話 token 消耗
 - **SC-4**: Knowledge Quality Gate 覆蓋所有 5 個 Planning Skills
+- **SC-5**: 每個模組 README ≤ 100 行且包含 Modification Guide 與 Pitfalls 區塊
+- **SC-6**: `_index.md` 模組表格包含 Rationale 欄位
 
 ## Maintenance Rules
 
@@ -186,3 +247,6 @@ _(None)_
 | 2026-02-09 | add-knowledge-update | 增量 delta-spec 驅動更新 | US-310, REQ-SERVICES-020~023 |
 | 2026-02-16 | enhance-knowledge-sdd-pipeline | Knowledge-SDD 品質閘門 | US-320, REQ-TEMPLATES-040~045 |
 | 2026-03-02 | v2-product-first migration | 遷移至 feature spec 格式 | All |
+| 2026-03-02 | optimize-ai-knowledge | Recipe-First 格式重設計 + L0/L1/L2 分層 + 彈性粒度策略 | US-301~303, REQ-KNOW-004~006 (MODIFIED), REQ-KNOW-010~014 (ADDED) |
+| 2026-06-04 | skill-alignment (PR #2) | knowledge generate/update 以 convention docs 為單一真實來源 | REQ-KNOW-015 (ADDED) |
+| 2026-06-04 | ai-knowledge-sub-modules (PR #3) | Sub-module 抽取/載入/維護 | US-330, REQ-KNOW-016~017, REQ-SERVICES-024 (ADDED) |

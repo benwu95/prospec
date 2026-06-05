@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 10 services following `execute(options) → Promise<Result>` pattern (3,416 lines total)
+> Business logic layer — 10 services following `execute(options) → Promise<Result>` pattern (3,429 lines total)
 
 <!-- prospec:auto-start -->
 
@@ -17,7 +17,7 @@
 | `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold |
 | `src/services/change-tasks.service.ts` | Generate tasks.md scaffold |
 | `src/services/agent-sync.service.ts` | Sync skills + references to multi-agent config dirs |
-| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md (827 lines) |
+| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md (825 lines) |
 
 ## Public API
 

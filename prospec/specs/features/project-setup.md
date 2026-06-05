@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-03-02
+last_updated: 2026-06-04
 story_count: 6
-req_count: 13
+req_count: 14
 ---
 
 # 專案啟動
@@ -81,7 +81,7 @@ req_count: 13
 - WHEN 偵測到已安裝的 AI CLI THEN 互動式選單讓使用者勾選
 
 #### REQ-SETUP-004: 建立專案結構
-執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/ai-knowledge/`（含 `_index.md`、`_conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。
+執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/ai-knowledge/`（含 `_index.md`、`_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。
 
 **Scenarios:**
 - WHEN executing `prospec init` in empty directory, THEN create all required files and directories
@@ -113,6 +113,14 @@ req_count: 13
 **Scenarios:**
 - WHEN no `--name`, THEN use directory name as project name
 - WHEN `--name my-project`, THEN `.prospec.yaml` project.name set accordingly
+
+#### REQ-SETUP-014: 生成 Canonical Convention Docs
+`prospec init` 在 `{base_dir}/ai-knowledge/` 生成三份 prospec 自帶、語言中立的 convention docs，作為 Knowledge 生成與狀態流轉的單一真實來源。
+
+**Scenarios:**
+- WHEN executing `prospec init`, THEN generate `_status-lifecycle.md` (canonical change status state machine), `_module-readme-conventions.md` (module README structure + marker contract), and `_diagram-conventions.md` (Mermaid diagram rules)
+- WHEN convention docs created, THEN `_index.md` links to them
+- WHEN knowledge-generate / knowledge-update run, THEN defer to these docs as the single source of truth
 
 ### US-004: 架構分析與模組映射 [P0]
 
@@ -237,3 +245,4 @@ _(None)_
 | 2026-02-04 | mvp-initial | CLI 基礎框架、專案初始化、架構分析 | US-001~004, REQ-SETUP-001~010 |
 | 2026-02-09 | configure-base-dir | 可配置的 Base Directory | US-005, REQ-SETUP-011~012 |
 | 2026-03-02 | v2-product-first | 合併為 Feature Spec，新增首次使用 Story | US-006, REQ-SETUP-013 |
+| 2026-06-04 | skill-alignment (PR #2) | init 生成 canonical convention docs | REQ-SETUP-004 (MODIFIED), REQ-SETUP-014 (ADDED) |
