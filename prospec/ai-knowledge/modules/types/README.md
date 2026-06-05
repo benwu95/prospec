@@ -19,7 +19,7 @@
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`
 - `SKILL_DEFINITIONS` — 11 skill configs with name, type, description, references
-- `AGENT_CONFIGS` — 4 agent configs (Claude, Gemini, Copilot, Codex)
+- `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); `{ name, skillPath, configPath }`
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields)

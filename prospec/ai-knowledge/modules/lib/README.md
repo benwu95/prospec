@@ -16,7 +16,7 @@
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), 624 lines |
 | `src/lib/detector.ts` | detectTechStack() — language, framework, package manager detection |
-| `src/lib/agent-detector.ts` | detectAgents() — Claude, Gemini, Copilot, Codex presence check |
+| `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
 
 ## Public API

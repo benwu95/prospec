@@ -26,7 +26,7 @@
 - `knowledge.execute(options)` — Generate module READMEs and _index.md
 - `knowledgeUpdate.execute(options)` — Incremental delta-spec-driven update
 - `archive.execute(options)` — Archive verified changes, sync Feature Specs
-- `agentSync.execute(options)` — Deploy skills to .claude/, .gemini/, etc.
+- `agentSync.execute(options)` — Deploy skills to `.claude/` and `.agents/` (antigravity/codex/copilot share AGENTS.md + `.agents/skills`, deduped)
 
 ## Dependencies
 
@@ -41,6 +41,7 @@
 4. Changing steering: Modify `steering.service.ts` — reads `config.knowledge.strategy` for detectModules().
 5. Changing archive: Modify `archive.service.ts` — affects spec sync, product.md, and the Knowledge update trigger. Archive calls knowledge-update internally.
 6. Inter-service dependencies: `archive` → `knowledge-update` (post-archive trigger), `knowledge` requires `steering` output (module-map.yaml).
+7. Changing agent-sync: agents are grouped by `(skillPath, configPath)` and written once (antigravity/codex/copilot collapse to one `.agents/skills` + `AGENTS.md`); the entry config renders the single `templates/agent-configs/entry.md.hbs` for every agent.
 
 ## Ripple Effects
 
