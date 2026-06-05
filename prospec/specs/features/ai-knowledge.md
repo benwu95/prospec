@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-03-02
-story_count: 6
-req_count: 20
+last_updated: 2026-06-04
+story_count: 7
+req_count: 24
 ---
 
 # AI Knowledge
@@ -88,6 +88,10 @@ req_count: 20
 #### REQ-KNOW-011: Module README Token Budget
 - WHEN generating module README, THEN keep within 100 lines and a ≤400 token budget
 - WHEN listing Public API, THEN include only public signatures with a one-line purpose
+
+#### REQ-KNOW-015: Convention Docs as Single Source of Truth
+- WHEN generating or updating module READMEs, THEN defer to `ai-knowledge/_module-readme-conventions.md`, `_diagram-conventions.md` and `_status-lifecycle.md` as the single source of truth
+- WHEN a convention is defined in those docs, THEN reference them instead of duplicating the rules inline in skill references
 
 ---
 
@@ -177,6 +181,33 @@ req_count: 20
 
 ---
 
+### US-330: 模組 Knowledge 子模組化 [P1]
+
+身為一名開發者，
+我想要過大的模組 README 能把功能獨立的子領域抽取成 sub-module 檔，
+以便在維持 README token 預算的同時保留有價值的細節，而非有損裁切。
+
+**Acceptance Scenarios:**
+- WHEN 模組 README 超出 ≤100 行/≤400 token 預算且含內容豐富、功能獨立的子領域 THEN 抽取為 `modules/{module}/{sub-module}.md`
+- WHEN 抽取 sub-module THEN 主 README 以 `## Sub-Modules` 區段連結
+- WHEN 載入模組 README（L1）THEN 一併載入其連結的 sub-modules
+
+#### REQ-KNOW-016: Sub-Module Extraction over Lossy Trimming
+- WHEN a module README would exceed its ≤100 line / ≤400 token budget and contains a content-rich, functionally-independent sub-area, THEN extract it to `modules/{module}/{sub-module}.md` instead of trimming away detail
+- WHEN extraction happens, THEN the main README links each sub-module from a `## Sub-Modules` section
+- WHEN knowledge-generate runs, THEN Step 4.5 performs extraction and emits a skeleton `## Sub-Modules` section
+
+#### REQ-KNOW-017: Sub-Module Loading and Index Exclusion
+- WHEN loading a module README (L1), THEN also load the `{sub-module}.md` files it links
+- WHEN building `_index.md`, THEN never list sub-modules so L0 stays a lean top-level map; sub-modules are discovered only through `## Sub-Modules` links
+- WHEN `_index.md` Loading Rules render, THEN L1 covers README + linked sub-modules
+
+#### REQ-SERVICES-024: Sub-Module Maintenance on Update
+- WHEN knowledge-update scans a module, THEN read its linked sub-modules
+- WHEN a MODIFIED requirement enriches a module, THEN maintain or extract sub-modules instead of cramming detail back into the README
+
+---
+
 ## Edge Cases
 
 - delta-spec.md 不存在：允許手動指定模組進行更新
@@ -217,3 +248,5 @@ _(None)_
 | 2026-02-16 | enhance-knowledge-sdd-pipeline | Knowledge-SDD 品質閘門 | US-320, REQ-TEMPLATES-040~045 |
 | 2026-03-02 | v2-product-first migration | 遷移至 feature spec 格式 | All |
 | 2026-03-02 | optimize-ai-knowledge | Recipe-First 格式重設計 + L0/L1/L2 分層 + 彈性粒度策略 | US-301~303, REQ-KNOW-004~006 (MODIFIED), REQ-KNOW-010~014 (ADDED) |
+| 2026-06-04 | skill-alignment (PR #2) | knowledge generate/update 以 convention docs 為單一真實來源 | REQ-KNOW-015 (ADDED) |
+| 2026-06-04 | ai-knowledge-sub-modules (PR #3) | Sub-module 抽取/載入/維護 | US-330, REQ-KNOW-016~017, REQ-SERVICES-024 (ADDED) |
