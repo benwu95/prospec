@@ -33,12 +33,13 @@ describe('detectAgents', () => {
     expect(claude?.name).toBe('Claude Code');
   });
 
-  it('should detect Gemini CLI when .gemini directory exists', () => {
+  it('should detect Antigravity CLI when .gemini/antigravity-cli directory exists', () => {
     vol.fromJSON({}, '/');
-    vol.mkdirSync('/home/testuser/.gemini', { recursive: true });
+    vol.mkdirSync('/home/testuser/.gemini/antigravity-cli', { recursive: true });
     const agents = detectAgents();
-    const gemini = agents.find((a) => a.id === 'gemini');
-    expect(gemini?.detected).toBe(true);
+    const antigravity = agents.find((a) => a.id === 'antigravity');
+    expect(antigravity?.detected).toBe(true);
+    expect(antigravity?.name).toBe('Antigravity CLI');
   });
 
   it('should detect GitHub Copilot when .copilot directory exists', () => {
@@ -60,12 +61,12 @@ describe('detectAgents', () => {
   it('should detect multiple agents simultaneously', () => {
     vol.fromJSON({}, '/');
     vol.mkdirSync('/home/testuser/.claude', { recursive: true });
-    vol.mkdirSync('/home/testuser/.gemini', { recursive: true });
+    vol.mkdirSync('/home/testuser/.gemini/antigravity-cli', { recursive: true });
     const agents = detectAgents();
     const detected = agents.filter((a) => a.detected);
     expect(detected).toHaveLength(2);
     expect(detected.map((a) => a.id)).toContain('claude');
-    expect(detected.map((a) => a.id)).toContain('gemini');
+    expect(detected.map((a) => a.id)).toContain('antigravity');
   });
 
   it('should return correct agent structure', () => {

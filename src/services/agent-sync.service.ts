@@ -3,6 +3,7 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
+import { VALID_AGENTS } from '../types/config.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
@@ -29,11 +30,13 @@ export interface AgentSyncFullResult {
  *
  * 1. Read config (.prospec.yaml must exist)
  * 2. Determine which agents to sync (--cli or all configured)
- * 3. For each agent:
- *    a. Generate 7 Skill files from templates
+ * 3. Dedup by output signature: agents sharing the same (skillPath, configPath)
+ *    — antigravity / codex / copilot all use the agents.md standard
+ *    (.agents/skills + AGENTS.md) — collapse into one set of files
+ * 4. For each unique output:
+ *    a. Generate Skill files (SKILL.md) from templates
  *    b. Generate reference files for skills that have them
- *    c. Generate agent entry config (CLAUDE.md, GEMINI.md, etc.)
- * 4. Copilot special handling: single .instructions.md per skill with inline references
+ *    c. Generate agent entry config (CLAUDE.md, AGENTS.md, etc.)
  * 5. Atomic writes, update rather than duplicate
  */
 export async function execute(
@@ -52,7 +55,7 @@ export async function execute(
   if (configuredAgents.length === 0) {
     throw new PrerequisiteError(
       '未配置任何 AI Agent',
-      '請在 .prospec.yaml 的 agents 欄位中加入至少一個 agent（如 claude、gemini），或執行 `prospec init` 重新初始化',
+      `請在 .prospec.yaml 的 agents 欄位中加入至少一個 agent（支援：${VALID_AGENTS.join('、')}），或執行 \`prospec init\` 重新初始化`,
     );
   }
 
@@ -85,22 +88,31 @@ export async function execute(
     })),
   };
 
-  // 4. Generate for each agent
-  const results: AgentSyncResult[] = [];
-
+  // 4. Group agents by output signature so agents sharing the same
+  //    (skillPath, configPath) write the same files only once.
+  const groups = new Map<string, { config: AgentConfig; names: string[] }>();
   for (const agentName of agentsToSync) {
     const agentConfig = AGENT_CONFIGS[agentName];
     if (!agentConfig) continue;
 
-    const result = await syncAgent(
-      agentConfig,
-      templateContext,
-      cwd,
-    );
+    const signature = `${agentConfig.skillPath}\n${agentConfig.configPath}`;
+    const group = groups.get(signature);
+    if (group) {
+      group.names.push(agentName);
+    } else {
+      groups.set(signature, { config: agentConfig, names: [agentName] });
+    }
+  }
+
+  // 5. Generate once per unique output; report the agents it serves.
+  const results: AgentSyncResult[] = [];
+  for (const { config: agentConfig, names } of groups.values()) {
+    const result = await syncAgent(agentConfig, templateContext, cwd);
+    result.agent = names.join(', ');
     results.push(result);
   }
 
-  // 5. Compute totals
+  // 6. Compute totals
   const totalFiles = results.reduce(
     (sum, r) => sum + 1 + r.skillFiles.length + r.referenceFiles.length,
     0,
@@ -120,24 +132,13 @@ async function syncAgent(
   const skillFiles: string[] = [];
   const referenceFiles: string[] = [];
 
-  if (agentConfig.format === 'instructions') {
-    // Copilot: single .instructions.md per skill
-    await syncCopilotSkills(
-      agentConfig,
-      templateContext,
-      cwd,
-      skillFiles,
-    );
-  } else {
-    // Claude, Gemini, Codex: SKILL.md in skill directories
-    await syncSkillsDirSkills(
-      agentConfig,
-      templateContext,
-      cwd,
-      skillFiles,
-      referenceFiles,
-    );
-  }
+  await syncSkillsDirSkills(
+    agentConfig,
+    templateContext,
+    cwd,
+    skillFiles,
+    referenceFiles,
+  );
 
   // Generate entry config
   const configFile = await generateEntryConfig(
@@ -155,7 +156,8 @@ async function syncAgent(
 }
 
 /**
- * Generate skills for 'skills-dir' format agents (Claude, Gemini, Codex).
+ * Generate skills for an agent: one SKILL.md per skill under the agent's
+ * skillPath, plus a references/ subdir for skills that declare references.
  *
  * Structure:
  *   .claude/skills/prospec-explore/SKILL.md
@@ -213,53 +215,6 @@ async function syncSkillsDirSkills(
 }
 
 /**
- * Generate skills for 'instructions' format agents (Copilot).
- *
- * Structure:
- *   .github/instructions/prospec-explore.instructions.md
- *
- * Copilot doesn't support references/ subdirectory, so reference content
- * is appended inline to the .instructions.md file.
- */
-async function syncCopilotSkills(
-  agentConfig: AgentConfig,
-  templateContext: Record<string, unknown>,
-  cwd: string,
-  skillFiles: string[],
-): Promise<void> {
-  const instructionsDir = path.join(cwd, agentConfig.skillPath);
-  await ensureDir(instructionsDir);
-
-  for (const skill of SKILL_DEFINITIONS) {
-    const fileName = `${skill.name}.instructions.md`;
-    const filePath = path.join(instructionsDir, fileName);
-
-    // Render main skill content
-    let content = renderTemplate(
-      `skills/${skill.name}.hbs`,
-      templateContext,
-    );
-
-    // Inline reference content for Copilot (no separate reference files)
-    if (skill.hasReferences) {
-      const refs = getSkillReferences(skill.name);
-      for (const ref of refs) {
-        const refContent = renderTemplate(
-          `skills/references/${ref.templateName}`,
-          templateContext,
-        );
-        content += `\n\n---\n\n## Reference: ${ref.title}\n\n${refContent}`;
-      }
-    }
-
-    await atomicWrite(filePath, content);
-    skillFiles.push(
-      path.join(agentConfig.skillPath, fileName),
-    );
-  }
-}
-
-/**
  * Generate the agent entry configuration file.
  */
 async function generateEntryConfig(
@@ -267,8 +222,7 @@ async function generateEntryConfig(
   templateContext: Record<string, unknown>,
   cwd: string,
 ): Promise<string> {
-  const templateName = `agent-configs/${agentConfig.name}.md.hbs`;
-  const content = renderTemplate(templateName, {
+  const content = renderTemplate('agent-configs/entry.md.hbs', {
     ...templateContext,
     skill_path: agentConfig.skillPath,
   });

@@ -20,12 +20,12 @@ project:
   version: "1.0"
 agents:
   - claude
-  - gemini
+  - antigravity
 `;
     const result = parseYaml<Record<string, unknown>>(yaml);
     expect(result).toEqual({
       project: { name: 'test', version: '1.0' },
-      agents: ['claude', 'gemini'],
+      agents: ['claude', 'antigravity'],
     });
   });
 

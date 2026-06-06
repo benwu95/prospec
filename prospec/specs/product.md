@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.1.4
-last_updated: 2026-03-02
+last_updated: 2026-06-06
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -14,7 +14,7 @@ last_updated: 2026-03-02
 
 | 角色 | 描述 | 核心需求 |
 |------|------|---------|
-| AI-First 開發者 | 日常使用 Claude Code、Gemini CLI 等 AI Agent 開發 | 讓 AI 理解專案脈絡，產出穩定可追蹤的成果 |
+| AI-First 開發者 | 日常使用 Claude Code、Antigravity CLI 等 AI Agent 開發 | 讓 AI 理解專案脈絡，產出穩定可追蹤的成果 |
 | 技術主管 | 管理使用 AI 工具的開發團隊 | 確保 AI 輔助開發有流程規範，品質可驗證 |
 | 獨立開發者 | 一人團隊，依賴 AI 加速交付 | 用最少時間建立完整開發流程，不被 AI 幻覺拖累 |
 

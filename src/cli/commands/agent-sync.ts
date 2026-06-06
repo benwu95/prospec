@@ -3,7 +3,7 @@ import { execute } from '../../services/agent-sync.service.js';
 import { formatAgentSyncOutput } from '../formatters/agent-sync-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
-import type { LogLevel } from '../../types/config.js';
+import { VALID_AGENTS, type LogLevel } from '../../types/config.js';
 
 /**
  * Resolve log level from global options.
@@ -31,7 +31,7 @@ export function registerAgentCommand(program: Command): void {
   agent
     .command('sync')
     .description('同步 AI Agent 配置和 Skills')
-    .option('--cli <name>', '指定特定 CLI（claude/gemini/copilot/codex）')
+    .option('--cli <name>', `指定特定 CLI（${VALID_AGENTS.join('/')}）`)
     .action(
       async (options: { cli?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

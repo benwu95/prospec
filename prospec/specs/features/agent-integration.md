@@ -1,16 +1,16 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-06-04
+last_updated: 2026-06-06
 story_count: 5
-req_count: 18
+req_count: 21
 ---
 
 # Agent Integration
 
 ## Who & Why
 
-服務使用 Prospec 的開發者與多種 AI Agent（Claude Code、Gemini CLI、Copilot 等）。Agent Integration 偵測已安裝的 AI CLI 工具、生成對應配置與 SDD Skill 檔案，使 AI Agent 在 Prospec 結構化開發流程中運作。透過三層 Progressive Disclosure 與語言中立化機制，確保 Skill 在不同 Agent 和語言環境下正確運作。
+服務使用 Prospec 的開發者與多種 AI Agent（Claude Code、Antigravity CLI、Copilot 等）。Agent Integration 偵測已安裝的 AI CLI 工具、生成對應配置與 SDD Skill 檔案，使 AI Agent 在 Prospec 結構化開發流程中運作。透過三層 Progressive Disclosure 與語言中立化機制，確保 Skill 在不同 Agent 和語言環境下正確運作。
 
 ## User Stories & Behavior Specifications
 
@@ -27,15 +27,25 @@ req_count: 18
 
 #### REQ-AGNT-001: Detect Installed AI CLI
 - WHEN `~/.claude` exists, THEN detect Claude Code
-- WHEN `~/.gemini` exists, THEN detect Gemini CLI
+- WHEN `~/.gemini/antigravity-cli` exists, THEN detect Antigravity CLI
 - WHEN `--cli claude` specified, THEN only process Claude Code configuration
 - WHEN no installed AI CLI detected, THEN display supported CLI list
 
 #### REQ-AGNT-002: Auto-Detect AI CLI
 - WHEN detecting Claude Code, THEN check `~/.claude` directory
-- WHEN detecting Gemini CLI, THEN check `~/.gemini` directory
+- WHEN detecting Antigravity CLI, THEN check `~/.gemini/antigravity-cli` directory
 - WHEN detecting Copilot CLI, THEN check `~/.copilot` directory
 - WHEN detecting Codex CLI, THEN check `~/.codex` directory
+
+#### REQ-AGNT-016: Antigravity CLI Target
+- WHEN registering targets, THEN `antigravity` is a valid agent (`VALID_AGENTS`, `AGENT_CONFIGS`, `AGENT_DIRS`): name `Antigravity CLI`, detect `~/.gemini/antigravity-cli`, skillPath `.agents/skills`, configPath `AGENTS.md`, skills-dir
+- WHEN sync antigravity, THEN produce `.agents/skills/prospec-*/SKILL.md` + `AGENTS.md`
+- WHEN gemini is requested, THEN config validation fails (target removed — see Deprecated Requirements)
+
+#### REQ-AGNT-018: Display Supported CLI List from Single Source
+- WHEN `agent sync --help` renders, THEN the `--cli` supported list is derived from `VALID_AGENTS` (contains antigravity, not gemini)
+- WHEN no agent is configured, THEN the error message lists supported agents from `VALID_AGENTS`
+- WHEN reviewing code, THEN no hardcoded CLI list string exists
 
 #### REQ-AGNT-003: Generate Claude Code CLAUDE.md
 - WHEN agent sync executes, THEN CLAUDE.md generated at project root
@@ -70,7 +80,7 @@ req_count: 18
 #### REQ-AGNT-004: Generate SDD Skills
 - WHEN agent sync executes, THEN generate Skill files from .hbs templates
 - WHEN deploying to Claude, THEN each Skill gets directory with SKILL.md + references/
-- WHEN deploying to Copilot, THEN use .instructions.md format (inline references)
+- WHEN deploying to Antigravity / Codex / Copilot, THEN skills-dir SKILL.md under `.agents/skills` + `references/` subdir, entry `AGENTS.md` (no `.instructions.md` format)
 
 #### REQ-AGNT-011: Template as Single Source
 - WHEN agent sync executes, THEN render final Skill files from .hbs templates
@@ -86,8 +96,7 @@ req_count: 18
 
 #### REQ-AGNT-014: Agent-Specific Skill Reference Paths
 - WHEN rendering an entry config, THEN reference paths point at the agent's own skill dir (`{skill_path}/{name}/references/`), not a hardcoded `.prospec/skills/...` path
-- WHEN deploying to Claude / Gemini / Codex, THEN pass `skill_path` and `base_dir` into the entry-config context
-- WHEN deploying to Copilot, THEN drop the References line because references are inlined
+- WHEN deploying to any agent (all skills-dir), THEN pass `skill_path` and `base_dir` into the shared entry-config template (`agent-configs/entry.md.hbs`); references resolve under `{skill_path}/{name}/references/` for every agent (Copilot included)
 
 #### REQ-AGNT-015: Self-Contained Skills
 - WHEN a skill declares no references (e.g. knowledge-generate / knowledge-update), THEN emit no References line and no empty references dir
@@ -151,15 +160,20 @@ req_count: 18
 ### US-420: 多 Agent 平台支援 [P1]
 
 身為一名同時使用多個 AI Agent 的開發者，
-我想要 Prospec 為不同 Agent 平台生成對應格式的配置與 Skill，
-以便在 Claude Code、Gemini CLI、Copilot 等之間無縫切換。
+我想要 Prospec 為不同 Agent 平台生成對應配置與 Skill，
+以便在 Claude Code、Antigravity CLI、Copilot、Codex 等之間無縫切換。
 
 **Acceptance Scenarios:**
-- WHEN 偵測到多個 AI CLI THEN 為每個平台生成對應格式的配置
-- WHEN 部署到 Copilot THEN 使用 .instructions.md 格式
+- WHEN 偵測到多個 AI CLI THEN 為每個平台生成對應配置
+- WHEN antigravity/codex/copilot 並存 THEN 收斂至 `.agents/skills` + `AGENTS.md`（共用 agents.md 開放標準）
 - WHEN 使用 `--cli` 指定特定平台 THEN 只生成該平台配置
 
-_(Cross-references: REQ-AGNT-001 Detection, REQ-AGNT-004 Multi-format Generation — 完整 Scenarios 見 US-400/US-401)_
+#### REQ-AGNT-017: Shared-Standard Output Dedup
+- WHEN multiple configured agents resolve to the same `(skillPath, configPath)` — antigravity / codex / copilot all use `.agents/skills` + `AGENTS.md` — THEN agent-sync writes each physical file once
+- WHEN sync completes, THEN `totalFiles` equals the actual files on disk (no double counting)
+- WHEN a single agent or no shared signature, THEN behavior is unchanged
+
+_(Cross-references: REQ-AGNT-001 Detection, REQ-AGNT-004 Skills Generation — 完整 Scenarios 見 US-400/US-401)_
 
 ---
 
@@ -187,7 +201,9 @@ _(Cross-references: REQ-AGNT-001 Detection, REQ-AGNT-004 Multi-format Generation
 
 ## Deprecated Requirements
 
-_(None)_
+#### ~~Gemini CLI Target~~
+**Removed**: 2026-06-06 | **Change**: migrate-gemini-to-antigravity
+**Reason**: Gemini CLI 於 2026-06-18 退役。其 target（id `gemini`、`.gemini/skills`、`GEMINI.md`、偵測 `~/.gemini`）完全移除，由 Antigravity CLI Target（REQ-AGNT-016）取代。
 
 ## Change History
 
@@ -201,3 +217,4 @@ _(None)_
 | 2026-03-01 | remove-skill-language-directives | Skill 語言中立化 | US-410, REQ-SKILL-009~010 |
 | 2026-03-02 | v2-product-first migration | 遷移至 feature spec 格式 | All |
 | 2026-06-04 | skill-alignment (PR #2) | Skill reference 路徑對齊各 agent skill dir + self-contained skills（移除 8 個 legacy ref templates） | REQ-AGNT-014~015 (ADDED) |
+| 2026-06-06 | migrate-gemini-to-antigravity | Gemini→Antigravity；codex/copilot 收斂至 .agents/skills + AGENTS.md（單一 entry 模板、移除 instructions 格式）；共用輸出去重；動態 CLI 清單 | REQ-AGNT-016/017/018 (ADDED), REQ-AGNT-002/004 (MODIFIED), Gemini Target (REMOVED) |

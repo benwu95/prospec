@@ -77,7 +77,7 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
@@ -93,7 +93,7 @@ knowledge:
     }
   });
 
-  it('should generate Copilot format with .instructions.md files', async () => {
+  it('should generate Copilot skills under .agents/skills (agents.md standard)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test-project
@@ -108,13 +108,15 @@ knowledge:
     const copilotResult = result.agents.find((a) => a.agent === 'copilot');
     expect(copilotResult).toBeTruthy();
 
-    // Copilot uses .instructions.md format
+    // Copilot now uses the skills-dir format under .agents/skills
     for (const skillFile of copilotResult!.skillFiles) {
-      expect(skillFile).toContain('.instructions.md');
+      expect(skillFile).toContain('.agents/skills/');
+      expect(skillFile).toContain('SKILL.md');
     }
+    expect(copilotResult!.configFile).toBe('AGENTS.md');
 
-    // Copilot should NOT have separate reference files (inline)
-    expect(copilotResult!.referenceFiles).toHaveLength(0);
+    // skills-dir agents emit reference files in references/ subdirs
+    expect(copilotResult!.referenceFiles.length).toBeGreaterThan(0);
   });
 
   it('should fail when no agents are configured', async () => {
@@ -131,14 +133,14 @@ knowledge:
   name: test-project
 agents:
   - claude
-  - gemini
+  - antigravity
 knowledge:
   base_path: docs/ai-knowledge
 `,
     });
 
-    const result = await execute({ cli: 'gemini', cwd: '/project' });
+    const result = await execute({ cli: 'antigravity', cwd: '/project' });
     expect(result.agents).toHaveLength(1);
-    expect(result.agents[0]?.agent).toBe('gemini');
+    expect(result.agents[0]?.agent).toBe('antigravity');
   });
 });

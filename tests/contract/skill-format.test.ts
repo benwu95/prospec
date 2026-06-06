@@ -5,7 +5,7 @@
  * - YAML frontmatter with name and description
  * - Skill body with workflow instructions
  * - Reference files for skills that have them
- * - Copilot format with inline references
+ * - Agent entry config templates (all skills-dir under their skill paths)
  */
 import { describe, it, expect } from 'vitest';
 import { renderTemplate } from '../../src/lib/template.js';
@@ -700,8 +700,8 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('references/plan-format.md');
       expect(content).toContain('references/delta-spec-format.md');
       expect(content).toContain('references/tasks-format.md');
-      // must NOT reach into sibling skill directories (dangling in skills-dir
-      // layout, nonexistent under Copilot's inline model)
+      // must NOT reach into sibling skill directories (dangling in the
+      // skills-dir layout shared by every agent)
       expect(content).not.toContain('prospec-new-story/references/');
       expect(content).not.toContain('prospec-plan/references/');
       expect(content).not.toContain('prospec-tasks/references/');
@@ -801,8 +801,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Agent config skill reference paths', () => {
-    it('claude config should point references at .claude/skills', () => {
-      const content = renderTemplate('agent-configs/claude.md.hbs', {
+    it('renders skills-dir references for the .claude/skills path', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
         skill_path: '.claude/skills',
       });
@@ -810,17 +810,18 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('.prospec/skills/');
     });
 
-    it('gemini config should point references at .gemini/skills', () => {
-      const content = renderTemplate('agent-configs/gemini.md.hbs', {
+    it('renders skills-dir references for the .agents/skills path', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
-        skill_path: '.gemini/skills',
+        skill_path: '.agents/skills',
       });
-      expect(content).toContain('.gemini/skills/prospec-archive/references/');
+      expect(content).toContain('.agents/skills/prospec-archive/references/');
       expect(content).not.toContain('.prospec/skills/');
+      expect(content).not.toContain('.instructions.md');
     });
 
     it('self-contained skills should not emit a References line', () => {
-      const content = renderTemplate('agent-configs/claude.md.hbs', {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
         skill_path: '.claude/skills',
       });
@@ -831,29 +832,27 @@ describe('Skill Format Contract', () => {
         '.claude/skills/prospec-knowledge-update/references/',
       );
     });
+
+    it('is the single shared entry template — no per-agent templates remain', () => {
+      for (const legacy of ['claude', 'antigravity', 'codex', 'copilot']) {
+        expect(() =>
+          renderTemplate(`agent-configs/${legacy}.md.hbs`, TEMPLATE_CONTEXT),
+        ).toThrow();
+      }
+    });
   });
 
-  describe('Agent config templates', () => {
-    const AGENT_CONFIGS = ['claude', 'gemini', 'copilot', 'codex'];
+  describe('Agent config entry template', () => {
+    it('should render entry.md.hbs without errors', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+    });
 
-    for (const agent of AGENT_CONFIGS) {
-      it(`should render ${agent}.md.hbs without errors`, () => {
-        const content = renderTemplate(
-          `agent-configs/${agent}.md.hbs`,
-          TEMPLATE_CONTEXT,
-        );
-        expect(content).toBeTruthy();
-        expect(content.length).toBeGreaterThan(0);
-      });
-
-      it(`should include project name in ${agent} config`, () => {
-        const content = renderTemplate(
-          `agent-configs/${agent}.md.hbs`,
-          TEMPLATE_CONTEXT,
-        );
-        expect(content).toContain('test-project');
-      });
-    }
+    it('should include project name', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('test-project');
+    });
   });
 });
 

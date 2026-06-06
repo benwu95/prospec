@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 48 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
+> Handlebars template library — 45 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
 
 <!-- prospec:auto-start -->
 
@@ -15,7 +15,7 @@
 | `src/templates/skills/*.hbs` | 11 skill templates (plan, implement, verify, knowledge-generate, etc.) |
 | `src/templates/skills/references/*.hbs` | 15 reference templates, rendered to `.md` per skill (format specs + design adapters) |
 | `src/templates/change/*.hbs` | 5 change workflow templates (proposal, plan, delta-spec, tasks, metadata) |
-| `src/templates/agent-configs/*.hbs` | 4 agent entry-config templates (Claude, Gemini, Copilot, Codex) |
+| `src/templates/agent-configs/entry.md.hbs` | Single shared agent entry-config template, rendered per agent with injected `skill_path` |
 
 ## Public API
 
