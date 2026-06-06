@@ -20,7 +20,7 @@
     "lint": "eslint src/ tests/",
     "typecheck": "tsc --noEmit",
     "verify:skills": "bash scripts/verify-skills.sh",
-    "prepublishOnly": "npm run build"
+    "prepare": "tsc"
   },
   "keywords": [
     "sdd",
@@ -32,7 +32,8 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.13.0",
+    "pnpm": ">=11"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^14.0.0",

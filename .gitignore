@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# npm lockfile (this project is pnpm-only for development)
+package-lock.json
+
 # Coverage
 coverage/
 
@@ -26,7 +29,11 @@ Thumbs.db
 *.tmp
 *.swp
 
-# Claude Code
+# Agents
 .claude/
 CLAUDE.md
-.prospec
+.agents/
+AGENTS.md
+
+# Prospec
+.prospec/

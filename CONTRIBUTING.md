@@ -4,38 +4,48 @@ Thank you for considering contributing to Prospec! This guide will help you get 
 
 ## Development Setup
 
+This project uses **pnpm** for development (Node 22.13+, pnpm 11+).
+
 ```bash
 # Clone the repository
-git clone https://github.com/ci-yang/prospec.git
+git clone https://github.com/benwu95/prospec.git
 cd prospec
 
 # Install dependencies
-npm install
+pnpm install
 
-# Build
-npm run build
+# First-time local install: build, then register the `prospec` bin globally
+pnpm run build && pnpm add -g .
 
-# Link globally for local testing
-npm link
+# After making changes, just rebuild — the global bin picks up the new dist/
+pnpm run build
+
+# Verify
+prospec --help
+
+# Remove it when finished
+pnpm uninstall -g prospec
 ```
+
+> First-time global install needs `pnpm setup` run once to configure the global bin directory.
 
 ## Development Workflow
 
 ```bash
 # Watch mode (recompile on change)
-npm run dev
+pnpm run dev
 
 # Run all tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Type check
-npm run typecheck
+pnpm run typecheck
 
 # Lint
-npm run lint
+pnpm run lint
 ```
 
 ## Project Structure
@@ -63,6 +73,28 @@ tests/
 - **Imports**: Use `.js` extension for relative imports (ESM)
 - **Error handling**: Use custom error classes from `src/types/errors.ts`
 - **Testing**: Every new service/feature requires tests
+
+## Dependency Management
+
+Development is **pnpm-only**; the single lockfile is `pnpm-lock.yaml`.
+
+When you add, remove, or upgrade a dependency, run `pnpm install` and commit the updated
+`pnpm-lock.yaml`:
+
+```bash
+pnpm install   # updates pnpm-lock.yaml
+```
+
+CI runs `pnpm install --frozen-lockfile` on every push/PR — if the lockfile drifts from
+`package.json`, CI fails.
+
+Notes:
+
+- **pnpm 11+ and Node 22.13+ are required** (pnpm 11 needs Node ≥ 22.13; enforced via
+  `engines`). Build-script approvals (e.g. esbuild) live in `pnpm-workspace.yaml` under
+  `allowBuilds`.
+- End users installing the **published** CLI can still use npm or pnpm — the pnpm-only
+  rule applies to developing this repo, not to consuming it.
 
 ## Making Changes
 
