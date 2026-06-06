@@ -1,7 +1,7 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-04
+last_updated: 2026-06-06
 story_count: 6
 req_count: 14
 ---
@@ -98,11 +98,11 @@ req_count: 14
 - WHEN no recognizable markers, THEN `tech_stack` left empty, init completes normally
 
 #### REQ-SETUP-006: 偵測已安裝的 AI CLI
-自動偵測系統已安裝的 AI CLI 工具（Claude Code、Gemini CLI、Copilot、Codex），提供互動式勾選。
+自動偵測系統已安裝的 AI CLI 工具（Claude Code、Antigravity CLI、Copilot、Codex），提供互動式勾選。
 
 **Scenarios:**
 - WHEN `~/.claude` exists, THEN detect Claude Code and pre-check
-- WHEN `~/.gemini` exists, THEN detect Gemini CLI and pre-check
+- WHEN `~/.gemini/antigravity-cli` exists, THEN detect Antigravity CLI and pre-check
 - WHEN user unchecks detected CLI, THEN `.prospec.yaml` agents excludes it
 - WHEN user checks uninstalled CLI, THEN remind but allow adding
 - WHEN detection complete, THEN suggest `prospec agent sync`
@@ -246,3 +246,4 @@ _(None)_
 | 2026-02-09 | configure-base-dir | 可配置的 Base Directory | US-005, REQ-SETUP-011~012 |
 | 2026-03-02 | v2-product-first | 合併為 Feature Spec，新增首次使用 Story | US-006, REQ-SETUP-013 |
 | 2026-06-04 | skill-alignment (PR #2) | init 生成 canonical convention docs | REQ-SETUP-004 (MODIFIED), REQ-SETUP-014 (ADDED) |
+| 2026-06-06 | migrate-gemini-to-antigravity | init AI CLI 偵測 Gemini→Antigravity（`~/.gemini/antigravity-cli`） | REQ-SETUP-006 (MODIFIED) |
