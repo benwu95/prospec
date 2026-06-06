@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-06-04
+last_updated: 2026-06-06
 story_count: 7
-req_count: 24
+req_count: 26
 ---
 
 # AI Knowledge
@@ -47,6 +47,7 @@ req_count: 24
 **Acceptance Scenarios:**
 - WHEN module-map.yaml 存在 THEN 優先使用預定義分類
 - WHEN module-map.yaml 不存在 THEN AI 自動判斷模組邊界
+- WHEN 執行 `prospec knowledge init` 且 module-map.yaml 不存在 THEN 依偵測模組產出 module-map.yaml
 
 #### REQ-KNOW-003: Use Module Map for Classification
 - WHEN module-map.yaml exists, THEN use predefined classification, preserving `keywords` and `relationships`
@@ -56,6 +57,20 @@ req_count: 24
 - WHEN `.prospec.yaml` sets `knowledge.strategy` (auto/architecture/domain/package), THEN module-detector splits accordingly
 - WHEN strategy is `domain`, THEN split modules by business domain
 - WHEN strategy is `auto`, THEN try package → domain → architecture and pick the best result
+
+#### REQ-SERVICES-025: Generate Module Map in Knowledge Init
+`prospec knowledge init` produces `module-map.yaml` from detected modules after scanning, sharing the `buildModuleMap` helper with steering. Closes the gap left when steering was deprecated.
+
+**Scenarios:**
+- WHEN executing `prospec knowledge init` and module-map.yaml does not exist, THEN generate it at the configured knowledge base path
+- WHEN module-map.yaml already exists, THEN do not overwrite it (preserve the curated version) and do not list it in outputFiles
+
+#### REQ-LIB-011: Module Map Resolution Honors Base Dir
+`detectModules` accepts a `knowledgeBasePath`; `loadExistingModuleMap` resolves `module-map.yaml` under it (relative to cwd or absolute) rather than a hardcoded `docs/ai-knowledge`.
+
+**Scenarios:**
+- WHEN a custom knowledge base path is provided, THEN load the existing module-map.yaml from that path
+- WHEN no knowledge base path is provided, THEN fall back to legacy `docs/ai-knowledge` (backward compatible)
 
 ---
 
@@ -250,3 +265,4 @@ _(None)_
 | 2026-03-02 | optimize-ai-knowledge | Recipe-First 格式重設計 + L0/L1/L2 分層 + 彈性粒度策略 | US-301~303, REQ-KNOW-004~006 (MODIFIED), REQ-KNOW-010~014 (ADDED) |
 | 2026-06-04 | skill-alignment (PR #2) | knowledge generate/update 以 convention docs 為單一真實來源 | REQ-KNOW-015 (ADDED) |
 | 2026-06-04 | ai-knowledge-sub-modules (PR #3) | Sub-module 抽取/載入/維護 | US-330, REQ-KNOW-016~017, REQ-SERVICES-024 (ADDED) |
+| 2026-06-06 | generate-module-map-in-knowledge-init | knowledge init 生成 module-map + detector 尊重 base_dir | US-301, REQ-SERVICES-025, REQ-LIB-011 (ADDED) |

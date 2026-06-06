@@ -35,7 +35,7 @@ export interface KnowledgeResult {
  * Execute the knowledge generation workflow:
  *
  * 1. Read config (.prospec.yaml must exist)
- * 2. Read module-map.yaml (must exist — created by `prospec steering`)
+ * 2. Read module-map.yaml (must exist — created by `prospec knowledge init`)
  * 3. Scan modules (respect .prospec.yaml exclude patterns, REQ-KNOW-007)
  * 4. Generate module README.md for each module (ContentMerger preserves user sections)
  * 5. Update _index.md (Markdown table)

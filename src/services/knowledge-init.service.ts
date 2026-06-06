@@ -3,8 +3,10 @@ import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
 import { detectTechStack } from '../lib/detector.js';
+import { detectModules, buildModuleMap } from '../lib/module-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
+import { stringifyYaml } from '../lib/yaml-utils.js';
 
 export interface KnowledgeInitOptions {
   dryRun?: boolean;
@@ -33,12 +35,13 @@ export interface KnowledgeInitResult {
  * 6. Collect config files
  * 7. Build directory tree
  * 8. Generate raw-scan.md (always overwrite)
+ * 8b. Generate module-map.yaml (only if not exists)
  * 9. Generate _index.md skeleton (only if not exists)
  * 10. Generate _conventions.md skeleton (only if not exists)
  *
  * Rerun safety: raw-scan.md is always overwritten.
- * _index.md and _conventions.md are only created if they don't exist.
- * modules/ directory is never touched.
+ * module-map.yaml, _index.md and _conventions.md are only created if they
+ * don't exist (curated versions are preserved). modules/ is never touched.
  */
 export async function execute(
   options: KnowledgeInitOptions,
@@ -59,6 +62,15 @@ export async function execute(
     depth,
     exclude: excludePatterns,
   });
+
+  // 2b. Detect modules (for module-map.yaml)
+  const strategy = config.knowledge?.strategy ?? 'auto';
+  const detection = detectModules(
+    scanResult.files,
+    cwd,
+    strategy,
+    knowledgeBasePath,
+  );
 
   // 3. Detect tech stack
   const techStack = detectTechStack(cwd);
@@ -117,6 +129,13 @@ export async function execute(
     );
     await atomicWrite(rawScanPath, rawScanContent);
     outputFiles.push(path.join(knowledgeBasePath, 'raw-scan.md'));
+
+    // 8b. Generate module-map.yaml (only if not exists — preserve curated version)
+    const moduleMapPath = path.join(knowledgeDir, 'module-map.yaml');
+    if (!fileExistsSync(moduleMapPath)) {
+      await atomicWrite(moduleMapPath, stringifyYaml(buildModuleMap(detection)));
+      outputFiles.push(path.join(knowledgeBasePath, 'module-map.yaml'));
+    }
 
     // 9. Generate _index.md skeleton (only if not exists)
     const indexPath = path.join(knowledgeDir, '_index.md');

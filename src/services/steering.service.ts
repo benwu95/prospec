@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { readConfig, writeConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
-import { detectModules } from '../lib/module-detector.js';
+import { detectModules, buildModuleMap } from '../lib/module-detector.js';
 import type { DetectionResult } from '../lib/module-detector.js';
 import { detectTechStack } from '../lib/detector.js';
 import { renderTemplate } from '../lib/template.js';
@@ -56,6 +56,8 @@ export async function execute(
   // 1. Read existing config
   const config = await readConfig(cwd);
   const excludePatterns = config.exclude ?? [];
+  const { knowledgePath } = resolveBasePaths(config, cwd);
+  const knowledgeBasePath = path.relative(cwd, knowledgePath);
 
   // 2. Scan project files
   const scanResult = await scanDir('**', {
@@ -66,28 +68,20 @@ export async function execute(
 
   // 3. Detect modules (using knowledge strategy from config)
   const strategy = config.knowledge?.strategy ?? 'auto';
-  const detection: DetectionResult = detectModules(scanResult.files, cwd, strategy);
+  const detection: DetectionResult = detectModules(
+    scanResult.files,
+    cwd,
+    strategy,
+    knowledgeBasePath,
+  );
 
   // 4. Detect tech stack
   const techStack = detectTechStack(cwd);
 
   // 5. Build module-map data
-  const moduleMap: ModuleMap = {
-    modules: detection.modules.map((m) => ({
-      name: m.name,
-      description: m.description,
-      paths: m.paths,
-      keywords: m.keywords,
-      relationships: {
-        depends_on: m.relationships.depends_on,
-        used_by: m.relationships.used_by,
-      },
-    })),
-  };
+  const moduleMap: ModuleMap = buildModuleMap(detection);
 
   // 6. Build architecture template context
-  const { knowledgePath } = resolveBasePaths(config, cwd);
-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
   const architectureContext = {
     project_name: config.project.name,
     tech_stack: {

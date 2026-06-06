@@ -87,16 +87,19 @@ export interface DetectionResult {
  * @param files - List of file paths (relative to project root)
  * @param cwd - Project root directory
  * @param strategy - Module partitioning strategy (default: 'auto')
+ * @param knowledgeBasePath - Knowledge base dir holding module-map.yaml,
+ *   relative to cwd or absolute (default: legacy 'docs/ai-knowledge')
  * @returns Detected modules with relationships
  */
 export function detectModules(
   files: string[],
   cwd: string = process.cwd(),
   strategy: KnowledgeStrategy = 'auto',
+  knowledgeBasePath: string = path.join('docs', 'ai-knowledge'),
 ): DetectionResult {
   try {
     // Step 1: Check for existing module-map.yaml
-    const existing = loadExistingModuleMap(cwd);
+    const existing = loadExistingModuleMap(cwd, knowledgeBasePath);
     if (existing) {
       return {
         modules: existing.modules.map((m) => ({
@@ -180,15 +183,42 @@ function detectByStrategy(
 
 /**
  * Step 1: Load existing module-map.yaml if it exists.
+ *
+ * Resolves under the configured knowledge base path (relative to cwd or
+ * absolute) instead of a hardcoded location, so it honors `paths.base_dir`.
  */
-function loadExistingModuleMap(cwd: string): ModuleMap | null {
-  const mapPath = path.join(cwd, 'docs', 'ai-knowledge', 'module-map.yaml');
+function loadExistingModuleMap(
+  cwd: string,
+  knowledgeBasePath: string,
+): ModuleMap | null {
+  const mapPath = path.isAbsolute(knowledgeBasePath)
+    ? path.join(knowledgeBasePath, 'module-map.yaml')
+    : path.join(cwd, knowledgeBasePath, 'module-map.yaml');
   try {
     const content = fs.readFileSync(mapPath, 'utf-8');
     return parseYaml(content, mapPath) as ModuleMap;
   } catch {
     return null;
   }
+}
+
+/**
+ * Build a ModuleMap from a detection result — the canonical shape written to
+ * module-map.yaml. Shared by `prospec steering` and `prospec knowledge init`.
+ */
+export function buildModuleMap(detection: DetectionResult): ModuleMap {
+  return {
+    modules: detection.modules.map((m) => ({
+      name: m.name,
+      description: m.description,
+      paths: m.paths,
+      keywords: m.keywords,
+      relationships: {
+        depends_on: m.relationships.depends_on,
+        used_by: m.relationships.used_by,
+      },
+    })),
+  };
 }
 
 /**
