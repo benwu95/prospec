@@ -88,6 +88,28 @@ modules:
     expect(result.modules[0]?.name).toBe('core');
   });
 
+  it('should read existing module-map.yaml from a custom knowledge base path', () => {
+    const files = ['src/index.ts'];
+    vol.fromJSON({
+      '/project/prospec/ai-knowledge/module-map.yaml': `
+modules:
+  - name: domain
+    description: Domain module
+    paths:
+      - src/domain/**
+    keywords:
+      - domain
+    relationships:
+      depends_on: []
+      used_by: []
+`,
+      '/project/src/index.ts': '',
+    });
+    // The legacy docs/ default would not find this file; the custom path must be honored.
+    const result = detectModules(files, '/project', 'auto', 'prospec/ai-knowledge');
+    expect(result.modules[0]?.name).toBe('domain');
+  });
+
   it('should detect entry points', () => {
     const files = [
       'src/index.ts',

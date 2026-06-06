@@ -92,6 +92,48 @@ describe('knowledge-init.service', () => {
     expect(rawScan).toContain('Raw Scan');
   });
 
+  it('should generate module-map.yaml from detected modules', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/package.json': JSON.stringify({ name: 'test-project' }),
+      '/project/src/services/auth.ts': '',
+      '/project/src/services/user.ts': '',
+      '/project/src/lib/config.ts': '',
+      '/project/src/lib/utils.ts': '',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.outputFiles).toContain('docs/ai-knowledge/module-map.yaml');
+    const content = fs.readFileSync(
+      '/project/docs/ai-knowledge/module-map.yaml',
+      'utf-8',
+    );
+    expect(content).toContain('modules:');
+    expect(content).toMatch(/name: (services|lib)/);
+  });
+
+  it('should not overwrite an existing module-map.yaml on rerun', async () => {
+    const curated =
+      'modules:\n  - name: custom\n    description: Curated\n    paths:\n      - src/custom\n    keywords:\n      - custom\n';
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/package.json': JSON.stringify({ name: 'test-project' }),
+      '/project/docs/ai-knowledge/module-map.yaml': curated,
+      '/project/src/services/auth.ts': '',
+      '/project/src/services/user.ts': '',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    const content = fs.readFileSync(
+      '/project/docs/ai-knowledge/module-map.yaml',
+      'utf-8',
+    );
+    expect(content).toBe(curated);
+    expect(result.outputFiles).not.toContain('docs/ai-knowledge/module-map.yaml');
+  });
+
   it('should generate empty skeleton (_index.md, _conventions.md)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
