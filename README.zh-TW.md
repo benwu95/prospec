@@ -87,7 +87,8 @@ prospec init --name my-project
 
 # 2. 同步 AI Agent 配置 + 生成 Skills
 prospec agent sync
-# → 生成 CLAUDE.md + .claude/skills/prospec-*/SKILL.md
+# → 為每個選取的 assistant 生成 config + Skills
+#   Claude Code → CLAUDE.md + .claude/skills/；Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
 
 # 3. 使用 Skills 進行功能開發（在 AI Agent 中）
 /prospec-new-story        # 建立變更需求
@@ -113,7 +114,8 @@ prospec init
 
 # 2. 同步 AI 配置 + 生成 Skills
 prospec agent sync
-# → 生成 CLAUDE.md + .claude/skills/prospec-*/SKILL.md
+# → 為每個選取的 assistant 生成 config + Skills
+#   Claude Code → CLAUDE.md + .claude/skills/；Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
 
 # 3. 掃描專案並生成原始資料
 prospec knowledge init

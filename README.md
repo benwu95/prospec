@@ -87,7 +87,8 @@ prospec init --name my-project
 
 # 2. Sync AI agent config + generate Skills
 prospec agent sync
-# → Generates CLAUDE.md + .claude/skills/prospec-*/SKILL.md
+# → Generates per-agent config + Skills for each selected assistant
+#   Claude Code → CLAUDE.md + .claude/skills/; Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
 
 # 3. Start developing with Skills (in your AI agent)
 /prospec-new-story        # Create change story
@@ -113,7 +114,8 @@ prospec init
 
 # 2. Sync AI config + generate Skills
 prospec agent sync
-# → Generates CLAUDE.md + .claude/skills/prospec-*/SKILL.md
+# → Generates per-agent config + Skills for each selected assistant
+#   Claude Code → CLAUDE.md + .claude/skills/; Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
 
 # 3. Scan project and generate raw data
 prospec knowledge init
