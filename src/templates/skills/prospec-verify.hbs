@@ -1,6 +1,6 @@
 ---
 name: prospec-verify
-description: "Verify Implementation | 驗證實作 - Run 5+1 dimension audit (tasks, spec compliance, constitution, spec↔knowledge consistency, tests, design consistency) and assign quality grade (S/A/B/C/D). Triggers: verify, check, audit, quality, done, grade, 驗證, 檢查, 品質, 做完了, 評分"
+description: "Verify Implementation | 驗證實作 - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge↔implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D). Triggers: verify, check, audit, quality, done, grade, 驗證, 檢查, 品質, 做完了, 評分"
 ---
 
 # Prospec Verify Skill
@@ -9,7 +9,7 @@ description: "Verify Implementation | 驗證實作 - Run 5+1 dimension audit (ta
 
 When triggered, briefly describe:
 - That you'll perform a comprehensive audit of the implementation
-- All 5+1 verification dimensions will be checked (task completion, spec compliance, Constitution full audit, Spec ↔ Knowledge consistency, tests, and design consistency if UI scope applies)
+- All 5+1 verification dimensions will be checked (task completion, spec compliance, Constitution full audit, Knowledge ↔ implementation consistency, tests, and design consistency if UI scope applies)
 - A quality grade (S/A/B/C/D) with deployment recommendation will be provided
 
 ## Startup Loading
@@ -64,36 +64,32 @@ Check **every principle** in the Constitution:
 - FAIL items must include specific remediation steps
 - **Call Chain ↔ layering**: if `plan.md` declares a Call Chain, confirm the implementation matches it and introduces no layering violation against the Constitution's dependency/layering rule (a layer reaching past its neighbor, business logic in the entry/transport layer, a skipped data-access layer, or a side effect emitted before commit). Plan-declared clean layering but dirty implementation → FAIL.
 
-### Verification 4/5: Feature Spec ↔ Knowledge Consistency
+### Verification 4/5: Knowledge ↔ Implementation Consistency
 
-Compare Feature Spec requirements (`{{base_dir}}/specs/features/`) against AI Knowledge module descriptions (`{{knowledge_base_path}}/modules/`):
+This dimension **gates on Knowledge tracking the code** — NOT on whether the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs are updated by `/prospec-archive` (graduation, Phase 3.5); a Feature Spec that does not yet contain an un-archived change is the normal pre-archive state — **not drift** — and must NOT lower the grade.
 
-For each User Story and requirement in the relevant Feature Spec:
-- **PASS**: User Story behavior is reflected in the corresponding module README.md
-- **WARN**: Requirement exists but AI Knowledge description is vague or outdated
-- **FAIL**: Requirement exists in Feature Spec but has no corresponding description in AI Knowledge
+**Graded — Knowledge vs current code / this change's delta-spec** (`{{knowledge_base_path}}/modules/`):
+- **PASS**: each affected module's README.md reflects the current implementation and this change's delta-spec REQs
+- **WARN**: README exists but is vague or outdated vs the code
+- **FAIL**: a delta-spec ADDED/MODIFIED REQ's behavior has no corresponding description in the affected module's README (remediate: `/prospec-knowledge-update`, or `/prospec-knowledge-generate` if the module README is missing)
 
-**Staleness Detection** (additional checks):
-- AI Knowledge describes functionality with no matching requirement in any Feature Spec → WARN (undocumented feature)
-- Implementation changed (delta-spec MODIFIED) but module README not updated → WARN + suggest `/prospec-knowledge-update`
+**Knowledge staleness (graded WARN):**
+- Implementation changed (delta-spec ADDED/MODIFIED) but the module README was not updated → WARN + suggest `/prospec-knowledge-update`
+
+**Feature Spec — informational only (does NOT affect the grade):**
+- A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `/prospec-archive`"); expected, not drift
+- A regression in an already-archived capability (the change breaks behavior the Feature Spec records as shipped) → informational note for the developer to weigh; raise it, but do not gate the grade here
+- Feature Spec Health (Density ≥ 40% Stories, `last_updated` freshness, internal Consistency) → informational quality signal
 
 Output format:
 
 ```
-| Feature | Story/REQ | Spec Says | Knowledge Says | Status |
-|---------|-----------|-----------|----------------|--------|
-| {feature} | US-NNN / REQ-XXX-NNN | [behavior] | [description] | PASS/WARN/FAIL |
+| Module | REQ | Knowledge Says | Status |
+|--------|-----|----------------|--------|
+| {module} | REQ-XXX-NNN | [README description] | PASS/WARN/FAIL |
 ```
 
-If Feature Specs don't exist yet, skip this dimension with a note.
-
-**Spec Health** (additional quality metrics):
-
-| Metric | PASS | WARN |
-|--------|------|------|
-| **Density** | User Stories occupy ≥ 40% of Feature Spec content | REQ-dominated — Feature Spec reads like a technical checklist |
-| **Freshness** | `last_updated` within 30 days of latest related change | Stale — Feature Spec not updated after recent changes |
-| **Consistency** | Feature Spec and Knowledge describe the same behavior | Drift detected — Feature Spec and Knowledge disagree |
+If AI Knowledge has no modules yet, skip this dimension with a note.
 
 ### Verification 5/5: Test Verification
 
@@ -149,16 +145,18 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `{{knowledge_base_path}}/_status-lifecycle.md`.
 
+> Feature Spec freshness is NOT an input to the grade — Feature Specs graduate at `/prospec-archive` (Phase 3.5). Verify gates on code↔delta-spec (2/5), Constitution (3/5), and Knowledge↔code (4/5).
+
 ## Knowledge Quality Gate
 
 Final Knowledge consistency summary:
 
 | Check Item | PASS | WARN |
 |------------|------|------|
-| Feature Spec ↔ Knowledge aligned | All User Stories and requirements reflected in module READMEs | Gaps identified in Verification 4/5 |
-| No stale Knowledge | Module READMEs match current implementation | READMEs outdated — suggest knowledge-update |
-| No undocumented features | All Knowledge entries have matching Feature Spec requirements | Features in Knowledge without requirements |
-| Spec Health metrics | Density, Freshness, and Consistency all PASS | One or more Spec Health metrics degraded |
+| Knowledge ↔ code/delta-spec aligned | Affected module READMEs reflect current code + this change's REQs | Gaps identified in Verification 4/5 |
+| No stale Knowledge | Module READMEs match current implementation | READMEs outdated — suggest `/prospec-knowledge-update` |
+| No undocumented features | Knowledge entries trace to a delta-spec REQ or shipped behavior | Features in Knowledge without any requirement |
+| Feature Spec graduation | Informational — Feature Specs update at `/prospec-archive`; not gated here | — |
 
 WARN items are deployment risks — recommend resolving before `/prospec-archive`.
 

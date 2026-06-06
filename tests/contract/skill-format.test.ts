@@ -727,6 +727,32 @@ describe('Skill Format Contract', () => {
         expect(content.length).toBeGreaterThan(0);
       }
     });
+
+    it('verify dimension 4/5 gates on Knowledge↔implementation, not Feature Spec freshness', () => {
+      const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('Knowledge ↔ Implementation Consistency');
+      expect(content).toContain('gates on Knowledge tracking the code');
+      expect(content).toContain('not drift');
+      expect(content).toContain('informational');
+      // the old feature-spec-freshness gate must be gone
+      expect(content).not.toContain(
+        'Requirement exists in Feature Spec but has no corresponding description',
+      );
+    });
+
+    it('status-lifecycle documents Feature Spec graduation at archive', () => {
+      const content = renderTemplate(
+        'init/status-lifecycle.md.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(content).toContain('graduation');
+      expect(content).toContain('does NOT gate on Feature Spec freshness');
+    });
+
+    it('prospec-archive documents it is the sole Feature Spec writer', () => {
+      const content = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('sole writer');
+    });
   });
 
   describe('AI Knowledge sub-modules', () => {
