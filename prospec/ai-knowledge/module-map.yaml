@@ -1,0 +1,128 @@
+# Module dependency map — source of truth for module boundaries + dependency direction.
+# Authored to match prospec/ai-knowledge/_index.md (curated 6-module structure).
+# Dependency direction (Constitution): cli → services → lib → types (no upward imports).
+modules:
+  - name: types
+    description: Zod 4 schemas, error hierarchy (11 classes), skill/agent definitions
+    paths:
+      - src/types
+    keywords:
+      - config
+      - schema
+      - errors
+      - skill
+      - change
+      - zod
+      - strategy
+      - spec
+      - token-budget
+    relationships:
+      depends_on: []
+      used_by:
+        - lib
+        - services
+        - cli
+        - tests
+
+  - name: lib
+    description: Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection
+    paths:
+      - src/lib
+    keywords:
+      - fs
+      - config
+      - template
+      - scanner
+      - merger
+      - yaml
+      - logger
+      - detector
+      - module-detector
+      - strategy
+    relationships:
+      depends_on:
+        - types
+      used_by:
+        - services
+        - cli
+        - tests
+
+  - name: services
+    description: Business logic — 10 services with execute() pattern, including Recipe-First knowledge generation
+    paths:
+      - src/services
+    keywords:
+      - init
+      - steering
+      - knowledge
+      - change
+      - archive
+      - agent-sync
+      - spec-sync
+      - product
+    relationships:
+      depends_on:
+        - types
+        - lib
+      used_by:
+        - cli
+        - tests
+
+  - name: cli
+    description: CLI entry point — 8 commands + 9 formatters, parse → execute → format
+    paths:
+      - src/cli
+    keywords:
+      - commands
+      - formatters
+      - commander
+      - output
+      - preaction
+    relationships:
+      depends_on:
+        - types
+        - lib
+        - services
+      used_by:
+        - tests
+
+  - name: templates
+    description: Handlebars template library — skills, references, agent-configs, change, init/steering/knowledge
+    paths:
+      - src/templates
+    keywords:
+      - handlebars
+      - hbs
+      - skills
+      - agent-configs
+      - recipe-first
+      - loading-rules
+      - references
+      - change
+    relationships:
+      depends_on: []
+      used_by:
+        - lib
+        - tests
+
+  - name: tests
+    description: 4-layer test suite — unit, contract, integration, e2e (pyramid coverage)
+    paths:
+      - tests
+    keywords:
+      - vitest
+      - memfs
+      - unit
+      - integration
+      - contract
+      - e2e
+      - knowledge-format
+      - skill-format
+    relationships:
+      depends_on:
+        - types
+        - lib
+        - services
+        - cli
+        - templates
+      used_by: []

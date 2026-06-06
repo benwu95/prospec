@@ -14,7 +14,7 @@
 | `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration |
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
-| `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), 624 lines |
+| `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir |
 | `src/lib/detector.ts` | detectTechStack() — language, framework, package manager detection |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
@@ -26,7 +26,8 @@
 - `renderTemplate(name, context)` — Render .hbs template by path
 - `mergeContent(newContent, existingContent)` — Merge preserving user sections
 - `scanDir(patterns, options)` — Scan directory with fast-glob
-- `detectModules(files, cwd, strategy)` — Detect modules with configurable strategy
+- `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
+- `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
 - `detectTechStack(cwd)` — Auto-detect language/framework/package manager
 
 ## Dependencies
@@ -45,7 +46,7 @@
 
 - `renderTemplate()` changes affect ALL template consumers (every service + CLI formatters)
 - `mergeContent()` changes risk overwriting user notes in prospec:user sections
-- `detectModules()` signature changes affect `steering.service.ts` (the only consumer)
+- `detectModules()` / `buildModuleMap()` signature changes affect `steering.service.ts` and `knowledge-init.service.ts`
 - `atomicWrite()` changes affect every service that writes files
 
 ## Pitfalls
@@ -54,6 +55,7 @@
 - `scanDir()` default exclude list includes sensitive file patterns — custom excludes ADD to defaults, don't replace
 - Template partial registration order matters — register partials before templates that reference them
 - `detectModules()` reads `module-map.yaml` first — if it exists, strategy parameter is ignored
+- `loadExistingModuleMap()` resolves under `knowledgeBasePath` (relative to cwd or absolute) — omitting it falls back to legacy `docs/ai-knowledge`, not the config base_dir
 
 <!-- prospec:auto-end -->
 
