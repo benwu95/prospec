@@ -2,21 +2,23 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/prospec.svg?style=flat-square)](https://www.npmjs.com/package/prospec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/tests-450%20passing-success?style=flat-square)](tests/)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
 **Progressive Spec-Driven Development CLI**
 
 *Empower AI agents with structured workflows for brownfield and greenfield projects*
 
-[繁體中文](./README.zh-TW.md) • [Getting Started](#getting-started) • [Documentation](./docs/)
+[繁體中文](./README.zh-TW.md) • [Getting Started](#getting-started)
 
 </div>
 
 ---
+
+> **Note:** This project is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec).
 
 ## What is Prospec?
 
@@ -47,12 +49,15 @@ Prospec is a **CLI tool** that bridges the gap between human requirements and AI
 
 ## Installation
 
-```bash
-# Install as devDependency (recommended)
-pnpm add -D prospec
+> Prospec is an unpublished fork — install it directly from GitHub. npm/pnpm clones the
+> repo, installs dev deps, and builds it via the `prepare` script.
 
-# Or install globally
-pnpm add -g prospec
+```bash
+# As a devDependency (recommended — prospec is used per-project)
+npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
+
+# Or globally
+npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
 
 # Verify
 prospec --help
@@ -60,12 +65,12 @@ prospec --help
 
 ### Prerequisites
 
-- **Node.js** >= 20.0.0
+- **Node.js** >= 22.13.0
 - **AI CLI** (one or more):
   - [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended)
   - [Antigravity CLI](https://antigravity.google/)
   - [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli)
-  - Codex CLI
+  - [Codex CLI](https://developers.openai.com/codex/cli)
 
 ---
 
@@ -264,6 +269,7 @@ After running `prospec init`:
 your-project/
 ├── .prospec.yaml              # Prospec config
 ├── CLAUDE.md                  # Claude Code config (Layer 0, <100 lines)
+├── AGENTS.md                  # Antigravity / Codex / Copilot config (agents.md standard)
 ├── {base_dir}/
 │   ├── CONSTITUTION.md        # Project rules (user-defined)
 │   ├── specs/
@@ -288,18 +294,20 @@ your-project/
 │   │       ├── delta-spec.md      # Patch Spec (ADDED/MODIFIED/REMOVED)
 │   │       └── metadata.yaml      # Change lifecycle metadata
 │   └── archive/               # Archived completed changes
-└── .claude/skills/
-    ├── prospec-explore/
-    ├── prospec-new-story/
-    ├── prospec-design/
-    ├── prospec-plan/
-    ├── prospec-tasks/
-    ├── prospec-ff/
-    ├── prospec-implement/
-    ├── prospec-verify/
-    ├── prospec-archive/
-    ├── prospec-knowledge-generate/
-    └── prospec-knowledge-update/
+├── .claude/skills/            # Skills for Claude Code (one dir per skill)
+│   ├── prospec-explore/
+│   ├── prospec-new-story/
+│   ├── prospec-design/
+│   ├── prospec-plan/
+│   ├── prospec-tasks/
+│   ├── prospec-ff/
+│   ├── prospec-implement/
+│   ├── prospec-verify/
+│   ├── prospec-archive/
+│   ├── prospec-knowledge-generate/
+│   └── prospec-knowledge-update/
+└── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
+    └── prospec-*/
 ```
 
 ---
@@ -323,9 +331,11 @@ We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for gu
 
 ### Development Setup
 
+Development uses **pnpm** (Node 22.13+, pnpm 11+).
+
 ```bash
 # Clone and install
-git clone https://github.com/ci-yang/prospec.git
+git clone https://github.com/benwu95/prospec.git
 cd prospec
 pnpm install
 
@@ -338,6 +348,24 @@ pnpm run build
 # Test
 pnpm test
 ```
+
+#### Local install (test the `prospec` CLI globally)
+
+```bash
+# First time: install deps, build, then register the bin globally
+pnpm install && pnpm run build && pnpm add -g .
+
+# After making changes, just rebuild — the global bin picks up the new dist/
+pnpm run build
+
+# Remove it when finished
+pnpm uninstall -g prospec
+```
+
+> First-time global install needs `pnpm setup` run once (configures the global bin directory).
+>
+> The single lockfile is `pnpm-lock.yaml`; after changing dependencies run `pnpm install`
+> and commit it. See [CONTRIBUTING.md](./CONTRIBUTING.md#dependency-management).
 
 ---
 
@@ -362,8 +390,6 @@ Prospec's unique contribution: **CLI + Skills hybrid** — CLI for deterministic
 
 ## Links
 
-- [Documentation](./docs/)
-- [Onboarding Guide (Brownfield)](./docs/guides/raven-onboarding.md)
 - [AI Knowledge Index](./prospec/ai-knowledge/_index.md)
 - [Feature Specs](./prospec/specs/features/)
 
