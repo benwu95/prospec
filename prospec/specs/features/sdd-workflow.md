@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-04
+last_updated: 2026-06-06
 story_count: 10
 req_count: 45
 ---
@@ -53,6 +53,7 @@ req_count: 45
 - WHEN verify reaches grade S/A, THEN status → `verified`; WHEN grade B/C/D, THEN status unchanged (re-run after fixing)
 - WHEN archive runs, THEN accept only `verified` changes
 - WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
+- WHEN gating artifacts, THEN Feature Specs are updated ONLY by `/prospec-archive` (Phase 3.5 graduation); `/prospec-verify` gates on Knowledge↔code and does NOT gate on Feature Spec freshness — preventing a verify↔archive deadlock
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit
@@ -197,11 +198,12 @@ tasks.md 末尾含 Summary 區段（total tasks、total lines、parallelizable c
 
 ### Behavior Specifications
 
-#### REQ-TEMPLATES-034: Verify Skill Feature Spec-Knowledge Consistency
-- WHEN triggered, THEN compare Feature Spec User Stories + REQs vs ai-knowledge module descriptions
-- WHEN spec has req but knowledge missing, THEN FAIL
-- WHEN knowledge describes undocumented feature, THEN WARN
-- WHEN Spec Health check, THEN evaluate Density (Story ≥ 40%), Freshness (last_updated ≤ 30 days), Consistency (Feature Spec vs Knowledge)
+#### REQ-TEMPLATES-034: Verify Skill Knowledge↔Implementation Consistency
+- WHEN triggered, THEN verify dimension 4/5 gates on AI Knowledge (module READMEs) ↔ current code / this change's delta-spec
+- WHEN a delta-spec ADDED/MODIFIED REQ's behavior has no description in the affected module README, THEN FAIL (remediate via /prospec-knowledge-update or /prospec-knowledge-generate)
+- WHEN implementation changed but module README not updated, THEN WARN + suggest /prospec-knowledge-update
+- WHEN a permanent Feature Spec lags an un-archived change, THEN informational only (graduates at /prospec-archive) — not drift, does not affect grade
+- WHEN an already-archived capability regresses or Feature Spec Health (Density/Freshness/Consistency) degrades, THEN informational signal for the developer, not grade-blocking
 - WHEN ui_scope != none + design-spec.md exists, THEN execute design consistency check
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
@@ -400,3 +402,4 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-03-02 | v2-product-first migration | 重組為 product-first feature spec | All |
 | 2026-03-02 | redesign-spec-architecture | Product-First 架構：Feature Spec Sync、Product Spec 自動生成、Spec Health、Feature/Story 路由、deprecated Capability Spec Format | US-3,5,6,7; REQ-SPEC-010~013, REQ-TEMPLATES-010/033/034, REQ-SPECS-001; -REQ-TEMPLATES-031 |
 | 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |
+| 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |

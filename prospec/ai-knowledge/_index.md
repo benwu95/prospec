@@ -14,7 +14,7 @@
 | **services** | init, steering, knowledge, change, archive, agent-sync, spec-sync, product | Active | Business logic — 10 services with `execute()` pattern, including Recipe-First knowledge generation (3,429 lines) | Isolates business logic from I/O layer, enables testability | types, lib |
 | **cli** | commands, formatters, commander, output, preaction | Active | CLI entry point — 8 commands + 9 formatters, parse → execute → format (18 files) | Thin I/O layer: no business logic, delegates to services | types, services |
 | **templates** | handlebars, hbs, skills, agent-configs, recipe-first, loading-rules, references, change | Active | Handlebars template library — 11 skills, 15 references, 4 agent-configs, 5 change, 13 init/steering/knowledge (48 `.hbs` files) | Pure resources — no logic, consumed by lib/template.ts | — |
-| **tests** | vitest, memfs, unit, integration, contract, e2e, knowledge-format, skill-format | Active | 4-layer test suite — 28 files, 454 tests (unit 222 + contract 200 + integration 15 + e2e 17) | Quality gate — validates all layers with pyramid coverage | all |
+| **tests** | vitest, memfs, unit, integration, contract, e2e, knowledge-format, skill-format | Active | 4-layer test suite — 28 files, 457 tests (unit 222 + contract 203 + integration 15 + e2e 17) | Quality gate — validates all layers with pyramid coverage | all |
 
 ## Dependency Graph
 
