@@ -21,6 +21,13 @@ When triggered, briefly describe:
 5. Read related module `README.md` from `{{knowledge_base_path}}/modules/` (and any `{sub-module}.md` it links) — confirm architecture layers and dependency directions for task ordering
 6. **MANDATORY** — Read [`references/tasks-format.md`](references/tasks-format.md) for tasks.md format
 
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- plan.md and delta-spec.md exist.
+- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+
 ## Core Workflow
 
 ### Phase 1: Parse Planning Documents
@@ -99,6 +106,10 @@ Suggest: `/prospec-implement` or manual review.
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-07
-story_count: 11
-req_count: 49
+last_updated: 2026-06-08
+story_count: 12
+req_count: 53
 ---
 
 # SDD 開發流程
@@ -394,6 +394,45 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 
 ---
 
+## US-12: Entry/Exit 雙閘門與跨階段品質追溯 [P1]
+
+身為一個使用 Prospec 的開發者，
+我想要每個 Skill 啟動時做阻擋式前置條件檢查（Entry Gate）、結束時對 Constitution 三級驗證並把 WARN/FAIL 記入 quality_log（Exit Gate），
+以便劣質前置不被帶進下一階段、未解問題能跨 Skill 追溯收斂（越用越準）。
+
+**Acceptance Scenarios:**
+- WHEN Skill 啟動而前序 artifact 缺失/不完整或 Constitution 為空 THEN Entry Gate FAIL、阻擋並說明缺什麼
+- WHEN Skill 結束 THEN skill-end 摘要含 Constitution 三級結果（消費 BL-031 severity），FAIL 附建議但 advisory 不硬阻擋
+- WHEN Exit Gate 產生 WARN/FAIL THEN 記入 `metadata.yaml` quality_log，下一 Skill 的 Entry Gate 讀取並顯示前序未解 WARN
+
+### Behavior Specifications
+
+#### REQ-TYPES-022: quality_log Metadata Field
+`ChangeMetadataSchema` 新增 optional `quality_log`（`skill`/`date`/`result`/`warnings[]`），作為 gate 記錄形狀的型別契約。
+- WHEN metadata 含 quality_log, THEN schema 接受且 `ChangeMetadata.quality_log` 型別正確
+- WHEN metadata 省略 quality_log, THEN 仍通過驗證（向後相容）
+- WHEN result 非 PASS/WARN/FAIL, THEN 拒絕（不新增第四狀態）
+- 註：metadata.yaml 經 `parseYaml(doc.toJS())` lossless 讀取（非此 schema 在讀取時 `.parse()`）；persist 靠 round-trip，本欄位為型別契約
+
+#### REQ-TEMPLATES-064: Entry Gate (Blocking Preconditions)
+new-story / plan / tasks / ff / verify 各含 `## Entry Gate`：階段相稱的前置條件檢查（前序 artifact 完整、Constitution 非空、讀 quality_log 取前序未解 WARN）。Entry FAIL 阻擋並說明；復用既有 status-lifecycle，不新增獨立 audit。
+- WHEN 渲染, THEN 5 skill 皆含 `## Entry Gate` 與階段相稱前置 checklist
+- WHEN 前置不足（缺 artifact / Constitution 空 / 前序未解 WARN）, THEN Entry Gate FAIL、阻擋並說明
+- WHEN 移除任一 skill 的 Entry Gate, THEN 對應 contract test 轉紅
+
+#### REQ-TEMPLATES-065: Exit Gate Folded into Skill-End
+在 5 skill 既有 Output Contract 的 skill-end 摘要折入 Exit Gate：比對產出 vs Constitution，消費 BL-031 severity（MUST→FAIL/SHOULD→WARN/MAY→資訊性，grade 維持 PASS/WARN/FAIL），WARN/FAIL 記入 metadata `quality_log`。Exit advisory，不硬阻擋。
+- WHEN skill 結束, THEN skill-end 摘要含 Constitution 合規結果（依 severity 分級）
+- WHEN 有 WARN/FAIL, THEN 記入 `quality_log`；Exit 不硬阻擋流程
+- WHEN Constitution 為自由文字（無 severity）, THEN 退回不分級判讀（向後相容）
+
+#### REQ-TESTS-022: Gate + quality_log Tests
+contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit test 驗證 `quality_log` schema（接受/省略/result 三態/lifecycle 含 `implemented`）。
+- WHEN contract test 執行, THEN 對 new-story/plan/tasks/ff/verify 斷言 Entry/Exit Gate 存在
+- WHEN unit test 執行, THEN quality_log 可省略、result 限 PASS/WARN/FAIL、6 個 lifecycle 狀態（含 implemented）皆通過
+
+---
+
 ## Edge Cases
 
 - Archive 目錄已存在：警告，詢問覆蓋或跳過
@@ -440,3 +479,4 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |
 | 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |
 | 2026-06-07 | make-constitution-executable | verify 依 Constitution 嚴重度分級回報 | US-5; REQ-TEMPLATES-063 |
+| 2026-06-08 | add-entry-exit-gates | Entry/Exit 雙閘門 + quality_log 跨階段品質追溯 | US-12; REQ-TYPES-022, REQ-TEMPLATES-064/065, REQ-TESTS-022 |

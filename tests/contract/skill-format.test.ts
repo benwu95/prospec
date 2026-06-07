@@ -920,6 +920,31 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('MAY → INFO');
     });
   });
+
+  describe('Entry/Exit Gates (BL-003)', () => {
+    const GATE_SKILLS = [
+      'prospec-new-story',
+      'prospec-plan',
+      'prospec-tasks',
+      'prospec-ff',
+      'prospec-verify',
+    ];
+    for (const name of GATE_SKILLS) {
+      it(`${name} has an Entry Gate section`, () => {
+        const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content).toContain('## Entry Gate');
+      });
+
+      it(`${name} folds an Exit Gate that records to quality_log`, () => {
+        const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content).toContain('### Exit Gate (Constitution)');
+        const exit = content.slice(content.indexOf('### Exit Gate'));
+        expect(exit).toContain('quality_log');
+        // guard the no-fourth-state invariant (MAY is informational, not INFO)
+        expect(exit).not.toContain('INFO');
+      });
+    }
+  });
 });
 
 /**

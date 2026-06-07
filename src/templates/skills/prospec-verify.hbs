@@ -38,6 +38,14 @@ When triggered, briefly describe:
 Other Skills only perform **spot checks** (3 most relevant principles).
 Verify Skill performs a **full audit** (every Constitution principle is checked).
 
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- All planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md.
+- Implementation is done: metadata status is `implemented` and tasks.md checkboxes are complete; if still `tasks`, FAIL and point to `/prospec-implement`.
+- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+
 ## Core Workflow
 
 ### Verification 1/5: Task Completion
@@ -177,6 +185,10 @@ WARN items are deployment risks — recommend resolving before `/prospec-archive
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

@@ -30,6 +30,13 @@ FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 3. **Error recovery**: When any phase fails, preserve completed parts and offer recovery options
 4. **Quick interview**: Only 3 core questions (goal, role, acceptance criteria) — no deep exploration
 
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- Constitution exists and is non-empty (ff runs the full story→plan→tasks chain).
+- ff starts a new change — no prior `quality_log` to read on first run.
+
 ## Core Workflow
 
 ### Phase 0: Quick Interview (3 questions to converge)
@@ -97,6 +104,10 @@ List all produced files, task statistics, suggest `/prospec-implement` as next s
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

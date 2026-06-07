@@ -10,7 +10,7 @@
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema, KnowledgeStrategy, TokenBudget, VALID_AGENTS |
 | `src/types/skill.ts` | SKILL_DEFINITIONS (11 skills), AGENT_CONFIGS (4 agents) |
-| `src/types/change.ts` | ChangeMetadataSchema, CHANGE_STATUSES |
+| `src/types/change.ts` | ChangeMetadataSchema (+ quality_log), CHANGE_STATUSES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
 | `src/types/errors.ts` | ProspecError base + 10 specialized error classes |
@@ -21,7 +21,7 @@
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`
 - `SKILL_DEFINITIONS` — 11 skill configs with name, type, description, references
 - `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); `{ name, skillPath, configPath }`
-- `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`
+- `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields)
 - `KNOWLEDGE_STRATEGIES` — `['auto', 'architecture', 'domain', 'package'] as const`

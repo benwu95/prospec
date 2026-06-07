@@ -19,6 +19,13 @@ When triggered, briefly describe:
 3. **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
 4. Read `{{base_dir}}/specs/capabilities/` — check existing capability specs for context
 
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- Constitution exists and is non-empty (not just placeholder text).
+- First stage of the lifecycle — no prior `quality_log` to read.
+
 ## Core Workflow
 
 ### Phase 1: Requirements Interview (3-4 questions to converge)
@@ -98,6 +105,10 @@ Save proposal.md, suggest:
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
