@@ -7,14 +7,14 @@
 
 <!-- prospec:auto-start -->
 
-| Module | Keywords | Status | Description | Rationale | Depends On |
-|--------|----------|--------|-------------|-----------|------------|
-| **types** | config, schema, errors, skill, change, zod, strategy, spec, token-budget | Active | Zod 4 schemas, error hierarchy (11 classes), skill/agent definitions (6 files, 459 lines) | Leaf module with zero internal deps — all others import from here | — |
-| **lib** | fs, config, template, scanner, merger, yaml, logger, detector, module-detector, module-map, strategy | Active | Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection (10 files, 1,529 lines) | Foundational infrastructure shared across services and CLI | types |
-| **services** | init, steering, knowledge, change, archive, agent-sync, spec-sync, product | Active | Business logic — 10 services with `execute()` pattern, including Recipe-First knowledge generation (3,429 lines) | Isolates business logic from I/O layer, enables testability | types, lib |
-| **cli** | commands, formatters, commander, output, preaction | Active | CLI entry point — 8 commands + 9 formatters, parse → execute → format (18 files) | Thin I/O layer: no business logic, delegates to services | types, services |
-| **templates** | handlebars, hbs, skills, agent-configs, recipe-first, loading-rules, references, change | Active | Handlebars template library — 11 skills, 15 references, 1 agent-config, 5 change, 13 init/steering/knowledge (45 `.hbs` files) | Pure resources — no logic, consumed by lib/template.ts | — |
-| **tests** | vitest, memfs, unit, integration, contract, e2e, knowledge-format, skill-format | Active | 4-layer test suite — 28 files, 457 tests (unit 226 + contract 199 + integration 15 + e2e 17) | Quality gate — validates all layers with pyramid coverage | all |
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| **types** | config, schema, errors, skill, change, zod, strategy, spec, token-budget | 型別, 結構描述, type definitions, 錯誤類別, validation | Active | Zod 4 schemas, error hierarchy (11 classes), skill/agent definitions (6 files, 459 lines) | Leaf module with zero internal deps — all others import from here | — |
+| **lib** | fs, config, template, scanner, merger, yaml, logger, detector, module-detector, module-map, strategy | 工具, 共用函式, utilities, helpers, 基礎設施, infrastructure | Active | Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection (10 files, 1,529 lines) | Foundational infrastructure shared across services and CLI | types |
+| **services** | init, steering, knowledge, change, archive, agent-sync, spec-sync, product | 服務, 業務邏輯, business logic, execute pattern, use case | Active | Business logic — 10 services with `execute()` pattern, including Recipe-First knowledge generation (3,429 lines) | Isolates business logic from I/O layer, enables testability | types, lib |
+| **cli** | commands, formatters, commander, output, preaction | 指令, 命令列, command line, 終端, entry point | Active | CLI entry point — 8 commands + 9 formatters, parse → execute → format (18 files) | Thin I/O layer: no business logic, delegates to services | types, services |
+| **templates** | handlebars, hbs, skills, agent-configs, recipe-first, loading-rules, references, change | 模板, 範本, handlebars, template engine, resources | Active | Handlebars template library — 11 skills, 15 references, 1 agent-config, 5 change, 13 init/steering/knowledge (45 `.hbs` files) | Pure resources — no logic, consumed by lib/template.ts | — |
+| **tests** | vitest, memfs, unit, integration, contract, e2e, knowledge-format, skill-format | 測試, 單元測試, test suite, 驗證, vitest | Active | 4-layer test suite — 28 files, 457 tests (unit 226 + contract 199 + integration 15 + e2e 17) | Quality gate — validates all layers with pyramid coverage | all |
 
 ## Dependency Graph
 
@@ -44,6 +44,7 @@ tests (validates all)
 ## Conventions
 
 - `_conventions.md` — coding patterns, naming, architecture, dependency direction
+- `_glossary.md` — shared term definitions across Skills (load on demand; Skills cite this instead of re-explaining concepts)
 - `_module-readme-conventions.md` — canonical structure for module READMEs (what `/prospec-knowledge-generate` and `/prospec-knowledge-update` produce against)
 - `_diagram-conventions.md` — Mermaid diagram conventions for supplementary flow docs
 - `_status-lifecycle.md` — the `story → … → archived` change status lifecycle every skill follows
