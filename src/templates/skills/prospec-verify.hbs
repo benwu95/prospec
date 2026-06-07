@@ -61,6 +61,7 @@ Mark each item PASS / WARN / FAIL.
 Check **every principle** in the Constitution:
 - Find **evidence** from implementation code and planning documents
 - Mark PASS / WARN / FAIL with score (1-5)
+- **Severity-graded**: when a principle carries an RFC-2119 tag (`[MUST]` / `[SHOULD]` / `[MAY]`), map a violation by weight — **MUST → FAIL**, **SHOULD → WARN**; a **MAY** is advisory, so a violation is an informational note that does NOT affect the grade (grade vocabulary stays PASS/WARN/FAIL). When the Constitution is free-text without severity tags, fall back to judgment-based PASS/WARN/FAIL (backward-compatible). A rule's `Verify` hint guides the check (mechanically-checkable rules use it directly; others are interpretive).
 - FAIL items must include specific remediation steps
 - **Call Chain ↔ layering**: if `plan.md` declares a Call Chain, confirm the implementation matches it and introduces no layering violation against the Constitution's dependency/layering rule (a layer reaching past its neighbor, business logic in the entry/transport layer, a skipped data-access layer, or a side effect emitted before commit). Plan-declared clean layering but dirty implementation → FAIL.
 

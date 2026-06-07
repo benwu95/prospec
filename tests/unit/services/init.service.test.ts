@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/init.service.js';
 import { AlreadyExistsError } from '../../../src/types/errors.js';
+import { renderTemplate } from '../../../src/lib/template.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -146,5 +147,30 @@ describe('init.service', () => {
     const configContent = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
     expect(configContent).toContain('base_dir');
     expect(configContent).toContain('prospec');
+  });
+
+  it('passes stack-appropriate example_rules to the Constitution template', async () => {
+    vi.clearAllMocks();
+    vol.fromJSON({
+      '/project/package.json': JSON.stringify({ name: 'test' }),
+      '/project/tsconfig.json': '{}',
+    });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    const constitutionCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find((c) => c[0] === 'init/constitution.md.hbs');
+    expect(constitutionCall).toBeDefined();
+
+    const ctx = constitutionCall![1] as {
+      example_rules?: Array<{ severity: string }>;
+    };
+    expect(ctx.example_rules?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(
+      ctx.example_rules?.every((r) =>
+        ['MUST', 'SHOULD', 'MAY'].includes(r.severity),
+      ),
+    ).toBe(true);
   });
 });

@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-06
-story_count: 6
-req_count: 14
+last_updated: 2026-06-07
+story_count: 7
+req_count: 19
 ---
 
 # 專案啟動
@@ -208,6 +208,41 @@ req_count: 14
 - WHEN init complete, THEN output summary with created files, next steps (`prospec steering`, `prospec agent sync`), estimated time
 - WHEN steering complete, THEN suggest next action based on project state
 
+### US-007: 可執行 Constitution [P1]
+
+身為使用 Prospec 的開發者，
+我希望 `prospec init` 產出帶嚴重度的引導式 Constitution 規則（而非空模板），
+以便 Constitution 從第一天就可用，且 verify 能依嚴重度分級回報。
+
+**Acceptance Scenarios:**
+- WHEN 在某 tech stack 專案執行 `prospec init` THEN CONSTITUTION.md 含 3-5 條相稱、帶 MUST/SHOULD/MAY 的具體規則
+- WHEN tech stack 無法判定 THEN 給語言中立通用規則，仍非空白
+- WHEN verify 遇帶嚴重度的規則 THEN MUST 違反→FAIL、SHOULD→WARN、MAY→資訊性提示（不影響 grade）
+
+#### REQ-TYPES-021: Constitution Rule Type
+定義 `ConstitutionRule`（RFC-2119 severity + name / description / rationale / optional check）。
+- WHEN a rule is defined, THEN severity is one of MUST / SHOULD / MAY
+
+#### REQ-LIB-012: Stack-Appropriate Example Rules
+`lib/constitution-rules.ts` 的純函式 `exampleRulesFor(techStack)` 依語言回 3-5 條帶 severity 的引導規則。
+- WHEN language is python, THEN return python rules including an authentication rule
+- WHEN language is unknown or undetected, THEN return language-neutral rules
+- WHEN any stack, THEN 3-5 rules, each with a severity, at least one MUST
+
+#### REQ-SERVICES-026: Init Wires Example Rules
+`init.service` 將 `exampleRulesFor(techStack)` 結果作為 `example_rules` 傳入 Constitution 模板。
+- WHEN `prospec init` runs, THEN the constitution template context includes `example_rules`
+
+#### REQ-TEMPLATES-062: Guided Structured Constitution Template
+`init/constitution.md.hbs` 以 `{{#each example_rules}}` 渲染 `### [SEVERITY] Name` + Rationale + Verify，取代空 placeholder。
+- WHEN rendered, THEN output has severity-tagged rules and no `[Principle Name]` placeholder
+
+#### REQ-TESTS-021: Constitution Rules + Format Tests
+`exampleRulesFor` 單元測試 + constitution.hbs / verify 嚴重度 contract test。
+- WHEN tests run, THEN they cover python/typescript/fallback rule sets and template severity rendering
+
+---
+
 ## Edge Cases
 
 - 在非專案目錄執行 `prospec steering`：提示沒有可分析的程式結構
@@ -247,3 +282,4 @@ _(None)_
 | 2026-03-02 | v2-product-first | 合併為 Feature Spec，新增首次使用 Story | US-006, REQ-SETUP-013 |
 | 2026-06-04 | skill-alignment (PR #2) | init 生成 canonical convention docs | REQ-SETUP-004 (MODIFIED), REQ-SETUP-014 (ADDED) |
 | 2026-06-06 | migrate-gemini-to-antigravity | init AI CLI 偵測 Gemini→Antigravity（`~/.gemini/antigravity-cli`） | REQ-SETUP-006 (MODIFIED) |
+| 2026-06-07 | make-constitution-executable | init 產帶嚴重度引導式 Constitution 規則 | US-007; REQ-TYPES-021, REQ-LIB-012, REQ-SERVICES-026, REQ-TEMPLATES-062, REQ-TESTS-021 |

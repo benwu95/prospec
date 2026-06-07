@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-06-07
 story_count: 11
-req_count: 48
+req_count: 49
 ---
 
 # SDD 開發流程
@@ -208,6 +208,11 @@ tasks.md 末尾含 Summary 區段（total tasks、total lines、parallelizable c
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
 - WHEN delta-spec MODIFIED but module README not updated, THEN WARN + suggest `/prospec-knowledge-update`
+
+#### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
+verify Verification 3/5 依規則 RFC-2119 嚴重度分級回報；grade 語彙維持 PASS/WARN/FAIL（不新增第四狀態）。
+- WHEN a principle carries `[MUST]`/`[SHOULD]`/`[MAY]`, THEN map a violation MUST→FAIL, SHOULD→WARN, MAY→informational (does not affect grade)
+- WHEN the Constitution is free-text without severity tags, THEN fall back to judgment-based PASS/WARN/FAIL (backward-compatible)
 
 ---
 
@@ -434,3 +439,4 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |
 | 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |
 | 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |
+| 2026-06-07 | make-constitution-executable | verify 依 Constitution 嚴重度分級回報 | US-5; REQ-TEMPLATES-063 |

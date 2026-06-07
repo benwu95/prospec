@@ -877,6 +877,49 @@ describe('Skill Format Contract', () => {
       });
     }
   });
+
+  describe('Constitution executable rules (BL-031)', () => {
+    const CONSTITUTION_CTX = {
+      project_name: 'test-project',
+      example_rules: [
+        {
+          severity: 'MUST',
+          name: 'Authenticated endpoints',
+          description: 'All endpoints require auth.',
+          rationale: 'Prevent exposure.',
+          check: 'auth dependency present',
+        },
+        {
+          severity: 'SHOULD',
+          name: 'Clean architecture',
+          description: 'Logic in services.',
+          rationale: 'Testability.',
+        },
+      ],
+    };
+
+    it('constitution template renders severity-tagged rules without placeholders', () => {
+      const content = renderTemplate('init/constitution.md.hbs', CONSTITUTION_CTX);
+      expect(content).toContain('[MUST]');
+      expect(content).toContain('[SHOULD]');
+      expect(content).toContain('Authenticated endpoints');
+      expect(content).not.toContain('[Principle Name]');
+      expect(content).not.toContain('[Describe the principle]');
+      // only the rule WITH a check renders a Verify line (rule 2 has none)
+      expect((content.match(/\*\*Verify\*\*/g) ?? []).length).toBe(1);
+    });
+
+    it('prospec-verify grades the Constitution by RFC-2119 severity', () => {
+      const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('MUST');
+      expect(content).toContain('SHOULD');
+      expect(content).toContain('MAY');
+      expect(content).toContain('Severity-graded');
+      // MAY is advisory/informational — must NOT introduce a 4th grade state
+      expect(content).toContain('informational');
+      expect(content).not.toContain('MAY → INFO');
+    });
+  });
 });
 
 /**

@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, and logging (10 files, 1,529 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, and Constitution rule sets (11 files, 1,649 lines)
 
 <!-- prospec:auto-start -->
 
@@ -17,6 +17,7 @@
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir |
 | `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
+| `src/lib/constitution-rules.ts` | exampleRulesFor() — 3-5 stack-appropriate starter Constitution rules with RFC-2119 severity |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
 
 ## Public API
@@ -29,6 +30,7 @@
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
 - `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
 - `detectTechStack(cwd, configTechStack?)` — Resolve language/framework/package manager; `.prospec.yaml` tech_stack wins, auto-detection fills gaps; reports `source` (config/auto-detected/mixed)
+- `exampleRulesFor(techStack)` — Stack-appropriate starter Constitution rules (python/typescript/generic), each with an RFC-2119 severity
 
 ## Dependencies
 
