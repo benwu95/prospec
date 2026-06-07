@@ -73,14 +73,14 @@ Update checkbox in tasks.md `- [ ]` → `- [x]`, display updated progress.
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all tasks are complete, update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-verify`.
+When all tasks are complete, update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 
 - **Execute in order**: Follow tasks.md architecture layer sequence (Types → Lib → Services → CLI → Tests)
 - **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
 - **Immediate marking**: Update tasks.md immediately after completing each task
-- **Commit strategy**: Suggest commit after completing a group of related tasks
+- **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.
 
 ## Knowledge Quality Gate
 
@@ -119,7 +119,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** forget to mark task completion — unchecked tasks cause Verify to report false incomplete status; also breaks progress tracking for user
 - **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and capability spec inconsistency
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
-- **NEVER** forget to suggest `/prospec-verify` when all tasks are complete — users may skip verification and proceed to archive, missing quality issues
+- **NEVER** forget to suggest `/prospec-review` when all tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
+- **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
 - **NEVER** leave `status: tasks` after completing all tasks — set `status: implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned"; see `{{knowledge_base_path}}/_status-lifecycle.md`
 
 ## Error Handling

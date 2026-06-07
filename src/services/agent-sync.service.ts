@@ -332,6 +332,13 @@ function getSkillReferences(skillName: string): SkillReference[] {
         title: 'Implementation Guide',
       },
     ],
+    'prospec-review': [
+      {
+        templateName: 'review-format.hbs',
+        outputName: 'review-format.md',
+        title: 'Review Severity Contract and review.md Format',
+      },
+    ],
     'prospec-archive': [
       {
         templateName: 'archive-format.hbs',

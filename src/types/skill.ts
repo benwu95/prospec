@@ -42,7 +42,7 @@ export interface AgentConfig {
 }
 
 /**
- * Predefined Skill definitions (11 Skills).
+ * Predefined Skill definitions (12 Skills).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
@@ -88,6 +88,12 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-implement',
     description: '按 tasks.md 逐項實作任務。讀取任務清單，按順序實作，完成後勾選 checkbox。',
+    type: 'Execution',
+    hasReferences: true,
+  },
+  {
+    name: 'prospec-review',
+    description: '對抗式 code review → fix 迴圈。在 implement 與 verify 之間，由獨立 reviewer 審查整個 change diff；critical 經獨立驗證確認真實才自動修、major 提案降為 WARN、spec-aware（對照 delta-spec REQ／依賴方向／module conventions）。Adversarial code review and fix loop between implement and verify.',
     type: 'Execution',
     hasReferences: true,
   },

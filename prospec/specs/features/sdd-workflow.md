@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-06-08
-story_count: 12
-req_count: 53
+story_count: 13
+req_count: 58
 ---
 
 # SDD 開發流程
@@ -433,6 +433,46 @@ contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit tes
 
 ---
 
+## US-13: 對抗式 Code Review → Fix 迴圈 [P1]
+
+身為一個使用 Prospec 的開發者，
+我想要在 implement 與 verify 之間有一個獨立的對抗式 code review → fix 迴圈，
+以便 critical 問題在被評為「可部署」前就被攔下、不必手動回灌 review 結果，且提交歷史天生 review-clean。
+
+**Acceptance Scenarios:**
+- WHEN 所有 tasks 完成（status: implemented）THEN 可觸發 `/prospec-review`，由獨立 fresh-context reviewer 審相對 branch base 的整個 change diff
+- WHEN review 報 critical THEN 先由獨立 verifier 確認存在性，確認且為 drop-in 才自動修、重跑測試保綠、re-review 至無 critical 或達硬上限(3,cap5)否則升級給人
+- WHEN review 報 major THEN 不自動修、降為 WARN 經 `quality_log` 傳 verify（不計 grade）；nit 直接 drop
+- WHEN 執行環境不支援 sub-agent THEN 提出選擇（harness reviewer 或單輪 fresh-context），不靜默跳過
+
+### Behavior Specifications
+
+#### REQ-TYPES-023: Register prospec-review Skill
+`SKILL_DEFINITIONS` 新增第 12 skill `prospec-review`（type `Execution`）；`agent-sync` 的 `getSkillReferences` referenceMap 加 `prospec-review → review-format`。無新 metadata schema——review 跨階段訊號走既有 `quality_log`。
+- WHEN `prospec agent sync`, THEN deployed 含 `prospec-review/SKILL.md` + `references/review-format.md`
+- WHEN registered, THEN `SKILL_DEFINITIONS` 為 12 skill
+
+#### REQ-TEMPLATES-066: Adversarial Review→Fix Loop Skill
+`prospec-review` 在 implement→verify 間以 fresh-context reviewer 審 change diff；reviewer 模式 B 預設 / A opt-in；**spec-architecture lens**（delta-spec REQ／依賴方向／conventions／ripple）一律疊加；critical 經獨立 verifier 確認後 drop-in auto-fix，硬上限後升級給人。
+- WHEN rendered, THEN 含 Entry Gate / Reviewer Modes / spec-architecture lens / verifier-confirmed critical / 硬上限 / escalation / Output Contract + Exit Gate
+- WHEN critical reported, THEN existence-verified 才 auto-fix；architectural/ambiguous → 升級給人
+- WHEN findings persist, THEN 落 `review.md`（依 Location 去重、severity 取最高、跨輪 carry-forward）
+
+#### REQ-TEMPLATES-067: Review Severity Contract + review.md Format
+`references/review-format.md` 定義嚴重度準則與 review.md 結構。critical = 真實 defect/安全 ＋ 依賴方向違規 ＋ 與 delta-spec REQ 邏輯矛盾（completeness 留 verify）；major = perf/maintainability（不擋、降 WARN 不計 grade）；nit drop。
+- WHEN referenced, THEN 含三級準則 + auto-fix 邊界 + review.md 欄位（location/severity/lens/status）+ reviewer-lens 定義
+
+#### REQ-TEMPLATES-068: Unified Commit Boundary After verify(S/A)
+commit 邊界統一到「最後一個會要求改 code 的 gate」之後＝verify 達 S/A 後；implement 延後 commit、verify 在 S/A 後**提示使用者** commit（折入 implement+review+verify fixes 為單一 atomic-by-feature commit）、**prospec 不自動 commit**。
+- WHEN implement 完成, THEN 不建議即時 commit、導向 review→verify
+- WHEN verify S/A, THEN 提示使用者 commit、不自動 commit；review 與 verify 對 layering 各自獨立判定
+
+#### REQ-TESTS-023: prospec-review Contract Tests + Commit-Boundary Assertions
+contract 驗證 skill 數 12、`prospec-review` 結構（**section-scoped** 斷言）、implement 延後 commit、verify S/A 後提示 commit。
+- WHEN contract runs, THEN 斷言 section-scoped；移除 prospec-review 任一關鍵區段（loop/persistence）會轉紅（mutation-verified）
+
+---
+
 ## Edge Cases
 
 - Archive 目錄已存在：警告，詢問覆蓋或跳過
@@ -480,3 +520,4 @@ contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit tes
 | 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |
 | 2026-06-07 | make-constitution-executable | verify 依 Constitution 嚴重度分級回報 | US-5; REQ-TEMPLATES-063 |
 | 2026-06-08 | add-entry-exit-gates | Entry/Exit 雙閘門 + quality_log 跨階段品質追溯 | US-12; REQ-TYPES-022, REQ-TEMPLATES-064/065, REQ-TESTS-022 |
+| 2026-06-08 | add-review-fix-loop | implement↔verify 間對抗式 review→fix 迴圈 + commit 邊界移至 verify(S/A) 後 | US-13; REQ-TYPES-023, REQ-TEMPLATES-066/067/068, REQ-TESTS-023 |

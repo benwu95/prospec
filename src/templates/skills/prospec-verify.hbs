@@ -44,7 +44,9 @@ Verify Skill performs a **full audit** (every Constitution principle is checked)
 
 - All planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md.
 - Implementation is done: metadata status is `implemented` and tasks.md checkboxes are complete; if still `tasks`, FAIL and point to `/prospec-implement`.
-- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages (including `/prospec-review` majors).
+
+> **Recommended (non-blocking)**: if `.prospec/changes/[name]/review.md` is absent, suggest running `/prospec-review` first — verify grades contract compliance, not adversarial correctness. Absence does NOT block verify; it is a recommendation only.
 
 ## Core Workflow
 
@@ -153,6 +155,8 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 - **Grade B / C / D** → **leave `status` unchanged**; state in the report that the change is NOT verified, list the WARN/FAIL items to resolve, then re-run `/prospec-verify` after fixing.
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `{{knowledge_base_path}}/_status-lifecycle.md`.
+
+**Commit prompt (S/A only)**: reaching S/A is the commit boundary — the last gate that can require code changes. After setting `status: verified`, **prompt the user to commit** the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes together. **Do not commit automatically** — prospec only prompts; the user runs the commit. (If the change was large enough to checkpoint-commit during implement, only the post-checkpoint fixes go in a follow-up commit.)
 
 > Feature Spec freshness is NOT an input to the grade — Feature Specs graduate at `/prospec-archive` (Phase 3.5). Verify gates on code↔delta-spec (2/5), Constitution (3/5), and Knowledge↔code (4/5).
 
