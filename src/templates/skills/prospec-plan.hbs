@@ -101,6 +101,23 @@ WARN items do not block — note them in plan.md Risk Assessment.
 
 Suggest: `/prospec-tasks` or manual review.
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] Technical Summary non-empty (Brownfield or Greenfield)
+- [ ] Implementation Steps between 4 and 8
+- [ ] Call Chain present for each entry point
+- [ ] every delta-spec.md requirement has a REQ ID
+
+### Failure Conditions
+- no delta-spec.md produced
+- plan.md contains code or > 10 Implementation Steps
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** write code in plan.md — plan is about architecture and steps, not code

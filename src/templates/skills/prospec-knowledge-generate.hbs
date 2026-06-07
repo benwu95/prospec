@@ -201,6 +201,23 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] each module has exactly one Recipe-First README
+- [ ] _index.md has the module table + Loading Rules
+- [ ] L0 total <= 1,500 tokens
+- [ ] >= 2 modules
+
+### Failure Conditions
+- ran without raw-scan.md
+- produced api-surface.md / dependencies.md / patterns.md
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** overwrite content between `prospec:user-start/end` markers — these are user notes, always preserve

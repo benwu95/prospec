@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-06
-story_count: 10
-req_count: 45
+last_updated: 2026-06-07
+story_count: 11
+req_count: 48
 ---
 
 # SDD 開發流程
@@ -359,6 +359,36 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 
 ---
 
+## US-11: Skill 產出自評（Output Contract）[P1]
+
+身為一個使用 Prospec 的開發者，
+我想要每個 Skill 執行完都明確告訴我「成功」或「哪裡未達成」，
+以便不必逐行檢查 artifact 就能判斷產出品質，並讓後續階段（verify / review / 回饋晉升）有結構化的成功/失敗訊號可消費。
+
+**Acceptance Scenarios:**
+- WHEN 任一 Skill 執行完畢 THEN 輸出精簡 Output Summary（達成 N/M + 未達成項 + 整體 PASS/WARN/FAIL）
+- WHEN 定義 Success Criteria THEN 每條客觀可判定（檔案/grep/測試/數量），不可機械判定者標 (manual)
+- WHEN 移除任一 skill 的 Output Contract 區段 THEN contract test 轉紅
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-060: Skill Output Contract Section
+11 個 skill template 各含 `## Output Contract`（Success Criteria + Failure Conditions），位於 `## NEVER` 之前；deployed SKILL.md 經 agent sync 同步。
+- WHEN a skill template renders, THEN it contains `## Output Contract` with `### Success Criteria` + `### Failure Conditions`
+- WHEN a non-artifact skill (explore), THEN success is defined by observable outcome, not artifact conditions
+
+#### REQ-TEMPLATES-061: Output Summary and Objective Criteria
+每個 skill 結尾輸出統一格式 Output Summary，採 PASS/WARN/FAIL 詞彙；Success Criteria 客觀可判定。
+- WHEN a skill finishes, THEN it emits `Met N/M | Unmet: ... | Overall: PASS|WARN|FAIL | Next: ...`
+- WHEN a criterion is not mechanically checkable, THEN it is marked (manual), not faked as PASS
+
+#### REQ-TESTS-001: Output Contract Contract Test
+`skill-format.test.ts` 驗證每個 skill 含 Output Contract 區段（heading-scoped 斷言）。
+- WHEN the contract test runs, THEN every SKILL_DEFINITIONS skill asserts `### Success Criteria` + `### Failure Conditions`
+- WHEN a skill's Output Contract section is removed, THEN its assertion turns red
+
+---
+
 ## Edge Cases
 
 - Archive 目錄已存在：警告，詢問覆蓋或跳過
@@ -403,3 +433,4 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-03-02 | redesign-spec-architecture | Product-First 架構：Feature Spec Sync、Product Spec 自動生成、Spec Health、Feature/Story 路由、deprecated Capability Spec Format | US-3,5,6,7; REQ-SPEC-010~013, REQ-TEMPLATES-010/033/034, REQ-SPECS-001; -REQ-TEMPLATES-031 |
 | 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |
 | 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |
+| 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |

@@ -83,6 +83,23 @@ WARN items do not block — add clarification notes to affected tasks.
 
 Suggest: `/prospec-implement` or manual review.
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] tasks cover every delta-spec REQ
+- [ ] tasks grouped by architecture layer
+- [ ] each task has a ~lines estimate
+- [ ] every new/modified module has a test task
+
+### Failure Conditions
+- no plan.md present
+- > 30 tasks, or a modified module has no test task
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** produce more than 30 tasks — indicates Story scope creep; large task lists overwhelm AI context and lose coherence

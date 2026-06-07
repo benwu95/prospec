@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.1.7
-last_updated: 2026-06-06
+last_updated: 2026-06-07
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -66,6 +66,6 @@ last_updated: 2026-06-06
 | 階段 | 狀態 | 核心功能 |
 |------|------|---------|
 | MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 進行中 | 6/11 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言中立化 |
-| Phase 2 待做 | 規劃中 | 複雜度適配、Output Contract、KV-Cache 策略、模板自訂、Plugin 機制 |
+| Phase 2 進行中 | 7/11 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言中立化、Output Contract |
+| Phase 2 待做 | 規劃中 | 複雜度適配、KV-Cache 策略、模板自訂、Plugin 機制 |
 | Phase 3 | 構想中 | 智慧感知更新、多語言 i18n、MCP 整合、多代理協作、CI/CD 整合 |

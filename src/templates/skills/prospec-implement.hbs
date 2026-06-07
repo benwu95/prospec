@@ -94,6 +94,23 @@ After completing each task, verify Knowledge alignment:
 
 WARN items do not block — document reasoning in task completion notes.
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] all code tasks in tasks.md checked off
+- [ ] tests pass
+- [ ] metadata status set to implemented
+- [ ] _conventions patterns followed
+
+### Failure Conditions
+- an unchecked code task remains
+- tests fail or a delta-spec deviation is undocumented
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** skip tasks to work on later ones — architecture layers have dependency direction; skipping causes missing imports, undefined types, or broken contracts

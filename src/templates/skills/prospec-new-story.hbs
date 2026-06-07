@@ -82,6 +82,23 @@ Save proposal.md, suggest:
 2. `/prospec-ff` — fast-forward full planning
 3. Manually adjust proposal.md
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] proposal.md has >= 1 INVEST User Story
+- [ ] each Story has >= 2 WHEN/THEN acceptance scenarios
+- [ ] Constitution Check section present
+- [ ] Related Modules cross-referenced against _index.md (>= 1 when Knowledge exists)
+
+### Failure Conditions
+- proposal.md empty or missing Background/Why
+- Constitution Check skipped
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** create non-kebab-case change names — all lowercase, hyphen-separated, verb-first

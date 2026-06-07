@@ -160,6 +160,23 @@ Final Knowledge consistency summary:
 
 WARN items are deployment risks — recommend resolving before `/prospec-archive`.
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] all 5+1 dimensions executed (6 dimension sections present)
+- [ ] each dimension graded PASS/WARN/FAIL with evidence (manual)
+- [ ] status updated per grade (S/A -> verified)
+- [ ] FAIL items include remediation steps
+
+### Failure Conditions
+- a dimension skipped, or a PASS without an evidence reference (manual)
+- status: verified set for grade B/C/D
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** only spot-check the Constitution — Verify's core distinction from other Skills is full audit; spot-checking defeats the purpose of a dedicated verification phase

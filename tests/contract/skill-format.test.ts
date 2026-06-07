@@ -854,6 +854,29 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('test-project');
     });
   });
+
+  describe('Output Contract (BL-019)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      describe(`${skill.name}`, () => {
+        it('should contain an Output Contract section', () => {
+          const content = renderTemplate(
+            `skills/${skill.name}.hbs`,
+            TEMPLATE_CONTEXT,
+          );
+          expect(content).toContain('## Output Contract');
+        });
+
+        it('should define Success Criteria and Failure Conditions', () => {
+          const content = renderTemplate(
+            `skills/${skill.name}.hbs`,
+            TEMPLATE_CONTEXT,
+          );
+          expect(content).toContain('### Success Criteria');
+          expect(content).toContain('### Failure Conditions');
+        });
+      });
+    }
+  });
 });
 
 /**

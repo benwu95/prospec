@@ -63,6 +63,22 @@ Convergence options:
 
 Use ASCII diagrams to aid thinking (architecture relationships, decision trees, sequence diagrams) only when they **help clarify the problem** — never for decoration.
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] all three spaces (Why/What/Where) explored (manual)
+- [ ] Constitution checkpoint done before converging (manual)
+- [ ] converged to a concrete next step (new-story / ff / continue) (manual)
+
+### Failure Conditions
+- converged without a Constitution check
+- produced files under .prospec/changes/ (exploration must not)
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** suggest `/prospec-ff` when requirements are vague — exploration exists to clarify first

@@ -111,6 +111,22 @@ Display completion summary:
 
 Suggest: `/prospec-plan` (if plan.md doesn't exist) or `/prospec-tasks` (if plan.md exists)
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] design-spec.md + interaction-spec.md produced (Generate) or extracted (Extract)
+- [ ] design-spec.md has Visual Identity / Components / Responsive Strategy sections (grep)
+- [ ] no unresolved [NEEDS CLARIFICATION] remaining (grep)
+
+### Failure Conditions
+- ran while ui_scope is none
+- a UI task left without a design-spec
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** include platform-specific references in design-spec.md — downstream Implement/Verify Skills read spec not tools; platform refs break portability

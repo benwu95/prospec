@@ -84,6 +84,20 @@ List all produced files, task statistics, suggest `/prospec-implement` as next s
 | Independent scope, low risk | Uncertain tech choices |
 | Tight schedule | First time with project |
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] proposal, plan, and tasks all produced
+- [ ] each stage's own Output Contract is satisfied (manual)
+
+### Failure Conditions
+- any stage artifact missing or failing its Output Contract
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** use FF when requirements are vague — guide user to `/prospec-explore` first
