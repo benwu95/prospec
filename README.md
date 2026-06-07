@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-450%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-460%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -22,7 +22,7 @@
 
 ## What is Prospec?
 
-Prospec is a **CLI tool** that bridges the gap between human requirements and AI-driven development. It automates project analysis, knowledge generation, and change management workflows—all while keeping your AI assistant in the loop.
+Prospec is a **Skills-driven SDD toolkit** that bridges the gap between human requirements and AI-driven development. The day-to-day workflow runs as slash-command Skills inside your AI agent; a thin CLI handles one-time bootstrap and config/knowledge regeneration. Together they automate project analysis, knowledge generation, and change management—all while keeping your AI assistant in the loop.
 
 ### Key Features
 
@@ -49,19 +49,40 @@ Prospec is a **CLI tool** that bridges the gap between human requirements and AI
 
 ## Installation
 
+Prospec is a **bootstrap + update CLI** — you run it to scaffold a project and to
+regenerate Skills/Knowledge, not at runtime. Once `init` + `agent sync` have run, your AI
+agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed
+again until you regenerate. So install it once, globally.
+
 > Prospec is an unpublished fork — install it directly from GitHub. npm/pnpm clones the
 > repo, installs dev deps, and builds it via the `prepare` script.
 
 ```bash
-# As a devDependency (recommended — prospec is used per-project)
-npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
-
-# Or globally
+# Recommended — install once, use across projects
 npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
 
 # Verify
 prospec --help
 ```
+
+Prefer not to install? Run on demand with npx (clones + builds each time):
+
+```bash
+npx github:benwu95/prospec init
+npx github:benwu95/prospec agent sync
+```
+
+<details>
+<summary>Pin the version per-project (reproducible <code>agent sync</code>)?</summary>
+
+Install it as a devDependency instead — this locks the prospec version in your lockfile so
+re-running `agent sync` regenerates identical Skills across contributors:
+
+```bash
+npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
+```
+
+</details>
 
 ### Prerequisites
 
@@ -160,7 +181,7 @@ prospec knowledge init
 | `prospec change plan [--change <name>]` | Generate implementation plan (scaffold) |
 | `prospec change tasks [--change <name>]` | Break down tasks (scaffold) |
 
-> **Note**: CLI commands create **scaffolds**; AI agents (via Skills) fill in content.
+> **Note**: These commands scaffold empty change artifacts. The Skills (`/prospec-new-story`, `/prospec-ff`, …) now create `.prospec/changes/<name>/` and its files directly, so the workflow doesn't call them — they remain available for manual or scripted scaffolding.
 
 ---
 
@@ -196,13 +217,11 @@ Explore → Story → [Design] → Plan → Tasks → Implement → Verify → A
 /prospec-ff add-authentication
 
 # AI will:
-# 1. Call `prospec change story add-authentication`
-# 2. Fill in proposal.md (User Story format)
-# 3. Call `prospec change plan`
-# 4. Fill in plan.md + delta-spec.md
-# 5. Call `prospec change tasks`
-# 6. Fill in tasks.md (with complexity estimates)
-# 7. Output summary + next steps
+# 1. Create .prospec/changes/add-authentication/ + metadata.yaml
+# 2. Write proposal.md (User Story format)
+# 3. Write plan.md + delta-spec.md
+# 4. Write tasks.md (with complexity estimates)
+# 5. Output summary + next steps
 ```
 
 ---
@@ -236,7 +255,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (450 tests)
+# Run all tests (460 tests)
 pnpm test
 
 # Watch mode
@@ -253,9 +272,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 450 tests across 4 categories:
-- Unit tests (lib + services): 222 tests
-- Contract tests (CLI output + Skill format): 196 tests
+**Test Coverage**: 460 tests across 4 categories:
+- Unit tests (lib + services): 229 tests
+- Contract tests (CLI output + Skill format): 199 tests
 - Integration tests: 15 tests
 - E2E tests: 17 tests
 
@@ -386,7 +405,7 @@ Prospec draws inspiration from:
 - [cc-sdd](https://github.com/kiro-ai/cc-sdd) — Steering analysis, template customization
 - [BMAD](https://github.com/bmad-ai/bmad) — Analyst role (prospec-explore)
 
-Prospec's unique contribution: **CLI + Skills hybrid** — CLI for deterministic ops, Skills for AI guidance. Plus **AI Knowledge as Context Engineering** — structured, versioned, progressive project memory for AI agents.
+Prospec's unique contribution: **Skills-driven SDD with a thin CLI** — Skills run the workflow inside your AI agent; the CLI only bootstraps and regenerates. Plus **AI Knowledge as Context Engineering** — structured, versioned, progressive project memory for AI agents.
 
 ---
 
