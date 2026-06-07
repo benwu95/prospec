@@ -6,6 +6,33 @@
 
 ---
 
+## 2026-06-07 目標導向評估結論
+
+> 完整分析（含上網查證證據、6 目標對照、逐項判決）見 **[`planning/backlog-evaluation-2026-06-07.md`](backlog-evaluation-2026-06-07.md)**。
+> 評判尺：是否推進 6 大目標 — G1 順利實作｜G2 管理 spec｜G3 理解 codebase｜G4 省 70-80% token｜G5 越用越精準｜G6 越用越聰明（session 回饋→團隊共享規則）。
+
+**一句話**：工程地基判斷大致正確，但戰略優先序押錯寶——最高戰略價值不該是「並行卡位（BL-027/028）」（前提被誇大、賣點被 harness worktree 取代），而使用者最看重的 **G5/G6 幾乎沒被正面設計，G6 在 codebase 中是 ABSENT**。
+
+| Verdict | 項目 |
+|---------|------|
+| **BUILD-NOW** | BL-020 KV-Cache、BL-019 Output Contract、BL-004 Scale Adapter、BL-033 唯讀 MCP Server、BUG-001、OPT-D7 Aliases、OPT-D8 Glossary、OPT-B3+B6 |
+| **DONE-KEEP** | BL-001/002/014/015/017/018、BL-035、OPT-B5 |
+| **RESHAPE** | BL-003（依賴 Constitution 結構化）、BL-027（砍 file-reservation，只留依賴波次排序，降級）、BL-028（解耦 BL-027，賣點改 payload handoff，砍 Adapter A）、BL-029（擴成晉升決策層→ BL-036）、BL-031（init 範例先做，立論抽掉 73%）、BL-030（重定義為決定性 drift checker，非 LLM-in-CI）、BL-006（收斂為 AGENTS.md+SKILL.md 兩標準）、BL-032（降為草稿+人工校驗）、BL-022（縮為 CLAUDE.md 靜態路由表，不新增 skill）、OPT-A2 |
+| **BUILD-LATER** | BL-008、BL-034、BL-023、OPT-A1/A4/B1/B2/C/D1/D5/D6/D9 |
+| **CUT** | BL-024（併 BL-029）、BL-012（併 BL-030）、BL-010/BL-025（已重定位）、BL-026（行銷敘事）、BL-005、BL-021、BL-009、BL-007、OPT-A3/D4（無 harness 即捏造數字）、OPT-D2/D3（純 prompt 美學） |
+| **🆕 新增** | **BL-036 回饋晉升管線** — 補 G6 唯一未被正面設計的缺口（見下方 Phase 4 與分析報告第四節） |
+
+**建議執行序（取代「第八波並行卡位=最高戰略價值」）**：
+1. 地基+量測（純文件/小改）：BL-020 + BL-019 + BL-004 同批改 11 skill + **新增 token 量測 harness**（見 `planning/design-token-measurement-harness.md`，讓 G4 可驗）+ BUG-001 + OPT-D7 + OPT-D8。
+2. G5/G6 護城河：BL-031(init 範例) → **BL-036** → BL-029 RESHAPE。
+3. 開放互通：BL-033 → BL-006 收斂。
+4. 治理：BL-030 決定性引擎 → BL-003。
+5. 並行（BL-027/028）降為 BUILD-LATER 重塑。
+
+**文件引用須修正**（不影響主體，對外/學術會被抓包）：「merge-conflict 公認**唯一**未解」去掉「唯一」；「Fowler/Beck 批評」正名為 **Birgitta Böckeler（ThoughtWorks）**；Constitutional SDD **73%** 是單作者未複現 preprint 不可當定量背書；Tessl「$125M」是 2024-11 舊聞；ACE 是 2025-10 論文非 2026 新趨勢；Chroma「50K」是二手數字非原文；module-map.yaml「實體缺」**已過期（檔案已存在）**。
+
+---
+
 ## 設計原則轉變
 
 ### 從 CLI-First 到 Skills-First
@@ -82,6 +109,9 @@
 - [BL-034](#bl-034) 依賴層知識（重定位 BL-025）
 - [BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發（併入 BL-006）
 
+### 評估新增（2026-06-07）
+- [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）🔴 G6 — 補使用者目標唯一未被正面設計的缺口
+
 ---
 
 ## 實作狀態總覽
@@ -115,7 +145,7 @@
 
 ### ⚠️ 影響後續排程的缺口
 
-- **`module-map.yaml` 實體缺**：生成程式碼在 `steering.service`，但 `prospec/ai-knowledge/module-map.yaml` 尚未產出 → 阻擋 BL-027。
+- ~~**`module-map.yaml` 實體缺**~~ **【2026-06-07 已過期】**：`prospec/ai-knowledge/module-map.yaml` 已存在且完整（6 模組、依賴方向、路徑），由 `generate-module-map-in-knowledge-init` 補上。不再阻擋 BL-027。
 - **OPT-B2 實際未做**：曾規劃併入 `optimize-ai-knowledge`，但該 change 未實作 `_index` auto/user 去重（`_index.md` 無 Category 欄位）。
 
 ---
@@ -2212,6 +2242,68 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [ ] 以 SKILL.md 為跨廠商正規格式，收斂 per-agent 模板
 - [ ] 擴展 agent 支援（併 BL-006：Cursor / Windsurf / OpenCode / Qwen 等）
 - [ ] （評估）發佈 Prospec skills 至 marketplace
+
+---
+
+### BL-036
+
+**回饋晉升管線（Feedback Promotion Pipeline）**
+
+> **2026-06-07 評估新增**：補使用者目標 G6（越用越聰明）唯一未被正面設計的缺口。完整論證見 `planning/backlog-evaluation-2026-06-07.md` 第四節。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | 🔴 P1 — 高（直接服務 G6，使用者最看重的目標之一） |
+| Skill 類型 | 新增 Lifecycle Skill（暫稱 `/prospec-learn`）+ 增強 `prospec-archive` |
+| 影響範圍 | `.prospec/lessons.md`, `playbooks/`, `CONSTITUTION.md`, `_conventions.md`, `prospec-archive`, `prospec-plan`/`implement` Entry context |
+| CLI 依賴 | 無（純 Skill）或選配 `prospec learn` 做確定性頻次統計 |
+| 預估複雜度 | Full |
+| 依賴 | BL-019（Output Contract 提供結構化成功/失敗訊號）、BL-031（可執行 Constitution 作為升級終點容器）；可獨立先做萃取層 |
+| 升級 | BL-029（從「萃取」擴成「萃取 + 晉升決策」）、吸收 BL-024 |
+
+**背景**：
+
+業界（Claude auto memory、Cursor /create-rule + Team Rules、AGENTS.md）已把「session 糾正 → 規則」做成成熟產品，但**所有人都弱在「判斷一條回饋值不值得升級為團隊共享規則」這個決策步驟**——現況全是給人看的 heuristic checklist 或模型黑箱啟發式，沒有自動、可審計的晉升判定。這是全業界 open 問題，且恰好打在 prospec 獨有結構化資產（archive 跨 change 統計、module-map 影響範圍、Constitution 升級門檻、verify Grade）上。
+
+差異化敘事：Anthropic Dreaming / Kiro 的記憶鎖在 agent 內、不可審閱；prospec 的晉升管線在 Git、可 diff、團隊共享、可治理——把護城河從「有記憶」（人人都有）升級為「有可審計的晉升判定」（無人做好）。
+
+**使用者故事**：
+
+作為團隊開發者，我希望 prospec 能把我在 session 中反覆給的回饋/糾正，依可審計準則判斷是否值得升級為所有開發者共享的持久規則，以便下次不再出現類似問題、減少重複要求。
+
+**核心設計（五階段）**：
+
+```
+1. 蒐集：session 糾正（中斷/改用其他 skill）、verify 反覆同類 FAIL、
+        archive 跨 change 重複錯誤 → 統一進個人 .prospec/lessons.md
+2. 晉升判定（可審計明文準則，非 LLM 黑箱）：
+        跨 change 出現頻次 ≥ 門檻 + 影響模組數（查 module-map.yaml）
+        + 是否屬 Constitution 既有範疇 → 計算晉升分數
+3. 三層去向：
+        個人 lessons（不共享）
+          → 團隊 playbook（共享 behavioral，Git-tracked）
+          → Constitution/conventions（升級為 verify 可強制規則）
+4. 人工核可閘門：升級到共享層必須顯式批准（PR review），
+        版控 diff 留痕「從哪個 change、依據什麼準則、誰核可」
+5. 治理：每條共享規則帶 TTL + 來源引用，定期 review
+        淘汰過期/衝突規則（對沖 memory poisoning / stale 規則衝突）
+```
+
+**與既有項目分工**：
+- Knowledge Engine = HOW（程式碼怎麼做，結構化、delta-spec 驅動）
+- BL-036 Playbook/Lessons = 行為層教訓（behavioral，archive + session 驅動）
+- BL-031 可執行 Constitution = 晉升的「終點容器」（規則長什麼樣、怎麼被 enforce）
+- BL-036 提供的是中間那層「判定」——BL-029/BL-031/OPT-D6 都沒有的關鍵步驟
+
+**驗收標準**：
+- [ ] 蒐集層：session 糾正 + verify FAIL + archive 重複錯誤匯入 `.prospec/lessons.md`（個人，不共享）
+- [ ] 晉升判定層：以**明文可審計準則**（頻次門檻 + module-map 影響範圍 + Constitution 範疇）算晉升分數，非 LLM 黑箱
+- [ ] 三層晉升管線：個人 lessons → 團隊 playbook（Git-tracked）→ Constitution/conventions，各層晉升條件明確
+- [ ] 升級到共享層/Constitution **必須人工核可**，版控 diff 記錄來源 change + 準則 + 核可者
+- [ ] 治理：共享規則帶 TTL + 來源引用，提供「過期/衝突規則」review 清單
+- [ ] plan/implement Entry context 載入相關 playbook（progressive disclosure，避免 context rot）
+- [ ] 不取代 delta-spec 驅動的結構化 Knowledge 更新
+- [ ] Self-host：用 prospec 自身一條重複出現的 lessons 跑完整晉升循環（lessons → playbook → 人工核可 → Constitution 規則 → verify 可檢）
 
 ---
 

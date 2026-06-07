@@ -75,8 +75,8 @@ export async function execute(
     knowledgeBasePath,
   );
 
-  // 4. Detect tech stack
-  const techStack = detectTechStack(cwd);
+  // 4. Detect tech stack (.prospec.yaml is authoritative; detection fills gaps)
+  const techStack = detectTechStack(cwd, config.tech_stack);
 
   // 5. Build module-map data
   const moduleMap: ModuleMap = buildModuleMap(detection);

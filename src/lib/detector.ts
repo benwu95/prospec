@@ -1,22 +1,66 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { TechStack } from '../types/config.js';
 
 export interface TechStackResult {
   language?: string;
   framework?: string;
   package_manager?: string;
+  source?: 'config' | 'auto-detected' | 'mixed';
 }
 
 /**
- * Detect the project's tech stack by scanning for known config files.
+ * Detect the project's tech stack.
  *
- * Detection rules:
+ * `.prospec.yaml`'s `tech_stack` is authoritative: when `configTechStack` is
+ * provided its fields win, and auto-detection only fills the gaps. This stops a
+ * stray root `package.json` (e.g. prospec installed via npm into a Python
+ * project) from mislabelling the stack — the root cause of BUG-001.
+ *
+ * Auto-detection rules (fallback only):
  * - package.json → Node.js; if tsconfig.json exists → TypeScript
  * - requirements.txt or pyproject.toml → Python
  * - Unrecognised → returns empty fields
  */
-export function detectTechStack(cwd?: string): TechStackResult {
+export function detectTechStack(
+  cwd?: string,
+  configTechStack?: TechStack,
+): TechStackResult {
   const dir = cwd ?? process.cwd();
+  const detected = autoDetectTechStack(dir);
+
+  const configLanguage = configTechStack?.language;
+  const configFramework = configTechStack?.framework;
+  const configPackageManager = configTechStack?.package_manager;
+  const hasConfig = Boolean(
+    configLanguage || configFramework || configPackageManager,
+  );
+
+  if (!hasConfig) {
+    return {
+      ...detected,
+      source: detected.language ? 'auto-detected' : undefined,
+    };
+  }
+
+  const merged: TechStackResult = {
+    language: configLanguage ?? detected.language,
+    framework: configFramework ?? detected.framework,
+    package_manager: configPackageManager ?? detected.package_manager,
+  };
+
+  // 'config' when every populated field came from config; 'mixed' when
+  // auto-detection had to fill at least one gap the config left open.
+  const filledFromDetection =
+    (!configLanguage && detected.language !== undefined) ||
+    (!configFramework && detected.framework !== undefined) ||
+    (!configPackageManager && detected.package_manager !== undefined);
+  merged.source = filledFromDetection ? 'mixed' : 'config';
+
+  return merged;
+}
+
+function autoDetectTechStack(dir: string): TechStackResult {
   const result: TechStackResult = {};
 
   // Node.js / TypeScript detection

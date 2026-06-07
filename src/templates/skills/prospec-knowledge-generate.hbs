@@ -159,9 +159,11 @@ If a module's README would exceed the ≤100 line / ≤400 token budget even aft
 Fill module table within `prospec:auto-start/end` markers using new format:
 
 ```
-| Module | Keywords | Status | Description | Rationale | Depends On |
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 ```
 
+- **Keywords**: exact identifiers an agent would search (file/symbol names, technical terms)
+- **Aliases**: synonyms and natural-language terms that should still match this module — include the user's language (e.g. 服務/業務邏輯 for `services`) and common synonyms (business logic, use case). Widens keyword-match coverage so L1 loading hits the right module without a semantic search.
 - **Rationale**: Why this module exists as a separate unit (1 sentence)
 - **Status**: Active / Deprecated / New
 
@@ -194,7 +196,7 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - **Each module README (and each sub-module) ≤ 100 lines** — if it overflows, first extract a content-rich, independent sub-area (Step 4.5); only trim when there is no such sub-area
 - Every extracted sub-module is linked from its parent README's `## Sub-Modules` section and is NOT listed in `_index.md`
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
-- _index.md has Rationale column and Loading Rules section
+- _index.md has Aliases + Rationale columns and Loading Rules section
 - **L0 total (_index.md + _conventions.md) ≤ 1,500 tokens** (estimate ~4 chars/token)
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
