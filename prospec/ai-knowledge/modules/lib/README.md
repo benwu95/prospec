@@ -15,7 +15,7 @@
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir |
-| `src/lib/detector.ts` | detectTechStack() — language, framework, package manager detection |
+| `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
 
@@ -28,7 +28,7 @@
 - `scanDir(patterns, options)` — Scan directory with fast-glob
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
 - `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
-- `detectTechStack(cwd)` — Auto-detect language/framework/package manager
+- `detectTechStack(cwd, configTechStack?)` — Resolve language/framework/package manager; `.prospec.yaml` tech_stack wins, auto-detection fills gaps; reports `source` (config/auto-detected/mixed)
 
 ## Dependencies
 

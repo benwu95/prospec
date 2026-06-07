@@ -72,8 +72,8 @@ export async function execute(
     knowledgeBasePath,
   );
 
-  // 3. Detect tech stack
-  const techStack = detectTechStack(cwd);
+  // 3. Detect tech stack (.prospec.yaml is authoritative; detection fills gaps)
+  const techStack = detectTechStack(cwd, config.tech_stack);
 
   // 4. Detect entry points
   const entryPoints = detectEntryPoints(scanResult.files, cwd);
@@ -94,6 +94,7 @@ export async function execute(
       language: techStack.language,
       framework: techStack.framework,
       package_manager: techStack.package_manager,
+      source: techStack.source,
     },
     entry_points: entryPoints,
     directory_tree: directoryTree,
