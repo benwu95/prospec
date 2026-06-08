@@ -22,4 +22,7 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
 
 ## Entries
 
-_None yet — entries appear here as `/prospec-learn` promotes lessons (human-approved)._
+### PB-001: Contract-test assertions must be section-scoped + mutation-verified
+- **Source**: add-output-contract, add-review-fix-loop · **Criteria**: freq=2, modules=2 (tests, templates) — human judgment, 1 shy of the freq≥3 auto-bar · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-06-08
+- **TTL**: review by 2026-12-08
+- **Guidance**: a contract assertion over a rendered template (`toContain` / regex) must be **scoped to the section it claims to test** — slice from the section heading to the next heading, assert **distinctive in-section content**, and guard the slice is non-empty (`length > 0`). Then **mutation-verify**: delete the asserted feature/section and confirm the test goes red. A bare `toContain('X')` over the whole document passes against incidental text in unrelated sections (NEVER/Output-Contract/MANDATORY-read lines) → false-green / false confidence. This bit `add-output-contract` (C1) and `add-review-fix-loop` (C1+C2); applying it proactively prevented recurrence in `add-feedback-promotion-pipeline`.
