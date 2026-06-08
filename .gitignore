@@ -29,6 +29,9 @@ Thumbs.db
 *.tmp
 *.swp
 
+# Task scratch (per-branch todo / lessons)
+.tasks/
+
 # Agents
 .claude/
 CLAUDE.md

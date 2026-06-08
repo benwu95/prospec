@@ -116,6 +116,22 @@ Update the module table within `prospec:auto-start/end` markers using the curren
 - Remove module entries (REMOVED)
 - Skip if module-map.yaml doesn't exist
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] every affected module README updated
+- [ ] _index.md and module-map.yaml synced
+- [ ] REMOVED requirements marked deprecated (not deleted)
+
+### Failure Conditions
+- no delta-spec and no manually specified module
+- an affected module left stale
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** overwrite content between `prospec:user-start/end` markers — always preserve user notes

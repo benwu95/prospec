@@ -31,7 +31,7 @@
 
 1. Editing a template: Modify `.hbs` file directly. Variables use `{{variable}}` syntax, conditionals use `{{#if}}`.
 2. Adding a template: Create in appropriate subdir, call via `renderTemplate('subdir/name.hbs', ctx)`.
-3. Adding a skill: Create `skills/prospec-{name}.hbs`, add to `SKILL_DEFINITIONS` in `types/skill.ts`, deploy via `agent-sync`.
+3. Adding a skill: Create `skills/prospec-{name}.hbs`, add to `SKILL_DEFINITIONS` in `types/skill.ts`, deploy via `agent-sync`. Every skill template carries a `## Output Contract` (objectively-checkable Success Criteria + Failure Conditions + Output Summary) before `## NEVER`; `skill-format.test.ts` enforces its presence.
 4. Template variable names must exactly match the context object keys passed from service code.
 
 ## Ripple Effects

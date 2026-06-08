@@ -89,6 +89,7 @@ describe('Skill Format Contract', () => {
       'adapter-figma.hbs',
       'adapter-penpot.hbs',
       'adapter-html.hbs',
+      'review-format.hbs',
     ];
 
     for (const ref of REFERENCE_TEMPLATES) {
@@ -104,8 +105,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 11 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(11);
+    it('should have 12 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(12);
     });
 
     it('should include all expected skill names', () => {
@@ -117,6 +118,7 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-tasks');
       expect(names).toContain('prospec-ff');
       expect(names).toContain('prospec-implement');
+      expect(names).toContain('prospec-review');
       expect(names).toContain('prospec-verify');
       expect(names).toContain('prospec-knowledge-generate');
       expect(names).toContain('prospec-archive');
@@ -142,6 +144,7 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-tasks');
       expect(refSkillNames).toContain('prospec-ff');
       expect(refSkillNames).toContain('prospec-implement');
+      expect(refSkillNames).toContain('prospec-review');
       expect(refSkillNames).toContain('prospec-archive');
     });
 
@@ -852,6 +855,182 @@ describe('Skill Format Contract', () => {
     it('should include project name', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
       expect(content).toContain('test-project');
+    });
+  });
+
+  describe('Output Contract (BL-019)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      describe(`${skill.name}`, () => {
+        it('should contain an Output Contract section', () => {
+          const content = renderTemplate(
+            `skills/${skill.name}.hbs`,
+            TEMPLATE_CONTEXT,
+          );
+          expect(content).toContain('## Output Contract');
+        });
+
+        it('should define Success Criteria and Failure Conditions', () => {
+          const content = renderTemplate(
+            `skills/${skill.name}.hbs`,
+            TEMPLATE_CONTEXT,
+          );
+          expect(content).toContain('### Success Criteria');
+          expect(content).toContain('### Failure Conditions');
+        });
+      });
+    }
+  });
+
+  describe('Constitution executable rules (BL-031)', () => {
+    const CONSTITUTION_CTX = {
+      project_name: 'test-project',
+      example_rules: [
+        {
+          severity: 'MUST',
+          name: 'Authenticated endpoints',
+          description: 'All endpoints require auth.',
+          rationale: 'Prevent exposure.',
+          check: 'auth dependency present',
+        },
+        {
+          severity: 'SHOULD',
+          name: 'Clean architecture',
+          description: 'Logic in services.',
+          rationale: 'Testability.',
+        },
+      ],
+    };
+
+    it('constitution template renders severity-tagged rules without placeholders', () => {
+      const content = renderTemplate('init/constitution.md.hbs', CONSTITUTION_CTX);
+      expect(content).toContain('[MUST]');
+      expect(content).toContain('[SHOULD]');
+      expect(content).toContain('Authenticated endpoints');
+      expect(content).not.toContain('[Principle Name]');
+      expect(content).not.toContain('[Describe the principle]');
+      // only the rule WITH a check renders a Verify line (rule 2 has none)
+      expect((content.match(/\*\*Verify\*\*/g) ?? []).length).toBe(1);
+    });
+
+    it('prospec-verify grades the Constitution by RFC-2119 severity', () => {
+      const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('MUST');
+      expect(content).toContain('SHOULD');
+      expect(content).toContain('MAY');
+      expect(content).toContain('Severity-graded');
+      // MAY is advisory/informational — must NOT introduce a 4th grade state
+      expect(content).toContain('informational');
+      expect(content).not.toContain('MAY → INFO');
+    });
+  });
+
+  describe('Entry/Exit Gates (BL-003)', () => {
+    const GATE_SKILLS = [
+      'prospec-new-story',
+      'prospec-plan',
+      'prospec-tasks',
+      'prospec-ff',
+      'prospec-verify',
+      'prospec-review',
+    ];
+    for (const name of GATE_SKILLS) {
+      it(`${name} has an Entry Gate section`, () => {
+        const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content).toContain('## Entry Gate');
+      });
+
+      it(`${name} folds an Exit Gate that records to quality_log`, () => {
+        const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content).toContain('### Exit Gate (Constitution)');
+        const exit = content.slice(content.indexOf('### Exit Gate'));
+        expect(exit).toContain('quality_log');
+        // guard the no-fourth-state invariant (MAY is informational, not INFO)
+        expect(exit).not.toContain('INFO');
+      });
+    }
+  });
+
+  describe('prospec-review skill — adversarial review→fix loop (BL-037)', () => {
+    const render = () =>
+      renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+
+    it('has a Core Workflow with the review→fix loop', () => {
+      const c = render();
+      expect(c).toContain('## Core Workflow');
+    });
+
+    it('defines reviewer modes (B default / A opt-in)', () => {
+      const c = render();
+      const modes = c.slice(
+        c.indexOf('### Reviewer Modes'),
+        c.indexOf('### Review Lenses'),
+      );
+      expect(modes.length).toBeGreaterThan(0);
+      expect(modes).toMatch(/single reviewer.*default|default.*single reviewer/i);
+      expect(modes).toMatch(/parallel.*opt-?in|opt-?in.*parallel/i);
+    });
+
+    it('always layers the spec-aware (spec-architecture) lens', () => {
+      const c = render();
+      expect(c).toContain('spec-architecture');
+      expect(c).toContain('delta-spec');
+      expect(c).toContain('cli → services → lib → types');
+    });
+
+    it('loops with verifier-confirmed criticals, a hard cap, and human escalation', () => {
+      const c = render();
+      // Scope to the loop section ONLY — incidental NEVER/Output-Contract text
+      // must not satisfy these (guards against the substring false-green).
+      const flow = c.slice(
+        c.indexOf('### The Loop'),
+        c.indexOf('### Harness Degradation'),
+      );
+      expect(flow.length).toBeGreaterThan(0);
+      expect(flow).toContain('independent verifier');
+      expect(flow).toMatch(/existence/i);
+      expect(flow).toContain('working tree');
+      expect(flow).toMatch(/re-?run.*test|pnpm test/i);
+      expect(flow).toMatch(/3 rounds|maximum 5|hard cap/i);
+      expect(flow).toMatch(/escalat/i);
+    });
+
+    it('persists findings to review.md; only criticals block, major → quality_log', () => {
+      const c = render();
+      // Scope to the Persistence section — the MANDATORY-read and
+      // Success-Criteria mentions of review.md must not satisfy this.
+      const persist = c.slice(
+        c.indexOf('### Persistence'),
+        c.indexOf('## Output Contract'),
+      );
+      expect(persist.length).toBeGreaterThan(0);
+      expect(persist).toContain('review.md');
+      expect(persist).toMatch(/dedup|deduplicat/i);
+      expect(persist).toMatch(/carr(y|ied) forward/i);
+      // major findings hand off to verify via quality_log (Exit Gate), not graded
+      const exit = c.slice(c.indexOf('### Exit Gate'));
+      expect(exit).toContain('quality_log');
+    });
+
+    it('degrades on harnesses without sub-agents instead of silently skipping', () => {
+      const c = render();
+      expect(c).toMatch(/sub-?agent/i);
+      expect(c).toMatch(/never.*silent|not.*skip|offer.*choice/i);
+    });
+  });
+
+  describe('Commit boundary after verify(S/A) (BL-037)', () => {
+    it('prospec-implement defers commit and points to /prospec-review', () => {
+      const c = renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+      expect(c).toContain('/prospec-review');
+      expect(c).toMatch(/do not commit|defer commit|not commit during/i);
+    });
+
+    it('prospec-verify prompts the user to commit after S/A and never auto-commits', () => {
+      const c = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      const tail = c.slice(c.indexOf('## Status Update'));
+      expect(tail).toMatch(/commit/i);
+      expect(tail).toMatch(/prompt|remind/i);
+      expect(tail).toMatch(/not auto-commit|do not commit automatically|never commit on/i);
     });
   });
 });

@@ -95,6 +95,23 @@ After archiving, identify and prompt for Knowledge update:
 
 **On failure:** Display: "Knowledge update failed for [module-name]. Run `/prospec-knowledge-update` manually."
 
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] summary.md generated
+- [ ] Feature Spec sync completed
+- [ ] metadata status set to archived
+- [ ] knowledge-update suggested/triggered
+
+### Failure Conditions
+- archived a non-verified change without confirmation
+- Feature Spec sync skipped
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
 ## NEVER
 
 - **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves

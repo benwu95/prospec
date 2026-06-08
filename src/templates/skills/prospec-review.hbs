@@ -1,0 +1,107 @@
+---
+name: prospec-review
+description: "Adversarial Code Review → Fix Loop | 對抗式審查迴圈 - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction. Triggers: review, code review, adversarial review, find bugs, 審查, 對抗式審查, critical, 抓問題, 修正迴圈"
+---
+
+# Prospec Review Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That an independent reviewer (fresh context) will audit the entire change diff between implement and verify
+- That only verifier-confirmed criticals are auto-fixed; majors are proposed and passed to verify as WARN
+- That the loop converges to zero unresolved critical or escalates to you at a hard cap — review never silently passes
+
+## Startup Loading
+
+1. Read `.prospec/changes/[name]/tasks.md`, `plan.md`, `delta-spec.md`, `proposal.md` — the contract this change must honour
+2. Read `{{constitution_path}}` — principles and dependency/layering rule
+3. Read `{{knowledge_base_path}}/_conventions.md` + each affected module `README.md` — patterns and ripple effects
+4. **MANDATORY** — Read [`references/review-format.md`](references/review-format.md) for the severity contract, review.md format, and reviewer lenses
+5. Compute the change diff relative to the branch base (`git diff`), reviewing source + tests; exclude generated artifacts (`dist/`, lockfiles, deployed skills)
+
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- Implementation is done: metadata status is `implemented` and tasks.md checkboxes are complete; if still `tasks`, FAIL and point to `/prospec-implement`.
+- Planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md.
+- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+
+## Core Workflow
+
+### Reviewer Modes
+
+- **B — single reviewer, multi-lens (default)**: one fresh-context reviewer covers every must-run lens in a single pass. Token-friendly; independence from the implementer is already satisfied.
+- **A — parallel lenses (opt-in)**: N independent lens agents run concurrently. Use for large or high-risk diffs, or Scale=Full. Higher first-round cost buys maximum inter-lens independence.
+
+### Review Lenses
+
+Must-run every round:
+- **correctness & edge cases**
+- **security & data integrity**
+- **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation vs `delta-spec` REQ intent, dependency direction `cli → services → lib → types`, module conventions, and unhandled ripple effects.
+
+Conditional: efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions). A pluggable language-specific engine may add language lenses; the spec-architecture lens is always added by prospec.
+
+### Severity Routing
+
+Apply `references/review-format.md`. In short: **critical** blocks the loop and is auto-fixed; **major** does not block (proposed, passed to verify as WARN, never counted in verify's grade); **nit** is dropped.
+
+### The Loop
+
+1. Spawn the reviewer (mode B or A) over the change diff. The reviewer reads whole functions/classes and greps ripple, not just diff hunks.
+2. For each reported **critical**, spawn an **independent verifier** to confirm the issue's **existence** — it Reads the code and cites Evidence, marking `[confirmed]` / `[not-found]`. Only confirmed criticals with a concrete, local, drop-in fix are auto-fixed; architectural, large-refactor, or ambiguous fixes are **escalated to the human**, not auto-applied.
+3. Apply each fix to the **working tree** (no commit), then **re-run `pnpm test`**; the suite must stay green — if a fix turns a test red, roll that fix back and re-decide, never proceed on red.
+4. Re-review (mode B narrow pass) to confirm criticals are resolved with no regression, until **0 unresolved critical** (review-clean).
+5. **Hard cap**: 3 rounds (maximum 5). **Early-stop** if a round resolves 0 new criticals or reverts a previously-applied fix.
+6. **Escalation**: at the cap or early-stop with unresolved criticals, stop and hand the list of unresolved criticals plus attempted fixes to the human for decision — never silently pass.
+
+### Harness Degradation
+
+If the execution harness cannot spawn an independent sub-agent, **offer a choice** — use the harness's own reviewer command, or fall back to a single-pass fresh-context review — and say so explicitly. Never silently skip review.
+
+### Persistence
+
+Write findings to `.prospec/changes/[name]/review.md`: a cumulative table (`location | severity | lens | status`), deduplicated by Location with severity taken as the maximum, carried forward across rounds as the anchor so resolved items are not re-raised and verdicts stay consistent. Confirmed cross-change recurring criticals may be flagged for promotion (feeds the feedback-promotion pipeline).
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] no unresolved critical (loop converged, or escalated to the human with the list)
+- [ ] every fix round left `pnpm test` green
+- [ ] `review.md` written with the findings table
+- [ ] every auto-fixed critical was verifier-confirmed before the fix (manual)
+
+### Failure Conditions
+- a critical auto-fixed without an existence-verification step
+- tests left red, or the loop exceeded the hard cap without escalating
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record this review's unresolved **major** findings (and any FAIL) to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) so the next stage (`/prospec-verify`) surfaces them; majors are advisory and do not block. Then suggest `/prospec-verify`.
+
+## NEVER
+
+- **NEVER** auto-fix a critical that was not independently confirmed to exist — acting on a hallucinated finding edits correct code and erodes trust
+- **NEVER** proceed to the next round with the test suite red — a fix that breaks a test must be rolled back; silent green→red regression defeats the loop
+- **NEVER** loop without a hard cap or silently pass unresolved criticals — unbounded retries waste tokens; unresolved criticals must escalate to the human
+- **NEVER** auto-apply an architectural or large-refactor fix — only concrete, local, drop-in fixes are safe to apply unattended; the rest are proposed
+- **NEVER** count major findings in verify's grade — review and verify are separate axes; majors pass as advisory WARN, not as a grade penalty
+- **NEVER** silently skip review when sub-agents are unavailable — offer a degraded path so the developer decides knowingly
+- **NEVER** commit during review — the commit boundary is after `/prospec-verify` reaches S/A; review only edits the working tree
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| metadata status not `implemented` | Stop; point to `/prospec-implement` to finish tasks first |
+| No change diff vs branch base | Report nothing to review; suggest proceeding to `/prospec-verify` |
+| Sub-agent spawn unavailable | Offer the harness reviewer or single-pass fallback; do not skip |
+| Fix repeatedly turns tests red | Roll back, mark the critical unresolved, escalate to the human |
+| Reviewer and verify disagree on layering | Keep both — review catches it first, verify re-checks independently; no mutual exemption |

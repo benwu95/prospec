@@ -2,37 +2,32 @@
 
 > This document defines the guiding principles and constraints for the **{{project_name}}** project.
 > AI Agents and developers should consult this document before making architectural or design decisions.
+>
+> The principles below are **starter rules** seeded from your tech stack — edit, add, or remove to fit your project. Each carries an RFC-2119 severity (**MUST** / **SHOULD** / **MAY**) that `/prospec-verify` grades against: violating a MUST → FAIL, SHOULD → WARN; a MAY is advisory (informational, does not affect the grade).
 
 ## Principles
 
-<!-- Add your project's guiding principles below -->
+{{#each example_rules}}
+### [{{severity}}] {{name}}
 
-### 1. [Principle Name]
+**Description**: {{description}}
 
-**Description**: [Describe the principle]
+**Rationale**: {{rationale}}
+{{#if check}}
 
-**Rationale**: [Why this principle matters]
-
-**Enforcement**: [How to verify compliance]
-
----
-
-## Constraints
-
-<!-- Define hard constraints that must never be violated -->
-
-- [ ] [Constraint 1: e.g., "All API endpoints must require authentication"]
-- [ ] [Constraint 2: e.g., "No direct database access from controllers"]
+**Verify**: {{check}}
+{{/if}}
 
 ---
+{{/each}}
+<!-- Add your own principles below. Tag each with [MUST] / [SHOULD] / [MAY] so verify can grade them. -->
 
 ## Quality Standards
 
-<!-- Define quality requirements -->
+<!-- Define quality requirements (testing, documentation, performance) -->
 
 - **Testing**: [e.g., "All public functions must have unit tests"]
-- **Documentation**: [e.g., "All public APIs must have JSDoc comments"]
-- **Performance**: [e.g., "API response time < 200ms for p95"]
+- **Documentation**: [e.g., "All public APIs must have doc comments"]
 
 ---
 

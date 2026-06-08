@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 28 test files, 457 tests (unit, integration, contract, E2E)
+> 4-layer test architecture using Vitest + memfs — 29 test files, 497 tests (unit, integration, contract, E2E)
 
 <!-- prospec:auto-start -->
 
@@ -15,7 +15,7 @@
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 11 skills format validation (167 tests) |
+| `tests/contract/skill-format.test.ts` | All 11 skills format validation, incl. Output Contract + Constitution severity (191 tests) |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (17 tests) |
 

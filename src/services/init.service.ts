@@ -8,6 +8,7 @@ import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
+import { exampleRulesFor } from '../lib/constitution-rules.js';
 import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
@@ -111,6 +112,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     tech_stack: hasTechStack(techStack) ? techStack : undefined,
     agents: selectedAgents,
     base_dir: baseDir,
+    example_rules: exampleRulesFor(techStack),
   };
 
   const createdFiles = ['.prospec.yaml'];

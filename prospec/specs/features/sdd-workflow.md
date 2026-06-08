@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-06
-story_count: 10
-req_count: 45
+last_updated: 2026-06-08
+story_count: 13
+req_count: 58
 ---
 
 # SDD 開發流程
@@ -209,6 +209,11 @@ tasks.md 末尾含 Summary 區段（total tasks、total lines、parallelizable c
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
 - WHEN delta-spec MODIFIED but module README not updated, THEN WARN + suggest `/prospec-knowledge-update`
 
+#### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
+verify Verification 3/5 依規則 RFC-2119 嚴重度分級回報；grade 語彙維持 PASS/WARN/FAIL（不新增第四狀態）。
+- WHEN a principle carries `[MUST]`/`[SHOULD]`/`[MAY]`, THEN map a violation MUST→FAIL, SHOULD→WARN, MAY→informational (does not affect grade)
+- WHEN the Constitution is free-text without severity tags, THEN fall back to judgment-based PASS/WARN/FAIL (backward-compatible)
+
 ---
 
 ## US-6: 歸檔已完成變更 [P0]
@@ -359,6 +364,115 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 
 ---
 
+## US-11: Skill 產出自評（Output Contract）[P1]
+
+身為一個使用 Prospec 的開發者，
+我想要每個 Skill 執行完都明確告訴我「成功」或「哪裡未達成」，
+以便不必逐行檢查 artifact 就能判斷產出品質，並讓後續階段（verify / review / 回饋晉升）有結構化的成功/失敗訊號可消費。
+
+**Acceptance Scenarios:**
+- WHEN 任一 Skill 執行完畢 THEN 輸出精簡 Output Summary（達成 N/M + 未達成項 + 整體 PASS/WARN/FAIL）
+- WHEN 定義 Success Criteria THEN 每條客觀可判定（檔案/grep/測試/數量），不可機械判定者標 (manual)
+- WHEN 移除任一 skill 的 Output Contract 區段 THEN contract test 轉紅
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-060: Skill Output Contract Section
+11 個 skill template 各含 `## Output Contract`（Success Criteria + Failure Conditions），位於 `## NEVER` 之前；deployed SKILL.md 經 agent sync 同步。
+- WHEN a skill template renders, THEN it contains `## Output Contract` with `### Success Criteria` + `### Failure Conditions`
+- WHEN a non-artifact skill (explore), THEN success is defined by observable outcome, not artifact conditions
+
+#### REQ-TEMPLATES-061: Output Summary and Objective Criteria
+每個 skill 結尾輸出統一格式 Output Summary，採 PASS/WARN/FAIL 詞彙；Success Criteria 客觀可判定。
+- WHEN a skill finishes, THEN it emits `Met N/M | Unmet: ... | Overall: PASS|WARN|FAIL | Next: ...`
+- WHEN a criterion is not mechanically checkable, THEN it is marked (manual), not faked as PASS
+
+#### REQ-TESTS-001: Output Contract Contract Test
+`skill-format.test.ts` 驗證每個 skill 含 Output Contract 區段（heading-scoped 斷言）。
+- WHEN the contract test runs, THEN every SKILL_DEFINITIONS skill asserts `### Success Criteria` + `### Failure Conditions`
+- WHEN a skill's Output Contract section is removed, THEN its assertion turns red
+
+---
+
+## US-12: Entry/Exit 雙閘門與跨階段品質追溯 [P1]
+
+身為一個使用 Prospec 的開發者，
+我想要每個 Skill 啟動時做阻擋式前置條件檢查（Entry Gate）、結束時對 Constitution 三級驗證並把 WARN/FAIL 記入 quality_log（Exit Gate），
+以便劣質前置不被帶進下一階段、未解問題能跨 Skill 追溯收斂（越用越準）。
+
+**Acceptance Scenarios:**
+- WHEN Skill 啟動而前序 artifact 缺失/不完整或 Constitution 為空 THEN Entry Gate FAIL、阻擋並說明缺什麼
+- WHEN Skill 結束 THEN skill-end 摘要含 Constitution 三級結果（消費 BL-031 severity），FAIL 附建議但 advisory 不硬阻擋
+- WHEN Exit Gate 產生 WARN/FAIL THEN 記入 `metadata.yaml` quality_log，下一 Skill 的 Entry Gate 讀取並顯示前序未解 WARN
+
+### Behavior Specifications
+
+#### REQ-TYPES-022: quality_log Metadata Field
+`ChangeMetadataSchema` 新增 optional `quality_log`（`skill`/`date`/`result`/`warnings[]`），作為 gate 記錄形狀的型別契約。
+- WHEN metadata 含 quality_log, THEN schema 接受且 `ChangeMetadata.quality_log` 型別正確
+- WHEN metadata 省略 quality_log, THEN 仍通過驗證（向後相容）
+- WHEN result 非 PASS/WARN/FAIL, THEN 拒絕（不新增第四狀態）
+- 註：metadata.yaml 經 `parseYaml(doc.toJS())` lossless 讀取（非此 schema 在讀取時 `.parse()`）；persist 靠 round-trip，本欄位為型別契約
+
+#### REQ-TEMPLATES-064: Entry Gate (Blocking Preconditions)
+new-story / plan / tasks / ff / verify 各含 `## Entry Gate`：階段相稱的前置條件檢查（前序 artifact 完整、Constitution 非空、讀 quality_log 取前序未解 WARN）。Entry FAIL 阻擋並說明；復用既有 status-lifecycle，不新增獨立 audit。
+- WHEN 渲染, THEN 5 skill 皆含 `## Entry Gate` 與階段相稱前置 checklist
+- WHEN 前置不足（缺 artifact / Constitution 空 / 前序未解 WARN）, THEN Entry Gate FAIL、阻擋並說明
+- WHEN 移除任一 skill 的 Entry Gate, THEN 對應 contract test 轉紅
+
+#### REQ-TEMPLATES-065: Exit Gate Folded into Skill-End
+在 5 skill 既有 Output Contract 的 skill-end 摘要折入 Exit Gate：比對產出 vs Constitution，消費 BL-031 severity（MUST→FAIL/SHOULD→WARN/MAY→資訊性，grade 維持 PASS/WARN/FAIL），WARN/FAIL 記入 metadata `quality_log`。Exit advisory，不硬阻擋。
+- WHEN skill 結束, THEN skill-end 摘要含 Constitution 合規結果（依 severity 分級）
+- WHEN 有 WARN/FAIL, THEN 記入 `quality_log`；Exit 不硬阻擋流程
+- WHEN Constitution 為自由文字（無 severity）, THEN 退回不分級判讀（向後相容）
+
+#### REQ-TESTS-022: Gate + quality_log Tests
+contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit test 驗證 `quality_log` schema（接受/省略/result 三態/lifecycle 含 `implemented`）。
+- WHEN contract test 執行, THEN 對 new-story/plan/tasks/ff/verify 斷言 Entry/Exit Gate 存在
+- WHEN unit test 執行, THEN quality_log 可省略、result 限 PASS/WARN/FAIL、6 個 lifecycle 狀態（含 implemented）皆通過
+
+---
+
+## US-13: 對抗式 Code Review → Fix 迴圈 [P1]
+
+身為一個使用 Prospec 的開發者，
+我想要在 implement 與 verify 之間有一個獨立的對抗式 code review → fix 迴圈，
+以便 critical 問題在被評為「可部署」前就被攔下、不必手動回灌 review 結果，且提交歷史天生 review-clean。
+
+**Acceptance Scenarios:**
+- WHEN 所有 tasks 完成（status: implemented）THEN 可觸發 `/prospec-review`，由獨立 fresh-context reviewer 審相對 branch base 的整個 change diff
+- WHEN review 報 critical THEN 先由獨立 verifier 確認存在性，確認且為 drop-in 才自動修、重跑測試保綠、re-review 至無 critical 或達硬上限(3,cap5)否則升級給人
+- WHEN review 報 major THEN 不自動修、降為 WARN 經 `quality_log` 傳 verify（不計 grade）；nit 直接 drop
+- WHEN 執行環境不支援 sub-agent THEN 提出選擇（harness reviewer 或單輪 fresh-context），不靜默跳過
+
+### Behavior Specifications
+
+#### REQ-TYPES-023: Register prospec-review Skill
+`SKILL_DEFINITIONS` 新增第 12 skill `prospec-review`（type `Execution`）；`agent-sync` 的 `getSkillReferences` referenceMap 加 `prospec-review → review-format`。無新 metadata schema——review 跨階段訊號走既有 `quality_log`。
+- WHEN `prospec agent sync`, THEN deployed 含 `prospec-review/SKILL.md` + `references/review-format.md`
+- WHEN registered, THEN `SKILL_DEFINITIONS` 為 12 skill
+
+#### REQ-TEMPLATES-066: Adversarial Review→Fix Loop Skill
+`prospec-review` 在 implement→verify 間以 fresh-context reviewer 審 change diff；reviewer 模式 B 預設 / A opt-in；**spec-architecture lens**（delta-spec REQ／依賴方向／conventions／ripple）一律疊加；critical 經獨立 verifier 確認後 drop-in auto-fix，硬上限後升級給人。
+- WHEN rendered, THEN 含 Entry Gate / Reviewer Modes / spec-architecture lens / verifier-confirmed critical / 硬上限 / escalation / Output Contract + Exit Gate
+- WHEN critical reported, THEN existence-verified 才 auto-fix；architectural/ambiguous → 升級給人
+- WHEN findings persist, THEN 落 `review.md`（依 Location 去重、severity 取最高、跨輪 carry-forward）
+
+#### REQ-TEMPLATES-067: Review Severity Contract + review.md Format
+`references/review-format.md` 定義嚴重度準則與 review.md 結構。critical = 真實 defect/安全 ＋ 依賴方向違規 ＋ 與 delta-spec REQ 邏輯矛盾（completeness 留 verify）；major = perf/maintainability（不擋、降 WARN 不計 grade）；nit drop。
+- WHEN referenced, THEN 含三級準則 + auto-fix 邊界 + review.md 欄位（location/severity/lens/status）+ reviewer-lens 定義
+
+#### REQ-TEMPLATES-068: Unified Commit Boundary After verify(S/A)
+commit 邊界統一到「最後一個會要求改 code 的 gate」之後＝verify 達 S/A 後；implement 延後 commit、verify 在 S/A 後**提示使用者** commit（折入 implement+review+verify fixes 為單一 atomic-by-feature commit）、**prospec 不自動 commit**。
+- WHEN implement 完成, THEN 不建議即時 commit、導向 review→verify
+- WHEN verify S/A, THEN 提示使用者 commit、不自動 commit；review 與 verify 對 layering 各自獨立判定
+
+#### REQ-TESTS-023: prospec-review Contract Tests + Commit-Boundary Assertions
+contract 驗證 skill 數 12、`prospec-review` 結構（**section-scoped** 斷言）、implement 延後 commit、verify S/A 後提示 commit。
+- WHEN contract runs, THEN 斷言 section-scoped；移除 prospec-review 任一關鍵區段（loop/persistence）會轉紅（mutation-verified）
+
+---
+
 ## Edge Cases
 
 - Archive 目錄已存在：警告，詢問覆蓋或跳過
@@ -403,3 +517,7 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 | 2026-03-02 | redesign-spec-architecture | Product-First 架構：Feature Spec Sync、Product Spec 自動生成、Spec Health、Feature/Story 路由、deprecated Capability Spec Format | US-3,5,6,7; REQ-SPEC-010~013, REQ-TEMPLATES-010/033/034, REQ-SPECS-001; -REQ-TEMPLATES-031 |
 | 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |
 | 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |
+| 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |
+| 2026-06-07 | make-constitution-executable | verify 依 Constitution 嚴重度分級回報 | US-5; REQ-TEMPLATES-063 |
+| 2026-06-08 | add-entry-exit-gates | Entry/Exit 雙閘門 + quality_log 跨階段品質追溯 | US-12; REQ-TYPES-022, REQ-TEMPLATES-064/065, REQ-TESTS-022 |
+| 2026-06-08 | add-review-fix-loop | implement↔verify 間對抗式 review→fix 迴圈 + commit 邊界移至 verify(S/A) 後 | US-13; REQ-TYPES-023, REQ-TEMPLATES-066/067/068, REQ-TESTS-023 |
