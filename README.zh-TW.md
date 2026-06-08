@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-460%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-549%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -30,9 +30,12 @@ Prospec 是一套 **以 Skills 為核心的 SDD 工具組**，串接人類需求
 - **架構分析** — 偵測技術棧、架構模式（MVC、Clean Architecture 等）與模組依賴關係
 - **AI Agent 中立** — 支援 Claude Code、Antigravity CLI、GitHub Copilot 和 Codex CLI
 - **漸進式揭露** — 透過按需載入節省 70%+ tokens
-- **變更管理** — 結構化的 story → design → plan → tasks 工作流，含 Constitution 驗證
-- **雙層規格** — Capability specs（活的行為需求）+ delta specs（變更補丁），搭配自動 Spec Sync
-- **Skill 驅動** — 11 個預建 Skills 涵蓋完整 SDD 生命週期，包含 UI 設計、驗證和歸檔
+- **變更管理** — 結構化的 story → design → plan → tasks → implement → review → verify → archive 工作流，含 Constitution 驗證
+- **雙層規格** — Feature specs（活的行為需求）+ delta specs（變更補丁），搭配自動 Spec Sync
+- **Skill 驅動** — 13 個預建 Skills 涵蓋完整 SDD 生命週期，包含 UI 設計、對抗式審查、驗證和歸檔
+- **對抗式審查迴圈** — `/prospec-review` 在 implement 與 verify 之間跑獨立的 fresh-context reviewer；經驗證確認的 critical 自動修，且帶通用 reviewer 給不了的 spec-aware lens（對照 delta-spec／依賴方向）
+- **越用越聰明** — `/prospec-learn` 以明文、可審計的準則（非黑箱）把反覆出現的教訓晉升為團隊共享規則，經人工核可、版控留痕
+- **品質閘門** — 每個 workflow Skill 都有 Output Contract + Entry/Exit gates；WARN/FAIL 經跨階段 `quality_log` 向後傳遞；Constitution 帶嚴重度分級（MUST/SHOULD/MAY）由 `/prospec-verify` 強制
 
 ### 為什麼選擇 Prospec？
 
@@ -40,10 +43,12 @@ Prospec 是一套 **以 Skills 為核心的 SDD 工具組**，串接人類需求
 |------|---------|
 | AI 不了解你的程式碼庫 | `prospec knowledge init` + `/prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
 | Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用 |
-| AI 工作流不一致 | 結構化 Skills 強制執行 story → plan → tasks → implement → verify 流程 |
+| AI 工作流不一致 | 結構化 Skills 強制執行 story → plan → tasks → implement → review → verify → archive 流程 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `/prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
 | Knowledge 容易過時 | Archive → Knowledge Update 回饋循環保持 AI Knowledge 同步 |
+| verify 過了仍出細微 bug | `/prospec-review` — implement 與 verify 間的獨立對抗式審查；自動修經驗證確認的 critical |
+| 教訓無法跨 session 留存 | `/prospec-learn` — 反覆出現的修正經人工核可晉升為版控的團隊規則，同類錯誤不再復發 |
 
 ---
 
@@ -115,9 +120,11 @@ prospec agent sync
 /prospec-design           # 生成 UI 規格（可選）
 /prospec-plan             # 生成實作計劃
 /prospec-tasks            # 拆分任務清單
-/prospec-implement        # 逐項實作
-/prospec-verify           # 驗證實作
+/prospec-implement        # 逐項實作（先不 commit）
+/prospec-review           # 對抗式審查 → fix 迴圈（僅 critical 自動修）
+/prospec-verify           # 驗證實作；達 S/A 後提示你 commit
 /prospec-archive          # 歸檔 + 同步規格
+/prospec-learn            # （定期）把反覆出現的教訓晉升為團隊規則
 
 # 或一次到位
 /prospec-ff               # 快速生成 story → plan → tasks
@@ -149,9 +156,10 @@ prospec knowledge init
 # 5. 使用 Skills 進行開發
 /prospec-explore          # 探索和釐清需求
 /prospec-ff add-feature   # 快速生成所有 artifacts
-/prospec-implement        # 開始寫程式
-/prospec-verify           # 對照規格驗證
-/prospec-archive          # 歸檔 + 同步 capability specs
+/prospec-implement        # 開始寫程式（先不 commit）
+/prospec-review           # 對抗式審查 → fix 迴圈
+/prospec-verify           # 對照規格驗證；達 S/A 後提示你 commit
+/prospec-archive          # 歸檔 + 同步 Feature Specs
 ```
 
 ---
@@ -186,7 +194,7 @@ prospec knowledge init
 
 ## AI Skills
 
-Prospec 生成 11 個 Skills 涵蓋完整 SDD 生命週期：
+Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 
 | Skill | Slash Command | 說明 |
 |-------|---------------|------|
@@ -197,17 +205,46 @@ Prospec 生成 11 個 Skills 涵蓋完整 SDD 生命週期：
 | **任務** | `/prospec-tasks` | 拆分為可執行的任務 |
 | **快速前進** | `/prospec-ff` | 一次生成 story → plan → tasks |
 | **實作** | `/prospec-implement` | 逐項實作任務，MCP 優先讀取設計資料 |
-| **驗證** | `/prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D） |
+| **審查** | `/prospec-review` | 對抗式審查 → fix 迴圈；經驗證確認的 critical 自動修，帶 spec-aware lens |
+| **驗證** | `/prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D）；達 S/A 後提示 commit |
 | **歸檔** | `/prospec-archive` | 歸檔變更 + Spec Sync + Knowledge Update 提示 |
+| **學習** | `/prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
 | **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
 
 ### SDD 工作流程
 
+```mermaid
+flowchart TD
+    E([探索 Explore]) --> S([需求 Story]) --> D(["設計 Design（可選）"]) --> P([計劃 Plan]) --> T([任務 Tasks]) --> I([實作 Implement]) --> R([審查 Review]) --> V([驗證 Verify]) --> A([歸檔 Archive])
+
+    A -- Spec Sync --> KU[Knowledge Update] --> AK[("AI Knowledge<br/>每次變更更完善")]
+    R -. findings .-> L([學習 Learn])
+    V -. quality_log .-> L
+    A --> L
+    L -- 人工核可 --> RULES[("Constitution + _playbook<br/>團隊規則持續累積")]
+
+    AK -.-> NEXT["下一次變更從更完整、<br/>更聰明的基準起步"]
+    RULES -.-> NEXT
+    NEXT -. context .-> P
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    classDef gain fill:#e9f9ee,stroke:#2f855a,stroke-width:2px;
+    class AK,RULES asset;
+    class NEXT gain;
 ```
-Explore → Story → [Design] → Plan → Tasks → Implement → Verify → Archive
-(為什麼)  (做什麼)   (UI)    (怎麼做) (拆幾步)  (動手做)  (做對了嗎) (收尾)
-```
+
+兩條回饋迴圈讓 Prospec **越用越好**，而非單純重複：每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而 **Review**／**Verify** 中反覆出現的教訓——經人工核可——晉升為**持續累積**的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。Agent 得到穩定的開發節奏，**專案本身也持續變好**。
+
+### 品質閘門與自我改進
+
+除了線性流程，每個 workflow Skill 都內建品質機制：
+
+- **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
+- **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
+- **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
+- **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
+- **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自 `quality_log` + review findings），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
 
 ### Skill 使用範例
 
@@ -235,8 +272,8 @@ src/
 ├── services/     — 業務邏輯（10 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（55 個檔案：52 .hbs, 3 .md）
-    └── skills/   — 11 個 Skill 模板 + 22 個 reference 模板
+└── templates/    — Handlebars 模板（49 個 .hbs 檔案）
+    └── skills/   — 13 個 Skill 模板 + 17 個 reference 模板
 ```
 
 ### 技術棧
@@ -254,7 +291,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（460 個測試）
+# 執行所有測試（549 個測試）
 pnpm test
 
 # Watch 模式
@@ -271,9 +308,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：460 個測試橫跨 4 大類：
-- Unit tests（lib + services）：229 tests
-- Contract tests（CLI 輸出 + Skill 格式）：199 tests
+**測試覆蓋率**：549 個測試橫跨 4 大類：
+- Unit tests（lib + services）：247 tests
+- Contract tests（CLI 輸出 + Skill 格式）：270 tests
 - Integration tests：15 tests
 - E2E tests：17 tests
 
@@ -298,6 +335,7 @@ your-project/
 │   └── ai-knowledge/
 │       ├── _index.md          # 模組索引（Markdown 表格）
 │       ├── _conventions.md    # 專案慣例
+│       ├── _playbook.md       # /prospec-learn 晉升的團隊教訓（人工核可）
 │       ├── raw-scan.md        # 自動生成的專案掃描資料
 │       ├── module-map.yaml    # 模組依賴關係
 │       └── modules/
@@ -322,8 +360,10 @@ your-project/
 │   ├── prospec-tasks/
 │   ├── prospec-ff/
 │   ├── prospec-implement/
+│   ├── prospec-review/
 │   ├── prospec-verify/
 │   ├── prospec-archive/
+│   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   └── prospec-knowledge-update/
 └── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）

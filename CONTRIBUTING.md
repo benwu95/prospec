@@ -112,18 +112,32 @@ Prospec uses itself for development! Use the Skills:
 # Describe your change
 /prospec-new-story your-feature
 
-# Generate implementation plan
+# Generate implementation plan + delta-spec
 /prospec-plan
 
 # Break down tasks
 /prospec-tasks
 
-# Implement
+# Implement (work on the working tree — don't commit yet)
 /prospec-implement
 
-# Verify
+# Adversarial review → fix loop (verifier-confirmed criticals auto-fixed)
+/prospec-review
+
+# Verify; at grade S/A it prompts you to commit — one atomic commit folding
+# implement + review + verify fixes (prospec prompts, never auto-commits)
 /prospec-verify
+
+# Archive + sync Feature Specs / Knowledge
+/prospec-archive
+
+# (periodic) promote recurring lessons into shared team rules
+/prospec-learn
 ```
+
+> The commit boundary is **after** `/prospec-verify` reaches grade S/A — implement,
+> review, and verify all operate on the working tree first, then land as a single
+> atomic-by-feature commit. See [README — Quality Gates & Self-Improvement](./README.md#quality-gates--self-improvement).
 
 ### 3. Write tests
 
@@ -154,8 +168,8 @@ chore: dependency updates, config changes
 
 1. Add skill definition to `src/types/skill.ts` (SKILL_DEFINITIONS array)
 2. Create template at `src/templates/skills/your-skill-name.hbs`
-3. If the skill needs references, create `src/templates/skills/references/your-ref.hbs`
-4. Update contract tests in `tests/contract/skill-format.test.ts`
+3. If the skill needs references, create `src/templates/skills/references/your-ref.hbs` and map it in `getSkillReferences` (`src/services/agent-sync.service.ts`)
+4. Update contract tests in `tests/contract/skill-format.test.ts` — bump the `SKILL_DEFINITIONS` length assertion and write **section-scoped** structure assertions: slice to the section under test, assert distinctive in-section content, then mutation-verify (delete the section and confirm the test goes red). A bare `toContain` over the whole rendered template false-greens against incidental text (team rule `_playbook.md` PB-001).
 5. Run `prospec agent sync` to generate the new Skill files
 
 ## Adding a New CLI Command

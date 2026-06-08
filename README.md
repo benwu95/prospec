@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-460%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-549%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -30,9 +30,12 @@ Prospec is a **Skills-driven SDD toolkit** that bridges the gap between human re
 - **Architecture Analysis** — Detect tech stacks, architecture patterns (MVC, Clean Architecture, etc.), and module dependencies
 - **AI Agent Agnostic** — Works with Claude Code, Antigravity CLI, GitHub Copilot, and Codex CLI
 - **Progressive Disclosure** — Save 70%+ tokens by loading context on-demand
-- **Change Management** — Structured story → design → plan → tasks workflow with Constitution validation
-- **Dual-Layer Specs** — Capability specs (living truth) + delta specs (per-change patches) with automatic Spec Sync
-- **Skill-Driven** — 11 pre-built Skills guide AI through the full SDD lifecycle including UI design, verification, and archiving
+- **Change Management** — Structured story → design → plan → tasks → implement → review → verify → archive workflow with Constitution validation
+- **Dual-Layer Specs** — Feature specs (living truth) + delta specs (per-change patches) with automatic Spec Sync
+- **Skill-Driven** — 13 pre-built Skills guide AI through the full SDD lifecycle including UI design, adversarial review, verification, and archiving
+- **Adversarial Review Loop** — `/prospec-review` runs an independent fresh-context reviewer between implement and verify; verifier-confirmed criticals are auto-fixed, with a spec-aware lens (delta-spec / dependency direction) that generic reviewers can't provide
+- **Self-Improving (gets smarter with use)** — `/prospec-learn` promotes recurring lessons into shared team rules via an explicit, auditable rule (not a black box), human-gated and version-controlled
+- **Quality Gates** — every workflow Skill runs an Output Contract + Entry/Exit gates; WARN/FAIL records flow forward via a cross-stage `quality_log`; the Constitution is severity-graded (MUST/SHOULD/MAY) and enforced by `/prospec-verify`
 
 ### Why Prospec?
 
@@ -40,10 +43,12 @@ Prospec is a **Skills-driven SDD toolkit** that bridges the gap between human re
 |-----------|----------|
 | AI doesn't know your codebase | `prospec knowledge init` + `/prospec-knowledge-generate` auto-scan and generate AI-readable docs |
 | Context window limitations | Progressive disclosure: load summary first, details on-demand |
-| Inconsistent AI workflows | Structured Skills enforce story → plan → tasks → implement → verify flow |
+| Inconsistent AI workflows | Structured Skills enforce story → plan → tasks → implement → review → verify → archive flow |
 | Vendor lock-in | Works with 4+ AI CLIs, knowledge stored in universal Markdown |
 | No design-to-code bridge | `/prospec-design` generates visual + interaction specs with MCP tool integration |
 | Knowledge becomes stale | Archive → Knowledge Update feedback loop keeps AI Knowledge in sync |
+| Verify passes but subtle bugs ship | `/prospec-review` — independent adversarial review between implement and verify; auto-fixes verifier-confirmed criticals |
+| Lessons don't persist across sessions | `/prospec-learn` — recurring fixes promote (human-gated) into versioned team rules so the same mistake doesn't recur |
 
 ---
 
@@ -116,9 +121,11 @@ prospec agent sync
 /prospec-design           # Generate UI specs (optional)
 /prospec-plan             # Generate implementation plan
 /prospec-tasks            # Break down tasks
-/prospec-implement        # Implement task-by-task
-/prospec-verify           # Validate implementation
+/prospec-implement        # Implement task-by-task (no commit yet)
+/prospec-review           # Adversarial review → fix loop (critical-only auto-fix)
+/prospec-verify           # Validate implementation; prompts you to commit at grade S/A
 /prospec-archive          # Archive and sync specs
+/prospec-learn            # (periodic) promote recurring lessons → team rules
 
 # Or fast-forward
 /prospec-ff               # Generate story → plan → tasks in one go
@@ -150,9 +157,10 @@ prospec knowledge init
 # 5. Develop with Skills
 /prospec-explore          # Explore and clarify requirements
 /prospec-ff add-feature   # Fast-forward to generate all artifacts
-/prospec-implement        # Start coding
-/prospec-verify           # Validate against specs
-/prospec-archive          # Archive + sync capability specs
+/prospec-implement        # Start coding (no commit yet)
+/prospec-review           # Adversarial review → fix loop
+/prospec-verify           # Validate against specs; prompts you to commit at grade S/A
+/prospec-archive          # Archive + sync Feature Specs
 ```
 
 ---
@@ -187,7 +195,7 @@ prospec knowledge init
 
 ## AI Skills
 
-Prospec generates 11 Skills that guide AI through the full SDD lifecycle:
+Prospec generates 13 Skills that guide AI through the full SDD lifecycle:
 
 | Skill | Slash Command | Description |
 |-------|---------------|-------------|
@@ -198,17 +206,46 @@ Prospec generates 11 Skills that guide AI through the full SDD lifecycle:
 | **Tasks** | `/prospec-tasks` | Break down into executable tasks |
 | **Fast-Forward** | `/prospec-ff` | Generate story → plan → tasks in one go |
 | **Implement** | `/prospec-implement` | Implement tasks one-by-one with MCP-first design reading |
-| **Verify** | `/prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D) |
+| **Review** | `/prospec-review` | Adversarial review → fix loop; verifier-confirmed criticals auto-fixed, spec-aware lens |
+| **Verify** | `/prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D); prompts commit at S/A |
 | **Archive** | `/prospec-archive` | Archive changes + Spec Sync + Knowledge Update prompt |
+| **Learn** | `/prospec-learn` | Feedback promotion: recurring lessons → team `_playbook` / Constitution (auditable, human-gated) |
 | **Knowledge Generate** | `/prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
 
 ### SDD Workflow
 
+```mermaid
+flowchart TD
+    E([Explore]) --> S([Story]) --> D(["Design (optional)"]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> A([Archive])
+
+    A -- Spec Sync --> KU[Knowledge Update] --> AK[("AI Knowledge<br/>more complete every change")]
+    R -. findings .-> L([Learn])
+    V -. quality_log .-> L
+    A --> L
+    L -- human-approved --> RULES[("Constitution + _playbook<br/>team rules accumulate")]
+
+    AK -.-> NEXT["next change starts from a<br/>richer, smarter baseline"]
+    RULES -.-> NEXT
+    NEXT -. context .-> P
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    classDef gain fill:#e9f9ee,stroke:#2f855a,stroke-width:2px;
+    class AK,RULES asset;
+    class NEXT gain;
 ```
-Explore → Story → [Design] → Plan → Tasks → Implement → Verify → Archive
- (why)   (what)    (UI)     (how)  (steps)   (code)    (audit)  (wrap up)
-```
+
+Two feedback loops make Prospec **compound** rather than merely repeat: every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons from **Review** / **Verify** promote — only with human approval — into an **accumulating** body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch — it starts from a richer, smarter baseline. The agent gets a reliable cadence *and* the project keeps getting better.
+
+### Quality Gates & Self-Improvement
+
+Beyond the linear flow, every workflow Skill carries built-in quality machinery:
+
+- **Output Contract** — each Skill self-reports `Met N/M | Overall: PASS|WARN|FAIL` against objective criteria, so you don't hand-check artifacts.
+- **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
+- **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
+- **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
+- **Feedback promotion** — `/prospec-learn` collects recurring lessons (from `quality_log` + review findings), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
 
 ### Skill Example
 
@@ -236,8 +273,8 @@ src/
 ├── services/     — Business logic (10 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (55 files: 52 .hbs, 3 .md)
-    └── skills/   — 11 Skill templates + 22 reference templates
+└── templates/    — Handlebars templates (49 .hbs files)
+    └── skills/   — 13 Skill templates + 17 reference templates
 ```
 
 ### Tech Stack
@@ -255,7 +292,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (460 tests)
+# Run all tests (549 tests)
 pnpm test
 
 # Watch mode
@@ -272,9 +309,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 460 tests across 4 categories:
-- Unit tests (lib + services): 229 tests
-- Contract tests (CLI output + Skill format): 199 tests
+**Test Coverage**: 549 tests across 4 categories:
+- Unit tests (lib + services): 247 tests
+- Contract tests (CLI output + Skill format): 270 tests
 - Integration tests: 15 tests
 - E2E tests: 17 tests
 
@@ -299,6 +336,7 @@ your-project/
 │   └── ai-knowledge/
 │       ├── _index.md          # Module index (Markdown table)
 │       ├── _conventions.md    # Project conventions
+│       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
 │       ├── raw-scan.md        # Auto-generated project scan data
 │       ├── module-map.yaml    # Module dependencies
 │       └── modules/
@@ -323,8 +361,10 @@ your-project/
 │   ├── prospec-tasks/
 │   ├── prospec-ff/
 │   ├── prospec-implement/
+│   ├── prospec-review/
 │   ├── prospec-verify/
 │   ├── prospec-archive/
+│   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   └── prospec-knowledge-update/
 └── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
