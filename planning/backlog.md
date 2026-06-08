@@ -2317,7 +2317,7 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [x] 治理：共享規則帶 TTL + 來源引用，提供「過期/衝突規則」review 清單
 - [x] plan/implement Startup 載入相關 `_playbook`（progressive disclosure，避免 context rot）
 - [x] 不取代 delta-spec 驅動的結構化 Knowledge 更新
-- [ ] Self-host：用 prospec 自身一條重複 lessons 跑完整晉升循環 —— **管線已建+verified，尚未實跑**（首個候選＝跨 BL-019/031/037 的 `toContain` false-green 教訓，待 `/prospec-learn` 執行 + 人工核可）
+- [x] Self-host：`/prospec-learn` 首跑（2026-06-08）已實跑 Collect→Score→人工核可→**promote 寫路徑** —— `toContain` false-green 教訓（freq=2：BL-019/BL-037；BL-036 為「已防止」非新增、不計）經人工核可晉升為 `_playbook` **PB-001**（commit `5bbbfab`）。註：team-playbook tier 已驗；Constitution-tier 子路徑（→ `ConstitutionRule` → verify-graded）為同機制變體、待 `kind:constitution` 教訓跨門檻，尚未觸發。
 
 > **完成狀態**: 2026-06-08 已實作、verify Grade A、review review-clean（B→A 撤回）、歸檔 `add-feedback-promotion-pipeline`、graduate 至新 Feature `feedback-promotion`（US-1..4）。commit `6c25725`。Architecture C（純 Skill，零 runtime CLI）。conventions 改人工手動搬入（review 證實自動寫 L0 _conventions 會破壞 L1+TTL 保證）。
 
