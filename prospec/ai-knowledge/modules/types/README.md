@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema, KnowledgeStrategy, TokenBudget, VALID_AGENTS |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (12 skills), AGENT_CONFIGS (4 agents) |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills), AGENT_CONFIGS (4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log), CHANGE_STATUSES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |

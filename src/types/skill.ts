@@ -42,7 +42,7 @@ export interface AgentConfig {
 }
 
 /**
- * Predefined Skill definitions (12 Skills).
+ * Predefined Skill definitions (13 Skills).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
@@ -120,6 +120,12 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     description: '增量更新 AI Knowledge。解析 delta-spec.md 識別受影響模組，掃描原始碼後更新模組 README、_index.md 和 module-map.yaml。Incremental knowledge update, delta-spec driven.',
     type: 'Lifecycle',
     hasReferences: false,
+  },
+  {
+    name: 'prospec-learn',
+    description: '回饋晉升管線。蒐集 session 糾正、verify 反覆 FAIL、review 重複 critical 成個人教訓，以明文可重現準則（頻次＋影響模組數）判定，經顯式人工核可才三層晉升（個人→團隊 playbook→Constitution 規則）。Feedback promotion pipeline, auditable lesson promotion.',
+    type: 'Lifecycle',
+    hasReferences: true,
   },
 ];
 
