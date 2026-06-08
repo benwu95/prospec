@@ -110,8 +110,8 @@
 - [BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發（併入 BL-006）
 
 ### 評估新增（2026-06-07）
-- [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）🔴 G6 — 補使用者目標唯一未被正面設計的缺口
-- [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）
+- [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）🔴 G6 — 補使用者目標唯一未被正面設計的缺口 ✅
+- [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）✅
 
 ---
 
@@ -136,6 +136,8 @@
 | **BL-003** Entry/Exit 雙閘門 | 5 skill Entry Gate + Exit Gate 折入 Output Contract + `quality_log` 跨階段追溯；commit `c420244`；歸檔 `add-entry-exit-gates`（US-12） |
 | **BUG-001** detector config-first | `detectTechStack` 優先讀 `.prospec.yaml` + 排除 `node_modules`；commit `dc212b2` |
 | **OPT-D7 / OPT-D8** Aliases / Glossary | `_index.md` Aliases 欄 + `_glossary.md`；commit `d3a0b8e` |
+| **BL-037** Review→Fix Loop | `/prospec-review`（對抗式 review→fix 迴圈、spec-aware lens、verifier 確認 critical）+ commit 邊界移至 verify(S/A) 後；commit `f0a1147`；歸檔 `add-review-fix-loop`（sdd-workflow US-13）。註：確定性簿記改純 Skill（Architecture C），未放 lib/cli |
+| **BL-036** Feedback Promotion | `/prospec-learn`（蒐集→可審計明文判定→人工核可三層晉升→TTL/衝突治理）；commit `6c25725`；歸檔 `add-feedback-promotion-pipeline`（新 Feature feedback-promotion US-1..4）。註：管線已建+verified；end-to-end self-host 實跑為後續 usage |
 
 > 非 BL 的基礎建設（隨各 change 完成，不在 BL 編號內）：Recipe-First Knowledge + L0/L1/L2 分層（`optimize-ai-knowledge`）、Feature/Product Spec 架構（`redesign-spec-system`）、verify 4/5 解耦 feature-spec（`skill-autonomy`）、Antigravity CLI 取代 Gemini（`migrate-gemini-to-antigravity`）、npm+pnpm 雙支援。
 
@@ -2308,14 +2310,16 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - BL-036 提供的是中間那層「判定」——BL-029/BL-031/OPT-D6 都沒有的關鍵步驟
 
 **驗收標準**：
-- [ ] 蒐集層：session 糾正 + verify FAIL + archive 重複錯誤匯入 `.prospec/lessons.md`（個人，不共享）
-- [ ] 晉升判定層：以**明文可審計準則**（頻次門檻 + module-map 影響範圍 + Constitution 範疇）算晉升分數，非 LLM 黑箱
-- [ ] 三層晉升管線：個人 lessons → 團隊 playbook（Git-tracked）→ Constitution/conventions，各層晉升條件明確
-- [ ] 升級到共享層/Constitution **必須人工核可**，版控 diff 記錄來源 change + 準則 + 核可者
-- [ ] 治理：共享規則帶 TTL + 來源引用，提供「過期/衝突規則」review 清單
-- [ ] plan/implement Entry context 載入相關 playbook（progressive disclosure，避免 context rot）
-- [ ] 不取代 delta-spec 驅動的結構化 Knowledge 更新
-- [ ] Self-host：用 prospec 自身一條重複出現的 lessons 跑完整晉升循環（lessons → playbook → 人工核可 → Constitution 規則 → verify 可檢）
+- [x] 蒐集層：session 糾正 + verify FAIL + archive 重複錯誤匯入 `.prospec/lessons.md`（個人，不共享）
+- [x] 晉升判定層：以**明文可審計準則**（頻次門檻 + module-map 影響範圍 + kind）算晉升分數，非 LLM 黑箱
+- [x] 三層晉升管線：個人 lessons → 團隊 `_playbook.md`（Git-tracked, L1+TTL）→ Constitution `ConstitutionRule`，kind 路由（conventions 改人工手動搬入，非 pipeline 自動寫 L0）
+- [x] 升級到共享層/Constitution **必須人工核可**，版控 diff 記錄來源 change + 準則 + 核可者
+- [x] 治理：共享規則帶 TTL + 來源引用，提供「過期/衝突規則」review 清單
+- [x] plan/implement Startup 載入相關 `_playbook`（progressive disclosure，避免 context rot）
+- [x] 不取代 delta-spec 驅動的結構化 Knowledge 更新
+- [ ] Self-host：用 prospec 自身一條重複 lessons 跑完整晉升循環 —— **管線已建+verified，尚未實跑**（首個候選＝跨 BL-019/031/037 的 `toContain` false-green 教訓，待 `/prospec-learn` 執行 + 人工核可）
+
+> **完成狀態**: 2026-06-08 已實作、verify Grade A、review review-clean（B→A 撤回）、歸檔 `add-feedback-promotion-pipeline`、graduate 至新 Feature `feedback-promotion`（US-1..4）。commit `6c25725`。Architecture C（純 Skill，零 runtime CLI）。conventions 改人工手動搬入（review 證實自動寫 L0 _conventions 會破壞 L1+TTL 保證）。
 
 ---
 
@@ -2344,13 +2348,15 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - 差異化 = **spec-aware**（對照 delta-spec REQ／Constitution／module-map），通用 reviewer 給不了。
 
 **驗收標準**（完整見 proposal）：
-- [ ] implement→verify 之間有獨立 fresh-context review 階段，審整個 change diff
-- [ ] reviewer↔verifier 迴圈：critical 驗證真實才修、每輪重跑測試保持綠、硬上限 + 早停、達上限升級給人
-- [ ] 嚴重度準則（critical/major/drop nit）寫進 reference（接 BL-019）
-- [ ] spec-aware 層一律由 prospec 疊加；通用引擎可選插拔、prospec 自帶 fallback、不依賴外部個人工具
-- [ ] commit 邊界在 verify S/A 後、由 verify 提示、prospec 不自動 commit
-- [ ] 確定性簿記（去重/收斂/輪次統計）放 lib/cli
-- [ ] findings 可標記「可晉升」餵 BL-036
+- [x] implement→verify 之間有獨立 fresh-context review 階段，審整個 change diff
+- [x] reviewer↔verifier 迴圈：critical 驗證真實才修、每輪重跑測試保持綠、硬上限 + 早停、達上限升級給人
+- [x] 嚴重度準則（critical/major/drop nit）寫進 reference（接 BL-019）
+- [x] spec-aware 層一律由 prospec 疊加；通用引擎可選插拔、prospec 自帶 fallback、不依賴外部個人工具
+- [x] commit 邊界在 verify S/A 後、由 verify 提示、prospec 不自動 commit
+- [ ] ~~確定性簿記（去重/收斂/輪次統計）放 lib/cli~~ —— **改為純 Skill（Architecture C）**：per-change 小 N 規模由 LLM + 結構化 `review.md` 做，不放 lib/cli（避免 runtime CLI 耦合；與每個 workflow skill 一致）
+- [x] findings 可標記「可晉升」餵 BL-036（`review.md` Persistence 註明）
+
+> **完成狀態**: 2026-06-08 已實作、verify Grade A、review review-clean（自審抓到 2 個 false-green critical 並修+mutation 驗證）、歸檔 `add-review-fix-loop`、graduate 至 sdd-workflow US-13。commit `f0a1147`（含 commit 邊界移至 verify S/A 後）。`lib/cli` 確定性簿記經 plan 決議改純 Skill。
 
 ---
 
