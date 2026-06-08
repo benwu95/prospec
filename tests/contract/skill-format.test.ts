@@ -105,8 +105,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 12 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(12);
+    it('should have 13 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(13);
     });
 
     it('should include all expected skill names', () => {
@@ -120,6 +120,7 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-implement');
       expect(names).toContain('prospec-review');
       expect(names).toContain('prospec-verify');
+      expect(names).toContain('prospec-learn');
       expect(names).toContain('prospec-knowledge-generate');
       expect(names).toContain('prospec-archive');
       expect(names).toContain('prospec-knowledge-update');
@@ -145,6 +146,7 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-ff');
       expect(refSkillNames).toContain('prospec-implement');
       expect(refSkillNames).toContain('prospec-review');
+      expect(refSkillNames).toContain('prospec-learn');
       expect(refSkillNames).toContain('prospec-archive');
     });
 
@@ -932,6 +934,7 @@ describe('Skill Format Contract', () => {
       'prospec-ff',
       'prospec-verify',
       'prospec-review',
+      'prospec-learn',
     ];
     for (const name of GATE_SKILLS) {
       it(`${name} has an Entry Gate section`, () => {
@@ -1031,6 +1034,70 @@ describe('Skill Format Contract', () => {
       expect(tail).toMatch(/commit/i);
       expect(tail).toMatch(/prompt|remind/i);
       expect(tail).toMatch(/not auto-commit|do not commit automatically|never commit on/i);
+    });
+  });
+
+  describe('prospec-learn skill — feedback promotion pipeline (BL-036)', () => {
+    const render = () => renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+
+    it('has the four pipeline phases under Core Workflow', () => {
+      const c = render();
+      const flow = c.slice(c.indexOf('## Core Workflow'));
+      expect(flow.length).toBeGreaterThan(0);
+      expect(flow).toContain('### Collect');
+      expect(flow).toContain('### Score');
+      expect(flow).toContain('### Promote');
+      expect(flow).toContain('### Govern');
+    });
+
+    it('Score phase states an explicit numeric promotion rule (auditable/reproducible)', () => {
+      const c = render();
+      const score = c.slice(c.indexOf('### Score'), c.indexOf('### Promote'));
+      expect(score.length).toBeGreaterThan(0);
+      expect(score).toMatch(/frequency/i);
+      expect(score).toMatch(/≥|>=/);
+      expect(score).toMatch(/module/i);
+    });
+
+    it('Promote phase requires explicit human approval + version control across 3 tiers', () => {
+      const c = render();
+      const promote = c.slice(c.indexOf('### Promote'), c.indexOf('### Govern'));
+      expect(promote.length).toBeGreaterThan(0);
+      expect(promote).toMatch(/human approval|explicit approval/i);
+      expect(promote).toMatch(/version control/i);
+      // pipeline auto-writes the governed team tier + Constitution; routed by kind
+      expect(promote).toContain('_playbook.md');
+      expect(promote).toContain('ConstitutionRule');
+      expect(promote).toMatch(/\bkind\b/);
+    });
+
+    it('Govern phase exists and the Exit Gate records to quality_log', () => {
+      const c = render();
+      const govern = c.slice(c.indexOf('### Govern'), c.indexOf('## Output Contract'));
+      expect(govern.length).toBeGreaterThan(0);
+      expect(govern).toMatch(/TTL|conflict/i);
+      const exit = c.slice(c.indexOf('### Exit Gate'));
+      expect(exit).toContain('quality_log');
+    });
+  });
+
+  describe('feedback-promotion integration (BL-036)', () => {
+    it('promotion-format reference renders with explicit rule + approval + ledger', () => {
+      const c = renderTemplate(
+        'skills/references/promotion-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(c).toMatch(/≥|>=/);
+      expect(c).toMatch(/frequency/i);
+      expect(c).toMatch(/approval/i);
+      expect(c).toMatch(/ledger/i);
+    });
+
+    it('prospec-plan and prospec-implement load relevant playbook lessons', () => {
+      for (const s of ['prospec-plan', 'prospec-implement']) {
+        const c = renderTemplate(`skills/${s}.hbs`, TEMPLATE_CONTEXT);
+        expect(c).toContain('_playbook');
+      }
     });
   });
 });

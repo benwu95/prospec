@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.1.7
-last_updated: 2026-06-07
+last_updated: 2026-06-08
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -44,6 +44,11 @@ last_updated: 2026-06-07
 
 從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
 → [features/design-phase.md](features/design-phase.md)
+
+### 回饋晉升
+
+把 session 糾正、verify 反覆 FAIL、review 重複 critical 蒐集成個人教訓，以明文可重現準則（頻次＋影響模組數）判定，經顯式人工核可才三層晉升（個人 → 團隊 playbook → Constitution 規則），讓團隊「越用越聰明」。
+→ [features/feedback-promotion.md](features/feedback-promotion.md)
 
 ## 核心 User Stories 摘要
 
