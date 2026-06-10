@@ -361,6 +361,95 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec agent sync — language and skill triggers', () => {
+    async function initZhTwProject(): Promise<void> {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'sync-lang-test' }),
+      );
+      await runCli([
+        'init',
+        '--name',
+        'sync-lang-test',
+        '--agents',
+        'claude',
+        '--language',
+        'Traditional Chinese (Taiwan)',
+      ]);
+    }
+
+    it('hints to populate skill_triggers for a non-English project and renders the fallback', async () => {
+      await initZhTwProject();
+
+      const { stdout, exitCode } = await runCli(['agent', 'sync']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('skill_triggers');
+      expect(stdout).toContain('Traditional Chinese (Taiwan)');
+
+      const skillMd = await fs.promises.readFile(
+        path.join(tmpDir, '.claude', 'skills', 'prospec-explore', 'SKILL.md'),
+        'utf-8',
+      );
+      expect(skillMd).toContain(
+        'or equivalent terms in Traditional Chinese (Taiwan)',
+      );
+    });
+
+    it('writes custom skill_triggers into the SKILL.md frontmatter and entry config', async () => {
+      await initZhTwProject();
+      await fs.promises.appendFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'skill_triggers:\n  prospec-explore: [探索, 比較, 調查]\n',
+      );
+
+      const { stdout, exitCode } = await runCli(['agent', 'sync']);
+      expect(exitCode).toBe(0);
+      expect(stdout).not.toContain('add them under skill_triggers');
+
+      const skillMd = await fs.promises.readFile(
+        path.join(tmpDir, '.claude', 'skills', 'prospec-explore', 'SKILL.md'),
+        'utf-8',
+      );
+      const frontmatter = skillMd.split('---')[1];
+      expect(frontmatter).toContain(
+        'Triggers: explore, compare, investigate, unsure, clarify, 探索, 比較, 調查',
+      );
+      expect(() => parseYamlRaw(frontmatter)).not.toThrow();
+
+      const claudeMd = await fs.promises.readFile(
+        path.join(tmpDir, 'CLAUDE.md'),
+        'utf-8',
+      );
+      expect(claudeMd).toContain('**Triggers**: explore, compare, investigate, unsure, clarify, 探索, 比較, 調查');
+      expect(claudeMd).toContain('**Traditional Chinese (Taiwan)**');
+    });
+
+    it('generated artifact skills carry the Language Policy section pointing at the Constitution', async () => {
+      await initZhTwProject();
+      await runCli(['agent', 'sync']);
+
+      const newStoryMd = await fs.promises.readFile(
+        path.join(tmpDir, '.claude', 'skills', 'prospec-new-story', 'SKILL.md'),
+        'utf-8',
+      );
+      expect(newStoryMd).toContain('## Language Policy');
+      expect(newStoryMd).toContain("the Constitution's Language Policy rule");
+      expect(newStoryMd).not.toContain('written in English');
+    });
+
+    it('warns about unknown skill_triggers keys on stderr even in quiet mode', async () => {
+      await initZhTwProject();
+      await fs.promises.appendFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'skill_triggers:\n  prospec-reveiw: [審查]\n',
+      );
+
+      const { stderr, exitCode } = await runCli(['agent', 'sync', '-q']);
+      expect(exitCode).toBe(0);
+      expect(stderr).toContain("skill_triggers: unknown skill 'prospec-reveiw' ignored");
+    });
+  });
+
   describe('unknown command', () => {
     it('should exit with non-zero code', async () => {
       const { exitCode } = await runCli(['nonexistent']);
