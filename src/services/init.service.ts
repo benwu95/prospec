@@ -2,13 +2,14 @@ import * as path from 'node:path';
 import { checkbox, input, Separator } from '@inquirer/prompts';
 import { AlreadyExistsError } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DEFAULT_BASE_DIR } from '../types/config.js';
+import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
 import { writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
-import { exampleRulesFor } from '../lib/constitution-rules.js';
+import { exampleRulesFor, languagePolicyRule } from '../lib/constitution-rules.js';
+export { isDefaultArtifactLanguage } from '../lib/config.js';
 import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
@@ -16,6 +17,7 @@ import { renderTemplate } from '../lib/template.js';
 export interface InitOptions {
   name?: string;
   agents?: string[];
+  language?: string;
   cwd?: string;
 }
 
@@ -24,6 +26,7 @@ export interface InitResult {
   techStack: TechStackResult;
   agentInfos: AgentInfo[];
   selectedAgents: string[];
+  artifactLanguage: string;
   createdFiles: string[];
 }
 
@@ -78,6 +81,21 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     });
   }
 
+  // 6b. Resolve artifact language (documents written by AI; code stays English)
+  let artifactLanguage: string;
+  if (options.language !== undefined) {
+    artifactLanguage = options.language;
+  } else if (options.agents) {
+    // CI/CD mode: no prompt
+    artifactLanguage = DEFAULT_ARTIFACT_LANGUAGE;
+  } else {
+    artifactLanguage = await input({
+      message: 'Primary language for AI-generated documents:',
+      default: DEFAULT_ARTIFACT_LANGUAGE,
+    });
+  }
+  artifactLanguage = artifactLanguage.trim() || DEFAULT_ARTIFACT_LANGUAGE;
+
   // 7. Build config
   const config: ProspecConfig = {
     version: '1.0',
@@ -88,6 +106,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       ? { tech_stack: techStack }
       : {}),
     paths: { base_dir: baseDir },
+    artifact_language: artifactLanguage,
     exclude: ['*.env*', '*credential*', '*secret*', 'node_modules', '.git'],
     agents: selectedAgents.length > 0 ? selectedAgents as ProspecConfig['agents'] : undefined,
     knowledge: {
@@ -112,7 +131,8 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     tech_stack: hasTechStack(techStack) ? techStack : undefined,
     agents: selectedAgents,
     base_dir: baseDir,
-    example_rules: exampleRulesFor(techStack),
+    artifact_language: artifactLanguage,
+    example_rules: [languagePolicyRule(artifactLanguage), ...exampleRulesFor(techStack)],
   };
 
   const createdFiles = ['.prospec.yaml'];
@@ -164,6 +184,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     techStack,
     agentInfos,
     selectedAgents,
+    artifactLanguage,
     createdFiles,
   };
 }

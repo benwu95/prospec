@@ -161,3 +161,33 @@ describe('writeConfig', () => {
     expect(content).toContain('name: new');
   });
 });
+
+describe('artifact_language and skill_triggers config fields', () => {
+  it('accepts a config without the new optional fields (backward compatible)', () => {
+    const config = validateConfig('project:\n  name: legacy\n');
+    expect(config.artifact_language).toBeUndefined();
+    expect(config.skill_triggers).toBeUndefined();
+  });
+
+  it('accepts artifact_language as a free-form string', () => {
+    const config = validateConfig(
+      'project:\n  name: test\nartifact_language: Traditional Chinese (Taiwan)\n',
+    );
+    expect(config.artifact_language).toBe('Traditional Chinese (Taiwan)');
+  });
+
+  it('accepts skill_triggers as a map of skill name to word list', () => {
+    const config = validateConfig(
+      'project:\n  name: test\nskill_triggers:\n  prospec-explore: [探索, 比較]\n',
+    );
+    expect(config.skill_triggers).toEqual({ 'prospec-explore': ['探索', '比較'] });
+  });
+
+  it('rejects skill_triggers whose values are not string arrays', () => {
+    expect(() =>
+      validateConfig(
+        'project:\n  name: test\nskill_triggers:\n  prospec-explore: not-an-array\n',
+      ),
+    ).toThrow(ConfigInvalid);
+  });
+});

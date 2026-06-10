@@ -26,12 +26,12 @@ function resolveLogLevel(opts: GlobalOptions): LogLevel {
 export function registerKnowledgeCommand(program: Command): Command {
   const knowledge = program
     .command('knowledge')
-    .description('AI Knowledge 管理');
+    .description('AI Knowledge management');
 
   knowledge
     .command('generate')
-    .description('(deprecated, 請改用 /prospec-knowledge-generate) 生成 AI Knowledge 文件')
-    .option('--dry-run', '只預覽，不寫入檔案')
+    .description('(deprecated, use /prospec-knowledge-generate instead) Generate AI Knowledge documents')
+    .option('--dry-run', 'Preview only, do not write files')
     .action(
       async (options: { dryRun?: boolean }) => {
         const globalOpts = program.opts<GlobalOptions>();

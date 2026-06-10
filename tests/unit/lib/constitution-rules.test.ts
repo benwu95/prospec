@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exampleRulesFor } from '../../../src/lib/constitution-rules.js';
+import { exampleRulesFor, languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 
 const SEVERITIES = ['MUST', 'SHOULD', 'MAY'];
 
@@ -46,5 +46,24 @@ describe('exampleRulesFor', () => {
       const rules = exampleRulesFor({ language: lang });
       expect(rules.some((r) => r.severity === 'MUST')).toBe(true);
     }
+  });
+});
+
+describe('languagePolicyRule', () => {
+  it('returns a MUST rule named Language Policy', () => {
+    const rule = languagePolicyRule('English');
+    expect(rule.severity).toBe('MUST');
+    expect(rule.name).toBe('Language Policy');
+  });
+
+  it('renders the chosen language into description and check', () => {
+    const rule = languagePolicyRule('Traditional Chinese (Taiwan)');
+    expect(rule.description).toContain('Traditional Chinese (Taiwan)');
+    expect(rule.check).toContain('Traditional Chinese (Taiwan)');
+  });
+
+  it('always keeps code and technical terms in English', () => {
+    const rule = languagePolicyRule('Japanese');
+    expect(rule.description).toContain('English');
   });
 });

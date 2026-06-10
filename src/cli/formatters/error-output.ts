@@ -32,7 +32,7 @@ export function formatGenericError(
   verbose = false,
 ): void {
   process.exitCode = 1;
-  process.stderr.write(`${pc.red('✗')} 發生未預期的錯誤\n`);
+  process.stderr.write(`${pc.red('✗')} An unexpected error occurred\n`);
 
   if (error instanceof Error) {
     process.stderr.write(

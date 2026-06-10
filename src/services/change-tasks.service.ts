@@ -44,8 +44,8 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
   const planPath = path.join(changeDir, 'plan.md');
   if (!fs.existsSync(planPath)) {
     throw new PrerequisiteError(
-      `plan.md 不存在於 .prospec/changes/${changeName}/`,
-      '請先執行 `prospec change plan` 生成實作計劃',
+      `plan.md does not exist in .prospec/changes/${changeName}/`,
+      'Run `prospec change plan` first to generate an implementation plan',
     );
   }
 
@@ -105,8 +105,8 @@ async function resolveChange(
     const changeDir = path.join(cwd, '.prospec', 'changes', explicitChange);
     if (!fs.existsSync(changeDir)) {
       throw new PrerequisiteError(
-        `找不到變更 '${explicitChange}'`,
-        '請確認變更名稱正確，或執行 `prospec change story` 建立新的變更',
+        `Change '${explicitChange}' not found`,
+        'Verify the change name is correct, or run `prospec change story` to create a new change',
       );
     }
     return explicitChange;
@@ -115,8 +115,8 @@ async function resolveChange(
   const changesDir = path.join(cwd, '.prospec', 'changes');
   if (!fs.existsSync(changesDir)) {
     throw new PrerequisiteError(
-      '找不到任何變更',
-      '請先執行 `prospec change story <name>` 建立變更需求',
+      'No changes found',
+      'Run `prospec change story <name>` first to create a change request',
     );
   }
 
@@ -127,8 +127,8 @@ async function resolveChange(
 
   if (changeNames.length === 0) {
     throw new PrerequisiteError(
-      '找不到任何變更',
-      '請先執行 `prospec change story <name>` 建立變更需求',
+      'No changes found',
+      'Run `prospec change story <name>` first to create a change request',
     );
   }
 
@@ -139,14 +139,14 @@ async function resolveChange(
   // Multiple changes found
   if (quiet) {
     throw new PrerequisiteError(
-      `找到多個變更：${changeNames.join(', ')}`,
-      '請使用 `--change <name>` 指定要使用的變更',
+      `Multiple changes found: ${changeNames.join(', ')}`,
+      'Use `--change <name>` to specify which change to use',
     );
   }
 
   // Interactive prompt
   const selected = await select({
-    message: '請選擇要生成任務清單的變更：',
+    message: 'Select the change to generate a task list for:',
     choices: changeNames.map((name) => ({ name, value: name })),
   });
 

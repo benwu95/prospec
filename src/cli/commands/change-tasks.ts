@@ -30,8 +30,8 @@ export function registerChangeTasksCommand(program: Command): void {
 
   changeCmd
     .command('tasks')
-    .description('拆分任務清單')
-    .option('--change <name>', '指定變更名稱')
+    .description('Break down into a task list')
+    .option('--change <name>', 'Specify the change name')
     .action(
       async (options: { change?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

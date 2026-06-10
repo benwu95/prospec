@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
-import { ProspecConfigSchema } from '../types/config.js';
+import { ProspecConfigSchema, DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
@@ -34,6 +34,24 @@ export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths 
     constitutionPath: path.resolve(cwd, constitutionPath),
     specsPath: path.resolve(cwd, specsPath),
   };
+}
+
+/**
+ * Resolve the artifact language from config — trims whitespace and treats a
+ * missing or blank value (e.g. a hand-edited `artifact_language: ""`) as the
+ * default English.
+ */
+export function resolveArtifactLanguage(config: ProspecConfig): string {
+  const raw = (config.artifact_language ?? '').trim();
+  return raw || DEFAULT_ARTIFACT_LANGUAGE;
+}
+
+/**
+ * Whether the given artifact language is the default English — compared
+ * case-insensitively, since the value is free-form user input ("english").
+ */
+export function isDefaultArtifactLanguage(language: string): boolean {
+  return language.trim().toLowerCase() === DEFAULT_ARTIFACT_LANGUAGE.toLowerCase();
 }
 
 /**

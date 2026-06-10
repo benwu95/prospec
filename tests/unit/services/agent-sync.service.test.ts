@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { execute } from '../../../src/services/agent-sync.service.js';
+import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { parse as parseYamlDoc } from 'yaml';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -208,5 +209,176 @@ knowledge:
     expect(first).toContain('agent-configs/entry.md.hbs');
 
     vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  });
+});
+
+describe('synthesizeTriggers', () => {
+  const skill = { triggers: ['explore', 'compare'] };
+
+  it('returns the English baseline for English with no custom triggers', () => {
+    expect(synthesizeTriggers(skill, 'English', undefined)).toBe('explore, compare');
+  });
+
+  it('appends custom triggers after the baseline', () => {
+    expect(
+      synthesizeTriggers(skill, 'Traditional Chinese (Taiwan)', ['探索', '比較']),
+    ).toBe('explore, compare, 探索, 比較');
+  });
+
+  it('appends a semantic-match hint for a non-English language with no custom triggers', () => {
+    expect(synthesizeTriggers(skill, 'Japanese', undefined)).toBe(
+      'explore, compare — or equivalent terms in Japanese',
+    );
+  });
+
+  it('treats an empty custom array as unset (falls back to the hint)', () => {
+    expect(synthesizeTriggers(skill, 'Japanese', [])).toBe(
+      'explore, compare — or equivalent terms in Japanese',
+    );
+  });
+
+  it('never appends a hint when custom triggers exist, regardless of language', () => {
+    expect(synthesizeTriggers(skill, 'Japanese', ['カスタム'])).toBe(
+      'explore, compare, カスタム',
+    );
+  });
+
+  it('escapes quotes, backslashes, and newlines so the frontmatter stays valid YAML', () => {
+    const result = synthesizeTriggers(skill, 'English', ['say "review"', 'a\\b', 'multi\nline']);
+    expect(result).toBe('explore, compare, say \\"review\\", a\\\\b, multi line');
+    expect(() => parseYamlDoc(`description: "Triggers: ${result}"`)).not.toThrow();
+  });
+
+  it('escapes a quoted artifact language inside the fallback hint', () => {
+    const result = synthesizeTriggers(skill, '"Fancy" Lang', undefined);
+    expect(result).toBe('explore, compare — or equivalent terms in \\"Fancy\\" Lang');
+    expect(() => parseYamlDoc(`description: "Triggers: ${result}"`)).not.toThrow();
+  });
+
+  it('treats custom triggers that collapse to empty as unset', () => {
+    expect(synthesizeTriggers(skill, 'Japanese', ['   '])).toBe(
+      'explore, compare — or equivalent terms in Japanese',
+    );
+  });
+});
+
+describe('agent-sync skill_triggers warnings', () => {
+  beforeEach(() => {
+    vol.reset();
+    vi.mocked(renderTemplate).mockClear();
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  });
+
+  it('warns on unknown skill names in skill_triggers and ignores them', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - claude',
+        'skill_triggers:',
+        '  prospec-explore: [探索]',
+        '  no-such-skill: [whatever]',
+        '',
+      ].join('\n'),
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.warnings).toEqual([
+      "skill_triggers: unknown skill 'no-such-skill' ignored",
+    ]);
+  });
+
+  it('returns no warnings when skill_triggers is absent', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('passes synthesized trigger_words into each skill template render', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - claude',
+        'artifact_language: Traditional Chinese (Taiwan)',
+        'skill_triggers:',
+        '  prospec-explore: [探索, 比較]',
+        '',
+      ].join('\n'),
+    });
+
+    await execute({ cwd: '/project' });
+
+    const calls = vi.mocked(renderTemplate).mock.calls;
+    const exploreCall = calls.find(([name]) => name === 'skills/prospec-explore.hbs');
+    expect(exploreCall).toBeDefined();
+    const exploreCtx = exploreCall![1] as Record<string, unknown>;
+    expect(exploreCtx.trigger_words).toBe(
+      'explore, compare, investigate, unsure, clarify, 探索, 比較',
+    );
+
+    const planCall = calls.find(([name]) => name === 'skills/prospec-plan.hbs');
+    const planCtx = planCall![1] as Record<string, unknown>;
+    expect(planCtx.trigger_words).toBe(
+      'plan, design architecture, how to implement — or equivalent terms in Traditional Chinese (Taiwan)',
+    );
+
+    const entryCall = calls.find(([name]) => name === 'agent-configs/entry.md.hbs');
+    const entryCtx = entryCall![1] as Record<string, unknown>;
+    expect(entryCtx.artifact_language).toBe('Traditional Chinese (Taiwan)');
+  });
+
+  it('hints to populate skill_triggers when language is non-English and none are set', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        'project:\n  name: test\nagents:\n  - claude\nartifact_language: Japanese\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.hints).toHaveLength(1);
+    expect(result.hints[0]).toContain('Japanese');
+    expect(result.hints[0]).toContain('skill_triggers');
+  });
+
+  it('emits no hint when skill_triggers are set or language is English', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - claude',
+        'artifact_language: Japanese',
+        'skill_triggers:',
+        '  prospec-explore: [調査]',
+        '',
+      ].join('\n'),
+    });
+    expect((await execute({ cwd: '/project' })).hints).toEqual([]);
+
+    vol.reset();
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
+    });
+    expect((await execute({ cwd: '/project' })).hints).toEqual([]);
+  });
+
+  it('defaults artifact_language to English when absent from config', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const entryCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([name]) => name === 'agent-configs/entry.md.hbs');
+    const entryCtx = entryCall![1] as Record<string, unknown>;
+    expect(entryCtx.artifact_language).toBe('English');
   });
 });

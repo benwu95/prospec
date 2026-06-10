@@ -25,15 +25,15 @@ function resolveLogLevel(opts: GlobalOptions): LogLevel {
 export function registerSteeringCommand(program: Command): void {
   program
     .command('steering')
-    .description('(deprecated, 請改用 prospec knowledge init) 分析現有專案架構')
-    .option('--dry-run', '只預覽，不寫入檔案')
+    .description('(deprecated, use prospec knowledge init instead) Analyze existing project architecture')
+    .option('--dry-run', 'Preview only, do not write files')
     .option(
       '--depth <n>',
-      '掃描深度',
+      'Scan depth',
       (value: string) => {
         const parsed = parseInt(value, 10);
         if (isNaN(parsed) || parsed < 1) {
-          throw new Error(`無效的深度值：${value}（需為正整數）`);
+          throw new Error(`Invalid depth value: ${value} (must be a positive integer)`);
         }
         return parsed;
       },

@@ -72,3 +72,17 @@ export function parseYamlDocument(
 export function stringifyYamlDocument(doc: Document): string {
   return doc.toString();
 }
+
+/**
+ * Escape user-provided text for interpolation into a double-quoted YAML
+ * scalar inside a Handlebars template (rendered with noEscape) — a raw `"`,
+ * `\`, or newline would make the generated YAML unparseable. Collapses all
+ * whitespace to single spaces (the target scalars are single-line).
+ */
+export function escapeYamlScalar(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

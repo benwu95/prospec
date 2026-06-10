@@ -17,6 +17,11 @@ export function formatAgentSyncOutput(
   result: AgentSyncFullResult,
   logLevel: LogLevel = 'normal',
 ): void {
+  // Warnings are diagnostics: always emitted, on stderr, even in quiet mode
+  for (const warning of result.warnings) {
+    process.stderr.write(`${pc.yellow('⚠')} ${warning}\n`);
+  }
+
   if (logLevel === 'quiet') return;
 
   const lines: string[] = [];
@@ -69,7 +74,13 @@ export function formatAgentSyncOutput(
     }
   }
 
-  // 3. Next steps
+  // 3. Hints (next-step suggestions)
+  for (const hint of result.hints) {
+    lines.push('');
+    lines.push(`${pc.cyan('ℹ')} ${hint}`);
+  }
+
+  // 4. Next steps
   lines.push('');
   lines.push(
     `${pc.dim('→')} AI agent configurations are ready. Use ${pc.cyan('`/prospec-explore`')} to start exploring.`,

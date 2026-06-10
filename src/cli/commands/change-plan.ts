@@ -30,8 +30,8 @@ export function registerChangePlanCommand(program: Command): void {
 
   changeCmd
     .command('plan')
-    .description('生成實作計劃')
-    .option('--change <name>', '指定變更名稱')
+    .description('Generate an implementation plan')
+    .option('--change <name>', 'Specify the change name')
     .action(
       async (options: { change?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

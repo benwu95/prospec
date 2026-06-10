@@ -326,7 +326,7 @@ last_updated: ${today}
 
 # ${projectName}
 
-## 功能地圖
+## Feature Map
 
 ${featureMap || '_(No active features yet)_'}
 `;
@@ -764,11 +764,11 @@ req_count: ${routes.filter((r) => r.status !== 'REMOVED').length}
 
 ## Who & Why
 
-**服務對象**: TBD
+**Who it serves**: TBD
 
-**解決問題**: TBD
+**Problem it solves**: TBD
 
-**為什麼重要**: TBD
+**Why it matters**: TBD
 
 ## User Stories & Behavior Specifications
 

@@ -351,14 +351,14 @@ function buildDirectoryTree(files: string[], maxDepth: number): string {
 function generateConventionsSkeleton(projectName: string): string {
   return `# Coding Conventions
 
-> ${projectName} 的程式碼規範與最佳實踐
+> Coding conventions and best practices for ${projectName}
 
 <!-- prospec:auto-start -->
-_由 \`/prospec-knowledge-generate\` 填充。_
+_Populated by \`/prospec-knowledge-generate\`._
 <!-- prospec:auto-end -->
 
 <!-- prospec:user-start -->
-<!-- 在此添加團隊特有的規範、例外規則等 -->
+<!-- Add team-specific conventions, exception rules, etc. here -->
 <!-- prospec:user-end -->
 `;
 }

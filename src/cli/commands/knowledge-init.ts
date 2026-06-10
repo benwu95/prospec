@@ -26,9 +26,9 @@ export function registerKnowledgeInitCommand(
 ): void {
   knowledge
     .command('init')
-    .description('掃描專案並產生 raw-scan.md 和空骨架')
-    .option('--dry-run', '只預覽，不寫入檔案')
-    .option('--depth <n>', '目錄掃描深度', '10')
+    .description('Scan the project and generate raw-scan.md and empty skeletons')
+    .option('--dry-run', 'Preview only, do not write files')
+    .option('--depth <n>', 'Directory scan depth', '10')
     .action(
       async (options: { dryRun?: boolean; depth?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

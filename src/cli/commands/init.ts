@@ -4,6 +4,7 @@ import { formatInitOutput } from '../formatters/init-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import type { LogLevel } from '../../types/config.js';
+import { DEFAULT_ARTIFACT_LANGUAGE } from '../../types/config.js';
 
 /**
  * Resolve log level from global options.
@@ -25,14 +26,18 @@ function resolveLogLevel(opts: GlobalOptions): LogLevel {
 export function registerInitCommand(program: Command): void {
   program
     .command('init')
-    .description('初始化 Prospec 專案結構')
-    .option('--name <name>', '指定專案名稱')
+    .description('Initialize Prospec project structure')
+    .option('--name <name>', 'Specify the project name')
     .option(
       '--agents <list>',
-      'AI agents（以逗號分隔，跳過互動選擇）',
+      'AI agents (comma-separated, skips interactive selection)',
       (value: string) => value.split(',').map((s) => s.trim()),
     )
-    .action(async (options: { name?: string; agents?: string[] }) => {
+    .option(
+      '--language <language>',
+      `Primary language for AI-generated documents (default: ${DEFAULT_ARTIFACT_LANGUAGE}, skips interactive prompt)`,
+    )
+    .action(async (options: { name?: string; agents?: string[]; language?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
@@ -40,6 +45,7 @@ export function registerInitCommand(program: Command): void {
         const result = await execute({
           name: options.name,
           agents: options.agents,
+          language: options.language,
         });
         formatInitOutput(result, logLevel);
       } catch (err) {

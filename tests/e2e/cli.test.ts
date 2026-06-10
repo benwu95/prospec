@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFile } from 'node:child_process';
+import { parse as parseYamlRaw } from 'yaml';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -112,6 +113,72 @@ describe('CLI E2E', () => {
       expect(fs.existsSync(path.join(tmpDir, 'prospec', 'specs'))).toBe(true);
     });
 
+    it('should record --language and seed the Constitution Language Policy', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'e2e-lang-project' }),
+      );
+
+      const { stdout, exitCode } = await runCli([
+        'init',
+        '--name',
+        'e2e-lang-project',
+        '--agents',
+        'claude',
+        '--language',
+        'Traditional Chinese (Taiwan)',
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Document language: Traditional Chinese (Taiwan)');
+      expect(stdout).toContain('skill_triggers');
+
+      const configContent = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'utf-8',
+      );
+      expect(configContent).toContain('artifact_language: Traditional Chinese (Taiwan)');
+
+      const constitution = await fs.promises.readFile(
+        path.join(tmpDir, 'prospec', 'CONSTITUTION.md'),
+        'utf-8',
+      );
+      expect(constitution).toContain('[MUST] Language Policy');
+      expect(constitution).toContain('Traditional Chinese (Taiwan)');
+    });
+
+    it('should default artifact_language to English in CI mode', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'e2e-default-lang' }),
+      );
+
+      const { stdout, exitCode } = await runCli([
+        'init',
+        '--name',
+        'e2e-default-lang',
+        '--agents',
+        'claude',
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Document language: English');
+      expect(stdout).not.toContain('skill_triggers');
+      const configContent = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'utf-8',
+      );
+      expect(configContent).toContain('artifact_language: English');
+    });
+
+    it('help output for init is in English and lists --language', async () => {
+      const { stdout, exitCode } = await runCli(['init', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--language');
+      expect(stdout).toContain('Initialize Prospec project structure');
+      expect(/[\u4e00-\u9fff]/.test(stdout)).toBe(false);
+    });
+
     it('should prevent double initialization', async () => {
       await fs.promises.writeFile(
         path.join(tmpDir, 'package.json'),
@@ -185,6 +252,31 @@ describe('CLI E2E', () => {
       const changePath = path.join(tmpDir, '.prospec', 'changes', 'add-feature');
       expect(fs.existsSync(path.join(changePath, 'proposal.md'))).toBe(true);
       expect(fs.existsSync(path.join(changePath, 'metadata.yaml'))).toBe(true);
+    });
+
+    it('produces parseable metadata.yaml when --description contains quotes', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'quoted-test' }),
+      );
+      await runCli(['init', '--name', 'quoted-test', '--agents', 'claude']);
+
+      const { exitCode } = await runCli([
+        'change',
+        'story',
+        'quoted-story',
+        '--description',
+        'say "review" now',
+      ]);
+      expect(exitCode).toBe(0);
+
+      const metadataRaw = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'quoted-story', 'metadata.yaml'),
+        'utf-8',
+      );
+      const metadata = parseYamlRaw(metadataRaw) as { description: string; status: string };
+      expect(metadata.status).toBe('story');
+      expect(metadata.description).toBe('say "review" now');
     });
   });
 

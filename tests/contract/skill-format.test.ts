@@ -17,9 +17,12 @@ const TEMPLATE_CONTEXT = {
   constitution_path: 'docs/CONSTITUTION.md',
   base_dir: 'docs',
   tech_stack: { language: 'typescript', framework: 'express' },
+  artifact_language: 'English',
+  trigger_words: 'test-trigger-alpha, test-trigger-beta',
   skills: SKILL_DEFINITIONS.map((s) => ({
     name: s.name,
     description: s.description,
+    triggers: s.triggers.join(', '),
     type: s.type,
     hasReferences: s.hasReferences,
   })),
@@ -258,9 +261,9 @@ describe('Skill Format Contract', () => {
         'skills/references/product-spec-format.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('願景');
-      expect(content).toContain('目標使用者');
-      expect(content).toContain('功能地圖');
+      expect(content).toContain('Vision');
+      expect(content).toContain('Target Users');
+      expect(content).toContain('Feature Map');
     });
 
     it('should contain Feature Map linking to features/', () => {
@@ -277,8 +280,8 @@ describe('Skill Format Contract', () => {
         'skills/references/product-spec-format.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('產品原則');
-      expect(content).toContain('路線圖');
+      expect(content).toContain('Product Principles');
+      expect(content).toContain('Roadmap');
     });
 
     it('should enforce 80 line limit guideline', () => {
@@ -492,8 +495,8 @@ describe('Skill Format Contract', () => {
       );
       const frontmatter = extractFrontmatter(content);
       expect(frontmatter).toContain('name: prospec-design');
-      expect(frontmatter).toContain('設計');
       expect(frontmatter).toContain('Design Phase');
+      expect(frontmatter).toContain('Triggers: test-trigger-alpha, test-trigger-beta');
     });
 
     it('should reference platform adapters', () => {
@@ -1111,3 +1114,94 @@ function extractFrontmatter(content: string): string {
   if (endIndex === -1) return '';
   return content.slice(3, endIndex).trim();
 }
+
+describe('Language Policy mechanism', () => {
+  const ARTIFACT_SKILLS = [
+    'prospec-new-story',
+    'prospec-plan',
+    'prospec-tasks',
+    'prospec-ff',
+    'prospec-design',
+    'prospec-archive',
+    'prospec-learn',
+    'prospec-knowledge-generate',
+    'prospec-knowledge-update',
+  ];
+
+  /** Slice a rendered document to one section: from its heading to the next ## heading. */
+  function sectionOf(content: string, heading: string): string {
+    const start = content.indexOf(heading);
+    if (start === -1) return '';
+    const rest = content.slice(start + heading.length);
+    const next = rest.search(/\n## /);
+    return next === -1 ? rest : rest.slice(0, next);
+  }
+
+  for (const name of ARTIFACT_SKILLS) {
+    it(`${name} carries a Constitution-pointing Language Policy section`, () => {
+      const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '## Language Policy');
+      expect(section.length).toBeGreaterThan(0);
+      expect(section).toContain("the Constitution's Language Policy rule");
+      expect(section).toContain('technical terms in English');
+    });
+  }
+
+  it('non-artifact skills (e.g. explore) have no Language Policy section', () => {
+    const content = renderTemplate('skills/prospec-explore.hbs', TEMPLATE_CONTEXT);
+    expect(content).not.toContain('## Language Policy');
+  });
+
+  it('skill frontmatter never hardcodes a document language (BL-018 neutrality)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const content = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+      expect(content).not.toContain('written in English');
+      expect(content).not.toContain("in the user's language");
+    }
+  });
+
+  it('entry config declares the artifact language in its own section', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      artifact_language: 'Traditional Chinese (Taiwan)',
+      skill_path: '.claude/skills',
+    });
+    const section = sectionOf(content, '## Language Policy');
+    expect(section.length).toBeGreaterThan(0);
+    expect(section).toContain('**Traditional Chinese (Taiwan)**');
+    expect(section).toContain('remain in English');
+  });
+
+  it('every skill frontmatter renders the synthesized trigger words', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const content = renderTemplate(`skills/${skill.name}.hbs`, {
+        ...TEMPLATE_CONTEXT,
+        trigger_words: `marker-${skill.name}`,
+      });
+      const frontmatter = extractFrontmatter(content);
+      expect(frontmatter).toContain(`Triggers: marker-${skill.name}`);
+    }
+  });
+});
+
+describe('Skill trigger baselines', () => {
+  it('every skill definition has a non-empty English trigger baseline', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      expect(skill.triggers.length, `${skill.name} has no triggers`).toBeGreaterThan(0);
+      for (const word of skill.triggers) {
+        expect(word.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('entry config lists trigger words for every skill', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      artifact_language: 'English',
+      skill_path: '.claude/skills',
+    });
+    for (const skill of SKILL_DEFINITIONS) {
+      expect(content).toContain(`**Triggers**: ${skill.triggers.join(', ')}`);
+    }
+  });
+});

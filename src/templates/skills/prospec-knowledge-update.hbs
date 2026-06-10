@@ -1,6 +1,6 @@
 ---
 name: prospec-knowledge-update
-description: "Incremental Knowledge Update | 增量更新 AI Knowledge - Parse delta-spec.md to identify affected modules, scan source code, and update module README, _index.md, and module-map.yaml incrementally. Triggers: knowledge update, incremental update, sync knowledge, update docs, 增量更新, 同步知識, 更新文件"
+description: "Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, _index.md, and module-map.yaml incrementally. Triggers: {{trigger_words}}"
 ---
 
 # Prospec Knowledge Update Skill
@@ -12,6 +12,8 @@ When triggered, briefly describe:
 - Only affected modules will be scanned (not the entire codebase)
 - Module README.md (Recipe-First format), _index.md, and module-map.yaml will be updated incrementally
 - User-written sections (prospec:user-start/end) are always preserved
+
+{{> language-policy}}
 
 ## Startup Loading
 

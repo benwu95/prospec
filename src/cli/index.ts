@@ -39,8 +39,8 @@ export function createProgram(): Command {
     .name('prospec')
     .description('Progressive Spec-Driven Development CLI')
     .version(pkg.version)
-    .option('--verbose', '啟用詳細輸出')
-    .option('-q, --quiet', '靜默模式（只輸出結果，適合 CI/CD）')
+    .option('--verbose', 'Enable verbose output')
+    .option('-q, --quiet', 'Quiet mode (results only, suitable for CI/CD)')
     .configureOutput({
       outputError: (str, write) => write(pc.red(str)),
     })

@@ -104,6 +104,22 @@ const GENERIC_RULES: ConstitutionRule[] = [
 ];
 
 /**
+ * The Language Policy rule seeded into every Constitution by `prospec init`.
+ *
+ * `language` is the user-chosen artifact language (free-form string, e.g.
+ * "Traditional Chinese (Taiwan)"); callers pass "English" when none was chosen.
+ */
+export function languagePolicyRule(language: string): ConstitutionRule {
+  return {
+    severity: 'MUST',
+    name: 'Language Policy',
+    description: `All AI-generated documents (change artifacts and AI Knowledge) are written in ${language}. Code, identifiers, and technical terms always remain in English.`,
+    rationale: 'A single declared document language keeps generated artifacts consistent and reviewable, while English code and terminology follow industry convention.',
+    check: `Documents under .prospec/changes/ and the AI Knowledge base are written in ${language}; code and technical terms are in English.`,
+  };
+}
+
+/**
  * Return 3-5 starter Constitution rules appropriate to the detected stack.
  * Unknown or undetected languages fall back to language-neutral rules.
  */

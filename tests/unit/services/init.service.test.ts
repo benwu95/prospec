@@ -4,6 +4,8 @@ import { vol } from 'memfs';
 import { execute } from '../../../src/services/init.service.js';
 import { AlreadyExistsError } from '../../../src/types/errors.js';
 import { renderTemplate } from '../../../src/lib/template.js';
+import { input } from '@inquirer/prompts';
+import type { ConstitutionRule } from '../../../src/types/constitution.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -172,5 +174,82 @@ describe('init.service', () => {
         ['MUST', 'SHOULD', 'MAY'].includes(r.severity),
       ),
     ).toBe(true);
+  });
+});
+
+describe('init.service artifact language', () => {
+  beforeEach(() => {
+    vol.reset();
+    vi.mocked(renderTemplate).mockClear();
+  });
+
+  it('uses the --language flag value and writes it to .prospec.yaml', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    const result = await execute({
+      name: 'test',
+      agents: ['claude'],
+      language: 'Traditional Chinese (Taiwan)',
+      cwd: '/project',
+    });
+
+    expect(result.artifactLanguage).toBe('Traditional Chinese (Taiwan)');
+    const yaml = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(yaml).toContain('artifact_language: Traditional Chinese (Taiwan)');
+  });
+
+  it('defaults to English in CI mode without a language flag', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    expect(result.artifactLanguage).toBe('English');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'artifact_language: English',
+    );
+  });
+
+  it('prompts for the language in interactive mode', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Français');
+
+    const result = await execute({ name: 'test', cwd: '/project' });
+
+    expect(result.artifactLanguage).toBe('Français');
+  });
+
+  it('falls back to English when the prompt answer is blank', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('   ');
+
+    const result = await execute({ name: 'test', cwd: '/project' });
+
+    expect(result.artifactLanguage).toBe('English');
+  });
+
+  it('seeds the Constitution with the Language Policy rule first', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    await execute({
+      name: 'test',
+      agents: ['claude'],
+      language: 'Japanese',
+      cwd: '/project',
+    });
+
+    const constitutionCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([name]) => name === 'init/constitution.md.hbs');
+    expect(constitutionCall).toBeDefined();
+    const ctx = constitutionCall![1] as { example_rules: ConstitutionRule[]; artifact_language: string };
+    expect(ctx.artifact_language).toBe('Japanese');
+    expect(ctx.example_rules[0].name).toBe('Language Policy');
+    expect(ctx.example_rules[0].severity).toBe('MUST');
+    expect(ctx.example_rules[0].description).toContain('Japanese');
+    expect(ctx.example_rules.length).toBeGreaterThanOrEqual(4);
   });
 });

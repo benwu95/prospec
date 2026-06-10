@@ -49,13 +49,16 @@ const KnowledgeSchema = z.object({
 
 export const DEFAULT_BASE_DIR = 'prospec';
 
+/** Artifact language assumed when `.prospec.yaml` has no `artifact_language`. */
+export const DEFAULT_ARTIFACT_LANGUAGE = 'English';
+
 export const VALID_AGENTS = ['claude', 'antigravity', 'copilot', 'codex'] as const;
 
 export const ProspecConfigSchema = z
   .object({
     version: z.string().optional(),
     project: z.object({
-      name: z.string({ error: 'project.name 為必填欄位' }),
+      name: z.string({ error: 'project.name is a required field' }),
       version: z.string().optional(),
     }),
     tech_stack: TechStackSchema,
@@ -65,6 +68,8 @@ export const ProspecConfigSchema = z
     exclude: z.array(z.string()).optional(),
     agents: z.array(z.enum(VALID_AGENTS)).optional(),
     knowledge: KnowledgeSchema,
+    artifact_language: z.string().optional(),
+    skill_triggers: z.record(z.string(), z.array(z.string())).optional(),
   })
   .passthrough();
 
