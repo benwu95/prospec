@@ -3,6 +3,8 @@ import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/change-story.service.js';
 import { AlreadyExistsError, ConfigNotFound } from '../../../src/types/errors.js';
+import { renderTemplate } from '../../../src/lib/template.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -133,5 +135,58 @@ knowledge:
       'utf-8',
     );
     expect(metadataContent).toContain('story');
+  });
+});
+
+describe('change-story metadata YAML escaping', () => {
+  it('round-trips a quoted --description through metadata.yaml exactly', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+    });
+    vi.mocked(renderTemplate).mockClear();
+
+    await execute({
+      name: 'quoted-change',
+      description: 'say "review" now',
+      cwd: '/project',
+    });
+
+    const metadataRaw = fs.readFileSync(
+      '/project/.prospec/changes/quoted-change/metadata.yaml',
+      'utf-8',
+    );
+    const metadata = parseYaml<{ name: string; status: string; description: string }>(
+      metadataRaw,
+    );
+    expect(metadata.name).toBe('quoted-change');
+    expect(metadata.status).toBe('story');
+    expect(metadata.description).toBe('say "review" now');
+
+    const proposalCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([name]) => name === 'change/proposal.md.hbs');
+    expect((proposalCall![1] as { description: string }).description).toBe(
+      'say "review" now',
+    );
+  });
+
+  it('preserves a multi-line description verbatim', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+    });
+
+    await execute({
+      name: 'multiline-change',
+      description: 'line1\nline2',
+      cwd: '/project',
+    });
+
+    const metadata = parseYaml<{ description: string }>(
+      fs.readFileSync(
+        '/project/.prospec/changes/multiline-change/metadata.yaml',
+        'utf-8',
+      ),
+    );
+    expect(metadata.description).toBe('line1\nline2');
   });
 });

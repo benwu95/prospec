@@ -19,8 +19,10 @@ export type SkillType = 'Planning' | 'Execution' | 'Lifecycle';
 export interface SkillConfig {
   /** Skill name (e.g., 'prospec-explore') */
   name: string;
-  /** Skill description (shown in AI context, contains trigger words) */
+  /** Skill description (shown in AI context) */
   description: string;
+  /** English trigger-word baseline rendered into the SKILL.md frontmatter */
+  triggers: string[];
   /** Skill type categorization */
   type: SkillType;
   /** CLI command this Skill depends on (e.g., 'prospec change story') */
@@ -47,83 +49,96 @@ export interface AgentConfig {
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-explore',
-    description: '探索模式 — 作為思考夥伴，協助釐清需求、調查問題、比較方案。',
+    description: 'Exploration mode — acts as a thinking partner to clarify requirements, investigate problems, and compare solutions.',
+    triggers: ['explore', 'compare', 'investigate', 'unsure', 'clarify'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-new-story',
-    description: '建立新的變更需求。引導使用者描述需求，呼叫 prospec change story 建立結構化的 proposal.md 和 metadata.yaml。',
+    description: 'Create a new change request. Guides the user through describing the requirement and calls prospec change story to create a structured proposal.md and metadata.yaml.',
+    triggers: ['new feature', 'requirement', 'story', 'I want to', 'change'],
     type: 'Planning',
     cliDependency: 'prospec change story',
     hasReferences: true,
   },
   {
     name: 'prospec-plan',
-    description: '基於變更需求生成實作計劃。讀取 proposal.md、相關模組的 AI Knowledge 和 Constitution，產出結構化的 plan.md 和 delta-spec.md。',
+    description: 'Generate an implementation plan from a change request. Reads proposal.md, related module AI Knowledge, and the Constitution to produce a structured plan.md and delta-spec.md.',
+    triggers: ['plan', 'design architecture', 'how to implement'],
     type: 'Planning',
     cliDependency: 'prospec change plan',
     hasReferences: true,
   },
   {
     name: 'prospec-design',
-    description: '設計階段 — 從 proposal 產出視覺與互動規格（Generate Mode），或從設計工具反向萃取規格（Extract Mode）。支援 pencil/Figma/Penpot/HTML 平台。Design phase, UI/UX specification generation and extraction.',
+    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.',
+    triggers: ['design', 'UI spec', 'generate design', 'extract design'],
     type: 'Planning',
     hasReferences: true,
   },
   {
     name: 'prospec-tasks',
-    description: '將實作計劃拆分為可執行的任務清單。按架構層次排序，使用 checkbox 格式，含複雜度估算和並行標記。',
+    description: 'Break an implementation plan into an actionable task checklist, ordered by architecture layer, in checkbox format with complexity estimates and parallelization markers.',
+    triggers: ['break down', 'tasks', 'task list', 'work items', 'how to split'],
     type: 'Planning',
     cliDependency: 'prospec change tasks',
     hasReferences: true,
   },
   {
     name: 'prospec-ff',
-    description: '快速前進 — 一次生成所有 planning artifacts（story → plan → tasks）。適合需求明確時快速推進。',
+    description: 'Fast-forward — generate all planning artifacts (story → plan → tasks) in one pass. Suited for moving fast when requirements are clear.',
+    triggers: ['fast-forward', 'ff', 'all at once', 'quick plan'],
     type: 'Planning',
     cliDependency: 'prospec change story + plan + tasks',
     hasReferences: true,
   },
   {
     name: 'prospec-implement',
-    description: '按 tasks.md 逐項實作任務。讀取任務清單，按順序實作，完成後勾選 checkbox。',
+    description: 'Implement tasks from tasks.md one by one. Reads the task list, implements in order, and checks off each completed checkbox.',
+    triggers: ['implement', 'start coding', 'write code', 'execute tasks'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-review',
-    description: '對抗式 code review → fix 迴圈。在 implement 與 verify 之間，由獨立 reviewer 審查整個 change diff；critical 經獨立驗證確認真實才自動修、major 提案降為 WARN、spec-aware（對照 delta-spec REQ／依賴方向／module conventions）。Adversarial code review and fix loop between implement and verify.',
+    description: 'Adversarial code review → fix loop. Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec REQs, dependency direction, and module conventions.',
+    triggers: ['review', 'code review', 'adversarial review', 'find bugs', 'critical'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-verify',
-    description: '驗證實作是否符合規格和計劃。執行 Constitution 完整驗證、tasks.md 完成度、spec 一致性、測試通過率。',
+    description: 'Verify the implementation against specs and plan. Runs full Constitution validation, tasks.md completion, spec consistency, and test pass rate.',
+    triggers: ['verify', 'check', 'audit', 'quality', 'done', 'grade'],
     type: 'Execution',
     hasReferences: false,
   },
   {
     name: 'prospec-knowledge-generate',
-    description: '生成 AI Knowledge。讀取 raw-scan.md，分析專案結構，自主決定模組切割並產出模組 README 和索引。',
+    description: 'Generate AI Knowledge. Reads raw-scan.md, analyzes project structure, autonomously decides module boundaries, and produces module READMEs and the index.',
+    triggers: ['knowledge', 'generate knowledge', 'analyze project', 'module split'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-archive',
-    description: '歸檔已完成的變更。掃描 changes 目錄，將 verified 狀態的變更搬移至 archive，生成 summary.md 並提示 Knowledge 更新。',
+    description: 'Archive completed changes. Scans the changes directory, moves verified changes to archive, generates summary.md, and prompts for Knowledge updates.',
+    triggers: ['archive', 'clean up', 'wrap up', 'spec sync'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-knowledge-update',
-    description: '增量更新 AI Knowledge。解析 delta-spec.md 識別受影響模組，掃描原始碼後更新模組 README、_index.md 和 module-map.yaml。Incremental knowledge update, delta-spec driven.',
+    description: 'Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, _index.md, and module-map.yaml.',
+    triggers: ['knowledge update', 'incremental update', 'sync knowledge', 'update docs'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-learn',
-    description: '回饋晉升管線。蒐集 session 糾正、verify 反覆 FAIL、review 重複 critical 成個人教訓，以明文可重現準則（頻次＋影響模組數）判定，經顯式人工核可才三層晉升（個人→團隊 playbook→Constitution 規則）。Feedback promotion pipeline, auditable lesson promotion.',
+    description: 'Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into personal lessons; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (personal → team playbook → Constitution rule).',
+    triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],
     type: 'Lifecycle',
     hasReferences: true,
   },

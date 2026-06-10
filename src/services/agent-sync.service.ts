@@ -1,6 +1,12 @@
 import * as path from 'node:path';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import {
+  readConfig,
+  resolveBasePaths,
+  resolveArtifactLanguage,
+  isDefaultArtifactLanguage,
+} from '../lib/config.js';
 import { renderTemplate } from '../lib/template.js';
+import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
@@ -9,6 +15,7 @@ import {
   AGENT_CONFIGS,
   type AgentConfig,
   type AgentSyncResult,
+  type SkillConfig,
 } from '../types/skill.js';
 
 export interface AgentSyncOptions {
@@ -23,6 +30,10 @@ export interface AgentSyncFullResult {
   agents: AgentSyncResult[];
   /** Total number of files generated */
   totalFiles: number;
+  /** Non-fatal warnings (e.g., skill_triggers entries for unknown skills) */
+  warnings: string[];
+  /** Next-step suggestions (e.g., populate skill_triggers for a non-English language) */
+  hints: string[];
 }
 
 /**
@@ -54,8 +65,8 @@ export async function execute(
 
   if (configuredAgents.length === 0) {
     throw new PrerequisiteError(
-      '未配置任何 AI Agent',
-      `請在 .prospec.yaml 的 agents 欄位中加入至少一個 agent（支援：${VALID_AGENTS.join('、')}），或執行 \`prospec init\` 重新初始化`,
+      'No AI agent configured',
+      `Add at least one agent to the agents field in .prospec.yaml (supported: ${VALID_AGENTS.join(', ')}), or run \`prospec init\` to re-initialize`,
     );
   }
 
@@ -64,8 +75,8 @@ export async function execute(
   if (options.cli) {
     if (!configuredAgents.includes(options.cli as typeof configuredAgents[number])) {
       throw new PrerequisiteError(
-        `Agent '${options.cli}' 未在 .prospec.yaml 中配置`,
-        `已配置的 agents: ${configuredAgents.join(', ')}`,
+        `Agent '${options.cli}' is not configured in .prospec.yaml`,
+        `Configured agents: ${configuredAgents.join(', ')}`,
       );
     }
     agentsToSync = [options.cli];
@@ -73,22 +84,52 @@ export async function execute(
     agentsToSync = [...configuredAgents];
   }
 
-  // 3. Template context (shared across all agents)
+  // 3. Resolve language + custom triggers; absent artifact_language means English
+  const artifactLanguage = resolveArtifactLanguage(config);
+  const skillTriggers = config.skill_triggers ?? {};
+  const knownSkillNames = new Set(SKILL_DEFINITIONS.map((s) => s.name));
+  const warnings: string[] = [];
+  for (const key of Object.keys(skillTriggers)) {
+    if (!knownSkillNames.has(key)) {
+      warnings.push(`skill_triggers: unknown skill '${key}' ignored`);
+    }
+  }
+  const hints: string[] = [];
+  if (
+    !isDefaultArtifactLanguage(artifactLanguage) &&
+    Object.keys(skillTriggers).length === 0
+  ) {
+    hints.push(
+      `Native-language skill triggers: ask your AI agent to translate each skill's English trigger baseline into ${artifactLanguage}, add them under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\`.`,
+    );
+  }
+
+  // 4. Trigger words are agent-independent — synthesize once per skill
+  const triggerWordsBySkill = new Map(
+    SKILL_DEFINITIONS.map((s) => [
+      s.name,
+      synthesizeTriggers(s, artifactLanguage, skillTriggers[s.name]),
+    ]),
+  );
+
+  // 5. Template context (shared across all agents)
   const templateContext = {
     project_name: config.project.name,
     base_dir: baseDir,
     knowledge_base_path: knowledgeBasePath,
     constitution_path: constitutionPath,
     tech_stack: config.tech_stack ?? {},
+    artifact_language: artifactLanguage,
     skills: SKILL_DEFINITIONS.map((s) => ({
       name: s.name,
       description: s.description,
+      triggers: triggerWordsBySkill.get(s.name),
       type: s.type,
       hasReferences: s.hasReferences,
     })),
   };
 
-  // 4. Group agents by output signature so agents sharing the same
+  // 6. Group agents by output signature so agents sharing the same
   //    (skillPath, configPath) write the same files only once.
   const groups = new Map<string, { config: AgentConfig; names: string[] }>();
   for (const agentName of agentsToSync) {
@@ -104,21 +145,43 @@ export async function execute(
     }
   }
 
-  // 5. Generate once per unique output; report the agents it serves.
+  // 7. Generate once per unique output; report the agents it serves.
   const results: AgentSyncResult[] = [];
   for (const { config: agentConfig, names } of groups.values()) {
-    const result = await syncAgent(agentConfig, templateContext, cwd);
+    const result = await syncAgent(agentConfig, templateContext, triggerWordsBySkill, cwd);
     result.agent = names.join(', ');
     results.push(result);
   }
 
-  // 6. Compute totals
+  // 8. Compute totals
   const totalFiles = results.reduce(
     (sum, r) => sum + 1 + r.skillFiles.length + r.referenceFiles.length,
     0,
   );
 
-  return { agents: results, totalFiles };
+  return { agents: results, totalFiles, warnings, hints };
+}
+
+/**
+ * Compose the frontmatter trigger words for one skill:
+ * English baseline, plus the user's custom words from `skill_triggers`;
+ * when the artifact language is not English and no custom words exist,
+ * append a semantic-match hint instead.
+ */
+export function synthesizeTriggers(
+  skill: Pick<SkillConfig, 'triggers'>,
+  artifactLanguage: string,
+  customTriggers: string[] | undefined,
+): string {
+  const baseline = skill.triggers.join(', ');
+  const custom = (customTriggers ?? []).map(escapeYamlScalar).filter(Boolean);
+  if (custom.length > 0) {
+    return `${baseline}, ${custom.join(', ')}`;
+  }
+  if (!isDefaultArtifactLanguage(artifactLanguage)) {
+    return `${baseline} — or equivalent terms in ${escapeYamlScalar(artifactLanguage)}`;
+  }
+  return baseline;
 }
 
 /**
@@ -127,6 +190,7 @@ export async function execute(
 async function syncAgent(
   agentConfig: AgentConfig,
   templateContext: Record<string, unknown>,
+  triggerWordsBySkill: Map<string, string>,
   cwd: string,
 ): Promise<AgentSyncResult> {
   const skillFiles: string[] = [];
@@ -135,6 +199,7 @@ async function syncAgent(
   await syncSkillsDirSkills(
     agentConfig,
     templateContext,
+    triggerWordsBySkill,
     cwd,
     skillFiles,
     referenceFiles,
@@ -167,6 +232,7 @@ async function syncAgent(
 async function syncSkillsDirSkills(
   agentConfig: AgentConfig,
   templateContext: Record<string, unknown>,
+  triggerWordsBySkill: Map<string, string>,
   cwd: string,
   skillFiles: string[],
   referenceFiles: string[],
@@ -175,11 +241,11 @@ async function syncSkillsDirSkills(
     const skillDir = path.join(cwd, agentConfig.skillPath, skill.name);
     const skillFilePath = path.join(skillDir, 'SKILL.md');
 
-    // Render skill template
-    const content = renderTemplate(
-      `skills/${skill.name}.hbs`,
-      templateContext,
-    );
+    // Render skill template with its synthesized frontmatter trigger words
+    const content = renderTemplate(`skills/${skill.name}.hbs`, {
+      ...templateContext,
+      trigger_words: triggerWordsBySkill.get(skill.name),
+    });
 
     await ensureDir(skillDir);
     await atomicWrite(skillFilePath, content);

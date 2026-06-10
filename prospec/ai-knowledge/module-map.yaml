@@ -16,6 +16,8 @@ modules:
       - strategy
       - spec
       - token-budget
+      - language
+      - triggers
     relationships:
       depends_on: []
       used_by:
@@ -39,6 +41,7 @@ modules:
       - detector
       - module-detector
       - strategy
+      - language
     relationships:
       depends_on:
         - types
@@ -60,6 +63,8 @@ modules:
       - agent-sync
       - spec-sync
       - product
+      - triggers
+      - language
     relationships:
       depends_on:
         - types

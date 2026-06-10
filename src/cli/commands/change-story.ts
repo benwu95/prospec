@@ -26,13 +26,13 @@ function resolveLogLevel(opts: GlobalOptions): LogLevel {
 export function registerChangeCommand(program: Command): void {
   const change = program
     .command('change')
-    .description('變更管理');
+    .description('Change management');
 
   change
     .command('story')
-    .description('建立變更需求')
-    .argument('<name>', '變更名稱（kebab-case）')
-    .option('--description <desc>', '變更描述')
+    .description('Create a change request')
+    .argument('<name>', 'Change name (kebab-case)')
+    .option('--description <desc>', 'Change description')
     .action(
       async (name: string, options: { description?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

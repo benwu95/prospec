@@ -118,7 +118,7 @@ function readModuleMap(mapPath: string): ModuleMap {
   } catch {
     throw new PrerequisiteError(
       'module-map.yaml',
-      '請先執行 `prospec steering` 生成模組映射',
+      'Run `prospec steering` first to generate the module map',
     );
   }
 

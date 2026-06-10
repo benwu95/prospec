@@ -26,12 +26,12 @@ function resolveLogLevel(opts: GlobalOptions): LogLevel {
 export function registerAgentCommand(program: Command): void {
   const agent = program
     .command('agent')
-    .description('AI Agent 配置管理');
+    .description('AI Agent configuration management');
 
   agent
     .command('sync')
-    .description('同步 AI Agent 配置和 Skills')
-    .option('--cli <name>', `指定特定 CLI（${VALID_AGENTS.join('/')}）`)
+    .description('Sync AI Agent configuration and Skills')
+    .option('--cli <name>', `Specify a particular CLI (${VALID_AGENTS.join('/')})`)
     .action(
       async (options: { cli?: string }) => {
         const globalOpts = program.opts<GlobalOptions>();

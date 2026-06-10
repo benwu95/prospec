@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-549%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-604%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -109,12 +109,18 @@ npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prosp
 mkdir my-project && cd my-project
 prospec init --name my-project
 # → Select AI assistants (interactive checkbox)
+# → Choose the primary language for AI-generated documents (default: English,
+#   or pass --language "Traditional Chinese (Taiwan)"); a [MUST] Language
+#   Policy rule is seeded into CONSTITUTION.md — code stays in English
 # → Creates .prospec.yaml + directory structure
 
 # 2. Sync AI agent config + generate Skills
 prospec agent sync
 # → Generates per-agent config + Skills for each selected assistant
 #   Claude Code → CLAUDE.md + .claude/skills/; Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
+# → Non-English language? Add native trigger words under `skill_triggers` in
+#   .prospec.yaml (ask your AI agent to translate the English baselines), then
+#   re-run agent sync — skills then match requests phrased in your language
 
 # 3. Start developing with Skills (in your AI agent)
 /prospec-new-story        # Create change story
@@ -139,6 +145,7 @@ cd existing-project
 prospec init
 # → Auto-detect tech stack
 # → Select AI assistants
+# → Choose the document language (default: English; --language to skip the prompt)
 
 # 2. Sync AI config + generate Skills
 prospec agent sync
@@ -171,9 +178,9 @@ prospec knowledge init
 
 | Command | Description |
 |---------|-------------|
-| `prospec init [options]` | Initialize Prospec project structure |
+| `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>]` | Scan project and generate raw-scan.md + skeleton |
-| `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills |
+| `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
@@ -292,7 +299,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (549 tests)
+# Run all tests (604 tests)
 pnpm test
 
 # Watch mode
@@ -309,11 +316,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 549 tests across 4 categories:
-- Unit tests (lib + services): 247 tests
-- Contract tests (CLI output + Skill format): 270 tests
+**Test Coverage**: 604 tests across 4 categories:
+- Unit tests (lib + services): 279 tests
+- Contract tests (CLI output + Skill format): 285 tests
 - Integration tests: 15 tests
-- E2E tests: 17 tests
+- E2E tests: 25 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 
@@ -375,14 +382,14 @@ your-project/
 
 ## Core Principles (Constitution)
 
-Prospec enforces 6 core principles:
+Prospec enforces 6 core principles. They govern the prospec assets injected into your project — the generated Skills, configs, and directory structure:
 
 1. **Progressive Disclosure First** — Never load all info at once; index → details
 2. **Spec is Source of Truth** — Changes documented in specs before code
 3. **Zero Startup Cost for Brownfield** — No need to document entire codebase upfront
 4. **AI Agent Agnostic** — Works with any AI CLI via Markdown adapters
 5. **User Controls the Rules** — Constitution is user-defined, tool enforces
-6. **Language Policy** — Docs in Traditional Chinese, code in English
+6. **Language Policy** — AI-generated docs in the language you choose at `prospec init` (default: English); code and technical terms always in English
 
 ---
 

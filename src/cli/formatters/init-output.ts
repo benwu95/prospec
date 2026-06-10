@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { InitResult, TechStackResult } from '../../services/init.service.js';
+import { isDefaultArtifactLanguage } from '../../services/init.service.js';
 
 /**
  * Format the InitResult for terminal output with proper styling.
@@ -48,11 +49,22 @@ export function formatInitOutput(
     lines.push(`Selected agents: ${result.selectedAgents.join(', ')}`);
   }
 
-  // 5. Next steps suggestion
+  // 5. Document language (Language Policy seeded into CONSTITUTION.md)
+  lines.push(''); // Empty line separator
+  lines.push(
+    `Document language: ${pc.cyan(result.artifactLanguage)} (Language Policy added to CONSTITUTION.md)`,
+  );
+
+  // 6. Next steps suggestion
   lines.push(''); // Empty line separator
   lines.push(
     `${pc.dim('→')} Run ${pc.cyan('`prospec agent sync`')} to generate AI configurations`,
   );
+  if (!isDefaultArtifactLanguage(result.artifactLanguage)) {
+    lines.push(
+      `${pc.dim('→')} After syncing, you can add ${pc.cyan(result.artifactLanguage)} trigger words via ${pc.cyan('skill_triggers')} in .prospec.yaml (agent sync will show a tip)`,
+    );
+  }
 
   // Output all lines
   process.stdout.write(lines.join('\n') + '\n');

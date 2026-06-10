@@ -88,7 +88,7 @@
 
 ### Phase 3（進階功能）
 - [BL-008](#bl-008) Knowledge 智慧感知更新
-- [BL-009](#bl-009) 多語言支援 (i18n)
+- [BL-009](#bl-009) 多語言支援 (i18n) ✅（重塑交付：add-init-language-policy）
 - [BL-010](#bl-010) 外部工具整合 (MCP)
 - [BL-011](#bl-011) 多代理協作 (Party Mode)
 - [BL-012](#bl-012) CI/CD 整合
@@ -112,6 +112,9 @@
 ### 評估新增（2026-06-07）
 - [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）🔴 G6 — 補使用者目標唯一未被正面設計的缺口 ✅
 - [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）✅
+
+### 學習迴路新增（2026-06-11）
+- [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）
 
 ---
 
@@ -138,6 +141,7 @@
 | **OPT-D7 / OPT-D8** Aliases / Glossary | `_index.md` Aliases 欄 + `_glossary.md`；commit `d3a0b8e` |
 | **BL-037** Review→Fix Loop | `/prospec-review`（對抗式 review→fix 迴圈、spec-aware lens、verifier 確認 critical）+ commit 邊界移至 verify(S/A) 後；commit `f0a1147`；歸檔 `add-review-fix-loop`（sdd-workflow US-13）。註：確定性簿記改純 Skill（Architecture C），未放 lib/cli |
 | **BL-036** Feedback Promotion | `/prospec-learn`（蒐集→可審計明文判定→人工核可三層晉升→TTL/衝突治理）；commit `6c25725`；歸檔 `add-feedback-promotion-pipeline`（新 Feature feedback-promotion US-1..4）。註：管線已建+verified；end-to-end self-host 實跑為後續 usage |
+| **BL-009** 多語言（重塑） | `prospec init --language` + Constitution Language Policy + 模板/CLI 全英文化 + `skill_triggers`；commit `06ba30a`；歸檔 `add-init-language-policy`（project-setup US-008~009, agent-integration US-411~412）。原 i18n helper 路線 CUT，重塑交付；交叉語言實測通過（zh-TW 專案收英文需求→繁中產出、反向亦然） |
 
 > 非 BL 的基礎建設（隨各 change 完成，不在 BL 編號內）：Recipe-First Knowledge + L0/L1/L2 分層（`optimize-ai-knowledge`）、Feature/Product Spec 架構（`redesign-spec-system`）、verify 4/5 解耦 feature-spec（`skill-autonomy`）、Antigravity CLI 取代 Gemini（`migrate-gemini-to-antigravity`）、npm+pnpm 雙支援。
 
@@ -725,6 +729,8 @@ i18n:
 - 不翻譯整個 SKILL.md（AI 指令保持英文效果最好）
 - 只翻譯 artifact 的 section 標題和預設文字
 - 使用 Handlebars helper: `{{t "section.background"}}` → 根據語言輸出
+
+> **完成狀態**: 2026-06-11 以**重塑形式**交付（歸檔 `add-init-language-policy`，verify Grade A，commit `06ba30a`）。原設計的 `artifact_language` 對應落地為 `.prospec.yaml` `artifact_language` + Constitution [MUST] Language Policy；`cli_language: en` 對應落地為 CLI 輸出全面英文化；Handlebars `{{t}}` i18n helper 與多語言模板**未做**（評估判 CUT 的重 i18n 路線），改以「模板純英文 + skill 遵守 Constitution Policy + `skill_triggers` 母語觸發詞注入」實現。Feature Specs：project-setup US-008~009、agent-integration US-411~412。
 
 ---
 
@@ -2270,7 +2276,7 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 | 優先級 | 🔴 P1 — 高（直接服務 G6，使用者最看重的目標之一） |
 | Skill 類型 | 新增 Lifecycle Skill（暫稱 `/prospec-learn`）+ 增強 `prospec-archive` |
 | 影響範圍 | `.prospec/lessons.md`, `playbooks/`, `CONSTITUTION.md`, `_conventions.md`, `prospec-archive`, `prospec-plan`/`implement` Entry context |
-| CLI 依賴 | 無（純 Skill）或選配 `prospec learn` 做確定性頻次統計 |
+| CLI 依賴 | 無（純 Skill，Architecture C）。確定性頻次統計由結構化 markdown ledger（LLM）處理，**不開 runtime CLI**（實作決議，對齊 BL-037） |
 | 預估複雜度 | Full |
 | 依賴 | BL-019（Output Contract 提供結構化成功/失敗訊號）、BL-031（可執行 Constitution 作為升級終點容器）；可獨立先做萃取層 |
 | 升級 | BL-029（從「萃取」擴成「萃取 + 晉升決策」）、吸收 BL-024 |
@@ -2357,6 +2363,32 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [x] findings 可標記「可晉升」餵 BL-036（`review.md` Persistence 註明）
 
 > **完成狀態**: 2026-06-08 已實作、verify Grade A、review review-clean（自審抓到 2 個 false-green critical 並修+mutation 驗證）、歸檔 `add-review-fix-loop`、graduate 至 sdd-workflow US-13。commit `f0a1147`（含 commit 邊界移至 verify S/A 後）。`lib/cli` 確定性簿記經 plan 決議改純 Skill。
+
+---
+
+### BL-038
+
+**Verify V4 與 Knowledge Update 時序重整**
+
+> **2026-06-11 由 `/prospec-learn` 收斂**：`knowledge/skill-count-stale` 教訓達晉升門檻（freq=3：add-review-fix-loop、add-feedback-promotion-pipeline、add-init-language-policy 連續三次 verify V4 WARN；modules=4），但人工裁決判定根因是**流程時序設計**而非紀律問題 — 現行流程把 knowledge-update 排在 verify 之後，V4 對「本變更落差」的檢查在設計上必然 WARN，門檻淪為鬧鐘 — 故轉為流程變更而非 playbook 條目。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P2 — 中（消除例行噪音、讓 verified 語意更完整） |
+| Skill 類型 | 增強 `prospec-verify` + `prospec-archive`（時序與 gate 語意） |
+| 影響範圍 | `templates`（verify/archive skill 指引）、`_status-lifecycle.md`、可能含 implement 的收尾指引 |
+| 預估複雜度 | Standard |
+| 依賴 | 無 |
+
+**兩個候選方向（explore/plan 階段擇一）**：
+
+- **方向 A — knowledge-update 前移**：移至 review 之後、verify 之前 → V4 成為可 PASS 的真門檻，`verified` 涵蓋「knowledge 同步」；代價：verify 後若仍有修改（如 code-review fix）需小幅重更新。
+- **方向 B — V4 降級 + archive 升閘**：V4 對本變更落差降為 informational（比照 Feature Spec graduates-at-archive 處理），只檢查既有 knowledge 正確性；archive Phase 4 從互動 prompt 升級為 Entry Gate（knowledge 未更新 → 不可歸檔）。單一明確檢查點。
+
+**驗收標準**：
+- [ ] 連續兩個 change 的 verify 不再出現「本變更 knowledge 落差」例行 WARN
+- [ ] knowledge 同步在生命週期中有且僅有一個強制檢查點（gate，非 prompt）
+- [ ] `_status-lifecycle.md` 更新時序圖；verify/archive skill 模板同步
 
 ---
 
@@ -2450,7 +2482,7 @@ Phase 3 鏈路：
 | BL-007 | Sprint Mode | ★★☆☆☆ | 個人開發者用不到，團隊場景有 Jira/Linear 做排序 |
 | BL-008 | Smart Knowledge | ★★☆☆☆ | 手動跑 `/prospec-knowledge-update` 只多一步，自動化收益有限 |
 | BL-025 | Tessl Registry 整合 | ★★☆☆☆ | 〔2026 H2 重定位為 BL-034，改用 Context7、不綁 Tessl〕 |
-| BL-009 | i18n | ★☆☆☆☆ | BL-018 已實現 Skill 語言中立化，剩餘 i18n 收益微乎其微 |
+| BL-009 | i18n | ★☆☆☆☆ | ~~BL-018 已實現 Skill 語言中立化，剩餘 i18n 收益微乎其微~~ → **2026-06-11 重塑交付**（add-init-language-policy，非 i18n helper 路線） |
 | BL-010 | MCP 整合 | ★★☆☆☆ | 〔2026 H2 重定位為 BL-033：MCP 已進 Linux Foundation，維護顧慮降低〕 |
 | BL-011 | Party Mode | ★☆☆☆☆ | 〔2026 H2 被 BL-028 取代：並行衝突由 module-map 安全分區解決〕 |
 | BL-013 | 任務依賴 DAG | ★☆☆☆☆ | 〔2026 H2 被 BL-027 取代：並行子代理使 DAG 從過度工程變剛需〕 |

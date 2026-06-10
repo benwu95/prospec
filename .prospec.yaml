@@ -19,3 +19,18 @@ agents:
   - codex
 knowledge:
   base_path: prospec/ai-knowledge
+artifact_language: Traditional Chinese (Taiwan)
+skill_triggers:
+  prospec-explore: [探索, 比較, 調查, 不確定, 怎麼做比較好]
+  prospec-new-story: [新功能, 需求, 我想做, 新增功能, 變更]
+  prospec-plan: [規劃, 設計架構, 怎麼實作]
+  prospec-design: [設計, 視覺規格, 互動規格]
+  prospec-tasks: [拆解, 任務清單, 工作項目, 怎麼拆]
+  prospec-ff: [快轉, 一次搞定, 快速規劃, 直接規劃]
+  prospec-implement: [實作, 開始做, 寫 code, 執行任務]
+  prospec-review: [審查, 對抗式審查, 抓問題, 修正迴圈]
+  prospec-verify: [驗證, 檢查, 品質, 做完了, 評分]
+  prospec-archive: [歸檔, 收尾, 整理完成, 規格同步]
+  prospec-learn: [教訓, 晉升, 回饋, 越用越聰明]
+  prospec-knowledge-generate: [生成知識, 分析專案, 模組切割]
+  prospec-knowledge-update: [增量更新, 同步知識, 更新文件]

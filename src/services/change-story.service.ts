@@ -4,6 +4,7 @@ import { AlreadyExistsError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
+import { stringifyYaml } from '../lib/yaml-utils.js';
 
 export interface ChangeStoryOptions {
   name: string;
@@ -54,8 +55,11 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   // 4. Create change directory
   await ensureDir(changeDir);
 
-  // 5. Render templates
-  const templateContext = {
+  // 5. Write artifacts — proposal.md renders from its Markdown template;
+  // metadata.yaml is pure data, serialized with the yaml library (the same
+  // path change-plan/change-tasks/archive already use to update it), so any
+  // user-provided text is escaped correctly by construction.
+  const proposalContext = {
     change_name: changeName,
     description: options.description,
     related_modules: relatedModules.length > 0 ? relatedModules : undefined,
@@ -64,15 +68,23 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   const createdFiles: string[] = [];
 
   // proposal.md
-  const proposalContent = renderTemplate('change/proposal.md.hbs', templateContext);
+  const proposalContent = renderTemplate('change/proposal.md.hbs', proposalContext);
   const proposalPath = path.join(changeDir, 'proposal.md');
   await atomicWrite(proposalPath, proposalContent);
   createdFiles.push(`.prospec/changes/${changeName}/proposal.md`);
 
   // metadata.yaml
-  const metadataContent = renderTemplate('change/metadata.yaml.hbs', templateContext);
+  const metadata = {
+    name: changeName,
+    created_at: new Date().toISOString(),
+    status: 'story',
+    ...(relatedModules.length > 0
+      ? { related_modules: relatedModules.map((m) => m.name) }
+      : {}),
+    ...(options.description ? { description: options.description } : {}),
+  };
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  await atomicWrite(metadataPath, metadataContent);
+  await atomicWrite(metadataPath, stringifyYaml(metadata));
   createdFiles.push(`.prospec/changes/${changeName}/metadata.yaml`);
 
   return {

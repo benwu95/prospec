@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-549%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-604%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -108,12 +108,17 @@ npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/pro
 mkdir my-project && cd my-project
 prospec init --name my-project
 # → 選擇要啟用的 AI Assistant（互動式 checkbox）
+# → 選擇 AI 產出文件的主要語言（預設英文，或用 --language "Traditional Chinese (Taiwan)"）
+#   [MUST] Language Policy 規則會寫入 CONSTITUTION.md — 程式碼一律維持英文
 # → 建立 .prospec.yaml + 目錄結構
 
 # 2. 同步 AI Agent 配置 + 生成 Skills
 prospec agent sync
 # → 為每個選取的 assistant 生成 config + Skills
 #   Claude Code → CLAUDE.md + .claude/skills/；Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
+# → 主要語言非英文？在 .prospec.yaml 的 `skill_triggers` 加上母語觸發詞
+#  （可請 AI agent 把英文 baseline 翻譯過去）再重跑 agent sync，
+#   skills 就能可靠匹配你用母語描述的需求
 
 # 3. 使用 Skills 進行功能開發（在 AI Agent 中）
 /prospec-new-story        # 建立變更需求
@@ -138,6 +143,7 @@ cd existing-project
 prospec init
 # → 自動偵測技術棧
 # → 選擇 AI Assistant
+# → 選擇文件主要語言（預設英文；--language 可跳過互動提示）
 
 # 2. 同步 AI 配置 + 生成 Skills
 prospec agent sync
@@ -170,9 +176,9 @@ prospec knowledge init
 
 | 命令 | 說明 |
 |------|------|
-| `prospec init [options]` | 初始化 Prospec 專案結構 |
+| `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>]` | 掃描專案並生成 raw-scan.md + 骨架 |
-| `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills |
+| `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
 
 > **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
@@ -291,7 +297,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（549 個測試）
+# 執行所有測試（604 個測試）
 pnpm test
 
 # Watch 模式
@@ -308,11 +314,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：549 個測試橫跨 4 大類：
-- Unit tests（lib + services）：247 tests
-- Contract tests（CLI 輸出 + Skill 格式）：270 tests
+**測試覆蓋率**：604 個測試橫跨 4 大類：
+- Unit tests（lib + services）：279 tests
+- Contract tests（CLI 輸出 + Skill 格式）：285 tests
 - Integration tests：15 tests
-- E2E tests：17 tests
+- E2E tests：25 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
@@ -374,14 +380,14 @@ your-project/
 
 ## 核心原則（Constitution）
 
-Prospec 強制執行 6 大核心原則：
+Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案的 prospec 資產 — 生成的 Skills、配置與目錄結構：
 
 1. **Progressive Disclosure First** — 永遠不要一次載入所有資訊；索引 → 細節
 2. **Spec is Source of Truth** — 變更在寫程式碼前先記錄在規格中
 3. **Zero Startup Cost for Brownfield** — 不需要預先文件化整個程式碼庫
 4. **AI Agent Agnostic** — 透過 Markdown adapters 支援任何 AI CLI
 5. **User Controls the Rules** — Constitution 由使用者定義，工具負責強制執行
-6. **Language Policy** — 文件用繁體中文，程式碼用英文
+6. **Language Policy** — AI 產出文件使用 `prospec init` 時選擇的語言（預設英文）；程式碼與專業術語一律英文
 
 ---
 

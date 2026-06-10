@@ -1,6 +1,6 @@
 ---
 name: prospec-archive
-description: "Archive Changes | 歸檔變更 - Archive completed changes, generate summary, sync requirements to capability specs, and suggest Knowledge updates. Triggers: archive, clean up, wrap up, spec sync, 歸檔, 收尾, 整理完成, 規格同步"
+description: "Archive Changes - Archive completed changes, generate summary, sync requirements to capability specs, and suggest Knowledge updates. Triggers: {{trigger_words}}"
 ---
 
 # Prospec Archive Skill
@@ -11,6 +11,8 @@ When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
 - Each archived change will get a summary.md and be moved to `.prospec/archive/`
 - Affected modules will be identified and Knowledge update will be suggested
+
+{{> language-policy}}
 
 ## Startup Loading
 

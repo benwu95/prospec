@@ -16,20 +16,24 @@
 {{/if}}
 {{/if}}
 
+## Language Policy
+
+The user's primary language for AI-generated documents is **{{artifact_language}}** (see the Constitution's Language Policy rule). Requests may be phrased in it. Code, identifiers, and technical terms always remain in English.
+
 ## Core Resources
 
 ### Constitution
-讀取專案原則與約束: [`{{constitution_path}}`]({{constitution_path}})
+Project principles and constraints: [`{{constitution_path}}`]({{constitution_path}})
 
 ### AI Knowledge Base
-模組索引與專案結構: [`{{knowledge_base_path}}/_index.md`]({{knowledge_base_path}}/_index.md)
+Module index and project structure: [`{{knowledge_base_path}}/_index.md`]({{knowledge_base_path}}/_index.md)
 
 ### Coding Conventions
-程式碼規範與最佳實踐: [`{{knowledge_base_path}}/_conventions.md`]({{knowledge_base_path}}/_conventions.md)
+Coding standards and best practices: [`{{knowledge_base_path}}/_conventions.md`]({{knowledge_base_path}}/_conventions.md)
 
 ## Available Prospec Skills
 
-此專案配備以下 Prospec Skills，可透過 slash command 觸發:
+This project ships with the following Prospec Skills, triggered via slash commands:
 
 {{#each skills}}
 ### /{{name}}
@@ -37,6 +41,7 @@
 {{description}}
 
 **Type**: {{type}}
+**Triggers**: {{triggers}}
 {{#if hasReferences}}
 **References**: `{{../skill_path}}/{{name}}/references/`
 {{/if}}
@@ -45,14 +50,14 @@
 
 ## Working with This Project
 
-1. **開始前**: 閱讀 Constitution 了解專案原則
-2. **理解結構**: 查閱 AI Knowledge Index 掌握模組架構
-3. **程式碼規範**: 遵循 Conventions 文件中的風格指南
-4. **使用 Skills**: 透過 `/skill-name` 指令觸發專用工作流程
-5. **模組依賴**: 修改前檢查 `{{knowledge_base_path}}/module-map.yaml`
+1. **Before starting**: Read the Constitution to understand project principles
+2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture
+3. **Coding standards**: Follow the style guide in the Conventions document
+4. **Use Skills**: Trigger dedicated workflows via `/skill-name` commands
+5. **Module dependencies**: Check `{{knowledge_base_path}}/module-map.yaml` before modifying
 
 ## Notes
 
-- 此檔案為 Layer 0 (always loaded) - 保持簡潔，指向其他資源
-- Skills 為 Layer 1-2 - 按需載入詳細指令
-- Knowledge Base 為 on-demand - 根據工作範圍載入
+- This file is Layer 0 (always loaded) — keep it lean and point to other resources
+- Skills are Layer 1-2 — detailed instructions load on demand
+- The Knowledge Base is on-demand — load according to the scope of work

@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-07
-story_count: 7
-req_count: 19
+last_updated: 2026-06-11
+story_count: 9
+req_count: 23
 ---
 
 # 專案啟動
@@ -241,6 +241,57 @@ req_count: 19
 `exampleRulesFor` 單元測試 + constitution.hbs / verify 嚴重度 contract test。
 - WHEN tests run, THEN they cover python/typescript/fallback rule sets and template severity rendering
 
+### US-008: Init 語言選擇與 Language Policy [P1]
+
+身為非英文母語的專案擁有者，
+我希望在 `prospec init` 時選擇文件主要語言，並讓 Language Policy 自動寫入 Constitution，
+以便所有 AI 產出文件使用我的語言，而不需手動編輯 Constitution。
+
+**Acceptance Scenarios:**
+- WHEN 互動式 init THEN 出現主要語言提示（預設 English、可自訂輸入）
+- WHEN `init --language X` THEN 跳過提示並採用 X
+- WHEN CI 模式（`--agents`）無 flag THEN 採用 English 且零互動
+- WHEN init 完成 THEN `.prospec.yaml` 記錄 `artifact_language` 且 CONSTITUTION.md 含 [MUST] Language Policy
+
+#### REQ-SETUP-015: Init Primary Language Selection
+`prospec init` 提供主要語言選擇：互動 input（預設 "English"）、`--language <lang>` flag、CI 模式預設 English。
+
+**Scenarios:**
+- WHEN interactive init, THEN prompt for the document language with default English
+- WHEN `--language X` (including `--language ""`), THEN skip the prompt; blank resolves to English
+- WHEN CI mode without the flag, THEN English with zero interaction
+
+#### REQ-TYPES-025: Config Language and Skill Triggers Schema
+`ProspecConfigSchema` 新增 optional `artifact_language`（自由字串）與 `skill_triggers`（skill 名稱 → 字串陣列）。
+
+**Scenarios:**
+- WHEN the fields are absent, THEN legacy `.prospec.yaml` still validates; consumers treat the language as English
+- WHEN `skill_triggers` values are not string arrays, THEN validation fails (ConfigInvalid)
+
+#### REQ-LIB-013: Language Policy Constitution Rule
+`languagePolicyRule(language)` 回傳 [MUST] 規則 — 所有 AI 產出文件（change artifacts + AI Knowledge）使用主要語言，程式碼與專業術語一律英文；init 將其置於 `example_rules` 首位。
+
+**Scenarios:**
+- WHEN `init --language X`, THEN CONSTITUTION.md contains a [MUST] Language Policy rule rendering X
+- WHEN no language chosen, THEN the rule renders English
+
+### US-009: CLI 輸出英文化 [P2]
+
+身為任意語系的 prospec CLI 使用者，
+我希望 CLI 的 option 說明、錯誤訊息與執行輸出皆為英文，
+以便 CLI 行為與「產物英文 baseline」定位一致，且錯誤訊息可被搜尋。
+
+**Acceptance Scenarios:**
+- WHEN `prospec --help` 與各子指令 help THEN 說明文字為英文
+- WHEN 觸發任何錯誤 THEN 訊息（含 suggestion）為英文
+
+#### REQ-SETUP-016: CLI Runtime Output in English
+CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統一英文。
+
+**Scenarios:**
+- WHEN running any help or error path, THEN output contains no CJK characters
+- WHEN scanning `src/`, THEN zero files contain CJK characters
+
 ---
 
 ## Edge Cases
@@ -252,6 +303,7 @@ req_count: 19
 - 磁碟空間不足：使用 atomic write，保留原檔並顯示具體錯誤
 - 無法辨識的指令輸入：顯示錯誤並建議相似指令
 - 專案使用不支援的架構模式：允許手動配置 `paths`
+- `--language ""`（空字串或空白）：視同未指定，採預設 English
 
 ## Success Criteria
 
@@ -283,3 +335,4 @@ _(None)_
 | 2026-06-04 | skill-alignment (PR #2) | init 生成 canonical convention docs | REQ-SETUP-004 (MODIFIED), REQ-SETUP-014 (ADDED) |
 | 2026-06-06 | migrate-gemini-to-antigravity | init AI CLI 偵測 Gemini→Antigravity（`~/.gemini/antigravity-cli`） | REQ-SETUP-006 (MODIFIED) |
 | 2026-06-07 | make-constitution-executable | init 產帶嚴重度引導式 Constitution 規則 | US-007; REQ-TYPES-021, REQ-LIB-012, REQ-SERVICES-026, REQ-TEMPLATES-062, REQ-TESTS-021 |
+| 2026-06-11 | add-init-language-policy | init 語言選擇 + Language Policy seed；CLI 輸出英文化 | US-008~009; REQ-SETUP-015~016, REQ-TYPES-025, REQ-LIB-013 |

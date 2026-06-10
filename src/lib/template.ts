@@ -60,6 +60,34 @@ function registerHelpers(): void {
 }
 
 /**
+ * Read a template source file or throw a TemplateError.
+ */
+function readTemplateSource(templatePath: string): string {
+  const fullPath = path.join(getTemplatesDir(), templatePath);
+  try {
+    return fs.readFileSync(fullPath, 'utf-8');
+  } catch {
+    throw new TemplateError(templatePath, 'Template file not found');
+  }
+}
+
+let builtinPartialsRegistered = false;
+
+/**
+ * Register prospec-owned partials shared across skill templates.
+ * Lazy — only skill templates reference them, so commands that never render
+ * `skills/` templates stay decoupled from these files.
+ */
+function ensureBuiltinPartials(): void {
+  if (builtinPartialsRegistered) return;
+  Handlebars.registerPartial(
+    'language-policy',
+    readTemplateSource('skills/_language-policy.hbs'),
+  );
+  builtinPartialsRegistered = true;
+}
+
+/**
  * Ensure helpers are registered (idempotent).
  */
 function ensureInitialized(): void {
@@ -81,16 +109,11 @@ export function renderTemplate(
   context: Record<string, unknown>,
 ): string {
   ensureInitialized();
-
-  const templatesDir = getTemplatesDir();
-  const fullPath = path.join(templatesDir, templatePath);
-
-  let source: string;
-  try {
-    source = fs.readFileSync(fullPath, 'utf-8');
-  } catch {
-    throw new TemplateError(templatePath, '模板檔案不存在');
+  if (templatePath.startsWith('skills/')) {
+    ensureBuiltinPartials();
   }
+
+  const source = readTemplateSource(templatePath);
 
   try {
     const compiled = Handlebars.compile(source, { noEscape: true });
@@ -119,17 +142,7 @@ export function registerPartialFromFile(
   name: string,
   templatePath: string,
 ): void {
-  const templatesDir = getTemplatesDir();
-  const fullPath = path.join(templatesDir, templatePath);
-
-  let source: string;
-  try {
-    source = fs.readFileSync(fullPath, 'utf-8');
-  } catch {
-    throw new TemplateError(templatePath, '模板檔案不存在');
-  }
-
-  registerPartial(name, source);
+  registerPartial(name, readTemplateSource(templatePath));
 }
 
 /**

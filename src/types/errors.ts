@@ -25,10 +25,10 @@ export class ConfigNotFound extends ProspecError {
   constructor(path?: string) {
     super(
       path
-        ? `找不到配置檔：${path}`
-        : '找不到 .prospec.yaml 配置檔',
+        ? `Config file not found: ${path}`
+        : 'Config file .prospec.yaml not found',
       'CONFIG_NOT_FOUND',
-      '請先執行 `prospec init` 初始化專案',
+      'Run `prospec init` first to initialize the project',
     );
     this.name = 'ConfigNotFound';
   }
@@ -37,9 +37,9 @@ export class ConfigNotFound extends ProspecError {
 export class ConfigInvalid extends ProspecError {
   constructor(details: string) {
     super(
-      `配置檔驗證失敗：${details}`,
+      `Config validation failed: ${details}`,
       'CONFIG_INVALID',
-      '請檢查 .prospec.yaml 的格式是否正確',
+      'Check that the format of .prospec.yaml is correct',
     );
     this.name = 'ConfigInvalid';
   }
@@ -50,9 +50,9 @@ export class ConfigInvalid extends ProspecError {
 export class ScanError extends ProspecError {
   constructor(path: string, cause?: string) {
     super(
-      `掃描失敗：${path}${cause ? ` (${cause})` : ''}`,
+      `Scan failed: ${path}${cause ? ` (${cause})` : ''}`,
       'SCAN_ERROR',
-      '請確認目錄路徑正確且有讀取權限',
+      'Verify the directory path is correct and readable',
     );
     this.name = 'ScanError';
   }
@@ -61,9 +61,9 @@ export class ScanError extends ProspecError {
 export class WriteError extends ProspecError {
   constructor(path: string, cause?: string) {
     super(
-      `寫入失敗：${path}${cause ? ` (${cause})` : ''}`,
+      `Write failed: ${path}${cause ? ` (${cause})` : ''}`,
       'WRITE_ERROR',
-      '請確認目標路徑有寫入權限',
+      'Verify the target path is writable',
     );
     this.name = 'WriteError';
   }
@@ -71,7 +71,7 @@ export class WriteError extends ProspecError {
 
 export class PermissionError extends WriteError {
   constructor(path: string) {
-    super(path, '權限不足');
+    super(path, 'Permission denied');
     this.name = 'PermissionError';
   }
 }
@@ -81,9 +81,9 @@ export class PermissionError extends WriteError {
 export class YamlParseError extends ProspecError {
   constructor(path: string, cause?: string) {
     super(
-      `YAML 解析失敗：${path}${cause ? ` (${cause})` : ''}`,
+      `YAML parse failed: ${path}${cause ? ` (${cause})` : ''}`,
       'YAML_PARSE_ERROR',
-      '請檢查 YAML 檔案的語法是否正確',
+      'Check that the YAML file syntax is correct',
     );
     this.name = 'YamlParseError';
   }
@@ -94,9 +94,9 @@ export class YamlParseError extends ProspecError {
 export class TemplateError extends ProspecError {
   constructor(templateName: string, cause?: string) {
     super(
-      `模板處理失敗：${templateName}${cause ? ` (${cause})` : ''}`,
+      `Template processing failed: ${templateName}${cause ? ` (${cause})` : ''}`,
       'TEMPLATE_ERROR',
-      '請確認模板檔案存在且格式正確',
+      'Verify the template file exists and is correctly formatted',
     );
     this.name = 'TemplateError';
   }
@@ -107,9 +107,9 @@ export class TemplateError extends ProspecError {
 export class ModuleDetectionError extends ProspecError {
   constructor(cause?: string) {
     super(
-      `模組偵測失敗${cause ? `：${cause}` : ''}`,
+      `Module detection failed${cause ? `: ${cause}` : ''}`,
       'MODULE_DETECTION_ERROR',
-      '請確認專案結構符合預期，或手動建立 module-map.yaml',
+      'Verify the project structure is as expected, or create module-map.yaml manually',
     );
     this.name = 'ModuleDetectionError';
   }
@@ -120,9 +120,9 @@ export class ModuleDetectionError extends ProspecError {
 export class AlreadyExistsError extends ProspecError {
   constructor(target: string) {
     super(
-      `${target} 已存在`,
+      `${target} already exists`,
       'ALREADY_EXISTS',
-      '如需重新初始化，請先刪除現有檔案',
+      'To reinitialize, delete the existing file first',
     );
     this.name = 'AlreadyExistsError';
   }
@@ -131,9 +131,9 @@ export class AlreadyExistsError extends ProspecError {
 export class PrerequisiteError extends ProspecError {
   constructor(missing: string, suggestion?: string) {
     super(
-      `前置條件未滿足：${missing}`,
+      `Prerequisite not met: ${missing}`,
       'PREREQUISITE_ERROR',
-      suggestion ?? '請先完成必要的前置步驟',
+      suggestion ?? 'Complete the required prerequisite steps first',
     );
     this.name = 'PrerequisiteError';
   }

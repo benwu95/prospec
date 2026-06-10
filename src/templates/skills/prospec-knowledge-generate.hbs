@@ -1,6 +1,6 @@
 ---
 name: prospec-knowledge-generate
-description: "Generate AI Knowledge | 生成 AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index. Triggers: knowledge, generate knowledge, analyze project, module split, 生成知識, 分析專案, 模組切割"
+description: "Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index. Triggers: {{trigger_words}}"
 ---
 
 # Prospec Knowledge Generate Skill
@@ -12,6 +12,8 @@ When triggered, briefly describe:
 - You'll autonomously decide module boundaries using the configured granularity strategy
 - Each module gets exactly **one README.md** in Recipe-First format (≤100 lines)
 - You'll populate _index.md (with Loading Rules) and _conventions.md
+
+{{> language-policy}}
 
 ## Startup Loading
 
@@ -163,7 +165,7 @@ Fill module table within `prospec:auto-start/end` markers using new format:
 ```
 
 - **Keywords**: exact identifiers an agent would search (file/symbol names, technical terms)
-- **Aliases**: synonyms and natural-language terms that should still match this module — include the user's language (e.g. 服務/業務邏輯 for `services`) and common synonyms (business logic, use case). Widens keyword-match coverage so L1 loading hits the right module without a semantic search.
+- **Aliases**: synonyms and natural-language terms that should still match this module — include terms in the project's artifact language (per the Constitution's Language Policy) and common synonyms (business logic, use case). Widens keyword-match coverage so L1 loading hits the right module without a semantic search.
 - **Rationale**: Why this module exists as a separate unit (1 sentence)
 - **Status**: Active / Deprecated / New
 
