@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.2.0
-last_updated: 2026-06-08
+last_updated: 2026-06-11
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -22,7 +22,7 @@ last_updated: 2026-06-08
 
 ### 專案啟動
 
-一鍵初始化 SDD 專案結構，自動偵測技術棧與已安裝的 AI CLI 工具，生成 `.prospec.yaml` 配置、Constitution、AI Knowledge 骨架與 Agent 配置檔。
+一鍵初始化 SDD 專案結構，自動偵測技術棧與已安裝的 AI CLI 工具，並可選擇文件主要語言（Language Policy 寫入 Constitution，預設英文），生成 `.prospec.yaml` 配置、Constitution、AI Knowledge 骨架與 Agent 配置檔。
 → [features/project-setup.md](features/project-setup.md)
 
 ### 開發流程
@@ -37,7 +37,7 @@ last_updated: 2026-06-08
 
 ### Agent 整合
 
-偵測已安裝的 AI CLI 工具，自動生成對應配置檔（CLAUDE.md 等），將 Skills 與 Knowledge 索引注入 Agent 上下文。支援跨工具一致體驗。
+偵測已安裝的 AI CLI 工具，自動生成對應配置檔（CLAUDE.md 等），將 Skills 與 Knowledge 索引注入 Agent 上下文。產物統一英文 baseline，並可透過 `skill_triggers` 注入使用者母語的觸發詞。支援跨工具一致體驗。
 → [features/agent-integration.md](features/agent-integration.md)
 
 ### 設計整合
@@ -52,7 +52,7 @@ last_updated: 2026-06-08
 
 ## 核心 User Stories 摘要
 
-- **專案初始化**: 開發者執行 `prospec init`，即可獲得完整 SDD 專案骨架與 AI 配置
+- **專案初始化**: 開發者執行 `prospec init`，選擇文件語言後即獲得完整 SDD 專案骨架、Language Policy 與 AI 配置
 - **變更流程**: 開發者透過 `/prospec-new-story` 描述需求，系統引導走完規格→計劃→實作→驗證全流程
 - **AI Knowledge 生成**: 開發者對既有專案執行掃描，自動產出模組化的 AI 可讀文件
 - **增量知識同步**: 變更歸檔後，只更新受影響模組的 Knowledge，保持文件與程式碼同步
@@ -71,6 +71,6 @@ last_updated: 2026-06-08
 | 階段 | 狀態 | 核心功能 |
 |------|------|---------|
 | MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 進行中 | 7/11 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言中立化、Output Contract |
+| Phase 2 進行中 | 7/11 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract |
 | Phase 2 待做 | 規劃中 | 複雜度適配、KV-Cache 策略、模板自訂、Plugin 機制 |
-| Phase 3 | 構想中 | 智慧感知更新、多語言 i18n、MCP 整合、多代理協作、CI/CD 整合 |
+| Phase 3 | 構想中 | 智慧感知更新、MCP 整合、多代理協作、CI/CD 整合 |
