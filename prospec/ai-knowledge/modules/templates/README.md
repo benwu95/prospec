@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 45 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
+> Handlebars template library — 49 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
 
 <!-- prospec:auto-start -->
 
@@ -12,10 +12,11 @@
 | `src/templates/steering/module-readme.hbs` | Recipe-First module README (Key Files → Public API → Modification Guide → Pitfalls) |
 | `src/templates/knowledge/index.md.hbs` | _index.md with Rationale column and Loading Rules |
 | `src/templates/knowledge/raw-scan.md.hbs` | Raw scan output template |
-| `src/templates/skills/*.hbs` | 11 skill templates (plan, implement, verify, knowledge-generate, etc.) |
-| `src/templates/skills/references/*.hbs` | 15 reference templates, rendered to `.md` per skill (format specs + design adapters) |
-| `src/templates/change/*.hbs` | 5 change workflow templates (proposal, plan, delta-spec, tasks, metadata) |
-| `src/templates/agent-configs/entry.md.hbs` | Single shared agent entry-config template, rendered per agent with injected `skill_path` |
+| `src/templates/skills/*.hbs` | 13 skill templates; frontmatter renders `Triggers: {{trigger_words}}`; artifact skills include `{{> language-policy}}` |
+| `src/templates/skills/references/*.hbs` | 17 reference templates, rendered to `.md` per skill (format specs + design adapters) |
+| `src/templates/change/*.hbs` | 4 change workflow templates (proposal, plan, delta-spec, tasks); metadata.yaml is serialized in change-story.service, not templated |
+| `src/templates/agent-configs/entry.md.hbs` | Shared entry-config template — declares `artifact_language` (L0) and lists per-skill Triggers |
+| `src/templates/skills/_language-policy.hbs` | Shared Language Policy partial, lazily registered as `{{> language-policy}}` for skills/ renders |
 
 ## Public API
 
@@ -47,6 +48,8 @@
 - Handlebars variables are NOT validated at compile time — typos produce empty output silently
 - `{{#each}}` blocks fail silently on `undefined` arrays — ensure context always passes arrays, not undefined
 - Skill templates output Markdown — watch for double-escaping of special characters
+- All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy, never hardcoded in templates
+- Values reaching YAML frontmatter scalars (`{{trigger_words}}`) must be pre-escaped by the caller (`escapeYamlScalar`)
 - `prospec.yaml.hbs` knowledge section defines defaults (strategy: auto, token_budget) — changes affect all new projects
 
 <!-- prospec:auto-end -->

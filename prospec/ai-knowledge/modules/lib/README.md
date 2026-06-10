@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, and Constitution rule sets (11 files, 1,649 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, and Constitution rule sets (11 files, 1,784 lines)
 
 <!-- prospec:auto-start -->
 
@@ -8,16 +8,16 @@
 
 | File | Purpose |
 |------|---------|
-| `src/lib/config.ts` | readConfig(), writeConfig(), resolveBasePaths(), validateConfig() |
+| `src/lib/config.ts` | readConfig(), resolveBasePaths(), resolveArtifactLanguage(), isDefaultArtifactLanguage() |
 | `src/lib/fs-utils.ts` | atomicWrite(), ensureDir(), fileExists() |
-| `src/lib/template.ts` | renderTemplate() with built-in Handlebars helpers (eq, contains, join, isoDate, indent) |
+| `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates |
 | `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration |
-| `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), comment-preserving Document API |
+| `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir |
 | `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
-| `src/lib/constitution-rules.ts` | exampleRulesFor() — 3-5 stack-appropriate starter Constitution rules with RFC-2119 severity |
+| `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
 
 ## Public API
@@ -30,7 +30,9 @@
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
 - `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
 - `detectTechStack(cwd, configTechStack?)` — Resolve language/framework/package manager; `.prospec.yaml` tech_stack wins, auto-detection fills gaps; reports `source` (config/auto-detected/mixed)
-- `exampleRulesFor(techStack)` — Stack-appropriate starter Constitution rules (python/typescript/generic), each with an RFC-2119 severity
+- `exampleRulesFor(techStack)` — Stack-appropriate starter rules; `languagePolicyRule(language)` — [MUST] artifact-language rule
+- `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check)
+- `escapeYamlScalar(text)` — escape user text for double-quoted YAML scalars in noEscape templates
 
 ## Dependencies
 
@@ -58,6 +60,7 @@
 - Template partial registration order matters — register partials before templates that reference them
 - `detectModules()` reads `module-map.yaml` first — if it exists, strategy parameter is ignored
 - `loadExistingModuleMap()` resolves under `knowledgeBasePath` (relative to cwd or absolute) — omitting it falls back to legacy `docs/ai-knowledge`, not the config base_dir
+- User input interpolated into YAML-target templates (noEscape) MUST pass `escapeYamlScalar()` — raw quotes/newlines make the generated YAML unparseable
 
 <!-- prospec:auto-end -->
 

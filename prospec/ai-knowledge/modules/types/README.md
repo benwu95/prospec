@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, and Constitution rule types (7 files, 480 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, and Constitution rule types (7 files, 520 lines)
 
 <!-- prospec:auto-start -->
 
@@ -8,8 +8,8 @@
 
 | File | Purpose |
 |------|---------|
-| `src/types/config.ts` | ProspecConfigSchema, KnowledgeStrategy, TokenBudget, VALID_AGENTS |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills), AGENT_CONFIGS (4 agents) |
+| `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines), AGENT_CONFIGS (4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log), CHANGE_STATUSES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
@@ -18,8 +18,8 @@
 
 ## Public API
 
-- `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`
-- `SKILL_DEFINITIONS` — 11 skill configs with name, type, description, references
+- `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words)
+- `SKILL_DEFINITIONS` — 13 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references
 - `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); `{ name, skillPath, configPath }`
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
@@ -44,7 +44,7 @@
 
 - Config schema changes affect `lib/config.ts` validation and all services reading config
 - Error type changes affect `cli/formatters/error-output.ts` dispatch logic
-- Skill definition changes affect `agent-sync.service.ts` output and contract test assertions
+- Skill definition changes affect `agent-sync.service.ts` output and contract test assertions; `triggers` feeds `synthesizeTriggers()` frontmatter composition
 - `KNOWLEDGE_FILE_TYPES` / `KNOWLEDGE_STRATEGIES` changes affect knowledge and steering services
 
 ## Pitfalls
