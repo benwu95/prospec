@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 34 test files, 711 tests (unit 319, contract 350, integration 15, e2e 27)
+> 4-layer test architecture using Vitest + memfs — 34 test files, 719 tests (unit 319, contract 358, integration 15, e2e 27)
 
 <!-- prospec:auto-start -->
 
@@ -15,7 +15,7 @@
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) |
+| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics (archive Entry Gate, verify V4 informational, lifecycle checkpoint) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (27 tests, incl. `prospec measure`) |
