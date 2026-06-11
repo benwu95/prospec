@@ -77,6 +77,6 @@ last_updated: 2026-06-11
 | 階段 | 狀態 | 核心功能 |
 |------|------|---------|
 | MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 進行中 | 8/12 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Token 量測 harness |
-| Phase 2 待做 | 規劃中 | 複雜度適配、KV-Cache 策略、模板自訂、Plugin 機制 |
+| Phase 2 進行中 | 9/12 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Token 量測 harness、KV-Cache 穩定前綴 |
+| Phase 2 待做 | 規劃中 | 複雜度適配、模板自訂、Plugin 機制 |
 | Phase 3 | 構想中 | 智慧感知更新、MCP 整合、多代理協作、CI/CD 整合 |
