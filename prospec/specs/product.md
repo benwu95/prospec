@@ -32,7 +32,7 @@ last_updated: 2026-06-11
 
 ### AI 知識系統
 
-自動掃描程式碼生成模組化 AI Knowledge（per-module README + 索引 + 依賴圖），支援增量更新——只重建受影響模組。三層按需載入（Layer 0 常駐 / Layer 1 Skill 載入 / Layer 2 按需讀取）確保 token 效率。
+自動掃描程式碼生成模組化 AI Knowledge（per-module README + 索引 + 依賴圖），支援增量更新——只重建受影響模組，並由 archive Entry Gate 強制每個變更歸檔前完成同步。三層按需載入（Layer 0 常駐 / Layer 1 Skill 載入 / Layer 2 按需讀取）確保 token 效率。
 → [features/ai-knowledge.md](features/ai-knowledge.md)
 
 ### Agent 整合
@@ -60,7 +60,7 @@ last_updated: 2026-06-11
 - **專案初始化**: 開發者執行 `prospec init`，選擇文件語言後即獲得完整 SDD 專案骨架、Language Policy 與 AI 配置
 - **變更流程**: 開發者透過 `/prospec-new-story` 描述需求，系統引導走完規格→計劃→實作→驗證全流程
 - **AI Knowledge 生成**: 開發者對既有專案執行掃描，自動產出模組化的 AI 可讀文件
-- **增量知識同步**: 變更歸檔後，只更新受影響模組的 Knowledge，保持文件與程式碼同步
+- **增量知識同步**: 變更歸檔前由 archive Entry Gate 強制同步受影響模組的 Knowledge（verify 僅 informational 提示），保持文件與程式碼同步
 - **設計規格整合**: 前端開發者從 proposal 產出設計規格，AI 實作時有視覺與互動的精確依據
 - **Token 量測**: 使用者執行量測後以 `prospec measure` 得知實際節省比與 cache 命中率，token 效率主張可驗證而非空口宣稱
 
