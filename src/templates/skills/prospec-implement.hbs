@@ -14,12 +14,12 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
-2. Read `.prospec/changes/[name]/plan.md` — understand design intent
-3. Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
-4. **MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines
-5. **MANDATORY** — Read `{{knowledge_base_path}}/_conventions.md` — follow project patterns (execute(), atomicWrite(), ContentMerger)
-6. Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
+1. [STABLE] **MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines
+2. [STABLE] **MANDATORY** — Read `{{knowledge_base_path}}/_conventions.md` — follow project patterns (execute(), atomicWrite(), ContentMerger)
+3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
+4. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — understand design intent
+5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
+6. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
 

@@ -118,11 +118,20 @@ export function assembleNaiveRag(contents: Map<string, string>, task: CorpusTask
   return selected.map((f) => sections.get(f) ?? '').join('\n');
 }
 
+export interface ProspecAssemblyOptions {
+  /** Append _glossary.md at the stable-segment tail (OPT-D8 comparison; default off). */
+  includeGlossary?: boolean;
+}
+
 /**
  * prospec: layered progressive disclosure — L0 (_index + _conventions)
  * followed by L1 (related module READMEs), stable content first.
  */
-export function assembleProspec(contents: Map<string, string>, task: CorpusTask): string {
+export function assembleProspec(
+  contents: Map<string, string>,
+  task: CorpusTask,
+  options: ProspecAssemblyOptions = {},
+): string {
   const knowledgeBase = 'prospec/ai-knowledge';
   const knowledgeFile = (relPath: string): string => {
     const content = contents.get(relPath);
@@ -132,10 +141,11 @@ export function assembleProspec(contents: Map<string, string>, task: CorpusTask)
     return fileSection(relPath, content);
   };
 
-  const sections = [
-    knowledgeFile(`${knowledgeBase}/_conventions.md`),
-    knowledgeFile(`${knowledgeBase}/_index.md`),
-  ];
+  const sections = [knowledgeFile(`${knowledgeBase}/_conventions.md`)];
+  if (options.includeGlossary) {
+    sections.push(knowledgeFile(`${knowledgeBase}/_glossary.md`));
+  }
+  sections.push(knowledgeFile(`${knowledgeBase}/_index.md`));
   for (const moduleName of [...task.modules].sort()) {
     sections.push(knowledgeFile(`${knowledgeBase}/modules/${moduleName}/README.md`));
   }
@@ -152,11 +162,12 @@ export function assembleAll(
   contents: Map<string, string>,
   task: CorpusTask,
   fullDump: string,
+  prospecOptions: ProspecAssemblyOptions = {},
 ): Record<AssemblyStrategy, string> {
   const taskHeader = `=== measurement task: ${task.id} ===\n\n`;
   return {
     'full-dump': taskHeader + fullDump,
     'naive-rag': taskHeader + assembleNaiveRag(contents, task),
-    prospec: taskHeader + assembleProspec(contents, task),
+    prospec: taskHeader + assembleProspec(contents, task, prospecOptions),
   };
 }

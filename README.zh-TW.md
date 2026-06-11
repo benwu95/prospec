@@ -277,6 +277,15 @@ flowchart TD
 - **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
 - **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自 `quality_log` + review findings），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
 
+### Cache 穩定前綴排序
+
+每個 skill 的 Startup Loading 區段以**靜態優先**排序，讓 provider 的 prompt cache（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）能跨觸發重用最長前綴。每個載入項帶兩種標注之一：
+
+- **`[STABLE]`** — 僅在 `agent sync` 或治理變更時改動：skill 自身的 `references/` 格式規格、Constitution、`_conventions.md`。最先載入。
+- **`[DYNAMIC]`** — 隨 knowledge 更新、change 或每次觸發變動：`_index.md`（cache boundary 後第一位）、模組 README、`_playbook.md`、Feature/Product Specs、`.prospec/changes/` artifacts。最後載入。
+
+判準是**跨請求前綴穩定性**，不是「是否由模板生成」：entry config 的 Available Skills 列表每專案固定（只在 skill 集變動時改變），因此屬 `[STABLE]`。Extension 開發者新增 skill 須遵循同一排序——靜態在 boundary 前、動態在後——否則每次觸發都打破 cache 前綴。harness 量測的是 **prospec 組裝管線**（corpus 組裝的是 knowledge 檔案，非 skill 模板本身）——見上方 Token 量測。模板層重排的效果發生在 agent 部署層，不在 harness 可觀測範圍（deliberate exclusion）：其效益依據各 provider 文件化的 prefix-caching 語意推導，而非 before/after 直接量測。
+
 ### Skill 使用範例
 
 ```bash

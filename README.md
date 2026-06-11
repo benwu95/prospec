@@ -289,6 +289,28 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
 - **Feedback promotion** — `/prospec-learn` collects recurring lessons (from `quality_log` + review findings), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
 
+### Cache-Stable Prefix Ordering
+
+Every skill's Startup Loading section is ordered **static-first** so provider prompt caches
+(Anthropic explicit `cache_control`, OpenAI/Gemini automatic prefix caching) can reuse the
+longest possible prefix across triggers. Each loading item carries one of two markers:
+
+- **`[STABLE]`** — changes only on `agent sync` or governance edits: the skill's own
+  `references/` format specs, the Constitution, `_conventions.md`. These load first.
+- **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `_index.md`
+  (first after the cache boundary), module READMEs, `_playbook.md`, Feature/Product Specs,
+  and `.prospec/changes/` artifacts. These load last.
+
+The classification criterion is **cross-request prefix stability**, not "is it generated":
+the entry config's Available Skills list is per-project fixed (it changes only when the
+skill set changes), so it is `[STABLE]`. Extension authors adding skills must follow the
+same ordering — static loads before the boundary, dynamic after — or they break the cache
+prefix for every trigger. What the harness measures is the **prospec assembly pipeline**
+(its corpus assembles knowledge files, not the skill templates themselves) — see Token
+Measurement above. The template-level reorder takes effect at the agent deployment layer,
+outside the harness's observable scope (a deliberate exclusion): its benefit follows from
+the providers' documented prefix-caching semantics, not from a direct before/after measurement.
+
 ### Skill Example
 
 ```bash

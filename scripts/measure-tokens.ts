@@ -34,8 +34,9 @@ import {
  * Token measurement benchmark runner (mode A, offline).
  *
  * Usage:
- *   pnpm measure:tokens [-- --provider anthropic[,openai,google]]
- *                       [-- --budget 10] [-- --report measurement-report.json]
+ *   pnpm measure:tokens [--provider anthropic[,openai,google]]
+ *                       [--budget 10] [--report measurement-report.json]
+ *                       [--prospec-glossary]
  *
  * Sends each assembled context twice (cold + warm, same assembly) per
  * strategy and records real provider usage. No thresholds, no CI gating —
@@ -54,6 +55,9 @@ interface CliArgs {
   providers?: string[];
   budgetUsd: number;
   reportPath: string;
+  /** OPT-D8 comparison: include _glossary.md in the prospec assembly. */
+  prospecGlossary: boolean;
+  reportPathExplicit: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -63,10 +67,19 @@ function parseArgs(argv: string[]): CliArgs {
     return match ? [match[1]!, match[2]!] : [arg];
   });
 
-  const args: CliArgs = { budgetUsd: DEFAULT_BUDGET_USD, reportPath: DEFAULT_REPORT_FILENAME };
+  const args: CliArgs = {
+    budgetUsd: DEFAULT_BUDGET_USD,
+    reportPath: DEFAULT_REPORT_FILENAME,
+    prospecGlossary: false,
+    reportPathExplicit: false,
+  };
   for (let i = 0; i < tokens.length; i += 1) {
     const arg = tokens[i];
-    if (arg === '--provider') {
+    // pnpm forwards a literal `--` separator into argv — tolerate both forms
+    if (arg === '--') continue;
+    if (arg === '--prospec-glossary') {
+      args.prospecGlossary = true;
+    } else if (arg === '--provider') {
       args.providers = [...new Set((tokens[++i] ?? '').split(',').filter(Boolean))];
     } else if (arg === '--budget') {
       const raw = tokens[++i];
@@ -83,10 +96,15 @@ function parseArgs(argv: string[]): CliArgs {
         process.exit(1);
       }
       args.reportPath = value;
+      args.reportPathExplicit = true;
     } else {
-      console.error(`Unknown option: ${arg}. Valid: --provider, --budget, --report`);
+      console.error(`Unknown option: ${arg}. Valid: --provider, --budget, --report, --prospec-glossary`);
       process.exit(1);
     }
+  }
+  // glossary runs default to a separate report so the main report is not overwritten
+  if (args.prospecGlossary && !args.reportPathExplicit) {
+    args.reportPath = DEFAULT_REPORT_FILENAME.replace(/\.json$/, '.glossary.json');
   }
   return args;
 }
@@ -149,6 +167,7 @@ interface RunInputs {
   corpus: Corpus;
   contents: Map<string, string>;
   fullDump: string;
+  prospecGlossary: boolean;
 }
 
 async function runProvider(
@@ -173,7 +192,9 @@ async function runProvider(
 
     let contexts: Record<AssemblyMeasurement['strategy'], string>;
     try {
-      contexts = assembleAll(inputs.contents, task, inputs.fullDump);
+      contexts = assembleAll(inputs.contents, task, inputs.fullDump, {
+        includeGlossary: inputs.prospecGlossary,
+      });
     } catch (err) {
       const reason = err instanceof AssemblyError ? err.message : String(err);
       tasks.push({ task_id: task.id, status: 'skipped', reason, assemblies: [] });
@@ -265,7 +286,7 @@ async function main(): Promise<void> {
   const files = await listRepoFiles(cwd);
   const contents = readRepoContents(cwd, files);
   const fullDump = assembleFullDump(contents);
-  const inputs: RunInputs = { corpus, contents, fullDump };
+  const inputs: RunInputs = { corpus, contents, fullDump, prospecGlossary: args.prospecGlossary };
 
   const runs: ProviderRun[] = [];
   for (const adapter of available) {

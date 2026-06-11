@@ -112,6 +112,7 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
 - **corpus 活引用**：fixtures 只版控 ≥10 個代表性任務**描述**，context 即時從 repo 組裝。數字隨 repo 演進屬真實現況；同一次快照內三種組裝法的相對比值（節省比、命中率）仍可比，BL-020 的 before/after 在同快照各量一次即成立。
 - **`prospec measure` 納入首發**：feature 價值是「使用者可見」，報告呈現（input/output 分列、cold/warm、warm 帶星號、兩個 baseline）是驗收重點而非附件。
 - **多 provider 量測（2026-06-11 追加）**：runner 經 provider adapter 支援 Anthropic / OpenAI / Google 三個 API，覆蓋 README 四個 agent 的模型來源（claude→Anthropic、codex/copilot→OpenAI、antigravity→Gemini；copilot 無公開 benchmark API，為模型來源代理量測）。usage schema 欄位中立化、pricing 參數化；報告 per-provider 分區段，數字僅同 provider 內可比。
+- **量測歸因邊界（2026-06-11 Story B review 確立）**：harness 的 cold/warm 為 identical 重送，量得到組裝管線的 cache 行為、量不到模板層重排的真實效益（corpus 不含 `.hbs`、順序在 identical 重送下不影響結果）——BL-020 效益依 provider 文件化語意推導，措辭已限定（deliberate exclusion）。**未來候選：跨任務部分前綴量測模式**（同 skill 兩個不同任務連送、量第二次 cache_read），可直接量重排效益、並把 OPT-D8 對照從成本面升級到收益面；約 standard 規模。
 
 ---
 
