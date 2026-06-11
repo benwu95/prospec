@@ -199,6 +199,40 @@ prospec knowledge init
 
 > **Note**: These commands scaffold empty change artifacts. The Skills (`/prospec-new-story`, `/prospec-ff`, …) now create `.prospec/changes/<name>/` and its files directly, so the workflow doesn't call them — they remain available for manual or scripted scaffolding.
 
+### Token Measurement
+
+| Command | Description |
+|---------|-------------|
+| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | Run the offline benchmark: assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider) |
+| `prospec measure [--report <path>]` | Display the measurement report (read-only — never calls an API, never burns tokens) |
+
+The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
+(`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
+at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
+
+**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their
+model provider, not the agent harness itself):
+
+| Agent | Provider API | Default model |
+|-------|-------------|---------------|
+| claude | Anthropic | `claude-haiku-4-5` |
+| codex, copilot | OpenAI | `gpt-4.1-mini` |
+| antigravity | Google | `gemini-2.5-flash` |
+
+**How to read the numbers (honest boundaries):**
+
+- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is
+  always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
+- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on
+  whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable
+  prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly
+  records a 0% hit rate even though the mechanism works at production context sizes.
+- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini
+  automatic prefix caching) — numbers are **comparable only within the same provider**, never across
+  providers or repo snapshots (the report records the git commit it measured).
+- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
+- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
+
 ---
 
 ## AI Skills

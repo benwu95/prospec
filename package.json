@@ -20,7 +20,8 @@
     "lint": "eslint src/ tests/",
     "typecheck": "tsc --noEmit",
     "verify:skills": "bash scripts/verify-skills.sh",
-    "prepare": "tsc"
+    "prepare": "tsc",
+    "measure:tokens": "npx tsx scripts/measure-tokens.ts"
   },
   "keywords": [
     "sdd",
@@ -50,6 +51,7 @@
     "@types/node": "^25.2.0",
     "eslint": "^9.39.2",
     "memfs": "^4.56.10",
+    "tsx": "^4.22.4",
     "typescript": "5.9",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"

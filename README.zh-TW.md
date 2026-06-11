@@ -196,6 +196,31 @@ prospec knowledge init
 
 > **注意**：這些命令建立空的變更骨架。Skills（`/prospec-new-story`、`/prospec-ff` 等）現在會直接建立 `.prospec/changes/<name>/` 及其檔案，因此工作流程不會呼叫它們 —— 但它們仍保留供手動或腳本化建立骨架使用。
 
+### Token 量測
+
+| 命令 | 說明 |
+|------|------|
+| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | 執行離線 benchmark：從活的 repo 組裝 full-dump / naive-rag / prospec 三種 context，記錄 provider API 真實 usage（需 API key；預設每 provider 上限 US$10） |
+| `prospec measure [--report <path>]` | 顯示量測報告（唯讀 —— 不呼叫 API、不燒 token） |
+
+harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
+
+**Agent → 量測 provider 對應**（copilot/codex 無公開 benchmark API，量測其模型來源而非 agent harness 本身）：
+
+| Agent | Provider API | 預設 model |
+|-------|-------------|-----------|
+| claude | Anthropic | `claude-haiku-4-5` |
+| codex、copilot | OpenAI | `gpt-4.1-mini` |
+| antigravity | Google | `gemini-2.5-flash` |
+
+**如何誠實解讀數字：**
+
+- 效率主張 = **vs full-dump baseline 的 input-token 成本**；naive-rag baseline 一律並列（差距較小）。output token 不受影響、誠實列出。
+- **warm\*** 為合成命中（連送兩次）；production 命中率取決於觸發是否落在 cache TTL 內。各 provider 另有最小可 cache 前綴（如 `claude-haiku-4-5` 為 4,096 tokens）——低於地板值的小型 prospec 組裝會誠實記錄 0% 命中率，機制在 production 規模的 context 下才生效。
+- 各 provider 的 cache 折扣結構不同（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）—— 數字**僅同 provider 內可比**，不可跨 provider 或跨 repo 快照（報告記錄量測當下的 git commit）。
+- 不設門檻、不進 CI：報告供人解讀，不判定通過與否。
+- 本專案任何「節省 token」數字只能引用本 harness 產出 —— 估算不是資料。
+
 ---
 
 ## AI Skills
