@@ -96,7 +96,7 @@ modules:
         - tests
 
   - name: templates
-    description: Handlebars template library — skills, references, agent-configs, change, init/steering/knowledge
+    description: Handlebars template library — skills (static-first Startup Loading with STABLE/DYNAMIC markers), references, agent-configs, change, init/steering/knowledge
     paths:
       - src/templates
     keywords:
@@ -108,6 +108,7 @@ modules:
       - loading-rules
       - references
       - change
+      - stable-prefix
     relationships:
       depends_on: []
       used_by:
