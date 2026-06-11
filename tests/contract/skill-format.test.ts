@@ -1143,7 +1143,7 @@ describe('Language Policy mechanism', () => {
       const section = sectionOf(content, '## Language Policy');
       expect(section.length).toBeGreaterThan(0);
       expect(section).toContain("the Constitution's Language Policy rule");
-      expect(section).toContain('technical terms in English');
+      expect(section).toContain('git commit messages in English');
     });
   }
 
@@ -1169,7 +1169,7 @@ describe('Language Policy mechanism', () => {
     const section = sectionOf(content, '## Language Policy');
     expect(section.length).toBeGreaterThan(0);
     expect(section).toContain('**Traditional Chinese (Taiwan)**');
-    expect(section).toContain('remain in English');
+    expect(section).toContain('git commit messages always remain in English');
   });
 
   it('every skill frontmatter renders the synthesized trigger words', () => {

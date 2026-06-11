@@ -11,7 +11,7 @@
 
 **Rationale**: The project owner reviews these documents in their native language, reducing communication barriers and improving comprehension. Keeping code and technical terms in English follows industry convention.
 
-**Enforcement**: Verify that documents under `.prospec/changes/` are written in Traditional Chinese. AI Knowledge files, code comments, and commit messages are not subject to this rule.
+**Enforcement**: Verify that documents under `.prospec/changes/` are written in Traditional Chinese. AI Knowledge files, code comments, and commit messages are not subject to this rule (commit messages must be in English — see Principle 2).
 
 ---
 
@@ -23,6 +23,7 @@
 
 **Enforcement**:
 - Each commit message follows Conventional Commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`)
+- Commit messages (subject and body) must be written in English
 - A single commit must not contain unrelated functional changes
 - Commit messages must not include AI co-authorship attribution
 
@@ -78,9 +79,9 @@
 
 - **Testing**: All public functions must have unit tests; coverage ≥ 80%
 - **Documentation**: Change documents in Traditional Chinese; code in English
-- **Commits**: Follow Conventional Commits; atomic commits by feature
+- **Commits**: Follow Conventional Commits; atomic commits by feature; messages in English
 - **Requirements**: User Stories must satisfy INVEST with explicit acceptance criteria
 
 ---
 
-> Last updated: 2026-02-15
+> Last updated: 2026-06-11

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-604%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-605%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -111,7 +111,8 @@ prospec init --name my-project
 # → Select AI assistants (interactive checkbox)
 # → Choose the primary language for AI-generated documents (default: English,
 #   or pass --language "Traditional Chinese (Taiwan)"); a [MUST] Language
-#   Policy rule is seeded into CONSTITUTION.md — code stays in English
+#   Policy rule is seeded into CONSTITUTION.md — code and git commit
+#   messages stay in English
 # → Creates .prospec.yaml + directory structure
 
 # 2. Sync AI agent config + generate Skills
@@ -299,7 +300,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (604 tests)
+# Run all tests (605 tests)
 pnpm test
 
 # Watch mode
@@ -316,8 +317,8 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 604 tests across 4 categories:
-- Unit tests (lib + services): 279 tests
+**Test Coverage**: 605 tests across 4 categories:
+- Unit tests (lib + services): 280 tests
 - Contract tests (CLI output + Skill format): 285 tests
 - Integration tests: 15 tests
 - E2E tests: 25 tests
@@ -389,7 +390,7 @@ Prospec enforces 6 core principles. They govern the prospec assets injected into
 3. **Zero Startup Cost for Brownfield** — No need to document entire codebase upfront
 4. **AI Agent Agnostic** — Works with any AI CLI via Markdown adapters
 5. **User Controls the Rules** — Constitution is user-defined, tool enforces
-6. **Language Policy** — AI-generated docs in the language you choose at `prospec init` (default: English); code and technical terms always in English
+6. **Language Policy** — AI-generated docs in the language you choose at `prospec init` (default: English); code, technical terms, and git commit messages always in English
 
 ---
 

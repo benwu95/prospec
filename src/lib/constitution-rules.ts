@@ -113,9 +113,9 @@ export function languagePolicyRule(language: string): ConstitutionRule {
   return {
     severity: 'MUST',
     name: 'Language Policy',
-    description: `All AI-generated documents (change artifacts and AI Knowledge) are written in ${language}. Code, identifiers, and technical terms always remain in English.`,
-    rationale: 'A single declared document language keeps generated artifacts consistent and reviewable, while English code and terminology follow industry convention.',
-    check: `Documents under .prospec/changes/ and the AI Knowledge base are written in ${language}; code and technical terms are in English.`,
+    description: `All AI-generated documents (change artifacts and AI Knowledge) are written in ${language}. Code, identifiers, technical terms, and git commit messages always remain in English.`,
+    rationale: 'A single declared document language keeps generated artifacts consistent and reviewable, while English code, terminology, and commit history follow industry convention.',
+    check: `Documents under .prospec/changes/ and the AI Knowledge base are written in ${language}; code, technical terms, and commit messages are in English.`,
   };
 }
 

@@ -66,4 +66,10 @@ describe('languagePolicyRule', () => {
     const rule = languagePolicyRule('Japanese');
     expect(rule.description).toContain('English');
   });
+
+  it('always keeps git commit messages in English', () => {
+    const rule = languagePolicyRule('Japanese');
+    expect(rule.description).toContain('git commit messages');
+    expect(rule.check).toContain('commit messages');
+  });
 });
