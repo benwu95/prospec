@@ -3,7 +3,7 @@
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas, error hierarchy (11 classes), skill/agent definitions
+    description: Zod 4 schemas, error hierarchy (12 classes), skill/agent definitions, measurement report schemas
     paths:
       - src/types
     keywords:
@@ -18,6 +18,7 @@ modules:
       - token-budget
       - language
       - triggers
+      - measurement
     relationships:
       depends_on: []
       used_by:
@@ -27,7 +28,7 @@ modules:
         - tests
 
   - name: lib
-    description: Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection
+    description: Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection, token accounting
     paths:
       - src/lib
     keywords:
@@ -42,6 +43,7 @@ modules:
       - module-detector
       - strategy
       - language
+      - token-accounting
     relationships:
       depends_on:
         - types
@@ -51,7 +53,7 @@ modules:
         - tests
 
   - name: services
-    description: Business logic — 10 services with execute() pattern, including Recipe-First knowledge generation
+    description: Business logic — 11 services with execute() pattern, including Recipe-First knowledge generation and measurement-report loading
     paths:
       - src/services
     keywords:
@@ -65,6 +67,7 @@ modules:
       - product
       - triggers
       - language
+      - measure
     relationships:
       depends_on:
         - types
@@ -74,7 +77,7 @@ modules:
         - tests
 
   - name: cli
-    description: CLI entry point — 8 commands + 9 formatters, parse → execute → format
+    description: CLI entry point — 9 commands + 10 formatters, parse → execute → format
     paths:
       - src/cli
     keywords:
@@ -83,6 +86,7 @@ modules:
       - commander
       - output
       - preaction
+      - measure
     relationships:
       depends_on:
         - types

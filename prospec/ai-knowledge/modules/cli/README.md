@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 18 files)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 20 files)
 
 <!-- prospec:auto-start -->
 
@@ -14,15 +14,17 @@
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan |
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
+| `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
+| `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts |
 | `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr |
 | `src/cli/formatters/init-output.ts` | formatInitOutput() — init command output |
 
 ## Public API
 
-- `createProgram()` — Create Commander.js program with all 8 commands registered
+- `createProgram()` — Create Commander.js program with all 9 commands registered
 - `main()` — Entry point: create program → parse argv → execute
-- `registerXxxCommand(program)` — 8 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 9 formatter functions (stdout for success, stderr for errors)
+- `registerXxxCommand(program)` — 9 command registration functions (one per command)
+- `formatXxxOutput(result, logLevel)` — 10 formatter functions (stdout for success, stderr for errors)
 
 ## Dependencies
 
@@ -48,6 +50,7 @@
 - Commander.js `.action()` callbacks are async — always `await` and wrap in try/catch with `handleError()`
 - Success output → stdout, error output → stderr — never mix channels
 - E2E tests spawn real `npx tsx src/cli/index.ts` — any option/command name change breaks them
+- `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
 
 <!-- prospec:auto-end -->
 

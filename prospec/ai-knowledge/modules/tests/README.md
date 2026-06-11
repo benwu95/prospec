@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 29 test files, 497 tests (unit, integration, contract, E2E)
+> 4-layer test architecture using Vitest + memfs — 33 test files, 641 tests (unit 314, contract 285, integration 15, e2e 27)
 
 <!-- prospec:auto-start -->
 
@@ -15,9 +15,11 @@
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 11 skills format validation, incl. Output Contract + Constitution severity (191 tests) |
+| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Constitution severity |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
-| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (17 tests) |
+| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (27 tests, incl. `prospec measure`) |
+| `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
+| `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |
 
 ## Public API
 

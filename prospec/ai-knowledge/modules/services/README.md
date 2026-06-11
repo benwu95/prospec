@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 10 services following `execute(options) → Promise<Result>` pattern (3,511 lines total)
+> Business logic layer — 11 services following `execute(options) → Promise<Result>` pattern (3,577 lines total)
 
 <!-- prospec:auto-start -->
 
@@ -18,6 +18,7 @@
 | `src/services/change-tasks.service.ts` | Generate tasks.md scaffold |
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint) |
 | `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md (825 lines) |
+| `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
 
 ## Public API
 
@@ -27,6 +28,7 @@
 - `knowledgeUpdate.execute(options)` — Incremental delta-spec-driven update
 - `archive.execute(options)` — Archive verified changes, sync Feature Specs
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys) and `hints` (populate skill_triggers for non-English languages)
+- `measure.execute({cwd, reportPath?})` — Load measurement report for display; missing file → PrerequisiteError (run `pnpm measure:tokens`), invalid → MeasurementReportInvalid
 
 ## Dependencies
 

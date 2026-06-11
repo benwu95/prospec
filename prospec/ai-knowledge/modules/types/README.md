@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, and Constitution rule types (7 files, 520 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, and token measurement schemas (8 files, 650 lines)
 
 <!-- prospec:auto-start -->
 
@@ -13,8 +13,9 @@
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log), CHANGE_STATUSES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
-| `src/types/errors.ts` | ProspecError base + 10 specialized error classes |
+| `src/types/errors.ts` | ProspecError base + 11 specialized error classes (incl. MeasurementReportInvalid) |
 | `src/types/constitution.ts` | ConstitutionRule — RFC-2119 severity (MUST/SHOULD/MAY) + name/description/rationale/check |
+| `src/types/measurement.ts` | Provider-neutral TokenUsage/Pricing + MeasurementReport schemas, AGENT_PROVIDER_MAP, DEFAULT_REPORT_FILENAME |
 
 ## Public API
 
@@ -24,9 +25,9 @@
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields)
-- `KNOWLEDGE_STRATEGIES` — `['auto', 'architecture', 'domain', 'package'] as const`
-- `KNOWLEDGE_FILE_TYPES` — `['readme', 'endpoints', 'components', 'screens'] as const`
+- `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
+- `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer)
 
 ## Dependencies
 
@@ -46,6 +47,7 @@
 - Error type changes affect `cli/formatters/error-output.ts` dispatch logic
 - Skill definition changes affect `agent-sync.service.ts` output and contract test assertions; `triggers` feeds `synthesizeTriggers()` frontmatter composition
 - `KNOWLEDGE_FILE_TYPES` / `KNOWLEDGE_STRATEGIES` changes affect knowledge and steering services
+- `measurement.ts` schema changes affect `measure.service.ts` validation and the `scripts/measure-tokens.ts` runner (outside runtime layering, consumes types/lib)
 
 ## Pitfalls
 
