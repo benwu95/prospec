@@ -3,9 +3,10 @@
 **Input**: Design documents from `.prospec/changes/{{change_name}}/`
 **Prerequisites**: plan.md, delta-spec.md
 
-## Format: `[ID] [P?] Description (~lines)`
+## Format: `[ID] [P?] [kind?] Description (~lines)`
 
 - **[P]**: Can run in parallel (different files, no mutual dependencies)
+- **[M] / [V]**: Task kind — manual / verification; unmarked = code (definition frozen in the tasks-format reference)
 - **~N lines**: Estimated lines changed
 
 ---
@@ -51,5 +52,6 @@
 ## Notes
 
 - [P] = different files, no dependencies, can run in parallel
+- [M]/[V] mark manual/verification tasks; unmarked tasks are code (see tasks-format reference)
 - Verify functionality after completing each Phase
 - ~N lines are estimates; actual numbers may vary with requirements

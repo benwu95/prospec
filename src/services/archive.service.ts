@@ -437,7 +437,10 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     }
   }
 
-  // Auto-trigger incremental Knowledge update (non-fatal)
+  // Auto-trigger incremental Knowledge update (non-fatal). Without a delta-spec
+  // (the quick path) this safety net cannot derive modules and is skipped — the
+  // skill-level archive Entry Gate, which derives modules from diff paths, remains
+  // the mandatory knowledge-sync checkpoint there.
   let knowledgeUpdated = false;
   if (archived.length > 0) {
     for (const change of archived) {
@@ -534,13 +537,34 @@ function extractAffectedModules(deltaContent: string): Array<{ name: string; imp
 }
 
 function calculateTaskStats(tasksContent: string): string {
-  const completed = (tasksContent.match(/- \[x\]/gi) ?? []).length;
-  const total = (tasksContent.match(/- \[[ x]\]/gi) ?? []).length;
+  // Completion counts code tasks only; [M]/[V] kind-marked tasks are reported apart
+  // (kind schema frozen in skills/references/tasks-format: marker sits after the
+  // checkbox, an optional short task id, and an optional [P]).
+  const checkbox = /^\s*[-*]\s+\[([ x])\]/i;
+  const kindMarker = /^\s*[-*]\s+\[[ x]\]\s+(?:[A-Za-z]{0,3}\d+[a-z]?\s+)?(?:\[P\]\s+)?\[[MV]\]\s/i;
+  let completed = 0;
+  let total = 0;
+  let kindDone = 0;
+  let kindTotal = 0;
+  for (const line of tasksContent.split('\n')) {
+    const m = checkbox.exec(line);
+    if (!m) continue;
+    const done = m[1]!.toLowerCase() === 'x';
+    if (kindMarker.test(line)) {
+      kindTotal += 1;
+      if (done) kindDone += 1;
+    } else {
+      total += 1;
+      if (done) completed += 1;
+    }
+  }
 
-  if (total === 0) return 'No tasks found';
+  if (total === 0 && kindTotal === 0) return 'No tasks found';
+  if (total === 0) return `0/0 code, ${kindDone}/${kindTotal} [M]/[V] (not counted)`;
 
   const pct = Math.round((completed / total) * 100);
-  return `${completed}/${total} (${pct}%)`;
+  const kindSuffix = kindTotal > 0 ? `, ${kindDone}/${kindTotal} [M]/[V] (not counted)` : '';
+  return `${completed}/${total} (${pct}%)${kindSuffix}`;
 }
 
 /**

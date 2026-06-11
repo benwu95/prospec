@@ -27,7 +27,7 @@ When triggered, briefly describe:
 
 | Layer | What to Load | When to Load | Budget |
 |-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + tasks.md + plan.md + delta-spec.md | At startup — navigate modules and understand current tasks | ≤ 1,500 tokens (knowledge) |
+| L0 | `_index.md` + `_conventions.md` + tasks.md + plan.md + delta-spec.md (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source) | At startup — navigate modules and understand current tasks | ≤ 1,500 tokens (knowledge) |
 | L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | When starting a task — understand APIs, modification patterns, and ripple effects | ≤ 400 tokens/module |
 | L2 | Source code files | When implementing — verify details, read exact signatures | On-demand |
 
@@ -43,6 +43,7 @@ Parse tasks.md, display progress statistics (completed/total/percentage), locate
 
 Extract architecture design and technical decisions related to current task from plan.md.
 Extract file specifications for current task from delta-spec.md.
+(`scale: quick`: both are absent by contract — extract intent and acceptance scenarios from proposal.md instead.)
 Load relevant module AI Knowledge (Layer 2).
 
 **For UI tasks** (when design-spec.md exists):
@@ -53,7 +54,7 @@ Load relevant module AI Knowledge (Layer 2).
 
 ### Phase 3: Execute Implementation
 
-Implement code based on delta-spec specifications and module design patterns.
+Implement code based on delta-spec specifications (quick: proposal.md acceptance scenarios) and module design patterns.
 Follow `{{knowledge_base_path}}/_conventions.md` patterns: Service `execute()`, `atomicWrite()` for file operations, `ContentMerger` for preserving user sections.
 
 **For UI tasks — MCP-first approach:**
@@ -62,7 +63,7 @@ Before writing any UI code, use the platform adapter's Implement Phase guideline
 ### Phase 4: Verify Implementation
 
 After completion, perform quick quality check:
-- Specification compliance (against delta-spec.md)
+- Specification compliance (against delta-spec.md; quick: against proposal.md acceptance scenarios)
 - Type safety
 - Error handling
 - Constitution compliance
@@ -74,7 +75,7 @@ Update checkbox in tasks.md `- [ ]` → `- [x]`, display updated progress.
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all tasks are complete, update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 
@@ -107,7 +108,7 @@ WARN items do not block — document reasoning in task completion notes.
 
 ### Failure Conditions
 - an unchecked code task remains
-- tests fail or a delta-spec deviation is undocumented
+- tests fail or a delta-spec deviation is undocumented (quick: a proposal acceptance-scenario deviation)
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
@@ -118,11 +119,11 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** start implementation without tasks.md — coding without task structure produces scattered changes that fail Verify's spec compliance check
 - **NEVER** load all module AI Knowledge at once — wastes context window tokens; a 6-module project loads ~3000 tokens unnecessarily when only 1 module is relevant
 - **NEVER** forget to mark task completion — unchecked tasks cause Verify to report false incomplete status; also breaks progress tracking for user
-- **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and capability spec inconsistency
+- **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and capability spec inconsistency (quick: proposal.md acceptance scenarios are the spec)
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
-- **NEVER** forget to suggest `/prospec-review` when all tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
+- **NEVER** forget to suggest `/prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
 - **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
-- **NEVER** leave `status: tasks` after completing all tasks — set `status: implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned"; see `{{knowledge_base_path}}/_status-lifecycle.md`
+- **NEVER** leave `status: tasks` after completing all code tasks — set `status: implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned"; see `{{knowledge_base_path}}/_status-lifecycle.md`
 
 ## Error Handling
 
@@ -130,6 +131,6 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | tasks.md not found | Guide user to run `/prospec-tasks` first |
 | Task has unmet dependency | Suggest completing dependency first / skip and record blocker |
-| Unclear specification | Decide based on conventions and best practices / return to `/prospec-plan` to supplement |
+| Unclear specification | Decide based on conventions and best practices / return to `/prospec-plan` to supplement (`scale: quick`: supplement proposal.md instead — `/prospec-plan` refuses quick) |
 | Technical blocker | Record blocker, continue with other independent tasks |
 

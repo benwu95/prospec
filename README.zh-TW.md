@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-719%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-757%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -269,6 +269,8 @@ flowchart TD
 
 兩條回饋迴圈讓 Prospec **越用越好**，而非單純重複：每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而變更過程中反覆出現的教訓——review findings、跨階段 `quality_log`、session corrections——經人工核可，晉升為**持續累積**的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。Agent 得到穩定的開發節奏，**專案本身也持續變好**。
 
+流程同時是 **scale-aware** 的：經使用者確認的 `quick` 變更會完全跳過 Plan 階段（`story → tasks`），並由 archive 時的 backstop 把關——見[相稱流程](#相稱流程scale)。
+
 ### 品質閘門與自我改進
 
 除了線性流程，每個 workflow Skill 都內建品質機制：
@@ -278,6 +280,20 @@ flowchart TD
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
 - **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
 - **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自每個已歸檔變更的跨階段 `quality_log` 與 `review.md` findings，加上 session corrections），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
+
+### 相稱流程（Scale）
+
+不是每個變更都值得完整儀式。story 階段由 `/prospec-new-story`（或 `/prospec-ff`）依明文判準評估複雜度並建議 scale——**經你確認後**才寫入 `metadata.yaml`：
+
+| Scale | 流程差異 |
+|-------|---------|
+| `quick` | 精簡 proposal（單 Story、免 FR/SC 枚舉）、**完全跳過 plan 階段**（`story → tasks`）、不載入模組 README；review/verify 的 delta-spec 維度標示 `not-applicable`（絕不偽裝 PASS） |
+| `standard`（預設；既有變更無欄位即此級） | 現行精簡流程——plan ≤ 120 行 |
+| `full` | 完整架構分析——擴充 Technical Summary、逐進入點 Call Chain |
+
+兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`/prospec-archive` Entry Gate 再以**實際 diff** 複核——有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落（並以它作 graduation key），knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。工程紀律不隨 scale 縮減：TDD、對抗式審查、Constitution 稽核在每個級別照常執行。
+
+任務同時帶 **kind** 標記（`[M]` manual、`[V]` verification、無標記＝code——凍結於 tasks-format reference）：完成率只計 code task，「手動跑個指令」之類未勾選的提醒不會卡住或扭曲任何 gate。
 
 ### Cache 穩定前綴排序
 
@@ -333,7 +349,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（719 個測試）
+# 執行所有測試（757 個測試）
 pnpm test
 
 # Watch 模式
@@ -350,9 +366,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：719 個測試橫跨 4 大類：
-- Unit tests（lib + services）：319 tests
-- Contract tests（CLI 輸出 + Skill 格式）：358 tests
+**測試覆蓋率**：757 個測試橫跨 4 大類：
+- Unit tests（lib + services）：325 tests
+- Contract tests（CLI 輸出 + Skill 格式）：390 tests
 - Integration tests：15 tests
 - E2E tests：27 tests
 

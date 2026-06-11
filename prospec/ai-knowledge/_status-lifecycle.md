@@ -8,21 +8,23 @@
 
 ```
 story → plan → tasks → implemented → verified → archived
+          ↑ skipped when metadata `scale: quick` (story → tasks)
 ```
 
 | From | To | Owning skill | Gate / precondition |
 |------|----|--------------|---------------------|
 | — | `story` | `/prospec-new-story` (or `/prospec-ff`) | change scaffolding + `proposal.md` created |
 | `story` | `plan` | `/prospec-plan` (or `/prospec-ff`) | `plan.md` + `delta-spec.md` created |
+| `story` | `tasks` | `/prospec-ff` (or `/prospec-tasks`) | **quick path**: metadata `scale: quick` (user-confirmed) — no plan.md/delta-spec.md; spec & knowledge impact re-checked at the `/prospec-archive` Entry Gate |
 | `plan` | `tasks` | `/prospec-tasks` (or `/prospec-ff`) | `tasks.md` created |
-| `tasks` | `implemented` | `/prospec-implement` | all `tasks.md` checkboxes complete |
+| `tasks` | `implemented` | `/prospec-implement` | all `tasks.md` **code-task** checkboxes complete (`[M]`/`[V]` kinds are reminders — see the tasks-format reference) |
 | `implemented` | `verified` | `/prospec-verify` | grade **S or A** (no FAIL, ≤ 2 WARN) |
 | `verified` | `archived` | `/prospec-archive` | only `verified` is archivable **and** affected-module Knowledge is synced (archive Entry Gate) |
 
 ## Gates (why some transitions are conditional)
 
-- **`/prospec-ff`** fast-forwards `story → plan → tasks` in one pass — it is planning-only and stops at `tasks`.
-- **`/prospec-implement`** sets `implemented` only when every `tasks.md` checkbox is done — this distinguishes "implemented, awaiting verify" from "tasks planned".
+- **`/prospec-ff`** fast-forwards `story → plan → tasks` in one pass (`scale: quick`: `story → tasks`, plan skipped) — it is planning-only and stops at `tasks`.
+- **`/prospec-implement`** sets `implemented` only when every `tasks.md` **code-task** checkbox is done (unchecked `[M]`/`[V]` tasks are reminders, not blockers) — this distinguishes "implemented, awaiting verify" from "tasks planned".
 - **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged (stays `implemented`); fix the WARN/FAIL items and re-run.
 - **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate additionally requires affected-module Knowledge to be synced — the lifecycle's single mandatory knowledge-sync checkpoint — then archive sets `archived`.
 
@@ -36,5 +38,5 @@ Different derived artifacts have different rightful update times — the gates a
 ## Rules
 
 - The skill that owns a transition MUST update `metadata.yaml` `status` when it completes its phase.
-- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change).
+- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change). The only legal skip is `story → tasks` under a user-confirmed `scale: quick`.
 - These six are the only valid statuses. Adding one requires updating this file **and** every consuming skill.

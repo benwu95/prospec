@@ -9,6 +9,9 @@ import { z } from 'zod';
 
 export const CHANGE_STATUSES = ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived'] as const;
 
+/** Process weight per change (BL-004). Absent on existing metadata means `standard`. */
+export const CHANGE_SCALES = ['quick', 'standard', 'full'] as const;
+
 /** Severity vocabulary shared with Entry/Exit gates and verify (no fourth state). */
 export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;
 
@@ -24,6 +27,9 @@ export const ChangeMetadataSchema = z.object({
   name: z.string(),
   created_at: z.string(), // ISO 8601
   status: z.enum(CHANGE_STATUSES),
+  // Written by new-story after user-confirmed complexity assessment (BL-004).
+  // Optional keeps existing metadata valid; absent reads as `standard`.
+  scale: z.enum(CHANGE_SCALES).optional(),
   related_modules: z.array(z.string()).optional(),
   description: z.string().optional(),
   // Entry/Exit gate trail (BL-003). Typed contract for the gate-record shape;
@@ -35,5 +41,6 @@ export const ChangeMetadataSchema = z.object({
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
 export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
+export type ChangeScale = (typeof CHANGE_SCALES)[number];
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
 export type GateResult = (typeof GATE_RESULTS)[number];

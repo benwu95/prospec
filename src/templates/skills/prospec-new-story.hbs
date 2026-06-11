@@ -45,9 +45,38 @@ Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm
 | Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + empty `proposal.md` |
 | Already exists | Read existing files, proceed to populate |
 
+### Phase 3.5: Complexity Assessment (Scale)
+
+Assess the change's complexity and propose a scale. The scale drives process weight downstream
+(ff/plan/review/verify/archive all read `metadata.scale`).
+
+**Assessment criteria:**
+
+| Criterion | quick | standard | full |
+|-----------|-------|----------|------|
+| Modules touched | 1 | 1-2 | 3+ |
+| Spec-covered behavior (existing REQs in `{{base_dir}}/specs/features/`) | none expected | may modify | adds/reshapes requirements |
+| Nature | small fix, typo, config tweak | bounded feature work | architectural / cross-cutting |
+
+**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick`
+— at least `standard`. (Prediction may still be wrong; the `/prospec-archive` Entry Gate re-checks
+against the actual diff.)
+
+**Flow:**
+
+1. Read `{{base_dir}}/specs/features/` on demand to check whether existing REQs cover the affected behavior
+2. Present the proposed scale WITH reasoning against the criteria table
+3. Ask the user to confirm or override — **never write `scale` without user confirmation**
+4. Write the confirmed value to `metadata.yaml` `scale: quick|standard|full`
+
+**Quick slim proposal:** when `quick` is confirmed, Phase 4/5 produce a slim proposal — a single
+User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration
+(FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases and
+Related Modules stay. `standard`/`full` keep the full format.
+
 ### Phase 4: Collect INVEST User Stories
 
-Guide the user to define one or more INVEST User Stories:
+Guide the user to define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
 
 1. **Background**: 1-3 sentences on problem context
 2. **User Stories**: For each story:
@@ -87,8 +116,8 @@ WARN items do not block — note them in Open Questions section.
 ### Phase 8: Summary + Next Steps
 
 Save proposal.md, suggest:
-1. `/prospec-plan` — proceed to planning
-2. `/prospec-ff` — fast-forward full planning
+1. `/prospec-plan` — proceed to planning (`scale: quick` skips plan — go to `/prospec-tasks` directly)
+2. `/prospec-ff` — fast-forward full planning (honours `scale`)
 3. Manually adjust proposal.md
 
 ## Output Contract
@@ -122,6 +151,8 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** forget to update metadata.yaml status to `story` (see `{{knowledge_base_path}}/_status-lifecycle.md`)
 - **NEVER** ask more than 4 questions at once
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
+- **NEVER** write `scale` to metadata.yaml without explicit user confirmation — a misjudged `quick` skips plan entirely
+- **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
 
 ## Error Handling
 

@@ -30,6 +30,19 @@ const TEMPLATE_CONTEXT = {
   })),
 };
 
+// slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
+const sectionOf = (content: string, heading: string): string => {
+  const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // match to the next ##/### heading, or end-of-file for a trailing section
+  const re = new RegExp(`^${esc}[^\\n]*\\n([\\s\\S]*?)(?=^#{2,3} |(?![\\s\\S]))`, 'm');
+  const body = re.exec(content)?.[1] ?? '';
+  expect(
+    body.trim().length,
+    `section not found or empty: ${heading}`,
+  ).toBeGreaterThan(0);
+  return body;
+};
+
 describe('Skill Format Contract', () => {
   describe('Skill template rendering', () => {
     for (const skill of SKILL_DEFINITIONS) {
@@ -978,17 +991,6 @@ describe('Skill Format Contract', () => {
       renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
     const renderVerify = () =>
       renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-    // slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
-    const sectionOf = (content: string, heading: string): string => {
-      const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`^${esc}[^\\n]*\\n([\\s\\S]*?)(?=^#{2,3} )`, 'm');
-      const body = re.exec(content)?.[1] ?? '';
-      expect(
-        body.trim().length,
-        `section not found or empty: ${heading}`,
-      ).toBeGreaterThan(0);
-      return body;
-    };
 
     it('prospec-archive Entry Gate blocks until verified status and knowledge are synced', () => {
       const gate = sectionOf(renderArchive(), '## Entry Gate');
@@ -1374,4 +1376,285 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
       });
     });
   }
+});
+
+describe('task kind markers — frozen schema (BL-004/OPT-B3)', () => {
+  const renderTasksFormat = () =>
+    renderTemplate('skills/references/tasks-format.hbs', TEMPLATE_CONTEXT);
+
+  it('tasks-format reference carries the frozen kind definition', () => {
+    const def = sectionOf(renderTasksFormat(), '### 4. Task Kind Markers');
+    expect(def).toContain('single frozen definition');
+    expect(def).toContain('| `[M]` | `manual` |');
+    expect(def).toContain('| `[V]` | `verification` |');
+    expect(def).toContain('unmarked task **is** code');
+  });
+
+  it('frozen definition states consumer semantics: code-only denominator, list-not-count for [M]/[V]', () => {
+    const def = sectionOf(renderTasksFormat(), '### 4. Task Kind Markers');
+    expect(def).toContain('**code tasks only**');
+    expect(def).toContain('never counted in the completion denominator');
+    expect(def).toContain('warn without blocking');
+  });
+
+  it('frozen definition keeps old unmarked tasks.md valid and composes with [P]', () => {
+    const def = sectionOf(renderTasksFormat(), '### 4. Task Kind Markers');
+    expect(def).toContain('old tasks.md files without markers remain valid');
+    expect(def).toContain('`[P]` before kind');
+  });
+
+  it('tasks.md.hbs cites the kind markers without restating the definition', () => {
+    const content = renderTemplate('change/tasks.md.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('[kind?]');
+    expect(content).toContain('unmarked = code');
+    expect(content).toContain('tasks-format reference');
+    // citation only — the definition table lives in tasks-format alone
+    expect(content).not.toContain('| `[M]` | `manual` |');
+  });
+
+  it('prospec-tasks instructs kind tagging and cites the frozen definition', () => {
+    const content = renderTemplate('skills/prospec-tasks.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('**Task kind tagging:**');
+    expect(content).toContain('Task Kind Markers');
+    expect(content).toContain('do not restate');
+    expect(content).not.toContain('| `[M]` | `manual` |');
+  });
+});
+
+describe('scale adapter — new-story complexity assessment (BL-004)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+
+  it('Phase 3.5 assesses scale with a criteria table and quick veto', () => {
+    const phase = sectionOf(render(), '### Phase 3.5: Complexity Assessment (Scale)');
+    expect(phase).toContain('| Criterion | quick | standard | full |');
+    expect(phase).toContain('**Hard veto:**');
+    expect(phase).toContain('do NOT propose `quick`');
+    expect(phase).toContain('`/prospec-archive` Entry Gate re-checks');
+  });
+
+  it('Phase 3.5 requires user confirmation before writing scale', () => {
+    const phase = sectionOf(render(), '### Phase 3.5: Complexity Assessment (Scale)');
+    expect(phase).toContain('**never write `scale` without user confirmation**');
+    expect(phase).toContain('scale: quick|standard|full');
+  });
+
+  it('quick produces a slim proposal: single story, no FR/SC enumeration', () => {
+    const phase = sectionOf(render(), '### Phase 3.5: Complexity Assessment (Scale)');
+    expect(phase).toContain('**Quick slim proposal:**');
+    expect(phase).toContain('skip the FR/SC enumeration');
+    expect(phase).toContain('2-3 WHEN/THEN');
+  });
+
+  it('NEVER section guards unconfirmed scale writes and quick-with-spec-impact', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('without explicit user confirmation');
+    expect(never).toContain('spec-covered behavior');
+  });
+});
+
+describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
+  const renderFf = () => renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+  const renderLifecycle = () =>
+    renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+
+  it('ff runs the scale assessment in its story phase and routes quick past plan', () => {
+    const content = renderFf();
+    expect(content).toContain('**Scale routing:**');
+    expect(content).toContain('SKIP Phase 2 entirely');
+    expect(content).toContain('no module README loading');
+    expect(content).toContain('Phase 2: Plan Generation (skipped when `scale: quick`)');
+  });
+
+  it('ff quick path produces no plan artifacts and advances story → tasks', () => {
+    const content = renderFf();
+    const flat = sectionOf(content, '### Phase 1: Story Generation').replace(/\s+/g, ' ');
+    expect(flat).toContain('no plan.md, no delta-spec.md, and no module README loading');
+    expect(content).toContain('`story → tasks` directly');
+  });
+
+  it('ff NEVER guards: quick is the only legal plan skip and needs user-confirmed scale', () => {
+    const never = sectionOf(renderFf(), '## NEVER');
+    expect(never).toContain('story → tasks only when `scale: quick`');
+    expect(never).toContain('without a user-confirmed `scale: quick`');
+    expect(never).toContain('quick skips Plan and loads none');
+  });
+
+  it('lifecycle template records the quick story → tasks transition with archive backstop', () => {
+    const content = renderLifecycle();
+    expect(content).toContain('skipped when metadata `scale: quick`');
+    expect(content).toContain('**quick path**: metadata `scale: quick` (user-confirmed)');
+    expect(content).toContain('re-checked at the `/prospec-archive` Entry Gate');
+    expect(content).toContain('The only legal skip is `story → tasks` under a user-confirmed `scale: quick`');
+  });
+
+  it('lifecycle template and ai-knowledge copy stay in sync on the quick path', () => {
+    const tmpl = renderLifecycle();
+    const copy = fs.readFileSync(
+      path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+      'utf-8',
+    );
+    for (const marker of [
+      'skipped when metadata `scale: quick`',
+      '**quick path**: metadata `scale: quick` (user-confirmed)',
+      'The only legal skip is `story → tasks` under a user-confirmed `scale: quick`',
+    ]) {
+      expect(tmpl).toContain(marker);
+      expect(copy).toContain(marker);
+    }
+  });
+});
+
+describe('scale adapter — plan tiered depth (OPT-B5)', () => {
+
+  it('plan Entry Gate refuses quick changes and produces no artifacts for them', () => {
+    const content = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+    const gate = sectionOf(content, '## Entry Gate');
+    expect(gate).toContain('`metadata.scale` is not `quick`');
+    expect(gate).toContain('NO plan.md/delta-spec.md');
+    expect(gate).toContain('Absent `scale` reads as `standard`');
+  });
+
+  it('plan Phase 4 tiers depth by scale', () => {
+    const content = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+    const phase = sectionOf(content, '### Phase 4: Design plan.md');
+    expect(phase).toContain('**Scale-tiered depth**');
+    expect(phase).toContain('keep under 120 lines');
+    expect(phase).toContain('complete architecture analysis');
+  });
+
+  it('plan-format reference defines the three scale tiers', () => {
+    const content = renderTemplate(
+      'skills/references/plan-format.hbs',
+      TEMPLATE_CONTEXT,
+    );
+    const tiers = sectionOf(content, '## Scale Tiers');
+    expect(tiers).toContain('| `quick` |');
+    expect(tiers).toContain('| `standard` (or absent) |');
+    expect(tiers).toContain('| `full` |');
+    expect(tiers).toContain('the 120-line cap does not apply');
+  });
+});
+
+describe('scale adapter — review quick degradation (REQ-TEMPLATES-090)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+
+  it('Entry Gate relaxes planning artifacts to proposal+tasks for quick only', () => {
+    const gate = sectionOf(render(), '## Entry Gate');
+    expect(gate).toContain('**Exception — `metadata.scale: quick`**');
+    expect(gate).toContain('only proposal.md + tasks.md are required');
+    expect(gate).toContain('do not FAIL on their absence');
+    // the standard/full requirement must survive the exception
+    expect(gate).toContain('proposal.md, plan.md, delta-spec.md, tasks.md');
+  });
+
+  it('spec-architecture lens degrades honestly under quick: not-applicable, never PASS', () => {
+    const lenses = sectionOf(render(), '### Review Lenses');
+    expect(lenses).toContain('**Quick degradation**');
+    expect(lenses).toContain('`not-applicable`');
+    expect(lenses).toContain('never report it as PASS');
+    expect(lenses).toContain('dependency direction, module conventions, and ripple checks still run in full');
+  });
+
+  it('quick lens raises an early spec-impact warning ahead of the archive gate', () => {
+    const lenses = sectionOf(render(), '### Review Lenses');
+    expect(lenses).toContain('raise an early warning');
+    expect(lenses).toContain('`/prospec-archive` Entry Gate re-checks');
+  });
+});
+
+describe('scale adapter — verify kind-aware completion and quick reduction (REQ-TEMPLATES-088)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+
+  it('V1 completion denominator counts code tasks only; [M]/[V] listed, not graded', () => {
+    const v1 = sectionOf(render(), '### Verification 1/5');
+    expect(v1).toContain('**code tasks only**');
+    expect(v1).toContain('never counted in the rate');
+    expect(v1).toContain('listed as reminders, not graded');
+    expect(v1).toContain('tasks-format reference');
+  });
+
+  it('V2 reports not-applicable for quick and never PASS', () => {
+    const v2 = sectionOf(render(), '### Verification 2/5');
+    expect(v2).toContain('`not-applicable`');
+    expect(v2).toContain('NEVER as PASS');
+    expect(v2).toContain('`/prospec-archive` Entry Gate');
+  });
+
+  it('Entry Gate relaxes planning artifacts for quick only', () => {
+    const gate = sectionOf(render(), '## Entry Gate');
+    expect(gate).toContain('**Exception — `metadata.scale: quick`**');
+    expect(gate).toContain('only proposal.md + tasks.md are required');
+  });
+
+  it('NEVER guards the not-applicable honesty rule', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('report a `not-applicable` dimension as PASS');
+    expect(never).toContain('`scale: quick` is the one exception');
+  });
+});
+
+describe('scale adapter — archive quick gates and kind-aware completion (REQ-TEMPLATES-089/010)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+
+  it('Entry Gate derives quick modules from diff paths via module-map, not REQ prefixes', () => {
+    const gate = sectionOf(render(), '## Entry Gate');
+    expect(gate).toContain('**actual diff file paths**');
+    expect(gate).toContain('module-map.yaml');
+    expect(gate).toContain('empty set and would silently pass');
+    expect(gate).toContain('The path mapping is deterministic');
+  });
+
+  it('Entry Gate quick spec-impact check blocks on impact and records no-impact diagnostics', () => {
+    const gate = sectionOf(render(), '## Entry Gate');
+    expect(gate).toContain('**Quick spec-impact check**');
+    expect(gate).toContain('LLM judgment step (do not claim determinism)');
+    expect(gate).toContain('**Spec Impact** section appended to proposal.md');
+    expect(gate).toContain('record the diagnostic conclusion in summary.md and skip graduation');
+  });
+
+  it('Phase 3.5 graduation key switches by scale', () => {
+    const phase = sectionOf(render(), '### Phase 3.5: Feature Spec Sync');
+    expect(phase).toContain('**Graduation key by scale**');
+    expect(phase).toContain('`quick` → the proposal\'s **Spec Impact** section');
+  });
+
+  it('summary completion counts code tasks only; manual unchecked never blocks', () => {
+    const phase = sectionOf(render(), '### Phase 2: Generate Summary');
+    expect(phase).toContain('**code tasks only**');
+    expect(phase).toContain('**warn and list them**');
+    expect(phase).toContain('reminder only, never blocking');
+  });
+
+  it('NEVER forbids reading an empty REQ-prefix set as no-impact evidence', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('an absent delta-spec is not evidence of no impact');
+    expect(never).toContain('the actual diff is');
+  });
+});
+
+describe('scale adapter — implement quick awareness (round-2 fix)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+
+  it('treats proposal.md as the spec source when plan/delta-spec are absent (quick)', () => {
+    const content = render();
+    expect(content).toContain('absent for `scale: quick` by contract — proposal.md is the spec source');
+    expect(content).toContain('extract intent and acceptance scenarios from proposal.md instead');
+    expect(content).toContain('quick: against proposal.md acceptance scenarios');
+  });
+
+  it('does not route quick changes to /prospec-plan for spec clarification', () => {
+    const errors = sectionOf(render(), '## Error Handling');
+    expect(errors).toContain('supplement proposal.md instead');
+    expect(errors).toContain('`/prospec-plan` refuses quick');
+  });
+
+  it('NEVER bullet names the quick spec source', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('quick: proposal.md acceptance scenarios are the spec');
+  });
 });

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-719%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-757%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -281,6 +281,8 @@ flowchart TD
 
 Two feedback loops make Prospec **compound** rather than merely repeat: every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons surfaced across the change — review findings, the cross-stage `quality_log`, and session corrections — promote, only with human approval, into an **accumulating** body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch — it starts from a richer, smarter baseline. The agent gets a reliable cadence *and* the project keeps getting better.
 
+The flow is also **scale-aware**: a user-confirmed `quick` change skips the Plan stage entirely (`story → tasks`) with archive-time backstops — see [Right-Sized Process](#right-sized-process-scale).
+
 ### Quality Gates & Self-Improvement
 
 Beyond the linear flow, every workflow Skill carries built-in quality machinery:
@@ -290,6 +292,20 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
 - **Feedback promotion** — `/prospec-learn` collects recurring lessons (from each archived change's cross-stage `quality_log` and `review.md` findings, plus session corrections), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
+
+### Right-Sized Process (Scale)
+
+Not every change deserves the full ceremony. At story time, `/prospec-new-story` (or `/prospec-ff`) assesses complexity against explicit criteria and proposes a scale — **you confirm before it is written** to `metadata.yaml`:
+
+| Scale | What changes |
+|-------|--------------|
+| `quick` | Slim proposal (single story, no FR/SC enumeration), **plan phase skipped entirely** (`story → tasks`), no module-README loading; review/verify report their delta-spec dimensions as `not-applicable` (never a fake PASS) |
+| `standard` (default; absent on existing changes) | The current concise flow — plan ≤ 120 lines |
+| `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains |
+
+Two honest backstops keep `quick` from becoming a spec-drift hole: a change expected to touch spec-covered behavior is **vetoed out of quick** at assessment time, and the `/prospec-archive` Entry Gate re-checks the **actual diff** — spec impact blocks archiving until a minimal Spec Impact section is added (it becomes the graduation key), and the knowledge-sync gate derives affected modules from diff paths instead of the absent delta-spec. Engineering discipline is not scaled down: TDD, adversarial review, and Constitution audits run at every scale.
+
+Tasks also carry a **kind** marker (`[M]` manual, `[V]` verification, unmarked = code — frozen in the tasks-format reference): completion rates count code tasks only, so an unchecked "run this command manually" reminder never blocks or distorts a gate.
 
 ### Cache-Stable Prefix Ordering
 
@@ -358,7 +374,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (719 tests)
+# Run all tests (757 tests)
 pnpm test
 
 # Watch mode
@@ -375,9 +391,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 719 tests across 4 categories:
-- Unit tests (lib + services): 319 tests
-- Contract tests (CLI output + Skill format): 358 tests
+**Test Coverage**: 757 tests across 4 categories:
+- Unit tests (lib + services): 325 tests
+- Contract tests (CLI output + Skill format): 390 tests
 - Integration tests: 15 tests
 - E2E tests: 27 tests
 

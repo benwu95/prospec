@@ -10,7 +10,7 @@ description: "Fast-Forward Planning - Generate complete planning artifacts in on
 When triggered, briefly describe:
 - That you'll generate all planning artifacts in one pass (Story → Plan → Tasks)
 - A quick 3-question interview will be conducted first
-- The metadata status will progress through story → plan → tasks
+- The metadata status will progress through story → plan → tasks (`scale: quick` skips plan: story → tasks)
 
 {{> language-policy}}
 
@@ -28,7 +28,7 @@ When triggered, briefly describe:
 FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 
 1. **Chained derivation**: Output of each phase automatically feeds the next — no manual handoff needed
-2. **Status lifecycle management**: metadata.yaml status progresses `story → plan → tasks` in sequence
+2. **Status lifecycle management**: metadata.yaml status progresses `story → plan → tasks` in sequence (`scale: quick`: `story → tasks`, plan skipped)
 3. **Error recovery**: When any phase fails, preserve completed parts and offer recovery options
 4. **Quick interview**: Only 3 core questions (goal, role, acceptance criteria) — no deep exploration
 
@@ -51,10 +51,17 @@ Derive kebab-case change name, confirm before proceeding.
 | Step | Action |
 |------|--------|
 | Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
+| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write `metadata.scale`. Quick → slim proposal form |
 | Populate | Write User Story and ACs per proposal-format.md |
 | Check | Constitution check (3 most relevant principles) → PASS continue / FAIL pause |
 
-### Phase 2: Plan Generation
+**Scale routing:** when `scale: quick` is confirmed, SKIP Phase 2 entirely — no plan.md, no
+delta-spec.md, and no module README loading (Phase 2's Layer 2 step; `_index.md` from Startup
+Loading is still read). Status advances `story → tasks` directly
+(a legal quick-path transition; see `{{knowledge_base_path}}/_status-lifecycle.md`). The
+`/prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
+
+### Phase 2: Plan Generation (skipped when `scale: quick`)
 
 | Step | Action |
 |------|--------|
@@ -81,7 +88,7 @@ List all produced files, task statistics, suggest `/prospec-implement` as next s
 |-------------|-----------|-----------------|
 | Story fails | Change directory | Retry / switch to `/prospec-new-story` |
 | Plan fails | proposal.md | Retry / switch to `/prospec-plan` |
-| Tasks fails | proposal.md + plan.md + delta-spec.md | Retry / switch to `/prospec-tasks` |
+| Tasks fails | proposal.md (+ plan.md + delta-spec.md for standard/full) | Retry / switch to `/prospec-tasks` |
 | Severe Constitution violation | All parts completed before failure | Pause FF, switch to single-phase Skill |
 
 ## When to Use vs. Not to Use
@@ -98,11 +105,11 @@ List all produced files, task statistics, suggest `/prospec-implement` as next s
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
 
 ### Success Criteria
-- [ ] proposal, plan, and tasks all produced
+- [ ] proposal and tasks produced; plan produced unless `scale: quick` (quick: plan.md/delta-spec.md absent by contract)
 - [ ] each stage's own Output Contract is satisfied (manual)
 
 ### Failure Conditions
-- any stage artifact missing or failing its Output Contract
+- any stage artifact missing or failing its Output Contract (quick: plan artifacts are not missing — they are skipped by contract)
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
@@ -117,9 +124,10 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** skip Constitution check at any phase — every phase must be checked
 - **NEVER** ask more than 3 questions in Phase 0 — FF prioritizes speed, use `/prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files (proposal / plan / delta-spec / tasks formats) directly
-- **NEVER** skip metadata.yaml status progression — must follow story → plan → tasks sequence
+- **NEVER** skip metadata.yaml status progression — story → plan → tasks, or story → tasks only when `scale: quick`
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
-- **NEVER** skip Layer 2 knowledge loading — Plan phase must load related module AI Knowledge
+- **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
+- **NEVER** skip Phase 2 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
 
 ## Error Handling
 

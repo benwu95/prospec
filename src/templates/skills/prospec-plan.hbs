@@ -42,6 +42,7 @@ When triggered, briefly describe:
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
 - proposal.md exists and is non-empty.
+- `metadata.scale` is not `quick` — a quick change needs no plan: tell the user to proceed to `/prospec-tasks` directly and produce NO plan.md/delta-spec.md. (Absent `scale` reads as `standard` and proceeds.)
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
 
 ## Core Workflow
@@ -72,6 +73,10 @@ Auto-identify the current change (from directory context or ask user), read and 
 | Already exists | Read and populate |
 
 ### Phase 4: Design plan.md
+
+**Scale-tiered depth** (from `metadata.scale`; see `references/plan-format.md` Section "Scale Tiers"):
+- `standard` (or absent): concise plan, keep under 120 lines — the current default
+- `full`: complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, explicit trade-off notes in Risk Assessment
 
 Follow `references/plan-format.md` format:
 - **Overview**: Implementation strategy summary

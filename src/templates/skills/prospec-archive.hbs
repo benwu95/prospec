@@ -28,6 +28,10 @@ When triggered, briefly describe:
 
 - Archive target is `status: verified` — only `/prospec-verify` at grade S/A produces `verified` (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`).
 - Knowledge is synced for this change: every affected module README (modules from delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes) reflects the change's final state — REMOVED behavior must no longer appear in the README. Not synced → FAIL: run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive`. A change that touches no modules (planning/docs-only) passes this item.
+  - **`metadata.scale: quick`** has no delta-spec — derive affected modules from the **actual diff file paths** mapped through `{{knowledge_base_path}}/module-map.yaml` instead (REQ-prefix extraction over an absent delta-spec is an empty set and would silently pass). The path mapping is deterministic; the same FAIL rule applies.
+- **Quick spec-impact check** (`metadata.scale: quick` only): compare the actual diff against existing `{{base_dir}}/specs/features/` REQs — this comparison is an LLM judgment step (do not claim determinism).
+  - Diff affects spec-covered behavior → **FAIL**: require a minimal **Spec Impact** section appended to proposal.md (REQ ID + ADDED/MODIFIED per affected requirement), then re-run. Phase 3.5 graduates from that section.
+  - No spec impact → pass; record the diagnostic conclusion in summary.md and skip graduation.
 
 ## Core Workflow
 
@@ -44,9 +48,9 @@ If a change is not `verified`, do NOT archive it — tell the user to run `/pros
 ### Phase 2: Generate Summary
 
 For each change to archive:
-1. Read `proposal.md` — extract User Story and acceptance criteria
-2. Read `delta-spec.md` — extract REQ IDs and affected modules
-3. Read `tasks.md` — calculate completion rate
+1. Read `proposal.md` — extract User Story and acceptance criteria (and the Spec Impact section for a quick change that has one)
+2. Read `delta-spec.md` — extract REQ IDs and affected modules (quick: absent — use the Spec Impact section and diff-derived modules from the Entry Gate)
+3. Read `tasks.md` — calculate completion rate over **code tasks only** (kind schema: tasks-format reference). Unchecked code tasks → **warn and list them** before archiving; unchecked `[M]` manual tasks → reminder only, never blocking
 4. Check for `design-spec.md` and `interaction-spec.md` — if present, note design artifacts in summary
 5. Generate `summary.md` following `references/archive-format.md` specification
 
@@ -65,7 +69,7 @@ For each confirmed change:
 After archiving, sync User Stories and requirements to Feature Specs:
 
 1. Read the archived `proposal.md` — extract User Stories (As a / I want / So that + Acceptance Scenarios)
-2. Read the archived `delta-spec.md` — parse ADDED / MODIFIED / REMOVED sections with **Feature** and **Story** routing fields
+2. Read the archived `delta-spec.md` — parse ADDED / MODIFIED / REMOVED sections with **Feature** and **Story** routing fields. **Graduation key by scale**: `standard`/`full` → delta-spec; `quick` → the proposal's **Spec Impact** section (when the Entry Gate diagnosed no spec impact, skip graduation entirely — the summary.md diagnostic is the record)
 3. For each requirement, route by the `**Feature**` field:
    - **ADDED (new Feature)**: Create `{{base_dir}}/specs/features/{feature-slug}.md` following `references/feature-spec-format.md`. Insert User Story (from proposal) + REQ (from delta-spec) together
    - **ADDED (existing Feature)**: Merge User Story and REQ into the existing Feature Spec under the appropriate Story section
@@ -90,7 +94,7 @@ After Feature Spec Sync completes:
 
 The Entry Gate already required Knowledge to be synced — this phase re-confirms the gate held through archiving (no prompt, no question):
 
-1. Extract affected module names from delta-spec REQ ID prefixes (e.g., `REQ-SERVICES-010` → `services`, `REQ-CLI-005` → `cli`)
+1. Extract affected module names from delta-spec REQ ID prefixes (e.g., `REQ-SERVICES-010` → `services`, `REQ-CLI-005` → `cli`); for `scale: quick`, reuse the Entry Gate's diff-derived module set (module-map.yaml path mapping)
 2. Confirm each affected module README still reflects the archived change; list the confirmed modules:
    ```
    Knowledge sync confirmed for this change:
@@ -130,7 +134,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** delete original files instead of moving — deletion is irreversible; archive preserves all artifacts for future reference and debugging
 - **NEVER** modify the content of artifacts during archive — artifacts are the historical record; any modification falsifies the development history
 - **NEVER** bypass the Entry Gate knowledge-sync check — a failed `/prospec-knowledge-update` means the gate stays FAIL; fix it and re-run, then archive. Archiving with stale Knowledge writes a permanent record that contradicts the code, and no later checkpoint will force the sync
-- **NEVER** archive without reading delta-spec.md — affected modules drive both Spec Sync and Knowledge Update; skipping produces orphaned requirements
+- **NEVER** archive without reading delta-spec.md — affected modules drive both Spec Sync and Knowledge Update; skipping produces orphaned requirements (`scale: quick` is the exception: modules come from diff paths and graduation from the Spec Impact section)
+- **NEVER** skip the quick spec-impact check or treat its empty REQ-prefix module set as "touches no modules" — an absent delta-spec is not evidence of no impact; the actual diff is
 
 ## Error Handling
 
@@ -139,7 +144,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | No changes found in changes/ | Inform user that there are no changes to archive |
 | Entry Gate knowledge-sync FAIL | Guide user to run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive` |
 | Change missing metadata.yaml | Skip that change, warn user about incomplete change directory |
-| Change missing delta-spec.md | Archive with partial summary, note missing spec in summary.md |
+| Change missing delta-spec.md | `scale: quick`: expected — run the quick spec-impact check instead. Otherwise: archive with partial summary, note missing spec in summary.md |
 | Archive directory already exists | Warn user, ask whether to overwrite or skip |
 | File move fails | Roll back that specific change's archive, report error, continue with others |
 

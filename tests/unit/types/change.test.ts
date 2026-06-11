@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ChangeMetadataSchema } from '../../../src/types/change.js';
+import { CHANGE_SCALES, ChangeMetadataSchema } from '../../../src/types/change.js';
 
 const base = {
   name: 'x',
@@ -51,5 +51,31 @@ describe('ChangeMetadataSchema quality_log', () => {
       quality_log: [{ skill: 's', date: 'd', result: 'INFO', warnings: [] }],
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('ChangeMetadataSchema scale (REQ-TYPES-026)', () => {
+  it('exposes exactly the three scale levels', () => {
+    expect(CHANGE_SCALES).toEqual(['quick', 'standard', 'full']);
+  });
+
+  it('accepts each valid scale value', () => {
+    for (const scale of CHANGE_SCALES) {
+      const r = ChangeMetadataSchema.safeParse({ ...base, scale });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.scale).toBe(scale);
+    }
+  });
+
+  it('rejects a scale outside the enum', () => {
+    expect(
+      ChangeMetadataSchema.safeParse({ ...base, scale: 'medium' }).success,
+    ).toBe(false);
+  });
+
+  it('accepts metadata without scale (backward compatible, treated as standard)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.scale).toBeUndefined();
   });
 });
