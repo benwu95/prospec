@@ -247,26 +247,27 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 
 ```mermaid
 flowchart TD
-    E([探索 Explore]) --> S([需求 Story]) --> D(["設計 Design（可選）"]) --> P([計劃 Plan]) --> T([任務 Tasks]) --> I([實作 Implement]) --> R([審查 Review]) --> V([驗證 Verify]) --> KU[Knowledge Update] -- Entry Gate --> A([歸檔 Archive])
+    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> D(["設計（可選）<br/>Design"]) --> P([計劃<br/>Plan]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) --> KU([更新知識<br/>Knowledge Update]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
 
-    KU --> AK[("AI Knowledge<br/>每次變更更完善")]
-    A -- Spec Sync --> FS[("Feature Specs<br/>歸檔時 graduate")]
-    R -. findings .-> L([學習 Learn])
     V -. quality_log .-> L
-    A --> L
+    R -. findings .-> L
     L -- 人工核可 --> RULES[("Constitution + _playbook<br/>團隊規則持續累積")]
 
+    KU --> AK[("AI Knowledge<br/>每次變更更完善")]
+    A -- Spec Sync --> FS[("Feature Specs<br/>歸檔時沉澱")]
+
     AK -.-> NEXT["下一次變更從更完整、<br/>更聰明的基準起步"]
+    FS -.-> NEXT
     RULES -.-> NEXT
     NEXT -. context .-> P
 
     classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
     classDef gain fill:#e9f9ee,stroke:#2f855a,stroke-width:2px;
-    class AK,RULES asset;
+    class AK,FS,RULES asset;
     class NEXT gain;
 ```
 
-兩條回饋迴圈讓 Prospec **越用越好**，而非單純重複：每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而 **Review**／**Verify** 中反覆出現的教訓——經人工核可——晉升為**持續累積**的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。Agent 得到穩定的開發節奏，**專案本身也持續變好**。
+兩條回饋迴圈讓 Prospec **越用越好**，而非單純重複：每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而變更過程中反覆出現的教訓——review findings、跨階段 `quality_log`、session corrections——經人工核可，晉升為**持續累積**的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。Agent 得到穩定的開發節奏，**專案本身也持續變好**。
 
 ### 品質閘門與自我改進
 
@@ -276,7 +277,7 @@ flowchart TD
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
 - **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
-- **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自 `quality_log` + review findings），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
+- **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自每個已歸檔變更的跨階段 `quality_log` 與 `review.md` findings，加上 session corrections），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
 
 ### Cache 穩定前綴排序
 

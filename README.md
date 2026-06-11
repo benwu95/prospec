@@ -259,26 +259,27 @@ Prospec generates 13 Skills that guide AI through the full SDD lifecycle:
 
 ```mermaid
 flowchart TD
-    E([Explore]) --> S([Story]) --> D(["Design (optional)"]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> KU[Knowledge Update] -- Entry Gate --> A([Archive])
+    E([Explore]) --> S([Story]) --> D(["Design (optional)"]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> KU([Knowledge Update]) -- Entry Gate --> A([Archive]) -- periodic --> L([Learn])
+
+    V -. quality_log .-> L
+    R -. findings .-> L
+    L -- human-approved --> RULES[("Constitution + _playbook<br/>team rules accumulate")]
 
     KU --> AK[("AI Knowledge<br/>more complete every change")]
     A -- Spec Sync --> FS[("Feature Specs<br/>graduate at archive")]
-    R -. findings .-> L([Learn])
-    V -. quality_log .-> L
-    A --> L
-    L -- human-approved --> RULES[("Constitution + _playbook<br/>team rules accumulate")]
 
     AK -.-> NEXT["next change starts from a<br/>richer, smarter baseline"]
+    FS -.-> NEXT
     RULES -.-> NEXT
     NEXT -. context .-> P
 
     classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
     classDef gain fill:#e9f9ee,stroke:#2f855a,stroke-width:2px;
-    class AK,RULES asset;
+    class AK,FS,RULES asset;
     class NEXT gain;
 ```
 
-Two feedback loops make Prospec **compound** rather than merely repeat: every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons from **Review** / **Verify** promote — only with human approval — into an **accumulating** body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch — it starts from a richer, smarter baseline. The agent gets a reliable cadence *and* the project keeps getting better.
+Two feedback loops make Prospec **compound** rather than merely repeat: every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons surfaced across the change — review findings, the cross-stage `quality_log`, and session corrections — promote, only with human approval, into an **accumulating** body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch — it starts from a richer, smarter baseline. The agent gets a reliable cadence *and* the project keeps getting better.
 
 ### Quality Gates & Self-Improvement
 
@@ -288,7 +289,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
-- **Feedback promotion** — `/prospec-learn` collects recurring lessons (from `quality_log` + review findings), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
+- **Feedback promotion** — `/prospec-learn` collects recurring lessons (from each archived change's cross-stage `quality_log` and `review.md` findings, plus session corrections), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
 
 ### Cache-Stable Prefix Ordering
 
