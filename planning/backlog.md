@@ -1748,11 +1748,13 @@ Claude API 的 KV-Cache 機制在 prompt 前綴穩定時可重用快取，節省
 - 在 SKILL.md 的 Startup Loading 指引中明確標注 `[STABLE]` / `[DYNAMIC]`
 
 **驗收標準**：
-- [ ] 11 個 Skill template 的 Startup Loading 區段重排為靜態優先
+- [ ] 13 個 Skill template 的 Startup Loading 區段重排為靜態優先（撰寫當時為 11 個，現況 13 個）
 - [ ] 每個載入項標注 `[STABLE]` 或 `[DYNAMIC]`
 - [ ] CLAUDE.md 的 Layer 0 內容穩定（不含動態列表）
 - [ ] 文件記錄 cache 最佳化原理（供 Extension 開發者遵循）
-- [ ] 11 個已部署 SKILL.md 同步更新
+- [ ] 13 個已部署 SKILL.md 同步更新
+
+> **規劃狀態（2026-06-11）**：排入波次 0 Bundle 1（Token Truth Harness）**Story B** `reorder-stable-prefix-loading`，於 Story A `add-token-measurement-harness`（量測引擎 + 薄 `prospec measure`）落地後執行——由 harness 量 before/after 的 cache 命中率與 input-token 節省比驗收（含 OPT-D8 glossary 有/無對照）。harness 定位為**使用者可見的量測工具，不設硬性門檻、不進 CI**。詳見 `planning/feature-bundles-2026-06-09.md` Bundle 1「範圍修訂」。
 
 ---
 

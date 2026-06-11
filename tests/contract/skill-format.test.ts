@@ -8,6 +8,8 @@
  * - Agent entry config templates (all skills-dir under their skill paths)
  */
 import { describe, it, expect } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
 import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 
@@ -363,8 +365,10 @@ describe('Skill Format Contract', () => {
         'skills/prospec-archive.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('feature-spec-format');
-      expect(content).toContain('product-spec-format');
+      const section = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(content)?.[1] ?? '';
+      expect(section.trim().length).toBeGreaterThan(0);
+      expect(section).toContain('feature-spec-format');
+      expect(section).toContain('product-spec-format');
     });
   });
 
@@ -601,7 +605,9 @@ describe('Skill Format Contract', () => {
         'skills/prospec-tasks.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('design-spec.md');
+      const section = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(content)?.[1] ?? '';
+      expect(section.trim().length).toBeGreaterThan(0);
+      expect(section).toContain('design-spec.md');
       expect(content).toContain('adapter MCP');
     });
 
@@ -1204,4 +1210,87 @@ describe('Skill trigger baselines', () => {
       expect(content).toContain(`**Triggers**: ${skill.triggers.join(', ')}`);
     }
   });
+});
+
+describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)', () => {
+  const baseline = JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../fixtures/startup-loading-baseline.json'),
+      'utf-8',
+    ),
+  ) as Record<string, { items: string[]; mandatory: number }>;
+
+  function startupLoadingSection(raw: string): string {
+    const match = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(raw);
+    expect(match, 'Startup Loading section must exist').not.toBeNull();
+    const section = match![1]!;
+    expect(section.trim().length, 'Startup Loading section must be non-empty').toBeGreaterThan(0);
+    return section;
+  }
+
+  function numberedItems(section: string): string[] {
+    return section
+      .split('\n')
+      .filter((line) => /^\d+\.\s+/.test(line))
+      .map((line) => line.replace(/^\d+\.\s+/, ''));
+  }
+
+  function itemKey(body: string): string {
+    const stripped = body.replace(/^\[(STABLE|DYNAMIC)\]\s+/, '');
+    const backtick = /`([^`]+)`/.exec(stripped);
+    return backtick ? backtick[1]! : stripped.replace(/\*\*/g, '').trim();
+  }
+
+  for (const skill of SKILL_DEFINITIONS) {
+    describe(`${skill.name}`, () => {
+      const raw = fs.readFileSync(
+        path.resolve(__dirname, `../../src/templates/skills/${skill.name}.hbs`),
+        'utf-8',
+      );
+      const section = () => startupLoadingSection(raw);
+
+      it('every loading item carries a [STABLE] or [DYNAMIC] marker', () => {
+        const items = numberedItems(section());
+        expect(items.length).toBeGreaterThan(0);
+        for (const item of items) {
+          expect(item, `unmarked loading item: ${item.slice(0, 60)}`).toMatch(
+            /^\[(STABLE|DYNAMIC)\]\s+/,
+          );
+        }
+      });
+
+      it('all [STABLE] items precede all [DYNAMIC] items', () => {
+        const markers = numberedItems(section())
+          .map((item) => /^\[(STABLE|DYNAMIC)\]/.exec(item)?.[1])
+          .filter((m): m is string => m !== undefined);
+        const firstDynamic = markers.indexOf('DYNAMIC');
+        const lastStable = markers.lastIndexOf('STABLE');
+        if (firstDynamic !== -1 && lastStable !== -1) {
+          expect(lastStable, 'a [STABLE] item appears after a [DYNAMIC] item').toBeLessThan(firstDynamic);
+        }
+      });
+
+      it('loading-item set matches the pre-reorder baseline (order-only change)', () => {
+        const keys = numberedItems(section()).map(itemKey).sort();
+        expect(keys).toEqual(baseline[skill.name]!.items);
+      });
+
+      it('MANDATORY marker count is unchanged from baseline', () => {
+        expect(section().split('**MANDATORY**').length - 1).toBe(baseline[skill.name]!.mandatory);
+      });
+
+      it('numbered loading items are contiguous (no prose interrupts the list)', () => {
+        const lines = section().split('\n');
+        const indices = lines
+          .map((line, i) => (/^\d+\.\s+/.test(line) ? i : -1))
+          .filter((i) => i !== -1);
+        for (const line of lines.slice(indices[0]!, indices[indices.length - 1]! + 1)) {
+          // numbered item, indented sub-content, or blank — top-level prose breaks the list
+          expect(line, `prose interrupts the loading list: ${line.slice(0, 60)}`).toMatch(
+            /^(\d+\.\s+|\s+\S|\s*$)/,
+          );
+        }
+      });
+    });
+  }
 });

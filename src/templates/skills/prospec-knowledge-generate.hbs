@@ -17,12 +17,12 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. Read `{{knowledge_base_path}}/raw-scan.md` — **must exist**, otherwise stop and prompt `prospec knowledge init`
-2. Read `{{knowledge_base_path}}/_index.md` — if exists
-3. Read `{{knowledge_base_path}}/_conventions.md` — if exists
-4. Read `{{knowledge_base_path}}/_module-readme-conventions.md` and `{{knowledge_base_path}}/_diagram-conventions.md` — the canonical module-README structure and diagram rules to generate against (this skill's Step 4 mirrors `_module-readme-conventions.md`)
-5. Read `{{constitution_path}}` — if exists
-6. Read `.prospec.yaml` → check `knowledge.strategy` (auto|architecture|domain|package) and `knowledge.token_budget`
+1. [STABLE] Read `{{knowledge_base_path}}/_conventions.md` — if exists
+2. [STABLE] Read `{{knowledge_base_path}}/_module-readme-conventions.md` and `{{knowledge_base_path}}/_diagram-conventions.md` — the canonical module-README structure and diagram rules to generate against (this skill's Step 4 mirrors `_module-readme-conventions.md`)
+3. [STABLE] Read `{{constitution_path}}` — if exists
+4. [DYNAMIC] Read `{{knowledge_base_path}}/raw-scan.md` — **must exist**, otherwise stop and prompt `prospec knowledge init`
+5. [DYNAMIC] Read `{{knowledge_base_path}}/_index.md` — if exists
+6. [DYNAMIC] Read `.prospec.yaml` → check `knowledge.strategy` (auto|architecture|domain|package) and `knowledge.token_budget`
 
 ## Prerequisite
 

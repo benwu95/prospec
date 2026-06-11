@@ -1,0 +1,137 @@
+{
+  "prospec-archive": {
+    "items": [
+      ".prospec/changes/",
+      "references/archive-format.md",
+      "references/feature-spec-format.md",
+      "references/product-spec-format.md",
+      "{{constitution_path}}"
+    ],
+    "mandatory": 3
+  },
+  "prospec-design": {
+    "items": [
+      ".prospec.yaml",
+      ".prospec/changes/[name]/proposal.md",
+      "design.platform",
+      "references/design-spec-format.md",
+      "references/interaction-spec-format.md",
+      "{{constitution_path}}"
+    ],
+    "mandatory": 2
+  },
+  "prospec-explore": {
+    "items": [
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_index.md"
+    ],
+    "mandatory": 0
+  },
+  "prospec-ff": {
+    "items": [
+      "MANDATORY — Load these format references (bundled with this skill):",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_index.md"
+    ],
+    "mandatory": 1
+  },
+  "prospec-implement": {
+    "items": [
+      ".prospec/changes/[name]/delta-spec.md",
+      ".prospec/changes/[name]/plan.md",
+      ".prospec/changes/[name]/tasks.md",
+      "references/implementation-guide.md",
+      "{{knowledge_base_path}}/_conventions.md",
+      "{{knowledge_base_path}}/_playbook.md"
+    ],
+    "mandatory": 2
+  },
+  "prospec-knowledge-generate": {
+    "items": [
+      ".prospec.yaml",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_conventions.md",
+      "{{knowledge_base_path}}/_index.md",
+      "{{knowledge_base_path}}/_module-readme-conventions.md",
+      "{{knowledge_base_path}}/raw-scan.md"
+    ],
+    "mandatory": 0
+  },
+  "prospec-knowledge-update": {
+    "items": [
+      ".prospec/changes/[name]/delta-spec.md",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_conventions.md",
+      "{{knowledge_base_path}}/_index.md",
+      "{{knowledge_base_path}}/_module-readme-conventions.md",
+      "{{knowledge_base_path}}/module-map.yaml"
+    ],
+    "mandatory": 1
+  },
+  "prospec-learn": {
+    "items": [
+      ".prospec/lessons.md",
+      ".prospec/lessons.yaml",
+      "references/promotion-format.md",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/module-map.yaml"
+    ],
+    "mandatory": 1
+  },
+  "prospec-new-story": {
+    "items": [
+      "references/proposal-format.md",
+      "{{base_dir}}/specs/capabilities/",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_index.md"
+    ],
+    "mandatory": 1
+  },
+  "prospec-plan": {
+    "items": [
+      ".prospec/changes/[name]/proposal.md",
+      "references/delta-spec-format.md",
+      "references/plan-format.md",
+      "{{base_dir}}/specs/features/",
+      "{{base_dir}}/specs/product.md",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_index.md",
+      "{{knowledge_base_path}}/_playbook.md"
+    ],
+    "mandatory": 2
+  },
+  "prospec-review": {
+    "items": [
+      ".prospec/changes/[name]/tasks.md",
+      "git diff",
+      "references/review-format.md",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_conventions.md"
+    ],
+    "mandatory": 1
+  },
+  "prospec-tasks": {
+    "items": [
+      ".prospec/changes/[name]/delta-spec.md",
+      ".prospec/changes/[name]/design-spec.md",
+      ".prospec/changes/[name]/plan.md",
+      "README.md",
+      "references/tasks-format.md",
+      "{{constitution_path}}"
+    ],
+    "mandatory": 1
+  },
+  "prospec-verify": {
+    "items": [
+      ".prospec/changes/[name]/delta-spec.md",
+      ".prospec/changes/[name]/metadata.yaml",
+      ".prospec/changes/[name]/plan.md",
+      ".prospec/changes/[name]/proposal.md",
+      ".prospec/changes/[name]/tasks.md",
+      "{{base_dir}}/specs/features/",
+      "{{base_dir}}/specs/product.md",
+      "{{constitution_path}}"
+    ],
+    "mandatory": 0
+  }
+}

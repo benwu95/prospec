@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 29 test files, 497 tests (unit, integration, contract, E2E)
+> 4-layer test architecture using Vitest + memfs — 34 test files, 711 tests (unit 319, contract 350, integration 15, e2e 27)
 
 <!-- prospec:auto-start -->
 
@@ -15,9 +15,12 @@
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 11 skills format validation, incl. Output Contract + Constitution severity (191 tests) |
+| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) |
+| `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
-| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (17 tests) |
+| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (27 tests, incl. `prospec measure`) |
+| `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
+| `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |
 
 ## Public API
 
@@ -49,6 +52,7 @@
 - `vi.mock()` is hoisted to top of file — dynamic import paths don't work inside mock factory
 - Contract tests use real `renderTemplate()` — template syntax errors surface here first, not in unit tests
 - E2E tests are slow (~1-3s each) — keep to critical paths only; use contract tests for format validation
+- Contract assertions must be section-scoped AND structure-aware (PB-001): bare toContain over a whole document, first-backtick-only keys, and missing contiguity checks have all produced false-greens — mutation-verify new assertions
 
 <!-- prospec:auto-end -->
 

@@ -14,11 +14,11 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. Read `.prospec/changes/[name]/tasks.md`, `plan.md`, `delta-spec.md`, `proposal.md` — the contract this change must honour
-2. Read `{{constitution_path}}` — principles and dependency/layering rule
-3. Read `{{knowledge_base_path}}/_conventions.md` + each affected module `README.md` — patterns and ripple effects
-4. **MANDATORY** — Read [`references/review-format.md`](references/review-format.md) for the severity contract, review.md format, and reviewer lenses
-5. Compute the change diff relative to the branch base (`git diff`), reviewing source + tests; exclude generated artifacts (`dist/`, lockfiles, deployed skills)
+1. [STABLE] Read `{{constitution_path}}` — principles and dependency/layering rule
+2. [STABLE] **MANDATORY** — Read [`references/review-format.md`](references/review-format.md) for the severity contract, review.md format, and reviewer lenses
+3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md`, `plan.md`, `delta-spec.md`, `proposal.md` — the contract this change must honour
+4. [DYNAMIC] Read `{{knowledge_base_path}}/_conventions.md` + each affected module `README.md` — patterns and ripple effects
+5. [DYNAMIC] Compute the change diff relative to the branch base (`git diff`), reviewing source + tests; exclude generated artifacts (`dist/`, lockfiles, deployed skills)
 
 ## Entry Gate
 
