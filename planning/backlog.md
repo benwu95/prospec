@@ -114,7 +114,7 @@
 - [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）✅
 
 ### 學習迴路新增（2026-06-11）
-- [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）
+- [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅
 
 ---
 
@@ -142,6 +142,7 @@
 | **BL-037** Review→Fix Loop | `/prospec-review`（對抗式 review→fix 迴圈、spec-aware lens、verifier 確認 critical）+ commit 邊界移至 verify(S/A) 後；commit `f0a1147`；歸檔 `add-review-fix-loop`（sdd-workflow US-13）。註：確定性簿記改純 Skill（Architecture C），未放 lib/cli |
 | **BL-036** Feedback Promotion | `/prospec-learn`（蒐集→可審計明文判定→人工核可三層晉升→TTL/衝突治理）；commit `6c25725`；歸檔 `add-feedback-promotion-pipeline`（新 Feature feedback-promotion US-1..4）。註：管線已建+verified；end-to-end self-host 實跑為後續 usage |
 | **BL-009** 多語言（重塑） | `prospec init --language` + Constitution Language Policy + 模板/CLI 全英文化 + `skill_triggers`；commit `06ba30a`；歸檔 `add-init-language-policy`（project-setup US-008~009, agent-integration US-411~412）。原 i18n helper 路線 CUT，重塑交付；交叉語言實測通過（zh-TW 專案收英文需求→繁中產出、反向亦然） |
+| **BL-038** Verify/Knowledge 時序重整 | 方向 B：verify V4 本變更落差降 informational + archive Entry Gate 成唯一強制 knowledge 同步檢查點；commit `b8a681f`（+`50889ff`/`8ca41dd`）；歸檔 `gate-knowledge-at-archive`（sdd-workflow US-14 / REQ-TEMPLATES-083）。驗收達成：verify 0 例行 WARN（Grade S self-hosting）、單一強制檢查點（gate 首次實跑即攔截未同步歸檔）、`_status-lifecycle.md` + init 模板雙同步 |
 
 > 非 BL 的基礎建設（隨各 change 完成，不在 BL 編號內）：Recipe-First Knowledge + L0/L1/L2 分層（`optimize-ai-knowledge`）、Feature/Product Spec 架構（`redesign-spec-system`）、verify 4/5 解耦 feature-spec（`skill-autonomy`）、Antigravity CLI 取代 Gemini（`migrate-gemini-to-antigravity`）、npm+pnpm 雙支援。
 
@@ -2388,9 +2389,11 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - **方向 B — V4 降級 + archive 升閘**：V4 對本變更落差降為 informational（比照 Feature Spec graduates-at-archive 處理），只檢查既有 knowledge 正確性；archive Phase 4 從互動 prompt 升級為 Entry Gate（knowledge 未更新 → 不可歸檔）。單一明確檢查點。
 
 **驗收標準**：
-- [ ] 連續兩個 change 的 verify 不再出現「本變更 knowledge 落差」例行 WARN
-- [ ] knowledge 同步在生命週期中有且僅有一個強制檢查點（gate，非 prompt）
-- [ ] `_status-lifecycle.md` 更新時序圖；verify/archive skill 模板同步
+- [x] 連續兩個 change 的 verify 不再出現「本變更 knowledge 落差」例行 WARN（首例：本變更 verify Grade S 零例行 WARN；第二例待下一 change 確認）
+- [x] knowledge 同步在生命週期中有且僅有一個強制檢查點（gate，非 prompt）
+- [x] `_status-lifecycle.md` 更新時序圖；verify/archive skill 模板同步（含 init 模板 `status-lifecycle.md.hbs` 雙檔同步）
+
+> **完成狀態**: 2026-06-11 已實作（方向 B）、verify Grade S、歸檔 `gate-knowledge-at-archive`、graduate 至 sdd-workflow US-14（REQ-TEMPLATES-083 ADDED；REQ-TEMPLATES-034/045/010 MODIFIED，REQ-045 同步 ai-knowledge 副本）。commit `b8a681f` + `50889ff` + `8ca41dd`。
 
 ---
 
