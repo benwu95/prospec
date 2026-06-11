@@ -16,7 +16,7 @@
 | **Module Map** | `module-map.yaml` — 模組↔檔案路徑 + 依賴方向（`depends_on`/`used_by`）。供依賴方向驗證與影響範圍判定。 |
 | **Recipe-First** | 模組 README 格式：Modification Guide / Ripple Effects / Pitfalls 優先於 API Reference——告訴 agent「怎麼改」而非只列「有什麼」。 |
 | **Steering** | `prospec steering` — 從現有 codebase 反向產生 Knowledge 骨架（module-map + module README skeleton）的 brownfield bootstrap。 |
-| **Archive** | `/prospec-archive` — 變更收尾：歸檔 artifacts → 同步 Feature Spec（Phase 3.5）→ 再生 Product Spec（Phase 3.6）→ 觸發 knowledge-update（Phase 4）。 |
+| **Archive** | `/prospec-archive` — 變更收尾：Entry Gate 強制 knowledge 同步 → 歸檔 artifacts → 同步 Feature Spec（Phase 3.5）→ 再生 Product Spec（Phase 3.6）→ knowledge 同步複核（Phase 4）。 |
 | **Brownfield / Greenfield Mode** | `/prospec-plan` 依 Knowledge 成熟度自動切換：Brownfield（有 Knowledge）從中合成 Technical Summary；Greenfield（無 Knowledge）補償性掃描技術棧/結構。 |
 | **Scale**（規劃中, BL-004） | 變更複雜度等級 Quick/Standard/Full，決定流程深度與產出長度上限。回應「審閱疲勞」。 |
 | **Output Contract**（規劃中, BL-019） | 每個 Skill 的 Success Criteria + Failure Conditions + 結束時的達成摘要，供自我評估與下游晉升判定。 |

@@ -1,6 +1,6 @@
 ---
 name: prospec-archive
-description: "Archive Changes - Archive completed changes, generate summary, sync requirements to capability specs, and suggest Knowledge updates. Triggers: {{trigger_words}}"
+description: "Archive Changes - Archive completed changes, generate summary, sync requirements to capability specs, and gate archiving on Knowledge sync. Triggers: {{trigger_words}}"
 ---
 
 # Prospec Archive Skill
@@ -10,7 +10,7 @@ description: "Archive Changes - Archive completed changes, generate summary, syn
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
 - Each archived change will get a summary.md and be moved to `.prospec/archive/`
-- Affected modules will be identified and Knowledge update will be suggested
+- Knowledge sync for affected modules is enforced by the Entry Gate before archiving
 
 {{> language-policy}}
 
@@ -21,6 +21,13 @@ When triggered, briefly describe:
 3. [STABLE] **MANDATORY** — Read [`references/feature-spec-format.md`](references/feature-spec-format.md) for Feature Spec format
 4. [STABLE] **MANDATORY** — Read [`references/product-spec-format.md`](references/product-spec-format.md) for Product Spec format
 5. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
+
+## Entry Gate
+
+> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **single mandatory knowledge-sync checkpoint** in the lifecycle (`/prospec-verify` only reports this-change knowledge lag as informational).
+
+- Archive target is `status: verified` — only `/prospec-verify` at grade S/A produces `verified` (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`).
+- Knowledge is synced for this change: every affected module README (modules from delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes) reflects the change's final state — REMOVED behavior must no longer appear in the README. Not synced → FAIL: run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive`. A change that touches no modules (planning/docs-only) passes this item.
 
 ## Core Workflow
 
@@ -79,27 +86,24 @@ After Feature Spec Sync completes:
 
 **Product Spec Regeneration is non-fatal** — if it fails, Feature Spec Sync results are still valid.
 
-### Phase 4: Interactive Knowledge Update
+### Phase 4: Knowledge Sync Re-check
 
-After archiving, identify and prompt for Knowledge update:
+The Entry Gate already required Knowledge to be synced — this phase re-confirms the gate held through archiving (no prompt, no question):
 
 1. Extract affected module names from delta-spec REQ ID prefixes (e.g., `REQ-SERVICES-010` → `services`, `REQ-CLI-005` → `cli`)
-2. Display specific affected modules:
+2. Confirm each affected module README still reflects the archived change; list the confirmed modules:
    ```
-   Affected modules from this change:
-   - [module-1]: [N] requirements changed
-   - [module-2]: [N] requirements changed
+   Knowledge sync confirmed for this change:
+   - [module-1]: [N] requirements reflected
+   - [module-2]: [N] requirements reflected
    ```
-3. **Interactive prompt**: "Update Knowledge for these modules now? (Y/n)"
-   - **Yes**: Trigger `/prospec-knowledge-update` for listed modules
-   - **No**: Remind user to run `/prospec-knowledge-update` later
-4. Knowledge update is **non-fatal** — if it fails, archiving still succeeds
+3. If a gap is found (gate state regressed since the Entry Gate), STOP: run `/prospec-knowledge-update` for the gap, then continue — do not fall back to an optional prompt
 
-**On failure:** Display: "Knowledge update failed for [module-name]. Run `/prospec-knowledge-update` manually."
+> The archive service additionally auto-triggers a knowledge update as an idempotent safety net — with the Entry Gate already satisfied it is a no-op, not a substitute for the gate.
 
 ### Phase 4.5: Suggest Feedback Collection
 
-After Knowledge update, suggest `/prospec-learn` — archive is a collection point for cross-change recurring lessons (repeated verify FAILs, recurring review criticals across this and prior changes). Non-fatal pointer only; the user runs `/prospec-learn` when they want to refresh the lessons ledger.
+After the knowledge sync re-check, suggest `/prospec-learn` — archive is a collection point for cross-change recurring lessons (repeated verify FAILs, recurring review criticals across this and prior changes). Non-fatal pointer only; the user runs `/prospec-learn` when they want to refresh the lessons ledger.
 
 ## Output Contract
 
@@ -109,7 +113,7 @@ After Knowledge update, suggest `/prospec-learn` — archive is a collection poi
 - [ ] summary.md generated
 - [ ] Feature Spec sync completed
 - [ ] metadata status set to archived
-- [ ] knowledge-update suggested/triggered
+- [ ] knowledge sync confirmed (Entry Gate held through Phase 4 re-check)
 
 ### Failure Conditions
 - archived a non-verified change without confirmation
@@ -125,7 +129,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
 - **NEVER** delete original files instead of moving — deletion is irreversible; archive preserves all artifacts for future reference and debugging
 - **NEVER** modify the content of artifacts during archive — artifacts are the historical record; any modification falsifies the development history
-- **NEVER** let Knowledge update failure block archiving — Knowledge can always be updated later via `/prospec-knowledge-update`; blocking archiving risks losing verified state
+- **NEVER** bypass the Entry Gate knowledge-sync check — a failed `/prospec-knowledge-update` means the gate stays FAIL; fix it and re-run, then archive. Archiving with stale Knowledge writes a permanent record that contradicts the code, and no later checkpoint will force the sync
 - **NEVER** archive without reading delta-spec.md — affected modules drive both Spec Sync and Knowledge Update; skipping produces orphaned requirements
 
 ## Error Handling
@@ -133,6 +137,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Scenario | Action |
 |----------|--------|
 | No changes found in changes/ | Inform user that there are no changes to archive |
+| Entry Gate knowledge-sync FAIL | Guide user to run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive` |
 | Change missing metadata.yaml | Skip that change, warn user about incomplete change directory |
 | Change missing delta-spec.md | Archive with partial summary, note missing spec in summary.md |
 | Archive directory already exists | Warn user, ask whether to overwrite or skip |

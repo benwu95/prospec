@@ -123,7 +123,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-archive',
-    description: 'Archive completed changes. Scans the changes directory, moves verified changes to archive, generates summary.md, and prompts for Knowledge updates.',
+    description: 'Archive completed changes. Scans the changes directory, moves verified changes to archive, generates summary.md, and gates archiving on Knowledge sync.',
     triggers: ['archive', 'clean up', 'wrap up', 'spec sync'],
     type: 'Lifecycle',
     hasReferences: true,

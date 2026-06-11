@@ -742,10 +742,10 @@ describe('Skill Format Contract', () => {
       }
     });
 
-    it('verify dimension 4/5 gates on Knowledge↔implementation, not Feature Spec freshness', () => {
+    it('verify dimension 4/5 grades pre-existing drift only, not Feature Spec freshness', () => {
       const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
       expect(content).toContain('Knowledge ↔ Implementation Consistency');
-      expect(content).toContain('gates on Knowledge tracking the code');
+      expect(content).toContain('grades only pre-existing Knowledge drift');
       expect(content).toContain('not drift');
       expect(content).toContain('informational');
       // the old feature-spec-freshness gate must be gone
@@ -761,6 +761,17 @@ describe('Skill Format Contract', () => {
       );
       expect(content).toContain('graduation');
       expect(content).toContain('does NOT gate on Feature Spec freshness');
+    });
+
+    it('status-lifecycle documents the knowledge-sync checkpoint at the archive Entry Gate', () => {
+      const content = renderTemplate(
+        'init/status-lifecycle.md.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      expect(content).toContain('single mandatory knowledge-sync checkpoint');
+      expect(content).toContain('affected-module Knowledge is synced (archive Entry Gate)');
+      expect(content).not.toContain('any time before verify');
+      expect(content).not.toContain('gates on **Knowledge ↔ code** consistency');
     });
 
     it('prospec-archive documents it is the sole Feature Spec writer', () => {
@@ -960,6 +971,76 @@ describe('Skill Format Contract', () => {
         expect(exit).not.toContain('INFO');
       });
     }
+  });
+
+  describe('knowledge sync gates at archive (BL-038)', () => {
+    const renderArchive = () =>
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+    const renderVerify = () =>
+      renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    // slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
+    const sectionOf = (content: string, heading: string): string => {
+      const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`^${esc}[^\\n]*\\n([\\s\\S]*?)(?=^#{2,3} )`, 'm');
+      const body = re.exec(content)?.[1] ?? '';
+      expect(
+        body.trim().length,
+        `section not found or empty: ${heading}`,
+      ).toBeGreaterThan(0);
+      return body;
+    };
+
+    it('prospec-archive Entry Gate blocks until verified status and knowledge are synced', () => {
+      const gate = sectionOf(renderArchive(), '## Entry Gate');
+      expect(gate).toContain('`status: verified`');
+      expect(gate).toContain('/prospec-knowledge-update');
+      expect(gate).toContain('FAIL');
+      // module extraction must cover removals too, or REMOVED-only changes never sync
+      expect(gate).toContain('ADDED/MODIFIED/REMOVED');
+    });
+
+    it('prospec-archive Entry Gate passes a change that touches no modules', () => {
+      const gate = sectionOf(renderArchive(), '## Entry Gate');
+      expect(gate).toContain('touches no modules');
+    });
+
+    it('prospec-archive Phase 4 is a gate re-check, not an interactive prompt', () => {
+      const content = renderArchive();
+      expect(content).toContain('### Phase 4: Knowledge Sync Re-check');
+      expect(content).not.toContain('Interactive Knowledge Update');
+      expect(content).not.toContain('Update Knowledge for these modules now?');
+    });
+
+    it('prospec-archive forbids bypassing the gate instead of tolerating update failure', () => {
+      const content = renderArchive();
+      expect(content).not.toContain('let Knowledge update failure block archiving');
+      expect(content).not.toContain('Knowledge can always be updated later');
+      const never = sectionOf(content, '## NEVER');
+      expect(never).toContain('bypass');
+      expect(never).toContain('Entry Gate');
+    });
+
+    it('prospec-verify V4 reports this-change knowledge lag as informational with an archive-gate pointer', () => {
+      const v4 = sectionOf(renderVerify(), '### Verification 4/5');
+      expect(v4).toContain("This change's Knowledge lag — informational only");
+      expect(v4).toContain('Entry Gate');
+    });
+
+    it('prospec-verify V4 graded checks cover only pre-existing drift', () => {
+      const v4 = sectionOf(renderVerify(), '### Verification 4/5');
+      const marker = "This change's Knowledge lag";
+      const graded = v4.slice(0, v4.indexOf(marker));
+      expect(graded.trim().length).toBeGreaterThan(0);
+      expect(graded).toContain('pre-existing');
+      expect(graded).not.toContain('delta-spec ADDED/MODIFIED');
+      expect(graded).not.toMatch(/not updated → WARN/);
+    });
+
+    it('prospec-verify no longer grades this-change knowledge sync anywhere', () => {
+      const content = renderVerify();
+      expect(content).toContain('syncs at the `/prospec-archive` Entry Gate');
+      expect(content).not.toContain('Knowledge staleness (graded WARN)');
+    });
   });
 
   describe('prospec-review skill — adversarial review→fix loop (BL-037)', () => {

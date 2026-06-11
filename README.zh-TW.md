@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-604%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-719%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -46,7 +46,7 @@ Prospec 是一套 **以 Skills 為核心的 SDD 工具組**，串接人類需求
 | AI 工作流不一致 | 結構化 Skills 強制執行 story → plan → tasks → implement → review → verify → archive 流程 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `/prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
-| Knowledge 容易過時 | Archive → Knowledge Update 回饋循環保持 AI Knowledge 同步 |
+| Knowledge 容易過時 | Archive Entry Gate 強制每個變更完成 Knowledge Update，AI Knowledge 持續同步 |
 | verify 過了仍出細微 bug | `/prospec-review` — implement 與 verify 間的獨立對抗式審查；自動修經驗證確認的 critical |
 | 教訓無法跨 session 留存 | `/prospec-learn` — 反覆出現的修正經人工核可晉升為版控的團隊規則，同類錯誤不再復發 |
 
@@ -238,7 +238,7 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 | **實作** | `/prospec-implement` | 逐項實作任務，MCP 優先讀取設計資料 |
 | **審查** | `/prospec-review` | 對抗式審查 → fix 迴圈；經驗證確認的 critical 自動修，帶 spec-aware lens |
 | **驗證** | `/prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D）；達 S/A 後提示 commit |
-| **歸檔** | `/prospec-archive` | 歸檔變更 + Spec Sync + Knowledge Update 提示 |
+| **歸檔** | `/prospec-archive` | 歸檔變更 + Spec Sync + Knowledge 同步 Entry Gate |
 | **學習** | `/prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
 | **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
@@ -247,9 +247,10 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 
 ```mermaid
 flowchart TD
-    E([探索 Explore]) --> S([需求 Story]) --> D(["設計 Design（可選）"]) --> P([計劃 Plan]) --> T([任務 Tasks]) --> I([實作 Implement]) --> R([審查 Review]) --> V([驗證 Verify]) --> A([歸檔 Archive])
+    E([探索 Explore]) --> S([需求 Story]) --> D(["設計 Design（可選）"]) --> P([計劃 Plan]) --> T([任務 Tasks]) --> I([實作 Implement]) --> R([審查 Review]) --> V([驗證 Verify]) --> KU[Knowledge Update] -- Entry Gate --> A([歸檔 Archive])
 
-    A -- Spec Sync --> KU[Knowledge Update] --> AK[("AI Knowledge<br/>每次變更更完善")]
+    KU --> AK[("AI Knowledge<br/>每次變更更完善")]
+    A -- Spec Sync --> FS[("Feature Specs<br/>歸檔時 graduate")]
     R -. findings .-> L([學習 Learn])
     V -. quality_log .-> L
     A --> L
@@ -331,7 +332,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（604 個測試）
+# 執行所有測試（719 個測試）
 pnpm test
 
 # Watch 模式
@@ -348,11 +349,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：604 個測試橫跨 4 大類：
-- Unit tests（lib + services）：279 tests
-- Contract tests（CLI 輸出 + Skill 格式）：285 tests
+**測試覆蓋率**：719 個測試橫跨 4 大類：
+- Unit tests（lib + services）：319 tests
+- Contract tests（CLI 輸出 + Skill 格式）：358 tests
 - Integration tests：15 tests
-- E2E tests：25 tests
+- E2E tests：27 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
