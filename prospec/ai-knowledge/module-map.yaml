@@ -109,6 +109,7 @@ modules:
       - references
       - change
       - stable-prefix
+      - entry-gate
     relationships:
       depends_on: []
       used_by:

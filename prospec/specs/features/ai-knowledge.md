@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-06-06
+last_updated: 2026-06-11
 story_count: 7
 req_count: 26
 ---
@@ -192,7 +192,7 @@ req_count: 26
 - WHEN no AI Knowledge modules, THEN detect as Greenfield
 
 #### REQ-TEMPLATES-045: Verify Spec-Knowledge Staleness Detection
-- WHEN Spec updated after Knowledge, THEN warn staleness
+- WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the `/prospec-archive` Entry Gate（不計入等級；與 sdd-workflow 同名 REQ 一致）
 
 ---
 
@@ -266,3 +266,4 @@ _(None)_
 | 2026-06-04 | skill-alignment (PR #2) | knowledge generate/update 以 convention docs 為單一真實來源 | REQ-KNOW-015 (ADDED) |
 | 2026-06-04 | ai-knowledge-sub-modules (PR #3) | Sub-module 抽取/載入/維護 | US-330, REQ-KNOW-016~017, REQ-SERVICES-024 (ADDED) |
 | 2026-06-06 | generate-module-map-in-knowledge-init | knowledge init 生成 module-map + detector 尊重 base_dir | US-301, REQ-SERVICES-025, REQ-LIB-011 (ADDED) |
+| 2026-06-11 | gate-knowledge-at-archive | Staleness 檢測由 graded WARN 改 informational + archive Entry Gate 指引（同步 sdd-workflow 重複副本） | REQ-TEMPLATES-045 (MODIFIED) |

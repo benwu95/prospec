@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-605%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-719%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -46,7 +46,7 @@ Prospec is a **Skills-driven SDD toolkit** that bridges the gap between human re
 | Inconsistent AI workflows | Structured Skills enforce story → plan → tasks → implement → review → verify → archive flow |
 | Vendor lock-in | Works with 4+ AI CLIs, knowledge stored in universal Markdown |
 | No design-to-code bridge | `/prospec-design` generates visual + interaction specs with MCP tool integration |
-| Knowledge becomes stale | Archive → Knowledge Update feedback loop keeps AI Knowledge in sync |
+| Knowledge becomes stale | Archive's Entry Gate enforces a Knowledge Update for every change — AI Knowledge stays in sync |
 | Verify passes but subtle bugs ship | `/prospec-review` — independent adversarial review between implement and verify; auto-fixes verifier-confirmed criticals |
 | Lessons don't persist across sessions | `/prospec-learn` — recurring fixes promote (human-gated) into versioned team rules so the same mistake doesn't recur |
 
@@ -250,7 +250,7 @@ Prospec generates 13 Skills that guide AI through the full SDD lifecycle:
 | **Implement** | `/prospec-implement` | Implement tasks one-by-one with MCP-first design reading |
 | **Review** | `/prospec-review` | Adversarial review → fix loop; verifier-confirmed criticals auto-fixed, spec-aware lens |
 | **Verify** | `/prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D); prompts commit at S/A |
-| **Archive** | `/prospec-archive` | Archive changes + Spec Sync + Knowledge Update prompt |
+| **Archive** | `/prospec-archive` | Archive changes + Spec Sync + Knowledge sync Entry Gate |
 | **Learn** | `/prospec-learn` | Feedback promotion: recurring lessons → team `_playbook` / Constitution (auditable, human-gated) |
 | **Knowledge Generate** | `/prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
@@ -259,9 +259,10 @@ Prospec generates 13 Skills that guide AI through the full SDD lifecycle:
 
 ```mermaid
 flowchart TD
-    E([Explore]) --> S([Story]) --> D(["Design (optional)"]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> A([Archive])
+    E([Explore]) --> S([Story]) --> D(["Design (optional)"]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> KU[Knowledge Update] -- Entry Gate --> A([Archive])
 
-    A -- Spec Sync --> KU[Knowledge Update] --> AK[("AI Knowledge<br/>more complete every change")]
+    KU --> AK[("AI Knowledge<br/>more complete every change")]
+    A -- Spec Sync --> FS[("Feature Specs<br/>graduate at archive")]
     R -. findings .-> L([Learn])
     V -. quality_log .-> L
     A --> L
@@ -356,7 +357,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (605 tests)
+# Run all tests (719 tests)
 pnpm test
 
 # Watch mode
@@ -373,11 +374,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 605 tests across 4 categories:
-- Unit tests (lib + services): 280 tests
-- Contract tests (CLI output + Skill format): 285 tests
+**Test Coverage**: 719 tests across 4 categories:
+- Unit tests (lib + services): 319 tests
+- Contract tests (CLI output + Skill format): 358 tests
 - Integration tests: 15 tests
-- E2E tests: 25 tests
+- E2E tests: 27 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 
