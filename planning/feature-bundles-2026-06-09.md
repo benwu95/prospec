@@ -82,13 +82,13 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
 | 欄位 | 值 |
 |------|-----|
 | Skill 面（主體） | **BL-020 的 13 skill Startup Loading 靜態優先重排、標 `[STABLE]/[DYNAMIC]` 是純 Skill/template 工作，無 code**。這是使用者每次觸發 skill 都受益的部分 |
-| 不可避免的 code 核心 | `scripts/measure-tokens.ts`（Anthropic API runner，理由 **c** 需金鑰+不該在 session 燒 token）+ `lib/token-accounting.ts`（確定性成本計算，理由 **b** 需回歸守門）+ `types/measurement.ts`(Zod) + `tests/fixtures/token-corpus/`(版控語料) + 薄 `prospec measure`（唯讀讀 `measurement-report.json` 顯示） |
-| 為何核心非 code 不可 | **Skill 量測自己的省 token 是循環論證**——LLM 無法誠實自報 token 用量，這正是設計文件警告的「捏造數字」陷阱。量測必須是 LLM 外部、確定性、可進 CI 的碼 |
+| 不可避免的 code 核心 | `scripts/measure-tokens.ts`（多 provider API runner：Anthropic/OpenAI/Google，理由 **c** 需金鑰+不該在 session 燒 token）+ `lib/token-accounting.ts`（確定性成本計算，理由 **b** 需單元測試守正確性）+ `types/measurement.ts`(Zod) + `tests/fixtures/token-corpus/`(版控任務**描述**，context 活引用組裝) + 薄 `prospec measure`（唯讀讀 `measurement-report.json` 顯示，使用者觸點） |
+| 為何核心非 code 不可 | **Skill 量測自己的省 token 是循環論證**——LLM 無法誠實自報 token 用量，這正是設計文件警告的「捏造數字」陷阱。量測必須是 LLM 外部、確定性的碼 |
 | 預估複雜度 | Standard（lib/types/formatter 零新增 runtime dependency；工作量在語料建置 + API runner 成本控制） |
 | 依賴 | 無（波次 0，最先做） |
 | 服務目標 | G4(主)、G5、G3 |
 
-**能力**：對固定語料跑出 prospec vs `full-dump` / `naive-rag` 兩個 baseline 的真實 input/output token、cold/warm、cache hit rate，把 G4「省 70-80% token」從行銷口號變成**可回歸、可被 CI 守門**的工程數字。
+**能力**：對版控的任務描述（context 即時從 repo 組裝）跑出 prospec vs `full-dump` / `naive-rag` 兩個 baseline 的真實 input/output token、cold/warm、cache hit rate，讓**使用者得知實際的 input-token 節省比與 cache 命中率**——把 G4「省 70-80% token」從行銷口號變成可自行量測的誠實數字（**不設硬性門檻、不進 CI**）。
 
 **綁進的 backlog**：
 - **Token 量測 harness**（`design-token-measurement-harness.md`，BUILD-NOW）— headline 本體與唯一誠實資料源：量測引擎、確定性純函式、兩個 baseline、分報 input/output 與 cold/warm。
@@ -105,6 +105,13 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
 - G4 措辭 = 「vs full-dump baseline 的 input-token 成本」，不是保證的總成本下降。
 - 嚴防滑向 BL-026 Dashboard：本 harness 是唯讀資料源，不做行銷可視化。
 - 已砍掉原提案的第四腿 OPT-C（BUILD-LATER + 被動消費者，降為文件記載下游，不列為完成條件）。
+
+**範圍修訂（2026-06-11 `/prospec-explore` 收斂）**：
+- **重新定位**：本 bundle 是「讓使用者得知實際節省比與 cache 命中率」的量測工具，**不設硬性門檻、不進 CI**。設計文件第六節的「CI `@benchmark` job」與門檻守門驗收移出範圍；未來若需要，可基於同一份 report 補上。
+- **拆兩個 story，harness 先**：Story A = 量測引擎（`types/measurement.ts` + `lib/token-accounting.ts` + `scripts/measure-tokens.ts` + corpus + 薄 `prospec measure`）；Story B = BL-020 重排 + OPT-D8 glossary 對照量測。A 先量 baseline，B 落地後重量驗收。
+- **corpus 活引用**：fixtures 只版控 ≥10 個代表性任務**描述**，context 即時從 repo 組裝。數字隨 repo 演進屬真實現況；同一次快照內三種組裝法的相對比值（節省比、命中率）仍可比，BL-020 的 before/after 在同快照各量一次即成立。
+- **`prospec measure` 納入首發**：feature 價值是「使用者可見」，報告呈現（input/output 分列、cold/warm、warm 帶星號、兩個 baseline）是驗收重點而非附件。
+- **多 provider 量測（2026-06-11 追加）**：runner 經 provider adapter 支援 Anthropic / OpenAI / Google 三個 API，覆蓋 README 四個 agent 的模型來源（claude→Anthropic、codex/copilot→OpenAI、antigravity→Gemini；copilot 無公開 benchmark API，為模型來源代理量測）。usage schema 欄位中立化、pricing 參數化；報告 per-provider 分區段，數字僅同 provider 內可比。
 
 ---
 
@@ -156,7 +163,7 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
 
 **內聚論證**：BL-030 的 `spec↔code`/`code↔code import 方向`邊 + OPT-A2 的 `knowledge↔code` 邊，同屬一個確定性引擎的不同檢項，共用同一純函式集與 report schema。
 
-**重要性**：spec-as-source-of-truth 護城河（G2）在 CI 層的硬化，補上「現狀根本無 verify CLI」這個結構缺口。與 #1 在 CI 角色互補（一守 token 回歸、一守一致性）。
+**重要性**：spec-as-source-of-truth 護城河（G2）在 CI 層的硬化，補上「現狀根本無 verify CLI」這個結構缺口。#1 已定位為開發期量測工具、不進 CI（2026-06-11 範圍修訂），CI 層守門由本 bundle 單獨承擔。
 
 **遵守 eval 的 reshape（關鍵）**：
 - 產品語言誠實降為「規格的**指涉與結構**是會 fail build 的硬約束；**語意一致性仍交給 `/prospec-review`**」。report schema 明確分層 structural vs semantic，後者標 `not-checked`、**不偽裝 PASS**，避免淪為 drift-detection theater 反噬 G2 信任。
@@ -232,13 +239,14 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
   #1 Token Truth Harness
   ⮑ G4 唯一誠實資料源；#2 quick 模式效益與 BL-020 重排效益的唯一驗收依賴
   ⮑ corpus 建置可與波次 1 schema 設計並行
+  ⮑ 拆兩 story：A 量測引擎 + 薄 measure（先）、B BL-020 重排 + D8 對照（後）；不設門檻、不進 CI（2026-06-11 範圍修訂）
 
 波次 1（任務契約地基 + schema 凍結）
   #2 Scale-Aware Task Contract
   ⮑ 在此單一凍結 OPT-B3 kind schema；用波次 0 harness 驗收 quick 模式 input-token 縮減
 
 波次 2（護城河硬化，可並行）
-  #3 Deterministic Drift Checker（G2，code 引擎，與 #1 在 CI 互補）
+  #3 Deterministic Drift Checker（G2，code 引擎）
   #4 Knowledge Flywheel（G5/G6 回饋飛輪，純 Skill）
   ⮑ 皆消費波次 1 的 B3 schema/kind；#3 實作 OPT-A2 README-mtime/覆蓋率純函式，#4 Skill 讀同一份健康度資訊
 
@@ -293,7 +301,7 @@ BL-001/002/003/014/015/017/018/019/031/036/037、BUG-001、OPT-B4/B5(基礎)/D6(
 ```
 
 **建議的 change 命名**：
-- Bundle 1 → `add-token-measurement-harness`
+- Bundle 1 → 拆兩 change：Story A `add-token-measurement-harness`（先）、Story B `reorder-stable-prefix-loading`（後）
 - Bundle 2 → `add-scale-adapter`
 - Bundle 3 → `add-drift-checker`
 - Bundle 4 → `add-knowledge-flywheel`
