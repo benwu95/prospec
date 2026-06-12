@@ -253,14 +253,42 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 查 `drift checker` 找得到 `drift-checker`）與 `get_dependency_direction`（`from` 可否 import `to`？
 —— 依 module-map `depends_on` 回答，無 map 時用 Constitution 鏈，回應標明判定來源）。
 
-**註冊方式** —— 在 agent 的 MCP 設定註冊此 stdio 命令，於專案根目錄執行（需要 `.prospec.yaml`）。
+**註冊方式** —— 在 agent 的 MCP 設定註冊此 stdio 命令，於專案根目錄執行（需要 `.prospec.yaml`；
+server 會從啟動時的工作目錄讀取它）。若採用推薦的全域安裝，`prospec` 已在 PATH 上。
 以 Claude Code 為例：
 
 ```bash
-claude mcp add prospec -- npx prospec mcp serve
+claude mcp add prospec -- prospec mcp serve
 ```
 
-其他 agent 則在其 MCP 設定中把 `npx prospec mcp serve` 註冊為 stdio MCP server。
+其他 agent 則在其 MCP 設定中註冊此 stdio 命令。`cwd` 必須是專案根目錄（server 從中讀取 `.prospec.yaml`）。
+全域安裝版：
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "prospec",
+      "args": ["mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+若改以 devDependency 釘選 prospec，則把 `command` 設為 `"npx"`，讓它解析專案本地的 binary：
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "npx",
+      "args": ["prospec", "mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
 
 誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案）、單進程服務單一專案（啟動時的工作目錄）、
 且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；

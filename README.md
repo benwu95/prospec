@@ -268,13 +268,42 @@ import `to`? — answered from module-map `depends_on`, or the Constitution chai
 the answer states which source it used).
 
 **Registering** — point your agent's MCP config at the stdio command, run from the project root
-(requires `.prospec.yaml`). For Claude Code:
+(requires `.prospec.yaml`; the server reads it from the working directory it starts in). With the
+recommended global install, `prospec` is already on your PATH. For Claude Code:
 
 ```bash
-claude mcp add prospec -- npx prospec mcp serve
+claude mcp add prospec -- prospec mcp serve
 ```
 
-For other agents, register `npx prospec mcp serve` as a stdio MCP server in the agent's MCP settings.
+For other agents, register the stdio command in the agent's MCP config. `cwd` must be the project
+root (the server reads `.prospec.yaml` from it). With the global install:
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "prospec",
+      "args": ["mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+Pinned prospec as a devDependency instead? Use `command: "npx"` so it resolves the project-local
+binary:
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "npx",
+      "args": ["prospec", "mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
 
 Honest boundaries: the server is read-only (no tool or resource can modify files), serves one project
 per process (the working directory it starts in), and is a pure add-on — no Skill or CLI command
