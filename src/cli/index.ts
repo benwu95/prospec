@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// Must precede any picocolors import — disables color for non-TTY stdout.
+import './setup-color.js';
 import * as fs from 'node:fs';
 import { Command } from 'commander';
 import pc from 'picocolors';
