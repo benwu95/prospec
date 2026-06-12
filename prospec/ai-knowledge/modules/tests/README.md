@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 40 test files, 839 tests (unit 398, contract 395, integration 15, e2e 31)
+> 4-layer test architecture using Vitest + memfs — 41 test files, 849 tests (unit 398, contract 405, integration 15, e2e 31)
 
 <!-- prospec:auto-start -->
 
@@ -15,7 +15,7 @@
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync); shared module-scope `sectionOf` helper (EOF-tolerant) |
+| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync) + BL-029 flywheel block (relocated ledger path, archive Phase 4.5 auto-harvest, learn Entry Gate ledger-OR-archive, negative no-auto-write `_conventions.md`); shared module-scope `sectionOf` helper (EOF-tolerant) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (31 tests, incl. `prospec measure` and `prospec check` exit-code/determinism paths) |
@@ -23,6 +23,7 @@
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |
 | `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS, init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose) |
 | `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |
+| `tests/contract/lessons-harvest-fixtures.test.ts` + `tests/fixtures/lessons-harvest/` | Synthetic archived-change corpus (alpha/beta recurrence, gamma all-complete) for the BL-029 flywheel; well-formedness + scenario discrimination (the harvest itself is an LLM step — dogfood-verified, not vitest-executable) |
 
 ## Public API
 

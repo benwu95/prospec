@@ -17,6 +17,7 @@
 | spec/fr-uniformity-needs-shared-type | 宣告「每個 X 都要 Y」的 FR，實作須以共用型別強制（如 `Source<T> = {available, reason?, items}`），逐項手寫必有遺漏——五檢項三有二無 availability 包裝成 critical（review C4） | 1 | 3 (lib, services, types) | convention | add-drift-checker | personal |
 | ci/pipeline-semantics-not-unit-testable | CI workflow 管線語意層缺陷（pipefail、shell 預設）不被 CLI 層單元/e2e 覆蓋——workflow 模板需要自己的內容斷言（shell: bash、SHA pin、permissions、compose 形式）；`\| tee` 吃掉 exit code 由三個獨立 lens 同報（review C1） | 1 | 2 (templates, tests) | playbook | add-drift-checker | personal |
 | scan/false-positive-kills-trust | 掃描器/檢查器類功能：誤報比漏報致命（摧毀對工具的信任）——排除規則（fenced block 含 CommonMark 關閉語意、block comment、placeholder/glob、repo 外路徑）須首版設計並以 dogfood 實證零誤報（首跑即中 fence 誤報 + 6 個誤報類 major） | 1 | 1 (lib) | playbook | add-drift-checker | personal |
+| refactor/relocation-reference-sweep-completeness | 遷移/改名一個 artifact（如 ledger 路徑）須掃全部引用面（skills + types/skill.ts 描述 + knowledge files + tests），不只明顯的 file-path 字串——tier 標籤/描述等 wording 殘留最易漏，且 path-grep 契約斷言對 wording 殘留是盲的（須補語意殘留的 negative 斷言）。add-knowledge-flywheel review 4 majors 同源於此 | 1 | 3 (templates, types, tests) | playbook | add-knowledge-flywheel | personal |
 
 ## Needs-Review List
 
