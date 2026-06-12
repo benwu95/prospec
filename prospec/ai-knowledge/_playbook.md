@@ -23,7 +23,8 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
 ## Entries
 
 ### PB-001: Contract assertions must be section-scoped, structure-aware, and mutation-verified
-- **Source**: add-output-contract, add-review-fix-loop, add-token-measurement-harness, reorder-stable-prefix-loading · **Criteria**: freq=4, modules=3 (tests, templates, cli) · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-06-11 (strengthened; originally 2026-06-08)
+- **Source**: add-output-contract, add-review-fix-loop, add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker, add-mcp-server · **Criteria**: freq=6, modules=4 (tests, templates, cli, lib) · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-06-13 (provenance appended; strengthened 2026-06-11; originally 2026-06-08)
+- **Re-evidence (add-mcp-server)**: 兩個 review criticals 都源於「REQ 指定的語意無凍結測試」——invalid-map 列表吞錯（loud-vs-graceful 雙態無測試釘住）與 search 排序的 distinct-vs-summed term 計數（AC3 確定性通過、排序鍵本身卻無 fixture 區分）。REQ 寫明的每一條語意都要有能在舊實作下變紅的釘住測試。
 - **TTL**: review by 2026-12-11
 - **Guidance**: three requirements — missing any one is a false-green risk:
   1. **Section-scoped** — slice from the section heading to the next heading, assert distinctive in-section content, guard the slice is non-empty. A bare `toContain('X')` over the whole document passes against incidental text in unrelated sections (bit `add-output-contract` C1, `add-review-fix-loop` C1+C2).
@@ -39,7 +40,8 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
   Plan-stage Call Chains for such designs must show one chain per station, not only the stations the source document names (the bundle doc predated review/implement interactions and was incomplete three times over).
 
 ### PB-003: Documented claims must match actually-observable implementation behavior — mark gaps with deliberate-exclusion wording
-- **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker · **Criteria**: freq=3, modules=3 (cli, templates, lib) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-12
+- **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker, add-mcp-server · **Criteria**: freq=4, modules=4 (cli, templates, lib, services) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-13 (provenance appended; originally 2026-06-12)
+- **Re-evidence (add-mcp-server)**: ×3——proposal/plan 的「首個 runtime dependency」不實宣稱（實有 8 個既存 deps）、tasks.md T10 宣稱未做的 error-output dispatch、delta-spec AC 文字與實作漂移（PrerequisiteError→ConfigNotFound、列表過濾未回寫 AC1）。規格文件即將於 archive 畢業成永久 capability spec，文字漂移會被烙進真相層——review 期即時修正 spec 文字與修 code 同等重要。
 - **TTL**: review by 2026-12-12
 - **Guidance**: any behavior a doc, code comment, README, or template asserts must be something the implementation actually does or the measurement actually observes. Three same-root incidents: synthetic warm cache hits presented without an asterisk (harness); template-layer savings attributed beyond what the harness can measure (BL-020 — fixed with deliberate-exclusion wording); a workflow template comment claiming "a shallow clone would honestly degrade to skipped" while no shallow detection existed in code (drift checker — escalated to a review **critical**, C3). Two rules:
   1. **Claim ⊆ implementation**: before writing "X handles/measures/degrades Y", grep for the code path that does it; if it does not exist, either implement it or do not claim it.

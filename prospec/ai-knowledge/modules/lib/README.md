@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, and the deterministic drift engine (15 files, 2,596 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (16 files, 2,852 lines)
 
 <!-- prospec:auto-start -->
 
@@ -23,6 +23,7 @@
 | `src/lib/drift-sources.ts` | Drift collectors (ALL I/O): REQ index/references, markdown links, import edges, git timestamps, tasks state — unavailable sources return `{available: false, reason}` |
 | `src/lib/drift-checker.ts` | Zero-LLM pure evaluators + runChecks() report assembly — codepoint-sorted findings, schema-validated, semantic permanently not-checked |
 | `src/lib/task-markers.ts` | parseTaskLine() — the SINGLE executable copy of the frozen task kind grammar (`[ID?] [P?] [M\|V]`) |
+| `src/lib/knowledge-reader.ts` | Knowledge content read layer — whole-document reads with realpath containment, loadModuleMap()+clampModulePaths() (moved from check.service), searchModules(), the single archived-spec exclusion + isSafeResourceName() guard |
 
 ## Public API
 
@@ -41,6 +42,7 @@
 - `runChecks(inputs)` — five drift evaluators → validated DriftReport; `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback
 - `collectReqDefinitions/References, collectMarkdownLinks, collectImportEdges, collectGitTimestamps, collectTaskStates` — drift source collectors (fenced blocks excluded, shallow clones degrade to unavailable)
 - `parseTaskLine(line)` — checkbox/kind parsing shared by drift engine and archive task stats
+- `readIndex/readModuleReadme/readPlaybook/listFeatureSpecs/readFeatureSpec` — per-request content reads, realpath-contained to their served root; `loadModuleMap()` — missing → null, invalid → loud ModuleDetectionError; `searchModules()` — deterministic term-OR ranking over _index module table
 
 ## Dependencies
 
@@ -60,6 +62,7 @@
 - `mergeContent()` changes risk overwriting user notes in prospec:user sections
 - `detectModules()` / `buildModuleMap()` signature changes affect `steering.service.ts` and `knowledge-init.service.ts`
 - `atomicWrite()` changes affect every service that writes files
+- `knowledge-reader.ts` changes ripple three ways: mcp.service (all resources/tools), drift-sources (shared archived predicate + isSafeResourceName), check.service (loadModuleMap)
 
 ## Pitfalls
 
@@ -72,6 +75,9 @@
 - `token-accounting.ts` functions take pricing as a PARAMETER — never hardcode a provider's cache discount; numbers are comparable only within one provider
 - Drift evaluators must stay I/O-free (collectors inject data) and findings codepoint-sorted — `localeCompare` would break cross-environment report byte-identity
 - An unavailable drift source is `{available: false, reason}` → evaluator emits `skipped`, NEVER a vacuous pass; kind grammar lives ONLY in `task-markers.ts` (drift-sources and archive.service both consume it)
+- knowledge-reader containment invariant: NOTHING in the knowledge/spec tree may become an oracle for files outside it — every content read is realpath-contained, `isSafeResourceName()` guards module/spec names on EVERY surface (read, list, health via collectGitTimestamps). Adding a new consumer of the same data source? Apply the same guard + freeze with a test
+- `loadModuleMap` distinguishes missing (null → graceful) from invalid (throw → loud) — collapsing the two with a catch-all was a review critical, do not reintroduce it
+- drift-sources imports FROM knowledge-reader (archived predicate, name guard) — never add the reverse import (lib→lib cycle)
 
 <!-- prospec:auto-end -->
 

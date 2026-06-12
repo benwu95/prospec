@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 12 services following `execute(options) → Promise<Result>` pattern (3,752 lines total)
+> Business logic layer — 13 services following `execute(options) → Promise<Result>` pattern (4,014 lines total)
 
 <!-- prospec:auto-start -->
 
@@ -19,7 +19,8 @@
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint) |
 | `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart) |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
-| `src/services/check.service.ts` | Drift check orchestration — collectors → pure evaluators → report; `--json` atomicWrite, `--init-ci` workflow scaffold (rerun-safe); module-map paths clamped to repo, invalid map throws |
+| `src/services/check.service.ts` | Drift check orchestration — collectors → pure evaluators → report; `--json` atomicWrite, `--init-ci` workflow scaffold (rerun-safe); module-map load lives in `lib/knowledge-reader` (clamped paths, invalid map throws) |
+| `src/services/mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 6 resources + 2 tools (per-request reads via knowledge-reader), `execute()` wires stdio transport; diagnostics stderr-only |
 
 ## Public API
 
@@ -31,6 +32,7 @@
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys) and `hints` (populate skill_triggers for non-English languages)
 - `measure.execute({cwd, reportPath?})` — Load measurement report for display; missing file → PrerequisiteError (run `pnpm measure:tokens`), invalid → MeasurementReportInvalid
 - `check.execute({cwd, json?, initCi?})` — Run the drift engine (Result carries `hasFail`; exit-code mapping stays in cli) or scaffold the hardened CI workflow
+- `mcp.execute({cwd})` / `buildMcpServer(ctx)` — start the stdio MCP server / assemble it transport-free (tests drive it over InMemoryTransport)
 
 ## Dependencies
 
@@ -63,6 +65,7 @@
 - change metadata.yaml is NOT rendered from a template — build the object and `stringifyYaml()` it (correct-by-construction escaping); frontmatter trigger words go through `escapeYamlScalar()`
 - archive's auto knowledge-update safety net no-ops when delta-spec.md is absent (the quick path) — the skill-level archive Entry Gate (diff-path module derivation) is the mandatory checkpoint there
 - check.service must keep knowledge-health on a REAL module-map (missing map → honest skip, never the constitution fallback — that would fabricate phantom coverage gaps)
+- mcp.service: stdout is the JSON-RPC protocol channel — NEVER write diagnostics to it (banner/errors go stderr); resources are per-request reads, never cache; health/listing/dependency answers all flow through `lib/knowledge-reader` so containment and name guards apply on every surface
 
 <!-- prospec:auto-end -->
 

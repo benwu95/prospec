@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 23 files)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 25 files)
 
 <!-- prospec:auto-start -->
 
@@ -17,6 +17,8 @@
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
 | `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
 | `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it) |
+| `src/cli/commands/mcp.ts` | `prospec mcp serve` — read-only MCP server on stdio; action writes nothing to stdout |
+| `src/cli/formatters/mcp-output.ts` | Startup banner to STDERR by design — stdout is the MCP protocol channel |
 | `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts |
 | `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; sanitizeTerminal() strips C0/C1 from untrusted repo strings |
 | `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr |
@@ -24,10 +26,10 @@
 
 ## Public API
 
-- `createProgram()` — Create Commander.js program with all 10 commands registered
+- `createProgram()` — Create Commander.js program with all 11 commands registered
 - `main()` — Entry point: create program → parse argv → execute
-- `registerXxxCommand(program)` — 10 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 11 formatter functions (stdout for success, stderr for errors)
+- `registerXxxCommand(program)` — 11 command registration functions (one per command)
+- `formatXxxOutput(result, logLevel)` — 12 formatter functions (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr)
 
 ## Dependencies
 
@@ -56,6 +58,7 @@
 - `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
 - `check-output.ts` must show skipped checks with their reason (skipped ≠ PASS) and route untrusted strings through `sanitizeTerminal()`; the semantic line stays `not-checked`
 - `setup-color.ts` MUST be the first import in `index.ts` (before any picocolors consumer — cli formatters and `lib/logger` share one picocolors singleton); reordering re-enables color on non-TTY stdout and corrupts piped output (e.g. the CI comment job)
+- `mcp serve` must keep stdout byte-clean — it is the JSON-RPC channel; any stdout write corrupts the MCP session (contract test spies on process.stdout.write)
 
 <!-- prospec:auto-end -->
 

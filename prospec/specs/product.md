@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.2.1
-last_updated: 2026-06-12
+last_updated: 2026-06-13
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -55,6 +55,11 @@ last_updated: 2026-06-12
 確定性、零 LLM 的 `prospec check`：機器驗證 spec ↔ code ↔ knowledge 指涉與結構一致性（REQ 引用、檔案路徑、module-map 驅動依賴方向、知識新鮮度、kind-aware 任務完成率），`--strict` 供 CI 守門、`--init-ci` 生成 supply-chain 強化的 workflow；料源不可用誠實 skipped、語意層恆 not-checked，`/prospec-verify` 開發期消費同一份報告。
 → [features/drift-detection.md](features/drift-detection.md)
 
+### MCP 真相層
+
+`prospec mcp serve` 以 stdio 啟動唯讀 MCP server：任何 agent（即使沒裝 prospec skills）都能查詢專案架構真相、規格真相、依賴方向、playbook 與知識新鮮度（與 `prospec check` 同一份凍結契約）。Per-request 重讀永遠新鮮、realpath 圍堵防 repo 外讀取、純加值面——server 不在時一切照常。
+→ [features/mcp-server.md](features/mcp-server.md)
+
 ### 回饋晉升
 
 把 session 糾正、verify 反覆 FAIL、review 重複 critical 蒐集成個人教訓，以明文可重現準則（頻次＋影響模組數）判定，經顯式人工核可才三層晉升（個人 → 團隊 playbook → Constitution 規則），讓團隊「越用越聰明」。
@@ -69,6 +74,7 @@ last_updated: 2026-06-12
 - **設計規格整合**: 前端開發者從 proposal 產出設計規格，AI 實作時有視覺與互動的精確依據
 - **Token 量測**: 使用者執行量測後以 `prospec measure` 得知實際節省比與 cache 命中率，token 效率主張可驗證而非空口宣稱
 - **Drift 檢查**: maintainer 以 `prospec check --strict` 在 CI 強制守門結構性 drift，開發者在 verify 階段看同一份確定性報告，零 token
+- **MCP 真相層**: 任何 harness 的 agent 連上 `prospec mcp serve` 即可查詢專案真相，知識護城河解耦於 skill 部署
 
 ## 產品原則
 
@@ -83,6 +89,6 @@ last_updated: 2026-06-12
 | 階段 | 狀態 | 核心功能 |
 |------|------|---------|
 | MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 進行中 | 11/12 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Token 量測 harness、KV-Cache 穩定前綴、複雜度適配、確定性 Drift 檢查 + CI 閘門 |
+| Phase 2 進行中 | 12/13 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Token 量測 harness、KV-Cache 穩定前綴、複雜度適配、確定性 Drift 檢查 + CI 閘門、唯讀 MCP 真相層 |
 | Phase 2 待做 | 規劃中 | 模板自訂、Plugin 機制 |
-| Phase 3 | 構想中 | 智慧感知更新、MCP 整合、多代理協作 |
+| Phase 3 | 構想中 | 智慧感知更新、多代理協作 |

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-839%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-909%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -232,6 +232,68 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，
 開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
+### MCP Server（專案真相層）
+
+| 命令 | 說明 |
+|------|------|
+| `prospec mcp serve` | 以 stdio 啟動**唯讀** MCP server —— 任何支援 MCP 的 agent（即使沒裝 Prospec Skills）都能查詢專案的架構真相、規格真相、依賴方向、已晉升 playbook 與知識新鮮度 |
+
+**Resources**（每次請求都重新讀檔 —— client 永遠看到當前檔案狀態）：
+
+| URI | 內容 |
+|-----|------|
+| `knowledge://index` | AI Knowledge 模組索引（`_index.md`） |
+| `knowledge://module/{name}` | 單一模組的 Recipe-First README |
+| `knowledge://module-map` | 模組邊界 + `depends_on`（`module-map.yaml`） |
+| `knowledge://playbook` | 人工核可的團隊 lessons（`_playbook.md`） |
+| `knowledge://health` | 各模組 staleness + coverage —— 與 `prospec check` 同一份純函式 |
+| `spec://feature/{name}` | Capability specs（REQ source of truth）；archived specs 以與 `prospec check` 同一條規則排除 |
+
+**Tools**：`search_modules`（這個概念歸哪個模組 —— 對策展索引欄位做正規化 term-OR 比對，
+查 `drift checker` 找得到 `drift-checker`）與 `get_dependency_direction`（`from` 可否 import `to`？
+—— 依 module-map `depends_on` 回答，無 map 時用 Constitution 鏈，回應標明判定來源）。
+
+**註冊方式** —— 在 agent 的 MCP 設定註冊此 stdio 命令，於專案根目錄執行（需要 `.prospec.yaml`；
+server 會從啟動時的工作目錄讀取它）。若採用推薦的全域安裝，`prospec` 已在 PATH 上。
+以 Claude Code 為例：
+
+```bash
+claude mcp add prospec -- prospec mcp serve
+```
+
+其他 agent 則在其 MCP 設定中註冊此 stdio 命令。`cwd` 必須是專案根目錄（server 從中讀取 `.prospec.yaml`）。
+全域安裝版：
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "prospec",
+      "args": ["mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+若改以 devDependency 釘選 prospec，則把 `command` 設為 `"npx"`，讓它解析專案本地的 binary：
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "npx",
+      "args": ["prospec", "mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案）、單進程服務單一專案（啟動時的工作目錄）、
+且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；
+HTTP/SSE 刻意不納入本版。
+
 ---
 
 ## AI Skills
@@ -361,7 +423,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（839 個測試）
+# 執行所有測試（909 個測試）
 pnpm test
 
 # Watch 模式

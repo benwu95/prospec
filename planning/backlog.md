@@ -8,6 +8,8 @@
 
 ## 2026-06-07 目標導向評估結論
 
+> **【後續狀態 · 2026-06-13】** 此為 2026-06-07 評估判決快照，保留原判決供追溯；各項**當前**狀態以上方「目錄／實作狀態總覽」為準。已完成（18）：BL-001/002/003/004/009/014/015/017/018/019/020/029/030/031/033/036/037/038；🚫 已過時（7）：BL-006/010/011/013/025/027/028（多為降級重塑或重定位）；↳ 已併入（3）：BL-008→BL-030、BL-012→BL-030、BL-024→BL-029。
+
 > 完整分析（含上網查證證據、6 目標對照、逐項判決）見 **[`planning/backlog-evaluation-2026-06-07.md`](backlog-evaluation-2026-06-07.md)**。
 > 評判尺：是否推進 6 大目標 — G1 順利實作｜G2 管理 spec｜G3 理解 codebase｜G4 省 70-80% token｜G5 越用越精準｜G6 越用越聰明（session 回饋→團隊共享規則）。
 
@@ -68,59 +70,97 @@
 
 ## 目錄
 
+> **圖例**：
+> - `- [x]` 結案（已完成／已過時／已併入）
+> - `- [ ]` 待處理
+> - **刪除線** = 不會以原樣實作（已過時或併入他項）
+>
+> **tag**：
+> - `✅ 已完成`
+> - `🚫 已過時（理由）`
+> - `↳ 已併入 BL-xxx`
+> - `部分`（有雛形／未完整）
+> - `待驗證`（有實作、未逐項驗證）
+> - `待處理 · P0–P3`（P0 加 🔴）
+>
+> 詳細狀態見各項 entry 與「實作狀態總覽」。
+
 ### Phase 2（核心增強）
-- [BL-001](#bl-001) 歸檔系統 `/prospec-archive` ✅
-- [BL-002](#bl-002) 增量 Knowledge 更新 `/prospec-knowledge-update` ✅
-- [BL-003](#bl-003) Constitution 主動驗證 + Entry/Exit 雙閘門 ✅
-- [BL-004](#bl-004) 複雜度適配 (Scale Adapter) 🔴 P0
-- [BL-005](#bl-005) 模板自訂系統
-- [BL-006](#bl-006) 擴展 Agent 支援 (15+)
-- [BL-007](#bl-007) Sprint 模式 `/prospec-sprint`
-- [BL-014](#bl-014) Knowledge → SDD 鏈路強化（含 Plan Smart Context）✅
-- [BL-015](#bl-015) 需求規格重構 — Living Capability Specs ✅
-- [BL-017](#bl-017) UI/UX 設計整合 — Design Phase + Platform Adapter ✅
-- [BL-018](#bl-018) 移除 Skill 語言指令（語言中立化）✅
-- [BL-019](#bl-019) Output Contract — Skill 成功/失敗條件定義 🔴 P0 ✅
-- [BL-020](#bl-020) KV-Cache 穩定前綴策略 🔴 P0
-- [BL-021](#bl-021) Extension/Plugin 機制
-- [BL-022](#bl-022) 智慧路由 `/prospec-help`
-- [BL-026](#bl-026) Knowledge Dashboard — 知識價值可視化
+- [x] [BL-001](#bl-001) 歸檔系統 `/prospec-archive` ✅ 已完成
+- [x] [BL-002](#bl-002) 增量 Knowledge 更新 `/prospec-knowledge-update` ✅ 已完成
+- [x] [BL-003](#bl-003) Constitution 主動驗證 + Entry/Exit 雙閘門 ✅ 已完成
+- [x] [BL-004](#bl-004) 複雜度適配 (Scale Adapter) ✅ 已完成
+- [ ] [BL-005](#bl-005) 模板自訂系統 待處理 · P3
+- [x] ~~[BL-006](#bl-006) 擴展 Agent 支援 (15+)~~ 🚫 已過時（15 套 per-agent 模板路線被 AGENTS.md/SKILL.md 收斂取代；偵測擴展需求保留）
+- [ ] [BL-007](#bl-007) Sprint 模式 `/prospec-sprint` 待處理 · P3
+- [x] [BL-014](#bl-014) Knowledge → SDD 鏈路強化（含 Plan Smart Context）✅ 已完成
+- [x] [BL-015](#bl-015) 需求規格重構 — Living Capability Specs ✅ 已完成
+- [x] [BL-017](#bl-017) UI/UX 設計整合 — Design Phase + Platform Adapter ✅ 已完成
+- [x] [BL-018](#bl-018) 移除 Skill 語言指令（語言中立化）✅ 已完成
+- [x] [BL-019](#bl-019) Output Contract — Skill 成功/失敗條件定義 ✅ 已完成
+- [x] [BL-020](#bl-020) KV-Cache 穩定前綴策略 ✅ 已完成
+- [ ] [BL-021](#bl-021) Extension/Plugin 機制 待處理 · P2
+- [ ] [BL-022](#bl-022) 智慧路由 `/prospec-help` 待處理 · P2
+- [ ] [BL-026](#bl-026) Knowledge Dashboard — 知識價值可視化 待處理 · P2
 
 ### Phase 3（進階功能）
-- [BL-008](#bl-008) Knowledge 智慧感知更新
-- [BL-009](#bl-009) 多語言支援 (i18n) ✅（重塑交付：add-init-language-policy）
-- [BL-010](#bl-010) 外部工具整合 (MCP)
-- [BL-011](#bl-011) 多代理協作 (Party Mode)
-- [BL-012](#bl-012) CI/CD 整合
-- [BL-013](#bl-013) 任務依賴分析與並行追蹤
-- [BL-023](#bl-023) Layer 1.5 語義 Fallback
-- [BL-024](#bl-024) Memories 目錄（開發者偏好 + 錯誤模式）
-- [BL-025](#bl-025) Tessl Registry 整合
+- [x] ~~[BL-008](#bl-008) Knowledge 智慧感知更新~~ ↳ 已併入 BL-030（add-drift-checker）
+- [x] [BL-009](#bl-009) 多語言支援 (i18n) ✅ 已完成（重塑交付：add-init-language-policy）
+- [x] ~~[BL-010](#bl-010) 外部工具整合 (MCP)~~ 🚫 已過時（MCP 標準化使維護顧慮消失；已重定位 BL-033 並交付）
+- [x] ~~[BL-011](#bl-011) 多代理協作 (Party Mode)~~ 🚫 已過時（單代理「各做各的」模型被並行生態取代；已被 BL-028 吸收）
+- [x] ~~[BL-012](#bl-012) CI/CD 整合~~ ↳ 已併入 BL-030（add-drift-checker）
+- [x] ~~[BL-013](#bl-013) 任務依賴分析與並行追蹤~~ 🚫 已過時（單代理 DAG 假設被並行生態取代；已被 BL-027 吸收）
+- [ ] [BL-023](#bl-023) Layer 1.5 語義 Fallback 待處理 · P3
+- [x] ~~[BL-024](#bl-024) Memories 目錄（開發者偏好 + 錯誤模式）~~ ↳ 已併入 BL-029（add-knowledge-flywheel）
+- [x] ~~[BL-025](#bl-025) Tessl Registry 整合~~ 🚫 已過時（Tessl 前提為 2024 舊聞；已重定位 BL-034）
 
 ### Phase 4（2026 H2 — 並行與互通）
 > 來源：`planning/future-directions-2026-h2.md`（2026-06-06 趨勢調研）
-- [BL-027](#bl-027) 安全並行分區 🔴
-- [BL-028](#bl-028) Orchestration Handoff 🔴
-- [BL-029](#bl-029) Lessons/Playbook 自動萃取（升級 BL-024）✅
-- [BL-030](#bl-030) Drift Detection + CI 閘門（升級 BL-012）
-- [BL-031](#bl-031) Constitution 可執行規則（升級 BL-003 + OPT-B1）✅
-- [BL-032](#bl-032) 反向規格萃取
-- [BL-033](#bl-033) Prospec MCP Server（重定位 BL-010）
-- [BL-034](#bl-034) 依賴層知識（重定位 BL-025）
-- [BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發（併入 BL-006）
+- [x] ~~[BL-027](#bl-027) 安全並行分區~~ 🚫 已過時（賣點 file-reservation 被 harness 內建 worktree 取代；降級重塑為依賴波次排序）
+- [x] ~~[BL-028](#bl-028) Orchestration Handoff~~ 🚫 已過時（依賴 BL-027；Adapter A 綁 research-preview API；並行 orchestration 降級重塑）
+- [x] [BL-029](#bl-029) Lessons/Playbook 自動萃取（升級 BL-024）✅ 已完成
+- [x] [BL-030](#bl-030) Drift Detection + CI 閘門（升級 BL-012）✅ 已完成
+- [x] [BL-031](#bl-031) Constitution 可執行規則（升級 BL-003 + OPT-B1）✅ 已完成
+- [ ] [BL-032](#bl-032) 反向規格萃取 待處理 · P2
+- [x] [BL-033](#bl-033) Prospec MCP Server（重定位 BL-010）✅ 已完成
+- [ ] [BL-034](#bl-034) 依賴層知識（重定位 BL-025）待處理 · P3
+- [ ] [BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發（併入 BL-006）待處理 · P2（部分：AGENTS.md 去重已隨 agent sync 完成）
 
 ### 評估新增（2026-06-07）
-- [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）🔴 G6 — 補使用者目標唯一未被正面設計的缺口 ✅
-- [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）✅
+- [x] [BL-036](#bl-036) 回饋晉升管線（Feedback Promotion Pipeline）— 補使用者目標唯一未被正面設計的缺口（G6）✅ 已完成
+- [x] [BL-037](#bl-037) Code Review → Fix 迴圈（`/prospec-review`）— 對抗式審查補 verify 自審盲區（G1/G5）✅ 已完成
 
 ### 學習迴路新增（2026-06-11）
-- [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅
+- [x] [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅ 已完成
+
+### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
+> entry 見下方「## 即時優化」段；狀態以「實作狀態總覽 · OPT 列」為準。
+- [ ] **OPT-A1** 自動銜接提示 — 部分（有雛形）
+- [x] **OPT-A2** Knowledge 健康度指標 ✅ 已完成（隨 BL-030）
+- [ ] **OPT-A3** 成果可視化 — 待驗證（未逐項驗證）
+- [ ] **OPT-A4** Quickstart Skill — 待處理
+- [ ] **OPT-B1** Constitution 導入引導強化 — 待處理
+- [ ] **OPT-B2** _index.md auto/user 區段整合 — 待處理
+- [x] **OPT-B3** tasks.md 任務分類（code/manual/verification）✅ 已完成（隨 BL-004）
+- [x] **OPT-B4** delta-spec 強制 REQ ID ✅ 已完成
+- [x] **OPT-B5** plan.md 長度控制指引 ✅ 已完成（基礎；隨 BL-004）
+- [x] **OPT-B6** Archive 未完成 tasks 警告 ✅ 已完成（隨 BL-004）
+- [ ] **OPT-C** 品質追蹤系統 — 待驗證（未逐項驗證）
+- [ ] **OPT-D1** Phase Gate 統一 — 部分（有雛形）
+- [ ] **OPT-D2** NEVER 規則分級 — 待處理
+- [ ] **OPT-D3** 行為契約式 Activation — 部分（有雛形）
+- [ ] **OPT-D4** Token Budget 量化 — 待處理
+- [ ] **OPT-D5** Attention Anchoring — 待處理
+- [ ] **OPT-D6** 跨 Skill 品質追溯鏈 — 待驗證（未逐項驗證）
+- [x] **OPT-D7** _index.md Aliases 擴展 ✅ 已完成
+- [x] **OPT-D8** 共享 Glossary ✅ 已完成
+- [ ] **OPT-D9** Few-Shot Examples — 待處理
 
 ---
 
 ## 實作狀態總覽
 
-> **2026-06-08 證據驗證快照**（更新自 2026-06-06）。對照部署 skills、`src/`、tests、reference 格式、`.prospec/archive/`、git log。判定原則：證據優先，無證據即判未完成。
+> **2026-06-13 證據驗證快照**（更新自 2026-06-08）。對照部署 skills、`src/`、tests、reference 格式、`.prospec/archive/`、git log。判定原則：證據優先，無證據即判未完成。
 
 ### ✅ 已完成（DONE）
 
@@ -144,6 +184,10 @@
 | **BL-009** 多語言（重塑） | `prospec init --language` + Constitution Language Policy + 模板/CLI 全英文化 + `skill_triggers`；commit `06ba30a`；歸檔 `add-init-language-policy`（project-setup US-008~009, agent-integration US-411~412）。原 i18n helper 路線 CUT，重塑交付；交叉語言實測通過（zh-TW 專案收英文需求→繁中產出、反向亦然） |
 | **BL-004** Scale Adapter（+OPT-B3/B5/B6） | scale（quick/standard/full）流程縮放：new-story 複雜度評估（使用者確認 + spec-impact 否決 quick）、quick 跳 plan（story → tasks）、task kind 標記（`[M]`/`[V]`，凍結於 tasks-format）、verify/review quick 縮維（not-applicable 不偽裝 PASS）、archive quick 雙 gate（diff 路徑模組推導 + spec-impact）；commit `9839719`；歸檔 `add-scale-adapter`（sdd-workflow US-15 / REQ-TYPES-026 + REQ-TEMPLATES-084~090）。review 3 輪 critical+major 全修（757 tests 綠） |
 | **BL-038** Verify/Knowledge 時序重整 | 方向 B：verify V4 本變更落差降 informational + archive Entry Gate 成唯一強制 knowledge 同步檢查點；commit `b8a681f`（+`50889ff`/`8ca41dd`）；歸檔 `gate-knowledge-at-archive`（sdd-workflow US-14 / REQ-TEMPLATES-083）。驗收達成：verify 0 例行 WARN（Grade S self-hosting）、單一強制檢查點（gate 首次實跑即攔截未同步歸檔）、`_status-lifecycle.md` + init 模板雙同步 |
+| **BL-020** KV-Cache 穩定前綴 | 穩定前綴載入重排序；歸檔 `reorder-stable-prefix-loading`（2026-06-11） |
+| **BL-029** Lessons/Playbook 自動萃取 | `/prospec-learn` 萃取管線；歸檔 `add-knowledge-flywheel`（2026-06-12）；連帶關閉 BL-024 |
+| **BL-030** Drift Detection + CI 閘門 | `prospec check` 決定性 drift 引擎 + CI 閘門；歸檔 `add-drift-checker`（2026-06-12）；連帶關閉 BL-012/BL-008 |
+| **BL-033** Prospec MCP Server | 唯讀 stdio MCP server（6 resources + 2 tools）；commit `53fb010`；歸檔 `add-mcp-server`（2026-06-13）；重定位 BL-010 |
 
 > 非 BL 的基礎建設（隨各 change 完成，不在 BL 編號內）：Recipe-First Knowledge + L0/L1/L2 分層（`optimize-ai-knowledge`）、Feature/Product Spec 架構（`redesign-spec-system`）、verify 4/5 解耦 feature-spec（`skill-autonomy`）、Antigravity CLI 取代 Gemini（`migrate-gemini-to-antigravity`）、npm+pnpm 雙支援。
 
@@ -151,9 +195,10 @@
 
 | 分層 | 項目 |
 |------|------|
-| P0 補課 | 〔BL-003 ✅、BL-019 ✅、BL-020 ✅（`reorder-stable-prefix-loading`，2026-06-11）、BL-004 ✅（`add-scale-adapter`，2026-06-12）全數完成〕 |
-| P1/P2 | BL-005（無 `template` CLI）、BL-006（**PARTIAL**：仍 4 agents，缺 cursor/windsurf/opencode/qwen）、BL-021（無 `extension`）、BL-022（無 `prospec-help`）、BL-026（`_index.md` 無 Dashboard） |
-| Phase 4（2026 H2 新增） | BL-031 ✅、BL-030 ✅（`add-drift-checker`，2026-06-12，連帶關閉 BL-012/BL-008）、BL-029 ✅（`add-knowledge-flywheel`，2026-06-12，連帶關閉 BL-024）；BL-027/028、BL-032~035 未開始 |
+| P0 補課 | 〔BL-003/019/020/004 全數完成 → 見「✅ 已完成」表〕 |
+| P1/P2 | BL-005（無 `template` CLI）、BL-006（**PARTIAL／🚫 路線已過時**：仍 4 agents，缺 cursor/windsurf/opencode/qwen；「15 套 per-agent 模板」路線被 AGENTS.md/SKILL.md 收斂取代，僅偵測擴展需求保留）、BL-021（無 `extension`）、BL-022（無 `prospec-help`）、BL-026（`_index.md` 無 Dashboard） |
+| Phase 3 | BL-023（Layer 1.5 語義 Fallback，P3，未做）；其餘 Phase 3 項（BL-008/010/011/012/013/024/025）均已完成／🚫 已過時／↳ 已併入，見目錄 |
+| Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取、BL-034 依賴層知識 未開始；BL-035 SKILL.md 標準＋分發 **部分**（AGENTS.md 去重已隨 agent sync 完成，分發未做） |
 | OPT | A4、B1、B2、D2、D4、D5、D9 未做〔A2 ✅ 隨 BL-030 完成 `90e7c61`（report 凍結 knowledge_health 欄位；`_index.md` 表格回寫留給 Knowledge Flywheel 評估）〕；A1/D1/D3 **PARTIAL**（有雛形）；A3/C/D6 未逐項驗證〔D7/D8 ✅ commit `d3a0b8e`；B3/B5/B6 ✅ 隨 BL-004 完成 `9839719`〕 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
@@ -525,6 +570,8 @@ prospec template init --only plan  # 只複製特定模板
 **擴展 Agent 支援 (15+)**
 
 > **2026 H2**：併入 BL-035（SKILL.md 跨廠商標準對齊 + 分發）。
+>
+> **🚫 過時狀態（2026-06-07 eval）**：「維護 15 套 per-agent 模板」路線過時——AGENTS.md + SKILL.md 兩標準跨廠商收斂後，多模板變維護負擔而非價值（eval 行 51/113）。偵測 Cursor/Windsurf/OpenCode/Qwen 的廣度擴展需求仍有效，已收斂進 BL-035；過時的僅「per-agent 多模板」路線。
 
 | 欄位 | 值 |
 |------|-----|
@@ -743,6 +790,8 @@ i18n:
 **外部工具整合 (MCP)**
 
 > **2026 H2**：重定位為 BL-033（Prospec MCP Server）；MCP 已進 Linux Foundation，維護顧慮降低。
+>
+> **🚫 過時狀態（2026-06-07 eval）**：原前提「外部 MCP API 維護成本高」因 MCP 進 Linux Foundation（~97M 月下載、治理化）而消失（eval 行 50；future-directions 行 125）。已重定位 BL-033 並於 2026-06-13 交付（commit 53fb010）。
 
 | 欄位 | 值 |
 |------|-----|
@@ -780,6 +829,8 @@ prospec-mcp-server/
 **多代理協作 (Party Mode)**
 
 > **2026 H2**：被 BL-028（Orchestration Handoff）取代——並行衝突改由 module-map 安全分區解決，不再是「多 Agent 各做各的」。
+>
+> **🚫 過時狀態（2026-06-07 eval）**：「多 Agent 各做各的 + git pull 同步」的單代理時代模型過時——並行子代理成 first-class 後，衝突解法改由 module-map 安全分區處理（future-directions 行 71）。已被 BL-028 吸收。
 
 | 欄位 | 值 |
 |------|-----|
@@ -865,6 +916,8 @@ prospec verify --ci --strict # 嚴格模式：任何 FAIL 都回傳 exit code 1
 **任務依賴分析與並行追蹤**
 
 > **2026 H2**：被 BL-027（安全並行分區）取代升級——並行子代理使 DAG 從過度工程變為剛需。
+>
+> **🚫 過時狀態（2026-06-07 eval）**：獨立 BL-013 的單代理假設過時——並行子代理使任務 DAG 從過度工程變剛需，價值已被 BL-027 升級吸收（future-directions 行 71；feature-bundles 行 335）。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2005,6 +2058,8 @@ Layer 2（現有）: module README.md → 完整內容
 **Tessl Registry 整合**
 
 > **2026 H2**：重定位為 BL-034（依賴層知識，改用 Context7、不綁 Tessl）。
+>
+> **🚫 過時狀態（2026-06-07 eval）**：綁定的 Tessl 市場前提（「Series A $125M」）查證為 2024-11 舊聞、立論脆弱（eval 行 49/130）。已重定位 BL-034，改用 Context7、不綁 Tessl。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2037,6 +2092,8 @@ Layer 2（現有）: module README.md → 完整內容
 ### BL-027
 
 **安全並行分區（Safe Parallel Partitioning）**
+
+> **🚫 過時狀態（2026-06-07 eval）**：核心賣點 file-reservation（檔案保留集不重疊）被各家 harness 內建 git worktree 取代（Cursor 3.2 / Devin / Antigravity），且「merge-conflict 是公認唯一未解問題」的前提經查證為修辭放大、不成立（eval 行 27/43/108）。**非全廢**：僅保留 module-map 獨有的「依賴方向波次排序」殘值，已從 🔴 P0 降為 BUILD-LATER 重塑。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2073,6 +2130,8 @@ Layer 2（現有）: module README.md → 完整內容
 ### BL-028
 
 **Orchestration Handoff**
+
+> **🚫 過時狀態（2026-06-07 eval）**：依賴 BL-027；Adapter A 緊綁 Claude Code Dynamic Workflows 的 research-preview primitive，eval 明指應砍（行 109）。並行 orchestration 整體已從 🔴 P0 降 BUILD-LATER。**非全廢**：重塑為 spec-carrying payload handoff。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2224,10 +2283,12 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 2026 MCP 進 Linux Foundation（~97M 月下載、治理化），原 BL-010「維護成本高」顧慮降低。把 Knowledge（`_index.md` / module READMEs）+ specs（features/）暴露為 MCP resources + tools，讓任何 agent（即使沒裝 Prospec skills）都能查專案架構與規格真相 → 價值解耦於 skill 部署。落地「Prospec = 餵養任何 harness 的 knowledge 層」定位。
 
 **驗收標準**：
-- [ ] MCP server 暴露 Knowledge 為 resources（唯讀，低維護優先）
-- [ ] 暴露 specs/features 為 resources
-- [ ] （後置）互動 tools（查模組依賴、查 REQ）
-- [ ] graceful：server 不可用時 skills 仍運作
+- [x] MCP server 暴露 Knowledge 為 resources（唯讀，低維護優先）
+- [x] 暴露 specs/features 為 resources
+- [x] （後置）互動 tools（查模組依賴、查 REQ）
+- [x] graceful：server 不可用時 skills 仍運作
+
+> **完成狀態**: 2026-06-13 已實作 — stdio 唯讀 MCP server，暴露 6 resources（`knowledge://index`、`knowledge://module/{name}`、`knowledge://module-map`、`knowledge://playbook`、`knowledge://health`、`spec://feature/{name}`）+ 2 tools（`search_modules`、`get_dependency_direction`）；per-request 重讀、stderr-only 診斷、純加值面（server 不在 skills 照常）。`knowledge://health` 復用 `prospec check` 凍結契約，archived 排除與 `collectReqDefinitions` 共用單一實作。兩輪對抗式審查修 4 criticals 後收斂。graduate 至 `mcp-server` feature spec（US-1~4；REQ-MCP-001~008）。commit `53fb010`（實作）+ `21bf8de`（knowledge sync）+ `0330d5c`（archive）。
 
 ---
 
@@ -2407,6 +2468,8 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 
 ## 依賴關係圖
 
+> **【後續狀態 · 2026-06-13】** 歷史規劃快照，保留原文供追溯；各項**當前**狀態以「目錄／實作狀態總覽」為準（已完成 18、🚫 已過時 7、↳ 已併入 3，明細見目錄）。
+
 ```
 已完成鏈路：
   BL-001 (Archive) ✅ → BL-002 (Knowledge Update) ✅
@@ -2455,6 +2518,8 @@ Phase 3 鏈路：
 ```
 
 ## 優先級分層
+
+> **【後續狀態 · 2026-06-13】** 歷史規劃快照，保留原文供追溯；各項**當前**狀態以「目錄／實作狀態總覽」為準（已完成 18、🚫 已過時 7、↳ 已併入 3，明細見目錄）。
 
 > 2026-02-27 八專家分析後全面更新
 
@@ -2512,6 +2577,8 @@ Phase 3 鏈路：
 | 第十波 | BL-033, BL-032, BL-034, BL-035 | 開放互通 | ★★★☆☆ | 價值解耦於 skill 部署、覆蓋 brownfield、跨廠商 |
 
 ## 建議開發順序
+
+> **【後續狀態 · 2026-06-13】** 歷史規劃快照，保留原文供追溯；各項**當前**狀態以「目錄／實作狀態總覽」為準（已完成 18、🚫 已過時 7、↳ 已併入 3，明細見目錄）。
 
 ```
 第一波（已完成 ✅）：

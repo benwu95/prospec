@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 41 test files, 849 tests (unit 398, contract 405, integration 15, e2e 31)
+> 4-layer test architecture using Vitest + memfs — 44 test files, 909 tests (unit 433, contract 426, integration 15, e2e 35)
 
 <!-- prospec:auto-start -->
 
@@ -21,6 +21,8 @@
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (31 tests, incl. `prospec measure` and `prospec check` exit-code/determinism paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |
+| `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, searchModules distinct-term ranking |
+| `tests/contract/mcp-server.test.ts` | MCP protocol surface over InMemoryTransport.createLinkedPair() — resources/tools/health parity with `prospec check` (SC-006), stdout purity spy, loud invalid-map listing; the stdio daemon is never spawned in tests |
 | `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS, init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose) |
 | `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |
 | `tests/contract/lessons-harvest-fixtures.test.ts` + `tests/fixtures/lessons-harvest/` | Synthetic archived-change corpus (alpha/beta recurrence, gamma all-complete) for the BL-029 flywheel; well-formedness + scenario discrimination (the harvest itself is an LLM step — dogfood-verified, not vitest-executable) |
@@ -56,7 +58,8 @@
 - Contract tests use real `renderTemplate()` — template syntax errors surface here first, not in unit tests
 - E2E tests are slow (~1-3s each) — keep to critical paths only; use contract tests for format validation
 - Contract assertions must be section-scoped AND structure-aware (PB-001): bare toContain over a whole document, first-backtick-only keys, and missing contiguity checks have all produced false-greens — mutation-verify new assertions
-- fast-glob and git do NOT see memfs — drift-sources/check.service tests use real temp dirs (scanner.test.ts pattern), not `vi.mock('node:fs')`
+- fast-glob and git do NOT see memfs — drift-sources/check.service/knowledge-reader tests use real temp dirs (scanner.test.ts pattern), not `vi.mock('node:fs')`
+- MCP protocol behavior is tested via the SDK's in-memory linked transport, never a spawned daemon — e2e only freezes CLI registration (`mcp --help`) and the no-config stderr path
 
 <!-- prospec:auto-end -->
 

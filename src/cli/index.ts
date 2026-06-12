@@ -17,6 +17,7 @@ import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
 import { registerMeasureCommand } from './commands/measure.js';
 import { registerCheckCommand } from './commands/check.js';
+import { registerMcpCommand } from './commands/mcp.js';
 
 // Read version from package.json at build time via Node.js import
 import { createRequire } from 'node:module';
@@ -81,6 +82,7 @@ export function createProgram(): Command {
   registerChangeTasksCommand(program);
   registerMeasureCommand(program);
   registerCheckCommand(program);
+  registerMcpCommand(program);
 
   return program;
 }

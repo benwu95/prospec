@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-839%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-909%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -245,6 +245,71 @@ never a fake PASS — and semantic spec↔code consistency stays with `/prospec-
 permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
 the developer and the CI gate always see the same facts, token-free.
 
+### MCP Server (Project Truth)
+
+| Command | Description |
+|---------|-------------|
+| `prospec mcp serve` | Start a **read-only** MCP server on stdio — any MCP-capable agent (even one without Prospec Skills installed) can query the project's architecture truth, spec truth, dependency direction, promoted playbook, and knowledge freshness |
+
+**Resources** (re-read from disk on every request — clients always see current file state):
+
+| URI | Content |
+|-----|---------|
+| `knowledge://index` | AI Knowledge module index (`_index.md`) |
+| `knowledge://module/{name}` | One module's Recipe-First README |
+| `knowledge://module-map` | Module boundaries + `depends_on` (`module-map.yaml`) |
+| `knowledge://playbook` | Human-approved team lessons (`_playbook.md`) |
+| `knowledge://health` | Per-module staleness + coverage — same pure function as `prospec check` |
+| `spec://feature/{name}` | Capability specs (REQ source of truth); archived specs are excluded by the same rule `prospec check` uses |
+
+**Tools**: `search_modules` (which module owns a concept — normalized term-OR match over the curated
+index columns, so `drift checker` finds `drift-checker`) and `get_dependency_direction` (may `from`
+import `to`? — answered from module-map `depends_on`, or the Constitution chain when no map exists;
+the answer states which source it used).
+
+**Registering** — point your agent's MCP config at the stdio command, run from the project root
+(requires `.prospec.yaml`; the server reads it from the working directory it starts in). With the
+recommended global install, `prospec` is already on your PATH. For Claude Code:
+
+```bash
+claude mcp add prospec -- prospec mcp serve
+```
+
+For other agents, register the stdio command in the agent's MCP config. `cwd` must be the project
+root (the server reads `.prospec.yaml` from it). With the global install:
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "prospec",
+      "args": ["mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+Pinned prospec as a devDependency instead? Use `command: "npx"` so it resolves the project-local
+binary:
+
+```json
+{
+  "mcpServers": {
+    "project-name": {
+      "command": "npx",
+      "args": ["prospec", "mcp", "serve"],
+      "cwd": "/path/to/project"
+    }
+  }
+}
+```
+
+Honest boundaries: the server is read-only (no tool or resource can modify files), serves one project
+per process (the working directory it starts in), and is a pure add-on — no Skill or CLI command
+depends on it, so everything works unchanged when it is not running. Transport is stdio only;
+HTTP/SSE is deliberately not included in this version.
+
 ---
 
 ## AI Skills
@@ -387,7 +452,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (839 tests)
+# Run all tests (909 tests)
 pnpm test
 
 # Watch mode

@@ -141,6 +141,19 @@ export class DriftReportInvalid extends ProspecError {
   }
 }
 
+// --- MCP errors ---
+
+export class McpResourceNotFound extends ProspecError {
+  constructor(uri: string, cause?: string) {
+    super(
+      `MCP resource not found: ${uri}${cause ? ` (${cause})` : ''}`,
+      'MCP_RESOURCE_NOT_FOUND',
+      'List available resources first, or verify the module/spec name exists',
+    );
+    this.name = 'McpResourceNotFound';
+  }
+}
+
 // --- State errors ---
 
 export class AlreadyExistsError extends ProspecError {
