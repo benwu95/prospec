@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 49 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
+> Handlebars template library — 50 `.hbs` files across 7 directories (skills/ nests references/), consumed via renderTemplate()
 
 <!-- prospec:auto-start -->
 
@@ -12,9 +12,10 @@
 | `src/templates/steering/module-readme.hbs` | Recipe-First module README (Key Files → Public API → Modification Guide → Pitfalls) |
 | `src/templates/knowledge/index.md.hbs` | _index.md with Rationale column and Loading Rules |
 | `src/templates/knowledge/raw-scan.md.hbs` | Raw scan output template |
-| `src/templates/skills/*.hbs` | 13 skill templates; frontmatter renders `Triggers: {{trigger_words}}`; artifact skills include `{{> language-policy}}`; Startup Loading is static-first with `[STABLE]/[DYNAMIC]` markers (cache-stable prefix, BL-020); archive carries the knowledge-sync Entry Gate and verify V4 grades only pre-existing drift (BL-038); skills are scale-aware (BL-004) — new-story assesses a user-confirmed `metadata.scale`, and the quick path (no plan/delta-spec) threads through ff/plan/tasks/implement/review/verify/archive gates |
+| `src/templates/skills/*.hbs` | 13 skill templates; frontmatter renders `Triggers: {{trigger_words}}`; artifact skills include `{{> language-policy}}`; Startup Loading is static-first with `[STABLE]/[DYNAMIC]` markers (cache-stable prefix, BL-020); archive carries the knowledge-sync Entry Gate and verify V4 grades only pre-existing drift (BL-038); skills are scale-aware (BL-004); verify V1/V4 consume the `prospec check --json` drift report with an explicit "engine unavailable" fallback and skipped≠PASS rule (BL-030) |
 | `src/templates/skills/references/*.hbs` | 17 reference templates, rendered to `.md` per skill (format specs + design adapters); `tasks-format.hbs` is the single frozen definition of the task kind schema (`[M]`/`[V]`, unmarked = code) |
 | `src/templates/change/*.hbs` | 4 change workflow templates (proposal, plan, delta-spec, tasks); tasks.md.hbs carries the `[ID] [P?] [kind?]` format; metadata.yaml is serialized in change-story.service, not templated |
+| `src/templates/init/prospec-check.yml.hbs` | Supply-chain-hardened CI drift gate (scaffolded by `prospec check --init-ci`) — SHA-pinned actions, least-privilege permissions, `shell: bash` pipefail gate, no-checkout comment job posting an indented (fence-proof) code block |
 | `src/templates/agent-configs/entry.md.hbs` | Shared entry-config template — declares `artifact_language` (L0) and lists per-skill Triggers |
 | `src/templates/skills/_language-policy.hbs` | Shared Language Policy partial, lazily registered as `{{> language-policy}}` for skills/ renders |
 
