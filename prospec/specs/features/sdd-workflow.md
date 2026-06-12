@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-06-12
-story_count: 15
-req_count: 67
+story_count: 16
+req_count: 68
 ---
 
 # SDD 開發流程
@@ -209,6 +209,7 @@ tasks.md 末尾含 Summary 區段（total tasks、total lines、parallelizable c
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
 - WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the `/prospec-archive` Entry Gate（不計入等級）
+- WHEN `prospec check --json` 報告可用, THEN staleness 事實來源為其 `knowledge_health` 區段（git 時間戳，確定性）——verify 引用數據、不重新推導；不可用時退回 LLM 判斷並明示（等級語意不變）
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
 verify Verification 3/5 依規則 RFC-2119 嚴重度分級回報；grade 語彙維持 PASS/WARN/FAIL（不新增第四狀態）。
@@ -555,13 +556,27 @@ kind 標記語法單一凍結於 tasks-format reference：`[M]` manual、`[V]` v
 plan 依 scale 三級：quick 於 Entry Gate 拒絕並導向 tasks（不產檔）、standard ≤120 行（缺省）、full 完整架構分析（不受 120 行上限）。plan-format reference 含三級指引。
 
 #### REQ-TEMPLATES-088: Verify Kind-Aware Completion and Quick Dimension Reduction
-verify V1 完成率分母僅含 code task（`[M]`/`[V]` 分列為提醒）；`scale: quick` 時 V2 spec-compliance 標 `not-applicable`、不偽裝 PASS、不計入等級；Entry Gate 對 quick 僅要求 proposal + tasks。
+verify V1 完成率分母僅含 code task（`[M]`/`[V]` 分列為提醒）；`scale: quick` 時 V2 spec-compliance 標 `not-applicable`、不偽裝 PASS、不計入等級；Entry Gate 對 quick 僅要求 proposal + tasks。V1 數據來源在 `prospec check --json` 報告可用時為其 `task-completion` 檢項（同一引擎、不重算），不可用時退回 LLM 計算並明示——分母規則與 quick 縮維不變。
 
 #### REQ-TEMPLATES-089: Archive Quick Spec-Impact Entry Gate
 archive Entry Gate 對 `scale: quick`：(1) knowledge gate 受影響模組改由實際 diff 檔案路徑經 `module-map.yaml` 推導（REQ 前綴對缺席 delta-spec 為空集合、會靜默放行）；(2) spec-impact 檢查以 diff 比對 specs/features/——有影響 FAIL 並要求補 proposal 末段 Spec Impact 段落（graduation key），無影響則 summary.md 記錄診斷並跳過 graduation。spec 比對為 LLM 判斷步（不宣稱確定性）；模組推導為確定性路徑對應。
 
 #### REQ-TEMPLATES-090: Review Quick-Path Degradation
 review 對 `scale: quick`：Entry Gate artifacts 降為 proposal + tasks；spec-architecture lens 的 delta-spec 比對標 `not-applicable`（依賴方向／conventions／ripple 照審）；diff 疑似觸及 spec-covered 行為時提前警示（早於 archive gate 的互補訊號）。
+
+## US-16: Verify 消費確定性 Drift 引擎 [P1]
+
+身為一名在開發期執行 `/prospec-verify` 的開發者，
+我想要 verify 的結構性維度直接執行 `prospec check --json` 並解讀其報告，
+以便開發期與 CI 用同一個檢查引擎，結果一致、不重複用 LLM 做機器能做的事。
+
+**Acceptance Scenarios:**
+- WHEN `prospec check` 可用，THEN V1 完成率與 V4 staleness 事實來自報告（含 file+line 定位），verify 不以 LLM 重做
+- WHEN 指令不可用，THEN verify 明示「drift engine unavailable — falling back to manual checks」後走文件化退回路徑，絕不默默跳過
+- WHEN 報告檢項為 `skipped`，THEN verify 呈現 skip 原因、不視為 PASS
+
+#### REQ-TEMPLATES-092: Verify Consumes Check Report
+verify Startup Loading 以 [DYNAMIC] 步驟執行 `prospec check --json`；V1/V4 引用報告數據與位置；退回與 skipped≠PASS 規則明文於 NEVER 與 Error Handling（引擎本體見 drift-detection feature spec）。
 
 ---
 
@@ -593,3 +608,4 @@ review 對 `scale: quick`：Entry Gate artifacts 降為 proposal + tasks；spec-
 | 2026-06-08 | add-review-fix-loop | implement↔verify 間對抗式 review→fix 迴圈 + commit 邊界移至 verify(S/A) 後 | US-13; REQ-TYPES-023, REQ-TEMPLATES-066/067/068, REQ-TESTS-023 |
 | 2026-06-11 | gate-knowledge-at-archive | verify V4 降級本變更落差為 informational；archive Entry Gate 成為唯一強制 knowledge 同步檢查點（BL-038 方向 B） | US-14; REQ-TEMPLATES-083 (ADDED), REQ-TEMPLATES-034/045/010 (MODIFIED) |
 | 2026-06-12 | add-scale-adapter | 相稱流程：scale（quick/standard/full）流程縮放 + task kind schema 凍結 + quick 雙 backstop（BL-004 + OPT-B3/B5/B6） | US-15; REQ-TYPES-026, REQ-TEMPLATES-084~090 (ADDED), REQ-CHNG-004/014, REQ-TEMPLATES-010, REQ-SERVICES-010 (MODIFIED) |
+| 2026-06-12 | add-drift-checker | verify V1/V4 改消費 `prospec check --json` 確定性報告（明示退回、skipped≠PASS）；引擎本體 graduate 至 drift-detection feature | US-16; REQ-TEMPLATES-092 (ADDED), REQ-TEMPLATES-045/088 (MODIFIED) |
