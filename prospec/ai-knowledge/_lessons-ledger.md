@@ -1,0 +1,23 @@
+# Lessons Ledger
+
+> Version-controlled, accumulating tier of the feedback-promotion pipeline. Keyed + incremental —
+> `frequency` is a cross-change counter (never re-derived by re-scanning). `status`: personal |
+> suggest-promote | promoted | declined.
+> Auto-fed by `/prospec-archive` Phase 4.5 (Harvest) and refreshed by `/prospec-learn` Collect.
+> Format + harvest rules: `.claude/skills/prospec-learn/references/promotion-format.md`.
+> Durable across worktrees/clones (replaces the retired gitignored `.prospec/lessons.md`).
+
+| key | description | frequency | impact_modules | kind | source_changes | status |
+|-----|-------------|-----------|----------------|------|----------------|--------|
+| test/structural-false-green | 斷言只驗內容存在性、不驗結構完整性與負向路徑 → 缺陷在場仍全綠；須 section-scoped + 結構斷言（集合/順序/contiguity）+ 負向斷言 + mutation-verify | 5 | 3 (tests, templates, cli) | convention | add-output-contract, add-review-fix-loop, add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker | promoted（PB-001 強化版，Approved-by: benwu95, 2026-06-11；add-drift-checker 再證：無控制字元的 sanitize 斷言 trivially green + mutation 未生效即綠） |
+| docs/measurement-attribution-overclaim | 文件/註解宣稱的行為必須與實作實際可觀測者一致；量不到/沒做到的用 deliberate-exclusion 措辭明示（三案同根：harness warm 不對稱、BL-020 模板層歸因、drift checker 模板宣稱 shallow→skipped 但 code 未實作〔review C3〕） | 3 | 3 (cli, templates, lib) | playbook | add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker | promoted（PB-003，Approved-by: benwu95, 2026-06-12） |
+| measure/spend-accounting-failure-paths | 金流/預算控制必須逐呼叫入帳、驗證輸入（NaN/空值）、失敗路徑不漏計——4 個 critical 同源於「成功路徑才入帳」假設 | 1 | 2 (lib, scripts) | playbook | add-token-measurement-harness | personal |
+| docs/runbook-executable-as-written | 操作 runbook 留檔前須逐指令實際執行驗證（pnpm `--` 轉發、commit 前置缺漏皆為照抄必死） | 1 | 1 (docs) | playbook | reorder-stable-prefix-loading | personal |
+| git/commit-message-english | commit 訊息（標題+正文）一律英文 | 1 | — | constitution | session-correction (1d236fc amend) | declined（已由使用者直接入憲：原則 2 + 0c1a4a2，無需再晉升） |
+| spec/fr-uniformity-needs-shared-type | 宣告「每個 X 都要 Y」的 FR，實作須以共用型別強制（如 `Source<T> = {available, reason?, items}`），逐項手寫必有遺漏——五檢項三有二無 availability 包裝成 critical（review C4） | 1 | 3 (lib, services, types) | convention | add-drift-checker | personal |
+| ci/pipeline-semantics-not-unit-testable | CI workflow 管線語意層缺陷（pipefail、shell 預設）不被 CLI 層單元/e2e 覆蓋——workflow 模板需要自己的內容斷言（shell: bash、SHA pin、permissions、compose 形式）；`\| tee` 吃掉 exit code 由三個獨立 lens 同報（review C1） | 1 | 2 (templates, tests) | playbook | add-drift-checker | personal |
+| scan/false-positive-kills-trust | 掃描器/檢查器類功能：誤報比漏報致命（摧毀對工具的信任）——排除規則（fenced block 含 CommonMark 關閉語意、block comment、placeholder/glob、repo 外路徑）須首版設計並以 dogfood 實證零誤報（首跑即中 fence 誤報 + 6 個誤報類 major） | 1 | 1 (lib) | playbook | add-drift-checker | personal |
+
+## Needs-Review List
+
+（空——PB-001 TTL「review by 2026-12-11」、PB-002 TTL「review by 2026-12-12」均未到期，無規則衝突）

@@ -304,7 +304,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
 - **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. Unavailable sources degrade to an explicit `skipped`, and semantic consistency stays with `/prospec-review` (the report marks it `not-checked`, never PASS).
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
-- **Feedback promotion** — `/prospec-learn` collects recurring lessons (from each archived change's cross-stage `quality_log` and `review.md` findings, plus session corrections), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
+- **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons (cross-stage `quality_log` + `review.md` findings + recurring `tasks×kind` skips) into a **version-controlled** ledger (`_lessons-ledger.md`) that survives worktree switches and clones; `/prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution. Auto-feed at archive, human-gated promotion: this is what makes Prospec get *smarter* with use, not just *bigger*.
 
 ### Right-Sized Process (Scale)
 
@@ -432,6 +432,7 @@ your-project/
 │       ├── _index.md          # Module index (Markdown table)
 │       ├── _conventions.md    # Project conventions
 │       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
+│       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
 │       ├── raw-scan.md        # Auto-generated project scan data
 │       ├── module-map.yaml    # Module dependencies
 │       └── modules/

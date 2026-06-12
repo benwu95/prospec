@@ -46,6 +46,7 @@ tests (validates all)
 - `_conventions.md` — coding patterns, naming, architecture, dependency direction
 - `_glossary.md` — shared term definitions across Skills (load on demand; Skills cite this instead of re-explaining concepts)
 - `_playbook.md` — team lessons promoted by `/prospec-learn` (human-approved); plan/implement load **relevant** entries on demand (progressive disclosure)
+- `_lessons-ledger.md` — accumulating, version-controlled lessons ledger auto-fed by `/prospec-archive` Phase 4.5 and refreshed by `/prospec-learn` Collect; load on demand (learn/archive only), not L0
 - `_module-readme-conventions.md` — canonical structure for module READMEs (what `/prospec-knowledge-generate` and `/prospec-knowledge-update` produce against)
 - `_diagram-conventions.md` — Mermaid diagram conventions for supplementary flow docs
 - `_status-lifecycle.md` — the `story → … → archived` change status lifecycle every skill follows

@@ -35,7 +35,7 @@ learn:
 
 ---
 
-## Lessons Ledger (`.prospec/lessons.md`, gitignored, personal tier)
+## Lessons Ledger (`{{knowledge_base_path}}/_lessons-ledger.md`, version-controlled, accumulating tier)
 
 Keyed by a deterministic signature so counting is reproducible:
 
@@ -47,10 +47,26 @@ Keyed by a deterministic signature so counting is reproducible:
 
 - **key**: normalized signature (the rule/REQ/file-pattern the lesson concerns) — same lesson ⇒ same key.
 - **kind**: `convention` | `playbook` | `constitution` — selects the shared destination on promotion.
-- **status**: `personal` | `suggest-promote` | `promoted` | `declined`.
+- **status**: `personal` | `suggest-promote` | `promoted` | `declined` — a lesson's promotion state, independent of where the ledger lives.
 - Carried forward across runs as the anchor; declined items are not re-suggested.
+- **Version-controlled** at `{{knowledge_base_path}}/_lessons-ledger.md` (not the gitignored `.prospec/`), so frequency counters survive worktree switches and clones — the durability that makes `frequency ≥ 3` reachable. Auto-fed at archive time (see **Harvest** below).
 
 ---
+
+## Harvest (archive-time auto-extraction)
+
+`/prospec-archive` Phase 4.5 feeds this ledger automatically when a change is archived — the one moment the change's `quality_log` and `review.md` still exist before the worktree workflow can discard them. This is the **single definition** both `/prospec-archive` (producer) and `/prospec-learn` Collect (consumer) follow; neither restates the ledger table elsewhere.
+
+- **Sources** (per archived change): `metadata.yaml` `quality_log` WARN/FAIL, `review.md` recurring criticals, and `tasks.md` × kind markers (kind schema: tasks-format reference).
+- **Keying**: assign each finding the same deterministic ledger key Collect uses (the single LLM step), then upsert.
+- **Idempotent upsert**: re-archiving or re-running over the same change must not double-count — `source_changes` is a set; `frequency` increments once per *distinct* source change.
+- **tasks×kind process lesson**: when `[M]` manual tasks recur unchecked across changes, record a `kind: playbook` lesson ("manual task systematically skipped"). A change whose manual tasks are all done contributes none; a `tasks.md` without kind markers (legacy) is skipped, not guessed.
+- **Non-fatal**: harvest failure logs and continues — it never blocks archiving.
+- **Auto-harvest ≠ auto-promote** (deliberate scope): harvest only accumulates and lets Score *suggest*; nothing reaches `_playbook.md`/Constitution without explicit human approval. Key matching is an LLM step — this is not a "deterministic flywheel".
+
+## Review-Queue Prioritization (knowledge_health)
+
+When Score has produced suggestions, order the human-review queue by knowledge freshness: read `prospec-report.json` (`prospec check`) `knowledge_health.stale[]`; a `convention`-kind lesson whose `impact_modules` intersect a stale module is raised in the queue and annotated "this module's knowledge is also stale — good moment to refresh on hand-move". If no report is present, fall back to default order (non-blocking). This drives **prioritization only** — the hand-move into `_conventions.md` stays a human action; the pipeline never auto-writes `_conventions.md`.
 
 ## Team Playbook Entry (`_playbook.md`, version-controlled, team tier)
 
@@ -87,5 +103,5 @@ No shared-tier write occurs without an explicit human approval capturing: **sour
 ## Reference Information
 
 - Project name: `prospec`
-- Tiers: personal `.prospec/lessons.md` (gitignored) → team `_playbook.md` (VC, L1, TTL-governed; `kind` label) → `CONSTITUTION.md` ConstitutionRule (kind: constitution). `_conventions.md` is human-hand-moved only, never pipeline-written.
+- Tiers: accumulating `{{knowledge_base_path}}/_lessons-ledger.md` (version-controlled, durable across worktrees) → team `_playbook.md` (VC, L1, TTL-governed; `kind` label) → `CONSTITUTION.md` ConstitutionRule (kind: constitution). `_conventions.md` is human-hand-moved only, never pipeline-written.
 - Constitution file: `{{constitution_path}}`

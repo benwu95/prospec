@@ -137,7 +137,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-learn',
-    description: 'Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into personal lessons; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (personal → team playbook → Constitution rule).',
+    description: 'Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (accumulating ledger → team playbook → Constitution rule).',
     triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],
     type: 'Lifecycle',
     hasReferences: true,

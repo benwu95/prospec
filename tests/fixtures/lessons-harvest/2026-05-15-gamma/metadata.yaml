@@ -1,0 +1,11 @@
+name: gamma-change
+created_at: 2026-05-15
+status: archived
+scale: standard
+related_modules:
+  - lib
+quality_log:
+  - skill: prospec-verify
+    date: 2026-05-15
+    result: PASS
+    warnings: []
