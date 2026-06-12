@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-757%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-839%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -221,6 +221,17 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 - 不設門檻、不進 CI：報告供人解讀，不判定通過與否。
 - 本專案任何「節省 token」數字只能引用本 harness 產出 —— 估算不是資料。
 
+### Drift 檢查（CI 閘門）
+
+| 命令 | 說明 |
+|------|------|
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check --init-ci` | 生成 supply-chain 強化的 GitHub Actions 閘門（`.github/workflows/prospec-check.yml`）：action pin 完整 commit SHA、最小權限、報告 artifact 上傳、由不 checkout 原始碼的 job 貼 sticky PR comment |
+
+誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code
+一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，
+開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
+
 ---
 
 ## AI Skills
@@ -278,6 +289,7 @@ flowchart TD
 - **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
+- **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`/prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。料源不可用時降級為顯式 `skipped`；語意一致性仍屬 `/prospec-review`（報告恆標 `not-checked`、絕不偽裝 PASS）。
 - **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
 - **回饋晉升** — `/prospec-learn` 蒐集反覆出現的教訓（來自每個已歸檔變更的跨階段 `quality_log` 與 `review.md` findings，加上 session corrections），以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進版控的團隊 `_playbook.md` 或 Constitution。這讓 Prospec 越用越**聰明**，而非只是越**龐大**。
 
@@ -349,7 +361,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（757 個測試）
+# 執行所有測試（839 個測試）
 pnpm test
 
 # Watch 模式
@@ -366,11 +378,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：757 個測試橫跨 4 大類：
-- Unit tests（lib + services）：325 tests
-- Contract tests（CLI 輸出 + Skill 格式）：390 tests
+**測試覆蓋率**：839 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：398 tests
+- Contract tests（CLI 輸出 + Skill 格式）：395 tests
 - Integration tests：15 tests
-- E2E tests：27 tests
+- E2E tests：31 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

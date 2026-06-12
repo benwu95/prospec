@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 20 files)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 22 files)
 
 <!-- prospec:auto-start -->
 
@@ -15,16 +15,18 @@
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan |
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
 | `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
+| `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it) |
 | `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts |
+| `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; sanitizeTerminal() strips C0/C1 from untrusted repo strings |
 | `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr |
 | `src/cli/formatters/init-output.ts` | formatInitOutput() — init command output |
 
 ## Public API
 
-- `createProgram()` — Create Commander.js program with all 9 commands registered
+- `createProgram()` — Create Commander.js program with all 10 commands registered
 - `main()` — Entry point: create program → parse argv → execute
-- `registerXxxCommand(program)` — 9 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 10 formatter functions (stdout for success, stderr for errors)
+- `registerXxxCommand(program)` — 10 command registration functions (one per command)
+- `formatXxxOutput(result, logLevel)` — 11 formatter functions (stdout for success, stderr for errors)
 
 ## Dependencies
 
@@ -51,6 +53,7 @@
 - Success output → stdout, error output → stderr — never mix channels
 - E2E tests spawn real `npx tsx src/cli/index.ts` — any option/command name change breaks them
 - `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
+- `check-output.ts` must show skipped checks with their reason (skipped ≠ PASS) and route untrusted strings through `sanitizeTerminal()`; the semantic line stays `not-checked`
 
 <!-- prospec:auto-end -->
 

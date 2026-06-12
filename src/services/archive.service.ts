@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+import { parseTaskLine } from '../lib/task-markers.js';
 import type { ChangeStatus } from '../types/change.js';
 import { ScanError, WriteError } from '../types/errors.js';
 import { execute as executeKnowledgeUpdate } from './knowledge-update.service.js';
@@ -537,25 +538,21 @@ function extractAffectedModules(deltaContent: string): Array<{ name: string; imp
 }
 
 function calculateTaskStats(tasksContent: string): string {
-  // Completion counts code tasks only; [M]/[V] kind-marked tasks are reported apart
-  // (kind schema frozen in skills/references/tasks-format: marker sits after the
-  // checkbox, an optional short task id, and an optional [P]).
-  const checkbox = /^\s*[-*]\s+\[([ x])\]/i;
-  const kindMarker = /^\s*[-*]\s+\[[ x]\]\s+(?:[A-Za-z]{0,3}\d+[a-z]?\s+)?(?:\[P\]\s+)?\[[MV]\]\s/i;
+  // Completion counts code tasks only; [M]/[V] kind-marked tasks are reported apart.
+  // The frozen kind grammar has exactly one executable copy: lib/task-markers.
   let completed = 0;
   let total = 0;
   let kindDone = 0;
   let kindTotal = 0;
   for (const line of tasksContent.split('\n')) {
-    const m = checkbox.exec(line);
-    if (!m) continue;
-    const done = m[1]!.toLowerCase() === 'x';
-    if (kindMarker.test(line)) {
+    const task = parseTaskLine(line);
+    if (task === null) continue;
+    if (task.kind !== 'code') {
       kindTotal += 1;
-      if (done) kindDone += 1;
+      if (task.checked) kindDone += 1;
     } else {
       total += 1;
-      if (done) completed += 1;
+      if (task.checked) completed += 1;
     }
   }
 

@@ -553,3 +553,75 @@ describe('CLI E2E', () => {
     });
   });
 });
+
+describe('prospec check E2E', () => {
+  function writeFixture(rel: string, content: string): void {
+    const abs = path.join(tmpDir, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+  }
+
+  function scaffoldProject(): void {
+    writeFixture(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: e2e',
+        'paths:',
+        '  base_dir: prospec',
+        'knowledge:',
+        '  base_path: prospec/ai-knowledge',
+      ].join('\n'),
+    );
+    writeFixture('prospec/specs/features/demo.md', '#### REQ-DEMO-001: Demo\nsee REQ-DEMO-001\n');
+    writeFixture('.prospec/changes/done/tasks.md', '- [x] T1 implemented ~5 lines\n- [ ] T2 [M] manual step ~5 lines\n');
+  }
+
+  it('exits 0 on a consistent project and reports skipped checks honestly', async () => {
+    scaffoldProject();
+    const { stdout, exitCode } = await runCli(['check', '--strict']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('PASS  req-references');
+    expect(stdout).toContain('PASS  task-completion');
+    // fixture has no module-map — knowledge-health must degrade to an explicit skip
+    expect(stdout).toContain('SKIP  knowledge-health');
+    expect(stdout).toContain('module boundaries unknown');
+    expect(stdout).toContain('not-checked');
+  });
+
+  it('exits 1 with --strict on injected drift, 0 without --strict', async () => {
+    scaffoldProject();
+    writeFixture('prospec/specs/features/demo.md', '#### REQ-DEMO-001: Demo\nsee REQ-DANGLING-999\n');
+    const strict = await runCli(['check', '--strict']);
+    expect(strict.exitCode).toBe(1);
+    expect(strict.stdout).toContain('REQ-DANGLING-999');
+    const loose = await runCli(['check']);
+    expect(loose.exitCode).toBe(0);
+    expect(loose.stdout).toContain('FAIL  req-references');
+  });
+
+  it('writes a byte-identical report across two runs apart from generated_at (SC-003)', async () => {
+    scaffoldProject();
+    await runCli(['check', '--json']);
+    const first = fs.readFileSync(path.join(tmpDir, 'prospec-report.json'), 'utf-8');
+    await runCli(['check', '--json']);
+    const second = fs.readFileSync(path.join(tmpDir, 'prospec-report.json'), 'utf-8');
+    const strip = (s: string) => s.replace(/"generated_at": "[^"]+"/, '"generated_at": "X"');
+    expect(strip(first)).toBe(strip(second));
+  });
+
+  it('--init-ci scaffolds the workflow once and is rerun-safe', async () => {
+    scaffoldProject();
+    const first = await runCli(['check', '--init-ci']);
+    expect(first.exitCode).toBe(0);
+    expect(first.stdout).toContain('Created');
+    const workflow = fs.readFileSync(
+      path.join(tmpDir, '.github/workflows/prospec-check.yml'),
+      'utf-8',
+    );
+    expect(workflow).toContain('permissions:');
+    const second = await runCli(['check', '--init-ci']);
+    expect(second.stdout).toContain('already exists');
+  });
+});

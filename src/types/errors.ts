@@ -128,6 +128,19 @@ export class MeasurementReportInvalid extends ProspecError {
   }
 }
 
+// --- Drift errors ---
+
+export class DriftReportInvalid extends ProspecError {
+  constructor(path: string, details: string) {
+    super(
+      `Drift report validation failed: ${path} (${details})`,
+      'DRIFT_REPORT_INVALID',
+      'Regenerate the report with `prospec check --json` — do not edit it by hand',
+    );
+    this.name = 'DriftReportInvalid';
+  }
+}
+
 // --- State errors ---
 
 export class AlreadyExistsError extends ProspecError {

@@ -21,7 +21,8 @@ export interface Logger {
  * - verbose: every step detailed
  *
  * Symbols: ✓ success, ✗ error, ⚠ warning, ℹ info, ⎿ step, → detail, • list
- * Colors auto-disabled in non-TTY environments (picocolors handles this).
+ * Colors auto-disabled in non-TTY environments (NO_COLOR is set at CLI
+ * entry for non-TTY stdout — see cli/setup-color.ts).
  */
 export function createLogger(level: LogLevel = 'normal'): Logger {
   const write = (msg: string) => {

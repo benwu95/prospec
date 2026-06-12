@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 11 services following `execute(options) → Promise<Result>` pattern (3,601 lines total)
+> Business logic layer — 12 services following `execute(options) → Promise<Result>` pattern (3,752 lines total)
 
 <!-- prospec:auto-start -->
 
@@ -17,8 +17,9 @@
 | `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold |
 | `src/services/change-tasks.service.ts` | Generate tasks.md scaffold |
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint) |
-| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; summary task stats count code tasks only — `[M]`/`[V]` reported apart (849 lines) |
+| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart) |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
+| `src/services/check.service.ts` | Drift check orchestration — collectors → pure evaluators → report; `--json` atomicWrite, `--init-ci` workflow scaffold (rerun-safe); module-map paths clamped to repo, invalid map throws |
 
 ## Public API
 
@@ -29,6 +30,7 @@
 - `archive.execute(options)` — Archive verified changes, sync Feature Specs
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys) and `hints` (populate skill_triggers for non-English languages)
 - `measure.execute({cwd, reportPath?})` — Load measurement report for display; missing file → PrerequisiteError (run `pnpm measure:tokens`), invalid → MeasurementReportInvalid
+- `check.execute({cwd, json?, initCi?})` — Run the drift engine (Result carries `hasFail`; exit-code mapping stays in cli) or scaffold the hardened CI workflow
 
 ## Dependencies
 
@@ -60,6 +62,7 @@
 - Template context keys have no compile-time validation — typos produce empty output silently
 - change metadata.yaml is NOT rendered from a template — build the object and `stringifyYaml()` it (correct-by-construction escaping); frontmatter trigger words go through `escapeYamlScalar()`
 - archive's auto knowledge-update safety net no-ops when delta-spec.md is absent (the quick path) — the skill-level archive Entry Gate (diff-path module derivation) is the mandatory checkpoint there
+- check.service must keep knowledge-health on a REAL module-map (missing map → honest skip, never the constitution fallback — that would fabricate phantom coverage gaps)
 
 <!-- prospec:auto-end -->
 

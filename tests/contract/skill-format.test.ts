@@ -1658,3 +1658,49 @@ describe('scale adapter — implement quick awareness (round-2 fix)', () => {
     expect(never).toContain('quick: proposal.md acceptance scenarios are the spec');
   });
 });
+
+describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
+  const render = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+
+  it('Startup Loading runs the engine as a [DYNAMIC] step with an explicit fallback', () => {
+    const loading = sectionOf(render(), '## Startup Loading');
+    const engineItem = loading
+      .split('\n')
+      .find((l) => /^\d+\.\s+/.test(l) && l.includes('`prospec check --json`'));
+    expect(engineItem, 'engine loading item missing').toBeTruthy();
+    expect(engineItem).toContain('[DYNAMIC]');
+    expect(engineItem).toContain('drift engine unavailable');
+    expect(engineItem).toContain('never fall back silently');
+  });
+
+  it('Verification 1/5 sources completion facts from the task-completion check', () => {
+    const v1 = sectionOf(render(), '### Verification 1/5');
+    expect(v1).toContain('`task-completion`');
+    expect(v1).toContain('do not recount by hand');
+    expect(v1).toContain('never treated as complete or PASS');
+    // denominator semantics unchanged (MODIFIED REQ-TEMPLATES-088 keeps grading intact)
+    expect(v1).toContain('code tasks only');
+    expect(v1).toContain('never counted in the rate');
+  });
+
+  it('Verification 4/5 bases freshness on the knowledge_health report section', () => {
+    const v4 = sectionOf(render(), '### Verification 4/5');
+    expect(v4).toContain('`knowledge_health`');
+    expect(v4).toContain('git-timestamp staleness');
+    expect(v4).toContain('never presented as PASS');
+    // semantic judgment stays LLM work (REQ-TEMPLATES-034 untouched)
+    expect(v4).toContain('remain LLM work');
+  });
+
+  it('NEVER section forbids skipped-as-PASS and silent fallback', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('skipped means unchecked');
+    expect(never).toContain('fall back from the drift engine silently');
+  });
+
+  it('Error Handling covers engine unavailability with the explicit fallback wording', () => {
+    const errors = sectionOf(render(), '## Error Handling');
+    expect(errors).toContain('`prospec check` unavailable or fails');
+    expect(errors).toContain('drift engine unavailable — falling back to manual checks');
+  });
+});

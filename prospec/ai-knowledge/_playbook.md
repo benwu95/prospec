@@ -37,3 +37,10 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
   1. **False-block**: does this station's Entry Gate or input contract depend on the artifact that no longer exists? (bit `add-scale-adapter`: tasks↔plan mutual refusal deadlocked quick; review's gate would have hard-failed)
   2. **False-pass**: is this station's check KEYED on the absent artifact, so an empty extraction silently passes? (bit `add-scale-adapter`: archive's knowledge gate keyed on delta-spec REQ prefixes — empty set under quick)
   Plan-stage Call Chains for such designs must show one chain per station, not only the stations the source document names (the bundle doc predated review/implement interactions and was incomplete three times over).
+
+### PB-003: Documented claims must match actually-observable implementation behavior — mark gaps with deliberate-exclusion wording
+- **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker · **Criteria**: freq=3, modules=3 (cli, templates, lib) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-12
+- **TTL**: review by 2026-12-12
+- **Guidance**: any behavior a doc, code comment, README, or template asserts must be something the implementation actually does or the measurement actually observes. Three same-root incidents: synthetic warm cache hits presented without an asterisk (harness); template-layer savings attributed beyond what the harness can measure (BL-020 — fixed with deliberate-exclusion wording); a workflow template comment claiming "a shallow clone would honestly degrade to skipped" while no shallow detection existed in code (drift checker — escalated to a review **critical**, C3). Two rules:
+  1. **Claim ⊆ implementation**: before writing "X handles/measures/degrades Y", grep for the code path that does it; if it does not exist, either implement it or do not claim it.
+  2. **Deliberate exclusion over silence**: what is not done / not measurable gets explicit exclusion wording ("not measured here", "left to …"), so review/verify can diff documented claims against implemented behavior instead of discovering the gap as a critical.

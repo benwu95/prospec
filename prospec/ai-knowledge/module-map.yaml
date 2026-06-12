@@ -3,7 +3,7 @@
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas, error hierarchy (12 classes), skill/agent definitions, change scale levels, measurement report schemas
+    description: Zod 4 schemas, error hierarchy (12 classes), skill/agent definitions, change scale levels, measurement and drift report schemas
     paths:
       - src/types
     keywords:
@@ -19,6 +19,7 @@ modules:
       - language
       - triggers
       - measurement
+      - drift-report
     relationships:
       depends_on: []
       used_by:
@@ -28,7 +29,7 @@ modules:
         - tests
 
   - name: lib
-    description: Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection, token accounting
+    description: Shared utilities — config, file I/O, Handlebars, scanning, 4-mode module detection, token accounting, deterministic drift engine
     paths:
       - src/lib
     keywords:
@@ -44,6 +45,9 @@ modules:
       - strategy
       - language
       - token-accounting
+      - drift-checker
+      - drift-sources
+      - task-markers
     relationships:
       depends_on:
         - types
@@ -53,7 +57,7 @@ modules:
         - tests
 
   - name: services
-    description: Business logic — 11 services with execute() pattern, including Recipe-First knowledge generation, measurement-report loading, and kind-aware archive task stats
+    description: Business logic — 12 services with execute() pattern, including Recipe-First knowledge generation, measurement-report loading, drift-check orchestration, and kind-aware archive task stats
     paths:
       - src/services
     keywords:
@@ -68,6 +72,7 @@ modules:
       - triggers
       - language
       - measure
+      - check
     relationships:
       depends_on:
         - types
@@ -77,7 +82,7 @@ modules:
         - tests
 
   - name: cli
-    description: CLI entry point — 9 commands + 10 formatters, parse → execute → format
+    description: CLI entry point — 10 commands + 11 formatters, parse → execute → format
     paths:
       - src/cli
     keywords:
@@ -87,6 +92,7 @@ modules:
       - output
       - preaction
       - measure
+      - check
     relationships:
       depends_on:
         - types

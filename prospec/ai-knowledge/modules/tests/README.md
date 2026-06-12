@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 34 test files, 757 tests (unit 325, contract 390, integration 15, e2e 27)
+> 4-layer test architecture using Vitest + memfs — 40 test files, 839 tests (unit 398, contract 395, integration 15, e2e 31)
 
 <!-- prospec:auto-start -->
 
@@ -18,8 +18,10 @@
 | `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync); shared module-scope `sectionOf` helper (EOF-tolerant) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
-| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (27 tests, incl. `prospec measure`) |
+| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (31 tests, incl. `prospec measure` and `prospec check` exit-code/determinism paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
+| `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |
+| `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS, init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose) |
 | `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |
 
 ## Public API
@@ -53,6 +55,7 @@
 - Contract tests use real `renderTemplate()` — template syntax errors surface here first, not in unit tests
 - E2E tests are slow (~1-3s each) — keep to critical paths only; use contract tests for format validation
 - Contract assertions must be section-scoped AND structure-aware (PB-001): bare toContain over a whole document, first-backtick-only keys, and missing contiguity checks have all produced false-greens — mutation-verify new assertions
+- fast-glob and git do NOT see memfs — drift-sources/check.service tests use real temp dirs (scanner.test.ts pattern), not `vi.mock('node:fs')`
 
 <!-- prospec:auto-end -->
 

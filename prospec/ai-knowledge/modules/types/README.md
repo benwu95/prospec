@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, and token measurement schemas (8 files, 657 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement and drift report schemas (9 files, 763 lines)
 
 <!-- prospec:auto-start -->
 
@@ -13,9 +13,10 @@
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
-| `src/types/errors.ts` | ProspecError base + 11 specialized error classes (incl. MeasurementReportInvalid) |
+| `src/types/errors.ts` | ProspecError base + 12 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid) |
 | `src/types/constitution.ts` | ConstitutionRule — RFC-2119 severity (MUST/SHOULD/MAY) + name/description/rationale/check |
 | `src/types/measurement.ts` | Provider-neutral TokenUsage/Pricing + MeasurementReport schemas, AGENT_PROVIDER_MAP, DEFAULT_REPORT_FILENAME |
+| `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 5 frozen check ids, skipped-needs-reason rule, frozen knowledge-health field contract |
 
 ## Public API
 
@@ -28,6 +29,7 @@
 - `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
 - `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer)
+- `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
 
 ## Dependencies
 
@@ -54,6 +56,7 @@
 - Zod `.optional()` vs `.default()` — optional returns `T | undefined`, default returns `T`. Be explicit.
 - Adding required fields to schemas breaks existing `.prospec.yaml` — always use `.optional()` or `.default()`
 - `SKILL_DEFINITIONS` count is asserted in `skill-format.test.ts` — adding a skill without updating the test count causes contract test failure
+- `drift-report.ts` knowledge_health field names are a FROZEN downstream contract (Knowledge Flywheel, MCP server) — renaming them is a breaking change, not a refactor
 
 <!-- prospec:auto-end -->
 

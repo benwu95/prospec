@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// Must precede any picocolors import — disables color for non-TTY stdout.
+import './setup-color.js';
 import * as fs from 'node:fs';
 import { Command } from 'commander';
 import pc from 'picocolors';
@@ -14,6 +16,7 @@ import { registerChangeCommand } from './commands/change-story.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
 import { registerMeasureCommand } from './commands/measure.js';
+import { registerCheckCommand } from './commands/check.js';
 
 // Read version from package.json at build time via Node.js import
 import { createRequire } from 'node:module';
@@ -77,6 +80,7 @@ export function createProgram(): Command {
   registerChangePlanCommand(program);
   registerChangeTasksCommand(program);
   registerMeasureCommand(program);
+  registerCheckCommand(program);
 
   return program;
 }

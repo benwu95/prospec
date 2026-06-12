@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-757%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-839%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -233,6 +233,18 @@ model provider, not the agent harness itself):
 - No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
 - Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
 
+### Drift Check (CI Gate)
+
+| Command | Description |
+|---------|-------------|
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), and kind-aware task completion. `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
+
+Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
+never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
+permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
+the developer and the CI gate always see the same facts, token-free.
+
 ---
 
 ## AI Skills
@@ -290,6 +302,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Output Contract** — each Skill self-reports `Met N/M | Overall: PASS|WARN|FAIL` against objective criteria, so you don't hand-check artifacts.
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
+- **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. Unavailable sources degrade to an explicit `skipped`, and semantic consistency stays with `/prospec-review` (the report marks it `not-checked`, never PASS).
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
 - **Feedback promotion** — `/prospec-learn` collects recurring lessons (from each archived change's cross-stage `quality_log` and `review.md` findings, plus session corrections), scores them with an explicit reproducible rule (frequency + impact modules), and — only with explicit human approval — promotes them into the version-controlled team `_playbook.md` or the Constitution. This is what makes Prospec get *smarter* with use, not just *bigger*.
 
@@ -374,7 +387,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (757 tests)
+# Run all tests (839 tests)
 pnpm test
 
 # Watch mode
@@ -391,11 +404,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 757 tests across 4 categories:
-- Unit tests (lib + services): 325 tests
-- Contract tests (CLI output + Skill format): 390 tests
+**Test Coverage**: 839 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 398 tests
+- Contract tests (CLI output + Skill format): 395 tests
 - Integration tests: 15 tests
-- E2E tests: 27 tests
+- E2E tests: 31 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 
