@@ -65,6 +65,16 @@
 
 ---
 
+### 5. User-Facing Documentation Stays Current with Features
+
+**Description**: prospec is a developer tool — the root `README.md` is the primary place users learn what it does and how to use it. When a change adds, changes, or removes a user-facing surface documented in the root `README.md` (a feature, command, skill, workflow, or directory layout), the README should be updated in the same change, as part of implementation — before verification. Pure internal changes (refactors, tests, or docs outside the README) that touch no README-documented surface are exempt.
+
+**Rationale**: For a tool, a stale README silently misleads every user — the cost lands on people outside the change. Folding the README update into implementation keeps "done" honest: it is cheap alongside the code, expensive when discovered later.
+
+**Enforcement**: A **[SHOULD]** rule. `/prospec-verify`'s Constitution audit (Verification 3/5) checks whether a change that altered a README-documented surface also updated the root `README.md`; a gap is graded **WARN** (advisory — does not block grade S/A) and recorded to `quality_log` so it surfaces before `/prospec-archive`. Governs the prospec project only; intentionally NOT encoded into any shipped Skill template — downstream prospec projects keep their own Constitution.
+
+---
+
 ## Constraints
 
 - [x] Change workflow documents (proposal, plan, delta-spec, tasks) must be in Traditional Chinese
@@ -72,16 +82,17 @@
 - [x] User Stories must pass INVEST validation before entering the Plan stage
 - [x] No feature commits without tests (tests must precede or accompany implementation)
 - [x] Dependency direction is `cli → services → lib → types` — no reverse imports
+- [x] User-facing changes update the root `README.md` in the same change ([SHOULD] — verify Constitution audit WARNs on a gap)
 
 ---
 
 ## Quality Standards
 
 - **Testing**: All public functions must have unit tests; coverage ≥ 80%
-- **Documentation**: Change documents in Traditional Chinese; code in English
+- **Documentation**: Change documents in Traditional Chinese; code in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Follow Conventional Commits; atomic commits by feature; messages in English
 - **Requirements**: User Stories must satisfy INVEST with explicit acceptance criteria
 
 ---
 
-> Last updated: 2026-06-11
+> Last updated: 2026-06-12
