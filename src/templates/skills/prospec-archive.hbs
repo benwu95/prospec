@@ -105,9 +105,17 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
 
 > The archive service additionally auto-triggers a knowledge update as an idempotent safety net — with the Entry Gate already satisfied it is a no-op, not a substitute for the gate.
 
-### Phase 4.5: Suggest Feedback Collection
+### Phase 4.5: Auto-Harvest Recurring Lessons
 
-After the knowledge sync re-check, suggest `/prospec-learn` — archive is a collection point for cross-change recurring lessons (repeated verify FAILs, recurring review criticals across this and prior changes). Non-fatal pointer only; the user runs `/prospec-learn` when they want to refresh the lessons ledger.
+Archiving is the **one moment** this change's `quality_log` and `review.md` still exist before the worktree workflow can discard them — so harvest them into the version-controlled ledger now, rather than only pointing the user at `/prospec-learn` later (which, in a fresh worktree, would find the archive already gone).
+
+Follow the **Harvest** definition in `/prospec-learn`'s `references/promotion-format.md` (read it on demand; do not restate the ledger table here):
+
+1. Scan this change's `metadata.yaml` `quality_log` (WARN/FAIL) and `review.md` (recurring criticals); cross `tasks.md` × kind markers for `[M]` manual tasks left unchecked.
+2. Assign each finding its deterministic ledger key and **upsert** into `{{knowledge_base_path}}/_lessons-ledger.md`: `source_changes` is a set and `frequency` increments once per distinct change, so re-archiving is **idempotent** (no double-count). A recurring unchecked-`[M]` pattern records a `kind: playbook` "manual task systematically skipped" lesson; a `tasks.md` without kind markers is skipped, not guessed.
+3. This is **non-fatal** (try/catch + log, like Feature Spec Sync / knowledge update) — a harvest failure never blocks archiving.
+
+Then point the user at `/prospec-learn` for Score/Promote — auto-harvest only accumulates; nothing is promoted to `_playbook.md`/Constitution without explicit human approval.
 
 ## Output Contract
 

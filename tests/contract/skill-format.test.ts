@@ -1192,6 +1192,91 @@ describe('Skill Format Contract', () => {
       }
     });
   });
+
+  describe('knowledge flywheel — durable ledger + archive auto-harvest (BL-029)', () => {
+    const renderLearn = () =>
+      renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+    const renderArchive = () =>
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+    const renderFormat = () =>
+      renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+
+    // T8 — the ledger is version-controlled; the retired gitignored path must be gone
+    it('learn + promotion-format reference the version-controlled ledger, never the retired gitignored path', () => {
+      for (const c of [renderLearn(), renderFormat()]) {
+        expect(c).toContain('_lessons-ledger.md');
+        expect(c).not.toContain('.prospec/lessons.md');
+        expect(c).not.toContain('personal ledger'); // M1: relocated file is no longer a personal tier
+      }
+    });
+
+    it('learn carries forward the durable ledger; the threshold config file is intentionally kept', () => {
+      const loading = sectionOf(renderLearn(), '## Startup Loading');
+      expect(loading).toContain('_lessons-ledger.md');
+      expect(loading).not.toContain('.prospec/lessons.md');
+      // .prospec/lessons.yaml is threshold config (also offered via git-tracked .prospec.yaml), not the ledger
+      expect(loading).toContain('.prospec/lessons.yaml');
+    });
+
+    // T9 — Phase 4.5 is an idempotent, non-fatal auto-harvest, not a passive pointer
+    it('archive Phase 4.5 auto-harvests into the ledger — idempotent, non-fatal, tasks×kind aware', () => {
+      const harvest = sectionOf(
+        renderArchive(),
+        '### Phase 4.5: Auto-Harvest Recurring Lessons',
+      );
+      expect(harvest).toContain('_lessons-ledger.md');
+      expect(harvest).toMatch(/idempotent/i);
+      expect(harvest).toMatch(/non-fatal/i);
+      expect(harvest).toContain('quality_log');
+      expect(harvest).toContain('review.md');
+      expect(harvest).toContain('[M]'); // tasks×kind manual-skip dimension (frozen kind schema)
+      expect(harvest).toContain('/prospec-learn'); // accumulates, then hands off — no auto-promote
+    });
+
+    it('archive Phase 4.5 is no longer a passive suggestion-only pointer', () => {
+      const content = renderArchive();
+      expect(content).toContain('### Phase 4.5: Auto-Harvest Recurring Lessons');
+      expect(content).not.toContain('### Phase 4.5: Suggest Feedback Collection');
+    });
+
+    // T9 — learn Entry Gate must not false-block when the ledger has material but archives are wiped (PB-002)
+    it('learn Entry Gate accepts a populated ledger OR an archived change (worktree false-block fix)', () => {
+      const gate = sectionOf(renderLearn(), '## Entry Gate');
+      expect(gate).toContain('_lessons-ledger.md');
+      expect(gate).toMatch(/\bOR\b/);
+      expect(gate).toMatch(/both/i);
+    });
+
+    // T9 — health drives PRIORITIZATION only; the must-NOT-auto-write rule is stated explicitly (PB-001 negative)
+    it('health prioritization is prioritization-only and explicitly forbids auto-writing _conventions.md', () => {
+      const score = sectionOf(renderLearn(), '### Score');
+      expect(score).toContain('knowledge_health');
+      expect(score).toMatch(/prioriti/i);
+      expect(score).toMatch(/never auto-write/i);
+      expect(score).toContain('_conventions.md');
+      const fmt = renderFormat();
+      expect(fmt).toMatch(/never auto-write/i);
+      expect(fmt).toContain('_conventions.md');
+    });
+
+    // T9/REQ-072 — promotion-format is the single source for harvest + prioritization
+    it('promotion-format defines Harvest (idempotent, tasks×kind, no auto-promote) and prioritization as single source', () => {
+      const harvest = sectionOf(
+        renderFormat(),
+        '## Harvest (archive-time auto-extraction)',
+      );
+      expect(harvest).toMatch(/idempotent/i);
+      expect(harvest).toContain('[M]');
+      expect(harvest).toContain('kind: playbook');
+      expect(harvest).toMatch(/auto-harvest ≠ auto-promote/i);
+      const prio = sectionOf(
+        renderFormat(),
+        '## Review-Queue Prioritization (knowledge_health)',
+      );
+      expect(prio).toContain('knowledge_health');
+      expect(prio).toMatch(/never auto-write/i);
+    });
+  });
 });
 
 /**

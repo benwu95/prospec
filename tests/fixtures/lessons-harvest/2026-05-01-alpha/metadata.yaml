@@ -1,0 +1,13 @@
+name: alpha-change
+created_at: 2026-05-01
+status: archived
+scale: standard
+related_modules:
+  - tests
+  - templates
+quality_log:
+  - skill: prospec-verify
+    date: 2026-05-01
+    result: FAIL
+    warnings:
+      - contract assertion checks content presence only, not structure

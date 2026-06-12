@@ -1,8 +1,8 @@
 # Team Playbook — Promoted Lessons
 
-> Shared, version-controlled lessons promoted from the personal ledger (`.prospec/lessons.md`)
+> Shared, version-controlled lessons promoted from the lessons ledger (`_lessons-ledger.md`)
 > by **`/prospec-learn`**, each only after **explicit human approval**. This is the team tier
-> between personal lessons and Constitution rules. Load on demand (progressive disclosure):
+> between the lessons ledger and Constitution rules. Load on demand (progressive disclosure):
 > Skills read **only the entries relevant to the change at hand**, not the whole file.
 
 Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/references/promotion-format.md`:
