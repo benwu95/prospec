@@ -1,0 +1,165 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { DriftReportSchema, DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
+
+// check.service drives fast-glob + git collectors — real temp dirs, like scanner.test.ts.
+
+let tmpDir: string;
+
+beforeEach(() => {
+  tmpDir = mkdtempSync(path.join(os.tmpdir(), 'check-service-'));
+  write(
+    '.prospec.yaml',
+    [
+      'version: "1.0"',
+      'project:',
+      '  name: t',
+      'paths:',
+      '  base_dir: prospec',
+      'knowledge:',
+      '  base_path: prospec/ai-knowledge',
+      'tech_stack:',
+      '  language: typescript',
+      '  package_manager: pnpm',
+    ].join('\n'),
+  );
+});
+
+afterEach(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
+});
+
+function write(relPath: string, content: string): void {
+  const abs = path.join(tmpDir, relPath);
+  mkdirSync(path.dirname(abs), { recursive: true });
+  writeFileSync(abs, content);
+}
+
+describe('check.service execute', () => {
+  it('produces a schema-valid report and writes it with --json', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\nsee REQ-A-001\n');
+    const result = await execute({ cwd: tmpDir, json: true });
+    expect(result.kind).toBe('report');
+    if (result.kind !== 'report') return;
+    expect(result.hasFail).toBe(false);
+    expect(result.reportPath).toBe(path.resolve(tmpDir, DRIFT_REPORT_FILENAME));
+    const onDisk = JSON.parse(readFileSync(result.reportPath!, 'utf-8'));
+    expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
+  });
+
+  it('marks unavailable sources as skipped — never PASS (all five checks, FR-007)', async () => {
+    // no specs, no knowledge, no module paths, no .prospec/changes, no git repo
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    for (const check of result.report.structural.checks) {
+      expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
+      expect(check.reason ?? '').toContain('source unavailable');
+    }
+    expect(result.report.summary.skipped_count).toBe(5);
+    expect(result.hasFail).toBe(false);
+  });
+
+  it('reports hasFail on a dangling REQ reference', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write('prospec/ai-knowledge/_index.md', 'mentions REQ-GONE-007\n');
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.hasFail).toBe(true);
+    const finding = result.report.structural.findings.find((f) => f.check === 'req-references');
+    expect(finding?.detail).toContain('REQ-GONE-007');
+  });
+
+  it('skips knowledge-health when module-map.yaml is missing — no phantom modules', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write('src/cli/x.ts', '');
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const health = result.report.structural.checks.find((c) => c.id === 'knowledge-health');
+    expect(health?.status).toBe('skipped');
+    expect(health?.reason).toContain('module boundaries unknown');
+    expect(result.report.structural.knowledge_health).toBeUndefined();
+    // constitution fallback still CHECKS import direction (proposal edge-case semantics)
+    const direction = result.report.structural.checks.find((c) => c.id === 'import-direction');
+    expect(direction?.status).toBe('pass');
+  });
+
+  it('fails loudly on a schema-invalid module-map instead of silently swapping rulesets', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write('prospec/ai-knowledge/module-map.yaml', 'modules:\n  - nome: typo\n');
+    await expect(execute({ cwd: tmpDir })).rejects.toMatchObject({
+      code: 'MODULE_DETECTION_ERROR',
+    });
+  });
+
+  it('clamps module-map paths that escape the repo (never scanned or read)', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write(
+      'prospec/ai-knowledge/module-map.yaml',
+      ['modules:', '  - name: evil', '    paths:', '      - ../../', '    keywords: []'].join('\n'),
+    );
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    // all of the module's paths were clamped away → no module path exists → honest skip
+    const direction = result.report.structural.checks.find((c) => c.id === 'import-direction');
+    expect(direction?.status).toBe('skipped');
+    expect(result.hasFail).toBe(false);
+  });
+
+  it('does not write a report without --json', async () => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.reportPath).toBeUndefined();
+    expect(existsSync(path.join(tmpDir, DRIFT_REPORT_FILENAME))).toBe(false);
+  });
+});
+
+describe('check.service --init-ci', () => {
+  it('scaffolds the hardened workflow with the project package manager', async () => {
+    const result = await execute({ cwd: tmpDir, initCi: true });
+    expect(result.kind).toBe('init-ci');
+    if (result.kind !== 'init-ci') return;
+    expect(result.created).toBe(true);
+    const content = readFileSync(path.join(tmpDir, CI_WORKFLOW_PATH), 'utf-8');
+    expect(content).toContain('pnpm exec prospec check --strict --json');
+    expect(content).toContain('permissions:');
+    expect(content).toContain('fetch-depth: 0');
+    // every third-party action pinned to a full commit SHA
+    for (const uses of content.match(/uses: .*/g) ?? []) {
+      expect(uses).toMatch(/@[0-9a-f]{40} # v\d/);
+    }
+    // the strict-gate step pipes through tee — without an explicit bash shell
+    // (pipefail), tee's exit 0 would mask the gate's exit 1
+    const gateStep = content.slice(content.indexOf('Run prospec check (strict gate)'));
+    const shellLine = gateStep.split('\n').find((l) => l.includes('shell:'));
+    expect(shellLine?.trim()).toBe('shell: bash');
+    // comment body must be an indented code block (unescapable), never a fence
+    const composeStep = content.slice(content.indexOf('Compose comment body'));
+    expect(composeStep).toContain("sed 's/^/    /'");
+    expect(composeStep).toContain('head -c 60000');
+    expect(composeStep).not.toContain('```');
+  });
+
+  it('is rerun-safe — never overwrites an existing workflow', async () => {
+    await execute({ cwd: tmpDir, initCi: true });
+    const workflowAbs = path.join(tmpDir, CI_WORKFLOW_PATH);
+    writeFileSync(workflowAbs, 'user-edited\n');
+    const second = await execute({ cwd: tmpDir, initCi: true });
+    if (second.kind !== 'init-ci') throw new Error('expected init-ci');
+    expect(second.created).toBe(false);
+    expect(readFileSync(workflowAbs, 'utf-8')).toBe('user-edited\n');
+  });
+
+  it('falls back to npx commands for non-pnpm projects', async () => {
+    write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: t\n');
+    const result = await execute({ cwd: tmpDir, initCi: true });
+    if (result.kind !== 'init-ci') throw new Error('expected init-ci');
+    const content = readFileSync(path.join(tmpDir, CI_WORKFLOW_PATH), 'utf-8');
+    expect(content).toContain('npx prospec check --strict --json');
+    expect(content).toContain('npm ci');
+    expect(content).not.toContain('pnpm/action-setup');
+  });
+});

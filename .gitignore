@@ -41,3 +41,6 @@ AGENTS.md
 # Prospec
 .prospec/
 measurement-report*.json
+
+# prospec check generated report (CI consumes it as an artifact)
+prospec-report.json

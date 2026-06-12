@@ -128,6 +128,7 @@
       ".prospec/changes/[name]/plan.md",
       ".prospec/changes/[name]/proposal.md",
       ".prospec/changes/[name]/tasks.md",
+      "prospec check --json",
       "{{base_dir}}/specs/features/",
       "{{base_dir}}/specs/product.md",
       "{{constitution_path}}"
