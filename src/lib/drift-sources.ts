@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { scanDirSync } from './scanner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
+import { ARCHIVED_EXCLUDES, isArchivedSpec, isSafeResourceName } from './knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
 
 /**
@@ -19,9 +20,8 @@ import type { ModuleMap } from '../types/module-map.js';
 /** REQ-{MODULE}-{NUMBER} with uppercase, possibly hyphenated module names. */
 const REQ_ID_PATTERN = /REQ-(?:[A-Z][A-Z0-9]*-)+\d+/g;
 
-// Archived spec material is historical — excluded from both sides of the check
-// (both the `_archived-…` directory convention and flat `_archived….md` files).
-const ARCHIVED_EXCLUDES = ['**/_archived*', '**/_archived*/**'];
+// Archived exclusion is single-sourced in knowledge-reader.ts so the MCP
+// spec listing and this check can never drift apart (REQ-MCP-003).
 
 export interface ReqDefinitionIndex {
   available: boolean;
@@ -98,7 +98,7 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
     return { available: false, reason: `source unavailable: ${featuresDir} not found`, ids: [] };
   }
   const files = readdirSync(featuresDir).filter(
-    (f) => f.endsWith('.md') && !f.startsWith('_archived'),
+    (f) => f.endsWith('.md') && !isArchivedSpec(f),
   );
   if (files.length === 0) {
     return { available: false, reason: `source unavailable: no feature specs in ${featuresDir}`, ids: [] };
@@ -262,6 +262,10 @@ export function collectGitTimestamps(
   }
   const modules: ModuleTimestamps[] = [];
   for (const entry of moduleMap.modules) {
+    // a module name is one path segment, never a traversal — a crafted name
+    // (e.g. "../../etc") must not turn health into an existence oracle for
+    // files outside the repo (same guard as the MCP listing surface)
+    if (!isSafeResourceName(entry.name)) continue;
     const readmeRel = path.join(
       path.relative(cwd, path.resolve(cwd, knowledgePath)),
       'modules',

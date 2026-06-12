@@ -625,3 +625,21 @@ describe('prospec check E2E', () => {
     expect(second.stdout).toContain('already exists');
   });
 });
+
+describe('prospec mcp E2E', () => {
+  // The serve daemon itself is covered by the in-memory contract suite
+  // (tests/contract/mcp-server.test.ts) — e2e only freezes the CLI registration.
+  it('registers the mcp command with a serve subcommand', async () => {
+    const help = await runCli(['mcp', '--help']);
+    expect(help.exitCode).toBe(0);
+    expect(help.stdout).toContain('serve');
+    expect(help.stdout).toContain('read-only');
+  });
+
+  it('mcp serve without .prospec.yaml fails on stderr, never stdout', async () => {
+    const result = await runCli(['mcp', 'serve']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('.prospec.yaml');
+    expect(result.stdout).toBe('');
+  });
+});

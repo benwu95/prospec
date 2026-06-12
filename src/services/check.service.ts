@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
-import { parseYaml } from '../lib/yaml-utils.js';
+import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
 import {
   buildDependencyRules,
@@ -19,8 +19,6 @@ import {
   collectTaskStates,
 } from '../lib/drift-sources.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
-import { ModuleDetectionError } from '../types/errors.js';
-import { ModuleMapSchema, type ModuleMap } from '../types/module-map.js';
 
 export interface CheckOptions {
   cwd?: string;
@@ -122,33 +120,4 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
   });
   await atomicWrite(workflowPath, content);
   return { kind: 'init-ci', workflowPath, created: true };
-}
-
-function loadModuleMap(knowledgePath: string, cwd: string): ModuleMap | null {
-  const mapPath = path.join(knowledgePath, 'module-map.yaml');
-  if (!existsSync(mapPath)) return null;
-  const parsed = ModuleMapSchema.safeParse(parseYaml(readFileSync(mapPath, 'utf-8')));
-  if (!parsed.success) {
-    // fail loudly — silently swapping a present-but-broken map for the
-    // constitution fallback would check against the wrong ruleset
-    throw new ModuleDetectionError(
-      `module-map.yaml is invalid: ${parsed.error.issues
-        .map((i) => `${i.path.join('.')}: ${i.message}`)
-        .join('; ')}`,
-    );
-  }
-  return clampModulePaths(parsed.data, cwd);
-}
-
-/** Drop module paths that escape the repo — they must never drive scanning or reads. */
-function clampModulePaths(moduleMap: ModuleMap, cwd: string): ModuleMap {
-  return {
-    modules: moduleMap.modules.map((m) => ({
-      ...m,
-      paths: m.paths.filter((p) => {
-        const rel = path.relative(cwd, path.resolve(cwd, p));
-        return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
-      }),
-    })),
-  };
 }
