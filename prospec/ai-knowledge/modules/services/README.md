@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 11 services following `execute(options) → Promise<Result>` pattern (3,577 lines total)
+> Business logic layer — 11 services following `execute(options) → Promise<Result>` pattern (3,601 lines total)
 
 <!-- prospec:auto-start -->
 
@@ -17,7 +17,7 @@
 | `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold |
 | `src/services/change-tasks.service.ts` | Generate tasks.md scaffold |
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint) |
-| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md (825 lines) |
+| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; summary task stats count code tasks only — `[M]`/`[V]` reported apart (849 lines) |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
 
 ## Public API
@@ -59,6 +59,7 @@
 - `knowledge.service.ts` requires `module-map.yaml` to exist — now satisfied by `knowledge init` (rerun-safe: only written when absent); throws `PrerequisiteError` if still missing
 - Template context keys have no compile-time validation — typos produce empty output silently
 - change metadata.yaml is NOT rendered from a template — build the object and `stringifyYaml()` it (correct-by-construction escaping); frontmatter trigger words go through `escapeYamlScalar()`
+- archive's auto knowledge-update safety net no-ops when delta-spec.md is absent (the quick path) — the skill-level archive Entry Gate (diff-path module derivation) is the mandatory checkpoint there
 
 <!-- prospec:auto-end -->
 

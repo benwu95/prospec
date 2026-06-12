@@ -224,6 +224,39 @@ None
     expect(content).toContain('67%');
   });
 
+  it('counts only code tasks in the completion stats; [M]/[V] kinds are listed apart (REQ-SERVICES-010)', async () => {
+    vol.fromJSON({
+      '/archive/tasks.md': `# Tasks
+
+- [x] T1 Implement schema field ~15 lines
+- [x] T2 [P] Write contract tests ~40 lines
+- [ ] T3 Update formatter ~20 lines
+- [ ] T4 [M] Run \`prospec agent sync\` ~5 lines
+- [x] T5 [V] Mutation-verify assertions ~10 lines
+- [ ] T6 [P] [M] Configure external tool ~5 lines
+`,
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    // code denominator: T1, T2, T3 → 2/3; [M]/[V] (T4, T5, T6) never counted in it
+    expect(content).toContain('2/3');
+    expect(content).toContain('67%');
+    expect(content).not.toContain('3/6');
+    expect(content).toContain('1/3 [M]/[V] (not counted)');
+  });
+
+  it('keeps the plain completion format when no kind-marked tasks exist', async () => {
+    vol.fromJSON({
+      '/archive/tasks.md': '- [x] Task 1\n- [ ] Task 2\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).toContain('1/2 (50%)');
+    expect(content).not.toContain('[M]/[V]');
+  });
+
   it('should handle missing proposal.md gracefully', async () => {
     vol.fromJSON({
       '/archive/metadata.yaml': 'status: verified\n',

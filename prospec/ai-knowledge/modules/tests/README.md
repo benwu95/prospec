@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 34 test files, 719 tests (unit 319, contract 358, integration 15, e2e 27)
+> 4-layer test architecture using Vitest + memfs — 34 test files, 757 tests (unit 325, contract 390, integration 15, e2e 27)
 
 <!-- prospec:auto-start -->
 
@@ -10,12 +10,12 @@
 |------|---------|
 | `tests/unit/lib/config.test.ts` | Config resolution and validation (16 tests) |
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes (21 tests) |
-| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow (24 tests) |
+| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats (26 tests) |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
-| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics (archive Entry Gate, verify V4 informational, lifecycle checkpoint) |
+| `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync); shared module-scope `sectionOf` helper (EOF-tolerant) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (27 tests, incl. `prospec measure`) |

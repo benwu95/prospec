@@ -93,7 +93,36 @@ Use `[P]` to mark tasks that can be executed in parallel (no dependencies):
 
 ---
 
-### 4. Complexity Estimate Format
+### 4. Task Kind Markers
+
+> This section is the **single frozen definition** of the task `kind` schema. Other skills
+> and references cite this section — they must not restate the definition.
+
+Every task has exactly one kind. Mark non-code tasks; an unmarked task **is** code:
+
+| Marker | Kind | Meaning | Examples |
+|--------|------|---------|----------|
+| (none) | `code` | Changes source, templates, tests, or docs in the repo | implement schema field, edit template, write test |
+| `[M]` | `manual` | A human or out-of-repo action; produces no diff | run a CLI command, configure an external tool, obtain an API key |
+| `[V]` | `verification` | Confirms an outcome without producing new content | mutation-verify assertions, confirm a fixture is unchanged |
+
+```markdown
+- [ ] T1 Implement scale field in schema ~15 lines        ← code (unmarked)
+- [ ] T2 [M] Run `prospec agent sync` to redeploy ~5 lines
+- [ ] T3 [V] Mutation-verify the new assertions ~10 lines
+```
+
+**Rules:**
+
+- Kind markers compose with `[P]`: `- [ ] T4 [P] [M] ...` (order: `[P]` before kind)
+- A task with no marker is `code` — old tasks.md files without markers remain valid (all code)
+- Consumer semantics: completion rate counts **code tasks only**; `[M]`/`[V]` tasks are listed
+  separately and never counted in the completion denominator (verify), and unchecked `[M]`
+  tasks warn without blocking (archive)
+
+---
+
+### 5. Complexity Estimate Format
 
 Use `~{lines} lines` to estimate complexity:
 
@@ -105,7 +134,7 @@ Use `~{lines} lines` to estimate complexity:
 
 ---
 
-### 5. Summary Section
+### 6. Summary Section
 
 Add a summary at the end of the file:
 

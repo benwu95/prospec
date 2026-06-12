@@ -3,7 +3,7 @@
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas, error hierarchy (12 classes), skill/agent definitions, measurement report schemas
+    description: Zod 4 schemas, error hierarchy (12 classes), skill/agent definitions, change scale levels, measurement report schemas
     paths:
       - src/types
     keywords:
@@ -53,7 +53,7 @@ modules:
         - tests
 
   - name: services
-    description: Business logic — 11 services with execute() pattern, including Recipe-First knowledge generation and measurement-report loading
+    description: Business logic — 11 services with execute() pattern, including Recipe-First knowledge generation, measurement-report loading, and kind-aware archive task stats
     paths:
       - src/services
     keywords:
@@ -96,7 +96,7 @@ modules:
         - tests
 
   - name: templates
-    description: Handlebars template library — skills (static-first Startup Loading with STABLE/DYNAMIC markers), references, agent-configs, change, init/steering/knowledge
+    description: Handlebars template library — skills (static-first Startup Loading with STABLE/DYNAMIC markers, scale-aware quick path), references (incl. frozen task kind schema), agent-configs, change, init/steering/knowledge
     paths:
       - src/templates
     keywords:

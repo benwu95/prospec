@@ -27,7 +27,7 @@ When triggered, briefly describe:
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
-- plan.md and delta-spec.md exist.
+- plan.md and delta-spec.md exist. **Exception — `metadata.scale: quick`**: only proposal.md is required (a quick change legitimately has no plan/delta-spec); decompose directly from proposal.md and advance status `story → tasks` (the legal quick transition — see `{{knowledge_base_path}}/_status-lifecycle.md`).
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
 
 ## Core Workflow
@@ -52,6 +52,8 @@ Types → Lib → Services → CLI → Tests
 ```
 
 Each task format: `- [ ] [description] ~{lines} lines`. Add `[P]` marker for parallelizable tasks.
+
+**Task kind tagging:** mark each non-code task with its kind — `[M]` (manual) or `[V]` (verification); leave code tasks unmarked. The kind schema is frozen in `references/tasks-format.md` (Task Kind Markers) — cite it, do not restate. Downstream, verify counts only code tasks in the completion rate and archive warns on unchecked tasks by kind.
 
 **Decomposition principles:**
 - Single responsibility: one task does one thing
@@ -97,13 +99,13 @@ Suggest: `/prospec-implement` or manual review.
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
 
 ### Success Criteria
-- [ ] tasks cover every delta-spec REQ
+- [ ] tasks cover every delta-spec REQ (quick: every proposal acceptance scenario — no delta-spec by contract)
 - [ ] tasks grouped by architecture layer
 - [ ] each task has a ~lines estimate
 - [ ] every new/modified module has a test task
 
 ### Failure Conditions
-- no plan.md present
+- no plan.md present (does not apply to `scale: quick`)
 - > 30 tasks, or a modified module has no test task
 
 ### Output Summary
@@ -119,7 +121,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** create overly fine-grained tasks (<10 lines) — micro-tasks inflate task count and add checkbox overhead without meaningful progress tracking
 - **NEVER** create overly coarse tasks (>200 lines) — unverifiable; if a 200-line task fails, the entire block must be debugged and reworked
 - **NEVER** forget to update metadata.yaml status to `tasks` — downstream Skills check status to determine workflow stage (full lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`)
-- **NEVER** start decomposition without plan.md — tasks without architecture context produce random file edits instead of layered implementation
+- **NEVER** start decomposition without plan.md — tasks without architecture context produce random file edits instead of layered implementation (`scale: quick` is the exception: decompose from proposal.md, there is no plan by contract)
 - **NEVER** skip test tasks — Constitution requires test coverage; untested modules are deployment blockers in Verify phase
 - **NEVER** forget to mark `[P]` — Implement Skill uses this to suggest parallel developer assignment; missing markers force sequential execution
 - **NEVER** use S/M/L complexity markers — `~{lines} lines` provides actionable estimates for progress tracking and commit sizing
@@ -128,7 +130,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 
 | Scenario | Action |
 |----------|--------|
-| plan.md not found | Guide user to run `/prospec-plan` first |
+| plan.md not found | `scale: quick`: expected — decompose from proposal.md. Otherwise guide user to run `/prospec-plan` first |
 | Task count exceeds 30 | Suggest splitting the Story or merging fine-grained tasks |
 | Insufficient test coverage | Offer options: add test tasks / document test debt |
 

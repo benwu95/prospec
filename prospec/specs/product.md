@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.2.0
-last_updated: 2026-06-11
+last_updated: 2026-06-12
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -27,7 +27,7 @@ last_updated: 2026-06-11
 
 ### 開發流程
 
-六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進。
+六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。
 → [features/sdd-workflow.md](features/sdd-workflow.md)
 
 ### AI 知識系統

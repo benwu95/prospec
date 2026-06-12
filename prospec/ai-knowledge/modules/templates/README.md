@@ -12,9 +12,9 @@
 | `src/templates/steering/module-readme.hbs` | Recipe-First module README (Key Files → Public API → Modification Guide → Pitfalls) |
 | `src/templates/knowledge/index.md.hbs` | _index.md with Rationale column and Loading Rules |
 | `src/templates/knowledge/raw-scan.md.hbs` | Raw scan output template |
-| `src/templates/skills/*.hbs` | 13 skill templates; frontmatter renders `Triggers: {{trigger_words}}`; artifact skills include `{{> language-policy}}`; Startup Loading is static-first with `[STABLE]/[DYNAMIC]` markers (cache-stable prefix, BL-020); archive carries the knowledge-sync Entry Gate and verify V4 grades only pre-existing drift (BL-038) |
-| `src/templates/skills/references/*.hbs` | 17 reference templates, rendered to `.md` per skill (format specs + design adapters) |
-| `src/templates/change/*.hbs` | 4 change workflow templates (proposal, plan, delta-spec, tasks); metadata.yaml is serialized in change-story.service, not templated |
+| `src/templates/skills/*.hbs` | 13 skill templates; frontmatter renders `Triggers: {{trigger_words}}`; artifact skills include `{{> language-policy}}`; Startup Loading is static-first with `[STABLE]/[DYNAMIC]` markers (cache-stable prefix, BL-020); archive carries the knowledge-sync Entry Gate and verify V4 grades only pre-existing drift (BL-038); skills are scale-aware (BL-004) — new-story assesses a user-confirmed `metadata.scale`, and the quick path (no plan/delta-spec) threads through ff/plan/tasks/implement/review/verify/archive gates |
+| `src/templates/skills/references/*.hbs` | 17 reference templates, rendered to `.md` per skill (format specs + design adapters); `tasks-format.hbs` is the single frozen definition of the task kind schema (`[M]`/`[V]`, unmarked = code) |
+| `src/templates/change/*.hbs` | 4 change workflow templates (proposal, plan, delta-spec, tasks); tasks.md.hbs carries the `[ID] [P?] [kind?]` format; metadata.yaml is serialized in change-story.service, not templated |
 | `src/templates/agent-configs/entry.md.hbs` | Shared entry-config template — declares `artifact_language` (L0) and lists per-skill Triggers |
 | `src/templates/skills/_language-policy.hbs` | Shared Language Policy partial, lazily registered as `{{> language-policy}}` for skills/ renders |
 
@@ -53,7 +53,8 @@
 - Values reaching YAML frontmatter scalars (`{{trigger_words}}`) must be pre-escaped by the caller (`escapeYamlScalar`)
 - `prospec.yaml.hbs` knowledge section defines defaults (strategy: auto, token_budget) — changes affect all new projects
 - Startup Loading lists must stay contiguous (no top-level prose between numbered items) — CommonMark turns interrupted items into paragraph continuations; the contiguity contract assertion guards this
-- Lifecycle/gate semantics are duplicated in `prospec/ai-knowledge/_status-lifecycle.md` AND `src/templates/init/status-lifecycle.md.hbs` (rendered into new projects) — edit BOTH; a contract test locks the template copy
+- Lifecycle/gate semantics are duplicated in `prospec/ai-knowledge/_status-lifecycle.md` AND `src/templates/init/status-lifecycle.md.hbs` (rendered into new projects) — edit BOTH; contract tests lock the template copy and the quick-path markers' sync
+- The task kind definition table lives ONLY in `references/tasks-format.hbs` — other templates cite it; restating the table elsewhere turns the negative contract assertions red
 
 <!-- prospec:auto-end -->
 

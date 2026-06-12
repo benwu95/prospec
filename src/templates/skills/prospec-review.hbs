@@ -24,8 +24,8 @@ When triggered, briefly describe:
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
-- Implementation is done: metadata status is `implemented` and tasks.md checkboxes are complete; if still `tasks`, FAIL and point to `/prospec-implement`.
-- Planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md.
+- Implementation is done: metadata status is `implemented` and tasks.md **code-task** checkboxes are complete (unchecked `[M]`/`[V]` tasks do not block; kind schema: tasks-format reference); if still `tasks`, FAIL and point to `/prospec-implement`.
+- Planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md. **Exception — `metadata.scale: quick`**: only proposal.md + tasks.md are required (a quick change legitimately has no plan/delta-spec); do not FAIL on their absence.
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
 
 ## Core Workflow
@@ -41,6 +41,7 @@ Must-run every round:
 - **correctness & edge cases**
 - **security & data integrity**
 - **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation vs `delta-spec` REQ intent, dependency direction `cli → services → lib → types`, module conventions, and unhandled ripple effects.
+  - **Quick degradation** (`metadata.scale: quick`): the delta-spec REQ comparison is `not-applicable` (there is no delta-spec — never report it as PASS); dependency direction, module conventions, and ripple checks still run in full. Additionally, when the diff appears to touch behavior covered by existing `{{base_dir}}/specs/features/` REQs, raise an early warning — the `/prospec-archive` Entry Gate re-checks this, but catching it at review is cheaper.
 
 Conditional: efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions). A pluggable language-specific engine may add language lenses; the spec-architecture lens is always added by prospec.
 

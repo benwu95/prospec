@@ -133,7 +133,7 @@
 | BL-017 Design Phase | `prospec-design` skill + 4 platform adapters；歸檔 `add-design-phase` |
 | BL-018 語言中立化 | grep `written in English` / `in the user's language` = 0；歸檔 `remove-skill-language-directives` |
 | OPT-B4 delta-spec REQ ID | `delta-spec-format.hbs` 強制 `REQ-{MODULE}-{NUMBER}` |
-| OPT-B5 plan 長度控制（基礎） | `plan-format.hbs`「≤120 行」；三級細分待 BL-004 |
+| OPT-B5 plan 長度控制 | `plan-format.hbs`「≤120 行」+ Scale Tiers 三級指引（quick 免 plan / standard ≤120 / full 完整）；三級隨 BL-004 完成 |
 | **BL-019** Output Contract | 11 skill `## Output Contract` + Output Summary + contract test；commit `e90af12`；歸檔 `add-output-contract`（sdd-workflow US-11） |
 | **BL-031** Executable Constitution | `ConstitutionRule`（RFC-2119 severity）+ `exampleRulesFor()` init 範例 + verify 分級；commit `2f876c5`；歸檔 `make-constitution-executable`（US-5 / REQ-TEMPLATES-063） |
 | **BL-003** Entry/Exit 雙閘門 | 5 skill Entry Gate + Exit Gate 折入 Output Contract + `quality_log` 跨階段追溯；commit `c420244`；歸檔 `add-entry-exit-gates`（US-12） |
@@ -142,6 +142,7 @@
 | **BL-037** Review→Fix Loop | `/prospec-review`（對抗式 review→fix 迴圈、spec-aware lens、verifier 確認 critical）+ commit 邊界移至 verify(S/A) 後；commit `f0a1147`；歸檔 `add-review-fix-loop`（sdd-workflow US-13）。註：確定性簿記改純 Skill（Architecture C），未放 lib/cli |
 | **BL-036** Feedback Promotion | `/prospec-learn`（蒐集→可審計明文判定→人工核可三層晉升→TTL/衝突治理）；commit `6c25725`；歸檔 `add-feedback-promotion-pipeline`（新 Feature feedback-promotion US-1..4）。註：管線已建+verified；end-to-end self-host 實跑為後續 usage |
 | **BL-009** 多語言（重塑） | `prospec init --language` + Constitution Language Policy + 模板/CLI 全英文化 + `skill_triggers`；commit `06ba30a`；歸檔 `add-init-language-policy`（project-setup US-008~009, agent-integration US-411~412）。原 i18n helper 路線 CUT，重塑交付；交叉語言實測通過（zh-TW 專案收英文需求→繁中產出、反向亦然） |
+| **BL-004** Scale Adapter（+OPT-B3/B5/B6） | scale（quick/standard/full）流程縮放：new-story 複雜度評估（使用者確認 + spec-impact 否決 quick）、quick 跳 plan（story → tasks）、task kind 標記（`[M]`/`[V]`，凍結於 tasks-format）、verify/review quick 縮維（not-applicable 不偽裝 PASS）、archive quick 雙 gate（diff 路徑模組推導 + spec-impact）；commit `9839719`；歸檔 `add-scale-adapter`（sdd-workflow US-15 / REQ-TYPES-026 + REQ-TEMPLATES-084~090）。review 3 輪 critical+major 全修（757 tests 綠） |
 | **BL-038** Verify/Knowledge 時序重整 | 方向 B：verify V4 本變更落差降 informational + archive Entry Gate 成唯一強制 knowledge 同步檢查點；commit `b8a681f`（+`50889ff`/`8ca41dd`）；歸檔 `gate-knowledge-at-archive`（sdd-workflow US-14 / REQ-TEMPLATES-083）。驗收達成：verify 0 例行 WARN（Grade S self-hosting）、單一強制檢查點（gate 首次實跑即攔截未同步歸檔）、`_status-lifecycle.md` + init 模板雙同步 |
 
 > 非 BL 的基礎建設（隨各 change 完成，不在 BL 編號內）：Recipe-First Knowledge + L0/L1/L2 分層（`optimize-ai-knowledge`）、Feature/Product Spec 架構（`redesign-spec-system`）、verify 4/5 解耦 feature-spec（`skill-autonomy`）、Antigravity CLI 取代 Gemini（`migrate-gemini-to-antigravity`）、npm+pnpm 雙支援。
@@ -150,10 +151,10 @@
 
 | 分層 | 項目 |
 |------|------|
-| P0 補課 | BL-004（`change.ts` 無 `scale`）、BL-020（無 `[STABLE]/[DYNAMIC]`）〔BL-003 ✅、BL-019 ✅ 已完成〕 |
+| P0 補課 | 〔BL-003 ✅、BL-019 ✅、BL-020 ✅（`reorder-stable-prefix-loading`，2026-06-11）、BL-004 ✅（`add-scale-adapter`，2026-06-12）全數完成〕 |
 | P1/P2 | BL-005（無 `template` CLI）、BL-006（**PARTIAL**：仍 4 agents，缺 cursor/windsurf/opencode/qwen）、BL-012（無 `verify --ci`）、BL-021（無 `extension`）、BL-022（無 `prospec-help`）、BL-026（`_index.md` 無 Dashboard） |
 | Phase 4（2026 H2 新增） | BL-031 ✅ 已完成；BL-027~030、BL-032~035 未開始 |
-| OPT | A2、A4、B1、B2、B3、B6、D2、D4、D5、D9 未做；A1/D1/D3 **PARTIAL**（有雛形）；A3/C/D6 未逐項驗證〔D7/D8 ✅ commit `d3a0b8e`〕 |
+| OPT | A2、A4、B1、B2、D2、D4、D5、D9 未做；A1/D1/D3 **PARTIAL**（有雛形）；A3/C/D6 未逐項驗證〔D7/D8 ✅ commit `d3a0b8e`；B3/B5/B6 ✅ 隨 BL-004 完成 `9839719`〕 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
 ### ⚠️ 影響後續排程的缺口
@@ -402,6 +403,8 @@ MVP 的 Constitution 僅作為 context 注入（AI「知道」規則但不強制
 ### BL-004
 
 **複雜度適配 (Scale Adapter)**
+
+> **完成狀態**: 2026-06-12 已實作並歸檔 `add-scale-adapter`（verify Grade A、review 3 輪 critical+major 全修）、graduate 至 sdd-workflow US-15（REQ-TYPES-026 + REQ-TEMPLATES-084~090，MODIFIED REQ-CHNG-004/014、REQ-TEMPLATES-010、REQ-SERVICES-010）。commit `9839719`。與原設計差異：scale 判準以 spec-covered 行為否決 quick（非行數門檻）；quick 的 spec/knowledge 對齊唯一落點在 archive Entry Gate（diff 為準）；OPT-B3/B5/B6 同 change 交付。quick 省 token 數字 pending API key（runbook 留檔）。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2700,7 +2703,9 @@ Python/FastAPI 專案的預設 Constitution 範例：
 
 ---
 
-### OPT-B3：tasks.md 任務分類（code / manual / verification）
+### OPT-B3：tasks.md 任務分類（code / manual / verification）✅
+
+> **完成狀態**: 2026-06-12 隨 BL-004 歸檔 `add-scale-adapter`（REQ-TEMPLATES-086 / MODIFIED REQ-CHNG-014）。kind schema 單一凍結於 tasks-format reference；verify/archive/implement 完成率僅計 code task。
 
 現況：tasks.md 只有 `[x]` / `[ ]` 標記和 `[P]` 並行標記。實際案例中（KNSH 114），7 個未完成的 task 是「手動 S3 上傳」和「環境驗證」，不屬於程式碼任務。Archive 時這些 task 未完成但也無法由 AI 完成。
 
@@ -2739,7 +2744,7 @@ Python/FastAPI 專案的預設 Constitution 範例：
 
 ### OPT-B5：plan.md 長度控制指引 ✅（基礎）
 
-> **完成狀態**：2026-06-06 驗證部分完成。`src/templates/skills/references/plan-format.hbs` 已含長度指引（「Keep under 120 lines」+ Implementation Steps 4-8，超過則拆 Story）。基礎長度控制已就位；Quick/Standard/Full 三級細分待 BL-004 Scale Adapter。
+> **完成狀態**：2026-06-06 基礎完成（「Keep under 120 lines」+ Implementation Steps 4-8）；2026-06-12 三級完整交付（隨 BL-004 歸檔 `add-scale-adapter`，REQ-TEMPLATES-087：quick 免 plan / standard ≤120 行 / full 完整架構分析，plan-format Scale Tiers 段）。
 
 現況：plan.md 沒有長度指引。KNSH 114 案例的 plan.md 有 361 行，包含完整的 S3 prefix 列表和 SQL 語法。這已不是「plan」而是「implementation specification」。Reviewer 需讀 361 行才能 approve。
 
@@ -2756,7 +2761,9 @@ Python/FastAPI 專案的預設 Constitution 範例：
 
 ---
 
-### OPT-B6：Archive 未完成 tasks 警告
+### OPT-B6：Archive 未完成 tasks 警告 ✅
+
+> **完成狀態**: 2026-06-12 隨 BL-004 歸檔 `add-scale-adapter`（MODIFIED REQ-TEMPLATES-010 / REQ-SERVICES-010）。archive 依 kind 判完成度：code 未完成警告列示、manual 提醒不阻擋；service 層 summary 統計同步 code-only。
 
 現況：Archive 時允許 tasks 未完成就歸檔（KNSH 114 案例 7/25 未完成）。目前沒有區分「合理的未完成」（manual tasks）和「不合理的未完成」（code tasks）。
 

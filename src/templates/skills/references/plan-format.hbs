@@ -205,9 +205,21 @@ Use a table to list risks, impacts, and mitigation strategies:
 
 ---
 
+## Scale Tiers
+
+Plan depth follows the change's `metadata.scale`:
+
+| Scale | Plan output |
+|-------|-------------|
+| `quick` | No plan at all — `/prospec-plan` exits at its Entry Gate; proceed to tasks |
+| `standard` (or absent) | Concise plan, keep under **120 lines** — the default below |
+| `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment; the 120-line cap does not apply |
+
+---
+
 ## File Length Guidelines
 
-- Keep under **120 lines**
+- Keep under **120 lines** (`standard`; see Scale Tiers for `full`)
 - Ideal number of Implementation Steps: 4-8
 - If steps exceed 10, consider splitting into multiple Stories
 
