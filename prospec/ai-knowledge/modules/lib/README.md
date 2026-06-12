@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, and the deterministic drift engine (15 files, 2,595 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, and the deterministic drift engine (15 files, 2,596 lines)
 
 <!-- prospec:auto-start -->
 
@@ -18,7 +18,7 @@
 | `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |
-| `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols |
+| `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols (picocolors; auto-disabled on non-TTY via NO_COLOR set at CLI entry, see cli/setup-color.ts) |
 | `src/lib/token-accounting.ts` | Pure measurement math — savingRatio(), cacheHitRate(), effectiveInputCostUsd(), naive-rag keyword ranking |
 | `src/lib/drift-sources.ts` | Drift collectors (ALL I/O): REQ index/references, markdown links, import edges, git timestamps, tasks state — unavailable sources return `{available: false, reason}` |
 | `src/lib/drift-checker.ts` | Zero-LLM pure evaluators + runChecks() report assembly — codepoint-sorted findings, schema-validated, semantic permanently not-checked |

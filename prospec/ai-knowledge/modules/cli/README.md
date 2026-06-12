@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 22 files)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 23 files)
 
 <!-- prospec:auto-start -->
 
@@ -8,7 +8,8 @@
 
 | File | Purpose |
 |------|---------|
-| `src/cli/index.ts` | createProgram(), main(), preAction config check, command registration |
+| `src/cli/index.ts` | createProgram(), main(), preAction config check, command registration (imports `setup-color.js` first) |
+| `src/cli/setup-color.ts` | Sets NO_COLOR for non-TTY stdout before picocolors loads — keeps piped/`tee`'d output free of raw ANSI; honors explicit NO_COLOR/FORCE_COLOR |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
@@ -54,6 +55,7 @@
 - E2E tests spawn real `npx tsx src/cli/index.ts` — any option/command name change breaks them
 - `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
 - `check-output.ts` must show skipped checks with their reason (skipped ≠ PASS) and route untrusted strings through `sanitizeTerminal()`; the semantic line stays `not-checked`
+- `setup-color.ts` MUST be the first import in `index.ts` (before any picocolors consumer — cli formatters and `lib/logger` share one picocolors singleton); reordering re-enables color on non-TTY stdout and corrupts piped output (e.g. the CI comment job)
 
 <!-- prospec:auto-end -->
 
