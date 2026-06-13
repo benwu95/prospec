@@ -134,27 +134,34 @@
 - [x] [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅ 已完成
 
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
-> entry 見下方「## 即時優化」段；狀態以「實作狀態總覽 · OPT 列」為準。
-- [ ] **OPT-A1** 自動銜接提示 — 部分（有雛形）
-- [x] **OPT-A2** Knowledge 健康度指標 ✅ 已完成（隨 BL-030）
-- [ ] **OPT-A3** 成果可視化 — 待驗證（未逐項驗證）
-- [ ] **OPT-A4** Quickstart Skill — 待處理
-- [ ] **OPT-B1** Constitution 導入引導強化 — 待處理
-- [ ] **OPT-B2** _index.md auto/user 區段整合 — 待處理
-- [x] **OPT-B3** tasks.md 任務分類（code/manual/verification）✅ 已完成（隨 BL-004）
-- [x] **OPT-B4** delta-spec 強制 REQ ID ✅ 已完成
-- [x] **OPT-B5** plan.md 長度控制指引 ✅ 已完成（基礎；隨 BL-004）
-- [x] **OPT-B6** Archive 未完成 tasks 警告 ✅ 已完成（隨 BL-004）
-- [ ] **OPT-C** 品質追蹤系統 — 待驗證（未逐項驗證）
-- [ ] **OPT-D1** Phase Gate 統一 — 部分（有雛形）
-- [ ] **OPT-D2** NEVER 規則分級 — 待處理
-- [ ] **OPT-D3** 行為契約式 Activation — 部分（有雛形）
-- [ ] **OPT-D4** Token Budget 量化 — 待處理
-- [ ] **OPT-D5** Attention Anchoring — 待處理
-- [ ] **OPT-D6** 跨 Skill 品質追溯鏈 — 待驗證（未逐項驗證）
-- [x] **OPT-D7** _index.md Aliases 擴展 ✅ 已完成
-- [x] **OPT-D8** 共享 Glossary ✅ 已完成
-- [ ] **OPT-D9** Few-Shot Examples — 待處理
+> entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
+- [ ] **OPT-A1** 自動銜接提示 — 🔨 remaining（文字 Next 已有；缺互動提示 + 新 session `.prospec/changes/` 狀態偵測）
+- [x] **OPT-A2** Knowledge 健康度指標 — ✅ 實質完成（knowledge_health 經 drift report + MCP `/health` + `check`；原 `_index` 視覺表＝冗餘，不補）
+- [ ] **OPT-A3** 成果可視化（Cycle Impact）— 🔨 remaining（archive summary 未實作；縮維到可客觀計數的 REQ-delta + quality_log WARN）
+- [ ] **OPT-A4** Quickstart Skill — 🔨 remaining（無 `/prospec-quickstart`）
+- [ ] **OPT-B1** Constitution 導入引導強化 — 🟡 partial（Part1 `exampleRulesFor()` 隨 BL-031 完成；Part2 空 Constitution 偵測+提示未做）
+- [ ] **OPT-B2** _index.md auto/user 區段整合 — 🔨 remaining（無 Category 欄、無 auto/user 合併邏輯）
+- [x] **OPT-B3** tasks.md 任務分類（code/manual/verification）— ✅ 已完成（隨 BL-004）
+- [x] **OPT-B4** delta-spec 強制 REQ ID — ✅ 已完成（慣例+路由+Output Contract；殘留：無嚴格格式/唯一性驗證＝icebox 強化）
+- [x] **OPT-B5** plan.md 長度控制指引 — ✅ 已完成（隨 BL-004 三級）
+- [x] **OPT-B6** Archive 未完成 tasks 警告 — ✅ 已完成（隨 BL-004；code 未完成 WARN；硬阻擋確認 gate 刻意不做）
+- [x] ~~**OPT-C** 品質追蹤系統~~ — 🚫 過時（被 quality_log + BL-036 取代；quality_metrics 不需要）
+- [ ] **OPT-D1** Phase Gate 統一 — 🟡 partial（Entry/Exit gate 已有＝BL-003；缺 per-phase gate + 統一 Phase 編號）
+- [x] ~~**OPT-D2** NEVER 規則分級~~ — 🚫 過時（severity 已由 MUST/SHOULD/MAY + Output Contract 提供）
+- [x] ~~**OPT-D3** 行為契約式 Activation~~ — 🚫 過時（Output Contract 已覆蓋 contract 維度；改寫＝美學）
+- [x] ~~**OPT-D4** Token Budget 量化~~ — 🚫 維持過時（harness 為 corpus-wide 不產 per-layer 數字；`_index` 已有 per-layer 預算；per-layer 估算表仍屬捏造）
+- [ ] **OPT-D5** Attention Anchoring — 🔨 remaining（implement/ff 無 progress/goal echo）
+- [x] **OPT-D6** 跨 Skill 品質追溯鏈 — ✅ 完成（quality_log schema + skill Exit Gate 指令 + 測試 + fixture；經 skill 指令寫 metadata，符合 Architecture C）
+- [x] **OPT-D7** _index.md Aliases 擴展 — ✅ 已完成
+- [x] **OPT-D8** 共享 Glossary — ✅ 已完成（`_glossary.md` + `_index` 指引；殘留：MCP glossary resource 未開＝選用）
+- [ ] **OPT-D9** Few-Shot Examples — 🔨 remaining（verify/new-story/tasks 無範例）
+
+**OPT remaining 優先序（2026-06-13 稽核）**：
+1. **Skill 指令品質 pass**（單一變更，掃 11 skill 模板）：B1-part2（領頭，價值最高）+ D1 + A1 + D5 + D9 — 一次處理，避免 11-skill `skill-format` 測試與 cache 前綴重複擾動。
+2. **A4** `/prospec-quickstart`（新 skill，brownfield 6→1，獨立）。
+3. **B2** `_index` Category + auto/user 合併（knowledge 層）。
+4. **A3** Cycle Impact（縮維到可客觀計數）。
+- icebox（選用強化，非主推）：B4 嚴格 REQ-ID 驗證、D8 MCP glossary resource。
 
 ---
 
@@ -199,7 +206,7 @@
 | P1/P2 | BL-005（無 `template` CLI）、BL-006（**PARTIAL／🚫 路線已過時**：仍 4 agents，缺 cursor/windsurf/opencode/qwen；「15 套 per-agent 模板」路線被 AGENTS.md/SKILL.md 收斂取代，僅偵測擴展需求保留）、BL-021（無 `extension`）、BL-022（無 `prospec-help`）、BL-026（`_index.md` 無 Dashboard） |
 | Phase 3 | BL-023（Layer 1.5 語義 Fallback，P3，未做）；其餘 Phase 3 項（BL-008/010/011/012/013/024/025）均已完成／🚫 已過時／↳ 已併入，見目錄 |
 | Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取、BL-034 依賴層知識 未開始；BL-035 SKILL.md 標準＋分發 **部分**（AGENTS.md 去重已隨 agent sync 完成，分發未做） |
-| OPT | A4、B1、B2、D2、D4、D5、D9 未做〔A2 ✅ 隨 BL-030 完成 `90e7c61`（report 凍結 knowledge_health 欄位；`_index.md` 表格回寫留給 Knowledge Flywheel 評估）〕；A1/D1/D3 **PARTIAL**（有雛形）；A3/C/D6 未逐項驗證〔D7/D8 ✅ commit `d3a0b8e`；B3/B5/B6 ✅ 隨 BL-004 完成 `9839719`〕 |
+| OPT | **【2026-06-13 稽核校正】** 🔨 remaining：A1、A3、A4、B2、D5、D9 + B1/D1（partial）；🚫 過時不做：C、D2、D3、D4；✅ 完成：A2、B3、B4、B5、B6、D6、D7、D8〔A2 knowledge_health 經 BL-030 report/MCP/check，原 `_index` 視覺表冗餘不補；D6 quality_log 經 skill 指令寫入＝Architecture C；B4 殘留嚴格 REQ 驗證、D8 殘留 MCP glossary resource＝icebox〕。優先序見「即時優化」段 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
 ### ⚠️ 影響後續排程的缺口
