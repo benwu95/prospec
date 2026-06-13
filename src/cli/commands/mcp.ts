@@ -22,10 +22,16 @@ export function registerMcpCommand(program: Command): void {
   mcp
     .command('serve')
     .description('Start the read-only MCP server on stdio')
-    .action(async () => {
+    .option(
+      '--cwd <path>',
+      'Project root to serve (default: current directory). Pin a specific project so the ' +
+        'server resolves its .prospec.yaml regardless of where the agent launched it — lets one ' +
+        'agent register several project servers at once',
+    )
+    .action(async (options: { cwd?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
-        const result = await execute({});
+        const result = await execute({ cwd: options.cwd });
         formatMcpServeOutput(result);
       } catch (err) {
         handleError(err, globalOpts.verbose ?? false);

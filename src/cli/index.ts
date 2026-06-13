@@ -3,6 +3,7 @@
 // Must precede any picocolors import — disables color for non-TTY stdout.
 import './setup-color.js';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { handleError } from './formatters/error-output.js';
@@ -65,6 +66,16 @@ export function createProgram(): Command {
 
     // Skip check for root program (e.g. --version, --help)
     if (cmdName === 'prospec') return;
+
+    // `mcp serve --cwd <dir>` targets another project root, so the guard must
+    // resolve .prospec.yaml against that dir — not the directory the agent was
+    // launched from (which may not be a Prospec project at all).
+    const targetCwd = (actionCommand.opts() as { cwd?: string }).cwd;
+    if (targetCwd !== undefined) {
+      const configPath = path.join(targetCwd, '.prospec.yaml');
+      if (!fs.existsSync(configPath)) throw new ConfigNotFound(configPath);
+      return;
+    }
 
     if (!fs.existsSync('.prospec.yaml')) {
       throw new ConfigNotFound();

@@ -642,4 +642,26 @@ describe('prospec mcp E2E', () => {
     expect(result.stderr).toContain('.prospec.yaml');
     expect(result.stdout).toBe('');
   });
+
+  it('mcp serve --help documents --cwd', async () => {
+    const help = await runCli(['mcp', 'serve', '--help']);
+    expect(help.exitCode).toBe(0);
+    expect(help.stdout).toContain('--cwd');
+  });
+
+  it('mcp serve --cwd resolves .prospec.yaml against the given dir, not the launch dir', async () => {
+    // Launch dir (tmpDir) has no config; --cwd points at another config-less dir.
+    // The guard must report the --cwd path — proving it honors --cwd rather than
+    // falling back to process.cwd() (which would yield the generic message).
+    const targetDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-mcp-cwd-'));
+    try {
+      const result = await runCli(['mcp', 'serve', '--cwd', targetDir]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(targetDir);
+      expect(result.stderr).toContain('.prospec.yaml');
+      expect(result.stdout).toBe('');
+    } finally {
+      await fs.promises.rm(targetDir, { recursive: true, force: true });
+    }
+  });
 });

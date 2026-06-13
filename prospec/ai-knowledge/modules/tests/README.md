@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 44 test files, 909 tests (unit 435, contract 426, integration 15, e2e 33)
+> 4-layer test architecture using Vitest + memfs — 44 test files, 911 tests (unit 435, contract 426, integration 15, e2e 35)
 
 <!-- prospec:auto-start -->
 
@@ -18,7 +18,7 @@
 | `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync) + BL-029 flywheel block (relocated ledger path, archive Phase 4.5 auto-harvest, learn Entry Gate ledger-OR-archive, negative no-auto-write `_conventions.md`); shared module-scope `sectionOf` helper (EOF-tolerant) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (17 tests) |
-| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (31 tests, incl. `prospec measure` and `prospec check` exit-code/determinism paths) |
+| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (35 tests, incl. `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |
 | `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, searchModules distinct-term ranking |
