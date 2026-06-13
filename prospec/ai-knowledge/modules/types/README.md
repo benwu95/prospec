@@ -11,13 +11,13 @@
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS |
 | `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines), AGENT_CONFIGS (4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema |
-| `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry, ModuleRelationships |
+| `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
 | `src/types/errors.ts` | ProspecError base + 13 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid, McpResourceNotFound) |
 | `src/types/constitution.ts` | ConstitutionRule — RFC-2119 severity (MUST/SHOULD/MAY) + name/description/rationale/check |
 | `src/types/measurement.ts` | Provider-neutral TokenUsage/Pricing + MeasurementReport schemas, AGENT_PROVIDER_MAP, DEFAULT_REPORT_FILENAME |
 | `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 5 frozen check ids, skipped-needs-reason rule, frozen knowledge-health field contract |
-| `src/types/mcp.ts` | MCP server contract — resource URI constants, tool I/O zod schemas (search_modules, get_dependency_direction) |
+| `src/types/mcp.ts` | MCP server contract — resource URI constants, tool I/O zod schemas (search_modules incl. additive `category` default [], get_dependency_direction) |
 
 ## Public API
 
@@ -59,7 +59,7 @@
 - Adding required fields to schemas breaks existing `.prospec.yaml` — always use `.optional()` or `.default()`
 - `SKILL_DEFINITIONS` count is asserted in `skill-format.test.ts` — adding a skill without updating the test count causes contract test failure
 - `drift-report.ts` knowledge_health field names are a FROZEN downstream contract (Knowledge Flywheel, MCP server `knowledge://health`) — renaming them is a breaking change, not a refactor
-- `mcp.ts` tool result schemas are protocol-frozen (clients consume structuredContent) — `SEARCH_MATCH_FIELDS` / `DEPENDENCY_DIRECTION_SOURCES` literals are contract values, not free strings
+- `mcp.ts` tool result schemas are protocol-frozen (clients consume structuredContent) — `SEARCH_MATCH_FIELDS` / `DEPENDENCY_DIRECTION_SOURCES` literals are contract values, not free strings; extend ONLY additively (e.g. `SearchModuleMatch.category` was added as `default([])`, never reordering/removing existing fields)
 
 <!-- prospec:auto-end -->
 

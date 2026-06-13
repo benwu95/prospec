@@ -23,7 +23,7 @@
 | `src/lib/drift-sources.ts` | Drift collectors (ALL I/O): REQ index/references, markdown links, import edges, git timestamps, tasks state — unavailable sources return `{available: false, reason}` |
 | `src/lib/drift-checker.ts` | Zero-LLM pure evaluators + runChecks() report assembly — codepoint-sorted findings, schema-validated, semantic permanently not-checked |
 | `src/lib/task-markers.ts` | parseTaskLine() — the SINGLE executable copy of the frozen task kind grammar (`[ID?] [P?] [M\|V]`) |
-| `src/lib/knowledge-reader.ts` | Knowledge content read layer — whole-document reads with realpath containment, loadModuleMap()+clampModulePaths() (moved from check.service), searchModules(), the single archived-spec exclusion + isSafeResourceName() guard |
+| `src/lib/knowledge-reader.ts` | Knowledge content read layer — whole-document reads with realpath containment, loadModuleMap()+clampModulePaths() (moved from check.service), searchModules()+attachModuleCategories() (category joined from module-map), the single archived-spec exclusion + isSafeResourceName() guard |
 
 ## Public API
 
@@ -42,7 +42,7 @@
 - `runChecks(inputs)` — five drift evaluators → validated DriftReport; `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback
 - `collectReqDefinitions/References, collectMarkdownLinks, collectImportEdges, collectGitTimestamps, collectTaskStates` — drift source collectors (fenced blocks excluded, shallow clones degrade to unavailable)
 - `parseTaskLine(line)` — checkbox/kind parsing shared by drift engine and archive task stats
-- `readIndex/readModuleReadme/readPlaybook/listFeatureSpecs/readFeatureSpec` — per-request content reads, realpath-contained to their served root; `loadModuleMap()` — missing → null, invalid → loud ModuleDetectionError; `searchModules()` — deterministic term-OR ranking over _index module table
+- `readIndex/readModuleReadme/readPlaybook/listFeatureSpecs/readFeatureSpec` — per-request content reads, realpath-contained to their served root; `loadModuleMap()` — missing → null, invalid → loud ModuleDetectionError; `searchModules()` — deterministic term-OR ranking over _index module table (category defaults to []); `attachModuleCategories(result, moduleMap)` — pure join of each match's ordered category list from module-map (null map / unmatched / unset → [])
 
 ## Dependencies
 

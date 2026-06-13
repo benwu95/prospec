@@ -21,6 +21,7 @@ modules:
       - measurement
       - drift-report
       - mcp
+      - category
     relationships:
       depends_on: []
       used_by:
@@ -50,6 +51,7 @@ modules:
       - drift-checker
       - drift-sources
       - task-markers
+      - category
     relationships:
       depends_on:
         - types
@@ -120,6 +122,8 @@ modules:
       - change
       - stable-prefix
       - entry-gate
+      - category
+      - grouping
     relationships:
       depends_on: []
       used_by:
