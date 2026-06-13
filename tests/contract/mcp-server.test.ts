@@ -224,7 +224,9 @@ describe('tools (REQ-MCP-005)', () => {
     });
     expect(result.isError ?? false).toBe(false);
     expect(result.structuredContent).toEqual({
-      matches: [{ module: 'alpha', matched_field: 'keywords', description: 'Alpha module' }],
+      matches: [
+        { module: 'alpha', matched_field: 'keywords', description: 'Alpha module', category: [] },
+      ],
     });
   });
 
@@ -248,6 +250,46 @@ describe('tools (REQ-MCP-005)', () => {
     const after = await client.callTool({ name: 'search_modules', arguments: { query: '型別' } });
     expect(after.structuredContent).toMatchObject({
       matches: [{ module: 'beta', matched_field: 'aliases', description: 'Beta module' }],
+    });
+  });
+
+  it('search_modules: attaches the ordered category list from module-map (REQ-MCP-005)', async () => {
+    const ctx = writeFixtureProject();
+    // give alpha an ordered category; beta stays uncategorized → []
+    write(
+      'prospec/ai-knowledge/module-map.yaml',
+      [
+        'modules:',
+        '  - name: alpha',
+        '    paths: [src/alpha]',
+        '    keywords: []',
+        '    category: [Core, Drift]',
+        '  - name: beta',
+        '    paths: [src/beta]',
+        '    keywords: []',
+      ].join('\n'),
+    );
+    const client = await connect(ctx);
+    const hit = await client.callTool({
+      name: 'search_modules',
+      arguments: { query: 'drift checker' },
+    });
+    expect(hit.structuredContent).toEqual({
+      matches: [
+        {
+          module: 'alpha',
+          matched_field: 'keywords',
+          description: 'Alpha module',
+          category: ['Core', 'Drift'],
+        },
+      ],
+    });
+    const uncategorized = await client.callTool({
+      name: 'search_modules',
+      arguments: { query: '型別' },
+    });
+    expect(uncategorized.structuredContent).toMatchObject({
+      matches: [{ module: 'beta', matched_field: 'aliases', description: 'Beta module', category: [] }],
     });
   });
 

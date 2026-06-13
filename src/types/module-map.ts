@@ -14,6 +14,9 @@ const ModuleEntrySchema = z.object({
   description: z.string().optional(),
   paths: z.array(z.string()),
   keywords: z.array(z.string()),
+  // Ordered domain categories; element[0] is the primary category that drives
+  // _index.md grouping. Absent/empty = ungrouped (flat table). Single source of truth.
+  category: z.array(z.string()).optional(),
   relationships: ModuleRelationshipsSchema.optional(),
 });
 

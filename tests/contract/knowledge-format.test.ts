@@ -159,5 +159,14 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('prospec:auto-start');
       expect(content).toContain('prospec:auto-end');
     });
+
+    it('documents the optional ### {Category} grouping with a primary-only rule (REQ-KNOW-018)', () => {
+      const content = renderTemplate('knowledge/index.md.hbs', templateContext);
+      expect(content).toContain('### {Category}');
+      expect(content).toMatch(/group/i);
+      expect(content).toContain('primary');
+      // the scaffold still keeps the flat-table contract intact
+      expect(content).toContain('Rationale');
+    });
   });
 });
