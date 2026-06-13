@@ -3,7 +3,7 @@ feature: mcp-server
 status: active
 last_updated: 2026-06-13
 story_count: 4
-req_count: 8
+req_count: 10
 ---
 
 # MCP 真相層（Project Truth Server）
@@ -112,14 +112,30 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 - WHEN 詢問兩個 module 的依賴方向，THEN 回傳允許判定並標明來源
 
 #### REQ-MCP-005: search_modules 與 get_dependency_direction
-`search_modules` 對 `_index.md` auto block 模組表的 Module/Keywords/Aliases 欄做正規化 term-OR 比對（lowercase、`-`/`_`/空白等價分隔、任一 term 命中即列入），依確定性規則排序（欄位權重 name > keywords > aliases、相異命中 term 數，同分以 module 名 codepoint 序 tie-break）。`get_dependency_direction` 依 module-map `depends_on` 回答，缺 map 時 fallback Constitution 鏈並標明來源。
+`search_modules` 對 `_index.md` auto block 模組表的 Module/Keywords/Aliases 欄做正規化 term-OR 比對（lowercase、`-`/`_`/空白等價分隔、任一 term 命中即列入），依確定性規則排序（欄位權重 name > keywords > aliases、相異命中 term 數，同分以 module 名 codepoint 序 tie-break）。`get_dependency_direction` 依 module-map `depends_on` 回答，缺 map 時 fallback Constitution 鏈並標明來源。`search_modules` 結果額外帶每個命中模組的 category 有序清單（由 `attachModuleCategories` 從 module-map join，非解析 _index heading）。
 
 **Scenarios:**
 - WHEN tool 輸入無效，THEN 回 MCP error（isError result），server 存活
 - WHEN 查詢 `drift checker`，THEN 與 `drift-checker` 等價命中；同一 term 命中多欄位僅計一次（相異 term 數）
 - WHEN 搜尋無命中，THEN 回空陣列（非 error）+ suggestion 指向 `knowledge://index`
 - WHEN 排序，THEN 同輸入跨環境結果 byte-identical（不用 locale 排序）
+- WHEN module-map 標了 category，THEN 命中項的 `category` 為該有序清單（primary 在前）；缺 map/未設 → `[]`（退回現行行為）
 - WHEN 回答依賴方向，THEN `{allowed, direction, source}` 的 `source` 標明 module-map 或 constitution-fallback
+
+#### REQ-TYPES-029: search_modules 結果帶 category（additive）
+`SearchModuleMatchSchema` 新增 `category: string[]`（`default []`），additive 擴充——既有 `module`/`matched_field`/`description` 與 `SEARCH_MATCH_FIELDS` literals 不變，protocol-frozen 相容。
+
+**Scenarios:**
+- WHEN 既有 client 收到結果，THEN 未知 category 欄被忽略、不破壞既有消費
+- WHEN schema 演進，THEN 僅 additive（不重排/移除既有欄位）
+
+#### REQ-LIB-017: attachModuleCategories 純 join
+`lib/knowledge-reader` 的 `attachModuleCategories(result, moduleMap)` 依模組名把 module-map 的有序 `category` 接到 search matches；module-map 為單一真相。`searchModules` ranking 與 `parseIndexModules` 列舉不變。
+
+**Scenarios:**
+- WHEN moduleMap 為 null、模組未列於 map、或該模組未設 category，THEN 該項 category 為 `[]`
+- WHEN moduleMap 有該模組 category，THEN 回傳其有序清單（primary 在前）
+- WHEN join 執行，THEN 不影響 `searchModules` 的排序結果
 
 ## Edge Cases
 
@@ -154,3 +170,4 @@ _(None)_
 |------|--------|--------|-------------|
 | 2026-06-13 | add-mcp-server | 唯讀 MCP server（BL-033 + read layer + OPT-A2 health 消費；兩輪對抗式審查、4 criticals 修復後收斂） | US-1~4; REQ-MCP-001~008 |
 | 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` 釘選專案根目錄；config 解析與 preAction 守衛皆尊重 `--cwd`，支援單一 agent 跨目錄註冊多專案 server | REQ-MCP-001 (MODIFIED) |
+| 2026-06-13 | group-index-by-category | search_modules 結果帶 module-map join 的 category 有序清單（additive、protocol-frozen 相容） | REQ-TYPES-029, REQ-LIB-017 (ADDED); REQ-MCP-005 (MODIFIED) |

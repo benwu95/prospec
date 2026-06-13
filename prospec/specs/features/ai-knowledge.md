@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-06-11
-story_count: 7
-req_count: 26
+last_updated: 2026-06-13
+story_count: 8
+req_count: 29
 ---
 
 # AI Knowledge
@@ -125,6 +125,7 @@ req_count: 26
 - WHEN re-executing knowledge generate, THEN update index rather than recreate
 - WHEN rendering the index table, THEN use columns Module | Keywords | Status | Description | Rationale | Depends On
 - WHEN writing `_index.md`, THEN append a `## Loading Rules` section
+- WHEN modules fall into ≥2 domain categories, THEN MAY group the table into `### {Category}` sub-tables (same columns; module listed under its primary category only); pure architectural-layer projects keep one flat table (see US-340)
 
 #### REQ-KNOW-008: Index Idempotent Update
 - WHEN `_index.md` already exists, THEN update auto section, preserve user section
@@ -164,6 +165,7 @@ req_count: 26
 - WHEN module updated, THEN `_index.md` reflects latest state
 - WHEN new module added, THEN module-map.yaml includes new entry
 - WHEN module-map.yaml doesn't exist, THEN gracefully skip
+- WHEN updating, THEN preserve each existing module's `category` (do not re-guess); an ADDED module gets an ordered `category` consistent with existing grouping
 
 #### REQ-SERVICES-023: Knowledge Update Coordinator
 - WHEN deltaSpecPath provided, THEN auto-parse and identify affected modules
@@ -223,6 +225,33 @@ req_count: 26
 
 ---
 
+### US-340: Category 分組的模組索引 [P2]
+
+身為在領域模組多的專案導航 AI Knowledge 的開發者，
+我想要 `_index.md` 模組表能依 category 分組為 `### {Category}` 子表、且分類以 `module-map.yaml` 為單一真相，
+以便快速依領域定位模組，且不必手工維護重複的分類表。
+
+**Acceptance Scenarios:**
+- WHEN 模組可歸入 ≥2 個有意義的領域分類 THEN `_index.md` 以 `### {Category}` 子標題分組，每子表沿用相同欄位
+- WHEN 模組僅為架構分層（如 prospec 自身）THEN 維持單一平表、module-map 不加 category
+- WHEN module-map 已有 category THEN 依首位（primary）分組、不重新臆測；缺 category 時 generate 自動推導建議並寫回
+
+#### REQ-TYPES-028: module-map ModuleEntry 有序 category
+`ModuleEntrySchema` 新增可選 `category: string[]`（有序，`[0]`＝primary），向後相容（缺省＝平表、`loadModuleMap` 正常載入既有未標 category 的 map）；分類的單一真相來源。
+
+#### REQ-KNOW-018: _index.md 依 Category 分組呈現
+knowledge-generate/update 在 ≥2 領域分類時於 auto 區以 `### {Category}` 子表分組；每子表欄位一致，`parseIndexModules` 對分組輸出仍正確列舉全部模組。
+
+**Scenarios:**
+- WHEN ≥2 領域 THEN 產出 ≥2 個 `### {Category}` 子標題；<2 或純分層 THEN 單一平表
+- WHEN 重跑 THEN 分組穩定、`prospec:user` 區保留
+- WHEN `parseIndexModules` 解析分組輸出 THEN 回傳模組數＝實際數（重複 header/分隔列被跳過）
+
+#### REQ-KNOW-019: generate 自動推導 category 並持久化
+generate 依路徑/keywords/領域語意推導建議 category，經使用者確認後寫入 `module-map.yaml`（bootstrap），之後讀檔為準（已有 category 不重新臆測），使用者可手改覆寫——渲染與真相共用同一 category 值。
+
+---
+
 ## Edge Cases
 
 - delta-spec.md 不存在：允許手動指定模組進行更新
@@ -267,3 +296,4 @@ _(None)_
 | 2026-06-04 | ai-knowledge-sub-modules (PR #3) | Sub-module 抽取/載入/維護 | US-330, REQ-KNOW-016~017, REQ-SERVICES-024 (ADDED) |
 | 2026-06-06 | generate-module-map-in-knowledge-init | knowledge init 生成 module-map + detector 尊重 base_dir | US-301, REQ-SERVICES-025, REQ-LIB-011 (ADDED) |
 | 2026-06-11 | gate-knowledge-at-archive | Staleness 檢測由 graded WARN 改 informational + archive Entry Gate 指引（同步 sdd-workflow 重複副本） | REQ-TEMPLATES-045 (MODIFIED) |
+| 2026-06-13 | group-index-by-category | _index.md 依 category 分組（module-map 為單一真相 + generate 自動推導 bootstrap）；prospec 自身純分層維持平表 | US-340, REQ-KNOW-018/019, REQ-TYPES-028 (ADDED); REQ-KNOW-005, REQ-SERVICES-022 (MODIFIED) |
