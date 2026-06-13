@@ -51,6 +51,10 @@ Extract module names from REQ IDs: `REQ-{MODULE}-{NNN}` → module name is `{MOD
 
 **Fallback (no delta-spec):** Ask user to specify module names manually.
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] affected module names extracted from delta-spec.md REQ IDs (or specified manually via fallback)
+> - [ ] each module classified as ADDED / MODIFIED / REMOVED
+
 ### Phase 2: Scan Affected Modules
 
 For each affected module:
@@ -58,6 +62,10 @@ For each affected module:
 2. Scan source files (max 20 key files per module)
 3. Infer file descriptions from naming patterns (service.ts, test.ts, etc.)
 4. Read the module's existing `README.md` **and any `{sub-module}.md`** linked from its `## Sub-Modules` section — an update may need to refresh a sub-module, not just the main README
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] each affected module's source files located and scanned (≤ 20 key files per module)
+> - [ ] existing README.md and any linked `{sub-module}.md` read for each module
 
 ### Phase 3: Update Knowledge Files
 
@@ -110,12 +118,14 @@ Update the module table within `prospec:auto-start/end` markers using the curren
 - Update descriptions, keywords, and aliases (MODIFIED)
 - Mark as Deprecated (REMOVED)
 - Ensure Loading Rules section is present and accurate
+- If the _index.md uses `### {Category}` grouped sub-tables, keep the grouping — place each module under its primary category (`module-map.yaml` `category[0]`); an ADDED module goes under a derived category consistent with existing groups, listed under its primary heading only
 
 #### 3d: module-map.yaml
 
 - Add new module entries (ADDED)
 - Update relationships if changed (MODIFIED)
 - Remove module entries (REMOVED)
+- Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
 - Skip if module-map.yaml doesn't exist
 
 ## Output Contract

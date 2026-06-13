@@ -51,6 +51,10 @@ When triggered, briefly describe:
 
 Auto-identify the current change (from directory context or ask user), read and summarize User Story.
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] The target change directory is identified and proposal.md is parsed
+> - [ ] User Story and acceptance scenarios are summarized
+
 ### Phase 2: Context Mode Detection + Load Knowledge
 
 **Step 1 — Detect Context Mode:**
@@ -65,12 +69,20 @@ Auto-identify the current change (from directory context or ask user), read and 
 - **Brownfield**: Load related module READMEs (and any `{sub-module}.md` they link) + `{{knowledge_base_path}}/_conventions.md`. Prepare to synthesize Technical Summary in Phase 4.
 - **Greenfield**: Skip module loading. Scan project root for tech stack indicators (`package.json`, `pyproject.toml`, `.prospec.yaml`), top-level directory structure, and 2-3 core source files. Recommend `prospec knowledge init` + `/prospec-knowledge-generate`.
 
+> **Phase 2 Gate** — proceed when:
+> - [ ] Context Mode is determined (Brownfield or Greenfield)
+> - [ ] Knowledge for the detected mode is loaded (module READMEs + _conventions.md, or tech-stack scan)
+
 ### Phase 3: Create Scaffolding
 
 | Scenario | Action |
 |----------|--------|
 | plan.md doesn't exist | Create empty `plan.md` + `delta-spec.md`, update `metadata.yaml` status → `plan` |
 | Already exists | Read and populate |
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] plan.md and delta-spec.md both exist (created or already present)
+> - [ ] metadata.yaml status is updated to `plan`
 
 ### Phase 4: Design plan.md
 
@@ -86,6 +98,10 @@ Follow `references/plan-format.md` format:
 - **Implementation Steps**: 4-8 steps with details
 - **Risk Assessment**: Risks, impact, and mitigation strategies
 
+> **Phase 4 Gate** — proceed when:
+> - [ ] plan.md contains Technical Summary/Context, a Call Chain per entry point, and 4-8 Implementation Steps
+> - [ ] Risk Assessment lists each risk with a mitigation strategy
+
 ### Phase 5: Generate delta-spec.md
 
 Follow `references/delta-spec-format.md` format:
@@ -95,9 +111,17 @@ Follow `references/delta-spec-format.md` format:
 
 Each requirement in delta-spec.md must include **Feature** and **Story** routing fields (see `references/delta-spec-format.md`). These fields route requirements to the correct Feature Spec during archive Spec Sync.
 
+> **Phase 5 Gate** — proceed when:
+> - [ ] delta-spec.md has ADDED/MODIFIED/REMOVED sections populated as applicable
+> - [ ] every requirement has a REQ ID plus Feature and Story routing fields
+
 ### Phase 6: Constitution Check
 
 Compare against 3+ most relevant principles, focusing on architecture, testing, performance, and security. **Inspect the Phase 4 Call Chain for layering violations against the Constitution's dependency/layering rule** — e.g. a layer reaching past its neighbor, business logic placed in the entry/transport layer, a chain skipping its data-access layer, or a side effect emitted before commit — and flag any in Risk Assessment. (Structural/design review only; code-level layering is audited later by `/prospec-verify`.)
+
+> **Phase 6 Gate** — proceed when:
+> - [ ] The Call Chain is checked against the Constitution's dependency/layering rule
+> - [ ] Any layering violation found is recorded in plan.md Risk Assessment
 
 ### Phase 7: Knowledge Quality Gate
 
@@ -111,6 +135,10 @@ Before finalizing, verify Knowledge loading completeness:
 | Feature Specs checked | Existing User Stories and requirements reviewed | No Feature Specs found |
 
 WARN items do not block — note them in plan.md Risk Assessment.
+
+> **Phase 7 Gate** — proceed when:
+> - [ ] Every Knowledge Quality Gate check item is graded PASS or WARN
+> - [ ] Any WARN is noted in plan.md Risk Assessment
 
 ### Phase 8: Summary + Next Steps
 
@@ -156,4 +184,15 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | proposal.md not found | Guide user to run `/prospec-new-story` first |
 | Insufficient module info | Offer options: continue with available info / pause to supplement Knowledge / load source code |
 | Constitution conflict | Modify plan to comply (preferred) / document exception reasoning |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 

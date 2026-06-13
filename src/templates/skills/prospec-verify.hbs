@@ -241,3 +241,14 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | Constitution file read fails | Skip Constitution audit, but clearly mark in report |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
+

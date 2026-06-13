@@ -53,17 +53,22 @@ chk "archive has 3 refs"  '[ $(ls .claude/skills/prospec-archive/references/ | w
 chk "ff has 4 refs"       '[ $(ls .claude/skills/prospec-ff/references/ | wc -l) -eq 4 ]'
 chk "ff no sibling paths" '! grep -qE "prospec-(new-story|plan|tasks)/references/" .claude/skills/prospec-ff/SKILL.md'
 
-echo "[D] every references/ link in every SKILL.md resolves on disk"
+echo "[D] every references/ link resolves in some skill's references/ (prospec skills deploy as a set)"
 miss=""
-for s in .claude/skills/*/SKILL.md; do d=$(dirname "$s")
+for s in .claude/skills/*/SKILL.md; do
   for r in $(grep -oE "references/[a-z-]+\.md" "$s" | sort -u); do
-    [ -f "$d/$r" ] || miss="$miss $d/$r"; done; done
+    b=$(basename "$r")
+    # prospec skills deploy together — a references/X.md link is valid if X.md exists in
+    # ANY skill's references/ dir (e.g. archive cites /prospec-learn's promotion-format.md)
+    ls .claude/skills/*/references/"$b" >/dev/null 2>&1 || miss="$miss $s:$r"
+  done
+done
 chk "no dangling references/ links" '[ -z "$miss" ]'; [ -n "$miss" ] && echo "      dangling:$miss"
 
 echo "[E] convention files generated + referenced links resolve"
 for f in _status-lifecycle _module-readme-conventions _diagram-conventions; do
   chk "prospec/ai-knowledge/$f.md exists" "test -f prospec/ai-knowledge/$f.md"; done
-chk "status-lifecycle referenced by 6 skills" '[ $(grep -l "_status-lifecycle.md" .claude/skills/*/SKILL.md | wc -l) -eq 6 ]'
+chk "status-lifecycle referenced by 8 skills" '[ $(grep -l "_status-lifecycle.md" .claude/skills/*/SKILL.md | wc -l) -eq 8 ]'
 
 echo "[F] base_dir paths render (no root-anchored /specs/)"
 chk "no root /specs/ in skills"  '! grep -rqE "[^a-z/]/specs/" .claude/skills/*/SKILL.md .claude/skills/*/references/*.md'

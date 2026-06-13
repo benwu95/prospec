@@ -16,6 +16,7 @@ import {
   clampModulePaths,
   parseIndexModules,
   searchModules,
+  attachModuleCategories,
   normalizeSearchText,
 } from '../../../src/lib/knowledge-reader.js';
 import { ModuleDetectionError } from '../../../src/types/errors.js';
@@ -221,6 +222,32 @@ describe('parseIndexModules', () => {
   it('returns [] when no module table exists', () => {
     expect(parseIndexModules('# empty\n')).toEqual([]);
   });
+
+  it('parses all modules across grouped ### {Category} sub-tables (REQ-KNOW-018 AC3)', () => {
+    const grouped = [
+      '<!-- prospec:auto-start -->',
+      '### Identity',
+      '',
+      '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |',
+      '|--------|----------|---------|--------|-------------|-----------|------------|',
+      '| **auth** | login, token | 身份 | Active | Auth | core | — |',
+      '',
+      '### Quiz System',
+      '',
+      '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |',
+      '|--------|----------|---------|--------|-------------|-----------|------------|',
+      '| **quiz** | grade, question | 測驗 | Active | Quiz | core | auth |',
+      '<!-- prospec:auto-end -->',
+    ].join('\n');
+    const modules = parseIndexModules(grouped);
+    expect(modules.map((m) => m.name)).toEqual(['auth', 'quiz']);
+    expect(modules[1]).toEqual({
+      name: 'quiz',
+      keywords: ['grade', 'question'],
+      aliases: ['測驗'],
+      description: 'Quiz',
+    });
+  });
 });
 
 describe('searchModules (REQ-MCP-005)', () => {
@@ -277,5 +304,44 @@ describe('searchModules (REQ-MCP-005)', () => {
 
   it('treats a whitespace-only query as no hits', () => {
     expect(searchModules('  -_ ', modules).matches).toEqual([]);
+  });
+
+  it('defaults every match category to [] (filled later by attachModuleCategories)', () => {
+    expect(searchModules('zod', modules).matches[0]?.category).toEqual([]);
+  });
+});
+
+describe('attachModuleCategories (REQ-LIB-017)', () => {
+  const baseResult = {
+    matches: [
+      { module: 'auth', matched_field: 'name' as const, description: 'Auth', category: [] as string[] },
+      { module: 'quiz', matched_field: 'keywords' as const, description: 'Quiz', category: [] as string[] },
+    ],
+  };
+
+  it('returns the result unchanged when the module map is null', () => {
+    expect(attachModuleCategories(baseResult, null)).toBe(baseResult);
+  });
+
+  it('yields [] for an unlisted module or a module without a category', () => {
+    const map = { modules: [{ name: 'auth', paths: ['src/auth'], keywords: [] }] };
+    const out = attachModuleCategories(baseResult, map);
+    expect(out.matches.map((m) => m.category)).toEqual([[], []]);
+  });
+
+  it('joins the ordered category list by module name', () => {
+    const map = {
+      modules: [
+        { name: 'auth', paths: ['src/auth'], keywords: [], category: ['Identity'] },
+        { name: 'quiz', paths: ['src/quiz'], keywords: [], category: ['Quiz System', 'Grading'] },
+      ],
+    };
+    const out = attachModuleCategories(baseResult, map);
+    expect(out.matches.map((m) => m.category)).toEqual([['Identity'], ['Quiz System', 'Grading']]);
+  });
+
+  it('preserves an empty result with its suggestion untouched', () => {
+    const empty = { matches: [], suggestion: 'read knowledge://index' };
+    expect(attachModuleCategories(empty, { modules: [] })).toEqual(empty);
   });
 });

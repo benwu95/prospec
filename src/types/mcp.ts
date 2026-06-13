@@ -35,6 +35,9 @@ export const SearchModuleMatchSchema = z.object({
   module: z.string().min(1),
   matched_field: z.enum(SEARCH_MATCH_FIELDS),
   description: z.string(),
+  // Additive (default []): ordered category list joined from module-map.yaml.
+  // Never reorder or remove the frozen fields above — clients consume structuredContent.
+  category: z.array(z.string()).default([]),
 });
 
 export const SearchModulesResultSchema = z.object({

@@ -14,6 +14,7 @@ import {
   readModuleReadme,
   readPlaybook,
   searchModules,
+  attachModuleCategories,
 } from '../lib/knowledge-reader.js';
 import {
   buildDependencyRules,
@@ -213,7 +214,8 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       if (index === null) {
         return toolError('knowledge://index not found — generate AI Knowledge first');
       }
-      const result = searchModules(query, parseIndexModules(index));
+      const ranked = searchModules(query, parseIndexModules(index));
+      const result = attachModuleCategories(ranked, loadModuleMap(ctx.knowledgePath, ctx.cwd));
       return structuredResult(result);
     },
   );

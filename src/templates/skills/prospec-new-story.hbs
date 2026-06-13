@@ -30,13 +30,23 @@ When triggered, briefly describe:
 
 ## Core Workflow
 
+> Note: Phase 3.5 (Complexity Assessment) is an intentional semantic insertion between Phase 3 and Phase 4, not a numbering bug.
+
 ### Phase 1: Requirements Interview (3-4 questions to converge)
 
 Collect: Background (why), Role (who), Feature (what), Value (why it matters), Constraints (limitations).
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] Background, Role, Feature, and Value are captured from the interview
+> - [ ] Known Constraints recorded (or explicitly noted as none)
+
 ### Phase 2: Derive Change Name
 
 Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm before proceeding.
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
+> - [ ] User confirmed the name
 
 ### Phase 3: Create Scaffolding
 
@@ -44,6 +54,10 @@ Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm
 |----------|--------|
 | Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + empty `proposal.md` |
 | Already exists | Read existing files, proceed to populate |
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] `.prospec/changes/[name]/` exists with `metadata.yaml` and `proposal.md`
+> - [ ] `metadata.yaml` `status` is set to `story`
 
 ### Phase 3.5: Complexity Assessment (Scale)
 
@@ -74,6 +88,11 @@ User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC
 (FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases and
 Related Modules stay. `standard`/`full` keep the full format.
 
+> **Phase 3.5 Gate** — proceed when:
+> - [ ] A scale (`quick`/`standard`/`full`) is proposed with reasoning against the criteria table
+> - [ ] User confirmed or overrode the scale
+> - [ ] Confirmed `scale` written to `metadata.yaml`
+
 ### Phase 4: Collect INVEST User Stories
 
 Guide the user to define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
@@ -90,9 +109,18 @@ Guide the user to define one or more INVEST User Stories (slim form when `scale:
 6. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `_index.md` module keywords. List matched modules with relevance reasoning.
 7. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
 
+> **Phase 4 Gate** — proceed when:
+> - [ ] >= 1 INVEST User Story defined, each with >= 2 WHEN/THEN acceptance scenarios
+> - [ ] Related Modules cross-referenced against `_index.md`
+> - [ ] Edge Cases captured (FR/SC enumerated unless `scale: quick`)
+
 ### Phase 5: Write proposal.md
 
 Follow `references/proposal-format.md` format with all sections from Phase 4.
+
+> **Phase 5 Gate** — proceed when:
+> - [ ] `proposal.md` written following `references/proposal-format.md`
+> - [ ] All Phase 4 sections present (no empty Background/Why)
 
 ### Phase 6: Constitution Check
 
@@ -100,6 +128,11 @@ Compare against 3+ most relevant Constitution principles:
 - **PASS**: Fully aligned
 - **WARN**: Partially aligned, with suggestions
 - **FAIL**: Violates principle, must adjust
+
+> **Phase 6 Gate** — proceed when:
+> - [ ] Proposal compared against >= 3 most relevant Constitution principles
+> - [ ] Each principle graded PASS/WARN/FAIL
+> - [ ] Any FAIL resolved or documented as an exception
 
 ### Phase 7: Knowledge Quality Gate
 
@@ -112,6 +145,10 @@ Before finalizing, verify Knowledge awareness:
 | Module keywords matched | Proposal terms found in module keywords | Manual assignment needed |
 
 WARN items do not block — note them in Open Questions section.
+
+> **Phase 7 Gate** — proceed when:
+> - [ ] Each Knowledge check item graded PASS/WARN
+> - [ ] Any WARN items recorded in the Open Questions section
 
 ### Phase 8: Summary + Next Steps
 

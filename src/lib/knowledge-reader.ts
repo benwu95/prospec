@@ -208,7 +208,32 @@ export function searchModules(query: string, modules: IndexModule[]): SearchModu
   );
 
   if (ranked.length === 0) return emptySearchResult();
-  return { matches: ranked.map(({ module, matched_field, description }) => ({ module, matched_field, description })) };
+  return {
+    matches: ranked.map(({ module, matched_field, description }) => ({
+      module,
+      matched_field,
+      description,
+      category: [] as string[],
+    })),
+  };
+}
+
+/**
+ * Attach each match's ordered category list from module-map.yaml — the single
+ * source of truth. searchModules ranks over name/keywords/aliases only; category
+ * never affects ranking, it is joined here after the fact. A missing map, an
+ * unmatched module name, or an unset category all yield [].
+ */
+export function attachModuleCategories(
+  result: SearchModulesResult,
+  moduleMap: ModuleMap | null,
+): SearchModulesResult {
+  if (moduleMap === null) return result;
+  const byName = new Map(moduleMap.modules.map((m) => [m.name, m.category ?? []] as const));
+  return {
+    ...result,
+    matches: result.matches.map((m) => ({ ...m, category: byName.get(m.module) ?? [] })),
+  };
 }
 
 export function normalizeSearchText(text: string): string {

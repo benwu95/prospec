@@ -32,6 +32,8 @@ When triggered, briefly describe:
 
 ## Core Workflow
 
+> Note: Phases 2a and 2b are intentional sub-steps (Generate Mode / Extract Mode) — Phase 1 detects which mode applies and only one of 2a/2b runs. They are not a numbering bug.
+
 ### Phase 1: Parse Proposal + Detect Mode
 
 1. Extract `UI Scope` from proposal.md (full/partial/none)
@@ -45,6 +47,11 @@ When triggered, briefly describe:
 | Otherwise | **Generate Mode** |
 
 3. Confirm detected mode with user before proceeding.
+
+> **Phase 1 Gate** — proceed when:
+> - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
+> - [ ] Mode resolved to Generate or Extract per the detection table
+> - [ ] User has confirmed the detected mode
 
 ### Phase 2a: Generate Mode
 
@@ -63,6 +70,11 @@ Produce design specs from proposal.md:
 
 Write `design-spec.md` and `interaction-spec.md` following their format references.
 
+> **Phase 2a Gate** — proceed when:
+> - [ ] design-spec.md written with Visual Identity, Components, and Responsive Strategy
+> - [ ] interaction-spec.md written covering each User Story's flows
+> - [ ] Every UI element in the proposal has a component entry with all visual states
+
 ### Phase 2b: Extract Mode
 
 Reverse-extract specs from existing design:
@@ -75,6 +87,11 @@ Reverse-extract specs from existing design:
 3. **Identify gaps** — Mark unclear design intent with `[NEEDS CLARIFICATION]`
 4. **Generate interaction-spec.md** — Infer interaction flows from design structure; mark uncertain transitions with `[NEEDS CLARIFICATION]`
 5. **User review** — Present extracted specs for user validation, resolve `[NEEDS CLARIFICATION]` items
+
+> **Phase 2b Gate** — proceed when:
+> - [ ] design-spec.md generated from the design tool's data in the standard format
+> - [ ] interaction-spec.md generated with flows inferred from the design structure
+> - [ ] User has reviewed extracted specs and `[NEEDS CLARIFICATION]` items are resolved
 
 ### Phase 3: Platform Execution
 
@@ -91,6 +108,10 @@ Skip this phase if:
 - Generate Mode and user only wants spec documents (no design tool output)
 - Platform is not configured
 
+> **Phase 3 Gate** — proceed when:
+> - [ ] Platform artifacts created via the loaded adapter's Design Phase actions, OR this phase was explicitly skipped (spec-only / no platform configured)
+> - [ ] Output landed in `design.output_dir` (for html) or the corresponding design tool
+
 ### Phase 4: Design Verification
 
 Validate the design output:
@@ -102,6 +123,11 @@ Validate the design output:
    - figma: Compare Figma nodes with spec
    - html: Open prototype in browser
 4. **No `[NEEDS CLARIFICATION]` remaining** — All items must be resolved
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] design-spec.md structure check passes (Visual Identity / Components / Responsive Strategy present)
+> - [ ] Every component in the proposal's UI scope has a corresponding spec entry
+> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs
 
 ### Phase 5: Summary + Next Steps
 

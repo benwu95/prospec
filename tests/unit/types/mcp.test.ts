@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   MCP_RESOURCE_URIS,
   MCP_TOOL_NAMES,
+  SEARCH_MATCH_FIELDS,
+  SearchModuleMatchSchema,
   SearchModulesInputSchema,
   SearchModulesResultSchema,
   GetDependencyDirectionInputSchema,
@@ -57,6 +59,33 @@ describe('SearchModulesResultSchema', () => {
         matches: [{ module: 'lib', matched_field: 'description', description: 'x' }],
       }).success,
     ).toBe(false);
+  });
+
+  it('defaults category to [] when omitted, and accepts an ordered list (REQ-TYPES-029)', () => {
+    const parsed = SearchModulesResultSchema.safeParse({
+      matches: [{ module: 'lib', matched_field: 'keywords', description: 'utilities' }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.matches[0]?.category).toEqual([]);
+    const withCat = SearchModulesResultSchema.safeParse({
+      matches: [{ module: 'quiz', matched_field: 'name', description: '', category: ['Quiz', 'Grading'] }],
+    });
+    expect(withCat.success && withCat.data.matches[0]?.category).toEqual(['Quiz', 'Grading']);
+  });
+});
+
+describe('search_modules frozen contract (REQ-TYPES-029 AC2)', () => {
+  it('keeps SEARCH_MATCH_FIELDS exactly [name, keywords, aliases]', () => {
+    expect([...SEARCH_MATCH_FIELDS]).toEqual(['name', 'keywords', 'aliases']);
+  });
+
+  it('keeps the frozen match fields and adds only category', () => {
+    expect(Object.keys(SearchModuleMatchSchema.shape).sort()).toEqual([
+      'category',
+      'description',
+      'matched_field',
+      'module',
+    ]);
   });
 });
 

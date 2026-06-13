@@ -134,27 +134,34 @@
 - [x] [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅ 已完成
 
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
-> entry 見下方「## 即時優化」段；狀態以「實作狀態總覽 · OPT 列」為準。
-- [ ] **OPT-A1** 自動銜接提示 — 部分（有雛形）
-- [x] **OPT-A2** Knowledge 健康度指標 ✅ 已完成（隨 BL-030）
-- [ ] **OPT-A3** 成果可視化 — 待驗證（未逐項驗證）
-- [ ] **OPT-A4** Quickstart Skill — 待處理
-- [ ] **OPT-B1** Constitution 導入引導強化 — 待處理
-- [ ] **OPT-B2** _index.md auto/user 區段整合 — 待處理
-- [x] **OPT-B3** tasks.md 任務分類（code/manual/verification）✅ 已完成（隨 BL-004）
-- [x] **OPT-B4** delta-spec 強制 REQ ID ✅ 已完成
-- [x] **OPT-B5** plan.md 長度控制指引 ✅ 已完成（基礎；隨 BL-004）
-- [x] **OPT-B6** Archive 未完成 tasks 警告 ✅ 已完成（隨 BL-004）
-- [ ] **OPT-C** 品質追蹤系統 — 待驗證（未逐項驗證）
-- [ ] **OPT-D1** Phase Gate 統一 — 部分（有雛形）
-- [ ] **OPT-D2** NEVER 規則分級 — 待處理
-- [ ] **OPT-D3** 行為契約式 Activation — 部分（有雛形）
-- [ ] **OPT-D4** Token Budget 量化 — 待處理
-- [ ] **OPT-D5** Attention Anchoring — 待處理
-- [ ] **OPT-D6** 跨 Skill 品質追溯鏈 — 待驗證（未逐項驗證）
-- [x] **OPT-D7** _index.md Aliases 擴展 ✅ 已完成
-- [x] **OPT-D8** 共享 Glossary ✅ 已完成
-- [ ] **OPT-D9** Few-Shot Examples — 待處理
+> entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
+- [x] **OPT-A1** 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
+- [x] **OPT-A2** Knowledge 健康度指標 — ✅ 實質完成（knowledge_health 經 drift report + MCP `/health` + `check`；原 `_index` 視覺表＝冗餘，不補）
+- [ ] **OPT-A3** 成果可視化（Cycle Impact）— 🔨 remaining（archive summary 未實作；縮維到可客觀計數的 REQ-delta + quality_log WARN）
+- [ ] **OPT-A4** Quickstart Skill — 🔨 remaining（無 `/prospec-quickstart`）
+- [x] **OPT-B1** Constitution 導入引導強化 — ✅ 完成（Part1 `exampleRulesFor()` 隨 BL-031；Part2 explore/kg 空 Constitution 偵測+提示隨 enhance-skill-instructions，REQ-TEMPLATES-096）
+- [x] **OPT-B2** _index.md Category 分組 — ✅ 完成（重塑交付 group-index-by-category，2026-06-13）：前提「auto/user 重複模組表」於 prospec 自身不成立（ContentMerger 已分離）→ 重塑為 Category 分組子標題 + module-map 單一真相 + MCP search category 感知
+- [x] **OPT-B3** tasks.md 任務分類（code/manual/verification）— ✅ 已完成（隨 BL-004）
+- [x] **OPT-B4** delta-spec 強制 REQ ID — ✅ 已完成（慣例+路由+Output Contract；殘留：無嚴格格式/唯一性驗證＝icebox 強化）
+- [x] **OPT-B5** plan.md 長度控制指引 — ✅ 已完成（隨 BL-004 三級）
+- [x] **OPT-B6** Archive 未完成 tasks 警告 — ✅ 已完成（隨 BL-004；code 未完成 WARN；硬阻擋確認 gate 刻意不做）
+- [x] ~~**OPT-C** 品質追蹤系統~~ — 🚫 過時（被 quality_log + BL-036 取代；quality_metrics 不需要）
+- [x] **OPT-D1** Phase Gate 統一 — ✅ 完成（per-phase gate 加於 8 numbered-phase skill + Phase-1 起；隨 enhance-skill-instructions，REQ-TEMPLATES-097。註：統一編號縮為只修 ff Phase 0，語義性小數/子步驟刻意保留）
+- [x] ~~**OPT-D2** NEVER 規則分級~~ — 🚫 過時（severity 已由 MUST/SHOULD/MAY + Output Contract 提供）
+- [x] ~~**OPT-D3** 行為契約式 Activation~~ — 🚫 過時（Output Contract 已覆蓋 contract 維度；改寫＝美學）
+- [x] ~~**OPT-D4** Token Budget 量化~~ — 🚫 維持過時（harness 為 corpus-wide 不產 per-layer 數字；`_index` 已有 per-layer 預算；per-layer 估算表仍屬捏造）
+- [x] **OPT-D5** Attention Anchoring — ✅ 完成（implement 每 task `Progress/Goal/Next` 錨定；隨 enhance-skill-instructions，REQ-TEMPLATES-100。ff N/A：無逐 task 迴圈）
+- [x] **OPT-D6** 跨 Skill 品質追溯鏈 — ✅ 完成（quality_log schema + skill Exit Gate 指令 + 測試 + fixture；經 skill 指令寫 metadata，符合 Architecture C）
+- [x] **OPT-D7** _index.md Aliases 擴展 — ✅ 已完成
+- [x] **OPT-D8** 共享 Glossary — ✅ 已完成（`_glossary.md` + `_index` 指引；殘留：MCP glossary resource 未開＝選用）
+- [ ] **OPT-D9** Few-Shot Examples — 🧊 icebox（enhance-skill-instructions 評估後延：few-shot 加長每 skill prefix tokens、4 項中價值最低；verify/new-story/tasks 仍無範例）
+
+**OPT remaining 優先序（2026-06-13 稽核）**：
+1. ✅ **Skill 指令品質 pass** — 已完成（`enhance-skill-instructions`，Grade S，commit `1f6067d`+`bb05835`，graduate sdd-workflow US-17~20）：B1-part2 + D1 + A1 + D5。D9 評估後延 icebox。
+2. **A4** `/prospec-quickstart`（新 skill，brownfield 6→1，獨立）。← 下一個
+3. ✅ **B2** `_index` Category 分組 — 已完成（group-index-by-category；重塑為 Category 分組子標題，非 auto/user 合併）。
+4. **A3** Cycle Impact（縮維到可客觀計數）。
+- icebox（選用強化，非主推）：B4 嚴格 REQ-ID 驗證、D8 MCP glossary resource。
 
 ---
 
@@ -199,13 +206,13 @@
 | P1/P2 | BL-005（無 `template` CLI）、BL-006（**PARTIAL／🚫 路線已過時**：仍 4 agents，缺 cursor/windsurf/opencode/qwen；「15 套 per-agent 模板」路線被 AGENTS.md/SKILL.md 收斂取代，僅偵測擴展需求保留）、BL-021（無 `extension`）、BL-022（無 `prospec-help`）、BL-026（`_index.md` 無 Dashboard） |
 | Phase 3 | BL-023（Layer 1.5 語義 Fallback，P3，未做）；其餘 Phase 3 項（BL-008/010/011/012/013/024/025）均已完成／🚫 已過時／↳ 已併入，見目錄 |
 | Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取、BL-034 依賴層知識 未開始；BL-035 SKILL.md 標準＋分發 **部分**（AGENTS.md 去重已隨 agent sync 完成，分發未做） |
-| OPT | A4、B1、B2、D2、D4、D5、D9 未做〔A2 ✅ 隨 BL-030 完成 `90e7c61`（report 凍結 knowledge_health 欄位；`_index.md` 表格回寫留給 Knowledge Flywheel 評估）〕；A1/D1/D3 **PARTIAL**（有雛形）；A3/C/D6 未逐項驗證〔D7/D8 ✅ commit `d3a0b8e`；B3/B5/B6 ✅ 隨 BL-004 完成 `9839719`〕 |
+| OPT | **【2026-06-13 更新】** 🔨 remaining：A3、A4；🧊 icebox：D9（few-shot 延後）；🚫 過時不做：C、D2、D3、D4；✅ 完成：A1、A2、B1、B2、B3、B4、B5、B6、D1、D5、D6、D7、D8（A1/B1/D1/D5 隨 `enhance-skill-instructions`，graduate sdd-workflow US-17~20；B2 重塑交付 group-index-by-category：Category 分組子標題，非 auto/user 合併）〔A2 knowledge_health 經 BL-030；D6 quality_log 經 skill 指令＝Architecture C；B4 殘留嚴格 REQ 驗證、D8 殘留 MCP glossary resource＝icebox〕。優先序見「即時優化」段 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
 ### ⚠️ 影響後續排程的缺口
 
 - ~~**`module-map.yaml` 實體缺**~~ **【2026-06-07 已過期】**：`prospec/ai-knowledge/module-map.yaml` 已存在且完整（6 模組、依賴方向、路徑），由 `generate-module-map-in-knowledge-init` 補上。不再阻擋 BL-027。
-- **OPT-B2 實際未做**：曾規劃併入 `optimize-ai-knowledge`，但該 change 未實作 `_index` auto/user 去重（`_index.md` 無 Category 欄位）。
+- ~~**OPT-B2 實際未做**~~ **【2026-06-13 已交付】**：group-index-by-category 以 Category 分組子標題交付（非 auto/user 合併去重）——原前提「重複模組表」於 prospec 自身不成立（ContentMerger 已分離 auto/user）；落地 module-map `category` 單一真相 + generate 自動推導 bootstrap + MCP `search_modules` category 感知。prospec 自身純分層維持平表（dogfood 驗證判斷閘）。
 
 ---
 
@@ -2739,7 +2746,7 @@ Archive summary 加入循環價值指標：
 ### OPT-B1：Constitution 導入引導強化
 
 現況：`prospec init` 生成的 `CONSTITUTION.md` 是空模板（placeholder text），使用者不知道該填什麼。
-實際案例：ocelot 專案的 Constitution 使用至今仍是空的，導致所有 Constitution Gate 和 verify 的合規檢查都是空操作。
+實際案例：初版測試專案的 Constitution 使用至今仍是空的，導致所有 Constitution Gate 和 verify 的合規檢查都是空操作。
 
 **改善方案**：
 1. `prospec init` 生成的 CONSTITUTION.md 應包含 3-5 個**引導式範例**（根據偵測到的 tech stack）
@@ -2762,6 +2769,8 @@ Python/FastAPI 專案的預設 Constitution 範例：
 ---
 
 ### OPT-B2：_index.md auto/user 區段整合
+
+> **完成狀態**：2026-06-13 以**重塑形式**交付（group-index-by-category，verify Grade S，commits `7a58b78`+`792ef08`+`c9d5294`；graduate ai-knowledge US-340 + mcp-server US-4）。原前提「auto/user 重複模組表」在 prospec 自身**不成立**——`ContentMerger` 已分離 auto（系統表）/ user（自由筆記），無重複。重塑交付：(1) auto 表依 Category **分組為 `### {Category}` 子標題**（非新增欄位、非 auto/user 合併）；(2) `module-map.yaml` `category` 有序清單為**單一真相**，generate 自動推導 bootstrap；(3) MCP `search_modules` 從 module-map join category。判斷閘：純架構分層專案（含 prospec 自身）維持平表、不分組。原「方案 3：auto/user 合併去重」**未做**（前提失效即無必要）。
 
 現況：`_index.md` 的 `prospec:auto-start/end` 和 `prospec:user-start/end` 區段有大量重複的模組表格。user 區段多了「分類」（Classroom Management、Quiz System 等），但核心資訊（module name, keywords, status）重複。
 
@@ -2851,11 +2860,11 @@ Python/FastAPI 專案的預設 Constitution 範例：
 
 ---
 
-### BUG-001：`knowledge init` Tech Stack 偵測忽略 .prospec.yaml
+### BUG-001：`knowledge init` Tech Stack 偵測忽略 .prospec.yaml ✅
 
 **嚴重度**：High
 
-**現象**：在 ocelot 專案（Python/FastAPI）執行 `prospec knowledge init` 後，`raw-scan.md` 顯示：
+**現象**：在初版測試專案（Python/FastAPI）執行 `prospec knowledge init` 後，`raw-scan.md` 顯示：
 ```
 | Language | javascript |
 | Framework | — |

@@ -169,6 +169,22 @@ Fill module table within `prospec:auto-start/end` markers using new format:
 - **Rationale**: Why this module exists as a separate unit (1 sentence)
 - **Status**: Active / Deprecated / New
 
+**Category grouping (optional, judgment-gated):**
+
+When the modules fall into **≥2 meaningful domain categories** (e.g. by feature area), group the
+table into `### {Category}` sub-tables instead of one flat table — each sub-table reuses the SAME
+column layout above. When modules are only architectural layers (types/lib/services/cli) with no
+domain split, keep ONE flat table — do not force grouping.
+
+- **Derive** each module's category from its paths, keywords, and purpose. Record it in
+  `module-map.yaml` as an ordered `category: [primary, …secondary]` list — the single source of
+  truth. Propose it, confirm with the user, then write it back; on later runs read category from
+  `module-map.yaml` and never re-guess a module that already has one.
+- **Primary first**: a module appears under its primary (`category[0]`) `### {Category}` heading
+  **exactly once** — never list it under two headings (L0 must stay duplicate-free). Secondary
+  categories live only in `module-map.yaml` (surfaced by the MCP `search_modules` join), not in `_index.md`.
+- Keep the whole L0 within budget regardless of grouping (≤ {l0_max} tokens).
+
 Also populate the **Loading Rules** section at the bottom:
 
 ```markdown
@@ -199,9 +215,18 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - Every extracted sub-module is linked from its parent README's `## Sub-Modules` section and is NOT listed in `_index.md`
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
 - _index.md has Aliases + Rationale columns and Loading Rules section
+- If grouped, every `### {Category}` sub-table reuses the identical column layout (keeps the index machine-parseable) and each module is listed under its primary category only
 - **L0 total (_index.md + _conventions.md) ≤ 1,500 tokens** (estimate ~4 chars/token)
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
+
+### Step 8: Constitution Emptiness Check
+
+After Knowledge is generated, read `{{constitution_path}}`. If it is absent, contains only blank
+lines or comments, or holds only the
+seeded example rules and the Language Policy (no project-authored rules), it is
+**substantively empty** — tell the user that `/prospec-verify` and the Entry/Exit gates stay no-ops
+until real principles exist, and point them to edit `{{constitution_path}}`. Advisory — do not block.
 
 ## Output Contract
 

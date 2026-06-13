@@ -36,12 +36,20 @@ When triggered, briefly describe:
 
 Auto-identify current change, read plan.md and delta-spec.md, summarize implementation phases, file changes, and spec count.
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] current change name resolved and plan.md + delta-spec.md (or proposal.md for `scale: quick`) read
+> - [ ] implementation phases, file changes, and spec/REQ count summarized
+
 ### Phase 2: Create Scaffolding
 
 | Scenario | Action |
 |----------|--------|
 | tasks.md doesn't exist | Create empty `tasks.md`, update `metadata.yaml` status → `tasks` |
 | Already exists | Read and populate |
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] `tasks.md` exists (created or read)
+> - [ ] `metadata.yaml` status updated to `tasks`
 
 ### Phase 3: Decompose by Architecture Layer
 
@@ -66,17 +74,33 @@ Each task format: `- [ ] [description] ~{lines} lines`. Add `[P]` marker for par
 - Annotate each UI task with: "Read precise design values from design tool via adapter MCP before implementing"
 - This ensures the implement phase knows which components to look up and which MCP tools to use
 
+> **Phase 3 Gate** — proceed when:
+> - [ ] tasks written to `tasks.md`, grouped by architecture layer (Types → Lib → Services → CLI → Tests)
+> - [ ] each task has a `~{lines} lines` estimate and non-code tasks carry `[M]`/`[V]` kind markers
+
 ### Phase 4: Mark Parallelization Opportunities
 
 Identify tasks with no dependencies, mark with `[P]`. Independent tasks within the same layer are usually parallelizable.
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] dependency-free tasks marked with `[P]` in `tasks.md`
+> - [ ] no `[P]` marker placed on a task that depends on a lower layer
 
 ### Phase 5: Generate Summary
 
 Add statistics at end of file: Total Tasks, Parallelizable Tasks, Total Estimated Lines.
 
+> **Phase 5 Gate** — proceed when:
+> - [ ] statistics block appended at end of `tasks.md` (Total Tasks, Parallelizable Tasks, Total Estimated Lines)
+> - [ ] Total Tasks count reconciles with the checkboxes in the file
+
 ### Phase 6: Constitution Test Check
 
 Ensure each new/modified module has corresponding test tasks. If coverage is insufficient, add test tasks or raise a warning.
+
+> **Phase 6 Gate** — proceed when:
+> - [ ] every new/modified module has a corresponding test task in `tasks.md`
+> - [ ] any test-coverage gap is resolved by added test tasks or a recorded warning
 
 ### Phase 7: Knowledge Quality Gate
 
@@ -89,6 +113,10 @@ Before finalizing, verify task decomposition against Knowledge:
 | Test tasks included | Every new/modified module has test tasks | Some modules missing test coverage |
 
 WARN items do not block — add clarification notes to affected tasks.
+
+> **Phase 7 Gate** — proceed when:
+> - [ ] each Knowledge Quality Gate check item graded PASS or WARN
+> - [ ] every WARN item has a clarification note added to the affected task
 
 ### Phase 8: Summary + Next Steps
 
@@ -133,4 +161,15 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | plan.md not found | `scale: quick`: expected — decompose from proposal.md. Otherwise guide user to run `/prospec-plan` first |
 | Task count exceeds 30 | Suggest splitting the Story or merging fine-grained tasks |
 | Insufficient test coverage | Offer options: add test tasks / document test debt |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 

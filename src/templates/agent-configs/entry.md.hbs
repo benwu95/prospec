@@ -48,6 +48,15 @@ This project ships with the following Prospec Skills, triggered via slash comman
 
 {{/each}}
 
+## Session Start
+
+At the start of a session, scan `.prospec/changes/` for in-progress changes (each change's
+`metadata.yaml` `status` ≠ `archived`). If any exist, surface each change's name, status, and the
+suggested next step in the SDD workflow order (`story → plan → tasks → implement → review → verify →
+archive`, then periodic `learn`) — review and learn own no status transition, so follow this order,
+not status alone; cross-check `{{knowledge_base_path}}/_status-lifecycle.md`. This resumes work at the
+right point instead of starting blind.
+
 ## Working with This Project
 
 1. **Before starting**: Read the Constitution to understand project principles

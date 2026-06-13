@@ -41,12 +41,18 @@ FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 
 ## Core Workflow
 
-### Phase 0: Quick Interview (3 questions to converge)
+> Phases are numbered from 1 (no Phase 0).
+
+### Phase 1: Quick Interview (3 questions to converge)
 
 Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
 Derive kebab-case change name, confirm before proceeding.
 
-### Phase 1: Story Generation
+> **Phase 1 Gate** — proceed when:
+> - [ ] change name (kebab-case) confirmed
+> - [ ] core goal, primary user, and 3-5 ACs collected
+
+### Phase 2: Story Generation
 
 | Step | Action |
 |------|--------|
@@ -55,13 +61,18 @@ Derive kebab-case change name, confirm before proceeding.
 | Populate | Write User Story and ACs per proposal-format.md |
 | Check | Constitution check (3 most relevant principles) → PASS continue / FAIL pause |
 
-**Scale routing:** when `scale: quick` is confirmed, SKIP Phase 2 entirely — no plan.md, no
-delta-spec.md, and no module README loading (Phase 2's Layer 2 step; `_index.md` from Startup
+**Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
+delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `_index.md` from Startup
 Loading is still read). Status advances `story → tasks` directly
 (a legal quick-path transition; see `{{knowledge_base_path}}/_status-lifecycle.md`). The
 `/prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
 
-### Phase 2: Plan Generation (skipped when `scale: quick`)
+> **Phase 2 Gate** — proceed when:
+> - [ ] `proposal.md` + `metadata.yaml`(status: story) created
+> - [ ] `metadata.scale` confirmed by user and written
+> - [ ] Constitution check passed (pause on FAIL)
+
+### Phase 3: Plan Generation (skipped when `scale: quick`)
 
 | Step | Action |
 |------|--------|
@@ -70,7 +81,11 @@ Loading is still read). Status advances `story → tasks` directly
 | Populate | Write per plan-format.md and delta-spec-format.md |
 | Check | Constitution check → PASS continue / FAIL pause |
 
-### Phase 3: Tasks Generation
+> **Phase 3 Gate** — proceed when:
+> - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
+> - [ ] (quick) phase marked skipped per `scale: quick` — no plan artifacts produced
+
+### Phase 4: Tasks Generation
 
 | Step | Action |
 |------|--------|
@@ -122,18 +137,18 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 
 - **NEVER** use FF when requirements are vague — guide user to `/prospec-explore` first
 - **NEVER** skip Constitution check at any phase — every phase must be checked
-- **NEVER** ask more than 3 questions in Phase 0 — FF prioritizes speed, use `/prospec-explore` for depth
+- **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `/prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files (proposal / plan / delta-spec / tasks formats) directly
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks, or story → tasks only when `scale: quick`
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
-- **NEVER** skip Phase 2 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
+- **NEVER** skip Phase 3 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
 
 ## Error Handling
 
 | Scenario | Action |
 |----------|--------|
 | Constitution severe violation at any phase | Pause FF, preserve completed parts, switch to single-phase Skill |
-| User changes requirements mid-flow | Restart from Phase 0 with new requirements |
+| User changes requirements mid-flow | Restart from Phase 1 with new requirements |
 | Module Knowledge insufficient | Proceed with available info, note gaps in plan.md Risk Assessment |
 
