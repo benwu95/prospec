@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-12
-story_count: 16
-req_count: 68
+last_updated: 2026-06-13
+story_count: 20
+req_count: 74
 ---
 
 # SDD 開發流程
@@ -388,6 +388,7 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 #### REQ-TEMPLATES-061: Output Summary and Objective Criteria
 每個 skill 結尾輸出統一格式 Output Summary，採 PASS/WARN/FAIL 詞彙；Success Criteria 客觀可判定。
 - WHEN a skill finishes, THEN it emits `Met N/M | Unmet: ... | Overall: PASS|WARN|FAIL | Next: ...`
+- WHEN 屬 linear-flow skill（plan→tasks→implement→review→verify→archive）, THEN `Next:` 欄承接 status-aware Next-Step Handoff（REQ-TEMPLATES-098）
 - WHEN a criterion is not mechanically checkable, THEN it is marked (manual), not faked as PASS
 
 #### REQ-TESTS-001: Output Contract Contract Test
@@ -580,6 +581,84 @@ verify Startup Loading 以 [DYNAMIC] 步驟執行 `prospec check --json`；V1/V4
 
 ---
 
+## US-17: Constitution 實質空白偵測提示 [P1]
+
+身為一個採用 prospec 的新專案開發者，
+我想要 `/prospec-explore` 與 `/prospec-knowledge-generate` 結束時偵測 Constitution 是否實質空白並提示填寫，
+以便 Constitution 成為真實的專案原則，而非讓 verify 合規檢查與 Entry/Exit gate 淪為 no-op。
+
+**Acceptance Scenarios:**
+- WHEN explore/knowledge-generate 結束且 Constitution 僅含種入範例規則 + Language Policy（或不存在、僅空行/註解）THEN 結尾輸出提示：實質為空、gate 將失效、引導編輯 `CONSTITUTION.md`
+- WHEN 已有至少一條使用者自訂規則 THEN 不輸出提示
+- WHEN 提示輸出 THEN 遵循 Constitution Language Policy；advisory 不阻擋
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-096: Constitution Substantive-Emptiness Prompt
+explore + knowledge-generate 模板於結尾偵測 Constitution 實質空白（僅種入範例規則 + Language Policy、不存在、或僅空行/註解）→ 輸出填寫提示。純 skill 指令（agent 自判，不引入 lib/CLI）。
+- WHEN 實質空白, THEN 提示「為何需自訂規則 + 編輯步驟」；已有自訂規則則不提示
+- WHEN contract runs, THEN 斷言兩模板含偵測提示（`substantively empty` + `seeded example rules`）
+
+## US-18: 統一 Phase 編號 + per-phase gate [P2]
+
+身為一個採用 prospec 的團隊工程師，
+我想要所有含 numbered Phase 的 skill 一律 Phase 1 起、每個非收尾 Phase 後有精簡通過 checklist，
+以便流程編號可預測、且在每階段就驗證成果，不必等 skill 結束的 Exit Gate。
+
+**Acceptance Scenarios:**
+- WHEN 檢視任一 numbered-phase skill THEN Phase 1 起（ff 不再有 Phase 0）；語義性小數（archive 3.5/3.6/4.5、new-story 3.5）與子步驟（design 2a/2b）保留並註明刻意插入
+- WHEN 完成某非收尾 Phase THEN 該 Phase 後有 2-3 項可觀察 gate checklist（與 skill 層 Entry/Exit gate 並存）
+- WHEN 依 scale 略過 Phase（如 quick 跳 plan）THEN 標記 skipped、不誤判缺漏
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-097: Phase-1 Start + Per-Phase Gates
+8 個 numbered-phase skill 一律 Phase 1 起（修 ff Phase 0）；每非收尾 numbered Phase 後加 2-3 項 gate checklist。語義性小數/子步驟保留並文件化（不整數化以免 cascade 破壞 spec/lifecycle 交叉引用）。單階段 skill 豁免。
+- WHEN rendered, THEN ff 無 `Phase 0`；每 numbered-phase skill gate 數 ≥ 非收尾 phase 數（contract 斷言）
+
+#### REQ-TESTS-026: Instruction-Quality Contract Assertions
+`skill-format.test.ts` 斷言鎖定本 feature 全部模板結構（Phase 編號、per-phase gate、Constitution 偵測提示、status-aware handoff、session 偵測、implement progress）；移除任一即轉紅（+19 斷言）。
+- WHEN contract runs, THEN US-17~20 對應斷言全綠
+
+## US-19: status-aware Next-Step Handoff + 新 session 偵測 [P2]
+
+身為一個迭代開發中的 prospec 開發者，
+我想要 6 個 linear-flow skill 結尾依 SDD workflow order 建議下一步並詢問執行，且新 session 啟動時偵測 `.prospec/changes/` 進行中變更，
+以便流程連續、不因 session 中斷而走錯或重做。
+
+**Acceptance Scenarios:**
+- WHEN plan/tasks/implement/review/verify/archive 結束 THEN 依 SDD workflow order（review/learn 無 status 節點，故依序非僅依 status）建議下一步 + 詢問「Run <next-step> now? (Y/n)」；Y→agent 觸發、n→停留；絕不靜默 auto-run
+- WHEN 階段為 terminal（archived）THEN 指向定期 `/prospec-learn`；grade B/C/D 不前進則指向修正步而非下一 skill
+- WHEN 新 session 啟動且存在 status≠archived 變更 THEN entry config 提示其名稱、status 與接續步
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-098: Status-Aware Next-Step Handoff
+plan/tasks/implement/review/verify/archive 結尾含依 SDD workflow order 的 Next-Step Handoff + `(Y/n)`；Y 由 agent 觸發下一步、n 停留；含 terminal/非進展分支。承接 REQ-TEMPLATES-061 的 `Next:` 欄。
+- WHEN rendered, THEN 六 skill 含 `Next-Step Handoff` + `(Y/n)` + `_status-lifecycle.md`（contract 斷言）
+
+#### REQ-TEMPLATES-099: New-Session In-Progress Change Detection
+agent entry config 於 session 啟動偵測 `.prospec/changes/` status≠archived 變更並提示接續步（依 workflow order）。
+- WHEN rendered, THEN entry config 含 `Session Start` + `.prospec/changes/` 偵測
+
+## US-20: implement progress 錨定 [P3]
+
+身為一個以 implement 進行長實作的開發者，
+我想要每完成一個 task 後輸出 `Progress X/Y | Goal | Next`，
+以便 50+ tool call 後仍能定位進度、避免目標漂移。
+
+**Acceptance Scenarios:**
+- WHEN implement 完成一個 task（勾選 checkbox）THEN 輸出 `Progress X/Y | Goal: <proposal 一句> | Next: <下一 task>`；分母僅計 code task
+- WHEN 全部 code task 完成 THEN 輸出 `Progress Y/Y (Complete)` 並指向 `/prospec-review`
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-100: Implement Progress Anchoring
+prospec-implement 每 task 完成 checkpoint 後輸出三段式 `Progress/Goal/Next`（分母僅 code task）。ff 不適用（無逐 task 迴圈）。
+- WHEN rendered, THEN implement 含 `Progress X/Y` + `Progress Y/Y (Complete)`（contract 斷言）
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -609,3 +688,4 @@ verify Startup Loading 以 [DYNAMIC] 步驟執行 `prospec check --json`；V1/V4
 | 2026-06-11 | gate-knowledge-at-archive | verify V4 降級本變更落差為 informational；archive Entry Gate 成為唯一強制 knowledge 同步檢查點（BL-038 方向 B） | US-14; REQ-TEMPLATES-083 (ADDED), REQ-TEMPLATES-034/045/010 (MODIFIED) |
 | 2026-06-12 | add-scale-adapter | 相稱流程：scale（quick/standard/full）流程縮放 + task kind schema 凍結 + quick 雙 backstop（BL-004 + OPT-B3/B5/B6） | US-15; REQ-TYPES-026, REQ-TEMPLATES-084~090 (ADDED), REQ-CHNG-004/014, REQ-TEMPLATES-010, REQ-SERVICES-010 (MODIFIED) |
 | 2026-06-12 | add-drift-checker | verify V1/V4 改消費 `prospec check --json` 確定性報告（明示退回、skipped≠PASS）；引擎本體 graduate 至 drift-detection feature | US-16; REQ-TEMPLATES-092 (ADDED), REQ-TEMPLATES-045/088 (MODIFIED) |
+| 2026-06-13 | enhance-skill-instructions | skill 指令品質 pass：Constitution 空白提示、Phase-1 + per-phase gate（ff 重編號）、status-aware handoff + 新 session 偵測、implement progress 錨定（OPT B1/D1/A1/D5；D9 延 icebox） | US-17~20; REQ-TEMPLATES-096~100 (ADDED), REQ-TEMPLATES-061/085 (MODIFIED), REQ-TESTS-026 (ADDED) |
