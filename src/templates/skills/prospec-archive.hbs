@@ -35,6 +35,8 @@ When triggered, briefly describe:
 
 ## Core Workflow
 
+> Phases 3.5 (Feature Spec Sync), 3.6 (Product Spec Regeneration), and 4.5 (Auto-Harvest Recurring Lessons) are intentional insertions added by later changes — kept on purpose, not a numbering gap.
+
 ### Phase 1: Scan and Confirm Targets
 
 Scan `.prospec/changes/` for changes with `status: verified` — **only `verified` changes are archivable** (status lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`).
@@ -45,6 +47,10 @@ Display a table of archivable changes:
 
 If a change is not `verified`, do NOT archive it — tell the user to run `/prospec-verify` and reach grade S/A first (that is what sets `status: verified`). Confirm with user before proceeding.
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] Archivable-changes table listed only `status: verified` changes
+> - [ ] User confirmed the set of changes to archive
+
 ### Phase 2: Generate Summary
 
 For each change to archive:
@@ -54,6 +60,10 @@ For each change to archive:
 4. Check for `design-spec.md` and `interaction-spec.md` — if present, note design artifacts in summary
 5. Generate `summary.md` following `references/archive-format.md` specification
 
+> **Phase 2 Gate** — proceed when:
+> - [ ] `summary.md` generated per `references/archive-format.md` for each target change
+> - [ ] Code-task completion rate computed; any unchecked code tasks surfaced to the user
+
 ### Phase 3: Execute Archive
 
 For each confirmed change:
@@ -61,6 +71,11 @@ For each confirmed change:
 2. Move all artifacts (proposal.md, plan.md, delta-spec.md, tasks.md, metadata.yaml, and design-spec.md + interaction-spec.md if present)
 3. Place generated summary.md in archive directory
 4. Update `metadata.yaml` to `status: archived`
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] `.prospec/archive/{YYYY-MM-DD}-{change-name}/` created with all artifacts moved (originals not deleted)
+> - [ ] `summary.md` placed in the archive directory
+> - [ ] `metadata.yaml` `status` set to `archived`
 
 ### Phase 3.5: Feature Spec Sync
 
@@ -80,6 +95,11 @@ After archiving, sync User Stories and requirements to Feature Specs:
 
 **Feature Spec Sync is non-fatal** — if it fails, archiving still succeeds. Warn the user to manually update Feature Specs.
 
+> **Phase 3.5 Gate** — proceed when:
+> - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `{{base_dir}}/specs/features/` (or graduation skipped for a quick change diagnosed as no-impact)
+> - [ ] Affected Feature Specs' Change History tables and frontmatter counters updated
+> - [ ] Any sync failure logged and surfaced to the user (non-fatal)
+
 ### Phase 3.6: Product Spec Regeneration
 
 After Feature Spec Sync completes:
@@ -89,6 +109,10 @@ After Feature Spec Sync completes:
 3. Regenerate `{{base_dir}}/specs/product.md` following `references/product-spec-format.md`
 
 **Product Spec Regeneration is non-fatal** — if it fails, Feature Spec Sync results are still valid.
+
+> **Phase 3.6 Gate** — proceed when:
+> - [ ] `{{base_dir}}/specs/product.md` regenerated per `references/product-spec-format.md`
+> - [ ] Core Stories reflect P0 User Stories from all active Feature Specs
 
 ### Phase 4: Knowledge Sync Re-check
 
@@ -104,6 +128,10 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
 3. If a gap is found (gate state regressed since the Entry Gate), STOP: run `/prospec-knowledge-update` for the gap, then continue — do not fall back to an optional prompt
 
 > The archive service additionally auto-triggers a knowledge update as an idempotent safety net — with the Entry Gate already satisfied it is a no-op, not a substitute for the gate.
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] Every affected module README re-confirmed to reflect the archived change (no regression since the Entry Gate)
+> - [ ] Confirmed modules listed with their reflected requirement counts; any gap resolved via `/prospec-knowledge-update`
 
 ### Phase 4.5: Auto-Harvest Recurring Lessons
 
@@ -155,4 +183,15 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Change missing delta-spec.md | `scale: quick`: expected — run the quick spec-impact check instead. Otherwise: archive with partial summary, note missing spec in summary.md |
 | Archive directory already exists | Warn user, ask whether to overwrite or skip |
 | File move fails | Roll back that specific change's archive, report error, continue with others |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 

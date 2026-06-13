@@ -203,6 +203,14 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
 
+### Step 8: Constitution Emptiness Check
+
+After Knowledge is generated, read `{{constitution_path}}`. If it is absent, contains only blank
+lines or comments, or holds only the
+seeded example rules and the Language Policy (no project-authored rules), it is
+**substantively empty** — tell the user that `/prospec-verify` and the Entry/Exit gates stay no-ops
+until real principles exist, and point them to edit `{{constitution_path}}`. Advisory — do not block.
+
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.

@@ -545,7 +545,7 @@ new-story Phase 3.5：判準表（觸及模組數／spec-covered 行為／變更
 - WHEN 未經使用者確認, THEN 不得寫入 scale（NEVER 守則 + contract 斷言鎖定）
 
 #### REQ-TEMPLATES-085: Fast-Forward Quick Path
-ff 讀取 `metadata.scale`：quick 跳過 Phase 2（不產 plan.md/delta-spec.md、不載模組 README），狀態 story → tasks；standard/full 維持三段流程。生命週期雙副本（`_status-lifecycle.md` + init 模板）記載 quick 轉移並以 contract 斷言鎖同步。
+ff 讀取 `metadata.scale`：quick 跳過 Phase 3（Plan Generation；不產 plan.md/delta-spec.md、不載模組 README），狀態 story → tasks；standard/full 維持三段流程。生命週期雙副本（`_status-lifecycle.md` + init 模板）記載 quick 轉移並以 contract 斷言鎖同步。
 - WHEN quick, THEN Output Contract 以「plan 依契約缺席」自評，不誤報 Unmet
 
 #### REQ-TEMPLATES-086: Task Kind Marker Schema (Frozen)

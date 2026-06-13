@@ -39,6 +39,10 @@ When triggered, briefly describe:
 
 Parse tasks.md, display progress statistics (completed/total/percentage), locate current task.
 
+> **Phase 1 Gate** — proceed when:
+> - [ ] tasks.md parsed and progress statistics (completed/total/percentage) displayed
+> - [ ] first uncompleted task located
+
 ### Phase 2: Load Relevant Knowledge
 
 Extract architecture design and technical decisions related to current task from plan.md.
@@ -52,6 +56,11 @@ Load relevant module AI Knowledge (Layer 2).
 3. Read the platform adapter reference (based on `.prospec.yaml` → `design.platform`) — understand MCP tool usage for reading design data
 4. If design-spec.md does NOT exist for a UI task → warn user: "No design spec found. UI implementation will rely on proposal.md descriptions only. Consider running `/prospec-design` first."
 
+> **Phase 2 Gate** — proceed when:
+> - [ ] design intent and file specs for the current task extracted from plan.md/delta-spec.md (quick: from proposal.md)
+> - [ ] relevant module AI Knowledge loaded for the current task's module(s)
+> - [ ] for UI tasks: design-spec.md/interaction-spec.md read or absence warned
+
 ### Phase 3: Execute Implementation
 
 Implement code based on delta-spec specifications (quick: proposal.md acceptance scenarios) and module design patterns.
@@ -59,6 +68,10 @@ Follow `{{knowledge_base_path}}/_conventions.md` patterns: Service `execute()`, 
 
 **For UI tasks — MCP-first approach:**
 Before writing any UI code, use the platform adapter's Implement Phase guidelines to read precise design values from the design tool via MCP (exact colors, spacing, font sizes, component structure). MCP-read values are more precise than design-spec.md markdown descriptions — always prefer MCP data for visual properties. Use design-spec.md as the structural blueprint, and MCP as the measurement source.
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] current task's code implemented against delta-spec (quick: proposal.md acceptance scenarios)
+> - [ ] `_conventions.md` patterns applied where applicable (execute()/atomicWrite()/ContentMerger)
 
 ### Phase 4: Verify Implementation
 
@@ -68,9 +81,23 @@ After completion, perform quick quality check:
 - Error handling
 - Constitution compliance
 
+> **Phase 4 Gate** — proceed when:
+> - [ ] spec compliance, type safety, and error handling checked for the current task
+> - [ ] Constitution compliance confirmed (any deviation documented)
+
 ### Phase 5: Mark Complete
 
-Update checkbox in tasks.md `- [ ]` → `- [x]`, display updated progress.
+Update checkbox in tasks.md `- [ ]` → `- [x]`, then emit a visually distinct progress anchor so
+the original goal stays in focus across long task loops (attention anchoring):
+
+`Progress X/Y | Goal: <proposal one-liner> | Next: <next task>`
+
+X/Y counts **code tasks only** (`[M]`/`[V]` excluded — kind schema: tasks-format reference). When all
+code tasks are done, emit `Progress Y/Y (Complete)` and point to `/prospec-review`.
+
+> **Phase 5 Gate** — proceed when:
+> - [ ] current task's checkbox flipped `- [ ]` → `- [x]` in tasks.md
+> - [ ] updated progress displayed
 
 ### Phase 6: Move to Next Task
 
@@ -133,4 +160,15 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Task has unmet dependency | Suggest completing dependency first / skip and record blocker |
 | Unclear specification | Decide based on conventions and best practices / return to `/prospec-plan` to supplement (`scale: quick`: supplement proposal.md instead — `/prospec-plan` refuses quick) |
 | Technical blocker | Record blocker, continue with other independent tasks |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 

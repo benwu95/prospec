@@ -1546,14 +1546,14 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
   it('ff runs the scale assessment in its story phase and routes quick past plan', () => {
     const content = renderFf();
     expect(content).toContain('**Scale routing:**');
-    expect(content).toContain('SKIP Phase 2 entirely');
+    expect(content).toContain('SKIP Phase 3 entirely');
     expect(content).toContain('no module README loading');
-    expect(content).toContain('Phase 2: Plan Generation (skipped when `scale: quick`)');
+    expect(content).toContain('Phase 3: Plan Generation (skipped when `scale: quick`)');
   });
 
   it('ff quick path produces no plan artifacts and advances story → tasks', () => {
     const content = renderFf();
-    const flat = sectionOf(content, '### Phase 1: Story Generation').replace(/\s+/g, ' ');
+    const flat = sectionOf(content, '### Phase 2: Story Generation').replace(/\s+/g, ' ');
     expect(flat).toContain('no plan.md, no delta-spec.md, and no module README loading');
     expect(content).toContain('`story → tasks` directly');
   });
@@ -1787,5 +1787,97 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
     const errors = sectionOf(render(), '## Error Handling');
     expect(errors).toContain('`prospec check` unavailable or fails');
     expect(errors).toContain('drift engine unavailable — falling back to manual checks');
+  });
+});
+
+// US-18: Phase-1 start + per-phase gates (REQ-TEMPLATES-097).
+// The 8 numbered-phase skills (survey 2026-06-13); the other 5 (explore,
+// knowledge-generate, learn, review, verify) use non-numbered structure — exempt.
+// Semantic decimal/sub-step phases (archive 3.5/3.6/4.5, new-story 3.5, design 2a/2b)
+// are intentional insertions and are kept — only Phase 0 (ff) is corrected.
+describe('US-18: Phase-1 start + per-phase gates', () => {
+  const NUMBERED_PHASE_SKILLS = [
+    'prospec-archive',
+    'prospec-design',
+    'prospec-ff',
+    'prospec-implement',
+    'prospec-knowledge-update',
+    'prospec-new-story',
+    'prospec-plan',
+    'prospec-tasks',
+  ];
+
+  const renderSkill = (name: string) =>
+    renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+  const phaseHeadings = (content: string): string[] =>
+    content.match(/^#{3,4} Phase [^\n]+/gm) ?? [];
+
+  it('prospec-ff starts at Phase 1 (no Phase 0)', () => {
+    const content = renderSkill('prospec-ff');
+    expect(content).not.toMatch(/^#{3,4} Phase 0\b/m);
+    expect(content).toMatch(/^#{3,4} Phase 1\b/m);
+  });
+
+  for (const name of NUMBERED_PHASE_SKILLS) {
+    it(`${name}: every non-terminal phase carries a gate checklist`, () => {
+      const content = renderSkill(name);
+      const phases = phaseHeadings(content);
+      expect(phases.length).toBeGreaterThan(1);
+      // one "**Phase X Gate**" per non-terminal phase (the terminal phase — a Summary, or
+      // implement's Move-to-Next loop-back — carries no gate)
+      const gates = (content.match(/Phase \S+ Gate/g) ?? []).length;
+      expect(
+        gates,
+        `${name}: expected >= ${phases.length - 1} per-phase gates, found ${gates}`,
+      ).toBeGreaterThanOrEqual(phases.length - 1);
+    });
+  }
+});
+
+// US-17: Constitution substantive-emptiness prompt (REQ-TEMPLATES-096).
+// explore + knowledge-generate end-of-run check that the Constitution holds only
+// the seeded example rules + Language Policy (no project-authored rules).
+describe('US-17: Constitution emptiness prompt', () => {
+  for (const name of ['prospec-explore', 'prospec-knowledge-generate']) {
+    it(`${name} prompts when the Constitution is substantively empty`, () => {
+      const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+      expect(content).toContain('substantively empty');
+      expect(content).toContain('seeded example rules');
+    });
+  }
+});
+
+// US-20: implement progress anchoring (REQ-TEMPLATES-100). ff is N/A (no task loop).
+describe('US-20: implement progress anchoring', () => {
+  it('prospec-implement emits a Progress/Goal/Next anchor after each task', () => {
+    const content = renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Progress X/Y');
+    expect(content).toContain('Progress Y/Y (Complete)');
+  });
+});
+
+// US-19: status-aware handoff (REQ-TEMPLATES-098 / MODIFIED-061) + new-session detection (REQ-TEMPLATES-099).
+describe('US-19: status-aware handoff + session detection', () => {
+  const HANDOFF_SKILLS = [
+    'prospec-plan',
+    'prospec-tasks',
+    'prospec-implement',
+    'prospec-review',
+    'prospec-verify',
+    'prospec-archive',
+  ];
+  for (const name of HANDOFF_SKILLS) {
+    it(`${name} ends with a status-aware (Y/n) next-step handoff`, () => {
+      const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+      expect(content).toContain('Next-Step Handoff');
+      expect(content).toContain('(Y/n)');
+      expect(content).toContain('_status-lifecycle.md');
+    });
+  }
+
+  it('entry config detects in-progress changes at session start', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Session Start');
+    expect(content).toContain('.prospec/changes/');
   });
 });
