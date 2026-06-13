@@ -29,11 +29,12 @@ req_count: 8
 - WHEN client 讀取存在的 module，THEN 回傳 README 全文；檔案於運行中變更後再讀，回傳最新內容
 - WHEN server 未啟動或未註冊，THEN 既有 skills 與 CLI 行為不受任何影響
 
-#### REQ-MCP-001: `prospec mcp serve` 啟動唯讀 stdio MCP server
-CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀 server，常駐至 client 斷線。
+#### REQ-MCP-001: `prospec mcp serve [--cwd <path>]` 啟動唯讀 stdio MCP server
+CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀 server，常駐至 client 斷線。`--cwd <path>` 釘住要服務的專案根目錄（預設 `process.cwd()`），讓單一 agent 不論從何處啟動，都能在一處註冊多個不同專案的 server。
 
 **Scenarios:**
 - WHEN 在含 `.prospec.yaml` 的專案執行 `prospec mcp serve`，THEN server 啟動；無 config 時回 ConfigNotFound（stderr，與其他指令同一 preAction 路徑）
+- WHEN 給定 `--cwd <path>`，THEN config 解析（`.prospec.yaml`、base paths）與 preAction 存在性守衛皆以該 path 為基準、不依賴啟動目錄；該 path 無 config 時 ConfigNotFound 訊息點名該 path
 - WHEN serve 期間，THEN stdout 僅承載 MCP JSON-RPC 協定內容；所有診斷/錯誤走 stderr
 - WHEN 任何 client 請求，THEN server 無任何可變更檔案的寫入面
 
@@ -152,3 +153,4 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
 | 2026-06-13 | add-mcp-server | 唯讀 MCP server（BL-033 + read layer + OPT-A2 health 消費；兩輪對抗式審查、4 criticals 修復後收斂） | US-1~4; REQ-MCP-001~008 |
+| 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` 釘選專案根目錄；config 解析與 preAction 守衛皆尊重 `--cwd`，支援單一 agent 跨目錄註冊多專案 server | REQ-MCP-001 (MODIFIED) |

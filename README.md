@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-909%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-911%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -394,7 +394,7 @@ the developer and the CI gate always see the same facts, token-free.
 
 | Command | Description |
 |---------|-------------|
-| `prospec mcp serve` | Start a **read-only** MCP server on stdio — any MCP-capable agent (even one without Prospec Skills installed) can query the project's architecture truth, spec truth, dependency direction, promoted playbook, and knowledge freshness |
+| `prospec mcp serve [--cwd <path>]` | Start a **read-only** MCP server on stdio — any MCP-capable agent (even one without Prospec Skills installed) can query the project's architecture truth, spec truth, dependency direction, promoted playbook, and knowledge freshness. `--cwd` pins the project root so one agent can run several project servers regardless of where it was launched |
 
 **Resources** (re-read from disk on every request — clients always see current file state):
 
@@ -412,48 +412,46 @@ index columns, so `drift checker` finds `drift-checker`) and `get_dependency_dir
 import `to`? — answered from module-map `depends_on`, or the Constitution chain when no map exists;
 the answer states which source it used).
 
-**Registering** — point your agent's MCP config at the stdio command, run from the project root
-(requires `.prospec.yaml`; the server reads it from the working directory it starts in). With the
-recommended global install, `prospec` is already on your PATH. For Claude Code:
+**Registering** — point your agent's MCP config at `prospec mcp serve --cwd <project-root>`. `--cwd`
+pins the project so the server resolves its `.prospec.yaml` no matter where the agent was launched —
+which also lets one agent register several projects at once. Assumes the recommended global install
+(`prospec` on PATH).
+
+Claude Code:
 
 ```bash
-claude mcp add prospec -- prospec mcp serve
+claude mcp add project-name -- prospec mcp serve --cwd /path/to/project
 ```
 
-For other agents, register the stdio command in the agent's MCP config. `cwd` must be the project
-root. With the global install:
+Other agents — the same command in the agent's JSON MCP config:
 
 ```json
 {
   "mcpServers": {
     "project-name": {
       "command": "prospec",
-      "args": ["mcp", "serve"],
-      "cwd": "/path/to/project"
+      "args": ["mcp", "serve", "--cwd", "/path/to/project"]
     }
   }
 }
 ```
 
-Pinned prospec as a devDependency instead? Use `command: "npx"` so it resolves the project-local
-binary:
+To serve several projects from any directory, register one entry per project — each with a unique
+name and its own `--cwd` (Claude Code: add `-s user` so it's available everywhere):
 
-```json
-{
-  "mcpServers": {
-    "project-name": {
-      "command": "npx",
-      "args": ["prospec", "mcp", "serve"],
-      "cwd": "/path/to/project"
-    }
-  }
-}
+```bash
+claude mcp add -s user prospec-a -- prospec mcp serve --cwd /path/to/A
+claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 ```
+
+Pinned prospec as a devDependency rather than installed globally? Route through `npx`: prefix the
+Claude Code command (`… -- npx prospec mcp serve --cwd /path/to/project`), or in JSON set
+`"command": "npx"` with `"prospec"` as the first arg (`["prospec", "mcp", "serve", "--cwd", "/path/to/project"]`).
 
 Honest boundaries: the server is read-only (no tool or resource can modify files), serves one project
-per process (the working directory it starts in), and is a pure add-on — no Skill or CLI command
-depends on it, so everything works unchanged when it is not running. Transport is stdio only;
-HTTP/SSE is deliberately not included in this version.
+per process (the root given by `--cwd`), and is a pure add-on — no Skill or CLI command depends on it,
+so everything works unchanged when it is not running. Transport is stdio only; HTTP/SSE is
+deliberately not included in this version.
 
 </details>
 
@@ -488,7 +486,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (909 tests)
+# Run all tests (911 tests)
 pnpm test
 
 # Watch mode
@@ -505,11 +503,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 909 tests across 4 categories:
+**Test Coverage**: 911 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 435 tests
 - Contract tests (CLI output + Skill format): 426 tests
 - Integration tests: 15 tests
-- E2E tests: 33 tests
+- E2E tests: 35 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 

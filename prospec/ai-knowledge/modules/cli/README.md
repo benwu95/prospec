@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `src/cli/index.ts` | createProgram(), main(), preAction config check, command registration (imports `setup-color.js` first) |
+| `src/cli/index.ts` | createProgram(), main(), preAction config check (resolves `.prospec.yaml` against `mcp serve --cwd <path>` when given, else cwd), command registration (imports `setup-color.js` first) |
 | `src/cli/setup-color.ts` | Sets NO_COLOR for non-TTY stdout before picocolors loads — keeps piped/`tee`'d output free of raw ANSI; honors explicit NO_COLOR/FORCE_COLOR |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
@@ -17,7 +17,7 @@
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
 | `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
 | `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it) |
-| `src/cli/commands/mcp.ts` | `prospec mcp serve` — read-only MCP server on stdio; action writes nothing to stdout |
+| `src/cli/commands/mcp.ts` | `prospec mcp serve [--cwd <path>]` — read-only MCP server on stdio (`--cwd` pins the served project root, default `process.cwd()`, so one agent can run several project servers); action writes nothing to stdout |
 | `src/cli/formatters/mcp-output.ts` | Startup banner to STDERR by design — stdout is the MCP protocol channel |
 | `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts |
 | `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; sanitizeTerminal() strips C0/C1 from untrusted repo strings |

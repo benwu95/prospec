@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-909%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-911%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -369,7 +369,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec mcp serve` | 以 stdio 啟動**唯讀** MCP server —— 任何支援 MCP 的 agent（即使沒裝 Prospec Skills）都能查詢專案的架構真相、規格真相、依賴方向、已晉升 playbook 與知識新鮮度 |
+| `prospec mcp serve [--cwd <path>]` | 以 stdio 啟動**唯讀** MCP server —— 任何支援 MCP 的 agent（即使沒裝 Prospec Skills）都能查詢專案的架構真相、規格真相、依賴方向、已晉升 playbook 與知識新鮮度。`--cwd` 釘住專案根目錄，讓單一 agent 不論從何處啟動都能同時跑多個專案 server |
 
 **Resources**（每次請求都重新讀檔 —— client 永遠看到當前檔案狀態）：
 
@@ -386,44 +386,44 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 查 `drift checker` 找得到 `drift-checker`）與 `get_dependency_direction`（`from` 可否 import `to`？
 —— 依 module-map `depends_on` 回答，無 map 時用 Constitution 鏈，回應標明判定來源）。
 
-**註冊方式** —— 在 agent 的 MCP 設定註冊此 stdio 命令，於專案根目錄執行（需要 `.prospec.yaml`；
-server 會從啟動時的工作目錄讀取它）。若採用推薦的全域安裝，`prospec` 已在 PATH 上。以 Claude Code 為例：
+**註冊方式** —— 把 agent 的 MCP 設定指向 `prospec mcp serve --cwd <專案根目錄>`。`--cwd` 釘住專案，
+讓 server 不論 agent 從何處啟動都能解析到該專案的 `.prospec.yaml` —— 也因此單一 agent 能一次註冊多個
+專案。假設採用推薦的全域安裝（`prospec` 已在 PATH 上）。
+
+Claude Code：
 
 ```bash
-claude mcp add prospec -- prospec mcp serve
+claude mcp add project-name -- prospec mcp serve --cwd /path/to/project
 ```
 
-其他 agent 則在其 MCP 設定中註冊此 stdio 命令。`cwd` 必須是專案根目錄。全域安裝版：
+其他 agent —— 在其 JSON MCP 設定中用同一個命令：
 
 ```json
 {
   "mcpServers": {
     "project-name": {
       "command": "prospec",
-      "args": ["mcp", "serve"],
-      "cwd": "/path/to/project"
+      "args": ["mcp", "serve", "--cwd", "/path/to/project"]
     }
   }
 }
 ```
 
-若改以 devDependency 釘選 prospec，則把 `command` 設為 `"npx"`，讓它解析專案本地的 binary：
+要從任意目錄服務多個專案，就每個專案註冊一個 entry —— 各自取唯一名稱、帶自己的 `--cwd`
+（Claude Code 加 `-s user` 讓它到處可用）：
 
-```json
-{
-  "mcpServers": {
-    "project-name": {
-      "command": "npx",
-      "args": ["prospec", "mcp", "serve"],
-      "cwd": "/path/to/project"
-    }
-  }
-}
+```bash
+claude mcp add -s user prospec-a -- prospec mcp serve --cwd /path/to/A
+claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 ```
 
-誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案）、單進程服務單一專案（啟動時的工作目錄）、
-且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；
-HTTP/SSE 刻意不納入本版。
+若把 prospec 釘成 devDependency 而非全域安裝，則改經 `npx`：Claude Code 命令前綴 `npx`
+（`… -- npx prospec mcp serve --cwd /path/to/project`），或在 JSON 把 `"command"` 設為 `"npx"`、
+`"prospec"` 當第一個 arg（`["prospec", "mcp", "serve", "--cwd", "/path/to/project"]`）。
+
+誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案）、單進程服務單一專案（`--cwd` 指定的根目錄）、
+且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；HTTP/SSE
+刻意不納入本版。
 
 </details>
 
@@ -458,7 +458,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（909 個測試）
+# 執行所有測試（911 個測試）
 pnpm test
 
 # Watch 模式
@@ -475,11 +475,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：909 個測試橫跨 4 大類：
+**測試覆蓋率**：911 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：435 tests
 - Contract tests（CLI 輸出 + Skill 格式）：426 tests
 - Integration tests：15 tests
-- E2E tests：33 tests
+- E2E tests：35 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
