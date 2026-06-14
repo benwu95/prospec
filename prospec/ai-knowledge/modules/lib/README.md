@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (16 files, 2,852 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (16 files, 2,881 lines)
 
 <!-- prospec:auto-start -->
 

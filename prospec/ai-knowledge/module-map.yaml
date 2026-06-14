@@ -3,7 +3,7 @@
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas, error hierarchy (13 classes), skill/agent definitions, change scale levels, measurement, drift report and MCP server contract schemas
+    description: Zod 4 schemas, error hierarchy (13 classes), skill/agent definitions, change scale levels, measurement, drift report and MCP server contract schemas, plus the canonical _index column schema (single source)
     paths:
       - src/types
     keywords:

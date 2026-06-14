@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 13 services following `execute(options) → Promise<Result>` pattern (4,014 lines total)
+> Business logic layer — 13 services following `execute(options) → Promise<Result>` pattern (4,039 lines total)
 
 <!-- prospec:auto-start -->
 
