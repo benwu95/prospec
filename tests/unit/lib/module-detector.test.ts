@@ -185,6 +185,77 @@ modules:
     const result = detectModules(files, '/project', 'architecture');
     expect(result.modules.length).toBeGreaterThan(0);
   });
+
+  it('keeps same-named dirs at different roots distinct instead of one wide glob', () => {
+    const files = [
+      'src/services/a.ts',
+      'src/services/b.ts',
+      'services/c.ts',
+      'services/d.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/services/a.ts': '',
+      '/project/src/services/b.ts': '',
+      '/project/services/c.ts': '',
+      '/project/services/d.ts': '',
+    });
+    const result = detectModules(files, '/project', 'architecture');
+    const services = result.modules.find((m) => m.name === 'services');
+    // Both roots must be represented as their own globs; the old code collapsed
+    // them to a single 'src/**' that dropped the root-level services/ files.
+    expect(services?.paths).toEqual(
+      expect.arrayContaining(['src/services/**', 'services/**']),
+    );
+    expect(services?.paths).not.toContain('src/**');
+  });
+
+  it('detects relationships by resolved path, not import substring', () => {
+    const files = [
+      'src/web/page.ts',
+      'src/web/view.ts',
+      'src/api/handler.ts',
+      'src/api/route.ts',
+      'src/shared/util.ts',
+      'src/shared/const.ts',
+    ];
+    vol.fromJSON({
+      // 'rapidapi' is a package whose name CONTAINS 'api'; the real dep is shared
+      '/project/src/web/page.ts':
+        "import x from 'rapidapi';\nimport { u } from '../shared/util.js';\n",
+      '/project/src/web/view.ts': '',
+      '/project/src/api/handler.ts': '',
+      '/project/src/api/route.ts': '',
+      '/project/src/shared/util.ts': '',
+      '/project/src/shared/const.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'architecture');
+    const web = result.modules.find((m) => m.name === 'web');
+    // real relative dependency is detected
+    expect(web?.relationships.depends_on).toContain('shared');
+    // 'rapidapi'.includes('api') must NOT create a bogus dep on module 'api'
+    expect(web?.relationships.depends_on).not.toContain('api');
+  });
+
+  it('detects a directory (barrel) relative import', () => {
+    const files = [
+      'src/web/page.ts',
+      'src/web/view.ts',
+      'src/shared/util.ts',
+      'src/shared/index.ts',
+    ];
+    vol.fromJSON({
+      // imports the directory, not a concrete file → resolves to 'src/shared'
+      '/project/src/web/page.ts': "import { u } from '../shared';\n",
+      '/project/src/web/view.ts': '',
+      '/project/src/shared/util.ts': '',
+      '/project/src/shared/index.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'architecture');
+    const web = result.modules.find((m) => m.name === 'web');
+    expect(web?.relationships.depends_on).toContain('shared');
+  });
 });
 
 describe('detectModules — domain strategy', () => {
@@ -250,6 +321,12 @@ describe('detectModules — domain strategy', () => {
     const moduleNames = result.modules.map((m) => m.name);
     expect(moduleNames).toContain('auth');
     expect(moduleNames).toContain('infra');
+
+    // infra must carry its actual files (not paths: []), so it participates in
+    // dependency detection and keyword generation rather than matching nothing.
+    const infra = result.modules.find((m) => m.name === 'infra');
+    expect(infra?.paths.length).toBeGreaterThan(0);
+    expect(infra?.paths).toContain('src/middleware/cors.ts');
   });
 
   it('should require 2+ files per domain', () => {
@@ -350,6 +427,24 @@ describe('detectModules — package strategy', () => {
     // Package strategy should produce 0 modules for non-monorepo
     // Then resolveConflicts still returns empty → modules from architecture fallback in keyword/conflict steps
     expect(result.modules.length).toBe(0);
+  });
+
+  it('tolerates a malformed packages shape without crashing detection', () => {
+    const files = [
+      'packages/web/src/index.ts',
+      'packages/web/src/App.tsx',
+    ];
+    vol.fromJSON({
+      // A non-string element in `packages` must not throw a TypeError that
+      // bubbles up and fails ALL detection.
+      '/monorepo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n  - foo: bar\n',
+      '/monorepo/packages/web/src/index.ts': '',
+      '/monorepo/packages/web/src/App.tsx': '',
+    });
+
+    expect(() => detectModules(files, '/monorepo', 'package')).not.toThrow();
+    const result = detectModules(files, '/monorepo', 'package');
+    expect(result.modules.map((m) => m.name)).toContain('web');
   });
 });
 

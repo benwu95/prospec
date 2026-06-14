@@ -11,8 +11,13 @@ export class ProspecError extends Error {
   readonly code: string;
   readonly suggestion: string;
 
-  constructor(message: string, code: string, suggestion: string) {
-    super(message);
+  constructor(
+    message: string,
+    code: string,
+    suggestion: string,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
     this.name = 'ProspecError';
     this.code = code;
     this.suggestion = suggestion;
@@ -105,11 +110,12 @@ export class TemplateError extends ProspecError {
 // --- Detection errors ---
 
 export class ModuleDetectionError extends ProspecError {
-  constructor(cause?: string) {
+  constructor(detail?: string, options?: { cause?: unknown }) {
     super(
-      `Module detection failed${cause ? `: ${cause}` : ''}`,
+      `Module detection failed${detail ? `: ${detail}` : ''}`,
       'MODULE_DETECTION_ERROR',
       'Verify the project structure is as expected, or create module-map.yaml manually',
+      options,
     );
     this.name = 'ModuleDetectionError';
   }

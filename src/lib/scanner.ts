@@ -29,7 +29,14 @@ const SENSITIVE_PATTERNS = [
 ];
 
 export interface ScanOptions {
-  /** Maximum directory depth (default: 10) */
+  /**
+   * Maximum directory-traversal depth (default: 10), passed to fast-glob `deep`.
+   *
+   * NOTE: files nested deeper than `depth` are silently omitted — fast-glob
+   * exposes no truncation signal, so callers doing structural analysis (module
+   * / architecture detection) on deeply-nested repos must raise this explicitly
+   * to avoid analyzing a partial file list.
+   */
   depth?: number;
   /** Additional negative patterns to exclude */
   exclude?: string[];
@@ -52,6 +59,9 @@ export interface ScanResult {
  * - Excludes node_modules, .git, dist, build by default
  * - Excludes sensitive files (*.env*, *credential*, *secret*) per REQ-STEER-008
  * - Supports depth control and custom exclude patterns
+ *
+ * Files nested deeper than `options.depth` (default 10) are silently omitted —
+ * see {@link ScanOptions.depth}.
  *
  * @param patterns - Glob patterns to match (default: '**')
  * @param options - Scan configuration

@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { renderTemplate, registerPartial, registerHelper } from '../../../src/lib/template.js';
+import { renderTemplate, registerPartial, registerHelper, resolveTemplatesDir } from '../../../src/lib/template.js';
 import { TemplateError } from '../../../src/types/errors.js';
+
+describe('resolveTemplatesDir', () => {
+  it('decodes spaces in the install path instead of percent-encoding them', () => {
+    // A file:// URL whose path contains a space — common on real install paths.
+    const dir = resolveTemplatesDir('file:///Users/ben%20wu/proj/dist/lib/template.js');
+    // fileURLToPath decodes %20 back to a real space so fs can find the dir;
+    // the old `new URL(url).pathname` would leave the literal "%20".
+    expect(dir).toContain('/Users/ben wu/');
+    expect(dir).not.toContain('%20');
+  });
+});
 
 describe('renderTemplate', () => {
   it('should render the init prospec.yaml template', () => {

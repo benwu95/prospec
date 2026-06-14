@@ -120,9 +120,17 @@ function detectNodePackageManager(dir: string): string {
 function detectNodeFramework(
   deps: Record<string, string>,
 ): string | undefined {
+  // Higher-specificity meta-frameworks first: they carry react/vue as direct
+  // deps, so without this ordering Gatsby/Remix/etc. mislabel as react/vue
+  // (same rationale as next-before-react / nuxt-before-vue).
   const frameworks: [string, string][] = [
     ['next', 'next.js'],
     ['nuxt', 'nuxt'],
+    ['gatsby', 'gatsby'],
+    ['@remix-run/react', 'remix'],
+    ['astro', 'astro'],
+    ['@builder.io/qwik', 'qwik'],
+    ['solid-js', 'solid'],
     ['@angular/core', 'angular'],
     ['vue', 'vue'],
     ['react', 'react'],

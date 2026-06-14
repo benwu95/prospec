@@ -4,6 +4,7 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent } from '../lib/content-merger.js';
+import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -91,46 +92,6 @@ export function parseDeltaSpec(content: string): DeltaSpecResult {
   return result;
 }
 
-// --- Module Identification (Task 7: REQ-SERVICES-020) ---
-
-/**
- * Map delta-spec module names to module-map.yaml entries.
- *
- * Returns unique module names. If module-map.yaml doesn't exist,
- * returns the raw module names from delta-spec.
- */
-export function identifyAffectedModules(
-  deltaResult: DeltaSpecResult,
-  moduleMapPath: string,
-): string[] {
-  // Collect unique module names from all sections
-  const allEntries = [
-    ...deltaResult.added,
-    ...deltaResult.modified,
-    ...deltaResult.removed,
-  ];
-  const rawModules = [...new Set(allEntries.map((e) => e.module))];
-
-  // Try to read module-map.yaml for validation
-  let moduleMap: ModuleMap | null = null;
-  try {
-    const content = fs.readFileSync(moduleMapPath, 'utf-8');
-    moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
-  } catch {
-    // module-map.yaml doesn't exist or is invalid — use raw names
-    return rawModules;
-  }
-
-  // Map raw names to actual module-map entries (case-insensitive match)
-  return rawModules.map((name) => {
-    // Find exact or case-insensitive match
-    const match = moduleMap!.modules.find(
-      (m) => m.name.toLowerCase() === name,
-    );
-    return match ? match.name : name;
-  });
-}
-
 // --- Module README Update (Task 8: REQ-SERVICES-021) ---
 
 /**
@@ -174,10 +135,7 @@ export async function updateModuleReadme(
     keywords: [],
     relationships: { depends_on: [], used_by: [] },
     key_files: keyFiles.slice(0, 10),
-    key_exports: keyFiles
-      .filter((f) => !f.path.endsWith('.test.ts') && !f.path.endsWith('.spec.ts'))
-      .slice(0, 8)
-      .map((f) => ({ name: path.basename(f.path, path.extname(f.path)), description: f.description })),
+    key_exports: deriveKeyExports(keyFiles),
   };
 
   const newContent = renderTemplate('steering/module-readme.hbs', templateContext);
@@ -278,20 +236,17 @@ export async function updateIndex(
     })
     .join('\n');
 
-  const autoContent = `<!-- prospec:auto-start -->
-## Modules
-
+  // The auto block holds ONLY the module table. Everything around it (H1, the
+  // intro, the `## Modules` heading, Project Info, How to Use, Conventions,
+  // Loading Rules, any user notes) is curated static content that MUST survive
+  // an incremental update.
+  const autoBlock = `<!-- prospec:auto-start -->
 ${INDEX_TABLE_HEADER}
 ${INDEX_TABLE_SEPARATOR}
 ${tableRows}
-
-## Project Info
-
-- **Project**: ${options.projectName}
-- **Knowledge Base**: \`${options.knowledgeBasePath}\`
 <!-- prospec:auto-end -->`;
 
-  // Read existing _index.md for merge
+  // Read existing _index.md for in-place auto-block replacement
   let existingContent = '';
   let action: GeneratedFile['action'] = 'created';
   try {
@@ -301,19 +256,30 @@ ${tableRows}
     // File doesn't exist — will create full index
   }
 
+  const autoBlockRe = /<!-- prospec:auto-start -->[\s\S]*?<!-- prospec:auto-end -->/;
+
   let finalContent: string;
-  if (existingContent) {
-    finalContent = mergeContent(autoContent + '\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->', existingContent);
+  if (existingContent && autoBlockRe.test(existingContent)) {
+    // Replace ONLY the auto block in place; preserve all curated content.
+    // Use a function replacer so `$`-sequences in module descriptions (the
+    // table cells) are NOT interpreted as replacement patterns.
+    finalContent = existingContent.replace(autoBlockRe, () => autoBlock);
   } else {
+    // Create (or a marker-less file): emit the canonical document with the
+    // `## Modules` heading and Project Info as static content around the block.
     finalContent = `# AI Knowledge Index
 
-> This file is the entry point for AI assistants.
+> This index helps AI Agents quickly understand the project structure.
+> Read this file first, then load specific module READMEs as needed.
 
-${autoContent}
+## Modules
 
-<!-- prospec:user-start -->
-<!-- Add custom project notes here. This section is preserved on regeneration. -->
-<!-- prospec:user-end -->
+${autoBlock}
+
+## Project Info
+
+- **Project**: ${options.projectName}
+- **Knowledge Base**: \`${options.knowledgeBasePath}\`
 `;
   }
 
@@ -415,8 +381,14 @@ export async function execute(
     // Resolve module paths from module-map.yaml
     const modulePathMap = buildModulePathMap(moduleMapPath);
 
+    // Removal wins: a module that is also REMOVED must not be created/updated
+    // (its README would be regenerated then immediately deprecated, and it would
+    // be falsely reported as both updated and deprecated).
+    const removedModules = new Set(delta.removed.map((e) => e.module));
+
     // Process ADDED modules
     for (const entry of delta.added) {
+      if (removedModules.has(entry.module)) continue;
       const paths = modulePathMap.get(entry.module) ?? [`src/${entry.module}/**`];
       const file = await updateModuleReadme(entry.module, paths, baseOpts);
       result.generatedFiles.push(file);
@@ -429,6 +401,7 @@ export async function execute(
 
     // Process MODIFIED modules
     for (const entry of delta.modified) {
+      if (removedModules.has(entry.module)) continue;
       const paths = modulePathMap.get(entry.module) ?? [`src/${entry.module}/**`];
       const file = await updateModuleReadme(entry.module, paths, baseOpts);
       result.generatedFiles.push(file);
@@ -508,18 +481,23 @@ function buildModulePathMap(moduleMapPath: string): Map<string, string[]> {
   return pathMap;
 }
 
-function collectAllModules(
+export function collectAllModules(
   result: KnowledgeUpdateResult,
   moduleMapPath: string,
 ): Array<{ name: string; description: string; status: string }> {
   const modules: Array<{ name: string; description: string; status: string }> = [];
+
+  // result.deprecated holds lowercased delta-spec module names; module-map
+  // entry.name is canonical-case. Compare case-insensitively (as updateModuleMap
+  // and buildModulePathMap already do) so a mixed-case module isn't mislabeled.
+  const deprecatedSet = new Set(result.deprecated.map((n) => n.toLowerCase()));
 
   // Try reading existing module-map for known modules
   try {
     const content = fs.readFileSync(moduleMapPath, 'utf-8');
     const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
     for (const entry of moduleMap.modules) {
-      const isDeprecated = result.deprecated.includes(entry.name);
+      const isDeprecated = deprecatedSet.has(entry.name.toLowerCase());
       modules.push({
         name: entry.name,
         description: entry.description ?? `${entry.name} module`,

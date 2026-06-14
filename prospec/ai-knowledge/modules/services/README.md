@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — 13 services following `execute(options) → Promise<Result>` pattern (4,039 lines total)
+> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (14 files, 3,959 lines)
 
 <!-- prospec:auto-start -->
 
@@ -14,8 +14,9 @@
 | `src/services/knowledge-init.service.ts` | Initial scan → raw-scan.md + module-map.yaml (generated when absent, via buildModuleMap) |
 | `src/services/knowledge-update.service.ts` | Incremental knowledge update — parseDeltaSpec(), per-module README rebuild |
 | `src/services/change-story.service.ts` | Create change proposal — proposal.md via template; metadata.yaml serialized with stringifyYaml (not a template) |
-| `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold |
-| `src/services/change-tasks.service.ts` | Generate tasks.md scaffold |
+| `src/services/change-resolver.ts` | Shared `resolveChange()` helper — selects which change to operate on (explicit / auto / prompt / --quiet error); single metadata read reused by change-plan + change-tasks |
+| `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold — resolves change via `change-resolver` |
+| `src/services/change-tasks.service.ts` | Generate tasks.md scaffold — resolves change via `change-resolver` |
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint); getSkillReferences() renders each declaring skill its OWN references (self-contained, no sibling-dir cites — REQ-AGNT-015), now incl. prospec-verify (debug-recovery-format) + prospec-review's 2nd ref (review-lenses-content) vendored MIT heuristics, gated on `skill.hasReferences` (REQ-AGNT-022) |
 | `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart) |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
@@ -27,7 +28,8 @@
 - `init.execute(options)` — Initialize new Prospec project
 - `steering.execute(options)` — Discover architecture, generate module-map
 - `knowledge.execute(options)` — Generate module READMEs and _index.md
-- `knowledgeUpdate.execute(options)` — Incremental delta-spec-driven update
+- `knowledgeUpdate.execute(options)` / `collectAllModules(result, moduleMapPath)` — Incremental delta-spec-driven update / merge module-map + delta-spec into the `_index.md` module list
+- `resolveChange(cwd, explicit, quiet, promptMessage)` — Resolve target change name (shared by change-plan/change-tasks); zero/ambiguous → `PrerequisiteError`
 - `archive.execute(options)` — Archive verified changes, sync Feature Specs
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys) and `hints` (populate skill_triggers for non-English languages)
 - `measure.execute({cwd, reportPath?})` — Load measurement report for display; missing file → PrerequisiteError (run `pnpm measure:tokens`), invalid → MeasurementReportInvalid
@@ -65,6 +67,7 @@
 - change metadata.yaml is NOT rendered from a template — build the object and `stringifyYaml()` it (correct-by-construction escaping); frontmatter trigger words go through `escapeYamlScalar()`
 - archive's auto knowledge-update safety net no-ops when delta-spec.md is absent (the quick path) — the skill-level archive Entry Gate (diff-path module derivation) is the mandatory checkpoint there
 - check.service must keep knowledge-health on a REAL module-map (missing map → honest skip, never the constitution fallback — that would fabricate phantom coverage gaps)
+- change-plan/change-tasks resolve the change + status through `services/change-resolver` (a sibling service-layer import, NOT `lib`) — the change-selection logic is service policy, so don't re-derive it inline or push it down to `lib`; both read metadata exactly once via the shared helper
 - mcp.service: stdout is the JSON-RPC protocol channel — NEVER write diagnostics to it (banner/errors go stderr); resources are per-request reads, never cache; health/listing/dependency answers all flow through `lib/knowledge-reader` so containment and name guards apply on every surface
 
 <!-- prospec:auto-end -->

@@ -208,6 +208,30 @@ None
     expect(affectedModules).toContain('services');
   });
 
+  it('extracts hyphenated (multi-segment) module ids, matching extractRequirements', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': `# Delta Spec
+
+## ADDED
+
+### REQ-API-MIDDLEWARE-001: Add auth middleware
+
+Description.
+
+### REQ-TYPES-010: Single-segment still works
+
+Description.
+`,
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content, affectedModules } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    // multi-segment module is no longer silently dropped
+    expect(affectedModules).toContain('api-middleware');
+    expect(affectedModules).toContain('types');
+    expect(content).toContain('REQ-API-MIDDLEWARE-001');
+  });
+
   it('should calculate task completion stats', async () => {
     vol.fromJSON({
       '/archive/tasks.md': `# Tasks
@@ -402,6 +426,130 @@ Define types for Feature Spec frontmatter.
 
     const files = await syncToFeatureSpecs('/archive', '/specs/features');
     expect(files).toHaveLength(0);
+  });
+
+  it('replaces only the target REQ block, not the trailing h2 sections (MODIFIED)', async () => {
+    // The MODIFIED REQ is the LAST h4 before the first h2 section. The skip
+    // loop must stop at the h2 boundary, or everything to EOF is destroyed.
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+story_count: 1
+req_count: 1
+---
+
+# sdd-workflow
+
+## User Stories
+
+#### REQ-TYPES-010: old description
+
+Old requirement body.
+
+## Edge Cases
+
+- an important edge case
+
+## Success Criteria
+
+- a success criterion
+
+## Deprecated Requirements
+
+_(None)_
+
+## Change History
+
+| Date | Change |
+|------|--------|
+| 2026-01-01 | init |
+`,
+      '/archive/delta-spec.md': `# Delta Spec
+
+## MODIFIED
+
+### REQ-TYPES-010: new description
+
+**Feature:** sdd-workflow
+
+**Description:**
+Updated body.
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain('REQ-TYPES-010: new description');
+    expect(content).not.toContain('old description');
+    // the trailing h2 sections must survive
+    expect(content).toContain('## Edge Cases');
+    expect(content).toContain('an important edge case');
+    expect(content).toContain('## Success Criteria');
+    expect(content).toContain('## Deprecated Requirements');
+    expect(content).toContain('## Change History');
+  });
+
+  it('stops MODIFIED replacement at a --- rule terminating the REQ block', async () => {
+    // Exercises the `--- ` boundary branch: the modified REQ block is delimited
+    // by a horizontal rule (the canonical REQ-block separator), after which a
+    // sibling REQ must remain intact.
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+story_count: 2
+req_count: 2
+---
+
+# sdd-workflow
+
+## User Stories
+
+#### REQ-TYPES-010: old description
+
+Old body line.
+
+---
+
+#### REQ-TYPES-011: sibling requirement
+
+Sibling body.
+
+## Change History
+
+| Date | Change |
+|------|--------|
+| 2026-01-01 | init |
+`,
+      '/archive/delta-spec.md': `# Delta Spec
+
+## MODIFIED
+
+### REQ-TYPES-010: new description
+
+**Feature:** sdd-workflow
+
+**Description:**
+Updated body.
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain('REQ-TYPES-010: new description');
+    expect(content).not.toContain('old description');
+    // the sibling REQ after the --- must survive
+    expect(content).toContain('REQ-TYPES-011: sibling requirement');
+    expect(content).toContain('Sibling body.');
   });
 
   it('should route multiple REQs to different Feature Specs', async () => {

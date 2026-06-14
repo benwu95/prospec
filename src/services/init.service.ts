@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import { checkbox, input, Separator } from '@inquirer/prompts';
-import { AlreadyExistsError } from '../types/errors.js';
+import { AlreadyExistsError, ConfigInvalid } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
+import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../types/knowledge.js';
 import { writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
@@ -63,7 +63,16 @@ export async function execute(options: InitOptions): Promise<InitResult> {
   // 5. Select agents
   let selectedAgents: string[];
   if (options.agents) {
-    // CI/CD mode: use provided agents list
+    // CI/CD mode: use provided agents list — validate up front so a bad value
+    // fails here (naming the offender) instead of surfacing as ConfigInvalid on
+    // the NEXT readConfig of a freshly written .prospec.yaml.
+    const known = VALID_AGENTS as readonly string[];
+    const unknown = options.agents.filter((a) => !known.includes(a));
+    if (unknown.length > 0) {
+      throw new ConfigInvalid(
+        `unknown agent(s): ${unknown.join(', ')} — supported: ${VALID_AGENTS.join(', ')}`,
+      );
+    }
     selectedAgents = options.agents;
   } else {
     // Interactive mode: prompt with checkbox

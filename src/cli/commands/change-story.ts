@@ -3,16 +3,7 @@ import { execute } from '../../services/change-story.service.js';
 import { formatChangeStoryOutput } from '../formatters/change-story-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
-import type { LogLevel } from '../../types/config.js';
-
-/**
- * Resolve log level from global options.
- */
-function resolveLogLevel(opts: GlobalOptions): LogLevel {
-  if (opts.quiet) return 'quiet';
-  if (opts.verbose) return 'verbose';
-  return 'normal';
-}
+import { resolveLogLevel } from '../log-level.js';
 
 /**
  * Register the `change` command group with `story` subcommand.

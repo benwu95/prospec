@@ -133,7 +133,10 @@ export async function execute(
   //    (skillPath, configPath) write the same files only once.
   const groups = new Map<string, { config: AgentConfig; names: string[] }>();
   for (const agentName of agentsToSync) {
-    const agentConfig = AGENT_CONFIGS[agentName];
+    // agentsToSync may include an unvalidated --cli value, so index through a
+    // string view and keep the runtime guard (AGENT_CONFIGS' literal keys are
+    // still compile-checked against VALID_AGENTS at its definition).
+    const agentConfig = (AGENT_CONFIGS as Record<string, AgentConfig | undefined>)[agentName];
     if (!agentConfig) continue;
 
     const signature = `${agentConfig.skillPath}\n${agentConfig.configPath}`;
@@ -173,13 +176,17 @@ export function synthesizeTriggers(
   artifactLanguage: string,
   customTriggers: string[] | undefined,
 ): string {
+  // Returns the human-readable trigger string used verbatim in markdown
+  // (entry.md). YAML-scalar escaping is NOT applied here — it is applied only
+  // at the SKILL.md frontmatter render site, so backslashes/quotes don't leak
+  // into the markdown context that reuses this same value.
   const baseline = skill.triggers.join(', ');
-  const custom = (customTriggers ?? []).map(escapeYamlScalar).filter(Boolean);
+  const custom = (customTriggers ?? []).map((t) => t.trim()).filter(Boolean);
   if (custom.length > 0) {
     return `${baseline}, ${custom.join(', ')}`;
   }
   if (!isDefaultArtifactLanguage(artifactLanguage)) {
-    return `${baseline} — or equivalent terms in ${escapeYamlScalar(artifactLanguage)}`;
+    return `${baseline} — or equivalent terms in ${artifactLanguage}`;
   }
   return baseline;
 }
@@ -241,10 +248,12 @@ async function syncSkillsDirSkills(
     const skillDir = path.join(cwd, agentConfig.skillPath, skill.name);
     const skillFilePath = path.join(skillDir, 'SKILL.md');
 
-    // Render skill template with its synthesized frontmatter trigger words
+    // Render skill template with its synthesized frontmatter trigger words.
+    // Escape here (and only here) — this value lands inside a double-quoted
+    // YAML scalar in the SKILL.md frontmatter.
     const content = renderTemplate(`skills/${skill.name}.hbs`, {
       ...templateContext,
-      trigger_words: triggerWordsBySkill.get(skill.name),
+      trigger_words: escapeYamlScalar(triggerWordsBySkill.get(skill.name) ?? ''),
     });
 
     await ensureDir(skillDir);
@@ -307,10 +316,12 @@ interface SkillReference {
 }
 
 /**
- * Map skill names to their reference files.
+ * Map skill names to their reference files. The map is fully static, so it is
+ * built once and cached rather than reallocated on every call.
  */
+let referenceMapCache: Record<string, SkillReference[]> | null = null;
 function getSkillReferences(skillName: string): SkillReference[] {
-  const referenceMap: Record<string, SkillReference[]> = {
+  referenceMapCache ??= {
     'prospec-new-story': [
       {
         templateName: 'proposal-format.hbs',
@@ -448,5 +459,5 @@ function getSkillReferences(skillName: string): SkillReference[] {
     ],
   };
 
-  return referenceMap[skillName] ?? [];
+  return referenceMapCache[skillName] ?? [];
 }

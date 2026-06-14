@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
 import { TemplateError } from '../types/errors.js';
 
@@ -11,14 +12,25 @@ let initialized = false;
  * In production (dist/), templates are at ../../src/templates/
  * relative to the compiled lib/ directory.
  */
-function getTemplatesDir(): string {
-  // __dirname equivalent for ESM
-  const currentDir = path.dirname(new URL(import.meta.url).pathname);
+/**
+ * Resolve the templates directory relative to a module URL.
+ *
+ * Uses `fileURLToPath` rather than `new URL(url).pathname`: the latter returns
+ * a percent-encoded path (a space becomes `%20`) and, on Windows, a leading
+ * `/C:/` drive prefix — both make `fs.existsSync` miss and break every render
+ * when the install path contains a space. Exported for unit testing.
+ */
+export function resolveTemplatesDir(moduleUrl: string): string {
+  const currentDir = path.dirname(fileURLToPath(moduleUrl));
   // From dist/lib/ or src/lib/ → src/templates/
   const srcTemplates = path.resolve(currentDir, '..', 'templates');
   if (fs.existsSync(srcTemplates)) return srcTemplates;
   // Fallback: from dist/lib/ → ../../src/templates/
   return path.resolve(currentDir, '..', '..', 'src', 'templates');
+}
+
+function getTemplatesDir(): string {
+  return resolveTemplatesDir(import.meta.url);
 }
 
 /**

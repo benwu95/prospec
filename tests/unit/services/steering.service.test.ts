@@ -82,6 +82,38 @@ describe('steering.service', () => {
     expect(result.outputFiles).toHaveLength(0);
   });
 
+  it('preserves paths.base_dir when rewriting config', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\npaths:\n  base_dir: prospec\n',
+      '/project/src/services/auth.ts': '',
+      '/project/src/services/user.ts': '',
+      '/project/src/lib/config.ts': '',
+    });
+
+    await execute({ cwd: '/project' });
+
+    // base_dir must survive — otherwise the next readConfig falls back to 'docs'
+    // and the whole spec tree silently relocates.
+    const written = fs.readFileSync('/project/.prospec.yaml', 'utf-8') as string;
+    expect(written).toContain('base_dir: prospec');
+  });
+
+  it('counts files for domain-style glob module paths', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  strategy: domain\n',
+      '/project/src/features/auth/login.ts': '',
+      '/project/src/features/auth/register.ts': '',
+      '/project/src/features/checkout/cart.ts': '',
+      '/project/src/features/checkout/pay.ts': '',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    const auth = result.modules.find((m) => m.name === 'auth');
+    // `**/auth/**` must match src/features/auth/* — old prefix match returned 0
+    expect(auth).toBeDefined();
+    expect(auth!.fileCount).toBeGreaterThan(0);
+  });
+
   it('should return architecture detection result', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',

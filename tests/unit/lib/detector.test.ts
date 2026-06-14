@@ -134,6 +134,25 @@ describe('detectTechStack', () => {
     expect(result.framework).toBe('svelte');
   });
 
+  it('should prefer a meta-framework over its underlying react/vue dep', () => {
+    vol.fromJSON({
+      '/project/package.json': JSON.stringify({
+        name: 'test',
+        dependencies: { gatsby: '^5.0.0', react: '^18.0.0' },
+      }),
+    });
+    expect(detectTechStack('/project').framework).toBe('gatsby');
+
+    vol.reset();
+    vol.fromJSON({
+      '/project/package.json': JSON.stringify({
+        name: 'test',
+        dependencies: { '@remix-run/react': '^2.0.0', react: '^18.0.0' },
+      }),
+    });
+    expect(detectTechStack('/project').framework).toBe('remix');
+  });
+
   it('should mark source as auto-detected when no config override', () => {
     vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'test' }) });
     const result = detectTechStack('/project');

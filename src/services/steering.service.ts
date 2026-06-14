@@ -81,6 +81,16 @@ export async function execute(
   // 5. Build module-map data
   const moduleMap: ModuleMap = buildModuleMap(detection);
 
+  // Count files per module ONCE — reused by both the architecture context and
+  // the returned result (the scan is the dominant cost; don't run it twice).
+  const moduleStats = detection.modules.map((m) => ({
+    name: m.name,
+    description: m.description,
+    fileCount: countModuleFiles(m.paths, scanResult.files),
+    keywords: m.keywords,
+    relationships: m.relationships,
+  }));
+
   // 6. Build architecture template context
   const architectureContext = {
     project_name: config.project.name,
@@ -92,10 +102,10 @@ export async function execute(
     directory_tree: buildDirectoryTree(scanResult.files),
     layers: buildLayers(detection, config),
     entry_points: detection.entryPoints,
-    modules: detection.modules.map((m) => ({
+    modules: moduleStats.map((m) => ({
       name: m.name,
       description: m.description,
-      file_count: countModuleFiles(m.paths, scanResult.files),
+      file_count: m.fileCount,
       keywords: m.keywords,
       relationships: m.relationships,
     })),
@@ -130,7 +140,10 @@ export async function execute(
         package_manager:
           techStack.package_manager || config.tech_stack?.package_manager,
       },
-      paths: buildPathsFromModules(detection),
+      // Merge detected module patterns into existing paths — must NOT drop
+      // reserved keys like base_dir, or the whole artifact tree relocates to the
+      // 'docs' fallback on the next readConfig.
+      paths: { ...config.paths, ...buildPathsFromModules(detection) },
     };
     await writeConfig(updatedConfig, cwd);
     outputFiles.push('.prospec.yaml');
@@ -141,13 +154,7 @@ export async function execute(
     moduleCount: detection.modules.length,
     architecture: detection.architecture,
     entryPoints: detection.entryPoints,
-    modules: detection.modules.map((m) => ({
-      name: m.name,
-      description: m.description,
-      fileCount: countModuleFiles(m.paths, scanResult.files),
-      keywords: m.keywords,
-      relationships: m.relationships,
-    })),
+    modules: moduleStats,
     outputFiles,
     dryRun,
   };
@@ -243,7 +250,11 @@ function countModuleFiles(
   return allFiles.filter((f) =>
     modulePaths.some((p) => {
       const base = p.replace(/\/\*\*$/, '');
-      return f.startsWith(base);
+      if (base === '' || base === '**') return true;
+      // domain-style `**/name/**` → match `name` as a real path segment
+      if (base.startsWith('**/')) return f.split('/').includes(base.slice(3));
+      // anchor on a segment boundary so `src/a` does not match `src/ab`
+      return f === base || f.startsWith(base + '/');
     }),
   ).length;
 }
