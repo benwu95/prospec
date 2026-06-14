@@ -137,7 +137,7 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
 
 Archiving is the **one moment** this change's `quality_log` and `review.md` still exist before the worktree workflow can discard them — so harvest them into the version-controlled ledger now, rather than only pointing the user at `/prospec-learn` later (which, in a fresh worktree, would find the archive already gone).
 
-Follow the **Harvest** definition in `/prospec-learn`'s `references/promotion-format.md` (read it on demand; do not restate the ledger table here):
+Follow the **Harvest** definition in [`references/promotion-format.md`](references/promotion-format.md) (read it on demand; do not restate the ledger table here):
 
 1. Scan this change's `metadata.yaml` `quality_log` (WARN/FAIL) and `review.md` (recurring criticals); cross `tasks.md` × kind markers for `[M]` manual tasks left unchecked.
 2. Assign each finding its deterministic ledger key and **upsert** into `{{knowledge_base_path}}/_lessons-ledger.md`: `source_changes` is a set and `frequency` increments once per distinct change, so re-archiving is **idempotent** (no double-count). A recurring unchecked-`[M]` pattern records a `kind: playbook` "manual task systematically skipped" lesson; a `tasks.md` without kind markers is skipped, not guessed.

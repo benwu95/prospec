@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-06-11
+last_updated: 2026-06-14
 story_count: 8
 req_count: 30
 ---
@@ -102,6 +102,7 @@ req_count: 30
 - WHEN a skill declares no references (e.g. knowledge-generate / knowledge-update), THEN emit no References line and no empty references dir
 - WHEN a skill declares references (archive, prospec-ff), THEN bundle its own reference files so the MANDATORY reads resolve, never pointing at sibling skill dirs
 - WHEN agent sync runs, THEN no skill emits a dangling or dead reference path
+- WHEN prospec-archive Phase 4.5 cites its Harvest reference, THEN it resolves to archive's own `references/promotion-format.md` (rendered from the single `promotion-format.hbs` via the referenceMap), never the `prospec-learn` sibling dir — contract-guarded (the `/prospec-learn` Score/Promote hand-off is workflow, not a reference path, and remains)
 
 #### REQ-TYPES-011: Skill Definition Constants
 - WHEN new Skill added, THEN SKILL_DEFINITIONS updated
@@ -306,3 +307,4 @@ _(Cross-references: REQ-AGNT-001 Detection, REQ-AGNT-004 Skills Generation — �
 | 2026-06-06 | migrate-gemini-to-antigravity | Gemini→Antigravity；codex/copilot 收斂至 .agents/skills + AGENTS.md（單一 entry 模板、移除 instructions 格式）；共用輸出去重；動態 CLI 清單 | REQ-AGNT-016/017/018 (ADDED), REQ-AGNT-002/004 (MODIFIED), Gemini Target (REMOVED) |
 | 2026-06-11 | reorder-stable-prefix-loading | Startup Loading 靜態優先重排（BL-020）：[STABLE]/[DYNAMIC] 標注、集合不變性、entry config 穩定性檢查 | US-430, REQ-TEMPLATES-080~082 (ADDED) |
 | 2026-06-11 | add-init-language-policy | 產物英文 baseline；trigger words 合成 + skill_triggers 注入；entry 語言宣告；Language Policy partial | US-411~412; REQ-TEMPLATES-073, REQ-SKILL-011~012, REQ-AGNT-019~021 (ADDED), REQ-SKILL-009 (MODIFIED) |
+| 2026-06-14 | fix-archive-sibling-reference | prospec-archive 自包含 promotion-format（移除唯一跨 skill sibling-dir 引用、補 contract guard）；single source 仍 promotion-format.hbs | REQ-AGNT-015 (MODIFIED) |

@@ -56,7 +56,7 @@
 - Startup Loading lists must stay contiguous (no top-level prose between numbered items) — CommonMark turns interrupted items into paragraph continuations; the contiguity contract assertion guards this
 - Lifecycle/gate semantics are duplicated in `prospec/ai-knowledge/_status-lifecycle.md` AND `src/templates/init/status-lifecycle.md.hbs` (rendered into new projects) — edit BOTH; contract tests lock the template copy and the quick-path markers' sync
 - The task kind definition table lives ONLY in `references/tasks-format.hbs` — other templates cite it; restating the table elsewhere turns the negative contract assertions red
-- The lessons-ledger table + Harvest rules live ONLY in `references/promotion-format.hbs`; `prospec-archive` Phase 4.5 and `prospec-learn` cite it (read on demand) — do not restate the table. Ledger path is `prospec/ai-knowledge/_lessons-ledger.md` (version-controlled), NOT the retired `.prospec/lessons.md`
+- The lessons-ledger table + Harvest rules live ONLY in `references/promotion-format.hbs` (the single source); it renders into BOTH `prospec-learn` and `prospec-archive` own `references/promotion-format.md` (REQ-AGNT-015 self-contained — archive cites its own copy via the referenceMap, never the `prospec-learn` sibling dir). Both read it on demand — do not restate the table. Ledger path is `prospec/ai-knowledge/_lessons-ledger.md` (version-controlled), NOT the retired `.prospec/lessons.md`
 
 <!-- prospec:auto-end -->
 

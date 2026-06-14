@@ -1233,6 +1233,23 @@ describe('Skill Format Contract', () => {
       expect(harvest).toContain('/prospec-learn'); // accumulates, then hands off — no auto-promote
     });
 
+    // REQ-AGNT-015 — archive Phase 4.5 must cite its OWN bundled promotion-format,
+    // never reach into the prospec-learn sibling dir (dangling in the flattened
+    // skills-dir layout shared by every agent); the Score/Promote hand-off stays.
+    it('archive Phase 4.5 cites its own bundled promotion-format, not the prospec-learn sibling', () => {
+      const harvest = sectionOf(
+        renderArchive(),
+        '### Phase 4.5: Auto-Harvest Recurring Lessons',
+      );
+      // self-contained markdown link into archive's own references/ (the old
+      // cross-skill citation used inline code with no such link)
+      expect(harvest).toContain('](references/promotion-format.md)');
+      // the reference is no longer attributed to the prospec-learn sibling skill
+      expect(harvest).not.toMatch(/prospec-learn`'s/);
+      // but the Score/Promote workflow hand-off to /prospec-learn remains
+      expect(harvest).toContain('/prospec-learn');
+    });
+
     it('archive Phase 4.5 is no longer a passive suggestion-only pointer', () => {
       const content = renderArchive();
       expect(content).toContain('### Phase 4.5: Auto-Harvest Recurring Lessons');

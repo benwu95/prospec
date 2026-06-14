@@ -71,6 +71,28 @@ knowledge:
     expect(claudeResult!.referenceFiles.length).toBeGreaterThan(0);
   });
 
+  // REQ-AGNT-015 — archive's Phase 4.5 cites references/promotion-format.md, so the
+  // referenceMap must deploy it into archive's OWN dir (not borrow prospec-learn's).
+  it("should bundle prospec-archive's own promotion-format reference (REQ-AGNT-015)", async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+    });
+
+    await execute({ cwd: '/project' });
+
+    expect(
+      fs.existsSync(
+        '/project/.claude/skills/prospec-archive/references/promotion-format.md',
+      ),
+    ).toBe(true);
+  });
+
   it('should generate entry config file for each agent', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

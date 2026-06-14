@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-955%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-957%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -487,7 +487,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (955 tests)
+# Run all tests (957 tests)
 pnpm test
 
 # Watch mode
@@ -504,10 +504,10 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 955 tests across 4 categories:
+**Test Coverage**: 957 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 453 tests
-- Contract tests (CLI output + Skill format): 452 tests
-- Integration tests: 15 tests
+- Contract tests (CLI output + Skill format): 453 tests
+- Integration tests: 16 tests
 - E2E tests: 35 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
