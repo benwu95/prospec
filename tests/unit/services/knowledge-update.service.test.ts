@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import {
   parseDeltaSpec,
-  identifyAffectedModules,
   updateModuleReadme,
   markModuleDeprecated,
   updateModuleMap,
   updateIndex,
+  collectAllModules,
   execute,
 } from '../../../src/services/knowledge-update.service.js';
 import {
@@ -134,54 +134,6 @@ describe('parseDeltaSpec', () => {
 });
 
 // --- identifyAffectedModules ---
-
-describe('identifyAffectedModules', () => {
-  it('should return raw module names when module-map.yaml does not exist', () => {
-    vol.fromJSON({});
-    vol.mkdirSync('/project', { recursive: true });
-
-    const delta = {
-      added: [{ id: 'REQ-AUTH-001', module: 'auth', description: 'Auth' }],
-      modified: [{ id: 'REQ-SERVICES-010', module: 'services', description: 'Update' }],
-      removed: [],
-    };
-
-    const result = identifyAffectedModules(delta, '/project/docs/ai-knowledge/module-map.yaml');
-    expect(result).toContain('auth');
-    expect(result).toContain('services');
-    expect(result).toHaveLength(2);
-  });
-
-  it('should map to module-map.yaml names when available', () => {
-    vol.fromJSON({
-      '/project/docs/ai-knowledge/module-map.yaml':
-        'modules:\n  - name: auth\n    paths: ["src/auth/**"]\n    keywords: ["auth"]\n  - name: services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n',
-    });
-
-    const delta = {
-      added: [{ id: 'REQ-AUTH-001', module: 'auth', description: 'Auth' }],
-      modified: [],
-      removed: [],
-    };
-
-    const result = identifyAffectedModules(delta, '/project/docs/ai-knowledge/module-map.yaml');
-    expect(result).toEqual(['auth']);
-  });
-
-  it('should deduplicate module names across sections', () => {
-    vol.fromJSON({});
-    vol.mkdirSync('/project', { recursive: true });
-
-    const delta = {
-      added: [{ id: 'REQ-AUTH-001', module: 'auth', description: 'Add' }],
-      modified: [{ id: 'REQ-AUTH-002', module: 'auth', description: 'Modify' }],
-      removed: [],
-    };
-
-    const result = identifyAffectedModules(delta, '/project/nonexistent.yaml');
-    expect(result).toEqual(['auth']);
-  });
-});
 
 // --- updateModuleReadme ---
 
@@ -348,6 +300,74 @@ describe('updateIndex', () => {
     expect(row!.split('|').slice(1, -1)).toHaveLength(INDEX_TABLE_COLUMNS.length);
     expect(result.action).toBe('created');
   });
+
+  it('preserves curated static content when updating an existing index in place', async () => {
+    // An init-scaffold-style index: H1 + intro + ## Modules + auto[empty table]
+    // + Project Info + How to Use, with NO user markers. Updating must replace
+    // only the auto block, not wipe the title/intro/curated sections.
+    vol.fromJSON({
+      '/test/docs/ai-knowledge/_index.md': `# AI Knowledge Index
+
+> This index helps AI Agents quickly understand the project structure.
+
+## Modules
+
+<!-- prospec:auto-start -->
+${INDEX_TABLE_HEADER}
+${INDEX_TABLE_SEPARATOR}
+<!-- prospec:auto-end -->
+
+## Project Info
+
+- **Project**: p
+
+## How to Use
+
+1. Read this index first.
+`,
+    });
+
+    const result = await updateIndex(
+      [{ name: 'auth', description: 'Auth module', status: 'Active' }],
+      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+    );
+
+    const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+    expect(result.action).toBe('updated');
+    // the new row is present
+    expect(content).toContain('| auth ');
+    // curated static content survives
+    expect(content).toContain('# AI Knowledge Index');
+    expect(content).toContain('quickly understand the project structure');
+    expect(content).toContain('## How to Use');
+    expect(content).toContain('1. Read this index first.');
+    // no duplicate H1
+    expect(content.match(/# AI Knowledge Index/g)?.length).toBe(1);
+  });
+
+  it('emits $-containing descriptions verbatim (no replacement-pattern injection)', () => {
+    vol.fromJSON({
+      '/test/docs/ai-knowledge/_index.md': `# AI Knowledge Index
+
+## Modules
+
+<!-- prospec:auto-start -->
+${INDEX_TABLE_HEADER}
+${INDEX_TABLE_SEPARATOR}
+<!-- prospec:auto-end -->
+`,
+    });
+
+    return updateIndex(
+      [{ name: 'billing', description: 'cost is $1 per $& token', status: 'Active' }],
+      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+    ).then(() => {
+      const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+      // the literal $1 / $& must survive, and the auto block must not self-nest
+      expect(content).toContain('cost is $1 per $& token');
+      expect(content.match(/prospec:auto-start/g)?.length).toBe(1);
+    });
+  });
 });
 
 describe('updateModuleMap', () => {
@@ -397,6 +417,26 @@ describe('updateModuleMap', () => {
   });
 });
 
+// --- collectAllModules ---
+
+describe('collectAllModules', () => {
+  it('marks a deprecated module even when module-map name is mixed-case', () => {
+    vol.fromJSON({
+      '/project/module-map.yaml':
+        'modules:\n  - name: API\n    paths: ["src/api/**"]\n    keywords: ["api"]\n',
+    });
+
+    // result.deprecated holds the lowercased delta-spec name
+    const modules = collectAllModules(
+      { created: [], updated: [], deprecated: ['api'], generatedFiles: [] },
+      '/project/module-map.yaml',
+    );
+
+    const api = modules.find((m) => m.name === 'API');
+    expect(api?.status).toBe('Deprecated');
+  });
+});
+
 // --- execute ---
 
 describe('execute', () => {
@@ -437,6 +477,37 @@ describe('execute', () => {
     });
 
     expect(result.generatedFiles.length).toBeGreaterThan(0);
+  });
+
+  it('treats a module that is both MODIFIED and REMOVED as removed only', async () => {
+    const deltaContent = `## MODIFIED
+
+### REQ-AUTH-001: Tweak auth
+
+**Description:** change
+
+---
+
+## REMOVED
+
+### REQ-AUTH-002: Drop auth
+
+**Description:** gone
+
+---
+`;
+    vol.fromJSON({
+      // resolveBasePaths is mocked to knowledgePath '/test/docs/ai-knowledge',
+      // so the module README must live there for markModuleDeprecated to find it.
+      '/test/docs/ai-knowledge/modules/auth/README.md': '# auth\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    expect(result.deprecated).toContain('auth');
+    // removal wins — must NOT also be reported as updated
+    expect(result.updated).not.toContain('auth');
   });
 
   it('should return empty result when no input provided', async () => {
