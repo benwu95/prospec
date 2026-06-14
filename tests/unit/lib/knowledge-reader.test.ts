@@ -20,6 +20,7 @@ import {
   normalizeSearchText,
 } from '../../../src/lib/knowledge-reader.js';
 import { ModuleDetectionError } from '../../../src/types/errors.js';
+import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../../../src/types/knowledge.js';
 
 // knowledge-reader uses plain node:fs only (no fast-glob/git), but tests run
 // on real temp dirs to mirror the drift-sources suite it shares fixtures with.
@@ -200,6 +201,22 @@ describe('parseIndexModules', () => {
       keywords: ['schema', 'zod'],
       aliases: ['型別', 'type definitions'],
       description: 'Zod schemas',
+    });
+  });
+
+  it('resolves columns from the canonical column constant (single source, REQ-KNOW-020)', () => {
+    const fromConstant = [
+      '<!-- prospec:auto-start -->',
+      INDEX_TABLE_HEADER,
+      INDEX_TABLE_SEPARATOR,
+      '| **lib** | fs, drift | 工具 | Active | Shared utilities | infra | types |',
+      '<!-- prospec:auto-end -->',
+    ].join('\n');
+    expect(parseIndexModules(fromConstant)[0]).toEqual({
+      name: 'lib',
+      keywords: ['fs', 'drift'],
+      aliases: ['工具'],
+      description: 'Shared utilities',
     });
   });
 

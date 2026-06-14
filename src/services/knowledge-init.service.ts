@@ -7,6 +7,7 @@ import { detectModules, buildModuleMap } from '../lib/module-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { stringifyYaml } from '../lib/yaml-utils.js';
+import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 
 export interface KnowledgeInitOptions {
   dryRun?: boolean;
@@ -114,6 +115,7 @@ export async function execute(
       framework: techStack.framework,
     },
     knowledge_base_path: knowledgeBasePath,
+    index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
   };
 
   const outputFiles: string[] = [];

@@ -8,6 +8,7 @@ import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { parseYaml } from '../lib/yaml-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
+import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 
 export interface KnowledgeOptions {
   dryRun?: boolean;
@@ -236,6 +237,7 @@ async function updateIndex(
     project_name: projectName,
     tech_stack: techStack,
     knowledge_base_path: knowledgeBasePath,
+    index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
     modules: modules.map((m) => ({
       name: m.name,
       description: m.description,

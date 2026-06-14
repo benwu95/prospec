@@ -27,9 +27,10 @@
 ## Public API
 
 - `createProgram()` — Create Commander.js program with all 11 commands registered
-- `main()` — Entry point: create program → parse argv → execute
+- `GlobalOptions` (type) — `{ verbose?, quiet? }`; resolved from root options into a LogLevel per command
 - `registerXxxCommand(program)` — 11 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 12 formatter functions (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr)
+- `formatXxxOutput(result, logLevel)` — 12 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`, `check-output.ts` also exports `sanitizeTerminal()`
+- `main()` — entry point (create program → parse argv → handle errors); NOT exported — runs on module load
 
 ## Dependencies
 
@@ -54,7 +55,7 @@
 - CLI layer must NOT contain business logic — always delegate to services
 - Commander.js `.action()` callbacks are async — always `await` and wrap in try/catch with `handleError()`
 - Success output → stdout, error output → stderr — never mix channels
-- E2E tests spawn real `npx tsx src/cli/index.ts` — any option/command name change breaks them
+- E2E tests spawn the compiled `dist/cli/index.js` (via `process.execPath`, requires `pnpm build`) — any option/command name change breaks them
 - `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
 - `check-output.ts` must show skipped checks with their reason (skipped ≠ PASS) and route untrusted strings through `sanitizeTerminal()`; the semantic line stays `not-checked`
 - `setup-color.ts` MUST be the first import in `index.ts` (before any picocolors consumer — cli formatters and `lib/logger` share one picocolors singleton); reordering re-enables color on non-TTY stdout and corrupts piped output (e.g. the CI comment job)

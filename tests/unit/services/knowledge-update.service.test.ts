@@ -6,8 +6,14 @@ import {
   updateModuleReadme,
   markModuleDeprecated,
   updateModuleMap,
+  updateIndex,
   execute,
 } from '../../../src/services/knowledge-update.service.js';
+import {
+  INDEX_TABLE_HEADER,
+  INDEX_TABLE_SEPARATOR,
+  INDEX_TABLE_COLUMNS,
+} from '../../../src/types/knowledge.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -322,6 +328,27 @@ describe('markModuleDeprecated', () => {
 });
 
 // --- updateModuleMap ---
+
+describe('updateIndex', () => {
+  it('emits the canonical 7-column header/separator and 7-cell rows, no phantom Files column', async () => {
+    const result = await updateIndex(
+      [{ name: 'auth', description: 'Auth module', status: 'Active' }],
+      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+    );
+
+    const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+    expect(content).toContain(INDEX_TABLE_HEADER);
+    expect(content).toContain(INDEX_TABLE_SEPARATOR);
+    // the phantom "Files" column (and old README placeholder) must be gone
+    expect(content).not.toContain('Files');
+    expect(content).not.toContain('| README |');
+
+    const row = content.split('\n').find((l) => l.startsWith('| auth '));
+    expect(row).toBeDefined();
+    expect(row!.split('|').slice(1, -1)).toHaveLength(INDEX_TABLE_COLUMNS.length);
+    expect(result.action).toBe('created');
+  });
+});
 
 describe('updateModuleMap', () => {
   it('should add new modules to module-map.yaml', async () => {

@@ -20,9 +20,8 @@
 
 ## Dependencies
 
-{{#if relationships.depends_on.length}}{{#each relationships.depends_on}}- **{{this}}**
-{{/each}}{{else}}_(None)_
-{{/if}}
+**Depends on:** {{#if relationships.depends_on.length}}{{#each relationships.depends_on}}`{{this}}`{{#unless @last}}, {{/unless}}{{/each}}{{else}}_(None)_{{/if}}
+**Used by:** {{#if relationships.used_by.length}}{{#each relationships.used_by}}`{{this}}`{{#unless @last}}, {{/unless}}{{/each}}{{else}}_(None)_{{/if}}
 
 ## Modification Guide
 
