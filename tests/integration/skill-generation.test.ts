@@ -93,6 +93,31 @@ knowledge:
     ).toBe(true);
   });
 
+  // REQ-AGNT-022 — verify gains its first reference (debug-recovery-format) and review
+  // gains a second (review-lenses-content); both deploy self-contained into their OWN dir.
+  it('deploys verify (1) and review (2) vendored references self-contained (REQ-AGNT-022)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+    });
+
+    await execute({ cwd: '/project' });
+
+    const verifyDir = '/project/.claude/skills/prospec-verify/references';
+    expect(fs.existsSync(`${verifyDir}/debug-recovery-format.md`)).toBe(true);
+    expect(fs.readdirSync(verifyDir)).toHaveLength(1);
+
+    const reviewDir = '/project/.claude/skills/prospec-review/references';
+    expect(fs.existsSync(`${reviewDir}/review-format.md`)).toBe(true);
+    expect(fs.existsSync(`${reviewDir}/review-lenses-content.md`)).toBe(true);
+    expect(fs.readdirSync(reviewDir)).toHaveLength(2);
+  });
+
   it('should generate entry config file for each agent', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

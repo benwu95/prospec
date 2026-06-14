@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-957%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-971%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -440,8 +440,8 @@ src/
 ├── services/     — 業務邏輯（13 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（50 個 .hbs 檔案）
-    └── skills/   — 13 個 Skill 模板 + 17 個 reference 模板
+└── templates/    — Handlebars 模板（52 個 .hbs 檔案）
+    └── skills/   — 13 個 Skill 模板 + 19 個 reference 模板
 ```
 
 ### 技術棧
@@ -459,7 +459,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（957 個測試）
+# 執行所有測試（971 個測試）
 pnpm test
 
 # Watch 模式
@@ -476,10 +476,10 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：957 個測試橫跨 4 大類：
+**測試覆蓋率**：971 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：453 tests
-- Contract tests（CLI 輸出 + Skill 格式）：453 tests
-- Integration tests：16 tests
+- Contract tests（CLI 輸出 + Skill 格式）：466 tests
+- Integration tests：17 tests
 - E2E tests：35 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
@@ -603,6 +603,10 @@ Prospec 的設計靈感來自：
 - [BMAD](https://github.com/bmad-ai/bmad) — Analyst 角色（prospec-explore）
 
 Prospec 的獨特貢獻：**以 Skills 驅動 SDD、CLI 僅為薄層** — Skills 在 AI Agent 中執行工作流，CLI 只負責 bootstrap 與重新生成。加上 **AI Knowledge 即 Context Engineering** — 為 AI Agent 設計的結構化、版控、漸進式專案記憶系統。
+
+### See Also（延伸閱讀）
+
+`prospec-verify` 與 `prospec-review` 的工程啟發式（failure-recovery triage，以及 security / performance / maintainability lens 判準）改編自 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills)（MIT）— 已 vendor 進 prospec 自包含的 reference 模板，因此 **prospec 運作不需安裝任何 plugin**。若想要更完整的獨立版本，該 plugin 值得作為選用延伸閱讀：marketplace `addy-agent-skills`、plugin `agent-skills`（可用 `agent-skills:*` 觸發）。致謝詳見 [THIRD-PARTY-NOTICES](./THIRD-PARTY-NOTICES)。
 
 ## 連結
 

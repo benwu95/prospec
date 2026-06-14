@@ -108,6 +108,8 @@ describe('Skill Format Contract', () => {
       'adapter-penpot.hbs',
       'adapter-html.hbs',
       'review-format.hbs',
+      'review-lenses-content.hbs',
+      'debug-recovery-format.hbs',
     ];
 
     for (const ref of REFERENCE_TEMPLATES) {
@@ -164,6 +166,7 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-ff');
       expect(refSkillNames).toContain('prospec-implement');
       expect(refSkillNames).toContain('prospec-review');
+      expect(refSkillNames).toContain('prospec-verify');
       expect(refSkillNames).toContain('prospec-learn');
       expect(refSkillNames).toContain('prospec-archive');
     });
@@ -1896,5 +1899,124 @@ describe('US-19: status-aware handoff + session detection', () => {
     const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
     expect(content).toContain('Session Start');
     expect(content).toContain('.prospec/changes/');
+  });
+});
+
+describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, REQ-AGNT-022)', () => {
+  // Full MIT permission + warranty text, not a one-line credit — each rendered
+  // references/ copy is a redistributed copy that must carry the notice.
+  const MIT_PERMISSION = 'Permission is hereby granted, free of charge';
+  const MIT_WARRANTY = 'WITHOUT WARRANTY OF ANY KIND';
+  const MIT_COPYRIGHT = 'Copyright (c) 2025 Addy Osmani';
+  const UPSTREAM_SHA = '662910cd1a23';
+
+  describe('debug-recovery-format reference (verify)', () => {
+    const render = () =>
+      renderTemplate('skills/references/debug-recovery-format.hbs', TEMPLATE_CONTEXT);
+
+    it('carries the full MIT notice + upstream SHA baseline', () => {
+      const c = render();
+      expect(c).toContain(MIT_COPYRIGHT);
+      expect(c).toContain(MIT_PERMISSION);
+      expect(c).toContain(MIT_WARRANTY);
+      expect(c).toContain(UPSTREAM_SHA);
+    });
+
+    it('carries the root-cause triage playbook', () => {
+      const c = render();
+      expect(c).toContain('Reproduce first');
+      expect(c).toContain('git bisect');
+      expect(c).toMatch(/symptom .* root cause|symptom from root cause/i);
+      expect(c).toMatch(/regression test/i);
+      expect(c).toContain('untrusted'); // error output treated as untrusted data
+    });
+  });
+
+  describe('review-lenses-content reference (review)', () => {
+    const render = () =>
+      renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+
+    it('carries the full MIT notice + upstream SHA baseline', () => {
+      const c = render();
+      expect(c).toContain(MIT_COPYRIGHT);
+      expect(c).toContain(MIT_PERMISSION);
+      expect(c).toContain(MIT_WARRANTY);
+      expect(c).toContain(UPSTREAM_SHA);
+    });
+
+    it('defines the three conditional lenses with concrete criteria', () => {
+      const c = render();
+      expect(c).toContain('Security & Data Integrity Lens');
+      expect(c).toContain('Efficiency / Performance Lens');
+      expect(c).toContain('Maintainability / DRY Lens');
+      // concrete, checkable items from each lens
+      expect(c).toMatch(/IDOR|SSRF|injection/);
+      expect(c).toMatch(/N\+1/);
+      expect(c).toMatch(/LCP|INP|CLS/);
+      expect(c).toMatch(/DRY|Chesterton/);
+    });
+
+    it('pre-maps each criterion onto the critical/major/nit vocabulary', () => {
+      const c = render();
+      expect(c).toContain('critical');
+      expect(c).toContain('major');
+      expect(c).toContain('nit');
+    });
+
+    it('cites review-format as the single severity source, never redefines severity', () => {
+      const c = render();
+      expect(c).toContain('review-format.md');
+      // review-format.hbs owns this exact definition sentence — it must not be duplicated here
+      expect(c).not.toContain('A finding is critical only if');
+    });
+  });
+
+  describe('skill bodies cite the references on demand (not Startup Loading)', () => {
+    const sectionOf = (content: string, heading: string): string => {
+      const lines = content.split('\n');
+      const start = lines.findIndex((l) => l.trim() === heading);
+      if (start === -1) return '';
+      const rest = lines.slice(start + 1);
+      const end = rest.findIndex((l) => /^#{2,3} /.test(l));
+      return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+    };
+
+    it('prospec-verify cites debug-recovery-format in Verification 5/5, not Startup Loading', () => {
+      const c = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      // section-scoped: the citation lives in V5/5, not merely somewhere in the doc
+      expect(sectionOf(c, '### Verification 5/5: Test Verification')).toContain(
+        'references/debug-recovery-format.md',
+      );
+      const startup = sectionOf(c, '## Startup Loading');
+      expect(startup).not.toContain('debug-recovery-format');
+    });
+
+    it('prospec-review cites review-lenses-content in the lens section, not Startup Loading', () => {
+      const c = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+      // section-scoped: the citation lives in the Review Lenses section, not merely somewhere in the doc
+      expect(sectionOf(c, '### Review Lenses')).toContain(
+        'references/review-lenses-content.md',
+      );
+      const startup = sectionOf(c, '## Startup Loading');
+      expect(startup).not.toContain('review-lenses-content');
+    });
+
+    it('keeps the spec-architecture lens prospec-owned and non-replaceable', () => {
+      const c = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+      expect(c).toMatch(/spec-architecture lens is always added by prospec/);
+      expect(c).toContain('never replaced by the vendored lens criteria');
+    });
+
+    it('introduces no runtime dependency on the external plugin (no agent-skills: invocation)', () => {
+      const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+      expect(verify).not.toContain('agent-skills:');
+      expect(review).not.toContain('agent-skills:');
+    });
+  });
+
+  it('prospec-verify is registered as a reference-bearing skill', () => {
+    const verify = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-verify');
+    expect(verify?.hasReferences).toBe(true);
   });
 });

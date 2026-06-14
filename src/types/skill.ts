@@ -112,7 +112,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     description: 'Verify the implementation against specs and plan. Runs full Constitution validation, tasks.md completion, spec consistency, and test pass rate.',
     triggers: ['verify', 'check', 'audit', 'quality', 'done', 'grade'],
     type: 'Execution',
-    hasReferences: false,
+    hasReferences: true,
   },
   {
     name: 'prospec-knowledge-generate',
