@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 46 test files, 971 tests (unit 453, contract 466, integration 17, e2e 35)
+> 4-layer test architecture using Vitest + memfs — 50 test files, 1,002 tests (unit 484, contract 466, integration 17, e2e 35)
 
 <!-- prospec:auto-start -->
 
@@ -9,10 +9,10 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/lib/config.test.ts` | Config resolution and validation (20 tests) |
-| `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes (22 tests) |
-| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats (26 tests) |
+| `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes, incl. boundary-anchored relationships + barrel imports (26 tests) |
+| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary (29 tests) |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
-| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. updateIndex canonical-header emit (21 tests) |
+| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. in-place auto-block replace (no $-injection), collectAllModules case-insensitive, removal-wins (22 tests) |
 | `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
@@ -20,7 +20,7 @@
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (71 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (23 tests, incl. `### {Category}` grouping + canonical index-column single-source + Dependencies labels) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (35 tests, incl. `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
-| `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
+| `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag codepoint-determinism (22 tests, TDD red-first) |
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |
 | `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, searchModules distinct-term ranking, grouped-subtable parse resilience + attachModuleCategories join |
 | `tests/contract/mcp-server.test.ts` | MCP protocol surface over InMemoryTransport.createLinkedPair() — resources/tools/health parity with `prospec check` (SC-006), stdout purity spy, loud invalid-map listing, search_modules category join from module-map; the stdio daemon is never spawned in tests |

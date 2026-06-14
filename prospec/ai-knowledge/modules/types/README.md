@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, plus the canonical _index column schema (11 files, 894 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, plus the canonical _index column schema (11 files, 909 lines)
 
 <!-- prospec:auto-start -->
 
@@ -8,8 +8,8 @@
 
 | File | Purpose |
 |------|---------|
-| `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines; `hasReferences` gates reference deployment — prospec-verify now reference-bearing, REQ-AGNT-022), AGENT_CONFIGS (4 agents) |
+| `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines; `hasReferences` gates reference deployment — prospec-verify now reference-bearing, REQ-AGNT-022), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
@@ -24,13 +24,14 @@
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words)
 - `SKILL_DEFINITIONS` — 13 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references
-- `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); `{ name, skillPath, configPath }`
+- `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
+- `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full; absent = standard, BL-004)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
-- `ProspecError` — Base error class (code + suggestion fields)
+- `ProspecError` — Base error class (code + suggestion fields); accepts an optional `{ cause }` forwarded to `Error` (ModuleDetectionError also threads `cause`, preserving the underlying failure)
 - `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
-- `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer)
+- `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer); `TaskMeasurementSchema.refine()` requires a non-empty `reason` when status is skipped/failed (honesty invariant, mirrors DriftCheckResultSchema)
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
 - `MCP_RESOURCE_URIS` / `SearchModulesInputShape` / `DependencyDirectionResultSchema` — MCP resource URIs + tool I/O contracts; input shapes are raw Zod shapes (SDK registerTool takes ZodRawShape), wrapped schemas exist for standalone validation
 - `INDEX_TABLE_COLUMNS` / `INDEX_COLUMN` / `INDEX_TABLE_HEADER` / `INDEX_TABLE_SEPARATOR` — canonical `_index.md` module-table column schema; the single source every emitter (init/knowledge render-context injection, knowledge-update) and parser (change-story, knowledge-reader) derives from
@@ -60,6 +61,7 @@
 - Zod `.optional()` vs `.default()` — optional returns `T | undefined`, default returns `T`. Be explicit.
 - Adding required fields to schemas breaks existing `.prospec.yaml` — always use `.optional()` or `.default()`
 - `SKILL_DEFINITIONS` count is asserted in `skill-format.test.ts` — adding a skill without updating the test count causes contract test failure
+- `AGENT_CONFIGS` is `Record<ValidAgent, AgentConfig>` — `VALID_AGENTS` is the single source; adding an agent there forces a matching map entry (compile error otherwise), so don't duplicate the agent list anywhere
 - `drift-report.ts` knowledge_health field names are a FROZEN downstream contract (Knowledge Flywheel, MCP server `knowledge://health`) — renaming them is a breaking change, not a refactor
 - `mcp.ts` tool result schemas are protocol-frozen (clients consume structuredContent) — `SEARCH_MATCH_FIELDS` / `DEPENDENCY_DIRECTION_SOURCES` literals are contract values, not free strings; extend ONLY additively (e.g. `SearchModuleMatch.category` was added as `default([])`, never reordering/removing existing fields)
 

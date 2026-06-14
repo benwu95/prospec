@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (16 files, 2,881 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (17 files, 3,004 lines)
 
 <!-- prospec:auto-start -->
 
@@ -10,8 +10,9 @@
 |------|---------|
 | `src/lib/config.ts` | readConfig(), resolveBasePaths(), resolveArtifactLanguage(), isDefaultArtifactLanguage() |
 | `src/lib/fs-utils.ts` | atomicWrite(), ensureDir(), fileExists() |
-| `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates |
-| `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration |
+| `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates; resolveTemplatesDir() resolves the templates root via fileURLToPath |
+| `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration, appending any surplus existing user sections |
+| `src/lib/key-exports.ts` | deriveKeyExports() — shared Recipe-First key-exports derivation (used by both knowledge generate + knowledge-update) |
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir |
@@ -29,8 +30,9 @@
 
 - `readConfig(cwd)` — Read and validate .prospec.yaml with Zod
 - `atomicWrite(path, content)` — Write file via temp-then-rename
-- `renderTemplate(name, context)` — Render .hbs template by path
-- `mergeContent(newContent, existingContent)` — Merge preserving user sections
+- `renderTemplate(name, context)` — Render .hbs template by path; `resolveTemplatesDir(moduleUrl)` — testable templates-root resolver (fileURLToPath fixes spaced/Windows install paths)
+- `mergeContent(newContent, existingContent)` — Merge preserving user sections (surplus existing user sections appended)
+- `deriveKeyExports(keyFiles)` — derive the shared Recipe-First key-exports list (first 10 files, drop tests, `.service`→`.execute()`, kebab→camelCase, cap 8); single source for generate + knowledge-update
 - `scanDir(patterns, options)` — Scan directory with fast-glob
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
 - `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
@@ -38,7 +40,7 @@
 - `exampleRulesFor(techStack)` — Stack-appropriate starter rules; `languagePolicyRule(language)` — [MUST] artifact-language rule
 - `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check)
 - `escapeYamlScalar(text)` — escape user text for double-quoted YAML scalars in noEscape templates
-- `savingRatio() / cacheHitRate() / effectiveInputCostUsd(usage, pricing)` — deterministic token accounting; `rankByRelevance()` / `selectWithinBudget()` — naive-rag scoring with lexicographic tie-break
+- `savingRatio() / cacheHitRate() / effectiveInputCostUsd(usage, pricing)` — deterministic token accounting; `rankByRelevance()` / `selectWithinBudget()` — naive-rag scoring with codepoint tie-break
 - `runChecks(inputs)` — five drift evaluators → validated DriftReport; `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback
 - `collectReqDefinitions/References, collectMarkdownLinks, collectImportEdges, collectGitTimestamps, collectTaskStates` — drift source collectors (fenced blocks excluded, shallow clones degrade to unavailable)
 - `parseTaskLine(line)` — checkbox/kind parsing shared by drift engine and archive task stats

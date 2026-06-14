@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 25 files)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 27 files, 1,517 lines)
 
 <!-- prospec:auto-start -->
 
@@ -10,6 +10,8 @@
 |------|---------|
 | `src/cli/index.ts` | createProgram(), main(), preAction config check (resolves `.prospec.yaml` against `mcp serve --cwd <path>` when given, else cwd), command registration (imports `setup-color.js` first) |
 | `src/cli/setup-color.ts` | Sets NO_COLOR for non-TTY stdout before picocolors loads — keeps piped/`tee`'d output free of raw ANSI; honors explicit NO_COLOR/FORCE_COLOR |
+| `src/cli/log-level.ts` | resolveLogLevel(opts) — shared root-flag → LogLevel resolver imported by all 10 command files |
+| `src/cli/parse-options.ts` | parseDepth(value) — shared validating `--depth` parser (throws on NaN/<1); used by `steering` and `knowledge init` |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
@@ -27,7 +29,9 @@
 ## Public API
 
 - `createProgram()` — Create Commander.js program with all 11 commands registered
-- `GlobalOptions` (type) — `{ verbose?, quiet? }`; resolved from root options into a LogLevel per command
+- `GlobalOptions` (type) — `{ verbose?, quiet? }`; resolved into a LogLevel via the shared `cli/log-level.resolveLogLevel`
+- `resolveLogLevel(opts)` — root flags → LogLevel; one shared impl, imported by all 10 commands
+- `parseDepth(value)` — `--depth` Commander parser; positive integer or throws
 - `registerXxxCommand(program)` — 11 command registration functions (one per command)
 - `formatXxxOutput(result, logLevel)` — 12 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`, `check-output.ts` also exports `sanitizeTerminal()`
 - `main()` — entry point (create program → parse argv → handle errors); NOT exported — runs on module load
@@ -42,6 +46,7 @@
 1. Adding a new command: Create `src/cli/commands/{name}.ts` with `registerXxxCommand(program)`, create matching formatter, register in `index.ts`.
 2. Adding a formatter: Create `src/cli/formatters/{name}-output.ts` with `formatXxxOutput(result, logLevel)`.
 3. Changing error output: Modify `formatters/error-output.ts` — dispatch by error class type.
+4. Log-level / `--depth` rules are shared cli helpers — change once in `cli/log-level.ts` (resolveLogLevel) or `cli/parse-options.ts` (parseDepth), not per-command.
 
 ## Ripple Effects
 
