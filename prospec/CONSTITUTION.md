@@ -24,6 +24,7 @@
 **Enforcement**:
 - Each commit message follows Conventional Commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`)
 - Commit messages (subject and body) must be written in English
+- The commit body (the detail below the subject) must be presented as a bulleted list — prose paragraphs are prohibited
 - A single commit must not contain unrelated functional changes
 - Commit messages must not include AI co-authorship attribution
 
@@ -90,9 +91,9 @@
 
 - **Testing**: All public functions must have unit tests; coverage ≥ 80%
 - **Documentation**: Change documents in Traditional Chinese; code in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
-- **Commits**: Follow Conventional Commits; atomic commits by feature; messages in English
+- **Commits**: Follow Conventional Commits; atomic commits by feature; messages in English; commit bodies as bulleted lists (no prose paragraphs)
 - **Requirements**: User Stories must satisfy INVEST with explicit acceptance criteria
 
 ---
 
-> Last updated: 2026-06-12
+> Last updated: 2026-06-14

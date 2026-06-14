@@ -118,8 +118,7 @@ Use `mergeContent()` from `lib/content-merger.ts` when updating files that may h
 ## Git Conventions
 
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `ci:`
-- No AI attribution in commit messages
-- Feature branches with squash merge
+- No AI co-authorship attribution in commit messages
 <!-- prospec:auto-end -->
 
 <!-- prospec:user-start -->
