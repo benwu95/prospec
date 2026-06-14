@@ -4,6 +4,7 @@ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
+import { isSafeResourceName } from '../lib/knowledge-reader.js';
 import type { ChangeStatus } from '../types/change.js';
 import { ScanError, WriteError } from '../types/errors.js';
 import { execute as executeKnowledgeUpdate } from './knowledge-update.service.js';
@@ -32,6 +33,8 @@ export interface ArchiveResult {
   affectedModules: string[];
   knowledgeUpdated: boolean;
   specFiles: string[];
+  /** Non-fatal notices forwarded from the auto knowledge-update (e.g. malformed REQ ids). */
+  knowledgeWarnings: string[];
 }
 
 export interface ArchivedChange {
@@ -127,12 +130,27 @@ export async function moveToArchive(
 
   await ensureDir(archiveDir);
 
-  // Move all files from change directory to archive
+  // Move all files from change directory to archive. A mid-loop failure must
+  // not leave the change split across the source and archive directories, so
+  // already-moved files are rolled back (best effort) before rethrowing.
   const files = await fs.promises.readdir(change.dir);
-  for (const file of files) {
-    const src = path.join(change.dir, file);
-    const dest = path.join(archiveDir, file);
-    await fs.promises.rename(src, dest);
+  const moved: Array<{ src: string; dest: string }> = [];
+  try {
+    for (const file of files) {
+      const src = path.join(change.dir, file);
+      const dest = path.join(archiveDir, file);
+      await fs.promises.rename(src, dest);
+      moved.push({ src, dest });
+    }
+  } catch (err) {
+    for (const { src, dest } of moved.reverse()) {
+      await fs.promises.rename(dest, src).catch(() => { /* best effort rollback */ });
+    }
+    await fs.promises.rmdir(archiveDir).catch(() => { /* best effort cleanup */ });
+    throw new WriteError(
+      archiveDir,
+      `archive move failed and was rolled back: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   // Remove the now-empty source directory
@@ -257,6 +275,9 @@ export async function syncToFeatureSpecs(
   const today = new Date().toISOString().slice(0, 10);
 
   for (const [feature, featureRoutes] of byFeature) {
+    // The feature slug becomes a filename — a crafted `**Feature:** ../../x`
+    // must never escape featuresPath. Same name guard the spec read surfaces use.
+    if (!isSafeResourceName(feature)) continue;
     const specFile = path.join(featuresPath, `${feature}.md`);
     const fileExists = fs.existsSync(specFile);
 
@@ -442,13 +463,17 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // skill-level archive Entry Gate, which derives modules from diff paths, remains
   // the mandatory knowledge-sync checkpoint there.
   let knowledgeUpdated = false;
+  const knowledgeWarnings: string[] = [];
   if (archived.length > 0) {
     for (const change of archived) {
       const deltaSpecPath = path.join(change.archivePath, 'delta-spec.md');
       if (fs.existsSync(deltaSpecPath)) {
         try {
-          await executeKnowledgeUpdate({ deltaSpecPath, cwd });
+          // Capture the result so non-fatal notices (e.g. malformed REQ ids)
+          // are forwarded to the archive caller instead of being dropped here.
+          const ku = await executeKnowledgeUpdate({ deltaSpecPath, cwd });
           knowledgeUpdated = true;
+          knowledgeWarnings.push(...ku.warnings);
         } catch {
           // Knowledge update failure is non-fatal
         }
@@ -462,6 +487,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     affectedModules: [...allAffectedModules],
     knowledgeUpdated,
     specFiles,
+    knowledgeWarnings,
   };
 }
 
@@ -671,7 +697,10 @@ function mergeRequirementInPlace(content: string, route: FeatureRoute): string {
   const newReq = `\n#### ${route.reqId}: ${route.description}\n\n---\n`;
 
   if (content.includes(insertBefore)) {
-    return content.replace(insertBefore, newReq + '\n' + insertBefore);
+    // Function replacer: route.description is untrusted text and may contain
+    // `$&`/`$1`/`$$` etc., which a string replacement would expand as special
+    // patterns and corrupt the spec. A function returns the literal verbatim.
+    return content.replace(insertBefore, () => newReq + '\n' + insertBefore);
   }
 
   // Fallback: append at end
@@ -685,11 +714,12 @@ function moveReqToDeprecated(content: string, route: FeatureRoute): string {
   const today = new Date().toISOString().slice(0, 10);
   const deprecatedEntry = `\n- **${route.reqId}**: ${route.description} _(removed ${today})_`;
 
-  // Replace _(None)_ placeholder if present
+  // Replace _(None)_ placeholder if present. Function replacers keep the
+  // untrusted route.description literal — see mergeRequirementInPlace.
   if (content.includes('## Deprecated Requirements\n\n_(None)_')) {
     return content.replace(
       '## Deprecated Requirements\n\n_(None)_',
-      `## Deprecated Requirements\n${deprecatedEntry}`,
+      () => `## Deprecated Requirements\n${deprecatedEntry}`,
     );
   }
 
@@ -697,7 +727,7 @@ function moveReqToDeprecated(content: string, route: FeatureRoute): string {
   if (content.includes('## Deprecated Requirements')) {
     return content.replace(
       '## Deprecated Requirements',
-      `## Deprecated Requirements${deprecatedEntry}`,
+      () => `## Deprecated Requirements${deprecatedEntry}`,
     );
   }
 

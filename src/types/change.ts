@@ -41,6 +41,20 @@ export const ChangeMetadataSchema = z.object({
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
 export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
+
+/**
+ * True when `current` precedes `target` in the lifecycle order. Used to keep
+ * status advances forward-only — re-running a planning command on an already
+ * advanced change must not silently regress its status.
+ */
+export function isStatusBefore(
+  current: string | undefined,
+  target: ChangeStatus,
+): boolean {
+  const currentIndex =
+    current === undefined ? -1 : CHANGE_STATUSES.indexOf(current as ChangeStatus);
+  return currentIndex < CHANGE_STATUSES.indexOf(target);
+}
 export type ChangeScale = (typeof CHANGE_SCALES)[number];
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
 export type GateResult = (typeof GATE_RESULTS)[number];

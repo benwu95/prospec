@@ -3,6 +3,11 @@ import path from 'node:path';
 import type { LogLevel } from '../../types/config.js';
 import type { CheckResult, InitCiResult } from '../../services/check.service.js';
 import { DRIFT_CHECK_IDS, type DriftCheckResult, type DriftReport } from '../../types/drift-report.js';
+import { sanitizeTerminal } from './sanitize.js';
+
+// Shared terminal sanitiser, re-exported so existing importers (and the
+// contract test) keep their `check-output` import path unchanged.
+export { sanitizeTerminal };
 
 /**
  * Format the drift check result for terminal output.
@@ -19,16 +24,6 @@ const STATUS_LABEL: Record<DriftCheckResult['status'], string> = {
   fail: pc.red('FAIL'),
   skipped: pc.dim('SKIP'),
 };
-
-/**
- * Findings embed raw repo strings (link targets, task text) — strip C0/C1
- * control characters so an untrusted clone cannot inject ANSI/OSC sequences
- * into the developer's terminal.
- */
-export function sanitizeTerminal(s: string): string {
-  // eslint-disable-next-line no-control-regex
-  return s.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
-}
 
 export function formatCheckOutput(result: CheckResult | InitCiResult, logLevel: LogLevel): void {
   if (logLevel === 'quiet') return;

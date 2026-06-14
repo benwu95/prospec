@@ -34,6 +34,12 @@ export interface DeltaSpecResult {
   added: DeltaReqEntry[];
   modified: DeltaReqEntry[];
   removed: DeltaReqEntry[];
+  /**
+   * REQ-shaped headings that fail the canonical `REQ-MODULE-NNN` form (a 3-digit
+   * sequence, per delta-spec-format.md). Surfaced rather than silently dropped,
+   * so a non-conforming id reported elsewhere is not invisibly skipped here.
+   */
+  malformed: string[];
 }
 
 export interface GeneratedFile {
@@ -50,6 +56,8 @@ export interface KnowledgeUpdateResult {
   deprecated: string[];
   /** All generated/modified file paths */
   generatedFiles: GeneratedFile[];
+  /** Non-fatal notices — e.g. non-canonical REQ ids skipped during parsing. */
+  warnings: string[];
 }
 
 // --- Delta Spec Parser (Task 6: REQ-SERVICES-020) ---
@@ -61,7 +69,7 @@ export interface KnowledgeUpdateResult {
  * Returns empty arrays for malformed or empty input (never throws).
  */
 export function parseDeltaSpec(content: string): DeltaSpecResult {
-  const result: DeltaSpecResult = { added: [], modified: [], removed: [] };
+  const result: DeltaSpecResult = { added: [], modified: [], removed: [], malformed: [] };
 
   if (!content || !content.trim()) {
     return result;
@@ -78,7 +86,7 @@ export function parseDeltaSpec(content: string): DeltaSpecResult {
       continue;
     }
 
-    // Detect REQ ID headers: ### REQ-{MODULE}-{NNN}: Description
+    // Canonical REQ heading: ### REQ-{MODULE}-{NNN} with a 3-digit sequence.
     const reqMatch = line.match(/^###\s+(REQ-([\w-]+)-\d{3}):\s*(.*)/);
     if (reqMatch && currentSection) {
       result[currentSection].push({
@@ -86,6 +94,15 @@ export function parseDeltaSpec(content: string): DeltaSpecResult {
         module: reqMatch[2]!.toLowerCase(),
         description: reqMatch[3]!.trim(),
       });
+      continue;
+    }
+
+    // A REQ-shaped heading that is NOT canonical (wrong digit count, missing
+    // module segment, …) is surfaced, not silently dropped — the looser parsers
+    // in archive.service may route it, so this keeps the two sides honest.
+    const malformedMatch = line.match(/^###\s+(REQ-[\w-]+):/);
+    if (malformedMatch && currentSection) {
+      result.malformed.push(malformedMatch[1]!);
     }
   }
 
@@ -369,6 +386,7 @@ export async function execute(
     updated: [],
     deprecated: [],
     generatedFiles: [],
+    warnings: [],
   };
 
   const baseOpts = { cwd, knowledgeBasePath, excludePatterns };
@@ -377,6 +395,12 @@ export async function execute(
     // --- Delta Spec Mode ---
     const deltaContent = await fs.promises.readFile(options.deltaSpecPath, 'utf-8');
     const delta = parseDeltaSpec(deltaContent);
+    if (delta.malformed.length > 0) {
+      result.warnings.push(
+        `Skipped ${delta.malformed.length} non-canonical REQ id(s) ` +
+          `(expected REQ-MODULE-NNN with a 3-digit sequence): ${delta.malformed.join(', ')}`,
+      );
+    }
 
     // Resolve module paths from module-map.yaml
     const modulePathMap = buildModulePathMap(moduleMapPath);

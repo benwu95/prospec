@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 50 test files, 1,002 tests (unit 484, contract 466, integration 17, e2e 35)
+> 4-layer test architecture using Vitest + memfs — 52 test files, 1,036 tests (unit 518, contract 466, integration 17, e2e 35)
 
 <!-- prospec:auto-start -->
 
@@ -13,6 +13,8 @@
 | `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary (29 tests) |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. in-place auto-block replace (no $-injection), collectAllModules case-insensitive, removal-wins (22 tests) |
+| `tests/unit/services/change-resolver.test.ts` | Change-resolution branch coverage — explicit slug, single in-progress auto-select, ambiguous/none/not-found errors |
+| `tests/unit/cli/output-sanitization.test.ts` | `measure`/error output strips control chars before printing (control-char-injection regression) |
 | `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |

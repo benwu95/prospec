@@ -112,13 +112,13 @@ describe('readConfig', () => {
 });
 
 describe('resolveBasePaths', () => {
-  it('should fall back to docs when base_dir is absent', () => {
+  it('should fall back to DEFAULT_BASE_DIR (prospec) when base_dir is absent', () => {
     const config = { project: { name: 'test' } };
     const result = resolveBasePaths(config, '/project');
-    expect(result.baseDir).toBe('/project/docs');
-    expect(result.knowledgePath).toBe('/project/docs/ai-knowledge');
-    expect(result.constitutionPath).toBe('/project/docs/CONSTITUTION.md');
-    expect(result.specsPath).toBe('/project/docs/specs');
+    expect(result.baseDir).toBe('/project/prospec');
+    expect(result.knowledgePath).toBe('/project/prospec/ai-knowledge');
+    expect(result.constitutionPath).toBe('/project/prospec/CONSTITUTION.md');
+    expect(result.specsPath).toBe('/project/prospec/specs');
   });
 
   it('should use configured base_dir', () => {

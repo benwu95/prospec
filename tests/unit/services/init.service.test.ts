@@ -262,4 +262,25 @@ describe('init.service artifact language', () => {
     expect(ctx.example_rules[0].description).toContain('Japanese');
     expect(ctx.example_rules.length).toBeGreaterThanOrEqual(4);
   });
+
+  it('does not write .prospec.yaml when a template render fails, keeping re-run safe (B10)', async () => {
+    vol.fromJSON({ '/project/src/index.ts': '' });
+    const mock = vi.mocked(renderTemplate);
+    mock.mockImplementation((tpl: string) => {
+      if (tpl === 'init/index.md.hbs') throw new Error('render boom');
+      return '# Rendered Template Content\n';
+    });
+
+    try {
+      await expect(
+        execute({ name: 'p', agents: ['claude'], cwd: '/project' }),
+      ).rejects.toThrow('render boom');
+      // .prospec.yaml is the completion marker — a failed init must not leave it,
+      // or a re-run would hit AlreadyExistsError and refuse to recover.
+      expect(fs.existsSync('/project/.prospec.yaml')).toBe(false);
+    } finally {
+      mock.mockReset();
+      mock.mockReturnValue('# Rendered Template Content\n');
+    }
+  });
 });

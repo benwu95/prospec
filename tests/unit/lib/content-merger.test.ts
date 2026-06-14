@@ -178,6 +178,62 @@ Replace me
     expect(merged).toContain('Keep me');
   });
 
+  it('merges to an EXACT document — section order and structure are pinned (happy path)', () => {
+    const existing = `Header
+<!-- prospec:auto-start -->
+Old generated
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+My important notes
+<!-- prospec:user-end -->`;
+
+    const newContent = `Header
+<!-- prospec:auto-start -->
+New generated
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+Default user content
+<!-- prospec:user-end -->`;
+
+    // The full output is asserted (not just substrings): a mutation that
+    // reordered sections, changed the join separator, or dropped the static
+    // header would keep every toContain green but fail this toBe.
+    const expected = `Header
+<!-- prospec:auto-start -->
+New generated
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+My important notes
+<!-- prospec:user-end -->`;
+
+    expect(mergeContent(newContent, existing)).toBe(expected);
+  });
+
+  it('appends surplus user sections at the END, newline-joined (exact output)', () => {
+    const existing = `<!-- prospec:user-start -->
+First notes
+<!-- prospec:user-end -->
+gap
+<!-- prospec:user-start -->
+Second hand-added notes
+<!-- prospec:user-end -->`;
+
+    const newContent = `<!-- prospec:user-start -->
+Default 1
+<!-- prospec:user-end -->`;
+
+    // Slot 0 takes the first existing user block; the surplus second block is
+    // appended after it (no surrounding static 'gap'), joined by a single '\n'.
+    const expected = `<!-- prospec:user-start -->
+First notes
+<!-- prospec:user-end -->
+<!-- prospec:user-start -->
+Second hand-added notes
+<!-- prospec:user-end -->`;
+
+    expect(mergeContent(newContent, existing)).toBe(expected);
+  });
+
   it('preserves surplus user sections when the existing file has more than the new content', () => {
     // User added a SECOND user block to a generated file; the regenerated
     // template still emits only one. The surplus must not be dropped.

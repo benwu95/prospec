@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
-import { ProspecConfigSchema, DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
+import { ProspecConfigSchema, DEFAULT_ARTIFACT_LANGUAGE, DEFAULT_BASE_DIR } from '../types/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
@@ -19,11 +19,13 @@ export interface BasePaths {
 /**
  * Derive all standard Prospec paths from config.
  *
- * Resolution: paths.base_dir → knowledge.base_path fallback → 'docs' legacy default.
+ * Resolution: paths.base_dir → DEFAULT_BASE_DIR. The fallback is the canonical
+ * default that `init` always writes, so a config missing `base_dir` resolves the
+ * artifact tree to the same root init created — not a divergent legacy location.
  * Returns absolute paths when cwd is provided.
  */
 export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths {
-  const baseDir = config.paths?.base_dir ?? 'docs';
+  const baseDir = config.paths?.base_dir ?? DEFAULT_BASE_DIR;
   const knowledgePath = config.knowledge?.base_path ?? path.join(baseDir, 'ai-knowledge');
   const constitutionPath = path.join(baseDir, 'CONSTITUTION.md');
   const specsPath = path.join(baseDir, 'specs');

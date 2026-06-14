@@ -112,6 +112,25 @@ knowledge:
     );
   });
 
+  it('does not drop a data row whose Description cell contains --- (B11)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: docs/ai-knowledge\n',
+      '/project/docs/ai-knowledge/_index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| auth | auth, login | 認證 | Active | Handles login --- and logout flows | security | |
+`,
+    });
+
+    const result = await execute({ name: 'update-auth', cwd: '/project' });
+
+    // a '---' inside the Description cell must not be read as a separator row
+    expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
+    expect(result.relatedModules.find((m) => m.name === 'auth')?.description)
+      .toContain('login --- and logout');
+  });
+
   it('skips the Loading Rules table (fewer columns) — no garbage related modules', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

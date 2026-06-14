@@ -3,6 +3,7 @@ import type { LogLevel } from '../../types/config.js';
 import type { MeasureResult } from '../../services/measure.service.js';
 import type { BaselineComparison, ProviderRun } from '../../types/measurement.js';
 import { AGENT_PROVIDER_MAP } from '../../types/measurement.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the MeasureResult for terminal output.
@@ -49,11 +50,12 @@ function formatComparison(c: BaselineComparison): string[] {
 function formatRun(run: ProviderRun): string[] {
   const lines: string[] = [];
   lines.push('');
-  lines.push(pc.bold(`── ${run.provider} (${run.model}) — agents: ${agentsFor(run.provider)} ──`));
+  lines.push(pc.bold(`── ${run.provider} (${sanitizeTerminal(run.model)}) — agents: ${agentsFor(run.provider)} ──`));
 
   const s = run.summary;
   const taskStats = `${s.measured_tasks} measured, ${s.skipped_tasks} skipped, ${s.failed_tasks} failed`;
-  lines.push(`  Tasks: ${taskStats}${run.aborted ? ` ${pc.yellow(`[aborted: ${run.aborted_reason ?? 'budget exhausted'}]`)}` : ''}`);
+  const abortedReason = sanitizeTerminal(run.aborted_reason ?? 'budget exhausted');
+  lines.push(`  Tasks: ${taskStats}${run.aborted ? ` ${pc.yellow(`[aborted: ${abortedReason}]`)}` : ''}`);
 
   if (s.measured_tasks === 0) {
     // all-zero comparisons would read as "0% saving" — say what happened instead
@@ -82,7 +84,7 @@ export function formatMeasureOutput(
 
   lines.push(pc.bold('Token Measurement Report'));
   lines.push(
-    `Corpus: ${pc.cyan(report.corpus)} | Snapshot: ${pc.cyan(report.git_commit.slice(0, 12))} | Generated: ${report.generated_at}`,
+    `Corpus: ${pc.cyan(sanitizeTerminal(report.corpus))} | Snapshot: ${pc.cyan(sanitizeTerminal(report.git_commit.slice(0, 12)))} | Generated: ${sanitizeTerminal(report.generated_at)}`,
   );
   lines.push(pc.dim('Numbers are comparable only within the same provider — never across providers or snapshots.'));
 

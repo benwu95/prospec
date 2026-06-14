@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import { ProspecError } from '../../types/errors.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Highlight backtick-wrapped commands in suggestion text with cyan color.
@@ -18,8 +19,10 @@ function highlightCommands(text: string): string {
  */
 export function formatProspecError(error: ProspecError): void {
   process.exitCode = 1;
-  const msg = `${pc.red('✗')} ${error.message}`;
-  const suggestion = `  ${pc.dim('→')} ${highlightCommands(error.suggestion)}`;
+  // message/suggestion may embed file-derived content (parse errors, report
+  // details) — strip control chars before they reach the terminal.
+  const msg = `${pc.red('✗')} ${sanitizeTerminal(error.message)}`;
+  const suggestion = `  ${pc.dim('→')} ${highlightCommands(sanitizeTerminal(error.suggestion))}`;
   process.stderr.write(msg + '\n' + suggestion + '\n');
 }
 
@@ -36,7 +39,7 @@ export function formatGenericError(
 
   if (error instanceof Error) {
     process.stderr.write(
-      `\n  ${pc.yellow(error.name)}: ${pc.dim(error.message)}\n`,
+      `\n  ${pc.yellow(error.name)}: ${pc.dim(sanitizeTerminal(error.message))}\n`,
     );
     if (verbose && error.stack) {
       const stackLines = error.stack

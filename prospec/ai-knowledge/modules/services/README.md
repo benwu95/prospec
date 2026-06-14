@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (14 files, 3,959 lines)
+> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (14 files, 4,035 lines)
 
 <!-- prospec:auto-start -->
 
@@ -8,17 +8,17 @@
 
 | File | Purpose |
 |------|---------|
-| `src/services/init.service.ts` | Project init — scaffold config (incl. artifact language via --language/prompt/CI default), Constitution with Language Policy rule, AI Knowledge |
-| `src/services/steering.service.ts` | Architecture discovery — scan, detectModules(strategy), generate module-map.yaml |
+| `src/services/init.service.ts` | Project init — scaffold config (incl. artifact language via --language/prompt/CI default), Constitution with Language Policy rule, AI Knowledge; renders all templates to memory first and writes `.prospec.yaml` LAST as the completion marker (mid-init failure leaves a re-runnable state) |
+| `src/services/steering.service.ts` | Architecture discovery — scan, detectModules(strategy), generate module-map.yaml; `buildLayers` excludes the reserved `base_dir` key (artifact root, not a code layer) and falls through to detected modules when it is the only `paths` key |
 | `src/services/knowledge.service.ts` | Module README + _index.md generation — Recipe-First format, key_exports, ContentMerger |
 | `src/services/knowledge-init.service.ts` | Initial scan → raw-scan.md + module-map.yaml (generated when absent, via buildModuleMap) |
-| `src/services/knowledge-update.service.ts` | Incremental knowledge update — parseDeltaSpec(), per-module README rebuild |
-| `src/services/change-story.service.ts` | Create change proposal — proposal.md via template; metadata.yaml serialized with stringifyYaml (not a template) |
+| `src/services/knowledge-update.service.ts` | Incremental knowledge update — parseDeltaSpec() (canonical 3-digit REQ ids; non-canonical ids surfaced via `DeltaSpecResult.malformed` → `KnowledgeUpdateResult.warnings`, not dropped silently), per-module README rebuild |
+| `src/services/change-story.service.ts` | Create change proposal — proposal.md via template; metadata.yaml serialized with stringifyYaml (not a template); the `_index.md` module-table parser anchors separator/header detection to cell ROLE (all-dash/colon cells; first cell == "module"), so a data row whose Description contains `---` is not dropped |
 | `src/services/change-resolver.ts` | Shared `resolveChange()` helper — selects which change to operate on (explicit / auto / prompt / --quiet error); single metadata read reused by change-plan + change-tasks |
-| `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold — resolves change via `change-resolver` |
-| `src/services/change-tasks.service.ts` | Generate tasks.md scaffold — resolves change via `change-resolver` |
+| `src/services/change-plan.service.ts` | Generate plan.md + delta-spec.md scaffold — resolves change via `change-resolver`; refuses to overwrite an existing artifact unless `--force`; advances `metadata.status` forward-only (`isStatusBefore`, never regress); writes metadata via the comment-preserving Document API |
+| `src/services/change-tasks.service.ts` | Generate tasks.md scaffold — resolves change via `change-resolver`; refuses to overwrite an existing artifact unless `--force`; advances `metadata.status` forward-only (`isStatusBefore`, never regress); writes metadata via the comment-preserving Document API |
 | `src/services/agent-sync.service.ts` | Sync skills + references; synthesizeTriggers() composes frontmatter Triggers (baseline + skill_triggers + non-English hint); getSkillReferences() renders each declaring skill its OWN references (self-contained, no sibling-dir cites — REQ-AGNT-015), now incl. prospec-verify (debug-recovery-format) + prospec-review's 2nd ref (review-lenses-content) vendored MIT heuristics, gated on `skill.hasReferences` (REQ-AGNT-022) |
-| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart) |
+| `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart); Feature-Spec spec-sync uses FUNCTION replacers so `$`-sequences (`$&`, `` $` ``, `$$`) in a REQ description are preserved verbatim, not expanded; `**Feature:**` slug is path-contained via `isSafeResourceName` before use as a filename (no traversal); `moveToArchive` rolls back already-moved files on a mid-loop failure (no half-moved state); `ArchiveResult` carries `knowledgeWarnings` forwarded from the auto knowledge-update |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
 | `src/services/check.service.ts` | Drift check orchestration — collectors → pure evaluators → report; `--json` atomicWrite, `--init-ci` workflow scaffold (rerun-safe); module-map load lives in `lib/knowledge-reader` (clamped paths, invalid map throws) |
 | `src/services/mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 6 resources + 2 tools (per-request reads via knowledge-reader); `search_modules` joins each match's `category` from module-map via `attachModuleCategories`; `execute()` wires stdio transport; diagnostics stderr-only |
@@ -28,9 +28,9 @@
 - `init.execute(options)` — Initialize new Prospec project
 - `steering.execute(options)` — Discover architecture, generate module-map
 - `knowledge.execute(options)` — Generate module READMEs and _index.md
-- `knowledgeUpdate.execute(options)` / `collectAllModules(result, moduleMapPath)` — Incremental delta-spec-driven update / merge module-map + delta-spec into the `_index.md` module list
+- `knowledgeUpdate.execute(options)` / `collectAllModules(result, moduleMapPath)` — Incremental delta-spec-driven update (Result carries `warnings` for non-canonical REQ ids surfaced by `parseDeltaSpec`) / merge module-map + delta-spec into the `_index.md` module list
 - `resolveChange(cwd, explicit, quiet, promptMessage)` — Resolve target change name (shared by change-plan/change-tasks); zero/ambiguous → `PrerequisiteError`
-- `archive.execute(options)` — Archive verified changes, sync Feature Specs
+- `archive.execute(options)` — Archive verified changes, sync Feature Specs; Result carries `knowledgeWarnings` forwarded from the auto knowledge-update
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys) and `hints` (populate skill_triggers for non-English languages)
 - `measure.execute({cwd, reportPath?})` — Load measurement report for display; missing file → PrerequisiteError (run `pnpm measure:tokens`), invalid → MeasurementReportInvalid
 - `check.execute({cwd, json?, initCi?})` — Run the drift engine (Result carries `hasFail`; exit-code mapping stays in cli) or scaffold the hardened CI workflow
@@ -56,6 +56,7 @@
 - `knowledge.service.ts` template context changes must match `steering/module-readme.hbs` Handlebars variables
 - `module-map.yaml` is produced by `knowledge-init` (when absent) and `steering`, and consumed by knowledge + knowledge-update services
 - `archive.service.ts` writes to `specs/features/` and `specs/product.md` — changes affect verify and planning skills
+- non-canonical REQ ids flow `parseDeltaSpec` → `DeltaSpecResult.malformed` → `KnowledgeUpdateResult.warnings` → `ArchiveResult.knowledgeWarnings` — touching any link in this chain affects what archive surfaces
 - Service result type changes require corresponding CLI formatter updates
 
 ## Pitfalls
@@ -65,6 +66,8 @@
 - `knowledge.service.ts` requires `module-map.yaml` to exist — now satisfied by `knowledge init` (rerun-safe: only written when absent); throws `PrerequisiteError` if still missing
 - Template context keys have no compile-time validation — typos produce empty output silently
 - change metadata.yaml is NOT rendered from a template — build the object and `stringifyYaml()` it (correct-by-construction escaping); frontmatter trigger words go through `escapeYamlScalar()`
+- archive's Feature-Spec spec-sync must use FUNCTION replacers, not string replacements — a REQ description containing `$&`/`` $` ``/`$$` would otherwise be regex-expanded instead of inserted verbatim
+- change-plan/change-tasks advance `metadata.status` forward-only via `isStatusBefore` — never write a status that regresses the lifecycle, and route the write through the comment-preserving Document API (don't re-serialize and drop comments)
 - archive's auto knowledge-update safety net no-ops when delta-spec.md is absent (the quick path) — the skill-level archive Entry Gate (diff-path module derivation) is the mandatory checkpoint there
 - check.service must keep knowledge-health on a REAL module-map (missing map → honest skip, never the constitution fallback — that would fabricate phantom coverage gaps)
 - change-plan/change-tasks resolve the change + status through `services/change-resolver` (a sibling service-layer import, NOT `lib`) — the change-selection logic is service policy, so don't re-derive it inline or push it down to `lib`; both read metadata exactly once via the shared helper
