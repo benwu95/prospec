@@ -4,6 +4,7 @@ import { parseYaml } from './yaml-utils.js';
 import { ModuleDetectionError } from '../types/errors.js';
 import { ModuleMapSchema, type ModuleMap } from '../types/module-map.js';
 import type { SearchModulesResult, SearchMatchField } from '../types/mcp.js';
+import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 
 /**
  * Knowledge content read layer (REQ-MCP-006) — whole-document reads for the
@@ -131,11 +132,14 @@ export function parseIndexModules(indexContent: string): IndexModule[] {
     );
   const header = rows.find((cells) => cells.some((c) => /^module$/i.test(c)));
   if (header === undefined) return [];
-  const col = (label: string): number => header.findIndex((c) => c.toLowerCase() === label);
-  const nameCol = col('module');
-  const keywordsCol = col('keywords');
-  const aliasesCol = col('aliases');
-  const descriptionCol = col('description');
+  // Resolve column positions by the canonical labels (single source: types/knowledge.ts),
+  // looked up in the header row so column reordering stays safe.
+  const col = (label: string): number =>
+    header.findIndex((c) => c.toLowerCase() === label.toLowerCase());
+  const nameCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.MODULE]);
+  const keywordsCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.KEYWORDS]);
+  const aliasesCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.ALIASES]);
+  const descriptionCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.DESCRIPTION]);
   const modules: IndexModule[] = [];
   for (const cells of rows) {
     const raw = cells[nameCol] ?? '';

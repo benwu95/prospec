@@ -3,6 +3,7 @@ import { checkbox, input, Separator } from '@inquirer/prompts';
 import { AlreadyExistsError } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
+import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../types/knowledge.js';
 import { writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { detectTechStack } from '../lib/detector.js';
@@ -133,6 +134,8 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     base_dir: baseDir,
     artifact_language: artifactLanguage,
     example_rules: [languagePolicyRule(artifactLanguage), ...exampleRulesFor(techStack)],
+    index_table_header: INDEX_TABLE_HEADER,
+    index_table_separator: INDEX_TABLE_SEPARATOR,
   };
 
   const createdFiles = ['.prospec.yaml'];

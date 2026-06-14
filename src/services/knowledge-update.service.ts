@@ -7,6 +7,7 @@ import { mergeContent } from '../lib/content-merger.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import type { ModuleMap } from '../types/module-map.js';
+import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR, INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 
 // --- Interfaces (Task 5: REQ-SERVICES-023) ---
 
@@ -259,16 +260,29 @@ export async function updateIndex(
   const indexPath = path.join(options.cwd, options.knowledgeBasePath, '_index.md');
   await ensureDir(path.dirname(indexPath));
 
-  // Build new auto section content
+  // Build new auto section content — header, separator, AND each row derive their
+  // column count from the canonical schema (types/knowledge.ts), so adding or
+  // reordering a column is a one-line edit there.
   const tableRows = modules
-    .map((m) => `| ${m.name} | — | ${m.status} | ${m.description} | README | — |`)
+    .map((m) => {
+      const cells = INDEX_TABLE_COLUMNS.map((_, i) =>
+        i === INDEX_COLUMN.MODULE
+          ? m.name
+          : i === INDEX_COLUMN.STATUS
+            ? m.status
+            : i === INDEX_COLUMN.DESCRIPTION
+              ? m.description
+              : '—',
+      );
+      return `| ${cells.join(' | ')} |`;
+    })
     .join('\n');
 
   const autoContent = `<!-- prospec:auto-start -->
 ## Modules
 
-| Module | Keywords | Status | Description | Files | Depends On |
-|--------|----------|--------|-------------|-------|------------|
+${INDEX_TABLE_HEADER}
+${INDEX_TABLE_SEPARATOR}
 ${tableRows}
 
 ## Project Info

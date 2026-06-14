@@ -7,7 +7,14 @@
  * - _index.md contains Rationale column and Loading Rules section
  */
 import { describe, it, expect } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
+import {
+  INDEX_TABLE_HEADER,
+  INDEX_TABLE_SEPARATOR,
+  INDEX_TABLE_COLUMNS,
+} from '../../src/types/knowledge.js';
 
 describe('Knowledge Format Contract', () => {
   describe('Module README (Recipe-First format)', () => {
@@ -99,6 +106,7 @@ describe('Knowledge Format Contract', () => {
       project_name: 'test-project',
       tech_stack: { language: 'typescript', framework: 'express' },
       knowledge_base_path: 'docs/ai-knowledge',
+      index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
       modules: [
         {
           name: 'services',
@@ -167,6 +175,66 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('primary');
       // the scaffold still keeps the flat-table contract intact
       expect(content).toContain('Rationale');
+    });
+  });
+
+  describe('canonical index-table column schema is single-sourced (REQ-KNOW-005/020)', () => {
+    const TEMPLATES = path.resolve(__dirname, '../../src/templates');
+
+    it('init scaffold renders the canonical header/separator from injected context', () => {
+      const content = renderTemplate('init/index.md.hbs', {
+        project_name: 'p',
+        base_dir: 'prospec',
+        index_table_header: INDEX_TABLE_HEADER,
+        index_table_separator: INDEX_TABLE_SEPARATOR,
+      });
+      expect(content).toContain(INDEX_TABLE_HEADER);
+      expect(content).toContain(INDEX_TABLE_SEPARATOR);
+      expect(content).toContain('Aliases');
+      // the stale 5-column header must be gone
+      expect(content).not.toContain('| Module | Keywords | Status | Description | Depends On |');
+    });
+
+    it('knowledge/index.md.hbs format hint lists the canonical columns', () => {
+      const content = renderTemplate('knowledge/index.md.hbs', {
+        project_name: 'p',
+        knowledge_base_path: 'prospec/ai-knowledge',
+        index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
+        modules: [],
+      });
+      expect(content).toContain(INDEX_TABLE_COLUMNS.join(' | '));
+    });
+
+    it('knowledge-generate and knowledge-update skill docs use the canonical header verbatim', () => {
+      for (const skill of ['prospec-knowledge-generate', 'prospec-knowledge-update']) {
+        const raw = fs.readFileSync(path.join(TEMPLATES, 'skills', `${skill}.hbs`), 'utf-8');
+        expect(raw).toContain(INDEX_TABLE_HEADER);
+      }
+    });
+  });
+
+  describe('module README Dependencies canonical labels (REQ-KNOW-021)', () => {
+    const TEMPLATES = path.resolve(__dirname, '../../src/templates');
+
+    it('module-readme scaffold renders **Depends on:** / **Used by:** labels', () => {
+      const content = renderTemplate('steering/module-readme.hbs', {
+        module_name: 'm',
+        description: 'd',
+        relationships: { depends_on: ['lib'], used_by: ['cli'] },
+        key_files: [],
+        key_exports: [],
+      });
+      expect(content).toContain('**Depends on:**');
+      expect(content).toContain('**Used by:**');
+    });
+
+    it('knowledge-generate skeleton documents canonical Dependencies labels', () => {
+      const raw = fs.readFileSync(
+        path.join(TEMPLATES, 'skills', 'prospec-knowledge-generate.hbs'),
+        'utf-8',
+      );
+      expect(raw).toContain('**Depends on:**');
+      expect(raw).toContain('**Used by:**');
     });
   });
 });

@@ -5,6 +5,7 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
 import { stringifyYaml } from '../lib/yaml-utils.js';
+import { INDEX_COLUMN, INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 
 export interface ChangeStoryOptions {
   name: string;
@@ -125,8 +126,8 @@ function matchRelatedModules(
 
   if (changeWords.length === 0) return [];
 
-  // Parse _index.md table rows
-  // Expected format: | Module | Keywords | Status | Description | Depends On |
+  // Parse _index.md table rows against the canonical column schema
+  // (types/knowledge.ts): | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
   const lines = indexContent.split('\n');
   const modules: RelatedModule[] = [];
 
@@ -136,18 +137,19 @@ function matchRelatedModules(
     if (line.includes('---')) continue;
     if (line.toLowerCase().includes('| module')) continue;
 
-    const cells = line
-      .split('|')
-      .map((c) => c.trim())
-      .filter((c) => c.length > 0);
+    // Position-stable cells: drop only the boundary empties from the surrounding
+    // pipes; keep empty middle cells so column indices stay aligned. Rows with
+    // fewer columns than the canonical schema (e.g. the Loading Rules table) are
+    // not module rows — skip them.
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim());
 
-    if (cells.length < 4) continue;
+    if (cells.length < INDEX_TABLE_COLUMNS.length) continue;
 
-    const moduleName = cells[0] ?? '';
-    const keywordsCell = cells[1];
+    const moduleName = cells[INDEX_COLUMN.MODULE] ?? '';
+    const keywordsCell = cells[INDEX_COLUMN.KEYWORDS];
     if (!keywordsCell) continue;
     const keywords = keywordsCell.toLowerCase().split(',').map((k) => k.trim());
-    const description = cells[3] ?? '';
+    const description = cells[INDEX_COLUMN.DESCRIPTION] ?? '';
 
     // Check if any change word matches any module keyword
     const isMatch = changeWords.some((word) =>

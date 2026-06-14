@@ -82,19 +82,21 @@ describe('change-story.service', () => {
     expect(result.description).toBe('A new feature');
   });
 
-  it('should match related modules from _index.md', async () => {
+  it('matches related modules and reads Description from the canonical 7-column layout', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
   base_path: docs/ai-knowledge
 `,
+      // Canonical 7 columns with populated Aliases/Rationale — the column shift
+      // that the old filter-empties + cells[3] parser misread (cells[3] = Status).
       '/project/docs/ai-knowledge/_index.md': `# Module Index
 
-| Module | Keywords | Status | Description | Depends On |
-|--------|----------|--------|-------------|------------|
-| auth | auth, authentication, login | Active | Authentication module | |
-| users | users, profile | Active | User management | auth |
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| auth | auth, authentication, login | 認證 | Active | Authentication module | core security boundary | |
+| users | users, profile | 使用者 | Active | User management | crud domain | auth |
 `,
     });
 
@@ -103,8 +105,42 @@ knowledge:
       cwd: '/project',
     });
 
-    expect(result.relatedModules.length).toBeGreaterThan(0);
     expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
+    // Description must come from the Description column, not Status/Aliases.
+    expect(result.relatedModules.find((m) => m.name === 'auth')?.description).toBe(
+      'Authentication module',
+    );
+  });
+
+  it('skips the Loading Rules table (fewer columns) — no garbage related modules', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+      '/project/docs/ai-knowledge/_index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| auth | auth, login | 認證 | Active | Authentication module | core | |
+
+## Loading Rules
+
+| Layer | Files | When to Load | Token Budget |
+|-------|-------|-------------|-------------|
+| L0 | _index.md + _conventions.md | Every conversation | ≤ 1,500 tokens total |
+| L1 | modules/{name}/README.md | On demand | ≤ 400 tokens |
+`,
+    });
+
+    const result = await execute({
+      name: 'add-auth-tokens',
+      cwd: '/project',
+    });
+
+    expect(result.relatedModules.every((m) => m.name === 'auth')).toBe(true);
+    expect(result.relatedModules.some((m) => /L0|L1|index\.md/.test(m.name))).toBe(false);
   });
 
   it('should return empty related modules when _index.md does not exist', async () => {
