@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -177,6 +177,28 @@ describe('collectMarkdownLinks', () => {
     const { links } = collectMarkdownLinks([path.join(tmpDir, 'docs')], tmpDir);
     expect(links.map((l) => l.raw_target)).toEqual(['./b.md']);
   });
+
+  it('does not leak existence of a symlink whose real target escapes the repo', () => {
+    const outsideDir = mkdtempSync(path.join(os.tmpdir(), 'drift-outside-'));
+    try {
+      const secret = path.join(outsideDir, 'secret.txt');
+      writeFileSync(secret, 'classified');
+      mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+      // lexically inside cwd (docs/link.md) but physically points outside
+      symlinkSync(secret, path.join(tmpDir, 'docs', 'link.md'));
+      write('docs/a.md', '[probe](./link.md) [inside](./real.md)\n');
+      write('docs/real.md', 'x');
+      const { links } = collectMarkdownLinks([path.join(tmpDir, 'docs')], tmpDir);
+      const probe = links.find((l) => l.raw_target === './link.md');
+      const inside = links.find((l) => l.raw_target === './real.md');
+      // the escaping symlink is recorded but its outside target must read false
+      expect(probe?.exists).toBe(false);
+      // a genuine in-repo file still reports true (containment, not blanket-false)
+      expect(inside?.exists).toBe(true);
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('collectImportEdges', () => {
@@ -220,6 +242,35 @@ describe('collectImportEdges', () => {
     write('src/services/a.ts', '');
     const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
     expect(edges).toEqual([]);
+  });
+
+  it('ignores import-like text inside template literals', () => {
+    write(
+      'src/services/gen.ts',
+      "const tpl = `\nimport { fake } from '../types/x.js';\n`;\nimport { real } from '../types/y.js';\n",
+    );
+    write('src/types/x.ts', '');
+    write('src/types/y.ts', '');
+    const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    // the real import edges to types; the template-literal 'import' is blanked
+    expect(edges.some((e) => e.specifier === '../types/y.js')).toBe(true);
+    expect(edges.some((e) => e.specifier === '../types/x.js')).toBe(false);
+  });
+
+  it('scans domain-glob module paths instead of skipping them (import-direction stays live)', () => {
+    const DOMAIN_MAP: ModuleMap = {
+      modules: [
+        { name: 'auth', paths: ['**/auth/**'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'billing', paths: ['**/billing/**'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    write('src/features/auth/login.ts', "import { rate } from '../billing/rate.js';\n");
+    write('src/features/billing/rate.ts', '');
+    const { available, edges } = collectImportEdges(tmpDir, DOMAIN_MAP);
+    // before the fix existsSync('<cwd>/**/auth/**') was always false → source
+    // reported unavailable and the whole import-direction check was skipped
+    expect(available).toBe(true);
+    expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('auth->billing');
   });
 });
 
@@ -321,5 +372,23 @@ describe('moduleAttributor', () => {
     expect(attribute('src/file.ts')).toBe('a');
     expect(attribute('src/deep/file.ts')).toBe('b');
     expect(attribute('other/file.ts')).toBeNull();
+  });
+
+  it('attributes a domain glob path by directory segment', () => {
+    const attribute = moduleAttributor({
+      modules: [{ name: 'auth', paths: ['**/auth/**'], keywords: [] }],
+    });
+    expect(attribute('src/features/auth/login.ts')).toBe('auth');
+    expect(attribute('src/features/billing/rate.ts')).toBeNull();
+  });
+
+  it('still lets a literal prefix outrank a glob for the same file', () => {
+    const attribute = moduleAttributor({
+      modules: [
+        { name: 'glob', paths: ['**/services/**'], keywords: [] },
+        { name: 'literal', paths: ['src/services'], keywords: [] },
+      ],
+    });
+    expect(attribute('src/services/a.ts')).toBe('literal');
   });
 });

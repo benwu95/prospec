@@ -8,11 +8,6 @@ import { TemplateError } from '../types/errors.js';
 let initialized = false;
 
 /**
- * Get the templates root directory.
- * In production (dist/), templates are at ../../src/templates/
- * relative to the compiled lib/ directory.
- */
-/**
  * Resolve the templates directory relative to a module URL.
  *
  * Uses `fileURLToPath` rather than `new URL(url).pathname`: the latter returns

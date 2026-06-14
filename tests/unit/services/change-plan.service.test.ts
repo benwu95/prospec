@@ -126,4 +126,53 @@ description: Add auth
       execute({ quiet: true, cwd: '/project' }),
     ).rejects.toThrow(PrerequisiteError);
   });
+
+  it('refuses to overwrite an existing plan.md without --force', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/.prospec/changes/add-auth/proposal.md': '# Proposal\n',
+      '/project/.prospec/changes/add-auth/plan.md': '# hand-edited plan, do not lose\n',
+      '/project/.prospec/changes/add-auth/metadata.yaml':
+        'name: add-auth\ncreated_at: "2026-01-01"\nstatus: tasks\n',
+    });
+
+    await expect(
+      execute({ change: 'add-auth', cwd: '/project' }),
+    ).rejects.toThrow(PrerequisiteError);
+    // the hand-edited plan is untouched
+    expect(fs.readFileSync('/project/.prospec/changes/add-auth/plan.md', 'utf-8'))
+      .toContain('hand-edited plan');
+  });
+
+  it('with --force regenerates but never regresses an advanced status', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/.prospec/changes/add-auth/proposal.md': '# Proposal\n',
+      '/project/.prospec/changes/add-auth/plan.md': '# old\n',
+      '/project/.prospec/changes/add-auth/metadata.yaml':
+        'name: add-auth\ncreated_at: "2026-01-01"\nstatus: verified\n',
+    });
+
+    await execute({ change: 'add-auth', force: true, cwd: '/project' });
+
+    const meta = fs.readFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'utf-8');
+    // status stays 'verified' — regenerating the scaffold must not roll it back to 'plan'
+    expect(meta).toContain('status: verified');
+    expect(meta).not.toContain('status: plan');
+  });
+
+  it('preserves metadata.yaml comments when advancing status (B9)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/.prospec/changes/add-auth/proposal.md': '# Proposal\n',
+      '/project/.prospec/changes/add-auth/metadata.yaml':
+        'name: add-auth\n# keep this human note\ncreated_at: "2026-01-01"\nstatus: story\n',
+    });
+
+    await execute({ change: 'add-auth', cwd: '/project' });
+
+    const meta = fs.readFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'utf-8');
+    expect(meta).toContain('status: plan');
+    expect(meta).toContain('# keep this human note');
+  });
 });

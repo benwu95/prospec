@@ -124,18 +124,13 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     },
   };
 
-  // 8. Create directories
+  // 8. Resolve paths
   const knowledgePath = path.join(cwd, baseDir, 'ai-knowledge');
   const modulesPath = path.join(knowledgePath, 'modules');
   const specsPath = path.join(cwd, baseDir, 'specs');
 
-  await ensureDir(modulesPath);
-  await ensureDir(specsPath);
-
-  // 9. Write config
-  await writeConfig(config, cwd);
-
-  // 10. Render templates
+  // 9. Render ALL template contents up front. A render failure aborts before any
+  // file is written, so init never leaves a partially-scaffolded project behind.
   const templateContext = {
     project_name: projectName,
     tech_stack: hasTechStack(techStack) ? techStack : undefined,
@@ -147,49 +142,38 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     index_table_separator: INDEX_TABLE_SEPARATOR,
   };
 
-  const createdFiles = ['.prospec.yaml'];
-
-  // Constitution
-  const constitutionPath = path.join(cwd, baseDir, 'CONSTITUTION.md');
-  const constitutionContent = renderTemplate('init/constitution.md.hbs', templateContext);
-  await atomicWrite(constitutionPath, constitutionContent);
-  createdFiles.push(`${baseDir}/CONSTITUTION.md`);
-
-  // AGENTS.md
-  const agentsPath = path.join(cwd, 'AGENTS.md');
-  const agentsContent = renderTemplate('init/agents.md.hbs', templateContext);
-  await atomicWrite(agentsPath, agentsContent);
-  createdFiles.push('AGENTS.md');
-
-  // Conventions
-  const conventionsPath = path.join(knowledgePath, '_conventions.md');
-  const conventionsContent = renderTemplate('init/conventions.md.hbs', templateContext);
-  await atomicWrite(conventionsPath, conventionsContent);
-  createdFiles.push(`${baseDir}/ai-knowledge/_conventions.md`);
-
-  // Index
-  const indexPath = path.join(knowledgePath, '_index.md');
-  const indexContent = renderTemplate('init/index.md.hbs', templateContext);
-  await atomicWrite(indexPath, indexContent);
-  createdFiles.push(`${baseDir}/ai-knowledge/_index.md`);
-
-  // Canonical convention docs (prospec-owned; referenced by skills)
   const conventionDocs: { template: string; output: string }[] = [
     { template: 'init/status-lifecycle.md.hbs', output: '_status-lifecycle.md' },
     { template: 'init/module-readme-conventions.md.hbs', output: '_module-readme-conventions.md' },
     { template: 'init/diagram-conventions.md.hbs', output: '_diagram-conventions.md' },
   ];
-  for (const doc of conventionDocs) {
-    const docPath = path.join(knowledgePath, doc.output);
-    const docContent = renderTemplate(doc.template, templateContext);
-    await atomicWrite(docPath, docContent);
-    createdFiles.push(`${baseDir}/ai-knowledge/${doc.output}`);
+
+  const artifacts: { path: string; content: string; label: string }[] = [
+    { path: path.join(cwd, baseDir, 'CONSTITUTION.md'), content: renderTemplate('init/constitution.md.hbs', templateContext), label: `${baseDir}/CONSTITUTION.md` },
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('init/agents.md.hbs', templateContext), label: 'AGENTS.md' },
+    { path: path.join(knowledgePath, '_conventions.md'), content: renderTemplate('init/conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_conventions.md` },
+    { path: path.join(knowledgePath, '_index.md'), content: renderTemplate('init/index.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_index.md` },
+    ...conventionDocs.map((doc) => ({
+      path: path.join(knowledgePath, doc.output),
+      content: renderTemplate(doc.template, templateContext),
+      label: `${baseDir}/ai-knowledge/${doc.output}`,
+    })),
+    { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
+  ];
+
+  // 10. Create directories (idempotent) and write every artifact.
+  await ensureDir(modulesPath);
+  await ensureDir(specsPath);
+  for (const artifact of artifacts) {
+    await atomicWrite(artifact.path, artifact.content);
   }
 
-  // .gitkeep for specs/
-  const gitkeepPath = path.join(specsPath, '.gitkeep');
-  await atomicWrite(gitkeepPath, '');
-  createdFiles.push(`${baseDir}/specs/.gitkeep`);
+  // 11. Write .prospec.yaml LAST — its presence is the "init completed" marker
+  // the step-1 guard keys on, so a failure before here leaves a re-runnable state
+  // rather than a half-initialized project that AlreadyExistsError would block.
+  await writeConfig(config, cwd);
+
+  const createdFiles = ['.prospec.yaml', ...artifacts.map((a) => a.label)];
 
   return {
     projectName,

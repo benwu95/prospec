@@ -4,13 +4,16 @@ import { PrerequisiteError } from '../types/errors.js';
 import { readConfig } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+import { parseYamlDocument, stringifyYamlDocument } from '../lib/yaml-utils.js';
+import { isStatusBefore } from '../types/change.js';
 import type { ChangeMetadata } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ChangePlanOptions {
   change?: string;
   quiet?: boolean;
+  /** Overwrite existing plan.md/delta-spec.md instead of refusing. */
+  force?: boolean;
   cwd?: string;
 }
 
@@ -54,11 +57,24 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
     );
   }
 
-  // 4. Read metadata ONCE — reused for related_modules and the status update
+  // 3b. Refuse to clobber existing plan artifacts (which may carry hand/AI edits)
+  // unless --force. Re-running the scaffold otherwise silently overwrites them.
+  const planPath = path.join(changeDir, 'plan.md');
+  const deltaSpecPath = path.join(changeDir, 'delta-spec.md');
+  if (!options.force && (fs.existsSync(planPath) || fs.existsSync(deltaSpecPath))) {
+    throw new PrerequisiteError(
+      `plan.md/delta-spec.md already exist in .prospec/changes/${changeName}/`,
+      'Re-run with --force to regenerate and overwrite the existing plan',
+    );
+  }
+
+  // 4. Read metadata ONCE as a Document — preserves comments/field order on the
+  // status write; toJS() gives the typed view for related_modules + status guard.
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  const metadata = fs.existsSync(metadataPath)
-    ? parseYaml<ChangeMetadata>(fs.readFileSync(metadataPath, 'utf-8'), metadataPath)
+  const metaDoc = fs.existsSync(metadataPath)
+    ? parseYamlDocument(fs.readFileSync(metadataPath, 'utf-8'), metadataPath)
     : null;
+  const metadata = metaDoc?.toJS() as ChangeMetadata | undefined;
   const relatedModules = metadata?.related_modules ?? [];
 
   // 5. Build template context
@@ -73,20 +89,19 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
 
   // 6. Render plan.md
   const planContent = renderTemplate('change/plan.md.hbs', templateContext);
-  const planPath = path.join(changeDir, 'plan.md');
   await atomicWrite(planPath, planContent);
   createdFiles.push(`.prospec/changes/${changeName}/plan.md`);
 
   // 7. Render delta-spec.md
   const deltaSpecContent = renderTemplate('change/delta-spec.md.hbs', templateContext);
-  const deltaSpecPath = path.join(changeDir, 'delta-spec.md');
   await atomicWrite(deltaSpecPath, deltaSpecContent);
   createdFiles.push(`.prospec/changes/${changeName}/delta-spec.md`);
 
-  // 8. Update metadata.yaml status to 'plan' (write the already-parsed object)
-  if (metadata) {
-    metadata.status = 'plan';
-    await atomicWrite(metadataPath, stringifyYaml(metadata));
+  // 8. Advance status to 'plan' forward-only, preserving metadata comments.
+  // A --force regenerate on an already-advanced change must not regress status.
+  if (metaDoc && isStatusBefore(metadata?.status, 'plan')) {
+    metaDoc.set('status', 'plan');
+    await atomicWrite(metadataPath, stringifyYamlDocument(metaDoc));
   }
 
   return {

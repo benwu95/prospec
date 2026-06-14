@@ -194,9 +194,14 @@ function buildLayers(
   detection: DetectionResult,
   config: ProspecConfig,
 ): Array<{ name: string; pattern: string; description: string }> {
-  // Use config paths if available
-  if (config.paths && Object.keys(config.paths).length > 0) {
-    return Object.entries(config.paths).map(([name, pattern]) => ({
+  // Real code layers come from config.paths, EXCLUDING the reserved `base_dir`
+  // key — that is the artifact root, not a code layer, and emitting it produces
+  // a bogus `| base_dir | … |` row in architecture.md for every project.
+  const layerEntries = Object.entries(config.paths ?? {}).filter(
+    ([name]) => name !== 'base_dir',
+  );
+  if (layerEntries.length > 0) {
+    return layerEntries.map(([name, pattern]) => ({
       name,
       pattern,
       description: inferLayerDescription(name),

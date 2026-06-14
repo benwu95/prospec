@@ -131,6 +131,24 @@ describe('parseDeltaSpec', () => {
     expect(result.added).toHaveLength(1);
     expect(result.added[0]!.module).toBe('api-middleware');
   });
+
+  it('surfaces non-canonical REQ ids as malformed rather than silently dropping them (C1)', () => {
+    const content = `## ADDED
+
+### REQ-TYPES-010: canonical three-digit
+
+### REQ-TYPES-10: only two digits
+
+### REQ-SVC-0001: four digits
+`;
+
+    const result = parseDeltaSpec(content);
+    // only the spec-conformant 3-digit id is parsed as a real requirement
+    expect(result.added.map((e) => e.id)).toEqual(['REQ-TYPES-010']);
+    // the non-conforming ids are reported, not invisibly skipped
+    expect(result.malformed).toContain('REQ-TYPES-10');
+    expect(result.malformed).toContain('REQ-SVC-0001');
+  });
 });
 
 // --- identifyAffectedModules ---
@@ -463,6 +481,35 @@ describe('execute', () => {
 
     expect(result.created).toContain('auth');
     expect(result.generatedFiles.length).toBeGreaterThan(0);
+  });
+
+  it('surfaces malformed REQ ids through execute().warnings on the live path (not silently dropped)', async () => {
+    const deltaContent = `## ADDED
+
+### REQ-AUTH-001: canonical add
+
+**Description:** New auth
+
+---
+
+### REQ-AUTH-10: malformed two-digit id
+
+**Description:** non-canonical
+
+---
+`;
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/docs/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // the canonical id is processed; the malformed id is reported via the result
+    // (the field a caller surfaces), not dropped at parse
+    expect(result.created).toContain('auth');
+    expect(result.warnings.join(' ')).toContain('REQ-AUTH-10');
   });
 
   it('should process manual mode', async () => {

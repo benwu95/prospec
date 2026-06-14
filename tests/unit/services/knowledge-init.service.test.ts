@@ -81,12 +81,12 @@ describe('knowledge-init.service', () => {
     const result = await execute({ cwd: '/project' });
 
     expect(result.dryRun).toBe(false);
-    expect(result.outputFiles).toContain('docs/ai-knowledge/raw-scan.md');
+    expect(result.outputFiles).toContain('prospec/ai-knowledge/raw-scan.md');
     expect(result.totalFiles).toBeGreaterThan(0);
 
     // Verify raw-scan.md was written
     const rawScan = fs.readFileSync(
-      '/project/docs/ai-knowledge/raw-scan.md',
+      '/project/prospec/ai-knowledge/raw-scan.md',
       'utf-8',
     );
     expect(rawScan).toContain('Raw Scan');
@@ -104,9 +104,9 @@ describe('knowledge-init.service', () => {
 
     const result = await execute({ cwd: '/project' });
 
-    expect(result.outputFiles).toContain('docs/ai-knowledge/module-map.yaml');
+    expect(result.outputFiles).toContain('prospec/ai-knowledge/module-map.yaml');
     const content = fs.readFileSync(
-      '/project/docs/ai-knowledge/module-map.yaml',
+      '/project/prospec/ai-knowledge/module-map.yaml',
       'utf-8',
     );
     expect(content).toContain('modules:');
@@ -119,7 +119,7 @@ describe('knowledge-init.service', () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/package.json': JSON.stringify({ name: 'test-project' }),
-      '/project/docs/ai-knowledge/module-map.yaml': curated,
+      '/project/prospec/ai-knowledge/module-map.yaml': curated,
       '/project/src/services/auth.ts': '',
       '/project/src/services/user.ts': '',
     });
@@ -127,11 +127,11 @@ describe('knowledge-init.service', () => {
     const result = await execute({ cwd: '/project' });
 
     const content = fs.readFileSync(
-      '/project/docs/ai-knowledge/module-map.yaml',
+      '/project/prospec/ai-knowledge/module-map.yaml',
       'utf-8',
     );
     expect(content).toBe(curated);
-    expect(result.outputFiles).not.toContain('docs/ai-knowledge/module-map.yaml');
+    expect(result.outputFiles).not.toContain('prospec/ai-knowledge/module-map.yaml');
   });
 
   it('should generate empty skeleton (_index.md, _conventions.md)', async () => {
@@ -142,12 +142,12 @@ describe('knowledge-init.service', () => {
 
     const result = await execute({ cwd: '/project' });
 
-    expect(result.outputFiles).toContain('docs/ai-knowledge/_index.md');
-    expect(result.outputFiles).toContain('docs/ai-knowledge/_conventions.md');
+    expect(result.outputFiles).toContain('prospec/ai-knowledge/_index.md');
+    expect(result.outputFiles).toContain('prospec/ai-knowledge/_conventions.md');
 
     // Verify _conventions.md contains skeleton
     const conventions = fs.readFileSync(
-      '/project/docs/ai-knowledge/_conventions.md',
+      '/project/prospec/ai-knowledge/_conventions.md',
       'utf-8',
     );
     expect(conventions).toContain('prospec:auto-start');
@@ -161,28 +161,28 @@ describe('knowledge-init.service', () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/src/index.ts': '',
-      '/project/docs/ai-knowledge/_index.md': existingIndex,
-      '/project/docs/ai-knowledge/_conventions.md': existingConventions,
+      '/project/prospec/ai-knowledge/_index.md': existingIndex,
+      '/project/prospec/ai-knowledge/_conventions.md': existingConventions,
     });
 
     const result = await execute({ cwd: '/project' });
 
     // raw-scan.md should still be generated
-    expect(result.outputFiles).toContain('docs/ai-knowledge/raw-scan.md');
+    expect(result.outputFiles).toContain('prospec/ai-knowledge/raw-scan.md');
 
     // _index.md and _conventions.md should NOT be in outputFiles (not overwritten)
-    expect(result.outputFiles).not.toContain('docs/ai-knowledge/_index.md');
-    expect(result.outputFiles).not.toContain('docs/ai-knowledge/_conventions.md');
+    expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_index.md');
+    expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_conventions.md');
 
     // Verify existing content is preserved
     const index = fs.readFileSync(
-      '/project/docs/ai-knowledge/_index.md',
+      '/project/prospec/ai-knowledge/_index.md',
       'utf-8',
     );
     expect(index).toBe(existingIndex);
 
     const conventions = fs.readFileSync(
-      '/project/docs/ai-knowledge/_conventions.md',
+      '/project/prospec/ai-knowledge/_conventions.md',
       'utf-8',
     );
     expect(conventions).toBe(existingConventions);
@@ -201,7 +201,7 @@ describe('knowledge-init.service', () => {
 
     // Verify no files were created
     expect(() =>
-      fs.readFileSync('/project/docs/ai-knowledge/raw-scan.md', 'utf-8'),
+      fs.readFileSync('/project/prospec/ai-knowledge/raw-scan.md', 'utf-8'),
     ).toThrow();
   });
 

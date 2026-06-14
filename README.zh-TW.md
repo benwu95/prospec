@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-971%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1036%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -318,8 +318,8 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 | 命令 | 說明 |
 |------|------|
 | `prospec change story <name>` | 建立變更需求（骨架） |
-| `prospec change plan [--change <name>]` | 生成實作計劃（骨架） |
-| `prospec change tasks [--change <name>]` | 拆分任務清單（骨架） |
+| `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec |
+| `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md |
 
 > **注意**：這些命令建立空的變更骨架。Skills（`/prospec-new-story`、`/prospec-ff` 等）現在會直接建立 `.prospec/changes/<name>/` 及其檔案，因此工作流程不會呼叫它們 —— 但它們仍保留供手動或腳本化建立骨架使用。
 
@@ -459,7 +459,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（971 個測試）
+# 執行所有測試（1036 個測試）
 pnpm test
 
 # Watch 模式
@@ -476,8 +476,8 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：971 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：453 tests
+**測試覆蓋率**：1036 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：518 tests
 - Contract tests（CLI 輸出 + Skill 格式）：466 tests
 - Integration tests：17 tests
 - E2E tests：35 tests

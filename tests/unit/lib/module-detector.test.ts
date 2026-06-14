@@ -256,6 +256,33 @@ modules:
     const web = result.modules.find((m) => m.name === 'web');
     expect(web?.relationships.depends_on).toContain('shared');
   });
+
+  it('ignores commented-out imports when detecting relationships', () => {
+    const files = [
+      'src/web/page.ts',
+      'src/web/view.ts',
+      'src/api/handler.ts',
+      'src/api/route.ts',
+      'src/shared/util.ts',
+      'src/shared/const.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/web/page.ts':
+        "// import { old } from '../api/handler.js';\n" +
+        "import { u } from '../shared/util.js';\n",
+      '/project/src/web/view.ts': '',
+      '/project/src/api/handler.ts': '',
+      '/project/src/api/route.ts': '',
+      '/project/src/shared/util.ts': '',
+      '/project/src/shared/const.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'architecture');
+    const web = result.modules.find((m) => m.name === 'web');
+    expect(web?.relationships.depends_on).toContain('shared');
+    // The only reference to 'api' is inside a line comment — it must not edge.
+    expect(web?.relationships.depends_on).not.toContain('api');
+  });
 });
 
 describe('detectModules — domain strategy', () => {
@@ -346,6 +373,76 @@ describe('detectModules — domain strategy', () => {
     expect(moduleNames).not.toContain('auth');
     expect(moduleNames).not.toContain('checkout');
   });
+
+  it('emits a glob that targets the REAL suffixed directory, not the normalized name', () => {
+    const files = [
+      'src/services/orderService/create.ts',
+      'src/services/orderService/cancel.ts',
+      'src/controllers/orderController/handler.ts',
+      'src/controllers/orderController/router.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/services/orderService/create.ts': '',
+      '/project/src/services/orderService/cancel.ts': '',
+      '/project/src/controllers/orderController/handler.ts': '',
+      '/project/src/controllers/orderController/router.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'domain');
+    const order = result.modules.find((m) => m.name === 'order');
+    expect(order).toBeDefined();
+    // Both real directory segments are unioned as their own globs; the old code
+    // emitted a single '**/order/**' that matched NONE of the module's files.
+    expect(order?.paths).toEqual(
+      expect.arrayContaining(['**/orderService/**', '**/orderController/**']),
+    );
+    expect(order?.paths).not.toContain('**/order/**');
+  });
+
+  it('keeps the domain glob consumable so cross-domain relationships survive', () => {
+    const files = [
+      'src/components/checkoutView/Cart.tsx',
+      'src/components/checkoutView/Summary.tsx',
+      'src/services/paymentService/api.ts',
+      'src/services/paymentService/gateway.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/components/checkoutView/Cart.tsx':
+        "import { pay } from '../../services/paymentService/api.js';\n",
+      '/project/src/components/checkoutView/Summary.tsx': '',
+      '/project/src/services/paymentService/api.ts': '',
+      '/project/src/services/paymentService/gateway.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'domain');
+    const checkout = result.modules.find((m) => m.name === 'checkout');
+    // Membership is re-derived from the glob; a broken '**/checkout/**' glob
+    // would scan zero files and silently drop this dependency edge.
+    expect(checkout?.relationships.depends_on).toContain('payment');
+  });
+
+  it('does not over-strip a suffix that is merely the tail of a longer word', () => {
+    const files = [
+      'src/features/preview/Panel.tsx',
+      'src/features/preview/Toolbar.tsx',
+      'src/features/reviews/List.tsx',
+      'src/features/reviews/Item.tsx',
+    ];
+    vol.fromJSON({
+      '/project/src/features/preview/Panel.tsx': '',
+      '/project/src/features/preview/Toolbar.tsx': '',
+      '/project/src/features/reviews/List.tsx': '',
+      '/project/src/features/reviews/Item.tsx': '',
+    });
+
+    const result = detectModules(files, '/project', 'domain');
+    const moduleNames = result.modules.map((m) => m.name);
+    // 'preview' must NOT become 'pre', 'reviews' must NOT become 're'.
+    expect(moduleNames).toContain('preview');
+    expect(moduleNames).toContain('reviews');
+    expect(moduleNames).not.toContain('pre');
+    expect(moduleNames).not.toContain('re');
+  });
 });
 
 describe('detectModules — package strategy', () => {
@@ -362,6 +459,29 @@ describe('detectModules — package strategy', () => {
       '/monorepo/packages/web/src/App.tsx': '',
       '/monorepo/packages/api/src/index.ts': '',
       '/monorepo/packages/api/src/server.ts': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect(moduleNames).toContain('web');
+    expect(moduleNames).toContain('api');
+  });
+
+  it('detects packages from a deep-glob workspace pattern outside packages/apps', () => {
+    const files = [
+      'libs/web/src/index.ts',
+      'libs/web/src/App.tsx',
+      'libs/api/src/index.ts',
+      'libs/api/src/server.ts',
+    ];
+    vol.fromJSON({
+      // 'libs/**' is not covered by the packages/apps fallback, so a single-'*'
+      // strip ('libs/*') would match nothing and yield zero packages.
+      '/monorepo/pnpm-workspace.yaml': 'packages:\n  - "libs/**"\n',
+      '/monorepo/libs/web/src/index.ts': '',
+      '/monorepo/libs/web/src/App.tsx': '',
+      '/monorepo/libs/api/src/index.ts': '',
+      '/monorepo/libs/api/src/server.ts': '',
     });
 
     const result = detectModules(files, '/monorepo', 'package');

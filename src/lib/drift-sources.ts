@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { scanDirSync } from './scanner.js';
@@ -169,7 +169,11 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
           links.push({
             raw_target: raw,
             resolved_path: resolved,
-            exists: existsSync(abs),
+            // existence is resolved through symlinks: an in-repo link that
+            // lexically stays inside cwd but physically points outside must
+            // not leak the outside file's existence (same containment
+            // invariant as knowledge-reader's content reads)
+            exists: existsContained(abs, cwd),
             source_path: relPath,
             line: i + 1,
           });
@@ -192,17 +196,24 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   let anyPathExists = false;
   for (const entry of moduleMap.modules) {
     for (const prefix of entry.paths) {
-      if (!existsSync(path.resolve(cwd, prefix))) continue;
+      const isGlob = prefix.includes('*');
+      // A literal dir prefix is gated by its on-disk existence. A domain glob
+      // ('**/auth/**') has no literal path to stat — `existsSync` on it is
+      // always false — so it is scanned directly and counts as available only
+      // when the glob actually matches files (domain projects relied on the
+      // import-direction check silently degrading to `skipped` before this).
+      if (!isGlob && !existsSync(path.resolve(cwd, prefix))) continue;
+      const { files } = scanDirSync(importScanPattern(prefix), { cwd });
+      if (isGlob && files.length === 0) continue;
       anyPathExists = true;
-      const { files } = scanDirSync(`${prefix}/**/*.{ts,tsx,mts,cts,js,jsx}`, { cwd });
       for (const relPath of files) {
         const fromModule = toModule(relPath);
         if (fromModule !== entry.name) continue; // longest-prefix owner emits the edge once
-        // blank block comments (newlines kept) — commented-out imports are not edges
-        const content = readFileSync(path.resolve(cwd, relPath), 'utf-8').replace(
-          /\/\*[\s\S]*?\*\//g,
-          (c) => c.replace(/[^\n]/g, ' '),
-        );
+        // blank block comments AND template-literal interiors (newlines kept) —
+        // commented-out or string-embedded imports are not real edges
+        const content = readFileSync(path.resolve(cwd, relPath), 'utf-8')
+          .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
+          .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '));
         for (const m of content.matchAll(importPattern)) {
           const specifier = m[1];
           if (specifier === undefined || !specifier.startsWith('.')) continue;
@@ -315,18 +326,69 @@ export function collectTaskStates(cwd: string): TaskSource {
   return { available: true, changes };
 }
 
+interface PathMatcher {
+  name: string;
+  weight: number;
+  test: (relPath: string) => boolean;
+}
+
+/**
+ * Build a matcher for one module-map path. A domain glob (`**\/auth/**`) matches
+ * any file carrying that directory segment; a literal prefix (`src/lib`, also
+ * `packages/web/**`) matches by path-prefix. Literal prefixes always outrank
+ * globs, and among each kind the longer match wins.
+ */
+function makePathMatcher(rawPrefix: string, name: string): PathMatcher {
+  const prefix = rawPrefix.replace(/\/+$/, '');
+  if (prefix.startsWith('**/')) {
+    const segment = prefix.replace(/\/\*\*$/, '').slice(3);
+    return { name, weight: segment.length, test: (p) => p.split('/').includes(segment) };
+  }
+  const literal = prefix.replace(/\/\*\*$/, '');
+  return {
+    name,
+    weight: 1000 + literal.length,
+    test: (p) => p === literal || p.startsWith(`${literal}/`),
+  };
+}
+
 /** Map a repo-relative path to its module by longest module-map path prefix. */
 export function moduleAttributor(moduleMap: ModuleMap): (relPath: string) => string | null {
-  const prefixes = moduleMap.modules
-    .flatMap((m) => m.paths.map((p) => ({ prefix: p.replace(/\/+$/, ''), name: m.name })))
-    .sort((a, b) => b.prefix.length - a.prefix.length);
+  const matchers = moduleMap.modules
+    .flatMap((m) => m.paths.map((p) => makePathMatcher(p, m.name)))
+    .sort((a, b) => b.weight - a.weight);
   return (relPath) => {
     const normalized = relPath.replace(/\\/g, '/');
-    for (const { prefix, name } of prefixes) {
-      if (normalized === prefix || normalized.startsWith(`${prefix}/`)) return name;
+    for (const matcher of matchers) {
+      if (matcher.test(normalized)) return matcher.name;
     }
     return null;
   };
+}
+
+/**
+ * Existence check that refuses to follow a symlink out of the repo. A target
+ * whose lexical path stays inside cwd but whose real (symlink-resolved) path
+ * lands outside is reported as non-existent, closing the existence oracle.
+ */
+function existsContained(abs: string, cwd: string): boolean {
+  if (!existsSync(abs)) return false;
+  try {
+    const rel = path.relative(realpathSync(cwd), realpathSync(abs));
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build the file-scan glob for a module path prefix. Supports both literal dir
+ * prefixes (`src/lib` → `src/lib/**\/*.ext`) and domain globs (`**\/auth/**`,
+ * `packages/web/**` → `<prefix>/*.ext`).
+ */
+function importScanPattern(prefix: string): string {
+  const EXT = '*.{ts,tsx,mts,cts,js,jsx}';
+  return prefix.endsWith('/**') ? `${prefix}/${EXT}` : `${prefix}/**/${EXT}`;
 }
 
 function markdownFiles(root: string, cwd: string): Array<{ file: string; relPath: string }> {

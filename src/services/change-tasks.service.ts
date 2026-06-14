@@ -4,13 +4,16 @@ import { PrerequisiteError } from '../types/errors.js';
 import { readConfig } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+import { parseYamlDocument, stringifyYamlDocument } from '../lib/yaml-utils.js';
+import { isStatusBefore } from '../types/change.js';
 import type { ChangeMetadata } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ChangeTasksOptions {
   change?: string;
   quiet?: boolean;
+  /** Overwrite an existing tasks.md instead of refusing. */
+  force?: boolean;
   cwd?: string;
 }
 
@@ -54,11 +57,23 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
     );
   }
 
-  // 4. Read metadata ONCE — reused for related_modules and the status update
+  // 3b. Refuse to clobber an existing tasks.md (which may carry progress edits)
+  // unless --force — re-running the scaffold otherwise silently overwrites it.
+  const tasksPath = path.join(changeDir, 'tasks.md');
+  if (!options.force && fs.existsSync(tasksPath)) {
+    throw new PrerequisiteError(
+      `tasks.md already exists in .prospec/changes/${changeName}/`,
+      'Re-run with --force to regenerate and overwrite the existing task list',
+    );
+  }
+
+  // 4. Read metadata ONCE as a Document — preserves comments/field order on the
+  // status write; toJS() gives the typed view for related_modules + status guard.
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  const metadata = fs.existsSync(metadataPath)
-    ? parseYaml<ChangeMetadata>(fs.readFileSync(metadataPath, 'utf-8'), metadataPath)
+  const metaDoc = fs.existsSync(metadataPath)
+    ? parseYamlDocument(fs.readFileSync(metadataPath, 'utf-8'), metadataPath)
     : null;
+  const metadata = metaDoc?.toJS() as ChangeMetadata | undefined;
   const relatedModules = metadata?.related_modules ?? [];
 
   // 5. Build template context
@@ -73,14 +88,13 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
 
   // 6. Render tasks.md
   const tasksContent = renderTemplate('change/tasks.md.hbs', templateContext);
-  const tasksPath = path.join(changeDir, 'tasks.md');
   await atomicWrite(tasksPath, tasksContent);
   createdFiles.push(`.prospec/changes/${changeName}/tasks.md`);
 
-  // 7. Update metadata.yaml status to 'tasks' (write the already-parsed object)
-  if (metadata) {
-    metadata.status = 'tasks';
-    await atomicWrite(metadataPath, stringifyYaml(metadata));
+  // 7. Advance status to 'tasks' forward-only, preserving metadata comments.
+  if (metaDoc && isStatusBefore(metadata?.status, 'tasks')) {
+    metaDoc.set('status', 'tasks');
+    await atomicWrite(metadataPath, stringifyYamlDocument(metaDoc));
   }
 
   return {

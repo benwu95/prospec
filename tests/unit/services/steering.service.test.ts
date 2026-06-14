@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/steering.service.js';
+import { renderTemplate } from '../../../src/lib/template.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -112,6 +113,26 @@ describe('steering.service', () => {
     // `**/auth/**` must match src/features/auth/* — old prefix match returned 0
     expect(auth).toBeDefined();
     expect(auth!.fileCount).toBeGreaterThan(0);
+  });
+
+  it('excludes the reserved base_dir key from architecture layers (A7)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        'project:\n  name: test\npaths:\n  base_dir: prospec\n  cli: src/cli\n',
+      '/project/src/cli/index.ts': '',
+    });
+    vi.mocked(renderTemplate).mockClear();
+
+    await execute({ cwd: '/project' });
+
+    const archCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([tpl]) => tpl === 'steering/architecture.md.hbs');
+    expect(archCall).toBeDefined();
+    const layers = (archCall![1] as { layers: Array<{ name: string }> }).layers;
+    // a real layer key survives; the reserved artifact-root key never becomes a layer
+    expect(layers.some((l) => l.name === 'cli')).toBe(true);
+    expect(layers.some((l) => l.name === 'base_dir')).toBe(false);
   });
 
   it('should return architecture detection result', async () => {

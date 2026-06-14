@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-971%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1036%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -333,8 +333,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | Command | Description |
 |---------|-------------|
 | `prospec change story <name>` | Create change story (scaffold) |
-| `prospec change plan [--change <name>]` | Generate implementation plan (scaffold) |
-| `prospec change tasks [--change <name>]` | Break down tasks (scaffold) |
+| `prospec change plan [--change <name>] [--force]` | Generate implementation plan (scaffold); refuses to overwrite an existing plan/delta-spec unless `--force` |
+| `prospec change tasks [--change <name>] [--force]` | Break down tasks (scaffold); refuses to overwrite an existing tasks.md unless `--force` |
 
 > **Note**: These commands scaffold empty change artifacts. The Skills (`/prospec-new-story`, `/prospec-ff`, …) now create `.prospec/changes/<name>/` and its files directly, so the workflow doesn't call them — they remain available for manual or scripted scaffolding.
 
@@ -487,7 +487,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (971 tests)
+# Run all tests (1036 tests)
 pnpm test
 
 # Watch mode
@@ -504,8 +504,8 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 971 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 453 tests
+**Test Coverage**: 1036 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 518 tests
 - Contract tests (CLI output + Skill format): 466 tests
 - Integration tests: 17 tests
 - E2E tests: 35 tests

@@ -23,8 +23,9 @@ export function registerChangePlanCommand(program: Command): void {
     .command('plan')
     .description('Generate an implementation plan')
     .option('--change <name>', 'Specify the change name')
+    .option('--force', 'Overwrite an existing plan.md/delta-spec.md')
     .action(
-      async (options: { change?: string }) => {
+      async (options: { change?: string; force?: boolean }) => {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
 
@@ -32,6 +33,7 @@ export function registerChangePlanCommand(program: Command): void {
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,
+            force: options.force,
           });
           formatChangePlanOutput(result, logLevel);
         } catch (err) {

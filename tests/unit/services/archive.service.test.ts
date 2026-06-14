@@ -153,6 +153,35 @@ describe('moveToArchive', () => {
     const dirName = archiveDir.split('/').pop()!;
     expect(dirName).toMatch(/^\d{4}-\d{2}-\d{2}-feat-a$/);
   });
+
+  it('rolls back already-moved files when a mid-move rename fails', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/a.md': 'A',
+      '/project/.prospec/changes/feat/b.md': 'B',
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\n',
+    });
+    const change = {
+      name: 'feat',
+      dir: '/project/.prospec/changes/feat',
+      metadata: { status: 'verified' },
+      status: 'verified',
+    };
+    const realRename = fs.promises.rename.bind(fs.promises);
+    const spy = vi
+      .spyOn(fs.promises, 'rename')
+      .mockImplementation(async (src: fs.PathLike, dest: fs.PathLike) => {
+        // fail the forward move of b.md INTO the archive, mid-loop
+        if (String(dest).endsWith('b.md')) throw new Error('disk full');
+        return realRename(src, dest);
+      });
+
+    await expect(moveToArchive(change, '/project')).rejects.toThrow(/rolled back/);
+    spy.mockRestore();
+
+    // every file is back in the source dir — nothing left split across two dirs
+    const remaining = fs.readdirSync('/project/.prospec/changes/feat').sort();
+    expect(remaining).toEqual(['a.md', 'b.md', 'metadata.yaml']);
+  });
 });
 
 // --- generateSummary ---
@@ -418,6 +447,120 @@ Define types for Feature Spec frontmatter.
     expect(content).toContain('status: active');
     expect(content).toContain('REQ-TYPES-010');
     expect(content).toContain('## Change History');
+  });
+
+  it('preserves $-sequences in an ADDED REQ description verbatim (no replacement-pattern expansion)', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd-workflow
+
+## User Stories
+
+#### REQ-TYPES-001: existing
+
+---
+
+## Edge Cases
+
+- existing edge
+`,
+      '/archive/delta-spec.md': `# Delta Spec
+
+## ADDED
+
+### REQ-TYPES-020: price is $& and $\` and $$ literal
+
+**Feature:** sdd-workflow
+
+**Description:**
+Adds a literal token.
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+    // the description survives byte-for-byte; a string replacement would expand
+    // $& to the matched '## Edge Cases' heading and corrupt the spec
+    expect(content).toContain('REQ-TYPES-020: price is $& and $` and $$ literal');
+    expect(content).not.toContain('price is ## Edge Cases');
+  });
+
+  it('preserves $-sequences in a REMOVED REQ description verbatim', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd-workflow
+
+## Deprecated Requirements
+
+_(None)_
+`,
+      '/archive/delta-spec.md': `# Delta Spec
+
+## REMOVED
+
+### REQ-TYPES-030: dropped $& token
+
+**Feature:** sdd-workflow
+
+**Description:**
+Gone.
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+    expect(content).toContain('REQ-TYPES-030**: dropped $& token');
+    expect(content).not.toContain('dropped ## Deprecated Requirements');
+  });
+
+  it('refuses a path-traversal **Feature:** slug and never writes outside featuresPath', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': `# Delta Spec
+
+## ADDED
+
+### REQ-EVIL-001: escape attempt
+
+**Feature:** ../../evil
+
+**Description:**
+Tries to escape.
+
+---
+
+### REQ-SAFE-001: legitimate
+
+**Feature:** safe-feature
+
+**Description:**
+Stays put.
+
+---
+`,
+    });
+    vol.mkdirSync('/specs/features', { recursive: true });
+
+    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+
+    // the traversal slug is skipped entirely — nothing escapes the features dir
+    expect(fs.existsSync('/evil.md')).toBe(false);
+    expect(files.some((f) => f.includes('evil'))).toBe(false);
+    // the legitimate sibling route is still synced
+    expect(fs.existsSync('/specs/features/safe-feature.md')).toBe(true);
   });
 
   it('should return empty array when no delta-spec exists', async () => {

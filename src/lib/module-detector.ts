@@ -225,6 +225,22 @@ export function buildModuleMap(detection: DetectionResult): ModuleMap {
 }
 
 /**
+ * Strip a trailing layer suffix (page/view/screen/controller/service/route)
+ * from a domain directory name — but ONLY when the suffix is a separated word:
+ * preceded by a `-`/`_` separator (any case) or a camelCase boundary
+ * (lower→Upper). A suffix that is merely the tail substring of a longer word is
+ * left intact, so 'preview' does NOT become 'pre' and 'reviews' does NOT become
+ * 're'. Returns the lowercased result.
+ */
+function normalizeDomainName(name: string): string {
+  const SEPARATED = /[-_](?:page|view|screen|controller|service|route)s?$/i;
+  const separated = name.replace(SEPARATED, '');
+  if (separated !== name) return separated.toLowerCase();
+  const CAMEL = /(?<=[a-z])(?:Page|View|Screen|Controller|Service|Route)s?$/;
+  return name.replace(CAMEL, '').toLowerCase();
+}
+
+/**
  * Domain-based detection: group files by inferred business domain.
  *
  * Strategy: extract domain names from file paths by looking for domain-specific
@@ -234,6 +250,11 @@ export function buildModuleMap(detection: DetectionResult): ModuleMap {
  */
 function detectByDomain(files: string[]): DetectedModule[] {
   const domainFiles = new Map<string, string[]>();
+  // The actual directory segments behind each normalized domain name. The glob
+  // must target the REAL directory ('orderService'), not the suffix-stripped
+  // name ('order') — a `**/order/**` glob matches no real path segment, which
+  // would corrupt module-map.yaml and drop every relationship for the module.
+  const domainSegments = new Map<string, Set<string>>();
 
   // Directories that indicate domain-level grouping
   const domainParents = new Set([
@@ -257,24 +278,28 @@ function detectByDomain(files: string[]): DetectedModule[] {
 
     if (!domainName) continue;
 
-    // Normalize domain name (lowercase, strip common suffixes)
-    const normalized = domainName.toLowerCase().replace(/[-_]?(page|view|screen|controller|service|route)s?$/i, '');
+    const normalized = normalizeDomainName(domainName);
     if (normalized.length < 2) continue;
 
     if (!domainFiles.has(normalized)) {
       domainFiles.set(normalized, []);
+      domainSegments.set(normalized, new Set());
     }
     domainFiles.get(normalized)!.push(file);
+    domainSegments.get(normalized)!.add(domainName);
   }
 
   // Only keep domains with 2+ files
   const modules: DetectedModule[] = [];
   for (const [name, paths] of domainFiles) {
     if (paths.length >= 2) {
+      // Union one glob per real directory segment, so a name that normalizes
+      // from several dirs (orderService + orderController) keeps both globs.
+      const segments = [...domainSegments.get(name)!];
       modules.push({
         name,
         description: `${name} domain`,
-        paths: [`**/${name}/**`],
+        paths: segments.map((seg) => `**/${seg}/**`),
         keywords: [],
         relationships: { depends_on: [], used_by: [] },
       });
@@ -316,7 +341,12 @@ function detectByPackage(files: string[], cwd: string): DetectedModule[] {
     // Match files against workspace patterns
     for (const file of files) {
       for (const pattern of workspacePatterns) {
-        const base = pattern.replace(/\/?\*$/, '');
+        // Skip negation patterns — not applied as exclusions in this heuristic.
+        if (pattern.startsWith('!')) continue;
+        // Strip ALL trailing glob segments so 'packages/**' and 'packages/*'
+        // both reduce to the base dir 'packages' (a single '*'-strip left
+        // 'packages/*', which never matched and silently yielded no packages).
+        const base = pattern.replace(/\/\*+$/, '').replace(/\/+$/, '');
         if (file.startsWith(base + '/')) {
           const parts = file.slice(base.length + 1).split('/');
           if (parts[0]) {
@@ -535,6 +565,18 @@ function stripModuleExt(p: string): string {
 }
 
 /**
+ * Blank out block and line comments so commented-out imports don't inflate the
+ * advisory dependency graph. Comment bodies become spaces (newlines preserved)
+ * rather than being removed, keeping line structure and the `^` anchor intact.
+ * Heuristic, not a full tokenizer — adequate for an advisory relationship scan.
+ */
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (_m, lead: string) => lead);
+}
+
+/**
  * Does a repo-relative file belong to one of a module's path patterns?
  *
  * Anchors on path segments — so 'src/a' does NOT match 'src/ab', a `**\/name`
@@ -584,10 +626,12 @@ function detectRelationships(
     for (const file of ownFiles.slice(0, 20)) {
       // Limit files scanned for performance
       try {
-        const content = fs.readFileSync(path.join(cwd, file), 'utf-8');
-        // Match TypeScript/JavaScript imports
+        const content = stripComments(fs.readFileSync(path.join(cwd, file), 'utf-8'));
+        // Match TS/JS imports. The leading `(?:^|[^\w$])` keeps `import`/`from` a
+        // real keyword rather than the tail of an identifier (e.g. a token like
+        // `transform from 'x'` must not register as a `from` import).
         const importMatches = content.matchAll(
-          /(?:import|from)\s+['"]([^'"]+)['"]/g,
+          /(?:^|[^\w$])(?:import|from)\s+['"]([^'"]+)['"]/gm,
         );
         for (const match of importMatches) {
           const spec = match[1];

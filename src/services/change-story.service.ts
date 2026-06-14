@@ -132,16 +132,20 @@ function matchRelatedModules(
   const modules: RelatedModule[] = [];
 
   for (const line of lines) {
-    // Skip non-table lines and header/separator rows
     if (!line.startsWith('|')) continue;
-    if (line.includes('---')) continue;
-    if (line.toLowerCase().includes('| module')) continue;
 
     // Position-stable cells: drop only the boundary empties from the surrounding
     // pipes; keep empty middle cells so column indices stay aligned. Rows with
     // fewer columns than the canonical schema (e.g. the Loading Rules table) are
     // not module rows — skip them.
     const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+
+    // Skip header/separator rows by their ROW ROLE, not a whole-line substring:
+    // the separator row is all dash/colon cells; the header row's first cell is
+    // the literal 'Module' label. A data row whose Description contains '---'
+    // must NOT be mistaken for a separator (it was, under the old includes check).
+    if (cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c))) continue;
+    if (cells[INDEX_COLUMN.MODULE]?.toLowerCase() === 'module') continue;
 
     if (cells.length < INDEX_TABLE_COLUMNS.length) continue;
 
