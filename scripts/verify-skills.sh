@@ -52,6 +52,11 @@ echo "[C] references actually generated"
 chk "archive has 4 refs"  '[ $(ls .claude/skills/prospec-archive/references/ | wc -l) -eq 4 ]'
 chk "ff has 4 refs"       '[ $(ls .claude/skills/prospec-ff/references/ | wc -l) -eq 4 ]'
 chk "ff no sibling paths" '! grep -qE "prospec-(new-story|plan|tasks)/references/" .claude/skills/prospec-ff/SKILL.md'
+chk "verify has 1 ref"    '[ $(ls .claude/skills/prospec-verify/references/ | wc -l) -eq 1 ]'
+chk "review has 2 refs"   '[ $(ls .claude/skills/prospec-review/references/ | wc -l) -eq 2 ]'
+chk "verify cites debug-recovery-format" 'grep -q "references/debug-recovery-format.md" .claude/skills/prospec-verify/SKILL.md'
+chk "review cites review-lenses-content" 'grep -q "references/review-lenses-content.md" .claude/skills/prospec-review/SKILL.md'
+chk "vendored refs add no runtime plugin dep" '! grep -q "agent-skills:" .claude/skills/prospec-verify/SKILL.md .claude/skills/prospec-review/SKILL.md'
 
 echo "[D] every references/ link resolves in the SAME skill's references/ (self-contained, no sibling paths)"
 miss=""

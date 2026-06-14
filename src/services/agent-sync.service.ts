@@ -404,6 +404,18 @@ function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'review-format.md',
         title: 'Review Severity Contract and review.md Format',
       },
+      {
+        templateName: 'review-lenses-content.hbs',
+        outputName: 'review-lenses-content.md',
+        title: 'Review Lens Criteria (security / performance / maintainability)',
+      },
+    ],
+    'prospec-verify': [
+      {
+        templateName: 'debug-recovery-format.hbs',
+        outputName: 'debug-recovery-format.md',
+        title: 'Debug & Recovery Triage Reference',
+      },
     ],
     'prospec-archive': [
       {
