@@ -53,13 +53,18 @@ export const AssemblyMeasurementSchema = z.object({
   warm: TokenUsageSchema,
 });
 
-export const TaskMeasurementSchema = z.object({
-  task_id: z.string(),
-  status: z.enum(TASK_MEASUREMENT_STATUSES),
-  /** Required when status is skipped or failed. */
-  reason: z.string().optional(),
-  assemblies: z.array(AssemblyMeasurementSchema).default([]),
-});
+export const TaskMeasurementSchema = z
+  .object({
+    task_id: z.string(),
+    status: z.enum(TASK_MEASUREMENT_STATUSES),
+    /** Required when status is skipped or failed. */
+    reason: z.string().optional(),
+    assemblies: z.array(AssemblyMeasurementSchema).default([]),
+  })
+  .refine(
+    (t) => t.status === 'ok' || (t.reason !== undefined && t.reason.length > 0),
+    { message: 'a skipped or failed task must carry a non-empty reason' },
+  );
 
 export const BaselineComparisonSchema = z.object({
   baseline: z.enum(MEASUREMENT_BASELINES),

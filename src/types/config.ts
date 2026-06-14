@@ -54,6 +54,9 @@ export const DEFAULT_ARTIFACT_LANGUAGE = 'English';
 
 export const VALID_AGENTS = ['claude', 'antigravity', 'copilot', 'codex'] as const;
 
+/** The canonical supported-agent vocabulary. */
+export type ValidAgent = (typeof VALID_AGENTS)[number];
+
 export const ProspecConfigSchema = z
   .object({
     version: z.string().optional(),

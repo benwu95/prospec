@@ -243,16 +243,16 @@ describe('synthesizeTriggers', () => {
     );
   });
 
-  it('escapes quotes, backslashes, and newlines so the frontmatter stays valid YAML', () => {
-    const result = synthesizeTriggers(skill, 'English', ['say "review"', 'a\\b', 'multi\nline']);
-    expect(result).toBe('explore, compare, say \\"review\\", a\\\\b, multi line');
-    expect(() => parseYamlDoc(`description: "Triggers: ${result}"`)).not.toThrow();
+  it('returns custom triggers verbatim — escaping is deferred to the frontmatter render', () => {
+    const result = synthesizeTriggers(skill, 'English', ['say "review"', 'a\\b', '  spaced  ']);
+    // raw (markdown-safe) form: no YAML backslash-escaping leaking in
+    expect(result).toBe('explore, compare, say "review", a\\b, spaced');
   });
 
-  it('escapes a quoted artifact language inside the fallback hint', () => {
-    const result = synthesizeTriggers(skill, '"Fancy" Lang', undefined);
-    expect(result).toBe('explore, compare — or equivalent terms in \\"Fancy\\" Lang');
-    expect(() => parseYamlDoc(`description: "Triggers: ${result}"`)).not.toThrow();
+  it('returns the artifact language verbatim in the fallback hint', () => {
+    expect(synthesizeTriggers(skill, '"Fancy" Lang', undefined)).toBe(
+      'explore, compare — or equivalent terms in "Fancy" Lang',
+    );
   });
 
   it('treats custom triggers that collapse to empty as unset', () => {
@@ -331,6 +331,29 @@ describe('agent-sync skill_triggers warnings', () => {
     const entryCall = calls.find(([name]) => name === 'agent-configs/entry.md.hbs');
     const entryCtx = entryCall![1] as Record<string, unknown>;
     expect(entryCtx.artifact_language).toBe('Traditional Chinese (Taiwan)');
+  });
+
+  it('escapes trigger_words at the SKILL.md frontmatter render so it stays valid YAML', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - claude',
+        'skill_triggers:',
+        "  prospec-explore: ['say \"hi\"']",
+        '',
+      ].join('\n'),
+    });
+
+    await execute({ cwd: '/project' });
+
+    const calls = vi.mocked(renderTemplate).mock.calls;
+    const exploreCall = calls.find(([name]) => name === 'skills/prospec-explore.hbs');
+    const triggerWords = (exploreCall![1] as Record<string, unknown>).trigger_words as string;
+    // escaped for the double-quoted YAML scalar, and parses cleanly
+    expect(triggerWords).toContain('say \\"hi\\"');
+    expect(() => parseYamlDoc(`description: "Triggers: ${triggerWords}"`)).not.toThrow();
   });
 
   it('hints to populate skill_triggers when language is non-English and none are set', async () => {

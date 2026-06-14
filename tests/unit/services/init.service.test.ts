@@ -72,6 +72,16 @@ describe('init.service', () => {
     expect(fs.existsSync('/project/prospec/ai-knowledge/_diagram-conventions.md')).toBe(true);
   });
 
+  it('rejects an unknown --agents value up front (not on the next readConfig)', async () => {
+    vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'test' }) });
+
+    await expect(
+      execute({ name: 'test', agents: ['claude', 'foo'], cwd: '/project' }),
+    ).rejects.toThrow(/unknown agent\(s\): foo/);
+    // failure must not have written a corrupt config
+    expect(fs.existsSync('/project/.prospec.yaml')).toBe(false);
+  });
+
   it('should throw AlreadyExistsError when config exists', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: existing\n',

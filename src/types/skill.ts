@@ -3,6 +3,7 @@
  *
  * Describes the structure of generated Skills and Agent configurations.
  */
+import type { ValidAgent } from './config.js';
 
 /**
  * Skill type categorization.
@@ -147,7 +148,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
 /**
  * Agent configuration definitions for all supported AI CLI platforms.
  */
-export const AGENT_CONFIGS: Record<string, AgentConfig> = {
+export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
   claude: {
     name: 'claude',
     skillPath: '.claude/skills',

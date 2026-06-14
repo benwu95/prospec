@@ -143,6 +143,30 @@ knowledge:
     expect(result.relatedModules.some((m) => /L0|L1|index\.md/.test(m.name))).toBe(false);
   });
 
+  it('ignores empty keywords (stray commas) and blank module rows', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test
+knowledge:
+  base_path: docs/ai-knowledge
+`,
+      '/project/docs/ai-knowledge/_index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| billing | payment, | 帳務 | Active | Billing module | money | |
+|  | auth | 別名 | Active | No module name | x | |
+`,
+    });
+
+    const result = await execute({ name: 'update-auth-flow', cwd: '/project' });
+
+    // 'payment,' yields an empty keyword that must NOT match every change
+    expect(result.relatedModules.some((m) => m.name === 'billing')).toBe(false);
+    // a blank Module cell must not produce an empty-named related module
+    expect(result.relatedModules.some((m) => m.name === '')).toBe(false);
+  });
+
   it('should return empty related modules when _index.md does not exist', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',

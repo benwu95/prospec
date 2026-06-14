@@ -146,9 +146,16 @@ function matchRelatedModules(
     if (cells.length < INDEX_TABLE_COLUMNS.length) continue;
 
     const moduleName = cells[INDEX_COLUMN.MODULE] ?? '';
+    if (!moduleName) continue;
     const keywordsCell = cells[INDEX_COLUMN.KEYWORDS];
     if (!keywordsCell) continue;
-    const keywords = keywordsCell.toLowerCase().split(',').map((k) => k.trim());
+    // Drop empty keywords from stray/double commas — an empty keyword makes
+    // `word.includes(keyword)` true for every change, matching every module.
+    const keywords = keywordsCell
+      .toLowerCase()
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
     const description = cells[INDEX_COLUMN.DESCRIPTION] ?? '';
 
     // Check if any change word matches any module keyword
