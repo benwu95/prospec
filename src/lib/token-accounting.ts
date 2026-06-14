@@ -96,7 +96,9 @@ export function rankByRelevance(
   const keywords = tokenizeKeywords(taskText);
   return candidates
     .map((candidate) => ({ ...candidate, score: keywordOverlapScore(keywords, candidate.text) }))
-    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+    // Tie-break by codepoint, NOT localeCompare — ICU collation varies per
+    // environment and would make the documented ordering non-deterministic.
+    .sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 /** Rough token estimate: ~4 characters per token, rounded up. */

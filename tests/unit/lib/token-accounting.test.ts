@@ -128,6 +128,17 @@ describe('rankByRelevance', () => {
     const b = rankByRelevance('update knowledge service', candidates);
     expect(a).toEqual(b);
   });
+
+  it('breaks ties by codepoint, ordering uppercase before lowercase', () => {
+    // localeCompare is locale/ICU-dependent and typically orders 'about' before
+    // 'CONSTITUTION'; codepoint order puts uppercase first (C=0x43 < a=0x61).
+    const tied = [
+      { id: 'about.md', text: 'unrelated' },
+      { id: 'CONSTITUTION.md', text: 'unrelated' },
+    ];
+    const ranked = rankByRelevance('something else entirely', tied);
+    expect(ranked.map((r) => r.id)).toEqual(['CONSTITUTION.md', 'about.md']);
+  });
 });
 
 describe('estimateTokens', () => {

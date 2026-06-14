@@ -147,5 +147,14 @@ export function mergeContent(
     return section;
   });
 
-  return mergedSections.map((s) => s.content).join('\n');
+  const merged = mergedSections.map((s) => s.content);
+
+  // If the existing file had more user sections than the regenerated content
+  // has user slots, append the surplus so user edits are never silently lost.
+  const leftover = existingUserSections.slice(userIndex);
+  if (leftover.length > 0) {
+    merged.push(...leftover);
+  }
+
+  return merged.join('\n');
 }

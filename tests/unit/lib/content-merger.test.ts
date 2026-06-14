@@ -177,4 +177,25 @@ Replace me
     expect(merged).toContain('Updated auto');
     expect(merged).toContain('Keep me');
   });
+
+  it('preserves surplus user sections when the existing file has more than the new content', () => {
+    // User added a SECOND user block to a generated file; the regenerated
+    // template still emits only one. The surplus must not be dropped.
+    const existing = `<!-- prospec:user-start -->
+First notes
+<!-- prospec:user-end -->
+gap
+<!-- prospec:user-start -->
+Second hand-added notes
+<!-- prospec:user-end -->`;
+
+    const newContent = `<!-- prospec:user-start -->
+Default 1
+<!-- prospec:user-end -->`;
+
+    const merged = mergeContent(newContent, existing);
+    expect(merged).toContain('First notes');
+    expect(merged).toContain('Second hand-added notes');
+    expect(merged).not.toContain('Default 1');
+  });
 });

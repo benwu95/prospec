@@ -142,8 +142,11 @@ export function detectModules(
     };
   } catch (err) {
     if (err instanceof ModuleDetectionError) throw err;
+    // Forward the original error as `cause` so an unexpected programming error
+    // keeps its type/stack instead of being flattened to a message string.
     throw new ModuleDetectionError(
       err instanceof Error ? err.message : String(err),
+      { cause: err },
     );
   }
 }
@@ -286,7 +289,7 @@ function detectByDomain(files: string[]): DetectedModule[] {
     modules.push({
       name: 'infra',
       description: 'Infrastructure and shared utilities',
-      paths: [],
+      paths: infraFiles,
       keywords: [],
       relationships: { depends_on: [], used_by: [] },
     });
@@ -354,6 +357,13 @@ function detectByPackage(files: string[], cwd: string): DetectedModule[] {
   return modules;
 }
 
+/** Keep only string entries — guards against malformed `packages` shapes. */
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === 'string')
+    : [];
+}
+
 /**
  * Detect workspace package patterns from config files.
  */
@@ -361,16 +371,20 @@ function detectWorkspacePackages(cwd: string): string[] {
   // Try pnpm-workspace.yaml
   try {
     const content = fs.readFileSync(path.join(cwd, 'pnpm-workspace.yaml'), 'utf-8');
-    const parsed = parseYaml<{ packages?: string[] }>(content, 'pnpm-workspace.yaml');
-    if (parsed.packages) return parsed.packages;
+    const parsed = parseYaml<{ packages?: unknown }>(content, 'pnpm-workspace.yaml');
+    const packages = toStringArray(parsed.packages);
+    if (packages.length > 0) return packages;
   } catch { /* not found */ }
 
   // Try package.json workspaces
   try {
     const content = fs.readFileSync(path.join(cwd, 'package.json'), 'utf-8');
-    const parsed = JSON.parse(content) as { workspaces?: string[] | { packages?: string[] } };
-    if (Array.isArray(parsed.workspaces)) return parsed.workspaces;
-    if (parsed.workspaces?.packages) return parsed.workspaces.packages;
+    const parsed = JSON.parse(content) as { workspaces?: unknown };
+    const ws = parsed.workspaces;
+    if (Array.isArray(ws)) return toStringArray(ws);
+    if (ws && typeof ws === 'object' && 'packages' in ws) {
+      return toStringArray((ws as { packages?: unknown }).packages);
+    }
   } catch { /* not found */ }
 
   return [];
@@ -380,7 +394,10 @@ function detectWorkspacePackages(cwd: string): string[] {
  * Architecture-layer detection: group files by top-level or second-level directory.
  */
 function detectFromDirectories(files: string[]): DetectedModule[] {
-  const dirMap = new Map<string, string[]>();
+  // Key by the FULL directory prefix (e.g. 'src/services' vs root-level
+  // 'services') so same-named dirs at different roots don't collapse into one
+  // over-wide common-prefix glob that silently drops files.
+  const dirMap = new Map<string, { name: string; files: string[] }>();
 
   for (const file of files) {
     const parts = file.split('/');
@@ -389,29 +406,35 @@ function detectFromDirectories(files: string[]): DetectedModule[] {
 
     // Use second-level dir if first is 'src', 'app', 'lib', 'packages'
     const topDir = parts[0]!;
-    let moduleName: string;
+    let name: string;
+    let prefix: string;
 
     if (['src', 'app', 'lib', 'packages'].includes(topDir) && parts.length >= 3) {
-      moduleName = parts[1]!;
+      name = parts[1]!;
+      prefix = `${topDir}/${parts[1]!}`;
     } else {
-      moduleName = topDir;
+      name = topDir;
+      prefix = topDir;
     }
 
-    // Only consider known module indicators or directories with enough files
-    if (!dirMap.has(moduleName)) {
-      dirMap.set(moduleName, []);
+    let entry = dirMap.get(prefix);
+    if (!entry) {
+      entry = { name, files: [] };
+      dirMap.set(prefix, entry);
     }
-    dirMap.get(moduleName)!.push(file);
+    entry.files.push(file);
   }
 
-  // Filter: only directories with 2+ files or known module names
+  // Filter: only directories with 2+ files or known module names. Each prefix
+  // emits its own glob; resolveConflicts later unions globs that share a name
+  // (so a module spanning two roots keeps both globs instead of one wide one).
   const modules: DetectedModule[] = [];
-  for (const [name, paths] of dirMap) {
-    if (paths.length >= 2 || MODULE_INDICATORS.includes(name)) {
+  for (const [prefix, { name, files: dirFiles }] of dirMap) {
+    if (dirFiles.length >= 2 || MODULE_INDICATORS.includes(name)) {
       modules.push({
         name,
         description: inferDescription(name),
-        paths: [`${inferBasePath(paths)}/**`],
+        paths: [`${prefix}/**`],
         keywords: [],
         relationships: { depends_on: [], used_by: [] },
       });
@@ -506,30 +529,57 @@ function resolveConflicts(modules: DetectedModule[]): DetectedModule[] {
   return [...merged.values()];
 }
 
+/** Strip a TS/JS module extension so import specifiers and files compare equal. */
+function stripModuleExt(p: string): string {
+  return p.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '');
+}
+
+/**
+ * Does a repo-relative file belong to one of a module's path patterns?
+ *
+ * Anchors on path segments — so 'src/a' does NOT match 'src/ab', a `**\/name`
+ * glob matches only when `name` is a real directory segment (not a substring),
+ * and a concrete file path (infra) matches exactly.
+ */
+function fileMatchesModulePath(file: string, paths: string[]): boolean {
+  return paths.some((p) => {
+    const base = p.replace(/\/\*\*$/, '');
+    if (base === '' || base === '**') return true;
+    if (base.startsWith('**/')) {
+      return file.split('/').includes(base.slice(3));
+    }
+    return file === base || file.startsWith(base + '/');
+  });
+}
+
 /**
  * Detect import relationships between modules by scanning file contents.
+ *
+ * Relative imports are resolved against the importing file's directory and
+ * matched against the target module's actual file set; bare (package) imports
+ * match a module only when the module name is a full path segment of the
+ * specifier. This avoids the substring false positives of naive `includes`
+ * (e.g. module 'api' wrongly matching an import of 'rapidapi').
  */
 function detectRelationships(
   modules: DetectedModule[],
   files: string[],
   cwd: string,
 ): DetectedModule[] {
-  // Build module → files mapping
+  // Build module → files mapping (segment-anchored membership)
   const moduleFiles = new Map<string, string[]>();
+  const moduleFileSet = new Map<string, Set<string>>();
   for (const mod of modules) {
-    const modFiles = files.filter((f) =>
-      mod.paths.some((p) => {
-        const base = p.replace(/\/\*\*$/, '');
-        return f.startsWith(base);
-      }),
-    );
+    const modFiles = files.filter((f) => fileMatchesModulePath(f, mod.paths));
     moduleFiles.set(mod.name, modFiles);
+    moduleFileSet.set(mod.name, new Set(modFiles.map(stripModuleExt)));
   }
 
   // Scan imports to detect depends_on
   for (const mod of modules) {
     const ownFiles = moduleFiles.get(mod.name) ?? [];
-    const imports = new Set<string>();
+    const resolvedImports = new Set<string>(); // repo-relative, ext-stripped
+    const bareImports = new Set<string>(); // package specifiers
 
     for (const file of ownFiles.slice(0, 20)) {
       // Limit files scanned for performance
@@ -540,7 +590,17 @@ function detectRelationships(
           /(?:import|from)\s+['"]([^'"]+)['"]/g,
         );
         for (const match of importMatches) {
-          if (match[1]) imports.add(match[1]);
+          const spec = match[1];
+          if (!spec) continue;
+          if (spec.startsWith('.')) {
+            // resolve the relative import against the importing file's dir
+            const resolved = path.posix.normalize(
+              path.posix.join(path.posix.dirname(file), spec),
+            );
+            resolvedImports.add(stripModuleExt(resolved));
+          } else {
+            bareImports.add(spec);
+          }
         }
       } catch {
         // Skip unreadable files
@@ -550,10 +610,17 @@ function detectRelationships(
     // Check if imports reference other modules
     for (const otherMod of modules) {
       if (otherMod.name === mod.name) continue;
-      const otherPaths = moduleFiles.get(otherMod.name) ?? [];
-      const references = [...imports].some((imp) =>
-        otherPaths.some((f) => imp.includes(otherMod.name) || f.includes(imp.replace(/^\.\//, ''))),
-      );
+      const otherFiles = moduleFileSet.get(otherMod.name) ?? new Set<string>();
+      const references =
+        // a relative import that resolves to a file in otherMod, OR to a
+        // directory containing one (barrel/index imports like '../lib')
+        [...resolvedImports].some(
+          (ip) =>
+            otherFiles.has(ip) ||
+            otherFiles.has(`${ip}/index`) ||
+            [...otherFiles].some((f) => f.startsWith(`${ip}/`)),
+        ) ||
+        [...bareImports].some((spec) => spec.split('/').includes(otherMod.name));
       if (references) {
         mod.relationships.depends_on.push(otherMod.name);
         otherMod.relationships.used_by.push(mod.name);
@@ -628,27 +695,4 @@ function inferDescription(name: string): string {
   };
 
   return descriptions[name] ?? `${name} module`;
-}
-
-/**
- * Infer the common base path from a list of file paths.
- */
-function inferBasePath(paths: string[]): string {
-  if (paths.length === 0) return '';
-  if (paths.length === 1) {
-    const parts = paths[0]!.split('/');
-    return parts.slice(0, -1).join('/');
-  }
-
-  const parts = paths[0]!.split('/');
-  let common = '';
-  for (let i = 0; i < parts.length - 1; i++) {
-    const prefix = parts.slice(0, i + 1).join('/');
-    if (paths.every((p) => p.startsWith(prefix + '/'))) {
-      common = prefix;
-    } else {
-      break;
-    }
-  }
-  return common || parts[0] || '';
 }
