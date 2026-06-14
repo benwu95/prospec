@@ -294,7 +294,7 @@ export async function generateProductSpec(
   productSpecPath: string,
   projectName: string,
 ): Promise<string> {
-  const features: Array<{ slug: string; title: string; status: string; storyCount: number }> = [];
+  const features: Array<{ slug: string; title: string; status: string }> = [];
 
   if (fs.existsSync(featuresPath)) {
     const files = await fs.promises.readdir(featuresPath);
@@ -308,7 +308,6 @@ export async function generateProductSpec(
           slug: file.replace(/\.md$/, ''),
           title: frontmatter.feature,
           status: frontmatter.status,
-          storyCount: frontmatter.storyCount,
         });
       }
     }
@@ -521,7 +520,10 @@ function extractAffectedModules(deltaContent: string): Array<{ name: string; imp
   const lines = deltaContent.split('\n');
 
   for (const line of lines) {
-    const reqMatch = line.match(/^###\s+REQ-([\w]+)-\d+:\s*(.*)/);
+    // lazy module group so multi-segment ids (REQ-API-MIDDLEWARE-001) keep the
+    // full module name; [\w]+ stopped at the first '-' and dropped the REQ,
+    // diverging from extractRequirements' looser REQ-[\w-]+.
+    const reqMatch = line.match(/^###\s+REQ-([\w-]+?)-\d+:\s*(.*)/);
     if (reqMatch) {
       const moduleName = reqMatch[1]!.toLowerCase();
       if (!moduleSet.has(moduleName)) {
@@ -650,7 +652,10 @@ function mergeRequirementInPlace(content: string, route: FeatureRoute): string {
         skipping = true;
         continue;
       }
-      if (skipping && /^#{3,4}\s/.test(line)) {
+      // Stop skipping at the next section boundary — ANY heading (h2 included,
+      // e.g. ## Edge Cases / ## Change History) or a `---` rule. Without the h2
+      // case, a REQ that is the last h4 before an h2 ate everything to EOF.
+      if (skipping && (/^#{2,4}\s/.test(line) || line.trim() === '---')) {
         skipping = false;
       }
       if (!skipping) {
@@ -827,20 +832,18 @@ ${deprecatedSection || '_(None)_'}
  */
 function parseFeatureSpecFrontmatter(
   content: string,
-): { feature: string; status: string; storyCount: number } | null {
+): { feature: string; status: string } | null {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (!fmMatch) return null;
 
   const fm = fmMatch[1]!;
   const featureMatch = fm.match(/^feature:\s*(.+)$/m);
   const statusMatch = fm.match(/^status:\s*(.+)$/m);
-  const storyCountMatch = fm.match(/^story_count:\s*(\d+)$/m);
 
   if (!featureMatch) return null;
 
   return {
     feature: featureMatch[1]!.trim(),
     status: statusMatch?.[1]?.trim() ?? 'active',
-    storyCount: storyCountMatch ? parseInt(storyCountMatch[1]!, 10) : 0,
   };
 }
