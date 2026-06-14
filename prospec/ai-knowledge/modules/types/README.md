@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, plus the canonical _index column schema (11 files, 909 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, plus the canonical _index column schema (11 files, 923 lines)
 
 <!-- prospec:auto-start -->
 
@@ -10,7 +10,7 @@
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type |
 | `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines; `hasReferences` gates reference deployment — prospec-verify now reference-bearing, REQ-AGNT-022), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
-| `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema |
+| `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
 | `src/types/errors.ts` | ProspecError base + 13 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid, McpResourceNotFound) |
@@ -29,7 +29,8 @@
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full; absent = standard, BL-004)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields); accepts an optional `{ cause }` forwarded to `Error` (ModuleDetectionError also threads `cause`, preserving the underlying failure)
-- `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples
+- `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples; `KnowledgeSchema.files` is `z.array(z.enum(KNOWLEDGE_FILE_TYPES)).optional()`, so the tuple is enforced by the schema (not just a documentation const)
+- `isStatusBefore(current, target)` — true when `current` precedes `target` in `CHANGE_STATUSES`; keeps status advances forward-only so re-running a planning command never regresses a change's status
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
 - `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer); `TaskMeasurementSchema.refine()` requires a non-empty `reason` when status is skipped/failed (honesty invariant, mirrors DriftCheckResultSchema)
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`

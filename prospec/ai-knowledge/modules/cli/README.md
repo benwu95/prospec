@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 27 files, 1,517 lines)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 28 files, 1,542 lines)
 
 <!-- prospec:auto-start -->
 
@@ -15,15 +15,17 @@
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
-| `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan |
+| `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan; `--force` overwrites an existing plan.md/delta-spec.md |
+| `src/cli/commands/change-tasks.ts` | `prospec change tasks` — break plan into tasks; `--force` overwrites an existing tasks.md |
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
 | `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
 | `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it) |
 | `src/cli/commands/mcp.ts` | `prospec mcp serve [--cwd <path>]` — read-only MCP server on stdio (`--cwd` pins the served project root, default `process.cwd()`, so one agent can run several project servers); action writes nothing to stdout |
 | `src/cli/formatters/mcp-output.ts` | Startup banner to STDERR by design — stdout is the MCP protocol channel |
-| `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts |
-| `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; sanitizeTerminal() strips C0/C1 from untrusted repo strings |
-| `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr |
+| `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts; report-derived strings go through `sanitizeTerminal()` |
+| `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; re-exports `sanitizeTerminal()` from `sanitize.ts` to strip C0/C1 from untrusted repo strings |
+| `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr; error message/suggestion strings go through `sanitizeTerminal()` |
+| `src/cli/formatters/sanitize.ts` | Shared helper (not a formatXxxOutput module) — `sanitizeTerminal()` codepoint-based stripper (C0 except tab/newline, plus C1/DEL); single source consumed by check/measure/error output to close the ANSI/OSC-injection gap |
 | `src/cli/formatters/init-output.ts` | formatInitOutput() — init command output |
 
 ## Public API
@@ -33,7 +35,8 @@
 - `resolveLogLevel(opts)` — root flags → LogLevel; one shared impl, imported by all 10 commands
 - `parseDepth(value)` — `--depth` Commander parser; positive integer or throws
 - `registerXxxCommand(program)` — 11 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 12 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`, `check-output.ts` also exports `sanitizeTerminal()`
+- `formatXxxOutput(result, logLevel)` — 12 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`
+- `sanitizeTerminal(s)` — single source in `formatters/sanitize.ts`; re-exported by `check-output.ts` so existing importers/contract test keep their path; also consumed by `measure-output.ts` and `error-output.ts`
 - `main()` — entry point (create program → parse argv → handle errors); NOT exported — runs on module load
 
 ## Dependencies
@@ -63,6 +66,7 @@
 - E2E tests spawn the compiled `dist/cli/index.js` (via `process.execPath`, requires `pnpm build`) — any option/command name change breaks them
 - `measure-output.ts` must stay verdict-free (numbers only, REQ-MEASURE-005) — never add PASS/FAIL-style threshold judgments to its output
 - `check-output.ts` must show skipped checks with their reason (skipped ≠ PASS) and route untrusted strings through `sanitizeTerminal()`; the semantic line stays `not-checked`
+- `sanitizeTerminal()` lives once in `formatters/sanitize.ts` — any formatter emitting free-form repo/report/error strings (check/measure/error) must route them through it, not reimplement; reimplementing reopens the ANSI/OSC-injection gap on that consumer
 - `setup-color.ts` MUST be the first import in `index.ts` (before any picocolors consumer — cli formatters and `lib/logger` share one picocolors singleton); reordering re-enables color on non-TTY stdout and corrupts piped output (e.g. the CI comment job)
 - `mcp serve` must keep stdout byte-clean — it is the JSON-RPC channel; any stdout write corrupts the MCP session (contract test spies on process.stdout.write)
 
