@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines), AGENT_CONFIGS (4 agents) |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (13 skills, English `triggers` baselines; `hasReferences` gates reference deployment — prospec-verify now reference-bearing, REQ-AGNT-022), AGENT_CONFIGS (4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |

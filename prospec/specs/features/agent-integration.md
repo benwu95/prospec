@@ -3,7 +3,7 @@ feature: agent-integration
 status: active
 last_updated: 2026-06-14
 story_count: 8
-req_count: 30
+req_count: 34
 ---
 
 # Agent Integration
@@ -107,6 +107,23 @@ req_count: 30
 #### REQ-TYPES-011: Skill Definition Constants
 - WHEN new Skill added, THEN SKILL_DEFINITIONS updated
 - WHEN agent sync executes, THEN generates files for all defined Skills
+
+#### REQ-AGNT-022: Self-Contained Vendored Skill References
+- WHEN agent sync runs, THEN prospec-verify deploys 1 reference and prospec-review 2, each rendered into the skill's OWN `references/` dir (self-contained — REQ-AGNT-015)
+- WHEN a consuming repo lacks the addyosmani/agent-skills plugin, THEN verify/review still work — the skill bodies carry no `agent-skills:` runtime invocation (zero runtime external dependency)
+- WHEN `getSkillReferences` is read, THEN prospec-verify is registered (its `hasReferences` flipped true, gating deployment) and prospec-review carries a second reference
+
+#### REQ-TEMPLATES-083: Verify Failure-Recovery Reference
+- WHEN agent sync runs, THEN `prospec-verify/references/debug-recovery-format.md` exists (verify's first `references/` dir)
+- WHEN a test FAILs in Verification 5/5, THEN the skill loads it on demand for root-cause triage (reproduce-first, bisect, symptom-vs-cause) — it is NOT a Startup Loading item
+
+#### REQ-TEMPLATES-084: Review Lens-Criteria Reference
+- WHEN a review conditional lens (security / performance / maintainability) applies, THEN review loads `references/review-lenses-content.md` on demand for concrete, severity-pre-mapped criteria
+- WHEN the lens content is read, THEN severity stays defined only in `review-format.md` (no second definition) and the spec-architecture lens remains prospec-owned and non-replaceable
+
+#### REQ-TEMPLATES-085: Third-Party MIT Attribution
+- WHEN a vendored reference renders, THEN it carries the FULL MIT permission+warranty text + upstream SHA `662910cd1a23` (each rendered copy is a redistributed copy)
+- WHEN the repo root is checked, THEN `THIRD-PARTY-NOTICES` carries the full MIT text and the README links the source as optional further-reading / credit, NOT a dependency
 
 ---
 
@@ -308,3 +325,4 @@ _(Cross-references: REQ-AGNT-001 Detection, REQ-AGNT-004 Skills Generation — �
 | 2026-06-11 | reorder-stable-prefix-loading | Startup Loading 靜態優先重排（BL-020）：[STABLE]/[DYNAMIC] 標注、集合不變性、entry config 穩定性檢查 | US-430, REQ-TEMPLATES-080~082 (ADDED) |
 | 2026-06-11 | add-init-language-policy | 產物英文 baseline；trigger words 合成 + skill_triggers 注入；entry 語言宣告；Language Policy partial | US-411~412; REQ-TEMPLATES-073, REQ-SKILL-011~012, REQ-AGNT-019~021 (ADDED), REQ-SKILL-009 (MODIFIED) |
 | 2026-06-14 | fix-archive-sibling-reference | prospec-archive 自包含 promotion-format（移除唯一跨 skill sibling-dir 引用、補 contract guard）；single source 仍 promotion-format.hbs | REQ-AGNT-015 (MODIFIED) |
+| 2026-06-14 | vendor-engineering-heuristics | verify/review 自包含 vendored MIT 工程啟發式 references（debug-recovery triage + 三 lens 判準），零 runtime 外部依賴、完整 MIT notice + SHA、README See Also 非依賴 | REQ-TEMPLATES-083/084/085, REQ-AGNT-022 (ADDED) |
