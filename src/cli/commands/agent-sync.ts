@@ -3,16 +3,8 @@ import { execute } from '../../services/agent-sync.service.js';
 import { formatAgentSyncOutput } from '../formatters/agent-sync-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
-import { VALID_AGENTS, type LogLevel } from '../../types/config.js';
-
-/**
- * Resolve log level from global options.
- */
-function resolveLogLevel(opts: GlobalOptions): LogLevel {
-  if (opts.quiet) return 'quiet';
-  if (opts.verbose) return 'verbose';
-  return 'normal';
-}
+import { VALID_AGENTS } from '../../types/config.js';
+import { resolveLogLevel } from '../log-level.js';
 
 /**
  * Register the `agent` command group with `sync` subcommand.

@@ -3,17 +3,8 @@ import { execute } from '../../services/init.service.js';
 import { formatInitOutput } from '../formatters/init-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
-import type { LogLevel } from '../../types/config.js';
 import { DEFAULT_ARTIFACT_LANGUAGE } from '../../types/config.js';
-
-/**
- * Resolve log level from global options.
- */
-function resolveLogLevel(opts: GlobalOptions): LogLevel {
-  if (opts.quiet) return 'quiet';
-  if (opts.verbose) return 'verbose';
-  return 'normal';
-}
+import { resolveLogLevel } from '../log-level.js';
 
 /**
  * Register the `init` command onto the program.

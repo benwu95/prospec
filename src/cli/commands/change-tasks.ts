@@ -3,16 +3,7 @@ import { execute } from '../../services/change-tasks.service.js';
 import { formatChangeTasksOutput } from '../formatters/change-tasks-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
-import type { LogLevel } from '../../types/config.js';
-
-/**
- * Resolve log level from global options.
- */
-function resolveLogLevel(opts: GlobalOptions): LogLevel {
-  if (opts.quiet) return 'quiet';
-  if (opts.verbose) return 'verbose';
-  return 'normal';
-}
+import { resolveLogLevel } from '../log-level.js';
 
 /**
  * Register the `tasks` subcommand under the `change` command group.
