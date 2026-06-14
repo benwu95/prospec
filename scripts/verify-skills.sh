@@ -49,21 +49,21 @@ chk "no kg references/ dir"              '! test -d .claude/skills/prospec-knowl
 chk "no ku references/ dir"              '! test -d .claude/skills/prospec-knowledge-update/references'
 
 echo "[C] references actually generated"
-chk "archive has 3 refs"  '[ $(ls .claude/skills/prospec-archive/references/ | wc -l) -eq 3 ]'
+chk "archive has 4 refs"  '[ $(ls .claude/skills/prospec-archive/references/ | wc -l) -eq 4 ]'
 chk "ff has 4 refs"       '[ $(ls .claude/skills/prospec-ff/references/ | wc -l) -eq 4 ]'
 chk "ff no sibling paths" '! grep -qE "prospec-(new-story|plan|tasks)/references/" .claude/skills/prospec-ff/SKILL.md'
 
-echo "[D] every references/ link resolves in some skill's references/ (prospec skills deploy as a set)"
+echo "[D] every references/ link resolves in the SAME skill's references/ (self-contained, no sibling paths)"
 miss=""
 for s in .claude/skills/*/SKILL.md; do
+  d="$(dirname "$s")"
   for r in $(grep -oE "references/[a-z-]+\.md" "$s" | sort -u); do
-    b=$(basename "$r")
-    # prospec skills deploy together — a references/X.md link is valid if X.md exists in
-    # ANY skill's references/ dir (e.g. archive cites /prospec-learn's promotion-format.md)
-    ls .claude/skills/*/references/"$b" >/dev/null 2>&1 || miss="$miss $s:$r"
+    # each skill is self-contained (REQ-AGNT-015) — a references/X.md link must
+    # resolve in THIS skill's own references/ dir, never a sibling's
+    test -f "$d/$r" || miss="$miss $s:$r"
   done
 done
-chk "no dangling references/ links" '[ -z "$miss" ]'; [ -n "$miss" ] && echo "      dangling:$miss"
+chk "no dangling or sibling references/ links" '[ -z "$miss" ]'; [ -n "$miss" ] && echo "      dangling:$miss"
 
 echo "[E] convention files generated + referenced links resolve"
 for f in _status-lifecycle _module-readme-conventions _diagram-conventions; do
@@ -77,7 +77,7 @@ chk "uses prospec/specs/"        'grep -q "prospec/specs/" .claude/skills/prospe
 echo "[G] agents.md standard: antigravity/codex/copilot converge on .agents/skills + AGENTS.md"
 chk "AGENTS.md generated"               'test -f AGENTS.md'
 chk ".agents/skills has SKILL.md"       'test -f .agents/skills/prospec-archive/SKILL.md'
-chk "archive has 3 refs (.agents)"      '[ $(ls .agents/skills/prospec-archive/references/ | wc -l) -eq 3 ]'
+chk "archive has 4 refs (.agents)"      '[ $(ls .agents/skills/prospec-archive/references/ | wc -l) -eq 4 ]'
 chk "no GEMINI.md generated"            '! test -f GEMINI.md'
 chk "no .github/instructions dir"       '! test -d .github/instructions'
 chk "no .codex/skills dir"              '! test -d .codex/skills'

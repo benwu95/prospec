@@ -421,6 +421,11 @@ function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'product-spec-format.md',
         title: 'Product Spec Format',
       },
+      {
+        templateName: 'promotion-format.hbs',
+        outputName: 'promotion-format.md',
+        title: 'Feedback Promotion Rule and Ledger Format',
+      },
     ],
     'prospec-learn': [
       {
