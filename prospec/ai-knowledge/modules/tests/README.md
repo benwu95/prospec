@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 45 test files, 944 tests (unit 447, contract 447, integration 15, e2e 35)
+> 4-layer test architecture using Vitest + memfs — 46 test files, 955 tests (unit 453, contract 452, integration 15, e2e 35)
 
 <!-- prospec:auto-start -->
 
@@ -12,12 +12,13 @@
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes (21 tests) |
 | `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats (26 tests) |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
-| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates (20 tests) |
+| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. updateIndex canonical-header emit (21 tests) |
+| `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
 | `tests/contract/skill-format.test.ts` | All 13 skills format validation, incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync) + BL-029 flywheel block (relocated ledger path, archive Phase 4.5 auto-harvest, learn Entry Gate ledger-OR-archive, negative no-auto-write `_conventions.md`) + instruction-quality pass (ff Phase-1 start, per-phase gates on 8 skills, Constitution-empty prompt, status-aware handoff, entry session-detection, implement progress anchoring); shared module-scope `sectionOf` helper (EOF-tolerant) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (70 items / 13 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
-| `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (18 tests, incl. the `### {Category}` grouping scaffold hint) |
+| `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (23 tests, incl. `### {Category}` grouping + canonical index-column single-source + Dependencies labels) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (35 tests, incl. `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag determinism (21 tests, TDD red-first) |
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity) |

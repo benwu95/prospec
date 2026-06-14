@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 story_count: 8
-req_count: 29
+req_count: 31
 ---
 
 # AI Knowledge
@@ -108,6 +108,10 @@ req_count: 29
 - WHEN generating or updating module READMEs, THEN defer to `ai-knowledge/_module-readme-conventions.md`, `_diagram-conventions.md` and `_status-lifecycle.md` as the single source of truth
 - WHEN a convention is defined in those docs, THEN reference them instead of duplicating the rules inline in skill references
 
+#### REQ-KNOW-021: Module README Dependencies Canonical Labels
+- WHEN rendering the module-README scaffold or the knowledge-generate skeleton, THEN the Dependencies block uses canonical `**Depends on:**` / `**Used by:**` labels (per `_module-readme-conventions.md`)
+- WHEN locking the format, THEN a contract test asserts both labels render
+
 ---
 
 ### US-303: 模組索引維護 [P0]
@@ -123,9 +127,14 @@ req_count: 29
 #### REQ-KNOW-005: Update Module Index
 - WHEN module generation complete, THEN `_index.md` reflects all modules with dependencies
 - WHEN re-executing knowledge generate, THEN update index rather than recreate
-- WHEN rendering the index table, THEN use columns Module | Keywords | Status | Description | Rationale | Depends On
+- WHEN rendering the index table, THEN use columns Module | Keywords | Aliases | Status | Description | Rationale | Depends On — the header derives from the single canonical column constant (REQ-KNOW-020), never hardcoded per emitter
 - WHEN writing `_index.md`, THEN append a `## Loading Rules` section
 - WHEN modules fall into ≥2 domain categories, THEN MAY group the table into `### {Category}` sub-tables (same columns; module listed under its primary category only); pure architectural-layer projects keep one flat table (see US-340)
+
+#### REQ-KNOW-020: Canonical Index-Table Column Schema (Single Source)
+- WHEN any `_index.md` emitter renders the module table, THEN its columns derive from one shared constant in `types` (names, indices, header, separator) — no per-emitter hardcoded copy
+- WHEN a `.hbs` template needs the header, THEN the render service injects it from the constant; static skill-doc examples are locked to it by contract test
+- WHEN a consumer parses the table, THEN it reads columns by the canonical index/labels from the same constant
 
 #### REQ-KNOW-008: Index Idempotent Update
 - WHEN `_index.md` already exists, THEN update auto section, preserve user section
@@ -297,3 +306,4 @@ _(None)_
 | 2026-06-06 | generate-module-map-in-knowledge-init | knowledge init 生成 module-map + detector 尊重 base_dir | US-301, REQ-SERVICES-025, REQ-LIB-011 (ADDED) |
 | 2026-06-11 | gate-knowledge-at-archive | Staleness 檢測由 graded WARN 改 informational + archive Entry Gate 指引（同步 sdd-workflow 重複副本） | REQ-TEMPLATES-045 (MODIFIED) |
 | 2026-06-13 | group-index-by-category | _index.md 依 category 分組（module-map 為單一真相 + generate 自動推導 bootstrap）；prospec 自身純分層維持平表 | US-340, REQ-KNOW-018/019, REQ-TYPES-028 (ADDED); REQ-KNOW-005, REQ-SERVICES-022 (MODIFIED) |
+| 2026-06-14 | centralize-index-column-schema | _index 7 欄 schema 抽成單一共用常數（所有 emitter/parser 衍生）；module README Dependencies canonical 標籤 | REQ-KNOW-020/021 (ADDED); REQ-KNOW-005 (MODIFIED) |

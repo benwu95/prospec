@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 story_count: 20
 req_count: 74
 ---
@@ -46,6 +46,7 @@ req_count: 74
 透過關鍵字比對 `_index.md` 識別相關模組。
 - WHEN change name contains module keywords, THEN Related Modules lists matches
 - WHEN no match, THEN Related Modules is empty
+- WHEN parsing the `_index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Loading Rules table) are skipped by column count
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
 透過 metadata.yaml 追蹤狀態，以 `ai-knowledge/_status-lifecycle.md` 為單一真實來源：`story` → `plan` → `tasks` → `implemented` → `verified` → `archived`；`scale: quick`（經使用者確認）允許 `story` → `tasks` 合法跳過 plan。
@@ -681,6 +682,7 @@ prospec-implement 每 task 完成 checkpoint 後輸出三段式 `Progress/Goal/N
 | 2026-03-02 | redesign-spec-architecture | Product-First 架構：Feature Spec Sync、Product Spec 自動生成、Spec Health、Feature/Story 路由、deprecated Capability Spec Format | US-3,5,6,7; REQ-SPEC-010~013, REQ-TEMPLATES-010/033/034, REQ-SPECS-001; -REQ-TEMPLATES-031 |
 | 2026-06-04 | skill-alignment (PR #2) | Canonical status lifecycle 全鏈強制 + Plan Call Chain/分層檢查 | REQ-CHNG-004 (MODIFIED), REQ-TEMPLATES-059 (ADDED) |
 | 2026-06-06 | decouple-verify-from-feature-spec | verify 4/5 改為 Knowledge↔code 一致性、解除 verify↔archive 死結；lifecycle 載明 artifact ownership | REQ-TEMPLATES-034 (MODIFIED), REQ-CHNG-004 (MODIFIED) |
+| 2026-06-14 | centralize-index-column-schema | related-module 解析改用 canonical 欄位常數（position-stable、Description 取自正確欄、跳過非模組列） | REQ-CHNG-003 (MODIFIED) |
 | 2026-06-07 | add-output-contract | 11 skill 新增 Output Contract（成功/失敗自評）+ contract test | US-11; REQ-TEMPLATES-060/061, REQ-TESTS-001 |
 | 2026-06-07 | make-constitution-executable | verify 依 Constitution 嚴重度分級回報 | US-5; REQ-TEMPLATES-063 |
 | 2026-06-08 | add-entry-exit-gates | Entry/Exit 雙閘門 + quality_log 跨階段品質追溯 | US-12; REQ-TYPES-022, REQ-TEMPLATES-064/065, REQ-TESTS-022 |
