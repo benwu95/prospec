@@ -1299,6 +1299,87 @@ describe('Skill Format Contract', () => {
   });
 });
 
+describe('Dependency-layer knowledge — on-demand Context7 (BL-034)', () => {
+  const renderPlan = () => renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+  const renderImplement = () =>
+    renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+  const renderPlanFormat = () =>
+    renderTemplate('skills/references/plan-format.hbs', TEMPLATE_CONTEXT);
+
+  // Section 2 of plan-format contains fenced ##/### lines, so sectionOf (regex,
+  // fence-unaware) would truncate early — slice by literal heading bounds instead.
+  const technicalSummaryOf = (content: string): string => {
+    const start = content.indexOf('### 2. Technical Summary');
+    const end = content.indexOf('### 3. Affected Modules');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    return content.slice(start, end);
+  };
+
+  it('plan-format Technical Summary defines the optional, additive External Library Usage subsection', () => {
+    const ts = technicalSummaryOf(renderPlanFormat());
+    expect(ts).toContain('External Library Usage');
+    expect(ts).toContain('on-demand');
+    expect(ts).toContain('Context7');
+    expect(ts).toMatch(/untrusted/i);
+    expect(ts).toContain('NOT a gate');
+    expect(ts).toContain('skip silently');
+    expect(ts).toContain('informational');
+    // additive — must not disturb the mutually-exclusive Brownfield/Greenfield formats
+    expect(ts).toContain('additive');
+  });
+
+  it('plan Phase 4 carries the optional, scope-guarded Context7 step (graceful, untrusted, non-gating)', () => {
+    const phase4 = sectionOf(renderPlan(), '### Phase 4: Design plan.md');
+    expect(phase4).toContain('third-party library');
+    expect(phase4).toContain('Context7 MCP is available');
+    expect(phase4).toContain('resolve-library-id');
+    expect(phase4).toContain('query-docs');
+    expect(phase4).toContain('External Library Usage');
+    expect(phase4).toMatch(/untrusted/i);
+    expect(phase4).toContain('do NOT make it a gate');
+    expect(phase4).toContain('skip silently');
+    expect(phase4).toContain('informational');
+  });
+
+  it('implement Phase 3 carries the optional Context7 block — per-task lazy, quick-scale aware', () => {
+    const phase3 = sectionOf(
+      renderImplement(),
+      '### Phase 3: Execute Implementation',
+    );
+    expect(phase3).toContain('third-party librar'); // library / libraries
+    expect(phase3).toContain('Context7 MCP is available');
+    expect(phase3).toContain('resolve-library-id');
+    expect(phase3).toContain('query-docs');
+    expect(phase3).toContain('scale: quick');
+    expect(phase3).toMatch(/untrusted/i);
+    expect(phase3).toContain('do NOT make it a gate');
+    expect(phase3).toContain('skip silently');
+    expect(phase3).toContain('NEVER bulk-load');
+  });
+
+  // G4 / KV-cache: the step is in-phase, never in the stable prefix. Negative
+  // assertion — the Startup Loading section must not mention Context7 at all.
+  it('the Context7 step never enters the stable prefix (absent from both Startup Loading sections)', () => {
+    const planLoading = sectionOf(renderPlan(), '## Startup Loading');
+    const implementLoading = sectionOf(renderImplement(), '## Startup Loading');
+    expect(planLoading).not.toContain('Context7');
+    expect(implementLoading).not.toContain('Context7');
+    // guard the slice actually captured the [STABLE]-marked list (not an empty match)
+    expect(planLoading).toContain('[STABLE]');
+    expect(implementLoading).toContain('[STABLE]');
+  });
+
+  it('both skills state the untrusted / non-gating contract in NEVER', () => {
+    const planNever = sectionOf(renderPlan(), '## NEVER');
+    const implementNever = sectionOf(renderImplement(), '## NEVER');
+    expect(planNever).toContain('Context7');
+    expect(planNever).toMatch(/untrusted/i);
+    expect(implementNever).toContain('Context7');
+    expect(implementNever).toMatch(/untrusted/i);
+  });
+});
+
 /**
  * Extract YAML frontmatter from a Markdown document.
  */
