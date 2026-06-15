@@ -83,7 +83,7 @@ req_count: 78
 #### REQ-CHNG-006: Load Proposal and Module Context
 - WHEN starts, THEN read proposal.md + related module READMEs
 - WHEN Constitution exists, THEN inject as context
-- WHEN matching capability specs exist, THEN load as Layer 0 context
+- WHEN matching feature specs exist, THEN load as Layer 0 context
 
 #### REQ-CHNG-007: Identify Related AI Knowledge Modules
 - WHEN proposal marks related modules, THEN read `modules/{module}/README.md`
@@ -96,7 +96,7 @@ req_count: 78
 #### REQ-CHNG-009: Generate plan.md
 - WHEN context loaded, THEN includes Overview, Affected Modules, Steps, Risk Assessment
 - WHEN steps > 10, THEN suggest splitting Stories
-- WHEN MODIFIED requirements, THEN reference Before from capability spec
+- WHEN MODIFIED requirements, THEN reference Before from feature spec
 
 #### REQ-CHNG-010: Generate delta-spec.md
 - WHEN plan generated, THEN delta-spec.md created with ADDED/MODIFIED/REMOVED
@@ -729,3 +729,4 @@ prospec-implement 每 task 完成 checkpoint 後輸出三段式 `Progress/Goal/N
 | 2026-06-12 | add-drift-checker | verify V1/V4 改消費 `prospec check --json` 確定性報告（明示退回、skipped≠PASS）；引擎本體 graduate 至 drift-detection feature | US-16; REQ-TEMPLATES-092 (ADDED), REQ-TEMPLATES-045/088 (MODIFIED) |
 | 2026-06-13 | enhance-skill-instructions | skill 指令品質 pass：Constitution 空白提示、Phase-1 + per-phase gate（ff 重編號）、status-aware handoff + 新 session 偵測、implement progress 錨定（OPT B1/D1/A1/D5；D9 延 icebox） | US-17~20; REQ-TEMPLATES-096~100 (ADDED), REQ-TEMPLATES-061/085 (MODIFIED), REQ-TESTS-026 (ADDED) |
 | 2026-06-15 | add-dependency-knowledge | plan/implement 加 optional on-demand Context7 依賴層知識（觸及第三方 lib 才查、注入 Technical Summary、graceful/untrusted/non-gating、永不進 stable prefix）（BL-034） | US-21; REQ-TEMPLATES-101/102/103 (ADDED), REQ-TESTS-027 (ADDED), REQ-TEMPLATES-044 (MODIFIED) |
+| 2026-06-15 | complete-capability-to-feature-migration | capability→feature 術語遷移收尾：移除孤兒 capability-spec-format.hbs（完成 REQ-TEMPLATES-031 實作層移除）、修正 new-story 失效載入路徑 specs/capabilities/→specs/features/、archive/implement 殘留用語對齊 Feature Spec | REQ-CHNG-006/009 (MODIFIED); REQ-TEMPLATES-031 (REMOVED 實作層收尾) |
