@@ -189,7 +189,7 @@ function registerSpecResources(server: McpServer, ctx: McpServerContext): void {
     }),
     {
       title: 'Feature Spec',
-      description: 'Capability spec (REQ source of truth) for one feature',
+      description: 'Feature spec (REQ source of truth) for one feature',
       mimeType: 'text/markdown',
     },
     (uri, variables) =>

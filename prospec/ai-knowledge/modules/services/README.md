@@ -21,7 +21,7 @@
 | `src/services/archive.service.ts` | Archive changes, spec sync to Feature Specs, generate product.md; task stats count code tasks only via `lib/task-markers` (`[M]`/`[V]` reported apart); Feature-Spec spec-sync uses FUNCTION replacers so `$`-sequences (`$&`, `` $` ``, `$$`) in a REQ description are preserved verbatim, not expanded; `**Feature:**` slug is path-contained via `isSafeResourceName` before use as a filename (no traversal); `moveToArchive` rolls back already-moved files on a mid-loop failure (no half-moved state); `ArchiveResult` carries `knowledgeWarnings` forwarded from the auto knowledge-update |
 | `src/services/measure.service.ts` | Read + Zod-validate measurement-report.json — read-only, never calls a provider API |
 | `src/services/check.service.ts` | Drift check orchestration — collectors → pure evaluators → report; `--json` atomicWrite, `--init-ci` workflow scaffold (rerun-safe); module-map load lives in `lib/knowledge-reader` (clamped paths, invalid map throws) |
-| `src/services/mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 6 resources + 2 tools (per-request reads via knowledge-reader); `search_modules` joins each match's `category` from module-map via `attachModuleCategories`; `execute()` wires stdio transport; diagnostics stderr-only |
+| `src/services/mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 6 resources + 2 tools (per-request reads via knowledge-reader); the `spec://feature/{name}` resource serves Feature Specs (REQ source of truth, `_archived*` excluded); `search_modules` joins each match's `category` from module-map via `attachModuleCategories`; `execute()` wires stdio transport; diagnostics stderr-only |
 
 ## Public API
 

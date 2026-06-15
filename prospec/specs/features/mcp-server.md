@@ -1,7 +1,7 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-06-13
+last_updated: 2026-06-15
 story_count: 4
 req_count: 10
 ---
@@ -70,7 +70,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 ### US-2: 查詢規格真相 [P1]
 
 身為在其他 harness 中需要規格依據的開發者，
-我想要 agent 透過 `spec://feature/{name}` 列舉與讀取 capability specs，
+我想要 agent 透過 `spec://feature/{name}` 列舉與讀取 feature specs，
 以便規格（REQ 條文）成為任何 agent 可直接引用的 source of truth。
 
 **Acceptance Scenarios:**
@@ -171,3 +171,4 @@ _(None)_
 | 2026-06-13 | add-mcp-server | 唯讀 MCP server（BL-033 + read layer + OPT-A2 health 消費；兩輪對抗式審查、4 criticals 修復後收斂） | US-1~4; REQ-MCP-001~008 |
 | 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` 釘選專案根目錄；config 解析與 preAction 守衛皆尊重 `--cwd`，支援單一 agent 跨目錄註冊多專案 server | REQ-MCP-001 (MODIFIED) |
 | 2026-06-13 | group-index-by-category | search_modules 結果帶 module-map join 的 category 有序清單（additive、protocol-frozen 相容） | REQ-TYPES-029, REQ-LIB-017 (ADDED); REQ-MCP-005 (MODIFIED) |
+| 2026-06-15 | complete-capability-to-feature-migration | `spec://feature/{name}` resource description 與 US-2 敘述用語由 capability spec 對齊為 feature spec（反映實際讀取 specs/features/ 的行為） | REQ-MCP-003 (MODIFIED) |

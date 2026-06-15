@@ -98,7 +98,6 @@ describe('Skill Format Contract', () => {
       'tasks-format.hbs',
       'implementation-guide.hbs',
       'archive-format.hbs',
-      'capability-spec-format.hbs',
       'feature-spec-format.hbs',
       'product-spec-format.hbs',
       'design-spec-format.hbs',
@@ -388,38 +387,26 @@ describe('Skill Format Contract', () => {
     });
   });
 
-  describe('Capability spec format structure', () => {
-    it('should contain Overview, Requirements, and Change History sections', () => {
-      const content = renderTemplate(
-        'skills/references/capability-spec-format.hbs',
-        TEMPLATE_CONTEXT,
-      );
-      expect(content).toContain('## Purpose');
-      expect(content).toContain('## Standard Format');
-      expect(content).toContain('Overview');
-      expect(content).toContain('Requirements');
-      expect(content).toContain('Change History');
+  describe('Capability → Feature migration completeness', () => {
+    it('no skill template references the removed specs/capabilities/ path', () => {
+      for (const skill of SKILL_DEFINITIONS) {
+        const content = renderTemplate(
+          `skills/${skill.name}.hbs`,
+          TEMPLATE_CONTEXT,
+        );
+        expect(
+          content,
+          `${skill.name} still references specs/capabilities/`,
+        ).not.toContain('specs/capabilities/');
+      }
     });
 
-    it('should include WHEN/THEN scenario format', () => {
-      const content = renderTemplate(
-        'skills/references/capability-spec-format.hbs',
-        TEMPLATE_CONTEXT,
+    it('the deprecated capability-spec-format reference template is removed', () => {
+      const refPath = path.join(
+        __dirname,
+        '../../src/templates/skills/references/capability-spec-format.hbs',
       );
-      expect(content).toContain('WHEN');
-      expect(content).toContain('THEN');
-      expect(content).toContain('REQ ID');
-    });
-
-    it('should include maintenance rules', () => {
-      const content = renderTemplate(
-        'skills/references/capability-spec-format.hbs',
-        TEMPLATE_CONTEXT,
-      );
-      expect(content).toContain('Maintenance Rules');
-      expect(content).toContain('ADDED');
-      expect(content).toContain('MODIFIED');
-      expect(content).toContain('REMOVED');
+      expect(fs.existsSync(refPath)).toBe(false);
     });
   });
 

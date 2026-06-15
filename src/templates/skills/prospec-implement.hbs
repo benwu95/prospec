@@ -149,7 +149,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** start implementation without tasks.md — coding without task structure produces scattered changes that fail Verify's spec compliance check
 - **NEVER** load all module AI Knowledge at once — wastes context window tokens; a 6-module project loads ~3000 tokens unnecessarily when only 1 module is relevant
 - **NEVER** forget to mark task completion — unchecked tasks cause Verify to report false incomplete status; also breaks progress tracking for user
-- **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and capability spec inconsistency (quick: proposal.md acceptance scenarios are the spec)
+- **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and Feature Spec inconsistency (quick: proposal.md acceptance scenarios are the spec)
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
 - **NEVER** forget to suggest `/prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
 - **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes

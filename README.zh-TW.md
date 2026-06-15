@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1041%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1039%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -381,7 +381,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 | `knowledge://module-map` | 模組邊界 + `depends_on`（`module-map.yaml`） |
 | `knowledge://playbook` | 人工核可的團隊 lessons（`_playbook.md`） |
 | `knowledge://health` | 各模組 staleness + coverage —— 與 `prospec check` 同一份純函式 |
-| `spec://feature/{name}` | Capability specs（REQ source of truth）；archived specs 以與 `prospec check` 同一條規則排除 |
+| `spec://feature/{name}` | Feature specs（REQ source of truth）；archived specs 以與 `prospec check` 同一條規則排除 |
 
 **Tools**：`search_modules`（這個概念歸哪個模組 —— 對策展索引欄位做正規化 term-OR 比對，
 查 `drift checker` 找得到 `drift-checker`）與 `get_dependency_direction`（`from` 可否 import `to`？
@@ -440,8 +440,8 @@ src/
 ├── services/     — 業務邏輯（13 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（52 個 .hbs 檔案）
-    └── skills/   — 13 個 Skill 模板 + 19 個 reference 模板
+└── templates/    — Handlebars 模板（51 個 .hbs 檔案）
+    └── skills/   — 13 個 Skill 模板 + 18 個 reference 模板
 ```
 
 ### 技術棧
@@ -459,7 +459,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1041 個測試）
+# 執行所有測試（1039 個測試）
 pnpm test
 
 # Watch 模式
@@ -476,9 +476,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1041 個測試橫跨 4 大類：
+**測試覆蓋率**：1039 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：518 tests
-- Contract tests（CLI 輸出 + Skill 格式）：471 tests
+- Contract tests（CLI 輸出 + Skill 格式）：469 tests
 - Integration tests：17 tests
 - E2E tests：35 tests
 
