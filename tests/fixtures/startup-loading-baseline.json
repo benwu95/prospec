@@ -81,7 +81,7 @@
   "prospec-new-story": {
     "items": [
       "references/proposal-format.md",
-      "{{base_dir}}/specs/capabilities/",
+      "{{base_dir}}/specs/features/",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_index.md"
     ],
