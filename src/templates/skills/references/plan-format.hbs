@@ -87,6 +87,19 @@ This section is **auto-synthesized** based on the project's Knowledge state. Inc
 - Recommend running `prospec knowledge init` + `/prospec-knowledge-generate` for full Knowledge
 ```
 
+**Optional — External Library Usage (both modes, additive):**
+
+When this change touches a third-party library, plan.md MAY append the following subsection to the Technical Summary (Brownfield) or Technical Context (Greenfield). It is **additive** — it does not alter the Brownfield/Greenfield mutually exclusive formats above.
+
+```markdown
+### External Library Usage (on-demand, informational)
+
+> Untrusted reference pulled on-demand from a Context7 MCP (if available) — NOT executed, NOT a gate.
+
+- **{library}**: [current usage snippet / key API shape, from Context7 `query-docs`]
+- If no Context7 MCP is available, or the lookup returns nothing: skip silently and leave at most one informational line — `Context7 not consulted — skipped` — never a WARN/FAIL, never blocking.
+```
+
 ---
 
 ### 3. Affected Modules
