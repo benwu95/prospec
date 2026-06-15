@@ -123,4 +123,8 @@ Use `mergeContent()` from `lib/content-merger.ts` when updating files that may h
 
 <!-- prospec:user-start -->
 <!-- Add team-specific conventions, exceptions, or overrides here -->
+
+## Skill Registration
+
+- `excludeFromEntryConfig` (in `SkillConfig`) is reserved for **self-terminating one-shot flows** (onboarding, migration, repair) whose value does not recur per session. Such a skill is still deployed as a `SKILL.md` (invocable on demand) but is omitted from the always-loaded entry config (`CLAUDE.md`/`AGENTS.md`), so it costs no recurring Layer-0 tokens. Do NOT use it to hide routinely-used skills from discovery — that degrades trigger routing. A contract test asserts only the intended skill is entry-excluded yet still emits a `SKILL.md`.
 <!-- prospec:user-end -->

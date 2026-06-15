@@ -30,6 +30,14 @@ export interface SkillConfig {
   cliDependency?: string;
   /** Whether this Skill has reference files in references/ subdirectory */
   hasReferences: boolean;
+  /**
+   * Exclude this Skill from the always-loaded agent entry config
+   * (CLAUDE.md/AGENTS.md) while still deploying its SKILL.md on disk (invocable
+   * on demand). Absent = false = listed normally. Reserved for self-terminating
+   * one-shot flows (onboarding, migration, repair) whose permanent Layer-0 token
+   * cost is not justified by once-per-project use. See `_conventions.md`.
+   */
+  excludeFromEntryConfig?: boolean;
 }
 
 /**
@@ -45,7 +53,8 @@ export interface AgentConfig {
 }
 
 /**
- * Predefined Skill definitions (13 Skills).
+ * Predefined Skill definitions (14 Skills; prospec-quickstart is
+ * excludeFromEntryConfig — deployed as a SKILL.md but not listed in the entry config).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
@@ -142,6 +151,15 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],
     type: 'Lifecycle',
     hasReferences: true,
+  },
+  {
+    name: 'prospec-quickstart',
+    description: 'One-command onboarding finisher. After `prospec quickstart` scaffolds the project, this Skill localizes skill triggers to the configured language, re-syncs agent config, prepares the knowledge scan, and chains into knowledge generation. Excluded from the always-loaded entry config (one-time use).',
+    triggers: ['quickstart', 'setup', 'bootstrap', 'onboard', 'get started'],
+    type: 'Lifecycle',
+    cliDependency: 'prospec quickstart',
+    hasReferences: false,
+    excludeFromEntryConfig: true,
   },
 ];
 

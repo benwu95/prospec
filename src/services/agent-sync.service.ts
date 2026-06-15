@@ -120,7 +120,11 @@ export async function execute(
     constitution_path: constitutionPath,
     tech_stack: config.tech_stack ?? {},
     artifact_language: artifactLanguage,
-    skills: SKILL_DEFINITIONS.map((s) => ({
+    // Entry config (CLAUDE.md/AGENTS.md) is always-loaded Layer 0 — exclude
+    // excludeFromEntryConfig skills so a one-shot onboarding skill costs no
+    // recurring tokens. syncSkillsDirSkills still writes its SKILL.md (below),
+    // so it stays invocable on demand.
+    skills: SKILL_DEFINITIONS.filter((s) => !s.excludeFromEntryConfig).map((s) => ({
       name: s.name,
       description: s.description,
       triggers: triggerWordsBySkill.get(s.name),

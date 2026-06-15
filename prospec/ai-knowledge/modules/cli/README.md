@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 28 files, 1,542 lines)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 30 files, 1,645 lines)
 
 <!-- prospec:auto-start -->
 
@@ -13,6 +13,7 @@
 | `src/cli/log-level.ts` | resolveLogLevel(opts) — shared root-flag → LogLevel resolver imported by all 10 command files |
 | `src/cli/parse-options.ts` | parseDepth(value) — shared validating `--depth` parser (throws on NaN/<1); used by `steering` and `knowledge init` |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
+| `src/cli/commands/quickstart.ts` | `prospec quickstart` — one-command onboarding (init + agent sync, skip-completed); in INIT_COMMANDS so it runs before `.prospec.yaml` exists |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan; `--force` overwrites an existing plan.md/delta-spec.md |
@@ -30,12 +31,12 @@
 
 ## Public API
 
-- `createProgram()` — Create Commander.js program with all 11 commands registered
+- `createProgram()` — Create Commander.js program with all 12 commands registered
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`; resolved into a LogLevel via the shared `cli/log-level.resolveLogLevel`
 - `resolveLogLevel(opts)` — root flags → LogLevel; one shared impl, imported by all 10 commands
 - `parseDepth(value)` — `--depth` Commander parser; positive integer or throws
-- `registerXxxCommand(program)` — 11 command registration functions (one per command)
-- `formatXxxOutput(result, logLevel)` — 12 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`
+- `registerXxxCommand(program)` — 12 command registration functions (one per command)
+- `formatXxxOutput(result, logLevel)` — 14 formatter modules (stdout for success, stderr for errors; `mcp serve` is the one deliberate exception: success banner also goes stderr); `error-output.ts` also exports `handleError()`
 - `sanitizeTerminal(s)` — single source in `formatters/sanitize.ts`; re-exported by `check-output.ts` so existing importers/contract test keep their path; also consumed by `measure-output.ts` and `error-output.ts`
 - `main()` — entry point (create program → parse argv → handle errors); NOT exported — runs on module load
 

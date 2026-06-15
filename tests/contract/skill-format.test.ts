@@ -124,8 +124,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 13 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(13);
+    it('should have 14 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(14);
     });
 
     it('should include all expected skill names', () => {
@@ -143,6 +143,14 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-knowledge-generate');
       expect(names).toContain('prospec-archive');
       expect(names).toContain('prospec-knowledge-update');
+      expect(names).toContain('prospec-quickstart');
+    });
+
+    it('only prospec-quickstart is excludeFromEntryConfig (one-shot onboarding)', () => {
+      const excluded = SKILL_DEFINITIONS.filter((s) => s.excludeFromEntryConfig).map(
+        (s) => s.name,
+      );
+      expect(excluded).toEqual(['prospec-quickstart']);
     });
 
     it('should have valid skill types', () => {

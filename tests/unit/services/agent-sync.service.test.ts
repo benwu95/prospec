@@ -404,4 +404,33 @@ describe('agent-sync skill_triggers warnings', () => {
     const entryCtx = entryCall![1] as Record<string, unknown>;
     expect(entryCtx.artifact_language).toBe('English');
   });
+
+  it('excludes excludeFromEntryConfig skills from the entry config but still writes their SKILL.md (REQ-AGNT-023)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
+    });
+
+    // Clear the shared module-mock log so `calls` holds only THIS test's renders
+    // (deterministic — no dependency on cross-test mock-call accumulation).
+    vi.mocked(renderTemplate).mockClear();
+    await execute({ cwd: '/project' });
+
+    const calls = vi.mocked(renderTemplate).mock.calls;
+
+    // Entry config (always-loaded Layer 0) omits excludeFromEntryConfig skills.
+    // Mutation guard: dropping `.filter(s => !s.excludeFromEntryConfig)` in
+    // agent-sync.service makes prospec-quickstart reappear here → this goes red.
+    const entryCall = calls.find(([name]) => name === 'agent-configs/entry.md.hbs');
+    const entryNames = (
+      entryCall![1] as { skills: { name: string }[] }
+    ).skills.map((s) => s.name);
+    expect(entryNames).not.toContain('prospec-quickstart');
+    expect(entryNames).toContain('prospec-explore');
+
+    // ...but its SKILL.md is still generated on disk (invocable on demand).
+    const quickstartRender = calls.find(
+      ([name]) => name === 'skills/prospec-quickstart.hbs',
+    );
+    expect(quickstartRender).toBeDefined();
+  });
 });

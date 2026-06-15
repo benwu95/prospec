@@ -664,4 +664,75 @@ describe('prospec mcp E2E', () => {
       await fs.promises.rm(targetDir, { recursive: true, force: true });
     }
   });
+
+  describe('prospec quickstart', () => {
+    it('scaffolds in one command, deploys the onboarding skill off the entry config, and names the next step', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'e2e-quickstart' }),
+      );
+
+      const { stdout, exitCode } = await runCli([
+        'quickstart',
+        '--name',
+        'e2e-quickstart',
+        '--agents',
+        'claude',
+        '--language',
+        'English',
+      ]);
+
+      expect(exitCode).toBe(0);
+
+      // init + agent sync ran
+      expect(fs.existsSync(path.join(tmpDir, '.prospec.yaml'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(true);
+      expect(
+        fs.existsSync(path.join(tmpDir, '.claude/skills/prospec-explore/SKILL.md')),
+      ).toBe(true);
+
+      // the excludeFromEntryConfig skill IS deployed on disk (invocable)...
+      expect(
+        fs.existsSync(
+          path.join(tmpDir, '.claude/skills/prospec-quickstart/SKILL.md'),
+        ),
+      ).toBe(true);
+
+      // ...but is NOT listed in the always-loaded entry config (Layer 0 stays lean)
+      const claudeMd = await fs.promises.readFile(
+        path.join(tmpDir, 'CLAUDE.md'),
+        'utf-8',
+      );
+      expect(claudeMd).not.toContain('prospec-quickstart');
+      expect(claudeMd).toContain('/prospec-explore');
+
+      // the hand-off line names the exact next slash command
+      expect(stdout).toContain('/prospec-quickstart');
+    });
+
+    it('is re-runnable: a second run skips init', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'e2e-quickstart-rerun' }),
+      );
+      const first = await runCli([
+        'quickstart',
+        '--agents',
+        'claude',
+        '--language',
+        'English',
+      ]);
+      expect(first.exitCode).toBe(0);
+
+      const { stdout, exitCode } = await runCli([
+        'quickstart',
+        '--agents',
+        'claude',
+        '--language',
+        'English',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('skipped');
+    });
+  });
 });

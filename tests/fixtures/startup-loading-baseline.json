@@ -87,6 +87,12 @@
     ],
     "mandatory": 1
   },
+  "prospec-quickstart": {
+    "items": [
+      ".prospec.yaml"
+    ],
+    "mandatory": 0
+  },
   "prospec-plan": {
     "items": [
       ".prospec/changes/[name]/proposal.md",
