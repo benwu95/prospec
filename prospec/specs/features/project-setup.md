@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-11
-story_count: 9
-req_count: 23
+last_updated: 2026-06-15
+story_count: 10
+req_count: 25
 ---
 
 # 專案啟動
@@ -292,6 +292,36 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 - WHEN running any help or error path, THEN output contains no CJK characters
 - WHEN scanning `src/`, THEN zero files contain CJK characters
 
+### US-010: Quickstart 一鍵啟動 [P1]
+
+身為導入 prospec 的開發者，
+我希望一個 CLI 指令完成決定性 scaffold、再以一個 slash command 在 agent 端收尾，
+以便 brownfield onboarding 壓到 2 個輸入步驟（含非英文專案），其餘自動化。
+
+**Acceptance Scenarios:**
+- WHEN 在未初始化專案執行 `prospec quickstart` THEN 完成 init + agent sync 並印出下一步 `/prospec-quickstart`
+- WHEN 在已初始化專案重跑 THEN 跳過 init、exit 0、仍抵達下一步引導
+- WHEN 無 agent 設定 THEN 以清楚訊息提示，而非 stack trace
+
+> AI Knowledge 生成需 LLM 讀 source，CLI 無法獨力完成 — CLI→agent 的 context switch 是 2 步下限；其餘（trigger 在地化、knowledge 生成）由 `/prospec-quickstart` skill 自動收尾（見 agent-integration US-431）。
+
+#### REQ-SETUP-017: Quickstart One-Command Onboarding
+`prospec quickstart` 串接 init + agent sync（跳過已完成步驟），印出 agent 端下一步；註冊於 `INIT_COMMANDS`，在 `.prospec.yaml` 存在前可執行；`--name`/`--agents`/`--language` 透傳 init。
+
+**Scenarios:**
+- WHEN executing `prospec quickstart` in an uninitialized project, THEN run init + agent sync and print the next action (`/prospec-quickstart`)
+- WHEN re-run on an initialized project, THEN init is skipped, exit 0, and next-step guidance is still printed
+- WHEN no agent is configured, THEN surface a `PrerequisiteError` with actionable guidance, not a stack trace
+- WHEN run before `.prospec.yaml` exists, THEN the config-existence preAction gate does not block it (registered in `INIT_COMMANDS`)
+
+#### REQ-SERVICES-028: Quickstart Orchestrator Service
+`quickstart.service.execute()` 依序呼叫 sibling `init`（catch `AlreadyExistsError` → 標記 skipped）與 `agentSync`，聚合 per-step 狀態並透傳 hints；刻意不呼叫 knowledge-init（LLM 工作歸 `/prospec-quickstart` skill）。
+
+**Scenarios:**
+- WHEN init throws `AlreadyExistsError`, THEN catch it and mark the init step skipped without aborting the run
+- WHEN agent-sync returns hints (non-English language + empty `skill_triggers`), THEN the result forwards them for display
+- WHEN orchestrating, THEN it does not run knowledge init, and the dependency direction `cli → services` is preserved (service-orchestrates-service, cf. change-resolver)
+
 ---
 
 ## Edge Cases
@@ -336,3 +366,4 @@ _(None)_
 | 2026-06-06 | migrate-gemini-to-antigravity | init AI CLI 偵測 Gemini→Antigravity（`~/.gemini/antigravity-cli`） | REQ-SETUP-006 (MODIFIED) |
 | 2026-06-07 | make-constitution-executable | init 產帶嚴重度引導式 Constitution 規則 | US-007; REQ-TYPES-021, REQ-LIB-012, REQ-SERVICES-026, REQ-TEMPLATES-062, REQ-TESTS-021 |
 | 2026-06-11 | add-init-language-policy | init 語言選擇 + Language Policy seed；CLI 輸出英文化 | US-008~009; REQ-SETUP-015~016, REQ-TYPES-025, REQ-LIB-013 |
+| 2026-06-15 | add-quickstart-command | prospec quickstart 一鍵啟動（init+agent-sync orchestrator，搭 agent 端 /prospec-quickstart 收尾） | US-010; REQ-SETUP-017, REQ-SERVICES-028 (ADDED) |
