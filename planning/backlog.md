@@ -121,7 +121,7 @@
 - [x] [BL-029](#bl-029) Lessons/Playbook 自動萃取（升級 BL-024）✅ 已完成
 - [x] [BL-030](#bl-030) Drift Detection + CI 閘門（升級 BL-012）✅ 已完成
 - [x] [BL-031](#bl-031) Constitution 可執行規則（升級 BL-003 + OPT-B1）✅ 已完成
-- [ ] [BL-032](#bl-032) 反向規格萃取 🔁 RESHAPE / BUILD-LATER · P2（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer；須草稿+人工晉升、延伸 design Extract Mode；閘 OPT-A4 後；見 entry）
+- [ ] [BL-032](#bl-032) 反向規格萃取 🔁 RESHAPE / BUILD-LATER · P2（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer；須草稿+人工晉升、延伸 design Extract Mode；**OPT-A4 已於 2026-06-15 出貨 → gate 解除**，剩「真實 brownfield 採用者拉動」條件；見 entry）
 - [x] [BL-033](#bl-033) Prospec MCP Server（重定位 BL-010）✅ 已完成
 - [x] [BL-034](#bl-034) 依賴層知識（重定位 BL-025）✅ 已完成（2026-06-15 `add-dependency-knowledge`，Grade S；收窄交付：plan/implement 內 optional on-demand Context7，only 碰第三方 lib）
 - [x] ~~[BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發~~ ✅ alignment 已出貨／🚫 distribution CUT（2026-06-15 重評：分發無目的地、publish 已於 2026-06-06 刪除；見 entry）
@@ -138,7 +138,7 @@
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
 - [x] [OPT-A2](#opt-a2knowledge-健康度指標) Knowledge 健康度指標 — ✅ 實質完成（knowledge_health 經 drift report + MCP `/health` + `check`；原 `_index` 視覺表＝冗餘，不補）
 - [x] ~~[OPT-A3](#opt-a3成果可視化) 成果可視化（Cycle Impact）~~ 🚫 CUT（2026-06-15 重評：客觀數字已在同頁/其餘需埋點＝捏造；WARN 已被 BL-036 收割；見 OPT-A3 段）
-- [ ] [OPT-A4](#opt-a4quickstart-skill) Quickstart — 🔁 BUILD-LATER（2026-06-15 重評：重塑為 CLI orchestrator `prospec init --quickstart`、非 skill；搭下次 CLI 變更順手做；見 OPT-A4 段）
+- [x] [OPT-A4](#opt-a4quickstart-skill) Quickstart — ✅ 已完成（2026-06-15 `add-quickstart-command`，Grade A，commit `ae3cbf6`）：最終走 **Hybrid**（`prospec quickstart` CLI + `excludeFromEntryConfig` 的 `/prospec-quickstart` skill），非純 CLI——因 knowledge 生成需 LLM、純 CLI 無法真正一步；`excludeFromEntryConfig` filter 使 skill G4 中性（不入 always-loaded entry config 但仍部署 SKILL.md）。出貨解開 BL-032 gate
 - [x] [OPT-B1](#opt-b1constitution-導入引導強化) Constitution 導入引導強化 — ✅ 完成（Part1 `exampleRulesFor()` 隨 BL-031；Part2 explore/kg 空 Constitution 偵測+提示隨 enhance-skill-instructions，REQ-TEMPLATES-096）
 - [x] [OPT-B2](#opt-b2_indexmd-autouser-區段整合) _index.md Category 分組 — ✅ 完成（重塑交付 group-index-by-category，2026-06-13）：前提「auto/user 重複模組表」於 prospec 自身不成立（ContentMerger 已分離）→ 重塑為 Category 分組子標題 + module-map 單一真相 + MCP search category 感知
 - [x] [OPT-B3](#opt-b3tasksmd-任務分類code--manual--verification) tasks.md 任務分類（code/manual/verification）— ✅ 已完成（隨 BL-004）
@@ -158,7 +158,7 @@
 
 **OPT remaining 優先序（2026-06-13 稽核）**：
 1. ✅ **Skill 指令品質 pass** — 已完成（`enhance-skill-instructions`，Grade S，commit `1f6067d`+`bb05835`，graduate sdd-workflow US-17~20）：B1-part2 + D1 + A1 + D5。D9 評估後延 icebox。
-2. **A4** Quickstart — 🔁 BUILD-LATER（2026-06-15 重評：重塑為 CLI orchestrator `prospec init --quickstart`、非 skill；搭下次 CLI 變更順手做，不單獨排程）
+2. ✅ **A4** Quickstart — 已完成（`add-quickstart-command`，Grade A）：Hybrid `prospec quickstart` CLI + `excludeFromEntryConfig` skill（重評時的純-CLI 預測被「knowledge 需 LLM」推翻；excludeFromEntryConfig filter 解掉「skill 傷 G4」的唯一反對前提）
 3. ✅ **B2** `_index` Category 分組 — 已完成（group-index-by-category；重塑為 Category 分組子標題，非 auto/user 合併）。
 4. ~~**A3** Cycle Impact~~ 🚫 CUT（2026-06-15 重評：數字冗餘/需埋點/vanity；見 OPT-A3 段）
 - icebox（選用強化，非主推）：B4 嚴格 REQ-ID 驗證、D8 MCP glossary resource。
@@ -2273,7 +2273,7 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 
 **反向規格萃取 `/prospec-reverse-spec`**
 
-> **🔁 RESHAPE / BUILD-LATER（2026-06-15 重評）**：5 組裡唯一有結構性缺口者——brownfield 的 WHAT-layer（Feature Spec）無人服務（`archive.service.ts` 是 `specs/features/` 唯一寫入者，只靠 forward archive 填）。但反向萃取記錄 behavior 非 intent，必須重塑：草稿寫 change-scoped staging（`.prospec/changes/[name]/reverse-draft.md`）、**永不直寫信任區** `specs/features/`、每個推不出意圖標 `[NEEDS CLARIFICATION]`、**延伸既有 `prospec-design` Extract Mode（不新增 always-loaded skill）**、module-scoped/on-demand、以 BL-033 MCP 為輸入、強制人工 verify-and-promote。閘門：**OPT-A4 出貨後**＋有真實 brownfield 採用者拉動才做。原「可信賴自動 spec」scope 維持否決。來源：workflow `backlog-remainder-worth-building`（judge+challenge 皆 RESHAPE）。
+> **🔁 RESHAPE / BUILD-LATER（2026-06-15 重評）**：5 組裡唯一有結構性缺口者——brownfield 的 WHAT-layer（Feature Spec）無人服務（`archive.service.ts` 是 `specs/features/` 唯一寫入者，只靠 forward archive 填）。但反向萃取記錄 behavior 非 intent，必須重塑：草稿寫 change-scoped staging（`.prospec/changes/[name]/reverse-draft.md`）、**永不直寫信任區** `specs/features/`、每個推不出意圖標 `[NEEDS CLARIFICATION]`、**延伸既有 `prospec-design` Extract Mode（不新增 always-loaded skill）**、module-scoped/on-demand、以 BL-033 MCP 為輸入、強制人工 verify-and-promote。閘門：~~**OPT-A4 出貨後**~~（✅ OPT-A4 已於 2026-06-15 出貨 `add-quickstart-command`，gate 解除）＋有真實 brownfield 採用者拉動才做。原「可信賴自動 spec」scope 維持否決。來源：workflow `backlog-remainder-worth-building`（judge+challenge 皆 RESHAPE）。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2758,7 +2758,9 @@ Archive summary 加入循環價值指標：
 
 ### OPT-A4：Quickstart Skill
 
-> **🔁 BUILD-LATER（重塑為 CLI orchestrator，非 skill）（2026-06-15 重評）**：缺口真在但低槓桿。brownfield 現為 3 CLI 步+1 skill（`steering.ts:20`、`knowledge-generate.ts:24` 已 deprecated），非 6 步。最精簡：`prospec init --quickstart`（或 `prospec setup`）薄包裝既有 idempotent service（init → agent-sync → knowledge-init，skip-completed 用現成 `!fileExistsSync` 守衛 + 捕 `AlreadyExistsError`），印「next: /prospec-knowledge-generate」。**無新 service、無新 skill、G4 中性**。BUILD-LATER 而非 NOW：純一次性 onboarding 便利、無 recurring-token/品質槓桿 → 搭下一次動 CLI 的變更順手做，別單獨排程。來源：workflow `backlog-remainder-worth-building`。
+> **✅ 已完成（2026-06-15 `add-quickstart-command`，Grade A，commit `ae3cbf6`）**：最終走 **Hybrid**（`prospec quickstart` CLI 薄包裝 init+agent-sync、skip-completed；+ `/prospec-quickstart` skill 收尾：在地化 triggers→re-sync→knowledge init→chain knowledge-generate）。**與下方 BUILD-LATER 預測的差異（誠實記錄）**：(1) 純-CLI 不可行——AI Knowledge 生成需 LLM 讀 source，CLI 摸不到，故必須有 agent 端 skill 收尾；(2) 「無新 skill / G4 中性」靠新增 `SkillConfig.excludeFromEntryConfig`（skill 部署 SKILL.md 但排除於 always-loaded entry config）達成，解掉「skill 傷 G4」這個唯一反對前提；(3) 指令名定 `prospec quickstart`（非 `init --quickstart`）。畢業 REQ：project-setup US-010（REQ-SETUP-017/SERVICES-028）、agent-integration US-431（REQ-TYPES-030/AGNT-023/TEMPLATES-108/TESTS-029）。出貨解開 BL-032 gate。
+>
+> **🔁 原 BUILD-LATER 判決（重塑為 CLI orchestrator，非 skill）（2026-06-15 重評，保留供追溯）**：缺口真在但低槓桿。brownfield 現為 3 CLI 步+1 skill（`steering.ts:20`、`knowledge-generate.ts:24` 已 deprecated），非 6 步。最精簡：`prospec init --quickstart`（或 `prospec setup`）薄包裝既有 idempotent service（init → agent-sync → knowledge-init，skip-completed 用現成 `!fileExistsSync` 守衛 + 捕 `AlreadyExistsError`），印「next: /prospec-knowledge-generate」。**無新 service、無新 skill、G4 中性**。BUILD-LATER 而非 NOW：純一次性 onboarding 便利、無 recurring-token/品質槓桿 → 搭下一次動 CLI 的變更順手做，別單獨排程。來源：workflow `backlog-remainder-worth-building`。
 
 新增 `/prospec-quickstart` 合併啟動流程：
 

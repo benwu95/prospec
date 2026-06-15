@@ -9,6 +9,7 @@ import pc from 'picocolors';
 import { handleError } from './formatters/error-output.js';
 import { ConfigNotFound } from '../types/errors.js';
 import { registerInitCommand } from './commands/init.js';
+import { registerQuickstartCommand } from './commands/quickstart.js';
 import { registerSteeringCommand } from './commands/steering.js';
 import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
@@ -28,7 +29,7 @@ const pkg = require('../../package.json') as { version: string };
 /**
  * Commands that do NOT require .prospec.yaml to exist.
  */
-const INIT_COMMANDS = new Set(['init', 'help']);
+const INIT_COMMANDS = new Set(['init', 'quickstart', 'help']);
 
 /**
  * Resolve verbose/quiet from global options into a log level.
@@ -84,6 +85,7 @@ export function createProgram(): Command {
 
   // Register subcommand groups
   registerInitCommand(program);
+  registerQuickstartCommand(program);
   registerSteeringCommand(program);
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1039%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1061%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -239,7 +239,7 @@ Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案
 
 ## AI Skills
 
-Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
+Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
 
 | Skill | Slash Command | 說明 |
 |-------|---------------|------|
@@ -256,6 +256,8 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 | **學習** | `/prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
 | **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
+
+> **啟動收尾** —— `/prospec-quickstart` 在 `prospec quickstart` 之後執行一次（在地化 skill triggers、重新同步 agent 設定、生成 AI Knowledge）。它以 Skill 形式部署於磁碟，但不列入常駐的 entry config，因此不增加任何重複性 token 成本。
 
 ### 品質閘門與自我改進
 
@@ -303,6 +305,7 @@ Prospec 生成 13 個 Skills 涵蓋完整 SDD 生命週期：
 
 | 命令 | 說明 |
 |------|------|
+| `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`（跳過已完成步驟），接著在 AI agent 內交棒給 `/prospec-quickstart` 做 trigger 在地化與 Knowledge 生成。`--name`/`--agents`/`--language` 選項同 `init` |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>]` | 掃描專案並生成 raw-scan.md + 骨架 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
@@ -437,11 +440,11 @@ Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 
 ```
 src/
 ├── cli/          — Commander.js 命令 + 格式化輸出
-├── services/     — 業務邏輯（13 個 service）
+├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（51 個 .hbs 檔案）
-    └── skills/   — 13 個 Skill 模板 + 18 個 reference 模板
+└── templates/    — Handlebars 模板（52 個 .hbs 檔案）
+    └── skills/   — 14 個 Skill 模板 + 18 個 reference 模板
 ```
 
 ### 技術棧
@@ -459,7 +462,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1039 個測試）
+# 執行所有測試（1061 個測試）
 pnpm test
 
 # Watch 模式
@@ -476,11 +479,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1039 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：518 tests
-- Contract tests（CLI 輸出 + Skill 格式）：469 tests
+**測試覆蓋率**：1061 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：523 tests
+- Contract tests（CLI 輸出 + Skill 格式）：484 tests
 - Integration tests：17 tests
-- E2E tests：35 tests
+- E2E tests：37 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

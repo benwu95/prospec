@@ -22,7 +22,7 @@ last_updated: 2026-06-15
 
 ### 專案啟動
 
-一鍵初始化 SDD 專案結構，自動偵測技術棧與已安裝的 AI CLI 工具，並可選擇文件主要語言（Language Policy 寫入 Constitution，預設英文），生成 `.prospec.yaml` 配置、Constitution、AI Knowledge 骨架與 Agent 配置檔。
+一鍵初始化 SDD 專案結構，自動偵測技術棧與已安裝的 AI CLI 工具，並可選擇文件主要語言（Language Policy 寫入 Constitution，預設英文），生成 `.prospec.yaml` 配置、Constitution、AI Knowledge 骨架與 Agent 配置檔。`prospec quickstart` 進一步把 brownfield onboarding 串成單一指令（init + agent sync），再以 agent 端 `/prospec-quickstart` 收尾（在地化 triggers + 生成 AI Knowledge）。
 → [features/project-setup.md](features/project-setup.md)
 
 ### 開發流程

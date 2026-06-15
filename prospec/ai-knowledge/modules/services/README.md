@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (14 files, 4,035 lines)
+> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (15 files, 4,115 lines)
 
 <!-- prospec:auto-start -->
 
@@ -8,6 +8,7 @@
 
 | File | Purpose |
 |------|---------|
+| `src/services/quickstart.service.ts` | Quickstart orchestrator — sequences `init` (catch `AlreadyExistsError` → skipped) + `agentSync`, aggregates per-step status and forwards agent-sync hints; deliberately does NOT run `knowledge init` (LLM work belongs to the `/prospec-quickstart` skill); service-orchestrates-service (cf. change-resolver) |
 | `src/services/init.service.ts` | Project init — scaffold config (incl. artifact language via --language/prompt/CI default), Constitution with Language Policy rule, AI Knowledge; renders all templates to memory first and writes `.prospec.yaml` LAST as the completion marker (mid-init failure leaves a re-runnable state) |
 | `src/services/steering.service.ts` | Architecture discovery — scan, detectModules(strategy), generate module-map.yaml; `buildLayers` excludes the reserved `base_dir` key (artifact root, not a code layer) and falls through to detected modules when it is the only `paths` key |
 | `src/services/knowledge.service.ts` | Module README + _index.md generation — Recipe-First format, key_exports, ContentMerger |
@@ -25,6 +26,7 @@
 
 ## Public API
 
+- `quickstart.execute(options)` — One-command onboarding: init (catch `AlreadyExistsError` → skipped) + agent sync; Result carries per-step `steps`, the `agentSync` result (hints), and `nextStep` (`/prospec-quickstart`)
 - `init.execute(options)` — Initialize new Prospec project
 - `steering.execute(options)` — Discover architecture, generate module-map
 - `knowledge.execute(options)` — Generate module READMEs and _index.md
