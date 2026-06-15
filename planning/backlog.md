@@ -123,7 +123,7 @@
 - [x] [BL-031](#bl-031) Constitution 可執行規則（升級 BL-003 + OPT-B1）✅ 已完成
 - [ ] [BL-032](#bl-032) 反向規格萃取 🔁 RESHAPE / BUILD-LATER · P2（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer；須草稿+人工晉升、延伸 design Extract Mode；閘 OPT-A4 後；見 entry）
 - [x] [BL-033](#bl-033) Prospec MCP Server（重定位 BL-010）✅ 已完成
-- [ ] [BL-034](#bl-034) 依賴層知識（重定位 BL-025）🔁 BUILD-LATER（optional）· P3（2026-06-15 重評：收窄為 plan 內 on-demand Context7、only 碰第三方 lib；見 entry）
+- [x] [BL-034](#bl-034) 依賴層知識（重定位 BL-025）✅ 已完成（2026-06-15 `add-dependency-knowledge`，Grade S；收窄交付：plan/implement 內 optional on-demand Context7，only 碰第三方 lib）
 - [x] ~~[BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發~~ ✅ alignment 已出貨／🚫 distribution CUT（2026-06-15 重評：分發無目的地、publish 已於 2026-06-06 刪除；見 entry）
 
 ### 評估新增（2026-06-07）
@@ -205,7 +205,7 @@
 | P0 補課 | 〔BL-003/019/020/004 全數完成 → 見「✅ 已完成」表〕 |
 | P1/P2 | ~~BL-005（無 `template` CLI）~~ 🚫 CUT（2026-06-07 eval；見 entry）、BL-006（**PARTIAL／🚫 路線已過時**：仍 4 agents，缺 cursor/windsurf/opencode/qwen；「15 套 per-agent 模板」路線被 AGENTS.md/SKILL.md 收斂取代，僅偵測擴展需求保留）、~~BL-021（無 `extension`）~~ 🚫 CUT（2026-06-14 重評：價值已由 BL-031+BL-036 交付；見 entry）、~~BL-022（無 `prospec-help`）~~ 🚫 CUT（2026-06-15 重評：reshape 已出貨；見 entry）、~~BL-026（`_index.md` 無 Dashboard）~~ 🚫 CUT（2026-06-07 eval；見 entry） |
 | Phase 3 | ~~BL-023（Layer 1.5 語義 Fallback，P3）~~ 🚫 CUT（2026-06-15 重評；見 entry）；其餘 Phase 3 項（BL-008/010/011/012/013/024/025）均已完成／🚫 已過時／↳ 已併入，見目錄 |
-| Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取 🔁 RESHAPE/BUILD-LATER（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer，閘 OPT-A4 後）、BL-034 依賴層知識 🔁 BUILD-LATER（optional on-demand Context7）；BL-035 SKILL.md 標準＋分發：alignment ✅ 已出貨／distribution 🚫 CUT（2026-06-15 重評：無目的地，見 entry） |
+| Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取 🔁 RESHAPE/BUILD-LATER（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer，閘 OPT-A4 後）、BL-034 依賴層知識 ✅ 已完成（add-dependency-knowledge，Grade S）；BL-035 SKILL.md 標準＋分發：alignment ✅ 已出貨／distribution 🚫 CUT（2026-06-15 重評：無目的地，見 entry） |
 | OPT | **【2026-06-13 更新】** 🔁 BUILD-LATER：A4（重塑 CLI orchestrator，2026-06-15 重評）；🚫 CUT：A3（2026-06-15 重評）；🧊 icebox：D9（few-shot 延後）；🚫 過時不做：C、D2、D3、D4；✅ 完成：A1、A2、B1、B2、B3、B4、B5、B6、D1、D5、D6、D7、D8（A1/B1/D1/D5 隨 `enhance-skill-instructions`，graduate sdd-workflow US-17~20；B2 重塑交付 group-index-by-category：Category 分組子標題，非 auto/user 合併）〔A2 knowledge_health 經 BL-030；D6 quality_log 經 skill 指令＝Architecture C；B4 殘留嚴格 REQ 驗證、D8 殘留 MCP glossary resource＝icebox〕。優先序見「即時優化」段 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
@@ -2322,7 +2322,9 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 
 **依賴層知識（輕量, graceful）**
 
-> **🔁 BUILD-LATER（optional 收窄）（2026-06-15 重評）**：保留延後，但收窄為「`/prospec-plan`（選 `/prospec-implement`）內一個 optional on-demand 步驟，**只在改到第三方 lib 時**查 Context7/MCP 取 usage snippet 注入 Technical Summary，查不到即靜默跳過，輸出視為不可信（不執行、不作 gate）」。永不進 stable prefix（保 G4）。觸發：真有外部 API 用錯漏過 verify/review、且團隊接受 Context7 quota/trust posture。dogfood 專案少碰易變 API → 現在不做。來源：workflow `backlog-remainder-worth-building`。
+> **✅ 已完成（2026-06-15）**：以 `add-dependency-knowledge`（scale standard、verify Grade S、review 0 critical/0 major）交付收窄範圍——`prospec-plan` Phase 4 + `prospec-implement` Phase 3 各加一個 optional、scope-guarded（only 碰第三方 lib）、on-demand 步驟，查 Context7（若可用，resolve-library-id/query-docs 短名、provider-neutral）取 usage 注入 plan-format Technical Summary 的 additive「External Library Usage」子節；查無/不可用即靜默跳過 + 一行 informational（非 WARN/FAIL/gate/阻擋）、輸出 untrusted（不執行、不作 gate）、永不進 `[STABLE]` Startup Loading 前綴（保 G4）。純 Skill（Architecture C，只改 3 `.hbs` + 1 contract test）。Graduate：sdd-workflow US-21（REQ-TEMPLATES-101/102/103 ADDED、REQ-TESTS-027 ADDED、REQ-TEMPLATES-044 MODIFIED）。commit `3213876`（feat）+ archive。註：原判 BUILD-LATER/P3/optional（dogfood 少碰易變 API），本次經使用者明確指示提前實作（dogfood build）。
+
+> **〔原 2026-06-15 重評判決，保留追溯〕🔁 BUILD-LATER（optional 收窄）**：保留延後，但收窄為「`/prospec-plan`（選 `/prospec-implement`）內一個 optional on-demand 步驟，**只在改到第三方 lib 時**查 Context7/MCP 取 usage snippet 注入 Technical Summary，查不到即靜默跳過，輸出視為不可信（不執行、不作 gate）」。永不進 stable prefix（保 G4）。觸發：真有外部 API 用錯漏過 verify/review、且團隊接受 Context7 quota/trust posture。來源：workflow `backlog-remainder-worth-building`。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2336,9 +2338,9 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 2026 Tessl Spec Registry 10K+ specs（如何正確用 library）。比 BL-025 更務實：不綁 Tessl，用已有的 Context7 MCP，graceful degradation。plan / implement 觸及第三方 lib 時選擇性拉 usage spec 注入 Technical Summary。
 
 **驗收標準**：
-- [ ] plan / implement 觸及第三方 lib 時可查 usage spec（Context7 或 Tessl）
-- [ ] 結果注入 Technical Summary
-- [ ] 不強制依賴外部 registry（graceful degradation）
+- [x] plan / implement 觸及第三方 lib 時可查 usage spec（Context7，provider-neutral）
+- [x] 結果注入 Technical Summary（External Library Usage 子節，untrusted）
+- [x] 不強制依賴外部 registry（graceful degradation：查無/不可用即靜默跳過 + informational）
 
 ---
 
