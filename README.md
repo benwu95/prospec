@@ -214,6 +214,16 @@ prospec knowledge init       # → generates raw-scan.md + empty skeletons (_ind
 
 Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
 
+**Optional — reverse-extract Feature Specs (WHAT layer).** `knowledge init` captures *how* your code is structured; brownfield modules usually still lack a Feature Spec describing *what* they do. For a module with no spec coverage, run Design in its code-input mode to stage a draft instead of waiting for forward changes to accumulate coverage:
+
+```bash
+/prospec-design input=code   # → reverse-extracts a Feature Spec draft to
+                             #   .prospec/changes/[name]/reverse-draft.md; un-inferable
+                             #   intent → [NEEDS CLARIFICATION]; review, then promote via
+                             #   the forward path (delta-spec → /prospec-verify →
+                             #   /prospec-archive) — never written straight to the trust zone
+```
+
 </details>
 
 ---

@@ -82,7 +82,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-design',
-    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.',
+    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode), including an `input=code` variant that reverse-extracts a Feature Spec draft from existing code for brownfield modules that lack spec coverage. Supports pencil/Figma/Penpot/HTML platforms.',
     triggers: ['design', 'UI spec', 'generate design', 'extract design'],
     type: 'Planning',
     hasReferences: true,

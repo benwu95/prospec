@@ -213,6 +213,16 @@ prospec knowledge init       # → 生成 raw-scan.md + 空骨架（_index.md、
 
 這裡的 `knowledge init` 會讀取你既有的程式碼，所以 `/prospec-knowledge-generate` 一開始就產出內容豐富的 Knowledge base。接著就照上面步驟 3 跑你的第一個變更 —— 開發迴圈與 Greenfield 完全相同。
 
+**選用 —— 反向萃取 Feature Spec（WHAT 層）。** `knowledge init` 捕捉的是程式碼*怎麼*組織；brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。對沒有 spec 覆蓋的模組，用 Design 的 code 輸入模式 stage 一份草稿，不必等 forward change 慢慢累積覆蓋：
+
+```bash
+/prospec-design input=code   # → 反向萃取 Feature Spec 草稿至
+                             #   .prospec/changes/[name]/reverse-draft.md；推不出的 intent
+                             #   標 [NEEDS CLARIFICATION]；審閱後經 forward path 晉升
+                             #   （delta-spec → /prospec-verify → /prospec-archive），
+                             #   絕不直寫信任區
+```
+
 </details>
 
 ---
