@@ -214,3 +214,82 @@ describe('detectTechStack', () => {
     expect(result.source).toBe('auto-detected');
   });
 });
+
+describe('detectTechStack — backend languages', () => {
+  const cases: Array<[string, Record<string, string>, string, string]> = [
+    ['Go', { '/project/go.mod': 'module x\n' }, 'go', 'go modules'],
+    ['Rust', { '/project/Cargo.toml': '[package]\nname = "x"\n' }, 'rust', 'cargo'],
+    ['Java (Maven)', { '/project/pom.xml': '<project/>' }, 'java', 'maven'],
+    ['Java (Gradle)', { '/project/build.gradle': '' }, 'java', 'gradle'],
+    ['Java (Gradle Kotlin DSL)', { '/project/build.gradle.kts': '' }, 'java', 'gradle'],
+    ['C#', { '/project/App.csproj': '<Project/>' }, 'c#', 'nuget'],
+    ['Ruby', { '/project/Gemfile': "source 'https://rubygems.org'\n" }, 'ruby', 'bundler'],
+    ['PHP', { '/project/composer.json': '{}' }, 'php', 'composer'],
+  ];
+
+  it.each(cases)('detects %s', (_label, files, language, pm) => {
+    vol.fromJSON(files);
+    const result = detectTechStack('/project');
+    expect(result.language).toBe(language);
+    expect(result.package_manager).toBe(pm);
+    expect(result.source).toBe('auto-detected');
+  });
+
+  it('lets a Node package.json win over a backend manifest (existing precedence)', () => {
+    vol.fromJSON({
+      '/project/package.json': JSON.stringify({ name: 'x' }),
+      '/project/go.mod': 'module x\n',
+    });
+    expect(detectTechStack('/project').language).not.toBe('go');
+  });
+
+  it('matches pom.xml / *.csproj tree-wide when a file list is given', () => {
+    vol.fromJSON({ '/project/.gitignore': '' });
+    expect(
+      detectTechStack('/project', undefined, ['src/App.csproj']).language,
+    ).toBe('c#');
+    expect(
+      detectTechStack('/project', undefined, ['backend/pom.xml']).language,
+    ).toBe('java');
+  });
+
+  it('detects Swift from Package.swift', () => {
+    const result = detectTechStack('/project', undefined, ['Package.swift', 'Sources/App/main.swift']);
+    expect(result.language).toBe('swift');
+    expect(result.package_manager).toBe('spm');
+  });
+
+  it('splits C vs C++ by source extension under a C-family build file', () => {
+    expect(
+      detectTechStack('/project', undefined, ['CMakeLists.txt', 'src/main.cpp']),
+    ).toMatchObject({ language: 'c++', package_manager: 'cmake' });
+    expect(
+      detectTechStack('/project', undefined, ['CMakeLists.txt', 'src/main.c']),
+    ).toMatchObject({ language: 'c', package_manager: 'cmake' });
+  });
+
+  it('derives the C-family package manager from the manifest', () => {
+    expect(
+      detectTechStack('/project', undefined, ['vcpkg.json', 'main.cpp']).package_manager,
+    ).toBe('vcpkg');
+    expect(
+      detectTechStack('/project', undefined, ['conanfile.txt', 'main.c']).package_manager,
+    ).toBe('conan');
+  });
+
+  it('does NOT treat a bare Makefile as a C/C++ signal', () => {
+    expect(
+      detectTechStack('/project', undefined, ['Makefile', 'src/main.c']).language,
+    ).toBeUndefined();
+  });
+
+  it('lets .prospec.yaml tech_stack override the C/C++ heuristic', () => {
+    const result = detectTechStack(
+      '/project',
+      { language: 'c', package_manager: 'cmake' },
+      ['CMakeLists.txt', 'src/main.cpp'], // heuristic would say c++
+    );
+    expect(result.language).toBe('c');
+    expect(result.source).toBe('config');
+  });
+});

@@ -332,6 +332,36 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
+#### Project-scan language support
+
+`prospec knowledge init` / `knowledge refresh` detect the following into `raw-scan.md`. Detection is deterministic (no LLM, no network) and best-effort; coverage differs by section:
+
+| Language | Tech Stack | Dependencies | Entry Points | Config Files |
+|----------|:---:|:---:|:---:|:---:|
+| JavaScript / TypeScript | ✅ (+ framework) | ✅ `package.json` | ✅ | ✅ |
+| Python | ✅ | ✅ `pyproject.toml` / `requirements.txt` | ✅ | ✅ |
+| Go | ✅ | ✅ `go.mod` | ✅ | ✅ |
+| Rust | ✅ | ✅ `Cargo.toml` | ✅ | ✅ |
+| Java / Kotlin | ✅ Maven / Gradle | ✅ `pom.xml` ¹ | ✅ | ✅ |
+| C# | ✅ | ✅ `*.csproj` | ✅ | ✅ |
+| Ruby | ✅ | — ² | ✅ | ✅ |
+| PHP | ✅ | ✅ `composer.json` | — | ✅ |
+| C | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| C++ | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| Swift | ✅ `Package.swift` | — ⁵ | ✅ | ✅ |
+
+¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). ³ C vs C++ is inferred from source-file extensions; set `tech_stack` in `.prospec.yaml` to override. ⁴ C/C++ dependencies are read from declarative manifests only — `CMakeLists.txt` and `conanfile.py` are imperative and not parsed. ⁵ Swift dependencies are not parsed (`Package.swift` is imperative Swift). Any unrecognized language still appears in the Directory Tree and File Stats sections.
+
+**A language outside this table?** It still scans — the Directory Tree and File Stats sections are always populated, and `/prospec-knowledge-generate` reads the source directly. The Tech Stack line falls back to `unknown`; declare it authoritatively in `.prospec.yaml` `tech_stack` (free-form — it overrides auto-detection and is reported with `Source: config`):
+
+```yaml
+tech_stack:
+  language: zig
+  package_manager: zig build
+```
+
+Entry Points, Dependencies, and Config Files have no per-language override — they stay empty for an unrecognized language until detection patterns are added (the scan never invents them).
+
 ### Change Management Commands
 
 | Command | Description |

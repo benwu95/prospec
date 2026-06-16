@@ -18,6 +18,35 @@
 - `dist/cli/index.js`
 - `src/cli/index.ts`
 
+## Dependencies
+
+- `@commander-js/extra-typings` @ ^14.0.0
+- `@inquirer/prompts` @ ^8.2.0
+- `@modelcontextprotocol/sdk` @ 1.29.0
+- `commander` @ ^14.0.3
+- `fast-glob` @ ^3.3.3
+- `fast-xml-parser` @ ^5.9.0
+- `handlebars` @ ^4.7.8
+- `picocolors` @ ^1.1.1
+- `smol-toml` @ ^1.6.1
+- `yaml` @ ^2.8.2
+- `zod` @ ^4.3.6
+- `@eslint/js` @ ^9.39.2
+- `@types/node` @ ^25.2.0
+- `eslint` @ ^9.39.2
+- `memfs` @ ^4.56.10
+- `tsx` @ ^4.22.4
+- `typescript` @ 5.9
+- `typescript-eslint` @ ^8.54.0
+- `vitest` @ ^4.0.18
+
+## Config Files
+
+- `eslint.config.mjs`
+- `package.json`
+- `tsconfig.json`
+- `vitest.config.ts`
+
 ## Directory Tree
 
 ```
@@ -73,36 +102,9 @@ tests/
     types/
 ```
 
-## Dependencies
-
-- `@commander-js/extra-typings` @ ^14.0.0
-- `@inquirer/prompts` @ ^8.2.0
-- `@modelcontextprotocol/sdk` @ 1.29.0
-- `commander` @ ^14.0.3
-- `fast-glob` @ ^3.3.3
-- `handlebars` @ ^4.7.8
-- `picocolors` @ ^1.1.1
-- `yaml` @ ^2.8.2
-- `zod` @ ^4.3.6
-- `@eslint/js` @ ^9.39.2
-- `@types/node` @ ^25.2.0
-- `eslint` @ ^9.39.2
-- `memfs` @ ^4.56.10
-- `tsx` @ ^4.22.4
-- `typescript` @ 5.9
-- `typescript-eslint` @ ^8.54.0
-- `vitest` @ ^4.0.18
-
-## Config Files
-
-- `eslint.config.mjs`
-- `package.json`
-- `tsconfig.json`
-- `vitest.config.ts`
-
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 299 |
+| Total files | 303 |
 | Scan depth | 10 |

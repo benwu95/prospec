@@ -198,3 +198,236 @@ describe('raw-scan.service / execute (refresh entry)', () => {
     expect(fs.existsSync(RAW_SCAN_PATH)).toBe(true);
   });
 });
+
+const PROSPEC_YAML = 'project:\n  name: backend\n';
+function depNames(deps: Array<{ name: string }>): string[] {
+  return deps.map((d) => d.name);
+}
+
+describe('raw-scan.service / Dependencies — backend ecosystems', () => {
+  it('parses Poetry pyproject.toml (no package.json → not empty)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/pyproject.toml':
+        '[tool.poetry.dependencies]\npython = "^3.11"\nrequests = "^2.31"\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['requests']);
+  });
+
+  it('parses PEP 621 pyproject.toml', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/pyproject.toml':
+        '[project]\nname = "x"\ndependencies = ["flask>=2", "click"]\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['flask', 'click']);
+  });
+
+  it('falls back to requirements.txt when pyproject has no deps', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/pyproject.toml': '[build-system]\nrequires = ["setuptools"]\n',
+      '/project/requirements.txt': 'django==5.0\n-r dev.txt\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['django']);
+  });
+
+  it('parses go.mod require directives', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/go.mod':
+        'module x\ngo 1.22\nrequire (\n\tgithub.com/gin-gonic/gin v1.9.1\n)\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['github.com/gin-gonic/gin']);
+  });
+
+  it('parses Cargo.toml', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Cargo.toml': '[dependencies]\nserde = "1.0"\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['serde']);
+  });
+
+  it('parses composer.json (skips platform packages)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/composer.json': JSON.stringify({
+        require: { php: '>=8.1', 'laravel/framework': '^11' },
+      }),
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['laravel/framework']);
+  });
+
+  it('parses pom.xml located in a subdirectory', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/app/pom.xml':
+        '<project><dependencies><dependency><groupId>g</groupId><artifactId>a</artifactId><version>1</version></dependency></dependencies></project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['g:a']);
+  });
+
+  it('parses *.csproj PackageReference', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/App.csproj':
+        '<Project><ItemGroup><PackageReference Include="Serilog" Version="3.1.1" /></ItemGroup></Project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['Serilog']);
+  });
+
+  it('keeps Tech Stack and Dependencies consistent for a Ruby+PHP tree', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Gemfile': "source 'https://rubygems.org'\n",
+      '/project/composer.json': JSON.stringify({
+        require: { 'laravel/framework': '^11' },
+      }),
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('ruby');
+    expect(result.dependencies).toEqual([]); // Ruby short-circuit, not PHP deps
+  });
+
+  it('detects C# tech stack from a csproj in a subdirectory (tree-wide)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/src/App.csproj':
+        '<Project><ItemGroup><PackageReference Include="Serilog" Version="3.1.1" /></ItemGroup></Project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('c#');
+    expect(depNames(result.dependencies)).toEqual(['Serilog']);
+  });
+});
+
+describe('raw-scan.service / C, C++, Swift', () => {
+  it('parses vcpkg.json deps and reports C++ / vcpkg with entry + config', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/vcpkg.json': JSON.stringify({ dependencies: ['fmt', { name: 'boost' }] }),
+      '/project/src/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack).toMatchObject({ language: 'c++', package_manager: 'vcpkg' });
+    expect(depNames(result.dependencies)).toEqual(['fmt', 'boost']);
+    expect(result.entryPoints).toContain('src/main.cpp');
+    expect(result.configFiles).toEqual(
+      expect.arrayContaining(['CMakeLists.txt', 'vcpkg.json']),
+    );
+  });
+
+  it('parses conanfile.txt deps and reports C / conan', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/conanfile.txt': '[requires]\nzlib/1.2.13\n',
+      '/project/main.c': 'int main(void){return 0;}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack).toMatchObject({ language: 'c', package_manager: 'conan' });
+    expect(depNames(result.dependencies)).toEqual(['zlib']);
+  });
+
+  it('reports Swift with empty deps (Package.swift not parsed) and main.swift entry', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Package.swift': '// swift-tools-version:5.9\n',
+      '/project/Sources/App/main.swift': 'print("hi")\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('swift');
+    expect(result.dependencies).toEqual([]);
+    expect(result.entryPoints).toContain('Sources/App/main.swift');
+    expect(result.configFiles).toContain('Package.swift');
+  });
+
+  it('leaves deps empty for an imperative-only C++ project (CMake, no vcpkg/conan)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('c++');
+    expect(result.dependencies).toEqual([]);
+  });
+
+  it('keeps Tech Stack and Dependencies consistent for a vcpkg.json with no C/C++ source', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/vcpkg.json': JSON.stringify({ dependencies: ['fmt'] }),
+      '/project/README.md': '# demo\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBeUndefined();
+    expect(result.dependencies).toEqual([]); // gated on C-family source evidence
+  });
+
+  it('detects a C++ entry point in a nested directory', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/apps/tool/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('apps/tool/main.cpp');
+  });
+});
+
+describe('raw-scan.service / Entry Points + Config Files — backend', () => {
+  it('detects Go and Rust entry-point files', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/main.go': 'package main\n',
+      '/project/go.mod': 'module x\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('main.go');
+  });
+
+  it('detects Python script targets and __main__.py', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/pyproject.toml':
+        '[project.scripts]\ndemo = "demo.cli:main"\n',
+      '/project/demo/__main__.py': '',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('demo.cli:main');
+    expect(result.entryPoints).toContain('demo/__main__.py');
+  });
+
+  it('detects an executable csproj as an entry point', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/App.csproj':
+        '<Project><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('App.csproj');
+  });
+
+  it('lists backend build files as config files', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/pom.xml': '<project/>',
+      '/project/build.gradle': '',
+      '/project/Gemfile': '',
+      '/project/composer.json': '{}',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.configFiles).toEqual(
+      expect.arrayContaining(['pom.xml', 'build.gradle', 'Gemfile', 'composer.json']),
+    );
+  });
+});

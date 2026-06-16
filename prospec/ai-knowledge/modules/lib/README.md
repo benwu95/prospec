@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, and the knowledge content read layer (17 files, 3,107 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, the knowledge content read layer, and deterministic multi-language manifest parsing (18 files, 3,629 lines)
 
 <!-- prospec:auto-start -->
 
@@ -16,7 +16,8 @@
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir; `detectByDomain` decouples module NAME from path GLOB (one `**/<real-dir-segment>/**` per actual dir, unioned when several normalize to one name); `normalizeDomainName` strips a layer suffix only at a `-`/`_`/camelCase boundary (so `preview`/`reviews` survive); when no path is passed, the default `knowledgeBasePath` derives from `DEFAULT_BASE_DIR` (`prospec/ai-knowledge`) |
-| `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
+| `src/lib/detector.ts` | detectTechStack(cwd, config, files?) + hasCFamilySource() — config-first stack (`.prospec.yaml` wins); auto-detects 11 languages incl. backend (Go/Rust/Java/C#/Ruby/PHP/C/C++/Swift) by manifest + C-vs-C++ extension heuristic; tree-wide pom/csproj/Package.swift via `files` |
+| `src/lib/manifest-parsers.ts` | Deterministic, no-network dependency/entry-point parsers — TOML (pyproject Poetry+PEP621, Cargo) via smol-toml, XML (pom.xml/*.csproj) via fast-xml-parser, hand-rolled go.mod/requirements.txt/composer.json/vcpkg.json/conanfile.txt; return `[]` on malformed |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols (picocolors; auto-disabled on non-TTY via NO_COLOR set at CLI entry, see cli/setup-color.ts) |
@@ -36,7 +37,8 @@
 - `scanDir(patterns, options)` — Scan directory with fast-glob
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
 - `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
-- `detectTechStack(cwd, configTechStack?)` — Resolve language/framework/package manager; `.prospec.yaml` tech_stack wins, auto-detection fills gaps; reports `source` (config/auto-detected/mixed)
+- `detectTechStack(cwd, configTechStack?, files?)` — Resolve language/framework/package manager across 11 languages (incl. backend); `.prospec.yaml` tech_stack wins, detection fills gaps; `source` = config/auto-detected/mixed; `hasCFamilySource(files)` — shared C/C++ source-evidence predicate
+- `parse{Pyproject,Cargo,GoMod,RequirementsTxt,Composer,Maven,Csproj,Vcpkg,ConanfileTxt}Dependencies(content)` → `ManifestDependency[]`; `parse{Pyproject,Cargo}EntryPoints` / `csprojIsExecutable` — per-ecosystem extraction, all pure + malformed-safe
 - `exampleRulesFor(techStack)` — Stack-appropriate starter rules; `languagePolicyRule(language)` — [MUST] artifact-language rule
 - `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check)
 - `escapeYamlScalar(text)` — escape user text for double-quoted YAML scalars in noEscape templates
