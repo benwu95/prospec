@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.2.1
-last_updated: 2026-06-16
+last_updated: 2026-06-17
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -27,7 +27,7 @@ last_updated: 2026-06-16
 
 ### 開發流程
 
-六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。plan/implement 觸及第三方 lib 時，可選擇性 on-demand 從 Context7（若可用）注入依賴層 usage 知識（untrusted、graceful、永不進 stable prefix）。
+六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。plan/implement 觸及第三方 lib 時，可選擇性 on-demand 從 Context7（若可用）注入依賴層 usage 知識（untrusted、graceful、永不進 stable prefix）。brownfield 專案可用 `/prospec-backfill-spec` 從既有 code 回填行為層 Feature Spec 草稿（WHAT-layer 補全、人工 verify-and-promote、永不寫信任區）。
 → [features/sdd-workflow.md](features/sdd-workflow.md)
 
 ### AI 知識系統
@@ -42,7 +42,7 @@ last_updated: 2026-06-16
 
 ### 設計整合
 
-從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）；Extract Mode 另含 input=code 變體，從既有 code 反向萃取行為層 Feature Spec 草稿以補 brownfield WHAT-layer（人工 verify-and-promote、永不寫信任區）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
+從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
 → [features/design-phase.md](features/design-phase.md)
 
 ### Token 量測
