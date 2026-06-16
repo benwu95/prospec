@@ -157,7 +157,8 @@ That's the full SDD loop. Because `/prospec-quickstart` already seeded AI Knowle
 <details>
 <summary>Greenfield vs. brownfield bootstrap — what the two commands expand to</summary>
 
-**Greenfield (new projects)** — `prospec quickstart` → `/prospec-quickstart` is the whole bootstrap:
+#### Greenfield (new projects)
+`prospec quickstart` → `/prospec-quickstart` is the whole bootstrap:
 
 ```bash
 mkdir my-project && cd my-project
@@ -189,7 +190,8 @@ prospec agent sync               # → per-agent config + Skills (Claude Code �
 
 On a fresh repo, `/prospec-knowledge-generate` produces a minimal Knowledge base that fills in as you ship changes. Then run your first change exactly as in step 3 above.
 
-**Brownfield (existing projects)** — same two commands; `/prospec-quickstart` reads your existing code into AI Knowledge:
+#### Brownfield (existing projects)
+same two commands; `/prospec-quickstart` reads your existing code into AI Knowledge:
 
 ```bash
 cd existing-project
@@ -214,15 +216,17 @@ prospec knowledge init       # → generates raw-scan.md + empty skeletons (_ind
 
 Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
 
-**Optional — backfill Feature Specs (WHAT layer).** `knowledge init` captures *how* your code is structured; brownfield modules usually still lack a Feature Spec describing *what* they do. For a module with no spec coverage, run the Backfill Spec skill to stage a draft instead of waiting for forward changes to accumulate coverage:
+**Optional — backfill Feature Specs (WHAT layer).** `knowledge init` captures *how* your code is structured; brownfield modules usually still lack a Feature Spec describing *what* they do. For a module with no spec coverage, run `/prospec-backfill-spec` to stage a draft from existing code, then promote it through the normal forward path — the draft is *route-compatible* (it carries `**Feature:**`/`**Story:**` headers), so nothing is written straight to `prospec/specs/features/` (archive is its sole writer):
 
 ```bash
 /prospec-backfill-spec       # → backfills a Feature Spec draft to
-                             #   .prospec/changes/[name]/backfill-draft.md; un-inferable
-                             #   intent → [NEEDS CLARIFICATION]; review, then promote via
-                             #   the forward path (delta-spec → /prospec-verify →
-                             #   /prospec-archive) — never written straight to the trust zone
+                             #   .prospec/changes/[name]/backfill-draft.md; un-inferable intent → [NEEDS CLARIFICATION]
 ```
+
+1. **Review the draft** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC — intent that code alone can't reveal) and confirm the candidate feature slug.
+2. **Feed it into a change** — turn the draft's User Stories into a `proposal.md` and its REQ candidates into a `delta-spec.md` (as `ADDED`, keeping the draft's `**Feature:**` slug). `/prospec-new-story` can seed the change.
+3. **Verify** — run `/prospec-verify` until it reaches grade S/A (`status: verified`).
+4. **Archive** — run `/prospec-archive`; its Feature Spec Sync writes the requirements into `prospec/specs/features/{slug}.md`. That graduation is the only step that writes the trust zone.
 
 </details>
 
