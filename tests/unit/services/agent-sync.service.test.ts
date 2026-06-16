@@ -50,7 +50,7 @@ agents:
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -69,7 +69,7 @@ agents:
   - claude
   - antigravity
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -85,7 +85,7 @@ knowledge:
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -104,7 +104,7 @@ agents:
   - claude
   - antigravity
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -122,7 +122,7 @@ knowledge:
 agents:
   - codex
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -140,7 +140,7 @@ knowledge:
 agents:
   - antigravity
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -157,7 +157,7 @@ agents:
   - codex
   - copilot
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -190,7 +190,7 @@ knowledge:
     );
 
     const yaml = (order: string) =>
-      `project:\n  name: t\nagents:\n${order}\nknowledge:\n  base_path: docs/ai-knowledge\n`;
+      `project:\n  name: t\nagents:\n${order}\nknowledge:\n  base_path: prospec/ai-knowledge\n`;
 
     vol.fromJSON({
       '/p/.prospec.yaml': yaml('  - antigravity\n  - codex\n  - copilot'),

@@ -23,14 +23,14 @@ vi.mock('node:fs', async () => {
 vi.mock('../../../src/lib/config.js', () => ({
   readConfig: vi.fn().mockResolvedValue({
     project: { name: 'test-project' },
-    knowledge: { base_path: 'docs/ai-knowledge' },
+    knowledge: { base_path: 'prospec/ai-knowledge' },
     exclude: [],
   }),
   resolveBasePaths: vi.fn().mockReturnValue({
-    baseDir: '/test/docs',
-    knowledgePath: '/test/docs/ai-knowledge',
-    constitutionPath: '/test/docs/CONSTITUTION.md',
-    specsPath: '/test/docs/specs',
+    baseDir: '/test/prospec',
+    knowledgePath: '/test/prospec/ai-knowledge',
+    constitutionPath: '/test/prospec/CONSTITUTION.md',
+    specsPath: '/test/prospec/specs',
   }),
 }));
 
@@ -158,17 +158,17 @@ describe('parseDeltaSpec', () => {
 describe('updateModuleReadme', () => {
   it('should create new module README.md', async () => {
     vol.fromJSON({});
-    vol.mkdirSync('/project/docs/ai-knowledge/modules', { recursive: true });
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
 
     const result = await updateModuleReadme('auth', ['src/auth/**'], {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     expect(result.action).toBe('created');
-    expect(result.path).toBe('docs/ai-knowledge/modules/auth/README.md');
+    expect(result.path).toBe('prospec/ai-knowledge/modules/auth/README.md');
 
-    const content = vol.readFileSync('/project/docs/ai-knowledge/modules/auth/README.md', 'utf-8');
+    const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/auth/README.md', 'utf-8');
     expect(content).toContain('prospec:auto-start');
   });
 
@@ -177,17 +177,17 @@ describe('updateModuleReadme', () => {
       '# Auth\n\n<!-- prospec:auto-start -->\nOld auto content\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nMy custom notes\n<!-- prospec:user-end -->\n';
 
     vol.fromJSON({
-      '/project/docs/ai-knowledge/modules/auth/README.md': existingContent,
+      '/project/prospec/ai-knowledge/modules/auth/README.md': existingContent,
     });
 
     const result = await updateModuleReadme('auth', ['src/auth/**'], {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     expect(result.action).toBe('updated');
 
-    const content = vol.readFileSync('/project/docs/ai-knowledge/modules/auth/README.md', 'utf-8') as string;
+    const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/auth/README.md', 'utf-8') as string;
     expect(content).toContain('My custom notes');
   });
 
@@ -195,11 +195,11 @@ describe('updateModuleReadme', () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
 
     vol.fromJSON({});
-    vol.mkdirSync('/project/docs/ai-knowledge/modules', { recursive: true });
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
 
     await updateModuleReadme('services', ['src/services/**'], {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     const calls = vi.mocked(mockRender).mock.calls;
@@ -228,11 +228,11 @@ describe('updateModuleReadme', () => {
     });
 
     vol.fromJSON({});
-    vol.mkdirSync('/project/docs/ai-knowledge/modules', { recursive: true });
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
 
     await updateModuleReadme('services', ['src/services/**'], {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     const calls = vi.mocked(mockRender).mock.calls;
@@ -250,18 +250,18 @@ describe('updateModuleReadme', () => {
 describe('markModuleDeprecated', () => {
   it('should add deprecated banner to existing README', async () => {
     vol.fromJSON({
-      '/project/docs/ai-knowledge/modules/legacy/README.md': '# Legacy\n\nSome content\n',
+      '/project/prospec/ai-knowledge/modules/legacy/README.md': '# Legacy\n\nSome content\n',
     });
 
     const result = await markModuleDeprecated('legacy', 'No longer needed', {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     expect(result).not.toBeNull();
     expect(result!.action).toBe('deprecated');
 
-    const content = vol.readFileSync('/project/docs/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
+    const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
     expect(content).toContain('> **DEPRECATED**');
     expect(content).toContain('No longer needed');
   });
@@ -272,7 +272,7 @@ describe('markModuleDeprecated', () => {
 
     const result = await markModuleDeprecated('nonexistent', 'Gone', {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     expect(result).toBeNull();
@@ -280,17 +280,17 @@ describe('markModuleDeprecated', () => {
 
   it('should not add duplicate deprecation banners', async () => {
     vol.fromJSON({
-      '/project/docs/ai-knowledge/modules/legacy/README.md':
+      '/project/prospec/ai-knowledge/modules/legacy/README.md':
         '> **DEPRECATED**: This module was removed. Reason: Already deprecated\n\n# Legacy\n',
     });
 
     const result = await markModuleDeprecated('legacy', 'Second time', {
       cwd: '/project',
-      knowledgeBasePath: 'docs/ai-knowledge',
+      knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
     expect(result).not.toBeNull();
-    const content = vol.readFileSync('/project/docs/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
+    const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
     // Should still have only one deprecation banner
     const matches = content.match(/> \*\*DEPRECATED\*\*/g);
     expect(matches).toHaveLength(1);
@@ -303,10 +303,10 @@ describe('updateIndex', () => {
   it('emits the canonical 7-column header/separator and 7-cell rows, no phantom Files column', async () => {
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     );
 
-    const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
     expect(content).toContain(INDEX_TABLE_HEADER);
     expect(content).toContain(INDEX_TABLE_SEPARATOR);
     // the phantom "Files" column (and old README placeholder) must be gone
@@ -324,7 +324,7 @@ describe('updateIndex', () => {
     // + Project Info + How to Use, with NO user markers. Updating must replace
     // only the auto block, not wipe the title/intro/curated sections.
     vol.fromJSON({
-      '/test/docs/ai-knowledge/_index.md': `# AI Knowledge Index
+      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
 
 > This index helps AI Agents quickly understand the project structure.
 
@@ -347,10 +347,10 @@ ${INDEX_TABLE_SEPARATOR}
 
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     );
 
-    const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
     expect(result.action).toBe('updated');
     // the new row is present
     expect(content).toContain('| auth ');
@@ -365,7 +365,7 @@ ${INDEX_TABLE_SEPARATOR}
 
   it('emits $-containing descriptions verbatim (no replacement-pattern injection)', () => {
     vol.fromJSON({
-      '/test/docs/ai-knowledge/_index.md': `# AI Knowledge Index
+      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
 
 ## Modules
 
@@ -378,9 +378,9 @@ ${INDEX_TABLE_SEPARATOR}
 
     return updateIndex(
       [{ name: 'billing', description: 'cost is $1 per $& token', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'docs/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     ).then(() => {
-      const content = vol.readFileSync('/test/docs/ai-knowledge/_index.md', 'utf-8') as string;
+      const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
       // the literal $1 / $& must survive, and the auto block must not self-nest
       expect(content).toContain('cost is $1 per $& token');
       expect(content.match(/prospec:auto-start/g)?.length).toBe(1);
@@ -470,7 +470,7 @@ describe('execute', () => {
 
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/docs/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -500,7 +500,7 @@ describe('execute', () => {
 `;
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
-      '/project/docs/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -515,7 +515,7 @@ describe('execute', () => {
   it('should process manual mode', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/docs/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
     });
 
     const result = await execute({
@@ -544,9 +544,9 @@ describe('execute', () => {
 ---
 `;
     vol.fromJSON({
-      // resolveBasePaths is mocked to knowledgePath '/test/docs/ai-knowledge',
+      // resolveBasePaths is mocked to knowledgePath '/test/prospec/ai-knowledge',
       // so the module README must live there for markModuleDeprecated to find it.
-      '/test/docs/ai-knowledge/modules/auth/README.md': '# auth\n',
+      '/test/prospec/ai-knowledge/modules/auth/README.md': '# auth\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -560,7 +560,7 @@ describe('execute', () => {
   it('should return empty result when no input provided', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/docs/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
     });
 
     const result = await execute({ cwd: '/project' });

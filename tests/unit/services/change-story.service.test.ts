@@ -87,11 +87,11 @@ describe('change-story.service', () => {
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
       // Canonical 7 columns with populated Aliases/Rationale — the column shift
       // that the old filter-empties + cells[3] parser misread (cells[3] = Status).
-      '/project/docs/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/ai-knowledge/_index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -114,8 +114,8 @@ knowledge:
 
   it('does not drop a data row whose Description cell contains --- (B11)', async () => {
     vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: docs/ai-knowledge\n',
-      '/project/docs/ai-knowledge/_index.md': `# Module Index
+      '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+      '/project/prospec/ai-knowledge/_index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -136,9 +136,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/ai-knowledge/_index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -167,9 +167,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/ai-knowledge/_index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|

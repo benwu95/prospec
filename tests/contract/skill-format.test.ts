@@ -15,9 +15,9 @@ import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
-  knowledge_base_path: 'docs/ai-knowledge',
-  constitution_path: 'docs/CONSTITUTION.md',
-  base_dir: 'docs',
+  knowledge_base_path: 'prospec/ai-knowledge',
+  constitution_path: 'prospec/CONSTITUTION.md',
+  base_dir: 'prospec',
   tech_stack: { language: 'typescript', framework: 'express' },
   artifact_language: 'English',
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
@@ -223,8 +223,8 @@ describe('Skill Format Contract', () => {
         TEMPLATE_CONTEXT,
       );
       expect(content).toContain('test-project');
-      expect(content).toContain('docs/ai-knowledge');
-      expect(content).toContain('docs/CONSTITUTION.md');
+      expect(content).toContain('prospec/ai-knowledge');
+      expect(content).toContain('prospec/CONSTITUTION.md');
     });
   });
 
