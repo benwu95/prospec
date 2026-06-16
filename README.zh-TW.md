@@ -36,7 +36,7 @@ Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**
      ├─ AI Knowledge .... 結構化的專案記憶（模組、規格、教訓）
      │                        ▲
      │                        │ 由此生成／重新生成
-     └─ CLI (prospec) ... 僅負責 bootstrap：init、agent sync、knowledge init
+     └─ CLI (prospec) ... 僅負責 bootstrap：init、agent sync、knowledge init/refresh
 ```
 
 - **Skills** 在 Agent 內執行工作流 —— 日常操作面。
@@ -92,7 +92,7 @@ npx github:benwu95/prospec init
 npx github:benwu95/prospec agent sync
 ```
 
-想在專案內固定版本，讓重跑 `agent sync` 時所有貢獻者都生成相同的 Skills —— 改裝成 devDependency：
+想在專案內固定版本，讓重跑 `agent sync` 時所有貢獻者都生成相同的 Skills——也讓下游開發者免全域安裝即可經 `pnpm exec` / `npx` 執行 deterministic 的 `prospec knowledge refresh`（由 `/prospec-knowledge-generate` 與 `/prospec-archive` 觸發以保持 `raw-scan.md` 最新）。**Node.js 專案**改裝成 devDependency（其他語言生態：以全域安裝為主）：
 
 ```bash
 npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/prospec
@@ -308,6 +308,7 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 | `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`（跳過已完成步驟），接著在 AI agent 內交棒給 `/prospec-quickstart` 做 trigger 在地化與 Knowledge 生成。`--name`/`--agents`/`--language` 選項同 `init` |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>]` | 掃描專案並生成 raw-scan.md + 骨架 |
+| `prospec knowledge refresh [--depth <n>] [--dry-run]` | 依當前程式碼**僅**重新產生 raw-scan.md（deterministic、不使用 LLM）；不碰 curated 的 module-map.yaml / _index.md / _conventions.md。程式碼變動後或 `/prospec-knowledge-generate` 前執行，刷新結構快照 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
 
 > **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：

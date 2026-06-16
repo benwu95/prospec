@@ -8,6 +8,7 @@ import { isSafeResourceName } from '../lib/knowledge-reader.js';
 import type { ChangeStatus } from '../types/change.js';
 import { ScanError, WriteError } from '../types/errors.js';
 import { execute as executeKnowledgeUpdate } from './knowledge-update.service.js';
+import { generateRawScan } from './raw-scan.service.js';
 
 // --- Interfaces ---
 
@@ -35,6 +36,8 @@ export interface ArchiveResult {
   specFiles: string[];
   /** Non-fatal notices forwarded from the auto knowledge-update (e.g. malformed REQ ids). */
   knowledgeWarnings: string[];
+  /** Whether the deterministic raw-scan.md refresh ran after archiving (non-fatal safety net). */
+  rawScanRefreshed: boolean;
 }
 
 export interface ArchivedChange {
@@ -481,6 +484,20 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     }
   }
 
+  // Refresh raw-scan.md deterministically (no LLM) so the project structure
+  // snapshot reflects the just-archived code. Non-fatal, like the knowledge
+  // update above — a scan failure must never block archiving. Mirrors the
+  // operative driver in the /prospec-archive skill template.
+  let rawScanRefreshed = false;
+  if (archived.length > 0) {
+    try {
+      await generateRawScan({ cwd });
+      rawScanRefreshed = true;
+    } catch {
+      // Raw-scan refresh failure is non-fatal
+    }
+  }
+
   return {
     archived,
     skipped,
@@ -488,6 +505,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     knowledgeUpdated,
     specFiles,
     knowledgeWarnings,
+    rawScanRefreshed,
   };
 }
 

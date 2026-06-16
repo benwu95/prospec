@@ -25,8 +25,12 @@ When triggered, briefly describe:
 ### Step 0: Probe the CLI
 
 Run `prospec --version` (Bash). When it is unavailable (not built / installed / linked),
-state **"prospec CLI unavailable — run `prospec agent sync` and `prospec knowledge init` manually"**,
-then continue to Step 3 using whatever `raw-scan.md` exists; never proceed silently.
+STOP and tell the user to **install prospec** — you are adopting prospec for this project and
+quickstart is entirely CLI-driven, so it must be available: `npm i -g prospec`. For a **Node.js
+project**, also declare `prospec` in `devDependencies` so contributors share it without a global
+install (this is what later lets `/prospec-knowledge-generate` and `/prospec-archive` refresh
+`raw-scan.md` via `pnpm exec` / `npx` with no per-developer install). Non-Node projects: a global
+install is the path. Re-run quickstart after installing; never proceed silently.
 
 ### Step 1: Localize Skill Triggers (non-English only)
 
@@ -79,7 +83,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** proceed silently when the `prospec` CLI is unavailable — state it and fall back to manual steps
+- **NEVER** proceed silently when the `prospec` CLI is unavailable — stop and tell the user to install prospec (they are adopting it for this project), then re-run
 - **NEVER** overwrite an existing, populated `skill_triggers` — only write when it is absent or empty
 - **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
 - **NEVER** inline the `/prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
@@ -89,7 +93,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| `prospec` CLI unavailable | State it; run `agent sync` / `knowledge init` manually, then continue to knowledge generation |
+| `prospec` CLI unavailable | Stop; tell the user to install prospec (`npm i -g prospec`; Node.js projects can also add it to `devDependencies`), then re-run quickstart — do not proceed silently |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
 | `.prospec.yaml` fails to parse after writing triggers | Restore the captured pre-write `.prospec.yaml` snapshot verbatim, then report the malformed translation |
 | `raw-scan.md` still missing after `knowledge init` | Report the failure; do not fabricate knowledge |

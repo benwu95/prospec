@@ -354,6 +354,83 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec knowledge refresh', () => {
+    it('should fail without .prospec.yaml', async () => {
+      const { exitCode } = await runCli(['knowledge', 'refresh']);
+      expect(exitCode).not.toBe(0);
+    });
+
+    it('regenerates raw-scan.md for new code, leaving curated files untouched', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'refresh-test', dependencies: { express: '^4.0.0' } }),
+      );
+      await runCli(['init', '--name', 'refresh-test', '--agents', 'claude']);
+
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.promises.mkdir(srcDir, { recursive: true });
+      await fs.promises.writeFile(path.join(srcDir, 'index.ts'), 'export const a = 1;\n');
+
+      // First-time scaffold (raw-scan + curated module-map/_index/_conventions)
+      await runCli(['knowledge', 'init']);
+
+      const kbDir = path.join(tmpDir, 'prospec', 'ai-knowledge');
+      const rawScanPath = path.join(kbDir, 'raw-scan.md');
+      const curatedPaths = ['module-map.yaml', '_index.md', '_conventions.md'].map(
+        (f) => path.join(kbDir, f),
+      );
+
+      const rawBefore = await fs.promises.readFile(rawScanPath, 'utf-8');
+      const curatedBefore = await Promise.all(
+        curatedPaths.map((p) => fs.promises.readFile(p, 'utf-8')),
+      );
+
+      // Introduce a new module directory after init
+      const newDir = path.join(srcDir, 'newmodule');
+      await fs.promises.mkdir(newDir, { recursive: true });
+      await fs.promises.writeFile(path.join(newDir, 'thing.ts'), 'export const t = 1;\n');
+
+      const { exitCode, stdout } = await runCli(['knowledge', 'refresh']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('raw-scan.md');
+
+      // raw-scan.md reflects the new structure
+      const rawAfter = await fs.promises.readFile(rawScanPath, 'utf-8');
+      expect(rawAfter).not.toBe(rawBefore);
+      expect(rawAfter).toContain('newmodule');
+
+      // curated files are byte-identical (refresh never touches them)
+      const curatedAfter = await Promise.all(
+        curatedPaths.map((p) => fs.promises.readFile(p, 'utf-8')),
+      );
+      expect(curatedAfter).toEqual(curatedBefore);
+    });
+
+    it('does not modify raw-scan.md in dry-run mode', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'refresh-dry' }),
+      );
+      await runCli(['init', '--name', 'refresh-dry', '--agents', 'claude']);
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.promises.mkdir(srcDir, { recursive: true });
+      await fs.promises.writeFile(path.join(srcDir, 'index.ts'), 'export const a = 1;\n');
+      await runCli(['knowledge', 'init']);
+
+      const rawScanPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'raw-scan.md');
+      const before = await fs.promises.readFile(rawScanPath, 'utf-8');
+
+      // Add a file, then dry-run refresh — must not be reflected
+      await fs.promises.writeFile(path.join(srcDir, 'extra.ts'), 'export const x = 1;\n');
+      const { exitCode, stdout } = await runCli(['knowledge', 'refresh', '--dry-run']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Dry-run');
+
+      const after = await fs.promises.readFile(rawScanPath, 'utf-8');
+      expect(after).toBe(before);
+    });
+  });
+
   describe('prospec agent sync', () => {
     it('should fail without .prospec.yaml', async () => {
       const { exitCode } = await runCli(['agent', 'sync']);

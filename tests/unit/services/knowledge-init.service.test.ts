@@ -113,6 +113,23 @@ describe('knowledge-init.service', () => {
     expect(content).toMatch(/name: (services|lib)/);
   });
 
+  it('still creates all first-time artifacts (raw-scan + module-map + skeletons) in one run', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/package.json': JSON.stringify({ name: 'test-project' }),
+      '/project/src/services/auth.ts': '',
+      '/project/src/lib/config.ts': '',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const base = '/project/prospec/ai-knowledge';
+    expect(fs.existsSync(`${base}/raw-scan.md`)).toBe(true);
+    expect(fs.existsSync(`${base}/module-map.yaml`)).toBe(true);
+    expect(fs.existsSync(`${base}/_index.md`)).toBe(true);
+    expect(fs.existsSync(`${base}/_conventions.md`)).toBe(true);
+  });
+
   it('should not overwrite an existing module-map.yaml on rerun', async () => {
     const curated =
       'modules:\n  - name: custom\n    description: Curated\n    paths:\n      - src/custom\n    keywords:\n      - custom\n';
