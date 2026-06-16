@@ -9,6 +9,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/templates/**'],
+      reporter: ['text', 'text-summary', 'json-summary', 'html'],
     },
     unstubEnvs: true,
   },
