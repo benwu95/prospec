@@ -34,3 +34,4 @@ skill_triggers:
   prospec-learn: [教訓, 晉升, 回饋, 越用越聰明]
   prospec-knowledge-generate: [生成知識, 分析專案, 模組切割]
   prospec-knowledge-update: [增量更新, 同步知識, 更新文件]
+  prospec-backfill-spec: [補規格, 回填規格, 反向萃取, 從程式碼產規格]

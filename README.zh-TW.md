@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1145%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1160%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -213,11 +213,11 @@ prospec knowledge init       # → 生成 raw-scan.md + 空骨架（_index.md、
 
 這裡的 `knowledge init` 會讀取你既有的程式碼，所以 `/prospec-knowledge-generate` 一開始就產出內容豐富的 Knowledge base。接著就照上面步驟 3 跑你的第一個變更 —— 開發迴圈與 Greenfield 完全相同。
 
-**選用 —— 反向萃取 Feature Spec（WHAT 層）。** `knowledge init` 捕捉的是程式碼*怎麼*組織；brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。對沒有 spec 覆蓋的模組，用 Design 的 code 輸入模式 stage 一份草稿，不必等 forward change 慢慢累積覆蓋：
+**選用 —— 回填 Feature Spec（WHAT 層）。** `knowledge init` 捕捉的是程式碼*怎麼*組織；brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。對沒有 spec 覆蓋的模組，用 Backfill Spec skill stage 一份草稿，不必等 forward change 慢慢累積覆蓋：
 
 ```bash
-/prospec-design input=code   # → 反向萃取 Feature Spec 草稿至
-                             #   .prospec/changes/[name]/reverse-draft.md；推不出的 intent
+/prospec-backfill-spec       # → 回填 Feature Spec 草稿至
+                             #   .prospec/changes/[name]/backfill-draft.md；推不出的 intent
                              #   標 [NEEDS CLARIFICATION]；審閱後經 forward path 晉升
                              #   （delta-spec → /prospec-verify → /prospec-archive），
                              #   絕不直寫信任區
@@ -272,13 +272,13 @@ Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案
 
 ## AI Skills
 
-Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
+Prospec 生成 15 個 Skills —— 14 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
 
 | Skill | Slash Command | 說明 |
 |-------|---------------|------|
 | **探索** | `/prospec-explore` | 思考夥伴，協助釐清需求 |
 | **新需求** | `/prospec-new-story` | 建立結構化的變更需求 |
-| **設計** | `/prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式；Extract 亦可透過 `input=code` 從既有 code 反向萃取 Feature Spec 草稿） |
+| **設計** | `/prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式） |
 | **計劃** | `/prospec-plan` | 生成實作計劃 + delta-spec |
 | **任務** | `/prospec-tasks` | 拆分為可執行的任務 |
 | **快速前進** | `/prospec-ff` | 一次生成 story → plan → tasks |
@@ -289,6 +289,7 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 | **學習** | `/prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
 | **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
+| **回填規格** | `/prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
 
 > **啟動收尾** —— `/prospec-quickstart` 在 `prospec quickstart` 之後執行一次（在地化 skill triggers、重新同步 agent 設定、生成 AI Knowledge）。它以 Skill 形式部署於磁碟，但不列入常駐的 entry config，因此不增加任何重複性 token 成本。
 
@@ -506,8 +507,8 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（52 個 .hbs 檔案）
-    └── skills/   — 14 個 Skill 模板 + 18 個 reference 模板
+└── templates/    — Handlebars 模板（53 個 .hbs 檔案）
+    └── skills/   — 15 個 Skill 模板 + 18 個 reference 模板
 ```
 
 ### 技術棧
@@ -525,7 +526,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1145 個測試）
+# 執行所有測試（1160 個測試）
 pnpm test
 
 # Watch 模式
@@ -542,9 +543,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1145 個測試橫跨 4 大類：
+**測試覆蓋率**：1160 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：594 tests
-- Contract tests（CLI 輸出 + Skill 格式）：494 tests
+- Contract tests（CLI 輸出 + Skill 格式）：509 tests
 - Integration tests：17 tests
 - E2E tests：40 tests
 

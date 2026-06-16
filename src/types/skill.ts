@@ -53,7 +53,7 @@ export interface AgentConfig {
 }
 
 /**
- * Predefined Skill definitions (14 Skills; prospec-quickstart is
+ * Predefined Skill definitions (15 Skills; prospec-quickstart is
  * excludeFromEntryConfig — deployed as a SKILL.md but not listed in the entry config).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
@@ -82,7 +82,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-design',
-    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode), including an `input=code` variant that reverse-extracts a Feature Spec draft from existing code for brownfield modules that lack spec coverage. Supports pencil/Figma/Penpot/HTML platforms.',
+    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.',
     triggers: ['design', 'UI spec', 'generate design', 'extract design'],
     type: 'Planning',
     hasReferences: true,
@@ -142,6 +142,13 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     name: 'prospec-knowledge-update',
     description: 'Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, _index.md, and module-map.yaml.',
     triggers: ['knowledge update', 'incremental update', 'sync knowledge', 'update docs'],
+    type: 'Lifecycle',
+    hasReferences: false,
+  },
+  {
+    name: 'prospec-backfill-spec',
+    description: 'Backfill a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for modules with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
+    triggers: ['backfill spec', 'spec from code', 'brownfield', 'backfill', 'document existing code'],
     type: 'Lifecycle',
     hasReferences: false,
   },
