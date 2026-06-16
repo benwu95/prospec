@@ -81,7 +81,7 @@ describe('Steering Flow Integration', () => {
       '/project/.prospec.yaml': `project:
   name: test-project
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
       '/project/src/services/auth.ts': '',
       '/project/src/services/user.ts': '',
@@ -94,7 +94,7 @@ knowledge:
     expect(result.outputFiles.length).toBeGreaterThan(0);
 
     // Module map should be written
-    const moduleMapExists = fs.existsSync('/project/docs/ai-knowledge/module-map.yaml');
+    const moduleMapExists = fs.existsSync('/project/prospec/ai-knowledge/module-map.yaml');
     expect(moduleMapExists).toBe(true);
   });
 });

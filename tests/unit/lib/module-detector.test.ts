@@ -70,7 +70,7 @@ describe('detectModules', () => {
   it('should use existing module-map.yaml when available', () => {
     const files = ['src/index.ts'];
     vol.fromJSON({
-      '/project/docs/ai-knowledge/module-map.yaml': `
+      '/project/prospec/ai-knowledge/module-map.yaml': `
 modules:
   - name: core
     description: Core module
@@ -91,7 +91,7 @@ modules:
   it('should read existing module-map.yaml from a custom knowledge base path', () => {
     const files = ['src/index.ts'];
     vol.fromJSON({
-      '/project/prospec/ai-knowledge/module-map.yaml': `
+      '/project/custom-knowledge/module-map.yaml': `
 modules:
   - name: domain
     description: Domain module
@@ -105,8 +105,8 @@ modules:
 `,
       '/project/src/index.ts': '',
     });
-    // The legacy docs/ default would not find this file; the custom path must be honored.
-    const result = detectModules(files, '/project', 'auto', 'prospec/ai-knowledge');
+    // The default prospec/ai-knowledge would not find this file (it lives under custom-knowledge); the custom path must be honored.
+    const result = detectModules(files, '/project', 'auto', 'custom-knowledge');
     expect(result.modules[0]?.name).toBe('domain');
   });
 

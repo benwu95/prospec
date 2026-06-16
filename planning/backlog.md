@@ -121,7 +121,7 @@
 - [x] [BL-029](#bl-029) Lessons/Playbook 自動萃取（升級 BL-024）✅ 已完成
 - [x] [BL-030](#bl-030) Drift Detection + CI 閘門（升級 BL-012）✅ 已完成
 - [x] [BL-031](#bl-031) Constitution 可執行規則（升級 BL-003 + OPT-B1）✅ 已完成
-- [ ] [BL-032](#bl-032) 反向規格萃取 🔁 RESHAPE / BUILD-LATER · P2（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer；須草稿+人工晉升、延伸 design Extract Mode；**OPT-A4 已於 2026-06-15 出貨 → gate 解除**，剩「真實 brownfield 採用者拉動」條件；見 entry）
+- [x] [BL-032](#bl-032) 反向規格萃取 ✅ 已完成（2026-06-16 `add-reverse-spec-extraction`，Grade A，PR #31）：Architecture C 純 Skill——prospec-design Extract Mode `input=code` 反向變體（triangulation→route-compatible 草稿、永不寫信任區、人工 verify-and-promote），非獨立 `/prospec-reverse-spec`；dogfood 於真實 Python brownfield 專案驗證；畢業 sdd-workflow US-22 + design-phase REQ-DSGN-003
 - [x] [BL-033](#bl-033) Prospec MCP Server（重定位 BL-010）✅ 已完成
 - [x] [BL-034](#bl-034) 依賴層知識（重定位 BL-025）✅ 已完成（2026-06-15 `add-dependency-knowledge`，Grade S；收窄交付：plan/implement 內 optional on-demand Context7，only 碰第三方 lib）
 - [x] ~~[BL-035](#bl-035) SKILL.md 跨廠商標準對齊 + 分發~~ ✅ alignment 已出貨／🚫 distribution CUT（2026-06-15 重評：分發無目的地、publish 已於 2026-06-06 刪除；見 entry）
@@ -139,6 +139,7 @@
 - [x] [OPT-A2](#opt-a2knowledge-健康度指標) Knowledge 健康度指標 — ✅ 實質完成（knowledge_health 經 drift report + MCP `/health` + `check`；原 `_index` 視覺表＝冗餘，不補）
 - [x] ~~[OPT-A3](#opt-a3成果可視化) 成果可視化（Cycle Impact）~~ 🚫 CUT（2026-06-15 重評：客觀數字已在同頁/其餘需埋點＝捏造；WARN 已被 BL-036 收割；見 OPT-A3 段）
 - [x] [OPT-A4](#opt-a4quickstart-skill) Quickstart — ✅ 已完成（2026-06-15 `add-quickstart-command`，Grade A，commit `ae3cbf6`）：最終走 **Hybrid**（`prospec quickstart` CLI + `excludeFromEntryConfig` 的 `/prospec-quickstart` skill），非純 CLI——因 knowledge 生成需 LLM、純 CLI 無法真正一步；`excludeFromEntryConfig` filter 使 skill G4 中性（不入 always-loaded entry config 但仍部署 SKILL.md）。出貨解開 BL-032 gate
+- [ ] [OPT-A5](#opt-a5brownfield-module-偵測精度) Brownfield Module 偵測精度 — 🆕 待評估（2026-06-16 BL-032 dogfood 副產：module-detector 對 Python brownfield 把多個頂層非 code 目錄當 module，反向萃取的 routing 與未覆蓋掃描因而含噪；見 entry）
 - [x] [OPT-B1](#opt-b1constitution-導入引導強化) Constitution 導入引導強化 — ✅ 完成（Part1 `exampleRulesFor()` 隨 BL-031；Part2 explore/kg 空 Constitution 偵測+提示隨 enhance-skill-instructions，REQ-TEMPLATES-096）
 - [x] [OPT-B2](#opt-b2_indexmd-autouser-區段整合) _index.md Category 分組 — ✅ 完成（重塑交付 group-index-by-category，2026-06-13）：前提「auto/user 重複模組表」於 prospec 自身不成立（ContentMerger 已分離）→ 重塑為 Category 分組子標題 + module-map 單一真相 + MCP search category 感知
 - [x] [OPT-B3](#opt-b3tasksmd-任務分類code--manual--verification) tasks.md 任務分類（code/manual/verification）— ✅ 已完成（隨 BL-004）
@@ -205,7 +206,7 @@
 | P0 補課 | 〔BL-003/019/020/004 全數完成 → 見「✅ 已完成」表〕 |
 | P1/P2 | ~~BL-005（無 `template` CLI）~~ 🚫 CUT（2026-06-07 eval；見 entry）、BL-006（**PARTIAL／🚫 路線已過時**：仍 4 agents，缺 cursor/windsurf/opencode/qwen；「15 套 per-agent 模板」路線被 AGENTS.md/SKILL.md 收斂取代，僅偵測擴展需求保留）、~~BL-021（無 `extension`）~~ 🚫 CUT（2026-06-14 重評：價值已由 BL-031+BL-036 交付；見 entry）、~~BL-022（無 `prospec-help`）~~ 🚫 CUT（2026-06-15 重評：reshape 已出貨；見 entry）、~~BL-026（`_index.md` 無 Dashboard）~~ 🚫 CUT（2026-06-07 eval；見 entry） |
 | Phase 3 | ~~BL-023（Layer 1.5 語義 Fallback，P3）~~ 🚫 CUT（2026-06-15 重評；見 entry）；其餘 Phase 3 項（BL-008/010/011/012/013/024/025）均已完成／🚫 已過時／↳ 已併入，見目錄 |
-| Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取 🔁 RESHAPE/BUILD-LATER（2026-06-15 重評：唯一真缺口=brownfield WHAT-layer，閘 OPT-A4 後）、BL-034 依賴層知識 ✅ 已完成（add-dependency-knowledge，Grade S）；BL-035 SKILL.md 標準＋分發：alignment ✅ 已出貨／distribution 🚫 CUT（2026-06-15 重評：無目的地，見 entry） |
+| Phase 4（2026 H2 新增） | BL-029/030/031/033 ✅ → 見「✅ 已完成」表；BL-027/028 **🚫 已過時**（賣點被 harness worktree 取代、已降級重塑）；BL-032 反向規格萃取 ✅ 已完成（add-reverse-spec-extraction，Grade A，PR #31）、BL-034 依賴層知識 ✅ 已完成（add-dependency-knowledge，Grade S）；BL-035 SKILL.md 標準＋分發：alignment ✅ 已出貨／distribution 🚫 CUT（2026-06-15 重評：無目的地，見 entry） |
 | OPT | **【2026-06-13 更新】** 🔁 BUILD-LATER：A4（重塑 CLI orchestrator，2026-06-15 重評）；🚫 CUT：A3（2026-06-15 重評）；🧊 icebox：D9（few-shot 延後）；🚫 過時不做：C、D2、D3、D4；✅ 完成：A1、A2、B1、B2、B3、B4、B5、B6、D1、D5、D6、D7、D8（A1/B1/D1/D5 隨 `enhance-skill-instructions`，graduate sdd-workflow US-17~20；B2 重塑交付 group-index-by-category：Category 分組子標題，非 auto/user 合併）〔A2 knowledge_health 經 BL-030；D6 quality_log 經 skill 指令＝Architecture C；B4 殘留嚴格 REQ 驗證、D8 殘留 MCP glossary resource＝icebox〕。優先序見「即時優化」段 |
 | Bug | ~~BUG-001~~ ✅ Fixed（commit `dc212b2`）：`detector.ts` config-first + 排除 `node_modules` |
 
@@ -2273,7 +2274,9 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 
 **反向規格萃取 `/prospec-reverse-spec`**
 
-> **🔁 RESHAPE / BUILD-LATER（2026-06-15 重評）**：5 組裡唯一有結構性缺口者——brownfield 的 WHAT-layer（Feature Spec）無人服務（`archive.service.ts` 是 `specs/features/` 唯一寫入者，只靠 forward archive 填）。但反向萃取記錄 behavior 非 intent，必須重塑：草稿寫 change-scoped staging（`.prospec/changes/[name]/reverse-draft.md`）、**永不直寫信任區** `specs/features/`、每個推不出意圖標 `[NEEDS CLARIFICATION]`、**延伸既有 `prospec-design` Extract Mode（不新增 always-loaded skill）**、module-scoped/on-demand、以 BL-033 MCP 為輸入、強制人工 verify-and-promote。閘門：~~**OPT-A4 出貨後**~~（✅ OPT-A4 已於 2026-06-15 出貨 `add-quickstart-command`，gate 解除）＋有真實 brownfield 採用者拉動才做。原「可信賴自動 spec」scope 維持否決。來源：workflow `backlog-remainder-worth-building`（judge+challenge 皆 RESHAPE）。
+> **✅ 已完成（2026-06-16 `add-reverse-spec-extraction`，Grade A，PR #31，commit `ce93af1`）**：交付為 **Architecture C 純 Skill**——`prospec-design` Extract Mode 新增 `input=code` 反向變體（Phase 2b-code），**非新增 Lifecycle Skill**（與下表預估差異，誠實記錄）。多源 triangulation（code+tests→AC、git→*So that*、docs→role/value、ai-knowledge→routing）→ route-compatible `reverse-draft.md`、story-level `[NEEDS CLARIFICATION]` + >50% 護欄、永不寫信任區 + `isSafeResourceName` slug、WHAT-layer 未覆蓋偵測、completeness + count-fidelity 紀律。畢業 REQ：sdd-workflow US-22（REQ-TEMPLATES-104~107、REQ-TESTS-028）+ design-phase REQ-DSGN-003（MODIFIED）。dogfood 於一個真實 Python brownfield 專案驗 SC-001~004 + REQ-107。**副產 backlog 發現**：prospec module-detector 對 Python brownfield 偵測粗糙（頂層非 code 目錄被當 module）——已立項 **OPT-A5**。gate 兩條件（OPT-A4 出貨 + 真實 brownfield 拉動）皆已滿足。
+>
+> **🔁 原 RESHAPE / BUILD-LATER 判決（2026-06-15 重評，保留供追溯）**：5 組裡唯一有結構性缺口者——brownfield 的 WHAT-layer（Feature Spec）無人服務（`archive.service.ts` 是 `specs/features/` 唯一寫入者，只靠 forward archive 填）。但反向萃取記錄 behavior 非 intent，必須重塑：草稿寫 change-scoped staging（`.prospec/changes/[name]/reverse-draft.md`）、**永不直寫信任區** `specs/features/`、每個推不出意圖標 `[NEEDS CLARIFICATION]`、**延伸既有 `prospec-design` Extract Mode（不新增 always-loaded skill）**、module-scoped/on-demand、以 BL-033 MCP 為輸入、強制人工 verify-and-promote。閘門：~~**OPT-A4 出貨後**~~（✅ OPT-A4 已於 2026-06-15 出貨 `add-quickstart-command`，gate 解除）＋有真實 brownfield 採用者拉動才做。原「可信賴自動 spec」scope 維持否決。來源：workflow `backlog-remainder-worth-building`（judge+challenge 皆 RESHAPE）。
 
 | 欄位 | 值 |
 |------|-----|
@@ -2286,10 +2289,10 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 2026 brownfield 共識 = 漸進規格累積 + 反向萃取（Tessl 從 code 反推 spec；InfoQ）。Prospec feature spec 只隨新 change 前向成長。新增從既有 code 反向產 behavioral feature spec，補齊 brownfield 覆蓋。延伸 design Extract Mode 的 extract 模式到行為規格層。
 
 **驗收標準**：
-- [ ] `/prospec-reverse-spec` 從既有 code 反向產 feature spec（WHAT）
-- [ ] 標記 `[NEEDS CLARIFICATION]` 在無法推斷意圖處
-- [ ] 不必等 N 個 change 前向累積即有 spec 覆蓋
-- [ ] 與 Knowledge（HOW）分層
+- [x] 從既有 code 反向產 feature spec 草稿（WHAT）— 交付為 `/prospec-design` Extract Mode `input=code` 變體（非獨立 `/prospec-reverse-spec`）
+- [x] 標記 `[NEEDS CLARIFICATION]` 在無法推斷意圖處
+- [x] 不必等 N 個 change 前向累積即有 spec 覆蓋
+- [x] 與 Knowledge（HOW）分層
 
 ---
 
@@ -2773,6 +2776,21 @@ Archive summary 加入循環價值指標：
 
 **影響範圍**：新增 Skill
 **預估工作量**：1 天
+
+### OPT-A5：Brownfield Module 偵測精度
+
+> **🆕 待評估（2026-06-16，BL-032 dogfood 副產發現）**：`add-reverse-spec-extraction` 於一個真實 Python brownfield 專案 dogfood 時，`prospec knowledge init` 的 deterministic module-detector 產出**粗糙** module-map——把多個頂層非 code 目錄（docs/規格文件/資源/cache/工具，甚至剛建的 `prospec/`）全當 module，真正 code 只在 `src/` 套件 + `tests`。後果：反向萃取的 routing 與 WHAT-layer 未覆蓋掃描（REQ-TEMPLATES-107）因而含噪、informational 清單失準。**非反向萃取缺陷**（feature 照常運作），而是 module 偵測對「多頂層非 code 目錄」型專案的精度問題。
+
+現況：`module-detector.ts` 以目錄結構啟發法偵測（auto/architecture/domain/package 四策略）；對 src-集中型專案準，對頂層平鋪型 brownfield 噪。
+
+**改善方向（待評估）**：
+- 偵測時排除/降權明顯非 code 的頂層目錄（docs/specs/資源/cache/工具），或以 source-file 密度為入選門檻
+- language-aware 根目錄推斷（如 Python 以 `src/` + `pyproject.toml` packages 為主）、尊重 `.gitignore`
+- 或 `knowledge init` 互動式讓使用者確認/修剪偵測到的 module 清單
+
+**影響範圍**：`src/lib/module-detector.ts`、`prospec-knowledge-generate`（消費 module-map）
+**預估複雜度**：Small–Medium（純 lib 啟發法調整 + 測試）
+**優先級**：P3（錦上添花；反向萃取與 knowledge 生成皆可運作，只是 brownfield 首版 module-map 需人工修剪）
 
 ### OPT-B1：Constitution 導入引導強化
 

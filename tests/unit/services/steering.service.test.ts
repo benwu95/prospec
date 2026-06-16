@@ -93,8 +93,8 @@ describe('steering.service', () => {
 
     await execute({ cwd: '/project' });
 
-    // base_dir must survive — otherwise the next readConfig falls back to 'docs'
-    // and the whole spec tree silently relocates.
+    // base_dir must survive — otherwise the next readConfig falls back to
+    // DEFAULT_BASE_DIR and a custom base_dir's spec tree silently relocates.
     const written = fs.readFileSync('/project/.prospec.yaml', 'utf-8') as string;
     expect(written).toContain('base_dir: prospec');
   });

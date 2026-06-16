@@ -15,7 +15,7 @@
 | `src/lib/key-exports.ts` | deriveKeyExports() — shared Recipe-First key-exports derivation (used by both knowledge generate + knowledge-update) |
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
-| `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir; `detectByDomain` decouples module NAME from path GLOB (one `**/<real-dir-segment>/**` per actual dir, unioned when several normalize to one name); `normalizeDomainName` strips a layer suffix only at a `-`/`_`/camelCase boundary (so `preview`/`reviews` survive) |
+| `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir; `detectByDomain` decouples module NAME from path GLOB (one `**/<real-dir-segment>/**` per actual dir, unioned when several normalize to one name); `normalizeDomainName` strips a layer suffix only at a `-`/`_`/camelCase boundary (so `preview`/`reviews` survive); when no path is passed, the default `knowledgeBasePath` derives from `DEFAULT_BASE_DIR` (`prospec/ai-knowledge`) |
 | `src/lib/detector.ts` | detectTechStack() — config-first language/framework/package manager (`.prospec.yaml` wins, detection fills gaps) |
 | `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
 | `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |

@@ -10,7 +10,7 @@ description: "Design Phase - Generate visual and interaction specs from proposal
 When triggered, briefly describe:
 - That you'll read proposal.md and determine the design workflow mode
 - Generate Mode: produce design-spec.md + interaction-spec.md from proposal
-- Extract Mode: reverse-extract specs from an existing design tool via MCP
+- Extract Mode: reverse-extract specs from an existing design tool via MCP — or, in its `input=code` variant, reverse-extract a behavioral Feature Spec draft from existing code (see Phase 2b-code)
 - Platform adapter will guide tool-specific operations
 
 {{> language-policy}}
@@ -32,7 +32,7 @@ When triggered, briefly describe:
 
 ## Core Workflow
 
-> Note: Phases 2a and 2b are intentional sub-steps (Generate Mode / Extract Mode) — Phase 1 detects which mode applies and only one of 2a/2b runs. They are not a numbering bug.
+> Note: Phases 2a, 2b, and 2b-code are intentional sub-steps (Generate Mode / Extract Mode / Extract code-input reverse-spec variant) — Phase 1 detects which applies and only one runs. They are not a numbering bug.
 
 ### Phase 1: Parse Proposal + Detect Mode
 
@@ -44,6 +44,7 @@ When triggered, briefly describe:
 |-----------|------|
 | `.prospec/changes/[name]/design-spec.md` already exists | **Extract Mode** |
 | Design tool has existing design for this Story (check via adapter) | **Extract Mode** |
+| Reverse-extract a Feature Spec from existing **code** (`input=code`) | **Extract Mode → Phase 2b-code** |
 | Otherwise | **Generate Mode** |
 
 3. Confirm detected mode with user before proceeding.
@@ -92,6 +93,40 @@ Reverse-extract specs from existing design:
 > - [ ] design-spec.md generated from the design tool's data in the standard format
 > - [ ] interaction-spec.md generated with flows inferred from the design structure
 > - [ ] User has reviewed extracted specs and `[NEEDS CLARIFICATION]` items are resolved
+
+### Phase 2b-code: Reverse-Spec Extract (input=code)
+
+> A variant of Extract Mode (`input=code`) whose source is **existing code**, not a design tool. It reverse-extracts a behavioral **Feature Spec draft** (not a design spec) for brownfield modules that have no Feature Spec coverage. It records *behavior*, never *intent* — so the draft is a staged proposal for human verify-and-promote, and is never written to the trust zone. This coexists with the design-tool Extract Mode (Phase 2b).
+
+1. **Triangulate the sources** — read each source and fill each Feature-Spec field from its designated source; do not cross-attribute:
+
+   | Source | Fills |
+   |--------|-------|
+   | code + tests | behavior + Acceptance Criteria (prefer deriving AC from test names and assertions, phrased WHEN/THEN) |
+   | git history (`feat:`/`fix:` commit body) | *So that* — the WHY / user value |
+   | docs / README | role / value / target user |
+   | ai-knowledge | module routing only |
+
+   First **enumerate** the module's behaviors, then cluster **all** of them into coherent User Stories by theme — not one story per function, nor a single giant story; explicitly list any behavior deliberately **deferred** (coverage must be visible, never silently partial).
+
+   **Verify countable facts** against the source — enum/format/mapping sizes, supported-value counts: never state an exact count you did not count; if unverified, write `~N` or mark `[NEEDS CLARIFICATION]`. Fabricating a precise number is a behavior-fidelity defect, distinct from the intent guardrail below.
+
+2. **Write the draft** to `.prospec/changes/[name]/reverse-draft.md`, route-compatible so it can later promote through the existing forward path unchanged: each story carries `**Feature:**` and `**Story:**` headers, plus a User Story (As a / I want / So that) and Acceptance Criteria candidates.
+
+3. **Mark un-inferable story-level intent** with `[NEEDS CLARIFICATION]` — the *So that* value, the target role, or an ambiguous AC — and never fabricate. The target role may be inferred from a product/consumer name in git/docs/README (e.g. a named downstream product); mark `[NEEDS CLARIFICATION]` only when no such signal exists. When translating an English source into the document language, widen marking on low-confidence intent.
+
+4. **>50% guardrail** — if the `[NEEDS CLARIFICATION]` ratio exceeds 50%, abort and suggest the forward path instead (sources too thin to reverse intent). The denominator counts **story-level intent fields only** (So that / role / AC meaning). A heuristic's calibration rationale (why a magic number is that value) is recorded as a behavior AC with its value; its missing WHY may be marked `[NEEDS CLARIFICATION]` but is **not counted toward the >50%** — otherwise a well-documented module would falsely abort.
+
+5. **Trust-zone invariant** — reverse extraction **never writes** to `{{base_dir}}/specs/features/` (`archive.service.ts` stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation (a module is not a feature; a wrong slug spawns a spurious spec file at promote time), and the proposed slug must satisfy `isSafeResourceName` (reject separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
+
+6. **WHAT-layer coverage scoping (optional)** — to choose targets, read `{{base_dir}}/specs/features/` plus the module list (from ai-knowledge) and list modules whose behavior no existing Feature Spec REQ covers; a module already covered is excluded (avoid re-extracting). Output is **informational only** — it does not block and **does not auto-trigger** extraction.
+
+7. **User-review gate** — present the draft, resolve `[NEEDS CLARIFICATION]`, and confirm the candidate feature slug before any promotion.
+
+> **Phase 2b-code Gate** — proceed when:
+> - [ ] `.prospec/changes/[name]/reverse-draft.md` written, route-compatible (`**Feature:**`/`**Story:**` + US/AC candidates)
+> - [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]`; if >50% (story-level denominator) → aborted to the forward path
+> - [ ] nothing written under `{{base_dir}}/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `isSafeResourceName`-valid
 
 ### Phase 3: Platform Execution
 
@@ -164,6 +199,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** proceed with `ui_scope: none` — Design Phase has no value for backend-only changes; wasted tokens and user confusion
 - **NEVER** generate design specs without reading the adapter reference — each platform has unique MCP tools and capabilities; blind generation produces unusable specs
 - **NEVER** leave `[NEEDS CLARIFICATION]` unresolved — unresolved items propagate ambiguity to Tasks and Implement, causing inconsistent UI implementation
+- **NEVER** write the reverse-spec (`input=code`) draft into `{{base_dir}}/specs/features/` — reverse extraction only stages `.prospec/changes/[name]/reverse-draft.md`; `archive.service.ts` stays the sole writer of the trust zone, and promotion is manual via the forward path
 
 ## Error Handling
 
@@ -174,4 +210,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | `design.platform` not in .prospec.yaml | Default to `html` adapter, inform user |
 | MCP tool unavailable for platform | Fall back to `html` adapter, warn user |
 | Extract Mode yields >50% `[NEEDS CLARIFICATION]` items | Suggest switching to Generate Mode — extraction source lacks sufficient design detail |
+| Reverse-Spec (`input=code`) yields >50% story-level `[NEEDS CLARIFICATION]` | Abort; suggest the forward path — source behavior too thin to reverse intent (denominator = story-level intent only) |
 

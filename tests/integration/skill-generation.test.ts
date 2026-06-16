@@ -39,7 +39,7 @@ describe('Skill Generation Integration', () => {
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -62,7 +62,7 @@ knowledge:
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -80,7 +80,7 @@ knowledge:
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -102,7 +102,7 @@ knowledge:
 agents:
   - claude
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -126,7 +126,7 @@ agents:
   - claude
   - antigravity
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -147,7 +147,7 @@ knowledge:
 agents:
   - copilot
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 
@@ -182,7 +182,7 @@ agents:
   - claude
   - antigravity
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
     });
 

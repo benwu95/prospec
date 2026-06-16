@@ -141,8 +141,8 @@ export async function execute(
           techStack.package_manager || config.tech_stack?.package_manager,
       },
       // Merge detected module patterns into existing paths — must NOT drop
-      // reserved keys like base_dir, or the whole artifact tree relocates to the
-      // 'docs' fallback on the next readConfig.
+      // reserved keys like base_dir, or a custom base_dir is lost and the tree
+      // relocates to DEFAULT_BASE_DIR on the next readConfig.
       paths: { ...config.paths, ...buildPathsFromModules(detection) },
     };
     await writeConfig(updatedConfig, cwd);

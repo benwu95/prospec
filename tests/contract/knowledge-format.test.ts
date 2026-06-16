@@ -105,7 +105,7 @@ describe('Knowledge Format Contract', () => {
     const templateContext = {
       project_name: 'test-project',
       tech_stack: { language: 'typescript', framework: 'express' },
-      knowledge_base_path: 'docs/ai-knowledge',
+      knowledge_base_path: 'prospec/ai-knowledge',
       index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
       modules: [
         {

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1061%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1069%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -247,7 +247,7 @@ Prospec generates 14 Skills — 13 guide AI through the full SDD lifecycle, plus
 |-------|---------------|-------------|
 | **Explore** | `/prospec-explore` | Think partner for requirement clarification |
 | **New Story** | `/prospec-new-story` | Create structured change story |
-| **Design** | `/prospec-design` | Generate visual + interaction specs (Generate/Extract modes) |
+| **Design** | `/prospec-design` | Generate visual + interaction specs (Generate/Extract modes; Extract also reverse-extracts a Feature Spec draft from existing code via `input=code`) |
 | **Plan** | `/prospec-plan` | Generate implementation plan + delta-spec |
 | **Tasks** | `/prospec-tasks` | Break down into executable tasks |
 | **Fast-Forward** | `/prospec-ff` | Generate story → plan → tasks in one go |
@@ -490,7 +490,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1061 tests)
+# Run all tests (1069 tests)
 pnpm test
 
 # Watch mode
@@ -507,9 +507,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1061 tests across 4 categories:
+**Test Coverage**: 1069 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 523 tests
-- Contract tests (CLI output + Skill format): 484 tests
+- Contract tests (CLI output + Skill format): 492 tests
 - Integration tests: 17 tests
 - E2E tests: 37 tests
 

@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ModuleMap } from '../types/module-map.js';
 import type { KnowledgeStrategy } from '../types/config.js';
+import { DEFAULT_BASE_DIR } from '../types/config.js';
 import { ModuleDetectionError } from '../types/errors.js';
 import { parseYaml } from './yaml-utils.js';
 
@@ -88,14 +89,14 @@ export interface DetectionResult {
  * @param cwd - Project root directory
  * @param strategy - Module partitioning strategy (default: 'auto')
  * @param knowledgeBasePath - Knowledge base dir holding module-map.yaml,
- *   relative to cwd or absolute (default: legacy 'docs/ai-knowledge')
+ *   relative to cwd or absolute (default: `prospec/ai-knowledge`, from DEFAULT_BASE_DIR)
  * @returns Detected modules with relationships
  */
 export function detectModules(
   files: string[],
   cwd: string = process.cwd(),
   strategy: KnowledgeStrategy = 'auto',
-  knowledgeBasePath: string = path.join('docs', 'ai-knowledge'),
+  knowledgeBasePath: string = path.join(DEFAULT_BASE_DIR, 'ai-knowledge'),
 ): DetectionResult {
   try {
     // Step 1: Check for existing module-map.yaml

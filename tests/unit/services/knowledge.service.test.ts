@@ -67,9 +67,9 @@ describe('knowledge.service', () => {
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/module-map.yaml': `modules:
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
   - name: services
     description: Business logic services
     paths:
@@ -95,9 +95,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/module-map.yaml': `modules:
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
   - name: services
     description: Business logic services
     paths:
@@ -131,9 +131,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/module-map.yaml': `modules:
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
   - name: lib
     description: Shared utilities
     paths:
@@ -170,9 +170,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/module-map.yaml': `modules:
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
   - name: services
     description: Business logic
     paths:
@@ -203,9 +203,9 @@ knowledge:
       '/project/.prospec.yaml': `project:
   name: test
 knowledge:
-  base_path: docs/ai-knowledge
+  base_path: prospec/ai-knowledge
 `,
-      '/project/docs/ai-knowledge/module-map.yaml': `modules:
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
   - name: lib
     description: Library
     paths:

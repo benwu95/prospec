@@ -15,9 +15,9 @@ import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
-  knowledge_base_path: 'docs/ai-knowledge',
-  constitution_path: 'docs/CONSTITUTION.md',
-  base_dir: 'docs',
+  knowledge_base_path: 'prospec/ai-knowledge',
+  constitution_path: 'prospec/CONSTITUTION.md',
+  base_dir: 'prospec',
   tech_stack: { language: 'typescript', framework: 'express' },
   artifact_language: 'English',
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
@@ -223,8 +223,8 @@ describe('Skill Format Contract', () => {
         TEMPLATE_CONTEXT,
       );
       expect(content).toContain('test-project');
-      expect(content).toContain('docs/ai-knowledge');
-      expect(content).toContain('docs/CONSTITUTION.md');
+      expect(content).toContain('prospec/ai-knowledge');
+      expect(content).toContain('prospec/CONSTITUTION.md');
     });
   });
 
@@ -523,6 +523,77 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('adapter-figma');
       expect(content).toContain('adapter-penpot');
       expect(content).toContain('adapter-html');
+    });
+  });
+
+  describe('prospec-design reverse-spec (input=code) variant', () => {
+    const render = () =>
+      renderTemplate('skills/prospec-design.hbs', TEMPLATE_CONTEXT);
+
+    it('pins the triangulation source→field mapping (REQ-TEMPLATES-104)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('input=code');
+      expect(sec).toContain('code + tests');
+      expect(sec).toContain('Acceptance Criteria');
+      expect(sec).toContain('test names and assertions');
+      expect(sec).toContain('*So that*');
+      expect(sec).toContain('docs / README');
+      expect(sec).toContain('role / value / target user');
+      expect(sec).toContain('ai-knowledge');
+      expect(sec).toContain('module routing only');
+    });
+
+    it('pins the route-compatible reverse-draft output (REQ-TEMPLATES-104)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('reverse-draft.md');
+      expect(sec).toContain('route-compatible');
+      expect(sec).toContain('**Feature:**');
+      expect(sec).toContain('**Story:**');
+    });
+
+    it('scopes the >50% guardrail denominator to story-level intent (REQ-TEMPLATES-105)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('[NEEDS CLARIFICATION]');
+      expect(sec).toContain('>50%');
+      expect(sec).toContain('story-level intent');
+      expect(sec).toContain('not counted toward the >50%');
+      expect(sec).toContain('product/consumer name');
+    });
+
+    it('pins the trust-zone invariant and candidate-slug rule (REQ-TEMPLATES-106)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('never writes');
+      expect(sec).toContain('prospec/specs/features/'); // base_dir-templated (TEMPLATE_CONTEXT.base_dir='prospec') — catches a hardcoded-path regression
+      expect(sec).toContain('candidate feature slug');
+      expect(sec).toContain('isSafeResourceName');
+    });
+
+    it('pins informational, no-auto-trigger WHAT-layer scoping (REQ-TEMPLATES-107)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('WHAT-layer');
+      expect(sec).toContain('informational only');
+      expect(sec).toContain('does not auto-trigger');
+    });
+
+    it('routes input=code to the reverse variant in mode-detect (REQ-DSGN-003)', () => {
+      const sec = sectionOf(render(), '### Phase 1:');
+      expect(sec).toContain('input=code');
+    });
+
+    it('keeps reverse-spec content out of the stable Startup Loading prefix (REQ-TESTS-028 AC2)', () => {
+      const sl = sectionOf(render(), '## Startup Loading');
+      expect(sl).not.toContain('input=code');
+      expect(sl).not.toContain('reverse-draft');
+      expect(sl).not.toContain('Phase 2b-code');
+    });
+
+    it('pins completeness discipline + countable-fact verification (REQ-TEMPLATES-104)', () => {
+      const sec = sectionOf(render(), '### Phase 2b-code:');
+      expect(sec).toContain('enumerate');
+      expect(sec).toContain('deferred');
+      expect(sec).toContain('coverage must be visible');
+      expect(sec).toContain('Verify countable facts');
+      expect(sec).toContain('never state an exact count you did not count');
     });
   });
 
