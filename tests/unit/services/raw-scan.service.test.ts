@@ -310,6 +310,80 @@ describe('raw-scan.service / Dependencies — backend ecosystems', () => {
   });
 });
 
+describe('raw-scan.service / C, C++, Swift', () => {
+  it('parses vcpkg.json deps and reports C++ / vcpkg with entry + config', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/vcpkg.json': JSON.stringify({ dependencies: ['fmt', { name: 'boost' }] }),
+      '/project/src/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack).toMatchObject({ language: 'c++', package_manager: 'vcpkg' });
+    expect(depNames(result.dependencies)).toEqual(['fmt', 'boost']);
+    expect(result.entryPoints).toContain('src/main.cpp');
+    expect(result.configFiles).toEqual(
+      expect.arrayContaining(['CMakeLists.txt', 'vcpkg.json']),
+    );
+  });
+
+  it('parses conanfile.txt deps and reports C / conan', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/conanfile.txt': '[requires]\nzlib/1.2.13\n',
+      '/project/main.c': 'int main(void){return 0;}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack).toMatchObject({ language: 'c', package_manager: 'conan' });
+    expect(depNames(result.dependencies)).toEqual(['zlib']);
+  });
+
+  it('reports Swift with empty deps (Package.swift not parsed) and main.swift entry', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Package.swift': '// swift-tools-version:5.9\n',
+      '/project/Sources/App/main.swift': 'print("hi")\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('swift');
+    expect(result.dependencies).toEqual([]);
+    expect(result.entryPoints).toContain('Sources/App/main.swift');
+    expect(result.configFiles).toContain('Package.swift');
+  });
+
+  it('leaves deps empty for an imperative-only C++ project (CMake, no vcpkg/conan)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBe('c++');
+    expect(result.dependencies).toEqual([]);
+  });
+
+  it('keeps Tech Stack and Dependencies consistent for a vcpkg.json with no C/C++ source', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/vcpkg.json': JSON.stringify({ dependencies: ['fmt'] }),
+      '/project/README.md': '# demo\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.techStack.language).toBeUndefined();
+    expect(result.dependencies).toEqual([]); // gated on C-family source evidence
+  });
+
+  it('detects a C++ entry point in a nested directory', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/CMakeLists.txt': 'project(demo)\n',
+      '/project/apps/tool/main.cpp': 'int main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('apps/tool/main.cpp');
+  });
+});
+
 describe('raw-scan.service / Entry Points + Config Files — backend', () => {
   it('detects Go and Rust entry-point files', async () => {
     vol.fromJSON({

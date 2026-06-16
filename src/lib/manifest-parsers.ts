@@ -351,3 +351,61 @@ export function csprojIsExecutable(content: string): boolean {
     return false;
   }
 }
+
+/**
+ * vcpkg.json — manifest-mode `dependencies`: string names, or objects
+ * `{ name, "version>=" }`. (CMake itself is imperative and not parsed.)
+ */
+export function parseVcpkgDependencies(content: string): ManifestDependency[] {
+  try {
+    const root = asRecord(JSON.parse(content));
+    const deps: ManifestDependency[] = [];
+    for (const entry of asArray(root?.dependencies)) {
+      if (typeof entry === 'string') {
+        deps.push({ name: entry });
+        continue;
+      }
+      const obj = asRecord(entry);
+      if (!obj || typeof obj.name !== 'string') continue;
+      const name = obj.name;
+      const raw = obj['version>='] ?? obj.version;
+      const version =
+        typeof raw === 'string' || typeof raw === 'number' ? String(raw) : undefined;
+      deps.push(version ? { name, version } : { name });
+    }
+    return deps;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * conanfile.txt — packages under the `[requires]` section (`name/version`).
+ * The imperative conanfile.py form is not parsed.
+ */
+export function parseConanfileTxtDependencies(
+  content: string,
+): ManifestDependency[] {
+  const deps: ManifestDependency[] = [];
+  let inRequires = false;
+
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.replace(/#.*$/, '').trim();
+    if (!line) continue;
+    if (line.startsWith('[')) {
+      inRequires = line === '[requires]';
+      continue;
+    }
+    if (!inRequires) continue;
+    const slash = line.indexOf('/');
+    if (slash === -1) {
+      deps.push({ name: line });
+    } else {
+      const name = line.slice(0, slash);
+      const version = line.slice(slash + 1) || undefined;
+      deps.push(version ? { name, version } : { name });
+    }
+  }
+
+  return deps;
+}

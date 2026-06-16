@@ -331,8 +331,11 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 | C# | ✅ | ✅ `*.csproj` | ✅ | ✅ |
 | Ruby | ✅ | — ² | ✅ | ✅ |
 | PHP | ✅ | ✅ `composer.json` | — | ✅ |
+| C | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| C++ | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| Swift | ✅ `Package.swift` | — ⁵ | ✅ | ✅ |
 
-¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊。
+¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。³ C 與 C++ 由原始碼副檔名推斷；可於 `.prospec.yaml` 設 `tech_stack` 覆寫。⁴ C/C++ 依賴僅讀宣告式 manifest——`CMakeLists.txt` 與 `conanfile.py` 為命令式、不解析。⁵ Swift 依賴不解析（`Package.swift` 為命令式 Swift）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊。
 
 ### 變更管理命令
 

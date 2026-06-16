@@ -346,8 +346,11 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | C# | ✅ | ✅ `*.csproj` | ✅ | ✅ |
 | Ruby | ✅ | — ² | ✅ | ✅ |
 | PHP | ✅ | ✅ `composer.json` | — | ✅ |
+| C | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| C++ | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
+| Swift | ✅ `Package.swift` | — ⁵ | ✅ | ✅ |
 
-¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). Any unrecognized language still appears in the Directory Tree and File Stats sections.
+¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). ³ C vs C++ is inferred from source-file extensions; set `tech_stack` in `.prospec.yaml` to override. ⁴ C/C++ dependencies are read from declarative manifests only — `CMakeLists.txt` and `conanfile.py` are imperative and not parsed. ⁵ Swift dependencies are not parsed (`Package.swift` is imperative Swift). Any unrecognized language still appears in the Directory Tree and File Stats sections.
 
 ### Change Management Commands
 

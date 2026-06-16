@@ -144,8 +144,63 @@ function autoDetectTechStack(dir: string, files?: string[]): TechStackResult {
   if (existsSync(path.join(dir, 'composer.json'))) {
     return { language: 'php', package_manager: 'composer' };
   }
+  // Swift ranked before C/C++ so a Swift project with a co-present vcpkg.json
+  // resolves to swift (matching collectDependencies' Swift short-circuit).
+  const hasSwift = files
+    ? files.some((f) => path.basename(f) === 'Package.swift')
+    : existsSync(path.join(dir, 'Package.swift'));
+  if (hasSwift) {
+    return { language: 'swift', package_manager: 'spm' };
+  }
+  // C/C++ — the C-vs-C++ split reads source extensions, so it needs the scanned
+  // file list; gated on a C/C++-specific build file (a bare Makefile is too
+  // generic to imply C/C++).
+  if (files) {
+    const cFamily = detectCFamily(files);
+    if (cFamily) return cFamily;
+  }
 
   return result;
+}
+
+const C_FAMILY_BUILD_FILES = new Set([
+  'CMakeLists.txt',
+  'conanfile.txt',
+  'conanfile.py',
+  'vcpkg.json',
+  'meson.build',
+]);
+const CPP_SOURCE_EXT = /\.(cpp|cc|cxx|c\+\+|hpp|hh|hxx)$/i;
+const C_SOURCE_EXT = /\.(c|h)$/i;
+
+/**
+ * Whether the scanned files contain any C or C++ source/header. Shared so the
+ * C-family dependency collection in raw-scan.service gates on the same evidence
+ * detectCFamily uses — keeping the Tech Stack and Dependencies sections aligned.
+ */
+export function hasCFamilySource(files: string[]): boolean {
+  return files.some((f) => CPP_SOURCE_EXT.test(f) || C_SOURCE_EXT.test(f));
+}
+
+function detectCFamily(files: string[]): TechStackResult | undefined {
+  const hasBuildFile = files.some(
+    (f) => C_FAMILY_BUILD_FILES.has(path.basename(f)) || f.endsWith('.cmake'),
+  );
+  if (!hasBuildFile) return undefined;
+  const hasCpp = files.some((f) => CPP_SOURCE_EXT.test(f));
+  const hasC = files.some((f) => C_SOURCE_EXT.test(f));
+  const language = hasCpp ? 'c++' : hasC ? 'c' : undefined;
+  if (!language) return undefined;
+  return { language, package_manager: cFamilyPackageManager(files) };
+}
+
+function cFamilyPackageManager(files: string[]): string {
+  const has = (name: string): boolean =>
+    files.some((f) => path.basename(f) === name);
+  if (has('vcpkg.json')) return 'vcpkg';
+  if (has('conanfile.txt') || has('conanfile.py')) return 'conan';
+  if (has('meson.build')) return 'meson';
+  return 'cmake';
 }
 
 function hasFileWithExtension(dir: string, ext: string): boolean {

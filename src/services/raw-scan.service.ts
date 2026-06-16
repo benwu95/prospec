@@ -2,7 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
-import { detectTechStack, type TechStackResult } from '../lib/detector.js';
+import {
+  detectTechStack,
+  hasCFamilySource,
+  type TechStackResult,
+} from '../lib/detector.js';
 import {
   parsePyprojectDependencies,
   parseCargoDependencies,
@@ -11,6 +15,8 @@ import {
   parseComposerDependencies,
   parseMavenDependencies,
   parseCsprojDependencies,
+  parseVcpkgDependencies,
+  parseConanfileTxtDependencies,
   parsePyprojectEntryPoints,
   parseCargoEntryPoints,
   csprojIsExecutable,
@@ -192,6 +198,11 @@ function detectEntryPoints(files: string[], cwd: string): string[] {
     /^manage\.py$/,
     // Java (filename heuristic)
     /(^|\/)(Application|Main|App)\.java$/,
+    // C / C++ (depth-agnostic, consistent with the Swift/Java patterns)
+    /(^|\/)main\.c$/,
+    /(^|\/)main\.(cpp|cc|cxx)$/,
+    // Swift
+    /(^|\/)main\.swift$/,
   ];
   // Ruby executables are conventional only when a Gemfile is present — gating
   // avoids treating a Node project's bin/ scripts as Ruby entry points.
@@ -308,6 +319,28 @@ function collectDependencies(
     return parseComposerDependencies(readFileSafe(composer));
   }
 
+  // Swift — Package.swift is imperative Swift, not statically parsed; ranked
+  // before C/C++ so a Swift project with a co-present vcpkg.json stays
+  // consistent with detectTechStack (which detects swift first).
+  if (findManifestPath(files, (f) => path.basename(f) === 'Package.swift')) {
+    return [];
+  }
+
+  // C/C++ — declarative manifests only (CMakeLists.txt / conanfile.py are
+  // imperative and left to the LLM), gated on C-family source evidence so this
+  // stays consistent with detectTechStack: a manifest with no recognized C/C++
+  // source yields neither a language nor parsed deps.
+  if (hasCFamilySource(files)) {
+    const vcpkg = findManifestPath(files, (f) => path.basename(f) === 'vcpkg.json');
+    if (vcpkg) {
+      return parseVcpkgDependencies(readFileSafe(path.join(cwd, vcpkg)));
+    }
+    const conan = findManifestPath(files, (f) => path.basename(f) === 'conanfile.txt');
+    if (conan) {
+      return parseConanfileTxtDependencies(readFileSafe(path.join(cwd, conan)));
+    }
+  }
+
   return [];
 }
 
@@ -351,6 +384,15 @@ function collectConfigFiles(files: string[]): string[] {
     /^Gemfile\.lock$/,
     /^composer\.json$/,
     /^composer\.lock$/,
+    /^CMakeLists\.txt$/,
+    /\.cmake$/,
+    /^Package\.swift$/,
+    /^Package\.resolved$/,
+    /\.podspec$/,
+    /^Podfile$/,
+    /^conanfile\.(txt|py)$/,
+    /^vcpkg\.json$/,
+    /^meson\.build$/,
   ];
 
   return files.filter((f) => {

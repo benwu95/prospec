@@ -7,6 +7,8 @@ import {
   parseComposerDependencies,
   parseMavenDependencies,
   parseCsprojDependencies,
+  parseVcpkgDependencies,
+  parseConanfileTxtDependencies,
   parsePyprojectEntryPoints,
   parseCargoEntryPoints,
   csprojIsExecutable,
@@ -256,5 +258,42 @@ describe('review-fix regressions', () => {
       '<!DOCTYPE project [<!ENTITY inj "PWNED">]><project><dependencies><dependency><groupId>g</groupId><artifactId>&inj;</artifactId><version>1</version></dependency></dependencies></project>';
     const deps = parseMavenDependencies(pom);
     expect(deps[0]?.name).not.toContain('PWNED');
+  });
+});
+
+describe('parseVcpkgDependencies', () => {
+  it('extracts string and object dependency entries', () => {
+    const json = JSON.stringify({
+      dependencies: ['fmt', { name: 'boost', 'version>=': '1.80' }, { name: 'zlib' }],
+    });
+    expect(parseVcpkgDependencies(json)).toEqual([
+      { name: 'fmt' },
+      { name: 'boost', version: '1.80' },
+      { name: 'zlib' },
+    ]);
+  });
+
+  it('returns [] on malformed JSON or missing dependencies', () => {
+    expect(parseVcpkgDependencies('{not json')).toEqual([]);
+    expect(parseVcpkgDependencies('{}')).toEqual([]);
+  });
+});
+
+describe('parseConanfileTxtDependencies', () => {
+  it('extracts the [requires] section only, ignoring others and comments', () => {
+    const conan = [
+      '[requires]',
+      'zlib/1.2.13',
+      'fmt/[>=9.0]   # pinned range',
+      'header-only',
+      '',
+      '[generators]',
+      'CMakeDeps',
+    ].join('\n');
+    expect(parseConanfileTxtDependencies(conan)).toEqual([
+      { name: 'zlib', version: '1.2.13' },
+      { name: 'fmt', version: '[>=9.0]' },
+      { name: 'header-only' },
+    ]);
   });
 });

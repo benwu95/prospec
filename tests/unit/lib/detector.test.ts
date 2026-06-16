@@ -252,4 +252,44 @@ describe('detectTechStack — backend languages', () => {
       detectTechStack('/project', undefined, ['backend/pom.xml']).language,
     ).toBe('java');
   });
+
+  it('detects Swift from Package.swift', () => {
+    const result = detectTechStack('/project', undefined, ['Package.swift', 'Sources/App/main.swift']);
+    expect(result.language).toBe('swift');
+    expect(result.package_manager).toBe('spm');
+  });
+
+  it('splits C vs C++ by source extension under a C-family build file', () => {
+    expect(
+      detectTechStack('/project', undefined, ['CMakeLists.txt', 'src/main.cpp']),
+    ).toMatchObject({ language: 'c++', package_manager: 'cmake' });
+    expect(
+      detectTechStack('/project', undefined, ['CMakeLists.txt', 'src/main.c']),
+    ).toMatchObject({ language: 'c', package_manager: 'cmake' });
+  });
+
+  it('derives the C-family package manager from the manifest', () => {
+    expect(
+      detectTechStack('/project', undefined, ['vcpkg.json', 'main.cpp']).package_manager,
+    ).toBe('vcpkg');
+    expect(
+      detectTechStack('/project', undefined, ['conanfile.txt', 'main.c']).package_manager,
+    ).toBe('conan');
+  });
+
+  it('does NOT treat a bare Makefile as a C/C++ signal', () => {
+    expect(
+      detectTechStack('/project', undefined, ['Makefile', 'src/main.c']).language,
+    ).toBeUndefined();
+  });
+
+  it('lets .prospec.yaml tech_stack override the C/C++ heuristic', () => {
+    const result = detectTechStack(
+      '/project',
+      { language: 'c', package_manager: 'cmake' },
+      ['CMakeLists.txt', 'src/main.cpp'], // heuristic would say c++
+    );
+    expect(result.language).toBe('c');
+    expect(result.source).toBe('config');
+  });
 });
