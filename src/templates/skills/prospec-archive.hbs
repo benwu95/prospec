@@ -126,12 +126,14 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
    - [module-2]: [N] requirements reflected
    ```
 3. If a gap is found (gate state regressed since the Entry Gate), STOP: run `/prospec-knowledge-update` for the gap, then continue — do not fall back to an optional prompt
+4. Refresh the deterministic project-structure snapshot so `{{knowledge_base_path}}/raw-scan.md` reflects the just-archived code for the next `/prospec-knowledge-generate`. CLI fallback ladder (no LLM, Windows-safe, no Python/bash): `prospec knowledge refresh` (PATH) → `pnpm exec prospec knowledge refresh` / `npx -y prospec knowledge refresh` (project devDep). Non-fatal — if no Node toolchain is available, note it and continue (the archive service runs the same refresh as an idempotent safety net when invoked programmatically).
 
-> The archive service additionally auto-triggers a knowledge update as an idempotent safety net — with the Entry Gate already satisfied it is a no-op, not a substitute for the gate.
+> The archive service additionally auto-triggers a knowledge update AND the same `prospec knowledge refresh` as idempotent safety nets — with the Entry Gate already satisfied and the refresh just run, they are no-ops, not a substitute for the gate or for step 4.
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] Every affected module README re-confirmed to reflect the archived change (no regression since the Entry Gate)
 > - [ ] Confirmed modules listed with their reflected requirement counts; any gap resolved via `/prospec-knowledge-update`
+> - [ ] `raw-scan.md` refreshed via `prospec knowledge refresh` (or CLI-unavailable noted)
 
 ### Phase 4.5: Auto-Harvest Recurring Lessons
 

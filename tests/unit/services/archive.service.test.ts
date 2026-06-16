@@ -16,8 +16,27 @@ vi.mock('node:fs', async () => {
   return { ...memfs.fs, default: memfs.fs };
 });
 
+// Isolate archive's wiring from the raw-scan internals (scanDir/template) — the
+// archive safety net's contract is "call generateRawScan, non-fatally".
+vi.mock('../../../src/services/raw-scan.service.js', () => ({
+  generateRawScan: vi.fn().mockResolvedValue({
+    totalFiles: 0,
+    scanDepth: 10,
+    techStack: { language: 'typescript' },
+    entryPoints: [],
+    dependencies: [],
+    configFiles: [],
+    outputFile: 'prospec/ai-knowledge/raw-scan.md',
+    dryRun: false,
+    files: [],
+  }),
+}));
+
+import { generateRawScan } from '../../../src/services/raw-scan.service.js';
+
 beforeEach(() => {
   vol.reset();
+  vi.mocked(generateRawScan).mockClear();
 });
 
 // --- scanChanges ---
@@ -409,6 +428,48 @@ Details.
 
     expect(result.archived).toHaveLength(1);
     expect(result.specFiles).toHaveLength(0);
+  });
+
+  it('refreshes raw-scan.md after archiving (deterministic safety net)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.archived).toHaveLength(1);
+    expect(result.rawScanRefreshed).toBe(true);
+    expect(vi.mocked(generateRawScan)).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: '/project' }),
+    );
+  });
+
+  it('does not run raw-scan refresh when nothing was archived', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: tasks\ncreated: "2026-01-01"\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.archived).toHaveLength(0);
+    expect(result.rawScanRefreshed).toBe(false);
+    expect(vi.mocked(generateRawScan)).not.toHaveBeenCalled();
+  });
+
+  it('treats a raw-scan refresh failure as non-fatal (archive still succeeds)', async () => {
+    vi.mocked(generateRawScan).mockRejectedValueOnce(new Error('scan boom'));
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.archived).toHaveLength(1);
+    expect(result.rawScanRefreshed).toBe(false);
   });
 });
 

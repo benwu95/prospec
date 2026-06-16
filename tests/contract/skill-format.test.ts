@@ -693,6 +693,22 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('adapter MCP');
     });
 
+    it('prospec-knowledge-generate refreshes raw-scan in Startup Loading with a CLI fallback ladder', () => {
+      const content = renderTemplate(
+        'skills/prospec-knowledge-generate.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const section = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(content)?.[1] ?? '';
+      expect(section.trim().length).toBeGreaterThan(0);
+      // raw-scan.md stays the read input (and the item-set baseline key)…
+      expect(section).toContain('raw-scan.md');
+      // …refreshed deterministically before reading
+      expect(section).toContain('prospec knowledge refresh');
+      // CLI fallback ladder (Prerequisite): pnpm exec / npx — Windows-safe, no Python
+      expect(content).toContain('pnpm exec prospec knowledge refresh');
+      expect(content).toContain('npx -y prospec knowledge refresh');
+    });
+
     it('proposal-format should contain UI Scope section', () => {
       const content = renderTemplate(
         'skills/references/proposal-format.hbs',

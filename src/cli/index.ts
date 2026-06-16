@@ -13,6 +13,7 @@ import { registerQuickstartCommand } from './commands/quickstart.js';
 import { registerSteeringCommand } from './commands/steering.js';
 import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
+import { registerKnowledgeRefreshCommand } from './commands/knowledge-refresh.js';
 import { registerAgentCommand } from './commands/agent-sync.js';
 import { registerChangeCommand } from './commands/change-story.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
@@ -89,6 +90,7 @@ export function createProgram(): Command {
   registerSteeringCommand(program);
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);
+  registerKnowledgeRefreshCommand(knowledge, program);
   registerAgentCommand(program);
   registerChangeCommand(program);
   registerChangePlanCommand(program);
