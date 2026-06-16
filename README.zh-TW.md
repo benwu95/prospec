@@ -317,6 +317,23 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 >
 > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 
+#### 專案掃描支援語言
+
+`prospec knowledge init` / `knowledge refresh` 會將下列語言偵測進 `raw-scan.md`。偵測為 deterministic（不使用 LLM、不連網）且 best-effort，各區塊涵蓋程度不同：
+
+| 語言 | Tech Stack | Dependencies | Entry Points | Config Files |
+|------|:---:|:---:|:---:|:---:|
+| JavaScript / TypeScript | ✅（含 framework） | ✅ `package.json` | ✅ | ✅ |
+| Python | ✅ | ✅ `pyproject.toml` / `requirements.txt` | ✅ | ✅ |
+| Go | ✅ | ✅ `go.mod` | ✅ | ✅ |
+| Rust | ✅ | ✅ `Cargo.toml` | ✅ | ✅ |
+| Java / Kotlin | ✅ Maven / Gradle | ✅ `pom.xml` ¹ | ✅ | ✅ |
+| C# | ✅ | ✅ `*.csproj` | ✅ | ✅ |
+| Ruby | ✅ | — ² | ✅ | ✅ |
+| PHP | ✅ | ✅ `composer.json` | — | ✅ |
+
+¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊。
+
 ### 變更管理命令
 
 | 命令 | 說明 |

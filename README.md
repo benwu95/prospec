@@ -332,6 +332,23 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
+#### Project-scan language support
+
+`prospec knowledge init` / `knowledge refresh` detect the following into `raw-scan.md`. Detection is deterministic (no LLM, no network) and best-effort; coverage differs by section:
+
+| Language | Tech Stack | Dependencies | Entry Points | Config Files |
+|----------|:---:|:---:|:---:|:---:|
+| JavaScript / TypeScript | ✅ (+ framework) | ✅ `package.json` | ✅ | ✅ |
+| Python | ✅ | ✅ `pyproject.toml` / `requirements.txt` | ✅ | ✅ |
+| Go | ✅ | ✅ `go.mod` | ✅ | ✅ |
+| Rust | ✅ | ✅ `Cargo.toml` | ✅ | ✅ |
+| Java / Kotlin | ✅ Maven / Gradle | ✅ `pom.xml` ¹ | ✅ | ✅ |
+| C# | ✅ | ✅ `*.csproj` | ✅ | ✅ |
+| Ruby | ✅ | — ² | ✅ | ✅ |
+| PHP | ✅ | ✅ `composer.json` | — | ✅ |
+
+¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). Any unrecognized language still appears in the Directory Tree and File Stats sections.
+
 ### Change Management Commands
 
 | Command | Description |
