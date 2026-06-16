@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (16 files, ~4,230 lines)
+> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (16 files, ~4,320 lines)
 
 <!-- prospec:auto-start -->
 
@@ -12,7 +12,7 @@
 | `src/services/init.service.ts` | Project init — scaffold config (incl. artifact language via --language/prompt/CI default), Constitution with Language Policy rule, AI Knowledge; renders all templates to memory first and writes `.prospec.yaml` LAST as the completion marker (mid-init failure leaves a re-runnable state) |
 | `src/services/steering.service.ts` | Architecture discovery — scan, detectModules(strategy), generate module-map.yaml; `buildLayers` excludes the reserved `base_dir` key (artifact root, not a code layer) and falls through to detected modules when it is the only `paths` key; preserves `base_dir` across the config merge so resolution stays on the project's base_dir (else `resolveBasePaths` falls back to `DEFAULT_BASE_DIR`) |
 | `src/services/knowledge.service.ts` | Module README + _index.md generation — Recipe-First format, key_exports, ContentMerger |
-| `src/services/raw-scan.service.ts` | Deterministic raw-scan.md production — `generateRawScan()` shared core (scan → tech/entry/deps/config/tree → render → atomicWrite; returns scanned `files` so callers reuse one scan) + `execute()` for `prospec knowledge refresh`; writes ONLY raw-scan.md (never curated files). Shared by knowledge-init, the refresh command, and the archive safety net |
+| `src/services/raw-scan.service.ts` | Deterministic raw-scan.md production — `generateRawScan()` shared core (scan → tech/entry/deps/config/tree → render → atomicWrite; returns scanned `files` so callers reuse one scan) + `execute()` for `prospec knowledge refresh`; `collectDependencies` dispatches across 11-language ecosystems (via `lib/manifest-parsers`; Swift/Ruby short-circuit to `[]`, C/C++ gated on `hasCFamilySource`), `detectEntryPoints`/`collectConfigFiles` cover backend conventions; writes ONLY raw-scan.md (never curated files). Shared by knowledge-init, the refresh command, and the archive safety net |
 | `src/services/knowledge-init.service.ts` | Initial scan → raw-scan.md + module-map.yaml (generated when absent, via buildModuleMap); delegates raw-scan production to `raw-scan.service.generateRawScan` (init behavior unchanged) |
 | `src/services/knowledge-update.service.ts` | Incremental knowledge update — parseDeltaSpec() (canonical 3-digit REQ ids; non-canonical ids surfaced via `DeltaSpecResult.malformed` → `KnowledgeUpdateResult.warnings`, not dropped silently), per-module README rebuild |
 | `src/services/change-story.service.ts` | Create change proposal — proposal.md via template; metadata.yaml serialized with stringifyYaml (not a template); the `_index.md` module-table parser anchors separator/header detection to cell ROLE (all-dash/colon cells; first cell == "module"), so a data row whose Description contains `---` is not dropped |
@@ -42,7 +42,7 @@
 
 ## Dependencies
 
-- **depends_on**: `lib` (config, scanner, template, fs-utils, content-merger, yaml-utils, detector, module-detector), `types` (all schemas, errors)
+- **depends_on**: `lib` (config, scanner, template, fs-utils, content-merger, yaml-utils, detector, manifest-parsers, module-detector), `types` (all schemas, errors)
 - **used_by**: `cli` commands (each command calls one service)
 
 ## Modification Guide
