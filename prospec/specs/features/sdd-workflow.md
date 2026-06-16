@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-15
-story_count: 21
-req_count: 78
+last_updated: 2026-06-16
+story_count: 22
+req_count: 83
 ---
 
 # SDD 開發流程
@@ -697,6 +697,48 @@ prospec-implement 每 task 完成 checkpoint 後輸出三段式 `Progress/Goal/N
 
 ---
 
+## US-22: 反向規格萃取（brownfield WHAT-layer 補全）[P2]
+
+身為一個 brownfield 專案開發者，
+我想要對既有但無 Feature Spec 覆蓋的 code 反向萃取出 route-compatible 的 Feature Spec 草稿（intent 推不出處標 `[NEEDS CLARIFICATION]`）並指出 WHAT-layer 未覆蓋的 module，
+以便不必等 N 個 forward change 累積就有 WHAT-layer 覆蓋，且不污染信任區。
+
+**Acceptance Scenarios:**
+- WHEN 對指定 module 觸發 `/prospec-design` Extract Mode `input=code` 反向變體且來源有足夠行為線索 THEN 於 `.prospec/changes/[name]/reverse-draft.md` 產出 route-compatible 草稿（`**Feature:**`/`**Story:**` + US/AC 候選）
+- WHEN intent 欄位（*So that* 價值／目標角色）無法從來源推斷 THEN 標 `[NEEDS CLARIFICATION]`、不捏造；story-level `[NEEDS CLARIFICATION]` 比例 > 50% THEN 中止／建議改走 forward
+- WHEN 萃取完成 THEN 信任區 `specs/features/` 0 寫入（草稿僅落 change 目錄）
+- WHEN 偵測 WHAT-layer 覆蓋 THEN 列出 code 存在但無 Feature Spec REQ 覆蓋的 module（informational、不阻擋、不自動觸發）
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-104: prospec-design Extract Mode code-input 反向變體
+`prospec-design.hbs` Extract Mode（Phase 2b-code）新增 input=code 反向變體：多源 triangulation 依 source→field 對照填欄（code+tests→behavior+AC、git body→*So that*、docs/README→role/value/目標用戶、ai-knowledge→僅 module routing），先枚舉行為再聚類全部成數個 US 並明列 deferred，產出 route-compatible 草稿至 `.prospec/changes/[name]/reverse-draft.md`。inline 於 design skill，不新增 reference 檔。
+- WHEN input=code 反向萃取意圖被偵測, THEN 依 source→field 對照產出 route-compatible 草稿（`**Feature:**`/`**Story:**` + US/AC）
+- WHEN 單模組多行為, THEN 先枚舉再聚類全部、明列 deferred（coverage 須可見、不得靜默部分覆蓋）
+- WHEN 陳述可數事實（enum/format/mapping 數量）, THEN 對來源核實，未核實寫 `~N` 或標 `[NEEDS CLARIFICATION]`
+
+#### REQ-TEMPLATES-105: 反向萃取 intent 護欄（[NEEDS CLARIFICATION] + >50% story-level）
+推不出的 story-level intent（*So that*／目標角色）標 `[NEEDS CLARIFICATION]`、不捏造；目標角色可自 git/docs 產品/消費者名反推；比例 > 50% 中止／建議 forward，分母只計 story-level intent（heuristic 校準 WHY 以 behavior AC 記錄其值、不計入中止分母）。
+- WHEN intent 推不出, THEN 標 `[NEEDS CLARIFICATION]`、禁止捏造（含英→繁中翻譯落差從寬標記）
+- WHEN `[NEEDS CLARIFICATION]` 比例 > 50%（分母只計 story-level intent）, THEN 中止或建議改走 forward
+
+#### REQ-TEMPLATES-106: 信任區不變式 + 候選 slug 提議
+反向萃取永不寫入 `specs/features/`（archive 維持唯一寫入者）；候選 feature slug 提議但不自決，以 `[NEEDS CLARIFICATION]` 請人確認且須過 `isSafeResourceName`；晉升為人工轉 delta-spec → verify → archive（無第二寫入者）。
+- WHEN 產出草稿, THEN 永不直寫信任區；候選 slug 標 `[NEEDS CLARIFICATION]` 且 `isSafeResourceName`-valid
+- WHEN 晉升, THEN 人工轉 delta-spec 走既有 forward archive 路徑
+
+#### REQ-TEMPLATES-107: WHAT-layer 未覆蓋 module 偵測（scoping）
+agent 讀 `specs/features/` + module 清單，列出 code 存在但無 REQ 覆蓋的 module 作為萃取範圍依據；已覆蓋者不入列。
+- WHEN 偵測覆蓋, THEN 列未覆蓋 module（informational、不阻擋、不自動觸發萃取）
+- WHEN module 已被既有 Feature Spec REQ 覆蓋, THEN 不入列（避免重複萃取）
+
+#### REQ-TESTS-028: 反向變體 section-scoped + mutation-verified 契約斷言
+`tests/contract/skill-format.test.ts` section-scoped 釘住反向變體字樣（input=code、source→field、>50% story-level 分母、信任區 never-write、route-compatible、未覆蓋偵測、completeness/count-fidelity），mutation-verified，含 negative assertion 確認反向內容未進 Startup Loading 穩定前綴。
+- WHEN contract runs, THEN 自反向變體區段切片驗證上述字樣
+- WHEN 移除任一被釘語意, THEN 對應斷言轉紅；Startup Loading 不含反向內容（negative）
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -730,3 +772,4 @@ prospec-implement 每 task 完成 checkpoint 後輸出三段式 `Progress/Goal/N
 | 2026-06-13 | enhance-skill-instructions | skill 指令品質 pass：Constitution 空白提示、Phase-1 + per-phase gate（ff 重編號）、status-aware handoff + 新 session 偵測、implement progress 錨定（OPT B1/D1/A1/D5；D9 延 icebox） | US-17~20; REQ-TEMPLATES-096~100 (ADDED), REQ-TEMPLATES-061/085 (MODIFIED), REQ-TESTS-026 (ADDED) |
 | 2026-06-15 | add-dependency-knowledge | plan/implement 加 optional on-demand Context7 依賴層知識（觸及第三方 lib 才查、注入 Technical Summary、graceful/untrusted/non-gating、永不進 stable prefix）（BL-034） | US-21; REQ-TEMPLATES-101/102/103 (ADDED), REQ-TESTS-027 (ADDED), REQ-TEMPLATES-044 (MODIFIED) |
 | 2026-06-15 | complete-capability-to-feature-migration | capability→feature 術語遷移收尾：移除孤兒 capability-spec-format.hbs（完成 REQ-TEMPLATES-031 實作層移除）、修正 new-story 失效載入路徑 specs/capabilities/→specs/features/、archive/implement 殘留用語對齊 Feature Spec | REQ-CHNG-006/009 (MODIFIED); REQ-TEMPLATES-031 (REMOVED 實作層收尾) |
+| 2026-06-16 | add-reverse-spec-extraction | brownfield WHAT-layer 反向規格萃取：prospec-design Extract Mode input=code 變體（triangulation→route-compatible 草稿、>50% story-level 護欄、信任區 never-write、未覆蓋偵測、completeness/count-fidelity）；MODIFIED REQ-DSGN-003 交叉引用（BL-032） | US-22; REQ-TEMPLATES-104~107, REQ-TESTS-028 (ADDED); REQ-DSGN-003 (MODIFIED, design-phase) |

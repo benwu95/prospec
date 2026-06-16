@@ -1,7 +1,7 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-03-02
+last_updated: 2026-06-16
 story_count: 3
 req_count: 9
 ---
@@ -44,10 +44,11 @@ req_count: 9
 - WHEN DSL syntax used, THEN annotated as draft-1
 
 #### REQ-DSGN-003: prospec-design Skill 雙模式
-`prospec-design.hbs` 定義 Design Phase 工作流，支援 Generate 與 Extract 雙模式。
+`prospec-design.hbs` 定義 Design Phase 工作流，支援 Generate 與 Extract 雙模式；Extract Mode 另含一個 input=code 反向變體，從既有 code 反向萃取行為層 Feature Spec 草稿（行為實質見 sdd-workflow US-22 / REQ-TEMPLATES-104~107），與既有 UI 設計工具萃取並存。
 
 **Scenarios:**
 - WHEN design skill triggered, THEN read proposal.md (ui_scope) and .prospec.yaml (design.platform) to detect mode
+- WHEN Extract Mode input=code（反向 spec 變體）, THEN 從既有 code 反向萃取行為層 Feature Spec 草稿至 change 目錄（行為見 sdd-workflow US-22）；永不寫信任區
 - WHEN no design-spec.md and no existing designs, THEN enter Generate Mode (produce design-spec.md + interaction-spec.md)
 - WHEN design-spec.md exists or design tool has designs, THEN enter Extract Mode (read via MCP, reverse-produce specs)
 - WHEN Extract Mode encounters ambiguous intent, THEN mark [NEEDS CLARIFICATION]
@@ -152,3 +153,4 @@ _(None)_
 |------|--------|--------|-------------|
 | 2026-02-16 | add-design-phase | Design Phase Generate/Extract 雙模式與 4 個 platform adapter | US-001~003, REQ-DSGN-001~009 |
 | 2026-03-02 | v2-product-first | 遷移為 Feature Spec，REQ ID 從 REQ-TEMPLATES-050~058 改為 REQ-DSGN-001~009 | All |
+| 2026-06-16 | add-reverse-spec-extraction | REQ-DSGN-003 加 input=code 反向 spec 變體交叉引用（行為實質歸 sdd-workflow US-22，避免 UI feature 語意污染） | REQ-DSGN-003 (MODIFIED) |

@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.2.1
-last_updated: 2026-06-15
+last_updated: 2026-06-16
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -42,7 +42,7 @@ last_updated: 2026-06-15
 
 ### 設計整合
 
-從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
+從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）；Extract Mode 另含 input=code 變體，從既有 code 反向萃取行為層 Feature Spec 草稿以補 brownfield WHAT-layer（人工 verify-and-promote、永不寫信任區）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
 → [features/design-phase.md](features/design-phase.md)
 
 ### Token 量測
