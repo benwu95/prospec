@@ -702,11 +702,11 @@ describe('Skill Format Contract', () => {
       expect(section.trim().length).toBeGreaterThan(0);
       // raw-scan.md stays the read input (and the item-set baseline key)…
       expect(section).toContain('raw-scan.md');
-      // …refreshed deterministically before reading
-      expect(section).toContain('prospec knowledge refresh');
+      // …refreshed deterministically before reading, via `knowledge init --raw-scan-only`
+      expect(section).toContain('prospec knowledge init --raw-scan-only');
       // CLI fallback ladder (Prerequisite): pnpm exec / npx — Windows-safe, no Python
-      expect(content).toContain('pnpm exec prospec knowledge refresh');
-      expect(content).toContain('npx -y prospec knowledge refresh');
+      expect(content).toContain('pnpm exec prospec knowledge init --raw-scan-only');
+      expect(content).toContain('npx -y prospec knowledge init --raw-scan-only');
     });
 
     it('proposal-format should contain UI Scope section', () => {

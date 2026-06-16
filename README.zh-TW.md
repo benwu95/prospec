@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1069%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1145%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -91,7 +91,7 @@ Prospec 是尚未發佈的 fork —— npm/pnpm 會 clone repo、裝 dev deps，
 npx github:benwu95/prospec quickstart
 ```
 
-想在專案內固定版本，讓重跑 `agent sync` 時所有貢獻者都生成相同的 Skills——也讓下游開發者免全域安裝即可經 `pnpm exec` / `npx` 執行 deterministic 的 `prospec knowledge refresh`（由 `/prospec-knowledge-generate` 與 `/prospec-archive` 觸發以保持 `raw-scan.md` 最新）。**Node.js 專案**改裝成 devDependency（其他語言生態：以全域安裝為主）：
+想在專案內固定版本，讓重跑 `agent sync` 時所有貢獻者都生成相同的 Skills——也讓下游開發者免全域安裝即可經 `pnpm exec` / `npx` 執行 deterministic 的 `prospec knowledge init --raw-scan-only`（由 `/prospec-knowledge-generate` 與 `/prospec-archive` 觸發以保持 `raw-scan.md` 最新）。**Node.js 專案**改裝成 devDependency（其他語言生態：以全域安裝為主）：
 
 ```bash
 npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/prospec
@@ -328,8 +328,7 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 |------|------|
 | `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`（跳過已完成步驟），接著在 AI agent 內交棒給 `/prospec-quickstart` 做 trigger 在地化與 Knowledge 生成。`--name`/`--agents`/`--language` 選項同 `init` |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
-| `prospec knowledge init [--depth <n>]` | 掃描專案並生成 raw-scan.md + 骨架 |
-| `prospec knowledge refresh [--depth <n>] [--dry-run]` | 依當前程式碼**僅**重新產生 raw-scan.md（deterministic、不使用 LLM）；不碰 curated 的 module-map.yaml / _index.md / _conventions.md。程式碼變動後或 `/prospec-knowledge-generate` 前執行，刷新結構快照 |
+| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + curated 骨架（module-map.yaml / _index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
 
 > **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：
@@ -340,7 +339,7 @@ Prospec 生成 14 個 Skills —— 13 個涵蓋完整 SDD 生命週期，外加
 
 #### 專案掃描支援語言
 
-`prospec knowledge init` / `knowledge refresh` 會將下列語言偵測進 `raw-scan.md`。偵測為 deterministic（不使用 LLM、不連網）且 best-effort，各區塊涵蓋程度不同：
+`prospec knowledge init`（含 `--raw-scan-only`）會將下列語言偵測進 `raw-scan.md`。偵測為 deterministic（不使用 LLM、不連網）且 best-effort，各區塊涵蓋程度不同：
 
 | 語言 | Tech Stack | Dependencies | Entry Points | Config Files |
 |------|:---:|:---:|:---:|:---:|
@@ -514,7 +513,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1069 個測試）
+# 執行所有測試（1145 個測試）
 pnpm test
 
 # Watch 模式
@@ -531,11 +530,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1069 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：523 tests
-- Contract tests（CLI 輸出 + Skill 格式）：492 tests
+**測試覆蓋率**：1145 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：594 tests
+- Contract tests（CLI 輸出 + Skill 格式）：494 tests
 - Integration tests：17 tests
-- E2E tests：37 tests
+- E2E tests：40 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

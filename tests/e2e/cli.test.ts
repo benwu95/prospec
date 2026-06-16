@@ -354,8 +354,8 @@ describe('CLI E2E', () => {
     });
   });
 
-  describe('prospec knowledge refresh', () => {
-    it('should fail without .prospec.yaml', async () => {
+  describe('prospec knowledge init --raw-scan-only', () => {
+    it('rejects the removed `knowledge refresh` command', async () => {
       const { exitCode } = await runCli(['knowledge', 'refresh']);
       expect(exitCode).not.toBe(0);
     });
@@ -363,9 +363,9 @@ describe('CLI E2E', () => {
     it('regenerates raw-scan.md for new code, leaving curated files untouched', async () => {
       await fs.promises.writeFile(
         path.join(tmpDir, 'package.json'),
-        JSON.stringify({ name: 'refresh-test', dependencies: { express: '^4.0.0' } }),
+        JSON.stringify({ name: 'rawscan-test', dependencies: { express: '^4.0.0' } }),
       );
-      await runCli(['init', '--name', 'refresh-test', '--agents', 'claude']);
+      await runCli(['init', '--name', 'rawscan-test', '--agents', 'claude']);
 
       const srcDir = path.join(tmpDir, 'src');
       await fs.promises.mkdir(srcDir, { recursive: true });
@@ -390,16 +390,17 @@ describe('CLI E2E', () => {
       await fs.promises.mkdir(newDir, { recursive: true });
       await fs.promises.writeFile(path.join(newDir, 'thing.ts'), 'export const t = 1;\n');
 
-      const { exitCode, stdout } = await runCli(['knowledge', 'refresh']);
+      const { exitCode, stdout } = await runCli(['knowledge', 'init', '--raw-scan-only']);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('raw-scan.md');
+      expect(stdout).toContain('left untouched');
 
       // raw-scan.md reflects the new structure
       const rawAfter = await fs.promises.readFile(rawScanPath, 'utf-8');
       expect(rawAfter).not.toBe(rawBefore);
       expect(rawAfter).toContain('newmodule');
 
-      // curated files are byte-identical (refresh never touches them)
+      // curated files are byte-identical (--raw-scan-only never touches them)
       const curatedAfter = await Promise.all(
         curatedPaths.map((p) => fs.promises.readFile(p, 'utf-8')),
       );
@@ -409,9 +410,9 @@ describe('CLI E2E', () => {
     it('does not modify raw-scan.md in dry-run mode', async () => {
       await fs.promises.writeFile(
         path.join(tmpDir, 'package.json'),
-        JSON.stringify({ name: 'refresh-dry' }),
+        JSON.stringify({ name: 'rawscan-dry' }),
       );
-      await runCli(['init', '--name', 'refresh-dry', '--agents', 'claude']);
+      await runCli(['init', '--name', 'rawscan-dry', '--agents', 'claude']);
       const srcDir = path.join(tmpDir, 'src');
       await fs.promises.mkdir(srcDir, { recursive: true });
       await fs.promises.writeFile(path.join(srcDir, 'index.ts'), 'export const a = 1;\n');
@@ -420,9 +421,14 @@ describe('CLI E2E', () => {
       const rawScanPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'raw-scan.md');
       const before = await fs.promises.readFile(rawScanPath, 'utf-8');
 
-      // Add a file, then dry-run refresh — must not be reflected
+      // Add a file, then dry-run --raw-scan-only — must not be reflected
       await fs.promises.writeFile(path.join(srcDir, 'extra.ts'), 'export const x = 1;\n');
-      const { exitCode, stdout } = await runCli(['knowledge', 'refresh', '--dry-run']);
+      const { exitCode, stdout } = await runCli([
+        'knowledge',
+        'init',
+        '--raw-scan-only',
+        '--dry-run',
+      ]);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('Dry-run');
 

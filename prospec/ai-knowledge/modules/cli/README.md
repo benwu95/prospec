@@ -1,6 +1,6 @@
 # cli
 
-> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 32 files, ~1,690 lines)
+> Thin CLI orchestration layer — parse args → call service → format output (Commander.js, 30 files, ~1,661 lines)
 
 <!-- prospec:auto-start -->
 
@@ -14,8 +14,7 @@
 | `src/cli/parse-options.ts` | parseDepth(value) — shared validating `--depth` parser (throws on NaN/<1); used by `steering` and `knowledge init` |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/quickstart.ts` | `prospec quickstart` — one-command onboarding (init + agent sync, skip-completed); in INIT_COMMANDS so it runs before `.prospec.yaml` exists |
-| `src/cli/commands/knowledge-init.ts` | `prospec knowledge init` — scan and raw-scan generation |
-| `src/cli/commands/knowledge-refresh.ts` | `prospec knowledge refresh` — deterministic raw-scan.md regeneration only (no LLM); leaves curated module-map/_index/_conventions untouched (mirrors knowledge-init flags `--depth`/`--dry-run`) |
+| `src/cli/commands/knowledge-init.ts` | `prospec knowledge init [--raw-scan-only]` — scan + raw-scan generation (+ curated skeletons when absent); `--raw-scan-only` regenerates raw-scan.md only, leaving curated module-map/_index/_conventions untouched (deterministic, no LLM; `--depth`/`--dry-run` supported) |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan; `--force` overwrites an existing plan.md/delta-spec.md |
 | `src/cli/commands/change-tasks.ts` | `prospec change tasks` — break plan into tasks; `--force` overwrites an existing tasks.md |

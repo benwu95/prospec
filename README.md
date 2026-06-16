@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1069%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1145%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -91,7 +91,7 @@ Run on demand with npx (clones + builds each time):
 npx github:benwu95/prospec quickstart
 ```
 
-Pin the version per-project so re-running `agent sync` regenerates identical Skills across contributors — and so downstream developers can run the deterministic `prospec knowledge refresh` (invoked by `/prospec-knowledge-generate` and `/prospec-archive` to keep `raw-scan.md` current) via `pnpm exec` / `npx` **without a global install**. For **Node.js projects**, install as a devDependency (other ecosystems: a global install is the path):
+Pin the version per-project so re-running `agent sync` regenerates identical Skills across contributors — and so downstream developers can run the deterministic `prospec knowledge init --raw-scan-only` (invoked by `/prospec-knowledge-generate` and `/prospec-archive` to keep `raw-scan.md` current) via `pnpm exec` / `npx` **without a global install**. For **Node.js projects**, install as a devDependency (other ecosystems: a global install is the path):
 
 ```bash
 npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
@@ -342,8 +342,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 |---------|-------------|
 | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
-| `prospec knowledge init [--depth <n>]` | Scan project and generate raw-scan.md + skeleton |
-| `prospec knowledge refresh [--depth <n>] [--dry-run]` | Regenerate **only** raw-scan.md from current code (deterministic, no LLM); leaves curated module-map.yaml / _index.md / _conventions.md untouched. Run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
+| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / _index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
@@ -354,7 +353,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 #### Project-scan language support
 
-`prospec knowledge init` / `knowledge refresh` detect the following into `raw-scan.md`. Detection is deterministic (no LLM, no network) and best-effort; coverage differs by section:
+`prospec knowledge init` (incl. `--raw-scan-only`) detects the following into `raw-scan.md`. Detection is deterministic (no LLM, no network) and best-effort; coverage differs by section:
 
 | Language | Tech Stack | Dependencies | Entry Points | Config Files |
 |----------|:---:|:---:|:---:|:---:|
@@ -541,7 +540,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1069 tests)
+# Run all tests (1145 tests)
 pnpm test
 
 # Watch mode
@@ -558,11 +557,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1069 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 523 tests
-- Contract tests (CLI output + Skill format): 492 tests
+**Test Coverage**: 1145 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 594 tests
+- Contract tests (CLI output + Skill format): 494 tests
 - Integration tests: 17 tests
-- E2E tests: 37 tests
+- E2E tests: 40 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 
