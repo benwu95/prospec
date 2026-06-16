@@ -31,4 +31,5 @@
 
 ## Needs-Review List
 
-（空——PB-001 TTL「review by 2026-12-11」、PB-002 TTL「review by 2026-12-12」均未到期，無規則衝突）
+- **verify/coverage-not-machine-measured（建議退休）**: 前提已不成立——`@vitest/coverage-v8 ^4.0.18` 已於 `chore(ci): add v8 coverage`（3562106）加入 devDeps、vitest.config provider=v8；coverage 現可機器量測（collapse-knowledge-refresh-into-init-flag archive 實測 stmts 82.21% / lines 83.61% ≥ 80%，branch 72.33%）。frequency 維持 3、**不因本變更遞增**（本變更無此 finding）。建議 /prospec-learn 退休此 lesson，或改寫為「branch coverage <80% 待補」。
+- PB-001 TTL「review by 2026-12-11」、PB-002 TTL「review by 2026-12-12」均未到期，無規則衝突
