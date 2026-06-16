@@ -9,6 +9,14 @@
     ],
     "mandatory": 3
   },
+  "prospec-backfill-spec": {
+    "items": [
+      "{{base_dir}}/specs/features/",
+      "{{constitution_path}}",
+      "{{knowledge_base_path}}/_index.md"
+    ],
+    "mandatory": 0
+  },
   "prospec-design": {
     "items": [
       ".prospec.yaml",

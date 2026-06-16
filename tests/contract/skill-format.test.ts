@@ -124,8 +124,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 14 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(14);
+    it('should have 15 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(15);
     });
 
     it('should include all expected skill names', () => {
@@ -143,6 +143,7 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-knowledge-generate');
       expect(names).toContain('prospec-archive');
       expect(names).toContain('prospec-knowledge-update');
+      expect(names).toContain('prospec-backfill-spec');
       expect(names).toContain('prospec-quickstart');
     });
 
@@ -186,6 +187,7 @@ describe('Skill Format Contract', () => {
       ).map((s) => s.name);
       expect(selfContained).toContain('prospec-knowledge-generate');
       expect(selfContained).toContain('prospec-knowledge-update');
+      expect(selfContained).toContain('prospec-backfill-spec');
     });
   });
 
@@ -526,13 +528,14 @@ describe('Skill Format Contract', () => {
     });
   });
 
-  describe('prospec-design reverse-spec (input=code) variant', () => {
+  describe('prospec-backfill-spec (extracted brownfield WHAT-layer skill)', () => {
     const render = () =>
+      renderTemplate('skills/prospec-backfill-spec.hbs', TEMPLATE_CONTEXT);
+    const renderDesign = () =>
       renderTemplate('skills/prospec-design.hbs', TEMPLATE_CONTEXT);
 
     it('pins the triangulation source→field mapping (REQ-TEMPLATES-104)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
-      expect(sec).toContain('input=code');
+      const sec = sectionOf(render(), '### Phase 1:');
       expect(sec).toContain('code + tests');
       expect(sec).toContain('Acceptance Criteria');
       expect(sec).toContain('test names and assertions');
@@ -543,16 +546,25 @@ describe('Skill Format Contract', () => {
       expect(sec).toContain('module routing only');
     });
 
-    it('pins the route-compatible reverse-draft output (REQ-TEMPLATES-104)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
-      expect(sec).toContain('reverse-draft.md');
+    it('pins completeness discipline + countable-fact verification (REQ-TEMPLATES-104)', () => {
+      const sec = sectionOf(render(), '### Phase 1:');
+      expect(sec).toContain('enumerate');
+      expect(sec).toContain('deferred');
+      expect(sec).toContain('coverage must be visible');
+      expect(sec).toContain('Verify countable facts');
+      expect(sec).toContain('never state an exact count you did not count');
+    });
+
+    it('pins the route-compatible backfill-draft output (REQ-TEMPLATES-104)', () => {
+      const sec = sectionOf(render(), '### Phase 2:');
+      expect(sec).toContain('backfill-draft.md');
       expect(sec).toContain('route-compatible');
       expect(sec).toContain('**Feature:**');
       expect(sec).toContain('**Story:**');
     });
 
     it('scopes the >50% guardrail denominator to story-level intent (REQ-TEMPLATES-105)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
+      const sec = sectionOf(render(), '### Phase 2:');
       expect(sec).toContain('[NEEDS CLARIFICATION]');
       expect(sec).toContain('>50%');
       expect(sec).toContain('story-level intent');
@@ -561,7 +573,7 @@ describe('Skill Format Contract', () => {
     });
 
     it('pins the trust-zone invariant and candidate-slug rule (REQ-TEMPLATES-106)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
+      const sec = sectionOf(render(), '### Phase 3:');
       expect(sec).toContain('never writes');
       expect(sec).toContain('prospec/specs/features/'); // base_dir-templated (TEMPLATE_CONTEXT.base_dir='prospec') — catches a hardcoded-path regression
       expect(sec).toContain('candidate feature slug');
@@ -569,31 +581,31 @@ describe('Skill Format Contract', () => {
     });
 
     it('pins informational, no-auto-trigger WHAT-layer scoping (REQ-TEMPLATES-107)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
+      const sec = sectionOf(render(), '### Phase 4:');
       expect(sec).toContain('WHAT-layer');
       expect(sec).toContain('informational only');
       expect(sec).toContain('does not auto-trigger');
     });
 
-    it('routes input=code to the reverse variant in mode-detect (REQ-DSGN-003)', () => {
-      const sec = sectionOf(render(), '### Phase 1:');
-      expect(sec).toContain('input=code');
-    });
-
-    it('keeps reverse-spec content out of the stable Startup Loading prefix (REQ-TESTS-028 AC2)', () => {
+    it('keeps backfill workflow content out of the stable Startup Loading prefix (REQ-TESTS-028 AC2)', () => {
       const sl = sectionOf(render(), '## Startup Loading');
-      expect(sl).not.toContain('input=code');
-      expect(sl).not.toContain('reverse-draft');
-      expect(sl).not.toContain('Phase 2b-code');
+      expect(sl).not.toContain('backfill-draft');
+      expect(sl).not.toContain('>50%');
+      expect(sl).not.toContain('triangulat');
     });
 
-    it('pins completeness discipline + countable-fact verification (REQ-TEMPLATES-104)', () => {
-      const sec = sectionOf(render(), '### Phase 2b-code:');
-      expect(sec).toContain('enumerate');
-      expect(sec).toContain('deferred');
-      expect(sec).toContain('coverage must be visible');
-      expect(sec).toContain('Verify countable facts');
-      expect(sec).toContain('never state an exact count you did not count');
+    it('prospec-design no longer carries the backfill variant (REQ-DSGN-003, REQ-TESTS-028)', () => {
+      const design = renderDesign();
+      expect(design).not.toContain('input=code');
+      expect(design).not.toContain('Phase 2b-code');
+      expect(design).not.toContain('reverse-draft');
+      expect(design).not.toContain('backfill');
+    });
+
+    it('prospec-design Phase 1 mode-detect drops the input=code row (REQ-DSGN-003)', () => {
+      const sec = sectionOf(renderDesign(), '### Phase 1:');
+      expect(sec).not.toContain('input=code');
+      expect(sec).not.toContain('Phase 2b-code');
     });
   });
 

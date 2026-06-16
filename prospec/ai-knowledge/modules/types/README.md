@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (14 skills, English `triggers` baselines; `hasReferences` gates reference deployment; `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (15 skills, English `triggers` baselines; `hasReferences` gates reference deployment; `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
@@ -23,7 +23,7 @@
 ## Public API
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words)
-- `SKILL_DEFINITIONS` — 14 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
+- `SKILL_DEFINITIONS` — 15 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
 - `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
 - `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full; absent = standard, BL-004)
