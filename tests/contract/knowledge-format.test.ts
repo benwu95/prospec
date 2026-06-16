@@ -237,4 +237,22 @@ describe('Knowledge Format Contract', () => {
       expect(raw).toContain('**Used by:**');
     });
   });
+
+  describe('raw-scan.md section grouping (REQ-KNOW-022)', () => {
+    it('renders sections grouped tech-profile then project-structure', () => {
+      const content = renderTemplate('knowledge/raw-scan.md.hbs', {
+        project_name: 'demo',
+        tech_stack: { language: 'go', framework: '', package_manager: 'go modules', source: 'auto-detected' },
+        entry_points: ['main.go'],
+        directory_tree: 'src/',
+        dependencies: [{ name: 'gin', version: 'v1.9.1' }],
+        config_files: ['go.mod'],
+        file_stats: { total_files: 3, scan_depth: 10 },
+      });
+      const order = ['## Tech Stack', '## Entry Points', '## Dependencies', '## Config Files', '## Directory Tree', '## File Stats'];
+      const positions = order.map((h) => content.indexOf(h));
+      expect(positions.every((p) => p >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    });
+  });
 });

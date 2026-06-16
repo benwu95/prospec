@@ -214,3 +214,42 @@ describe('detectTechStack', () => {
     expect(result.source).toBe('auto-detected');
   });
 });
+
+describe('detectTechStack — backend languages', () => {
+  const cases: Array<[string, Record<string, string>, string, string]> = [
+    ['Go', { '/project/go.mod': 'module x\n' }, 'go', 'go modules'],
+    ['Rust', { '/project/Cargo.toml': '[package]\nname = "x"\n' }, 'rust', 'cargo'],
+    ['Java (Maven)', { '/project/pom.xml': '<project/>' }, 'java', 'maven'],
+    ['Java (Gradle)', { '/project/build.gradle': '' }, 'java', 'gradle'],
+    ['Java (Gradle Kotlin DSL)', { '/project/build.gradle.kts': '' }, 'java', 'gradle'],
+    ['C#', { '/project/App.csproj': '<Project/>' }, 'c#', 'nuget'],
+    ['Ruby', { '/project/Gemfile': "source 'https://rubygems.org'\n" }, 'ruby', 'bundler'],
+    ['PHP', { '/project/composer.json': '{}' }, 'php', 'composer'],
+  ];
+
+  it.each(cases)('detects %s', (_label, files, language, pm) => {
+    vol.fromJSON(files);
+    const result = detectTechStack('/project');
+    expect(result.language).toBe(language);
+    expect(result.package_manager).toBe(pm);
+    expect(result.source).toBe('auto-detected');
+  });
+
+  it('lets a Node package.json win over a backend manifest (existing precedence)', () => {
+    vol.fromJSON({
+      '/project/package.json': JSON.stringify({ name: 'x' }),
+      '/project/go.mod': 'module x\n',
+    });
+    expect(detectTechStack('/project').language).not.toBe('go');
+  });
+
+  it('matches pom.xml / *.csproj tree-wide when a file list is given', () => {
+    vol.fromJSON({ '/project/.gitignore': '' });
+    expect(
+      detectTechStack('/project', undefined, ['src/App.csproj']).language,
+    ).toBe('c#');
+    expect(
+      detectTechStack('/project', undefined, ['backend/pom.xml']).language,
+    ).toBe('java');
+  });
+});

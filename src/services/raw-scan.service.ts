@@ -3,6 +3,19 @@ import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
 import { detectTechStack, type TechStackResult } from '../lib/detector.js';
+import {
+  parsePyprojectDependencies,
+  parseCargoDependencies,
+  parseGoModDependencies,
+  parseRequirementsTxt,
+  parseComposerDependencies,
+  parseMavenDependencies,
+  parseCsprojDependencies,
+  parsePyprojectEntryPoints,
+  parseCargoEntryPoints,
+  csprojIsExecutable,
+  type ManifestDependency,
+} from '../lib/manifest-parsers.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir, fileExists } from '../lib/fs-utils.js';
 
@@ -56,9 +69,9 @@ export async function generateRawScan(
     exclude: excludePatterns,
   });
 
-  const techStack = detectTechStack(cwd, config.tech_stack);
+  const techStack = detectTechStack(cwd, config.tech_stack, scanResult.files);
   const entryPoints = detectEntryPoints(scanResult.files, cwd);
-  const dependencies = collectDependencies(cwd);
+  const dependencies = collectDependencies(cwd, scanResult.files);
   const configFiles = collectConfigFiles(scanResult.files);
   const directoryTree = buildDirectoryTree(scanResult.files, depth);
 
@@ -142,6 +155,20 @@ function detectEntryPoints(files: string[], cwd: string): string[] {
     }
   }
 
+  // Manifest-derived entry points for backend ecosystems.
+  const pyproject = path.join(cwd, 'pyproject.toml');
+  if (fileExists(pyproject)) {
+    entryPoints.push(...parsePyprojectEntryPoints(readFileSafe(pyproject)));
+  }
+  const cargo = path.join(cwd, 'Cargo.toml');
+  if (fileExists(cargo)) {
+    entryPoints.push(...parseCargoEntryPoints(readFileSafe(cargo)));
+  }
+  const csproj = findManifestPath(files, (f) => f.endsWith('.csproj'));
+  if (csproj && csprojIsExecutable(readFileSafe(path.join(cwd, csproj)))) {
+    entryPoints.push(csproj);
+  }
+
   const entryPatterns = [
     /^src\/index\.[tj]sx?$/,
     /^src\/main\.[tj]sx?$/,
@@ -152,7 +179,25 @@ function detectEntryPoints(files: string[], cwd: string): string[] {
     /^main\.[tj]sx?$/,
     /^app\.[tj]sx?$/,
     /^server\.[tj]sx?$/,
+    // Go
+    /^main\.go$/,
+    /^cmd\/[^/]+\/main\.go$/,
+    // Rust
+    /^src\/main\.rs$/,
+    /^src\/bin\/[^/]+\.rs$/,
+    // Python
+    /(^|\/)__main__\.py$/,
+    /^(src\/)?main\.py$/,
+    /^(src\/)?app\.py$/,
+    /^manage\.py$/,
+    // Java (filename heuristic)
+    /(^|\/)(Application|Main|App)\.java$/,
   ];
+  // Ruby executables are conventional only when a Gemfile is present — gating
+  // avoids treating a Node project's bin/ scripts as Ruby entry points.
+  if (fileExists(path.join(cwd, 'Gemfile'))) {
+    entryPatterns.push(/^(bin|exe)\/[^/.]+$/);
+  }
 
   for (const file of files) {
     if (entryPatterns.some((p) => p.test(file)) && !entryPoints.includes(file)) {
@@ -163,32 +208,58 @@ function detectEntryPoints(files: string[], cwd: string): string[] {
   return [...new Set(entryPoints)];
 }
 
+function readFileSafe(filePath: string): string {
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return '';
+  }
+}
+
 /**
- * Collect dependencies from package.json, requirements.txt, or go.mod.
+ * First file matching `predicate`, preferring the shallowest path then
+ * codepoint order — a deterministic root-most pick for manifests (pom.xml,
+ * *.csproj) that may live in a subdirectory.
+ */
+function findManifestPath(
+  files: string[],
+  predicate: (file: string) => boolean,
+): string | undefined {
+  const matches = files.filter(predicate);
+  if (matches.length === 0) return undefined;
+  return matches.sort((a, b) => {
+    const depthDiff = a.split('/').length - b.split('/').length;
+    if (depthDiff !== 0) return depthDiff;
+    return a < b ? -1 : a > b ? 1 : 0;
+  })[0];
+}
+
+/**
+ * Collect direct dependencies from the project's primary manifest. Ecosystems
+ * are tried in a fixed precedence (Node → Python → Go → Rust → Maven → .NET →
+ * PHP) so a polyglot tree reports its primary language's dependencies, aligned
+ * with `detectTechStack`. Per-format parsing is delegated to the deterministic
+ * `lib/manifest-parsers` helpers, which return [] on malformed input rather
+ * than throwing.
  */
 function collectDependencies(
   cwd: string,
-): Array<{ name: string; version?: string }> {
-  const deps: Array<{ name: string; version?: string }> = [];
-
+  files: string[],
+): ManifestDependency[] {
+  // Node
   const pkgPath = path.join(cwd, 'package.json');
   if (fileExists(pkgPath)) {
+    const deps: ManifestDependency[] = [];
     try {
-      const raw = fs.readFileSync(pkgPath, 'utf-8');
-      const pkg = JSON.parse(raw) as {
+      const pkg = JSON.parse(readFileSafe(pkgPath)) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-
-      if (pkg.dependencies) {
-        for (const [name, version] of Object.entries(pkg.dependencies)) {
-          deps.push({ name, version });
-        }
+      for (const [name, version] of Object.entries(pkg.dependencies ?? {})) {
+        deps.push({ name, version });
       }
-      if (pkg.devDependencies) {
-        for (const [name, version] of Object.entries(pkg.devDependencies)) {
-          deps.push({ name, version });
-        }
+      for (const [name, version] of Object.entries(pkg.devDependencies ?? {})) {
+        deps.push({ name, version });
       }
     } catch {
       // Ignore parse errors
@@ -196,25 +267,48 @@ function collectDependencies(
     return deps;
   }
 
+  // Python — pyproject.toml preferred, requirements.txt as fallback
+  const pyproject = path.join(cwd, 'pyproject.toml');
+  if (fileExists(pyproject)) {
+    const deps = parsePyprojectDependencies(readFileSafe(pyproject));
+    if (deps.length > 0) return deps;
+  }
   const reqPath = path.join(cwd, 'requirements.txt');
   if (fileExists(reqPath)) {
-    try {
-      const raw = fs.readFileSync(reqPath, 'utf-8');
-      for (const line of raw.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const match = trimmed.match(/^([a-zA-Z0-9_.-]+)(?:[=<>!~]+(.+))?/);
-        if (match) {
-          deps.push({ name: match[1]!, version: match[2] });
-        }
-      }
-    } catch {
-      // Ignore read errors
-    }
-    return deps;
+    return parseRequirementsTxt(readFileSafe(reqPath));
+  }
+  if (fileExists(pyproject)) return []; // Python project with no declared deps
+
+  // Go
+  const goMod = path.join(cwd, 'go.mod');
+  if (fileExists(goMod)) return parseGoModDependencies(readFileSafe(goMod));
+
+  // Rust
+  const cargo = path.join(cwd, 'Cargo.toml');
+  if (fileExists(cargo)) return parseCargoDependencies(readFileSafe(cargo));
+
+  // Java (Maven only — Gradle's Groovy/Kotlin DSL is not statically parsed)
+  const pom = findManifestPath(files, (f) => path.basename(f) === 'pom.xml');
+  if (pom) return parseMavenDependencies(readFileSafe(path.join(cwd, pom)));
+
+  // .NET
+  const csproj = findManifestPath(files, (f) => f.endsWith('.csproj'));
+  if (csproj) {
+    return parseCsprojDependencies(readFileSafe(path.join(cwd, csproj)));
   }
 
-  return deps;
+  // Ruby — Gemfile is a Ruby DSL with no parseable manifest; short-circuit so
+  // the Dependencies section stays consistent with detectTechStack, which ranks
+  // Ruby above a co-present composer.json.
+  if (fileExists(path.join(cwd, 'Gemfile'))) return [];
+
+  // PHP
+  const composer = path.join(cwd, 'composer.json');
+  if (fileExists(composer)) {
+    return parseComposerDependencies(readFileSafe(composer));
+  }
+
+  return [];
 }
 
 /**
@@ -250,6 +344,13 @@ function collectConfigFiles(files: string[]): string[] {
     /^go\.mod$/,
     /^go\.sum$/,
     /^Cargo\.toml$/,
+    /^pom\.xml$/,
+    /^build\.gradle(\.kts)?$/,
+    /\.csproj$/,
+    /^Gemfile$/,
+    /^Gemfile\.lock$/,
+    /^composer\.json$/,
+    /^composer\.lock$/,
   ];
 
   return files.filter((f) => {

@@ -17,17 +17,25 @@ export interface TechStackResult {
  * stray root `package.json` (e.g. prospec installed via npm into a Python
  * project) from mislabelling the stack — the root cause of BUG-001.
  *
- * Auto-detection rules (fallback only):
+ * Auto-detection rules (fallback only), in precedence order:
  * - package.json → Node.js; if tsconfig.json exists → TypeScript
  * - requirements.txt or pyproject.toml → Python
+ * - go.mod → Go; Cargo.toml → Rust; pom.xml → Java/Maven;
+ *   build.gradle(.kts) → Java/Gradle; *.csproj → C#; Gemfile → Ruby;
+ *   composer.json → PHP (language + package manager only, no framework)
  * - Unrecognised → returns empty fields
+ *
+ * When `files` (a scanned relative-path list) is given, pom.xml and *.csproj
+ * are matched tree-wide instead of root-only, so a manifest in a subdirectory
+ * still identifies the language.
  */
 export function detectTechStack(
   cwd?: string,
   configTechStack?: TechStack,
+  files?: string[],
 ): TechStackResult {
   const dir = cwd ?? process.cwd();
-  const detected = autoDetectTechStack(dir);
+  const detected = autoDetectTechStack(dir, files);
 
   const configLanguage = configTechStack?.language;
   const configFramework = configTechStack?.framework;
@@ -60,7 +68,7 @@ export function detectTechStack(
   return merged;
 }
 
-function autoDetectTechStack(dir: string): TechStackResult {
+function autoDetectTechStack(dir: string, files?: string[]): TechStackResult {
   const result: TechStackResult = {};
 
   // Node.js / TypeScript detection
@@ -98,7 +106,54 @@ function autoDetectTechStack(dir: string): TechStackResult {
     return result;
   }
 
+  // Backend language detection by manifest presence (language + package manager
+  // only; framework detection stays Node-specific). Ordered so the primary
+  // build manifest wins on a polyglot tree.
+  if (existsSync(path.join(dir, 'go.mod'))) {
+    return { language: 'go', package_manager: 'go modules' };
+  }
+  if (existsSync(path.join(dir, 'Cargo.toml'))) {
+    return { language: 'rust', package_manager: 'cargo' };
+  }
+  // pom.xml / *.csproj are matched tree-wide when the scanned file list is
+  // available (so a manifest in a subdirectory still identifies the language),
+  // falling back to a root-only lookup otherwise. This keeps language detection
+  // consistent with the tree-wide dependency/entry-point collection in
+  // raw-scan.service.
+  const hasPom = files
+    ? files.some((f) => path.basename(f) === 'pom.xml')
+    : existsSync(path.join(dir, 'pom.xml'));
+  if (hasPom) {
+    return { language: 'java', package_manager: 'maven' };
+  }
+  if (
+    existsSync(path.join(dir, 'build.gradle')) ||
+    existsSync(path.join(dir, 'build.gradle.kts'))
+  ) {
+    return { language: 'java', package_manager: 'gradle' };
+  }
+  const hasCsproj = files
+    ? files.some((f) => f.endsWith('.csproj'))
+    : hasFileWithExtension(dir, '.csproj');
+  if (hasCsproj) {
+    return { language: 'c#', package_manager: 'nuget' };
+  }
+  if (existsSync(path.join(dir, 'Gemfile'))) {
+    return { language: 'ruby', package_manager: 'bundler' };
+  }
+  if (existsSync(path.join(dir, 'composer.json'))) {
+    return { language: 'php', package_manager: 'composer' };
+  }
+
   return result;
+}
+
+function hasFileWithExtension(dir: string, ext: string): boolean {
+  try {
+    return fs.readdirSync(dir).some((entry) => String(entry).endsWith(ext));
+  } catch {
+    return false;
+  }
 }
 
 function existsSync(filePath: string): boolean {
