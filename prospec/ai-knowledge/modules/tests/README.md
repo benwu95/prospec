@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 53 test files, 1,069 tests (unit 523, contract 492, integration 17, e2e 37)
+> 4-layer test architecture using Vitest + memfs — 54 test files, 1,087 tests (unit 537, contract 493, integration 17, e2e 40)
 
 <!-- prospec:auto-start -->
 
@@ -10,7 +10,8 @@
 |------|---------|
 | `tests/unit/lib/config.test.ts` | Config resolution and validation (20 tests) |
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes, incl. boundary-anchored relationships + barrel imports (26 tests) |
-| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary (29 tests) |
+| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + non-fatal raw-scan refresh wiring (36 tests) |
+| `tests/unit/services/raw-scan.service.test.ts` | Deterministic `generateRawScan` — regenerate raw-scan.md, dry-run, depth, curated files byte-identical (never created), fixpoint idempotency (10 tests) |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
 | `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. in-place auto-block replace (no $-injection), collectAllModules case-insensitive, removal-wins (22 tests) |
 | `tests/unit/services/change-resolver.test.ts` | Change-resolution branch coverage — explicit slug, single in-progress auto-select, ambiguous/none/not-found errors |
