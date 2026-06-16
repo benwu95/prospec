@@ -73,7 +73,7 @@ Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**
 
 ### 1. 安裝
 
-Prospec 是 **bootstrap／update 用的 CLI** —— `init` + `agent sync` 跑完後，你的 Agent 用的是已 commit 的 Skills 與 Knowledge（Markdown），除非要重新生成，否則不會再用到 binary。所以全域安裝一次即可。
+Prospec 是 **bootstrap／update 用的 CLI** —— `prospec quickstart` 跑完後（它會串接 `init` + `agent sync`），你的 Agent 用的是已 commit 的 Skills 與 Knowledge（Markdown），除非要重新生成，否則不會再用到 binary。所以全域安裝一次即可。
 
 ```bash
 npm install -g github:benwu95/prospec     # 或：pnpm add -g github:benwu95/prospec
@@ -88,8 +88,7 @@ Prospec 是尚未發佈的 fork —— npm/pnpm 會 clone repo、裝 dev deps，
 用 npx 按需執行（每次 clone + build）：
 
 ```bash
-npx github:benwu95/prospec init
-npx github:benwu95/prospec agent sync
+npx github:benwu95/prospec quickstart
 ```
 
 想在專案內固定版本，讓重跑 `agent sync` 時所有貢獻者都生成相同的 Skills——也讓下游開發者免全域安裝即可經 `pnpm exec` / `npx` 執行 deterministic 的 `prospec knowledge refresh`（由 `/prospec-knowledge-generate` 與 `/prospec-archive` 觸發以保持 `raw-scan.md` 最新）。**Node.js 專案**改裝成 devDependency（其他語言生態：以全域安裝為主）：
@@ -102,13 +101,20 @@ npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/pro
 
 ### 2. 建立專案骨架
 
+一個指令完成 deterministic 的設定 —— 它會串接 `init` + `agent sync`，已完成的步驟自動跳過：
+
 ```bash
 cd my-project                 # 新專案或既有專案
-prospec init                  # → 選擇 AI Assistant、選擇文件語言；建立 .prospec.yaml + 目錄結構
-prospec agent sync            # → 為每個選取的 assistant 生成 config + Skills
+prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；建立 .prospec.yaml + 各 agent config + Skills
 ```
 
-`agent sync` 寫入 **Claude Code** → `CLAUDE.md` + `.claude/skills/`；**Antigravity / Codex / Copilot** → `AGENTS.md` + `.agents/skills/`。
+`prospec quickstart` 會執行 `agent sync`，寫入 **Claude Code** → `CLAUDE.md` + `.claude/skills/`；**Antigravity / Codex / Copilot** → `AGENTS.md` + `.agents/skills/`。接著在你的 AI Agent 中完成收尾：
+
+```bash
+/prospec-quickstart           # 在地化 skill triggers、重新同步 config、生成 AI Knowledge
+```
+
+這個一次性收尾步驟可重複執行且會自我終止；在既有程式碼庫上，它會把你的模組讀進 AI Knowledge，讓 Agent 在你的第一個變更前就理解它們。
 
 ### 3. 跑你的第一個變更（在 AI Agent 中）
 
@@ -120,31 +126,43 @@ prospec agent sync            # → 為每個選取的 assistant 生成 config +
 /prospec-archive              # 歸檔 + 同步規格與知識
 ```
 
-這就是完整的 SDD 迴圈。在**既有程式碼庫**上，先生成 AI Knowledge（`prospec knowledge init` → `/prospec-knowledge-generate`）讓 Agent 了解你的模組 —— 完整流程見下方。
+這就是完整的 SDD 迴圈。由於 `/prospec-quickstart` 已經先生成了 AI Knowledge，Agent 一開始就理解你的模組。下方完整的 Greenfield 與 Brownfield 流程會逐步拆解 `prospec quickstart` 自動完成的每個步驟。
 
 <details>
 <summary>完整 Greenfield 與 Brownfield 流程</summary>
 
-**Greenfield（新專案）：**
+**Greenfield（新專案）** —— `prospec quickstart` → `/prospec-quickstart` 就是完整的 bootstrap：
 
 ```bash
-# 1. 初始化專案
 mkdir my-project && cd my-project
-prospec init --name my-project
-# → 選擇要啟用的 AI Assistant（互動式 checkbox）
-# → 選擇 AI 產出文件的主要語言（預設英文，或用 --language "Traditional Chinese (Taiwan)"）
-#   [MUST] Language Policy 規則會寫入 CONSTITUTION.md — 程式碼一律維持英文
-# → 建立 .prospec.yaml + 目錄結構
+prospec quickstart --name my-project   # init + agent sync（互動式選擇 assistant 與語言）
+# 接著在你的 AI Agent 中：
+/prospec-quickstart                     # 在地化 triggers · 重新同步 · 生成 AI Knowledge
+```
 
-# 2. 同步 AI Agent 配置 + 生成 Skills
-prospec agent sync
-# → 為每個選取的 assistant 生成 config + Skills
-#   Claude Code → CLAUDE.md + .claude/skills/；Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
-# → 主要語言非英文？在 .prospec.yaml 的 `skill_triggers` 加上母語觸發詞
-#  （可請 AI agent 把英文 baseline 翻譯過去）再重跑 agent sync，
-#   skills 就能可靠匹配你用母語描述的需求
+這兩個指令展開後是：
 
-# 3. 使用 Skills 進行功能開發（在 AI Agent 中）
+```bash
+# `prospec quickstart` 執行：
+prospec init --name my-project   # → 選擇要啟用的 AI Assistant（互動式 checkbox）
+                                 # → 選擇文件主要語言（預設英文，或用
+                                 #   --language "Traditional Chinese (Taiwan)"）；[MUST]
+                                 #   Language Policy 規則會寫入 CONSTITUTION.md —
+                                 #   程式碼與 git commit message 一律維持英文
+                                 # → 建立 .prospec.yaml + 目錄結構
+prospec agent sync               # → 各 agent config + Skills（Claude Code → CLAUDE.md +
+                                 #   .claude/skills/；Antigravity / Codex / Copilot →
+                                 #   AGENTS.md + .agents/skills/）
+
+# `/prospec-quickstart` 接著在你的 AI Agent 中：
+#   • 文件語言非英文？它會為 .prospec.yaml 的 `skill_triggers` 提議母語觸發詞，
+#     經你確認後重跑 agent sync —— skills 就能匹配你用母語描述的需求
+#   • prospec knowledge init → /prospec-knowledge-generate（生成 AI Knowledge）
+```
+
+接著用 Skills 進行開發（在 AI Agent 中）：
+
+```bash
 /prospec-new-story        # 建立變更需求
 /prospec-design           # 生成 UI 規格（可選）
 /prospec-plan             # 生成實作計劃
@@ -159,29 +177,32 @@ prospec agent sync
 /prospec-ff               # 快速生成 story → plan → tasks
 ```
 
-**Brownfield（既有專案）：**
+**Brownfield（既有專案）** —— 同樣兩個指令；`/prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge：
 
 ```bash
-# 1. 在既有專案中初始化
 cd existing-project
-prospec init
-# → 自動偵測技術棧
-# → 選擇 AI Assistant
-# → 選擇文件主要語言（預設英文；--language 可跳過互動提示）
+prospec quickstart                      # 自動偵測技術棧；執行 init + agent sync
+# 接著在你的 AI Agent 中：
+/prospec-quickstart                     # 在地化 triggers · 重新同步 · knowledge init · /prospec-knowledge-generate
+```
 
-# 2. 同步 AI 配置 + 生成 Skills
-prospec agent sync
+這兩個指令展開後是：
 
-# 3. 掃描專案並生成原始資料
-prospec knowledge init
-# → 生成 raw-scan.md + 空骨架（_index.md、_conventions.md）
+```bash
+# `prospec quickstart` 執行：
+prospec init          # → 自動偵測技術棧；選擇 AI Assistant；選擇文件主要語言
+                      #   （預設英文；--language 可跳過互動提示）
+prospec agent sync    # → 各 agent config + Skills
 
-# 4. AI 驅動模組分析（在 AI Agent 中）
-/prospec-knowledge-generate
-# → AI 讀取 raw-scan.md，決定模組切割
-# → 建立 modules/*/README.md + 填充 _index.md
+# `/prospec-quickstart` 接著在你的 AI Agent 中：
+prospec knowledge init       # → 生成 raw-scan.md + 空骨架（_index.md、_conventions.md、module-map.yaml）
+/prospec-knowledge-generate  # → AI 讀取 raw-scan.md，決定模組切割，
+                             #   建立 modules/*/README.md + 填充 _index.md
+```
 
-# 5. 使用 Skills 進行開發
+接著用 Skills 進行開發：
+
+```bash
 /prospec-explore          # 探索和釐清需求
 /prospec-ff add-feature   # 快速生成所有 artifacts
 /prospec-implement        # 開始寫程式（先不 commit）
@@ -569,7 +590,8 @@ your-project/
 │   ├── prospec-archive/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
-│   └── prospec-knowledge-update/
+│   ├── prospec-knowledge-update/
+│   └── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
 └── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）
     └── prospec-*/
 ```

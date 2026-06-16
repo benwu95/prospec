@@ -73,7 +73,7 @@ From zero to your first AI-driven change in about five minutes.
 
 ### 1. Install
 
-Prospec is a **bootstrap/update CLI** — once `init` + `agent sync` have run, your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate. So install it once, globally.
+Prospec is a **bootstrap/update CLI** — once `prospec quickstart` has run (it chains `init` + `agent sync`), your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate. So install it once, globally.
 
 ```bash
 npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
@@ -88,8 +88,7 @@ Prospec is an unpublished fork — npm/pnpm clones the repo, installs dev deps, 
 Run on demand with npx (clones + builds each time):
 
 ```bash
-npx github:benwu95/prospec init
-npx github:benwu95/prospec agent sync
+npx github:benwu95/prospec quickstart
 ```
 
 Pin the version per-project so re-running `agent sync` regenerates identical Skills across contributors — and so downstream developers can run the deterministic `prospec knowledge refresh` (invoked by `/prospec-knowledge-generate` and `/prospec-archive` to keep `raw-scan.md` current) via `pnpm exec` / `npx` **without a global install**. For **Node.js projects**, install as a devDependency (other ecosystems: a global install is the path):
@@ -102,13 +101,20 @@ npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prosp
 
 ### 2. Bootstrap your project
 
+One command does the deterministic setup — it chains `init` + `agent sync`, skipping any step already done:
+
 ```bash
 cd my-project                 # a new or existing project
-prospec init                  # → select AI assistants, choose doc language; creates .prospec.yaml + structure
-prospec agent sync            # → generates per-agent config + Skills
+prospec quickstart            # → select AI assistants, choose doc language; creates .prospec.yaml + per-agent config + Skills
 ```
 
-`agent sync` writes **Claude Code** → `CLAUDE.md` + `.claude/skills/`; **Antigravity / Codex / Copilot** → `AGENTS.md` + `.agents/skills/`.
+`prospec quickstart` runs `agent sync`, which writes **Claude Code** → `CLAUDE.md` + `.claude/skills/`; **Antigravity / Codex / Copilot** → `AGENTS.md` + `.agents/skills/`. Then finish onboarding inside your AI agent:
+
+```bash
+/prospec-quickstart           # localize skill triggers, re-sync config, generate AI Knowledge
+```
+
+This one-time finisher is re-runnable and self-terminating; on an existing codebase it reads your modules into AI Knowledge so the agent understands them before your first change.
 
 ### 3. Run your first change (inside your AI agent)
 
@@ -120,33 +126,44 @@ prospec agent sync            # → generates per-agent config + Skills
 /prospec-archive              # archive + sync specs & knowledge
 ```
 
-That's the full SDD loop. On an **existing codebase**, generate AI Knowledge first (`prospec knowledge init` → `/prospec-knowledge-generate`) so the agent understands your modules — the full walkthroughs are below.
+That's the full SDD loop. Because `/prospec-quickstart` already seeded AI Knowledge, the agent starts from an understanding of your modules. The full greenfield &amp; brownfield walkthroughs below break down every step `prospec quickstart` automates.
 
 <details>
 <summary>Full greenfield &amp; brownfield walkthroughs</summary>
 
-**Greenfield (new projects):**
+**Greenfield (new projects)** — `prospec quickstart` → `/prospec-quickstart` is the whole bootstrap:
 
 ```bash
-# 1. Initialize project
 mkdir my-project && cd my-project
-prospec init --name my-project
-# → Select AI assistants (interactive checkbox)
-# → Choose the primary language for AI-generated documents (default: English,
-#   or pass --language "Traditional Chinese (Taiwan)"); a [MUST] Language
-#   Policy rule is seeded into CONSTITUTION.md — code and git commit
-#   messages stay in English
-# → Creates .prospec.yaml + directory structure
+prospec quickstart --name my-project   # init + agent sync (interactive assistant + language selection)
+# then, inside your AI agent:
+/prospec-quickstart                     # localize triggers · re-sync · generate AI Knowledge
+```
 
-# 2. Sync AI agent config + generate Skills
-prospec agent sync
-# → Generates per-agent config + Skills for each selected assistant
-#   Claude Code → CLAUDE.md + .claude/skills/; Antigravity / Codex / Copilot → AGENTS.md + .agents/skills/
-# → Non-English language? Add native trigger words under `skill_triggers` in
-#   .prospec.yaml (ask your AI agent to translate the English baselines), then
-#   re-run agent sync — skills then match requests phrased in your language
+Those two commands expand to:
 
-# 3. Start developing with Skills (in your AI agent)
+```bash
+# `prospec quickstart` runs:
+prospec init --name my-project   # → select AI assistants (interactive checkbox)
+                                 # → choose the doc language (default: English, or
+                                 #   --language "Traditional Chinese (Taiwan)"); a [MUST]
+                                 #   Language Policy rule is seeded into CONSTITUTION.md —
+                                 #   code and git commit messages stay in English
+                                 # → creates .prospec.yaml + directory structure
+prospec agent sync               # → per-agent config + Skills (Claude Code → CLAUDE.md +
+                                 #   .claude/skills/; Antigravity / Codex / Copilot →
+                                 #   AGENTS.md + .agents/skills/)
+
+# `/prospec-quickstart` then, inside your AI agent:
+#   • non-English doc language? proposes native trigger words for `skill_triggers`
+#     in .prospec.yaml and re-runs agent sync once you confirm — skills then match
+#     requests phrased in your language
+#   • prospec knowledge init → /prospec-knowledge-generate (seeds AI Knowledge)
+```
+
+Then develop with Skills (inside your AI agent):
+
+```bash
 /prospec-new-story        # Create change story
 /prospec-design           # Generate UI specs (optional)
 /prospec-plan             # Generate implementation plan
@@ -161,29 +178,32 @@ prospec agent sync
 /prospec-ff               # Generate story → plan → tasks in one go
 ```
 
-**Brownfield (existing projects):**
+**Brownfield (existing projects)** — same two commands; `/prospec-quickstart` reads your existing code into AI Knowledge:
 
 ```bash
-# 1. Initialize in existing project
 cd existing-project
-prospec init
-# → Auto-detect tech stack
-# → Select AI assistants
-# → Choose the document language (default: English; --language to skip the prompt)
+prospec quickstart                      # auto-detects tech stack; runs init + agent sync
+# then, inside your AI agent:
+/prospec-quickstart                     # localize triggers · re-sync · knowledge init · /prospec-knowledge-generate
+```
 
-# 2. Sync AI config + generate Skills
-prospec agent sync
+Those two commands expand to:
 
-# 3. Scan project and generate raw data
-prospec knowledge init
-# → Generates raw-scan.md + empty skeleton (_index.md, _conventions.md)
+```bash
+# `prospec quickstart` runs:
+prospec init          # → auto-detect tech stack; select AI assistants; choose doc
+                      #   language (default: English; --language to skip the prompt)
+prospec agent sync    # → per-agent config + Skills
 
-# 4. AI-driven module analysis (in your AI agent)
-/prospec-knowledge-generate
-# → AI reads raw-scan.md, decides module partitioning
-# → Creates modules/*/README.md + fills _index.md
+# `/prospec-quickstart` then, inside your AI agent:
+prospec knowledge init       # → generates raw-scan.md + empty skeletons (_index.md, _conventions.md, module-map.yaml)
+/prospec-knowledge-generate  # → AI reads raw-scan.md, decides module partitioning,
+                             #   creates modules/*/README.md + fills _index.md
+```
 
-# 5. Develop with Skills
+Then develop with Skills:
+
+```bash
 /prospec-explore          # Explore and clarify requirements
 /prospec-ff add-feature   # Fast-forward to generate all artifacts
 /prospec-implement        # Start coding (no commit yet)
@@ -597,7 +617,8 @@ your-project/
 │   ├── prospec-archive/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
-│   └── prospec-knowledge-update/
+│   ├── prospec-knowledge-update/
+│   └── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
 └── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
     └── prospec-*/
 ```
