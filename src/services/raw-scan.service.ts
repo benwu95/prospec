@@ -47,7 +47,7 @@ export interface RawScanResult {
 
 /**
  * Deterministic, LLM-free production of `raw-scan.md` — the single shared scan
- * core used by `knowledge init`, `knowledge refresh`, and the archive safety net.
+ * core used by `knowledge init` (incl. `--raw-scan-only`) and the archive safety net.
  *
  * Scans the project, derives tech stack / entry points / dependencies / config
  * files / directory tree, and (unless `dryRun`) renders + writes ONLY
@@ -123,15 +123,6 @@ export async function generateRawScan(
     dryRun,
     files: scanResult.files,
   };
-}
-
-/**
- * `prospec knowledge refresh` entry point — regenerate raw-scan.md only.
- * Thin delegate to the shared core, kept distinct so the command surface can
- * evolve independently of the init/archive call sites.
- */
-export async function execute(options: RawScanOptions): Promise<RawScanResult> {
-  return generateRawScan(options);
 }
 
 /**

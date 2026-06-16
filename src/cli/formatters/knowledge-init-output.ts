@@ -51,6 +51,13 @@ export function formatKnowledgeInitOutput(
     }
   }
 
+  // 4b. Raw-scan-only note — curated files are deliberately left untouched
+  if (result.rawScanOnly && !result.dryRun) {
+    lines.push(
+      `${pc.dim('·')} Curated files (module-map.yaml, _index.md, _conventions.md) left untouched`,
+    );
+  }
+
   // 5. Dry-run notice
   if (result.dryRun) {
     lines.push('');

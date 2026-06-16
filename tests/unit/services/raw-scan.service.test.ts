@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import {
-  generateRawScan,
-  execute,
-} from '../../../src/services/raw-scan.service.js';
+import { generateRawScan } from '../../../src/services/raw-scan.service.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -187,15 +184,6 @@ describe('raw-scan.service / generateRawScan', () => {
     seedProject({ [RAW_SCAN_PATH]: '# stale scan\n' });
     await generateRawScan({ cwd: '/project' });
     expect(fs.readFileSync(RAW_SCAN_PATH, 'utf-8')).not.toContain('stale');
-  });
-});
-
-describe('raw-scan.service / execute (refresh entry)', () => {
-  it('delegates to generateRawScan and writes raw-scan.md', async () => {
-    seedProject();
-    const result = await execute({ cwd: '/project' });
-    expect(result.outputFile).toBe('prospec/ai-knowledge/raw-scan.md');
-    expect(fs.existsSync(RAW_SCAN_PATH)).toBe(true);
   });
 });
 

@@ -81,6 +81,7 @@ describe('knowledge-init.service', () => {
     const result = await execute({ cwd: '/project' });
 
     expect(result.dryRun).toBe(false);
+    expect(result.rawScanOnly).toBe(false);
     expect(result.outputFiles).toContain('prospec/ai-knowledge/raw-scan.md');
     expect(result.totalFiles).toBeGreaterThan(0);
 
@@ -268,5 +269,69 @@ describe('knowledge-init.service', () => {
         expect.stringContaining('package.json'),
       ]),
     );
+  });
+
+  describe('--raw-scan-only', () => {
+    it('regenerates only raw-scan.md and never creates curated files', async () => {
+      vol.fromJSON({
+        '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+        '/project/package.json': JSON.stringify({ name: 'test-project' }),
+        '/project/src/services/auth.ts': '',
+        '/project/src/lib/config.ts': '',
+      });
+
+      const result = await execute({ cwd: '/project', rawScanOnly: true });
+
+      expect(result.rawScanOnly).toBe(true);
+      expect(result.outputFiles).toEqual(['prospec/ai-knowledge/raw-scan.md']);
+
+      const base = '/project/prospec/ai-knowledge';
+      expect(fs.existsSync(`${base}/raw-scan.md`)).toBe(true);
+      // Curated files must NOT be seeded under --raw-scan-only (the negative guarantee)
+      expect(fs.existsSync(`${base}/module-map.yaml`)).toBe(false);
+      expect(fs.existsSync(`${base}/_index.md`)).toBe(false);
+      expect(fs.existsSync(`${base}/_conventions.md`)).toBe(false);
+    });
+
+    it('leaves existing curated files byte-identical', async () => {
+      const curatedMap = 'modules:\n  - name: custom\n';
+      const curatedIndex = '# Existing Index\n';
+      const curatedConventions = '# Existing Conventions\n';
+      vol.fromJSON({
+        '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+        '/project/package.json': JSON.stringify({ name: 'test-project' }),
+        '/project/prospec/ai-knowledge/module-map.yaml': curatedMap,
+        '/project/prospec/ai-knowledge/_index.md': curatedIndex,
+        '/project/prospec/ai-knowledge/_conventions.md': curatedConventions,
+        '/project/src/services/auth.ts': '',
+      });
+
+      const result = await execute({ cwd: '/project', rawScanOnly: true });
+
+      expect(result.outputFiles).toEqual(['prospec/ai-knowledge/raw-scan.md']);
+      const base = '/project/prospec/ai-knowledge';
+      expect(fs.readFileSync(`${base}/module-map.yaml`, 'utf-8')).toBe(curatedMap);
+      expect(fs.readFileSync(`${base}/_index.md`, 'utf-8')).toBe(curatedIndex);
+      expect(fs.readFileSync(`${base}/_conventions.md`, 'utf-8')).toBe(
+        curatedConventions,
+      );
+    });
+
+    it('writes nothing under --raw-scan-only --dry-run', async () => {
+      vol.fromJSON({
+        '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+        '/project/src/index.ts': '',
+      });
+
+      const result = await execute({
+        cwd: '/project',
+        rawScanOnly: true,
+        dryRun: true,
+      });
+
+      expect(result.rawScanOnly).toBe(true);
+      expect(result.outputFiles).toHaveLength(0);
+      expect(fs.existsSync('/project/prospec/ai-knowledge/raw-scan.md')).toBe(false);
+    });
   });
 });

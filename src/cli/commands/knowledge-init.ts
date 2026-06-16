@@ -10,7 +10,7 @@ import { resolveLogLevel } from '../log-level.js';
  * Register the `init` subcommand under the `knowledge` command group.
  *
  * Usage:
- *   prospec knowledge init [--dry-run] [--depth <n>]
+ *   prospec knowledge init [--dry-run] [--depth <n>] [--raw-scan-only]
  */
 export function registerKnowledgeInitCommand(
   knowledge: Command,
@@ -21,8 +21,16 @@ export function registerKnowledgeInitCommand(
     .description('Scan the project and generate raw-scan.md and empty skeletons')
     .option('--dry-run', 'Preview only, do not write files')
     .option('--depth <n>', 'Directory scan depth', parseDepth, 10)
+    .option(
+      '--raw-scan-only',
+      'Regenerate only raw-scan.md; leave curated files (module-map.yaml, _index.md, _conventions.md) untouched',
+    )
     .action(
-      async (options: { dryRun?: boolean; depth?: number }) => {
+      async (options: {
+        dryRun?: boolean;
+        depth?: number;
+        rawScanOnly?: boolean;
+      }) => {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
 
@@ -30,6 +38,7 @@ export function registerKnowledgeInitCommand(
           const result = await execute({
             dryRun: options.dryRun,
             depth: options.depth,
+            rawScanOnly: options.rawScanOnly,
           });
           formatKnowledgeInitOutput(result, logLevel);
         } catch (err) {
