@@ -47,15 +47,6 @@ describe('Skill Format Contract', () => {
   describe('Skill template rendering', () => {
     for (const skill of SKILL_DEFINITIONS) {
       describe(`${skill.name}`, () => {
-        it('should render without errors', () => {
-          const content = renderTemplate(
-            `skills/${skill.name}.hbs`,
-            TEMPLATE_CONTEXT,
-          );
-          expect(content).toBeTruthy();
-          expect(content.length).toBeGreaterThan(0);
-        });
-
         it('should contain YAML frontmatter', () => {
           const content = renderTemplate(
             `skills/${skill.name}.hbs`,
@@ -74,16 +65,23 @@ describe('Skill Format Contract', () => {
             TEMPLATE_CONTEXT,
           );
           const frontmatter = extractFrontmatter(content);
-          expect(frontmatter).toContain('name:');
+          // pin the per-skill value (name === filename === skill.name for all 15),
+          // so a copy-pasted/duplicated name in the wrong template fails
+          expect(frontmatter).toContain(`name: ${skill.name}`);
         });
 
-        it('should contain description field in frontmatter', () => {
+        it('should render a description field carrying the synthesized triggers', () => {
           const content = renderTemplate(
             `skills/${skill.name}.hbs`,
             TEMPLATE_CONTEXT,
           );
           const frontmatter = extractFrontmatter(content);
           expect(frontmatter).toContain('description:');
+          // the description suffix renders `Triggers: {{trigger_words}}`, so a
+          // missing/empty/un-rendered description value (not just the key) fails
+          expect(frontmatter).toContain(
+            `Triggers: ${TEMPLATE_CONTEXT.trigger_words}`,
+          );
         });
 
       });
@@ -91,34 +89,35 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Reference templates', () => {
-    const REFERENCE_TEMPLATES = [
-      'proposal-format.hbs',
-      'plan-format.hbs',
-      'delta-spec-format.hbs',
-      'tasks-format.hbs',
-      'implementation-guide.hbs',
-      'archive-format.hbs',
-      'feature-spec-format.hbs',
-      'product-spec-format.hbs',
-      'design-spec-format.hbs',
-      'interaction-spec-format.hbs',
-      'adapter-pencil.hbs',
-      'adapter-figma.hbs',
-      'adapter-penpot.hbs',
-      'adapter-html.hbs',
-      'review-format.hbs',
-      'review-lenses-content.hbs',
-      'debug-recovery-format.hbs',
+    // each reference's distinctive title heading pins the correct template
+    // rendered — a non-empty smoke check would also pass a swapped template
+    const REFERENCE_TEMPLATES: ReadonlyArray<readonly [string, string]> = [
+      ['proposal-format.hbs', '# Proposal Format Reference'],
+      ['plan-format.hbs', '# Plan Format Reference'],
+      ['delta-spec-format.hbs', '# Delta Spec Format Reference'],
+      ['tasks-format.hbs', '# Tasks Format Reference'],
+      ['implementation-guide.hbs', '# Implementation Guide'],
+      ['archive-format.hbs', '# Archive Summary Format Reference'],
+      ['feature-spec-format.hbs', '# Feature Spec Format Reference'],
+      ['product-spec-format.hbs', '# Product Spec Format Reference'],
+      ['design-spec-format.hbs', '# Design Spec Format Reference'],
+      ['interaction-spec-format.hbs', '# Interaction Spec Format Reference'],
+      ['adapter-pencil.hbs', '# Platform Adapter: pencil.dev'],
+      ['adapter-figma.hbs', '# Platform Adapter: Figma'],
+      ['adapter-penpot.hbs', '# Platform Adapter: Penpot'],
+      ['adapter-html.hbs', '# Platform Adapter: HTML'],
+      ['review-format.hbs', '# Review Format Reference'],
+      ['review-lenses-content.hbs', '# Review Lens Criteria Reference'],
+      ['debug-recovery-format.hbs', '# Debug & Recovery Reference'],
     ];
 
-    for (const ref of REFERENCE_TEMPLATES) {
-      it(`should render ${ref} without errors`, () => {
+    for (const [ref, title] of REFERENCE_TEMPLATES) {
+      it(`should render ${ref} with its title heading`, () => {
         const content = renderTemplate(
           `skills/references/${ref}`,
           TEMPLATE_CONTEXT,
         );
-        expect(content).toBeTruthy();
-        expect(content.length).toBeGreaterThan(0);
+        expect(content).toContain(title);
       });
     }
   });
@@ -496,13 +495,15 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('Extract Mode');
     });
 
-    it('should contain NEVER list', () => {
+    it('should contain a populated NEVER list with a concrete forbidden action', () => {
       const content = renderTemplate(
         'skills/prospec-design.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('## NEVER');
-      expect(content).toContain('NEVER');
+      // slice the section so the assertion pins a real forbidden-action bullet,
+      // not just the heading (the bare 'NEVER' token was subsumed by '## NEVER')
+      const never = sectionOf(content, '## NEVER');
+      expect(never).toContain('**NEVER** skip user confirmation on detected mode');
     });
 
     it('should contain YAML frontmatter with design triggers', () => {

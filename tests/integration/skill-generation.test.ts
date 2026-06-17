@@ -68,7 +68,14 @@ knowledge:
 
     const result = await execute({ cwd: '/project' });
     const claudeResult = result.agents.find((a) => a.agent === 'claude');
-    expect(claudeResult!.referenceFiles.length).toBeGreaterThan(0);
+    // claude emits a fixed total of 23 reference files across the skills that
+    // declare references (new-story 1 + plan 2 + design 6 + tasks 1 + ff 4 +
+    // implement 1 + review 2 + verify 1 + archive 4 + learn 1).
+    expect(claudeResult!.referenceFiles).toHaveLength(23);
+    // A skill with hasReferences=false (prospec-explore) must emit none.
+    expect(
+      claudeResult!.referenceFiles.some((f) => f.includes('prospec-explore/')),
+    ).toBe(false);
   });
 
   // REQ-AGNT-015 — archive's Phase 4.5 cites references/promotion-format.md, so the
@@ -132,9 +139,17 @@ knowledge:
 
     const result = await execute({ cwd: '/project' });
 
-    // Each agent should have a config file
+    // Pin the concrete per-agent mapping derived from AGENT_CONFIGS, not just
+    // truthiness: claude → CLAUDE.md, antigravity → AGENTS.md (agents.md standard).
+    expect(
+      result.agents.find((a) => a.agent === 'claude')!.configFile,
+    ).toBe('CLAUDE.md');
+    expect(
+      result.agents.find((a) => a.agent === 'antigravity')!.configFile,
+    ).toBe('AGENTS.md');
+
+    // Each agent should have its config file written to disk
     for (const agentResult of result.agents) {
-      expect(agentResult.configFile).toBeTruthy();
       const configPath = `/project/${agentResult.configFile}`;
       expect(fs.existsSync(configPath)).toBe(true);
     }
@@ -154,6 +169,13 @@ knowledge:
     const result = await execute({ cwd: '/project' });
     const copilotResult = result.agents.find((a) => a.agent === 'copilot');
     expect(copilotResult).toBeTruthy();
+
+    // One SKILL.md per skill — guard the count so the loop below can't pass vacuously.
+    expect(copilotResult!.skillFiles).toHaveLength(SKILL_DEFINITIONS.length);
+    // Pin a concrete .agents/skills path so the skills-dir location is anchored.
+    expect(copilotResult!.skillFiles).toContain(
+      '.agents/skills/prospec-explore/SKILL.md',
+    );
 
     // Copilot now uses the skills-dir format under .agents/skills
     for (const skillFile of copilotResult!.skillFiles) {

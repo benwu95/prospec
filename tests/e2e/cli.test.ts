@@ -197,9 +197,10 @@ describe('CLI E2E', () => {
         'claude',
       ]);
       expect(exitCode).not.toBe(0);
-      // Should indicate already exists
-      const output = stderr + (await runCli(['init', '--name', 'x', '--agents', 'claude'])).stderr;
-      expect(output.length).toBeGreaterThan(0);
+      // AlreadyExistsError, not a generic crash: pin the distinguishing message
+      // + suggestion so a wrong-reason failure (formatGenericError) is caught.
+      expect(stderr).toContain('.prospec.yaml already exists');
+      expect(stderr).toContain('To reinitialize, delete the existing file first');
     });
   });
 
@@ -225,8 +226,14 @@ describe('CLI E2E', () => {
         'export const hello = "world";\n',
       );
 
-      const { exitCode } = await runCli(['steering', '--dry-run']);
+      const { stdout, exitCode } = await runCli(['steering', '--dry-run']);
       expect(exitCode).toBe(0);
+      // Dry-run must announce itself and write nothing — fails if the flag
+      // ever starts emitting module-map.yaml / architecture.md.
+      expect(stdout).toContain('Dry-run mode: no files were modified');
+      const kbDir = path.join(tmpDir, 'prospec', 'ai-knowledge');
+      expect(fs.existsSync(path.join(kbDir, 'module-map.yaml'))).toBe(false);
+      expect(fs.existsSync(path.join(kbDir, 'architecture.md'))).toBe(false);
     });
   });
 

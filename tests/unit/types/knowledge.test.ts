@@ -36,11 +36,18 @@ describe('canonical index-table column schema (types/knowledge)', () => {
   });
 
   it('derives header and separator from the array (change one place → all follow)', () => {
-    expect(INDEX_TABLE_HEADER).toBe(`| ${INDEX_TABLE_COLUMNS.join(' | ')} |`);
-    expect(INDEX_TABLE_HEADER).toContain('Aliases');
+    expect(INDEX_TABLE_HEADER).toBe(
+      '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |',
+    );
     const headerCells = INDEX_TABLE_HEADER.split('|').slice(1, -1);
     const separatorCells = INDEX_TABLE_SEPARATOR.split('|').slice(1, -1);
     expect(headerCells).toHaveLength(INDEX_TABLE_COLUMNS.length);
-    expect(separatorCells).toHaveLength(INDEX_TABLE_COLUMNS.length);
+    expect(headerCells.map((c) => c.trim())).toEqual([...INDEX_TABLE_COLUMNS]);
+    expect(INDEX_TABLE_SEPARATOR).toBe(
+      `| ${INDEX_TABLE_COLUMNS.map(() => '---').join(' | ')} |`,
+    );
+    expect(separatorCells.map((c) => c.trim())).toEqual(
+      INDEX_TABLE_COLUMNS.map(() => '---'),
+    );
   });
 });

@@ -4,6 +4,7 @@ import { vol } from 'memfs';
 import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
 import { parse as parseYamlDoc } from 'yaml';
 
 vi.mock('node:fs', async () => {
@@ -57,8 +58,27 @@ knowledge:
     const result = await execute({ cwd: '/project' });
     expect(result.agents).toHaveLength(1);
     expect(result.agents[0]?.agent).toBe('claude');
-    expect(result.agents[0]?.skillFiles.length).toBeGreaterThan(0);
-    expect(result.totalFiles).toBeGreaterThan(0);
+
+    const agent = result.agents[0]!;
+    // One SKILL.md per defined skill — exact invariant, not "> 0".
+    expect(agent.skillFiles).toHaveLength(SKILL_DEFINITIONS.length);
+    // Each skill landed under the claude skillPath as <name>/SKILL.md, and
+    // the file actually exists on disk.
+    for (const skill of SKILL_DEFINITIONS) {
+      const rel = `.claude/skills/${skill.name}/SKILL.md`;
+      expect(agent.skillFiles).toContain(rel);
+      expect(fs.existsSync(`/project/${rel}`)).toBe(true);
+    }
+    // Reference files are produced for exactly the skills that declare them.
+    expect(agent.referenceFiles.length).toBeGreaterThan(0);
+    for (const refPath of agent.referenceFiles) {
+      const owner = refPath.split('/')[2]; // .claude/skills/<owner>/references/...
+      expect(SKILL_DEFINITIONS.find((s) => s.name === owner)?.hasReferences).toBe(true);
+    }
+    // totalFiles is the exact reduce: 1 entry config + skills + references.
+    expect(result.totalFiles).toBe(
+      1 + agent.skillFiles.length + agent.referenceFiles.length,
+    );
   });
 
   it('should generate skill files for a specific CLI', async () => {
@@ -90,10 +110,11 @@ knowledge:
     });
 
     const result = await execute({ cwd: '/project' });
-    expect(result.agents[0]?.configFile).toBeTruthy();
-    // Verify the config file was created
-    const configPath = `/project/${result.agents[0]?.configFile}`;
-    expect(fs.existsSync(configPath)).toBe(true);
+    // Pin the concrete claude entry-config filename — symmetric with the
+    // antigravity/codex 'AGENTS.md' assertions, so a wrong-but-non-empty path
+    // (e.g. 'AGENTS.md') fails here instead of slipping past toBeTruthy.
+    expect(result.agents[0]?.configFile).toBe('CLAUDE.md');
+    expect(fs.existsSync('/project/CLAUDE.md')).toBe(true);
   });
 
   it('should sync multiple agents', async () => {
@@ -179,6 +200,64 @@ knowledge:
       result.agents[0]!.skillFiles.length +
       result.agents[0]!.referenceFiles.length;
     expect(result.totalFiles).toBe(single);
+  });
+
+  it('writes the declared reference files for skills that have them', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  base_path: prospec/ai-knowledge
+`,
+    });
+
+    const result = await execute({ cwd: '/project' });
+    const refs = result.agents[0]!.referenceFiles;
+
+    // prospec-plan declares exactly two references (plan-format, delta-spec-format).
+    expect(refs).toContain('.claude/skills/prospec-plan/references/plan-format.md');
+    expect(refs).toContain('.claude/skills/prospec-plan/references/delta-spec-format.md');
+    expect(fs.existsSync('/project/.claude/skills/prospec-plan/references/plan-format.md')).toBe(
+      true,
+    );
+
+    // A skill with hasReferences:false produces no references/ entries.
+    expect(refs.some((r) => r.startsWith('.claude/skills/prospec-explore/'))).toBe(false);
+    expect(
+      fs.existsSync('/project/.claude/skills/prospec-explore/references'),
+    ).toBe(false);
+  });
+
+  it('falls back to process.cwd() when options.cwd is undefined', async () => {
+    // Exercises the `options.cwd ?? process.cwd()` else-side: with no cwd
+    // supplied, config must be read from — and files written under — the
+    // current working directory, proving the fallback wires through.
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/from-cwd');
+    try {
+      vol.fromJSON({
+        '/from-cwd/.prospec.yaml': `project:
+  name: cwd-project
+agents:
+  - claude
+knowledge:
+  base_path: prospec/ai-knowledge
+`,
+      });
+
+      const result = await execute({});
+
+      expect(result.agents).toHaveLength(1);
+      expect(result.agents[0]?.agent).toBe('claude');
+      // CLAUDE.md landed under the process.cwd() root, not anywhere else.
+      expect(fs.existsSync('/from-cwd/CLAUDE.md')).toBe(true);
+      expect(fs.existsSync('/from-cwd/.claude/skills/prospec-explore/SKILL.md')).toBe(
+        true,
+      );
+    } finally {
+      cwdSpy.mockRestore();
+    }
   });
 
   it('renders an order-independent AGENTS.md regardless of agent list order', async () => {

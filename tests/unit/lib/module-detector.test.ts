@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
-import { detectModules } from '../../../src/lib/module-detector.js';
+import { detectModules, buildModuleMap } from '../../../src/lib/module-detector.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -28,10 +28,13 @@ describe('detectModules', () => {
       '/project/src/types/errors.ts': '',
     });
     const result = detectModules(files, '/project');
-    expect(result.modules.length).toBeGreaterThan(0);
     const moduleNames = result.modules.map((m) => m.name);
     expect(moduleNames).toContain('services');
     expect(moduleNames).toContain('lib');
+    // The seeded relative import (`services/auth.ts` → `../lib/config`) must
+    // surface as a real dependency edge, not just produce two bare modules.
+    const services = result.modules.find((m) => m.name === 'services');
+    expect(services?.relationships.depends_on).toContain('lib');
   });
 
   it('should detect architecture patterns', () => {
@@ -126,35 +129,78 @@ modules:
     expect(result.entryPoints).toContain('src/cli/index.ts');
   });
 
-  it('should generate keywords for modules', () => {
+  it('recognizes root-level go/py entry points and excludes non-entry files', () => {
+    const files = ['main.go', 'manage.py', 'src/services/auth.ts', 'README.md'];
+    vol.fromJSON({
+      '/project/main.go': '',
+      '/project/manage.py': '',
+      '/project/src/services/auth.ts': '',
+      '/project/README.md': '',
+    });
+    const result = detectModules(files, '/project', 'architecture');
+    expect(result.entryPoints).toContain('main.go');
+    expect(result.entryPoints).toContain('manage.py');
+    // A regular source file and the readme are not entry-point patterns.
+    expect(result.entryPoints).not.toContain('src/services/auth.ts');
+    expect(result.entryPoints).not.toContain('README.md');
+  });
+
+  it('generates keywords from name + camel/kebab split + path segments, excluding glob tokens', () => {
     const files = [
-      'src/services/auth.ts',
-      'src/services/user.ts',
+      'src/orderService/create.ts',
+      'src/orderService/cancel.ts',
     ];
     vol.fromJSON({
-      '/project/src/services/auth.ts': '',
-      '/project/src/services/user.ts': '',
+      '/project/src/orderService/create.ts': '',
+      '/project/src/orderService/cancel.ts': '',
     });
-    const result = detectModules(files, '/project');
-    const services = result.modules.find((m) => m.name === 'services');
-    expect(services?.keywords).toContain('services');
+    // Architecture strategy yields name 'orderService' with paths ['src/orderService/**'],
+    // so each generateKeywords branch contributes a DISTINCT, non-duplicated token:
+    //   - name.toLowerCase()            → 'orderservice'   (whole-name branch)
+    //   - camelCase split (>=3 chars)   → 'order', 'service' (split branch)
+    //   - path segments (no '**'/'*'/'.')→ 'src'          (path-segment branch)
+    // Pinning the full sorted set fails if ANY single branch is dropped.
+    const result = detectModules(files, '/project', 'architecture');
+    const order = result.modules.find((m) => m.name === 'orderService');
+    expect(order?.keywords).toBeDefined();
+    expect([...order!.keywords].sort()).toEqual(
+      ['order', 'orderservice', 'service', 'src'],
+    );
+    // The glob marker is filtered out of path-segment extraction (not a keyword).
+    expect(order?.keywords).not.toContain('**');
+    expect(order?.keywords).not.toContain('*');
   });
 
   it('should skip root-level files from module detection', () => {
     const files = [
       'package.json',
       'tsconfig.json',
+      // A bare root file whose name IS a MODULE_INDICATOR ('config'). This makes
+      // the `parts.length < 2` skip guard load-bearing: without it, this single
+      // file would split to ['config'], get name='config', and survive the
+      // downstream `dirFiles.length >= 2 || MODULE_INDICATORS.includes(name)`
+      // filter via the indicator branch — leaking a spurious root module. The
+      // 1-file non-indicator names (package.json/tsconfig.json) alone could not
+      // exercise the guard because the 2-file threshold drops them regardless.
+      'config',
       'src/services/auth.ts',
       'src/services/user.ts',
     ];
     vol.fromJSON({
       '/project/package.json': '{}',
       '/project/tsconfig.json': '{}',
+      '/project/config': '',
       '/project/src/services/auth.ts': '',
       '/project/src/services/user.ts': '',
     });
     const result = detectModules(files, '/project');
     const moduleNames = result.modules.map((m) => m.name);
+    // Pin the whole positive set: the only surviving module is the 2-file
+    // src/services dir. Any root-level leakage (including the indicator-named
+    // 'config') fails this — deleting the root-skip guard yields ['config',
+    // 'services'].
+    expect(moduleNames).toEqual(['services']);
+    expect(moduleNames).not.toContain('config');
     expect(moduleNames).not.toContain('package.json');
     expect(moduleNames).not.toContain('tsconfig.json');
   });
@@ -166,6 +212,25 @@ modules:
       '/project/data/file2.csv': '',
     });
     const result = detectModules(files, '/project');
+    expect(result.architecture).toBe('unknown');
+  });
+
+  it('stays unknown when only a single architecture indicator matches', () => {
+    // 'models' is the lone indicator of any pattern; the bestScore >= 2 guard
+    // must reject a single match rather than label it 'mvc'/'layered'.
+    const files = [
+      'src/models/a.ts',
+      'src/models/b.ts',
+      'src/widgets/c.ts',
+      'src/widgets/d.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/models/a.ts': '',
+      '/project/src/models/b.ts': '',
+      '/project/src/widgets/c.ts': '',
+      '/project/src/widgets/d.ts': '',
+    });
+    const result = detectModules(files, '/project', 'architecture');
     expect(result.architecture).toBe('unknown');
   });
 
@@ -183,7 +248,10 @@ modules:
       '/project/src/lib/utils.ts': '',
     });
     const result = detectModules(files, '/project', 'architecture');
-    expect(result.modules.length).toBeGreaterThan(0);
+    // The 'architecture' strategy dispatches to directory-layer detection,
+    // which must split these into the two second-level dirs.
+    const moduleNames = result.modules.map((m) => m.name);
+    expect(moduleNames).toEqual(expect.arrayContaining(['services', 'lib']));
   });
 
   it('keeps same-named dirs at different roots distinct instead of one wide glob', () => {
@@ -367,11 +435,9 @@ describe('detectModules — domain strategy', () => {
     });
 
     const result = detectModules(files, '/project', 'domain');
-    // Each domain has only 1 file, so domain detection produces nothing
-    // Falls back to resolveConflicts with empty modules
-    const moduleNames = result.modules.map((m) => m.name);
-    expect(moduleNames).not.toContain('auth');
-    expect(moduleNames).not.toContain('checkout');
+    // Each domain has only 1 file, so the 2-file threshold drops both; the
+    // explicit 'domain' strategy does not fall back, so NO modules survive.
+    expect(result.modules).toEqual([]);
   });
 
   it('emits a glob that targets the REAL suffixed directory, not the normalized name', () => {
@@ -640,8 +706,420 @@ describe('detectModules — auto strategy', () => {
       '/project/src/services/user.ts': '',
     });
 
-    // No strategy parameter = defaults to 'auto'
+    // No strategy parameter = defaults to 'auto'. With no monorepo and no
+    // domain grouping, auto falls all the way through to architecture, which
+    // groups the two src/services files into one 'services' module.
     const result = detectModules(files, '/project');
-    expect(result.modules.length).toBeGreaterThan(0);
+    expect(result.modules.map((m) => m.name)).toEqual(['services']);
+  });
+});
+
+describe('detectModules — existing module-map default fields (L108, L112-113)', () => {
+  it('defaults description to "" and relationships to empty arrays when omitted', () => {
+    const files = ['src/index.ts'];
+    vol.fromJSON({
+      // The module entry intentionally omits `description` and `relationships`
+      // so the `?? ''` / `?? []` fallbacks are exercised.
+      '/project/prospec/ai-knowledge/module-map.yaml': `
+modules:
+  - name: bare
+    paths:
+      - src/bare/**
+    keywords:
+      - bare
+`,
+      '/project/src/index.ts': '',
+    });
+
+    const result = detectModules(files, '/project');
+    const bare = result.modules[0];
+    expect(bare?.name).toBe('bare');
+    expect(bare?.description).toBe('');
+    expect(bare?.relationships.depends_on).toEqual([]);
+    expect(bare?.relationships.used_by).toEqual([]);
+  });
+});
+
+describe('loadExistingModuleMap — absolute knowledge base path (L199 cond-expr#0)', () => {
+  it('honors an absolute knowledgeBasePath instead of joining against cwd', () => {
+    const files = ['src/index.ts'];
+    vol.fromJSON({
+      // The map lives at an ABSOLUTE location unrelated to cwd; the absolute
+      // branch of the ternary must resolve it directly.
+      '/abs/knowledge/module-map.yaml': `
+modules:
+  - name: absmod
+    description: Absolute module
+    paths:
+      - src/abs/**
+    keywords:
+      - abs
+    relationships:
+      depends_on: []
+      used_by: []
+`,
+      '/project/src/index.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'auto', '/abs/knowledge');
+    expect(result.modules[0]?.name).toBe('absmod');
+  });
+
+  it('falls through to detection when the absolute map path does not exist', () => {
+    const files = ['src/services/a.ts', 'src/services/b.ts'];
+    vol.fromJSON({
+      '/project/src/services/a.ts': '',
+      '/project/src/services/b.ts': '',
+    });
+
+    // Absolute path is honored (cond-expr#0) but no file there → null → detect.
+    const result = detectModules(files, '/project', 'architecture', '/nowhere/knowledge');
+    expect(result.modules.map((m) => m.name)).toContain('services');
+  });
+});
+
+describe('normalizeDomainName — separated suffix branch (L239 if#0)', () => {
+  it('strips a hyphen/underscore-separated layer suffix from the domain name', () => {
+    const files = [
+      'src/services/order-service/create.ts',
+      'src/services/order-service/cancel.ts',
+      'src/controllers/billing_controller/handler.ts',
+      'src/controllers/billing_controller/router.ts',
+    ];
+    vol.fromJSON({
+      '/project/src/services/order-service/create.ts': '',
+      '/project/src/services/order-service/cancel.ts': '',
+      '/project/src/controllers/billing_controller/handler.ts': '',
+      '/project/src/controllers/billing_controller/router.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'domain');
+    const names = result.modules.map((m) => m.name);
+    // 'order-service' → 'order' (hyphen-separated), 'billing_controller' →
+    // 'billing' (underscore-separated) via the SEPARATED regex branch.
+    expect(names).toContain('order');
+    expect(names).toContain('billing');
+    expect(names).not.toContain('order-service');
+    expect(names).not.toContain('billing_controller');
+  });
+});
+
+describe('detectByDomain — too-short normalized name skipped (L283 if#0)', () => {
+  it('drops a domain whose normalized name is shorter than 2 chars', () => {
+    const files = [
+      'src/features/a/one.ts',
+      'src/features/a/two.ts',
+      'src/features/auth/Login.tsx',
+      'src/features/auth/Register.tsx',
+    ];
+    vol.fromJSON({
+      '/project/src/features/a/one.ts': '',
+      '/project/src/features/a/two.ts': '',
+      '/project/src/features/auth/Login.tsx': '',
+      '/project/src/features/auth/Register.tsx': '',
+    });
+
+    const result = detectModules(files, '/project', 'domain');
+    const names = result.modules.map((m) => m.name);
+    // Domain 'a' has length 1 (< 2) and is skipped entirely; 'auth' survives.
+    expect(names).not.toContain('a');
+    expect(names).toContain('auth');
+  });
+});
+
+describe('detectByPackage — workspace pattern edge cases', () => {
+  it('skips negation workspace patterns (L346 if#0)', () => {
+    const files = [
+      'packages/web/src/index.ts',
+      'packages/web/src/App.tsx',
+      'packages/internal/src/secret.ts',
+      'packages/internal/src/util.ts',
+    ];
+    vol.fromJSON({
+      // Negation pattern must be ignored (not applied as an exclusion, and not
+      // treated as a base dir); only the positive 'packages/*' matters.
+      '/monorepo/pnpm-workspace.yaml':
+        'packages:\n  - "packages/*"\n  - "!packages/internal"\n',
+      '/monorepo/packages/web/src/index.ts': '',
+      '/monorepo/packages/web/src/App.tsx': '',
+      '/monorepo/packages/internal/src/secret.ts': '',
+      '/monorepo/packages/internal/src/util.ts': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    const names = result.modules.map((m) => m.name);
+    // The '!' pattern is skipped; 'packages/*' still picks up both dirs because
+    // the heuristic does not apply negation as an exclusion.
+    expect(names).toContain('web');
+    expect(names).toContain('internal');
+  });
+
+  it('ignores a file that is exactly the base dir with a trailing slash (L353 if#1)', () => {
+    const files = [
+      'packages/', // pathological: equals base + '/', slice → '' → parts[0] falsy
+      'packages/web/src/index.ts',
+      'packages/web/src/App.tsx',
+    ];
+    vol.fromJSON({
+      '/monorepo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
+      '/monorepo/packages/web/src/index.ts': '',
+      '/monorepo/packages/web/src/App.tsx': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    const names = result.modules.map((m) => m.name);
+    // 'packages/' yields no package dir (parts[0] is '' → skipped); only 'web'.
+    expect(names).toEqual(['web']);
+  });
+
+  it('drops a workspace package that has fewer than 2 files (L377 if#1)', () => {
+    const files = [
+      'packages/web/src/index.ts',
+      'packages/web/src/App.tsx',
+      'packages/lonely/src/only.ts',
+    ];
+    vol.fromJSON({
+      '/monorepo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
+      '/monorepo/packages/web/src/index.ts': '',
+      '/monorepo/packages/web/src/App.tsx': '',
+      '/monorepo/packages/lonely/src/only.ts': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    const names = result.modules.map((m) => m.name);
+    // 'lonely' has a single file → below the 2-file threshold → not a module.
+    expect(names).toContain('web');
+    expect(names).not.toContain('lonely');
+  });
+});
+
+describe('detectWorkspacePackages — malformed/object workspace shapes', () => {
+  it('treats a non-array pnpm `packages` value as no packages (L395 cond-expr#1)', () => {
+    const files = [
+      'packages/web/src/index.ts',
+      'packages/web/src/App.tsx',
+    ];
+    vol.fromJSON({
+      // `packages` is a scalar string, not a sequence → toStringArray → [].
+      // detectByPackage then falls back to the packages/ directory heuristic.
+      '/monorepo/pnpm-workspace.yaml': 'packages: not-a-list\n',
+      '/monorepo/packages/web/src/index.ts': '',
+      '/monorepo/packages/web/src/App.tsx': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    // No workspace patterns extracted → fallback to packages/ dir scan → 'web'.
+    expect(result.modules.map((m) => m.name)).toContain('web');
+  });
+
+  it('reads workspaces from the object form { packages: [...] } (L416/L417)', () => {
+    const files = [
+      'libs/web/src/index.ts',
+      'libs/web/src/App.tsx',
+      'libs/api/src/index.ts',
+      'libs/api/src/server.ts',
+    ];
+    vol.fromJSON({
+      // Yarn/npm object form of workspaces. The 'packages' key is read; the
+      // 'libs/*' glob (outside packages/apps) only resolves via the config path.
+      '/monorepo/package.json': JSON.stringify({
+        workspaces: { packages: ['libs/*'], nohoist: ['**/foo'] },
+      }),
+      '/monorepo/libs/web/src/index.ts': '',
+      '/monorepo/libs/web/src/App.tsx': '',
+      '/monorepo/libs/api/src/index.ts': '',
+      '/monorepo/libs/api/src/server.ts': '',
+    });
+
+    const result = detectModules(files, '/monorepo', 'package');
+    const names = result.modules.map((m) => m.name);
+    expect(names).toContain('web');
+    expect(names).toContain('api');
+  });
+
+  it('returns no packages when workspaces object lacks a `packages` key (L416 if#1)', () => {
+    const files = [
+      'src/services/a.ts',
+      'src/services/b.ts',
+    ];
+    vol.fromJSON({
+      // Object workspaces WITHOUT 'packages' → the `'packages' in ws` guard is
+      // false → no patterns → no packages/apps dirs → package strategy empty.
+      '/project/package.json': JSON.stringify({
+        workspaces: { nohoist: ['**/foo'] },
+      }),
+      '/project/src/services/a.ts': '',
+      '/project/src/services/b.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'package');
+    expect(result.modules).toEqual([]);
+  });
+});
+
+describe('detectRelationships — comment stripping and bare-import segment match', () => {
+  it('blanks a block comment so a commented-out import is ignored (L576)', () => {
+    const files = [
+      'src/web/page.ts',
+      'src/web/view.ts',
+      'src/api/handler.ts',
+      'src/api/route.ts',
+      'src/shared/util.ts',
+      'src/shared/const.ts',
+    ];
+    vol.fromJSON({
+      // The ONLY reference to '../api/handler' is inside a /* ... */ block;
+      // stripComments must blank it so no edge to 'api' forms. The real import
+      // of '../shared/util' (outside the comment) must still register.
+      '/project/src/web/page.ts':
+        "/* import { old } from '../api/handler.js'; */\n" +
+        "import { u } from '../shared/util.js';\n",
+      '/project/src/web/view.ts': '',
+      '/project/src/api/handler.ts': '',
+      '/project/src/api/route.ts': '',
+      '/project/src/shared/util.ts': '',
+      '/project/src/shared/const.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'architecture');
+    const web = result.modules.find((m) => m.name === 'web');
+    expect(web?.relationships.depends_on).toContain('shared');
+    expect(web?.relationships.depends_on).not.toContain('api');
+  });
+
+  it('matches a bare import whose path segment equals a module name (L658 binary-expr#1)', () => {
+    const files = [
+      'src/web/page.ts',
+      'src/web/view.ts',
+      'src/shared/util.ts',
+      'src/shared/const.ts',
+    ];
+    vol.fromJSON({
+      // A BARE (package) specifier whose internal path segment 'shared' exactly
+      // equals the other module's name → segment-anchored bare-import match.
+      '/project/src/web/page.ts': "import x from '@myorg/shared';\n",
+      '/project/src/web/view.ts': '',
+      '/project/src/shared/util.ts': '',
+      '/project/src/shared/const.ts': '',
+    });
+
+    const result = detectModules(files, '/project', 'architecture');
+    const web = result.modules.find((m) => m.name === 'web');
+    const shared = result.modules.find((m) => m.name === 'shared');
+    expect(web?.relationships.depends_on).toContain('shared');
+    expect(shared?.relationships.used_by).toContain('web');
+  });
+});
+
+describe('buildModuleMap', () => {
+  it('maps a DetectionResult into the canonical module-map shape', () => {
+    const detection = {
+      architecture: 'pragmatic',
+      entryPoints: ['src/index.ts'],
+      modules: [
+        {
+          name: 'services',
+          description: 'Business logic services',
+          paths: ['src/services/**'],
+          keywords: ['services', 'auth'],
+          relationships: { depends_on: ['lib'], used_by: ['cli'] },
+        },
+      ],
+    };
+
+    const map = buildModuleMap(detection);
+    expect(map.modules).toHaveLength(1);
+    const m = map.modules[0]!;
+    expect(m.name).toBe('services');
+    expect(m.description).toBe('Business logic services');
+    expect(m.paths).toEqual(['src/services/**']);
+    expect(m.keywords).toEqual(['services', 'auth']);
+    expect(m.relationships).toEqual({ depends_on: ['lib'], used_by: ['cli'] });
+    // architecture/entryPoints are not part of the persisted map shape
+    expect(map).not.toHaveProperty('architecture');
+    expect(map).not.toHaveProperty('entryPoints');
+  });
+});
+
+describe('detectModules — catch block wraps unexpected errors (L145/L148/L149)', () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.doUnmock('node:path');
+    vi.restoreAllMocks();
+  });
+
+  // The thrown value is computed AFTER resetModules so a ModuleDetectionError
+  // instance is built from the SAME freshly-evaluated errors module that the
+  // re-imported detector checks `instanceof` against (identity must match).
+  async function loadWithPathThrow(
+    makeThrow: (errs: typeof import('../../../src/types/errors.js')) => unknown,
+  ) {
+    vi.resetModules();
+    const errs = await import('../../../src/types/errors.js');
+    const throwValue = makeThrow(errs);
+    vi.doMock('node:path', async () => {
+      const real = await vi.importActual<typeof import('node:path')>('node:path');
+      return {
+        ...real,
+        default: real,
+        join: (...args: string[]) => {
+          // Throw only while resolving the module-map path (sentinel base),
+          // which sits OUTSIDE loadExistingModuleMap's inner try → propagates.
+          if (args.includes('__BOOM__')) throw throwValue;
+          return real.join(...args);
+        },
+      };
+    });
+    const mod = await import('../../../src/lib/module-detector.js');
+    return {
+      detectModules: mod.detectModules,
+      ModuleDetectionError: errs.ModuleDetectionError,
+      throwValue,
+    };
+  }
+
+  it('wraps a thrown plain Error as ModuleDetectionError preserving message+cause (L149 cond-expr#0)', async () => {
+    const { detectModules: detect, ModuleDetectionError: MDE, throwValue: boom } =
+      await loadWithPathThrow(() => new Error('join exploded'));
+
+    let caught: unknown;
+    try {
+      detect(['src/a/x.ts', 'src/a/y.ts'], '/p', 'auto', '__BOOM__');
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(MDE);
+    expect((caught as Error).message).toContain('join exploded');
+    expect((caught as { cause?: unknown }).cause).toBe(boom);
+    expect((caught as { code: string }).code).toBe('MODULE_DETECTION_ERROR');
+  });
+
+  it('stringifies a thrown non-Error value (L149 cond-expr#1)', async () => {
+    const { detectModules: detect, ModuleDetectionError: MDE } =
+      await loadWithPathThrow(() => 'plain string failure');
+
+    let caught: unknown;
+    try {
+      detect(['src/a/x.ts', 'src/a/y.ts'], '/p', 'auto', '__BOOM__');
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(MDE);
+    expect((caught as Error).message).toContain('plain string failure');
+  });
+
+  it('re-throws an existing ModuleDetectionError unchanged (L145 if#0)', async () => {
+    const { detectModules: detect, throwValue: original } = await loadWithPathThrow(
+      (errs) => new errs.ModuleDetectionError('already wrapped'),
+    );
+
+    let caught: unknown;
+    try {
+      detect(['src/a/x.ts', 'src/a/y.ts'], '/p', 'auto', '__BOOM__');
+    } catch (e) {
+      caught = e;
+    }
+    // Same identity → not re-wrapped (the `instanceof ... throw err` branch).
+    expect(caught).toBe(original);
   });
 });

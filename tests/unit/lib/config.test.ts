@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { vol } from 'memfs';
 import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
@@ -21,7 +22,8 @@ describe('resolveConfigPath', () => {
 
   it('should use cwd when no directory is provided', () => {
     const result = resolveConfigPath();
-    expect(result).toContain('.prospec.yaml');
+    // pin the cwd-based resolution, not just the constant filename suffix
+    expect(result).toBe(path.join(process.cwd(), '.prospec.yaml'));
   });
 });
 
@@ -85,7 +87,7 @@ agents:
   - codex
 `;
     const config = validateConfig(yaml);
-    expect(config.agents).toHaveLength(4);
+    expect(config.agents).toEqual(['claude', 'antigravity', 'copilot', 'codex']);
   });
 });
 
@@ -122,12 +124,14 @@ describe('resolveBasePaths', () => {
   });
 
   it('should use configured base_dir', () => {
-    const config = { project: { name: 'test' }, paths: { base_dir: 'prospec' } };
+    // base_dir must DIFFER from DEFAULT_BASE_DIR ('prospec') or this cannot tell
+    // "configured value applied" from "default used".
+    const config = { project: { name: 'test' }, paths: { base_dir: 'my-docs' } };
     const result = resolveBasePaths(config, '/project');
-    expect(result.baseDir).toBe('/project/prospec');
-    expect(result.knowledgePath).toBe('/project/prospec/ai-knowledge');
-    expect(result.constitutionPath).toBe('/project/prospec/CONSTITUTION.md');
-    expect(result.specsPath).toBe('/project/prospec/specs');
+    expect(result.baseDir).toBe('/project/my-docs');
+    expect(result.knowledgePath).toBe('/project/my-docs/ai-knowledge');
+    expect(result.constitutionPath).toBe('/project/my-docs/CONSTITUTION.md');
+    expect(result.specsPath).toBe('/project/my-docs/specs');
   });
 
   it('should respect knowledge.base_path override', () => {

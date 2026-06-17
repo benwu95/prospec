@@ -243,6 +243,108 @@ describe('updateModuleReadme', () => {
     const hasTestExport = keyExports.some((e) => e.name.includes('test'));
     expect(hasTestExport).toBe(false);
   });
+
+  it('falls back to a glob from moduleName and a path of moduleName when modulePaths is empty (L136/L151)', async () => {
+    const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+    vi.mocked(scanDir).mockResolvedValueOnce({ files: [], count: 0 });
+
+    vol.fromJSON({});
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
+
+    await updateModuleReadme('auth', [], {
+      cwd: '/project',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+    });
+
+    // empty modulePaths -> scanDir is driven by the `${moduleName}/**` glob
+    const scanArgs = vi.mocked(scanDir).mock.calls.at(-1)!;
+    expect(scanArgs[0]).toEqual(['auth/**']);
+
+    // empty modulePaths -> templateContext.path falls back to moduleName
+    const renderCall = vi
+      .mocked(mockRender)
+      .mock.calls.filter((c) => c[0] === 'steering/module-readme.hbs')
+      .at(-1);
+    const context = renderCall![1] as Record<string, unknown>;
+    expect(context.path).toBe('auth');
+  });
+
+  it('infers per-extension and per-suffix file descriptions into key_files (L548/L551-554/L565)', async () => {
+    // key_files is capped at the first 10 scanned files, so split the branch
+    // matrix across two render calls and assert the distinguishing description
+    // string each branch returns (executing the branch is not enough).
+    const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+
+    vol.fromJSON({});
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
+
+    const lastContext = () => {
+      const renderCall = vi
+        .mocked(mockRender)
+        .mock.calls.filter((c) => c[0] === 'steering/module-readme.hbs')
+        .at(-1);
+      const ctx = renderCall![1] as Record<string, unknown>;
+      const keyFiles = ctx.key_files as Array<{ path: string; description: string }>;
+      return (p: string) => keyFiles.find((f) => f.path === p)!.description;
+    };
+
+    // Batch 1: basename-keyed branches (checked before the extension table)
+    vi.mocked(scanDir).mockResolvedValueOnce({
+      files: [
+        'src/mod/index.ts',
+        'src/mod/index.js',
+        'src/mod/foo.service.ts',
+        'src/mod/foo.controller.ts',
+        'src/mod/foo.types.ts',
+        'src/mod/foo.utils.ts',
+        'src/mod/foo.test.ts',
+        'src/mod/foo.spec.ts',
+        'src/mod/tpl.hbs',
+        'src/mod/weird.xyz',
+      ],
+      count: 10,
+    });
+    await updateModuleReadme('mod', ['src/mod/**'], {
+      cwd: '/project',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+    });
+    let descOf = lastContext();
+    expect(descOf('src/mod/index.ts')).toBe('Module entry point');
+    expect(descOf('src/mod/index.js')).toBe('Module entry point');
+    expect(descOf('src/mod/foo.test.ts')).toBe('Test file');
+    expect(descOf('src/mod/foo.spec.ts')).toBe('Test file');
+    expect(descOf('src/mod/foo.service.ts')).toBe('Service implementation');
+    expect(descOf('src/mod/foo.controller.ts')).toBe('Controller implementation');
+    expect(descOf('src/mod/foo.types.ts')).toBe('Type definitions');
+    expect(descOf('src/mod/foo.utils.ts')).toBe('Utility functions');
+    expect(descOf('src/mod/tpl.hbs')).toBe('Handlebars template');
+    // unknown extension -> default fallback (L565 right side)
+    expect(descOf('src/mod/weird.xyz')).toBe('Source file');
+
+    // Batch 2: extension-table branches
+    vi.mocked(scanDir).mockResolvedValueOnce({
+      files: [
+        'src/mod/plain.js',
+        'src/mod/notes.md',
+        'src/mod/conf.yaml',
+        'src/mod/conf.yml',
+        'src/mod/data.json',
+      ],
+      count: 5,
+    });
+    await updateModuleReadme('mod', ['src/mod/**'], {
+      cwd: '/project',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+    });
+    descOf = lastContext();
+    expect(descOf('src/mod/plain.js')).toBe('JavaScript source');
+    expect(descOf('src/mod/notes.md')).toBe('Documentation');
+    expect(descOf('src/mod/conf.yaml')).toBe('YAML configuration');
+    expect(descOf('src/mod/conf.yml')).toBe('YAML configuration');
+    expect(descOf('src/mod/data.json')).toBe('JSON configuration');
+  });
 });
 
 // --- markModuleDeprecated ---
@@ -433,6 +535,24 @@ describe('updateModuleMap', () => {
 
     expect(result).toBeNull();
   });
+
+  it('does not duplicate an already-present module (case-insensitive) on add (L336 else)', async () => {
+    vol.fromJSON({
+      '/project/module-map.yaml':
+        'modules:\n  - name: Services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n',
+    });
+
+    const result = await updateModuleMap(
+      { added: ['services'], removed: [] },
+      '/project/module-map.yaml',
+    );
+
+    expect(result).not.toBeNull();
+    const content = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
+    // only the original entry survives; no second `services` entry is appended
+    const nameLines = content.split('\n').filter((l) => /name:\s*Services/i.test(l));
+    expect(nameLines).toHaveLength(1);
+  });
 });
 
 // --- collectAllModules ---
@@ -452,6 +572,50 @@ describe('collectAllModules', () => {
 
     const api = modules.find((m) => m.name === 'API');
     expect(api?.status).toBe('Deprecated');
+  });
+
+  it('falls back to a synthesized description when a module-map entry has none (L528 else)', () => {
+    vol.fromJSON({
+      '/project/module-map.yaml':
+        'modules:\n  - name: auth\n    paths: ["src/auth/**"]\n    keywords: ["auth"]\n',
+    });
+
+    const modules = collectAllModules(
+      { created: [], updated: [], deprecated: [], generatedFiles: [] },
+      '/project/module-map.yaml',
+    );
+
+    const auth = modules.find((m) => m.name === 'auth');
+    expect(auth?.description).toBe('auth module');
+    expect(auth?.status).toBe('Active');
+  });
+
+  it('falls back to result data (created/updated/deprecated) when module-map is unreadable', () => {
+    const modules = collectAllModules(
+      {
+        created: ['newmod'],
+        updated: ['changedmod'],
+        deprecated: ['goneMod'],
+        generatedFiles: [],
+      },
+      '/nonexistent/module-map.yaml',
+    );
+
+    expect(modules).toContainEqual({
+      name: 'newmod',
+      description: 'newmod module',
+      status: 'Active',
+    });
+    expect(modules).toContainEqual({
+      name: 'changedmod',
+      description: 'changedmod module',
+      status: 'Active',
+    });
+    expect(modules).toContainEqual({
+      name: 'goneMod',
+      description: 'goneMod module',
+      status: 'Deprecated',
+    });
   });
 });
 
@@ -523,7 +687,13 @@ describe('execute', () => {
       cwd: '/project',
     });
 
-    expect(result.generatedFiles.length).toBeGreaterThan(0);
+    // No pre-existing services README -> manual mode creates it (the
+    // distinguishing manual-mode outcome, not merely "some file was written")
+    expect(result.created).toEqual(['services']);
+    expect(result.updated).toEqual([]);
+    expect(
+      result.generatedFiles.some((f) => f.path.endsWith('modules/services/README.md')),
+    ).toBe(true);
   });
 
   it('treats a module that is both MODIFIED and REMOVED as removed only', async () => {
@@ -555,6 +725,211 @@ describe('execute', () => {
     expect(result.deprecated).toContain('auth');
     // removal wins — must NOT also be reported as updated
     expect(result.updated).not.toContain('auth');
+  });
+
+  it('skips an ADDED module that is also REMOVED, reuses module-map paths, and reports an existing README as updated (L415/L421/L500/L458)', async () => {
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const deltaContent = `## ADDED
+
+### REQ-AUTH-001: re-add auth
+
+**Description:** auth
+
+---
+
+### REQ-BILLING-001: add billing
+
+**Description:** billing
+
+---
+
+## REMOVED
+
+### REQ-AUTH-002: drop auth
+
+**Description:** gone
+`;
+    vol.fromJSON({
+      // module-map drives buildModulePathMap (L500): auth has a non-default path
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: billing\n    description: billing svc\n    paths: ["pkg/billing/**"]\n    keywords: ["billing"]\n',
+      // existing billing README -> ADDED billing reported as `updated` (L421 else)
+      '/test/prospec/ai-knowledge/modules/billing/README.md':
+        '# billing\n\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nkeep me\n<!-- prospec:user-end -->\n',
+      // auth README exists so it can be deprecated by the REMOVED loop
+      '/test/prospec/ai-knowledge/modules/auth/README.md': '# auth\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // auth is in both ADDED and REMOVED -> removal wins, never created/updated
+    expect(result.created).not.toContain('auth');
+    expect(result.updated).not.toContain('auth');
+    expect(result.deprecated).toContain('auth');
+
+    // billing README pre-existed -> reported as updated, not created
+    expect(result.updated).toContain('billing');
+    expect(result.created).not.toContain('billing');
+
+    // billing used its module-map path glob (L500 populated the map)
+    const scanCall = vi
+      .mocked(scanDir)
+      .mock.calls.find((c) => Array.isArray(c[0]) && (c[0] as string[]).includes('pkg/billing/**'));
+    expect(scanCall).toBeDefined();
+
+    // module-map.yaml existed -> updateModuleMap returned a file that was pushed (L458/L459)
+    const mapFile = result.generatedFiles.find((f) => f.path.endsWith('module-map.yaml'));
+    expect(mapFile).toBeDefined();
+    expect(mapFile!.action).toBe('updated');
+  });
+
+  it('processes a fresh MODIFIED module via the src/<name>/** fallback when not in module-map (L428/L429-else/L432-then)', async () => {
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const deltaContent = `## MODIFIED
+
+### REQ-PAYMENTS-001: tweak payments
+
+**Description:** change
+`;
+    vol.fromJSON({
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // first time seen -> pushed to updated (L432 both conditions true)
+    expect(result.updated).toEqual(['payments']);
+
+    // no module-map entry -> fallback glob src/payments/** (L429 right side)
+    const scanCall = vi
+      .mocked(scanDir)
+      .mock.calls.find(
+        (c) => Array.isArray(c[0]) && (c[0] as string[]).includes('src/payments/**'),
+      );
+    expect(scanCall).toBeDefined();
+  });
+
+  it('does not double-list a module that is both ADDED and MODIFIED (L432 created-includes short-circuit)', async () => {
+    const deltaContent = `## ADDED
+
+### REQ-NOTIFY-001: add notify
+
+**Description:** add
+
+---
+
+## MODIFIED
+
+### REQ-NOTIFY-002: tweak notify
+
+**Description:** tweak
+`;
+    vol.fromJSON({
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // ADDED created it; MODIFIED must NOT also push it to updated
+    expect(result.created).toEqual(['notify']);
+    expect(result.updated).not.toContain('notify');
+  });
+
+  it('does not double-list a module modified under two REQ ids (L432 updated-includes short-circuit)', async () => {
+    const deltaContent = `## MODIFIED
+
+### REQ-ORDERS-001: first tweak
+
+**Description:** one
+
+---
+
+### REQ-ORDERS-002: second tweak
+
+**Description:** two
+`;
+    vol.fromJSON({
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // listed exactly once despite two MODIFIED REQ ids
+    expect(result.updated).toEqual(['orders']);
+  });
+
+  it('skips deprecation reporting when the REMOVED module README is absent (L444 else, L453 else)', async () => {
+    const deltaContent = `## REMOVED
+
+### REQ-GHOST-001: remove ghost
+
+**Description:** never existed
+`;
+    vol.fromJSON({
+      // no module README for ghost, and no module-map.yaml at all
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // markModuleDeprecated returned null -> not added to deprecated/generatedFiles
+    expect(result.deprecated).toEqual([]);
+    expect(result.generatedFiles.some((f) => f.path.includes('ghost'))).toBe(false);
+  });
+
+  it('reports an existing module README as updated in manual mode (L472 else, L473)', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/modules/services/README.md':
+        '# services\n\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nkeep\n<!-- prospec:user-end -->\n',
+    });
+
+    const result = await execute({ manualModules: ['services'], cwd: '/project' });
+
+    expect(result.updated).toContain('services');
+    expect(result.created).not.toContain('services');
+  });
+
+  it('passes config.exclude through to the scanner, and defaults to [] when absent (L380)', async () => {
+    const { readConfig } = await import('../../../src/lib/config.js');
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+
+    // config WITHOUT an exclude key -> excludePatterns falls back to [] (L380 right)
+    vi.mocked(readConfig).mockResolvedValueOnce({
+      project: { name: 'test-project' },
+    } as unknown as Awaited<ReturnType<typeof readConfig>>);
+
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/modules/services/README.md':
+        '# services\n\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nkeep\n<!-- prospec:user-end -->\n',
+    });
+
+    await execute({ manualModules: ['services'], cwd: '/project' });
+
+    const scanCall = vi.mocked(scanDir).mock.calls.at(-1)!;
+    expect((scanCall[1] as { exclude: string[] }).exclude).toEqual([]);
+  });
+
+  it('defaults cwd to process.cwd() when no cwd option is given (L374 right side)', async () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/project');
+    try {
+      const deltaContent = `## ADDED
+
+### REQ-AUTH-001: add auth
+
+**Description:** auth
+`;
+      vol.fromJSON({
+        '/project/delta-spec.md': deltaContent,
+      });
+
+      const result = await execute({ deltaSpecPath: '/project/delta-spec.md' });
+
+      expect(cwdSpy).toHaveBeenCalled();
+      expect(result.created).toContain('auth');
+    } finally {
+      cwdSpy.mockRestore();
+    }
   });
 
   it('should return empty result when no input provided', async () => {

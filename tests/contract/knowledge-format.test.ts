@@ -41,13 +41,38 @@ describe('Knowledge Format Contract', () => {
 
     it('should render without errors', () => {
       const content = renderTemplate('steering/module-readme.hbs', templateContext);
-      expect(content).toBeTruthy();
-      expect(content.length).toBeGreaterThan(0);
+      // prove interpolation actually ran (static headers alone are not enough)
+      expect(content).toContain('# services');
+      expect(content).toContain('src/services/auth.service.ts');
+      expect(content).toContain('auth.execute()');
     });
 
-    it('should be ≤ 100 lines', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+    it('stays ≤ 100 lines even for a large module (20 files/exports/dependents)', () => {
+      // Each key_file, key_export, and used_by entry adds one rendered line on
+      // top of the fixed scaffold, so a realistic large module is what pushes
+      // the output toward the 100-line contract ceiling. A 3-item context
+      // (~44 lines) can never approach it, making the bound vacuous.
+      const N = 20;
+      const largeContext = {
+        ...templateContext,
+        relationships: {
+          depends_on: Array.from({ length: N }, (_, i) => `dep${i}`),
+          used_by: Array.from({ length: N }, (_, i) => `consumer${i}`),
+        },
+        key_files: Array.from({ length: N }, (_, i) => ({
+          path: `src/services/file${i}.service.ts`,
+          description: `Service ${i}`,
+        })),
+        key_exports: Array.from({ length: N }, (_, i) => ({
+          name: `service${i}.execute()`,
+          description: `Service ${i}`,
+        })),
+      };
+      const content = renderTemplate('steering/module-readme.hbs', largeContext);
       const lineCount = content.split('\n').length;
+      // The large context must be near (but within) the ceiling — otherwise the
+      // ≤100 bound is not actually exercised by this test.
+      expect(lineCount).toBeGreaterThan(90);
       expect(lineCount).toBeLessThanOrEqual(100);
     });
 
@@ -131,8 +156,9 @@ describe('Knowledge Format Contract', () => {
 
     it('should render without errors', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
-      expect(content).toBeTruthy();
-      expect(content.length).toBeGreaterThan(0);
+      // prove interpolation actually ran (template is mostly static otherwise)
+      expect(content).toContain('test-project');
+      expect(content).toContain('typescript');
     });
 
     it('should contain Rationale column header', () => {
@@ -202,7 +228,11 @@ describe('Knowledge Format Contract', () => {
         index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
         modules: [],
       });
-      expect(content).toContain(INDEX_TABLE_COLUMNS.join(' | '));
+      // Assert an independent literal of the documented schema, not the same
+      // INDEX_TABLE_COLUMNS value fed into the context (which would move together).
+      expect(content).toContain(
+        'Module | Keywords | Aliases | Status | Description | Rationale | Depends On',
+      );
     });
 
     it('knowledge-generate and knowledge-update skill docs use the canonical header verbatim', () => {

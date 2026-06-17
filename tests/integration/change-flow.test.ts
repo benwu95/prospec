@@ -79,7 +79,7 @@ describe('Change Management Flow Integration', () => {
       '/project/.prospec/changes/add-feature/metadata.yaml',
       'utf-8',
     );
-    expect(metadataAfterPlan).toContain('plan');
+    expect(metadataAfterPlan).toContain('status: plan');
 
     // Step 3: Create tasks
     const tasksResult = await tasksExecute({
@@ -94,7 +94,7 @@ describe('Change Management Flow Integration', () => {
       '/project/.prospec/changes/add-feature/metadata.yaml',
       'utf-8',
     );
-    expect(metadataAfterTasks).toContain('tasks');
+    expect(metadataAfterTasks).toContain('status: tasks');
   });
 
   it('should not allow plan without story', async () => {

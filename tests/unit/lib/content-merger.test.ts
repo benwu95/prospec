@@ -36,6 +36,7 @@ Footer`;
   it('should handle empty content', () => {
     const sections = parseSections('');
     expect(sections).toHaveLength(1);
+    expect(sections[0]?.type).toBe('static');
     expect(sections[0]?.content).toBe('');
   });
 
@@ -154,6 +155,8 @@ Default 2
     const merged = mergeContent(newContent, existing);
     expect(merged).toContain('First notes');
     expect(merged).toContain('Second notes');
+    // pin ORDER (the test's stated contract) — a reversed fill would keep both substrings
+    expect(merged.indexOf('First notes')).toBeLessThan(merged.indexOf('Second notes'));
     expect(merged).not.toContain('Default 1');
     expect(merged).not.toContain('Default 2');
   });
@@ -176,6 +179,9 @@ Replace me
     const merged = mergeContent(newContent, existing);
     expect(merged).toContain('Updated auto');
     expect(merged).toContain('Keep me');
+    // prove old auto was REPLACED (not appended) and the new default user block dropped
+    expect(merged).not.toContain('Old auto');
+    expect(merged).not.toContain('Replace me');
   });
 
   it('merges to an EXACT document — section order and structure are pinned (happy path)', () => {

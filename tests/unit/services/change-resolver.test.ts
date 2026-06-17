@@ -62,6 +62,15 @@ describe('resolveChange', () => {
     vi.mocked(select).mockResolvedValue('beta');
     await expect(resolveChange('/p', undefined, false, 'pick')).resolves.toBe('beta');
     expect(vi.mocked(select)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(select)).toHaveBeenCalledWith({
+      message: 'pick',
+      choices: expect.arrayContaining([
+        { name: 'alpha', value: 'alpha' },
+        { name: 'beta', value: 'beta' },
+      ]),
+    });
+    const choices = vi.mocked(select).mock.calls[0]![0].choices;
+    expect(choices).toHaveLength(2);
   });
 
   it('ignores non-directory entries under the changes dir', async () => {

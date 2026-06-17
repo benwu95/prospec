@@ -73,7 +73,11 @@ describe('Steering Flow Integration', () => {
 
     expect(result.dryRun).toBe(true);
     expect(result.outputFiles).toHaveLength(0);
-    expect(typeof result.architecture).toBe('string');
+    // dry-run still computes real detection: services + lib match the pragmatic pattern
+    expect(result.architecture).toBe('pragmatic');
+    expect(result.modules.map((m) => m.name)).toEqual(
+      expect.arrayContaining(['services', 'lib']),
+    );
   });
 
   it('should generate module-map.yaml and architecture.md', async () => {
@@ -91,10 +95,17 @@ knowledge:
     const result = await execute({ cwd: '/project' });
 
     expect(result.dryRun).toBe(false);
-    expect(result.outputFiles.length).toBeGreaterThan(0);
+    // All three writes must be registered — dropping any single one fails here.
+    expect(result.outputFiles).toEqual(
+      expect.arrayContaining([
+        'prospec/ai-knowledge/module-map.yaml',
+        'prospec/ai-knowledge/architecture.md',
+        '.prospec.yaml',
+      ]),
+    );
 
-    // Module map should be written
-    const moduleMapExists = fs.existsSync('/project/prospec/ai-knowledge/module-map.yaml');
-    expect(moduleMapExists).toBe(true);
+    // Both knowledge artifacts should be written to disk
+    expect(fs.existsSync('/project/prospec/ai-knowledge/module-map.yaml')).toBe(true);
+    expect(fs.existsSync('/project/prospec/ai-knowledge/architecture.md')).toBe(true);
   });
 });

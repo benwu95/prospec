@@ -155,7 +155,9 @@ describe('DriftReportInvalid', () => {
   it('carries code and an actionable suggestion', () => {
     const err = new DriftReportInvalid('prospec-report.json', 'semantic.status invalid');
     expect(err.code).toBe('DRIFT_REPORT_INVALID');
-    expect(err.suggestion.length).toBeGreaterThan(0);
+    expect(err.suggestion).toBe(
+      'Regenerate the report with `prospec check --json` — do not edit it by hand',
+    );
     expect(err.message).toContain('prospec-report.json');
   });
 });

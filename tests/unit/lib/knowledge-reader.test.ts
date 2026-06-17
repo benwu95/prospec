@@ -340,9 +340,15 @@ describe('attachModuleCategories (REQ-LIB-017)', () => {
     expect(attachModuleCategories(baseResult, null)).toBe(baseResult);
   });
 
-  it('yields [] for an unlisted module or a module without a category', () => {
+  it('overwrites stale categories with [] for an unlisted module or a module without a category', () => {
+    const stale = {
+      matches: [
+        { module: 'auth', matched_field: 'name' as const, description: 'Auth', category: ['STALE'] },
+        { module: 'quiz', matched_field: 'keywords' as const, description: 'Quiz', category: ['STALE'] },
+      ],
+    };
     const map = { modules: [{ name: 'auth', paths: ['src/auth'], keywords: [] }] };
-    const out = attachModuleCategories(baseResult, map);
+    const out = attachModuleCategories(stale, map);
     expect(out.matches.map((m) => m.category)).toEqual([[], []]);
   });
 

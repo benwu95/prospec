@@ -58,7 +58,16 @@ describe('Init Flow Integration', () => {
     expect(result.projectName).toBe('my-project');
     expect(result.techStack.language).toBe('typescript');
     expect(result.selectedAgents).toEqual(['claude', 'antigravity']);
-    expect(result.createdFiles.length).toBeGreaterThan(0);
+    expect(result.createdFiles).toEqual(
+      expect.arrayContaining([
+        '.prospec.yaml',
+        'AGENTS.md',
+        'prospec/CONSTITUTION.md',
+        'prospec/ai-knowledge/_index.md',
+        'prospec/ai-knowledge/_conventions.md',
+        'prospec/specs/.gitkeep',
+      ]),
+    );
 
     // Verify .prospec.yaml can be read back and validated
     const configContent = fs.readFileSync('/project/.prospec.yaml', 'utf-8');

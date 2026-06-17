@@ -7,6 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { buildMcpServer, type McpServerContext } from '../../src/services/mcp.service.js';
 import { execute as checkExecute } from '../../src/services/check.service.js';
+import { isSafeResourceName } from '../../src/lib/knowledge-reader.js';
 
 /**
  * MCP server contract tests over the SDK's in-memory linked transport
@@ -155,6 +156,9 @@ describe('resources (REQ-MCP-002/003)', () => {
     await expect(
       client.readResource({ uri: 'knowledge://module/..%2F..%2Fsecret' }),
     ).rejects.toThrow();
+    // Pin the AC4 guard directly: the redundant realpath clamp would otherwise let
+    // the bare rejects.toThrow() pass even if isSafeResourceName were removed.
+    expect(isSafeResourceName('../../secret')).toBe(false);
   });
 
   it('writes nothing to stdout during a full session (REQ-MCP-001 AC2)', async () => {

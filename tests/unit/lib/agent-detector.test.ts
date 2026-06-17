@@ -48,6 +48,7 @@ describe('detectAgents', () => {
     const agents = detectAgents();
     const copilot = agents.find((a) => a.id === 'copilot');
     expect(copilot?.detected).toBe(true);
+    expect(copilot?.name).toBe('GitHub Copilot CLI');
   });
 
   it('should detect Codex CLI when .codex directory exists', () => {
@@ -56,6 +57,7 @@ describe('detectAgents', () => {
     const agents = detectAgents();
     const codex = agents.find((a) => a.id === 'codex');
     expect(codex?.detected).toBe(true);
+    expect(codex?.name).toBe('Codex CLI');
   });
 
   it('should detect multiple agents simultaneously', () => {
@@ -72,13 +74,14 @@ describe('detectAgents', () => {
   it('should return correct agent structure', () => {
     vol.fromJSON({}, '/');
     const agents = detectAgents();
-    for (const agent of agents) {
-      expect(agent).toHaveProperty('name');
-      expect(agent).toHaveProperty('id');
-      expect(agent).toHaveProperty('detected');
-      expect(typeof agent.name).toBe('string');
-      expect(typeof agent.id).toBe('string');
-      expect(typeof agent.detected).toBe('boolean');
-    }
+    // Pin the concrete id->name mapping and order, not just types.
+    expect(agents.map((a) => a.id)).toEqual(['claude', 'antigravity', 'copilot', 'codex']);
+    expect(agents.map((a) => a.name)).toEqual([
+      'Claude Code',
+      'Antigravity CLI',
+      'GitHub Copilot CLI',
+      'Codex CLI',
+    ]);
+    expect(agents.every((a) => typeof a.detected === 'boolean')).toBe(true);
   });
 });

@@ -4,15 +4,14 @@ import { exampleRulesFor, languagePolicyRule } from '../../../src/lib/constituti
 const SEVERITIES = ['MUST', 'SHOULD', 'MAY'];
 
 describe('exampleRulesFor', () => {
-  it('returns 3-5 python rules, each with a severity, name, and rationale', () => {
+  it('returns 3-5 python rules, each with a valid severity, and the python-specific rule set', () => {
     const rules = exampleRulesFor({ language: 'python' });
     expect(rules.length).toBeGreaterThanOrEqual(3);
     expect(rules.length).toBeLessThanOrEqual(5);
     for (const r of rules) {
       expect(SEVERITIES).toContain(r.severity);
-      expect(r.name).toBeTruthy();
-      expect(r.rationale).toBeTruthy();
     }
+    expect(rules.map((r) => r.name)).toContain('Authenticated API endpoints');
   });
 
   it('includes an authentication-related rule for python', () => {
@@ -22,11 +21,16 @@ describe('exampleRulesFor', () => {
     ).toBe(true);
   });
 
-  it('returns 3-5 typescript rules, each with a severity', () => {
+  it('returns 3-5 typescript rules including the typescript-unique rules', () => {
     const rules = exampleRulesFor({ language: 'typescript' });
     expect(rules.length).toBeGreaterThanOrEqual(3);
     expect(rules.length).toBeLessThanOrEqual(5);
     expect(rules.every((r) => SEVERITIES.includes(r.severity))).toBe(true);
+    const names = rules.map((r) => r.name);
+    expect(names).toContain('No any in public APIs');
+    expect(names).toContain('One-way dependency direction');
+    expect(names).not.toContain('Authenticated API endpoints');
+    expect(names).not.toContain('No committed secrets');
   });
 
   it('falls back to language-neutral rules for an unknown language', () => {
@@ -34,11 +38,22 @@ describe('exampleRulesFor', () => {
     expect(rules.length).toBeGreaterThanOrEqual(3);
     expect(rules.length).toBeLessThanOrEqual(5);
     expect(rules.every((r) => SEVERITIES.includes(r.severity))).toBe(true);
+    const names = rules.map((r) => r.name);
+    expect(names).toContain('No committed secrets');
+    expect(names).not.toContain('Authenticated API endpoints');
+    expect(names).not.toContain('No any in public APIs');
   });
 
   it('falls back to neutral rules when language is undefined or empty', () => {
-    expect(exampleRulesFor({}).length).toBeGreaterThanOrEqual(3);
-    expect(exampleRulesFor({ language: undefined }).length).toBeGreaterThanOrEqual(3);
+    for (const techStack of [{}, { language: undefined }, { language: '' }]) {
+      const rules = exampleRulesFor(techStack);
+      expect(rules.length).toBeGreaterThanOrEqual(3);
+      expect(rules.length).toBeLessThanOrEqual(5);
+      const names = rules.map((r) => r.name);
+      expect(names).toContain('No committed secrets');
+      expect(names).not.toContain('Authenticated API endpoints');
+      expect(names).not.toContain('No any in public APIs');
+    }
   });
 
   it('includes at least one MUST rule in every rule set', () => {

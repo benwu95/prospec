@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/knowledge-init.service.js';
+import { renderTemplate } from '../../../src/lib/template.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -223,7 +224,15 @@ describe('knowledge-init.service', () => {
     ).toThrow();
   });
 
-  it('should respect depth parameter for directory tree', async () => {
+  it('caps the directory tree at the requested depth (and lifts the cap as depth rises)', async () => {
+    // result.scanDepth is just the input arg echoed straight through
+    // (knowledge-init L126 ← raw-scan L116), so it proves nothing about
+    // depth-limiting. The only branch-distinguishing consumer of `depth`
+    // observable in this mocked setup is buildDirectoryTree(files, depth)
+    // (raw-scan L82, L398-407) — fast-glob is mocked and ignores `deep`, so the
+    // file set is identical at any depth. Inspect the rendered context's
+    // directory_tree to prove the cap is depth-driven.
+    vi.mocked(renderTemplate).mockClear();
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/src/a/b/c/d.ts': '',
@@ -231,6 +240,38 @@ describe('knowledge-init.service', () => {
 
     const result = await execute({ depth: 2, cwd: '/project' });
     expect(result.scanDepth).toBe(2);
+
+    const rawScanCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([tpl]) => tpl === 'knowledge/raw-scan.md.hbs');
+    expect(rawScanCall).toBeDefined();
+    const treeDirs = (rawScanCall![1] as { directory_tree: string }).directory_tree
+      .split('\n')
+      .map((l) => l.trim());
+    // depth 2 → src/ and src/a/ (rendered as 'a/'); deeper dirs truncated.
+    expect(treeDirs).toContain('src/');
+    expect(treeDirs).toContain('a/');
+    expect(treeDirs).not.toContain('b/'); // depth-3 dir truncated
+    expect(treeDirs).not.toContain('c/'); // depth-4 dir truncated
+
+    // Contrast: the SAME nested file surfaces deeper levels at depth 10,
+    // proving the cap is depth-driven and not a fixed truncation.
+    vi.mocked(renderTemplate).mockClear();
+    vol.reset();
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/src/a/b/c/d.ts': '',
+    });
+    await execute({ depth: 10, cwd: '/project' });
+
+    const deepCall = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([tpl]) => tpl === 'knowledge/raw-scan.md.hbs');
+    const deepTreeDirs = (deepCall![1] as { directory_tree: string }).directory_tree
+      .split('\n')
+      .map((l) => l.trim());
+    expect(deepTreeDirs).toContain('b/');
+    expect(deepTreeDirs).toContain('c/');
   });
 
   it('should detect dependencies from package.json', async () => {

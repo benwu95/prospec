@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
+import { renderTemplate } from '../../../src/lib/template.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -140,10 +141,42 @@ describe('raw-scan.service / generateRawScan', () => {
     expect(fs.existsSync(RAW_SCAN_PATH)).toBe(false);
   });
 
-  it('respects the depth parameter', async () => {
+  it('caps the directory tree at the requested depth', async () => {
+    // buildDirectoryTree(files, depth) is the only branch-distinguishing
+    // consumer of `depth` observable in this mocked setup (fast-glob is mocked
+    // and ignores `deep`). The rendered context's directory_tree must include
+    // dirs up to depth 2 (src/, src/a/) but omit anything deeper (src/a/b/...).
+    vi.mocked(renderTemplate).mockClear();
     seedProject({ '/project/src/a/b/c/d.ts': '' });
     const result = await generateRawScan({ depth: 2, cwd: '/project' });
     expect(result.scanDepth).toBe(2);
+
+    const ctx = vi.mocked(renderTemplate).mock.calls.at(-1)?.[1] as {
+      directory_tree: string;
+    };
+    const treeDirs = ctx.directory_tree
+      .split('\n')
+      .map((l) => l.trim());
+    expect(treeDirs).toContain('src/');
+    expect(treeDirs).toContain('a/'); // depth 2 → src/a/ rendered as 'a/'
+    expect(treeDirs).not.toContain('b/'); // depth 3 dir is truncated
+    expect(treeDirs).not.toContain('c/'); // depth 4 dir is truncated
+  });
+
+  it('renders deeper directory tree levels when depth is raised', async () => {
+    // Contrast with the depth-2 cap: at the default depth the same nested file
+    // surfaces its deeper directory levels, proving the cap is depth-driven and
+    // not a fixed truncation.
+    vi.mocked(renderTemplate).mockClear();
+    seedProject({ '/project/src/a/b/c/d.ts': '' });
+    await generateRawScan({ depth: 10, cwd: '/project' });
+
+    const ctx = vi.mocked(renderTemplate).mock.calls.at(-1)?.[1] as {
+      directory_tree: string;
+    };
+    const treeDirs = ctx.directory_tree.split('\n').map((l) => l.trim());
+    expect(treeDirs).toContain('b/');
+    expect(treeDirs).toContain('c/');
   });
 
   it('collects dependencies and config files (parity with init)', async () => {
@@ -378,9 +411,12 @@ describe('raw-scan.service / Entry Points + Config Files — backend', () => {
       '/project/.prospec.yaml': PROSPEC_YAML,
       '/project/main.go': 'package main\n',
       '/project/go.mod': 'module x\n',
+      '/project/Cargo.toml': '[package]\nname = "x"\n',
+      '/project/src/main.rs': 'fn main(){}\n',
     });
     const result = await generateRawScan({ cwd: '/project' });
-    expect(result.entryPoints).toContain('main.go');
+    expect(result.entryPoints).toContain('main.go'); // /^main\.go$/
+    expect(result.entryPoints).toContain('src/main.rs'); // /^src\/main\.rs$/
   });
 
   it('detects Python script targets and __main__.py', async () => {
@@ -417,5 +453,129 @@ describe('raw-scan.service / Entry Points + Config Files — backend', () => {
     expect(result.configFiles).toEqual(
       expect.arrayContaining(['pom.xml', 'build.gradle', 'Gemfile', 'composer.json']),
     );
+  });
+});
+
+describe('raw-scan.service / cwd fallback (no cwd option)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('falls back to process.cwd() when options.cwd is omitted', async () => {
+    // Seed a project at a fixed absolute root, then point process.cwd() at it
+    // so the omitted-cwd branch (cwd ?? process.cwd()) resolves there.
+    vol.fromJSON({
+      '/cwd-root/.prospec.yaml': 'project:\n  name: cwd-fallback\n',
+      '/cwd-root/package.json': JSON.stringify({ name: 'cwd-fallback' }),
+      '/cwd-root/src/index.ts': '',
+    });
+    vi.spyOn(process, 'cwd').mockReturnValue('/cwd-root');
+
+    const result = await generateRawScan({});
+
+    expect(result.outputFile).toBe('prospec/ai-knowledge/raw-scan.md');
+    expect(result.entryPoints).toContain('src/index.ts');
+    expect(
+      fs.existsSync('/cwd-root/prospec/ai-knowledge/raw-scan.md'),
+    ).toBe(true);
+  });
+});
+
+describe('raw-scan.service / package.json entry points', () => {
+  it('uses package.json "main" as an entry point', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/package.json': JSON.stringify({
+        name: 'x',
+        main: 'lib/server.js',
+      }),
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('lib/server.js');
+  });
+
+  it('uses a string "bin" as an entry point', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/package.json': JSON.stringify({
+        name: 'x',
+        bin: 'bin/cli.js',
+      }),
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toContain('bin/cli.js');
+  });
+
+  it('expands an object "bin" map into its target values', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/package.json': JSON.stringify({
+        name: 'x',
+        bin: { foo: 'bin/foo.js', bar: 'bin/bar.js' },
+      }),
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.entryPoints).toEqual(
+      expect.arrayContaining(['bin/foo.js', 'bin/bar.js']),
+    );
+  });
+
+  it('ignores a malformed package.json (invalid JSON → no entry points, no throw)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/package.json': '{ this is : not json',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    // Parse failure is swallowed: no seeded file (.prospec.yaml, package.json)
+    // matches any entry-point pattern, so a partially-parsed main/bin leaking
+    // through the catch would surface as a non-empty array.
+    expect(result.entryPoints).toEqual([]);
+    expect(result.dependencies).toEqual([]);
+  });
+});
+
+describe('raw-scan.service / readFileSafe + findManifestPath edge paths', () => {
+  it('treats an unreadable manifest path (a directory) as empty content', async () => {
+    // Cargo.toml exists as a DIRECTORY: fileExists (accessSync) succeeds but
+    // readFileSync throws EISDIR, so readFileSafe returns '' and the Cargo
+    // parser yields no deps rather than throwing.
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Cargo.toml/placeholder': 'x',
+      '/project/src/main.rs': 'fn main(){}\n',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(result.dependencies).toEqual([]);
+  });
+
+  it('picks the shallowest csproj when multiple exist at different depths', async () => {
+    // Two .csproj at different depths: findManifestPath sorts by depth first,
+    // so the root-most (shallowest) one wins and supplies the deps.
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Root.csproj':
+        '<Project><ItemGroup><PackageReference Include="RootPkg" Version="1.0.0" /></ItemGroup></Project>',
+      '/project/nested/dir/Deep.csproj':
+        '<Project><ItemGroup><PackageReference Include="DeepPkg" Version="2.0.0" /></ItemGroup></Project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    expect(depNames(result.dependencies)).toEqual(['RootPkg']);
+  });
+
+  it('picks the codepoint-first csproj when multiple exist at the same depth', async () => {
+    // Three .csproj at the SAME depth: with depthDiff === 0 the comparator
+    // falls through to codepoint ordering, exercising both a<b and a>b sides.
+    vol.fromJSON({
+      '/project/.prospec.yaml': PROSPEC_YAML,
+      '/project/Charlie.csproj':
+        '<Project><ItemGroup><PackageReference Include="CharliePkg" Version="3.0.0" /></ItemGroup></Project>',
+      '/project/Alpha.csproj':
+        '<Project><ItemGroup><PackageReference Include="AlphaPkg" Version="1.0.0" /></ItemGroup></Project>',
+      '/project/Bravo.csproj':
+        '<Project><ItemGroup><PackageReference Include="BravoPkg" Version="2.0.0" /></ItemGroup></Project>',
+    });
+    const result = await generateRawScan({ cwd: '/project' });
+    // 'Alpha.csproj' < 'Bravo.csproj' < 'Charlie.csproj' → Alpha wins.
+    expect(depNames(result.dependencies)).toEqual(['AlphaPkg']);
   });
 });
