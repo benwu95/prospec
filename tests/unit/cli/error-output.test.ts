@@ -5,7 +5,6 @@ import {
   handleError,
 } from '../../../src/cli/formatters/error-output.js';
 import { ProspecError, ConfigNotFound } from '../../../src/types/errors.js';
-import pc from 'picocolors';
 
 // BEL (0x07) is a C0 control char picocolors never emits (it only uses ESC for
 // color), so asserting "no BEL in output" proves injected control bytes were
@@ -47,17 +46,19 @@ describe('formatProspecError', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('highlights backtick-wrapped commands in the suggestion via the cyan wrapper', () => {
-    // ConfigNotFound's suggestion contains `prospec init` — highlightCommands'
-    // match branch wraps the backtick token through pc.cyan. Build the expected
-    // wrapped form with the same picocolors instance the source uses, so the
-    // assertion proves the transform ran whether or not color is active in env
-    // (color off => no ANSI, but the backtick token still round-trips through
-    // the regex replace; color on => the cyan escape codes appear).
+  it('emits the suggestion line with the → marker and an intact backtick command token', () => {
+    // NO_COLOR is forced on in vitest.config, so pc.cyan is identity and the
+    // highlightCommands ANSI wrap is unobservable. What IS observable on this
+    // path is the suggestion line's shape: the two-space indent + dim "→" marker
+    // produced by formatProspecError (source line 25) and the backtick command
+    // token reconstructed intact by highlightCommands' regex replace
+    // (/`([^`]+)`/g -> `${cmd}`). Pinning the whole line fails if the marker,
+    // indent, or backtick round-trip regresses (e.g. a replace callback that
+    // drops a backtick or mangles the captured command).
     const err = new ConfigNotFound();
     const out = captureStderr(() => formatProspecError(err));
 
-    expect(out).toContain(pc.cyan('`prospec init`'));
+    expect(out).toContain('  → Run `prospec init` first to initialize the project');
   });
 
   it('leaves suggestions without backticks untouched (no command highlight)', () => {
@@ -107,13 +108,20 @@ describe('formatGenericError', () => {
 
   it('appends the stack trace (skipping the first line) when verbose is true', () => {
     const err = new Error('with stack');
+    // Use a stack header token ("BoomHeader: stk") distinct from both the
+    // message ("with stack") and the frames, so the negative assertion isolates
+    // the header-drop: stackLines = stack.split('\n').slice(1)... (source L45-47)
+    // removes the header line. Without the slice the header would survive.
     err.stack =
-      'Error: with stack\n    at frameOne (a.js:1:1)\n    at frameTwo (b.js:2:2)';
+      'BoomHeader: stk\n    at frameOne (a.js:1:1)\n    at frameTwo (b.js:2:2)';
     const out = captureStderr(() => formatGenericError(err, true));
 
-    // First stack line (the "Error: ..." header) is sliced off; the frames remain.
+    // Frames remain ...
     expect(out).toContain('frameOne (a.js:1:1)');
     expect(out).toContain('frameTwo (b.js:2:2)');
+    // ... but the sliced-off header line is gone. Fails if slice(1) regresses
+    // to slice(0) / no-slice and the header leaks into the appended block.
+    expect(out).not.toContain('BoomHeader: stk');
   });
 
   it('does not append a stack section when verbose is true but stack is absent', () => {

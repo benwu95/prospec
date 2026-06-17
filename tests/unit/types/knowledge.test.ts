@@ -41,6 +41,12 @@ describe('canonical index-table column schema (types/knowledge)', () => {
     const headerCells = INDEX_TABLE_HEADER.split('|').slice(1, -1);
     const separatorCells = INDEX_TABLE_SEPARATOR.split('|').slice(1, -1);
     expect(headerCells).toHaveLength(INDEX_TABLE_COLUMNS.length);
-    expect(separatorCells).toHaveLength(INDEX_TABLE_COLUMNS.length);
+    expect(headerCells.map((c) => c.trim())).toEqual([...INDEX_TABLE_COLUMNS]);
+    expect(INDEX_TABLE_SEPARATOR).toBe(
+      `| ${INDEX_TABLE_COLUMNS.map(() => '---').join(' | ')} |`,
+    );
+    expect(separatorCells.map((c) => c.trim())).toEqual(
+      INDEX_TABLE_COLUMNS.map(() => '---'),
+    );
   });
 });

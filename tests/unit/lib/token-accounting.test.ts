@@ -70,9 +70,10 @@ describe('effectiveInputCostUsd', () => {
     expect(effectiveInputCostUsd(u, openaiLike)).toBeCloseTo(1.5);
   });
 
-  it('is deterministic for identical inputs', () => {
+  it('weights cache_read by its multiplier into the input-rate cost', () => {
     const u = usage({ input: 123_456, cache_read: 7_890 });
-    expect(effectiveInputCostUsd(u, pricing)).toBe(effectiveInputCostUsd(u, pricing));
+    // (123456 + 7890 * 0.1) / 1_000_000 * 1 — a weighting/MTOK regression fails this.
+    expect(effectiveInputCostUsd(u, pricing)).toBeCloseTo(((123_456 + 7_890 * 0.1) / 1_000_000) * 1, 9);
   });
 });
 
@@ -123,10 +124,19 @@ describe('rankByRelevance', () => {
     expect(ranked.map((r) => r.id)).toEqual(['a.ts', 'b.ts']);
   });
 
-  it('is deterministic across calls', () => {
-    const a = rankByRelevance('update knowledge service', candidates);
-    const b = rankByRelevance('update knowledge service', candidates);
-    expect(a).toEqual(b);
+  it('orders score-desc with id-ascending tie-break, regardless of insertion order', () => {
+    // Insertion order deliberately differs from final order, and beta.ts/alpha.ts
+    // tie on score (1) so the id tie-break is load-bearing: dropping it would leave
+    // beta.ts before alpha.ts (ES2019 stable sort preserves insertion order on ties).
+    const items = [
+      { id: 'omega.ts', text: 'omega unrelated' }, // score 0
+      { id: 'beta.ts', text: 'beta service' }, // score 1 (service)
+      { id: 'zeta.ts', text: 'zeta knowledge service' }, // score 2
+      { id: 'alpha.ts', text: 'alpha service' }, // score 1 (service)
+    ];
+    const ranked = rankByRelevance('knowledge service', items);
+    expect(ranked.map((r) => r.id)).toEqual(['zeta.ts', 'alpha.ts', 'beta.ts', 'omega.ts']);
+    expect(ranked.map((r) => r.score)).toEqual([2, 1, 1, 0]);
   });
 
   it('breaks ties by codepoint, ordering uppercase before lowercase', () => {

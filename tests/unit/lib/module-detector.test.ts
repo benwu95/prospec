@@ -163,17 +163,32 @@ modules:
     const files = [
       'package.json',
       'tsconfig.json',
+      // A bare root file whose name IS a MODULE_INDICATOR ('config'). This makes
+      // the `parts.length < 2` skip guard load-bearing: without it, this single
+      // file would split to ['config'], get name='config', and survive the
+      // downstream `dirFiles.length >= 2 || MODULE_INDICATORS.includes(name)`
+      // filter via the indicator branch — leaking a spurious root module. The
+      // 1-file non-indicator names (package.json/tsconfig.json) alone could not
+      // exercise the guard because the 2-file threshold drops them regardless.
+      'config',
       'src/services/auth.ts',
       'src/services/user.ts',
     ];
     vol.fromJSON({
       '/project/package.json': '{}',
       '/project/tsconfig.json': '{}',
+      '/project/config': '',
       '/project/src/services/auth.ts': '',
       '/project/src/services/user.ts': '',
     });
     const result = detectModules(files, '/project');
     const moduleNames = result.modules.map((m) => m.name);
+    // Pin the whole positive set: the only surviving module is the 2-file
+    // src/services dir. Any root-level leakage (including the indicator-named
+    // 'config') fails this — deleting the root-skip guard yields ['config',
+    // 'services'].
+    expect(moduleNames).toEqual(['services']);
+    expect(moduleNames).not.toContain('config');
     expect(moduleNames).not.toContain('package.json');
     expect(moduleNames).not.toContain('tsconfig.json');
   });

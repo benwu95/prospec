@@ -149,7 +149,10 @@ describe('renderTemplate', () => {
     expect(out).toContain('Language Policy');
   });
 
-  it('reuses already-registered builtin partials on a second skills render (L89 early return)', () => {
+  it('reuses the cached builtin partial registration instead of re-reading the source file (L89 early return)', () => {
+    const policyPath = path.join(TEMPLATES_ROOT, 'skills', '_language-policy.hbs');
+    const policyBody = vol.readFileSync(policyPath, 'utf-8') as string;
+
     vol.fromJSON(
       {
         [path.join(TEMPLATES_ROOT, 'skills', '__first.hbs')]: 'A{{> language-policy}}',
@@ -157,13 +160,25 @@ describe('renderTemplate', () => {
       },
       '/',
     );
-    // First skills render registers the partial; the second hits the
-    // builtinPartialsRegistered early-return yet the partial still resolves.
-    const first = renderTemplate('skills/__first.hbs', {});
-    const second = renderTemplate('skills/__second.hbs', {});
-    expect(first).toContain('Language Policy');
-    expect(second).toContain('Language Policy');
-    expect(second.startsWith('B')).toBe(true);
+    // Delete the source partial file so any RE-read by ensureBuiltinPartials
+    // would throw a TemplateError. The L89 guard must short-circuit to the
+    // already-registered partial; if the guard regressed, the renders below
+    // would re-read the now-missing file and fail.
+    vol.unlinkSync(policyPath);
+    expect(vol.existsSync(policyPath)).toBe(false);
+
+    try {
+      // Both skills renders trigger ensureBuiltinPartials(); with the source
+      // file gone they only succeed because the cached registration is reused.
+      const first = renderTemplate('skills/__first.hbs', {});
+      const second = renderTemplate('skills/__second.hbs', {});
+      expect(first).toBe('A## Language Policy\n\nWrite generated documents in the language defined by the Constitution\'s Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.');
+      expect(second.startsWith('B')).toBe(true);
+      expect(second).toContain('Language Policy');
+    } finally {
+      // Restore the source partial for subsequent tests in this file.
+      vol.fromJSON({ [policyPath]: policyBody }, '/');
+    }
   });
 
   it('wraps a runtime render error in TemplateError using err.message (Error branch of L131)', () => {

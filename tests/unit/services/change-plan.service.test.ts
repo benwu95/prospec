@@ -135,9 +135,15 @@ description: Add auth
       '/project/.prospec/changes/change-b/proposal.md': '# B\n',
     });
 
+    // pin the quiet+multiple branch: the distinguishing message (and the
+    // discovered change names) — not merely the shared PrerequisiteError type,
+    // which the adjacent 'No changes found' branches also throw
     await expect(
       execute({ quiet: true, cwd: '/project' }),
     ).rejects.toThrow(PrerequisiteError);
+    await expect(
+      execute({ quiet: true, cwd: '/project' }),
+    ).rejects.toThrow(/Multiple changes found:.*change-a.*change-b/);
   });
 
   it('refuses to overwrite an existing plan.md without --force', async () => {

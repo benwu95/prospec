@@ -349,7 +349,10 @@ Description.
 
     const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
     expect(content).toContain('feat-a');
-    expect(content).toContain('N/A');
+    // pin N/A to the User Story slot specifically: the template renders
+    // `## User Story\n\n${userStory}\n`, so this fails if only taskStats is N/A
+    // and the missing-proposal -> userStory fallback regressed.
+    expect(content).toContain('## User Story\n\nN/A');
   });
 });
 
@@ -435,12 +438,22 @@ Details.
   it('should not fail archive when config is missing (no spec files)', async () => {
     vol.fromJSON({
       '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      // A fully routable delta-spec (REQ + **Feature:**): with config present this
+      // WOULD sync a Feature Spec. Here config is missing, so featuresPath stays
+      // null and the sync block (L425) is skipped — specFiles is empty ONLY
+      // because of the config-missing guard, not because the delta-spec was
+      // unroutable. This makes the length-0 assertion branch-distinguishing.
+      '/project/.prospec/changes/feat-a/delta-spec.md':
+        '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: x\n\n**Feature:** f\n\n**Description:**\nDetails.\n\n---\n',
     });
 
     const result = await execute({ cwd: '/project' });
 
     expect(result.archived).toHaveLength(1);
     expect(result.specFiles).toHaveLength(0);
+    // and nothing was written under the default (config-less) features path
+    expect(fs.existsSync('/project/prospec/specs/features/f.md')).toBe(false);
+    expect(fs.existsSync('/project/prospec/specs/features')).toBe(false);
   });
 
   it('refreshes raw-scan.md after archiving (deterministic safety net)', async () => {

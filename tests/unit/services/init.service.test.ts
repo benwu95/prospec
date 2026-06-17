@@ -176,7 +176,7 @@ describe('init.service', () => {
     expect(constitutionCall).toBeDefined();
 
     const ctx = constitutionCall![1] as {
-      example_rules?: Array<{ severity: string }>;
+      example_rules?: Array<{ severity: string; name: string }>;
     };
     expect(ctx.example_rules?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(
@@ -184,6 +184,16 @@ describe('init.service', () => {
         ['MUST', 'SHOULD', 'MAY'].includes(r.severity),
       ),
     ).toBe(true);
+
+    // TypeScript project (tsconfig.json present) must seed TYPESCRIPT_RULES,
+    // not PYTHON_RULES or the language-neutral GENERIC_RULES.
+    const ruleNames = ctx.example_rules?.map((r) => r.name) ?? [];
+    expect(ruleNames).toContain('No any in public APIs');
+    expect(ruleNames).toContain('One-way dependency direction');
+    expect(ruleNames).toContain('Validate input at boundaries');
+    // GENERIC-only and PYTHON-only markers must be absent for a TS stack.
+    expect(ruleNames).not.toContain('No committed secrets');
+    expect(ruleNames).not.toContain('Authenticated API endpoints');
   });
 });
 

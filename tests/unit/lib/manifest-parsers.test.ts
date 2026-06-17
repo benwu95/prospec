@@ -498,9 +498,14 @@ describe('parseCsprojDependencies — edge entries and malformed XML', () => {
     ]);
   });
 
-  it('coerces a numeric version attribute to a string', () => {
+  it('coerces a numeric child <Version> element to a string', () => {
+    // fast-xml-parser's default parseTagValue:true turns <Version>7</Version>
+    // into the NUMBER 7 (verified at runtime), so this hits the
+    // `typeof attrVersion === 'number'` branch and String(7) coercion. A
+    // `Version="7"` attribute would parse as the string '7' (parseAttributeValue
+    // defaults to false) and never exercise the number branch.
     const csproj =
-      '<Project><ItemGroup><PackageReference Include="Foo" Version="7"/></ItemGroup></Project>';
+      '<Project><ItemGroup><PackageReference Include="Foo"><Version>7</Version></PackageReference></ItemGroup></Project>';
     expect(parseCsprojDependencies(csproj)).toEqual([
       { name: 'Foo', version: '7' },
     ]);
