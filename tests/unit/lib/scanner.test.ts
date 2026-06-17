@@ -47,7 +47,9 @@ describe('scanDir', () => {
       'node_modules/pkg/index.js': '',
     });
     const result = await scanDir('**', { cwd: tmpDir });
-    expect(result.files).not.toContain('node_modules/pkg/index.js');
+    // Positive control: node_modules dropped while the real sibling survives.
+    // A degenerate empty result would fail this toEqual.
+    expect(result.files).toEqual(['src/index.ts']);
   });
 
   it('should exclude sensitive files by default', async () => {

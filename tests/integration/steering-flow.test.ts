@@ -95,10 +95,17 @@ knowledge:
     const result = await execute({ cwd: '/project' });
 
     expect(result.dryRun).toBe(false);
-    expect(result.outputFiles.length).toBeGreaterThan(0);
+    // All three writes must be registered — dropping any single one fails here.
+    expect(result.outputFiles).toEqual(
+      expect.arrayContaining([
+        'prospec/ai-knowledge/module-map.yaml',
+        'prospec/ai-knowledge/architecture.md',
+        '.prospec.yaml',
+      ]),
+    );
 
-    // Module map should be written
-    const moduleMapExists = fs.existsSync('/project/prospec/ai-knowledge/module-map.yaml');
-    expect(moduleMapExists).toBe(true);
+    // Both knowledge artifacts should be written to disk
+    expect(fs.existsSync('/project/prospec/ai-knowledge/module-map.yaml')).toBe(true);
+    expect(fs.existsSync('/project/prospec/ai-knowledge/architecture.md')).toBe(true);
   });
 });

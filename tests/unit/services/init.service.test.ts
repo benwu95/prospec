@@ -157,8 +157,10 @@ describe('init.service', () => {
     });
 
     const configContent = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
-    expect(configContent).toContain('base_dir');
-    expect(configContent).toContain('prospec');
+    // Pin the key/value pairing on one line: proves paths.base_dir resolved to
+    // 'prospec' specifically. A bare toContain('prospec') would still pass via
+    // knowledge.base_path: prospec/ai-knowledge even if base_dir were dropped.
+    expect(configContent).toMatch(/base_dir:\s*prospec/);
   });
 
   it('passes stack-appropriate example_rules to the Constitution template', async () => {

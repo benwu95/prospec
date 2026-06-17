@@ -78,9 +78,15 @@ describe('formatChangeTasksOutput', () => {
       makeResult({ relatedModules: ['auth', 'cli'] }),
     );
     const out = write.mock.calls.flat().join('');
-    expect(out).toContain('Related modules:');
-    expect(out).toContain('auth');
-    expect(out).toContain('cli');
+    // Strip ANSI so the bullet assertions are color-agnostic (pc.green('●') wraps the
+    // marker in color codes when colors are enabled).
+    const plain = out.replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(plain).toContain('Related modules:');
+    // Pin the per-module line format: two-space indent + '●' marker + module name.
+    expect(plain).toContain('  ● auth');
+    expect(plain).toContain('  ● cli');
+    // Exactly one bullet line per module — guards against comma-joining or duplicate bullets.
+    expect((plain.match(/^ {2}● /gm) ?? []).length).toBe(2);
   });
 
   it('omits the Related modules section when relatedModules is empty', () => {

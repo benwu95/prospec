@@ -87,7 +87,7 @@ agents:
   - codex
 `;
     const config = validateConfig(yaml);
-    expect(config.agents).toHaveLength(4);
+    expect(config.agents).toEqual(['claude', 'antigravity', 'copilot', 'codex']);
   });
 });
 

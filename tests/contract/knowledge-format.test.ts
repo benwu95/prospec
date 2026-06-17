@@ -47,9 +47,32 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('auth.execute()');
     });
 
-    it('should be ≤ 100 lines', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+    it('stays ≤ 100 lines even for a large module (20 files/exports/dependents)', () => {
+      // Each key_file, key_export, and used_by entry adds one rendered line on
+      // top of the fixed scaffold, so a realistic large module is what pushes
+      // the output toward the 100-line contract ceiling. A 3-item context
+      // (~44 lines) can never approach it, making the bound vacuous.
+      const N = 20;
+      const largeContext = {
+        ...templateContext,
+        relationships: {
+          depends_on: Array.from({ length: N }, (_, i) => `dep${i}`),
+          used_by: Array.from({ length: N }, (_, i) => `consumer${i}`),
+        },
+        key_files: Array.from({ length: N }, (_, i) => ({
+          path: `src/services/file${i}.service.ts`,
+          description: `Service ${i}`,
+        })),
+        key_exports: Array.from({ length: N }, (_, i) => ({
+          name: `service${i}.execute()`,
+          description: `Service ${i}`,
+        })),
+      };
+      const content = renderTemplate('steering/module-readme.hbs', largeContext);
       const lineCount = content.split('\n').length;
+      // The large context must be near (but within) the ceiling — otherwise the
+      // ≤100 bound is not actually exercised by this test.
+      expect(lineCount).toBeGreaterThan(90);
       expect(lineCount).toBeLessThanOrEqual(100);
     });
 

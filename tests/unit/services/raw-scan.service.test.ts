@@ -411,9 +411,12 @@ describe('raw-scan.service / Entry Points + Config Files — backend', () => {
       '/project/.prospec.yaml': PROSPEC_YAML,
       '/project/main.go': 'package main\n',
       '/project/go.mod': 'module x\n',
+      '/project/Cargo.toml': '[package]\nname = "x"\n',
+      '/project/src/main.rs': 'fn main(){}\n',
     });
     const result = await generateRawScan({ cwd: '/project' });
-    expect(result.entryPoints).toContain('main.go');
+    expect(result.entryPoints).toContain('main.go'); // /^main\.go$/
+    expect(result.entryPoints).toContain('src/main.rs'); // /^src\/main\.rs$/
   });
 
   it('detects Python script targets and __main__.py', async () => {
@@ -523,8 +526,10 @@ describe('raw-scan.service / package.json entry points', () => {
       '/project/package.json': '{ this is : not json',
     });
     const result = await generateRawScan({ cwd: '/project' });
-    // Parse failure is swallowed; neither main/bin entries nor parsed deps appear.
-    expect(result.entryPoints).not.toContain('lib/server.js');
+    // Parse failure is swallowed: no seeded file (.prospec.yaml, package.json)
+    // matches any entry-point pattern, so a partially-parsed main/bin leaking
+    // through the catch would surface as a non-empty array.
+    expect(result.entryPoints).toEqual([]);
     expect(result.dependencies).toEqual([]);
   });
 });

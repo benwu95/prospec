@@ -110,10 +110,11 @@ knowledge:
     });
 
     const result = await execute({ cwd: '/project' });
-    expect(result.agents[0]?.configFile).toBeTruthy();
-    // Verify the config file was created
-    const configPath = `/project/${result.agents[0]?.configFile}`;
-    expect(fs.existsSync(configPath)).toBe(true);
+    // Pin the concrete claude entry-config filename — symmetric with the
+    // antigravity/codex 'AGENTS.md' assertions, so a wrong-but-non-empty path
+    // (e.g. 'AGENTS.md') fails here instead of slipping past toBeTruthy.
+    expect(result.agents[0]?.configFile).toBe('CLAUDE.md');
+    expect(fs.existsSync('/project/CLAUDE.md')).toBe(true);
   });
 
   it('should sync multiple agents', async () => {

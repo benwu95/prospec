@@ -30,7 +30,15 @@ describe('quickstart.service', () => {
     expect(result.nextStep).toBe('/prospec-quickstart');
     // init wrote the config marker; agent-sync produced files
     expect(vol.existsSync('/project/.prospec.yaml')).toBe(true);
-    expect(result.agentSync.totalFiles).toBeGreaterThan(0);
+    // totalFiles = entry config (1) + every SKILL.md + every reference file,
+    // summed per agent. One agent here, so it equals that agent's own counts.
+    const agent = result.agentSync.agents[0];
+    expect(result.agentSync.totalFiles).toBe(
+      1 + agent.skillFiles.length + agent.referenceFiles.length,
+    );
+    // The claude agent emits one SKILL.md per definition under .claude/skills/;
+    // pin a known path so a regression that drops/renames a skill file fails.
+    expect(agent.skillFiles).toContain('.claude/skills/prospec-explore/SKILL.md');
   });
 
   it('re-run: catches AlreadyExistsError from init and marks it skipped', async () => {
@@ -86,12 +94,12 @@ describe('quickstart.service', () => {
   });
 
   it('falls back to process.cwd() when no cwd option is given', async () => {
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/cwd-fallback');
+    vi.spyOn(process, 'cwd').mockReturnValue('/cwd-fallback');
 
     const result = await execute({ agents: ['claude'] });
 
-    // The init step ran against the process.cwd() fallback, writing the marker there.
-    expect(cwdSpy).toHaveBeenCalled();
+    // The marker landing at the fallback path (and nowhere else) conclusively
+    // pins that quickstart threaded process.cwd() into init when cwd was omitted.
     expect(vol.existsSync('/cwd-fallback/.prospec.yaml')).toBe(true);
     expect(vol.existsSync('/project/.prospec.yaml')).toBe(false);
     expect(result.steps).toEqual([

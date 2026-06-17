@@ -36,6 +36,7 @@ Footer`;
   it('should handle empty content', () => {
     const sections = parseSections('');
     expect(sections).toHaveLength(1);
+    expect(sections[0]?.type).toBe('static');
     expect(sections[0]?.content).toBe('');
   });
 

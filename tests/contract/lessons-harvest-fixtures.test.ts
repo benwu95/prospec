@@ -21,11 +21,17 @@ const hasUncheckedManual = (tasks: string) =>
 const CHANGES = ['2026-05-01-alpha', '2026-05-08-beta', '2026-05-15-gamma'];
 
 describe('lessons-harvest fixtures (BL-029)', () => {
-  it('every change parses with an archived status and a quality_log array', () => {
+  it('every change parses with an archived status and a non-empty quality_log of harvestable entries', () => {
     for (const c of CHANGES) {
       const m = meta(c);
       expect(m.status).toBe('archived');
-      expect(Array.isArray(m.quality_log)).toBe(true);
+      expect(m.quality_log.length).toBeGreaterThan(0);
+      for (const entry of m.quality_log) {
+        expect(entry).toMatchObject({
+          result: expect.stringMatching(/^(PASS|FAIL)$/),
+          warnings: expect.any(Array),
+        });
+      }
     }
   });
 

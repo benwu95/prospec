@@ -48,6 +48,7 @@ describe('detectAgents', () => {
     const agents = detectAgents();
     const copilot = agents.find((a) => a.id === 'copilot');
     expect(copilot?.detected).toBe(true);
+    expect(copilot?.name).toBe('GitHub Copilot CLI');
   });
 
   it('should detect Codex CLI when .codex directory exists', () => {
@@ -56,6 +57,7 @@ describe('detectAgents', () => {
     const agents = detectAgents();
     const codex = agents.find((a) => a.id === 'codex');
     expect(codex?.detected).toBe(true);
+    expect(codex?.name).toBe('Codex CLI');
   });
 
   it('should detect multiple agents simultaneously', () => {

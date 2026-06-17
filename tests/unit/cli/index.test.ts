@@ -8,7 +8,15 @@ import {
 } from 'vitest';
 import { vol } from 'memfs';
 import { Command } from 'commander';
+import { createRequire } from 'node:module';
 import { ConfigNotFound } from '../../../src/types/errors.js';
+
+// Resolve the real version the same way src/cli/index.ts does, so the test
+// pins the actual package.json wiring (catches a misrouted/stale value)
+// rather than merely a semver-shaped string.
+const pkg = createRequire(import.meta.url)('../../../package.json') as {
+  version: string;
+};
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -110,8 +118,9 @@ describe('createProgram', () => {
   it('configures the program name and version from package.json', () => {
     const program = createProgram();
     expect(program.name()).toBe('prospec');
-    // version pulled from the real package.json — must be a semver-ish string
-    expect(program.version()).toMatch(/^\d+\.\d+\.\d+/);
+    // version must equal the real package.json field, proving the require
+    // wiring (a stale literal or wrong field would still be semver-ish).
+    expect(program.version()).toBe(pkg.version);
   });
 
   it('registers all top-level subcommands', () => {

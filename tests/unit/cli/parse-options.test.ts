@@ -11,7 +11,7 @@ describe('parseDepth', () => {
   });
 
   it('throws on zero and negatives', () => {
-    expect(() => parseDepth('0')).toThrow();
-    expect(() => parseDepth('-3')).toThrow();
+    expect(() => parseDepth('0')).toThrow(/must be a positive integer/);
+    expect(() => parseDepth('-3')).toThrow(/must be a positive integer/);
   });
 });

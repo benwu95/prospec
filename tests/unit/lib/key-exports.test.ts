@@ -25,8 +25,17 @@ describe('deriveKeyExports', () => {
     expect(out.map((e) => e.name)).toEqual(['config']);
   });
 
-  it('caps the list at 8 exports', () => {
+  it('caps the list at the first 8 exports in input order', () => {
     const files = Array.from({ length: 12 }, (_, i) => ref(`src/lib/m${i}.ts`));
-    expect(deriveKeyExports(files)).toHaveLength(8);
+    expect(deriveKeyExports(files).map((e) => e.name)).toEqual([
+      'm0',
+      'm1',
+      'm2',
+      'm3',
+      'm4',
+      'm5',
+      'm6',
+      'm7',
+    ]);
   });
 });

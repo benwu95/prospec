@@ -145,18 +145,30 @@ modules:
     expect(result.entryPoints).not.toContain('README.md');
   });
 
-  it('should generate keywords for modules', () => {
+  it('generates keywords from name + camel/kebab split + path segments, excluding glob tokens', () => {
     const files = [
-      'src/services/auth.ts',
-      'src/services/user.ts',
+      'src/orderService/create.ts',
+      'src/orderService/cancel.ts',
     ];
     vol.fromJSON({
-      '/project/src/services/auth.ts': '',
-      '/project/src/services/user.ts': '',
+      '/project/src/orderService/create.ts': '',
+      '/project/src/orderService/cancel.ts': '',
     });
-    const result = detectModules(files, '/project');
-    const services = result.modules.find((m) => m.name === 'services');
-    expect(services?.keywords).toContain('services');
+    // Architecture strategy yields name 'orderService' with paths ['src/orderService/**'],
+    // so each generateKeywords branch contributes a DISTINCT, non-duplicated token:
+    //   - name.toLowerCase()            → 'orderservice'   (whole-name branch)
+    //   - camelCase split (>=3 chars)   → 'order', 'service' (split branch)
+    //   - path segments (no '**'/'*'/'.')→ 'src'          (path-segment branch)
+    // Pinning the full sorted set fails if ANY single branch is dropped.
+    const result = detectModules(files, '/project', 'architecture');
+    const order = result.modules.find((m) => m.name === 'orderService');
+    expect(order?.keywords).toBeDefined();
+    expect([...order!.keywords].sort()).toEqual(
+      ['order', 'orderservice', 'service', 'src'],
+    );
+    // The glob marker is filtered out of path-segment extraction (not a keyword).
+    expect(order?.keywords).not.toContain('**');
+    expect(order?.keywords).not.toContain('*');
   });
 
   it('should skip root-level files from module detection', () => {

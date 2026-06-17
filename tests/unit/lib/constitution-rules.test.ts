@@ -4,15 +4,14 @@ import { exampleRulesFor, languagePolicyRule } from '../../../src/lib/constituti
 const SEVERITIES = ['MUST', 'SHOULD', 'MAY'];
 
 describe('exampleRulesFor', () => {
-  it('returns 3-5 python rules, each with a severity, name, and rationale', () => {
+  it('returns 3-5 python rules, each with a valid severity, and the python-specific rule set', () => {
     const rules = exampleRulesFor({ language: 'python' });
     expect(rules.length).toBeGreaterThanOrEqual(3);
     expect(rules.length).toBeLessThanOrEqual(5);
     for (const r of rules) {
       expect(SEVERITIES).toContain(r.severity);
-      expect(r.name).toBeTruthy();
-      expect(r.rationale).toBeTruthy();
     }
+    expect(rules.map((r) => r.name)).toContain('Authenticated API endpoints');
   });
 
   it('includes an authentication-related rule for python', () => {

@@ -51,7 +51,7 @@ describe('CLI Output Contract', () => {
   });
 
   describe('prospec --help', () => {
-    it('should output help with command name', async () => {
+    it('should output the root usage line and program description', async () => {
       const program = createProgram();
       try {
         await program.parseAsync(['node', 'prospec', '--help']);
@@ -59,7 +59,8 @@ describe('CLI Output Contract', () => {
         if ((err as { exitCode?: number }).exitCode !== 0) throw err;
       }
       const output = stdoutOutput.join('');
-      expect(output).toContain('prospec');
+      expect(output).toMatch(/Usage: prospec \[options\] \[command\]/);
+      expect(output).toContain('Progressive Spec-Driven Development CLI');
     });
 
     it('should list available commands', async () => {

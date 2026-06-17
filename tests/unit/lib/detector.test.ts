@@ -240,7 +240,9 @@ describe('detectTechStack — backend languages', () => {
       '/project/package.json': JSON.stringify({ name: 'x' }),
       '/project/go.mod': 'module x\n',
     });
-    expect(detectTechStack('/project').language).not.toBe('go');
+    const result = detectTechStack('/project');
+    expect(result.language).toBe('javascript');
+    expect(result.package_manager).toBe('npm');
   });
 
   it('matches pom.xml / *.csproj tree-wide when a file list is given', () => {
