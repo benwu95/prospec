@@ -1,6 +1,6 @@
 ---
 product: prospec
-version: 0.2.1
+version: 0.3.0
 last_updated: 2026-06-17
 ---
 
@@ -89,6 +89,7 @@ last_updated: 2026-06-17
 | 階段 | 狀態 | 核心功能 |
 |------|------|---------|
 | MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 進行中 | 12/13 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Token 量測 harness、KV-Cache 穩定前綴、複雜度適配、確定性 Drift 檢查 + CI 閘門、唯讀 MCP 真相層 |
-| Phase 2 待做 | 規劃中 | 模板自訂、Plugin 機制 |
-| Phase 3 | 構想中 | 智慧感知更新、多代理協作 |
+| Phase 2 核心增強 | 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Entry/Exit 雙閘門、可執行 Constitution、KV-Cache 穩定前綴、複雜度適配（Scale Adapter）、Quickstart 一鍵 onboarding |
+| Phase 2 H2 — 護城河與互通 | 已完成 | Token 量測 harness、確定性 Drift 檢查 + CI 閘門、唯讀 MCP 真相層、依賴層按需知識（Context7）、反向規格萃取（brownfield 回填）、回饋晉升管線、對抗式 Review→Fix 迴圈、raw-scan 多語言偵測 |
+| 後續候選 | 規劃中 | 擴展 Agent 支援（Cursor/Windsurf/OpenCode/Qwen）、Brownfield 模組偵測精度、Few-Shot 範例（icebox） |
+| 重評後取代/刪減 | 已刪減 | 模板自訂、Plugin 機制（價值已由可執行 Constitution + 回饋晉升交付）；多代理 Party Mode 與安全並行分區（被 harness 內建 worktree 取代）；智慧感知更新（併入 Drift 檢查）；智慧路由、Knowledge Dashboard |
