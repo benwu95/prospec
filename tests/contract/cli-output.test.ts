@@ -141,7 +141,7 @@ describe('CLI Output Contract', () => {
         if ((err as { exitCode?: number }).exitCode !== 0) throw err;
       }
       const output = stdoutOutput.join('');
-      expect(output).toContain('name');
+      expect(output).toContain('<name>');
     });
 
     it('should show --description option', async () => {
@@ -226,12 +226,9 @@ describe('CLI Output Contract', () => {
   describe('unknown command', () => {
     it('should exit with code 1 for unknown commands', async () => {
       const program = createProgram();
-      try {
-        await program.parseAsync(['node', 'prospec', 'nonexistent']);
-      } catch (err) {
-        // Commander throws for unknown commands
-        expect(err).toBeDefined();
-      }
+      await expect(
+        program.parseAsync(['node', 'prospec', 'nonexistent']),
+      ).rejects.toMatchObject({ exitCode: 1, code: 'commander.unknownCommand' });
     });
   });
 });

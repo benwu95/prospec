@@ -41,8 +41,10 @@ describe('Knowledge Format Contract', () => {
 
     it('should render without errors', () => {
       const content = renderTemplate('steering/module-readme.hbs', templateContext);
-      expect(content).toBeTruthy();
-      expect(content.length).toBeGreaterThan(0);
+      // prove interpolation actually ran (static headers alone are not enough)
+      expect(content).toContain('# services');
+      expect(content).toContain('src/services/auth.service.ts');
+      expect(content).toContain('auth.execute()');
     });
 
     it('should be ≤ 100 lines', () => {
@@ -131,8 +133,9 @@ describe('Knowledge Format Contract', () => {
 
     it('should render without errors', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
-      expect(content).toBeTruthy();
-      expect(content.length).toBeGreaterThan(0);
+      // prove interpolation actually ran (template is mostly static otherwise)
+      expect(content).toContain('test-project');
+      expect(content).toContain('typescript');
     });
 
     it('should contain Rationale column header', () => {
@@ -202,7 +205,11 @@ describe('Knowledge Format Contract', () => {
         index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
         modules: [],
       });
-      expect(content).toContain(INDEX_TABLE_COLUMNS.join(' | '));
+      // Assert an independent literal of the documented schema, not the same
+      // INDEX_TABLE_COLUMNS value fed into the context (which would move together).
+      expect(content).toContain(
+        'Module | Keywords | Aliases | Status | Description | Rationale | Depends On',
+      );
     });
 
     it('knowledge-generate and knowledge-update skill docs use the canonical header verbatim', () => {

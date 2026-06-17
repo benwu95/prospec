@@ -73,7 +73,11 @@ describe('Steering Flow Integration', () => {
 
     expect(result.dryRun).toBe(true);
     expect(result.outputFiles).toHaveLength(0);
-    expect(typeof result.architecture).toBe('string');
+    // dry-run still computes real detection: services + lib match the pragmatic pattern
+    expect(result.architecture).toBe('pragmatic');
+    expect(result.modules.map((m) => m.name)).toEqual(
+      expect.arrayContaining(['services', 'lib']),
+    );
   });
 
   it('should generate module-map.yaml and architecture.md', async () => {

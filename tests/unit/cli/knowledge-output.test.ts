@@ -170,8 +170,12 @@ describe('formatKnowledgeOutput', () => {
       'normal',
     );
     const text = output();
-    expect(text).not.toContain('Created');
-    expect(text).not.toContain('Updated');
+    // The empty-list guard's only observable effect is suppressing the blank line +
+    // file block; empty iteration can never emit 'Created'/'Updated', so pin the EXACT
+    // output instead (a regression dropping the length>0 guard adds a stray blank line).
+    expect(text).toBe(
+      'Generated knowledge for 0 modules\n\n→ Run `prospec agent sync` to update AI agent configurations\n',
+    );
   });
 
   it('suppresses the generated-files section in dry-run and shows the dry-run notice', () => {

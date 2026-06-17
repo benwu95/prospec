@@ -196,8 +196,10 @@ describe('formatComparison — table rows and number formatting', () => {
     expect(out).toContain('93.3%');
     expect(out).toContain('output tokens');
     expect(out).toContain('4,200');
-    // output row saving column is a literal em-dash placeholder
-    expect(out).toContain('—');
+    // output row saving column is a literal em-dash placeholder; the run header also
+    // contains an em-dash, so bind the assertion to the output-tokens row specifically
+    const outputRow = out.split('\n').find((l) => l.includes('output tokens'));
+    expect(outputRow).toMatch(/—\s*$/);
     expect(out).toContain('effective input cost (warm*)');
     // usd() with 4 decimals
     expect(out).toContain('$1.2345');
