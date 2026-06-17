@@ -16,28 +16,40 @@ describe('createLogger', () => {
   });
 
   describe('normal mode', () => {
-    it('should output success messages', () => {
+    it('should output success messages with the ✓ symbol', () => {
       const logger = createLogger('normal');
       logger.success('Done');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Done'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('✓');
+      expect(output).toContain('Done');
+      expect(output).toMatch(/✓.*Done/);
+      expect(output.endsWith('\n')).toBe(true);
     });
 
-    it('should output error messages to stderr', () => {
+    it('should output error messages to stderr with the ✗ symbol', () => {
       const logger = createLogger('normal');
       logger.error('Failed');
-      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Failed'));
+      const output = stderrSpy.mock.calls.flat().join('');
+      expect(output).toContain('✗');
+      expect(output).toContain('Failed');
+      // error never writes to stdout
+      expect(stdoutSpy).not.toHaveBeenCalled();
     });
 
-    it('should output warning messages', () => {
+    it('should output warning messages with the ⚠ symbol', () => {
       const logger = createLogger('normal');
       logger.warning('Caution');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Caution'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('⚠');
+      expect(output).toContain('Caution');
     });
 
-    it('should output info messages', () => {
+    it('should output info messages with the ℹ symbol', () => {
       const logger = createLogger('normal');
       logger.info('Note');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Note'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('ℹ');
+      expect(output).toContain('Note');
     });
 
     it('should NOT output step messages', () => {
@@ -58,10 +70,16 @@ describe('createLogger', () => {
       expect(stdoutSpy).not.toHaveBeenCalled();
     });
 
-    it('should output summary messages', () => {
+    it('should output summary messages with a leading blank line and no symbol', () => {
       const logger = createLogger('normal');
       logger.summary('All done');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('All done'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('All done');
+      // summary is intentionally symbol-free, distinguishing it from success/info/etc.
+      expect(output).not.toContain('✓');
+      expect(output).not.toContain('ℹ');
+      // distinguishing behavior: a leading newline before the message and a trailing newline
+      expect(output).toBe('\nAll done\n');
     });
   });
 
@@ -111,17 +129,40 @@ describe('createLogger', () => {
       expect(stdoutSpy).toHaveBeenCalledTimes(7);
     });
 
-    it('should output step messages', () => {
+    it('should output step messages with the ⎿ symbol', () => {
       const logger = createLogger('verbose');
       logger.step('Processing files');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Processing files'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('⎿');
+      expect(output).toContain('Processing files');
     });
 
-    it('should output detail messages with label and value', () => {
+    it('should output detail messages with the → symbol and label: value format', () => {
       const logger = createLogger('verbose');
       logger.detail('Path', '/tmp/test');
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Path'));
-      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('/tmp/test'));
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('→');
+      // label and value separated by ": ", distinguishing detail() formatting
+      expect(output).toMatch(/Path: \/tmp\/test/);
+    });
+
+    it('should output one bulleted line per list item', () => {
+      const logger = createLogger('verbose');
+      logger.list(['alpha', 'beta', 'gamma']);
+      // one write() call per item
+      expect(stdoutSpy).toHaveBeenCalledTimes(3);
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('alpha');
+      expect(output).toContain('beta');
+      expect(output).toContain('gamma');
+      // each item carries the • bullet
+      expect((output.match(/•/g) ?? []).length).toBe(3);
+    });
+
+    it('should emit nothing for an empty list', () => {
+      const logger = createLogger('verbose');
+      logger.list([]);
+      expect(stdoutSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -141,6 +182,54 @@ describe('createLogger', () => {
       const logger = createLogger('normal');
       logger.success('Created', '/path/to/file');
       expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('/path/to/file'));
+    });
+
+    it('should append detail to error messages when provided', () => {
+      const logger = createLogger('normal');
+      logger.error('Failed', 'EACCES');
+      const output = stderrSpy.mock.calls.flat().join('');
+      expect(output).toContain('Failed');
+      expect(output).toContain('EACCES');
+    });
+
+    it('should omit detail suffix from error messages when not provided', () => {
+      const logger = createLogger('normal');
+      logger.error('Failed');
+      const output = stderrSpy.mock.calls.flat().join('');
+      expect(output).toContain('Failed');
+      expect(output).not.toContain('EACCES');
+    });
+
+    it('should append detail to warning messages when provided', () => {
+      const logger = createLogger('normal');
+      logger.warning('Caution', 'deprecated');
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('Caution');
+      expect(output).toContain('deprecated');
+    });
+
+    it('should omit detail suffix from warning messages when not provided', () => {
+      const logger = createLogger('normal');
+      logger.warning('Caution');
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('Caution');
+      expect(output).not.toContain('deprecated');
+    });
+
+    it('should append detail to info messages when provided', () => {
+      const logger = createLogger('normal');
+      logger.info('Note', 'extra context');
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('Note');
+      expect(output).toContain('extra context');
+    });
+
+    it('should omit detail suffix from info messages when not provided', () => {
+      const logger = createLogger('normal');
+      logger.info('Note');
+      const output = stdoutSpy.mock.calls.flat().join('');
+      expect(output).toContain('Note');
+      expect(output).not.toContain('extra context');
     });
   });
 });

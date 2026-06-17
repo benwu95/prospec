@@ -275,6 +275,33 @@ describe('runChecks', () => {
     const skippedChecks = report.structural.checks.filter((c) => c.status === 'skipped');
     expect(skippedChecks.every((c) => (c.reason ?? '').length > 0)).toBe(true);
   });
+
+  it('counts a warn-only knowledge-health check and embeds its knowledge_health block', () => {
+    const report = runChecks({
+      ...emptyInputs,
+      timestamps: {
+        available: true,
+        modules: [
+          {
+            name: 'lib',
+            readme_path: 'k/modules/lib/README.md',
+            readme_exists: false,
+            last_src_commit: '2026-06-12T00:00:00Z',
+            last_readme_commit: null,
+          },
+        ],
+      },
+    });
+    expect(report.summary.warn_count).toBe(1);
+    expect(report.summary.fail_count).toBe(0);
+    expect(report.structural.checks.find((c) => c.id === 'knowledge-health')?.status).toBe('warn');
+    expect(report.structural.knowledge_health).toEqual({
+      modules: [
+        { name: 'lib', last_src_commit: '2026-06-12T00:00:00Z', last_readme_commit: null, stale: true },
+      ],
+      coverage: { documented: 0, total: 1 },
+    });
+  });
 });
 
 describe('report integrity', () => {
@@ -308,5 +335,154 @@ describe('constitutionFallbackModuleMap', () => {
     expect(map.modules.map((m) => m.name)).toEqual(['cli', 'services', 'lib', 'types']);
     const lib = map.modules.find((m) => m.name === 'lib');
     expect(lib?.relationships?.depends_on).toEqual(['types']);
+  });
+});
+
+describe('unavailable sources without an explicit reason (default fallback message)', () => {
+  it('evaluateReqReferences falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateReqReferences({ available: false, ids: [] }, []);
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('evaluateFilePaths falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateFilePaths({ available: false, links: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('evaluateImportDirection falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateImportDirection({ available: false, edges: [] }, constitutionFallbackRules());
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('evaluateKnowledgeHealth falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateKnowledgeHealth({ available: false, modules: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('evaluateTaskCompletion falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateTaskCompletion({ available: false, changes: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+});
+
+describe('evaluateImportDirection — unknown from_module', () => {
+  it('treats an edge whose from_module has no allow-list entry as illegal (?? false fallback)', () => {
+    const rules = buildDependencyRules({
+      modules: [{ name: 'a', paths: ['src/a'], keywords: [], relationships: { depends_on: ['b'] } }],
+    });
+    const r = evaluateImportDirection(
+      {
+        available: true,
+        edges: [
+          // 'ghost' is absent from the module map → allowed.get(...) is undefined → ?? false
+          { from_path: 'src/ghost/x.ts', from_module: 'ghost', to_module: 'b', specifier: '../b/y.js', line: 4 },
+        ],
+      },
+      rules,
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('ghost → b');
+  });
+});
+
+describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => {
+  it('is never stale when the source commit is null even though a README exists (isStale L253)', () => {
+    const r = evaluateKnowledgeHealth({
+      available: true,
+      modules: [
+        {
+          name: 'lib',
+          readme_path: 'k/modules/lib/README.md',
+          readme_exists: true,
+          last_src_commit: null,
+          last_readme_commit: '2026-06-11T00:00:00+00:00',
+        },
+      ],
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  });
+
+  it('is never stale when the README commit is null even though a README exists (isStale L253)', () => {
+    const r = evaluateKnowledgeHealth({
+      available: true,
+      modules: [
+        {
+          name: 'lib',
+          readme_path: 'k/modules/lib/README.md',
+          readme_exists: true,
+          last_src_commit: '2026-06-12T00:00:00+00:00',
+          last_readme_commit: null,
+        },
+      ],
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  });
+});
+
+describe('compareFindings — detail-level tiebreak (byCodepoint terminal operand)', () => {
+  it('orders two findings that match on check/source_path/line purely by detail (L269 + L261 x<y)', () => {
+    const report = runChecks({
+      ...emptyInputs,
+      reqDefinitions: { available: true, ids: [] },
+      reqReferences: [
+        { id: 'REQ-Z-001', source_path: 'a.md', line: 1 },
+        { id: 'REQ-A-001', source_path: 'a.md', line: 1 },
+      ],
+    });
+    // Same check, source_path, and line → tiebreak falls through to detail.
+    // 'REQ-A-001' sorts before 'REQ-Z-001' by codepoint on the detail string.
+    expect(report.structural.findings).toHaveLength(2);
+    expect(report.structural.findings.map((f) => f.detail)).toEqual([
+      'dangling reference: REQ-A-001 is not defined in any feature spec',
+      'dangling reference: REQ-Z-001 is not defined in any feature spec',
+    ]);
+  });
+
+  it('keeps the same detail order when the smaller id is supplied first (byCodepoint x>y branch)', () => {
+    // Input order [A, Z] makes the comparator evaluate byCodepoint(Z-detail, A-detail)
+    // → x > y → +1, exercising the opposite ternary side from the test above.
+    const report = runChecks({
+      ...emptyInputs,
+      reqDefinitions: { available: true, ids: [] },
+      reqReferences: [
+        { id: 'REQ-A-001', source_path: 'a.md', line: 1 },
+        { id: 'REQ-Z-001', source_path: 'a.md', line: 1 },
+      ],
+    });
+    expect(report.structural.findings.map((f) => f.detail)).toEqual([
+      'dangling reference: REQ-A-001 is not defined in any feature spec',
+      'dangling reference: REQ-Z-001 is not defined in any feature spec',
+    ]);
+  });
+});
+
+describe('buildDependencyRules — module without relationships', () => {
+  it('treats a module that declares no relationships as importing nothing (L60 optional-chain undefined side)', () => {
+    const rules = buildDependencyRules({
+      modules: [
+        { name: 'a', paths: ['src/a'], keywords: [] },
+        { name: 'b', paths: ['src/b'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    });
+    expect(rules.allowed.get('a')?.size).toBe(0);
+    const r = evaluateImportDirection(
+      {
+        available: true,
+        edges: [{ from_path: 'src/a/x.ts', from_module: 'a', to_module: 'b', specifier: '../b/y.js', line: 1 }],
+      },
+      rules,
+    );
+    // 'a' declares no depends_on at all, so importing 'b' is illegal.
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('a → b');
   });
 });

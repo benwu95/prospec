@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import {
@@ -10,6 +10,7 @@ import {
   generateProductSpec,
   execute,
 } from '../../../src/services/archive.service.js';
+import { ScanError, WriteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -32,11 +33,23 @@ vi.mock('../../../src/services/raw-scan.service.js', () => ({
   }),
 }));
 
+// Isolate archive's auto knowledge-update wiring. The real service needs a full
+// knowledge tree; archive's contract is "call it non-fatally and forward its
+// warnings". Default to rejecting so the un-asserting execute tests keep the
+// same observable result (knowledgeUpdated stays false, as with the real
+// service which fails without a knowledge tree).
+vi.mock('../../../src/services/knowledge-update.service.js', () => ({
+  execute: vi.fn().mockRejectedValue(new Error('no knowledge tree')),
+}));
+
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
+import { execute as executeKnowledgeUpdate } from '../../../src/services/knowledge-update.service.js';
 
 beforeEach(() => {
   vol.reset();
   vi.mocked(generateRawScan).mockClear();
+  vi.mocked(executeKnowledgeUpdate).mockReset();
+  vi.mocked(executeKnowledgeUpdate).mockRejectedValue(new Error('no knowledge tree'));
 });
 
 // --- scanChanges ---
@@ -860,5 +873,618 @@ req_count: 0
     const content = fs.readFileSync('/specs/product.md', 'utf-8');
     expect(content).toContain('active-feature');
     expect(content).not.toContain('old-feature');
+  });
+
+  it('emits the no-active-features placeholder when nothing is active', async () => {
+    vol.fromJSON({
+      '/specs/features/old.md': `---
+feature: old
+status: deprecated
+last_updated: 2025-01-01
+---
+
+# old
+`,
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content).toContain('_(No active features yet)_');
+  });
+
+  it('skips non-.md files and files lacking frontmatter (L326/L330)', async () => {
+    vol.fromJSON({
+      '/specs/features/notes.txt': 'feature: should-be-ignored\nstatus: active\n',
+      '/specs/features/no-fm.md': '# A markdown file with no YAML frontmatter\n',
+      '/specs/features/real.md': `---
+feature: real-feature
+status: active
+last_updated: 2026-01-01
+---
+
+# real-feature
+`,
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content).toContain('real-feature');
+    // .txt file is never read as a feature; no-frontmatter .md yields null
+    expect(content).not.toContain('should-be-ignored');
+    expect(content).not.toContain('no-fm');
+  });
+
+  it('produces the placeholder when the features directory does not exist', async () => {
+    vol.fromJSON({});
+    vol.mkdirSync('/specs', { recursive: true });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    expect(result).toBe('/specs/product.md');
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content).toContain('_(No active features yet)_');
+  });
+});
+
+// --- scanChanges (error & edge branches) ---
+
+describe('scanChanges error and edge branches', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('wraps a readdir failure in a ScanError (L75)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'status: verified\n',
+    });
+    vi.spyOn(fs.promises, 'readdir').mockRejectedValue(new Error('EACCES denied'));
+
+    const err = await scanChanges('/project').catch((e) => e);
+    expect(err).toBeInstanceOf(ScanError);
+    expect(err.code).toBe('SCAN_ERROR');
+    expect(err.message).toContain('EACCES denied');
+  });
+
+  it('stringifies a non-Error readdir rejection into the ScanError message (L75 else-side)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'status: verified\n',
+    });
+    vi.spyOn(fs.promises, 'readdir').mockRejectedValueOnce('boom-string');
+
+    await expect(scanChanges('/project')).rejects.toThrow(/boom-string/);
+  });
+
+  it('skips plain files sitting directly under changes/ (L85-86 non-directory branch)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/loose-file.txt': 'not a change dir',
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\n',
+    });
+
+    const result = await scanChanges('/project');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('feat');
+  });
+
+  it('defaults status to "unknown" when metadata omits status (L98 ?? branch)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\ncreated: "2026-01-01"\n',
+    });
+
+    const result = await scanChanges('/project');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.status).toBe('unknown');
+  });
+
+  it('skips a change whose metadata.yaml is unparseable (L102 catch)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/broken/metadata.yaml': ':\n  - this: [is not\n    valid yaml::',
+      '/project/.prospec/changes/good/metadata.yaml': 'name: good\nstatus: verified\n',
+    });
+
+    const result = await scanChanges('/project');
+    expect(result.map((c) => c.name)).toEqual(['good']);
+  });
+});
+
+// --- moveToArchive (existing-target & non-Error rollback) ---
+
+describe('moveToArchive error branches', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('throws WriteError when the archive directory already exists (L130-131)', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'status: verified\n',
+      [`/project/.prospec/archive/${today}-feat/old.md`]: 'pre-existing',
+    });
+    const change = {
+      name: 'feat',
+      dir: '/project/.prospec/changes/feat',
+      metadata: { status: 'verified' },
+      status: 'verified',
+    };
+
+    await expect(moveToArchive(change, '/project')).rejects.toThrow(WriteError);
+    await expect(moveToArchive(change, '/project')).rejects.toThrow(/already exists/);
+  });
+
+  it('stringifies a non-Error rename rejection in the rollback message (L155 else-side)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/a.md': 'A',
+      '/project/.prospec/changes/feat/metadata.yaml': 'status: verified\n',
+    });
+    const change = {
+      name: 'feat',
+      dir: '/project/.prospec/changes/feat',
+      metadata: { status: 'verified' },
+      status: 'verified',
+    };
+    // Reject with a non-Error value so the `String(err)` branch is taken
+    vi.spyOn(fs.promises, 'rename').mockRejectedValueOnce('raw-rejection');
+
+    await expect(moveToArchive(change, '/project')).rejects.toThrow(/raw-rejection/);
+  });
+});
+
+// --- generateSummary (delta-spec without REQs, quality grade) ---
+
+describe('generateSummary additional branches', () => {
+  it('keeps the no-REQ / no-module placeholders when delta-spec has no REQ headers (L194/L199)', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': '# Delta Spec\n\n## ADDED\n\nProse only, no REQ headers here.\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01');
+    // both tables fall back to the placeholder string, not a built table
+    const placeholderCount = content.split('No delta-spec.md found.').length - 1;
+    expect(placeholderCount).toBe(2);
+    expect(affectedModules).toHaveLength(0);
+  });
+
+  it('uses quality_grade from metadata when present (L216/L219-220)', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml': 'status: verified\nquality_grade: A\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    expect(content).toContain('**Quality Grade**: A');
+  });
+
+  it('falls back to Unverified when metadata.yaml is absent (L216 else)', async () => {
+    vol.fromJSON({});
+    vol.mkdirSync('/archive', { recursive: true });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    expect(content).toContain('**Quality Grade**: Unverified');
+  });
+
+  it('reports "No tasks found" for an empty tasks.md (L605 total===0 && kindTotal===0)', async () => {
+    vol.fromJSON({
+      '/archive/tasks.md': '# Tasks\n\nNo checkbox lines at all.\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    expect(content).toContain('No tasks found');
+  });
+
+  it('reports 0/0 code with kind tally when only [M]/[V] tasks exist (L606)', async () => {
+    vol.fromJSON({
+      '/archive/tasks.md': '- [x] T1 [M] manual step\n- [ ] T2 [V] verify step\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    expect(content).toContain('0/0 code, 1/2 [M]/[V] (not counted)');
+  });
+});
+
+// --- syncToFeatureSpecs (route/append/deprecate branches) ---
+
+describe('syncToFeatureSpecs additional branches', () => {
+  it('returns [] when a delta-spec exists but yields no routes (L265)', async () => {
+    vol.fromJSON({
+      // REQ header present but no **Feature:** field → pushCurrent never pushes
+      '/archive/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: no feature field\n\nbody\n',
+    });
+    vol.mkdirSync('/specs/features', { recursive: true });
+
+    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    expect(files).toEqual([]);
+    // nothing written
+    expect(fs.readdirSync('/specs/features')).toEqual([]);
+  });
+
+  it('appends an ADDED REQ at end of file when no "## Edge Cases" anchor exists (L717 fallback)', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd.md': `---
+feature: sdd
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd
+
+## User Stories
+
+#### REQ-TYPES-001: existing
+`,
+      '/archive/delta-spec.md': `# Delta
+
+## ADDED
+
+### REQ-TYPES-050: appended at end
+
+**Feature:** sdd
+
+**Description:**
+body
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
+    expect(content).toContain('REQ-TYPES-050: appended at end');
+    // existing REQ preserved
+    expect(content).toContain('REQ-TYPES-001: existing');
+  });
+
+  it('appends to an EXISTING populated Deprecated section (L745 has-section, not placeholder)', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd.md': `---
+feature: sdd
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd
+
+## Deprecated Requirements
+
+- **REQ-OLD-001**: previously removed _(removed 2025-01-01)_
+`,
+      '/archive/delta-spec.md': `# Delta
+
+## REMOVED
+
+### REQ-TYPES-099: now gone
+
+**Feature:** sdd
+
+**Description:**
+removed body
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
+    // both the prior entry and the freshly appended one are present
+    expect(content).toContain('REQ-OLD-001');
+    expect(content).toContain('REQ-TYPES-099**: now gone');
+  });
+
+  it('appends a new Deprecated section when none exists (L753 no-section fallback)', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd.md': `---
+feature: sdd
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd
+
+## User Stories
+
+#### REQ-TYPES-001: existing
+`,
+      '/archive/delta-spec.md': `# Delta
+
+## REMOVED
+
+### REQ-TYPES-077: dropped
+
+**Feature:** sdd
+
+**Description:**
+dropped body
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
+    expect(content).toContain('## Deprecated Requirements');
+    expect(content).toContain('REQ-TYPES-077**: dropped');
+  });
+
+  it('falls back to append when Change History has no header separator row (L799/L801)', async () => {
+    // "## Change History" heading present but no `| Date` + `|------|` rows, so
+    // the in-table insertion never fires and the row is appended at EOF.
+    vol.fromJSON({
+      '/specs/features/sdd.md': `---
+feature: sdd
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd
+
+#### REQ-TYPES-001: existing
+
+## Change History
+
+(history kept in prose)
+`,
+      '/archive/delta-spec.md': `# Delta
+
+## MODIFIED
+
+### REQ-TYPES-001: updated
+
+**Feature:** sdd
+
+**Description:**
+new body
+
+---
+`,
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features');
+    const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
+    // the archive-sync row is appended (no table to insert into)
+    expect(content).toContain('| archive-sync |');
+    expect(content).toContain('MODIFIED REQ-TYPES-001');
+  });
+
+  it('creates a new spec carrying a REMOVED req in the Deprecated section (L826)', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': `# Delta
+
+## REMOVED
+
+### REQ-GONE-001: removed at creation
+
+**Feature:** brand-new
+
+**Description:**
+gone body
+
+---
+
+## ADDED
+
+### REQ-NEW-001: kept
+
+**Feature:** brand-new
+
+**Description:**
+new body
+
+---
+`,
+    });
+    vol.mkdirSync('/specs/features', { recursive: true });
+
+    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    expect(files).toEqual(['/specs/features/brand-new.md']);
+    const content = fs.readFileSync('/specs/features/brand-new.md', 'utf-8');
+    // REMOVED route lands in Deprecated, not the active req list
+    expect(content).toContain('## Deprecated Requirements');
+    expect(content).toContain('REQ-GONE-001**: removed at creation');
+    expect(content).toContain('REQ-NEW-001: kept');
+    // _(None)_ placeholder is replaced since a deprecated entry exists
+    expect(content).not.toContain('_(None)_');
+  });
+});
+
+// --- execute (name filter, created fallbacks, knowledge warnings, skipped) ---
+
+describe('execute additional branches', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('filters candidates to the requested names (L377 names branch)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/keep/metadata.yaml': 'name: keep\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/drop/metadata.yaml': 'name: drop\nstatus: verified\ncreated: "2026-01-01"\n',
+    });
+
+    const result = await execute({ cwd: '/project', names: ['keep'] });
+    expect(result.archived.map((a) => a.name)).toEqual(['keep']);
+    // the unnamed verified change is left untouched in the changes dir
+    expect(fs.existsSync('/project/.prospec/changes/drop')).toBe(true);
+  });
+
+  it('falls back to created_at then "unknown" for the original-created date (L403 ?? chain)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/withCreatedAt/metadata.yaml': 'name: withCreatedAt\nstatus: verified\ncreated_at: "2026-02-02"\n',
+      '/project/.prospec/changes/noDate/metadata.yaml': 'name: noDate\nstatus: verified\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    const byName = new Map(result.archived.map((a) => [a.name, a.archivePath]));
+
+    const withCreatedAt = fs.readFileSync(`${byName.get('withCreatedAt')}/summary.md`, 'utf-8');
+    expect(withCreatedAt).toContain('Original Created**: 2026-02-02');
+
+    const noDate = fs.readFileSync(`${byName.get('noDate')}/summary.md`, 'utf-8');
+    expect(noDate).toContain('Original Created**: unknown');
+  });
+
+  it('forwards knowledge-update warnings and sets knowledgeUpdated (L478-479)', async () => {
+    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
+      created: [],
+      updated: ['types'],
+      deprecated: [],
+      generatedFiles: [],
+      warnings: ['malformed REQ id: REQ-bad'],
+    });
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: p\n',
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: x\n\nbody\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.knowledgeUpdated).toBe(true);
+    expect(result.knowledgeWarnings).toContain('malformed REQ id: REQ-bad');
+  });
+
+  it('leaves knowledgeUpdated false when no archived change has a delta-spec (L470/L473)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: p\n',
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.archived).toHaveLength(1);
+    expect(result.knowledgeUpdated).toBe(false);
+    expect(result.knowledgeWarnings).toEqual([]);
+    expect(vi.mocked(executeKnowledgeUpdate)).not.toHaveBeenCalled();
+  });
+
+  it('collects a change in skipped[] when moveToArchive fails (L450-451)', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+      // archive target already present → moveToArchive throws → caught → skipped
+      [`/project/.prospec/archive/${today}-feat/x.md`]: 'pre-existing',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.archived).toHaveLength(0);
+    expect(result.skipped).toEqual(['feat']);
+    // nothing archived → raw-scan refresh not triggered
+    expect(result.rawScanRefreshed).toBe(false);
+  });
+
+  it('config-less run with a delta-spec: no spec sync (L425), but knowledge-update still fires off the delta-spec (L473)', async () => {
+    // No .prospec.yaml → featuresPath stays null → the Feature Spec sync block
+    // (L425) is skipped entirely, so specFiles is empty. The knowledge-update
+    // safety net, however, keys off the archived change carrying a delta-spec
+    // (L473), independent of config — so it IS invoked here, in contrast to the
+    // no-delta-spec sibling test where executeKnowledgeUpdate is never called.
+    // The mock rejects, so knowledgeUpdated stays false (non-fatal).
+    vol.fromJSON({
+      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: x\n\n**Feature:** f\n\nbody\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.archived).toHaveLength(1);
+    // no config → featuresPath null → no spec sync attempted
+    expect(result.specFiles).toEqual([]);
+    // delta-spec present → knowledge-update attempted despite missing config
+    const archiveDir = result.archived[0]!.archivePath;
+    expect(vi.mocked(executeKnowledgeUpdate)).toHaveBeenCalledWith(
+      expect.objectContaining({ deltaSpecPath: `${archiveDir}/delta-spec.md`, cwd: '/project' }),
+    );
+    // mock rejected → non-fatal → knowledgeUpdated stays false, archive succeeds
+    expect(result.knowledgeUpdated).toBe(false);
+    // the archived metadata was still rewritten to 'archived' (L436 then-side)
+    const metaContent = fs.readFileSync(`${archiveDir}/metadata.yaml`, 'utf-8');
+    expect(metaContent).toContain('status: archived');
+  });
+});
+
+// --- internal helpers exercised via generateSummary / syncToFeatureSpecs ---
+
+describe('internal helper edge branches', () => {
+  it('returns N/A when the User Story section is empty (L533 else)', async () => {
+    vol.fromJSON({
+      '/archive/proposal.md': '# Proposal\n\n## User Story\n\n## Acceptance Criteria\n\n1. x\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    // User Story block is empty → 'N/A'
+    expect(content).toContain('## User Story\n\nN/A');
+  });
+
+  it('labels a REQ as UNKNOWN status when it appears before any section header (L550 else)', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': '# Delta\n\n### REQ-TYPES-001: orphan req\n\nbody\n',
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    expect(content).toContain('| REQ-TYPES-001 | UNKNOWN | orphan req |');
+  });
+
+  it('keeps only the first description for a repeated module in the module table (L573 dedupe)', async () => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': `# Delta
+
+## ADDED
+
+### REQ-TYPES-001: first types req
+
+body
+
+### REQ-TYPES-002: second types req
+
+body
+`,
+      '/archive/metadata.yaml': 'status: verified\n',
+    });
+
+    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01');
+    // module 'types' collapses to a single row with the FIRST description
+    expect(affectedModules).toEqual(['types']);
+    const moduleTable = content.slice(
+      content.indexOf('## Affected Modules'),
+      content.indexOf('## Requirements'),
+    );
+    const typesRows = moduleTable.split('\n').filter((l) => l.startsWith('| types |'));
+    expect(typesRows).toEqual(['| types | Modified | first types req |']);
+  });
+
+  it('parseFeatureSpecFrontmatter: defaults status to active when only feature is present (L895 else)', async () => {
+    // Drive parseFeatureSpecFrontmatter via generateProductSpec: a spec with a
+    // feature but no status line → frontmatter.status defaults to 'active',
+    // so it appears in the active feature map.
+    vol.fromJSON({
+      '/specs/features/no-status.md': `---
+feature: no-status-feature
+last_updated: 2026-01-01
+---
+
+# no-status-feature
+`,
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content).toContain('no-status-feature');
+  });
+
+  it('parseFeatureSpecFrontmatter: ignores a spec whose frontmatter omits feature (L891 else)', async () => {
+    vol.fromJSON({
+      '/specs/features/no-feature.md': `---
+status: active
+last_updated: 2026-01-01
+---
+
+# heading only
+`,
+      '/specs/features/real.md': `---
+feature: real-one
+status: active
+last_updated: 2026-01-01
+---
+
+# real-one
+`,
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content).toContain('real-one');
+    // the feature-less spec contributes nothing to the map
+    expect(content).not.toContain('no-feature');
   });
 });

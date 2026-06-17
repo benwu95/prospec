@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/quickstart.service.js';
-import { PrerequisiteError } from '../../../src/types/errors.js';
+import { PrerequisiteError, ConfigInvalid } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -67,4 +67,40 @@ describe('quickstart.service', () => {
     expect(result.agentSync.hints[0]).toContain('Japanese');
     expect(result.agentSync.hints[0]).toContain('skill_triggers');
   });
+
+  it('re-throws a non-AlreadyExistsError from init instead of marking it skipped', async () => {
+    // init validates options.agents up front: an unknown agent throws ConfigInvalid,
+    // which is NOT an AlreadyExistsError, so quickstart must propagate it (else-branch).
+    await expect(
+      execute({ agents: ['bogus-agent'], cwd: '/project' }),
+    ).rejects.toThrow(ConfigInvalid);
+
+    // The error propagates before agent-sync runs: no config marker was written.
+    expect(vol.existsSync('/project/.prospec.yaml')).toBe(false);
+  });
+
+  it('surfaces the ConfigInvalid .code when init rejects an unknown agent', async () => {
+    await expect(
+      execute({ agents: ['nope'], cwd: '/project' }),
+    ).rejects.toMatchObject({ code: 'CONFIG_INVALID' });
+  });
+
+  it('falls back to process.cwd() when no cwd option is given', async () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/cwd-fallback');
+
+    const result = await execute({ agents: ['claude'] });
+
+    // The init step ran against the process.cwd() fallback, writing the marker there.
+    expect(cwdSpy).toHaveBeenCalled();
+    expect(vol.existsSync('/cwd-fallback/.prospec.yaml')).toBe(true);
+    expect(vol.existsSync('/project/.prospec.yaml')).toBe(false);
+    expect(result.steps).toEqual([
+      { name: 'init', status: 'created' },
+      { name: 'agent-sync', status: 'created' },
+    ]);
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });

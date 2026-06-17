@@ -1,8 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/measure.service.js';
 import { MeasurementReportInvalid, PrerequisiteError } from '../../../src/types/errors.js';
-import type { MeasurementReport } from '../../../src/types/measurement.js';
+import {
+  MeasurementReportSchema,
+  type MeasurementReport,
+} from '../../../src/types/measurement.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -65,6 +68,10 @@ beforeEach(() => {
   vol.reset();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('measure.service execute', () => {
   it('reads and validates an existing report', async () => {
     vol.fromJSON({ '/proj/measurement-report.json': JSON.stringify(validReport) });
@@ -76,12 +83,15 @@ describe('measure.service execute', () => {
     expect(result.reportPath).toBe('/proj/measurement-report.json');
   });
 
-  it('supports a custom report path', async () => {
+  it('resolves a custom report path against cwd instead of the default filename', async () => {
+    // Seed ONLY the custom path; the default filename is absent so the
+    // PrerequisiteError branch would fire if reportPath were ignored.
     vol.fromJSON({ '/proj/out/report.json': JSON.stringify(validReport) });
 
     const result = await execute({ cwd: '/proj', reportPath: 'out/report.json' });
 
-    expect(result.report.runs).toHaveLength(1);
+    expect(result.reportPath).toBe('/proj/out/report.json');
+    expect(result.report.corpus).toBe('sdd-tasks-v1');
   });
 
   it('throws PrerequisiteError with runner guidance when the report is missing', async () => {
@@ -105,5 +115,66 @@ describe('measure.service execute', () => {
 
     await expect(execute({ cwd: '/proj' })).rejects.toThrow(MeasurementReportInvalid);
     await expect(execute({ cwd: '/proj' })).rejects.toThrow(/git_commit/);
+  });
+
+  it('surfaces the Zod refine message when a failed task is missing its reason', async () => {
+    const badTaskReport = {
+      ...validReport,
+      runs: [
+        {
+          ...validReport.runs[0],
+          tasks: [{ task_id: 'x', status: 'failed', assemblies: [] }],
+        },
+      ],
+    };
+    vol.fromJSON({ '/proj/measurement-report.json': JSON.stringify(badTaskReport) });
+
+    const error = await execute({ cwd: '/proj' }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(MeasurementReportInvalid);
+    expect((error as MeasurementReportInvalid).message).toContain(
+      'a skipped or failed task must carry a non-empty reason',
+    );
+  });
+
+  // L32 binary-expr#1: cwd defaults to process.cwd() when options.cwd is omitted.
+  it('resolves the report against process.cwd() when cwd is not provided', async () => {
+    vol.fromJSON({ '/work/measurement-report.json': JSON.stringify(validReport) });
+    vi.spyOn(process, 'cwd').mockReturnValue('/work');
+
+    const result = await execute({});
+
+    expect(process.cwd).toHaveBeenCalled();
+    expect(result.reportPath).toBe('/work/measurement-report.json');
+    expect(result.report.corpus).toBe('sdd-tasks-v1');
+  });
+
+  // L51 cond-expr#1: the catch falls back to the literal 'invalid JSON' when the
+  // thrown value is not an Error instance.
+  it('uses the "invalid JSON" fallback detail when JSON.parse throws a non-Error', async () => {
+    vol.fromJSON({ '/proj/measurement-report.json': 'whatever' });
+    vi.spyOn(JSON, 'parse').mockImplementation(() => {
+      throw 'a bare string, not an Error';
+    });
+
+    const error = await execute({ cwd: '/proj' }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(MeasurementReportInvalid);
+    expect((error as MeasurementReportInvalid).message).toContain('(invalid JSON)');
+    expect((error as MeasurementReportInvalid).message).not.toContain('a bare string');
+  });
+
+  // L62 cond-expr#1: when schema validation throws something that is NOT a
+  // ZodError, the detail is produced via String(err) instead of issue mapping.
+  it('uses String(err) for the detail when schema validation throws a non-ZodError', async () => {
+    vol.fromJSON({ '/proj/measurement-report.json': JSON.stringify(validReport) });
+    vi.spyOn(MeasurementReportSchema, 'parse').mockImplementation(() => {
+      throw new RangeError('schema blew up');
+    });
+
+    const error = await execute({ cwd: '/proj' }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(MeasurementReportInvalid);
+    expect((error as MeasurementReportInvalid).message).toContain('RangeError: schema blew up');
   });
 });
