@@ -454,6 +454,13 @@ function getSkillReferences(skillName: string): SkillReference[] {
         title: 'Feedback Promotion Rule and Ledger Format',
       },
     ],
+    'prospec-backfill-spec': [
+      {
+        templateName: 'feature-boundary-criteria.hbs',
+        outputName: 'feature-boundary-criteria.md',
+        title: 'Feature Boundary Criteria',
+      },
+    ],
     'prospec-learn': [
       {
         templateName: 'promotion-format.hbs',

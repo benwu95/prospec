@@ -147,10 +147,10 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-backfill-spec',
-    description: 'Backfill a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for modules with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
+    description: 'Backfill a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
     triggers: ['backfill spec', 'spec from code', 'brownfield', 'backfill', 'document existing code'],
     type: 'Lifecycle',
-    hasReferences: false,
+    hasReferences: true,
   },
   {
     name: 'prospec-learn',

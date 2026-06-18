@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1160%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1627%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -538,8 +538,8 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (53 .hbs files)
-    └── skills/   — 15 Skill templates + 18 reference templates
+└── templates/    — Handlebars templates (54 .hbs files)
+    └── skills/   — 15 Skill templates + 19 reference templates
 ```
 
 ### Tech Stack
@@ -557,7 +557,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1160 tests)
+# Run all tests (1627 tests)
 pnpm test
 
 # Watch mode
@@ -574,9 +574,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1160 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 594 tests
-- Contract tests (CLI output + Skill format): 509 tests
+**Test Coverage**: 1627 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1071 tests
+- Contract tests (CLI output + Skill format): 499 tests
 - Integration tests: 17 tests
 - E2E tests: 40 tests
 
