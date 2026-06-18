@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 0.3.0
-last_updated: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Prospec -- AI 驅動的 Spec-Driven Development 框架
@@ -27,7 +27,7 @@ last_updated: 2026-06-17
 
 ### 開發流程
 
-六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。plan/implement 觸及第三方 lib 時，可選擇性 on-demand 從 Context7（若可用）注入依賴層 usage 知識（untrusted、graceful、永不進 stable prefix）。brownfield 專案可用 `/prospec-backfill-spec` 從既有 code 回填行為層 Feature Spec 草稿（WHAT-layer 補全、人工 verify-and-promote、永不寫信任區）。
+六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。plan/implement 觸及第三方 lib 時，可選擇性 on-demand 從 Context7（若可用）注入依賴層 usage 知識（untrusted、graceful、永不進 stable prefix）。brownfield 專案可用 `/prospec-backfill-spec` 從既有 code 以 feature 縱切片為單位回填行為層 Feature Spec 草稿（WHAT-layer 補全、人工 verify-and-promote、永不寫信任區）。
 → [features/sdd-workflow.md](features/sdd-workflow.md)
 
 ### AI 知識系統

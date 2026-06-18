@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (15 skills, English `triggers` baselines; `hasReferences` gates reference deployment; `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (15 skills, English `triggers` baselines; `hasReferences` gates reference deployment — now includes prospec-backfill-spec, which declares `feature-boundary-criteria` and is described feature-first (BL-039); `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
