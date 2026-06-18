@@ -133,6 +133,10 @@
 ### 學習迴路新增（2026-06-11）
 - [x] [BL-038](#bl-038) Verify V4 與 Knowledge Update 時序重整 — 消除「必然 WARN」的例行噪音（G5）✅ 已完成
 
+### 反向萃取再設計（2026-06-18）
+- [ ] [BL-039](#bl-039) Feature-First Backfill 再設計（反向萃取以能力縱切片為單位）— backfill 取材／覆蓋掃描單位由 module 轉 feature，修正與 trust-zone 組織方式的矛盾（G1/G3）待處理 · P2
+- [ ] [BL-040](#bl-040) `feature-map.yaml`：feature→module 索引 + 覆蓋掃描決定性化 — BL-039 的選配加速器（依賴 BL-039）待處理 · P3
+
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
@@ -2498,6 +2502,65 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [x] `_status-lifecycle.md` 更新時序圖；verify/archive skill 模板同步（含 init 模板 `status-lifecycle.md.hbs` 雙檔同步）
 
 > **完成狀態**: 2026-06-11 已實作（方向 B）、verify Grade S、歸檔 `gate-knowledge-at-archive`、graduate 至 sdd-workflow US-14（REQ-TEMPLATES-083 ADDED；REQ-TEMPLATES-034/045/010 MODIFIED，REQ-045 同步 ai-knowledge 副本）。commit `b8a681f` + `50889ff` + `8ca41dd`。
+
+---
+
+### BL-039
+
+**Feature-First Backfill 再設計（反向萃取以能力縱切片為單位）**
+
+> **2026-06-18 設計依據**：完整技術設計見 [`planning/design-feature-first-backfill.md`](design-feature-first-backfill.md)。把 backfill 的 scoping/clustering 單位由 **module（WHERE）** 轉為 **feature 縱切片（WHAT）**——產物層早已 feature-first（draft 帶 `**Feature:**`、forward path 依 feature 路由），本案補上「萃取取材／覆蓋掃描」這一面。**reshape** BL-032 + extract-backfill-spec-skill，不新增第三條反向萃取路徑。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P2 — 中（修正 backfill 與 trust-zone 組織方式的矛盾；提升 brownfield 反向萃取品質）|
+| Skill 類型 | 增強 `prospec-backfill-spec`（取材／覆蓋掃描單位 module→feature）|
+| 影響範圍 | `templates`（backfill skill 改寫；**新增 `references/feature-boundary-criteria.hbs`**；archive 措辭一致性）、`types`（`skill.ts` hasReferences flag）、`services`（`agent-sync` `getSkillReferences` map 條目）、`tests`（contract pin + `skill-format`/`skill-generation` hasReferences 連帶）、trust zone（`sdd-workflow` US-22 + REQ-TEMPLATES-104/105/107，走 forward path）|
+| 預估複雜度 | Standard（**Skill-dominant**，零新 runtime import；但含 2 處宣告式 TS 異動 + 1 新 `.hbs` + 2 處測試，因 references 外置）|
+| 依賴 | 無 |
+| 重塑 | BL-032 + extract-backfill-spec-skill（不新增第三條反向萃取路徑）|
+
+**背景**：backfill 產物層已 feature-first（draft 帶 `**Feature:**`、forward path 依 feature 路由），但取材（`prospec-backfill-spec.hbs:36`）與覆蓋掃描（`:63-65`）仍 module-first，與 prospec 自身 9 份跨模組 feature spec 的組織方式矛盾。改為兩段式 gather-by-module → cluster-by-feature，並把跨模組事件流／outbound 整合邊列為一等 AC 來源。
+
+**驗收標準**：
+- [ ] `prospec-backfill-spec.hbs` 取材／聚類以 feature 縱切片為單位（Phase 1 line 36 改寫）
+- [ ] **Pass-2 tracing 操作化**：entry-point 具名 heuristics、逐跳呼叫鏈、**每條 traced edge cite `file:line`**、**改寫 Phase 1 Gate（`hbs:40-42` 擴為三條 checkbox，非另立 gate）**（每條行為恰好歸一 slice 或明確 Deferred）、跨切片去重規則——皆寫入 skill，非僅斷言
+- [ ] **事件流/outbound 列一等 AC 來源，但 conditioned on grounding**：emitter 與 handler/sink 兩端皆 trace 到具體 callsite 才升 AC，否則 `[NEEDS CLARIFICATION]`/Deferred；count-fidelity 措辭延伸涵蓋 integration edge（不放鬆反捏造）
+- [ ] Phase 4 覆蓋掃描列「未覆蓋 feature」而非「未覆蓋 module」；保留 `informational only` + `does not auto-trigger`
+- [ ] Activation/Startup/Gate/NEVER/Error-Handling 框架措辭由 module 轉 feature；candidate-slug WHY 和解（feature 邊界＝人可確認設計決策）
+- [ ] **feature 邊界判準外置 `references/feature-boundary-criteria.hbs`**，Phase 2 以**短 pointer** 載入（控 prompt 預算）：三訊號（獨立生命週期／無共用 US／actor+trigger 不相交）+ read/query 歸屬規則（預設併入領域 feature 的 view US；跨領域或對外 consumer 才自成 feature）；拆分與歸屬決策標 `[NEEDS CLARIFICATION]` 人工確認
+- [ ] **references 外置的同 commit 必動四點（缺一則 reference 永不部署、或測試紅）**：`skill.ts:153` `hasReferences:true`、`agent-sync.service.ts:328` `getSkillReferences` 加 `prospec-backfill-spec` 條目（`{ templateName, outputName, title }`）、新建 `feature-boundary-criteria.hbs`、測試（`skill-format.test.ts:189` 移出 self-contained + `:169-178` 加斷言；`skill-generation.test.ts:74` `23→24`）
+- [ ] **§9.2 與 `feature-spec-format.hbs:137-141` 和解**：300 行/40% 為軟訊號（觸發重新檢視）、三拆分訊號為綁定裁定；未推翻 guideline（如要當硬上限則同 commit 改 .hbs）
+- [ ] 新 NEVER：基礎設施 module 不作為 feature 目標（行為以 REQ 掛在消費它的 feature 之下）
+- [ ] contract pin 同 commit 更新——範圍與命運依設計 §八.3 fate table（存活者保留子字串、ADD feature-first 語意 pin：`vertical slice`／`contributing modules`／integration-edge grounding）
+- [ ] 三不變量明文保留：trust-zone single-writer、behavior-not-intent（含 >50% denominator、integration-edge 反捏造）、draft schema 不變
+- [ ] trust zone re-scope 經 delta-spec → verify → archive 畢業（`sdd-workflow` US-22 + REQ-TEMPLATES-104/105/107 MODIFIED），未手改 `specs/features/`
+
+---
+
+### BL-040
+
+**`feature-map.yaml`：feature→module 索引 + 反向萃取覆蓋掃描的決定性化（選配後續）**
+
+> **2026-06-18 設計依據**：見 [`planning/design-feature-first-backfill.md`](design-feature-first-backfill.md) §五。BL-039 的**選配加速器**——把 Phase 4 覆蓋掃描由 prose 升級為決定性 set-difference，可獨立排程。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P3 — 低（BL-039 的加速器；非阻塞）|
+| Skill 類型 | 增強 `prospec-archive`（feature-map sync）+ 新增 knowledge artifact |
+| 影響範圍 | `types`（`feature-map.ts`）、`templates/knowledge`（`feature-map.yaml.hbs`）、`services`（`archive.service.ts` single-writer）、`lib`（`drift-sources.ts` 新校驗）、`tests` |
+| 預估複雜度 | Standard |
+| 依賴 | BL-039（feature-first 取材語意）|
+
+**背景**：`module-map.yaml` 答不出 feature↔module 邊；REQ-prefix 反推失真（17 prefix 中 11 非 module）。新增 `feature-map.yaml`（complement，不複製 paths/keywords），唯一 writer ＝ `archive.service.ts`（co-locate `generateProductSpec` 掃描），把 BL-039 Phase 4 覆蓋掃描由 prose 升級為決定性 set-difference，並新增**兩條 drift**：(a) `req_prefix ∈ modules ∪ feature_map.req_prefixes` 的 dangling-prefix check（**warn-class、非 build-breaking**，驗 prefix 合法性）、(b) **必含**的 self-validating drift（module-prefix REQ ⇒ `X.modules` 必含該 module，驗 §5.1 承諾的 `modules` 邊、可為 `fail`-class）。
+
+**驗收標準**：
+- [ ] `src/types/feature-map.ts`（Zod + `z.infer`，仿 `module-map.ts`）；`feature` key 對得上 `specs/features/{slug}.md` 且過 `isSafeResourceName`；`modules[]` 須為 `module-map` 既有 module
+- [ ] `src/templates/knowledge/feature-map.yaml.hbs`（仿 `module-map.yaml.hbs`）；單一格式權威，避免 4-point scatter
+- [ ] `archive.service.ts` 為唯一 writer，promote 時與 `product.md` `## Feature Map` 同次掃描原子產出；no-clobber-on-rerun（**不自動補 `req_prefixes`**——自動補會使 dangling drift 空轉並洗白 typo；desync 由 `warn` severity 承擔）
+- [ ] `drift-sources.ts` 新增 dangling-prefix 校驗，**`severity:'warn'`（比照 `knowledge-health` 先例，不得 `fail`）**、**僅在 `feature-map.yaml` 存在時執行**；定位為「REQ-prefix 合法性 lint，偵測上限＝人工策展完整度」
+- [ ] self-validating drift（**BL-040 必含，非選配**）：feature X spec 內每個 module-prefix REQ ⇒ `X.modules` 必含該 module（驗 `modules` 邊、無需人工策展，violation 可為 `fail`-class）
+- [ ] backfill Phase 4 在 `feature-map.yaml` 存在時走決定性 set-difference
 
 ---
 
