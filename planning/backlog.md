@@ -136,6 +136,7 @@
 ### 反向萃取再設計（2026-06-18）
 - [x] [BL-039](#bl-039) Feature-First Backfill 再設計（反向萃取以能力縱切片為單位）— backfill 取材／覆蓋掃描單位由 module 轉 feature，修正與 trust-zone 組織方式的矛盾（G1/G3）✅ 已完成 · P2
 - [x] [BL-040](#bl-040) `feature-map.yaml`：feature→module 索引 + 覆蓋掃描決定性化 — BL-039 的選配加速器（依賴 BL-039）✅ 已完成 · P3
+- [x] [BL-041](#bl-041) Archive Summary 收斂進 `_archived-history/`（date-prefixed spec-history 歸宿）— 消解 archive spec-history 三方不一致、清乾淨 `specs/` root ✅ 已完成 · P3
 
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
@@ -2561,6 +2562,32 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [x] `drift-sources.ts` 新增 dangling-prefix 校驗，**`severity:'warn'`（比照 `knowledge-health` 先例，不得 `fail`）**、**僅在 `feature-map.yaml` 存在時執行**；定位為「REQ-prefix 合法性 lint，偵測上限＝人工策展完整度」
 - [x] self-validating drift（**BL-040 必含，非選配**）：feature X spec 內每個 module-prefix REQ ⇒ `X.modules` 必含該 module（驗 `modules` 邊、無需人工策展，violation 可為 `fail`-class）
 - [x] backfill Phase 4 在 `feature-map.yaml` 存在時走決定性 set-difference
+
+---
+
+### BL-041
+
+**Archive Summary 收斂進 `_archived-history/`（date-prefixed spec-history 歸宿）**
+
+> **2026-06-19 實作**：對話中即興開立、以 `/prospec-ff` 落地（change：`converge-archive-summaries`）。消解 archive spec-history 三方不一致。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P3 — 低（規格庫組織整理；非阻塞）|
+| Skill 類型 | 增強 `prospec-archive` skill + `archive-format` reference（spec-history 約定）|
+| 影響範圍 | `templates`（`archive-format.hbs` + `prospec-archive.hbs`）、`tests`（contract pin）、+ 一次性資料遷移（37 份 summary date-prefix 改名）|
+| 預估複雜度 | Standard（零新 runtime；約定 + 遷移 + 1 contract test）|
+| 依賴 | 無 |
+
+**背景**：每個歸檔變更的 spec-history summary 是唯一進 git 的逐變更帳本（`.prospec/archive/` 被 gitignore）。歸宿三方不一致——`REQ-SERVICES-010` 寫 `specs/history/`（不存在）、`archive-format.hbs` 寫 flat `specs/{change-name}.md`、現實是 flat root（20）+ `_archived-history/`（22）；flat root 弄亂 `specs/` 且因無 `_archived` 前綴被 drift `req-references` 掃描（凍結 REQ 快照恐 dangling）。統一歸宿為既有且被 `ARCHIVED_EXCLUDES`（`**/_archived*`）排除的 `_archived-history/`，並全面 date-prefix `{YYYY-MM-DD}-{change-name}.md` 對齊 `.prospec/archive/` 資料夾命名。
+
+**驗收標準**：
+- [x] `archive-format.hbs` §Spec Archiving 目的地 → `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md`（committed audit trail、drift-excluded、與 archive 資料夾名稱對齊）
+- [x] `prospec-archive.hbs` Phase 3 新增明確 date-prefixed spec-history copy 步驟（非致命；原約定只埋在 reference、skill 未提＝不一致根因）
+- [x] 遷移 + 全面改名：37 份既有 summary → date-prefixed（date 取自各檔 `Archived:`／`Completed:`；`mvp-initial`=2026-02-04；`001-prospec-mvp-cli/` 目錄保留）；`specs/` root 只剩 `product.md` + `MIGRATION.md`
+- [x] contract pin 新目的地（section-scoped、mutation-verified、negative-assert 不指 flat root）
+- [x] `REQ-SERVICES-010`/`REQ-TEMPLATES-010` MODIFIED + `REQ-TESTS-033` ADDED 經 forward path 畢業進 `sdd-workflow`
+- [x] 零新 runtime（spec-history copy 為 skill/operator 步驟、非程式自動化）
 
 ---
 
