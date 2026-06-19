@@ -83,6 +83,10 @@ against the actual diff.)
 3. Ask the user to confirm or override — **never write `scale` without user confirmation**
 4. Write the confirmed value to `metadata.yaml` `scale: quick|standard|full`
 
+> **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
+> `/prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
+> brownfield behavior) — never proposed here for new work. New work picks `quick`/`standard`/`full`.
+
 **Quick slim proposal:** when `quick` is confirmed, Phase 4/5 produce a slim proposal — a single
 User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration
 (FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases and

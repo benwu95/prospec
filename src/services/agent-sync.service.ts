@@ -461,6 +461,18 @@ function getSkillReferences(skillName: string): SkillReference[] {
         title: 'Feature Boundary Criteria',
       },
     ],
+    'prospec-promote-backfill': [
+      {
+        templateName: 'proposal-format.hbs',
+        outputName: 'proposal-format.md',
+        title: 'Proposal Format',
+      },
+      {
+        templateName: 'delta-spec-format.hbs',
+        outputName: 'delta-spec-format.md',
+        title: 'Delta Spec Format',
+      },
+    ],
     'prospec-learn': [
       {
         templateName: 'promotion-format.hbs',

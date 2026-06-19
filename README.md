@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1659%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1696%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -216,17 +216,7 @@ prospec knowledge init       # → generates raw-scan.md + empty skeletons (_ind
 
 Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
 
-**Optional — backfill Feature Specs (WHAT layer).** `knowledge init` captures *how* your code is structured; brownfield modules usually still lack a Feature Spec describing *what* they do. For a module with no spec coverage, run `/prospec-backfill-spec` to stage a draft from existing code, then promote it through the normal forward path — the draft is *route-compatible* (it carries `**Feature:**`/`**Story:**` headers), so nothing is written straight to `prospec/specs/features/` (archive is its sole writer):
-
-```bash
-/prospec-backfill-spec       # → backfills a Feature Spec draft to
-                             #   .prospec/changes/[name]/backfill-draft.md; un-inferable intent → [NEEDS CLARIFICATION]
-```
-
-1. **Review the draft** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC — intent that code alone can't reveal) and confirm the candidate feature slug.
-2. **Feed it into a change** — turn the draft's User Stories into a `proposal.md` and its REQ candidates into a `delta-spec.md` (as `ADDED`, keeping the draft's `**Feature:**` slug). `/prospec-new-story` can seed the change.
-3. **Verify** — run `/prospec-verify` until it reaches grade S/A (`status: verified`).
-4. **Archive** — run `/prospec-archive`; its Feature Spec Sync writes the requirements into `prospec/specs/features/{slug}.md`. That graduation is the only step that writes the trust zone.
+`knowledge init` captures *how* your code is structured, but brownfield modules usually still lack a Feature Spec describing *what* they do. Closing that WHAT-layer gap is its own first-class flow — see **[Backfill: document existing code into the trust zone](#backfill-document-existing-code-into-the-trust-zone)** below. It is not part of bootstrap, so run it whenever you choose.
 
 </details>
 
@@ -275,9 +265,31 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 
 ---
 
+## Backfill: document existing code into the trust zone
+
+Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
+
+```mermaid
+flowchart TD
+    CODE[("existing<br/>brownfield code")] --> BF([Backfill]) -- "draft + human review" --> PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify]) -- "spec-fidelity → S/A" --> A([Archive])
+
+    A -- Spec Sync --> FS[("Feature Specs<br/>graduate into trust zone")]
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    class CODE,FS asset;
+```
+
+1. **Extract** — `/prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
+2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
+3. **Promote** — `/prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
+4. **Verify** — `/prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
+5. **Archive** — `/prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
+
+---
+
 ## AI Skills
 
-Prospec generates 15 Skills — 14 guide AI through the full SDD lifecycle, plus a one-time `/prospec-quickstart` onboarding finisher:
+Prospec generates 16 Skills — 15 guide AI through the full SDD lifecycle, plus a one-time `/prospec-quickstart` onboarding finisher:
 
 | Skill | Slash Command | Description |
 |-------|---------------|-------------|
@@ -295,6 +307,7 @@ Prospec generates 15 Skills — 14 guide AI through the full SDD lifecycle, plus
 | **Knowledge Generate** | `/prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
 | **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
+| **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
 
 > **Onboarding finisher** — `/prospec-quickstart` is run once after `prospec quickstart` (localizes skill triggers, re-syncs agent config, generates AI Knowledge). It is deployed as a Skill on disk but kept out of the always-loaded entry config, so it adds no recurring token cost.
 
@@ -557,7 +570,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1659 tests)
+# Run all tests (1696 tests)
 pnpm test
 
 # Watch mode
@@ -574,9 +587,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1659 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1099 tests
-- Contract tests (CLI output + Skill format): 503 tests
+**Test Coverage**: 1696 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1100 tests
+- Contract tests (CLI output + Skill format): 539 tests
 - Integration tests: 17 tests
 - E2E tests: 40 tests
 

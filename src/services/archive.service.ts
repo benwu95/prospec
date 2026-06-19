@@ -50,6 +50,8 @@ export interface ArchivedChange {
   sourcePath: string;
   archivePath: string;
   summaryGenerated: boolean;
+  /** metadata.scale — gates the REQ-prefix auto knowledge-update (skipped for `backfill`). */
+  scale: string;
 }
 
 /** Routing info extracted from delta-spec Feature/Story fields. */
@@ -510,6 +512,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         sourcePath: change.dir,
         archivePath: archiveDir,
         summaryGenerated,
+        scale: String(change.metadata.scale ?? ''),
       });
     } catch {
       skipped.push(change.name);
@@ -539,10 +542,16 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // (the quick path) this safety net cannot derive modules and is skipped — the
   // skill-level archive Entry Gate, which derives modules from diff paths, remains
   // the mandatory knowledge-sync checkpoint there.
+  // `scale: backfill` is also skipped: its delta-spec uses feature-slug REQ ids
+  // (REQ-{FEATURE-SLUG}-NNN), which this REQ-prefix-driven update would misread as
+  // module names and mint phantom modules/<slug>/README.md + module-map entries.
+  // Backfill module sync is owned by the skill-level Entry Gate (related_modules /
+  // **Feature:**→feature-map), not this REQ-prefix safety net.
   let knowledgeUpdated = false;
   const knowledgeWarnings: string[] = [];
   if (archived.length > 0) {
     for (const change of archived) {
+      if (change.scale === 'backfill') continue;
       const deltaSpecPath = path.join(change.archivePath, 'delta-spec.md');
       if (fs.existsSync(deltaSpecPath)) {
         try {

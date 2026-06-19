@@ -9,8 +9,10 @@ import { z } from 'zod';
 
 export const CHANGE_STATUSES = ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived'] as const;
 
-/** Process weight per change (BL-004). Absent on existing metadata means `standard`. */
-export const CHANGE_SCALES = ['quick', 'standard', 'full'] as const;
+/** Process weight per change (BL-004). Absent on existing metadata means `standard`.
+ *  `backfill` is a promotion-time scale set only by `/prospec-promote-backfill` (documents
+ *  existing brownfield code); verify/archive branch on it like `quick`. */
+export const CHANGE_SCALES = ['quick', 'standard', 'full', 'backfill'] as const;
 
 /** Severity vocabulary shared with Entry/Exit gates and verify (no fourth state). */
 export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;

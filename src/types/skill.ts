@@ -153,6 +153,13 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     hasReferences: true,
   },
   {
+    name: 'prospec-promote-backfill',
+    description: 'Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal + delta-spec + metadata with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan/tasks; the single, repeatable draft→scaffold step; never writes the trust zone.',
+    triggers: ['promote backfill', 'formalize backfill', 'backfill to delta-spec', 'scaffold backfill', 'promote draft'],
+    type: 'Lifecycle',
+    hasReferences: true,
+  },
+  {
     name: 'prospec-learn',
     description: 'Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (accumulating ledger → team playbook → Constitution rule).',
     triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],

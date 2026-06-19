@@ -9,8 +9,8 @@
 | File | Purpose |
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type |
-| `src/types/skill.ts` | SKILL_DEFINITIONS (15 skills, English `triggers` baselines; `hasReferences` gates reference deployment — now includes prospec-backfill-spec, which declares `feature-boundary-criteria` and is described feature-first (BL-039); `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
-| `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES, GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
+| `src/types/skill.ts` | SKILL_DEFINITIONS (16 skills, English `triggers` baselines; `hasReferences` gates reference deployment — incl. prospec-backfill-spec (extract a draft, BL-039) and prospec-promote-backfill (formalize a reviewed draft into the backfill scaffold); `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
+| `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES (`quick`/`standard`/`full`/`backfill`), GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
 | `src/types/spec.ts` | FeatureSpecFrontmatterSchema, ProductSpecFrontmatterSchema |
 | `src/types/errors.ts` | ProspecError base + 13 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid, McpResourceNotFound) |
@@ -24,10 +24,10 @@
 ## Public API
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words)
-- `SKILL_DEFINITIONS` — 15 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
+- `SKILL_DEFINITIONS` — 16 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
 - `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
 - `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
-- `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full; absent = standard, BL-004)
+- `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full/backfill; absent = standard, BL-004; `backfill` is a promotion-time scale set by `/prospec-promote-backfill`)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields); accepts an optional `{ cause }` forwarded to `Error` (ModuleDetectionError also threads `cause`, preserving the underlying failure)
 - `KNOWLEDGE_STRATEGIES` / `KNOWLEDGE_FILE_TYPES` — knowledge generation const tuples; `KnowledgeSchema.files` is `z.array(z.enum(KNOWLEDGE_FILE_TYPES)).optional()`, so the tuple is enforced by the schema (not just a documentation const)

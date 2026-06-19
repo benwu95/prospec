@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1659%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1696%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -215,17 +215,7 @@ prospec knowledge init       # → 生成 raw-scan.md + 空骨架（_index.md、
 
 這裡的 `knowledge init` 會讀取你既有的程式碼，所以 `/prospec-knowledge-generate` 一開始就產出內容豐富的 Knowledge base。接著就照上面步驟 3 跑你的第一個變更 —— 開發迴圈與 Greenfield 完全相同。
 
-**選用 —— 回填 Feature Spec（WHAT 層）。** `knowledge init` 捕捉的是程式碼*怎麼*組織；brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。對沒有 spec 覆蓋的模組，用 `/prospec-backfill-spec` 從既有 code stage 一份草稿，再經一般 forward path 晉升 —— 草稿是 *route-compatible* 的（帶 `**Feature:**`/`**Story:**` 標頭），沒有捷徑直寫 `prospec/specs/features/`（archive 是唯一寫入者）：
-
-```bash
-/prospec-backfill-spec       # → 回填 Feature Spec 草稿至
-                             #   .prospec/changes/[name]/backfill-draft.md；推不出的 intent 標 [NEEDS CLARIFICATION]
-```
-
-1. **審閱草稿** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC —— 單看 code 無法揭露的 intent），並確認候選 feature slug。
-2. **接進一個 change** —— 把草稿的 User Story 變成 `proposal.md`、REQ 候選變成 `delta-spec.md`（列為 `ADDED`，沿用草稿的 `**Feature:**` slug）；可用 `/prospec-new-story` 起頭。
-3. **驗證** —— 跑 `/prospec-verify` 直到 S/A（`status: verified`）。
-4. **歸檔** —— 跑 `/prospec-archive`；其 Feature Spec Sync 才把需求寫進 `prospec/specs/features/{slug}.md`。這個畢業步驟是唯一會寫信任區的環節。
+`knowledge init` 捕捉的是程式碼*怎麼*組織，但 brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。補上這個 WHAT 層缺口是一條獨立的一等流程 —— 見下方 **[Backfill：把既有程式碼納進信任區](#backfill把既有程式碼納進信任區)**。它不屬於 bootstrap，可在任何時候執行。
 
 </details>
 
@@ -274,9 +264,31 @@ Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案
 
 ---
 
+## Backfill：把既有程式碼納進信任區
+
+Brownfield 專案累積了大量「沒有 Feature Spec 描述」的行為。**Backfill** 是一條一等、雙 skill 的流程：從程式碼反向萃取這些行為，並把它 graduate 進規格信任區（`prospec/specs/features/`）—— 而且**從不手寫信任區**（archive 維持唯一寫入者）。
+
+```mermaid
+flowchart TD
+    CODE[("既有<br/>brownfield code")] --> BF([萃取<br/>Backfill]) -- "草稿 + 人工審閱" --> PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify]) -- "spec-fidelity → S/A" --> A([歸檔<br/>Archive])
+
+    A -- Spec Sync --> FS[("Feature Specs<br/>graduate 進信任區")]
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    class CODE,FS asset;
+```
+
+1. **萃取** —— `/prospec-backfill-spec` 讀程式碼（與 tests、git history、docs）、stage 一份 route-compatible 的 `backfill-draft.md`；無法從程式碼推得的 intent 標 `[NEEDS CLARIFICATION]`，絕不捏造。
+2. **審閱** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC），確認候選 feature slug。這是人工關卡。
+3. **晉升** —— `/prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
+4. **驗證** —— `/prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。
+5. **歸檔** —— `/prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
+
+---
+
 ## AI Skills
 
-Prospec 生成 15 個 Skills —— 14 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
+Prospec 生成 16 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
 
 | Skill | Slash Command | 說明 |
 |-------|---------------|------|
@@ -294,6 +306,7 @@ Prospec 生成 15 個 Skills —— 14 個涵蓋完整 SDD 生命週期，外加
 | **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
 | **回填規格** | `/prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
+| **晉升回填** | `/prospec-promote-backfill` | 把審閱過的回填草稿定型化為 backfill change scaffold（proposal + delta-spec + metadata、`scale: backfill`、`status: implemented`;輕量 scale —— 無 plan/tasks）；絕不直寫信任區 |
 
 > **啟動收尾** —— `/prospec-quickstart` 在 `prospec quickstart` 之後執行一次（在地化 skill triggers、重新同步 agent 設定、生成 AI Knowledge）。它以 Skill 形式部署於磁碟，但不列入常駐的 entry config，因此不增加任何重複性 token 成本。
 
@@ -530,7 +543,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1659 個測試）
+# 執行所有測試（1696 個測試）
 pnpm test
 
 # Watch 模式
@@ -547,9 +560,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1659 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1099 tests
-- Contract tests（CLI 輸出 + Skill 格式）：503 tests
+**測試覆蓋率**：1696 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1100 tests
+- Contract tests（CLI 輸出 + Skill 格式）：539 tests
 - Integration tests：17 tests
 - E2E tests：40 tests
 
