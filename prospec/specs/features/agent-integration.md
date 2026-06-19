@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-06-15
-story_count: 9
-req_count: 38
+last_updated: 2026-06-19
+story_count: 10
+req_count: 42
 ---
 
 # Agent Integration
@@ -315,6 +315,41 @@ section-scoped、結構感知、mutation-verified 契約測試：斷言 `exclude
 
 ---
 
+### US-432: prospec-promote-backfill skill 註冊、部署與 scale 登錄 [P2]
+
+身為一個維護 prospec skill 集的開發者，
+我想要新的 `prospec-promote-backfill` skill 被正式註冊（`SKILL_DEFINITIONS`）、其 references 被 `agent sync` 部署、`scale: backfill` 登錄進 `CHANGE_SCALES` enum，且 user-facing 文件反映它，
+以便這個 backfill 晉升 skill 在各 agent dir 一致部署、scale 值有型別契約、使用者文件不漏列。
+
+**Acceptance Scenarios:**
+- WHEN `agent sync` 執行 THEN `.claude/skills/`、`.agents/skills/` 皆部署 `prospec-promote-backfill/SKILL.md` + 其 references（proposal + delta-spec-format）
+- WHEN 讀 `CHANGE_SCALES` THEN 含 `backfill`（第 4 值），`ChangeMetadataSchema.safeParse({scale:'backfill'})` 成功
+- WHEN 讀 user-facing 文件 THEN `README.md`/`README.zh-TW.md`（skill 目錄 + brownfield workflow）與 `CLAUDE.md` 皆含該 skill、skill 計數 16
+
+### Behavior Specifications
+
+#### REQ-TYPES-032: SKILL_DEFINITIONS 註冊 promote skill
+`src/types/skill.ts` `SKILL_DEFINITIONS` 新增 `prospec-promote-backfill`（Lifecycle、`hasReferences: true`），總數 15→16，描述同步 `.hbs` frontmatter（雙寫：frontmatter render 進 SKILL.md、SKILL_DEFINITIONS 供 CLAUDE.md/entry config）。
+- WHEN 讀 `SKILL_DEFINITIONS`, THEN 含 `prospec-promote-backfill`、`hasReferences:true`、count 16
+- WHEN triggers 比對, THEN 不與既有 skill 衝突
+
+#### REQ-TYPES-033: CHANGE_SCALES enum 納入 backfill
+`src/types/change.ts` `CHANGE_SCALES` 由 `['quick','standard','full']` 擴為含 `'backfill'`，使 `ChangeMetadata.scale` 型別與 Zod enum 能表示 backfill；`change.test.ts` 對應改斷言四值。
+- WHEN `safeParse({scale:'backfill'})`, THEN success
+- WHEN enum-membership 斷言, THEN 為四值、enum-reject 測試仍有效
+
+#### REQ-SERVICES-030: agent-sync 部署 promote skill references
+`agent-sync.service.ts` `getReferenceMap()` 新增 `prospec-promote-backfill` 條目（proposal-format + delta-spec-format——輕量 scaffold 只需這兩個），`agent sync` 部署該 skill 與 references。
+- WHEN `getReferenceMap('prospec-promote-backfill')`, THEN 回傳 proposal + delta-spec references
+- WHEN `agent sync` 後, THEN 各 agent skill dir 含 SKILL.md + 2 references
+
+#### REQ-AGNT-024: user-facing 文件反映新 skill
+`README.md`/`README.zh-TW.md` 的 skill 目錄表列 + brownfield workflow 小節雙語同步新 skill 且 header skill 計數 16/15；`CLAUDE.md` Available Prospec Skills 同步（由 `agent sync` 從 `SKILL_DEFINITIONS` 重生）。
+- WHEN 讀兩份 README, THEN skill 目錄表 + workflow 皆含 `prospec-promote-backfill`、計數 16
+- WHEN 讀 `CLAUDE.md`, THEN Available Prospec Skills 含該 skill
+
+---
+
 ## Edge Cases
 
 - 未偵測到任何 AI CLI：列出支援清單並提示安裝
@@ -364,3 +399,4 @@ section-scoped、結構感知、mutation-verified 契約測試：斷言 `exclude
 | 2026-06-14 | fix-archive-sibling-reference | prospec-archive 自包含 promotion-format（移除唯一跨 skill sibling-dir 引用、補 contract guard）；single source 仍 promotion-format.hbs | REQ-AGNT-015 (MODIFIED) |
 | 2026-06-14 | vendor-engineering-heuristics | verify/review 自包含 vendored MIT 工程啟發式 references（debug-recovery triage + 三 lens 判準），零 runtime 外部依賴、完整 MIT notice + SHA、README See Also 非依賴 | REQ-TEMPLATES-083/084/085, REQ-AGNT-022 (ADDED) |
 | 2026-06-15 | add-quickstart-command | excludeFromEntryConfig onboarding skill（entry 排除、SKILL.md 仍部署）+ prospec-quickstart 模板（搭 project-setup US-010 的 CLI quickstart） | US-431; REQ-TYPES-030, REQ-AGNT-023, REQ-TEMPLATES-108, REQ-TESTS-029 (ADDED) |
+| 2026-06-19 | backfill-promotion-path | prospec-promote-backfill skill 註冊（SKILL_DEFINITIONS 16）+ `scale: backfill` 登錄 CHANGE_SCALES enum + agent-sync 部署（proposal+delta-spec refs）+ README ×2/CLAUDE.md skill 清單同步 | US-432; REQ-TYPES-032/033, REQ-SERVICES-030, REQ-AGNT-024 (ADDED) |

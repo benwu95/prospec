@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-06-19
-story_count: 22
-req_count: 89
+story_count: 23
+req_count: 96
 ---
 
 # SDD 開發流程
@@ -766,6 +766,57 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 
 ---
 
+## US-23: brownfield backfill 規格端到端 graduate（scale: backfill）[P2]
+
+身為一個在 brownfield 專案補規格的開發者，
+我想要把已審閱的 backfill 草稿以**輕量** scale 端到端 graduate（promote → verify → archive），verify 改評 spec-fidelity、既有程式碼品質落差視為既有技術債而非本次缺陷，
+以便忠實反映既有程式碼的 backfill 規格不被「為新程式碼設計的品質 gate」擋死，而能誠實畢業進信任區。
+
+**Acceptance Scenarios:**
+- WHEN `/prospec-promote-backfill` 對齊好的 `backfill-draft.md` THEN 產出**輕量** scaffold（proposal + delta-spec + metadata：`scale: backfill`/`status: implemented`/`related_modules`），**無 plan/tasks**
+- WHEN verify 處理 `scale: backfill` 變更 THEN 2/5 spec-fidelity 為主 graded（每條 REQ AC 的 `file:line` 須成立）、既有程式碼品質 `[MUST]` 違規降 informational、1/5 task-completion `not-applicable`
+- WHEN 既有測試實際 fail（非缺測試）THEN 仍判真實 FAIL；品質降級僅在 `backfill-draft.md` provenance 存在時套用（marker 自證不可信）
+- WHEN archive 處理 `scale: backfill` THEN 接受 graduate、受影響模組由 `related_modules`/`**Feature:**`→feature-map 推導、跳過 REQ-prefix auto knowledge-update、Phase 3.5 沿用 delta-spec graduate
+
+### Behavior Specifications
+
+#### REQ-TEMPLATES-115: verify scale: backfill spec-fidelity 評分契約
+`prospec-verify` 辨識 `metadata.scale: backfill`，Verification 2/5（delta-spec compliance）升為主要 graded 維度，驗證每條 REQ 的 AC 是否忠實對應既有程式碼。Entry Gate 例外只要 proposal + delta-spec（無 plan/tasks）；grade S/A 代表「spec 忠實反映程式碼」，沿用既有 `verified` gate。
+- WHEN `scale: backfill`, THEN 2/5 為 graded 主軸；AC 的 `file:line` 成立→PASS、不成立→FAIL、缺證據→WARN/FAIL（不得空 PASS）
+- WHEN Entry Gate 檢查 artifacts, THEN backfill 只要 proposal + delta-spec、1/5 task-completion `not-applicable`
+
+#### REQ-TEMPLATES-116: 既有違規降 informational + 測試分流 + provenance 綁定
+3/5 把既有程式碼品質類 `[MUST]` 違規（缺測試/覆蓋/層級，非本次引入）記為 informational 技術債、不壓 grade；5/5 缺測試→informational、既有測試 fail→真實 FAIL。降級僅在 verify Entry Gate 確認 `backfill-draft.md` 存在（provenance）時套用，否則以 standard 契約評分——防 `scale: backfill` 成為新程式碼品質 gate 的 bypass。
+- WHEN `scale: backfill` 且 provenance 成立, THEN 既有品質 `[MUST]` 違規→informational、缺測試→informational
+- WHEN `backfill-draft.md` 缺席, THEN 以 standard 契約評 3/5、5/5 + WARN（marker 可手改、自證不可信）
+
+#### REQ-TEMPLATES-117: archive 接受 backfill + 模組推導切換 + Phase 3.5 graduate
+`prospec-archive` 接受 `scale: backfill` graduate；受影響模組在此 scale 由 `metadata.related_modules` +（`**Feature:**`→`feature-map.yaml` modules）推導，非 REQ-id 前綴（feature-slug REQ-id 不對應模組）；Phase 2 tasks-completion skip（無 tasks.md）；Phase 3.5 沿用 delta-spec graduate（REQ + Story，由 `**Feature**` 路由）。
+- WHEN archive `scale: backfill`, THEN Entry Gate/Phase 4 用 `related_modules`/Feature→feature-map 推導模組；feature 未進 feature-map→fallback `related_modules`
+- WHEN graduate, THEN Phase 3.5 沿用 delta-spec 路徑；Phase 2 對 backfill skip tasks 完成率
+
+#### REQ-TEMPLATES-118: /prospec-promote-backfill skill（輕量 scaffold）
+新 Lifecycle skill `prospec-promote-backfill.hbs`，把已審閱 `backfill-draft.md` 定型化為 proposal + delta-spec + metadata（`scale: backfill`/`status: implemented`/`related_modules` 取自 draft traced `file:line`）。`backfill` 是像 `quick` 的輕量 scale——**不產 plan.md/tasks.md**（產之是只為過 gate 的 hollow make-work）。Entry Gate 拒絕未解 `[NEEDS CLARIFICATION]`；never 寫信任區。
+- WHEN 觸發 promote, THEN 產 proposal + delta-spec + metadata、無 plan/tasks、直接入 `status: implemented`
+- WHEN draft 有未解 `[NEEDS CLARIFICATION]`, THEN 拒絕展開、送回 review gate
+
+#### REQ-TEMPLATES-119: lifecycle/scale 文件記錄 backfill 入口
+`_status-lifecycle.md`（ai-knowledge + init template 雙寫）記錄 `scale: backfill`：promote skill 是 lifecycle **入口**，直接設 `status: implemented`（brownfield code 已存在），再走 `verified → archived`；`prospec-new-story` scale 表標註 backfill 為 promotion-time scale（非 new-story 提議）；delta-spec template/format 註記 feature-slug REQ-id 用法。
+- WHEN 讀 lifecycle 文件, THEN 兩份副本皆描述 backfill 入口（contract test 鎖模板副本同步）
+- WHEN new-story 評估 scale, THEN backfill 不列為 new-story 選項
+
+#### REQ-SERVICES-031: archive.service 對 backfill 跳過 REQ-prefix auto knowledge-update
+`archive.service.ts` 的 auto knowledge-update safety net 對 `scale: backfill` 跳過（`ArchivedChange.scale` 把關）。backfill delta-spec 用 feature-slug REQ-id，REQ-prefix 推導會誤判為模組名、寫出幽靈 `modules/<slug>/README.md` 與 module-map 條目；backfill 模組同步由 skill 層 Entry Gate（`related_modules`/Feature→feature-map）負責。
+- WHEN archive `scale: backfill`, THEN 不呼叫 `executeKnowledgeUpdate`、不產生幽靈模組
+- WHEN regression test 執行, THEN 斷言 backfill 變更未觸發 auto knowledge-update
+
+#### REQ-TESTS-034: backfill 模式 contract 斷言（mutation-verified）
+`tests/contract/skill-format.test.ts` section-scoped 斷言：verify fidelity 主軸/既有違規降 informational/測試分流/Entry Gate 例外 + provenance/1-5 N/A、archive 接受 + 模組推導 + Phase 2 skip + Phase 3.5 arm + auto-update skip、review Entry Gate 例外、promote 輕量 scaffold（無 plan/tasks）、`SKILL_DEFINITIONS` count 16；`archive.service.test.ts` backfill skip regression。全部 mutation-verified（PB-001）。
+- WHEN contract runs, THEN 上述每行為各有 section-scoped 斷言
+- WHEN 移除/改壞任一被釘語意或行為, THEN 對應斷言轉紅
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -803,3 +854,4 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 | 2026-06-16 | add-reverse-spec-extraction | brownfield WHAT-layer 反向規格萃取：prospec-design Extract Mode input=code 變體（triangulation→route-compatible 草稿、>50% story-level 護欄、信任區 never-write、未覆蓋偵測、completeness/count-fidelity）；MODIFIED REQ-DSGN-003 交叉引用（BL-032） | US-22; REQ-TEMPLATES-104~107, REQ-TESTS-028 (ADDED); REQ-DSGN-003 (MODIFIED, design-phase) |
 | 2026-06-17 | extract-backfill-spec-skill | input=code 反向變體抽離為獨立 Lifecycle skill `prospec-backfill-spec`（命名 reverse→backfill、reverse-draft.md→backfill-draft.md）；prospec-design 回歸純 Generate/Extract；contract REQ-TESTS-028 retarget + negative | US-22; REQ-TEMPLATES-108 (ADDED); REQ-TEMPLATES-104~107, REQ-TESTS-028 (MODIFIED); REQ-DSGN-003 (MODIFIED, design-phase) |
 | 2026-06-19 | feature-first-backfill | backfill 取材/覆蓋掃描單位 module→feature 縱切片（兩段式 gather→cluster、Pass-2 tracing cite `file:line`、跨模組 integration-edge 一等 AC gated on 兩端 grounding、Phase 4 未覆蓋 feature、基礎設施非 feature NEVER、feature-boundary-criteria reference 外置 hasReferences:true）（BL-039） | US-22; REQ-TEMPLATES-109~112, REQ-TESTS-030 (ADDED); REQ-TEMPLATES-104/105/107/108 + US-22 AC (MODIFIED) |
+| 2026-06-19 | backfill-promotion-path | `scale: backfill`（第 4 個 CHANGE_SCALES 值，輕量 scale）+ `/prospec-promote-backfill` skill 讓 brownfield backfill 規格端到端 graduate：promote 產輕量 scaffold（proposal+delta-spec+metadata，無 plan/tasks）；verify 評 spec-fidelity、既有品質 MUST 降 informational（provenance-gated）、1/5 N/A；archive 接受、related_modules/Feature→feature-map 推導、跳過 REQ-prefix auto knowledge-update | US-23; REQ-TEMPLATES-115~119, REQ-SERVICES-031, REQ-TESTS-034 (ADDED) |
