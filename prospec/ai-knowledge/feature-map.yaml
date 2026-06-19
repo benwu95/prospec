@@ -1,0 +1,80 @@
+features:
+  - feature: agent-integration
+    modules:
+      - templates
+      - tests
+      - types
+    req_prefixes:
+      - AGNT
+      - SKILL
+    status: active
+  - feature: ai-knowledge
+    modules:
+      - lib
+      - services
+      - templates
+      - tests
+      - types
+    req_prefixes:
+      - KNOW
+    status: active
+  - feature: design-phase
+    modules:
+      - templates
+    req_prefixes:
+      - DSGN
+    status: active
+  - feature: drift-detection
+    modules:
+      - cli
+      - lib
+      - services
+      - templates
+      - tests
+      - types
+    status: active
+  - feature: feedback-promotion
+    modules:
+      - templates
+      - tests
+      - types
+    status: active
+  - feature: mcp-server
+    modules:
+      - lib
+      - types
+    req_prefixes:
+      - MCP
+    status: active
+  - feature: project-setup
+    modules:
+      - lib
+      - services
+      - templates
+      - tests
+      - types
+    req_prefixes:
+      - SETUP
+    status: active
+  - feature: sdd-workflow
+    modules:
+      - services
+      - templates
+      - tests
+      - types
+    req_prefixes:
+      - CHNG
+      - SPEC
+      - SPECS
+      - REF
+    status: active
+  - feature: token-measurement
+    modules:
+      - cli
+      - lib
+      - services
+      - tests
+      - types
+    req_prefixes:
+      - MEASURE
+    status: active

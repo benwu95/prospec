@@ -20,6 +20,7 @@ modules:
       - triggers
       - measurement
       - drift-report
+      - feature-map
       - mcp
       - category
     relationships:
@@ -52,6 +53,7 @@ modules:
       - drift-checker
       - drift-sources
       - task-markers
+      - feature-map
       - category
     relationships:
       depends_on:
@@ -75,6 +77,7 @@ modules:
       - agent-sync
       - spec-sync
       - product
+      - feature-map
       - triggers
       - language
       - measure
@@ -123,6 +126,7 @@ modules:
       - change
       - stable-prefix
       - entry-gate
+      - feature-map
       - category
       - grouping
     relationships:

@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, plus the canonical _index column schema (11 files, 923 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, feature-map index, plus the canonical _index column schema (12 files, 986 lines)
 
 <!-- prospec:auto-start -->
 
@@ -16,7 +16,8 @@
 | `src/types/errors.ts` | ProspecError base + 13 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid, McpResourceNotFound) |
 | `src/types/constitution.ts` | ConstitutionRule — RFC-2119 severity (MUST/SHOULD/MAY) + name/description/rationale/check |
 | `src/types/measurement.ts` | Provider-neutral TokenUsage/Pricing + MeasurementReport schemas, AGENT_PROVIDER_MAP, DEFAULT_REPORT_FILENAME |
-| `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 5 frozen check ids, skipped-needs-reason rule, frozen knowledge-health field contract |
+| `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 7 frozen check ids (incl. `dangling-prefix`, `feature-modules`), skipped-needs-reason rule, frozen knowledge-health field contract |
+| `src/types/feature-map.ts` | FeatureMapSchema for `feature-map.yaml` — feature→module index complementing module-map.yaml (which modules a feature spans + non-module REQ prefixes it owns); FEATURE_STATUSES, FeatureMap/FeatureEntry/FeatureStatus types |
 | `src/types/mcp.ts` | MCP server contract — resource URI constants, tool I/O zod schemas (search_modules incl. additive `category` default [], get_dependency_direction) |
 | `src/types/knowledge.ts` | Canonical `_index.md` column schema — INDEX_TABLE_COLUMNS (7), INDEX_COLUMN, INDEX_TABLE_HEADER/SEPARATOR; single source for every index emitter + parser |
 
@@ -33,7 +34,8 @@
 - `isStatusBefore(current, target)` — true when `current` precedes `target` in `CHANGE_STATUSES`; keeps status advances forward-only so re-running a planning command never regresses a change's status
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
 - `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer); `TaskMeasurementSchema.refine()` requires a non-empty `reason` when status is skipped/failed (honesty invariant, mirrors DriftCheckResultSchema)
-- `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
+- `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; `DRIFT_CHECK_IDS` now lists 7 ids (added `dangling-prefix`, `feature-modules`); semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
+- `FeatureMapSchema` / `FEATURE_STATUSES` — Zod schema for `feature-map.yaml` (the feature→module index); only structural shape (slug safety + module-map membership are deferred to the lib loader/collector), `FeatureEntry.status` defaults to `active`
 - `MCP_RESOURCE_URIS` / `SearchModulesInputShape` / `DependencyDirectionResultSchema` — MCP resource URIs + tool I/O contracts; input shapes are raw Zod shapes (SDK registerTool takes ZodRawShape), wrapped schemas exist for standalone validation
 - `INDEX_TABLE_COLUMNS` / `INDEX_COLUMN` / `INDEX_TABLE_HEADER` / `INDEX_TABLE_SEPARATOR` — canonical `_index.md` module-table column schema; the single source every emitter (init/knowledge render-context injection, knowledge-update) and parser (change-story, knowledge-reader) derives from
 
@@ -48,6 +50,8 @@
 2. Adding a new error: Extend `ProspecError` in `errors.ts` with `code` (UPPER_SNAKE) and `suggestion`.
 3. Adding a new skill: Add entry to `SKILL_DEFINITIONS` in `skill.ts`, then update contract test count in `skill-format.test.ts`.
 4. Changing config schema: Update `ProspecConfigSchema` in `config.ts` — use `.optional()` for new fields to avoid breaking existing configs.
+5. Adding a feature-map field: Edit `FeatureMapSchema`/`FeatureEntrySchema` in `feature-map.ts` — keep it structural only; push semantic checks (slug safety, module membership) to the lib loader/collector.
+6. Adding a drift check id: Append to `DRIFT_CHECK_IDS` in `drift-report.ts` (frozen, additive only) → wire the new id in the drift services layer.
 
 ## Ripple Effects
 
@@ -65,6 +69,7 @@
 - `AGENT_CONFIGS` is `Record<ValidAgent, AgentConfig>` — `VALID_AGENTS` is the single source; adding an agent there forces a matching map entry (compile error otherwise), so don't duplicate the agent list anywhere
 - `drift-report.ts` knowledge_health field names are a FROZEN downstream contract (Knowledge Flywheel, MCP server `knowledge://health`) — renaming them is a breaking change, not a refactor
 - `mcp.ts` tool result schemas are protocol-frozen (clients consume structuredContent) — `SEARCH_MATCH_FIELDS` / `DEPENDENCY_DIRECTION_SOURCES` literals are contract values, not free strings; extend ONLY additively (e.g. `SearchModuleMatch.category` was added as `default([])`, never reordering/removing existing fields)
+- `feature-map.ts` is intentionally shape-only — types is a leaf importing only `zod`, so the schema CANNOT call `isSafeResourceName` or check `modules[]` against module-map; that semantic validation lives in the lib loader/collector. Don't try to enforce it here.
 
 <!-- prospec:auto-end -->
 
