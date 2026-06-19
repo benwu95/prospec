@@ -138,6 +138,9 @@
 - [x] [BL-040](#bl-040) `feature-map.yaml`：feature→module 索引 + 覆蓋掃描決定性化 — BL-039 的選配加速器（依賴 BL-039）✅ 已完成 · P3
 - [x] [BL-041](#bl-041) Archive Summary 收斂進 `_archived-history/`（date-prefixed spec-history 歸宿）— 消解 archive spec-history 三方不一致、清乾淨 `specs/` root ✅ 已完成 · P3
 
+### MCP 真相層擴充（2026-06-19）
+- [ ] [BL-042](#bl-042) MCP 暴露 spec 系統入口/索引（`spec://product` + `knowledge://feature-map`）— 讓外部/冷啟動 agent 一次拿到專案概觀＋feature 路由，補 `spec://feature/{name}`（細節）缺的入口（G3）待處理 · P2
+
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
@@ -2588,6 +2591,34 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [x] contract pin 新目的地（section-scoped、mutation-verified、negative-assert 不指 flat root）
 - [x] `REQ-SERVICES-010`/`REQ-TEMPLATES-010` MODIFIED + `REQ-TESTS-033` ADDED 經 forward path 畢業進 `sdd-workflow`
 - [x] 零新 runtime（spec-history copy 為 skill/operator 步驟、非程式自動化）
+
+---
+
+### BL-042
+
+**MCP 真相層擴充：暴露 spec 系統入口/索引（`spec://product` + `knowledge://feature-map`）**
+
+> **2026-06-19 設計依據**：見 [`planning/design-mcp-server-enhancement.md`](design-mcp-server-enhancement.md)（v3）。MCP server 用途＝讓**外部/冷啟動 agent**（未裝 prospec skill、或啟動位置不在專案）快速理解程式內容＋有哪些 feature（權威來源 `specs/features/mcp-server.md` 的 Target users）。現有表面已暴露 module 層真相與 `spec://feature/{name}`（feature **細節**），但 spec 系統的**入口/索引**兩者皆未暴露：`product.md`（PRD 入口）與 `feature-map.yaml`（feature→module 路由）。本案一次補上兩個同形 read-only resource。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P2 — 中（補外部 agent 理解專案的入口缺口；backing 近現成、純加值、低風險）|
+| Skill 類型 | 增強 `prospec mcp serve`（純 server 改動：+2 read-only resources；不新增 skill）|
+| 影響範圍 | `lib`（`knowledge-reader.ts` 加 `readProduct` + `readFeatureMapRaw`）、`services`（`mcp.service.ts` 註冊 2 resource + `McpServerContext` 加 `specsPath`）、`types`（`mcp.ts` `MCP_RESOURCE_URIS` **append** `product`/`featureMap`）、`tests`（list/read + 缺檔降級 + 格式錯大聲拋）、trust zone（`mcp-server` REQ-MCP-002/003 擴充，走 forward path）|
+| 預估複雜度 | Standard（兩個 whole-doc / raw-YAML reader + 註冊；`loadFeatureMap` 已建、reader 各約一行）|
+| 依賴 | 無（`feature-map.yaml` 已由 BL-040 出貨、`product.md` 已由 archive 生成；本案僅暴露既有檔）|
+
+**背景**：spec 系統本就是兩層——`product.md`（PRD 入口/2 分鐘總覽 + Feature Map + 連到每份 spec）→ `features/*.md`（細節）。MCP 目前暴露了**細節**（`spec://feature/{name}`）卻漏了**入口**（`product.md` 與 `feature-map.yaml`）。對外部冷啟動 agent，product.md 是最佳第一讀（一次拿到專案概觀 + feature 清單 + 入口連結），feature-map 是機器可讀路由（feature→哪些模組實作、`status`）。`add-feature-map`（BL-040）只出貨了 `feature-map.yaml` artifact 與治理 drift，**未涉 MCP 暴露**；`mcp-server` spec 的 spec resources 也只列 `spec://feature/{name}`——故兩者皆為乾淨 additive 缺口、非已決策排除。
+
+**驗收標準**：
+- [ ] `lib/knowledge-reader.ts` 新增 `readFeatureMapRaw(knowledgePath)`（鏡像 `readModuleMapRaw`，讀 `feature-map.yaml`）與 `readProduct(specsPath)`（鏡像 `readPlaybook`，讀 `specsPath/product.md`、realpath 圍堵）
+- [ ] `mcp.service.ts` 註冊 `knowledge://feature-map`（raw `application/yaml`，複製 `knowledge://module-map` 區塊）與 `spec://product`（`text/markdown`，複製 `playbook` 區塊）；缺檔 → `McpResourceNotFound`，`feature-map.yaml` 格式錯 → 大聲拋（同 module-map）
+- [ ] `McpServerContext` 多帶 `specsPath`（`execute()` 已有 `paths.specsPath`；`spec://product` 需要——今天只 thread `featuresDir`，`product.md` 在其父層 `specsPath/product.md`）
+- [ ] `types/mcp.ts` `MCP_RESOURCE_URIS` **append** `product`/`featureMap`（**不可 reorder**，protocol-frozen schema）；`resources/list` 含這兩個 URI
+- [ ] 缺檔降級 + 格式錯測試（比照既有 module-map/feature-spec 測試）；維持唯讀（REQ-MCP-007，純讀、零寫入面）
+- [ ] REQ-MCP-002（knowledge resources）/REQ-MCP-003（spec resources）擴充經 delta-spec → verify → archive 畢業進 `mcp-server`/`sdd-workflow` spec，未手改 `specs/features/`
+
+**明確不含**（design doc v3 §3.3 + 附錄 A 已否決，避免日後重提）：`knowledge://conventions`、`constitution://main`、`change://state`、`knowledge://drift`（作者/治理/工作流導向，與外部理解正交）；`knowledge://architecture`（write-only、與 index/module-map 重疊、stale 風險、本 repo 無此檔）。
 
 ---
 
