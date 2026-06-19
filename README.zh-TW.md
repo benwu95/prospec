@@ -14,11 +14,11 @@
 
 [English](./README.md) • [快速上手](#快速上手) • [為什麼選擇 Prospec？](#為什麼選擇-prospec) • [運作原理](#運作原理)
 
+**本專案 fork 自 [ci-yang/prospec](https://github.com/ci-yang/prospec)**
+
 </div>
 
 ---
-
-> **註:** 本專案 fork 自 [ci-yang/prospec](https://github.com/ci-yang/prospec)。
 
 ## 什麼是 Prospec？
 
@@ -681,7 +681,9 @@ MIT License - 詳見 [LICENSE](./LICENSE)。
 
 ## 致謝
 
-Prospec 的設計靈感來自：
+Prospec fork 自 Ci Yang 的 [ci-yang/prospec](https://github.com/ci-yang/prospec) — 本程式碼庫的上游來源。
+
+除了這層淵源，Prospec 的設計靈感亦來自：
 
 - [OpenSpec](https://github.com/openspec-ai/openspec) — Delta Specs、Fast-Forward、Archive
 - [Spec-Kit](https://github.com/anthropics/spec-kit) — Constitution 驗證

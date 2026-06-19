@@ -14,11 +14,11 @@
 
 [繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How it works](#how-it-works)
 
+**This project is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec)**
+
 </div>
 
 ---
-
-> **Note:** This project is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec).
 
 ## What is Prospec?
 
@@ -708,7 +708,9 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ## Acknowledgments
 
-Prospec draws inspiration from:
+Prospec is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec) by Ci Yang — the upstream project this codebase originates from.
+
+Beyond that lineage, Prospec draws inspiration from:
 
 - [OpenSpec](https://github.com/openspec-ai/openspec) — Delta Specs, Fast-Forward, Archive
 - [Spec-Kit](https://github.com/anthropics/spec-kit) — Constitution validation
