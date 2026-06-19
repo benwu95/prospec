@@ -216,19 +216,7 @@ prospec knowledge init       # → generates raw-scan.md + empty skeletons (_ind
 
 Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
 
-**Optional — backfill Feature Specs (WHAT layer).** `knowledge init` captures *how* your code is structured; brownfield modules usually still lack a Feature Spec describing *what* they do. For a module with no spec coverage, run `/prospec-backfill-spec` to stage a draft from existing code, then promote it through the normal forward path — the draft is *route-compatible* (it carries `**Feature:**`/`**Story:**` headers), so nothing is written straight to `prospec/specs/features/` (archive is its sole writer):
-
-```bash
-/prospec-backfill-spec       # → backfills a Feature Spec draft to
-                             #   .prospec/changes/[name]/backfill-draft.md; un-inferable intent → [NEEDS CLARIFICATION]
-/prospec-promote-backfill    # → formalizes the reviewed draft into the backfill scaffold
-                             #   (proposal + delta-spec + metadata scale: backfill, status: implemented)
-```
-
-1. **Review the draft** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC — intent that code alone can't reveal) and confirm the candidate feature slug.
-2. **Promote the draft** — run `/prospec-promote-backfill`; it turns the reviewed draft into the backfill change scaffold (proposal + delta-spec + metadata) and marks it `scale: backfill`, `status: implemented` (the brownfield code already exists). `backfill` is a light scale like `quick` — no hollow `plan.md`/`tasks.md`. This is the single, repeatable draft→scaffold step.
-3. **Verify** — run `/prospec-verify`. Under `scale: backfill` it grades **spec-fidelity** (each REQ's `file:line` must resolve) and records pre-existing code-quality gaps — e.g. untested brownfield code — as informational tech debt, so a faithful draft reaches grade S/A (`status: verified`) instead of being blocked by debt it merely documents.
-4. **Archive** — run `/prospec-archive`; its Feature Spec Sync writes the requirements into `prospec/specs/features/{slug}.md`. That graduation is the only step that writes the trust zone.
+`knowledge init` captures *how* your code is structured, but brownfield modules usually still lack a Feature Spec describing *what* they do. Closing that WHAT-layer gap is its own first-class flow — see **[Backfill: document existing code into the trust zone](#backfill-document-existing-code-into-the-trust-zone)** below. It is not part of bootstrap, so run it whenever you choose.
 
 </details>
 
@@ -274,6 +262,28 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 4. **AI Agent Agnostic** — works with any AI CLI via Markdown adapters
 5. **User Controls the Rules** — Constitution is user-defined, the tool enforces
 6. **Language Policy** — AI-generated docs in the language you choose at `prospec init` (default: English); code, technical terms, and git commit messages always in English
+
+---
+
+## Backfill: document existing code into the trust zone
+
+Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
+
+```mermaid
+flowchart TD
+    CODE[("existing<br/>brownfield code")] --> BF([Backfill]) -- "draft + human review" --> PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify]) -- "spec-fidelity → S/A" --> A([Archive])
+
+    A -- Spec Sync --> FS[("Feature Specs<br/>graduate into trust zone")]
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    class CODE,FS asset;
+```
+
+1. **Extract** — `/prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
+2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
+3. **Promote** — `/prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
+4. **Verify** — `/prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
+5. **Archive** — `/prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
 
 ---
 
