@@ -50,6 +50,12 @@ export function readModuleMapRaw(knowledgePath: string): string | null {
   return readTextIfExists(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
 }
 
+// Raw text, like readModuleMapRaw — the MCP feature-map resource serves the file
+// verbatim; parsing/validation lives in loadFeatureMap (the governance path), not here.
+export function readFeatureMapRaw(knowledgePath: string): string | null {
+  return readTextIfExists(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
+}
+
 export function readModuleReadme(knowledgePath: string, moduleName: string): string | null {
   if (!isSafeResourceName(moduleName)) return null;
   return readTextIfExists(path.join(knowledgePath, 'modules', moduleName, 'README.md'), knowledgePath);
@@ -69,6 +75,12 @@ export function readFeatureSpec(featuresDir: string, name: string): string | nul
   const filename = `${name}.md`;
   if (isArchivedSpec(filename)) return null;
   return readTextIfExists(path.join(featuresDir, filename), featuresDir);
+}
+
+// Product spec — the PRD entry point at specs/product.md (root is specsPath, the
+// parent of featuresDir). Whole-document read like readPlaybook; realpath-contained.
+export function readProduct(specsPath: string): string | null {
+  return readTextIfExists(path.join(specsPath, 'product.md'), specsPath);
 }
 
 // --- module-map load + clamp (moved verbatim from check.service.ts) ---

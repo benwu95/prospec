@@ -26,9 +26,11 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
 // --- knowledge-reader: every resource/tool read funnels through here ------------
 const readIndex = vi.fn();
 const readModuleMapRaw = vi.fn();
+const readFeatureMapRaw = vi.fn();
 const readPlaybook = vi.fn();
 const readModuleReadme = vi.fn();
 const readFeatureSpec = vi.fn();
+const readProduct = vi.fn();
 const listFeatureSpecs = vi.fn();
 const loadModuleMap = vi.fn();
 const parseIndexModules = vi.fn();
@@ -38,9 +40,11 @@ const isSafeResourceName = vi.fn();
 vi.mock('../../../src/lib/knowledge-reader.js', () => ({
   readIndex: (...a: unknown[]) => readIndex(...a),
   readModuleMapRaw: (...a: unknown[]) => readModuleMapRaw(...a),
+  readFeatureMapRaw: (...a: unknown[]) => readFeatureMapRaw(...a),
   readPlaybook: (...a: unknown[]) => readPlaybook(...a),
   readModuleReadme: (...a: unknown[]) => readModuleReadme(...a),
   readFeatureSpec: (...a: unknown[]) => readFeatureSpec(...a),
+  readProduct: (...a: unknown[]) => readProduct(...a),
   listFeatureSpecs: (...a: unknown[]) => listFeatureSpecs(...a),
   loadModuleMap: (...a: unknown[]) => loadModuleMap(...a),
   parseIndexModules: (...a: unknown[]) => parseIndexModules(...a),
@@ -69,6 +73,7 @@ import { execute, buildMcpServer, type McpServerContext } from '../../../src/ser
 const CTX: McpServerContext = {
   cwd: '/proj',
   knowledgePath: '/proj/ai-knowledge',
+  specsPath: '/proj/specs',
   featuresDir: '/proj/specs/features',
 };
 
@@ -203,6 +208,44 @@ describe('mcp.service knowledge resources', () => {
     // bare URI with no `(...)` cause suffix — distinct from the module-map path.
     await expect(client.readResource({ uri: MCP_RESOURCE_URIS.playbook })).rejects.toThrow(
       /MCP resource not found: knowledge:\/\/playbook$/,
+    );
+  });
+
+  it('feature-map resource returns yaml with application/yaml mime, read from knowledgePath (BL-042)', async () => {
+    readFeatureMapRaw.mockReturnValue('features: []');
+    const client = await connectClient();
+
+    const res = await client.readResource({ uri: MCP_RESOURCE_URIS.featureMap });
+    expect(res.contents[0].text).toBe('features: []');
+    expect(res.contents[0].mimeType).toBe('application/yaml');
+    expect(readFeatureMapRaw).toHaveBeenCalledWith(CTX.knowledgePath);
+  });
+
+  it('feature-map resource carries the archive bootstrap hint when null (BL-042)', async () => {
+    readFeatureMapRaw.mockReturnValue(null);
+    const client = await connectClient();
+
+    await expect(client.readResource({ uri: MCP_RESOURCE_URIS.featureMap })).rejects.toThrow(
+      /feature-map\.yaml not found — run `prospec archive` to bootstrap it/,
+    );
+  });
+
+  it('product resource returns markdown read from specsPath, not knowledgePath (BL-042)', async () => {
+    readProduct.mockReturnValue('# Product');
+    const client = await connectClient();
+
+    const res = await client.readResource({ uri: MCP_RESOURCE_URIS.product });
+    expect(res.contents[0].text).toBe('# Product');
+    expect(res.contents[0].mimeType).toBe('text/markdown');
+    expect(readProduct).toHaveBeenCalledWith(CTX.specsPath);
+  });
+
+  it('product resource carries the archive generate hint when null (BL-042)', async () => {
+    readProduct.mockReturnValue(null);
+    const client = await connectClient();
+
+    await expect(client.readResource({ uri: MCP_RESOURCE_URIS.product })).rejects.toThrow(
+      /product\.md not found — run `prospec archive` to generate it/,
     );
   });
 

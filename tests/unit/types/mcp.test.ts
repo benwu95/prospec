@@ -11,7 +11,7 @@ import {
 } from '../../../src/types/mcp.js';
 
 describe('MCP resource URI constants', () => {
-  it('exposes the six frozen resource URIs', () => {
+  it('exposes the eight frozen resource URIs', () => {
     expect(Object.values(MCP_RESOURCE_URIS).sort()).toEqual(
       [
         'knowledge://health',
@@ -19,7 +19,9 @@ describe('MCP resource URI constants', () => {
         'knowledge://module-map',
         'knowledge://module/{name}',
         'knowledge://playbook',
+        'knowledge://feature-map',
         'spec://feature/{name}',
+        'spec://product',
       ].sort(),
     );
   });
