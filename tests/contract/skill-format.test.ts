@@ -839,6 +839,21 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('offer to archive changes with other statuses');
     });
 
+    it('archive spec-history summary lands in date-prefixed _archived-history/, never flat specs root (REQ-TESTS-033)', () => {
+      // The committed audit-trail copy targets the drift-excluded _archived-history/ with a
+      // {YYYY-MM-DD}- prefix (name-aligned with the .prospec/archive/ folder), never flat
+      // specs/{change-name}.md (clutters specs root + gets scanned by req-references).
+      const ref = renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
+      const specArchiving = sectionOf(ref, '## Spec Archiving');
+      expect(specArchiving).toContain('prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(specArchiving).not.toContain('prospec/specs/{change-name}.md'); // never flat root
+
+      // The copy step must be explicit in the skill flow, not only buried in the reference.
+      const skill = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+      expect(skill).toContain('specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(skill).not.toContain('specs/{change-name}.md'); // never flat root in the skill either
+    });
+
     it('prospec-implement should set status: implemented when tasks complete', () => {
       const content = renderTemplate(
         'skills/prospec-implement.hbs',
