@@ -62,11 +62,7 @@ prospec/
       tests/
       types/
   specs/
-    _archived-capabilities/
     _archived-history/
-      001-prospec-mvp-cli/
-        checklists/
-        contracts/
     features/
 scripts/
   measure/
@@ -107,5 +103,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 330 |
+| Total files | 319 |
 | Scan depth | 10 |
