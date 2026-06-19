@@ -68,10 +68,10 @@ knowledge:
 
     const result = await execute({ cwd: '/project' });
     const claudeResult = result.agents.find((a) => a.agent === 'claude');
-    // claude emits a fixed total of 23 reference files across the skills that
+    // claude emits a fixed total of 24 reference files across the skills that
     // declare references (new-story 1 + plan 2 + design 6 + tasks 1 + ff 4 +
-    // implement 1 + review 2 + verify 1 + archive 4 + learn 1).
-    expect(claudeResult!.referenceFiles).toHaveLength(23);
+    // implement 1 + review 2 + verify 1 + archive 4 + backfill-spec 1 + learn 1).
+    expect(claudeResult!.referenceFiles).toHaveLength(24);
     // A skill with hasReferences=false (prospec-explore) must emit none.
     expect(
       claudeResult!.referenceFiles.some((f) => f.includes('prospec-explore/')),

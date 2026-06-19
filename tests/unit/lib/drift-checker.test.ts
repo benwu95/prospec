@@ -3,6 +3,8 @@ import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
   constitutionFallbackRules,
+  evaluateDanglingPrefix,
+  evaluateFeatureModules,
   evaluateFilePaths,
   evaluateImportDirection,
   evaluateKnowledgeHealth,
@@ -13,6 +15,7 @@ import {
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
+  FeatureMapGovernanceSource,
   GitTimestampSource,
   TaskSource,
 } from '../../../src/lib/drift-sources.js';
@@ -25,6 +28,7 @@ const emptyInputs: DriftCheckInputs = {
   dependencyRules: constitutionFallbackRules(),
   timestamps: { available: true, modules: [] },
   tasks: { available: true, changes: [] },
+  featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
   generatedAt: '2026-06-12T00:00:00Z',
 };
 
@@ -484,5 +488,152 @@ describe('buildDependencyRules — module without relationships', () => {
     // 'a' declares no depends_on at all, so importing 'b' is illegal.
     expect(r.result.status).toBe('fail');
     expect(r.findings[0]?.detail).toContain('a → b');
+  });
+});
+
+const governance = (
+  specs: FeatureMapGovernanceSource['specs'],
+  features: FeatureMapGovernanceSource['featureMap']['features'],
+): FeatureMapGovernanceSource => ({
+  available: true,
+  featureMap: { features },
+  moduleNames: ['lib', 'types'],
+  specs,
+});
+
+const unavailableGovernance: FeatureMapGovernanceSource = {
+  available: false,
+  reason: 'source unavailable: feature-map.yaml not present (optional index — checks skipped)',
+  featureMap: { features: [] },
+  moduleNames: [],
+  specs: [],
+};
+
+describe('evaluateDanglingPrefix (REQ-LIB-018)', () => {
+  it('skips when feature-map.yaml is unavailable (never a false positive)', () => {
+    const r = evaluateDanglingPrefix(unavailableGovernance);
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+  });
+
+  it('passes when every prefix is a module or a declared req_prefix', () => {
+    const r = evaluateDanglingPrefix(
+      governance(
+        [
+          {
+            feature: 'alpha',
+            source_path: 'specs/features/alpha.md',
+            reqs: [
+              { id: 'REQ-LIB-001', prefix: 'LIB', line: 1 },
+              { id: 'REQ-DOM-002', prefix: 'DOM', line: 2 },
+            ],
+          },
+        ],
+        [{ feature: 'alpha', modules: ['lib'], req_prefixes: ['DOM'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns once per distinct illegal prefix, at its first occurrence (warn-class)', () => {
+    const r = evaluateDanglingPrefix(
+      governance(
+        [
+          {
+            feature: 'alpha',
+            source_path: 'specs/features/alpha.md',
+            reqs: [
+              { id: 'REQ-GHOST-001', prefix: 'GHOST', line: 5 },
+              { id: 'REQ-GHOST-002', prefix: 'GHOST', line: 9 },
+            ],
+          },
+        ],
+        [{ feature: 'alpha', modules: ['lib'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({ check: 'dangling-prefix', severity: 'warn', line: 5 });
+    expect(r.findings[0]?.detail).toContain('GHOST');
+  });
+
+  it('flips pass→warn when a declared req_prefix is removed (mutation sense)', () => {
+    const specs = [
+      { feature: 'alpha', source_path: 'a.md', reqs: [{ id: 'REQ-DOM-001', prefix: 'DOM', line: 1 }] },
+    ];
+    expect(
+      evaluateDanglingPrefix(
+        governance(specs, [{ feature: 'alpha', modules: ['lib'], req_prefixes: ['DOM'], status: 'active' }]),
+      ).result.status,
+    ).toBe('pass');
+    expect(
+      evaluateDanglingPrefix(
+        governance(specs, [{ feature: 'alpha', modules: ['lib'], status: 'active' }]),
+      ).result.status,
+    ).toBe('warn');
+  });
+
+  it('treats declared req_prefixes case-insensitively (lowercase curation does not spuriously warn)', () => {
+    const r = evaluateDanglingPrefix(
+      governance(
+        [{ feature: 'alpha', source_path: 'a.md', reqs: [{ id: 'REQ-DOM-001', prefix: 'DOM', line: 1 }] }],
+        [{ feature: 'alpha', modules: ['lib'], req_prefixes: ['dom'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+});
+
+describe('evaluateFeatureModules (REQ-LIB-019)', () => {
+  it('skips when feature-map.yaml is unavailable', () => {
+    const r = evaluateFeatureModules(unavailableGovernance);
+    expect(r.result.status).toBe('skipped');
+  });
+
+  it('passes when a module-prefix REQ module is declared in the feature modules', () => {
+    const r = evaluateFeatureModules(
+      governance(
+        [{ feature: 'alpha', source_path: 'a.md', reqs: [{ id: 'REQ-LIB-001', prefix: 'LIB', line: 3 }] }],
+        [{ feature: 'alpha', modules: ['lib'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails when a module-prefix REQ references a module absent from feature modules (fail-class)', () => {
+    const r = evaluateFeatureModules(
+      governance(
+        [{ feature: 'alpha', source_path: 'a.md', reqs: [{ id: 'REQ-TYPES-001', prefix: 'TYPES', line: 7 }] }],
+        [{ feature: 'alpha', modules: ['lib'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]).toMatchObject({ check: 'feature-modules', severity: 'fail', line: 7 });
+    expect(r.findings[0]?.detail).toContain('types');
+  });
+
+  it('skips a feature spec with no feature-map entry — dangling-prefix still covers its prefixes', () => {
+    const r = evaluateFeatureModules(
+      governance(
+        [{ feature: 'orphan', source_path: 'o.md', reqs: [{ id: 'REQ-TYPES-001', prefix: 'TYPES', line: 1 }] }],
+        [{ feature: 'alpha', modules: ['lib'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('ignores non-module prefixes (those belong to dangling-prefix)', () => {
+    const r = evaluateFeatureModules(
+      governance(
+        [{ feature: 'alpha', source_path: 'a.md', reqs: [{ id: 'REQ-DOM-001', prefix: 'DOM', line: 1 }] }],
+        [{ feature: 'alpha', modules: ['lib'], status: 'active' }],
+      ),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
   });
 });

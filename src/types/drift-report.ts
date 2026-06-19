@@ -21,6 +21,10 @@ export const DRIFT_CHECK_IDS = [
   'import-direction',
   'knowledge-health',
   'task-completion',
+  // feature-map.yaml governance (skipped when the optional index is absent):
+  // REQ-prefix legality (warn) and the feature→module edge (fail).
+  'dangling-prefix',
+  'feature-modules',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

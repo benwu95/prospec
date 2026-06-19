@@ -12,6 +12,7 @@ import {
 import { DriftReportInvalid } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type {
+  FeatureMapGovernanceSource,
   GitTimestampSource,
   ImportEdgeSource,
   LinkSource,
@@ -44,6 +45,7 @@ export interface DriftCheckInputs {
   dependencyRules: DependencyRules;
   timestamps: GitTimestampSource;
   tasks: TaskSource;
+  featureMapGovernance: FeatureMapGovernanceSource;
   generatedAt: string;
 }
 
@@ -200,7 +202,85 @@ export function evaluateTaskCompletion(tasks: TaskSource): CheckOutcome {
   return outcome('task-completion', findings);
 }
 
-/** Run all five evaluators and assemble a schema-validated, deterministically ordered report. */
+/**
+ * REQ-prefix legality lint — every REQ prefix in a feature spec must be a
+ * module-map module or a feature-map-declared req_prefix. Permanently WARN-class
+ * (a naming-consistency lint, not feature↔module ground truth); its detection
+ * ceiling is human curation completeness. Skips entirely when feature-map.yaml
+ * is absent. One finding per distinct illegal prefix, at its first occurrence.
+ */
+export function evaluateDanglingPrefix(src: FeatureMapGovernanceSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('dangling-prefix', src.reason ?? 'source unavailable');
+  }
+  const moduleSet = new Set(src.moduleNames.map((m) => m.toLowerCase()));
+  // REQ prefixes are canonically uppercase; normalize declared req_prefixes so a
+  // curator's lowercase `req_prefixes: [dom]` does not spuriously flag REQ-DOM-*.
+  const declared = new Set<string>();
+  for (const f of src.featureMap.features) for (const p of f.req_prefixes ?? []) declared.add(p.toUpperCase());
+  const flagged = new Set<string>();
+  const findings: DriftFinding[] = [];
+  for (const spec of src.specs) {
+    for (const r of spec.reqs) {
+      if (flagged.has(r.prefix)) continue;
+      if (moduleSet.has(r.prefix.toLowerCase()) || declared.has(r.prefix.toUpperCase())) continue;
+      flagged.add(r.prefix);
+      findings.push({
+        check: 'dangling-prefix',
+        severity: 'warn',
+        source_path: spec.source_path,
+        line: r.line,
+        detail:
+          `dangling REQ prefix: "${r.prefix}" (e.g. ${r.id}) is neither a module-map module ` +
+          `nor a feature-map req_prefix — declare it in feature-map.yaml or fix the typo`,
+      });
+    }
+  }
+  return outcome('dangling-prefix', findings);
+}
+
+/**
+ * Self-validating feature→module edge — every module-prefix REQ a feature spec
+ * owns implies its module is in that feature's feature-map `modules`. The RHS is
+ * self-evident (no human curation), so a violation is an objective error and
+ * FAIL-class. Skips when feature-map.yaml is absent; a feature spec with no
+ * feature-map entry is skipped (dangling-prefix still covers its prefixes).
+ */
+export function evaluateFeatureModules(src: FeatureMapGovernanceSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('feature-modules', src.reason ?? 'source unavailable');
+  }
+  const moduleSet = new Set(src.moduleNames.map((m) => m.toLowerCase()));
+  const declaredByFeature = new Map<string, ReadonlySet<string>>();
+  for (const f of src.featureMap.features) {
+    declaredByFeature.set(f.feature, new Set(f.modules.map((m) => m.toLowerCase())));
+  }
+  const flagged = new Set<string>();
+  const findings: DriftFinding[] = [];
+  for (const spec of src.specs) {
+    const declared = declaredByFeature.get(spec.feature);
+    if (declared === undefined) continue;
+    for (const r of spec.reqs) {
+      const module = r.prefix.toLowerCase();
+      if (!moduleSet.has(module) || declared.has(module)) continue;
+      const key = `${spec.feature}|${module}`;
+      if (flagged.has(key)) continue;
+      flagged.add(key);
+      findings.push({
+        check: 'feature-modules',
+        severity: 'fail',
+        source_path: spec.source_path,
+        line: r.line,
+        detail:
+          `feature "${spec.feature}" owns ${r.id} (module-prefix "${r.prefix}") but its ` +
+          `feature-map modules do not list "${module}" — add "${module}" to feature-map.yaml`,
+      });
+    }
+  }
+  return outcome('feature-modules', findings);
+}
+
+/** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
     'req-references': evaluateReqReferences(inputs.reqDefinitions, inputs.reqReferences),
@@ -208,6 +288,8 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'import-direction': evaluateImportDirection(inputs.importEdges, inputs.dependencyRules),
     'knowledge-health': evaluateKnowledgeHealth(inputs.timestamps),
     'task-completion': evaluateTaskCompletion(inputs.tasks),
+    'dangling-prefix': evaluateDanglingPrefix(inputs.featureMapGovernance),
+    'feature-modules': evaluateFeatureModules(inputs.featureMapGovernance),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

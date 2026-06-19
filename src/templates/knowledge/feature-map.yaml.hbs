@@ -1,0 +1,10 @@
+features:
+{{#each features}}
+  - feature: {{this.feature}}
+{{#if this.modules}}    modules:
+{{#each this.modules}}      - {{this}}
+{{/each}}{{else}}    modules: []
+{{/if}}{{#if this.req_prefixes}}    req_prefixes:
+{{#each this.req_prefixes}}      - {{this}}
+{{/each}}{{/if}}    status: {{this.status}}
+{{/each}}

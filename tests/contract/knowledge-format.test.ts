@@ -10,6 +10,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
+import { parseYaml } from '../../src/lib/yaml-utils.js';
+import { FeatureMapSchema } from '../../src/types/feature-map.js';
 import {
   INDEX_TABLE_HEADER,
   INDEX_TABLE_SEPARATOR,
@@ -283,6 +285,50 @@ describe('Knowledge Format Contract', () => {
       const positions = order.map((h) => content.indexOf(h));
       expect(positions.every((p) => p >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    });
+  });
+
+  describe('feature-map.yaml.hbs format (REQ-TEMPLATES-113)', () => {
+    const render = (features: unknown) =>
+      renderTemplate('knowledge/feature-map.yaml.hbs', { features });
+
+    it('renders 2-space items, 4-space keys and 6-space members, round-tripping to the schema', () => {
+      const content = render([
+        { feature: 'sdd-workflow', modules: ['services', 'lib'], req_prefixes: ['CHNG'], status: 'active' },
+      ]);
+      expect(content).toContain('features:');
+      expect(content).toContain('  - feature: sdd-workflow');
+      expect(content).toContain('    modules:');
+      expect(content).toContain('      - services');
+      expect(content).toContain('    req_prefixes:');
+      expect(content).toContain('      - CHNG');
+      expect(content).toContain('    status: active');
+      const parsed = FeatureMapSchema.safeParse(parseYaml(content));
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.features[0]?.modules).toEqual(['services', 'lib']);
+    });
+
+    it('omits the req_prefixes key when none are declared (no empty key after bootstrap)', () => {
+      const withEmpty = render([
+        { feature: 'feedback-promotion', modules: ['templates'], req_prefixes: [], status: 'active' },
+      ]);
+      const withUndefined = render([
+        { feature: 'feedback-promotion', modules: ['templates'], status: 'active' },
+      ]);
+      expect(withEmpty).not.toContain('req_prefixes');
+      expect(withUndefined).not.toContain('req_prefixes');
+      expect(FeatureMapSchema.safeParse(parseYaml(withEmpty)).success).toBe(true);
+    });
+
+    it('renders empty modules as an explicit [] (feature with only non-module REQs), not YAML null', () => {
+      // a bare `modules:` parses to null and the schema rejects it — the [] is load-bearing
+      const content = render([
+        { feature: 'design-phase', modules: [], req_prefixes: ['DSGN'], status: 'active' },
+      ]);
+      expect(content).toContain('    modules: []');
+      const parsed = FeatureMapSchema.safeParse(parseYaml(content));
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.features[0]?.modules).toEqual([]);
     });
   });
 });

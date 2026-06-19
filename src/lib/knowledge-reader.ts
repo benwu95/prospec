@@ -3,6 +3,7 @@ import path from 'node:path';
 import { parseYaml } from './yaml-utils.js';
 import { ModuleDetectionError } from '../types/errors.js';
 import { ModuleMapSchema, type ModuleMap } from '../types/module-map.js';
+import { FeatureMapSchema, type FeatureMap } from '../types/feature-map.js';
 import type { SearchModulesResult, SearchMatchField } from '../types/mcp.js';
 import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 
@@ -102,6 +103,28 @@ export function clampModulePaths(moduleMap: ModuleMap, cwd: string): ModuleMap {
       }),
     })),
   };
+}
+
+/**
+ * Load feature-map.yaml — the feature→module index. Returns null when absent
+ * (the two governance drift checks then skip — never a false positive). A
+ * present-but-invalid map fails loud (same contract as loadModuleMap), so the
+ * checks never run against a half-parsed index. Entries whose `feature` slug is
+ * not a safe resource name are dropped — the slug is compared against on-disk
+ * feature specs, so a traversal-shaped name must never reach that comparison.
+ */
+export function loadFeatureMap(knowledgePath: string): FeatureMap | null {
+  const raw = readTextIfExists(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
+  if (raw === null) return null;
+  const parsed = FeatureMapSchema.safeParse(parseYaml(raw));
+  if (!parsed.success) {
+    throw new ModuleDetectionError(
+      `feature-map.yaml is invalid: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+    );
+  }
+  return { features: parsed.data.features.filter((f) => isSafeResourceName(f.feature)) };
 }
 
 // --- _index.md module table parsing + search (REQ-MCP-005) ---

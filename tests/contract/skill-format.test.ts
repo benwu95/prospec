@@ -176,17 +176,19 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-verify');
       expect(refSkillNames).toContain('prospec-learn');
       expect(refSkillNames).toContain('prospec-archive');
+      // backfill-spec externalizes feature-boundary-criteria (BL-039)
+      expect(refSkillNames).toContain('prospec-backfill-spec');
     });
 
     it('self-contained skills should have hasReferences = false', () => {
       // knowledge-generate / knowledge-update inline their canonical format
       // and defer to _module-readme-conventions.md — no references/ dir.
+      // (backfill-spec moved to has-references in BL-039 — feature-boundary-criteria.)
       const selfContained = SKILL_DEFINITIONS.filter(
         (s) => !s.hasReferences,
       ).map((s) => s.name);
       expect(selfContained).toContain('prospec-knowledge-generate');
       expect(selfContained).toContain('prospec-knowledge-update');
-      expect(selfContained).toContain('prospec-backfill-spec');
     });
   });
 
@@ -595,6 +597,46 @@ describe('Skill Format Contract', () => {
       expect(sl).not.toContain('triangulat');
     });
 
+    it('pins feature-vertical-slice scoping + two-pass gather→cluster (REQ-TEMPLATES-104, REQ-TESTS-030)', () => {
+      const sec = sectionOf(render(), '### Phase 1:');
+      expect(sec).toContain('vertical slice');
+      expect(sec).toContain('gather-by-module');
+      expect(sec).toContain('cluster-by-feature');
+      expect(sec).toContain('contribute to a candidate feature');
+    });
+
+    it('pins operationalized Pass-2 tracing with file:line evidence + 3-checkbox gate (REQ-TEMPLATES-109, REQ-TESTS-030)', () => {
+      const sec = sectionOf(render(), '### Phase 1:');
+      expect(sec).toContain('Enumerate entry points');
+      expect(sec).toContain('file:line');
+      expect(sec).toContain('Cross-slice de-dup');
+      // Phase 1 Gate completeness: each behavior → exactly one slice or Deferred
+      expect(sec).toContain('exactly one');
+      expect(sec).toContain('Deferred');
+    });
+
+    it('pins cross-module integration edge as first-class AC conditioned on grounding (REQ-TEMPLATES-110, REQ-TESTS-030)', () => {
+      const sec = sectionOf(render(), '### Phase 1:');
+      expect(sec).toContain('cross-module');
+      expect(sec).toContain('emitter and handler/sink');
+      expect(sec).toContain(
+        'never assert a cross-module flow whose handler/sink you did not locate',
+      );
+    });
+
+    it('pins Phase 4 scoping by uncovered feature, not module (REQ-TEMPLATES-107, REQ-TESTS-030)', () => {
+      const sec = sectionOf(render(), '### Phase 4:');
+      expect(sec).toContain('uncovered feature');
+      expect(sec).toContain('never by uncovered module');
+    });
+
+    it('pins the infrastructure-module-is-not-a-feature NEVER (REQ-TEMPLATES-112, REQ-TESTS-030)', () => {
+      const sec = sectionOf(render(), '## NEVER');
+      expect(sec).toContain('contributing modules');
+      expect(sec).toContain('infrastructure module');
+      expect(sec).toContain('feature that consumes it');
+    });
+
     it('prospec-design no longer carries the backfill variant (REQ-DSGN-003, REQ-TESTS-028)', () => {
       const design = renderDesign();
       expect(design).not.toContain('input=code');
@@ -795,6 +837,21 @@ describe('Skill Format Contract', () => {
       const content = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
       expect(content).toContain('only `verified` changes are archivable');
       expect(content).not.toContain('offer to archive changes with other statuses');
+    });
+
+    it('archive spec-history summary lands in date-prefixed _archived-history/, never flat specs root (REQ-TESTS-033)', () => {
+      // The committed audit-trail copy targets the drift-excluded _archived-history/ with a
+      // {YYYY-MM-DD}- prefix (name-aligned with the .prospec/archive/ folder), never flat
+      // specs/{change-name}.md (clutters specs root + gets scanned by req-references).
+      const ref = renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
+      const specArchiving = sectionOf(ref, '## Spec Archiving');
+      expect(specArchiving).toContain('prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(specArchiving).not.toContain('prospec/specs/{change-name}.md'); // never flat root
+
+      // The copy step must be explicit in the skill flow, not only buried in the reference.
+      const skill = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+      expect(skill).toContain('specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(skill).not.toContain('specs/{change-name}.md'); // never flat root in the skill either
     });
 
     it('prospec-implement should set status: implemented when tasks complete', () => {

@@ -11,6 +11,7 @@ import {
   runChecks,
 } from '../lib/drift-checker.js';
 import {
+  collectFeatureMapGovernance,
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
@@ -86,6 +87,14 @@ export async function execute(options: CheckOptions): Promise<CheckResult | Init
           modules: [],
         },
     tasks: collectTaskStates(cwd),
+    // feature-map.yaml is the optional index; the collector reports it
+    // unavailable when absent, so both governance checks skip (never a fabricated finding).
+    featureMapGovernance: collectFeatureMapGovernance(
+      featuresDir,
+      paths.knowledgePath,
+      cwd,
+      attributionMap,
+    ),
     generatedAt: new Date().toISOString(),
   });
 

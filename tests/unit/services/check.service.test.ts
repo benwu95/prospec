@@ -50,16 +50,40 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all five checks, FR-007)', async () => {
-    // no specs, no knowledge, no module paths, no .prospec/changes, no git repo
+  it('marks unavailable sources as skipped — never PASS (all seven checks, FR-007)', async () => {
+    // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     for (const check of result.report.structural.checks) {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(5);
+    expect(result.report.summary.skipped_count).toBe(7);
     expect(result.hasFail).toBe(false);
+  });
+
+  it('runs feature-map governance when feature-map.yaml is present (wired into the report)', async () => {
+    write(
+      'prospec/ai-knowledge/module-map.yaml',
+      'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n  - name: types\n    paths: [src/types]\n    keywords: []\n',
+    );
+    write('prospec/specs/features/alpha.md', '---\nfeature: alpha\nstatus: active\n---\n#### REQ-LIB-001: A\n#### REQ-TYPES-002: B\n');
+    // alpha declares only [lib], but owns REQ-TYPES-002 → feature→module edge violated (fail)
+    write('prospec/ai-knowledge/feature-map.yaml', 'features:\n  - feature: alpha\n    modules: [lib]\n    status: active\n');
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.report.structural.checks.find((c) => c.id === 'feature-modules')?.status).toBe('fail');
+    expect(result.report.structural.checks.find((c) => c.id === 'dangling-prefix')?.status).toBe('pass');
+    expect(result.hasFail).toBe(true);
+    expect(
+      result.report.structural.findings.find((f) => f.check === 'feature-modules')?.detail,
+    ).toContain('types');
+  });
+
+  it('fails loud when feature-map.yaml is present but schema-invalid', async () => {
+    write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n');
+    write('prospec/ai-knowledge/feature-map.yaml', 'features:\n  - feature: alpha\n    status: bogus\n');
+    await expect(execute({ cwd: tmpDir })).rejects.toMatchObject({ code: 'MODULE_DETECTION_ERROR' });
   });
 
   it('reports hasFail on a dangling REQ reference', async () => {

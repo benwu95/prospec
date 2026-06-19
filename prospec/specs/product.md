@@ -1,95 +1,35 @@
 ---
 product: prospec
-version: 0.3.0
-last_updated: 2026-06-17
+last_updated: 2026-06-19
 ---
 
-# Prospec -- AI 驅動的 Spec-Driven Development 框架
+# prospec
 
-## 願景
+## Feature Map
 
-軟體開發中，AI Coding Agent 缺乏結構化的專案記憶與工作流程引導，導致產出品質不穩定、上下文反覆遺失。Prospec 透過 AI Knowledge（持久化專案記憶）與 SDD Skills（結構化開發流程），讓 AI Agent 在每個階段都有精準的上下文，從「猜測式開發」進化為「規格驅動開發」。
-
-## 目標使用者
-
-| 角色 | 描述 | 核心需求 |
-|------|------|---------|
-| AI-First 開發者 | 日常使用 Claude Code、Antigravity CLI 等 AI Agent 開發 | 讓 AI 理解專案脈絡，產出穩定可追蹤的成果 |
-| 技術主管 | 管理使用 AI 工具的開發團隊 | 確保 AI 輔助開發有流程規範，品質可驗證 |
-| 獨立開發者 | 一人團隊，依賴 AI 加速交付 | 用最少時間建立完整開發流程，不被 AI 幻覺拖累 |
-
-## 功能地圖
-
-### 專案啟動
-
-一鍵初始化 SDD 專案結構，自動偵測技術棧與已安裝的 AI CLI 工具，並可選擇文件主要語言（Language Policy 寫入 Constitution，預設英文），生成 `.prospec.yaml` 配置、Constitution、AI Knowledge 骨架與 Agent 配置檔。`prospec quickstart` 進一步把 brownfield onboarding 串成單一指令（init + agent sync），再以 agent 端 `/prospec-quickstart` 收尾（在地化 triggers + 生成 AI Knowledge）。
-→ [features/project-setup.md](features/project-setup.md)
-
-### 開發流程
-
-六階段結構化工作流：Explore（釐清需求）→ Story（定義意圖）→ Plan（設計方案）→ Tasks（拆解任務）→ Implement（逐項實作）→ Verify（驗證規格）。每個階段有獨立 Skill、品質閘門與 Knowledge 載入機制，支援 Fast-Forward 一鍵推進；流程重量依使用者確認的 scale（quick/standard/full）相稱縮放——quick 跳過 Plan、由 archive 以實際 diff 複核 spec 與 knowledge 影響。plan/implement 觸及第三方 lib 時，可選擇性 on-demand 從 Context7（若可用）注入依賴層 usage 知識（untrusted、graceful、永不進 stable prefix）。brownfield 專案可用 `/prospec-backfill-spec` 從既有 code 回填行為層 Feature Spec 草稿（WHAT-layer 補全、人工 verify-and-promote、永不寫信任區）。
-→ [features/sdd-workflow.md](features/sdd-workflow.md)
-
-### AI 知識系統
-
-自動掃描程式碼生成模組化 AI Knowledge（per-module README + 索引 + 依賴圖），支援增量更新——只重建受影響模組，並由 archive Entry Gate 強制每個變更歸檔前完成同步。三層按需載入（Layer 0 常駐 / Layer 1 Skill 載入 / Layer 2 按需讀取）確保 token 效率。
-→ [features/ai-knowledge.md](features/ai-knowledge.md)
-
-### Agent 整合
-
-偵測已安裝的 AI CLI 工具，自動生成對應配置檔（CLAUDE.md 等），將 Skills 與 Knowledge 索引注入 Agent 上下文。產物統一英文 baseline，並可透過 `skill_triggers` 注入使用者母語的觸發詞。支援跨工具一致體驗。
+### agent-integration
 → [features/agent-integration.md](features/agent-integration.md)
 
-### 設計整合
+### ai-knowledge
+→ [features/ai-knowledge.md](features/ai-knowledge.md)
 
-從 proposal 自動產出視覺與互動規格（Generate Mode），或從 Figma/pencil/Penpot 等設計工具反向萃取規格（Extract Mode）。平台適配器架構讓 AI 實作 UI 時有精確的設計依據。
+### design-phase
 → [features/design-phase.md](features/design-phase.md)
 
-### Token 量測
-
-對版控任務描述執行多 provider 離線 benchmark（Anthropic/OpenAI/Google，覆蓋四個支援 agent 的模型來源），量出 full-dump / naive-rag / prospec 三種 context 組裝的真實 input-token 節省比與 cache 命中率；`prospec measure` 唯讀呈現誠實報告——不設門檻、不進 CI。
-→ [features/token-measurement.md](features/token-measurement.md)
-
-### Drift 檢查
-
-確定性、零 LLM 的 `prospec check`：機器驗證 spec ↔ code ↔ knowledge 指涉與結構一致性（REQ 引用、檔案路徑、module-map 驅動依賴方向、知識新鮮度、kind-aware 任務完成率），`--strict` 供 CI 守門、`--init-ci` 生成 supply-chain 強化的 workflow；料源不可用誠實 skipped、語意層恆 not-checked，`/prospec-verify` 開發期消費同一份報告。
+### drift-detection
 → [features/drift-detection.md](features/drift-detection.md)
 
-### MCP 真相層
-
-`prospec mcp serve` 以 stdio 啟動唯讀 MCP server：任何 agent（即使沒裝 prospec skills）都能查詢專案架構真相、規格真相、依賴方向、playbook 與知識新鮮度（與 `prospec check` 同一份凍結契約）。Per-request 重讀永遠新鮮、realpath 圍堵防 repo 外讀取、純加值面——server 不在時一切照常。
-→ [features/mcp-server.md](features/mcp-server.md)
-
-### 回饋晉升
-
-把 session 糾正、verify 反覆 FAIL、review 重複 critical 蒐集成個人教訓，以明文可重現準則（頻次＋影響模組數）判定，經顯式人工核可才三層晉升（個人 → 團隊 playbook → Constitution 規則），讓團隊「越用越聰明」。
+### feedback-promotion
 → [features/feedback-promotion.md](features/feedback-promotion.md)
 
-## 核心 User Stories 摘要
+### mcp-server
+→ [features/mcp-server.md](features/mcp-server.md)
 
-- **專案初始化**: 開發者執行 `prospec init`，選擇文件語言後即獲得完整 SDD 專案骨架、Language Policy 與 AI 配置
-- **變更流程**: 開發者透過 `/prospec-new-story` 描述需求，系統引導走完規格→計劃→實作→驗證全流程
-- **AI Knowledge 生成**: 開發者對既有專案執行掃描，自動產出模組化的 AI 可讀文件
-- **增量知識同步**: 變更歸檔前由 archive Entry Gate 強制同步受影響模組的 Knowledge（verify 僅 informational 提示），保持文件與程式碼同步
-- **設計規格整合**: 前端開發者從 proposal 產出設計規格，AI 實作時有視覺與互動的精確依據
-- **Token 量測**: 使用者執行量測後以 `prospec measure` 得知實際節省比與 cache 命中率，token 效率主張可驗證而非空口宣稱
-- **Drift 檢查**: maintainer 以 `prospec check --strict` 在 CI 強制守門結構性 drift，開發者在 verify 階段看同一份確定性報告，零 token
-- **MCP 真相層**: 任何 harness 的 agent 連上 `prospec mcp serve` 即可查詢專案真相，知識護城河解耦於 skill 部署
+### project-setup
+→ [features/project-setup.md](features/project-setup.md)
 
-## 產品原則
+### sdd-workflow
+→ [features/sdd-workflow.md](features/sdd-workflow.md)
 
-1. **規格即真相** -- specs/ 是累積式的活文件，每次歸檔都同步更新，作為系統行為的唯一來源
-2. **INVEST 需求品質** -- 每個 User Story 必須獨立、可協商、有價值、可估算、夠小、可測試
-3. **測試先行** -- 所有實作遵循 TDD（RED → GREEN → REFACTOR），覆蓋率目標 80%+
-4. **原子提交** -- 每次提交只含一個功能或修復，版本歷史清晰可追溯
-5. **Skills-First** -- Skill 驅動一切開發流程，CLI 僅負責檔案系統基礎操作
-
-## 路線圖概覽
-
-| 階段 | 狀態 | 核心功能 |
-|------|------|---------|
-| MVP | 已完成 | CLI 基礎、專案初始化、程式碼掃描、Knowledge 生成、Agent 同步、變更流程（7 Epics / 29 US） |
-| Phase 2 核心增強 | 已完成 | 歸檔系統、增量 Knowledge、Living Spec、Knowledge-SDD 鏈路、設計整合、語言政策（init 語言選擇）、Output Contract、Entry/Exit 雙閘門、可執行 Constitution、KV-Cache 穩定前綴、複雜度適配（Scale Adapter）、Quickstart 一鍵 onboarding |
-| Phase 2 H2 — 護城河與互通 | 已完成 | Token 量測 harness、確定性 Drift 檢查 + CI 閘門、唯讀 MCP 真相層、依賴層按需知識（Context7）、反向規格萃取（brownfield 回填）、回饋晉升管線、對抗式 Review→Fix 迴圈、raw-scan 多語言偵測 |
-| 後續候選 | 規劃中 | 擴展 Agent 支援（Cursor/Windsurf/OpenCode/Qwen）、Brownfield 模組偵測精度、Few-Shot 範例（icebox） |
-| 重評後取代/刪減 | 已刪減 | 模板自訂、Plugin 機制（價值已由可執行 Constitution + 回饋晉升交付）；多代理 Party Mode 與安全並行分區（被 harness 內建 worktree 取代）；智慧感知更新（併入 Drift 檢查）；智慧路由、Knowledge Dashboard |
+### token-measurement
+→ [features/token-measurement.md](features/token-measurement.md)

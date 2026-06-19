@@ -22,10 +22,10 @@
 | `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols (picocolors; auto-disabled on non-TTY via NO_COLOR set at CLI entry, see cli/setup-color.ts) |
 | `src/lib/token-accounting.ts` | Pure measurement math — savingRatio(), cacheHitRate(), effectiveInputCostUsd(), naive-rag keyword ranking |
-| `src/lib/drift-sources.ts` | Drift collectors (ALL I/O): REQ index/references, markdown links (existence via `realpathSync` — symlink escaping the repo reads as non-existent), import edges, git timestamps, tasks state — unavailable sources return `{available: false, reason}`; `collectImportEdges` scans `**/name/**` domain-glob module paths and blanks template-literal interiors + block comments before matching; `moduleAttributor` matches literal prefixes and `**/name/**` globs (literals outrank globs) |
-| `src/lib/drift-checker.ts` | Zero-LLM pure evaluators + runChecks() report assembly — codepoint-sorted findings, schema-validated, semantic permanently not-checked |
+| `src/lib/drift-sources.ts` | Drift collectors (ALL I/O): REQ index/references, markdown links (existence via `realpathSync` — symlink escaping the repo reads as non-existent), import edges, git timestamps, tasks state, `collectFeatureMapGovernance` (feature-map + module names + per-spec active REQ headings; unavailable when feature-map.yaml absent → both feature checks skip) — unavailable sources return `{available: false, reason}`; `collectImportEdges` scans `**/name/**` domain-glob module paths and blanks template-literal interiors + block comments before matching; `moduleAttributor` matches literal prefixes and `**/name/**` globs (literals outrank globs); exports `ACTIVE_REQ_HEADING` + `reqIdToPrefix()` shared with archive feature-map bootstrap |
+| `src/lib/drift-checker.ts` | Zero-LLM pure evaluators + runChecks() report assembly (7 checks) — codepoint-sorted findings, schema-validated; `evaluateDanglingPrefix` (warn — REQ-prefix legality) + `evaluateFeatureModules` (fail — self-validating feature→module edge) skip when feature-map governance unavailable; semantic permanently not-checked |
 | `src/lib/task-markers.ts` | parseTaskLine() — the SINGLE executable copy of the frozen task kind grammar (`[ID?] [P?] [M\|V]`) |
-| `src/lib/knowledge-reader.ts` | Knowledge content read layer — whole-document reads with realpath containment, loadModuleMap()+clampModulePaths() (moved from check.service), searchModules()+attachModuleCategories() (category joined from module-map), the single archived-spec exclusion + isSafeResourceName() guard |
+| `src/lib/knowledge-reader.ts` | Knowledge content read layer — whole-document reads with realpath containment, loadModuleMap()+clampModulePaths() (moved from check.service), loadFeatureMap() (feature-map.yaml; null when absent, loud on invalid like loadModuleMap, drops entries whose `feature` slug fails isSafeResourceName), searchModules()+attachModuleCategories() (category joined from module-map), the single archived-spec exclusion + isSafeResourceName() guard |
 
 ## Public API
 
@@ -43,10 +43,10 @@
 - `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check)
 - `escapeYamlScalar(text)` — escape user text for double-quoted YAML scalars in noEscape templates
 - `savingRatio() / cacheHitRate() / effectiveInputCostUsd(usage, pricing)` — deterministic token accounting; `rankByRelevance()` / `selectWithinBudget()` — naive-rag scoring with codepoint tie-break
-- `runChecks(inputs)` — five drift evaluators → validated DriftReport; `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback
-- `collectReqDefinitions/References, collectMarkdownLinks, collectImportEdges, collectGitTimestamps, collectTaskStates` — drift source collectors (fenced blocks excluded, shallow clones degrade to unavailable)
+- `runChecks(inputs)` — seven drift evaluators → validated DriftReport (incl. `evaluateDanglingPrefix` warn + `evaluateFeatureModules` fail, both skip when feature-map governance unavailable); `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback
+- `collectReqDefinitions/References, collectMarkdownLinks, collectImportEdges, collectGitTimestamps, collectTaskStates, collectFeatureMapGovernance` — drift source collectors (fenced blocks excluded, shallow clones degrade to unavailable); `ACTIVE_REQ_HEADING` / `reqIdToPrefix()` — shared with archive bootstrap
 - `parseTaskLine(line)` — checkbox/kind parsing shared by drift engine and archive task stats
-- `readIndex/readModuleReadme/readPlaybook/listFeatureSpecs/readFeatureSpec` — per-request content reads, realpath-contained to their served root; `loadModuleMap()` — missing → null, invalid → loud ModuleDetectionError; `searchModules()` — deterministic term-OR ranking over _index module table (category defaults to []); `attachModuleCategories(result, moduleMap)` — pure join of each match's ordered category list from module-map (null map / unmatched / unset → [])
+- `readIndex/readModuleReadme/readPlaybook/listFeatureSpecs/readFeatureSpec` — per-request content reads, realpath-contained to their served root; `loadModuleMap()` / `loadFeatureMap()` — missing → null, invalid → loud ModuleDetectionError (loadFeatureMap also drops isSafeResourceName-failing feature slugs); `searchModules()` — deterministic term-OR ranking over _index module table (category defaults to []); `attachModuleCategories(result, moduleMap)` — pure join of each match's ordered category list from module-map (null map / unmatched / unset → [])
 
 ## Dependencies
 
@@ -82,6 +82,7 @@
 - knowledge-reader containment invariant: NOTHING in the knowledge/spec tree may become an oracle for files outside it — every content read is realpath-contained, `isSafeResourceName()` guards module/spec names on EVERY surface (read, list, health via collectGitTimestamps). Adding a new consumer of the same data source? Apply the same guard + freeze with a test
 - `loadModuleMap` distinguishes missing (null → graceful) from invalid (throw → loud) — collapsing the two with a catch-all was a review critical, do not reintroduce it
 - drift-sources imports FROM knowledge-reader (archived predicate, name guard) — never add the reverse import (lib→lib cycle)
+- archive feature-map bootstrap and the self-validating drift MUST share `ACTIVE_REQ_HEADING`/`reqIdToPrefix()` from drift-sources — fork them and seeded modules vs drift extraction diverge, so a post-bootstrap `evaluateFeatureModules` FAILs
 - `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR` (the value `init` writes), NOT the legacy `'docs'` — a config without `base_dir` must resolve to the same root init created, so keep this fallback in sync with init
 
 <!-- prospec:auto-end -->

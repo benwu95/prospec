@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  collectFeatureMapGovernance,
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
@@ -390,5 +391,54 @@ describe('moduleAttributor', () => {
       ],
     });
     expect(attribute('src/services/a.ts')).toBe('literal');
+  });
+});
+
+describe('collectFeatureMapGovernance', () => {
+  const KMAP: ModuleMap = {
+    modules: [
+      { name: 'lib', paths: ['src/lib'], keywords: [] },
+      { name: 'types', paths: ['src/types'], keywords: [] },
+    ],
+  };
+  const featuresDir = () => path.join(tmpDir, 'prospec/specs/features');
+  const knowledgePath = () => path.join(tmpDir, 'prospec/ai-knowledge');
+  const writeMap = (yaml: string) => write('prospec/ai-knowledge/feature-map.yaml', yaml);
+
+  it('reports unavailable when feature-map.yaml is absent (optional index → checks skip)', () => {
+    write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: X\n');
+    const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('feature-map.yaml not present');
+    expect(r.specs).toEqual([]);
+  });
+
+  it('groups active REQ headings by feature slug and exposes module names (deprecated excluded)', () => {
+    writeMap('features:\n  - feature: alpha\n    modules: [lib, types]\n    req_prefixes: [DOM]\n    status: active\n');
+    write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n\n#### REQ-DOM-002: B\n\n#### ~~REQ-OLD-003: gone~~\n');
+    const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
+    expect(r.available).toBe(true);
+    expect(r.moduleNames).toEqual(['lib', 'types']);
+    const alpha = r.specs.find((s) => s.feature === 'alpha');
+    // deprecated ~~REQ-OLD-003~~ is excluded — governance reads the live spec surface
+    expect(alpha?.reqs.map((q) => q.prefix)).toEqual(['LIB', 'DOM']);
+    expect(alpha?.reqs[0]).toMatchObject({ id: 'REQ-LIB-001', prefix: 'LIB', line: 1 });
+    expect(r.featureMap.features[0]?.feature).toBe('alpha');
+  });
+
+  it('fails loud on a present-but-invalid feature-map (never half-parsed governance)', () => {
+    writeMap('features:\n  - feature: alpha\n    status: bogus\n');
+    write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n');
+    expect(() => collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP)).toThrow();
+  });
+
+  it('drops feature-map entries whose slug is not a safe resource name', () => {
+    writeMap(
+      'features:\n  - feature: "../evil"\n    modules: [lib]\n    status: active\n' +
+        '  - feature: alpha\n    modules: [lib]\n    status: active\n',
+    );
+    write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n');
+    const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
+    expect(r.featureMap.features.map((f) => f.feature)).toEqual(['alpha']);
   });
 });

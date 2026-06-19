@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-06-12
+last_updated: 2026-06-19
 story_count: 4
 req_count: 7
 ---
@@ -82,8 +82,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN 以 `--strict` 執行且存在 FAIL，THEN exit 1；WARN 與 skipped 永不影響 exit code
 - WHEN 報告含 skipped 檢項，THEN 報告與 PR comment 均明示原因、不計入 PASS
 
-#### REQ-TYPES-027: Drift Report Schema
-Zod schema：檢項狀態 pass/warn/fail/skipped（skipped 必附 reason）；semantic 層為 literal `'not-checked'`（schema 拒絕 pass）；knowledge_health 欄位名為凍結 breaking-change 契約。
+#### REQ-TYPES-027: Drift Report Schema（擴充兩個 check id）
 
 #### REQ-SERVICES-027: Check Service 薄編排
 `execute()` pattern：蒐集 → 評估 → schema 驗證 →（--json）atomicWrite 報告；`--init-ci` 渲染 workflow 模板（rerun-safe 不覆寫）；Result 含 `hasFail`，exit code 判斷留在 cli 層。
@@ -93,6 +92,21 @@ Zod schema：檢項狀態 pass/warn/fail/skipped（skipped 必附 reason）；se
 
 #### REQ-TEMPLATES-091: CI Workflow 模板
 兩 job：check（checkout `fetch-depth: 0` → `--strict --json`（`shell: bash` 啟用 pipefail，tee 不得遮蔽 exit code）→ 報告 artifact）+ comment（**不 checkout**、僅下載 artifact、現成 sticky action 貼 4 空格縮排 code block——無 fence 可逃逸、`head -c 60000` 上限）。supply-chain hardening 為預設：第三方 action pin 完整 commit SHA、最小權限 `permissions:`。
+
+---
+
+
+#### REQ-LIB-018: dangling-prefix drift（REQ-prefix 合法性 lint，warn-class）
+
+---
+
+
+#### REQ-LIB-019: feature-modules self-validating drift（驗 modules 邊，fail-class）
+
+---
+
+
+#### REQ-TESTS-031: feature-map drift collector/evaluator 測試
 
 ---
 
@@ -128,4 +142,5 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
