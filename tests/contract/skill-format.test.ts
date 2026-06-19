@@ -123,8 +123,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 15 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(15);
+    it('should have 16 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(16);
     });
 
     it('should include all expected skill names', () => {
@@ -143,6 +143,7 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-archive');
       expect(names).toContain('prospec-knowledge-update');
       expect(names).toContain('prospec-backfill-spec');
+      expect(names).toContain('prospec-promote-backfill');
       expect(names).toContain('prospec-quickstart');
     });
 
@@ -178,6 +179,8 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-archive');
       // backfill-spec externalizes feature-boundary-criteria (BL-039)
       expect(refSkillNames).toContain('prospec-backfill-spec');
+      // promote-backfill bundles the four planning-format references it scaffolds against
+      expect(refSkillNames).toContain('prospec-promote-backfill');
     });
 
     it('self-contained skills should have hasReferences = false', () => {
@@ -1874,6 +1877,215 @@ describe('scale adapter — plan tiered depth (OPT-B5)', () => {
   });
 });
 
+describe('backfill graduation — verify spec-fidelity contract (scale: backfill)', () => {
+  const renderVerify = () =>
+    renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+
+  it('2/5 becomes the primary graded fidelity dimension under scale: backfill', () => {
+    const v2 = sectionOf(renderVerify(), '### Verification 2/5');
+    expect(v2).toContain('`metadata.scale: backfill`');
+    expect(v2).toContain('primary graded dimension');
+    expect(v2).toContain('spec-fidelity');
+    expect(v2).toContain('file:line');
+    expect(v2).toContain('NEVER an empty PASS');
+  });
+
+  it('3/5 records pre-existing code-quality MUST violations as informational under backfill', () => {
+    const v3 = sectionOf(renderVerify(), '### Verification 3/5');
+    expect(v3).toContain('`metadata.scale: backfill`');
+    expect(v3).toContain('informational tech-debt note');
+    expect(v3).toContain('not introduced by this backfill');
+    expect(v3).toContain('does NOT lower the grade');
+    expect(v3).toContain('not a new-code quality gate');
+  });
+
+  it('5/5 treats missing backfill tests as informational but a failing existing test as real FAIL', () => {
+    const v5 = sectionOf(renderVerify(), '### Verification 5/5');
+    expect(v5).toContain('`metadata.scale: backfill`');
+    expect(v5).toContain('informational');
+    expect(v5).toContain('real FAIL');
+    expect(v5).toContain('never exempt a genuinely failing test');
+  });
+
+  it('Status Update notes backfill S/A means fidelity, not code quality', () => {
+    const status = sectionOf(renderVerify(), '## Status Update');
+    expect(status).toContain('`metadata.scale: backfill`');
+    expect(status).toContain('faithful to the code');
+  });
+
+  it('NEVER guards: pre-existing debt cannot lower grade; fidelity + failing tests stay hard', () => {
+    const never = sectionOf(renderVerify(), '## NEVER');
+    expect(never).toContain('pre-existing code-quality violation');
+    expect(never).toContain('not a new-code quality gate');
+    expect(never).toContain('fidelity and real test failures stay hard');
+  });
+
+  it('Entry Gate binds the backfill quality relaxations to backfill-draft.md provenance', () => {
+    const gate = sectionOf(renderVerify(), '## Entry Gate');
+    expect(gate).toContain('`metadata.scale: backfill` provenance');
+    expect(gate).toContain('`.prospec/changes/[name]/backfill-draft.md` exists');
+    expect(gate).toContain('graded as standard');
+    expect(gate).toContain('hand-editable metadata');
+  });
+
+  it('NEVER guards: backfill relaxations require the provenance check (marker alone is self-attested)', () => {
+    const never = sectionOf(renderVerify(), '## NEVER');
+    expect(never).toContain('without the Entry Gate\'s provenance check');
+    expect(never).toContain('self-attested');
+  });
+
+  it('Entry Gate requires only proposal + delta-spec for backfill (no hollow plan/tasks)', () => {
+    const gate = sectionOf(renderVerify(), '## Entry Gate');
+    expect(gate).toContain('Exception — `metadata.scale: backfill`');
+    expect(gate).toContain('only proposal.md + delta-spec.md');
+    expect(gate).toContain('no forward plan and no task list');
+  });
+
+  it('1/5 task-completion is not-applicable for backfill (no tasks.md)', () => {
+    const v1 = sectionOf(renderVerify(), '### Verification 1/5');
+    expect(v1).toContain('`metadata.scale: backfill`');
+    expect(v1).toContain('not-applicable');
+    expect(v1).toContain('NEVER as PASS');
+  });
+});
+
+describe('backfill graduation — archive acceptance + module derivation (scale: backfill)', () => {
+  const renderArchive = () =>
+    renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+
+  it('Entry Gate derives backfill affected modules from related_modules + Feature→feature-map', () => {
+    const gate = sectionOf(renderArchive(), '## Entry Gate');
+    expect(gate).toContain('`metadata.scale: backfill`');
+    expect(gate).toContain('metadata.related_modules');
+    expect(gate).toContain('feature-map.yaml');
+    expect(gate).toContain('never silently empty');
+    // feature-slug REQ ids must NOT be the backfill module source
+    expect(gate).toContain('REQ-prefix extraction does **not** map to modules');
+  });
+
+  it('Phase 4 reuses the backfill module set, not REQ-id prefixes', () => {
+    const p4 = sectionOf(renderArchive(), '### Phase 4: Knowledge Sync Re-check');
+    expect(p4).toContain('scale: backfill');
+    expect(p4).toContain('related_modules');
+    expect(p4).toContain('does not apply to feature-slug REQ IDs');
+  });
+
+  it('Phase 3.5 graduation key includes the backfill → delta-spec arm', () => {
+    const p35 = sectionOf(renderArchive(), '### Phase 3.5: Feature Spec Sync');
+    expect(p35).toContain('`backfill` → delta-spec');
+  });
+
+  it('documents that the auto knowledge-update is skipped for backfill (phantom-module guard)', () => {
+    const c = renderArchive();
+    expect(c).toContain('For `scale: backfill` the service **skips** the auto knowledge-update');
+    expect(c).toContain('mint phantom modules');
+  });
+
+  it('Phase 2 skips the tasks-completion check for backfill (no tasks.md)', () => {
+    const p2 = sectionOf(renderArchive(), '### Phase 2: Generate Summary');
+    expect(p2).toContain('`scale: backfill` has no tasks.md — skip this step');
+  });
+
+  it('review Entry Gate omits plan/tasks for backfill (only proposal + delta-spec)', () => {
+    const gate = sectionOf(
+      renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT),
+      '## Entry Gate',
+    );
+    expect(gate).toContain('Exception — `metadata.scale: backfill`');
+    expect(gate).toContain('only proposal.md + delta-spec.md');
+  });
+});
+
+describe('backfill graduation — promote-backfill skill (scale: backfill entry point)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-promote-backfill.hbs', TEMPLATE_CONTEXT);
+
+  it('Entry Gate rejects an unresolved NEEDS CLARIFICATION draft', () => {
+    const gate = sectionOf(render(), '## Entry Gate');
+    expect(gate).toContain('[NEEDS CLARIFICATION]');
+    expect(gate).toContain('no unresolved');
+    expect(gate).toContain('backfill-draft.md');
+  });
+
+  it('metadata phase writes scale: backfill, status: implemented, non-empty related_modules', () => {
+    const p = sectionOf(render(), '### Phase 4: metadata.yaml');
+    expect(p).toContain('`scale: backfill`');
+    expect(p).toContain('`status: implemented`');
+    expect(p).toContain('related_modules');
+  });
+
+  it('produces the light scaffold (proposal + delta-spec + metadata) — no hollow plan.md/tasks.md', () => {
+    const c = render();
+    // the two staged spec artifacts have their own workflow phases
+    expect(c).toContain('### Phase 2: proposal.md');
+    expect(c).toContain('### Phase 3: delta-spec.md');
+    // backfill is a light scale: no plan/tasks phases (would be hollow make-work)
+    expect(c).not.toContain('### Phase 3: plan.md');
+    expect(c).not.toContain('### Phase 5: tasks.md');
+    expect(c).toContain('No `plan.md` and no `tasks.md`');
+    // and the no-plan/tasks rationale is explicit, not silent
+    expect(c).toContain('hollow make-work');
+  });
+
+  it('NEVER writes the trust zone, carries unresolved intent, or empties related_modules', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('specs/features/'); // base_dir-templated trust zone
+    expect(never).toContain('unresolved `[NEEDS CLARIFICATION]`');
+    expect(never).toContain('leave `related_modules` empty');
+    expect(never).toContain('but `backfill`'); // scale must be backfill
+  });
+});
+
+describe('backfill graduation — lifecycle + format docs (scale: backfill)', () => {
+  const renderLifecycle = () =>
+    renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+
+  it('lifecycle template records the promote-backfill → implemented entry path', () => {
+    const content = renderLifecycle();
+    expect(content).toContain('**backfill path**: metadata `scale: backfill`');
+    expect(content).toContain('the **backfill entry point**');
+    expect(content).toContain('enters at `implemented`');
+  });
+
+  it('lifecycle template and ai-knowledge copy stay in sync on the backfill path', () => {
+    const tmpl = renderLifecycle();
+    const copy = fs.readFileSync(
+      path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+      'utf-8',
+    );
+    for (const marker of [
+      '**backfill path**: metadata `scale: backfill`',
+      'the **backfill entry point**',
+      'it enters at `implemented` under metadata `scale: backfill`',
+    ]) {
+      expect(tmpl).toContain(marker);
+      expect(copy).toContain(marker);
+    }
+  });
+
+  it('new-story marks scale: backfill as a promotion-time scale, not a new-story option', () => {
+    const phase = sectionOf(
+      renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT),
+      '### Phase 3.5: Complexity Assessment (Scale)',
+    );
+    expect(phase).toContain('`scale: backfill` is not a new-story-time option');
+    expect(phase).toContain('promotion-time');
+    // the new-story-time options string stays exactly the three sizes
+    expect(phase).toContain('scale: quick|standard|full');
+  });
+
+  it('delta-spec-format reference allows a feature-slug REQ-id for backfill', () => {
+    const ref = renderTemplate(
+      'skills/references/delta-spec-format.hbs',
+      TEMPLATE_CONTEXT,
+    );
+    const naming = sectionOf(ref, '## REQ ID Naming Convention');
+    expect(naming).toContain('Backfill (`scale: backfill`)');
+    expect(naming).toContain('REQ-{FEATURE-SLUG}-{NUMBER}');
+    expect(naming).toContain('need not be module-based');
+  });
+});
+
 describe('scale adapter — review quick degradation (REQ-TEMPLATES-090)', () => {
   const render = () =>
     renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
@@ -1930,7 +2142,8 @@ describe('scale adapter — verify kind-aware completion and quick reduction (RE
   it('NEVER guards the not-applicable honesty rule', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('report a `not-applicable` dimension as PASS');
-    expect(never).toContain('`scale: quick` is the one exception');
+    // quick (2/5 N/A) and backfill (1/5 N/A) are the only planning-doc exceptions
+    expect(never).toContain('these are the only exceptions');
   });
 });
 

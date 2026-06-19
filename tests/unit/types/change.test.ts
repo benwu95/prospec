@@ -55,8 +55,8 @@ describe('ChangeMetadataSchema quality_log', () => {
 });
 
 describe('ChangeMetadataSchema scale (REQ-TYPES-026)', () => {
-  it('exposes exactly the three scale levels', () => {
-    expect(CHANGE_SCALES).toEqual(['quick', 'standard', 'full']);
+  it('exposes exactly the four scale levels (incl. promotion-time backfill)', () => {
+    expect(CHANGE_SCALES).toEqual(['quick', 'standard', 'full', 'backfill']);
   });
 
   it('accepts each valid scale value', () => {

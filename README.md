@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1659%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1696%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -221,11 +221,13 @@ Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate`
 ```bash
 /prospec-backfill-spec       # → backfills a Feature Spec draft to
                              #   .prospec/changes/[name]/backfill-draft.md; un-inferable intent → [NEEDS CLARIFICATION]
+/prospec-promote-backfill    # → formalizes the reviewed draft into the backfill scaffold
+                             #   (proposal + delta-spec + metadata scale: backfill, status: implemented)
 ```
 
 1. **Review the draft** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC — intent that code alone can't reveal) and confirm the candidate feature slug.
-2. **Feed it into a change** — turn the draft's User Stories into a `proposal.md` and its REQ candidates into a `delta-spec.md` (as `ADDED`, keeping the draft's `**Feature:**` slug). `/prospec-new-story` can seed the change.
-3. **Verify** — run `/prospec-verify` until it reaches grade S/A (`status: verified`).
+2. **Promote the draft** — run `/prospec-promote-backfill`; it turns the reviewed draft into the backfill change scaffold (proposal + delta-spec + metadata) and marks it `scale: backfill`, `status: implemented` (the brownfield code already exists). `backfill` is a light scale like `quick` — no hollow `plan.md`/`tasks.md`. This is the single, repeatable draft→scaffold step.
+3. **Verify** — run `/prospec-verify`. Under `scale: backfill` it grades **spec-fidelity** (each REQ's `file:line` must resolve) and records pre-existing code-quality gaps — e.g. untested brownfield code — as informational tech debt, so a faithful draft reaches grade S/A (`status: verified`) instead of being blocked by debt it merely documents.
 4. **Archive** — run `/prospec-archive`; its Feature Spec Sync writes the requirements into `prospec/specs/features/{slug}.md`. That graduation is the only step that writes the trust zone.
 
 </details>
@@ -277,7 +279,7 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 
 ## AI Skills
 
-Prospec generates 15 Skills — 14 guide AI through the full SDD lifecycle, plus a one-time `/prospec-quickstart` onboarding finisher:
+Prospec generates 16 Skills — 15 guide AI through the full SDD lifecycle, plus a one-time `/prospec-quickstart` onboarding finisher:
 
 | Skill | Slash Command | Description |
 |-------|---------------|-------------|
@@ -295,6 +297,7 @@ Prospec generates 15 Skills — 14 guide AI through the full SDD lifecycle, plus
 | **Knowledge Generate** | `/prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
 | **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
+| **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
 
 > **Onboarding finisher** — `/prospec-quickstart` is run once after `prospec quickstart` (localizes skill triggers, re-syncs agent config, generates AI Knowledge). It is deployed as a Skill on disk but kept out of the always-loaded entry config, so it adds no recurring token cost.
 
@@ -557,7 +560,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1659 tests)
+# Run all tests (1696 tests)
 pnpm test
 
 # Watch mode
@@ -574,9 +577,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1659 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1099 tests
-- Contract tests (CLI output + Skill format): 503 tests
+**Test Coverage**: 1696 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1100 tests
+- Contract tests (CLI output + Skill format): 539 tests
 - Integration tests: 17 tests
 - E2E tests: 40 tests
 

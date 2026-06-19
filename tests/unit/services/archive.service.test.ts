@@ -1346,6 +1346,32 @@ describe('execute additional branches', () => {
     expect(result.knowledgeWarnings).toContain('malformed REQ id: REQ-bad');
   });
 
+  it('skips the REQ-prefix auto knowledge-update for scale: backfill (no phantom modules from feature-slug REQ ids)', async () => {
+    // A backfill change's delta-spec uses feature-slug REQ ids (REQ-{FEATURE-SLUG}-NNN).
+    // The REQ-prefix-driven knowledge-update would misread "USER-PROFILE" as a module
+    // and mint a phantom modules/user-profile/README.md + module-map entry. The service
+    // must skip it for backfill; backfill module sync is owned by the skill-level Entry Gate.
+    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
+      created: ['user-profile'],
+      updated: [],
+      deprecated: [],
+      generatedFiles: [],
+      warnings: [],
+    });
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: p\n',
+      '/project/.prospec/changes/bf/metadata.yaml':
+        'name: bf\nstatus: verified\nscale: backfill\nrelated_modules:\n  - services\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/bf/delta-spec.md':
+        '# Delta\n\n## ADDED\n\n### REQ-USER-PROFILE-001: x\n\n**Feature:** user-profile\n\nbody\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.archived).toHaveLength(1);
+    expect(vi.mocked(executeKnowledgeUpdate)).not.toHaveBeenCalled();
+    expect(result.knowledgeUpdated).toBe(false);
+  });
+
   it('leaves knowledgeUpdated false when no archived change has a delta-spec (L470/L473)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: p\n',
