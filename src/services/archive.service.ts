@@ -4,8 +4,13 @@ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import { isSafeResourceName } from '../lib/knowledge-reader.js';
+import { isArchivedSpec, isSafeResourceName, loadModuleMap } from '../lib/knowledge-reader.js';
+import { ACTIVE_REQ_HEADING, reqIdToPrefix } from '../lib/drift-sources.js';
+import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
+import { renderTemplate } from '../lib/template.js';
 import type { ChangeStatus } from '../types/change.js';
+import type { ModuleMap } from '../types/module-map.js';
+import type { FeatureEntry } from '../types/feature-map.js';
 import { ScanError, WriteError } from '../types/errors.js';
 import { execute as executeKnowledgeUpdate } from './knowledge-update.service.js';
 import { generateRawScan } from './raw-scan.service.js';
@@ -361,6 +366,63 @@ ${featureMap || '_(No active features yet)_'}
 }
 
 /**
+ * Bootstrap feature-map.yaml (the feature→module index) in the same archive step as
+ * generateProductSpec (co-located so they reflect one on-disk state). It scans the
+ * active feature specs the way the drift collector does — archived specs excluded,
+ * keyed on the filename slug — so the bootstrapped index agrees with what the checks
+ * validate. Single automated writer + bootstrap-once: an existing index is never
+ * overwritten, so human-curated entries (and req_prefixes) survive re-runs.
+ *
+ * modules[] is seeded objectively from each feature's module-prefix REQ headings —
+ * a typo prefix is not a module, so it is not seeded (it surfaces in the dangling-prefix
+ * lint instead), and the seed equals what the self-validating `feature-modules` drift
+ * requires, keeping that fail-class check green right after bootstrap. req_prefixes are
+ * never auto-filled — that would whitewash typos and spin the dangling-prefix drift; the
+ * desync is carried by its warn severity, which humans then curate away.
+ *
+ * Returns the written path, or null when the index already exists or there is nothing
+ * to scan. The same module-map (or Constitution fallback) the drift checks use is passed
+ * in, so seeded modules and validated modules are drawn from one source.
+ */
+export async function syncFeatureMap(
+  featuresPath: string,
+  featureMapPath: string,
+  moduleMap: ModuleMap,
+): Promise<string | null> {
+  if (fs.existsSync(featureMapPath)) return null; // no-clobber (bootstrap-once)
+  if (!fs.existsSync(featuresPath)) return null;
+  const moduleNames = new Set(moduleMap.modules.map((m) => m.name.toLowerCase()));
+  // Mirror the reader/collector: archived specs excluded, and an unsafe slug is
+  // skipped (loadFeatureMap would drop it on read-back — never emit an entry the
+  // reader discards, and never let a slug with YAML-special chars into the index).
+  const files = (await fs.promises.readdir(featuresPath))
+    .filter((f) => f.endsWith('.md') && !isArchivedSpec(f) && isSafeResourceName(f.slice(0, -'.md'.length)))
+    .sort();
+  const features: FeatureEntry[] = [];
+  for (const file of files) {
+    const content = await fs.promises.readFile(path.join(featuresPath, file), 'utf-8');
+    const frontmatter = parseFeatureSpecFrontmatter(content);
+    if (!frontmatter) continue;
+    const modules = new Set<string>();
+    for (const line of content.split('\n')) {
+      const id = ACTIVE_REQ_HEADING.exec(line)?.[1];
+      if (id === undefined) continue;
+      const module = reqIdToPrefix(id).toLowerCase();
+      if (moduleNames.has(module)) modules.add(module);
+    }
+    features.push({
+      feature: file.slice(0, -'.md'.length),
+      modules: [...modules].sort(),
+      status: frontmatter.status === 'deprecated' ? 'deprecated' : 'active',
+    });
+  }
+  const content = renderTemplate('knowledge/feature-map.yaml.hbs', { features });
+  await ensureDir(path.dirname(featureMapPath));
+  await atomicWrite(featureMapPath, content);
+  return featureMapPath;
+}
+
+/**
  * Main archive execution flow.
  */
 export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
@@ -387,12 +449,14 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // Feature Specs go to specs/features/ subdirectory
   let featuresPath: string | null = null;
   let productSpecPath: string | null = null;
+  let knowledgePath: string | null = null;
   let projectName = 'project';
   try {
     const config = await readConfig(cwd);
     const basePaths = resolveBasePaths(config, cwd);
     featuresPath = path.join(basePaths.specsPath, 'features');
     productSpecPath = path.join(basePaths.specsPath, 'product.md');
+    knowledgePath = basePaths.knowledgePath;
     projectName = config.project?.name ?? 'project';
   } catch {
     // Config not available — skip Feature Spec sync
@@ -458,6 +522,16 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       await generateProductSpec(featuresPath, productSpecPath, projectName);
     } catch {
       // Product Spec regeneration failure is non-fatal
+    }
+    // feature-map.yaml is the sibling feature→module index — same scan point as
+    // product.md, bootstrap-once + no-clobber. Non-fatal, like product.md above.
+    if (knowledgePath) {
+      try {
+        const moduleMap = loadModuleMap(knowledgePath, cwd) ?? constitutionFallbackModuleMap();
+        await syncFeatureMap(featuresPath, path.join(knowledgePath, 'feature-map.yaml'), moduleMap);
+      } catch {
+        // feature-map regeneration failure is non-fatal
+      }
     }
   }
 

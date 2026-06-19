@@ -3,8 +3,9 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { scanDirSync } from './scanner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
-import { ARCHIVED_EXCLUDES, isArchivedSpec, isSafeResourceName } from './knowledge-reader.js';
+import { ARCHIVED_EXCLUDES, isArchivedSpec, isSafeResourceName, loadFeatureMap } from './knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
+import type { FeatureMap } from '../types/feature-map.js';
 
 /**
  * Drift source collectors — ALL filesystem/git I/O for `prospec check`
@@ -324,6 +325,81 @@ export function collectTaskStates(cwd: string): TaskSource {
     });
   }
   return { available: true, changes };
+}
+
+/** REQ headings a feature spec owns. A `~~deprecated~~` heading starts with
+ *  `~~`, so the id capture fails at that offset — governance operates on the
+ *  live spec surface, never historical/removed behavior. Shared with the
+ *  archive feature-map bootstrap so seeded modules and the self-validating
+ *  drift extract module-prefix REQs identically (no dual-copy drift). */
+export const ACTIVE_REQ_HEADING = /^#{1,6}\s+(REQ-(?:[A-Z][A-Z0-9]*-)+\d+)/;
+
+/** REQ-{PREFIX}-{NNN} → {PREFIX} (multi-segment safe, e.g. API-MIDDLEWARE). */
+export function reqIdToPrefix(id: string): string {
+  return id.replace(/^REQ-/, '').replace(/-\d+$/, '');
+}
+
+export interface FeatureSpecReqs {
+  /** Canonical slug = filename without `.md` (matches frontmatter `feature:`). */
+  feature: string;
+  source_path: string;
+  reqs: Array<{ id: string; prefix: string; line: number }>;
+}
+
+export interface FeatureMapGovernanceSource {
+  available: boolean;
+  reason?: string;
+  featureMap: FeatureMap;
+  /** module-map module names — the legal-prefix and module-edge universe. */
+  moduleNames: string[];
+  specs: FeatureSpecReqs[];
+}
+
+/**
+ * Collect the facts both feature-map governance checks share: the loaded
+ * index, the module name set, and every active REQ heading grouped by the
+ * feature spec that owns it. The index is optional — when feature-map.yaml is
+ * absent the source is unavailable, so both checks skip (never a false
+ * positive). A present-but-invalid index fails loud via loadFeatureMap.
+ */
+export function collectFeatureMapGovernance(
+  featuresDir: string,
+  knowledgePath: string,
+  cwd: string,
+  moduleMap: ModuleMap,
+): FeatureMapGovernanceSource {
+  const empty = { featureMap: { features: [] }, moduleNames: [], specs: [] };
+  const featureMap = loadFeatureMap(knowledgePath);
+  if (featureMap === null) {
+    return {
+      available: false,
+      reason: 'source unavailable: feature-map.yaml not present (optional index — checks skipped)',
+      ...empty,
+    };
+  }
+  if (!existsSync(featuresDir)) {
+    return { available: false, reason: `source unavailable: ${featuresDir} not found`, ...empty };
+  }
+  const specs: FeatureSpecReqs[] = [];
+  const files = readdirSync(featuresDir)
+    .filter((f) => f.endsWith('.md') && !isArchivedSpec(f))
+    .sort();
+  for (const file of files) {
+    const reqs: FeatureSpecReqs['reqs'] = [];
+    readFileSync(path.join(featuresDir, file), 'utf-8')
+      .split('\n')
+      .forEach((line, i) => {
+        const id = ACTIVE_REQ_HEADING.exec(line)?.[1];
+        if (id === undefined) return;
+        reqs.push({ id, prefix: reqIdToPrefix(id), line: i + 1 });
+      });
+    specs.push({
+      feature: file.slice(0, -'.md'.length),
+      source_path: path.relative(cwd, path.join(featuresDir, file)).replace(/\\/g, '/'),
+      reqs,
+    });
+  }
+  return { available: true, featureMap, moduleNames: moduleMap.modules.map((m) => m.name), specs };
 }
 
 interface PathMatcher {

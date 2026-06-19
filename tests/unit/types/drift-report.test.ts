@@ -132,11 +132,19 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the five frozen check ids', () => {
+  it('exposes exactly the seven frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual(
-      ['file-paths', 'import-direction', 'knowledge-health', 'req-references', 'task-completion'].sort(),
+      [
+        'dangling-prefix',
+        'feature-modules',
+        'file-paths',
+        'import-direction',
+        'knowledge-health',
+        'req-references',
+        'task-completion',
+      ].sort(),
     );
-    expect(DRIFT_CHECK_IDS).toHaveLength(5);
+    expect(DRIFT_CHECK_IDS).toHaveLength(7);
   });
 
   it('rejects an unknown check id', () => {

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1627%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1658%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -306,7 +306,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
 - **Skill instruction quality** — per-phase gate checklists (finer-grained than the skill-level Entry/Exit gates); a status-aware **next-step handoff** at the end of each linear-flow Skill (plan→tasks→implement→review→verify→archive) (`Run <next-step> now? (Y/n)` — your Y is the trigger, never a silent auto-run); new-session detection of in-progress changes to resume; `/prospec-implement` re-anchors `Progress X/Y | Goal | Next` after each task; and `/prospec-explore` / `/prospec-knowledge-generate` warn when the Constitution is still substantively empty (its gates would otherwise be no-ops).
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
-- **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR.
+- **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. With an optional `feature-map.yaml` (feature→module index, bootstrapped at archive) it adds two governance checks: REQ-prefix legality (WARN) and the feature→module edge (FAIL).
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
 - **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons into a **version-controlled** ledger (`_lessons-ledger.md`); `/prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution.
 
@@ -450,7 +450,7 @@ model provider, not the agent harness itself):
 
 | Command | Description |
 |---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), and kind-aware task completion. `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
 | `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
 
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
@@ -538,7 +538,7 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (54 .hbs files)
+└── templates/    — Handlebars templates (55 .hbs files)
     └── skills/   — 15 Skill templates + 19 reference templates
 ```
 
@@ -557,7 +557,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1627 tests)
+# Run all tests (1658 tests)
 pnpm test
 
 # Watch mode
@@ -574,9 +574,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1627 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1071 tests
-- Contract tests (CLI output + Skill format): 499 tests
+**Test Coverage**: 1658 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1099 tests
+- Contract tests (CLI output + Skill format): 502 tests
 - Integration tests: 17 tests
 - E2E tests: 40 tests
 
@@ -606,6 +606,7 @@ your-project/
 │       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
 │       ├── raw-scan.md        # Auto-generated project scan data
 │       ├── module-map.yaml    # Module dependencies
+│       ├── feature-map.yaml   # Feature→module index (optional; bootstrapped at Archive)
 │       └── modules/
 │           └── {module}/
 │               └── README.md  # Module-specific docs

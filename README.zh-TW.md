@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1627%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1658%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -305,7 +305,7 @@ Prospec 生成 15 個 Skills —— 14 個涵蓋完整 SDD 生命週期，外加
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
 - **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**（`Run <next-step> now? (Y/n)` —— 你的 Y 才是觸發、絕不靜默 auto-run）；新 session 偵測進行中的變更以接續；`/prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`/prospec-explore` 與 `/prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
-- **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`/prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。
+- **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`/prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。搭配選配的 `feature-map.yaml`（feature→module 索引，archive 時 bootstrap）再加兩條治理檢查：REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。
 - **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
 - **回饋晉升** — 每個 **Archive** 都自動 harvest 該變更反覆出現的教訓進版控的 `_lessons-ledger.md`；`/prospec-learn` 以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進團隊 `_playbook.md` 或 Constitution。
 
@@ -427,7 +427,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率，以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
 | `prospec check --init-ci` | 生成 supply-chain 強化的 GitHub Actions 閘門（`.github/workflows/prospec-check.yml`）：action pin 完整 commit SHA、最小權限、報告 artifact 上傳、由不 checkout 原始碼的 job 貼 sticky PR comment |
 
 誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code
@@ -511,7 +511,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（54 個 .hbs 檔案）
+└── templates/    — Handlebars 模板（55 個 .hbs 檔案）
     └── skills/   — 15 個 Skill 模板 + 19 個 reference 模板
 ```
 
@@ -530,7 +530,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1627 個測試）
+# 執行所有測試（1658 個測試）
 pnpm test
 
 # Watch 模式
@@ -547,9 +547,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1627 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1071 tests
-- Contract tests（CLI 輸出 + Skill 格式）：499 tests
+**測試覆蓋率**：1658 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1099 tests
+- Contract tests（CLI 輸出 + Skill 格式）：502 tests
 - Integration tests：17 tests
 - E2E tests：40 tests
 
@@ -579,6 +579,7 @@ your-project/
 │       ├── _lessons-ledger.md # 累積的教訓 ledger，Archive 時自動 feed（版控）
 │       ├── raw-scan.md        # 自動生成的專案掃描資料
 │       ├── module-map.yaml    # 模組依賴關係
+│       ├── feature-map.yaml   # Feature→module 索引（選配；archive 時 bootstrap）
 │       └── modules/
 │           └── {module}/
 │               └── README.md  # 模組專屬文件

@@ -107,12 +107,14 @@ After Feature Spec Sync completes:
 1. Scan all `{{base_dir}}/specs/features/*.md` — read frontmatter (`feature`, `status`, `story_count`)
 2. Extract P0 User Stories from each active Feature Spec for the Core Stories summary
 3. Regenerate `{{base_dir}}/specs/product.md` following `references/product-spec-format.md`
+4. Regenerate `{{knowledge_base_path}}/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net (mirrors the raw-scan refresh below).
 
-**Product Spec Regeneration is non-fatal** — if it fails, Feature Spec Sync results are still valid.
+**Product Spec and feature-map regeneration are non-fatal** — if either fails, Feature Spec Sync results are still valid.
 
 > **Phase 3.6 Gate** — proceed when:
 > - [ ] `{{base_dir}}/specs/product.md` regenerated per `references/product-spec-format.md`
 > - [ ] Core Stories reflect P0 User Stories from all active Feature Specs
+> - [ ] `{{knowledge_base_path}}/feature-map.yaml` present (bootstrapped on first archive; existing curated index left untouched)
 
 ### Phase 4: Knowledge Sync Re-check
 
