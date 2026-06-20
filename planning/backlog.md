@@ -139,7 +139,7 @@
 - [x] [BL-041](#bl-041) Archive Summary 收斂進 `_archived-history/`（date-prefixed spec-history 歸宿）— 消解 archive spec-history 三方不一致、清乾淨 `specs/` root ✅ 已完成 · P3
 
 ### MCP 真相層擴充（2026-06-19）
-- [ ] [BL-042](#bl-042) MCP 暴露 spec 系統入口/索引（`spec://product` + `knowledge://feature-map`）— 讓外部/冷啟動 agent 一次拿到專案概觀＋feature 路由，補 `spec://feature/{name}`（細節）缺的入口（G3）待處理 · P2
+- [x] [BL-042](#bl-042) MCP 暴露 spec 系統入口/索引（`spec://product` + `knowledge://feature-map`）— 讓外部/冷啟動 agent 一次拿到專案概觀＋feature 路由，補 `spec://feature/{name}`（細節）缺的入口（G3）✅ 已完成（2026-06-20 `mcp-spec-entry-resources`，Grade S）· P2
 
 ### Knowledge-sync 硬化（2026-06-20）
 - [x] [BL-043](#bl-043) Archive auto knowledge-update 對 feature-prefixed REQ 同步落空 + phantom module 硬化 — standard/full 改 `REQ-MCP` 等 feature-prefix REQ 時 archive 對應不到實際模組（stale 不清、phantom module 風險、計數漂移）；發現於 BL-042 archive（G5）✅ 已完成（2026-06-20 `harden-feature-prefixed-req-sync`，Grade A）· P2
