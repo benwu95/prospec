@@ -17,6 +17,9 @@ export const MCP_RESOURCE_URIS = {
   health: 'knowledge://health',
   moduleTemplate: 'knowledge://module/{name}',
   specTemplate: 'spec://feature/{name}',
+  // Append-only: clients consume a frozen URI set — never reorder/remove.
+  featureMap: 'knowledge://feature-map',
+  product: 'spec://product',
 } as const;
 
 export const MCP_TOOL_NAMES = ['search_modules', 'get_dependency_direction'] as const;

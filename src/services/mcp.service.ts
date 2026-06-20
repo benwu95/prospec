@@ -9,10 +9,12 @@ import {
   loadModuleMap,
   parseIndexModules,
   readFeatureSpec,
+  readFeatureMapRaw,
   readIndex,
   readModuleMapRaw,
   readModuleReadme,
   readPlaybook,
+  readProduct,
   searchModules,
   attachModuleCategories,
 } from '../lib/knowledge-reader.js';
@@ -59,6 +61,7 @@ export interface McpServeResult {
 export interface McpServerContext {
   cwd: string;
   knowledgePath: string;
+  specsPath: string;
   featuresDir: string;
 }
 
@@ -69,7 +72,12 @@ export async function execute(options: McpServeOptions): Promise<McpServeResult>
   const paths = resolveBasePaths(config, cwd);
   const featuresDir = path.join(paths.specsPath, 'features');
 
-  const server = buildMcpServer({ cwd, knowledgePath: paths.knowledgePath, featuresDir });
+  const server = buildMcpServer({
+    cwd,
+    knowledgePath: paths.knowledgePath,
+    specsPath: paths.specsPath,
+    featuresDir,
+  });
   await server.connect(new StdioServerTransport());
 
   return {
@@ -116,6 +124,24 @@ function registerKnowledgeResources(server: McpServer, ctx: McpServerContext): v
         'application/yaml',
         readModuleMapRaw(ctx.knowledgePath),
         'module-map.yaml not found — run `prospec steering` first',
+      ),
+  );
+
+  server.registerResource(
+    'feature-map',
+    MCP_RESOURCE_URIS.featureMap,
+    {
+      title: 'Feature Map',
+      description: 'feature → module index (which modules a feature spans + its REQ prefixes)',
+      mimeType: 'application/yaml',
+    },
+    // Raw like module-map: served verbatim, never parsed here (REQ-MCP-002).
+    (uri) =>
+      textResource(
+        uri.href,
+        'application/yaml',
+        readFeatureMapRaw(ctx.knowledgePath),
+        'feature-map.yaml not found — run `prospec archive` to bootstrap it',
       ),
   );
 
@@ -174,6 +200,23 @@ function registerKnowledgeResources(server: McpServer, ctx: McpServerContext): v
 }
 
 function registerSpecResources(server: McpServer, ctx: McpServerContext): void {
+  server.registerResource(
+    'product',
+    MCP_RESOURCE_URIS.product,
+    {
+      title: 'Product Spec',
+      description: 'PRD entry point — product overview + feature map (top-level navigation)',
+      mimeType: 'text/markdown',
+    },
+    (uri) =>
+      textResource(
+        uri.href,
+        'text/markdown',
+        readProduct(ctx.specsPath),
+        'product.md not found — run `prospec archive` to generate it',
+      ),
+  );
+
   server.registerResource(
     'feature-spec',
     new ResourceTemplate(MCP_RESOURCE_URIS.specTemplate, {

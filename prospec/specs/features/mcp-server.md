@@ -1,7 +1,7 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-06-15
+last_updated: 2026-06-20
 story_count: 4
 req_count: 10
 ---
@@ -39,10 +39,11 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 - WHEN 任何 client 請求，THEN server 無任何可變更檔案的寫入面
 
 #### REQ-MCP-002: Knowledge resources（唯讀、per-request、圍堵）
-`knowledge://index`、`knowledge://module/{name}`、`knowledge://module-map`、`knowledge://playbook` 四類唯讀 resources，內容每次請求自檔案系統重讀。
+`knowledge://index`、`knowledge://module/{name}`、`knowledge://module-map`、`knowledge://feature-map`、`knowledge://playbook` 五類唯讀 resources，內容每次請求自檔案系統重讀。`knowledge://feature-map`（`application/yaml`）暴露 `feature-map.yaml`（feature→module 路由 + status），比照 `knowledge://module-map`：經 `lib/readFeatureMapRaw` realpath 圍堵、只回原文不解析（驗證屬 `loadFeatureMap` governance，與本 resource 無關）。
 
 **Scenarios:**
-- WHEN resources/list，THEN 含 index、module-map、playbook 與 map 中每個合法名稱 module 的 README resource；list 與 read 共用同一份 `isSafeResourceName` 守門
+- WHEN resources/list，THEN 含 index、module-map、feature-map、playbook 與 map 中每個合法名稱 module 的 README resource；list 與 read 共用同一份 `isSafeResourceName` 守門
+- WHEN 讀取 `knowledge://feature-map` 且 `feature-map.yaml` 存在，THEN 回原文（`application/yaml`）、逐請求重讀；缺檔回 `McpResourceNotFound`，server 存活
 - WHEN 讀取不存在的 module/檔案，THEN 回 MCP error（resource not found），server 進程不中斷
 - WHEN resource 參數含路徑分隔符或 `..`，THEN 一律拒絕
 - WHEN 任何 resource 檔案（含 module-map.yaml 及其衍生面：列表、health、依賴查詢）的 realpath 逃出 served root，THEN 一律視同 not found——committed symlink 不得成為 repo 外讀檔或存在性探測的 oracle；root 內 symlink 照常服務
@@ -77,10 +78,13 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 - WHEN client 列舉 spec resources，THEN 只含非 archived specs
 - WHEN 請求 archived 或不存在的 spec，THEN 回 resource not found
 
-#### REQ-MCP-003: Spec resources 與 archived 排除單一來源
+#### REQ-MCP-003: Spec resources（feature specs + product 入口）與 archived 排除單一來源
+`spec://feature/{name}` 列舉/讀取 `specs/features/`；新增 `spec://product`（`text/markdown`）暴露 `specs/product.md`（PRD 入口/2 分鐘總覽 + Feature Map），比照 `knowledge://playbook`：經 `lib/readProduct` 以 `specsPath` 為 root realpath 圍堵。`McpServerContext` 新增 `specsPath`（由 `execute()` 的 `paths.specsPath` 帶入；`featuresDir` 不變）。
 **Scenarios:**
 - WHEN 列舉/讀取 feature specs，THEN `_archived*` 排除規則與 `prospec check`（`collectReqDefinitions`）共用同一實作——兩個真相面不得漂移
 - WHEN 讀取 active spec，THEN 回傳全文
+- WHEN 讀取 `spec://product` 且 `specs/product.md` 存在，THEN 回原文（`text/markdown`）、逐請求重讀；缺檔回 `McpResourceNotFound`
+- WHEN resources/list，THEN 含 `spec://product`
 
 ---
 
@@ -172,3 +176,4 @@ _(None)_
 | 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` 釘選專案根目錄；config 解析與 preAction 守衛皆尊重 `--cwd`，支援單一 agent 跨目錄註冊多專案 server | REQ-MCP-001 (MODIFIED) |
 | 2026-06-13 | group-index-by-category | search_modules 結果帶 module-map join 的 category 有序清單（additive、protocol-frozen 相容） | REQ-TYPES-029, REQ-LIB-017 (ADDED); REQ-MCP-005 (MODIFIED) |
 | 2026-06-15 | complete-capability-to-feature-migration | `spec://feature/{name}` resource description 與 US-2 敘述用語由 capability spec 對齊為 feature spec（反映實際讀取 specs/features/ 的行為） | REQ-MCP-003 (MODIFIED) |
+| 2026-06-20 | mcp-spec-entry-resources | 新增兩個唯讀入口/索引 resource：`knowledge://feature-map`（feature→module 路由）+ `spec://product`（PRD 入口）；`McpServerContext` 加 `specsPath`；registers 6→8 resources（BL-042） | REQ-MCP-002, REQ-MCP-003 (MODIFIED) |

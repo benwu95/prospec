@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1717%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1726%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -463,8 +463,10 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 | `knowledge://index` | AI Knowledge 模組索引（`_index.md`） |
 | `knowledge://module/{name}` | 單一模組的 Recipe-First README |
 | `knowledge://module-map` | 模組邊界 + `depends_on`（`module-map.yaml`） |
+| `knowledge://feature-map` | feature → module 索引 + REQ prefixes（`feature-map.yaml`） |
 | `knowledge://playbook` | 人工核可的團隊 lessons（`_playbook.md`） |
 | `knowledge://health` | 各模組 staleness + coverage —— 與 `prospec check` 同一份純函式 |
+| `spec://product` | Product spec —— PRD 入口 + feature map（`product.md`） |
 | `spec://feature/{name}` | Feature specs（REQ source of truth）；archived specs 以與 `prospec check` 同一條規則排除 |
 
 **Tools**：`search_modules`（這個概念歸哪個模組 —— 對策展索引欄位做正規化 term-OR 比對，
@@ -543,7 +545,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1717 個測試）
+# 執行所有測試（1726 個測試）
 pnpm test
 
 # Watch 模式
@@ -560,9 +562,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1717 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1120 tests
-- Contract tests（CLI 輸出 + Skill 格式）：540 tests
+**測試覆蓋率**：1726 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1127 tests
+- Contract tests（CLI 輸出 + Skill 格式）：542 tests
 - Integration tests：17 tests
 - E2E tests：40 tests
 

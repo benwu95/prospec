@@ -9,9 +9,11 @@ import {
   readIndex,
   readPlaybook,
   readModuleMapRaw,
+  readFeatureMapRaw,
   readModuleReadme,
   listFeatureSpecs,
   readFeatureSpec,
+  readProduct,
   loadModuleMap,
   loadFeatureMap,
   clampModulePaths,
@@ -44,6 +46,7 @@ function write(relPath: string, content: string): void {
 
 const kp = (): string => path.join(tmpDir, 'knowledge');
 const features = (): string => path.join(tmpDir, 'features');
+const specs = (): string => path.join(tmpDir, 'specs');
 
 describe('archived exclusion (single source, REQ-MCP-003)', () => {
   it('flags _archived files and directories by basename', () => {
@@ -113,6 +116,25 @@ describe('content reads (null = not found)', () => {
     write('knowledge/canonical.md', '# canonical\n');
     symlinkSync(path.join(kp(), 'canonical.md'), path.join(kp(), '_playbook.md'));
     expect(readPlaybook(kp())).toBe('# canonical\n');
+  });
+
+  it('reads feature-map.yaml (raw) and product.md when present (BL-042)', () => {
+    write('knowledge/feature-map.yaml', 'features: []\n');
+    write('specs/product.md', '# Product\n');
+    expect(readFeatureMapRaw(kp())).toBe('features: []\n');
+    expect(readProduct(specs())).toBe('# Product\n');
+  });
+
+  it('returns null for a missing feature-map.yaml or product.md (BL-042)', () => {
+    expect(readFeatureMapRaw(kp())).toBeNull();
+    expect(readProduct(specs())).toBeNull();
+  });
+
+  it('treats a product.md symlink escaping specsPath as not-found (BL-042)', () => {
+    write('outside-secret.txt', 'private key material\n');
+    mkdirSync(specs(), { recursive: true });
+    symlinkSync(path.join(tmpDir, 'outside-secret.txt'), path.join(specs(), 'product.md'));
+    expect(readProduct(specs())).toBeNull();
   });
 });
 

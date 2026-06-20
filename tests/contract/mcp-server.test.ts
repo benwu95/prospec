@@ -55,17 +55,30 @@ const INDEX_MD = [
   '<!-- prospec:auto-end -->',
 ].join('\n');
 
+const FEATURE_MAP_YAML = [
+  'features:',
+  '  - feature: sdd-workflow',
+  '    modules: [alpha]',
+  '    req_prefixes: [SDD]',
+  '    status: active',
+].join('\n');
+
+const PRODUCT_MD = '# Product\n\n## Feature Map\n\n### sdd-workflow\n';
+
 function writeFixtureProject(): McpServerContext {
   write('prospec/ai-knowledge/_index.md', INDEX_MD);
   write('prospec/ai-knowledge/_playbook.md', '# Playbook\n\nPB-001: lesson\n');
   write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_YAML);
+  write('prospec/ai-knowledge/feature-map.yaml', FEATURE_MAP_YAML);
   write('prospec/ai-knowledge/modules/alpha/README.md', '# alpha\n');
   write('prospec/ai-knowledge/modules/beta/README.md', '# beta\n');
+  write('prospec/specs/product.md', PRODUCT_MD);
   write('prospec/specs/features/sdd-workflow.md', '# SDD\n\n#### REQ-SDD-001: x\n');
   write('prospec/specs/features/_archived-old.md', '# old\n');
   return {
     cwd: tmpDir,
     knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
+    specsPath: path.join(tmpDir, 'prospec/specs'),
     featuresDir: path.join(tmpDir, 'prospec/specs/features'),
   };
 }
@@ -93,10 +106,12 @@ describe('resources (REQ-MCP-002/003)', () => {
       expect.arrayContaining([
         'knowledge://index',
         'knowledge://module-map',
+        'knowledge://feature-map',
         'knowledge://playbook',
         'knowledge://health',
         'knowledge://module/alpha',
         'knowledge://module/beta',
+        'spec://product',
         'spec://feature/sdd-workflow',
       ]),
     );
@@ -108,6 +123,28 @@ describe('resources (REQ-MCP-002/003)', () => {
     expect(await readText(client, 'knowledge://index')).toBe(INDEX_MD);
     expect(await readText(client, 'knowledge://module-map')).toBe(MODULE_MAP_YAML);
     expect(await readText(client, 'knowledge://playbook')).toContain('PB-001');
+  });
+
+  it('reads the feature-map (raw) and product entry resources (BL-042)', async () => {
+    const client = await connect(writeFixtureProject());
+    expect(await readText(client, 'knowledge://feature-map')).toBe(FEATURE_MAP_YAML);
+    expect(await readText(client, 'spec://product')).toBe(PRODUCT_MD);
+  });
+
+  it('feature-map and product resources error when their files are absent, server survives (BL-042)', async () => {
+    // A project with knowledge + features but no feature-map.yaml / product.md.
+    write('prospec/ai-knowledge/_index.md', INDEX_MD);
+    write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_YAML);
+    const client = await connect({
+      cwd: tmpDir,
+      knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
+      specsPath: path.join(tmpDir, 'prospec/specs'),
+      featuresDir: path.join(tmpDir, 'prospec/specs/features'),
+    });
+    await expect(client.readResource({ uri: 'knowledge://feature-map' })).rejects.toThrow(/not found/i);
+    await expect(client.readResource({ uri: 'spec://product' })).rejects.toThrow(/not found/i);
+    // server survives — an unrelated resource still reads
+    expect(await readText(client, 'knowledge://index')).toBe(INDEX_MD);
   });
 
   it('reads module READMEs and feature specs by name', async () => {
