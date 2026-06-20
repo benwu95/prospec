@@ -421,60 +421,9 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 > **Note**: These commands scaffold empty change artifacts. The Skills (`/prospec-new-story`, `/prospec-ff`, …) now create `.prospec/changes/<name>/` and its files directly, so the workflow doesn't call them — they remain available for manual or scripted scaffolding.
 
-<details>
-<summary>Token Measurement — make the token-efficiency claim verifiable</summary>
+### MCP Server
 
-| Command | Description |
-|---------|-------------|
-| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | Run the offline benchmark: assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider) |
-| `prospec measure [--report <path>]` | Display the measurement report (read-only — never calls an API, never burns tokens) |
-
-The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
-(`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
-at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
-
-**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their
-model provider, not the agent harness itself):
-
-| Agent | Provider API | Default model |
-|-------|-------------|---------------|
-| claude | Anthropic | `claude-haiku-4-5` |
-| codex, copilot | OpenAI | `gpt-4.1-mini` |
-| antigravity | Google | `gemini-2.5-flash` |
-
-**How to read the numbers (honest boundaries):**
-
-- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is
-  always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
-- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on
-  whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable
-  prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly
-  records a 0% hit rate even though the mechanism works at production context sizes.
-- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini
-  automatic prefix caching) — numbers are **comparable only within the same provider**, never across
-  providers or repo snapshots (the report records the git commit it measured).
-- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
-- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
-
-</details>
-
-<details>
-<summary>Drift Check (CI gate) — deterministic spec ↔ code ↔ knowledge integrity</summary>
-
-| Command | Description |
-|---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
-| `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
-
-Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
-never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
-permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
-the developer and the CI gate always see the same facts, token-free.
-
-</details>
-
-<details>
-<summary>MCP Server — read-only project-truth server (any MCP agent)</summary>
+A **read-only**, stdio MCP server that exposes the project's truth — architecture, specs, dependency direction, promoted playbook, and knowledge freshness — to any MCP-capable agent, even one without Prospec Skills installed.
 
 | Command | Description |
 |---------|-------------|
@@ -538,6 +487,56 @@ Honest boundaries: the server is read-only (no tool or resource can modify files
 per process (the root given by `--cwd`), and is a pure add-on — no Skill or CLI command depends on it,
 so everything works unchanged when it is not running. Transport is stdio only; HTTP/SSE is
 deliberately not included in this version.
+
+<details>
+<summary>Token Measurement — make the token-efficiency claim verifiable</summary>
+
+| Command | Description |
+|---------|-------------|
+| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | Run the offline benchmark: assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider) |
+| `prospec measure [--report <path>]` | Display the measurement report (read-only — never calls an API, never burns tokens) |
+
+The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
+(`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
+at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
+
+**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their
+model provider, not the agent harness itself):
+
+| Agent | Provider API | Default model |
+|-------|-------------|---------------|
+| claude | Anthropic | `claude-haiku-4-5` |
+| codex, copilot | OpenAI | `gpt-4.1-mini` |
+| antigravity | Google | `gemini-2.5-flash` |
+
+**How to read the numbers (honest boundaries):**
+
+- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is
+  always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
+- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on
+  whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable
+  prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly
+  records a 0% hit rate even though the mechanism works at production context sizes.
+- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini
+  automatic prefix caching) — numbers are **comparable only within the same provider**, never across
+  providers or repo snapshots (the report records the git commit it measured).
+- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
+- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
+
+</details>
+
+<details>
+<summary>Drift Check (CI gate) — deterministic spec ↔ code ↔ knowledge integrity</summary>
+
+| Command | Description |
+|---------|-------------|
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
+
+Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
+never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
+permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
+the developer and the CI gate always see the same facts, token-free.
 
 </details>
 
