@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-06-19
-story_count: 4
-req_count: 7
+last_updated: 2026-06-20
+story_count: 5
+req_count: 10
 ---
 
 # 確定性 Drift 檢查
@@ -110,6 +110,31 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 
 ---
 
+## US-5: README 事實計數真實性檢查 [P2]
+
+身為一名維護 README 與程式碼一致的開發者，
+我想要 check 機械化比對 module README 宣告的計數（如「registers N resources」）與其指名程式碼的實際數，
+以便事實計數漂移在 CI 被機器攔截，不再只靠人工。
+
+**Acceptance Scenarios:**
+- WHEN module README 宣告計數與其指名程式碼的實際數不符，THEN 報 WARN（含 README `file:line` + expected vs actual）
+- WHEN 計數相符、無可解析宣告、或宣告落在 fenced code block 內，THEN 不報（不偽陽）
+- WHEN module-map 缺失，THEN `readme-counts` skipped（帶原因），永不偽裝 PASS
+
+#### REQ-TYPES-034: Drift Report readme-counts Check Id
+`DRIFT_CHECK_IDS` append `readme-counts`（additive-only；不動 `knowledge_health` 凍結契約）——共 **8** 個 frozen check id。
+
+#### REQ-LIB-020: README 計數 collector + evaluator
+`collectReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateReadmeCounts`（宣告≠實際 → warn finding）。
+**Scenarios:**
+- WHEN README 宣告 N 但指名程式 M（N≠M），THEN warn finding：severity `warn`、`source_path`=README、detail 含 expected/actual
+- WHEN 缺 module-map，THEN `skipped` + reason；evaluator 維持 I/O-free、findings codepoint-sort
+
+#### REQ-SERVICES-034: check.service 注入 readme-counts collector
+`check.service` 將 `collectReadmeCounts` 注入 `runChecks`（moduleMap 缺則 `{available:false}` 降級，與 `timestamps` 共用 `moduleMapMissing` helper）。
+
+---
+
 ## Edge Cases
 
 - `specs/features/` 不存在或為空：req-references `skipped (source unavailable)`，非 FAIL
@@ -143,4 +168,5 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
+| 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5；ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034（README 事實計數 drift check，BL-043） | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |

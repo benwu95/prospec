@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 73 test files, 1,696 tests (unit 1100, contract 539, integration 17, e2e 40)
+> 4-layer test architecture using Vitest + memfs — 73 test files, 1,717 tests (unit 1120, contract 540, integration 17, e2e 40)
 
 <!-- prospec:auto-start -->
 
@@ -10,11 +10,11 @@
 |------|---------|
 | `tests/unit/lib/config.test.ts` | Config resolution and validation (20 tests) |
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes, incl. boundary-anchored relationships + barrel imports (26 tests) |
-| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + non-fatal raw-scan refresh wiring (36 tests) |
+| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + non-fatal raw-scan refresh wiring + BL-043 related_modules forwarded to the auto knowledge-update (70 tests) |
 | `tests/unit/services/raw-scan.service.test.ts` | Deterministic `generateRawScan` — regenerate raw-scan.md, dry-run, depth, curated files byte-identical (never created), fixpoint idempotency (9 tests) |
 | `tests/unit/services/knowledge-init.service.test.ts` | Init scaffolding + `--raw-scan-only` branch — raw-scan-only regenerates only raw-scan.md, never seeds/touches curated files, dry-run writes nothing |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |
-| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. in-place auto-block replace (no $-injection), collectAllModules case-insensitive, removal-wins (22 tests) |
+| `tests/unit/services/knowledge-update.service.test.ts` | Incremental knowledge updates incl. in-place auto-block replace (no $-injection), collectAllModules case-insensitive, removal-wins, and BL-043 feature-prefix resolution (REQ-MCP-* → feature.modules ∪ related_modules, mint guard skips an unresolved feature prefix, module-prefix fallback preserved) (40 tests) |
 | `tests/unit/services/change-resolver.test.ts` | Change-resolution branch coverage — explicit slug, single in-progress auto-select, ambiguous/none/not-found errors |
 | `tests/unit/cli/output-sanitization.test.ts` | `measure`/error output strips control chars before printing (control-char-injection regression) |
 | `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
@@ -25,10 +25,10 @@
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (incl. `### {Category}` grouping + canonical index-column single-source + Dependencies labels + `feature-map.yaml.hbs` format pin incl. empty `modules: []`, BL-040) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (37 tests, incl. `prospec quickstart` one-command onboarding + re-run skip, `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag codepoint-determinism (22 tests, TDD red-first) |
-| `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity); BL-040 adds feature-map collector + two evaluators (both severities mutation-verified) |
-| `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, searchModules distinct-term ranking, grouped-subtable parse resilience + attachModuleCategories join |
+| `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity); BL-040 adds feature-map collector + two evaluators (both severities mutation-verified); BL-043 adds the readme-counts collector/evaluator (declared-vs-actual count, string/template- and fenced-block-aware, WARN-only) |
+| `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, loadFeatureMap module-name safety (BL-043 traversal drop), searchModules distinct-term ranking, grouped-subtable parse resilience + attachModuleCategories join |
 | `tests/contract/mcp-server.test.ts` | MCP protocol surface over InMemoryTransport.createLinkedPair() — resources/tools/health parity with `prospec check` (SC-006), stdout purity spy, loud invalid-map listing, search_modules category join from module-map; the stdio daemon is never spawned in tests |
-| `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS, init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose), feature-map drift wiring (BL-040) |
+| `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS (all 8 checks), init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose), feature-map drift wiring (BL-040), readme-counts wiring (BL-043) |
 | `tests/unit/types/feature-map.test.ts` | `FeatureMapSchema` shape/validation (BL-040) |
 | `tests/unit/services/archive-feature-map.service.test.ts` | `syncFeatureMap` bootstrap + no-clobber on real temp dirs (renders a real template, so not memfs — like check.service.test) (BL-040) |
 | `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |

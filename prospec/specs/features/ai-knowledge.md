@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-06-19
+last_updated: 2026-06-20
 story_count: 11
-req_count: 43
+req_count: 44
 ---
 
 # AI Knowledge
@@ -180,6 +180,11 @@ req_count: 43
 - WHEN deltaSpecPath provided, THEN auto-parse and identify affected modules
 - WHEN manualModules provided, THEN only update specified module READMEs
 - WHEN triggered from archive, THEN failure is non-fatal error
+
+#### REQ-SERVICES-032: Feature-Prefix-Aware Module Resolution（Mint Guard）
+knowledge-update 解析 delta-spec entry 時，prefix 命中 feature-map `req_prefixes`（feature-prefix、非 module——phantom mint 的真正來源）者，解析為 `feature.modules ∪ relatedModules ∩ known`，絕不把 prefix 當 module 名 mint phantom `modules/<prefix>/`；解析為空集則 skip + push warning。module-prefix REQ 維持原解析（含新模組 `src/<name>/**` fallback）。新增 `relatedModules` option，載入 feature-map。
+- WHEN entry prefix 是 feature-map req_prefix 且解析不到任何 known module, THEN skip 該 entry + warning，零檔案系統寫入（不 mint modules/&lt;prefix&gt;/）
+- WHEN entry 為 module-prefix REQ, THEN 維持原解析行為不變
 
 ---
 
@@ -411,6 +416,7 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
 | 2026-06-19 | archive-sync | ADDED REQ-TYPES-031; ADDED REQ-TEMPLATES-113; ADDED REQ-SERVICES-029; ADDED REQ-TEMPLATES-114; ADDED REQ-TESTS-032 | REQ-TYPES-031, REQ-TEMPLATES-113, REQ-SERVICES-029, REQ-TEMPLATES-114, REQ-TESTS-032 |
+| 2026-06-20 | harden-feature-prefixed-req-sync | ADDED REQ-SERVICES-032（knowledge-update feature-prefix-aware resolution + mint guard，BL-043） | REQ-SERVICES-032 |
 | 2026-02-04 | mvp-initial | 建立 Knowledge 生成管線 | US-300~303, REQ-KNOW-001~008 |
 | 2026-02-04 | knowledge-redesign | AI 驅動模組邊界 | REQ-KNOW-002~005 |
 | 2026-02-09 | add-knowledge-update | 增量 delta-spec 驅動更新 | US-310, REQ-SERVICES-020~023 |
