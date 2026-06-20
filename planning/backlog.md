@@ -141,6 +141,9 @@
 ### MCP 真相層擴充（2026-06-19）
 - [ ] [BL-042](#bl-042) MCP 暴露 spec 系統入口/索引（`spec://product` + `knowledge://feature-map`）— 讓外部/冷啟動 agent 一次拿到專案概觀＋feature 路由，補 `spec://feature/{name}`（細節）缺的入口（G3）待處理 · P2
 
+### Knowledge-sync 硬化（2026-06-20）
+- [ ] [BL-043](#bl-043) Archive auto knowledge-update 對 feature-prefixed REQ 同步落空 + phantom module 硬化 — standard/full 改 `REQ-MCP` 等 feature-prefix REQ 時 archive 對應不到實際模組（stale 不清、phantom module 風險、計數漂移）；發現於 BL-042 archive（G5）待處理 · P2
+
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
@@ -2619,6 +2622,33 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [ ] REQ-MCP-002（knowledge resources）/REQ-MCP-003（spec resources）擴充經 delta-spec → verify → archive 畢業進 `mcp-server`/`sdd-workflow` spec，未手改 `specs/features/`
 
 **明確不含**（design doc v3 §3.3 + 附錄 A 已否決，避免日後重提）：`knowledge://conventions`、`constitution://main`、`change://state`、`knowledge://drift`（作者/治理/工作流導向，與外部理解正交）；`knowledge://architecture`（write-only、與 index/module-map 重疊、stale 風險、本 repo 無此檔）。
+
+---
+
+### BL-043
+
+**Archive auto knowledge-update：feature-prefixed REQ 同步落空 + phantom module 硬化**
+
+> **2026-06-20 分析依據**：見 [`planning/issue-feature-prefixed-req-knowledge-sync.md`](issue-feature-prefixed-req-knowledge-sync.md)。發現於 BL-042（`mcp-spec-entry-resources`）archive 期間，該 change 的 archive 暫停於 Entry Gate 待本案決策。`standard`/`full` scale 若 delta-spec 用 **feature-prefixed REQ**（如 `REQ-MCP-*`），archive 的 REQ-prefix-driven auto knowledge-update 對應不到實際被改的模組——留 stale knowledge、有 mint phantom `modules/<feature-prefix>/` 的風險、事實計數漂移無人攔截。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P2 — 中（不壞 runtime；但留 stale knowledge、phantom module 風險、事實計數漂移進永久 spec）|
+| Skill 類型 | 硬化 `prospec archive` 的 auto knowledge-update + `knowledge-update` service（純 CLI/server 改動；不新增 skill）|
+| 影響範圍 | `services`（`knowledge-update.service.ts` `updateModuleReadme` 加 known-module 守衛；`archive.service.ts` standard/full affected-modules 推導）、`templates`（archive Entry Gate skill 對 feature-prefix REQ 的模組推導）、`tests`、AI-knowledge artifact（選項 3：`feature-map.yaml` `mcp-server.modules` 補全）|
+| 預估複雜度 | 選項 (2) Small（單一守衛 + 測試）；選項 (1) Standard（推導改走 `related_modules`/feature-map）；選項 (3) Small（資料修正 + `syncFeatureMap` 檢討）|
+| 依賴 | 無（獨立硬化；發現於 BL-042 archive，惠及所有 scale）|
+
+**根因**：auto knowledge-update 以 **REQ-prefix → module name** 對應——`parseDeltaSpec` 取 `REQ-{MODULE}-{NNN}` 中段並 `toLowerCase()`（`knowledge-update.service.ts:90-94`），`REQ-MCP-002` → module `"mcp"`。但 `MCP` 是 **feature prefix**（`feature-map.yaml` 的 `req_prefix`），`module-map.yaml` 無 `mcp` module。auto-update 只對 `scale: backfill` skip（`archive.service.ts:554`），standard/full 無等價防護。後果三連：(a) 實際被改的 module README 不被觸及 → stale WARN 留著、被下個變更 verify V4 繼承（PB-005 家族）；(b) `updateModuleReadme` 對未知 module **無存在性檢查**、直接 `ensureDir`（`:133`）+ `atomicWrite`（`:174`）→ 可能 mint phantom `modules/mcp/`；(c) 事實計數漂移無人攔截——BL-042 的 `ca7c5d6` 已是 **8 resources** 但 `services/README.md` + `_index.md` 仍寫 **6**，drift 不檢查計數正確性（PB-004 靠人工）。非 module 的 REQ prefix 共 **11** 個（`MCP`/`AGNT`/`SKILL`/`KNOW`/`DSGN`/`CHNG`/`SPEC`/`SPECS`/`MEASURE`/`REF`/`SETUP`），任何 standard/full 變更碰到都會中。
+
+**驗收標準**（建議優先序 (2) → (1) → (3) → (4)）：
+- [ ] **(2) knowledge-update 永不 mint 未知 module**（最小、最高價值、惠及所有 scale）：`updateModuleReadme` 遇到不在 `module-map`/既有 `modules/` 的 module 名 → **skip + warn，永不建檔**（堵 `:133`/`:174` phantom mint）；加測試（未知 module 名 → 零建檔、回 warning）
+- [ ] **(1) standard/full 支援 feature-prefix → module 推導**：REQ prefix 在 `module-map` 找不到、但在 `feature-map.req_prefixes` 命中時，affected modules 改由 `metadata.related_modules`（最可靠）或 `Feature→feature-map.modules` 推導；Entry Gate（skill）與 auto-update（service）兩處一致
+- [ ] **(3) 修 `feature-map.yaml` 的 `mcp-server.modules`**：補 `cli`/`services`/`tests`（現只 `[lib, types]`——`[lib, types]` 是 `syncFeatureMap` 從 mcp-server.md 既有 `REQ-TYPES-029`/`REQ-LIB-017` 正確 seed 出，但 cli/services/tests 只透過 `REQ-MCP` feature-prefix + 實作參與、無 module-prefix REQ heading 可 seed）；並檢討 `syncFeatureMap` 對 feature-prefixed feature 的 seeding
+- [ ] **(4 選用) drift 增「README 事實計數」檢查**：把 PB-004 的人工計數檢查部分機械化（如 `registers N resources` vs 實際 `registerResource` 數）；低優先、可獨立評估
+- [ ] 回歸測試：一條 `scale: standard`、delta-spec 全 feature-prefix REQ 的變更跑 archive → 不 mint phantom module、`related_modules` 的 README 正確同步、`prospec check` 0 stale 0 fail
+
+**明確不含**：`quick`/`backfill` 路徑不動（已免疫——quick 無 delta-spec 走 diff×module-map、backfill 明確 skip auto-update）；不重構 REQ-prefix 命名體系（11 個 feature-prefix 為既有刻意設計，非缺陷）；不改 protocol-frozen 的 `MCP_RESOURCE_URIS` 順序。
 
 ---
 
