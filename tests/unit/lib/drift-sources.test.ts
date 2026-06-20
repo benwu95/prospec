@@ -8,6 +8,7 @@ import {
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
+  collectReadmeCounts,
   collectReqDefinitions,
   collectReqReferences,
   collectTaskStates,
@@ -440,5 +441,108 @@ describe('collectFeatureMapGovernance', () => {
     write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n');
     const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
     expect(r.featureMap.features.map((f) => f.feature)).toEqual(['alpha']);
+  });
+});
+
+describe('collectReadmeCounts', () => {
+  const SMAP: ModuleMap = { modules: [{ name: 'services', paths: ['src/services'], keywords: [] }] };
+  const knowledgePath = () => path.join(tmpDir, 'prospec/ai-knowledge');
+  const writeReadme = (body: string) =>
+    write('prospec/ai-knowledge/modules/services/README.md', body);
+
+  it('matches a declared resources+tools count against the named source file', () => {
+    writeReadme(
+      '# services\n\n| `src/services/mcp.service.ts` | registers 2 resources + 1 tools (per-request) |\n',
+    );
+    write(
+      'src/services/mcp.service.ts',
+      'export function build(s) {\n  s.registerResource("a");\n  s.registerResource("b");\n  s.registerTool("t1");\n}\n',
+    );
+    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    expect(r.available).toBe(true);
+    expect(r.claims).toEqual([
+      {
+        module: 'services',
+        readme_path: 'prospec/ai-knowledge/modules/services/README.md',
+        line: 3,
+        noun: 'resources',
+        source_path: 'src/services/mcp.service.ts',
+        claimed: 2,
+        actual: 2,
+      },
+      {
+        module: 'services',
+        readme_path: 'prospec/ai-knowledge/modules/services/README.md',
+        line: 3,
+        noun: 'tools',
+        source_path: 'src/services/mcp.service.ts',
+        claimed: 1,
+        actual: 1,
+      },
+    ]);
+  });
+
+  it('surfaces a drifted count as claimed≠actual (e.g. README 6, code 8)', () => {
+    writeReadme('| `src/services/mcp.service.ts` | registers 6 resources |\n');
+    write(
+      'src/services/mcp.service.ts',
+      Array.from({ length: 8 }, (_, i) => `s.registerResource("r${i}");`).join('\n'),
+    );
+    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    expect(r.claims).toHaveLength(1);
+    expect(r.claims[0]).toMatchObject({ noun: 'resources', claimed: 6, actual: 8 });
+  });
+
+  it('does not count a commented-out call', () => {
+    writeReadme('| `src/services/mcp.service.ts` | registers 1 resources |\n');
+    write(
+      'src/services/mcp.service.ts',
+      's.registerResource("real");\n// s.registerResource("commented");\n/* s.registerResource("block"); */\n',
+    );
+    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    expect(r.claims[0]).toMatchObject({ claimed: 1, actual: 1 });
+  });
+
+  it('produces no claim when the README has no count prose', () => {
+    writeReadme('# services\n\n| `src/services/mcp.service.ts` | the MCP server |\n');
+    write('src/services/mcp.service.ts', 's.registerResource("a");\n');
+    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+  });
+
+  it('produces no claim when the named source file is absent (file-paths owns broken links)', () => {
+    writeReadme('| `src/services/mcp.service.ts` | registers 3 resources |\n');
+    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+  });
+
+  it('skips a module whose README is absent', () => {
+    write('src/services/mcp.service.ts', 's.registerResource("a");\n');
+    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+  });
+
+  it('counts calls correctly when a string literal contains // or a register token (string-aware)', () => {
+    writeReadme('| `src/services/mcp.service.ts` | registers 2 resources |\n');
+    write(
+      'src/services/mcp.service.ts',
+      's.registerResource("spec://a"); s.registerResource("b");\n' +
+        'const u = "x // registerResource(";\n',
+    );
+    // the `//` inside "spec://a" must not truncate the line (both calls count);
+    // the register token embedded in a string must not count
+    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims[0]).toMatchObject({
+      claimed: 2,
+      actual: 2,
+    });
+  });
+
+  it('ignores a count claim inside a fenced code block (illustrative, not live)', () => {
+    writeReadme(
+      '# services\n\n```\n| `src/services/mcp.service.ts` | registers 99 resources |\n```\n\n' +
+        '| `src/services/mcp.service.ts` | registers 1 resources |\n',
+    );
+    write('src/services/mcp.service.ts', 's.registerResource("a");\n');
+    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    // only the live (non-fenced) claim is parsed; the fenced "99" is ignored
+    expect(r.claims).toHaveLength(1);
+    expect(r.claims[0]).toMatchObject({ claimed: 1, actual: 1 });
   });
 });

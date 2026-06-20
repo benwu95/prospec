@@ -16,6 +16,7 @@ import type {
   GitTimestampSource,
   ImportEdgeSource,
   LinkSource,
+  ReadmeCountSource,
   ReqDefinitionIndex,
   ReqReference,
   TaskSource,
@@ -46,6 +47,7 @@ export interface DriftCheckInputs {
   timestamps: GitTimestampSource;
   tasks: TaskSource;
   featureMapGovernance: FeatureMapGovernanceSource;
+  readmeCounts: ReadmeCountSource;
   generatedAt: string;
 }
 
@@ -280,6 +282,30 @@ export function evaluateFeatureModules(src: FeatureMapGovernanceSource): CheckOu
   return outcome('feature-modules', findings);
 }
 
+/**
+ * README declared counts must match the code they name — drift is WARN-class
+ * (REQ-LIB-020). Mechanizes the count-accuracy gap the other checks leave to
+ * human review; whitelist-bounded in the collector, so unmatched prose never
+ * reaches here. Skips when module-map is absent (no module boundaries).
+ */
+export function evaluateReadmeCounts(src: ReadmeCountSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('readme-counts', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = src.claims
+    .filter((c) => c.claimed !== c.actual)
+    .map((c) => ({
+      check: 'readme-counts' as const,
+      severity: 'warn' as const,
+      source_path: c.readme_path,
+      line: c.line,
+      detail:
+        `count drift: README claims ${c.claimed} ${c.noun} for ${c.source_path} ` +
+        `but the code has ${c.actual}`,
+    }));
+  return outcome('readme-counts', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -290,6 +316,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'task-completion': evaluateTaskCompletion(inputs.tasks),
     'dangling-prefix': evaluateDanglingPrefix(inputs.featureMapGovernance),
     'feature-modules': evaluateFeatureModules(inputs.featureMapGovernance),
+    'readme-counts': evaluateReadmeCounts(inputs.readmeCounts),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

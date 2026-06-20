@@ -15,6 +15,7 @@ import {
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
+  collectReadmeCounts,
   collectReqDefinitions,
   collectReqReferences,
   collectTaskStates,
@@ -71,21 +72,25 @@ export async function execute(options: CheckOptions): Promise<CheckResult | Init
     ? buildDependencyRules(moduleMap)
     : constitutionFallbackRules();
 
+  // module-map-keyed sources (health, declared-count veracity) share one honest
+  // degrade when the map is absent — the constitution fallback is a direction
+  // ruleset, not a knowledge claim, so facts for undeclared boundaries would be fabricated.
+  const moduleMapMissing = <T extends object>(extra: T) =>
+    ({
+      available: false as const,
+      reason: 'source unavailable: module-map.yaml not found — module boundaries unknown',
+      ...extra,
+    });
+
   const report = runChecks({
     reqDefinitions: collectReqDefinitions(featuresDir),
     reqReferences: collectReqReferences(markdownRoots, cwd),
     links: collectMarkdownLinks(markdownRoots, cwd),
     importEdges: collectImportEdges(cwd, attributionMap),
     dependencyRules,
-    // the constitution fallback is a direction ruleset, not a knowledge claim —
-    // health facts for undeclared module boundaries would be fabricated
     timestamps: moduleMap
       ? collectGitTimestamps(cwd, moduleMap, paths.knowledgePath)
-      : {
-          available: false,
-          reason: 'source unavailable: module-map.yaml not found — module boundaries unknown',
-          modules: [],
-        },
+      : moduleMapMissing({ modules: [] }),
     tasks: collectTaskStates(cwd),
     // feature-map.yaml is the optional index; the collector reports it
     // unavailable when absent, so both governance checks skip (never a fabricated finding).
@@ -95,6 +100,9 @@ export async function execute(options: CheckOptions): Promise<CheckResult | Init
       cwd,
       attributionMap,
     ),
+    readmeCounts: moduleMap
+      ? collectReadmeCounts(cwd, paths.knowledgePath, moduleMap)
+      : moduleMapMissing({ claims: [] }),
     generatedAt: new Date().toISOString(),
   });
 

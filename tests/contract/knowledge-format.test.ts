@@ -330,5 +330,21 @@ describe('Knowledge Format Contract', () => {
       expect(parsed.success).toBe(true);
       expect(parsed.success && parsed.data.features[0]?.modules).toEqual([]);
     });
+
+    it('the real feature-map.yaml lists every module the mcp-server feature spans (BL-043)', () => {
+      // mcp-server is feature-prefixed (REQ-MCP-*); seeding from REQ headings alone
+      // under-curates it, so the full span is curated by hand and must not regress.
+      const raw = fs.readFileSync(
+        path.join(process.cwd(), 'prospec/ai-knowledge/feature-map.yaml'),
+        'utf-8',
+      );
+      const mcp = FeatureMapSchema.parse(parseYaml(raw)).features.find(
+        (f) => f.feature === 'mcp-server',
+      );
+      expect(mcp).toBeDefined();
+      for (const m of ['cli', 'lib', 'services', 'tests', 'types']) {
+        expect(mcp?.modules).toContain(m);
+      }
+    });
   });
 });

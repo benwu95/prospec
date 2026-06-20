@@ -50,7 +50,7 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all seven checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (all eight checks, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
@@ -58,7 +58,7 @@ describe('check.service execute', () => {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(7);
+    expect(result.report.summary.skipped_count).toBe(8);
     expect(result.hasFail).toBe(false);
   });
 

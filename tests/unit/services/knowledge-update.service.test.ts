@@ -944,4 +944,63 @@ describe('execute', () => {
     expect(result.updated).toEqual([]);
     expect(result.deprecated).toEqual([]);
   });
+
+  it('resolves a feature-prefixed REQ to feature-map ∪ related_modules, never minting modules/<prefix>/ (REQ-SERVICES-033)', async () => {
+    const deltaContent = '## MODIFIED\n\n### REQ-MCP-002: tweak mcp resources\n\n**Description:** change\n';
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: lib\n    paths: ["src/lib/**"]\n    keywords: []\n  - name: types\n    paths: ["src/types/**"]\n    keywords: []\n  - name: services\n    paths: ["src/services/**"]\n    keywords: []\n',
+      '/test/prospec/ai-knowledge/feature-map.yaml':
+        'features:\n  - feature: mcp-server\n    modules: [lib, types]\n    req_prefixes: [MCP]\n    status: active\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({
+      deltaSpecPath: '/project/delta-spec.md',
+      cwd: '/project',
+      relatedModules: ['services', 'types'],
+    });
+
+    // feature.modules [lib, types] ∪ related [services, types] ∩ known = {lib, types, services}
+    expect(result.updated.sort()).toEqual(['lib', 'services', 'types']);
+    // the feature prefix itself is never treated as a module
+    expect(result.created).not.toContain('mcp');
+    expect(result.updated).not.toContain('mcp');
+    expect(result.generatedFiles.every((f) => !f.path.includes('modules/mcp/'))).toBe(true);
+  });
+
+  it('skips a feature-prefixed REQ that resolves to no known module — warns, mints nothing (REQ-SERVICES-032)', async () => {
+    const deltaContent = '## MODIFIED\n\n### REQ-MCP-002: tweak\n\n**Description:** change\n';
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: lib\n    paths: ["src/lib/**"]\n    keywords: []\n',
+      // MCP is a feature prefix with no modules, and no related_modules is passed
+      '/test/prospec/ai-knowledge/feature-map.yaml':
+        'features:\n  - feature: mcp-server\n    modules: []\n    req_prefixes: [MCP]\n    status: active\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    expect(result.created).toEqual([]);
+    expect(result.updated).toEqual([]);
+    expect(result.warnings.join(' ')).toContain('REQ-MCP-002');
+    expect(result.warnings.join(' ')).toContain('feature prefix');
+    expect(result.generatedFiles.every((f) => !f.path.includes('modules/mcp/'))).toBe(true);
+  });
+
+  it('still treats a non-feature-prefix unknown module as a module name (legacy fallback preserved)', async () => {
+    const deltaContent = '## MODIFIED\n\n### REQ-PAYMENTS-001: tweak payments\n\n**Description:** change\n';
+    vol.fromJSON({
+      // feature-map exists but does NOT declare PAYMENTS as a req_prefix
+      '/test/prospec/ai-knowledge/feature-map.yaml':
+        'features:\n  - feature: mcp-server\n    modules: [lib]\n    req_prefixes: [MCP]\n    status: active\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // PAYMENTS is not a feature prefix → treated as a module name (fallback), as before
+    expect(result.updated).toEqual(['payments']);
+  });
 });

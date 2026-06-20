@@ -25,6 +25,10 @@ export const DRIFT_CHECK_IDS = [
   // REQ-prefix legality (warn) and the feature→module edge (fail).
   'dangling-prefix',
   'feature-modules',
+  // README factual-count veracity — a declared count (e.g. "registers N
+  // resources") that disagrees with the code it names (warn). Mechanizes the
+  // count-accuracy gap the other checks deliberately do not cover.
+  'readme-counts',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
