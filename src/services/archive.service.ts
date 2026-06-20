@@ -52,6 +52,8 @@ export interface ArchivedChange {
   summaryGenerated: boolean;
   /** metadata.scale — gates the REQ-prefix auto knowledge-update (skipped for `backfill`). */
   scale: string;
+  /** metadata.related_modules — resolves feature-prefixed REQ ids in the auto knowledge-update. */
+  relatedModules: string[];
 }
 
 /** Routing info extracted from delta-spec Feature/Story fields. */
@@ -513,6 +515,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         archivePath: archiveDir,
         summaryGenerated,
         scale: String(change.metadata.scale ?? ''),
+        relatedModules: Array.isArray(change.metadata.related_modules)
+          ? change.metadata.related_modules.filter((m): m is string => typeof m === 'string')
+          : [],
       });
     } catch {
       skipped.push(change.name);
@@ -547,6 +552,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // module names and mint phantom modules/<slug>/README.md + module-map entries.
   // Backfill module sync is owned by the skill-level Entry Gate (related_modules /
   // **Feature:**→feature-map), not this REQ-prefix safety net.
+  // For standard/full, `relatedModules` is forwarded so a feature-prefixed REQ
+  // (e.g. REQ-MCP-*) resolves to real modules via feature-map instead of minting
+  // a phantom modules/<prefix>/ (BL-043).
   let knowledgeUpdated = false;
   const knowledgeWarnings: string[] = [];
   if (archived.length > 0) {
@@ -557,7 +565,11 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         try {
           // Capture the result so non-fatal notices (e.g. malformed REQ ids)
           // are forwarded to the archive caller instead of being dropped here.
-          const ku = await executeKnowledgeUpdate({ deltaSpecPath, cwd });
+          const ku = await executeKnowledgeUpdate({
+            deltaSpecPath,
+            cwd,
+            relatedModules: change.relatedModules,
+          });
           knowledgeUpdated = true;
           knowledgeWarnings.push(...ku.warnings);
         } catch {

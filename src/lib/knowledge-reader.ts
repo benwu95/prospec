@@ -124,7 +124,14 @@ export function loadFeatureMap(knowledgePath: string): FeatureMap | null {
         .join('; ')}`,
     );
   }
-  return { features: parsed.data.features.filter((f) => isSafeResourceName(f.feature)) };
+  return {
+    features: parsed.data.features
+      .filter((f) => isSafeResourceName(f.feature))
+      // module names are compared against on-disk module dirs and (in knowledge-update)
+      // drive README writes — drop any traversal-shaped name at the load boundary, the
+      // same guard already applied to the feature slug above.
+      .map((f) => ({ ...f, modules: f.modules.filter((m) => isSafeResourceName(m)) })),
+  };
 }
 
 // --- _index.md module table parsing + search (REQ-MCP-005) ---

@@ -3,7 +3,13 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { scanDirSync } from './scanner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
-import { ARCHIVED_EXCLUDES, isArchivedSpec, isSafeResourceName, loadFeatureMap } from './knowledge-reader.js';
+import {
+  ARCHIVED_EXCLUDES,
+  isArchivedSpec,
+  isSafeResourceName,
+  loadFeatureMap,
+  readModuleReadme,
+} from './knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 
@@ -76,6 +82,24 @@ export interface GitTimestampSource {
   available: boolean;
   reason?: string;
   modules: ModuleTimestamps[];
+}
+
+export interface ReadmeCountClaim {
+  module: string;
+  readme_path: string;
+  line: number;
+  /** The counted noun as written in the README (e.g. "resources", "tools"). */
+  noun: string;
+  /** Repo-relative source file the claim names. */
+  source_path: string;
+  claimed: number;
+  actual: number;
+}
+
+export interface ReadmeCountSource {
+  available: boolean;
+  reason?: string;
+  claims: ReadmeCountClaim[];
 }
 
 export type { TaskKind } from './task-markers.js';
@@ -296,6 +320,68 @@ export function collectGitTimestamps(
   return { available: true, modules };
 }
 
+/** Whitelisted README count claims — a prose noun → the code call that realizes it. */
+const README_COUNT_RULES: ReadonlyArray<{ noun: string; token: RegExp }> = [
+  { noun: 'resources', token: /\bregisterResource\s*\(/ },
+  { noun: 'tools', token: /\bregisterTool\s*\(/ },
+];
+
+// "… `src/foo.ts` … registers 6 resources + 2 tools …" — one README line naming
+// a source file and declaring its resource (and optional tool) count.
+const README_COUNT_CLAIM =
+  /`(src\/[^`]+\.[cm]?tsx?)`[^\n]*?\bregisters\s+(\d+)\s+resources(?:\s*\+\s*(\d+)\s+tools)?/;
+
+/**
+ * Collect declared-vs-actual count claims from module READMEs (REQ-LIB-020).
+ * A README line stating "`src/x.ts` … registers N resources + M tools" is
+ * checked against the actual registerResource/registerTool call count in that
+ * file. Whitelist-driven (README_COUNT_RULES) — prose that does not match a
+ * rule yields no claim, never a false finding. The named file missing yields no
+ * claim (file-paths owns broken links). Counting strips comments so a
+ * commented-out call is not counted.
+ */
+export function collectReadmeCounts(
+  cwd: string,
+  knowledgePath: string,
+  moduleMap: ModuleMap,
+): ReadmeCountSource {
+  const claims: ReadmeCountClaim[] = [];
+  const knowledgeRel = path.relative(cwd, path.resolve(cwd, knowledgePath));
+  for (const entry of moduleMap.modules) {
+    if (!isSafeResourceName(entry.name)) continue;
+    const readme = readModuleReadme(knowledgePath, entry.name);
+    if (readme === null) continue;
+    const readmeRel = path
+      .join(knowledgeRel, 'modules', entry.name, 'README.md')
+      .replace(/\\/g, '/');
+    // strip fenced examples first — a count claim inside a ``` block is illustrative,
+    // not a live claim (same reason as collectReqReferences/collectMarkdownLinks)
+    withoutFencedBlocks(readme.split('\n')).forEach((line, i) => {
+      const m = README_COUNT_CLAIM.exec(line);
+      if (m === null) return;
+      const sourceRel = m[1]!;
+      const code = readContainedFile(cwd, sourceRel);
+      if (code === null) return;
+      const declared = [{ noun: 'resources', claimed: Number(m[2]) }];
+      if (m[3] !== undefined) declared.push({ noun: 'tools', claimed: Number(m[3]) });
+      for (const { noun, claimed } of declared) {
+        const rule = README_COUNT_RULES.find((r) => r.noun === noun);
+        if (rule === undefined) continue;
+        claims.push({
+          module: entry.name,
+          readme_path: readmeRel,
+          line: i + 1,
+          noun,
+          source_path: sourceRel.replace(/\\/g, '/'),
+          claimed,
+          actual: countCalls(code, rule.token),
+        });
+      }
+    });
+  }
+  return { available: true, claims };
+}
+
 /** Collect checkbox/kind state from every active change's tasks.md. */
 export function collectTaskStates(cwd: string): TaskSource {
   const changesDir = path.resolve(cwd, '.prospec/changes');
@@ -510,6 +596,29 @@ function isCheckableLink(raw: string): boolean {
   if (raw.startsWith('#') || raw.startsWith('/')) return false;
   if (raw.includes('{') || raw.includes('*')) return false; // placeholder / glob noise
   return true;
+}
+
+/** Read a repo-relative file, refusing to escape the repo (symlink-resolved). */
+function readContainedFile(cwd: string, relPath: string): string | null {
+  const abs = path.resolve(cwd, relPath);
+  if (path.relative(cwd, abs).startsWith('..') || !existsContained(abs, cwd)) return null;
+  return readFileSync(abs, 'utf-8');
+}
+
+/**
+ * Count a code-call token outside comments AND strings — a commented-out or
+ * string-embedded call is not a real call. Block comments, template literals,
+ * and quoted strings are blanked (newlines preserved) BEFORE stripping line
+ * comments, so a `//` inside a string (e.g. `"spec://x"`) can no longer
+ * truncate the line and undercount a real call after it.
+ */
+function countCalls(content: string, token: RegExp): number {
+  const code = content
+    .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
+    .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '))
+    .replace(/(['"])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, '');
+  return (code.match(new RegExp(token.source, 'g')) ?? []).length;
 }
 
 function gitLastCommit(cwd: string, paths: string[]): string | null {

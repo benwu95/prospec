@@ -8,6 +8,7 @@ import {
   evaluateFilePaths,
   evaluateImportDirection,
   evaluateKnowledgeHealth,
+  evaluateReadmeCounts,
   evaluateReqReferences,
   evaluateTaskCompletion,
   runChecks,
@@ -29,6 +30,7 @@ const emptyInputs: DriftCheckInputs = {
   timestamps: { available: true, modules: [] },
   tasks: { available: true, changes: [] },
   featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
+  readmeCounts: { available: true, claims: [] },
   generatedAt: '2026-06-12T00:00:00Z',
 };
 
@@ -635,5 +637,65 @@ describe('evaluateFeatureModules (REQ-LIB-019)', () => {
     );
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
+  });
+});
+
+describe('evaluateReadmeCounts (REQ-LIB-020)', () => {
+  const claim = (over: Partial<import('../../../src/lib/drift-sources.js').ReadmeCountClaim>) => ({
+    module: 'services',
+    readme_path: 'k/modules/services/README.md',
+    line: 26,
+    noun: 'resources',
+    source_path: 'src/services/mcp.service.ts',
+    claimed: 6,
+    actual: 6,
+    ...over,
+  });
+
+  it('skips when module-map is unavailable (never a false positive)', () => {
+    const r = evaluateReadmeCounts({
+      available: false,
+      reason: 'source unavailable: module-map.yaml not found — module boundaries unknown',
+      claims: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+  });
+
+  it('falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateReadmeCounts({ available: false, claims: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('passes when every declared count matches the code', () => {
+    const r = evaluateReadmeCounts({ available: true, claims: [claim({}), claim({ noun: 'tools', claimed: 2, actual: 2 })] });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns (never fails) with file:line + expected-vs-actual on a mismatch', () => {
+    const r = evaluateReadmeCounts({ available: true, claims: [claim({ claimed: 6, actual: 8 })] });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({
+      check: 'readme-counts',
+      severity: 'warn',
+      source_path: 'k/modules/services/README.md',
+      line: 26,
+    });
+    expect(r.findings[0]?.detail).toContain('6 resources');
+    expect(r.findings[0]?.detail).toContain('8');
+    expect(r.findings[0]?.detail).toContain('src/services/mcp.service.ts');
+  });
+
+  it('reports only the mismatched claim when one of several drifts', () => {
+    const r = evaluateReadmeCounts({
+      available: true,
+      claims: [claim({ noun: 'resources', claimed: 6, actual: 6 }), claim({ noun: 'tools', claimed: 2, actual: 3 })],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('2 tools');
   });
 });

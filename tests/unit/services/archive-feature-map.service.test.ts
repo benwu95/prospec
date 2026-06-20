@@ -64,6 +64,23 @@ describe('syncFeatureMap (REQ-SERVICES-029)', () => {
     expect(alpha?.req_prefixes).toEqual(['DOM']);
   });
 
+  it('never shrinks a curated feature-prefixed feature to its REQ-seeded subset (BL-043 mcp-server)', async () => {
+    // mcp-server is feature-prefixed (REQ-MCP-*) yet its spec also carries
+    // module-prefix REQ-TYPES/REQ-LIB headings — seeding alone yields only
+    // [lib, types]. The curated [cli, lib, services, tests, types] must survive.
+    writeSpec('mcp-server', '#### REQ-TYPES-029: A\n\n#### REQ-LIB-017: B\n\n#### REQ-MCP-002: C\n');
+    mkdirSync(path.dirname(mapPath()), { recursive: true });
+    writeFileSync(
+      mapPath(),
+      'features:\n  - feature: mcp-server\n    modules: [cli, lib, services, tests, types]\n    req_prefixes: [MCP]\n    status: active\n',
+    );
+    const written = await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+    expect(written).toBeNull();
+    const mcp = readMap().features[0];
+    expect(mcp?.modules).toEqual(['cli', 'lib', 'services', 'tests', 'types']);
+    expect(mcp?.req_prefixes).toEqual(['MCP']);
+  });
+
   it('carries a deprecated feature status through to the index', async () => {
     writeSpec('legacy', '#### REQ-LIB-001: A\n', 'deprecated');
     await syncFeatureMap(featuresPath(), mapPath(), MMAP);

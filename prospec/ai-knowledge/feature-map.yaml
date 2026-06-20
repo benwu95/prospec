@@ -42,7 +42,10 @@ features:
     status: active
   - feature: mcp-server
     modules:
+      - cli
       - lib
+      - services
+      - tests
       - types
     req_prefixes:
       - MCP

@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-19
+last_updated: 2026-06-20
 story_count: 23
-req_count: 96
+req_count: 99
 ---
 
 # SDD 開發流程
@@ -553,6 +553,20 @@ archive skill 含 `## Entry Gate`，為生命週期唯一強制 knowledge 同步
 - WHEN knowledge 未同步, THEN Entry Gate FAIL、停止歸檔並指向 `/prospec-knowledge-update`；無影響模組視為 PASS
 - WHEN 移除 Entry Gate 區段或恢復互動 Phase 4 文案, THEN 對應 contract test 轉紅（mutation-verified）
 
+#### REQ-TEMPLATES-120: Archive Entry Gate standard/full Feature-Prefix Fallback
+prospec-archive Entry Gate 與 Phase 4：`standard`/`full` 的 delta-spec REQ prefix 命中 feature-map `req_prefixes` 時為 feature-prefix（非 module），改由 `metadata.related_modules` + (`**Feature:**`→feature-map `modules`) 推導受影響模組，與 backfill 同構；module-prefix REQ 維持原推導。修補 feature-prefixed REQ（如 `REQ-MCP-*`）在 standard/full 的 knowledge-sync 落空 + phantom module 風險（BL-043）。
+- WHEN standard/full REQ prefix 命中 feature-map req_prefixes, THEN 以 related_modules/feature-map 推導受影響模組、非 prefix-as-module
+- WHEN REQ 為 module-prefix, THEN 維持原 prefix→module 推導（向後相容）
+
+#### REQ-SERVICES-033: Archive Auto Knowledge-Update 轉發 related_modules
+archive 將 `metadata.related_modules` 帶入 auto knowledge-update（`ArchivedChange.relatedModules` → `executeKnowledgeUpdate`），使 standard/full 的 feature-prefixed REQ 同步到真實模組，而非依 REQ prefix 落空或 mint phantom。
+- WHEN standard/full change 含 feature-prefix REQ 且 service 層 auto-update 執行, THEN 以 related_modules 解析受影響模組
+
+#### REQ-TESTS-035: Feature-Prefix 同步端到端與不變量測試
+archive wiring 測試斷言 standard + feature-prefix REQ 轉發 `related_modules`；feature-map `mcp-server.modules` 完整性（真檔契約）+ `syncFeatureMap` no-clobber 不縮減 curated 集。
+- WHEN archive 對 standard + feature-prefix REQ 執行, THEN executeKnowledgeUpdate 收到 related_modules
+- WHEN 既存 feature 跑 syncFeatureMap, THEN curated modules 集不被縮減
+
 ---
 
 ## US-15: 相稱流程（Scale-Aware Task Contract）[P1]
@@ -855,3 +869,4 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 | 2026-06-17 | extract-backfill-spec-skill | input=code 反向變體抽離為獨立 Lifecycle skill `prospec-backfill-spec`（命名 reverse→backfill、reverse-draft.md→backfill-draft.md）；prospec-design 回歸純 Generate/Extract；contract REQ-TESTS-028 retarget + negative | US-22; REQ-TEMPLATES-108 (ADDED); REQ-TEMPLATES-104~107, REQ-TESTS-028 (MODIFIED); REQ-DSGN-003 (MODIFIED, design-phase) |
 | 2026-06-19 | feature-first-backfill | backfill 取材/覆蓋掃描單位 module→feature 縱切片（兩段式 gather→cluster、Pass-2 tracing cite `file:line`、跨模組 integration-edge 一等 AC gated on 兩端 grounding、Phase 4 未覆蓋 feature、基礎設施非 feature NEVER、feature-boundary-criteria reference 外置 hasReferences:true）（BL-039） | US-22; REQ-TEMPLATES-109~112, REQ-TESTS-030 (ADDED); REQ-TEMPLATES-104/105/107/108 + US-22 AC (MODIFIED) |
 | 2026-06-19 | backfill-promotion-path | `scale: backfill`（第 4 個 CHANGE_SCALES 值，輕量 scale）+ `/prospec-promote-backfill` skill 讓 brownfield backfill 規格端到端 graduate：promote 產輕量 scaffold（proposal+delta-spec+metadata，無 plan/tasks）；verify 評 spec-fidelity、既有品質 MUST 降 informational（provenance-gated）、1/5 N/A；archive 接受、related_modules/Feature→feature-map 推導、跳過 REQ-prefix auto knowledge-update | US-23; REQ-TEMPLATES-115~119, REQ-SERVICES-031, REQ-TESTS-034 (ADDED) |
+| 2026-06-20 | harden-feature-prefixed-req-sync | archive standard/full 對 feature-prefixed REQ 改由 related_modules/feature-map 推導（Entry Gate + service auto-update 一致），修 knowledge-sync 落空 + phantom module 風險（BL-043） | US-14; REQ-TEMPLATES-120, REQ-SERVICES-033, REQ-TESTS-035 (ADDED) |

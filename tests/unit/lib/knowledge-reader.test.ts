@@ -13,6 +13,7 @@ import {
   listFeatureSpecs,
   readFeatureSpec,
   loadModuleMap,
+  loadFeatureMap,
   clampModulePaths,
   parseIndexModules,
   searchModules,
@@ -191,6 +192,22 @@ const INDEX_FIXTURE = [
   '| Module | Keywords |',
   '| **outside-block** | should-not-parse |',
 ].join('\n');
+
+describe('loadFeatureMap module-name safety (BL-043 hardening)', () => {
+  it('returns null when feature-map.yaml is missing', () => {
+    expect(loadFeatureMap(kp())).toBeNull();
+  });
+
+  it('drops feature-map module names that are not safe resource names (traversal guard)', () => {
+    write(
+      'knowledge/feature-map.yaml',
+      'features:\n  - feature: mcp-server\n    modules: ["lib", "../../etc", "services"]\n    req_prefixes: [MCP]\n    status: active\n',
+    );
+    // the slug is safe, but a traversal-shaped module name is dropped at the load
+    // boundary — knowledge-update drives README writes off these names
+    expect(loadFeatureMap(kp())?.features[0]?.modules).toEqual(['lib', 'services']);
+  });
+});
 
 describe('parseIndexModules', () => {
   it('parses name/keywords/aliases/description from the auto block only', () => {

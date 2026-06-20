@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1696%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1717%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -440,7 +440,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率，以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
 | `prospec check --init-ci` | 生成 supply-chain 強化的 GitHub Actions 閘門（`.github/workflows/prospec-check.yml`）：action pin 完整 commit SHA、最小權限、報告 artifact 上傳、由不 checkout 原始碼的 job 貼 sticky PR comment |
 
 誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code
@@ -543,7 +543,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1696 個測試）
+# 執行所有測試（1717 個測試）
 pnpm test
 
 # Watch 模式
@@ -560,9 +560,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1696 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1100 tests
-- Contract tests（CLI 輸出 + Skill 格式）：539 tests
+**測試覆蓋率**：1717 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1120 tests
+- Contract tests（CLI 輸出 + Skill 格式）：540 tests
 - Integration tests：17 tests
 - E2E tests：40 tests
 

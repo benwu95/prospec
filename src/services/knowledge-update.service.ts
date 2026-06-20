@@ -7,7 +7,9 @@ import { mergeContent } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+import { loadFeatureMap } from '../lib/knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
+import type { FeatureMap } from '../types/feature-map.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR, INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 
 // --- Interfaces (Task 5: REQ-SERVICES-023) ---
@@ -19,6 +21,12 @@ export interface KnowledgeUpdateOptions {
   manualModules?: string[];
   /** Working directory */
   cwd?: string;
+  /**
+   * metadata.related_modules of the change — the reliable affected-module set
+   * used to resolve feature-prefixed REQ ids (e.g. REQ-MCP-*) whose prefix is a
+   * feature, not a module. Ignored for module-prefix REQ ids.
+   */
+  relatedModules?: string[];
 }
 
 export interface DeltaReqEntry {
@@ -404,37 +412,71 @@ export async function execute(
 
     // Resolve module paths from module-map.yaml
     const modulePathMap = buildModulePathMap(moduleMapPath);
+    const knownModules = collectKnownModules(modulePathMap, knowledgePath);
+    const featureMap = loadFeatureMap(knowledgePath);
+    const relatedModules = (options.relatedModules ?? []).map((m) => m.toLowerCase());
+
+    // Map a delta REQ entry to the module(s) whose README it should sync.
+    // A module-prefix REQ maps to that one module (legacy behavior, incl. the
+    // src/<name>/** fallback for a genuinely new module). A feature-prefix REQ
+    // (its prefix is a feature-map req_prefix, NOT a module — e.g. REQ-MCP) is
+    // re-mapped to that feature's modules ∪ related_modules, intersected with
+    // known modules — never minting a phantom modules/<prefix>/ (BL-043).
+    const resolveEntryModules = (entry: DeltaReqEntry): string[] => {
+      if (knownModules.has(entry.module)) return [entry.module];
+      const featureModules = featurePrefixModules(featureMap, entry.module);
+      if (featureModules === null) return [entry.module]; // a module name, not a feature prefix
+      const resolved = [...new Set([...featureModules, ...relatedModules])].filter((m) =>
+        knownModules.has(m),
+      );
+      if (resolved.length === 0) {
+        result.warnings.push(
+          `${entry.id}: "${entry.module}" is a feature prefix, not a module — set ` +
+            `metadata.related_modules (or feature-map modules) so the change can sync ` +
+            `(skipped; no module minted)`,
+        );
+      }
+      return resolved;
+    };
 
     // Removal wins: a module that is also REMOVED must not be created/updated
     // (its README would be regenerated then immediately deprecated, and it would
     // be falsely reported as both updated and deprecated).
     const removedModules = new Set(delta.removed.map((e) => e.module));
+    const addedSynced = new Set<string>();
 
     // Process ADDED modules
     for (const entry of delta.added) {
-      if (removedModules.has(entry.module)) continue;
-      const paths = modulePathMap.get(entry.module) ?? [`src/${entry.module}/**`];
-      const file = await updateModuleReadme(entry.module, paths, baseOpts);
-      result.generatedFiles.push(file);
-      if (file.action === 'created') {
-        result.created.push(entry.module);
-      } else {
-        result.updated.push(entry.module);
+      for (const mod of resolveEntryModules(entry)) {
+        if (removedModules.has(mod)) continue;
+        const paths = modulePathMap.get(mod) ?? [`src/${mod}/**`];
+        const file = await updateModuleReadme(mod, paths, baseOpts);
+        result.generatedFiles.push(file);
+        if (file.action === 'created') {
+          if (!result.created.includes(mod)) result.created.push(mod);
+        } else if (!result.updated.includes(mod) && !result.created.includes(mod)) {
+          result.updated.push(mod);
+        }
+        addedSynced.add(mod);
       }
     }
 
     // Process MODIFIED modules
     for (const entry of delta.modified) {
-      if (removedModules.has(entry.module)) continue;
-      const paths = modulePathMap.get(entry.module) ?? [`src/${entry.module}/**`];
-      const file = await updateModuleReadme(entry.module, paths, baseOpts);
-      result.generatedFiles.push(file);
-      if (!result.updated.includes(entry.module) && !result.created.includes(entry.module)) {
-        result.updated.push(entry.module);
+      for (const mod of resolveEntryModules(entry)) {
+        if (removedModules.has(mod)) continue;
+        const paths = modulePathMap.get(mod) ?? [`src/${mod}/**`];
+        const file = await updateModuleReadme(mod, paths, baseOpts);
+        result.generatedFiles.push(file);
+        if (!result.updated.includes(mod) && !result.created.includes(mod)) {
+          result.updated.push(mod);
+        }
       }
     }
 
-    // Process REMOVED modules
+    // Process REMOVED modules — a feature-prefix REMOVED (e.g. REQ-MCP) is not a
+    // module, so markModuleDeprecated no-ops on it (no modules/<prefix>/ README);
+    // shared modules are never deprecated because one feature's REQ was removed.
     for (const entry of delta.removed) {
       const file = await markModuleDeprecated(
         entry.module,
@@ -447,8 +489,10 @@ export async function execute(
       }
     }
 
-    // Update module-map.yaml
-    const uniqueAdded = [...new Set(delta.added.map((e) => e.module))];
+    // Update module-map.yaml — only modules actually synced (feature-prefix-resolved
+    // modules are already known, so updateModuleMap no-ops on them; a genuinely new
+    // module-prefix module is added as before).
+    const uniqueAdded = [...addedSynced];
     const uniqueRemoved = [...new Set(delta.removed.map((e) => e.module))];
     if (uniqueAdded.length > 0 || uniqueRemoved.length > 0) {
       const mapFile = await updateModuleMap(
@@ -503,6 +547,41 @@ function buildModulePathMap(moduleMapPath: string): Map<string, string[]> {
     // module-map.yaml doesn't exist — return empty map
   }
   return pathMap;
+}
+
+/** Known modules = module-map names ∪ existing modules/<name>/ directories (lowercased). */
+function collectKnownModules(
+  modulePathMap: Map<string, string[]>,
+  knowledgePath: string,
+): Set<string> {
+  const known = new Set<string>(modulePathMap.keys());
+  try {
+    for (const e of fs.readdirSync(path.join(knowledgePath, 'modules'), { withFileTypes: true })) {
+      if (e.isDirectory()) known.add(e.name.toLowerCase());
+    }
+  } catch {
+    // no modules/ directory yet — module-map keys are the known set
+  }
+  return known;
+}
+
+/**
+ * Lowercased modules of every feature whose declared req_prefixes include this
+ * prefix (case-insensitive). Returns null when the prefix is NOT any feature's
+ * req_prefix — the caller then treats it as a module name, not a feature prefix.
+ */
+function featurePrefixModules(featureMap: FeatureMap | null, prefix: string): string[] | null {
+  if (featureMap === null) return null;
+  const want = prefix.toUpperCase();
+  const modules = new Set<string>();
+  let matched = false;
+  for (const f of featureMap.features) {
+    if ((f.req_prefixes ?? []).some((p) => p.toUpperCase() === want)) {
+      matched = true;
+      for (const m of f.modules) modules.add(m.toLowerCase());
+    }
+  }
+  return matched ? [...modules] : null;
 }
 
 export function collectAllModules(

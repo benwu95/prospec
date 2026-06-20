@@ -1372,6 +1372,30 @@ describe('execute additional branches', () => {
     expect(result.knowledgeUpdated).toBe(false);
   });
 
+  it('forwards metadata.related_modules to the auto knowledge-update for standard (BL-043 feature-prefix resolution)', async () => {
+    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
+      created: [],
+      updated: ['services', 'lib'],
+      deprecated: [],
+      generatedFiles: [],
+      warnings: [],
+    });
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: p\n',
+      '/project/.prospec/changes/feat/metadata.yaml':
+        'name: feat\nstatus: verified\nscale: standard\nrelated_modules:\n  - services\n  - lib\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat/delta-spec.md':
+        '# Delta\n\n## MODIFIED\n\n### REQ-MCP-002: x\n\nbody\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+    expect(result.archived).toHaveLength(1);
+    // the feature-prefixed REQ resolves through related_modules, not the prefix-as-module
+    expect(vi.mocked(executeKnowledgeUpdate)).toHaveBeenCalledWith(
+      expect.objectContaining({ relatedModules: ['services', 'lib'] }),
+    );
+  });
+
   it('leaves knowledgeUpdated false when no archived change has a delta-spec (L470/L473)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: p\n',

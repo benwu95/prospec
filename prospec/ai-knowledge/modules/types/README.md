@@ -16,7 +16,7 @@
 | `src/types/errors.ts` | ProspecError base + 13 specialized error classes (incl. MeasurementReportInvalid, DriftReportInvalid, McpResourceNotFound) |
 | `src/types/constitution.ts` | ConstitutionRule — RFC-2119 severity (MUST/SHOULD/MAY) + name/description/rationale/check |
 | `src/types/measurement.ts` | Provider-neutral TokenUsage/Pricing + MeasurementReport schemas, AGENT_PROVIDER_MAP, DEFAULT_REPORT_FILENAME |
-| `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 7 frozen check ids (incl. `dangling-prefix`, `feature-modules`), skipped-needs-reason rule, frozen knowledge-health field contract |
+| `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 8 frozen check ids (incl. `dangling-prefix`, `feature-modules`, `readme-counts`), skipped-needs-reason rule, frozen knowledge-health field contract |
 | `src/types/feature-map.ts` | FeatureMapSchema for `feature-map.yaml` — feature→module index complementing module-map.yaml (which modules a feature spans + non-module REQ prefixes it owns); FEATURE_STATUSES, FeatureMap/FeatureEntry/FeatureStatus types |
 | `src/types/mcp.ts` | MCP server contract — resource URI constants, tool I/O zod schemas (search_modules incl. additive `category` default [], get_dependency_direction) |
 | `src/types/knowledge.ts` | Canonical `_index.md` column schema — INDEX_TABLE_COLUMNS (7), INDEX_COLUMN, INDEX_TABLE_HEADER/SEPARATOR; single source for every index emitter + parser |
@@ -34,7 +34,7 @@
 - `isStatusBefore(current, target)` — true when `current` precedes `target` in `CHANGE_STATUSES`; keeps status advances forward-only so re-running a planning command never regresses a change's status
 - `ConstitutionRule` — A Constitution rule carrying an RFC-2119 severity that verify grades against
 - `MeasurementReportSchema` — validates measurement-report.json; TokenUsage fields are provider-neutral (provider-specific usage fields map in at the runner's adapter layer); `TaskMeasurementSchema.refine()` requires a non-empty `reason` when status is skipped/failed (honesty invariant, mirrors DriftCheckResultSchema)
-- `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; `DRIFT_CHECK_IDS` now lists 7 ids (added `dangling-prefix`, `feature-modules`); semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
+- `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; `DRIFT_CHECK_IDS` now lists 8 ids (added `dangling-prefix`, `feature-modules`, `readme-counts`); semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
 - `FeatureMapSchema` / `FEATURE_STATUSES` — Zod schema for `feature-map.yaml` (the feature→module index); only structural shape (slug safety + module-map membership are deferred to the lib loader/collector), `FeatureEntry.status` defaults to `active`
 - `MCP_RESOURCE_URIS` / `SearchModulesInputShape` / `DependencyDirectionResultSchema` — MCP resource URIs + tool I/O contracts; input shapes are raw Zod shapes (SDK registerTool takes ZodRawShape), wrapped schemas exist for standalone validation
 - `INDEX_TABLE_COLUMNS` / `INDEX_COLUMN` / `INDEX_TABLE_HEADER` / `INDEX_TABLE_SEPARATOR` — canonical `_index.md` module-table column schema; the single source every emitter (init/knowledge render-context injection, knowledge-update) and parser (change-story, knowledge-reader) derives from
