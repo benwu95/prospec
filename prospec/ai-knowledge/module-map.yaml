@@ -23,6 +23,8 @@ modules:
       - feature-map
       - mcp
       - category
+      - version
+      - upgrade
     relationships:
       depends_on: []
       used_by:
@@ -82,6 +84,8 @@ modules:
       - language
       - measure
       - check
+      - upgrade
+      - version
     relationships:
       depends_on:
         - types
@@ -103,6 +107,8 @@ modules:
       - preaction
       - measure
       - check
+      - upgrade
+      - version
     relationships:
       depends_on:
         - types

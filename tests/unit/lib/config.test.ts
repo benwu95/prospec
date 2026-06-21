@@ -194,4 +194,14 @@ describe('artifact_language and skill_triggers config fields', () => {
       ),
     ).toThrow(ConfigInvalid);
   });
+
+  it('reads `version` as the prospec version the project uses', () => {
+    const config = validateConfig('version: 0.3.2\nproject:\n  name: test\n');
+    expect(config.version).toBe('0.3.2');
+  });
+
+  it('validates a legacy config (version: "1.0" or absent) for backward compatibility', () => {
+    expect(validateConfig('version: "1.0"\nproject:\n  name: test\n').version).toBe('1.0');
+    expect(validateConfig('project:\n  name: test\n').version).toBeUndefined();
+  });
 });

@@ -1,13 +1,11 @@
-version: "1.0"
+version: 0.3.2
 project:
   name: prospec
 tech_stack:
   language: typescript
   package_manager: pnpm
-  source: auto-detected
 paths:
   base_dir: prospec
-artifact_language: Traditional Chinese (Taiwan)
 exclude:
   - "*.env*"
   - "*credential*"
@@ -21,6 +19,7 @@ agents:
   - codex
 knowledge:
   base_path: prospec/ai-knowledge
+artifact_language: Traditional Chinese (Taiwan)
 skill_triggers:
   prospec-explore:
     - 探索
@@ -113,3 +112,8 @@ skill_triggers:
     - 設定
     - 上手
     - 開始使用
+  prospec-upgrade:
+    - 升級
+    - 升級 prospec
+    - 版本遷移
+    - 版本升級

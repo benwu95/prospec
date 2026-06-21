@@ -53,8 +53,9 @@ export interface AgentConfig {
 }
 
 /**
- * Predefined Skill definitions (15 Skills; prospec-quickstart is
- * excludeFromEntryConfig — deployed as a SKILL.md but not listed in the entry config).
+ * Predefined Skill definitions (17 Skills total; prospec-quickstart and
+ * prospec-upgrade are excludeFromEntryConfig — deployed as a SKILL.md but not
+ * listed in the entry config, so 15 appear in CLAUDE.md/AGENTS.md).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
@@ -172,6 +173,15 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['quickstart', 'setup', 'bootstrap', 'onboard', 'get started'],
     type: 'Lifecycle',
     cliDependency: 'prospec quickstart',
+    hasReferences: false,
+    excludeFromEntryConfig: true,
+  },
+  {
+    name: 'prospec-upgrade',
+    description: 'Upgrade Prospec to a new CLI version. After `prospec upgrade` refreshes the canonical (shipped) docs and emits a report, this Skill translates triggers for newly-added skills (fill-missing only) and migrates outdated curated-doc formats — each with user confirmation and a git diff preview — then re-syncs. Never auto-writes the curated trust zone. Excluded from the always-loaded entry config (periodic one-time use).',
+    triggers: ['upgrade', 'upgrade prospec', 'migrate version', 'version bump'],
+    type: 'Lifecycle',
+    cliDependency: 'prospec upgrade',
     hasReferences: false,
     excludeFromEntryConfig: true,
   },

@@ -59,6 +59,9 @@ export type ValidAgent = (typeof VALID_AGENTS)[number];
 
 export const ProspecConfigSchema = z
   .object({
+    // The prospec version the project uses — stamped by `prospec init` and
+    // refreshed by `prospec upgrade`. A legacy `version: "1.0"` reads as a stale
+    // version and is bumped to the current prospec version on first upgrade.
     version: z.string().optional(),
     project: z.object({
       name: z.string({ error: 'project.name is a required field' }),

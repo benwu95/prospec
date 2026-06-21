@@ -286,9 +286,35 @@ flowchart TD
 
 ---
 
+## 升級 Prospec
+
+當有新版 prospec 時，重跑安裝以拉取最新（它是未發布的 GitHub fork，重跑會重新 clone + build 當前 commit）：
+
+```bash
+npm install -g github:benwu95/prospec     # 或：pnpm add -g github:benwu95/prospec
+# 釘選成專案 devDependency：npm install -D github:benwu95/prospec
+```
+
+接著用兩步把既有專案帶到最新——先一個決定性的 CLI 步驟，再一個需同意的 AI 步驟：
+
+```bash
+prospec upgrade                  # CLI（zero-LLM）：記錄新版本 + 重新同步 agents
+```
+
+```text
+/prospec-upgrade                 # 在 AI agent 內：刷新 init 文件格式 + 在地化新 skill 觸發詞（每項變更前先問你）
+```
+
+- **`prospec upgrade`（CLI）** 在 `.prospec.yaml` `version` 記錄當前 prospec 版本（以 canonical 格式重寫）、重跑 `agent sync` 讓各 agent 設定與 Skills 對齊最新模板，並印出 migration report（版本差異 + 任何缺母語觸發詞的新 skill）。它**不寫任何 doc**——絕不碰 `CONSTITUTION.md`、`_conventions.md`、`_index.md`、canonical convention docs，或任何 module README。
+- **`/prospec-upgrade`（Skill）** 完成 CLI 無法安全做的判斷工作：掃描 `prospec init` 建立的檔案、對照最新模板，對任何**格式**落差提出更新——**逐檔徵詢你的同意**（只遷移格式、絕不動你撰寫的內容）。接著依 `artifact_language` 為任何新 skill 在地化觸發詞（只補缺的），並重跑 `agent sync`。
+
+> `.prospec.yaml` `version` 是專案上次升級到的 prospec 版本（舊的 `version: "1.0"` 視為過時、首次 `prospec upgrade` 時更新）。新增 skill 後想（重新）在地化觸發詞？直接重跑 `prospec agent sync` —— 它會具名列出任何缺 `skill_triggers` 條目的 skill，你只補缺口即可。永遠不需要刪除 `.prospec.yaml`。
+
+---
+
 ## AI Skills
 
-Prospec 生成 16 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加一次性的 `/prospec-quickstart` 啟動收尾：
+Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`/prospec-quickstart`（啟動）與 `/prospec-upgrade`（版本升級）：
 
 | Skill | Slash Command | 說明 |
 |-------|---------------|------|
@@ -307,8 +333,9 @@ Prospec 生成 16 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
 | **回填規格** | `/prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
 | **晉升回填** | `/prospec-promote-backfill` | 把審閱過的回填草稿定型化為 backfill change scaffold（proposal + delta-spec + metadata、`scale: backfill`、`status: implemented`;輕量 scale —— 無 plan/tasks）；絕不直寫信任區 |
+| **升級** | `/prospec-upgrade` | `prospec upgrade` 刷新 canonical docs 後，為新增 skill 補譯觸發詞（只補缺）+ 遷移被標記的 curated doc 格式 —— 每步附確認 + diff 預覽；絕不自動寫信任區 |
 
-> **啟動收尾** —— `/prospec-quickstart` 在 `prospec quickstart` 之後執行一次（在地化 skill triggers、重新同步 agent 設定、生成 AI Knowledge）。它以 Skill 形式部署於磁碟，但不列入常駐的 entry config，因此不增加任何重複性 token 成本。
+> **週期性收尾** —— `/prospec-quickstart`（`prospec quickstart` 後執行一次）與 `/prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
 
 ### 品質閘門與自我改進
 
@@ -357,6 +384,7 @@ Prospec 生成 16 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | 命令 | 說明 |
 |------|------|
 | `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`（跳過已完成步驟），接著在 AI agent 內交棒給 `/prospec-quickstart` 做 trigger 在地化與 Knowledge 生成。`--name`/`--agents`/`--language` 選項同 `init` |
+| `prospec upgrade [--cwd <dir>]` | prospec 版本升級後：在 `.prospec.yaml` 記錄 prospec `version`（canonical 格式）、重跑 `agent sync`、印出 migration report，接著交棒給 `/prospec-upgrade`。不寫任何 doc —— init 建立檔／canonical doc 的格式更新由需同意的 skill 處理 |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + curated 骨架（module-map.yaml / _index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
@@ -525,8 +553,8 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（55 個 .hbs 檔案）
-    └── skills/   — 15 個 Skill 模板 + 19 個 reference 模板
+└── templates/    — Handlebars 模板（57 個 .hbs 檔案）
+    └── skills/   — 17 個 Skill 模板 + 19 個 reference 模板
 ```
 
 ### 技術棧
@@ -622,7 +650,8 @@ your-project/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   ├── prospec-knowledge-update/
-│   └── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
+│   ├── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
+│   └── prospec-upgrade/          # 版本升級收尾（部署於磁碟，排除於 entry config）
 └── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）
     └── prospec-*/
 ```

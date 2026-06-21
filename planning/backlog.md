@@ -145,7 +145,7 @@
 - [x] [BL-043](#bl-043) Archive auto knowledge-update 對 feature-prefixed REQ 同步落空 + phantom module 硬化 — standard/full 改 `REQ-MCP` 等 feature-prefix REQ 時 archive 對應不到實際模組（stale 不清、phantom module 風險、計數漂移）；發現於 BL-042 archive（G5）✅ 已完成（2026-06-20 `harden-feature-prefixed-req-sync`，Grade A）· P2
 
 ### Upgrade/Onboarding 硬化（2026-06-22）
-- [ ] [BL-044](#bl-044) `prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑 — 修「刪 `.prospec.yaml` 重跑 quickstart 清空 trust-zone（CONSTITUTION/_conventions/_index）」資料遺失 bug（P0，可獨立先上），並補 CLI 版本升級／新 skill 觸發詞再本地化／curated 格式遷移的缺失升級路徑（P1+P2）；發現於 dogfood `/prospec-quickstart` 重跑（G1/G5）🆕 待實作 · P1
+- [x] [BL-044](#bl-044) `prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑 — 修「刪 `.prospec.yaml` 重跑 quickstart 清空 trust-zone（CONSTITUTION/_conventions/_index）」資料遺失 bug（P0，可獨立先上），並補 CLI 版本升級／新 skill 觸發詞再本地化／curated 格式遷移的缺失升級路徑（P1+P2）；發現於 dogfood `/prospec-quickstart` 重跑（G1/G5）✅ 已完成（2026-06-22 `fix-init-clobber-add-upgrade`，Grade A）· P1
 
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
@@ -2658,6 +2658,8 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 ### BL-044
 
 **`prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑**
+
+> **✅ 已完成（2026-06-22 `fix-init-clobber-add-upgrade`，Grade A，commit `dd9dec2`）**：全 SDD 流程（story→plan→tasks→implement→review→verify）+ 使用者澄清二次迭代完成。最終設計（使用者澄清調整）：`.prospec.yaml` `version` 直接代表專案使用的 prospec 版本（取代舊 schema "1.0"，不另設 `prospec_version`）；CLI `prospec upgrade` 僅升級 `.prospec.yaml`（version + canonical 格式）+ `agent sync`，**不碰任何 doc**；init 建立的 doc 格式更新與新 skill 觸發詞在地化交由 `/prospec-upgrade` skill（逐檔 diff + 使用者同意）；另 `/prospec-knowledge-update` 加格式落差同意（Phase 2.5）。dogfood 於本 repo 實證通過：`version` 1.0→0.3.2、`prospec-upgrade` 觸發詞在地化（hint 清除）、init docs 零非預期變更。P0 per-file skip-if-exists 守破口、P2 缺觸發詞具名 hint 皆落地。
 
 > **2026-06-22 分析依據**：dogfood `/prospec-quickstart` 重跑時發現 trust-zone 資料遺失。根因經 `src/services/init.service.ts` + `quickstart.service.ts` 程式碼證實（非臆測）。觸發情境：使用者為「prospec 新增 skill 後重新本地化觸發詞」而刪除 `.prospec.yaml` 重跑 `prospec quickstart`——此為目前唯一的觸發詞再本地化入口，恰好踩中 init 的 idempotency 破口，連帶 CLI 版本升級時刷新 canonical docs 也無路徑。本案一次補齊「修破口（P0）＋補升級路徑（P1）＋關觸發詞再入口缺口（P2）」。
 

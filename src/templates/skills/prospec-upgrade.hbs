@@ -1,0 +1,113 @@
+---
+name: prospec-upgrade
+description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, scan the files `prospec init` created and update their format to the latest templates (asking consent per file), then localize triggers for newly-added skills and re-sync. Triggers: {{trigger_words}}"
+---
+
+# Prospec Upgrade Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That `prospec upgrade` has recorded the new prospec version in `.prospec.yaml` and re-synced agents, and you'll finish the judgment steps it cannot do deterministically
+- You'll scan the files `prospec init` created, offer to update any whose format has drifted from the latest templates (asking before each change), and localize triggers for newly-added skills
+- This is a periodic upgrade flow — re-runnable and self-terminating
+
+## Language Policy
+
+Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+
+## Startup Loading
+
+1. [DYNAMIC] Read `.prospec.yaml` — `version`, `artifact_language`, and `skill_triggers` drive the steps below
+
+## Core Workflow
+
+> This skill shells out to the `prospec` CLI (Bash), mirroring `prospec-quickstart`.
+> When the CLI is unavailable, degrade gracefully — never fail silently.
+
+### Step 0: Probe the CLI
+
+Run `prospec --version` (Bash). When it is unavailable (not built / installed / linked),
+STOP and tell the user to install or rebuild prospec, then re-run — never proceed silently.
+
+### Step 1: Run the deterministic upgrade
+
+Run `prospec upgrade` (Bash) and read its stdout. It has already (a) recorded the running prospec
+version in `.prospec.yaml` `version` and rewritten the file in canonical form, and (b) re-run
+`agent sync`. Parse the **Upgrade report**:
+- `version <from> → <to>` — the prospec version delta
+- `skills missing triggers: …` — newly-added skills with no localized triggers (Step 3)
+
+If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
+user to run `prospec init` first.
+
+### Step 2: Refresh init-created doc formats (scan → diff → consent)
+
+`prospec upgrade` deliberately does NOT touch any doc `prospec init` created — those may carry user
+edits, so updating their format requires consent. Do it here:
+
+1. **Locate the latest templates** shipped with the installed prospec version — resolve the package
+   root (e.g. `node -e "console.log(require.resolve('@benwu95/prospec/package.json'))"`, or check
+   `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). The canonical convention
+   docs are language-neutral templates under `templates/init/`. If the templates cannot be located,
+   say so and SKIP this step (do not guess the latest format).
+2. **Scan the init-created files** in the project's knowledge base and compare each to its latest
+   template:
+   - `{{knowledge_base_path}}/_status-lifecycle.md` ← `templates/init/status-lifecycle.md.hbs`
+   - `{{knowledge_base_path}}/_module-readme-conventions.md` ← `templates/init/module-readme-conventions.md.hbs`
+   - `{{knowledge_base_path}}/_diagram-conventions.md` ← `templates/init/diagram-conventions.md.hbs`
+   - `{{constitution_path}}` (Constitution), `{{knowledge_base_path}}/_conventions.md`, `{{knowledge_base_path}}/_index.md` — compare the **format/structure** (severity tags, section markers, index column schema), never the user's authored wording
+3. For each file whose format has drifted, **show a diff and ask the user whether to update it** —
+   migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
+   leave the rest unchanged.
+
+### Step 3: Localize triggers for newly-added skills (fill-missing) + re-sync
+
+For each skill in Step 1's "skills missing triggers" list (skip entirely when the list is empty or
+the language is English):
+
+1. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from
+2. Translate ONLY those skills' English trigger baselines into `artifact_language`
+3. **Show the proposed translations and wait for confirmation** before writing anything
+4. On confirmation, add the new `skill_triggers` keys by a **minimal in-place edit** — insert only the
+   missing keys; never re-serialize the file or touch existing keys, their order, or comments
+5. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if not, restore the snapshot
+6. If anything changed in Step 2 or Step 3, run `prospec agent sync` (Bash) so the localized triggers
+   and refreshed docs land in each SKILL.md frontmatter and the entry config
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
+- [ ] every init-created file whose format drifted was shown to the user and updated only on consent (or templates were unavailable and the step was skipped with a note)
+- [ ] every skill in the report's "missing triggers" list is localized (or the user declined)
+- [ ] `prospec agent sync` ran when Step 2 or Step 3 changed anything
+
+### Failure Conditions
+- updated an init-created file without showing a diff and getting confirmation
+- wrote malformed `skill_triggers` to `.prospec.yaml`
+- proceeded silently when the `prospec` CLI or its templates were unavailable
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** update an init-created file without a diff preview AND explicit user confirmation — `prospec upgrade` never touches these, and the skill does so only with consent
+- **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template
+- **NEVER** re-translate or overwrite an existing `skill_triggers` entry — localize only the skills the report lists as missing
+- **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
+- **NEVER** proceed silently when the `prospec` CLI or its templates are unavailable — stop or skip with a note, then let the user decide
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| `prospec` CLI unavailable | Stop; tell the user to install/rebuild prospec, then re-run — do not proceed silently |
+| `prospec upgrade` reports `ConfigNotFound` | Project not initialized — stop and instruct the user to run `prospec init` first |
+| prospec templates cannot be located | Skip Step 2 with a note; still do Step 3 (trigger localization) |
+| `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
+| `.prospec.yaml` fails to parse after writing triggers | Restore the captured pre-write snapshot verbatim, then report the malformed translation |
+| User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |

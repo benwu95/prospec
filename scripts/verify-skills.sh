@@ -73,7 +73,7 @@ chk "no dangling or sibling references/ links" '[ -z "$miss" ]'; [ -n "$miss" ] 
 echo "[E] convention files generated + referenced links resolve"
 for f in _status-lifecycle _module-readme-conventions _diagram-conventions; do
   chk "prospec/ai-knowledge/$f.md exists" "test -f prospec/ai-knowledge/$f.md"; done
-chk "status-lifecycle referenced by 8 skills" '[ $(grep -l "_status-lifecycle.md" .claude/skills/*/SKILL.md | wc -l) -eq 8 ]'
+chk "status-lifecycle referenced by 10 skills" '[ $(grep -l "_status-lifecycle.md" .claude/skills/*/SKILL.md | wc -l) -eq 10 ]'
 
 echo "[F] base_dir paths render (no root-anchored /specs/)"
 chk "no root /specs/ in skills"  '! grep -rqE "[^a-z/]/specs/" .claude/skills/*/SKILL.md .claude/skills/*/references/*.md'

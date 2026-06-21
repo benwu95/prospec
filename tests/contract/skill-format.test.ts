@@ -123,8 +123,8 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Skill definitions', () => {
-    it('should have 16 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(16);
+    it('should have 17 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(17);
     });
 
     it('should include all expected skill names', () => {
@@ -145,13 +145,16 @@ describe('Skill Format Contract', () => {
       expect(names).toContain('prospec-backfill-spec');
       expect(names).toContain('prospec-promote-backfill');
       expect(names).toContain('prospec-quickstart');
+      expect(names).toContain('prospec-upgrade');
     });
 
-    it('only prospec-quickstart is excludeFromEntryConfig (one-shot onboarding)', () => {
+    it('exactly the one-shot finishers are excludeFromEntryConfig (onboarding + upgrade)', () => {
       const excluded = SKILL_DEFINITIONS.filter((s) => s.excludeFromEntryConfig).map(
         (s) => s.name,
       );
-      expect(excluded).toEqual(['prospec-quickstart']);
+      // Order-independent set: both periodic one-shot finishers, nothing else.
+      // Mutation guard — adding/removing an entry-excluded skill turns this red.
+      expect([...excluded].sort()).toEqual(['prospec-quickstart', 'prospec-upgrade']);
     });
 
     it('should have valid skill types', () => {
