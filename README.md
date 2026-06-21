@@ -289,7 +289,7 @@ flowchart TD
 
 ## AI Skills
 
-Prospec generates 16 Skills — 15 guide AI through the full SDD lifecycle, plus a one-time `/prospec-quickstart` onboarding finisher:
+Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `/prospec-quickstart` (onboarding) and `/prospec-upgrade` (version upgrade):
 
 | Skill | Slash Command | Description |
 |-------|---------------|-------------|
@@ -308,8 +308,9 @@ Prospec generates 16 Skills — 15 guide AI through the full SDD lifecycle, plus
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
 | **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
 | **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
+| **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` refreshes the canonical docs, localize triggers for newly-added skills (fill-missing only) + migrate flagged curated-doc formats — each with confirmation + a diff preview; never auto-writes the trust zone |
 
-> **Onboarding finisher** — `/prospec-quickstart` is run once after `prospec quickstart` (localizes skill triggers, re-syncs agent config, generates AI Knowledge). It is deployed as a Skill on disk but kept out of the always-loaded entry config, so it adds no recurring token cost.
+> **Periodic finishers** — `/prospec-quickstart` (run once after `prospec quickstart`) and `/prospec-upgrade` (run after `prospec upgrade` on a version bump) finish the judgment steps the CLI cannot do deterministically. Both are deployed as Skills on disk but kept out of the always-loaded entry config, so they add no recurring token cost.
 
 ### Quality Gates & Self-Improvement
 
@@ -371,6 +372,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | Command | Description |
 |---------|-------------|
 | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
+| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (canonical format), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / _index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
@@ -552,8 +554,8 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (55 .hbs files)
-    └── skills/   — 15 Skill templates + 19 reference templates
+└── templates/    — Handlebars templates (57 .hbs files)
+    └── skills/   — 17 Skill templates + 19 reference templates
 ```
 
 ### Tech Stack
@@ -649,7 +651,8 @@ your-project/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   ├── prospec-knowledge-update/
-│   └── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
+│   ├── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
+│   └── prospec-upgrade/          # version-upgrade finisher (on disk, excluded from entry config)
 └── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
     └── prospec-*/
 ```

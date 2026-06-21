@@ -139,6 +139,7 @@ describe('createProgram', () => {
         'quickstart',
         'steering',
         'tasks',
+        'upgrade',
       ].sort(),
     );
   });

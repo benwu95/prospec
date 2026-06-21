@@ -6,6 +6,8 @@ import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../ty
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../types/knowledge.js';
 import { writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
+import { PROSPEC_VERSION } from '../types/version.js';
+import { CANONICAL_CONVENTION_DOCS } from '../types/canonical-docs.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
@@ -108,7 +110,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
 
   // 7. Build config
   const config: ProspecConfig = {
-    version: '1.0',
+    version: PROSPEC_VERSION,
     project: {
       name: projectName,
     },
@@ -142,18 +144,12 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     index_table_separator: INDEX_TABLE_SEPARATOR,
   };
 
-  const conventionDocs: { template: string; output: string }[] = [
-    { template: 'init/status-lifecycle.md.hbs', output: '_status-lifecycle.md' },
-    { template: 'init/module-readme-conventions.md.hbs', output: '_module-readme-conventions.md' },
-    { template: 'init/diagram-conventions.md.hbs', output: '_diagram-conventions.md' },
-  ];
-
   const artifacts: { path: string; content: string; label: string }[] = [
     { path: path.join(cwd, baseDir, 'CONSTITUTION.md'), content: renderTemplate('init/constitution.md.hbs', templateContext), label: `${baseDir}/CONSTITUTION.md` },
     { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('init/agents.md.hbs', templateContext), label: 'AGENTS.md' },
     { path: path.join(knowledgePath, '_conventions.md'), content: renderTemplate('init/conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_conventions.md` },
     { path: path.join(knowledgePath, '_index.md'), content: renderTemplate('init/index.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_index.md` },
-    ...conventionDocs.map((doc) => ({
+    ...CANONICAL_CONVENTION_DOCS.map((doc) => ({
       path: path.join(knowledgePath, doc.output),
       content: renderTemplate(doc.template, templateContext),
       label: `${baseDir}/ai-knowledge/${doc.output}`,
@@ -161,11 +157,20 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
 
-  // 10. Create directories (idempotent) and write every artifact.
+  // 10. Create directories (idempotent) and write each artifact ONLY if it does
+  // not already exist — per-file skip-if-exists (cf. knowledge-init.service). The
+  // step-1 gate only lets init run fully when .prospec.yaml is absent; in that
+  // window the other artifacts (curated trust-zone CONSTITUTION.md /
+  // _conventions.md / _index.md included) may still be present, so an
+  // unconditional write would clobber them. Skipping existing files rebuilds only
+  // what is missing; refreshing stale canonical docs is `prospec upgrade`'s job.
   await ensureDir(modulesPath);
   await ensureDir(specsPath);
+  const writtenLabels: string[] = [];
   for (const artifact of artifacts) {
+    if (fileExists(artifact.path)) continue;
     await atomicWrite(artifact.path, artifact.content);
+    writtenLabels.push(artifact.label);
   }
 
   // 11. Write .prospec.yaml LAST — its presence is the "init completed" marker
@@ -173,7 +178,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
   // rather than a half-initialized project that AlreadyExistsError would block.
   await writeConfig(config, cwd);
 
-  const createdFiles = ['.prospec.yaml', ...artifacts.map((a) => a.label)];
+  const createdFiles = ['.prospec.yaml', ...writtenLabels];
 
   return {
     projectName,

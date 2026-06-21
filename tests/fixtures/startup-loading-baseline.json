@@ -111,6 +111,12 @@
     ],
     "mandatory": 0
   },
+  "prospec-upgrade": {
+    "items": [
+      ".prospec.yaml"
+    ],
+    "mandatory": 0
+  },
   "prospec-plan": {
     "items": [
       ".prospec/changes/[name]/proposal.md",

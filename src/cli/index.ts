@@ -10,6 +10,7 @@ import { handleError } from './formatters/error-output.js';
 import { ConfigNotFound } from '../types/errors.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerQuickstartCommand } from './commands/quickstart.js';
+import { registerUpgradeCommand } from './commands/upgrade.js';
 import { registerSteeringCommand } from './commands/steering.js';
 import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
@@ -20,11 +21,7 @@ import { registerChangeTasksCommand } from './commands/change-tasks.js';
 import { registerMeasureCommand } from './commands/measure.js';
 import { registerCheckCommand } from './commands/check.js';
 import { registerMcpCommand } from './commands/mcp.js';
-
-// Read version from package.json at build time via Node.js import
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
+import { PROSPEC_VERSION } from '../types/version.js';
 
 /**
  * Commands that do NOT require .prospec.yaml to exist.
@@ -45,7 +42,7 @@ export function createProgram(): Command {
   program
     .name('prospec')
     .description('Progressive Spec-Driven Development CLI')
-    .version(pkg.version)
+    .version(PROSPEC_VERSION)
     .option('--verbose', 'Enable verbose output')
     .option('-q, --quiet', 'Quiet mode (results only, suitable for CI/CD)')
     .configureOutput({
@@ -86,6 +83,7 @@ export function createProgram(): Command {
   // Register subcommand groups
   registerInitCommand(program);
   registerQuickstartCommand(program);
+  registerUpgradeCommand(program);
   registerSteeringCommand(program);
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);

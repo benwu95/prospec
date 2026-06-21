@@ -826,3 +826,61 @@ describe('prospec mcp E2E', () => {
     });
   });
 });
+
+describe('prospec upgrade E2E', () => {
+  it('fails on an uninitialized project (config-existence gate)', async () => {
+    const { exitCode, stderr } = await runCli(['upgrade']);
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain('.prospec.yaml');
+  });
+
+  it('records the prospec version, prints a report + next step, and leaves init-created docs untouched', async () => {
+    await fs.promises.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'e2e-upgrade' }),
+    );
+    await runCli(['init', '--name', 'e2e-upgrade', '--agents', 'claude']);
+
+    // The CLI must NOT touch any init-created doc — mark one to prove it stays
+    const lifecyclePath = path.join(tmpDir, 'prospec', 'ai-knowledge', '_status-lifecycle.md');
+    await fs.promises.writeFile(lifecyclePath, 'CUSTOM\n');
+
+    const { stdout, exitCode } = await runCli(['upgrade']);
+    expect(exitCode).toBe(0);
+
+    // version recorded in the `version` field (= the prospec version)
+    const cfg = parseYamlRaw(
+      await fs.promises.readFile(path.join(tmpDir, '.prospec.yaml'), 'utf-8'),
+    ) as { version?: string };
+    expect(cfg.version).toMatch(/^\d+\.\d+\.\d+/);
+
+    // the init-created doc is byte-unchanged (consent-gated skill owns doc formats)
+    expect(await fs.promises.readFile(lifecyclePath, 'utf-8')).toBe('CUSTOM\n');
+
+    expect(stdout).toContain('Upgrade report');
+    expect(stdout).toContain('/prospec-upgrade');
+  });
+
+  it('never rewrites the curated trust zone (CONSTITUTION / _index / _conventions)', async () => {
+    await fs.promises.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'e2e-upgrade-zone3' }),
+    );
+    await runCli(['init', '--name', 'e2e-upgrade-zone3', '--agents', 'claude']);
+
+    const kb = path.join(tmpDir, 'prospec', 'ai-knowledge');
+    const constitution = path.join(tmpDir, 'prospec', 'CONSTITUTION.md');
+    await fs.promises.writeFile(constitution, '# MY CURATED CONSTITUTION\n');
+    await fs.promises.writeFile(path.join(kb, '_index.md'), '# MY CURATED INDEX\n');
+    await fs.promises.writeFile(path.join(kb, '_conventions.md'), '# MY CURATED CONVENTIONS\n');
+
+    const { exitCode } = await runCli(['upgrade']);
+    expect(exitCode).toBe(0);
+
+    expect(await fs.promises.readFile(constitution, 'utf-8')).toBe('# MY CURATED CONSTITUTION\n');
+    expect(await fs.promises.readFile(path.join(kb, '_index.md'), 'utf-8')).toBe('# MY CURATED INDEX\n');
+    expect(await fs.promises.readFile(path.join(kb, '_conventions.md'), 'utf-8')).toBe(
+      '# MY CURATED CONVENTIONS\n',
+    );
+  });
+});

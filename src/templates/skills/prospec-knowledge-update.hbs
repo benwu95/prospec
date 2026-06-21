@@ -67,6 +67,25 @@ For each affected module:
 > - [ ] each affected module's source files located and scanned (≤ 20 key files per module)
 > - [ ] existing README.md and any linked `{sub-module}.md` read for each module
 
+### Phase 2.5: Format Drift Check (consent-gated)
+
+Before writing, check whether the **existing** Knowledge files' format still matches the current
+templates/conventions — independent of this change's content:
+- `_index.md` column schema vs the canonical INDEX columns and `_module-readme-conventions.md`
+- each affected module `README.md` section structure vs `_module-readme-conventions.md` (the section
+  set + marker contract)
+- `_conventions.md` `prospec:auto`/`user` marker structure
+
+If a file's **format** has drifted (sections/columns/markers differ from the current conventions),
+list the specific drift and **ask the user whether to update the format** in this run. Migrate the
+format only on consent — never rewrite authored content. If the user declines, do the content
+increment in the existing format and note the declined format update. When there is no drift, proceed
+silently — do not prompt.
+
+> **Phase 2.5 Gate** — proceed when:
+> - [ ] existing Knowledge format compared against current conventions/templates
+> - [ ] any drift listed and a format update applied only on user consent (or declined and noted)
+
 ### Phase 3: Update Knowledge Files
 
 #### 3a: Module README.md (ADDED/MODIFIED) — Recipe-First Format
@@ -147,6 +166,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** overwrite content between `prospec:user-start/end` markers — always preserve user notes
+- **NEVER** migrate an existing Knowledge file's format without listing the drift and getting user consent (Phase 2.5) — content increments are fine, format rewrites need a yes
 - **NEVER** delete module directories for REMOVED requirements — mark as deprecated only
 - **NEVER** scan the entire codebase — only scan modules identified from delta-spec
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required

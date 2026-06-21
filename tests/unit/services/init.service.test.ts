@@ -296,3 +296,85 @@ describe('init.service artifact language', () => {
     }
   });
 });
+
+describe('init.service per-file idempotency (BL-044)', () => {
+  beforeEach(() => {
+    vol.reset();
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  });
+
+  it('rebuilds only .prospec.yaml when it was deleted but curated files remain', async () => {
+    // Prior project; .prospec.yaml deleted to re-run, every other artifact still
+    // present with hand-edited content. The gate lets init run fully (no
+    // .prospec.yaml), so the per-file guard is what protects the trust zone.
+    vol.fromJSON({
+      '/project/package.json': '{}',
+      '/project/prospec/CONSTITUTION.md': '# CURATED Constitution — do not clobber\n',
+      '/project/prospec/ai-knowledge/_conventions.md': '# CURATED conventions\n',
+      '/project/prospec/ai-knowledge/_index.md': '# CURATED index\n',
+      '/project/prospec/ai-knowledge/_status-lifecycle.md': '# CURATED lifecycle\n',
+      '/project/prospec/ai-knowledge/_module-readme-conventions.md': '# CURATED readme conv\n',
+      '/project/prospec/ai-knowledge/_diagram-conventions.md': '# CURATED diagram\n',
+      '/project/AGENTS.md': '# CURATED agents\n',
+      '/project/prospec/specs/.gitkeep': '',
+    });
+
+    const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    // Only .prospec.yaml was (re)created.
+    expect(result.createdFiles).toEqual(['.prospec.yaml']);
+
+    // Every pre-existing artifact is byte-for-byte unchanged.
+    expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe(
+      '# CURATED Constitution — do not clobber\n',
+    );
+    expect(fs.readFileSync('/project/prospec/ai-knowledge/_conventions.md', 'utf-8')).toBe(
+      '# CURATED conventions\n',
+    );
+    expect(fs.readFileSync('/project/prospec/ai-knowledge/_index.md', 'utf-8')).toBe(
+      '# CURATED index\n',
+    );
+    expect(fs.readFileSync('/project/prospec/ai-knowledge/_status-lifecycle.md', 'utf-8')).toBe(
+      '# CURATED lifecycle\n',
+    );
+  });
+
+  it('rebuilds only the missing files (half-initialized recovery)', async () => {
+    vol.fromJSON({
+      '/project/package.json': '{}',
+      '/project/prospec/CONSTITUTION.md': '# CURATED Constitution\n',
+    });
+
+    const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    // surviving curated file preserved...
+    expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe(
+      '# CURATED Constitution\n',
+    );
+    expect(result.createdFiles).not.toContain('prospec/CONSTITUTION.md');
+    // ...missing ones rebuilt.
+    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
+    expect(fs.existsSync('/project/prospec/ai-knowledge/_index.md')).toBe(true);
+  });
+
+  it('writes every artifact on a greenfield init (behavior unchanged)', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    expect(result.createdFiles).toContain('prospec/CONSTITUTION.md');
+    expect(result.createdFiles).toContain('AGENTS.md');
+    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
+    expect(result.createdFiles).toContain('prospec/specs/.gitkeep');
+  });
+
+  it('seeds the prospec version into the config `version` field (not a separate prospec_version)', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    const yaml = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(yaml).toMatch(/version:\s*\d+\.\d+\.\d+/);
+    expect(yaml).not.toContain('prospec_version');
+  });
+});

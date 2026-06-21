@@ -32,19 +32,21 @@ install (this is what later lets `/prospec-knowledge-generate` and `/prospec-arc
 `raw-scan.md` via `pnpm exec` / `npx` with no per-developer install). Non-Node projects: a global
 install is the path. Re-run quickstart after installing; never proceed silently.
 
-### Step 1: Localize Skill Triggers (non-English only)
+### Step 1: Localize Skill Triggers (non-English only, fill-missing)
 
-Read `.prospec.yaml`. When `artifact_language` is not English **and** `skill_triggers`
-is absent or empty (the exact condition `prospec agent sync` hints on):
+Read `.prospec.yaml`. When `artifact_language` is not English, localize the skills that have
+**no `skill_triggers` entry yet** (the exact gap `prospec agent sync` names in its hint). This covers
+both a fresh project (all skills missing) and a project that just gained new skills (only the new ones
+missing) — so you never delete `.prospec.yaml` to re-localize:
 
 1. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from if the write goes wrong
-2. Translate each skill's English trigger baseline into the `artifact_language`
+2. For each skill missing a `skill_triggers` entry, translate its English trigger baseline into the `artifact_language` — leave skills that already have an entry untouched
 3. **Show the proposed translations to the user and wait for confirmation** before writing anything
-4. On confirmation, add `skill_triggers` by a **minimal in-place edit** — insert/append the key only, leaving every other key, its ordering, and all comments untouched (do not re-serialize the whole file)
+4. On confirmation, add the missing `skill_triggers` keys by a **minimal in-place edit** — insert only the new keys, leaving every existing key, its ordering, and all comments untouched (do not re-serialize the whole file)
 5. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if it does not, restore the captured snapshot verbatim and report the malformed translation
 
-Skip this step entirely when the language is English or `skill_triggers` is already
-populated — never clobber curated triggers.
+Skip this step entirely when the language is English or every skill already has a `skill_triggers`
+entry — never overwrite curated triggers.
 
 ### Step 2: Re-sync Agent Config
 
@@ -84,7 +86,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** proceed silently when the `prospec` CLI is unavailable — stop and tell the user to install prospec (they are adopting it for this project), then re-run
-- **NEVER** overwrite an existing, populated `skill_triggers` — only write when it is absent or empty
+- **NEVER** overwrite an existing `skill_triggers` entry — localize only the skills missing an entry (fill-missing)
 - **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
 - **NEVER** inline the `/prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
 - **NEVER** translate triggers without showing the user the proposed words first

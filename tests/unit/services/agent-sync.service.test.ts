@@ -447,7 +447,10 @@ describe('agent-sync skill_triggers warnings', () => {
     expect(result.hints[0]).toContain('skill_triggers');
   });
 
-  it('emits no hint when skill_triggers are set or language is English', async () => {
+  it('names the skills still missing triggers when partially localized (non-English)', async () => {
+    // Only prospec-explore localized → the rest (incl. the newly-added
+    // prospec-upgrade) are named so the user can fill just those — never deleting
+    // .prospec.yaml to re-localize everything.
     vol.fromJSON({
       '/project/.prospec.yaml': [
         'project:',
@@ -460,12 +463,34 @@ describe('agent-sync skill_triggers warnings', () => {
         '',
       ].join('\n'),
     });
-    expect((await execute({ cwd: '/project' })).hints).toEqual([]);
+    const result = await execute({ cwd: '/project' });
+    expect(result.hints).toHaveLength(1);
+    expect(result.hints[0]).toContain('prospec-upgrade');
+    expect(result.hints[0]).toContain('skill_triggers');
+    // the already-localized skill is not re-listed
+    expect(result.hints[0]).not.toContain('prospec-explore');
+  });
 
-    vol.reset();
-    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  it('emits no hint when language is English', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
+    });
+    expect((await execute({ cwd: '/project' })).hints).toEqual([]);
+  });
+
+  it('emits no hint when every skill is already localized (non-English)', async () => {
+    const allTriggers = SKILL_DEFINITIONS.map((s) => `  ${s.name}: [x]`).join('\n');
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - claude',
+        'artifact_language: Japanese',
+        'skill_triggers:',
+        allTriggers,
+        '',
+      ].join('\n'),
     });
     expect((await execute({ cwd: '/project' })).hints).toEqual([]);
   });
