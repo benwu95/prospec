@@ -144,6 +144,9 @@
 ### Knowledge-sync 硬化（2026-06-20）
 - [x] [BL-043](#bl-043) Archive auto knowledge-update 對 feature-prefixed REQ 同步落空 + phantom module 硬化 — standard/full 改 `REQ-MCP` 等 feature-prefix REQ 時 archive 對應不到實際模組（stale 不清、phantom module 風險、計數漂移）；發現於 BL-042 archive（G5）✅ 已完成（2026-06-20 `harden-feature-prefixed-req-sync`，Grade A）· P2
 
+### Upgrade/Onboarding 硬化（2026-06-22）
+- [ ] [BL-044](#bl-044) `prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑 — 修「刪 `.prospec.yaml` 重跑 quickstart 清空 trust-zone（CONSTITUTION/_conventions/_index）」資料遺失 bug（P0，可獨立先上），並補 CLI 版本升級／新 skill 觸發詞再本地化／curated 格式遷移的缺失升級路徑（P1+P2）；發現於 dogfood `/prospec-quickstart` 重跑（G1/G5）🆕 待實作 · P1
+
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
@@ -2649,6 +2652,40 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [ ] 回歸測試：一條 `scale: standard`、delta-spec 全 feature-prefix REQ 的變更跑 archive → 不 mint phantom module、`related_modules` 的 README 正確同步、`prospec check` 0 stale 0 fail
 
 **明確不含**：`quick`/`backfill` 路徑不動（已免疫——quick 無 delta-spec 走 diff×module-map、backfill 明確 skip auto-update）；不重構 REQ-prefix 命名體系（11 個 feature-prefix 為既有刻意設計，非缺陷）；不改 protocol-frozen 的 `MCP_RESOURCE_URIS` 順序。
+
+---
+
+### BL-044
+
+**`prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑**
+
+> **2026-06-22 分析依據**：dogfood `/prospec-quickstart` 重跑時發現 trust-zone 資料遺失。根因經 `src/services/init.service.ts` + `quickstart.service.ts` 程式碼證實（非臆測）。觸發情境：使用者為「prospec 新增 skill 後重新本地化觸發詞」而刪除 `.prospec.yaml` 重跑 `prospec quickstart`——此為目前唯一的觸發詞再本地化入口，恰好踩中 init 的 idempotency 破口，連帶 CLI 版本升級時刷新 canonical docs 也無路徑。本案一次補齊「修破口（P0）＋補升級路徑（P1）＋關觸發詞再入口缺口（P2）」。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P1 — 高（P0 為資料遺失 bug，必修且可獨立先上；upgrade 路徑補長期缺口）|
+| Skill 類型 | 修 `prospec init`（CLI）＋ 新增 `prospec upgrade`（CLI）＋ `/prospec-upgrade`（skill）；沿用既有 CLI-決定論／skill-判斷 分工（對映 init+knowledge-generate、quickstart+/prospec-quickstart）|
+| 影響範圍 | `services`（`init.service.ts` per-file guard、新增 `upgrade.service.ts`、`agent-sync.service.ts` 偵測缺觸發詞）、`cli`（新增 `upgrade` command + formatter）、`templates`（新增 `/prospec-upgrade` skill）、`types`（`.prospec.yaml` 加 `prospec_version`/template 版本欄）、`tests`、trust zone（新 Feature 或 project-setup/agent-integration spec 擴充）|
+| 預估複雜度 | P0 Small（init 改 per-file skip-if-exists + 測試）；P1 Standard（upgrade CLI + skill + 版本記錄 + report）；P2 Small（sync 偵測缺觸發詞 + skill 只補缺的）|
+| 依賴 | 無（P0 可獨立交付；P1/P2 在 P0 落地後才需要 zone 2 的新刷新路徑）|
+
+**根因（已證實）**：`init.service.ts` 的 idempotency gate **只看單一檔案** `.prospec.yaml`（`:50-52` `fileExists` → `AlreadyExistsError`），但 gate 通過後用**無條件 `atomicWrite`** 覆寫 7+ 檔（`:151-169`），含 curated trust-zone：`CONSTITUTION.md`（`:152`）、`_conventions.md`（`:154`）、`_index.md`（`:155`），**無 per-file 存在檢查**。`.prospec.yaml` 最後才寫（`:171-174`）作為「init 完成」標記。`quickstart.service.ts` 誤標 init 為「already-idempotent／re-run-safe」（`:34`/`:50`）——該假設僅在 `.prospec.yaml` 存在時成立；使用者刪除它後 init 全程執行，把已策劃專案當 greenfield 覆寫。對照組：`knowledge-init.service.ts` **早有正確的 per-file guard**（`:90`/`:97`/`:114` `if (!fileExists(...))`），兩 service 行為不一致即 bug。module READMEs 倖存，因 init 從不寫 `modules/*`（只 `ensureDir`，`:165`）。
+
+**三 ownership zone（設計關鍵，目前無命令依此區分對待）**：
+- **生成物**（gitignore：`CLAUDE.md`/`AGENTS.md`/`.claude/skills/*`）— `agent sync` 擁有、可自由重現，無升級問題。
+- **canonical/shipped**（tracked 但不客製：`_status-lifecycle.md`/`_module-readme-conventions.md`/`_diagram-conventions.md`、constitution 種子格式）— 應隨 CLI 版本刷新；**目前只有 init 會寫**，P0 修好後即無刷新路徑 → 這是 `upgrade` 的真正定位。
+- **curated/trust-zone**（tracked 使用者擁有：CONSTITUTION 原則文字／`_conventions.md`／`_index.md`／module READMEs）— 只有人/skill 可改，命令絕不自動覆寫。
+
+`upgrade` ＝ 刷新 zone 2 ＋ 回報 zone 3 需手動遷移 ＋ 絕不碰 zone 3 內容；獨立於 init（greenfield 種 zone 2+3）與 sync（只管 zone 1）。
+
+**驗收標準**（優先序 P0 → P1 → P2，P0 可獨立交付）：
+- [ ] **(P0) init 不再覆寫既有 curated 檔**：`init.service.ts` 對 `CONSTITUTION.md`/`_conventions.md`/`_index.md`（及任何已存在的 trust-zone artifact）改為 per-file skip-if-exists（套用 `knowledge-init` 既有 pattern）；保留 `.prospec.yaml`-last 的半初始化復原語義（`atomicWrite` 為原子寫，skip 不破壞復原）；測試：對已有 trust-zone 的專案刪 `.prospec.yaml` 重跑 → 只重建 `.prospec.yaml`、curated 檔零變更
+- [ ] **(P1 CLI) `prospec upgrade`**（zero-LLM）：重渲染 zone 2 canonical docs（覆寫安全，非客製）＋ 跑 `agent sync` ＋ 在 `.prospec.yaml` 記錄 `prospec_version`（或 template 版本）＋ 產出 **upgrade report**（新 skill 缺觸發詞清單、constitution/doc 格式落後旗標）；**絕不寫 zone 3**
+- [ ] **(P1 skill) `/prospec-upgrade`**（judgment）：讀 CLI report → 為新 skill 翻譯觸發詞（只補缺、附使用者確認）→ 視需要把 curated docs 遷移到新格式（如 constitution 舊→RFC-2119 分級，附 git diff 預覽 + 確認）→ 重跑 sync
+- [ ] **(P2) 關閉觸發詞再入口缺口**：`agent sync` 偵測「在 `SKILL_DEFINITIONS` 但不在 `skill_triggers`」的新 skill 並 hint；quickstart/upgrade skill 解除「`skill_triggers` 非空即整批 skip」的 all-or-nothing 條件，改成**只補缺的**——使用者永不需刪 `.prospec.yaml`
+- [ ] 回歸：模擬「CLI 版本升級 + 新增 1 個 skill」→ `prospec upgrade` 刷新 canonical docs、記錄版本、report 列出新 skill；`/prospec-upgrade` 補該 skill 觸發詞並（經確認）遷移過時格式；全程 curated 內容（CONSTITUTION 原則文字／`_index` 模組表／module READMEs）零非預期變更
+
+**明確不含**：不改 module READMEs 的產生權（仍歸 knowledge-generate/update）；不把 zone 3 遷移自動化到無人確認（格式遷移一律 skill + 人工確認 + diff 預覽）；不動 protocol-frozen 的既有 schema 順序；`prospec_version` 僅作升級偵測，與 `.prospec.yaml` 既有 `version: "1.0"`（config schema 版本）正交、不混用。
 
 ---
 
