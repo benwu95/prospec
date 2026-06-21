@@ -8,9 +8,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
-**漸進式規格驅動開發 CLI**
+**為 AI coding agent 打造的漸進式規格驅動開發 (SDD) 工具組**
 
-*讓 AI Agent 在既有專案與新專案中都能遵循結構化工作流程*
+*Slash-command Skills · 結構化 AI Knowledge · MCP server — 支援 Claude Code、Copilot、Codex*
 
 [English](./README.md) • [快速上手](#快速上手) • [為什麼選擇 Prospec？](#為什麼選擇-prospec) • [運作原理](#運作原理)
 

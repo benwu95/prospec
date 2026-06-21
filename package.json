@@ -1,5 +1,5 @@
 {
-  "name": "prospec",
+  "name": "@benwu95/prospec",
   "version": "0.3.2",
   "description": "Progressive Spec-Driven Development CLI tool",
   "type": "module",
@@ -26,11 +26,23 @@
     "measure:tokens": "npx tsx scripts/measure-tokens.ts"
   },
   "keywords": [
+    "progressive-disclosure",
+    "spec-driven-development",
     "sdd",
-    "spec-driven",
+    "agentic-coding",
+    "ai-coding-assistant",
+    "developer-tools",
     "cli",
-    "ai",
-    "developer-tools"
+    "ai-knowledge",
+    "brownfield",
+    "ai-agents",
+    "llm",
+    "mcp",
+    "mcp-server",
+    "claude",
+    "claude-code",
+    "codex",
+    "github-copilot"
   ],
   "author": "",
   "license": "MIT",

@@ -8,9 +8,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
-**Progressive Spec-Driven Development CLI**
+**Progressive Spec-Driven Development (SDD) toolkit for AI coding agents**
 
-*Empower AI agents with structured workflows for brownfield and greenfield projects*
+*Slash-command Skills · structured AI Knowledge · MCP server — for Claude Code, Copilot, Codex*
 
 [繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How it works](#how-it-works)
 
