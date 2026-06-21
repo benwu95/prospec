@@ -677,6 +677,8 @@ your-project/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   ├── prospec-knowledge-update/
+│   ├── prospec-backfill-spec/
+│   ├── prospec-promote-backfill/
 │   ├── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
 │   └── prospec-upgrade/          # version-upgrade finisher (on disk, excluded from entry config)
 └── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)

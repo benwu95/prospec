@@ -650,6 +650,8 @@ your-project/
 │   ├── prospec-learn/
 │   ├── prospec-knowledge-generate/
 │   ├── prospec-knowledge-update/
+│   ├── prospec-backfill-spec/
+│   ├── prospec-promote-backfill/
 │   ├── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
 │   └── prospec-upgrade/          # 版本升級收尾（部署於磁碟，排除於 entry config）
 └── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）
