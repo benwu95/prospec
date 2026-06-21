@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-15
-story_count: 10
-req_count: 25
+last_updated: 2026-06-22
+story_count: 12
+req_count: 30
 ---
 
 # 專案啟動
@@ -81,13 +81,14 @@ req_count: 25
 - WHEN 偵測到已安裝的 AI CLI THEN 互動式選單讓使用者勾選
 
 #### REQ-SETUP-004: 建立專案結構
-執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/ai-knowledge/`（含 `_index.md`、`_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。
+執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/ai-knowledge/`（含 `_index.md`、`_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。寫入採 per-file skip-if-exists（見 REQ-SETUP-018）：既有檔一律保留、只建缺檔；單檔 gate（`.prospec.yaml` 存在即退出）行為不變。
 
 **Scenarios:**
 - WHEN executing `prospec init` in empty directory, THEN create all required files and directories
 - WHEN `_index.md` created, THEN contains empty module table
 - WHEN `CONSTITUTION.md` created, THEN contains Principles, Constraints, Quality Standards templates
-- WHEN `.prospec.yaml` already exists, THEN show warning and exit without modification
+- WHEN `.prospec.yaml` already exists, THEN show warning and exit without modification (single-file gate unchanged)
+- WHEN `.prospec.yaml` is absent but curated files remain (recovery), THEN rebuild only the missing files; existing files stay byte-identical
 
 #### REQ-SETUP-005: 自動偵測技術棧
 自動偵測程式語言、框架與套件管理器，無法辨識時不阻斷初始化。
@@ -324,6 +325,77 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 ---
 
+### US-011: init 不再覆寫既有 curated 檔 [P1]
+
+身為刪除 `.prospec.yaml` 後重跑 init/quickstart 的 prospec 使用者，
+我希望 init 對既有 trust-zone 檔案逐檔跳過、只重建缺少的檔，
+以便我絕不會因為重跑初始化而遺失已策劃的 Constitution 原則、`_conventions` 與 `_index`。
+
+**Acceptance Scenarios:**
+- WHEN 在已有 trust-zone 的專案刪除 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，`CONSTITUTION.md`/`_conventions.md`/`_index.md` 內容零變更
+- WHEN trust-zone 檔案部分缺失（半初始化）後重跑 init, THEN 只重建缺少的檔，既有檔保留不動
+- WHEN 在全空目錄執行 init（greenfield）, THEN 行為不變，所有種子檔照常生成
+
+#### REQ-SETUP-018: Init Per-File Idempotency Guard
+`init.service.execute` 的 artifact 寫入迴圈改為 per-file skip-if-exists（套用 `knowledge-init.service` 既有 `if (!fileExists(...))` pattern）：只寫入缺少的檔，既有檔一律不動。`createdFiles` 只列實際寫入者加 `.prospec.yaml`。`.prospec.yaml` 仍最後寫入，作為「init 完成」復原標記。
+
+**Scenarios:**
+- WHEN 已有 trust-zone 的專案刪 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，其他既有 artifact 內容零變更（byte 不變）
+- WHEN trust-zone 部分缺失（半初始化）後重跑 init, THEN 只重建缺少的檔，既有檔保留
+- WHEN 在空目錄 greenfield init, THEN 所有 artifact 皆缺 → 全部寫入，行為不變
+- WHEN init 完成, THEN `createdFiles` 只含本次實際寫入的檔（含 `.prospec.yaml`）
+
+---
+
+### US-012: prospec upgrade 刷新 canonical docs [P1]
+
+身為升級 prospec CLI 版本的專案維護者，
+我希望一個 zero-LLM 指令重渲染 zone 2 canonical docs、重跑 agent sync、記錄版本並產出升級報告，
+以便我的 shipped 文件跟上新版 CLI，而 zone 3 curated 內容完全不受影響。
+
+**Acceptance Scenarios:**
+- WHEN 在已初始化專案執行 `prospec upgrade`, THEN `.prospec.yaml` `version` 更新為 `PROSPEC_VERSION`、跑 agent sync、印 report
+- WHEN upgrade 完成, THEN upgrade report 列出缺觸發詞的新 skill 與版本 delta（from→to）
+- WHEN 在未初始化專案（無 `.prospec.yaml`）執行 upgrade, THEN `ConfigNotFound` 阻擋並提示先 `prospec init`，不寫任何檔
+- WHEN upgrade 執行, THEN 任何 `prospec/ai-knowledge/` doc 與 CONSTITUTION 內容零變更
+
+#### REQ-TYPES-037: `version` 欄位代表專案使用的 prospec 版本
+`.prospec.yaml` 的 `version` 欄位語義定為「該專案使用的 prospec 版本」（即 `PROSPEC_VERSION`），不再是 config schema 版本「1.0」。`init.service` 種入 `version: PROSPEC_VERSION`；`upgrade.service` 升級時更新它。`ProspecConfigSchema.version` 維持 optional 字串（向後相容）。不新增獨立 `prospec_version` 欄位——直接以 `version` 承載。
+
+**Scenarios:**
+- WHEN `prospec init` 完成, THEN `.prospec.yaml` 的 `version` 等於 `PROSPEC_VERSION`（非 "1.0"）
+- WHEN 舊 config（`version: "1.0"` 或無 `version`）safeParse, THEN 仍合法（向後相容）
+- WHEN `prospec upgrade` 執行, THEN `version` 更新為當前 `PROSPEC_VERSION`
+- WHEN 檢查 schema, THEN 無獨立 `prospec_version` 欄位（語義由 `version` 單一承載）
+
+#### REQ-TYPES-036: PROSPEC_VERSION Single Source
+新增 `types/version.ts` 以 `createRequire` 讀套件 `package.json` 並匯出 `PROSPEC_VERSION`，置於 leaf `types` 層——`cli`（commander `.version()`）與 `services`（`init`/`upgrade`）皆可向下 import，消除版本字面值重複。
+
+**Scenarios:**
+- WHEN 讀 `PROSPEC_VERSION`, THEN 值等於 `package.json` 的 `version`
+- WHEN `prospec --version`, THEN 輸出 `PROSPEC_VERSION`（單一來源，無重複字面值）
+- WHEN 檢查 import, THEN `cli` 與 `services` 皆 import `types/version`，無 `cli → lib` 違規（lint 守門）
+
+#### REQ-SERVICES-035: Upgrade Orchestrator Service
+`upgrade.service.execute({ cwd })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION` 並 `writeConfig`（comment-preserving，canonical 重序列化＝格式至最新版）；(3) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(4) `buildReport`：version delta（from→to）、缺觸發詞的新 skill 清單。完全不寫 `prospec/ai-knowledge/` 任何 doc、不寫 CONSTITUTION。
+
+**Scenarios:**
+- WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION` 且 agent sync 已跑
+- WHEN execute 執行, THEN `prospec/ai-knowledge/` 下任何 doc 與 CONSTITUTION.md 內容零變更（byte 不變）
+- WHEN report 產出, THEN 含 version{from,to} 與缺 `skill_triggers` 條目的 skill 清單（非英文時）
+- WHEN orchestrate, THEN 呼叫 `agentSync` 且依賴方向 `cli → services` 不破（不呼叫 knowledge init、不渲染 canonical docs）
+
+#### REQ-SETUP-019: prospec upgrade Command
+`prospec upgrade`（zero-LLM）CLI 指令。職責僅限：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`、以 canonical 格式重新序列化；(2) 執行 `agent sync`（zone-1 重生）。不自動改寫任何 init 建立的 doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。輸出 report（version delta、缺觸發詞 skill）+ 下一步 `/prospec-upgrade`。
+
+**Scenarios:**
+- WHEN 在已初始化專案執行 `prospec upgrade`, THEN `.prospec.yaml` `version` 更新為 `PROSPEC_VERSION` 並以 canonical 格式重寫、跑 agent sync、印 report，exit 0
+- WHEN 在未初始化專案（無 `.prospec.yaml`）執行, THEN `ConfigNotFound` 阻擋並提示 `prospec init`，不寫任何檔
+- WHEN agent sync 因無 agent 設定失敗, THEN 透傳 `PrerequisiteError`（actionable，非 stack trace）
+- WHEN 執行 upgrade, THEN 不寫任何 `prospec/ai-knowledge/` doc 或 CONSTITUTION（僅動 `.prospec.yaml` + zone-1 agent-sync 產物）
+
+---
+
 ## Edge Cases
 
 - 在非專案目錄執行 `prospec steering`：提示沒有可分析的程式結構
@@ -367,3 +439,4 @@ _(None)_
 | 2026-06-07 | make-constitution-executable | init 產帶嚴重度引導式 Constitution 規則 | US-007; REQ-TYPES-021, REQ-LIB-012, REQ-SERVICES-026, REQ-TEMPLATES-062, REQ-TESTS-021 |
 | 2026-06-11 | add-init-language-policy | init 語言選擇 + Language Policy seed；CLI 輸出英文化 | US-008~009; REQ-SETUP-015~016, REQ-TYPES-025, REQ-LIB-013 |
 | 2026-06-15 | add-quickstart-command | prospec quickstart 一鍵啟動（init+agent-sync orchestrator，搭 agent 端 /prospec-quickstart 收尾） | US-010; REQ-SETUP-017, REQ-SERVICES-028 (ADDED) |
+| 2026-06-22 | fix-init-clobber-add-upgrade | init per-file idempotency guard + version=prospec-version + prospec upgrade CLI | US-011/012; REQ-SETUP-018/019, REQ-TYPES-037/036, REQ-SERVICES-035 (ADDED), REQ-SETUP-004 (MODIFIED) |

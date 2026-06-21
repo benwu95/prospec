@@ -286,6 +286,32 @@ flowchart TD
 
 ---
 
+## 升級 Prospec
+
+當有新版 prospec 時，重跑安裝以拉取最新（它是未發布的 GitHub fork，重跑會重新 clone + build 當前 commit）：
+
+```bash
+npm install -g github:benwu95/prospec     # 或：pnpm add -g github:benwu95/prospec
+# 釘選成專案 devDependency：npm install -D github:benwu95/prospec
+```
+
+接著用兩步把既有專案帶到最新——先一個決定性的 CLI 步驟，再一個需同意的 AI 步驟：
+
+```bash
+prospec upgrade                  # CLI（zero-LLM）：記錄新版本 + 重新同步 agents
+```
+
+```text
+/prospec-upgrade                 # 在 AI agent 內：刷新 init 文件格式 + 在地化新 skill 觸發詞（每項變更前先問你）
+```
+
+- **`prospec upgrade`（CLI）** 在 `.prospec.yaml` `version` 記錄當前 prospec 版本（以 canonical 格式重寫）、重跑 `agent sync` 讓各 agent 設定與 Skills 對齊最新模板，並印出 migration report（版本差異 + 任何缺母語觸發詞的新 skill）。它**不寫任何 doc**——絕不碰 `CONSTITUTION.md`、`_conventions.md`、`_index.md`、canonical convention docs，或任何 module README。
+- **`/prospec-upgrade`（Skill）** 完成 CLI 無法安全做的判斷工作：掃描 `prospec init` 建立的檔案、對照最新模板，對任何**格式**落差提出更新——**逐檔徵詢你的同意**（只遷移格式、絕不動你撰寫的內容）。接著依 `artifact_language` 為任何新 skill 在地化觸發詞（只補缺的），並重跑 `agent sync`。
+
+> `.prospec.yaml` `version` 是專案上次升級到的 prospec 版本（舊的 `version: "1.0"` 視為過時、首次 `prospec upgrade` 時更新）。新增 skill 後想（重新）在地化觸發詞？直接重跑 `prospec agent sync` —— 它會具名列出任何缺 `skill_triggers` 條目的 skill，你只補缺口即可。永遠不需要刪除 `.prospec.yaml`。
+
+---
+
 ## AI Skills
 
 Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`/prospec-quickstart`（啟動）與 `/prospec-upgrade`（版本升級）：

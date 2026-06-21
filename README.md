@@ -287,6 +287,32 @@ flowchart TD
 
 ---
 
+## Upgrading Prospec
+
+When a new prospec version ships, re-run the install to pull the latest (it's an unpublished GitHub fork, so this re-clones + rebuilds the current commit):
+
+```bash
+npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
+# pinned per-project devDependency: npm install -D github:benwu95/prospec
+```
+
+Then bring an existing project up to date in two steps — a deterministic CLI step, then a consent-gated AI step:
+
+```bash
+prospec upgrade                  # CLI (zero-LLM): record the new version + re-sync agents
+```
+
+```text
+/prospec-upgrade                 # in your AI agent: refresh init-doc formats + localize new-skill triggers (asks before each change)
+```
+
+- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (rewritten in canonical format), re-runs `agent sync` so your per-agent config and Skills match the new templates, and prints a migration report (version delta + any newly-added skills missing native-language triggers). It **writes no docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `_index.md`, the canonical convention docs, or any module README.
+- **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it scans the files `prospec init` created, compares them to the latest templates, and offers to update any whose **format** has drifted — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
+
+> `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
+
+---
+
 ## AI Skills
 
 Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `/prospec-quickstart` (onboarding) and `/prospec-upgrade` (version upgrade):
