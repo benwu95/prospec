@@ -334,6 +334,7 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 | **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
 | **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
 | **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
+| **Quickstart** | `/prospec-quickstart` | After `prospec quickstart` runs init + agent sync, localize skill triggers into your artifact language, prepare the Knowledge scan, and chain into `/prospec-knowledge-generate` to seed AI Knowledge; never writes the trust zone |
 | **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` refreshes the canonical docs, localize triggers for newly-added skills (fill-missing only) + migrate flagged curated-doc formats — each with confirmation + a diff preview; never auto-writes the trust zone |
 
 > **Periodic finishers** — `/prospec-quickstart` (run once after `prospec quickstart`) and `/prospec-upgrade` (run after `prospec upgrade` on a version bump) finish the judgment steps the CLI cannot do deterministically. Both are deployed as Skills on disk but kept out of the always-loaded entry config, so they add no recurring token cost.
