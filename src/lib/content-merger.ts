@@ -166,6 +166,21 @@ export function mergeContent(
 const AUTO_BLOCK_RE = new RegExp(`${AUTO_START}[\\s\\S]*?${AUTO_END}`);
 const USER_BLOCK_RE = new RegExp(`${USER_START}[\\s\\S]*?${USER_END}`);
 
+/** True when `content` contains a prospec auto block. */
+export function hasAutoBlock(content: string): boolean {
+  return AUTO_BLOCK_RE.test(content);
+}
+
+/**
+ * Replace the first auto block in `content` with `autoBlock`, in place. Uses a
+ * function replacer so `$`-sequences (`$&`/`` $` ``/`$$`) in `autoBlock` are
+ * inserted verbatim, not interpreted as replacement patterns. Single source for
+ * the auto-block swap shared by mergeManagedDoc and knowledge-update.service.
+ */
+export function replaceAutoBlock(content: string, autoBlock: string): string {
+  return content.replace(AUTO_BLOCK_RE, () => autoBlock);
+}
+
 /**
  * Merge freshly generated content into a "managed document" — an agent entry
  * config (CLAUDE.md / AGENTS.md) that uses the auto/user block contract.
@@ -192,13 +207,11 @@ export function mergeManagedDoc(generated: string, existing: string): string {
     return generated;
   }
 
-  // Managed file: surgically swap the auto block, preserve the rest. Function
-  // replacer so `$`-sequences in the generated body are inserted verbatim, not
-  // read as replacement patterns (cf. knowledge-update.service auto-block swap).
-  if (AUTO_BLOCK_RE.test(existing)) {
+  // Managed file: surgically swap the auto block, preserve the rest.
+  if (hasAutoBlock(existing)) {
     const generatedAuto = generated.match(AUTO_BLOCK_RE);
     if (!generatedAuto) return generated;
-    return existing.replace(AUTO_BLOCK_RE, () => generatedAuto[0]);
+    return replaceAutoBlock(existing, generatedAuto[0]);
   }
 
   // Unmanaged file: migrate the existing content into generated's user block.

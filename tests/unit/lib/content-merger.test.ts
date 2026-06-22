@@ -4,6 +4,8 @@ import {
   extractUserSections,
   mergeContent,
   mergeManagedDoc,
+  hasAutoBlock,
+  replaceAutoBlock,
 } from '../../../src/lib/content-merger.js';
 
 describe('parseSections', () => {
@@ -394,5 +396,58 @@ auto only
     expect(merged).toContain('<!-- prospec:user-start -->');
     expect(merged).toContain('# hand-written');
     expect(merged).toContain('<!-- prospec:user-end -->');
+  });
+});
+
+describe('hasAutoBlock', () => {
+  it('is true when an auto block is present (with surrounding content)', () => {
+    expect(hasAutoBlock('# H\n<!-- prospec:auto-start -->\nx\n<!-- prospec:auto-end -->\nfooter')).toBe(true);
+  });
+
+  it('is false when there is no auto block', () => {
+    expect(hasAutoBlock('just text\nno markers')).toBe(false);
+    expect(hasAutoBlock('<!-- prospec:auto-start -->\nunclosed')).toBe(false);
+  });
+});
+
+describe('replaceAutoBlock', () => {
+  it('swaps the auto block in place, preserving everything around it (exact)', () => {
+    const content = `Header
+<!-- prospec:auto-start -->
+OLD
+<!-- prospec:auto-end -->
+Footer`;
+    const newBlock = `<!-- prospec:auto-start -->
+NEW
+<!-- prospec:auto-end -->`;
+    expect(replaceAutoBlock(content, newBlock)).toBe(`Header
+<!-- prospec:auto-start -->
+NEW
+<!-- prospec:auto-end -->
+Footer`);
+  });
+
+  it('inserts `$`-sequences in the replacement verbatim (function replacer)', () => {
+    const content = `<!-- prospec:auto-start -->
+OLD
+<!-- prospec:auto-end -->`;
+    const newBlock = `<!-- prospec:auto-start -->
+cost $5, $& and $$ literal
+<!-- prospec:auto-end -->`;
+    expect(replaceAutoBlock(content, newBlock)).toContain('cost $5, $& and $$ literal');
+  });
+
+  it('replaces only the first auto block', () => {
+    const content = `<!-- prospec:auto-start -->
+A
+<!-- prospec:auto-end -->
+gap
+<!-- prospec:auto-start -->
+B
+<!-- prospec:auto-end -->`;
+    const out = replaceAutoBlock(content, '<!-- prospec:auto-start -->\nNEW\n<!-- prospec:auto-end -->');
+    expect(out).toContain('NEW');
+    expect(out).toContain('B');       // second block untouched
+    expect(out).not.toContain('\nA\n'); // first block replaced
   });
 });
