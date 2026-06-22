@@ -219,6 +219,65 @@ prospec knowledge init       # → 生成 raw-scan.md + 空骨架（_index.md、
 
 </details>
 
+<details>
+<summary>完成 Quickstart 後的目錄佈局（<code>prospec quickstart</code> + <code>/prospec-quickstart</code>）</summary>
+
+```
+your-project/
+├── .prospec.yaml              # Prospec 配置
+├── CLAUDE.md                  # Claude Code 配置（Layer 0，<100 行）
+├── AGENTS.md                  # Antigravity / Codex / Copilot 配置（agents.md 標準）
+├── {base_dir}/
+│   ├── CONSTITUTION.md        # 專案規則（使用者定義）
+│   ├── specs/
+│   │   ├── product.md         # Product Spec（PRD 入口）
+│   │   └── features/          # 活的 Feature Spec（累積）
+│   └── ai-knowledge/
+│       ├── _index.md          # 模組索引（Markdown 表格）
+│       ├── _conventions.md    # 專案慣例
+│       ├── _playbook.md       # /prospec-learn 晉升的團隊教訓（人工核可）
+│       ├── _lessons-ledger.md # 累積的教訓 ledger，Archive 時自動 feed（版控）
+│       ├── raw-scan.md        # 自動生成的專案掃描資料
+│       ├── module-map.yaml    # 模組依賴關係
+│       ├── feature-map.yaml   # Feature→module 索引（選配；archive 時 bootstrap）
+│       └── modules/
+│           └── {module}/
+│               └── README.md  # 模組專屬文件
+├── .prospec/                  # 變更管理（不 commit）
+│   ├── changes/
+│   │   └── {change-name}/
+│   │       ├── proposal.md        # User Story + 驗收標準
+│   │       ├── design-spec.md     # 視覺規格（可選，UI 變更時）
+│   │       ├── interaction-spec.md # 互動規格（可選）
+│   │       ├── plan.md            # 實作計劃
+│   │       ├── tasks.md           # 任務拆解（checkbox 格式）
+│   │       ├── delta-spec.md      # Patch Spec（ADDED/MODIFIED/REMOVED）
+│   │       └── metadata.yaml      # 變更生命週期 metadata
+│   └── archive/               # 已歸檔的完成變更
+├── .claude/skills/            # Claude Code 的 Skills（每個 skill 一個目錄）
+│   ├── prospec-explore/
+│   ├── prospec-new-story/
+│   ├── prospec-design/
+│   ├── prospec-plan/
+│   ├── prospec-tasks/
+│   ├── prospec-ff/
+│   ├── prospec-implement/
+│   ├── prospec-review/
+│   ├── prospec-verify/
+│   ├── prospec-archive/
+│   ├── prospec-learn/
+│   ├── prospec-knowledge-generate/
+│   ├── prospec-knowledge-update/
+│   ├── prospec-backfill-spec/
+│   ├── prospec-promote-backfill/
+│   ├── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
+│   └── prospec-upgrade/          # 版本升級收尾（部署於磁碟，排除於 entry config）
+└── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）
+    └── prospec-*/
+```
+
+</details>
+
 ---
 
 ## 運作原理
@@ -599,69 +658,6 @@ pnpm run verify:skills
 - E2E tests：43 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
-
----
-
-## 專案結構
-
-<details>
-<summary>執行 <code>prospec init</code> 後的目錄佈局</summary>
-
-```
-your-project/
-├── .prospec.yaml              # Prospec 配置
-├── CLAUDE.md                  # Claude Code 配置（Layer 0，<100 行）
-├── AGENTS.md                  # Antigravity / Codex / Copilot 配置（agents.md 標準）
-├── {base_dir}/
-│   ├── CONSTITUTION.md        # 專案規則（使用者定義）
-│   ├── specs/
-│   │   ├── product.md         # Product Spec（PRD 入口）
-│   │   └── features/          # 活的 Feature Spec（累積）
-│   └── ai-knowledge/
-│       ├── _index.md          # 模組索引（Markdown 表格）
-│       ├── _conventions.md    # 專案慣例
-│       ├── _playbook.md       # /prospec-learn 晉升的團隊教訓（人工核可）
-│       ├── _lessons-ledger.md # 累積的教訓 ledger，Archive 時自動 feed（版控）
-│       ├── raw-scan.md        # 自動生成的專案掃描資料
-│       ├── module-map.yaml    # 模組依賴關係
-│       ├── feature-map.yaml   # Feature→module 索引（選配；archive 時 bootstrap）
-│       └── modules/
-│           └── {module}/
-│               └── README.md  # 模組專屬文件
-├── .prospec/                  # 變更管理（不 commit）
-│   ├── changes/
-│   │   └── {change-name}/
-│   │       ├── proposal.md        # User Story + 驗收標準
-│   │       ├── design-spec.md     # 視覺規格（可選，UI 變更時）
-│   │       ├── interaction-spec.md # 互動規格（可選）
-│   │       ├── plan.md            # 實作計劃
-│   │       ├── tasks.md           # 任務拆解（checkbox 格式）
-│   │       ├── delta-spec.md      # Patch Spec（ADDED/MODIFIED/REMOVED）
-│   │       └── metadata.yaml      # 變更生命週期 metadata
-│   └── archive/               # 已歸檔的完成變更
-├── .claude/skills/            # Claude Code 的 Skills（每個 skill 一個目錄）
-│   ├── prospec-explore/
-│   ├── prospec-new-story/
-│   ├── prospec-design/
-│   ├── prospec-plan/
-│   ├── prospec-tasks/
-│   ├── prospec-ff/
-│   ├── prospec-implement/
-│   ├── prospec-review/
-│   ├── prospec-verify/
-│   ├── prospec-archive/
-│   ├── prospec-learn/
-│   ├── prospec-knowledge-generate/
-│   ├── prospec-knowledge-update/
-│   ├── prospec-backfill-spec/
-│   ├── prospec-promote-backfill/
-│   ├── prospec-quickstart/       # 一次性啟動收尾（部署於磁碟，排除於 entry config）
-│   └── prospec-upgrade/          # 版本升級收尾（部署於磁碟，排除於 entry config）
-└── .agents/skills/            # 同一組 skills，agents.md 格式（Antigravity / Codex / Copilot）
-    └── prospec-*/
-```
-
-</details>
 
 ---
 

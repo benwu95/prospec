@@ -220,6 +220,65 @@ Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate`
 
 </details>
 
+<details>
+<summary>Directory layout after completing the Quickstart (<code>prospec quickstart</code> + <code>/prospec-quickstart</code>)</summary>
+
+```
+your-project/
+├── .prospec.yaml              # Prospec config
+├── CLAUDE.md                  # Claude Code config (Layer 0, <100 lines)
+├── AGENTS.md                  # Antigravity / Codex / Copilot config (agents.md standard)
+├── {base_dir}/
+│   ├── CONSTITUTION.md        # Project rules (user-defined)
+│   ├── specs/
+│   │   ├── product.md         # Product Spec (PRD entry point)
+│   │   └── features/          # Living Feature Specs (accumulated)
+│   └── ai-knowledge/
+│       ├── _index.md          # Module index (Markdown table)
+│       ├── _conventions.md    # Project conventions
+│       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
+│       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
+│       ├── raw-scan.md        # Auto-generated project scan data
+│       ├── module-map.yaml    # Module dependencies
+│       ├── feature-map.yaml   # Feature→module index (optional; bootstrapped at Archive)
+│       └── modules/
+│           └── {module}/
+│               └── README.md  # Module-specific docs
+├── .prospec/                  # Change management (not committed)
+│   ├── changes/
+│   │   └── {change-name}/
+│   │       ├── proposal.md        # User Story + acceptance criteria
+│   │       ├── design-spec.md     # Visual spec (optional, UI changes)
+│   │       ├── interaction-spec.md # Interaction spec (optional)
+│   │       ├── plan.md            # Implementation plan
+│   │       ├── tasks.md           # Task breakdown (checkbox format)
+│   │       ├── delta-spec.md      # Patch Spec (ADDED/MODIFIED/REMOVED)
+│   │       └── metadata.yaml      # Change lifecycle metadata
+│   └── archive/               # Archived completed changes
+├── .claude/skills/            # Skills for Claude Code (one dir per skill)
+│   ├── prospec-explore/
+│   ├── prospec-new-story/
+│   ├── prospec-design/
+│   ├── prospec-plan/
+│   ├── prospec-tasks/
+│   ├── prospec-ff/
+│   ├── prospec-implement/
+│   ├── prospec-review/
+│   ├── prospec-verify/
+│   ├── prospec-archive/
+│   ├── prospec-learn/
+│   ├── prospec-knowledge-generate/
+│   ├── prospec-knowledge-update/
+│   ├── prospec-backfill-spec/
+│   ├── prospec-promote-backfill/
+│   ├── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
+│   └── prospec-upgrade/          # version-upgrade finisher (on disk, excluded from entry config)
+└── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
+    └── prospec-*/
+```
+
+</details>
+
 ---
 
 ## How it works
@@ -626,69 +685,6 @@ pnpm run verify:skills
 - E2E tests: 43 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
-
----
-
-## Project Structure
-
-<details>
-<summary>Directory layout after running <code>prospec init</code></summary>
-
-```
-your-project/
-├── .prospec.yaml              # Prospec config
-├── CLAUDE.md                  # Claude Code config (Layer 0, <100 lines)
-├── AGENTS.md                  # Antigravity / Codex / Copilot config (agents.md standard)
-├── {base_dir}/
-│   ├── CONSTITUTION.md        # Project rules (user-defined)
-│   ├── specs/
-│   │   ├── product.md         # Product Spec (PRD entry point)
-│   │   └── features/          # Living Feature Specs (accumulated)
-│   └── ai-knowledge/
-│       ├── _index.md          # Module index (Markdown table)
-│       ├── _conventions.md    # Project conventions
-│       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
-│       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
-│       ├── raw-scan.md        # Auto-generated project scan data
-│       ├── module-map.yaml    # Module dependencies
-│       ├── feature-map.yaml   # Feature→module index (optional; bootstrapped at Archive)
-│       └── modules/
-│           └── {module}/
-│               └── README.md  # Module-specific docs
-├── .prospec/                  # Change management (not committed)
-│   ├── changes/
-│   │   └── {change-name}/
-│   │       ├── proposal.md        # User Story + acceptance criteria
-│   │       ├── design-spec.md     # Visual spec (optional, UI changes)
-│   │       ├── interaction-spec.md # Interaction spec (optional)
-│   │       ├── plan.md            # Implementation plan
-│   │       ├── tasks.md           # Task breakdown (checkbox format)
-│   │       ├── delta-spec.md      # Patch Spec (ADDED/MODIFIED/REMOVED)
-│   │       └── metadata.yaml      # Change lifecycle metadata
-│   └── archive/               # Archived completed changes
-├── .claude/skills/            # Skills for Claude Code (one dir per skill)
-│   ├── prospec-explore/
-│   ├── prospec-new-story/
-│   ├── prospec-design/
-│   ├── prospec-plan/
-│   ├── prospec-tasks/
-│   ├── prospec-ff/
-│   ├── prospec-implement/
-│   ├── prospec-review/
-│   ├── prospec-verify/
-│   ├── prospec-archive/
-│   ├── prospec-learn/
-│   ├── prospec-knowledge-generate/
-│   ├── prospec-knowledge-update/
-│   ├── prospec-backfill-spec/
-│   ├── prospec-promote-backfill/
-│   ├── prospec-quickstart/       # one-time onboarding finisher (on disk, excluded from entry config)
-│   └── prospec-upgrade/          # version-upgrade finisher (on disk, excluded from entry config)
-└── .agents/skills/            # Same skills, agents.md format (Antigravity / Codex / Copilot)
-    └── prospec-*/
-```
-
-</details>
 
 ---
 
