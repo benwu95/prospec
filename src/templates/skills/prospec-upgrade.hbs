@@ -46,8 +46,13 @@ user to run `prospec init` first.
 `prospec upgrade` deliberately does NOT touch any doc `prospec init` created — those may carry user
 edits, so updating their format requires consent. Do it here:
 
-1. **Locate the latest templates** shipped with the installed prospec version — resolve the package
-   root (e.g. `node -e "console.log(require.resolve('@benwu95/prospec/package.json'))"`, or check
+1. **Locate the latest templates** shipped with the installed prospec version. **Source-repo
+   short-circuit first**: if the project's own `package.json` `name` equals the prospec package name
+   (`@benwu95/prospec`), the working directory IS the package root — use `.` and skip the resolution
+   below. This is the dogfooding case; `require.resolve('@benwu95/prospec/package.json')` fails here
+   because the package is absent from its own `node_modules` and the package has no `exports` field
+   to enable Node self-referencing. Otherwise resolve the package root (e.g.
+   `node -e "console.log(require.resolve('@benwu95/prospec/package.json'))"`, or check
    `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). If `require.resolve`
    fails — a `pnpm link`/globally-linked install keeps the package outside the project's
    `node_modules` — derive the root from the running CLI instead: follow `$(which prospec)` (a
