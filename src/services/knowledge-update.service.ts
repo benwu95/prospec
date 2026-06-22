@@ -3,9 +3,9 @@ import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { scanDir } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
-import { mergeContent } from '../lib/content-merger.js';
+import { mergeContent, hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
-import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
+import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { loadFeatureMap } from '../lib/knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -165,15 +165,9 @@ export async function updateModuleReadme(
 
   const newContent = renderTemplate('steering/module-readme.hbs', templateContext);
 
-  // Check for existing content to merge
-  let existingContent = '';
-  let action: GeneratedFile['action'] = 'created';
-  try {
-    existingContent = await fs.promises.readFile(readmePath, 'utf-8');
-    action = 'updated';
-  } catch {
-    // File doesn't exist — will create
-  }
+  // Check for existing content to merge (read-or-empty; non-ENOENT errors propagate)
+  const existingContent = await readFileIfExists(readmePath);
+  const action: GeneratedFile['action'] = existingContent ? 'updated' : 'created';
 
   const finalContent = existingContent
     ? mergeContent(newContent, existingContent)
@@ -272,23 +266,16 @@ ${tableRows}
 <!-- prospec:auto-end -->`;
 
   // Read existing _index.md for in-place auto-block replacement
-  let existingContent = '';
-  let action: GeneratedFile['action'] = 'created';
-  try {
-    existingContent = await fs.promises.readFile(indexPath, 'utf-8');
-    action = 'updated';
-  } catch {
-    // File doesn't exist — will create full index
-  }
-
-  const autoBlockRe = /<!-- prospec:auto-start -->[\s\S]*?<!-- prospec:auto-end -->/;
+  // (read-or-empty; non-ENOENT errors propagate).
+  const existingContent = await readFileIfExists(indexPath);
+  const action: GeneratedFile['action'] = existingContent ? 'updated' : 'created';
 
   let finalContent: string;
-  if (existingContent && autoBlockRe.test(existingContent)) {
+  if (existingContent && hasAutoBlock(existingContent)) {
     // Replace ONLY the auto block in place; preserve all curated content.
-    // Use a function replacer so `$`-sequences in module descriptions (the
-    // table cells) are NOT interpreted as replacement patterns.
-    finalContent = existingContent.replace(autoBlockRe, () => autoBlock);
+    // replaceAutoBlock uses a function replacer so `$`-sequences in module
+    // descriptions (the table cells) are inserted verbatim.
+    finalContent = replaceAutoBlock(existingContent, autoBlock);
   } else {
     // Create (or a marker-less file): emit the canonical document with the
     // `## Modules` heading and Project Info as static content around the block.

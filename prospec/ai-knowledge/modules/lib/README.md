@@ -9,9 +9,9 @@
 | File | Purpose |
 |------|---------|
 | `src/lib/config.ts` | readConfig(), resolveBasePaths(), resolveArtifactLanguage(), isDefaultArtifactLanguage() |
-| `src/lib/fs-utils.ts` | atomicWrite(), ensureDir(), fileExists() |
+| `src/lib/fs-utils.ts` | atomicWrite(), ensureDir(), fileExists(), readFileIfExists() — read-or-empty (ENOENT→'', other errors propagate so an unreadable file is never mistaken for absent and clobbered) |
 | `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates; resolveTemplatesDir() resolves the templates root via fileURLToPath |
-| `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration, appending any surplus existing user sections |
+| `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration, appending any surplus existing user sections; mergeManagedDoc() — managed-doc (CLAUDE.md/AGENTS.md) merge: in-place auto-block swap preserving the user block, or migrate marker-less existing content INTO the user block (vs mergeContent which discards it); hasAutoBlock()/replaceAutoBlock() — the single-source auto-block matcher (built from the marker constants, function-replacer) shared with knowledge-update.service |
 | `src/lib/key-exports.ts` | deriveKeyExports() — shared Recipe-First key-exports derivation (used by both knowledge generate + knowledge-update) |
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
@@ -33,6 +33,9 @@
 - `atomicWrite(path, content)` — Write file via temp-then-rename
 - `renderTemplate(name, context)` — Render .hbs template by path; `resolveTemplatesDir(moduleUrl)` — testable templates-root resolver (fileURLToPath fixes spaced/Windows install paths)
 - `mergeContent(newContent, existingContent)` — Merge preserving user sections (surplus existing user sections appended)
+- `mergeManagedDoc(generated, existing)` — Managed-doc (agent entry config) merge: has-markers → swap only the auto block; marker-less non-empty → migrate existing into the user block; empty → return generated; idempotent
+- `hasAutoBlock(content)` / `replaceAutoBlock(content, autoBlock)` — single-source auto-block predicate + function-replacer swap (built from the marker constants), shared by mergeManagedDoc and knowledge-update.service
+- `readFileIfExists(path)` — read UTF-8 or '' on ENOENT; non-ENOENT errors propagate
 - `deriveKeyExports(keyFiles)` — derive the shared Recipe-First key-exports list (first 10 files, drop tests, `.service`→`.execute()`, kebab→camelCase, cap 8); single source for generate + knowledge-update
 - `scanDir(patterns, options)` — Scan directory with fast-glob
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)

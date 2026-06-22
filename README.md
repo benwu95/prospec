@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1726%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1786%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -408,6 +408,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
 >
+> Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
+>
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
 #### Project-scan language support
@@ -600,7 +602,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1726 tests)
+# Run all tests (1786 tests)
 pnpm test
 
 # Watch mode
@@ -617,11 +619,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1726 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1127 tests
-- Contract tests (CLI output + Skill format): 542 tests
-- Integration tests: 17 tests
-- E2E tests: 40 tests
+**Test Coverage**: 1786 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1169 tests
+- Contract tests (CLI output + Skill format): 555 tests
+- Integration tests: 19 tests
+- E2E tests: 43 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 

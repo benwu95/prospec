@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
@@ -536,5 +536,113 @@ describe('agent-sync skill_triggers warnings', () => {
       ([name]) => name === 'skills/prospec-quickstart.hbs',
     );
     expect(quickstartRender).toBeDefined();
+  });
+});
+
+describe('agent-sync entry config block merge (REQ-AGNT-023 / REQ-AGNT-008)', () => {
+  // The real entry template carries auto/user blocks; the file-level mock returns
+  // a markerless string. Override it here so the merge path is exercised, then
+  // restore the default so later runs keep their call-inspection behavior.
+  const ENTRY = `<!-- prospec:auto-start -->
+# entry config
+prospec skills list
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+
+  beforeEach(() => {
+    vi.mocked(renderTemplate).mockImplementation((name: string) =>
+      name === 'agent-configs/entry.md.hbs' ? ENTRY : '# skill\n',
+    );
+  });
+
+  afterEach(() => {
+    vi.mocked(renderTemplate).mockReset();
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  });
+
+  const CONFIG = `project:
+  name: test
+agents:
+  - claude
+knowledge:
+  base_path: prospec/ai-knowledge
+`;
+
+  it('migrates a hand-written (markerless) CLAUDE.md into the user block', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': CONFIG,
+      '/project/CLAUDE.md': '# my hand-written setup\nkeep this rule\n',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const out = fs.readFileSync('/project/CLAUDE.md', 'utf-8');
+    expect(out).toContain('# entry config');                 // auto block written
+    expect(out).toContain('keep this rule');                 // hand-written content kept
+    expect(out.indexOf('<!-- prospec:user-start -->')).toBeLessThan(
+      out.indexOf('keep this rule'),
+    ); // ...inside the user block
+  });
+
+  it('refreshes only the auto block and preserves an existing user block', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': CONFIG,
+      '/project/CLAUDE.md': `<!-- prospec:auto-start -->
+STALE entry
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+MY CUSTOM NOTES
+<!-- prospec:user-end -->
+`,
+    });
+
+    await execute({ cwd: '/project' });
+
+    const out = fs.readFileSync('/project/CLAUDE.md', 'utf-8');
+    expect(out).toContain('# entry config');   // auto refreshed
+    expect(out).not.toContain('STALE entry');  // old auto replaced
+    expect(out).toContain('MY CUSTOM NOTES');  // user block preserved
+  });
+
+  it('is idempotent — a second sync produces a byte-identical CLAUDE.md', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': CONFIG,
+      '/project/CLAUDE.md': '# pre-existing notes\n',
+    });
+
+    await execute({ cwd: '/project' });
+    const first = fs.readFileSync('/project/CLAUDE.md', 'utf-8');
+    await execute({ cwd: '/project' });
+    const second = fs.readFileSync('/project/CLAUDE.md', 'utf-8');
+
+    expect(second).toBe(first);
+    expect(first).toContain('# pre-existing notes'); // still preserved after both runs
+  });
+
+  it('migrates a markerless AGENTS.md for the shared-standard agents', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test
+agents:
+  - codex
+  - copilot
+knowledge:
+  base_path: prospec/ai-knowledge
+`,
+      '/project/AGENTS.md': '# shared hand-written guidance\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    // Shared-standard agents still collapse to one AGENTS.md write (REQ-AGNT-017).
+    expect(result.agents).toHaveLength(1);
+    const out = fs.readFileSync('/project/AGENTS.md', 'utf-8');
+    expect(out).toContain('# entry config');
+    expect(out).toContain('# shared hand-written guidance');
   });
 });

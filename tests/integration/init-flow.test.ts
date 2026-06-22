@@ -4,10 +4,12 @@
  * Tests the complete init flow: command → service → lib
  * Using memfs to mock the filesystem.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../src/services/init.service.js';
+import { execute as agentSyncExecute } from '../../src/services/agent-sync.service.js';
+import { renderTemplate } from '../../src/lib/template.js';
 import { readConfig, validateConfig } from '../../src/lib/config.js';
 import { AlreadyExistsError } from '../../src/types/errors.js';
 
@@ -113,5 +115,55 @@ describe('Init Flow Integration', () => {
     const config = await readConfig('/project');
     expect(config.project.name).toBe('integration-test');
     expect(config.agents).toEqual(['claude']);
+  });
+});
+
+describe('Init → agent sync block preservation (REQ-SETUP-018 / REQ-AGNT-023)', () => {
+  const AGENTS_STUB = `<!-- prospec:auto-start -->
+# stub
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+  const ENTRY = `<!-- prospec:auto-start -->
+# full entry config
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+
+  beforeEach(() => {
+    vi.mocked(renderTemplate).mockImplementation((name: string) => {
+      if (name === 'init/agents.md.hbs') return AGENTS_STUB;
+      if (name === 'agent-configs/entry.md.hbs') return ENTRY;
+      return '# Template Content\n';
+    });
+  });
+
+  afterEach(() => {
+    vi.mocked(renderTemplate).mockReset();
+    vi.mocked(renderTemplate).mockReturnValue('# Template Content\n');
+  });
+
+  it('a hand-written AGENTS.md survives init (→ user block) and a subsequent agent sync', async () => {
+    vol.fromJSON({
+      '/project/package.json': '{}',
+      '/project/AGENTS.md': '# brownfield agent notes\nkeep me\n',
+    });
+
+    await execute({ name: 'test', agents: ['codex'], cwd: '/project' });
+    const afterInit = fs.readFileSync('/project/AGENTS.md', 'utf-8');
+    expect(afterInit).toContain('# stub');   // init stub in auto block
+    expect(afterInit).toContain('keep me');  // hand-written content migrated to user block
+
+    await agentSyncExecute({ cwd: '/project' });
+    const afterSync = fs.readFileSync('/project/AGENTS.md', 'utf-8');
+    expect(afterSync).toContain('# full entry config'); // auto swapped to full entry config
+    expect(afterSync).not.toContain('# stub');          // init stub replaced
+    expect(afterSync).toContain('keep me');             // user block preserved across the hand-off
   });
 });

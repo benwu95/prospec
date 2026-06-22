@@ -3,6 +3,9 @@ import {
   parseSections,
   extractUserSections,
   mergeContent,
+  mergeManagedDoc,
+  hasAutoBlock,
+  replaceAutoBlock,
 } from '../../../src/lib/content-merger.js';
 
 describe('parseSections', () => {
@@ -259,5 +262,192 @@ Default 1
     expect(merged).toContain('First notes');
     expect(merged).toContain('Second hand-added notes');
     expect(merged).not.toContain('Default 1');
+  });
+});
+
+describe('mergeManagedDoc', () => {
+  // A freshly rendered template: prospec content in the auto block, an empty
+  // user block after it, trailing newline (mirrors entry.md.hbs output).
+  const GENERATED = `<!-- prospec:auto-start -->
+# my-project
+generated body
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+
+  it('returns generated unchanged when existing is empty', () => {
+    expect(mergeManagedDoc(GENERATED, '')).toBe(GENERATED);
+  });
+
+  it('returns generated unchanged when existing is whitespace-only', () => {
+    expect(mergeManagedDoc(GENERATED, '   \n\t\n')).toBe(GENERATED);
+  });
+
+  it('managed existing: replaces ONLY the auto block, preserves the user block (exact)', () => {
+    const existing = `<!-- prospec:auto-start -->
+OLD generated body
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+my important notes
+<!-- prospec:user-end -->
+`;
+    const expected = `<!-- prospec:auto-start -->
+# my-project
+generated body
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+my important notes
+<!-- prospec:user-end -->
+`;
+    expect(mergeManagedDoc(GENERATED, existing)).toBe(expected);
+  });
+
+  it('unmanaged existing: migrates the hand-written content into the user block (exact)', () => {
+    const existing = `# CURATED hand-written
+some notes
+`;
+    const expected = `<!-- prospec:auto-start -->
+# my-project
+generated body
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+# CURATED hand-written
+some notes
+<!-- prospec:user-end -->
+`;
+    expect(mergeManagedDoc(GENERATED, existing)).toBe(expected);
+  });
+
+  it('unmanaged existing: nothing from the hand-written file is dropped', () => {
+    const existing = '# Title\nrule one\nrule two\n';
+    const merged = mergeManagedDoc(GENERATED, existing);
+    expect(merged).toContain('rule one');
+    expect(merged).toContain('rule two');
+    expect(merged).toContain('# my-project'); // auto block still present
+  });
+
+  it('does not mistake marker-like strings inside the user block for the auto block', () => {
+    // The user block literally mentions the auto markers; the non-greedy auto
+    // match must stop at the real auto-end, leaving the user block intact.
+    const existing = `<!-- prospec:auto-start -->
+OLD body
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+docs mention <!-- prospec:auto-end --> and <!-- prospec:auto-start --> verbatim
+<!-- prospec:user-end -->
+`;
+    const merged = mergeManagedDoc(GENERATED, existing);
+    expect(merged).toContain('docs mention <!-- prospec:auto-end --> and <!-- prospec:auto-start --> verbatim');
+    expect(merged).toContain('generated body'); // new auto applied
+    expect(merged).not.toContain('OLD body');   // old auto replaced
+  });
+
+  it('inserts `$`-sequences from the generated auto body verbatim (no pattern expansion)', () => {
+    const genDollar = `<!-- prospec:auto-start -->
+price is $5, regex $& and $\` and $$ stay literal
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+    const existing = `<!-- prospec:auto-start -->
+OLD
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+keep
+<!-- prospec:user-end -->
+`;
+    const merged = mergeManagedDoc(genDollar, existing);
+    expect(merged).toContain('price is $5, regex $& and $` and $$ stay literal');
+    expect(merged).toContain('keep');
+  });
+
+  it('inserts `$`-sequences from migrated unmanaged content verbatim', () => {
+    const existing = 'cost $5, sigil $& and $$ here\n';
+    const merged = mergeManagedDoc(GENERATED, existing);
+    expect(merged).toContain('cost $5, sigil $& and $$ here');
+  });
+
+  it('is idempotent — re-merging its own output is byte-identical (managed round-trip)', () => {
+    const run1 = mergeManagedDoc(GENERATED, 'brownfield content\n');
+    const run2 = mergeManagedDoc(GENERATED, run1);
+    expect(run2).toBe(run1);
+  });
+
+  it('is idempotent on a freshly generated doc', () => {
+    expect(mergeManagedDoc(GENERATED, GENERATED)).toBe(GENERATED);
+  });
+
+  it('defensive: generated without a user block still preserves migrated content', () => {
+    const noUserBlock = `<!-- prospec:auto-start -->
+auto only
+<!-- prospec:auto-end -->
+`;
+    const merged = mergeManagedDoc(noUserBlock, '# hand-written\n');
+    expect(merged).toContain('auto only');
+    expect(merged).toContain('<!-- prospec:user-start -->');
+    expect(merged).toContain('# hand-written');
+    expect(merged).toContain('<!-- prospec:user-end -->');
+  });
+});
+
+describe('hasAutoBlock', () => {
+  it('is true when an auto block is present (with surrounding content)', () => {
+    expect(hasAutoBlock('# H\n<!-- prospec:auto-start -->\nx\n<!-- prospec:auto-end -->\nfooter')).toBe(true);
+  });
+
+  it('is false when there is no auto block', () => {
+    expect(hasAutoBlock('just text\nno markers')).toBe(false);
+    expect(hasAutoBlock('<!-- prospec:auto-start -->\nunclosed')).toBe(false);
+  });
+});
+
+describe('replaceAutoBlock', () => {
+  it('swaps the auto block in place, preserving everything around it (exact)', () => {
+    const content = `Header
+<!-- prospec:auto-start -->
+OLD
+<!-- prospec:auto-end -->
+Footer`;
+    const newBlock = `<!-- prospec:auto-start -->
+NEW
+<!-- prospec:auto-end -->`;
+    expect(replaceAutoBlock(content, newBlock)).toBe(`Header
+<!-- prospec:auto-start -->
+NEW
+<!-- prospec:auto-end -->
+Footer`);
+  });
+
+  it('inserts `$`-sequences in the replacement verbatim (function replacer)', () => {
+    const content = `<!-- prospec:auto-start -->
+OLD
+<!-- prospec:auto-end -->`;
+    const newBlock = `<!-- prospec:auto-start -->
+cost $5, $& and $$ literal
+<!-- prospec:auto-end -->`;
+    expect(replaceAutoBlock(content, newBlock)).toContain('cost $5, $& and $$ literal');
+  });
+
+  it('replaces only the first auto block', () => {
+    const content = `<!-- prospec:auto-start -->
+A
+<!-- prospec:auto-end -->
+gap
+<!-- prospec:auto-start -->
+B
+<!-- prospec:auto-end -->`;
+    const out = replaceAutoBlock(content, '<!-- prospec:auto-start -->\nNEW\n<!-- prospec:auto-end -->');
+    expect(out).toContain('NEW');
+    expect(out).toContain('B');       // second block untouched
+    expect(out).not.toContain('\nA\n'); // first block replaced
   });
 });

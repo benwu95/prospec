@@ -5,7 +5,8 @@ import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../types/knowledge.js';
 import { writeConfig } from '../lib/config.js';
-import { fileExists, ensureDir, atomicWrite } from '../lib/fs-utils.js';
+import { fileExists, ensureDir, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
+import { mergeManagedDoc } from '../lib/content-merger.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import { CANONICAL_CONVENTION_DOCS } from '../types/canonical-docs.js';
 import { detectTechStack } from '../lib/detector.js';
@@ -144,9 +145,9 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     index_table_separator: INDEX_TABLE_SEPARATOR,
   };
 
-  const artifacts: { path: string; content: string; label: string }[] = [
+  const artifacts: { path: string; content: string; label: string; managed?: boolean }[] = [
     { path: path.join(cwd, baseDir, 'CONSTITUTION.md'), content: renderTemplate('init/constitution.md.hbs', templateContext), label: `${baseDir}/CONSTITUTION.md` },
-    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('init/agents.md.hbs', templateContext), label: 'AGENTS.md' },
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('init/agents.md.hbs', templateContext), label: 'AGENTS.md', managed: true },
     { path: path.join(knowledgePath, '_conventions.md'), content: renderTemplate('init/conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_conventions.md` },
     { path: path.join(knowledgePath, '_index.md'), content: renderTemplate('init/index.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_index.md` },
     ...CANONICAL_CONVENTION_DOCS.map((doc) => ({
@@ -157,17 +158,27 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
 
-  // 10. Create directories (idempotent) and write each artifact ONLY if it does
-  // not already exist — per-file skip-if-exists (cf. knowledge-init.service). The
-  // step-1 gate only lets init run fully when .prospec.yaml is absent; in that
-  // window the other artifacts (curated trust-zone CONSTITUTION.md /
-  // _conventions.md / _index.md included) may still be present, so an
-  // unconditional write would clobber them. Skipping existing files rebuilds only
-  // what is missing; refreshing stale canonical docs is `prospec upgrade`'s job.
+  // 10. Create directories (idempotent) and write each artifact. Curated
+  // trust-zone docs use per-file skip-if-exists (cf. knowledge-init.service):
+  // the step-1 gate only lets init run fully when .prospec.yaml is absent, and in
+  // that window CONSTITUTION.md / _conventions.md / _index.md may still be present,
+  // so an unconditional write would clobber them — skipping rebuilds only what is
+  // missing (refreshing stale canonical docs is `prospec upgrade`'s job).
+  // `managed` docs (AGENTS.md) are zone-1 generated, not curated: merge them
+  // through the auto/user block contract so existing content moves into the user
+  // block instead of being skipped or clobbered (REQ-SETUP-018). A later
+  // `agent sync` swaps the auto block for the full entry config, preserving that
+  // user block.
   await ensureDir(modulesPath);
   await ensureDir(specsPath);
   const writtenLabels: string[] = [];
   for (const artifact of artifacts) {
+    if (artifact.managed) {
+      const existing = await readFileIfExists(artifact.path);
+      await atomicWrite(artifact.path, mergeManagedDoc(artifact.content, existing));
+      writtenLabels.push(artifact.label);
+      continue;
+    }
     if (fileExists(artifact.path)) continue;
     await atomicWrite(artifact.path, artifact.content);
     writtenLabels.push(artifact.label);

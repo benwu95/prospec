@@ -46,6 +46,20 @@ export async function ensureDir(dirPath: string): Promise<void> {
 }
 
 /**
+ * Read a file's UTF-8 contents, returning '' when the file does not exist.
+ * Real read failures (e.g. permission errors) propagate, so a managed-doc merge
+ * never mistakes an unreadable file for an absent one and clobbers it.
+ */
+export async function readFileIfExists(filePath: string): Promise<string> {
+  try {
+    return await fs.promises.readFile(filePath, 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw err;
+  }
+}
+
+/**
  * Synchronously checks whether a file exists.
  */
 export function fileExists(filePath: string): boolean {

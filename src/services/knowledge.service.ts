@@ -5,7 +5,7 @@ import { scanDir } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
-import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
+import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml } from '../lib/yaml-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -203,15 +203,10 @@ async function generateModuleReadme(
     templateContext,
   );
 
-  // Check if existing file has user content to preserve
-  let existingContent = '';
-  let action: 'created' | 'updated' = 'created';
-  try {
-    existingContent = await fs.promises.readFile(readmePath, 'utf-8');
-    action = 'updated';
-  } catch {
-    // File doesn't exist — will create
-  }
+  // Check if existing file has user content to preserve (read-or-empty;
+  // non-ENOENT errors propagate).
+  const existingContent = await readFileIfExists(readmePath);
+  const action: 'created' | 'updated' = existingContent ? 'updated' : 'created';
 
   const finalContent = existingContent
     ? mergeContent(newContent, existingContent)
@@ -252,14 +247,9 @@ async function updateIndex(
     templateContext,
   );
 
-  let existingContent = '';
-  let action: 'created' | 'updated' = 'created';
-  try {
-    existingContent = await fs.promises.readFile(indexPath, 'utf-8');
-    action = 'updated';
-  } catch {
-    // File doesn't exist — will create
-  }
+  // Read-or-empty; non-ENOENT errors propagate.
+  const existingContent = await readFileIfExists(indexPath);
+  const action: 'created' | 'updated' = existingContent ? 'updated' : 'created';
 
   const finalContent = existingContent
     ? mergeContent(newContent, existingContent)
