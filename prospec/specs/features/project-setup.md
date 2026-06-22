@@ -335,15 +335,16 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 - WHEN 在已有 trust-zone 的專案刪除 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，`CONSTITUTION.md`/`_conventions.md`/`_index.md` 內容零變更
 - WHEN trust-zone 檔案部分缺失（半初始化）後重跑 init, THEN 只重建缺少的檔，既有檔保留不動
 - WHEN 在全空目錄執行 init（greenfield）, THEN 行為不變，所有種子檔照常生成
+- WHEN 既有 `AGENTS.md`（managed 產物，非 trust-zone）存在, THEN 其手寫內容遷入 `prospec:user` 區塊、stub 入 `prospec:auto`（不 skip、不覆蓋）
 
 #### REQ-SETUP-018: Init Per-File Idempotency Guard
-`init.service.execute` 的 artifact 寫入迴圈改為 per-file skip-if-exists（套用 `knowledge-init.service` 既有 `if (!fileExists(...))` pattern）：只寫入缺少的檔，既有檔一律不動。`createdFiles` 只列實際寫入者加 `.prospec.yaml`。`.prospec.yaml` 仍最後寫入，作為「init 完成」復原標記。
+`init.service.execute` 的 artifact 寫入迴圈：curated trust-zone 檔（`CONSTITUTION.md`/`_conventions.md`/`_index.md`/canonical convention docs）採 per-file skip-if-exists、既有檔 byte 不變；`AGENTS.md` 為 `managed` 產物，改走 `mergeManagedDoc`（既有內容遷入 `prospec:user` 區塊、stub 入 `prospec:auto`；缺檔則建立 auto=stub、user 空）並列入 `createdFiles`。`.prospec.yaml` 仍最後寫入，作為「init 完成」復原標記。
 
 **Scenarios:**
-- WHEN 已有 trust-zone 的專案刪 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，其他既有 artifact 內容零變更（byte 不變）
-- WHEN trust-zone 部分缺失（半初始化）後重跑 init, THEN 只重建缺少的檔，既有檔保留
-- WHEN 在空目錄 greenfield init, THEN 所有 artifact 皆缺 → 全部寫入，行為不變
-- WHEN init 完成, THEN `createdFiles` 只含本次實際寫入的檔（含 `.prospec.yaml`）
+- WHEN 已有 trust-zone 的專案刪 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`、trust-zone artifact byte 不變；`AGENTS.md` 經 merge 寫入並列入 `createdFiles`
+- WHEN trust-zone 部分缺失（半初始化）後重跑 init, THEN 只重建缺少的 trust-zone 檔，既有檔保留
+- WHEN 在空目錄 greenfield init, THEN trust-zone 全寫入、`AGENTS.md` 建立（auto=stub、user 空），行為不變
+- WHEN 既有 `AGENTS.md` 為手寫（無區塊）, THEN 內容遷入 user 區塊（不 skip、不覆蓋）
 
 ---
 
@@ -440,3 +441,4 @@ _(None)_
 | 2026-06-11 | add-init-language-policy | init 語言選擇 + Language Policy seed；CLI 輸出英文化 | US-008~009; REQ-SETUP-015~016, REQ-TYPES-025, REQ-LIB-013 |
 | 2026-06-15 | add-quickstart-command | prospec quickstart 一鍵啟動（init+agent-sync orchestrator，搭 agent 端 /prospec-quickstart 收尾） | US-010; REQ-SETUP-017, REQ-SERVICES-028 (ADDED) |
 | 2026-06-22 | fix-init-clobber-add-upgrade | init per-file idempotency guard + version=prospec-version + prospec upgrade CLI | US-011/012; REQ-SETUP-018/019, REQ-TYPES-037/036, REQ-SERVICES-035 (ADDED), REQ-SETUP-004 (MODIFIED) |
+| 2026-06-22 | preserve-agent-config-edits | init 的 `AGENTS.md` 改為 managed 合併（既有內容遷入 `prospec:user` 區塊、stub 入 auto），trust-zone 維持 skip-if-exists | REQ-SETUP-018 (MODIFIED) |

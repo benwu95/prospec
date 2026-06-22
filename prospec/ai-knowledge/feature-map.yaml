@@ -1,6 +1,7 @@
 features:
   - feature: agent-integration
     modules:
+      - lib
       - services
       - templates
       - tests
