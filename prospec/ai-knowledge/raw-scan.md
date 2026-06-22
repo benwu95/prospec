@@ -79,7 +79,6 @@ src/
     knowledge/
     skills/
       references/
-    steering/
   types/
 tests/
   contract/
@@ -103,5 +102,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 335 |
+| Total files | 328 |
 | Scan depth | 10 |

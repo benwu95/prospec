@@ -147,6 +147,9 @@
 ### Upgrade/Onboarding 硬化（2026-06-22）
 - [x] [BL-044](#bl-044) `prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑 — 修「刪 `.prospec.yaml` 重跑 quickstart 清空 trust-zone（CONSTITUTION/_conventions/_index）」資料遺失 bug（P0，可獨立先上），並補 CLI 版本升級／新 skill 觸發詞再本地化／curated 格式遷移的缺失升級路徑（P1+P2）；發現於 dogfood `/prospec-quickstart` 重跑（G1/G5）✅ 已完成（2026-06-22 `fix-init-clobber-add-upgrade`，Grade A）· P1
 
+### 殘留指令清理（2026-06-22）
+- [ ] [BL-045](#bl-045) 移除 deprecated `prospec steering` 指令與其專屬程式碼 — steering 已被 `prospec knowledge init` 取代、live 路徑無人 import，屬殘留死碼；移除 command+service+formatter+architecture.md.hbs，退役 project-setup REQ-SETUP-008/009/010（接受 architecture.md 生成與 .prospec.yaml 回寫兩能力永久消失），同步 specs/knowledge、提示字串改指 `knowledge init`（G3/G4）· P2
+
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
 - [x] [OPT-A1](#opt-a1自動銜接提示) 自動銜接提示 — ✅ 完成（隨 enhance-skill-instructions：6 linear-flow skill status-aware Next-Step Handoff + entry-config 新 session 偵測；REQ-TEMPLATES-098/099）
@@ -2688,6 +2691,43 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 - [ ] 回歸：模擬「CLI 版本升級 + 新增 1 個 skill」→ `prospec upgrade` 刷新 canonical docs、記錄版本、report 列出新 skill；`/prospec-upgrade` 補該 skill 觸發詞並（經確認）遷移過時格式；全程 curated 內容（CONSTITUTION 原則文字／`_index` 模組表／module READMEs）零非預期變更
 
 **明確不含**：不改 module READMEs 的產生權（仍歸 knowledge-generate/update）；不把 zone 3 遷移自動化到無人確認（格式遷移一律 skill + 人工確認 + diff 預覽）；不動 protocol-frozen 的既有 schema 順序；`prospec_version` 僅作升級偵測，與 `.prospec.yaml` 既有 `version: "1.0"`（config schema 版本）正交、不混用。
+
+---
+
+### BL-045
+
+**移除 deprecated `prospec steering` 指令與其專屬程式碼**
+
+> **待處理（2026-06-22 提出，change name `remove-deprecated-steering-command`，scale 預估 standard）**：決議走 SDD change 流程移除，並**接受兩個能力永久消失**（見下），於退役 REQ 明文記錄為刻意捨棄。
+
+> **2026-06-22 影響範圍依據**：對抗式 workflow（7 平行 mapper + max-effort completeness critic，`steering-removal-impact`）盤點全倉 48 個 tracked 檔，逐一 grep+read 分類並由 critic 對賬；四個關鍵論點（能力損失、目錄刪除陷阱、REQ 退役無 dangling reference、漏網 GAP 檔）已由主程式獨立複驗。
+
+| 欄位 | 值 |
+|------|-----|
+| 優先級 | P2 — 中（死碼清理、非阻塞；改善 G3 codebase 清晰度與 G4 token）|
+| Skill 類型 | 移除 CLI command（不新增 skill）；走 `/prospec-new-story`→plan→tasks→implement→review→verify→archive 全流程（退役 spec-covered 行為，scale ≥ standard）|
+| 影響範圍 | `cli`（index.ts 解註冊、steering command+formatter 刪除）、`services`（steering.service 刪除、knowledge/mcp 提示字串、module-readme.hbs 路徑改 `knowledge/`）、`templates`（刪 architecture.md.hbs、module-readme.hbs 移至 `templates/knowledge/`、移除 steering/ 整目錄、proposal.md.hbs 字串）、`tests`（3 檔刪除 + index/cli-output/e2e/mcp 連動 + 22 處模板路徑字串）、trust zone（project-setup/mcp-server/ai-knowledge spec 退役+同步、knowledge base 同步、feature-spec-format.hbs GAP）|
+| 預估複雜度 | Standard（10 檔整檔刪除 + 約 9 處原始碼編輯 + specs 退役 + knowledge 同步 + 測試連動；無架構新增）|
+| 依賴 | 無（`knowledge init` 替代路徑早已出貨）|
+
+**背景（已證實）**：`steering` 於 `src/cli/commands/steering.ts:20` 已標 deprecated、叫人改用 `prospec knowledge init`。live `knowledge init` 走獨立的 `knowledge-init.service.ts`+`knowledge-init-output.ts`，**不 import** steering 任何模組——steering command/service/formatter/architecture.md.hbs 為自成一體死碼。其 import 的 6 個 `lib/*` 與 `types/*` 皆多處共用，非孤兒、不可刪。
+
+**接受的能力損失（決議：直接移除）**：
+- **architecture.md 生成**（REQ-SETUP-009）——`knowledge init` 不產此檔、無替代。`planning/design-mcp-server-enhancement.md` 早判定其 write-only／無消費者／與 index+module-map 重疊。
+- **.prospec.yaml tech_stack/paths 自動回寫**（REQ-SETUP-008）——`knowledge init` 只 `readConfig`；brownfield 重掃回寫消失。
+- （module-map.yaml 生成、`--dry-run`/`--depth`、替代指令測試覆蓋皆保留。）
+
+**關鍵陷阱**：`src/templates/steering/` 目錄內有兩檔——`architecture.md.hbs`（steering 專屬，刪）與 `module-readme.hbs`（**live**，由 `knowledge.service.ts:202`+`knowledge-update.service.ts:166` 渲染、~22 測試覆蓋）。決議**移除整個 steering/ 目錄**：刪 architecture.md.hbs、把 live 的 module-readme.hbs `git mv` 至 `templates/knowledge/`，並把所有 `renderTemplate('steering/module-readme.hbs')` 路徑字串改為 `knowledge/module-readme.hbs`（2 源碼 + 22 測試）；切勿在未搬移前 `rm` 整目錄。
+
+**驗收標準**：
+- [ ] 刪除 steering 三源檔（command/formatter/service）+ architecture.md.hbs + 三測試檔 + 三 cov-target 筆記；index.ts:14/87 解註冊；`pnpm typecheck`+`pnpm test`+build 綠燈
+- [ ] 提示字串 `prospec steering` → `prospec knowledge init`（knowledge.service.ts:123、mcp.service.ts:126/295、proposal.md.hbs:24）與其測試 regex（mcp.service.test:181/338、mcp-server.test:236/239）lockstep 同步；mcp-server.md REQ-MCP-006 同步
+- [ ] 退役 project-setup.md US-004 + REQ-SETUP-008/009/010 入「Deprecated Requirements」（明文記錄兩能力刻意捨棄）、frontmatter req_count 30→27、story_count 12→11；ai-knowledge.md REQ-SERVICES-025 移除「與 steering 共用 buildModuleMap」敘述
+- [ ] 同步 knowledge base：`_index.md`/`_glossary.md`/`module-map.yaml`/`modules`(services/cli/lib/types/templates) README 移除 steering 列與修正計數
+- [ ] GAP：`feature-spec-format.hbs:21` 去 `Steering` 後 `prospec agent sync` 重生 `.agents`/`.claude` mirror（不手改 mirror）
+- [ ] `prospec check` PASS（無 drift FAIL——REQ-SETUP-008/009/010 全倉零引用、退役不產 dangling reference）、`prospec verify` spec-compliance 綠燈、archive 經 knowledge-sync gate
+
+**明確不含**：不刪 `module-readme.hbs` 本身（搬至 `templates/knowledge/`、輸出不變）；不刪任何共用 `lib`/`types`；不改 README（命令從未對外文件化，僅 cc-sdd 致謝提及 "Steering"，非本命令）；不動 `_archived-history/`（immutable）；不把 architecture.md 能力移植到 `knowledge init`（已決議捨棄）。（原列為另案的「`templates/steering/` 更名」已併入本案。）
 
 ---
 

@@ -208,7 +208,7 @@ function loadExistingModuleMap(
 
 /**
  * Build a ModuleMap from a detection result — the canonical shape written to
- * module-map.yaml. Shared by `prospec steering` and `prospec knowledge init`.
+ * module-map.yaml. Used by `prospec knowledge init`.
  */
 export function buildModuleMap(detection: DetectionResult): ModuleMap {
   return {

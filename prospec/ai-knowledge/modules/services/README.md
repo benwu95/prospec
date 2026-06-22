@@ -1,6 +1,6 @@
 # services
 
-> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (17 files, ~4,700 lines)
+> Business logic layer — services following `execute(options) → Promise<Result>` pattern, plus shared helpers (16 files, ~4,400 lines)
 
 <!-- prospec:auto-start -->
 
@@ -11,7 +11,6 @@
 | `src/services/quickstart.service.ts` | Quickstart orchestrator — sequences `init` (catch `AlreadyExistsError` → skipped) + `agentSync`, aggregates per-step status and forwards agent-sync hints; deliberately does NOT run `knowledge init` (LLM work belongs to the `/prospec-quickstart` skill); service-orchestrates-service (cf. change-resolver) |
 | `src/services/init.service.ts` | Project init — scaffold config (incl. artifact language via --language/prompt/CI default), Constitution with Language Policy rule, AI Knowledge; renders all templates to memory first and writes `.prospec.yaml` LAST as the completion marker (mid-init failure leaves a re-runnable state); uses a **per-file skip-if-exists guard** — a re-run (e.g. after `.prospec.yaml` was deleted) never clobbers existing curated files (CONSTITUTION/_conventions/_index), rebuilds only missing files, and seeds `version: PROSPEC_VERSION`; AGENTS.md is a `managed` artifact — merged via `mergeManagedDoc` (existing content migrated into the `prospec:user` block, the stub in `prospec:auto`) rather than blanket-skipped, while the curated trust-zone files keep skip-if-exists |
 | `src/services/upgrade.service.ts` | Upgrade orchestrator — `execute()` records the prospec `version` in `.prospec.yaml`, runs `agentSync`, and builds a report (version delta + skills missing triggers); **writes no docs** (the `/prospec-upgrade` skill owns doc refresh). Also exports `detectMissingTriggers` |
-| `src/services/steering.service.ts` | Architecture discovery — scan, detectModules(strategy), generate module-map.yaml; `buildLayers` excludes the reserved `base_dir` key (artifact root, not a code layer) and falls through to detected modules when it is the only `paths` key; preserves `base_dir` across the config merge so resolution stays on the project's base_dir (else `resolveBasePaths` falls back to `DEFAULT_BASE_DIR`) |
 | `src/services/knowledge.service.ts` | Module README + _index.md generation — Recipe-First format, key_exports, ContentMerger; read-or-empty existing-file reads use `lib/fs-utils` `readFileIfExists` (non-ENOENT errors propagate) |
 | `src/services/raw-scan.service.ts` | Deterministic raw-scan.md production — `generateRawScan()` shared core (scan → tech/entry/deps/config/tree → render → atomicWrite; returns scanned `files` so callers reuse one scan); `collectDependencies` dispatches across 11-language ecosystems (via `lib/manifest-parsers`; Swift/Ruby short-circuit to `[]`, C/C++ gated on `hasCFamilySource`), `detectEntryPoints`/`collectConfigFiles` cover backend conventions; writes ONLY raw-scan.md (never curated files). Shared by knowledge-init (incl. `--raw-scan-only`) and the archive safety net |
 | `src/services/knowledge-init.service.ts` | Initial scan → raw-scan.md + module-map.yaml + _index/_conventions skeletons (generated when absent, module-map via buildModuleMap); delegates raw-scan to `raw-scan.service.generateRawScan`; `rawScanOnly` option (`--raw-scan-only`) regenerates raw-scan.md only and skips module detection + skeleton seeding |
@@ -31,7 +30,6 @@
 - `quickstart.execute(options)` — One-command onboarding: init (catch `AlreadyExistsError` → skipped) + agent sync; Result carries per-step `steps`, the `agentSync` result (hints), and `nextStep` (`/prospec-quickstart`)
 - `init.execute(options)` — Initialize new Prospec project (per-file skip-if-exists; re-run never clobbers curated files)
 - `upgrade.execute(options)` / `detectMissingTriggers(config, artifactLanguage)` — record prospec `version` + run agentSync + build a report (writes no docs); detect which skills lack a `skill_triggers` entry
-- `steering.execute(options)` — Discover architecture, generate module-map
 - `knowledge.execute(options)` — Generate module READMEs and _index.md
 - `knowledgeUpdate.execute(options)` / `collectAllModules(result, moduleMapPath)` — Incremental delta-spec-driven update (options take an optional `relatedModules` to resolve feature-prefixed REQ ids; Result carries `warnings` for non-canonical REQ ids surfaced by `parseDeltaSpec`) / merge module-map + delta-spec into the `_index.md` module list
 - `resolveChange(cwd, explicit, quiet, promptMessage)` — Resolve target change name (shared by change-plan/change-tasks); zero/ambiguous → `PrerequisiteError`
@@ -51,16 +49,15 @@
 
 1. Adding a new service: Create `src/services/{name}.service.ts`, export `execute(options): Promise<Result>`. Add matching CLI command + formatter.
 2. Changing a service result type: Update the Result interface → update the CLI formatter that consumes it → update unit test assertions.
-3. Changing knowledge output: Modify `knowledge.service.ts` — templateContext keys must match `steering/module-readme.hbs` variables (snake_case).
-4. Changing steering: Modify `steering.service.ts` — reads `config.knowledge.strategy` for detectModules().
-5. Changing archive: Modify `archive.service.ts` — affects spec sync, product.md, `feature-map.yaml` (via `syncFeatureMap`), and the Knowledge update trigger. Archive calls knowledge-update internally.
-6. Inter-service dependencies: `archive` → `knowledge-update` (post-archive trigger); `knowledge` requires `module-map.yaml`, now generated by `knowledge-init` (or legacy `steering`) — both share `lib/buildModuleMap()`.
-7. Changing agent-sync: agents are grouped by `(skillPath, configPath)` and written once; trigger words are synthesized once per skill in `execute()` (agent-independent) and passed as `trigger_words`; the entry config renders `entry.md.hbs` with `artifact_language` + per-skill triggers.
+3. Changing knowledge output: Modify `knowledge.service.ts` — templateContext keys must match `knowledge/module-readme.hbs` variables (snake_case).
+4. Changing archive: Modify `archive.service.ts` — affects spec sync, product.md, `feature-map.yaml` (via `syncFeatureMap`), and the Knowledge update trigger. Archive calls knowledge-update internally.
+5. Inter-service dependencies: `archive` → `knowledge-update` (post-archive trigger); `knowledge` requires `module-map.yaml`, now generated by `knowledge-init` via `lib/buildModuleMap()`.
+6. Changing agent-sync: agents are grouped by `(skillPath, configPath)` and written once; trigger words are synthesized once per skill in `execute()` (agent-independent) and passed as `trigger_words`; the entry config renders `entry.md.hbs` with `artifact_language` + per-skill triggers.
 
 ## Ripple Effects
 
-- `knowledge.service.ts` template context changes must match `steering/module-readme.hbs` Handlebars variables
-- `module-map.yaml` is produced by `knowledge-init` (when absent) and `steering`, and consumed by knowledge + knowledge-update services
+- `knowledge.service.ts` template context changes must match `knowledge/module-readme.hbs` Handlebars variables
+- `module-map.yaml` is produced by `knowledge-init` (when absent), and consumed by knowledge + knowledge-update services
 - `archive.service.ts` writes to `specs/features/` and `specs/product.md` — changes affect verify and planning skills
 - non-canonical REQ ids flow `parseDeltaSpec` → `DeltaSpecResult.malformed` → `KnowledgeUpdateResult.warnings` → `ArchiveResult.knowledgeWarnings` — touching any link in this chain affects what archive surfaces
 - Service result type changes require corresponding CLI formatter updates

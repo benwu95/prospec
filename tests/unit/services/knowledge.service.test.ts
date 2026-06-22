@@ -118,7 +118,7 @@ knowledge:
 
     // renderTemplate is called for each module README and for _index.md
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     expect(readmeCall).toBeTruthy();
 
     // Template context should have key_exports (not public_api)
@@ -157,7 +157,7 @@ knowledge:
     await execute({ cwd: '/project' });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     const keyExports = context.key_exports as Array<{ name: string; description: string }>;
 
@@ -295,7 +295,7 @@ knowledge:
     // L153 + L194: with paths === [], the template `path` falls back to the
     // module name because moduleInfo.paths[0] is undefined.
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     expect(context.path).toBe('core');
   });
@@ -390,7 +390,7 @@ knowledge:
     await execute({ cwd: '/project' });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     const keyFiles = context.key_files as Array<{ path: string; description: string }>;
     const descOf = (suffix: string) =>
@@ -437,7 +437,7 @@ knowledge:
     await execute({ cwd: '/project' });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     const keyFiles = context.key_files as Array<{ path: string; description: string }>;
     const descOf = (suffix: string) =>
@@ -481,7 +481,7 @@ knowledge:
     await execute({ cwd: '/project' });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     const keyFiles = context.key_files as Array<{ path: string; description: string }>;
     const descOf = (suffix: string) =>

@@ -1,8 +1,8 @@
 /**
  * Commander option parser for `--depth <n>`: a positive integer.
  *
- * Shared by `steering` and `knowledge init` so the same validation applies to
- * both; throws on NaN / < 1 instead of silently degrading the scan (e.g.
+ * Used by `knowledge init`; throws on NaN / < 1 instead of silently degrading
+ * the scan (e.g.
  * `--depth abc` → NaN flowing into fast-glob and a degenerate empty tree).
  */
 export function parseDepth(value: string): number {

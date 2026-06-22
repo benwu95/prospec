@@ -11,7 +11,6 @@ import { ConfigNotFound } from '../types/errors.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerQuickstartCommand } from './commands/quickstart.js';
 import { registerUpgradeCommand } from './commands/upgrade.js';
-import { registerSteeringCommand } from './commands/steering.js';
 import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
 import { registerAgentCommand } from './commands/agent-sync.js';
@@ -84,7 +83,6 @@ export function createProgram(): Command {
   registerInitCommand(program);
   registerQuickstartCommand(program);
   registerUpgradeCommand(program);
-  registerSteeringCommand(program);
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);
   registerAgentCommand(program);

@@ -163,7 +163,7 @@ export async function updateModuleReadme(
     key_exports: deriveKeyExports(keyFiles),
   };
 
-  const newContent = renderTemplate('steering/module-readme.hbs', templateContext);
+  const newContent = renderTemplate('knowledge/module-readme.hbs', templateContext);
 
   // Check for existing content to merge (read-or-empty; non-ENOENT errors propagate)
   const existingContent = await readFileIfExists(readmePath);

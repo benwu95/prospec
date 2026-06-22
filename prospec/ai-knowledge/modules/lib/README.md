@@ -39,7 +39,7 @@
 - `deriveKeyExports(keyFiles)` — derive the shared Recipe-First key-exports list (first 10 files, drop tests, `.service`→`.execute()`, kebab→camelCase, cap 8); single source for generate + knowledge-update
 - `scanDir(patterns, options)` — Scan directory with fast-glob
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
-- `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (shared by steering + knowledge-init)
+- `buildModuleMap(detection)` — Map a DetectionResult to a ModuleMap (used by knowledge-init)
 - `detectTechStack(cwd, configTechStack?, files?)` — Resolve language/framework/package manager across 11 languages (incl. backend); `.prospec.yaml` tech_stack wins, detection fills gaps; `source` = config/auto-detected/mixed; `hasCFamilySource(files)` — shared C/C++ source-evidence predicate
 - `parse{Pyproject,Cargo,GoMod,RequirementsTxt,Composer,Maven,Csproj,Vcpkg,ConanfileTxt}Dependencies(content)` → `ManifestDependency[]`; `parse{Pyproject,Cargo}EntryPoints` / `csprojIsExecutable` — per-ecosystem extraction, all pure + malformed-safe
 - `exampleRulesFor(techStack)` — Stack-appropriate starter rules; `languagePolicyRule(language)` — [MUST] artifact-language rule
@@ -67,7 +67,7 @@
 
 - `renderTemplate()` changes affect ALL template consumers (every service + CLI formatters)
 - `mergeContent()` changes risk overwriting user notes in prospec:user sections
-- `detectModules()` / `buildModuleMap()` signature changes affect `steering.service.ts` and `knowledge-init.service.ts`
+- `detectModules()` / `buildModuleMap()` signature changes affect `knowledge-init.service.ts`
 - `atomicWrite()` changes affect every service that writes files
 - `knowledge-reader.ts` changes ripple three ways: mcp.service (all resources/tools), drift-sources (shared archived predicate + isSafeResourceName), check.service (loadModuleMap)
 

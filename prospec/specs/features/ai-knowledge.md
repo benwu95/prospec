@@ -59,7 +59,7 @@ req_count: 45
 - WHEN strategy is `auto`, THEN try package → domain → architecture and pick the best result
 
 #### REQ-SERVICES-025: Generate Module Map in Knowledge Init
-`prospec knowledge init` produces `module-map.yaml` from detected modules after scanning, sharing the `buildModuleMap` helper with steering. Closes the gap left when steering was deprecated.
+`prospec knowledge init` produces `module-map.yaml` from detected modules after scanning, via the `buildModuleMap` helper.
 
 **Scenarios:**
 - WHEN executing `prospec knowledge init` and module-map.yaml does not exist, THEN generate it at the configured knowledge base path

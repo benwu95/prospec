@@ -120,7 +120,7 @@ function readModuleMap(mapPath: string): ModuleMap {
   } catch {
     throw new PrerequisiteError(
       'module-map.yaml',
-      'Run `prospec steering` first to generate the module map',
+      'Run `prospec knowledge init` first to generate the module map',
     );
   }
 
@@ -199,7 +199,7 @@ async function generateModuleReadme(
   };
 
   const newContent = renderTemplate(
-    'steering/module-readme.hbs',
+    'knowledge/module-readme.hbs',
     templateContext,
   );
 

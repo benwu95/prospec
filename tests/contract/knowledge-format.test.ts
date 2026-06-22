@@ -42,7 +42,7 @@ describe('Knowledge Format Contract', () => {
     };
 
     it('should render without errors', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       // prove interpolation actually ran (static headers alone are not enough)
       expect(content).toContain('# services');
       expect(content).toContain('src/services/auth.service.ts');
@@ -70,7 +70,7 @@ describe('Knowledge Format Contract', () => {
           description: `Service ${i}`,
         })),
       };
-      const content = renderTemplate('steering/module-readme.hbs', largeContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', largeContext);
       const lineCount = content.split('\n').length;
       // The large context must be near (but within) the ceiling — otherwise the
       // ≤100 bound is not actually exercised by this test.
@@ -79,49 +79,49 @@ describe('Knowledge Format Contract', () => {
     });
 
     it('should contain Modification Guide section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Modification Guide');
     });
 
     it('should contain Ripple Effects section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Ripple Effects');
     });
 
     it('should contain Pitfalls section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Pitfalls');
     });
 
     it('should contain Key Files section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Key Files');
     });
 
     it('should contain Public API section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Public API');
     });
 
     it('should contain Dependencies section', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Dependencies');
     });
 
     it('should contain prospec:auto markers', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('prospec:auto-start');
       expect(content).toContain('prospec:auto-end');
     });
 
     it('should contain prospec:user markers', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('prospec:user-start');
       expect(content).toContain('prospec:user-end');
     });
 
     it('should NOT contain api-surface, dependencies.md, or patterns.md references', () => {
-      const content = renderTemplate('steering/module-readme.hbs', templateContext);
+      const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).not.toContain('api-surface.md');
       expect(content).not.toContain('dependencies.md');
       expect(content).not.toContain('patterns.md');
@@ -249,7 +249,7 @@ describe('Knowledge Format Contract', () => {
     const TEMPLATES = path.resolve(__dirname, '../../src/templates');
 
     it('module-readme scaffold renders **Depends on:** / **Used by:** labels', () => {
-      const content = renderTemplate('steering/module-readme.hbs', {
+      const content = renderTemplate('knowledge/module-readme.hbs', {
         module_name: 'm',
         description: 'd',
         relationships: { depends_on: ['lib'], used_by: ['cli'] },

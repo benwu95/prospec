@@ -66,13 +66,12 @@ modules:
         - tests
 
   - name: services
-    description: Business logic — 13 services with execute() pattern, including Recipe-First knowledge generation, measurement-report loading, drift-check orchestration, kind-aware archive task stats, and the read-only MCP server
+    description: Business logic — 14 services with execute() pattern, including Recipe-First knowledge generation, measurement-report loading, drift-check orchestration, kind-aware archive task stats, and the read-only MCP server
     paths:
       - src/services
     keywords:
       - mcp
       - init
-      - steering
       - knowledge
       - change
       - archive
@@ -118,7 +117,7 @@ modules:
         - tests
 
   - name: templates
-    description: Handlebars template library — skills (static-first Startup Loading with STABLE/DYNAMIC markers, scale-aware quick path), references (incl. frozen task kind schema), agent-configs, change, init/steering/knowledge
+    description: Handlebars template library — skills (static-first Startup Loading with STABLE/DYNAMIC markers, scale-aware quick path), references (incl. frozen task kind schema), agent-configs, change, init/knowledge
     paths:
       - src/templates
     keywords:

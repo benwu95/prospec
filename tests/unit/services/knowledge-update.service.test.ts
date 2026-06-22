@@ -203,7 +203,7 @@ describe('updateModuleReadme', () => {
     });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     expect(readmeCall).toBeTruthy();
 
     const context = readmeCall![1] as Record<string, unknown>;
@@ -236,7 +236,7 @@ describe('updateModuleReadme', () => {
     });
 
     const calls = vi.mocked(mockRender).mock.calls;
-    const readmeCall = calls.find((c) => c[0] === 'steering/module-readme.hbs');
+    const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     const context = readmeCall![1] as Record<string, unknown>;
     const keyExports = context.key_exports as Array<{ name: string }>;
     // .test.ts files should be filtered out
@@ -264,7 +264,7 @@ describe('updateModuleReadme', () => {
     // empty modulePaths -> templateContext.path falls back to moduleName
     const renderCall = vi
       .mocked(mockRender)
-      .mock.calls.filter((c) => c[0] === 'steering/module-readme.hbs')
+      .mock.calls.filter((c) => c[0] === 'knowledge/module-readme.hbs')
       .at(-1);
     const context = renderCall![1] as Record<string, unknown>;
     expect(context.path).toBe('auth');
@@ -283,7 +283,7 @@ describe('updateModuleReadme', () => {
     const lastContext = () => {
       const renderCall = vi
         .mocked(mockRender)
-        .mock.calls.filter((c) => c[0] === 'steering/module-readme.hbs')
+        .mock.calls.filter((c) => c[0] === 'knowledge/module-readme.hbs')
         .at(-1);
       const ctx = renderCall![1] as Record<string, unknown>;
       const keyFiles = ctx.key_files as Array<{ path: string; description: string }>;
