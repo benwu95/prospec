@@ -48,14 +48,19 @@ edits, so updating their format requires consent. Do it here:
 
 1. **Locate the latest templates** shipped with the installed prospec version — resolve the package
    root (e.g. `node -e "console.log(require.resolve('@benwu95/prospec/package.json'))"`, or check
-   `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). The canonical convention
-   docs are language-neutral templates under `templates/init/`. If the templates cannot be located,
-   say so and SKIP this step (do not guess the latest format).
+   `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). If `require.resolve`
+   fails — a `pnpm link`/globally-linked install keeps the package outside the project's
+   `node_modules` — derive the root from the running CLI instead: follow `$(which prospec)` (a
+   shim/symlink to `<package-root>/dist/cli/index.js`) back up to `<package-root>`. The canonical
+   convention docs are language-neutral templates under `src/templates/init/` (the package ships and
+   loads them from `src/templates/`, not a root-level `templates/` — `tsc` does not copy `.hbs` into
+   `dist/`). If the templates cannot be located, say so and SKIP this step (do not guess the latest
+   format).
 2. **Scan the init-created files** in the project's knowledge base and compare each to its latest
    template:
-   - `{{knowledge_base_path}}/_status-lifecycle.md` ← `templates/init/status-lifecycle.md.hbs`
-   - `{{knowledge_base_path}}/_module-readme-conventions.md` ← `templates/init/module-readme-conventions.md.hbs`
-   - `{{knowledge_base_path}}/_diagram-conventions.md` ← `templates/init/diagram-conventions.md.hbs`
+   - `{{knowledge_base_path}}/_status-lifecycle.md` ← `src/templates/init/status-lifecycle.md.hbs`
+   - `{{knowledge_base_path}}/_module-readme-conventions.md` ← `src/templates/init/module-readme-conventions.md.hbs`
+   - `{{knowledge_base_path}}/_diagram-conventions.md` ← `src/templates/init/diagram-conventions.md.hbs`
    - `{{constitution_path}}` (Constitution), `{{knowledge_base_path}}/_conventions.md`, `{{knowledge_base_path}}/_index.md` — compare the **format/structure** (severity tags, section markers, index column schema), never the user's authored wording
 3. For each file whose format has drifted, **show a diff and ask the user whether to update it** —
    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
