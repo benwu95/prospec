@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { atomicWrite, ensureDir, fileExists } from '../../../src/lib/fs-utils.js';
+import { atomicWrite, ensureDir, fileExists, readFileIfExists } from '../../../src/lib/fs-utils.js';
 import { WriteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -179,5 +179,25 @@ describe('fileExists', () => {
     vol.fromJSON({}, '/');
     fs.mkdirSync('/tmp/dir', { recursive: true });
     expect(fileExists('/tmp/dir')).toBe(true);
+  });
+});
+
+describe('readFileIfExists', () => {
+  it('returns the file contents when the file exists', async () => {
+    vol.fromJSON({ '/tmp/doc.md': '# hi\n' }, '/');
+    expect(await readFileIfExists('/tmp/doc.md')).toBe('# hi\n');
+  });
+
+  it('returns an empty string when the file does not exist (ENOENT)', async () => {
+    vol.fromJSON({}, '/');
+    expect(await readFileIfExists('/tmp/missing.md')).toBe('');
+  });
+
+  it('propagates non-ENOENT read errors instead of masking them as absent', async () => {
+    vol.fromJSON({ '/tmp/doc.md': 'x' }, '/');
+    vi.spyOn(fs.promises, 'readFile').mockRejectedValueOnce(
+      Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
+    );
+    await expect(readFileIfExists('/tmp/doc.md')).rejects.toThrow('EACCES');
   });
 });

@@ -158,3 +158,63 @@ export function mergeContent(
 
   return merged.join('\n');
 }
+
+// Block matchers derived from the marker constants (single source — a marker
+// typo can't drift the regex out of sync). The markers contain no regex
+// metacharacters, so they need no escaping. Non-greedy body so each matches a
+// single block.
+const AUTO_BLOCK_RE = new RegExp(`${AUTO_START}[\\s\\S]*?${AUTO_END}`);
+const USER_BLOCK_RE = new RegExp(`${USER_START}[\\s\\S]*?${USER_END}`);
+
+/**
+ * Merge freshly generated content into a "managed document" — an agent entry
+ * config (CLAUDE.md / AGENTS.md) that uses the auto/user block contract.
+ *
+ * Unlike {@link mergeContent}, pre-existing content WITHOUT markers is migrated
+ * into the user block rather than discarded, so a hand-written CLAUDE.md is
+ * preserved the first time `prospec init` / `agent sync` adopts the contract.
+ *
+ * - existing already managed (has an auto block): replace ONLY the auto block in
+ *   place with `generated`'s auto block; the user block and everything around it
+ *   are preserved verbatim ("只更新 auto 區塊").
+ * - existing unmanaged (no markers) but non-empty: keep `generated` and move the
+ *   existing content into `generated`'s user block (nothing is dropped).
+ * - existing empty/absent: return `generated` unchanged.
+ *
+ * Idempotent: re-running over its own output replaces the auto block with an
+ * identical one and leaves the user block untouched → byte-identical result.
+ *
+ * @param generated - Freshly rendered template; carries both blocks.
+ * @param existing - Current file content (empty, unmanaged, or managed).
+ */
+export function mergeManagedDoc(generated: string, existing: string): string {
+  if (!existing.trim()) {
+    return generated;
+  }
+
+  // Managed file: surgically swap the auto block, preserve the rest. Function
+  // replacer so `$`-sequences in the generated body are inserted verbatim, not
+  // read as replacement patterns (cf. knowledge-update.service auto-block swap).
+  if (AUTO_BLOCK_RE.test(existing)) {
+    const generatedAuto = generated.match(AUTO_BLOCK_RE);
+    if (!generatedAuto) return generated;
+    return existing.replace(AUTO_BLOCK_RE, () => generatedAuto[0]);
+  }
+
+  // Unmanaged file: migrate the existing content into generated's user block.
+  return injectUserBlock(generated, existing.replace(/\n+$/, ''));
+}
+
+/**
+ * Replace the body of `generated`'s user block with `body` (the migrated
+ * content). Function replacer keeps `$`-sequences in `body` verbatim.
+ */
+function injectUserBlock(generated: string, body: string): string {
+  const block = `${USER_START}\n${body}\n${USER_END}`;
+  if (USER_BLOCK_RE.test(generated)) {
+    return generated.replace(USER_BLOCK_RE, () => block);
+  }
+  // Defensive: a generated doc without a user block (e.g. a degenerate template)
+  // still must not drop the migrated content — append a fresh user block.
+  return `${generated.replace(/\n+$/, '')}\n\n${block}\n`;
+}

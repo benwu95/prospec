@@ -394,6 +394,8 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 >
+> 你的編輯是安全的：entry 配置帶有 `prospec:auto` / `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只更新 auto 區塊，並保留你寫在 user 區塊的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時遷入 user 區塊，而非被覆蓋。
+>
 > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 
 #### 專案掃描支援語言

@@ -408,6 +408,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
 >
+> Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
+>
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
 #### Project-scan language support

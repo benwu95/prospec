@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/init.service.js';
@@ -303,10 +303,11 @@ describe('init.service per-file idempotency (BL-044)', () => {
     vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
   });
 
-  it('rebuilds only .prospec.yaml when it was deleted but curated files remain', async () => {
+  it('rebuilds .prospec.yaml + merges AGENTS.md while curated trust-zone files stay byte-unchanged', async () => {
     // Prior project; .prospec.yaml deleted to re-run, every other artifact still
-    // present with hand-edited content. The gate lets init run fully (no
-    // .prospec.yaml), so the per-file guard is what protects the trust zone.
+    // present with hand-edited content. Trust-zone docs keep skip-if-exists; the
+    // managed AGENTS.md merges so its hand-written content survives in the user
+    // block instead of being skipped or clobbered (REQ-SETUP-018).
     vol.fromJSON({
       '/project/package.json': '{}',
       '/project/prospec/CONSTITUTION.md': '# CURATED Constitution — do not clobber\n',
@@ -321,10 +322,10 @@ describe('init.service per-file idempotency (BL-044)', () => {
 
     const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
 
-    // Only .prospec.yaml was (re)created.
-    expect(result.createdFiles).toEqual(['.prospec.yaml']);
+    // .prospec.yaml recreated; the managed AGENTS.md is (re)written via merge.
+    expect(result.createdFiles).toEqual(['.prospec.yaml', 'AGENTS.md']);
 
-    // Every pre-existing artifact is byte-for-byte unchanged.
+    // Every curated trust-zone file is byte-for-byte unchanged (still skip-if-exists).
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe(
       '# CURATED Constitution — do not clobber\n',
     );
@@ -337,6 +338,9 @@ describe('init.service per-file idempotency (BL-044)', () => {
     expect(fs.readFileSync('/project/prospec/ai-knowledge/_status-lifecycle.md', 'utf-8')).toBe(
       '# CURATED lifecycle\n',
     );
+
+    // The hand-written AGENTS.md content is preserved (migrated into the user block).
+    expect(fs.readFileSync('/project/AGENTS.md', 'utf-8')).toContain('# CURATED agents');
   });
 
   it('rebuilds only the missing files (half-initialized recovery)', async () => {
@@ -376,5 +380,55 @@ describe('init.service per-file idempotency (BL-044)', () => {
     const yaml = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
     expect(yaml).toMatch(/version:\s*\d+\.\d+\.\d+/);
     expect(yaml).not.toContain('prospec_version');
+  });
+});
+
+describe('init.service managed AGENTS.md merge (REQ-SETUP-018)', () => {
+  // The real init/agents.md.hbs carries auto/user blocks; the file-level mock is
+  // markerless. Override it so the block structure can be asserted precisely.
+  const STUB = `<!-- prospec:auto-start -->
+# AI Agents Configuration
+run prospec agent sync
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+<!-- placeholder -->
+<!-- prospec:user-end -->
+`;
+
+  beforeEach(() => {
+    vi.mocked(renderTemplate).mockImplementation((name: string) =>
+      name === 'init/agents.md.hbs' ? STUB : '# doc\n',
+    );
+  });
+
+  afterEach(() => {
+    vi.mocked(renderTemplate).mockReset();
+    vi.mocked(renderTemplate).mockReturnValue('# Rendered Template Content\n');
+  });
+
+  it('greenfield: writes the stub into the auto block with an empty user block', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    // Empty existing → generated stub written verbatim (auto + empty user block).
+    expect(fs.readFileSync('/project/AGENTS.md', 'utf-8')).toBe(STUB);
+  });
+
+  it('brownfield: migrates an existing AGENTS.md into the user block, stub in auto', async () => {
+    vol.fromJSON({
+      '/project/package.json': '{}',
+      '/project/AGENTS.md': '# my existing agent rules\nrule A\n',
+    });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    const out = fs.readFileSync('/project/AGENTS.md', 'utf-8');
+    expect(out).toContain('# AI Agents Configuration'); // stub in auto block
+    expect(out).toContain('rule A');                    // existing preserved
+    // ...and the existing content sits inside the user block.
+    expect(out.indexOf('<!-- prospec:user-start -->')).toBeLessThan(out.indexOf('rule A'));
+    expect(out.indexOf('rule A')).toBeLessThan(out.indexOf('<!-- prospec:user-end -->'));
   });
 });

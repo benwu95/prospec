@@ -7,7 +7,8 @@ import {
 } from '../lib/config.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
-import { atomicWrite, ensureDir } from '../lib/fs-utils.js';
+import { mergeManagedDoc } from '../lib/content-merger.js';
+import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
 import {
@@ -318,14 +319,19 @@ async function generateEntryConfig(
   templateContext: Record<string, unknown>,
   cwd: string,
 ): Promise<string> {
-  const content = renderTemplate('agent-configs/entry.md.hbs', {
+  const generated = renderTemplate('agent-configs/entry.md.hbs', {
     ...templateContext,
     skill_path: agentConfig.skillPath,
   });
 
   const configFilePath = path.join(cwd, agentConfig.configPath);
+  // Refresh only the auto block and preserve the user block — or migrate an
+  // unmanaged (hand-written) file's content into the user block — instead of
+  // clobbering it (REQ-AGNT-008 / REQ-AGNT-023).
+  const existing = await readFileIfExists(configFilePath);
+  const merged = mergeManagedDoc(generated, existing);
   await ensureDir(path.dirname(configFilePath));
-  await atomicWrite(configFilePath, content);
+  await atomicWrite(configFilePath, merged);
 
   return agentConfig.configPath;
 }
