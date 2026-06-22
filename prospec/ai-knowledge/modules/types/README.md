@@ -62,7 +62,7 @@
 - Config schema changes affect `lib/config.ts` validation and all services reading config
 - Error type changes affect `cli/formatters/error-output.ts` dispatch logic
 - Skill definition changes affect `agent-sync.service.ts` output and contract test assertions; `triggers` feeds `synthesizeTriggers()` frontmatter composition
-- `KNOWLEDGE_FILE_TYPES` / `KNOWLEDGE_STRATEGIES` changes affect knowledge and steering services
+- `KNOWLEDGE_FILE_TYPES` / `KNOWLEDGE_STRATEGIES` changes affect the knowledge and knowledge-init services
 - `measurement.ts` schema changes affect `measure.service.ts` validation and the `scripts/measure-tokens.ts` runner (outside runtime layering, consumes types/lib)
 
 ## Pitfalls

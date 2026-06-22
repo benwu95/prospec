@@ -2,8 +2,8 @@
 feature: project-setup
 status: active
 last_updated: 2026-06-22
-story_count: 12
-req_count: 30
+story_count: 11
+req_count: 27
 ---
 
 # 專案啟動
@@ -12,7 +12,7 @@ req_count: 30
 
 **服務對象**：AI-First 開發者、獨立開發者、技術主管
 
-**解決問題**：開發者在專案中導入 SDD 流程需手動建立大量配置檔與目錄結構，過程繁瑣且易遺漏。Prospec 透過 `prospec init` 一鍵初始化與 `prospec steering` 架構分析，讓開發者在 3 分鐘內完成 SDD 專案設定。
+**解決問題**：開發者在專案中導入 SDD 流程需手動建立大量配置檔與目錄結構，過程繁瑣且易遺漏。Prospec 透過 `prospec init` 一鍵初始化，讓開發者在 3 分鐘內完成 SDD 專案設定。
 
 **為什麼重要**：專案啟動是 SDD 流程的起點，初始結構不完整則後續階段無法運作。良好的 CLI 基礎設施確保開發者在任何階段都能快速定位問題。
 
@@ -123,44 +123,6 @@ req_count: 30
 - WHEN convention docs created, THEN `_index.md` links to them
 - WHEN knowledge-generate / knowledge-update run, THEN defer to these docs as the single source of truth
 
-### US-004: 架構分析與模組映射 [P0]
-
-身為在既有專案導入 Prospec 的開發者，
-我希望執行 `prospec steering` 掃描專案架構、偵測技術棧、生成架構報告和模組映射，
-以便 AI Knowledge 系統能精準理解專案結構與模組依賴。
-
-**Acceptance Scenarios:**
-- WHEN 在已初始化專案執行 `prospec steering` THEN 產出 architecture.md 和 module-map.yaml
-- WHEN 專案未初始化 THEN 提示先執行 `prospec init`
-- WHEN 指定 `--dry-run` THEN 只輸出預覽不寫入檔案
-
-#### REQ-SETUP-008: 掃描專案架構
-遞迴掃描專案目錄結構，偵測架構層級，辨識技術棧，結果回寫 `.prospec.yaml`。
-
-**Scenarios:**
-- WHEN initialized project runs `prospec steering`, THEN scan and detect architecture layers (routes/services/models)
-- WHEN Python + FastAPI, THEN identify `language: python, framework: fastapi`
-- WHEN scan complete, THEN `.prospec.yaml` tech_stack and paths auto-updated
-- WHEN uninitialized project, THEN display PrerequisiteError prompting `prospec init`
-
-#### REQ-SETUP-009: 生成架構報告與模組映射
-產出 `architecture.md` 和 `module-map.yaml`，支援跨目錄模組分類。
-
-**Scenarios:**
-- WHEN scan complete, THEN create `architecture.md` with tech stack, directory structure, architecture layers, entry points
-- WHEN scan complete, THEN create `module-map.yaml` with `depends_on`, `used_by`, `keywords`
-- WHEN files scattered across directories, THEN related files classified into same module
-- WHEN module has `keywords`, THEN subsequent changes can identify related modules via matching
-
-#### REQ-SETUP-010: 掃描控制
-支援 `--dry-run` 預覽模式、`--depth` 掃描深度控制、敏感檔案排除。
-
-**Scenarios:**
-- WHEN `--dry-run`, THEN output preview only, no file writes
-- WHEN `--depth 2`, THEN only scan to 2nd level directory
-- WHEN no custom exclusion, THEN default exclude `*.env*`, `*credential*`, `*secret*`
-- WHEN `.prospec.yaml` defines `exclude`, THEN use custom exclusion rules
-
 ### US-005: Base Directory 設定 [P1]
 
 身為使用 Prospec 的開發者，
@@ -200,14 +162,14 @@ req_count: 30
 - WHEN 安裝後執行 `prospec --help` THEN 看到清晰的指令列表
 - WHEN 執行 `prospec init` THEN 互動式引導完成所有設定
 - WHEN 初始化完成 THEN 輸出摘要含下一步建議
-- WHEN 執行 `prospec steering` THEN 自動分析專案並產出 AI Knowledge
+- WHEN 執行 `prospec knowledge init` THEN 掃描專案並產出 raw-scan.md 與知識骨架
 
 #### REQ-SETUP-013: 首次使用引導流程
 初始化完成後提供清晰的下一步建議與操作摘要。
 
 **Scenarios:**
-- WHEN init complete, THEN output summary with created files, next steps (`prospec steering`, `prospec agent sync`), estimated time
-- WHEN steering complete, THEN suggest next action based on project state
+- WHEN init complete, THEN output summary with created files, next steps (`prospec knowledge init`, `prospec agent sync`), estimated time
+- WHEN knowledge init complete, THEN suggest next action based on project state
 
 ### US-007: 可執行 Constitution [P1]
 
@@ -399,7 +361,6 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 ## Edge Cases
 
-- 在非專案目錄執行 `prospec steering`：提示沒有可分析的程式結構
 - `.prospec.yaml` 格式錯誤（YAML 語法）：提供具體錯誤位置與修正建議
 - 重複執行 `prospec init`：警告並退出，不修改既有檔案
 - 使用者勾選未安裝的 AI CLI：提醒但允許加入配置
@@ -412,10 +373,9 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 - **SC-1**: 新專案可在 3 分鐘內完成 Prospec 初始化
 - **SC-2**: 所有 Prospec 服務統一使用 `resolveBasePaths()` 進行路徑解析
-- **SC-3**: 90% 的 Brownfield 專案可透過 steering 自動辨識架構模式
-- **SC-4**: 第一次使用的開發者可在 10 分鐘內理解並執行完整 Greenfield 流程
-- **SC-5**: 所有 CLI 指令可透過 `--help` 探索
-- **SC-6**: 100% 的無效指令輸入都能收到有意義的錯誤訊息或指令建議
+- **SC-3**: 第一次使用的開發者可在 10 分鐘內理解並執行完整 Greenfield 流程
+- **SC-4**: 所有 CLI 指令可透過 `--help` 探索
+- **SC-5**: 100% 的無效指令輸入都能收到有意義的錯誤訊息或指令建議
 
 ## Maintenance Rules
 
@@ -426,7 +386,17 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 ## Deprecated Requirements
 
-_(None)_
+#### ~~REQ-SETUP-008: 掃描專案架構~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除；掃描＋模組偵測由 `prospec knowledge init` 取代（且 tech-stack 偵測更準）。獨有的 `.prospec.yaml` tech_stack/paths 回寫刻意捨棄——tech_stack 於 `prospec init` 建檔已寫；per-module `paths` 為只有 steering 自寫自讀（buildLayers 餵 architecture.md）的循環設定，全系統其他處只讀 `paths.base_dir`。
+
+#### ~~REQ-SETUP-009: 生成架構報告與模組映射~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除。`module-map.yaml` 生成保留於 `knowledge init`（同一 `buildModuleMap`，only-if-absent rerun-safe 版）；獨有的 `architecture.md` 生成刻意捨棄——內容已散在 `raw-scan.md`/`_index.md`/module READMEs，Architecture Layers 表亦可從 `module-map.yaml` 還原。
+
+#### ~~REQ-SETUP-010: 掃描控制~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除。`--dry-run`/`--depth`/敏感檔案排除等掃描控制已存在於 `prospec knowledge init`（共用 `parseDepth` 驗證器與 `config.exclude`）。
 
 ## Change History
 
@@ -442,3 +412,4 @@ _(None)_
 | 2026-06-15 | add-quickstart-command | prospec quickstart 一鍵啟動（init+agent-sync orchestrator，搭 agent 端 /prospec-quickstart 收尾） | US-010; REQ-SETUP-017, REQ-SERVICES-028 (ADDED) |
 | 2026-06-22 | fix-init-clobber-add-upgrade | init per-file idempotency guard + version=prospec-version + prospec upgrade CLI | US-011/012; REQ-SETUP-018/019, REQ-TYPES-037/036, REQ-SERVICES-035 (ADDED), REQ-SETUP-004 (MODIFIED) |
 | 2026-06-22 | preserve-agent-config-edits | init 的 `AGENTS.md` 改為 managed 合併（既有內容遷入 `prospec:user` 區塊、stub 入 auto），trust-zone 維持 skip-if-exists | REQ-SETUP-018 (MODIFIED) |
+| 2026-06-22 | remove-deprecated-steering-command | 移除 deprecated `prospec steering` 指令與專屬死碼；退役 architecture.md 生成與 .prospec.yaml per-module paths 回寫（刻意捨棄） | US-004 (REMOVED); REQ-SETUP-008/009/010 (REMOVED) |

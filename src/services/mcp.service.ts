@@ -123,7 +123,7 @@ function registerKnowledgeResources(server: McpServer, ctx: McpServerContext): v
         uri.href,
         'application/yaml',
         readModuleMapRaw(ctx.knowledgePath),
-        'module-map.yaml not found — run `prospec steering` first',
+        'module-map.yaml not found — run `prospec knowledge init` first',
       ),
   );
 
@@ -292,7 +292,7 @@ function readHealth(uriHref: string, ctx: McpServerContext) {
   if (moduleMap === null) {
     throw new McpResourceNotFound(
       uriHref,
-      'module-map.yaml not found — run `prospec steering` first',
+      'module-map.yaml not found — run `prospec knowledge init` first',
     );
   }
   const outcome = evaluateKnowledgeHealth(

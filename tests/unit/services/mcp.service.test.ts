@@ -173,12 +173,12 @@ describe('mcp.service knowledge resources', () => {
     );
   });
 
-  it('module-map resource includes the steering hint in its not-found message', async () => {
+  it('module-map resource includes the knowledge-init hint in its not-found message', async () => {
     readModuleMapRaw.mockReturnValue(null);
     const client = await connectClient();
 
     await expect(client.readResource({ uri: MCP_RESOURCE_URIS.moduleMap })).rejects.toThrow(
-      /module-map\.yaml not found — run `prospec steering` first/,
+      /module-map\.yaml not found — run `prospec knowledge init` first/,
     );
   });
 
@@ -335,7 +335,7 @@ describe('mcp.service health resource', () => {
     const client = await connectClient();
 
     await expect(client.readResource({ uri: MCP_RESOURCE_URIS.health })).rejects.toThrow(
-      /module-map\.yaml not found — run `prospec steering` first/,
+      /module-map\.yaml not found — run `prospec knowledge init` first/,
     );
   });
 

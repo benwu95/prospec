@@ -68,7 +68,6 @@ describe('CLI E2E', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('prospec');
       expect(stdout).toContain('init');
-      expect(stdout).toContain('steering');
       expect(stdout).toContain('knowledge');
       expect(stdout).toContain('agent');
       expect(stdout).toContain('change');
@@ -201,39 +200,6 @@ describe('CLI E2E', () => {
       // + suggestion so a wrong-reason failure (formatGenericError) is caught.
       expect(stderr).toContain('.prospec.yaml already exists');
       expect(stderr).toContain('To reinitialize, delete the existing file first');
-    });
-  });
-
-  describe('prospec steering', () => {
-    it('should fail without .prospec.yaml', async () => {
-      const { exitCode } = await runCli(['steering']);
-      expect(exitCode).not.toBe(0);
-    });
-
-    it('should run with --dry-run', async () => {
-      // Setup: init first
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'package.json'),
-        JSON.stringify({ name: 'steering-test' }),
-      );
-      await runCli(['init', '--name', 'steering-test', '--agents', 'claude']);
-
-      // Create some source files for scanning
-      const srcDir = path.join(tmpDir, 'src');
-      await fs.promises.mkdir(srcDir, { recursive: true });
-      await fs.promises.writeFile(
-        path.join(srcDir, 'index.ts'),
-        'export const hello = "world";\n',
-      );
-
-      const { stdout, exitCode } = await runCli(['steering', '--dry-run']);
-      expect(exitCode).toBe(0);
-      // Dry-run must announce itself and write nothing — fails if the flag
-      // ever starts emitting module-map.yaml / architecture.md.
-      expect(stdout).toContain('Dry-run mode: no files were modified');
-      const kbDir = path.join(tmpDir, 'prospec', 'ai-knowledge');
-      expect(fs.existsSync(path.join(kbDir, 'module-map.yaml'))).toBe(false);
-      expect(fs.existsSync(path.join(kbDir, 'architecture.md'))).toBe(false);
     });
   });
 

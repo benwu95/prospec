@@ -230,13 +230,13 @@ describe('graceful degradation without module-map (REQ-MCP-006 AC3)', () => {
     expect(await readText(client, 'knowledge://module/alpha')).toBe('# alpha\n');
   });
 
-  it('module-map and health resources answer with a steering hint', async () => {
+  it('module-map and health resources answer with a knowledge-init hint', async () => {
     const client = await connect(writeMapless());
     await expect(client.readResource({ uri: 'knowledge://module-map' })).rejects.toThrow(
-      /prospec steering/,
+      /prospec knowledge init/,
     );
     await expect(client.readResource({ uri: 'knowledge://health' })).rejects.toThrow(
-      /prospec steering/,
+      /prospec knowledge init/,
     );
   });
 

@@ -52,7 +52,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 `lib/knowledge-reader` 為 content 讀取層；module-map 載入與路徑 clamp 為 check 與 MCP 的共用實作。
 
 **Scenarios:**
-- WHEN module-map.yaml 缺失，THEN 依賴它的 resources/tools 回 unavailable 並附「先跑 `prospec steering`」提示；index/playbook/spec resources 不受影響
+- WHEN module-map.yaml 缺失，THEN 依賴它的 resources/tools 回 unavailable 並附「先跑 `prospec knowledge init`」提示；index/playbook/spec resources 不受影響
 - WHEN module-map.yaml 存在但 schema 無效，THEN loud error（與 `prospec check` 一致），絕不靜默降級為空列表
 - WHEN map 驅動讀檔，THEN 經 `clampModulePaths` 保護，repo 外路徑被丟棄
 
@@ -143,7 +143,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 
 ## Edge Cases
 
-- module-map 缺失：map 依賴面 graceful unavailable + steering 提示；其餘 resources 照常
+- module-map 缺失：map 依賴面 graceful unavailable + `prospec knowledge init` 提示；其餘 resources 照常
 - module-map 無效：request-scoped loud error，server 存活
 - `_playbook.md`/`_index.md` 不存在：該 resource 回 not found，其餘照常
 - committed symlink 外指：視同 not found（每個面一致——raw 讀取、listing、health、依賴查詢）

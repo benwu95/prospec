@@ -72,7 +72,6 @@ describe('CLI Output Contract', () => {
       }
       const output = stdoutOutput.join('');
       expect(output).toContain('init');
-      expect(output).toContain('steering');
       expect(output).toContain('knowledge');
       expect(output).toContain('agent');
       expect(output).toContain('change');
@@ -103,20 +102,6 @@ describe('CLI Output Contract', () => {
       const output = stdoutOutput.join('');
       expect(output).toContain('--name');
       expect(output).toContain('--agents');
-    });
-  });
-
-  describe('prospec steering --help', () => {
-    it('should show steering-specific options', async () => {
-      const program = createProgram();
-      try {
-        await program.parseAsync(['node', 'prospec', 'steering', '--help']);
-      } catch (err) {
-        if ((err as { exitCode?: number }).exitCode !== 0) throw err;
-      }
-      const output = stdoutOutput.join('');
-      expect(output).toContain('--dry-run');
-      expect(output).toContain('--depth');
     });
   });
 

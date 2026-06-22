@@ -18,7 +18,7 @@ Name files by **user-facing feature**, not by implementation module:
 |-------------|--------|
 | `sdd-workflow.md` | Story, Plan, Tasks, Archive, Verify, Fast-Forward |
 | `ai-knowledge.md` | Knowledge Init, Generate, Update, Quality Gate |
-| `project-setup.md` | CLI, Init, Steering, Config, Base Directory |
+| `project-setup.md` | CLI, Init, Config, Base Directory |
 | `agent-integration.md` | Agent Sync, Skill Generation, Progressive Disclosure |
 | `design-phase.md` | Generate Mode, Extract Mode, Platform Adapters |
 
