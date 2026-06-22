@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospec — spec-driven development that audits itself, for AI coding agents</title>
+<meta name="description" content="Prospec drives your AI coding agent through a governed story → plan → tasks → implement → review → verify → archive loop, with adversarial review, S-to-D quality grades, and project knowledge that compounds on every change. Works with Claude Code, Codex, Copilot, and Antigravity.">
+<meta name="theme-color" content="#0b0f14">
+<link rel="canonical" href="https://benwu95.github.io/prospec/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://benwu95.github.io/prospec/">
+<meta property="og:title" content="Prospec — the governed spec loop for AI coding agents">
+<meta property="og:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and project knowledge that compounds every change.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Prospec — the governed spec loop for AI coding agents">
+<meta name="twitter:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and knowledge that compounds.">
+<script>document.documentElement.classList.add('js');</script>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"SoftwareApplication",
+  "name":"Prospec",
+  "description":"Progressive Spec-Driven Development toolkit for AI coding agents: a governed story → plan → tasks → implement → review → verify → archive loop with adversarial review, S-to-D quality grades, and compounding project knowledge.",
+  "applicationCategory":"DeveloperApplication",
+  "operatingSystem":"Node.js >= 22.13",
+  "softwareVersion":"0.4.1",
+  "license":"https://opensource.org/licenses/MIT",
+  "url":"https://benwu95.github.io/prospec/",
+  "codeRepository":"https://github.com/benwu95/prospec",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<span class="sr-only" id="copy-status" role="status" aria-live="polite"></span>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="#top" aria-label="Prospec home">prospec<span class="dot" aria-hidden="true">.</span><span class="ver">v0.4.1</span></a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#verify">Verify</a>
+      <a href="#skills">Skills</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav__cta">
+      <a class="btn btn--ghost" href="https://github.com/benwu95/prospec">GitHub</a>
+      <a class="btn btn--primary" href="#quickstart">Install</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<span id="top"></span>
+
+<!-- ===================== HERO ===================== -->
+<section class="section hero">
+  <div class="wrap hero__in">
+    <span class="eyebrow">Progressive Spec-Driven Development</span>
+    <h1>Spec-driven development<br>that <span class="em">audits itself</span>.</h1>
+    <p class="sub">Spec-driven development means your AI agent builds from a written spec, not a throwaway prompt. Prospec runs that as one governed loop:</p>
+    <p class="sub-pipe"><code>story → plan → tasks → implement → review → verify → archive</code></p>
+    <p class="sub sub--tail">Plus adversarial review, S-to-D quality grades, and project knowledge that compounds on every change.</p>
+
+    <div class="hero__install">
+      <span class="lbl">// install globally, once</span>
+      <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
+      <span class="lbl">// bootstrap any project — new or existing</span>
+      <div class="cmd"><code><span class="pr">$ </span>prospec quickstart</code><button class="copy" data-copy="prospec quickstart">Copy</button></div>
+    </div>
+
+    <div class="hero__cta">
+      <a class="btn btn--primary" href="#quickstart">Quickstart in ~5 min <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn btn--ghost" href="https://github.com/benwu95/prospec">View on GitHub</a>
+    </div>
+
+    <div class="hero__facts">
+      <span><b>1,748</b> tests passing</span><span class="sep" aria-hidden="true">·</span>
+      <span><b>17</b> skills</span><span class="sep" aria-hidden="true">·</span>
+      <span><b>6</b> enforced principles</span><span class="sep" aria-hidden="true">·</span>
+      <span>read-only <b>MCP</b> server</span><span class="sep" aria-hidden="true">·</span>
+      <span><b>MIT</b></span>
+    </div>
+    <p class="hero__agents">Agent-agnostic — works with <b>Claude Code</b>, <b>Codex</b>, <b>Copilot</b>, and <b>Antigravity</b>.</p>
+    <p class="hero__model">Three pieces: <b>Skills</b> run the loop inside your agent, <b>AI Knowledge</b> is versioned project memory, and a thin <b>CLI</b> only bootstraps — it's not in the runtime loop.</p>
+  </div>
+
+  <div class="wrap proof">
+    <div class="term" role="img" aria-label="Terminal transcript: a developer asks the agent to add a dark-mode toggle; Prospec runs the full SDD loop and the change reaches grade A and is archived.">
+      <div class="term__bar"><span class="b"></span><span class="b"></span><span class="b"></span><span class="t">your-ai-agent — prospec</span></div>
+      <div class="term__body">
+        <p class="t-line"><span class="who">you ▸ </span>Use prospec to add a dark-mode toggle</p>
+        <p class="t-line t-dim t-indent">agent picks up the request and runs <span class="hl">/prospec-ff</span> …</p>
+        <p class="t-line t-dim t-indent">• scoping &amp; acceptance questions → you answer in plain language</p>
+        <p class="t-line t-indent">• writes <span class="hl">story → plan → tasks</span>, then hands off at each stage:</p>
+        <div class="t-steps">
+          <span class="t-desc">implement → <span class="hl">/prospec-review</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note"></span>
+          <span class="t-desc">review → <span class="hl">/prospec-verify</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note"></span>
+          <span class="t-desc">verify → <span class="grade">GRADE A ✓</span> prompts you to commit</span><span class="t-ans">Y</span><span class="t-note"></span>
+          <span class="t-desc">archive → <span class="hl">/prospec-archive</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note t-ok">✓ archived</span>
+        </div>
+        <p class="t-line t-dim t-indent">AI Knowledge enriched · specs graduated · lessons harvested</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== WHY (ledger) ===================== -->
+<section class="section" id="why">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§01 · The problem</span>
+      <h2>What it fixes, mapped to a command.</h2>
+      <p class="lede">AI agents are fast and forgetful. Each row is a real failure mode of agent-driven development, answered by a specific skill or command.</p>
+    </div>
+
+    <div class="ledger reveal">
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>The agent doesn't know your codebase.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p><code>prospec knowledge init</code> + <code>/prospec-knowledge-generate</code> auto-scan your project and generate AI-readable module docs.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Context windows are finite.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p>Progressive disclosure: load a summary first, details on demand — and the saving is verifiable with the in-repo <code>prospec measure</code> harness, not asserted.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Every AI session improvises a different workflow.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p>Structured Skills enforce one loop:</p><p class="ledger-pipe"><code>story → plan → tasks → implement → review → verify → archive</code></p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Vendor lock-in to one AI CLI.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p>Works across Claude Code, Codex, Copilot, and Antigravity; knowledge is stored as universal Markdown.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Verify passes, but subtle bugs still ship.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p><code>/prospec-review</code> — an independent adversarial reviewer audits the whole diff between implement and verify.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Knowledge goes stale the moment it's written.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p>The Archive Entry Gate refuses to close a change until AI Knowledge is updated to match the diff.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>Lessons don't survive across sessions.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p><code>/prospec-learn</code> promotes recurring fixes — only with human approval — into versioned team rules.</p></div>
+      </div>
+      <div class="ledger__row">
+        <div class="ledger__p"><span class="k">Challenge</span><p>There's no bridge from design to code.</p></div>
+        <div class="ledger__s"><span class="k">How Prospec answers</span><p><code>/prospec-design</code> generates visual + interaction specs, with MCP tool integration for Figma / Penpot.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== HOW IT WORKS ===================== -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§02 · How it works</span>
+      <h2>One linear flow. Two loops that feed the next change.</h2>
+      <p class="lede">Most spec tools stop at <span class="ink-em">spec → plan → tasks → implement</span>. Prospec keeps going — through the stages that actually catch problems and grow your project's memory.</p>
+    </div>
+
+    <div class="diagram-wrap reveal" role="img" aria-label="Prospec's lifecycle as a flow diagram. A linear pipeline runs Explore, Story, Plan, Tasks, Implement, then the four stages Prospec adds — Review, Verify, Archive, Learn. Archive feeds AI Knowledge and Feature Specs; Learn feeds the Constitution and Playbook. All three accumulating assets loop back as context into the next change's Plan, so each change starts from a richer baseline.">
+      <svg class="diagram" viewBox="0 0 960 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <marker id="ar" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" viewBox="0 0 12 12" refX="9" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 z" fill="#30445a"/></marker>
+          <marker id="arg" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" viewBox="0 0 12 12" refX="9" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 z" fill="#e0a53c"/></marker>
+        </defs>
+
+        <text class="dg-cap" x="16" y="24">ONE CHANGE — EXPLORE TO ARCHIVE</text>
+
+        <!-- pipeline edges (flow left to right) -->
+        <line class="dg-edge" x1="102" y1="63" x2="118" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="204" y1="63" x2="220" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="306" y1="63" x2="322" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="408" y1="63" x2="424" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="510" y1="63" x2="526" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="612" y1="63" x2="628" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="714" y1="63" x2="730" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="816" y1="63" x2="832" y2="63" marker-end="url(#ar)"/>
+
+        <!-- pipeline nodes -->
+        <rect class="dg-node" x="16" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="59" y="69" text-anchor="middle">Explore</text>
+        <rect class="dg-node" x="118" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="161" y="69" text-anchor="middle">Story</text>
+        <rect class="dg-node" x="220" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="263" y="69" text-anchor="middle">Plan</text>
+        <rect class="dg-node" x="322" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="365" y="69" text-anchor="middle">Tasks</text>
+        <rect class="dg-node" x="424" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="467" y="69" text-anchor="middle">Implement</text>
+        <rect class="dg-node dg-node--own" x="526" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="569" y="69" text-anchor="middle">Review</text>
+        <rect class="dg-node dg-node--own" x="628" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="671" y="69" text-anchor="middle">Verify</text>
+        <rect class="dg-node dg-node--own" x="730" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="773" y="69" text-anchor="middle">Archive</text>
+        <rect class="dg-node dg-node--own" x="832" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="875" y="69" text-anchor="middle">Learn</text>
+
+        <!-- harvest: late stages deposit into the accumulating assets -->
+        <path class="dg-feed" d="M773,86 V210 H425 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M773,86 V234 H640 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M875,86 V210 H855 V300" marker-end="url(#arg)"/>
+        <text class="dg-cap" x="60" y="292">ACCUMULATES EVERY CHANGE</text>
+
+        <!-- asset stores -->
+        <rect class="dg-store" x="330" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="425" y="334" text-anchor="middle">AI Knowledge</text>
+        <text class="dg-store-s" x="425" y="354" text-anchor="middle">richer every archive</text>
+        <rect class="dg-store" x="545" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="640" y="334" text-anchor="middle">Feature Specs</text>
+        <text class="dg-store-s" x="640" y="354" text-anchor="middle">graduate at archive</text>
+        <rect class="dg-store" x="760" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="855" y="334" text-anchor="middle">Constitution + Playbook</text>
+        <text class="dg-store-s" x="855" y="354" text-anchor="middle">rules accumulate</text>
+
+        <!-- merge + return loop back to the next change -->
+        <path class="dg-loop" d="M425,374 V414"/>
+        <path class="dg-loop" d="M640,374 V414"/>
+        <path class="dg-loop" d="M855,374 V414"/>
+        <path class="dg-loop" d="M855,414 H36 V120 H263 V88" marker-end="url(#arg)"/>
+        <text class="dg-cap" x="447" y="438" text-anchor="middle">↺  NEXT CHANGE STARTS FROM A RICHER BASELINE</text>
+      </svg>
+    </div>
+    <p class="flow__hint">The gold stages — <b>Review · Verify · Archive · Learn</b> — are where Prospec goes beyond the category. The gold arrows are the loop: each change's results feed into the next, so the project gets smarter as you ship. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
+
+    <div class="compound__note reveal">
+      <p><b>Scale-aware:</b> not every change earns the full ceremony. A user-confirmed <code>quick</code> change skips Plan entirely (<code>story → tasks</code>), with archive-time backstops so it never becomes a spec-drift hole. TDD, adversarial review, and Constitution audits run at <em>every</em> scale.</p>
+    </div>
+
+    <div class="principles reveal" aria-label="Six core principles">
+      <div class="principle"><span class="pn">1</span><span><b>Progressive Disclosure First</b>index first, details on demand</span></div>
+      <div class="principle"><span class="pn">2</span><span><b>Spec is Source of Truth</b>documented in specs before code</span></div>
+      <div class="principle"><span class="pn">3</span><span><b>Zero Startup Cost for Brownfield</b>no upfront full-codebase docs</span></div>
+      <div class="principle"><span class="pn">4</span><span><b>AI Agent Agnostic</b>any AI CLI via Markdown adapters</span></div>
+      <div class="principle"><span class="pn">5</span><span><b>User Controls the Rules</b>the Constitution is yours; the tool enforces it</span></div>
+      <div class="principle"><span class="pn">6</span><span><b>Language Policy</b>docs in your language; code stays English</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== THREE PIECES ===================== -->
+<section class="section" id="pieces">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§03 · The model</span>
+      <h2>Three pieces — and the CLI stays out of your way.</h2>
+      <p class="lede">You drive day-to-day work through Skills inside your agent. The CLI only bootstraps and regenerates — it is not in the runtime loop.</p>
+    </div>
+    <div class="pieces reveal">
+      <div class="piece">
+        <span class="pk">Surface</span>
+        <h3>Skills</h3>
+        <p>Slash-command workflows that run the whole SDD loop inside your AI agent. This is what you touch every day — describe a change in plain language and the Skills drive it.</p>
+        <p class="role">runs the workflow</p>
+      </div>
+      <div class="piece">
+        <span class="pk">Memory</span>
+        <h3>AI Knowledge</h3>
+        <p>Structured, version-controlled project memory — modules, specs, conventions, lessons. The Skills read it and grow it with each change, so context is progressive rather than dumped.</p>
+        <p class="role">read &amp; grown every change</p>
+      </div>
+      <div class="piece">
+        <span class="pk">Bootstrap</span>
+        <h3>CLI <span class="cli">prospec</span></h3>
+        <p>A thin, occasional tool: <code>init</code>, <code>agent sync</code>, knowledge scans, drift checks, a read-only MCP server. Run it to scaffold and regenerate — then it gets out of the way.</p>
+        <p class="role">one-time / occasional</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== QUICKSTART ===================== -->
+<section class="section" id="quickstart">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§04 · Quickstart</span>
+      <h2>Zero to your first AI-driven change in ~5 minutes.</h2>
+      <p class="lede">Prerequisites: Node.js ≥ 22.13 and an AI CLI (Claude Code recommended). You install Prospec once — after bootstrap, your agent works from the committed Markdown.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step__n" aria-hidden="true">1</div>
+        <div>
+          <h3>Install the CLI globally</h3>
+          <p>It's an unpublished GitHub fork, so npm/pnpm clones and builds it via the <code>prepare</code> script.</p>
+          <div class="cmds">
+            <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
+            <div class="cmd"><code><span class="pr">$ </span>prospec --help <span class="cm"># verify</span></code><button class="copy" data-copy="prospec --help">Copy</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__n" aria-hidden="true">2</div>
+        <div>
+          <h3>Bootstrap your project</h3>
+          <p>One command chains <code>init</code> + <code>agent sync</code> — pick your AI assistants and doc language. Then finish onboarding inside your agent.</p>
+          <div class="cmds">
+            <div class="cmd"><code><span class="pr">$ </span>cd my-project &amp;&amp; prospec quickstart</code><button class="copy" data-copy="cd my-project && prospec quickstart">Copy</button></div>
+            <div class="cmd"><code><span class="pr">▸ </span>/prospec-quickstart <span class="cm"># inside your AI agent</span></code><button class="copy" data-copy="/prospec-quickstart">Copy</button></div>
+          </div>
+          <p class="note">On an existing codebase, this reads your modules into AI Knowledge before your first change.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__n" aria-hidden="true">3</div>
+        <div>
+          <h3>Describe a change — the agent drives the loop</h3>
+          <p>You don't memorize steps. Talk in plain language; the agent runs the SDD loop and pauses only to ask questions and confirm each handoff.</p>
+          <div class="cmds">
+            <div class="cmd"><code><span class="pr">▸ </span>Use prospec to add a dark-mode toggle</code><button class="copy" data-copy="Use prospec to add a dark-mode toggle">Copy</button></div>
+          </div>
+          <p class="note">Each stage ends with “Run /prospec-&lt;next&gt; now? (Y/n)” — your Y is the trigger, never a silent auto-run.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== VERIFY (signature) ===================== -->
+<section class="section section--panel" id="verify">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§05 · Verification</span>
+      <h2>Quality you can read off a grade.</h2>
+      <p class="lede">Most spec tools stop at the plan. Prospec grades every change across 5+1 dimensions and won't let you commit below the line: grade S or A clears the gate; B or below blocks the commit until the fixes land.</p>
+    </div>
+
+    <div class="verify__grid">
+      <aside class="report reveal" aria-label="Example verify report card showing grade A">
+        <div class="report__hd"><span>verify report</span><span class="chip pass">pass</span></div>
+        <div class="stamp" aria-hidden="true">
+          <svg class="ring" viewBox="0 0 150 150"><defs><path id="rp" d="M75,75 m-60,0 a60,60 0 1,1 120,0 a60,60 0 1,1 -120,0"/></defs><text><textPath href="#rp" startOffset="0">prospec · verified · constitution-compliant · prospec · verified · constitution-compliant · </textPath></text></svg>
+          <span class="g">A</span>
+        </div>
+        <p class="report__cap">change: rate-limit-public-api</p>
+        <div class="grades" aria-label="Grade scale, A achieved">
+          <span class="grade-pill">S</span><span class="grade-pill on">A</span><span class="grade-pill">B</span><span class="grade-pill">C</span><span class="grade-pill">D</span>
+        </div>
+        <div class="report__gates">
+          <div class="gate"><span>tasks complete</span><span class="chip pass">pass</span></div>
+          <div class="gate"><span>spec compliance</span><span class="chip pass">pass</span></div>
+          <div class="gate"><span>constitution</span><span class="chip pass">pass</span></div>
+          <div class="gate"><span>knowledge consistency</span><span class="chip pass">pass</span></div>
+          <div class="gate"><span>tests (1748)</span><span class="chip pass">pass</span></div>
+        </div>
+        <span class="report__seal" aria-hidden="true">stamped</span>
+      </aside>
+
+      <div class="dims reveal">
+        <div class="dim">
+          <div class="dim__h"><span class="di">A</span><h3>Adversarial review, then verify</h3></div>
+          <p class="dim-lead">Critical issues get caught and fixed before they reach you.</p>
+          <p><code>/prospec-review</code> runs an independent, fresh-context reviewer over the entire diff. Verifier-confirmed, drop-in critical issues are auto-fixed; architectural or ambiguous ones escalate to you. The commit boundary sits <em>after</em> verify hits grade S/A — review and fixes land in one atomic commit. Prospec prompts; it never auto-commits.</p>
+        </div>
+        <div class="dim">
+          <div class="dim__h"><span class="di">B</span><h3>Executable Constitution</h3></div>
+          <p class="dim-lead">Your project rules become pass/fail checks, not opinions.</p>
+          <p>Your project rules carry RFC-2119 severity — <span class="bar">MUST</span> → FAIL, <span class="bar">SHOULD</span> → WARN, <span class="bar">MAY</span> → advisory. <code>/prospec-verify</code> grades against them, so "compliant" is a computed verdict, not an opinion.</p>
+        </div>
+        <div class="dim">
+          <div class="dim__h"><span class="di">C</span><h3>Deterministic drift gate</h3></div>
+          <p class="dim-lead">Spec, code, and knowledge can't silently drift apart.</p>
+          <p><code>prospec check</code> machine-verifies spec ↔ code ↔ knowledge integrity with zero tokens — dangling REQ references, broken links, illegal import direction, stale knowledge. The scaffolded CI workflow enforces it on every PR; an unavailable source degrades to <code>skipped</code>, never a fake PASS.</p>
+        </div>
+        <div class="dim">
+          <div class="dim__h"><span class="di">D</span><h3>Output Contract + Entry/Exit gates</h3></div>
+          <p class="dim-lead">Each stage proves it passed before the next one runs.</p>
+          <p>Every workflow Skill self-reports <code>Met N/M | Overall: PASS|WARN|FAIL</code> against objective criteria and checks preconditions before running. WARN/FAIL records persist to a cross-stage quality log, so an earlier stage's concern resurfaces at the next.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SPLIT ===================== -->
+<section class="section" id="brownfield">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§06 · Meets your code where it is</span>
+      <h2>Brownfield-first, and open to any agent.</h2>
+    </div>
+    <div class="split">
+      <div class="card reveal">
+        <h3><span class="num" aria-hidden="true">↩</span> Backfill existing code into specs</h3>
+        <p>Mature codebases accumulate behavior no spec describes. Backfill is a first-class, two-skill path that reverse-extracts that behavior and graduates it into the spec trust zone (the human-verified spec files that only Archive may write) — without ever writing that trust zone by hand.</p>
+        <ol>
+          <li><b>Extract</b> — <code>/prospec-backfill-spec</code> reads code, tests, and history; intent it can't infer is marked <code>[NEEDS CLARIFICATION]</code>, never fabricated.</li>
+          <li><b>Review</b> — you resolve every clarification. The human gate.</li>
+          <li><b>Promote → Verify → Archive</b> — the draft graduates through the same gates as any change; Archive is the sole writer of the trust zone.</li>
+        </ol>
+      </div>
+      <div class="card reveal">
+        <h3><span class="num" aria-hidden="true">⇌</span> A read-only MCP server</h3>
+        <p>Expose your project's truth — architecture, specs, dependency direction, promoted playbook, knowledge freshness — to any MCP-capable agent, even one with no Prospec Skills installed.</p>
+        <div class="mini">
+          <span><b>knowledge://</b> index · module · module-map · feature-map · playbook · health</span>
+          <span><b>spec://</b> product · feature/&lt;name&gt;</span>
+          <span><b>tools</b> search_modules · get_dependency_direction</span>
+        </div>
+        <div class="cmds">
+          <div class="cmd"><code><span class="pr">$ </span>claude mcp add proj -- prospec mcp serve --cwd .</code><button class="copy" data-copy="claude mcp add proj -- prospec mcp serve --cwd .">Copy</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SKILLS INDEX ===================== -->
+<section class="section section--panel" id="skills">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§07 · The command index</span>
+      <h2>17 Skills, generated into your repo.</h2>
+      <p class="lede">You don't have to run these one by one — describe a change in plain language and the agent drives the loop (or run each step yourself when you want). Day to day you'll mostly reach for explore, implement, review, verify, and archive. They deploy as Markdown adapters for any agent you use — and trigger by plain-language keywords, including your own language.</p>
+    </div>
+    <details class="skills-more reveal">
+      <summary>17 skills, grouped by phase: Planning 6, Execution 3, Lifecycle 2, Knowledge 4, Finishers 2. <span class="aside">Expand the full index.</span></summary>
+      <div class="skills">
+      <div class="skillgrp">
+        <h3>Planning · 6</h3>
+        <ul>
+          <li><span class="sc">/prospec-explore</span><span class="sd">Think-partner for clarifying a requirement</span></li>
+          <li><span class="sc">/prospec-new-story</span><span class="sd">Create a structured change story</span></li>
+          <li><span class="sc">/prospec-design</span><span class="sd">Visual + interaction specs (generate / extract)</span></li>
+          <li><span class="sc">/prospec-plan</span><span class="sd">Implementation plan + delta-spec</span></li>
+          <li><span class="sc">/prospec-tasks</span><span class="sd">Ordered, checkable task list</span></li>
+          <li><span class="sc">/prospec-ff</span><span class="sd">Story → plan → tasks in one pass</span></li>
+        </ul>
+      </div>
+      <div class="skillgrp">
+        <h3>Execution · 3</h3>
+        <ul>
+          <li><span class="sc">/prospec-implement</span><span class="sd">Implement tasks one by one</span></li>
+          <li><span class="sc">/prospec-review</span><span class="sd">Adversarial review → fix loop</span></li>
+          <li><span class="sc">/prospec-verify</span><span class="sd">5+1 audit + quality grade S/A/B/C/D</span></li>
+        </ul>
+        <h3>Lifecycle · 2</h3>
+        <ul>
+          <li><span class="sc">/prospec-archive</span><span class="sd">Archive + spec sync + knowledge gate</span></li>
+          <li><span class="sc">/prospec-learn</span><span class="sd">Promote recurring lessons → team rules</span></li>
+        </ul>
+      </div>
+      <div class="skillgrp">
+        <h3>Knowledge &amp; brownfield · 4</h3>
+        <ul>
+          <li><span class="sc">/prospec-knowledge-generate</span><span class="sd">Analyze project → module docs</span></li>
+          <li><span class="sc">/prospec-knowledge-update</span><span class="sd">Incremental update from delta-spec</span></li>
+          <li><span class="sc">/prospec-backfill-spec</span><span class="sd">Reverse-extract a spec draft from code</span></li>
+          <li><span class="sc">/prospec-promote-backfill</span><span class="sd">Formalize a reviewed backfill draft</span></li>
+        </ul>
+        <h3>Periodic finishers · 2</h3>
+        <ul>
+          <li><span class="sc">/prospec-quickstart</span><span class="sd">Onboarding finisher (run once)</span></li>
+          <li><span class="sc">/prospec-upgrade</span><span class="sd">Version-upgrade finisher</span></li>
+        </ul>
+      </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">§08 · Honest boundaries</span>
+      <h2>Questions a careful engineer would ask.</h2>
+    </div>
+    <div class="faq reveal">
+      <details>
+        <summary><span class="q">Q1</span>Do I need the CLI running while I work?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>No. The CLI is a bootstrap/update tool. Once <code>prospec quickstart</code> has generated the Skills and Knowledge (plain Markdown, committed to your repo), your agent works from those files. The binary isn't needed again until you regenerate or upgrade. The MCP server is a pure add-on — nothing depends on it.</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span>Does it lock me into one AI vendor?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>No. Prospec is AI-agent-agnostic. <code>agent sync</code> writes Claude Code (<code>CLAUDE.md</code> + <code>.claude/skills/</code>) and the agents.md standard for Antigravity / Codex / Copilot (<code>AGENTS.md</code> + <code>.agents/skills/</code>). Knowledge is universal Markdown — switching agents doesn't strand your project's memory.</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span>Is the token-saving claim real or marketing?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>It's measured, not asserted. Prospec ships a benchmark harness (<code>pnpm measure:tokens</code> / <code>prospec measure</code>) that assembles real contexts and records actual provider usage. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data. Numbers are comparable only within the same provider and repo snapshot.</div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span>What does it deliberately <em>not</em> do?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency — that stays with the adversarial review. And no scale skips engineering discipline: TDD, review, and Constitution audits run everywhere.</div>
+      </details>
+      <details>
+        <summary><span class="q">Q5</span>Greenfield or brownfield?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>Both, with the same two bootstrap commands. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, <code>/prospec-quickstart</code> reads your code into AI Knowledge up front, and the backfill path can reverse-extract specs from behavior that was never documented.</div>
+      </details>
+      <details>
+        <summary><span class="q">Q6</span>What's the lineage and license?<span class="pm" aria-hidden="true">+</span></summary>
+        <div>MIT-licensed. This project is a fork of <a href="https://github.com/ci-yang/prospec">ci-yang/prospec</a>, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD with a thin CLI, plus AI Knowledge as structured, versioned context engineering.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FINAL CTA ===================== -->
+<section class="section section--panel final" id="install">
+  <div class="wrap">
+    <span class="eyebrow reveal is-center">Get started</span>
+    <h2 class="reveal">Every AI change — reviewed, graded, and archived before it ships.</h2>
+    <p class="reveal">Install once, bootstrap any project, then describe your first change in plain language.</p>
+    <div class="final__cmds reveal">
+      <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
+      <div class="cmd"><code><span class="pr">$ </span>cd my-project &amp;&amp; prospec quickstart</code><button class="copy" data-copy="cd my-project && prospec quickstart">Copy</button></div>
+    </div>
+    <div class="final__cta reveal">
+      <a class="btn btn--primary" href="https://github.com/benwu95/prospec">View on GitHub <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn btn--ghost" href="https://github.com/benwu95/prospec#readme">Read the full README</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot__brand">
+        <span class="brand">prospec<span class="dot" aria-hidden="true">.</span></span>
+        <p>Progressive Spec-Driven Development for AI coding agents. Skills run the workflow; a thin CLI bootstraps.</p>
+        <p class="lic">MIT · TypeScript · Node ≥ 22.13 · pnpm ≥ 11</p>
+      </div>
+      <nav aria-label="Start">
+        <p class="foot__h">Start</p>
+        <ul>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#skills">Skills index</a></li>
+          <li><a href="#verify">Verification</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Repository">
+        <p class="foot__h">Repo</p>
+        <ul>
+          <li><a href="https://github.com/benwu95/prospec">GitHub</a></li>
+          <li><a href="https://github.com/benwu95/prospec#readme">README</a></li>
+          <li><a href="https://github.com/benwu95/prospec/blob/main/README.zh-TW.md">繁體中文</a></li>
+          <li><a href="https://github.com/benwu95/prospec/blob/main/LICENSE">License</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Lineage">
+        <p class="foot__h">Lineage</p>
+        <ul>
+          <li><a href="https://github.com/ci-yang/prospec">Upstream (ci-yang)</a></li>
+          <li><a href="https://github.com/openspec-ai/openspec">OpenSpec</a></li>
+          <li><a href="https://github.com/anthropics/spec-kit">Spec-Kit</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="foot__bottom">
+      <span>Open source under MIT — issues and pull requests welcome.</span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var status = document.getElementById('copy-status');
+    document.querySelectorAll('.copy').forEach(function(btn){
+      var text = btn.getAttribute('data-copy') || '';
+      btn.setAttribute('type','button');
+      btn.setAttribute('aria-label','Copy command: ' + text);
+      btn.addEventListener('click', function(){
+        var done = function(){
+          btn.textContent = 'Copied'; btn.classList.add('done');
+          if(status) status.textContent = 'Copied to clipboard: ' + text;
+          setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600);
+        };
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(done).catch(fallback);
+        } else { fallback(); }
+        function fallback(){
+          var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+          document.body.appendChild(ta); ta.select();
+          try{ document.execCommand('copy'); done(); }catch(e){}
+          document.body.removeChild(ta);
+        }
+      });
+    });
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var reveals = document.querySelectorAll('.reveal');
+    if('IntersectionObserver' in window && !reduce){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){
+            e.target.classList.add('in');
+            var stamp = e.target.querySelector && e.target.querySelector('.stamp');
+            if(stamp) stamp.classList.add('in-anim');
+            io.unobserve(e.target);
+          }
+        });
+      }, { rootMargin:'0px 0px -8% 0px', threshold:0.12 });
+      reveals.forEach(function(el){ io.observe(el); });
+    } else {
+      reveals.forEach(function(el){ el.classList.add('in'); });
+    }
+  })();
+</script>
+</body>
+</html>
