@@ -386,7 +386,17 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 ## Deprecated Requirements
 
-_(None)_
+#### ~~REQ-SETUP-008: 掃描專案架構~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除；掃描＋模組偵測由 `prospec knowledge init` 取代（且 tech-stack 偵測更準）。獨有的 `.prospec.yaml` tech_stack/paths 回寫刻意捨棄——tech_stack 於 `prospec init` 建檔已寫；per-module `paths` 為只有 steering 自寫自讀（buildLayers 餵 architecture.md）的循環設定，全系統其他處只讀 `paths.base_dir`。
+
+#### ~~REQ-SETUP-009: 生成架構報告與模組映射~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除。`module-map.yaml` 生成保留於 `knowledge init`（同一 `buildModuleMap`，only-if-absent rerun-safe 版）；獨有的 `architecture.md` 生成刻意捨棄——內容已散在 `raw-scan.md`/`_index.md`/module READMEs，Architecture Layers 表亦可從 `module-map.yaml` 還原。
+
+#### ~~REQ-SETUP-010: 掃描控制~~
+**Removed**: 2026-06-22 | **Change**: remove-deprecated-steering-command
+**Reason**: `prospec steering` 指令移除。`--dry-run`/`--depth`/敏感檔案排除等掃描控制已存在於 `prospec knowledge init`（共用 `parseDepth` 驗證器與 `config.exclude`）。
 
 ## Change History
 
@@ -402,3 +412,4 @@ _(None)_
 | 2026-06-15 | add-quickstart-command | prospec quickstart 一鍵啟動（init+agent-sync orchestrator，搭 agent 端 /prospec-quickstart 收尾） | US-010; REQ-SETUP-017, REQ-SERVICES-028 (ADDED) |
 | 2026-06-22 | fix-init-clobber-add-upgrade | init per-file idempotency guard + version=prospec-version + prospec upgrade CLI | US-011/012; REQ-SETUP-018/019, REQ-TYPES-037/036, REQ-SERVICES-035 (ADDED), REQ-SETUP-004 (MODIFIED) |
 | 2026-06-22 | preserve-agent-config-edits | init 的 `AGENTS.md` 改為 managed 合併（既有內容遷入 `prospec:user` 區塊、stub 入 auto），trust-zone 維持 skip-if-exists | REQ-SETUP-018 (MODIFIED) |
+| 2026-06-22 | remove-deprecated-steering-command | 移除 deprecated `prospec steering` 指令與專屬死碼；退役 architecture.md 生成與 .prospec.yaml per-module paths 回寫（刻意捨棄） | US-004 (REMOVED); REQ-SETUP-008/009/010 (REMOVED) |
