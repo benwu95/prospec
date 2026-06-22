@@ -1,0 +1,155 @@
+# Implementation Guide
+
+This document provides implementation guidelines for the **prospec-implement** Skill.
+
+---
+
+## Implementation Principles
+
+### 1. TDD Approach (If Required by Constitution)
+
+If `prospec/CONSTITUTION.md` requires TDD (Test-Driven Development):
+
+1. **Write tests first:** Write corresponding unit tests before implementing functionality
+2. **Red-Green-Refactor cycle:**
+   - Red: Write test, ensure it fails
+   - Green: Implement minimum functionality to pass the test
+   - Refactor: Optimize code quality
+3. **Test coverage:** Ensure core logic has sufficient test coverage
+
+---
+
+### 2. Task Execution Order
+
+Follow the architecture layer sequence in `tasks.md`:
+
+```
+Types → Lib → Services → CLI → Tests
+```
+
+**Dependency rules:**
+- Complete depended-upon modules first (e.g., Types, Lib)
+- Then implement modules that depend on others (e.g., Services, CLI)
+- `[P]` marked tasks can be executed simultaneously (no dependencies)
+
+**Example execution order:**
+
+```
+1. Types/Define ErrorType enum
+2. Types/Create ErrorResponse interface
+3. [P] Lib/Implement BaseError class (parallelizable)
+   [P] Lib/Implement ErrorFormatter utility (parallelizable)
+4. Lib/Create error factory functions (depends on BaseError)
+5. Services/Integrate with API middleware (depends on BaseError, ErrorFormatter)
+```
+
+---
+
+### 3. Progressive Disclosure
+
+**Only load AI Knowledge relevant to the current task:**
+
+1. **Before starting:** Read `prospec/ai-knowledge/_index.md` to understand overall architecture
+2. **During task execution:** Only read `prospec/ai-knowledge/modules/{module}/README.md` for the relevant module
+3. **Avoid:** Loading all AI Knowledge files at once
+
+**Example:**
+
+When executing task `Implement BaseError class`:
+- Read `prospec/ai-knowledge/modules/error-handler/README.md`
+- No need to read `api-middleware`, `logger`, or other module READMEs
+
+---
+
+### 4. Task Completion Marking
+
+**Mark complete immediately:**
+
+After completing each task, immediately update `tasks.md` to mark as `[x]`:
+
+```markdown
+- [x] Implement BaseError class with error code mapping ~50 lines
+```
+
+This helps track progress and avoid duplicate work.
+
+---
+
+### 5. Commit Strategy
+
+**Recommended commit strategy:**
+
+- **Logical grouping:** Commit after completing a group of related tasks
+- **Commit message format:**
+  ```
+  feat: [brief description] (Task ID)
+  ```
+  or
+  ```
+  test: [test description] (Task ID)
+  ```
+
+**Example:**
+
+```bash
+# After completing Types tasks
+git add src/types/error.ts
+git commit -m "feat: define error types and interfaces (T001-T002)"
+
+# After completing Lib tasks
+git add src/lib/error-handler.ts src/lib/error-formatter.ts
+git commit -m "feat: implement error handler core logic (T003-T005)"
+
+# After completing Tests
+git add tests/error-handler.test.ts
+git commit -m "test: add unit tests for error handler (T011-T012)"
+```
+
+---
+
+### 6. Error Handling
+
+**If a task fails:**
+
+1. **Record blocker:** Document the issue in `tasks.md` or the Story's Notes
+2. **Continue execution:** If there are other independent tasks, continue with them
+3. **Report:** Report incomplete tasks and reasons when Story is finalized
+
+**Example:**
+
+```markdown
+## Blockers
+
+- Task "Integrate with API middleware" blocked: API middleware module not yet merged from another branch
+```
+
+---
+
+### 7. Code Quality Checks
+
+**After completing implementation:**
+
+1. **Lint:** Run linter to ensure consistent code style
+   ```bash
+   pnpm run lint
+   ```
+
+2. **Type Check:** Run TypeScript type checking
+   ```bash
+   pnpm run type-check
+   ```
+
+3. **Tests:** Run tests to verify functionality
+   ```bash
+   pnpm test
+   ```
+
+---
+
+## Reference Information
+
+- Project name: `prospec`
+- Tech stack: `typescript` + ``
+- Package manager: `pnpm`
+- AI Knowledge path: `prospec/ai-knowledge`
+- Constitution file: `prospec/CONSTITUTION.md`

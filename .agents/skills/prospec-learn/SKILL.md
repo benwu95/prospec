@@ -1,0 +1,106 @@
+---
+name: prospec-learn
+description: "Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule). Triggers: learn, promote lesson, feedback, playbook, 學習, 晉升教訓, 回饋, 經驗手冊"
+---
+
+# Prospec Learn Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That you'll collect recurring lessons from archived changes' quality_log and review.md into a version-controlled lessons ledger (auto-fed at archive time)
+- That promotion is decided by an explicit, reproducible rule (not a black-box heuristic) and every suggestion carries an auditable score
+- That nothing reaches the team playbook or Constitution without explicit human approval and a version-controlled record
+
+## Language Policy
+
+Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+## Startup Loading
+
+1. [STABLE] **MANDATORY** — Read [`references/promotion-format.md`](references/promotion-format.md) for the explicit promotion rule, lessons-ledger format, playbook entry format, approval record, and TTL/conflict fields
+2. [STABLE] Read `prospec/CONSTITUTION.md` — the promotion target (Constitution rules) and the duplicate-check baseline
+3. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — to compute each lesson's impact-module count
+4. [DYNAMIC] Read the existing lessons ledger `prospec/ai-knowledge/_lessons-ledger.md` (if present) — carry-forward anchor (version-controlled, survives worktrees)
+5. [DYNAMIC] Read `.prospec/lessons.yaml`-config or `.prospec.yaml` promotion thresholds (if set; threshold config only — the ledger itself is `prospec/ai-knowledge/_lessons-ledger.md`, not this file); otherwise use the reference defaults
+
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- There is material to learn from: at least one archived change exists under `.prospec/archive/` (with `metadata.yaml` quality_log and/or `review.md`) **OR** `prospec/ai-knowledge/_lessons-ledger.md` carries prior entries. Only when **both** are absent, stop and say there is nothing to collect yet. (The ledger is version-controlled, so a fresh worktree with a wiped `.prospec/archive/` but a populated ledger still has material — do not false-block.)
+- The promotion rule is available: `references/promotion-format.md` loaded.
+- Prior unresolved WARN: read the lessons ledger and surface any lesson already flagged "suggest promote" but not yet decided.
+
+## Core Workflow
+
+### Collect
+
+Build/refresh the version-controlled lessons ledger (`prospec/ai-knowledge/_lessons-ledger.md`):
+- Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in session corrections the user raised.
+- Assign each finding a **deterministic key** (a normalized signature — e.g. the rule/REQ it relates to, or a file/pattern), so the same lesson maps to the same key every run.
+- For each key, maintain a ledger entry: `description`, `frequency` (counter, incremented — never recomputed by re-scanning), `impact_modules[]` (looked up from `module-map.yaml`), `kind` (`convention` | `playbook` | `constitution` — the promotion-routing label), `source_changes[]`.
+- Semantic matching ("are these the same lesson?") is the only LLM step; counting/scoring downstream operates on the keyed structured fields.
+
+### Score
+
+Apply the **explicit numeric rule** from `references/promotion-format.md` to each ledger entry — defaults (overridable in `.prospec.yaml`):
+- **suggest promote** WHEN `frequency ≥ 3` AND `|impact_modules| ≥ 2` (a `kind: constitution` lesson routes to the Constitution tier; otherwise to `_playbook.md`).
+- Below either threshold → stays personal, not suggested (avoids early noise when samples are few).
+- Emit an **auditable score detail** per suggestion: `frequency=N, impact_modules=M, kind=…, rule=freq≥3 ∧ modules≥2 → suggest`. Same ledger input ⇒ same output (the rule is fixed and the data is stored, not re-derived) — this is the SC-002 reproducibility guarantee, by construction (given a stable ledger key).
+- **Prioritize the review queue by knowledge freshness** (see promotion-format "Review-Queue Prioritization"): read `prospec-report.json` (`prospec check`) `knowledge_health.stale[]`; raise a `convention`-kind suggestion whose `impact_modules` intersect a stale module and annotate "this module's knowledge is also stale — refresh on hand-move". No report present → default order (non-blocking). Prioritization only — never auto-writes `_conventions.md`.
+
+### Promote
+
+**lessons ledger → team `prospec/ai-knowledge/_playbook.md` → Constitution**, gated stricter at each step. Routing by the lesson's **kind** (see `references/promotion-format.md`):
+- **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (BL-031 severity form) that `/prospec-verify` grades.
+- **convention** / **playbook** → `prospec/ai-knowledge/_playbook.md` — the single governed team tier (L1 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is L0 always-loaded and not TTL-governed).
+
+- A suggestion is **never written** to `_playbook.md` or the Constitution without **explicit human approval**. Present the score detail, ask, and only on approval write the entry.
+- Every written entry is **version controlled** and records `source change(s)`, the `promotion criteria` that fired, the `kind`, and the `approver`.
+- If the lesson duplicates an existing Constitution rule, propose **strengthening the existing rule** rather than adding a new one.
+- If the user **rejects** a suggestion, record it as declined in the ledger and do not re-suggest it.
+
+### Govern
+
+- Every shared rule (playbook/Constitution) carries a **TTL** and a source reference.
+- A rule past its TTL, or in **conflict** with another rule (including cross-author contradictory feedback), goes onto a **needs-review list** for human retirement/arbitration — never auto-resolved, never silently dropped.
+- Retiring a shared rule is version controlled with the reason and date.
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] lessons ledger `prospec/ai-knowledge/_lessons-ledger.md` written/refreshed with keyed entries (frequency, impact_modules, source)
+- [ ] each "suggest promote" carries an auditable score detail (reproducible from the ledger)
+- [ ] no team-playbook / Constitution write occurred without explicit human approval (manual)
+- [ ] expired/conflicting shared rules surfaced on the needs-review list
+
+### Failure Conditions
+- a shared-layer or Constitution write happened without recorded human approval
+- a promotion suggestion lacks a traceable score detail (black-box)
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record any WARN/FAIL (e.g. a promotion blocked, an unresolved conflict) to the change's `metadata.yaml` `quality_log` (`skill: prospec-learn` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+
+## NEVER
+
+- **NEVER** write to the team playbook or Constitution without explicit human approval — shared rules govern everyone; silent writes are unauditable and erode trust
+- **NEVER** use a black-box heuristic for promotion — the decision must be an explicit rule over stored data so it is reproducible and reviewable (the project's differentiator)
+- **NEVER** recompute frequency by re-scanning all archives each run — maintain an incremental counter in the ledger; re-derivation drifts and is non-reproducible
+- **NEVER** auto-resolve a rule conflict or auto-pick between contradictory cross-author feedback — flag it for human arbitration
+- **NEVER** silently sustain an expired or conflicting shared rule — it must appear on the needs-review list
+- **NEVER** suggest promotion from a single occurrence or negligible impact — that is early noise, not a pattern
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| No archived changes **and** empty ledger | Stop; report there is nothing to collect (accumulate lessons over more changes first). A populated `_lessons-ledger.md` alone is sufficient material — do not stop |
+| module-map.yaml missing | Compute impact from delta-spec REQ prefixes instead; note reduced precision |
+| Human approval not given | Leave the lesson at its current tier; record the pending suggestion, do not write |
+| Promotion write fails | Do not silently drop; keep the queued suggestion and report the failure |

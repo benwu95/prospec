@@ -1,0 +1,177 @@
+---
+name: prospec-design
+description: "Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms. Triggers: design, UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計"
+---
+
+# Prospec Design Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That you'll read proposal.md and determine the design workflow mode
+- Generate Mode: produce design-spec.md + interaction-spec.md from proposal
+- Extract Mode: reverse-extract specs from an existing design tool via MCP
+- Platform adapter will guide tool-specific operations
+
+## Language Policy
+
+Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+## Startup Loading
+
+1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
+2. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
+3. [STABLE] **MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format
+4. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse UI Scope and User Stories
+5. [DYNAMIC] Read `.prospec.yaml` — check `design.platform` setting (pencil|figma|penpot|html)
+6. [DYNAMIC] Load the platform adapter reference based on `design.platform`:
+   - pencil → [`references/adapter-pencil.md`](references/adapter-pencil.md)
+   - figma → [`references/adapter-figma.md`](references/adapter-figma.md)
+   - penpot → [`references/adapter-penpot.md`](references/adapter-penpot.md)
+   - html → [`references/adapter-html.md`](references/adapter-html.md)
+   - If not set → default to `html` adapter (zero-dependency fallback)
+   - **Do NOT load** adapters for platforms not in use — only load the one matching `design.platform`
+
+## Core Workflow
+
+> Note: Phases 2a and 2b are intentional sub-steps (Generate Mode / Extract Mode) — Phase 1 detects which applies and only one runs. They are not a numbering bug.
+
+### Phase 1: Parse Proposal + Detect Mode
+
+1. Extract `UI Scope` from proposal.md (full/partial/none)
+   - If `none` → inform user Design Phase is not needed, suggest `/prospec-tasks`
+2. Detect mode:
+
+| Condition | Mode |
+|-----------|------|
+| `.prospec/changes/[name]/design-spec.md` already exists | **Extract Mode** |
+| Design tool has existing design for this Story (check via adapter) | **Extract Mode** |
+| Otherwise | **Generate Mode** |
+
+3. Confirm detected mode with user before proceeding.
+
+> **Phase 1 Gate** — proceed when:
+> - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
+> - [ ] Mode resolved to Generate or Extract per the detection table
+> - [ ] User has confirmed the detected mode
+
+### Phase 2a: Generate Mode
+
+Produce design specs from proposal.md:
+
+1. **Visual Identity** — First check if the project has an existing design system, brand guidelines, or design tokens (in `_conventions.md`, `design-spec.md` from prior changes, or project CSS variables). Extend existing patterns rather than creating from scratch. Then define color palette, typography, spacing scale, visual style based on proposal requirements and project conventions
+2. **Components** — For each UI element in the proposal:
+   - Define layout structure (flex/grid, dimensions)
+   - Define all visual states (default, hover, active, disabled, loading, error)
+   - Assign design tokens
+3. **Interaction Flows** — For each User Story:
+   - Define screen states and transitions
+   - Write trigger → action flow sequences
+   - Document gestures and micro-interactions
+4. **Responsive Strategy** — Define breakpoints and layout adaptations
+
+Write `design-spec.md` and `interaction-spec.md` following their format references.
+
+> **Phase 2a Gate** — proceed when:
+> - [ ] design-spec.md written with Visual Identity, Components, and Responsive Strategy
+> - [ ] interaction-spec.md written covering each User Story's flows
+> - [ ] Every UI element in the proposal has a component entry with all visual states
+
+### Phase 2b: Extract Mode
+
+Reverse-extract specs from existing design:
+
+1. **Read design** — Use adapter's Implement Phase guidelines to read design tool via MCP
+2. **Map to spec structure** — Convert tool-specific data to design-spec.md format:
+   - Extract colors, typography, spacing → Visual Identity
+   - Extract component structure, states → Components
+   - Infer responsive rules → Responsive Strategy
+3. **Identify gaps** — Mark unclear design intent with `[NEEDS CLARIFICATION]`
+4. **Generate interaction-spec.md** — Infer interaction flows from design structure; mark uncertain transitions with `[NEEDS CLARIFICATION]`
+5. **User review** — Present extracted specs for user validation, resolve `[NEEDS CLARIFICATION]` items
+
+> **Phase 2b Gate** — proceed when:
+> - [ ] design-spec.md generated from the design tool's data in the standard format
+> - [ ] interaction-spec.md generated with flows inferred from the design structure
+> - [ ] User has reviewed extracted specs and `[NEEDS CLARIFICATION]` items are resolved
+
+### Phase 3: Platform Execution
+
+Follow the loaded adapter's **Design Phase** guidelines:
+
+| Platform | Key Actions |
+|----------|------------|
+| pencil | `batch_design()` to create components, `set_variables()` for design tokens |
+| figma | Generate HTML prototype, push via `html-to-figma` MCP |
+| penpot | Use Penpot API to create design components |
+| html | Output HTML + CSS prototype to `design.output_dir` |
+
+Skip this phase if:
+- Generate Mode and user only wants spec documents (no design tool output)
+- Platform is not configured
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] Platform artifacts created via the loaded adapter's Design Phase actions, OR this phase was explicitly skipped (spec-only / no platform configured)
+> - [ ] Output landed in `design.output_dir` (for html) or the corresponding design tool
+
+### Phase 4: Design Verification
+
+Validate the design output:
+
+1. **Structure check** — Verify design-spec.md has all required sections (Visual Identity, Components, Responsive Strategy)
+2. **Completeness check** — Verify every component in proposal's UI scope has a corresponding entry
+3. **Visual check** (if design tool used) — Use adapter's Verify Phase guidelines:
+   - pencil: `get_screenshot()` to capture and review
+   - figma: Compare Figma nodes with spec
+   - html: Open prototype in browser
+4. **No `[NEEDS CLARIFICATION]` remaining** — All items must be resolved
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] design-spec.md structure check passes (Visual Identity / Components / Responsive Strategy present)
+> - [ ] Every component in the proposal's UI scope has a corresponding spec entry
+> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs
+
+### Phase 5: Summary + Next Steps
+
+Display completion summary:
+- Mode used (Generate/Extract)
+- Files created (design-spec.md, interaction-spec.md)
+- Platform artifacts (if any)
+- Unresolved items (if any)
+
+Suggest: `/prospec-plan` (if plan.md doesn't exist) or `/prospec-tasks` (if plan.md exists)
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] design-spec.md + interaction-spec.md produced (Generate) or extracted (Extract)
+- [ ] design-spec.md has Visual Identity / Components / Responsive Strategy sections (grep)
+- [ ] no unresolved [NEEDS CLARIFICATION] remaining (grep)
+
+### Failure Conditions
+- ran while ui_scope is none
+- a UI task left without a design-spec
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** include platform-specific references in design-spec.md — downstream Implement/Verify Skills read spec not tools; platform refs break portability
+- **NEVER** skip user confirmation on detected mode — wrong mode wastes entire phase; Generate overwrites existing design, Extract on empty tool produces garbage
+- **NEVER** hardcode color values without defining tokens — tokens enable consistent theming and design system reuse across components
+- **NEVER** skip interaction states — incomplete states cause runtime visual bugs (missing loading/error/empty states are the #1 UI implementation gap)
+- **NEVER** proceed with `ui_scope: none` — Design Phase has no value for backend-only changes; wasted tokens and user confusion
+- **NEVER** generate design specs without reading the adapter reference — each platform has unique MCP tools and capabilities; blind generation produces unusable specs
+- **NEVER** leave `[NEEDS CLARIFICATION]` unresolved — unresolved items propagate ambiguity to Tasks and Implement, causing inconsistent UI implementation
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| proposal.md not found | Guide user to run `/prospec-new-story` first |
+| No `UI Scope` in proposal | Assume `full` and confirm with user |
+| `design.platform` not in .prospec.yaml | Default to `html` adapter, inform user |
+| MCP tool unavailable for platform | Fall back to `html` adapter, warn user |
+| Extract Mode yields >50% `[NEEDS CLARIFICATION]` items | Suggest switching to Generate Mode — extraction source lacks sufficient design detail |

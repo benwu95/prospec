@@ -1,0 +1,106 @@
+---
+name: prospec-explore
+description: "Explore - Requirement exploration, problem investigation, and solution comparison partner. Triggers: explore, compare, investigate, unsure, clarify, 探索, 比較, 釐清, 調查, 不確定"
+---
+
+# Prospec Explore Skill
+
+## Activation
+
+When triggered, briefly describe:
+- What exploration mode does (thinking partner for clarifying requirements)
+- The three-space framework you'll use (Why/What/Where)
+- When you'll suggest converging to next steps
+
+## Startup Loading
+
+1. [STABLE] Read `prospec/CONSTITUTION.md` — understand project principles
+2. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — understand existing modules
+
+## Three-Space Exploration Framework
+
+Expand each space sequentially:
+
+### 1. Problem Space (Why)
+- What problem does this requirement solve?
+- Who is affected?
+- What happens if we don't do it?
+
+### 2. Solution Space (What)
+- What are the possible approaches?
+- What are the trade-offs of each?
+- Which approach best aligns with the Constitution?
+
+### 3. Impact Space (Where)
+- Based on `_index.md`, which modules are affected?
+- Does it require API or data structure changes?
+- Backward compatibility considerations?
+
+## Constitution Checkpoint
+
+At each key decision point, proactively compare against the Constitution:
+
+```
+Constitution Check:
+  [Principle X]: How this approach aligns
+  [Principle Y]: Points requiring attention
+  [Principle Z]: Potential violation — suggest adjustment
+```
+
+**Constitution emptiness check (before converging):** read `prospec/CONSTITUTION.md`. If it is absent,
+contains only blank lines or comments, or holds only
+the seeded example rules and the Language Policy (no project-authored rules), it is
+**substantively empty** — `/prospec-verify`'s Constitution audit and the Entry/Exit gates are no-ops
+until real principles exist. Tell the user this and point them to edit `prospec/CONSTITUTION.md` to add
+project principles. Advisory — do not block exploration.
+
+## Convergence Criteria
+
+Proactively suggest convergence when:
+- Problem and solution are clear
+- User has expressed a preference
+- Impact scope is identified
+
+Convergence options:
+1. `/prospec-new-story` — create a formal User Story
+2. `/prospec-ff` — fast-forward full planning (when requirements are clear)
+3. Continue exploring — if questions remain
+
+## Visualization
+
+Use ASCII diagrams to aid thinking (architecture relationships, decision trees, sequence diagrams) only when they **help clarify the problem** — never for decoration.
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] all three spaces (Why/What/Where) explored (manual)
+- [ ] Constitution checkpoint done before converging (manual)
+- [ ] converged to a concrete next step (new-story / ff / continue) (manual)
+
+### Failure Conditions
+- converged without a Constitution check
+- produced files under .prospec/changes/ (exploration must not)
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** suggest `/prospec-ff` when requirements are vague — exploration exists to clarify first
+- **NEVER** converge without a Constitution check — principles must inform the decision
+- **NEVER** ask yes/no questions only — use open-ended questions to guide deeper thinking
+- **NEVER** ask more than 3 questions at once — maintain conversational rhythm
+- **NEVER** ignore constraints the user has already stated
+- **NEVER** produce any `.prospec/changes/` files during exploration — that's for Story phase
+- **NEVER** assume the user knows the project architecture — use `_index.md` information to assist
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| Constitution file not found | Note it and continue exploration without Constitution checks |
+| _index.md not found | Explore without module context, suggest running `prospec knowledge init` |
+| User wants to jump to implementation | Suggest at least creating a Story first via `/prospec-new-story` |
+

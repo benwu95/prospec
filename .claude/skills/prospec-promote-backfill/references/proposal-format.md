@@ -1,0 +1,168 @@
+# Proposal Format Reference
+
+This document defines the expected format for `proposal.md`, used by the **prospec-new-story** Skill.
+
+---
+
+## Purpose
+
+`proposal.md` is the starting point of a Story: it captures WHY the change is needed, WHAT it delivers (as INVEST User Stories), and HOW success is measured. Each Story should be **Independent, Negotiable, Valuable, Estimable, Small, and Testable**.
+
+---
+
+## Standard Format
+
+### 1. Background (Why)
+
+Briefly explain the motivation and problem context:
+
+```markdown
+## Background
+
+[1-3 sentences describing the problem, gap, or opportunity that motivates this change.]
+```
+
+---
+
+### 2. User Stories
+
+One or more INVEST-compliant User Stories, each with Priority and acceptance scenarios:
+
+```markdown
+## User Stories
+
+### US-1: [Short title] [P1]
+
+As a [role],
+I want [feature],
+So that [value].
+
+**Acceptance Scenarios:**
+
+- WHEN [condition], THEN [expected outcome]
+- WHEN [condition], THEN [expected outcome]
+
+**Independent Test:**
+[How to verify this story works in isolation]
+```
+
+**Priority levels:** P1 (must-have), P2 (should-have), P3 (nice-to-have)
+
+**Guidelines:**
+- Each Story should be independently developable, testable, and deployable
+- If a Story has more than 5 acceptance scenarios, consider splitting it
+- Use concrete, measurable outcomes in WHEN/THEN (not vague descriptions)
+
+---
+
+### 3. Edge Cases
+
+Known boundary conditions and error scenarios:
+
+```markdown
+## Edge Cases
+
+- [Edge case 1]: [Expected behavior]
+- [Edge case 2]: [Expected behavior]
+```
+
+---
+
+### 4. Functional Requirements
+
+Numbered requirements for traceability (mapped to delta-spec REQ IDs later):
+
+```markdown
+## Functional Requirements
+
+- **FR-001**: [Requirement description]
+- **FR-002**: [Requirement description]
+```
+
+---
+
+### 5. Success Criteria
+
+Measurable indicators of completion:
+
+```markdown
+## Success Criteria
+
+- **SC-001**: [Measurable outcome]
+- **SC-002**: [Measurable outcome]
+```
+
+---
+
+### 6. Related Modules
+
+List related modules based on keyword matching from `prospec/ai-knowledge/_index.md`:
+
+```markdown
+## Related Modules
+
+- **module-name-1**: [Brief explanation of relevance]
+- **module-name-2**: [Brief explanation of relevance]
+```
+
+---
+
+### 7. Open Questions (Optional)
+
+Items that need clarification before or during implementation:
+
+```markdown
+## Open Questions
+
+- [ ] **NEEDS CLARIFICATION**: [Question or ambiguity]
+- [ ] **NEEDS CLARIFICATION**: [Question or ambiguity]
+```
+
+---
+
+### 8. Constitution Check
+
+Quick verification against project principles:
+
+```markdown
+## Constitution Check
+
+- [ ] Reviewed against `prospec/CONSTITUTION.md`
+- [ ] No violations identified / Violations noted: [details]
+```
+
+---
+
+### 9. UI Scope (Optional)
+
+Indicate the extent of UI work in this Story. Used by the **prospec-design** Skill to determine the design workflow.
+
+```markdown
+## UI Scope
+
+**Scope:** full | partial | none
+```
+
+| Option | When to Use |
+|--------|------------|
+| `full` | Story involves complete screens or pages with layout, components, and interactions |
+| `partial` | Story modifies existing UI elements (e.g., adding a button, tweaking a form) |
+| `none` | Story is backend-only, CLI-only, or has no visual component |
+
+**This section is optional.** If omitted, the design Skill will assume `full` and confirm with the user. Existing proposals without this section are unaffected.
+
+---
+
+## File Length Guidelines
+
+- Keep under **150 lines**
+- If User Stories exceed 5, consider splitting into multiple proposals
+- Each Story should have 2-5 acceptance scenarios
+
+---
+
+## Reference Information
+
+- Project name: `prospec`
+- AI Knowledge path: `prospec/ai-knowledge`
+- Constitution file: `prospec/CONSTITUTION.md`

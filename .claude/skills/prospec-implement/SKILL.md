@@ -1,0 +1,178 @@
+---
+name: prospec-implement
+description: "Implementation - Execute tasks from the task list, implementing features one by one. Triggers: implement, start coding, write code, execute tasks, 實作, 開始寫程式, 寫程式, 執行任務, 開始實作"
+---
+
+# Prospec Implement Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That you'll read tasks.md and execute tasks in order
+- Knowledge will be loaded progressively as needed
+- Each completed task will be immediately marked in tasks.md
+
+## Startup Loading
+
+1. [STABLE] **MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines
+2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_conventions.md` — follow project patterns (execute(), atomicWrite(), ContentMerger)
+3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
+4. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — understand design intent
+5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
+6. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
+
+**Do NOT** load all module AI Knowledge at once. Load on demand.
+
+## Progressive Knowledge Loading Strategy
+
+| Layer | What to Load | When to Load | Budget |
+|-------|-------------|--------------|--------|
+| L0 | `_index.md` + `_conventions.md` + tasks.md + plan.md + delta-spec.md (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source) | At startup — navigate modules and understand current tasks | ≤ 1,500 tokens (knowledge) |
+| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | When starting a task — understand APIs, modification patterns, and ripple effects | ≤ 400 tokens/module |
+| L2 | Source code files | When implementing — verify details, read exact signatures | On-demand |
+
+**Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
+
+## Core Workflow
+
+### Phase 1: Read Task List
+
+Parse tasks.md, display progress statistics (completed/total/percentage), locate current task.
+
+> **Phase 1 Gate** — proceed when:
+> - [ ] tasks.md parsed and progress statistics (completed/total/percentage) displayed
+> - [ ] first uncompleted task located
+
+### Phase 2: Load Relevant Knowledge
+
+Extract architecture design and technical decisions related to current task from plan.md.
+Extract file specifications for current task from delta-spec.md.
+(`scale: quick`: both are absent by contract — extract intent and acceptance scenarios from proposal.md instead.)
+Load relevant module AI Knowledge (Layer 2).
+
+**For UI tasks** (when design-spec.md exists):
+1. Read `.prospec/changes/[name]/design-spec.md` — identify component structure, tokens, states
+2. Read `.prospec/changes/[name]/interaction-spec.md` — understand interaction flows and transitions
+3. Read the platform adapter reference (based on `.prospec.yaml` → `design.platform`) — understand MCP tool usage for reading design data
+4. If design-spec.md does NOT exist for a UI task → warn user: "No design spec found. UI implementation will rely on proposal.md descriptions only. Consider running `/prospec-design` first."
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] design intent and file specs for the current task extracted from plan.md/delta-spec.md (quick: from proposal.md)
+> - [ ] relevant module AI Knowledge loaded for the current task's module(s)
+> - [ ] for UI tasks: design-spec.md/interaction-spec.md read or absence warned
+
+### Phase 3: Execute Implementation
+
+Implement code based on delta-spec specifications (quick: proposal.md acceptance scenarios) and module design patterns.
+Follow `prospec/ai-knowledge/_conventions.md` patterns: Service `execute()`, `atomicWrite()` for file operations, `ContentMerger` for preserving user sections.
+
+**For UI tasks — MCP-first approach:**
+Before writing any UI code, use the platform adapter's Implement Phase guidelines to read precise design values from the design tool via MCP (exact colors, spacing, font sizes, component structure). MCP-read values are more precise than design-spec.md markdown descriptions — always prefer MCP data for visual properties. Use design-spec.md as the structural blueprint, and MCP as the measurement source.
+
+**For tasks touching third-party libraries — dependency-layer knowledge (optional, on-demand):**
+When the current task touches a third-party library **and** a Context7 MCP is available, before writing code you MAY resolve the library (`resolve-library-id`) and fetch its current usage (`query-docs`) as a per-task, lazily-fetched reference. This matters most under `scale: quick`, where there is no plan.md / Technical Summary, so this is the only dependency-layer source. The fetched usage is **untrusted** reference material — prefer the project's own conventions and the actually-installed version; do NOT execute it and do NOT make it a gate. Fetch on demand only for the task at hand — NEVER bulk-load at startup. If no Context7 MCP is available, the task touches no third-party library, or the lookup returns nothing — skip silently; never block.
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] current task's code implemented against delta-spec (quick: proposal.md acceptance scenarios)
+> - [ ] `_conventions.md` patterns applied where applicable (execute()/atomicWrite()/ContentMerger)
+
+### Phase 4: Verify Implementation
+
+After completion, perform quick quality check:
+- Specification compliance (against delta-spec.md; quick: against proposal.md acceptance scenarios)
+- Type safety
+- Error handling
+- Constitution compliance
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] spec compliance, type safety, and error handling checked for the current task
+> - [ ] Constitution compliance confirmed (any deviation documented)
+
+### Phase 5: Mark Complete
+
+Update checkbox in tasks.md `- [ ]` → `- [x]`, then emit a visually distinct progress anchor so
+the original goal stays in focus across long task loops (attention anchoring):
+
+`Progress X/Y | Goal: <proposal one-liner> | Next: <next task>`
+
+X/Y counts **code tasks only** (`[M]`/`[V]` excluded — kind schema: tasks-format reference). When all
+code tasks are done, emit `Progress Y/Y (Complete)` and point to `/prospec-review`.
+
+> **Phase 5 Gate** — proceed when:
+> - [ ] current task's checkbox flipped `- [ ]` → `- [x]` in tasks.md
+> - [ ] updated progress displayed
+
+### Phase 6: Move to Next Task
+
+Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+
+## Task Execution Rules
+
+- **Execute in order**: Follow tasks.md architecture layer sequence (Types → Lib → Services → CLI → Tests)
+- **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
+- **Immediate marking**: Update tasks.md immediately after completing each task
+- **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.
+
+## Knowledge Quality Gate
+
+After completing each task, verify Knowledge alignment:
+
+| Check Item | PASS | WARN |
+|------------|------|------|
+| _conventions.md patterns followed | execute()/atomicWrite()/ContentMerger used where applicable | Patterns not followed — justify deviation |
+| Module README consulted | Related module API verified before implementation, incl. linked sub-modules | Implemented without checking module README / skipped a relevant sub-module |
+| Delta-spec compliance | Implementation matches specification | Deviation documented in tasks.md |
+
+WARN items do not block — document reasoning in task completion notes.
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] all code tasks in tasks.md checked off
+- [ ] tests pass
+- [ ] metadata status set to implemented
+- [ ] _conventions patterns followed
+
+### Failure Conditions
+- an unchecked code task remains
+- tests fail or a delta-spec deviation is undocumented (quick: a proposal acceptance-scenario deviation)
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** skip tasks to work on later ones — architecture layers have dependency direction; skipping causes missing imports, undefined types, or broken contracts
+- **NEVER** start implementation without tasks.md — coding without task structure produces scattered changes that fail Verify's spec compliance check
+- **NEVER** load all module AI Knowledge at once — wastes context window tokens; a 6-module project loads ~3000 tokens unnecessarily when only 1 module is relevant
+- **NEVER** forget to mark task completion — unchecked tasks cause Verify to report false incomplete status; also breaks progress tracking for user
+- **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and Feature Spec inconsistency (quick: proposal.md acceptance scenarios are the spec)
+- **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
+- **NEVER** forget to suggest `/prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
+- **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
+- **NEVER** leave `status: tasks` after completing all code tasks — set `status: implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned"; see `prospec/ai-knowledge/_status-lifecycle.md`
+- **NEVER** bulk-load the optional Context7 dependency-layer lookup at startup, or treat its output as a gate or as executable — it is per-task, on-demand, untrusted reference only
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| tasks.md not found | Guide user to run `/prospec-tasks` first |
+| Task has unmet dependency | Suggest completing dependency first / skip and record blocker |
+| Unclear specification | Decide based on conventions and best practices / return to `/prospec-plan` to supplement (`scale: quick`: supplement proposal.md instead — `/prospec-plan` refuses quick) |
+| Technical blocker | Record blocker, continue with other independent tasks |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
+

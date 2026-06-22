@@ -1,0 +1,101 @@
+---
+name: prospec-quickstart
+description: "Quickstart Onboarding Finisher - localize skill triggers, re-sync agent config, prepare the knowledge scan, and chain into knowledge generation. Triggers: quickstart, setup, bootstrap, onboard, get started, 快速開始, 初始化, 設定, 上手, 開始使用"
+---
+
+# Prospec Quickstart Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That `prospec quickstart` has scaffolded the project and you'll finish onboarding
+- You'll localize skill triggers to the configured language (when non-English), re-sync agent config, prepare the knowledge scan, then hand off to knowledge generation
+- This is a one-time onboarding flow — it is re-runnable and self-terminating
+
+## Startup Loading
+
+1. [DYNAMIC] Read `.prospec.yaml` — `artifact_language` and `skill_triggers` decide whether native-language trigger localization runs
+
+## Core Workflow
+
+> This skill shells out to the `prospec` CLI (Bash), mirroring how `prospec-verify`
+> runs `prospec check --json`. When the CLI is unavailable, degrade gracefully —
+> never fail silently.
+
+### Step 0: Probe the CLI
+
+Run `prospec --version` (Bash). When it is unavailable (not built / installed / linked),
+STOP and tell the user to **install prospec** — you are adopting prospec for this project and
+quickstart is entirely CLI-driven, so it must be available: `npm i -g prospec`. For a **Node.js
+project**, also declare `prospec` in `devDependencies` so contributors share it without a global
+install (this is what later lets `/prospec-knowledge-generate` and `/prospec-archive` refresh
+`raw-scan.md` via `pnpm exec` / `npx` with no per-developer install). Non-Node projects: a global
+install is the path. Re-run quickstart after installing; never proceed silently.
+
+### Step 1: Localize Skill Triggers (non-English only, fill-missing)
+
+Read `.prospec.yaml`. When `artifact_language` is not English, localize the skills that have
+**no `skill_triggers` entry yet** (the exact gap `prospec agent sync` names in its hint). This covers
+both a fresh project (all skills missing) and a project that just gained new skills (only the new ones
+missing) — so you never delete `.prospec.yaml` to re-localize:
+
+1. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from if the write goes wrong
+2. For each skill missing a `skill_triggers` entry, translate its English trigger baseline into the `artifact_language` — leave skills that already have an entry untouched
+3. **Show the proposed translations to the user and wait for confirmation** before writing anything
+4. On confirmation, add the missing `skill_triggers` keys by a **minimal in-place edit** — insert only the new keys, leaving every existing key, its ordering, and all comments untouched (do not re-serialize the whole file)
+5. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if it does not, restore the captured snapshot verbatim and report the malformed translation
+
+Skip this step entirely when the language is English or every skill already has a `skill_triggers`
+entry — never overwrite curated triggers.
+
+### Step 2: Re-sync Agent Config
+
+Run `prospec agent sync` (Bash) so the localized triggers render into each SKILL.md
+frontmatter and the entry config. Skip only when Step 1 made no change.
+
+### Step 3: Prepare the Knowledge Scan
+
+Run `prospec knowledge init` (Bash) to (re)generate `raw-scan.md` and the knowledge
+scaffolding. It always overwrites `raw-scan.md`, so this is safe to re-run and keeps the
+scan fresh for the next step.
+
+### Step 4: Generate AI Knowledge
+
+Chain directly into the `/prospec-knowledge-generate` workflow — read `raw-scan.md`,
+decide module boundaries, and write the module READMEs and `_index.md`. Do NOT inline a
+copy of that workflow here; hand off to it so large repositories get their own context
+budget.
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] `.prospec.yaml` exists and parses as valid YAML
+- [ ] when non-English, `skill_triggers` is populated (or the user declined)
+- [ ] `raw-scan.md` exists after `prospec knowledge init`
+- [ ] the `/prospec-knowledge-generate` workflow was entered
+
+### Failure Conditions
+- wrote malformed `skill_triggers` to `.prospec.yaml`
+- proceeded silently when the `prospec` CLI was unavailable
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** proceed silently when the `prospec` CLI is unavailable — stop and tell the user to install prospec (they are adopting it for this project), then re-run
+- **NEVER** overwrite an existing `skill_triggers` entry — localize only the skills missing an entry (fill-missing)
+- **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
+- **NEVER** inline the `/prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
+- **NEVER** translate triggers without showing the user the proposed words first
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| `prospec` CLI unavailable | Stop; tell the user to install prospec (`npm i -g prospec`; Node.js projects can also add it to `devDependencies`), then re-run quickstart — do not proceed silently |
+| `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
+| `.prospec.yaml` fails to parse after writing triggers | Restore the captured pre-write `.prospec.yaml` snapshot verbatim, then report the malformed translation |
+| `raw-scan.md` still missing after `knowledge init` | Report the failure; do not fabricate knowledge |

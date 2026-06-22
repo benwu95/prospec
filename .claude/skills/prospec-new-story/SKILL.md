@@ -1,0 +1,206 @@
+---
+name: prospec-new-story
+description: "New Story - Create change requests by guiding User Story and acceptance criteria definition. Triggers: new feature, requirement, story, I want to, change, 新功能, 需求, 我想要, 變更, 新增需求"
+---
+
+# Prospec New Story Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That you'll guide them through defining a User Story with acceptance criteria
+- The interview will take 3-4 questions to converge
+- A proposal.md will be created in `.prospec/changes/`
+
+## Language Policy
+
+Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+## Startup Loading
+
+1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
+2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
+3. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — identify related modules by matching proposal keywords against module `keywords` field
+4. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
+
+## Entry Gate
+
+> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+
+- Constitution exists and is non-empty (not just placeholder text).
+- First stage of the lifecycle — no prior `quality_log` to read.
+
+## Core Workflow
+
+> Note: Phase 3.5 (Complexity Assessment) is an intentional semantic insertion between Phase 3 and Phase 4, not a numbering bug.
+
+### Phase 1: Requirements Interview (3-4 questions to converge)
+
+Collect: Background (why), Role (who), Feature (what), Value (why it matters), Constraints (limitations).
+
+> **Phase 1 Gate** — proceed when:
+> - [ ] Background, Role, Feature, and Value are captured from the interview
+> - [ ] Known Constraints recorded (or explicitly noted as none)
+
+### Phase 2: Derive Change Name
+
+Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm before proceeding.
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
+> - [ ] User confirmed the name
+
+### Phase 3: Create Scaffolding
+
+| Scenario | Action |
+|----------|--------|
+| Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + empty `proposal.md` |
+| Already exists | Read existing files, proceed to populate |
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] `.prospec/changes/[name]/` exists with `metadata.yaml` and `proposal.md`
+> - [ ] `metadata.yaml` `status` is set to `story`
+
+### Phase 3.5: Complexity Assessment (Scale)
+
+Assess the change's complexity and propose a scale. The scale drives process weight downstream
+(ff/plan/review/verify/archive all read `metadata.scale`).
+
+**Assessment criteria:**
+
+| Criterion | quick | standard | full |
+|-----------|-------|----------|------|
+| Modules touched | 1 | 1-2 | 3+ |
+| Spec-covered behavior (existing REQs in `prospec/specs/features/`) | none expected | may modify | adds/reshapes requirements |
+| Nature | small fix, typo, config tweak | bounded feature work | architectural / cross-cutting |
+
+**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick`
+— at least `standard`. (Prediction may still be wrong; the `/prospec-archive` Entry Gate re-checks
+against the actual diff.)
+
+**Flow:**
+
+1. Read `prospec/specs/features/` on demand to check whether existing REQs cover the affected behavior
+2. Present the proposed scale WITH reasoning against the criteria table
+3. Ask the user to confirm or override — **never write `scale` without user confirmation**
+4. Write the confirmed value to `metadata.yaml` `scale: quick|standard|full`
+
+> **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
+> `/prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
+> brownfield behavior) — never proposed here for new work. New work picks `quick`/`standard`/`full`.
+
+**Quick slim proposal:** when `quick` is confirmed, Phase 4/5 produce a slim proposal — a single
+User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration
+(FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases and
+Related Modules stay. `standard`/`full` keep the full format.
+
+> **Phase 3.5 Gate** — proceed when:
+> - [ ] A scale (`quick`/`standard`/`full`) is proposed with reasoning against the criteria table
+> - [ ] User confirmed or overrode the scale
+> - [ ] Confirmed `scale` written to `metadata.yaml`
+
+### Phase 4: Collect INVEST User Stories
+
+Guide the user to define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
+
+1. **Background**: 1-3 sentences on problem context
+2. **User Stories**: For each story:
+   - As a [specific role] / I want [feature] / So that [value]
+   - **Priority**: P1 (must-have), P2 (should-have), P3 (nice-to-have)
+   - **Acceptance Scenarios**: 2-5 WHEN/THEN pairs per story
+   - **Independent Test**: How to verify this story in isolation
+3. **Edge Cases**: Known boundary conditions and error scenarios
+4. **Functional Requirements**: Numbered FR-001, FR-002... for traceability
+5. **Success Criteria**: Measurable SC-001, SC-002...
+6. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `_index.md` module keywords. List matched modules with relevance reasoning.
+7. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
+
+> **Phase 4 Gate** — proceed when:
+> - [ ] >= 1 INVEST User Story defined, each with >= 2 WHEN/THEN acceptance scenarios
+> - [ ] Related Modules cross-referenced against `_index.md`
+> - [ ] Edge Cases captured (FR/SC enumerated unless `scale: quick`)
+
+### Phase 5: Write proposal.md
+
+Follow `references/proposal-format.md` format with all sections from Phase 4.
+
+> **Phase 5 Gate** — proceed when:
+> - [ ] `proposal.md` written following `references/proposal-format.md`
+> - [ ] All Phase 4 sections present (no empty Background/Why)
+
+### Phase 6: Constitution Check
+
+Compare against 3+ most relevant Constitution principles:
+- **PASS**: Fully aligned
+- **WARN**: Partially aligned, with suggestions
+- **FAIL**: Violates principle, must adjust
+
+> **Phase 6 Gate** — proceed when:
+> - [ ] Proposal compared against >= 3 most relevant Constitution principles
+> - [ ] Each principle graded PASS/WARN/FAIL
+> - [ ] Any FAIL resolved or documented as an exception
+
+### Phase 7: Knowledge Quality Gate
+
+Before finalizing, verify Knowledge awareness:
+
+| Check Item | PASS | WARN |
+|------------|------|------|
+| Related Modules identified | >= 1 module matched from _index.md | No modules matched — verify _index.md coverage |
+| Feature specs reviewed | Existing requirements checked for overlap | No feature specs found |
+| Module keywords matched | Proposal terms found in module keywords | Manual assignment needed |
+
+WARN items do not block — note them in Open Questions section.
+
+> **Phase 7 Gate** — proceed when:
+> - [ ] Each Knowledge check item graded PASS/WARN
+> - [ ] Any WARN items recorded in the Open Questions section
+
+### Phase 8: Summary + Next Steps
+
+Save proposal.md, suggest:
+1. `/prospec-plan` — proceed to planning (`scale: quick` skips plan — go to `/prospec-tasks` directly)
+2. `/prospec-ff` — fast-forward full planning (honours `scale`)
+3. Manually adjust proposal.md
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] proposal.md has >= 1 INVEST User Story
+- [ ] each Story has >= 2 WHEN/THEN acceptance scenarios
+- [ ] Constitution Check section present
+- [ ] Related Modules cross-referenced against _index.md (>= 1 when Knowledge exists)
+
+### Failure Conditions
+- proposal.md empty or missing Background/Why
+- Constitution Check skipped
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+### Exit Gate (Constitution)
+
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+
+## NEVER
+
+- **NEVER** create non-kebab-case change names — all lowercase, hyphen-separated, verb-first
+- **NEVER** complete a Story without Constitution check — principles must validate the proposal
+- **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
+- **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
+- **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md
+- **NEVER** forget to update metadata.yaml status to `story` (see `prospec/ai-knowledge/_status-lifecycle.md`)
+- **NEVER** ask more than 4 questions at once
+- **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
+- **NEVER** write `scale` to metadata.yaml without explicit user confirmation — a misjudged `quick` skips plan entirely
+- **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| Scaffolding creation fails | Check if .prospec.yaml exists, prompt user to confirm project root |
+| Constitution FAIL | Provide adjustment suggestions, or document exception reasoning |
+| Module identification unclear | Suggest returning to `/prospec-explore` or continue, deepen in Plan phase |
+

@@ -1,0 +1,121 @@
+---
+name: prospec-backfill-spec
+description: "Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone. Triggers: backfill spec, spec from code, brownfield, backfill, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 回填, 補規格"
+---
+
+# Prospec Backfill Spec Skill
+
+## Activation
+
+When triggered, briefly describe:
+- That you'll backfill a behavioral **Feature Spec draft** from existing **code** (not a design tool) for brownfield **features/capabilities** that have no Feature Spec coverage
+- That a feature is a **vertical slice** (one end-to-end capability across the modules that implement it) — not a module; one module can host several features and infrastructure modules host none
+- The draft records *behavior*, never *intent* — un-inferable intent is marked `[NEEDS CLARIFICATION]`, never fabricated
+- The draft is staged for human verify-and-promote and is **never** written to the trust zone (`prospec/specs/features/`)
+
+## Language Policy
+
+Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+## Startup Loading
+
+1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
+2. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — module routing only
+3. [DYNAMIC] Read `prospec/specs/features/` — see which features already have Feature Spec coverage
+
+## Core Workflow
+
+### Phase 1: Triangulate the sources, then cluster by feature (vertical slice)
+
+Read each source and fill each Feature-Spec field from its designated source; do not cross-attribute:
+
+| Source | Fills |
+|--------|-------|
+| code + tests | behavior + Acceptance Criteria (prefer deriving AC from test names and assertions, phrased WHEN/THEN) |
+| git history (`feat:`/`fix:` commit body) | *So that* — the WHY / user value |
+| docs / README | role / value / target user |
+| ai-knowledge | module routing only |
+
+Work the unit of extraction as a **feature vertical slice**, in two passes:
+
+- **Pass 1 — gather-by-module (intermediate material, not the product):** for each module, **enumerate** its behaviors. This is the same per-module census as before, but demoted to raw material — it answers "what does this module do", not "what is a feature".
+- **Pass 2 — cluster-by-feature (the product):** trace vertical slices and cluster behaviors across **all modules that contribute to a candidate feature** into that feature's User Stories. A feature candidate = one `backfill-draft.md` whose `**Feature:**` aligns with an existing `prospec/specs/features/{slug}.md` when a fitting one exists, or a new slug for human confirmation. Cluster by capability / actor / domain-object lifecycle — **not** one story per function, nor one giant story; explicitly list any behavior deliberately **deferred** (coverage must be visible, never silently partial).
+
+**Operationalize Pass-2 tracing (gated — do not assert call edges you did not read):**
+
+1. **Enumerate entry points (named heuristics):** CLI command registration, exported service method, route/handler decorator, async/scheduled entry registration.
+2. **Trace the call chain hop-by-hop:** `entry → controller/use-case → domain → emitted events → handler → outbound integration edge`; **every traced edge must cite `file:line` as evidence** — an edge you cannot cite must not enter an Acceptance Criterion.
+3. **Cross-slice de-dup:** when one behavior is touched by two slices (shared infrastructure), assign it to the slice whose **domain intent most directly owns it**; the other slice references it rather than re-counting it as an AC.
+4. **Boundary calls** (one feature vs sibling slugs; where read/query behavior belongs) follow `references/feature-boundary-criteria.md` — load it on demand at this step; do not inline its criteria here.
+
+**Cross-module flows are a first-class Acceptance-Criteria source (conditioned on grounding):** an emitted event → handler callback, or an outbound integration edge, is the end-to-end behavior module-first extraction misses most. Promote such a **cross-module** edge to an AC **only when both ends — emitter and handler/sink — are traced to a concrete callsite**. If only one end resolves, record it as a `[NEEDS CLARIFICATION]` candidate edge or keep it Deferred — **never assert a cross-module flow whose handler/sink you did not locate**.
+
+**Verify countable facts** against the source — enum/format/mapping sizes, supported-value counts: never state an exact count you did not count; if unverified, write `~N` or mark `[NEEDS CLARIFICATION]`. This extends to integration edges: never assert a cross-module flow whose handler/sink you did not locate. Fabricating a precise number is a behavior-fidelity defect, distinct from the intent guardrail below.
+
+> **Phase 1 Gate** — proceed when:
+> - [ ] every behavior enumerated (Pass 1) then clustered into feature vertical slices (Pass 2); each behavior maps to **exactly one** feature slice or is listed as explicitly Deferred (no behavior dropped or double-assigned)
+> - [ ] every traced call edge that backs an AC cites `file:line`; cross-module flows have both ends located or are marked `[NEEDS CLARIFICATION]`/Deferred
+> - [ ] every countable fact verified against the source or written `~N` / marked `[NEEDS CLARIFICATION]`
+
+### Phase 2: Write the draft
+
+Write the draft to `.prospec/changes/[name]/backfill-draft.md`, route-compatible so it can later promote through the existing forward path unchanged: each story carries `**Feature:**` and `**Story:**` headers, plus a User Story (As a / I want / So that) and Acceptance Criteria candidates.
+
+**Mark un-inferable story-level intent** with `[NEEDS CLARIFICATION]` — the *So that* value, the target role, or an ambiguous AC — and never fabricate. The target role may be inferred from a product/consumer name in git/docs/README (e.g. a named downstream product); mark `[NEEDS CLARIFICATION]` only when no such signal exists. When translating an English source into the document language, widen marking on low-confidence intent.
+
+**>50% guardrail** — if the `[NEEDS CLARIFICATION]` ratio exceeds 50%, abort and suggest the forward path instead (sources too thin to reverse intent). The denominator counts **story-level intent fields only** (So that / role / AC meaning). A heuristic's calibration rationale (why a magic number is that value) is recorded as a behavior AC with its value; its missing WHY may be marked `[NEEDS CLARIFICATION]` but is **not counted toward the >50%** — otherwise a well-documented module would falsely abort. A vertical slice spans more modules and draws intent from more sources (multiple commits / READMEs), so a wide slice with a few un-inferable intents must not falsely trip the abort — apply the same heuristic-WHY exemption.
+
+> **Phase 2 Gate** — proceed when:
+> - [ ] `.prospec/changes/[name]/backfill-draft.md` written, route-compatible (`**Feature:**`/`**Story:**` + US/AC candidates)
+> - [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]`; if >50% (story-level denominator) → aborted to the forward path
+
+### Phase 3: Trust-zone invariant & candidate slug
+
+Backfill extraction **never writes** to `prospec/specs/features/` (`archive.service.ts` stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `prospec/specs/features/` slug when one fits. The proposed slug must satisfy `isSafeResourceName` (reject separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
+
+> **Phase 3 Gate** — proceed when:
+> - [ ] nothing written under `prospec/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `isSafeResourceName`-valid
+
+### Phase 4: WHAT-layer coverage scoping (optional)
+
+To choose targets, read `prospec/specs/features/` and list candidate **features** (cross-module behavior slices) whose **WHAT-layer** behavior no existing Feature Spec REQ covers — scope by uncovered **feature/capability**, never by uncovered module (a module already covered ≠ the feature is covered). Coverage source: (a) with `feature-map.yaml` present (BL-040) = deterministic set-difference `all features − covered features`; (b) without it = take the existing `prospec/specs/features/` slugs as the capability inventory and derive slice participation from the module list, judged in prose. An uncovered feature already covered is excluded (avoid re-extracting). Output is **informational only** — it does not block and **does not auto-trigger** extraction.
+
+### Phase 5: User-review gate
+
+Present the draft, resolve `[NEEDS CLARIFICATION]`, and confirm the candidate feature slug before any promotion.
+
+## Output Contract
+
+> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+
+### Success Criteria
+- [ ] `.prospec/changes/[name]/backfill-draft.md` written, route-compatible (grep `**Feature:**`/`**Story:**`)
+- [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]` (grep); >50% story-level → aborted
+- [ ] nothing written under `prospec/specs/features/` (the trust zone stays untouched)
+
+### Failure Conditions
+- wrote anything under `prospec/specs/features/`
+- fabricated intent, an exact count not verified against the source, or a cross-module flow whose handler/sink was not located
+
+### Output Summary
+Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
+
+## NEVER
+
+- **NEVER** write the backfill draft into `prospec/specs/features/` — backfill only stages `.prospec/changes/[name]/backfill-draft.md`; `archive.service.ts` stays the sole writer of the trust zone, and promotion is manual via the forward path
+- **NEVER** treat a module as a feature target — a feature is a vertical slice across **contributing modules**; cluster behavior by capability, not by where the code lives
+- **NEVER** make an infrastructure module (serialization, persistence, event-bus, composition root, and the like) a feature slice — its behavior is recorded as REQs hung under the **feature that consumes it**, never as its own feature
+- **NEVER** assert a cross-module event/outbound flow whose handler/sink you did not trace to a concrete callsite — mark it `[NEEDS CLARIFICATION]`/Deferred instead
+- **NEVER** fabricate story-level intent (*So that* / role / AC meaning) — mark `[NEEDS CLARIFICATION]` instead; if >50% (story-level denominator) abort to the forward path
+- **NEVER** state an exact count (enum/format/mapping size) you did not verify against the source — write `~N` or mark `[NEEDS CLARIFICATION]`
+- **NEVER** self-decide the candidate feature slug — mark it `[NEEDS CLARIFICATION]` for human confirmation and ensure it passes `isSafeResourceName`
+- **NEVER** silently partial-cover a feature (a vertical slice across contributing modules) — enumerate all behaviors, cluster into feature slices, and list deferred behavior explicitly
+- **NEVER** auto-trigger extraction from WHAT-layer scoping — the uncovered-feature list is informational only
+
+## Error Handling
+
+| Scenario | Action |
+|----------|--------|
+| `[NEEDS CLARIFICATION]` ratio > 50% (story-level denominator) | Abort; suggest the forward path — source behavior too thin to reverse intent |
+| Feature/slice already covered by an existing Feature Spec REQ | Exclude from scope; do not re-extract |
+| No change directory yet | Guide user to run `/prospec-new-story` first (the draft stages under `.prospec/changes/[name]/`) |
+| Candidate feature slug fails `isSafeResourceName` | Reject the slug; propose a safe one marked `[NEEDS CLARIFICATION]` |

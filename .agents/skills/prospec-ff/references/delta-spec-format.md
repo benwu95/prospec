@@ -1,0 +1,199 @@
+# Delta Spec Format Reference
+
+This document defines the expected format for `delta-spec.md`, used by the **prospec-plan** Skill.
+
+---
+
+## Purpose
+
+`delta-spec.md` describes requirement deltas using ADDED/MODIFIED/REMOVED categories to track requirement evolution.
+
+---
+
+## REQ ID Naming Convention
+
+```
+REQ-{MODULE}-{NUMBER}
+```
+
+- `{MODULE}`: Module name in uppercase, hyphen-separated (e.g., `AUTH`, `API-MIDDLEWARE`, `ERROR-HANDLER`)
+- `{NUMBER}`: Three-digit sequential number (e.g., `001`, `002`, `003`)
+
+**Examples:**
+- `REQ-AUTH-001`
+- `REQ-API-MIDDLEWARE-001`
+- `REQ-ERROR-HANDLER-002`
+
+**Backfill (`scale: backfill`):** feature-first extraction uses a feature-slug REQ-id
+(`REQ-{FEATURE-SLUG}-{NUMBER}`, e.g. `REQ-USER-PROFILE-001`) instead of a module name —
+`/prospec-archive` routes the REQ by its `**Feature:**` field and derives affected modules from
+`metadata.related_modules`/feature-map, so a backfill REQ-id need not be module-based.
+
+---
+
+## Standard Format
+
+### 1. ADDED - New Requirements
+
+New requirements with full details:
+
+```markdown
+## ADDED
+
+### REQ-{MODULE}-{NUMBER}: [Requirement title]
+
+**Feature:** {feature-slug}
+**Story:** US-{N}
+
+**Description:**
+[Detailed description of the requirement]
+
+**Acceptance Criteria:**
+1. [Specific verifiable condition 1]
+2. [Specific verifiable condition 2]
+3. [Specific verifiable condition 3]
+
+**Priority:** [High/Medium/Low]
+
+---
+```
+
+> **Feature** routes this REQ to `specs/features/{feature-slug}.md` during archive Spec Sync.
+> **Story** links this REQ to the User Story in proposal.md it implements.
+
+**Example:**
+
+```markdown
+## ADDED
+
+### REQ-ERROR-HANDLER-001: Centralized Error Types
+
+**Feature:** error-handling
+**Story:** US-1
+
+**Description:**
+Define a set of standard error types that can be used across all modules in prospec. Each error type should have a unique error code and HTTP status mapping.
+
+**Acceptance Criteria:**
+1. Error types include ValidationError, NotFoundError, UnauthorizedError, ServerError
+2. Each error type has a unique error code following the convention in prospec/CONSTITUTION.md
+3. Error codes map to appropriate HTTP status codes (400, 401, 404, 500, etc.)
+
+**Priority:** High
+
+---
+
+### REQ-ERROR-HANDLER-002: Error Response Formatter
+
+**Feature:** error-handling
+**Story:** US-1
+
+**Description:**
+Implement a formatter that converts errors into standardized JSON responses for API endpoints.
+
+**Acceptance Criteria:**
+1. Response includes error code, message, and timestamp
+2. Stack traces are excluded from production responses
+3. Supports localization for error messages
+
+**Priority:** Medium
+
+---
+```
+
+---
+
+### 2. MODIFIED - Changed Requirements
+
+Modified requirements showing before/after comparison:
+
+```markdown
+## MODIFIED
+
+### REQ-{MODULE}-{NUMBER}: [Requirement title]
+
+**Feature:** {feature-slug}
+**Story:** US-{N}
+
+**Before:**
+[Original requirement description or condition]
+
+**After:**
+[Updated requirement description or condition]
+
+**Reason:**
+[Why this modification was needed]
+
+**Priority:** [High/Medium/Low]
+
+---
+```
+
+**Example:**
+
+```markdown
+## MODIFIED
+
+### REQ-API-MIDDLEWARE-003: Error Logging
+
+**Feature:** error-handling
+**Story:** US-2
+
+**Before:**
+Log all errors to console with full stack traces.
+
+**After:**
+Log errors to the logger module with configurable log levels. Stack traces are only logged in development mode.
+
+**Reason:**
+Align with the logging strategy defined in prospec/CONSTITUTION.md and improve production security.
+
+**Priority:** Medium
+
+---
+```
+
+---
+
+### 3. REMOVED - Removed Requirements
+
+Removed requirements with rationale:
+
+```markdown
+## REMOVED
+
+### REQ-{MODULE}-{NUMBER}: [Requirement title]
+
+**Reason:**
+[Why this requirement was removed]
+
+---
+```
+
+**Example:**
+
+```markdown
+## REMOVED
+
+### REQ-ERROR-HANDLER-004: Email Notification on Errors
+
+**Reason:**
+Out of scope for this story. Email notification will be handled by a separate monitoring module in a future story.
+
+---
+```
+
+---
+
+## File Length Guidelines
+
+- Keep under **100 lines**
+- If deltas exceed 10 requirements, consider splitting into multiple Stories
+
+---
+
+## Reference Information
+
+- Project name: `prospec`
+- AI Knowledge path: `prospec/ai-knowledge`
+- Constitution file: `prospec/CONSTITUTION.md`

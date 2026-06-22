@@ -1,0 +1,82 @@
+# Review Format Reference
+
+This document defines the **severity contract** (review's Output Contract, aligned with BL-019), the `review.md` persistence format, and the reviewer lenses used by the **prospec-review** Skill.
+
+---
+
+## Purpose
+
+`prospec-review` runs an adversarial, fresh-context review of a change diff between implement and verify. This reference fixes *what counts as which severity*, *what gets auto-fixed*, and *how findings are recorded* — so the loop is reproducible across runs and reviewers.
+
+---
+
+## Severity Criteria
+
+Three levels only — the same PASS/WARN/FAIL-family vocabulary used across prospec (no fourth state).
+
+### critical — blocks the loop, auto-fixed (when drop-in)
+
+A finding is critical only if it is one of:
+
+1. **Real defect**: not fixing it causes a genuine bug, security hole, data loss, or production incident. (Do not inflate criticals — speculative or "could theoretically" risks are not critical.)
+2. **Dependency-direction violation**: an import or call that breaks `cli → services → lib → types` (never upward).
+3. **Spec contradiction**: the implementation logically contradicts a `delta-spec` REQ's stated intent.
+
+> REQ *completeness* ("this REQ is only partially covered") is **not** a review critical — it is left to `/prospec-verify` dimension 1–2. Review checks correctness and spec-*contradiction*, not coverage.
+
+### major — does not block, proposed, passed to verify as WARN
+
+- **Performance** and **maintainability** concerns. Recorded and handed to `/prospec-verify` as an advisory WARN (via `quality_log`); **not counted in verify's grade** — review and verify stay on separate axes. Never auto-fixed.
+
+### nit — dropped, not reported
+
+- Style, naming, formatting, speculative risk, or anything already handled. Dropped silently to keep signal density high.
+
+---
+
+## Auto-Fix Boundary
+
+Only a critical that is **confirmed to exist** (by an independent verifier citing Evidence) **and** has a **concrete, local, drop-in** fix is auto-applied to the working tree. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
+
+---
+
+## review.md Format
+
+Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds:
+
+```markdown
+# Review: {change-name}
+
+**Rounds:** {n} / cap {max}   **Status:** review-clean | escalated
+
+| Location | Severity | Lens | Status |
+|----------|----------|------|--------|
+| src/lib/foo.ts:42 | critical | spec-architecture | fixed |
+| src/services/bar.ts:88 | major | maintainability | proposed → verify WARN |
+```
+
+- **Dedup by Location**; when multiple lenses report the same Location, keep the **maximum** severity.
+- **Carry forward** across rounds as the anchor: resolved items are not re-raised; a verdict that flips between rounds is reconciled against the prior record (consistency anchor).
+- Deterministic bookkeeping (dedup, severity-max, round counting, convergence) is done over this table at per-change scale.
+
+---
+
+## Reviewer Lenses
+
+| Lens | When | Looks for |
+|------|------|-----------|
+| correctness & edge cases | always | logic errors, boundary conditions, error paths |
+| security & data integrity | always | injection, auth gaps, unsafe writes, data loss |
+| **spec-architecture** | always (prospec) | vs `delta-spec` REQ intent, dependency direction, module conventions, ripple effects |
+| efficiency / performance | hot-path or data-layer change | N+1, needless allocation, blocking I/O |
+| maintainability / DRY | new abstractions introduced | duplication, leaky abstraction, dead branches |
+
+A pluggable language-specific engine may add language lenses; the **spec-architecture** lens is always layered on by prospec — it is what a generic code-review tool cannot provide.
+
+---
+
+## Reference Information
+
+- Project name: `prospec`
+- Severity vocabulary: critical / major / nit (PASS/WARN/FAIL family — no fourth state)
+- Constitution file: `prospec/CONSTITUTION.md`
