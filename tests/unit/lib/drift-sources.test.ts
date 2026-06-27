@@ -328,7 +328,10 @@ describe('collectGitTimestamps', () => {
     const r = collectGitTimestamps(cloneDir, MODULE_MAP, 'knowledge');
     expect(r.available).toBe(false);
     expect(r.reason).toContain('shallow');
-  });
+    // A real `git clone` is the heaviest op in the suite; under full parallel load
+    // it can take >5s, so this test needs more than the default 5s timeout (it
+    // completes, it does not hang). Surfaced when git-based scanner tests were added.
+  }, 20000);
 });
 
 describe('collectTaskStates', () => {

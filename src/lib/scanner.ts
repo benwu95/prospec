@@ -1,5 +1,9 @@
 import fg from 'fast-glob';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { ScanError } from '../types/errors.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Default patterns to always exclude from scanning.
@@ -44,6 +48,13 @@ export interface ScanOptions {
   onlyFiles?: boolean;
   /** Working directory (default: process.cwd()) */
   cwd?: string;
+  /**
+   * Restrict results to git-tracked files (intersect the glob match with
+   * `git ls-files`), so everything gitignored is excluded regardless of the
+   * hardcoded ignore list. When `cwd` is not a git work tree (or git is
+   * unavailable) this silently falls back to the full glob result.
+   */
+  gitTrackedOnly?: boolean;
 }
 
 export interface ScanResult {
@@ -51,6 +62,29 @@ export interface ScanResult {
   files: string[];
   /** Total file count */
   count: number;
+}
+
+/**
+ * List git-tracked files under `cwd` (paths relative to `cwd`, forward slashes),
+ * or `null` when `cwd` is not inside a git work tree or git is unavailable.
+ *
+ * Lets a scan restrict itself to tracked files — excluding everything gitignored,
+ * which the static {@link DEFAULT_IGNORE} list cannot know about — while degrading
+ * to full globbing (the `null` case) when there is no git to consult.
+ */
+export async function listGitTrackedFiles(
+  cwd: string,
+): Promise<Set<string> | null> {
+  try {
+    // `-z` → NUL-separated, so paths with spaces/newlines survive intact.
+    const { stdout } = await execFileAsync('git', ['-C', cwd, 'ls-files', '-z'], {
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    return new Set(stdout.split('\0').filter(Boolean));
+  } catch {
+    // Not a git work tree, or git not installed — caller falls back to globbing.
+    return null;
+  }
 }
 
 /**
@@ -77,6 +111,7 @@ export async function scanDir(
     exclude = [],
     onlyFiles = true,
     cwd = process.cwd(),
+    gitTrackedOnly = false,
   } = options;
 
   const ignore = [
@@ -86,7 +121,7 @@ export async function scanDir(
   ];
 
   try {
-    const files = await fg.glob(patterns, {
+    const matched = await fg.glob(patterns, {
       cwd,
       deep: depth,
       ignore,
@@ -94,6 +129,14 @@ export async function scanDir(
       dot: false,
       followSymbolicLinks: false,
     });
+
+    // Optionally constrain to git-tracked files. A null result (no git work tree
+    // or git unavailable) falls back to the full glob match — the original behavior.
+    let files = matched;
+    if (gitTrackedOnly) {
+      const tracked = await listGitTrackedFiles(cwd);
+      if (tracked) files = matched.filter((f) => tracked.has(f));
+    }
 
     return {
       files: files.sort(),

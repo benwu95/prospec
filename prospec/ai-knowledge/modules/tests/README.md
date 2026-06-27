@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 74 test files, 1,772 tests (unit 1159, contract 554, integration 16, e2e 43)
+> 4-layer test architecture using Vitest + memfs — 74 test files, 1,778 tests (unit 1165, contract 554, integration 16, e2e 43)
 
 <!-- prospec:auto-start -->
 
@@ -19,7 +19,7 @@
 | `tests/unit/cli/output-sanitization.test.ts` | `measure`/error output strips control chars before printing (control-char-injection regression) |
 | `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/unit/types/version.test.ts` | `PROSPEC_VERSION` single-source — read from the package's own package.json, semver-shaped (BL-044) |
-| `tests/unit/services/upgrade.service.test.ts` | Upgrade orchestrator — records `version` + runs agentSync, NEVER writes a doc/CONSTITUTION (zone-1 only), partial-localization missing-triggers report, absent version → "unknown", uninitialized → ConfigNotFound; config-field nudge registry (`detectNudges` fires for absent artifact_language, silent when explicit), interactive fill (mock inquirer — non-English → all skills surface, empty → English self-terminates), field stays absent across re-runs, comment preservation; + `detectMissingTriggers` (BL-044, upgrade-config-nudges) |
+| `tests/unit/services/upgrade.service.test.ts` | Upgrade orchestrator — records `version` + runs agentSync + refreshes raw-scan (mocked `generateRawScan`; non-fatal when it throws), NEVER writes a CURATED doc/CONSTITUTION (zone-1 + raw-scan only), partial-localization missing-triggers report, absent version → "unknown", uninitialized → ConfigNotFound; config-field nudge registry (`detectNudges` fires for absent artifact_language, silent when explicit), interactive fill (mock inquirer — non-English → all skills surface, empty → English self-terminates), field stays absent across re-runs, comment preservation; + `detectMissingTriggers` (BL-044, upgrade-config-nudges) |
 | `tests/integration/upgrade-flow.test.ts` | CLI bump + new skill end-to-end — records version, runs agent sync, flags the new skill, never touches docs (BL-044) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
