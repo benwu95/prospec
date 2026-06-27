@@ -49,7 +49,8 @@ export interface RawScanResult {
  * Deterministic, LLM-free production of `raw-scan.md` — the single shared scan
  * core used by `knowledge init` (incl. `--raw-scan-only`) and the archive safety net.
  *
- * Scans the project, derives tech stack / entry points / dependencies / config
+ * Scans the project (git-tracked files only when the project is a git work tree,
+ * else the full glob), derives tech stack / entry points / dependencies / config
  * files / directory tree, and (unless `dryRun`) renders + writes ONLY
  * `raw-scan.md`. It never touches curated files (module-map.yaml, _index.md,
  * _conventions.md) — that boundary is what makes a refresh safe to re-run.
@@ -69,10 +70,14 @@ export async function generateRawScan(
   const { knowledgePath } = resolveBasePaths(config, cwd);
   const knowledgeBasePath = path.relative(cwd, knowledgePath);
 
+  // Prefer git-tracked files so gitignored dirs (build output, local scratch,
+  // .prospec, …) never leak into the snapshot; falls back to full globbing when
+  // the project is not a git work tree.
   const scanResult = await scanDir('**', {
     cwd,
     depth,
     exclude: excludePatterns,
+    gitTrackedOnly: true,
   });
 
   const techStack = detectTechStack(cwd, config.tech_stack, scanResult.files);

@@ -14,7 +14,7 @@
 | `src/cli/parse-options.ts` | parseDepth(value) — shared validating `--depth` parser (throws on NaN/<1); used by `knowledge init` |
 | `src/cli/commands/init.ts` | `prospec init` — project initialization |
 | `src/cli/commands/quickstart.ts` | `prospec quickstart` — one-command onboarding (init + agent sync, skip-completed); in INIT_COMMANDS so it runs before `.prospec.yaml` exists |
-| `src/cli/commands/upgrade.ts` | `prospec upgrade` (`registerUpgradeCommand`) — record version + agent sync + report; NOT in INIT_COMMANDS, so it requires an initialized project |
+| `src/cli/commands/upgrade.ts` | `prospec upgrade` (`registerUpgradeCommand`) — record version + agent sync + raw-scan refresh + report; NOT in INIT_COMMANDS, so it requires an initialized project. On an interactive TTY it prompts to fill config-field nudges (like `init`); `--no-interactive` (and any non-TTY stdin) forces report-only — `interactive = !--no-interactive && process.stdin.isTTY` — so the skill/CI never block |
 | `src/cli/commands/knowledge-init.ts` | `prospec knowledge init [--raw-scan-only]` — scan + raw-scan generation (+ curated skeletons when absent); `--raw-scan-only` regenerates raw-scan.md only, leaving curated module-map/_index/_conventions untouched (deterministic, no LLM; `--depth`/`--dry-run` supported) |
 | `src/cli/commands/change-story.ts` | `prospec change story` — create change proposal |
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan; `--force` overwrites an existing plan.md/delta-spec.md |
@@ -29,7 +29,7 @@
 | `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr; error message/suggestion strings go through `sanitizeTerminal()` |
 | `src/cli/formatters/sanitize.ts` | Shared helper (not a formatXxxOutput module) — `sanitizeTerminal()` codepoint-based stripper (C0 except tab/newline, plus C1/DEL); single source consumed by check/measure/error output to close the ANSI/OSC-injection gap |
 | `src/cli/formatters/init-output.ts` | formatInitOutput() — init command output |
-| `src/cli/formatters/upgrade-output.ts` | formatUpgradeOutput() — version delta + skills-missing-triggers + next-step hint |
+| `src/cli/formatters/upgrade-output.ts` | formatUpgradeOutput() — version delta + interactively-resolved nudge confirmations + config-field nudges / skills-missing-triggers / up-to-date + next-step hint |
 
 ## Public API
 

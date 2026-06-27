@@ -9,7 +9,7 @@ description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records
 
 When triggered, briefly describe:
 - That `prospec upgrade` has recorded the new prospec version in `.prospec.yaml` and re-synced agents, and you'll finish the judgment steps it cannot do deterministically
-- You'll scan the files `prospec init` created, offer to update any whose format has drifted from the latest templates (asking before each change), and localize triggers for newly-added skills
+- You'll scan the files `prospec init` created, offer to update any whose format has drifted from the latest templates (asking before each change), offer to set an artifact language if the project never chose one (a project from a pre-feature CLI), and localize triggers for skills that have none
 - This is a periodic upgrade flow — re-runnable and self-terminating
 
 ## Language Policy
@@ -32,11 +32,16 @@ STOP and tell the user to install or rebuild prospec, then re-run — never proc
 
 ### Step 1: Run the deterministic upgrade
 
-Run `prospec upgrade` (Bash) and read its stdout. It has already (a) recorded the running prospec
-version in `.prospec.yaml` `version` and rewritten the file in canonical form, and (b) re-run
-`agent sync`. Parse the **Upgrade report**:
+Run `prospec upgrade --no-interactive` (Bash) and read its stdout. The `--no-interactive` flag is
+required: without it `prospec upgrade` prompts to fill nudges on a terminal, which would block this
+Bash call — you drive those choices in-conversation (Steps 3–4) instead. It has already (a) recorded
+the running prospec version in `.prospec.yaml` `version` (comment-preserving in-place merge), and
+(b) re-run `agent sync`. Parse the **Upgrade report**:
 - `version <from> → <to>` — the prospec version delta
-- `skills missing triggers: …` — newly-added skills with no localized triggers (Step 3)
+- `no artifact_language set …` — the project predates the artifact-language feature and never chose a
+  language (Step 3). Mutually exclusive with the line below: an unset language resolves to English, so
+  no triggers are reported missing.
+- `skills missing triggers: …` — newly-added skills with no localized triggers (Step 4)
 
 If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
 user to run `prospec init` first.
@@ -71,10 +76,28 @@ edits, so updating their format requires consent. Do it here:
    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
    leave the rest unchanged.
 
-### Step 3: Localize triggers for newly-added skills (fill-missing) + re-sync
+### Step 3: Offer to set an artifact language (only when unset)
 
-For each skill in Step 1's "skills missing triggers" list (skip entirely when the list is empty or
-the language is English):
+Run this step ONLY when Step 1's report shows `no artifact_language set` (a project scaffolded by a
+pre-feature CLI — `prospec init` always writes the field). Skip it entirely otherwise; never re-ask a
+project that already chose a language, including an explicit `English`.
+
+1. Tell the user their project has no `artifact_language`, so AI-generated documents currently default
+   to **English**, and ask which language they want for AI-generated documents (default: English).
+2. **If they choose a non-English language**: capture `.prospec.yaml` verbatim as a snapshot, add the
+   `artifact_language` key by a **minimal in-place edit** (insert the single key; never re-serialize or
+   reorder), then read the file back to confirm it still parses — restore the snapshot if not. Every
+   skill is now unlocalized, so Step 4 will localize them all.
+3. **If they keep English**: add `artifact_language: English` by the same minimal in-place edit (so this
+   prompt is self-terminating on the next upgrade), then skip Step 4 — English uses the baseline
+   triggers and needs no `skill_triggers`.
+
+### Step 4: Localize triggers for skills missing them (fill-missing) + re-sync
+
+Re-read `.prospec.yaml` (Step 3 may have just set the language). When `artifact_language` is non-English,
+localize every skill that still has **no `skill_triggers` entry** — that is Step 1's "skills missing
+triggers" list, plus, when Step 3 just set the language, all skills. Skip entirely when the language is
+English or every skill already has an entry.
 
 1. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from
 2. Translate ONLY those skills' English trigger baselines into `artifact_language`
@@ -82,8 +105,8 @@ the language is English):
 4. On confirmation, add the new `skill_triggers` keys by a **minimal in-place edit** — insert only the
    missing keys; never re-serialize the file or touch existing keys, their order, or comments
 5. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if not, restore the snapshot
-6. If anything changed in Step 2 or Step 3, run `prospec agent sync` (Bash) so the localized triggers
-   and refreshed docs land in each SKILL.md frontmatter and the entry config
+6. If anything changed in Step 2, Step 3, or Step 4, run `prospec agent sync` (Bash) so the language,
+   localized triggers, and refreshed docs land in each SKILL.md frontmatter and the entry config
 
 ## Output Contract
 
@@ -92,12 +115,14 @@ the language is English):
 ### Success Criteria
 - [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
 - [ ] every init-created file whose format drifted was shown to the user and updated only on consent (or templates were unavailable and the step was skipped with a note)
-- [ ] every skill in the report's "missing triggers" list is localized (or the user declined)
-- [ ] `prospec agent sync` ran when Step 2 or Step 3 changed anything
+- [ ] when the report flagged `no artifact_language set`, the user was asked which language to use and `artifact_language` was written to their choice (or they declined)
+- [ ] every skill in the report's "missing triggers" list (and all skills, when Step 3 just set a non-English language) is localized (or the user declined)
+- [ ] `prospec agent sync` ran when Step 2, Step 3, or Step 4 changed anything
 
 ### Failure Conditions
 - updated an init-created file without showing a diff and getting confirmation
-- wrote malformed `skill_triggers` to `.prospec.yaml`
+- set `artifact_language` (or wrote `skill_triggers`) without user confirmation
+- wrote malformed `artifact_language` or `skill_triggers` to `.prospec.yaml`
 - proceeded silently when the `prospec` CLI or its templates were unavailable
 
 ### Output Summary
@@ -107,8 +132,10 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 - **NEVER** update an init-created file without a diff preview AND explicit user confirmation — `prospec upgrade` never touches these, and the skill does so only with consent
 - **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template
-- **NEVER** re-translate or overwrite an existing `skill_triggers` entry — localize only the skills the report lists as missing
-- **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
+- **NEVER** set or change `artifact_language` for a project that already has one — Step 3 runs only when the report flags it unset
+- **NEVER** set `artifact_language` without first asking the user which language they want
+- **NEVER** re-translate or overwrite an existing `skill_triggers` entry — localize only the skills with no entry yet
+- **NEVER** write `artifact_language` or `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
 - **NEVER** proceed silently when the `prospec` CLI or its templates are unavailable — stop or skip with a note, then let the user decide
 
 ## Error Handling
@@ -117,7 +144,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | `prospec` CLI unavailable | Stop; tell the user to install/rebuild prospec, then re-run — do not proceed silently |
 | `prospec upgrade` reports `ConfigNotFound` | Project not initialized — stop and instruct the user to run `prospec init` first |
-| prospec templates cannot be located | Skip Step 2 with a note; still do Step 3 (trigger localization) |
+| prospec templates cannot be located | Skip Step 2 with a note; still do Step 3 (artifact language) and Step 4 (trigger localization) |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
-| `.prospec.yaml` fails to parse after writing triggers | Restore the captured pre-write snapshot verbatim, then report the malformed translation |
+| `.prospec.yaml` fails to parse after writing `artifact_language` or triggers | Restore the captured pre-write snapshot verbatim, then report the malformed write |
+| User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
 | User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |

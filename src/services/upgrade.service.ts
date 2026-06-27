@@ -1,19 +1,42 @@
+import { input } from '@inquirer/prompts';
 import {
   readConfig,
   writeConfig,
   resolveArtifactLanguage,
   isDefaultArtifactLanguage,
+  isArtifactLanguageUnset,
 } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
+import { DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import {
   execute as agentSyncExecute,
   type AgentSyncFullResult,
 } from './agent-sync.service.js';
+import { generateRawScan } from './raw-scan.service.js';
 import { SKILL_DEFINITIONS } from '../types/skill.js';
 
 export interface UpgradeOptions {
   cwd?: string;
+  /**
+   * When true, prompt the user to fill each fired nudge in the terminal (like
+   * `prospec init`). The command sets this only for an interactive TTY and never
+   * when `--no-interactive` is passed — so the /prospec-upgrade skill and CI,
+   * which invoke `prospec upgrade` non-interactively, never block on a prompt.
+   */
+  interactive?: boolean;
+}
+
+/**
+ * A reminder that a pre-feature project lacks an optional `.prospec.yaml` field
+ * whose default silently picks a behavior the user may not want. The CLI prints
+ * `message`; the /prospec-upgrade skill keys off the stable `field` id.
+ */
+export interface UpgradeNudge {
+  /** Stable config-field id (e.g. 'artifact_language') the skill acts on. */
+  field: string;
+  /** Human-readable reminder, printed verbatim in the migration report. */
+  message: string;
 }
 
 export interface UpgradeReport {
@@ -23,6 +46,19 @@ export interface UpgradeReport {
   versionTo: string;
   /** Skills with no skill_triggers entry — what /prospec-upgrade localizes (non-English only). */
   missingTriggers: string[];
+  /**
+   * Config-field nudges that fired for this project — absent curated fields a
+   * pre-feature CLI never wrote (see UPGRADE_NUDGE_RULES). The /prospec-upgrade
+   * skill offers to fill each. A project that explicitly chose a value is NOT
+   * flagged, so a deliberate choice is never nagged.
+   */
+  nudges: UpgradeNudge[];
+}
+
+/** A nudge the user resolved interactively this run (field set to a value). */
+export interface ResolvedNudge {
+  field: string;
+  value: string;
 }
 
 export interface UpgradeResult {
@@ -32,19 +68,34 @@ export interface UpgradeResult {
   agentSync: AgentSyncFullResult;
   /** The slash command the user runs next in their AI agent. */
   nextStep: string;
+  /** Nudges the user filled in via interactive prompts this run (empty otherwise). */
+  resolvedNudges: ResolvedNudge[];
+  /**
+   * Whether the deterministic `raw-scan.md` refresh ran (best-effort, non-fatal).
+   * Like agent sync, this regenerates a generated artifact to the new prospec
+   * version's scanner output; it never touches curated docs.
+   */
+  rawScanRefreshed: boolean;
 }
 
 /**
  * Execute the upgrade workflow (zero-LLM, deterministic):
  *
- * 1. Record the running prospec version in `.prospec.yaml` `version` and rewrite
- *    it canonically (comment-preserving writeConfig = "format to latest").
- * 2. Re-run agent sync (zone-1 generated files; carries trigger hints).
- * 3. Build a report (version delta, skills missing triggers) for the
- *    `/prospec-upgrade` skill, which handles the consent-gated doc-format updates.
+ * 1. Record the running prospec version in `.prospec.yaml` `version`.
+ * 2. On an interactive terminal, prompt the user to fill each fired config-field
+ *    nudge (like `prospec init`); the answers patch the config before it is written.
+ * 3. Persist via a comment-preserving in-place merge (comments/formatting kept).
+ * 4. Re-run agent sync (zone-1 generated files; reflects any just-set language).
+ * 5. Refresh the deterministic `raw-scan.md` (best-effort) so the project-structure
+ *    snapshot reflects the new version's scanner — same idea as re-running agent
+ *    sync. `--raw-scan-only` semantics: it writes ONLY raw-scan.md.
+ * 6. Build a report (version delta, skills missing triggers, remaining nudges) for
+ *    the `/prospec-upgrade` skill, which handles the consent-gated updates.
  *
- * It deliberately does NOT touch any `prospec/ai-knowledge/` doc or CONSTITUTION —
- * init-created doc format updates require user consent and are the skill's job.
+ * It deliberately does NOT touch any CURATED `prospec/ai-knowledge/` doc (module
+ * READMEs, _index, _conventions, the canonical convention docs) or CONSTITUTION —
+ * those need user consent and are the skill's job. The only `ai-knowledge/` write
+ * is the deterministic, always-regenerable `raw-scan.md` (step 5).
  */
 export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -52,27 +103,64 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   // 1. Read config — throws ConfigNotFound on an uninitialized project, the same
   //    guard every post-init command relies on (upgrade is not in INIT_COMMANDS).
   const config = await readConfig(cwd);
-  const artifactLanguage = resolveArtifactLanguage(config);
 
-  // 2. Record the running prospec version + rewrite .prospec.yaml canonically.
+  // 2. Record the running prospec version.
   const versionFrom = config.version ?? 'unknown';
   config.version = PROSPEC_VERSION;
+
+  // 3. Interactively resolve nudges (only when the command opted in for a TTY).
+  //    Each fired rule prompts the user; the answer patches the config in place.
+  //    Skipped entirely when non-interactive, so the skill/CI never block here.
+  const resolvedNudges: ResolvedNudge[] = [];
+  if (options.interactive) {
+    for (const rule of UPGRADE_NUDGE_RULES) {
+      if (!rule.isUnset(config)) continue;
+      const patch = await rule.prompt();
+      if (!patch) continue;
+      Object.assign(config, patch);
+      resolvedNudges.push({
+        field: rule.field,
+        value: String((patch as Record<string, unknown>)[rule.field] ?? ''),
+      });
+    }
+  }
+
+  // 4. Persist (writeConfig merges in place, keeping comments) AFTER prompting,
+  //    so a just-set language lands in the same write as the version bump.
   await writeConfig(config, cwd);
 
-  // 3. Re-sync agent config (zone-1 generated files + trigger hints/warnings).
+  // 5. Re-sync agent config (zone-1 generated files + trigger hints/warnings).
   const agentSync = await agentSyncExecute({ cwd });
 
-  // 4. Build the upgrade report for the /prospec-upgrade skill.
+  // 5b. Refresh the deterministic raw-scan.md (no LLM) so the project-structure
+  //     snapshot reflects the new version's scanner — mirrors the archive safety
+  //     net. Non-fatal: a scan failure must never block the upgrade, and it writes
+  //     ONLY raw-scan.md (never a curated doc).
+  let rawScanRefreshed = false;
+  try {
+    await generateRawScan({ cwd });
+    rawScanRefreshed = true;
+  } catch {
+    // Raw-scan refresh failure is non-fatal — the version bump + agent sync stand.
+  }
+
+  // 6. Build the report from the POST-prompt config: a language set in step 3 now
+  //    resolves here, so missingTriggers/nudges reflect what is still outstanding
+  //    (e.g. a freshly-set non-English language surfaces every skill's triggers).
+  const artifactLanguage = resolveArtifactLanguage(config);
   const report: UpgradeReport = {
     versionFrom,
     versionTo: PROSPEC_VERSION,
     missingTriggers: detectMissingTriggers(config, artifactLanguage),
+    nudges: detectNudges(config),
   };
 
   return {
     report,
     agentSync,
     nextStep: '/prospec-upgrade',
+    resolvedNudges,
+    rawScanRefreshed,
   };
 }
 
@@ -91,4 +179,56 @@ export function detectMissingTriggers(
     const entry = localized[s.name];
     return !entry || entry.length === 0;
   }).map((s) => s.name);
+}
+
+interface NudgeRule extends UpgradeNudge {
+  /** Whether this field is unset for the given config (fires the nudge). */
+  isUnset: (config: ProspecConfig) => boolean;
+  /**
+   * Interactive resolution (terminal prompt — fill a value, or Y/N for a boolean
+   * field). Returns a partial config to merge, or null if the user declined.
+   * Called only in interactive mode.
+   */
+  prompt: () => Promise<Partial<ProspecConfig> | null>;
+}
+
+/**
+ * Curated registry of optional `.prospec.yaml` fields worth nudging about on
+ * upgrade when a pre-feature project lacks them. This is intentionally a CURATED
+ * list, NOT "every absent field": most optional fields have sensible defaults
+ * (`paths.base_dir`, `knowledge.*`, `exclude`) or are a hard error when missing
+ * (`agents` → agent sync throws), so only a field whose default silently picks a
+ * behavior the user may not want belongs here. Adding a future nudge is one entry
+ * — the report, formatter, interactive prompt, and skill all iterate it.
+ */
+const UPGRADE_NUDGE_RULES: readonly NudgeRule[] = [
+  {
+    field: 'artifact_language',
+    isUnset: isArtifactLanguageUnset,
+    message:
+      'no artifact_language set — AI-generated docs default to English. To author them in another language, set artifact_language in .prospec.yaml (then skill triggers can be localized).',
+    // Mirrors `prospec init`'s language prompt: a text input defaulting to English.
+    // Accepting the default writes `English` (the nudge self-terminates); typing
+    // another language records it (triggers then localize via /prospec-upgrade).
+    prompt: async () => {
+      const language =
+        (
+          await input({
+            message: 'Primary language for AI-generated documents:',
+            default: DEFAULT_ARTIFACT_LANGUAGE,
+          })
+        ).trim() || DEFAULT_ARTIFACT_LANGUAGE;
+      return { artifact_language: language };
+    },
+  },
+];
+
+/**
+ * The nudges that fire for this config — one per curated field the project lacks.
+ * Empty for a project that explicitly chose every curated field.
+ */
+export function detectNudges(config: ProspecConfig): UpgradeNudge[] {
+  return UPGRADE_NUDGE_RULES.filter((rule) => rule.isUnset(config)).map(
+    ({ field, message }) => ({ field, message }),
+  );
 }

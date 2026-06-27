@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fg from 'fast-glob';
-import { scanDir, scanDirSync } from '../../../src/lib/scanner.js';
+import { scanDir, scanDirSync, listGitTrackedFiles } from '../../../src/lib/scanner.js';
 import { ScanError } from '../../../src/types/errors.js';
 
 // scanner uses fast-glob directly, so we test with real filesystem using temp dirs
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFileSync } from 'node:child_process';
 
 let tmpDir: string;
 
@@ -210,5 +211,55 @@ describe('scanDirSync error handling', () => {
       // String(42) -> "42"
       expect((err as ScanError).message).toBe('Scan failed: /sync/dir2 (42)');
     }
+  });
+});
+
+// `git ls-files` reads the INDEX, so `git init` + `git add` is enough to mark a
+// file tracked — no `config`/`commit`/`clone` needed. Keeping these git ops minimal
+// matters: heavier per-test git work contends with the suite's other git tests.
+describe('scanDir gitTrackedOnly', () => {
+  it('restricts the scan to git-tracked files (excludes untracked)', async () => {
+    createFiles({
+      'src/index.ts': '',
+      'tracked.md': '',
+      'untracked.md': '', // created but never `git add`ed
+      'extra/local.js': '', // also untracked
+    });
+    execFileSync('git', ['-C', tmpDir, 'init', '-q'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', tmpDir, 'add', 'src/index.ts', 'tracked.md'], { stdio: 'ignore' });
+
+    const result = await scanDir('**', { cwd: tmpDir, gitTrackedOnly: true });
+
+    expect(result.files).toContain('src/index.ts');
+    expect(result.files).toContain('tracked.md');
+    expect(result.files).not.toContain('untracked.md'); // not in the git index
+    expect(result.files).not.toContain('extra/local.js');
+  });
+
+  it('falls back to the full glob result when there is no git work tree', async () => {
+    createFiles({ 'src/index.ts': '', 'untracked.md': '' });
+    // no `git init` → listGitTrackedFiles returns null → original behavior
+
+    const result = await scanDir('**', { cwd: tmpDir, gitTrackedOnly: true });
+
+    expect(result.files).toContain('src/index.ts');
+    expect(result.files).toContain('untracked.md');
+  });
+});
+
+describe('listGitTrackedFiles', () => {
+  it('returns null when cwd is not a git work tree', async () => {
+    createFiles({ 'a.txt': '' });
+    expect(await listGitTrackedFiles(tmpDir)).toBeNull();
+  });
+
+  it('returns the set of tracked (staged) files, excluding untracked', async () => {
+    createFiles({ 'a.txt': '', 'b.txt': '' });
+    execFileSync('git', ['-C', tmpDir, 'init', '-q'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', tmpDir, 'add', 'a.txt'], { stdio: 'ignore' });
+
+    const tracked = await listGitTrackedFiles(tmpDir);
+    expect(tracked?.has('a.txt')).toBe(true);
+    expect(tracked?.has('b.txt')).toBe(false); // untracked
   });
 });

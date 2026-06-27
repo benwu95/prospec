@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-22
-story_count: 11
-req_count: 27
+last_updated: 2026-06-27
+story_count: 13
+req_count: 30
 ---
 
 # 專案啟動
@@ -340,22 +340,73 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 - WHEN 檢查 import, THEN `cli` 與 `services` 皆 import `types/version`，無 `cli → lib` 違規（lint 守門）
 
 #### REQ-SERVICES-035: Upgrade Orchestrator Service
-`upgrade.service.execute({ cwd })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION` 並 `writeConfig`（comment-preserving，canonical 重序列化＝格式至最新版）；(3) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(4) `buildReport`：version delta（from→to）、缺觸發詞的新 skill 清單。完全不寫 `prospec/ai-knowledge/` 任何 doc、不寫 CONSTITUTION。
+`upgrade.service.execute({ cwd, interactive? })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION`；(3) 互動模式逐一提示補齊缺漏的策展欄位（`UPGRADE_NUDGE_RULES`），套用答案；(4) `writeConfig`（comment-preserving 就地合併，保留註解；見 REQ-LIB-022）；(5) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(6) best-effort 刷新 `raw-scan.md`（`generateRawScan`，等價 `--raw-scan-only`；非致命，回傳 `rawScanRefreshed`）；(7) `buildReport`（post-prompt）：version delta（from→to）、缺觸發詞 skill 清單、config-field nudges（`detectNudges`）。不寫任何 CURATED doc 或 CONSTITUTION；唯一 `prospec/ai-knowledge/` 寫入是決定性、可隨時重生的 `raw-scan.md`。
 
 **Scenarios:**
-- WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION` 且 agent sync 已跑
-- WHEN execute 執行, THEN `prospec/ai-knowledge/` 下任何 doc 與 CONSTITUTION.md 內容零變更（byte 不變）
-- WHEN report 產出, THEN 含 version{from,to} 與缺 `skill_triggers` 條目的 skill 清單（非英文時）
-- WHEN orchestrate, THEN 呼叫 `agentSync` 且依賴方向 `cli → services` 不破（不呼叫 knowledge init、不渲染 canonical docs）
+- WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`、agent sync 已跑、`raw-scan.md` 已刷新
+- WHEN execute 執行, THEN CURATED doc（CONSTITUTION/_index/_conventions/canonical convention docs/module README）byte 不變（唯一 `ai-knowledge/` 寫入是 `raw-scan.md`）
+- WHEN `generateRawScan` 失敗, THEN `rawScanRefreshed` 為 false 且 upgrade 仍成功（version + agent sync 不受影響）
+- WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、與缺漏策展欄位的 nudges
+- WHEN orchestrate, THEN 呼叫 `agentSync` + `generateRawScan` 且依賴方向 `cli → services` 不破（不渲染 canonical docs、不跑 LLM knowledge generate）
 
 #### REQ-SETUP-019: prospec upgrade Command
-`prospec upgrade`（zero-LLM）CLI 指令。職責僅限：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`、以 canonical 格式重新序列化；(2) 執行 `agent sync`（zone-1 重生）。不自動改寫任何 init 建立的 doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。輸出 report（version delta、缺觸發詞 skill）+ 下一步 `/prospec-upgrade`。
+`prospec upgrade`（zero-LLM）CLI 指令。職責：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`，以 **comment-preserving 就地合併**持久化（保留使用者註解與排版，見 REQ-LIB-022）；(2) 執行 `agent sync`（zone-1 重生）並 best-effort 刷新 `raw-scan.md`（決定性，等價 `--raw-scan-only`，對齊新版掃描器）；(3) 輸出 report（version delta、缺觸發詞 skill、config-field nudges）+ 下一步 `/prospec-upgrade`。在互動式 TTY 逐一提示補齊缺漏的策展欄位（見 REQ-SETUP-021）；`--no-interactive`（及非 TTY stdin）強制 report-only，故 `/prospec-upgrade` skill 與 CI 不阻塞。不自動改寫任何 init 建立的 CURATED doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。
 
 **Scenarios:**
-- WHEN 在已初始化專案執行 `prospec upgrade`, THEN `.prospec.yaml` `version` 更新為 `PROSPEC_VERSION` 並以 canonical 格式重寫、跑 agent sync、印 report，exit 0
+- WHEN 在已初始化專案執行 `prospec upgrade --no-interactive`, THEN `.prospec.yaml` `version` 更新且使用者註解保留、跑 agent sync、刷新 `raw-scan.md`、印 report，exit 0
+- WHEN 在互動式 TTY 執行且有缺漏的策展欄位, THEN 像 `prospec init` 一樣逐一提示補齊（如 artifact_language）
 - WHEN 在未初始化專案（無 `.prospec.yaml`）執行, THEN `ConfigNotFound` 阻擋並提示 `prospec init`，不寫任何檔
-- WHEN agent sync 因無 agent 設定失敗, THEN 透傳 `PrerequisiteError`（actionable，非 stack trace）
-- WHEN 執行 upgrade, THEN 不寫任何 `prospec/ai-knowledge/` doc 或 CONSTITUTION（僅動 `.prospec.yaml` + zone-1 agent-sync 產物）
+- WHEN 執行 upgrade, THEN 不寫任何 CURATED doc 或 CONSTITUTION（唯一 `prospec/ai-knowledge/` 寫入是決定性可重生的 `raw-scan.md`；其餘僅動 `.prospec.yaml` + zone-1 agent-sync 產物）
+
+---
+
+### US-013: 升級時互動補齊缺漏的策展設定 [P1]
+
+身為升級舊版 prospec 專案的開發者，
+我希望 `prospec upgrade` 偵測我從未設定的策展型 `.prospec.yaml` 欄位並在終端機逐一提示我填寫，
+以便我不必進 AI agent 也能在升級當下完成設定，且既有選擇永不被嘮叨。
+
+**Acceptance Scenarios:**
+- WHEN `.prospec.yaml` 無 `artifact_language` 且在 TTY 升級, THEN 提示輸入語言（預設 English），答案寫回
+- WHEN 帶 `--no-interactive`／非 TTY, THEN 不提示、只印含該 nudge 的 report
+- WHEN 專案已明確選擇任一語言（含 English）, THEN 不報 nudge、不提示
+
+#### REQ-SETUP-020: 升級 config-field nudge 策展 registry
+`prospec upgrade` 以策展型 `UPGRADE_NUDGE_RULES`（services）偵測 pre-feature 專案缺漏的選填欄位並回報於 `UpgradeReport.nudges`（`detectNudges`）。**刻意策展、非「任何缺欄位」**：有合理預設者（`paths.base_dir`／`knowledge`／`exclude`）或缺失即硬錯誤者（`agents`）不入列。首例 `artifact_language`；lib `isArtifactLanguageUnset(config)` 區分「欄位缺失／空白」與「明確選 English」。
+
+**Scenarios:**
+- WHEN `artifact_language` 缺失, THEN `detectNudges` 回傳含該 field 一筆；明確設值（含 English）→ 空陣列
+- WHEN unset（解析為 English）, THEN `missingTriggers` 必為空（兩訊號實務互斥）
+- WHEN 新增策展欄位, THEN 僅需加一筆 rule，report／formatter／互動／skill 皆 iterate
+
+#### REQ-SETUP-021: 升級互動式補齊與 `--no-interactive`
+互動式 TTY 下，`prospec upgrade` 對每個命中的 nudge 逐一提示（`NudgeRule.prompt()` 回傳 config patch；`artifact_language` = 文字輸入，預設 English），仿 `prospec init`。CLI 以 `!--no-interactive && process.stdin.isTTY` 判斷互動；`UpgradeResult.resolvedNudges` 確認已填欄位。`/prospec-upgrade` skill 改以 `--no-interactive` 呼叫，永不阻塞；trigger 翻譯仍屬該 skill（LLM）。
+
+**Scenarios:**
+- WHEN 互動填入非英文語言, THEN 寫回設定檔，report 隨即以 `missingTriggers` 列出所有待在地化 skill
+- WHEN 互動接受預設（空輸入）, THEN 寫入 `English`，nudge 自我終結
+- WHEN `--no-interactive`／非 TTY, THEN 不呼叫提示、只印報告，不阻塞 skill／CI
+
+---
+
+### US-014: 升級保留 `.prospec.yaml` 註解 [P1]
+
+身為在 `.prospec.yaml` 寫了註解的開發者，
+我希望 `prospec upgrade` 只 bump `version` 時不要清掉我的註解與排版，
+以便升級不會默默破壞我手寫維護的設定檔。
+
+**Acceptance Scenarios:**
+- WHEN 對含 top-level 與 inline 註解的 `.prospec.yaml` 升級, THEN 註解全數保留、`version` 更新、其餘行不變
+- WHEN `writeConfig` 寫入既有檔, THEN 僅變動到的純量值被改寫、未變動鍵與順序保留
+- WHEN 目標檔不存在, THEN 退回全新序列化
+
+#### REQ-LIB-022: writeConfig 就地合併保留註解（mergeIntoDocument）
+lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Document——純量變更只改值（保留節點與註解）、巢狀 map 遞迴、陣列／型別變更整塊重建、物件未含的鍵刪除；無 top-level map 時退回整體替換。`writeConfig` 改用之，使既有 `.prospec.yaml` 註解與排版在覆寫時保留。
+
+**Scenarios:**
+- WHEN 只變更一個純量, THEN top-level 與 inline 註解全保留、僅該值改寫
+- WHEN 新增鍵, THEN 尾端插入、未動既有鍵與註解；物件不含的鍵被刪除
+- WHEN 目標檔不存在, THEN 退回全新序列化
 
 ---
 
@@ -413,3 +464,5 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 | 2026-06-22 | fix-init-clobber-add-upgrade | init per-file idempotency guard + version=prospec-version + prospec upgrade CLI | US-011/012; REQ-SETUP-018/019, REQ-TYPES-037/036, REQ-SERVICES-035 (ADDED), REQ-SETUP-004 (MODIFIED) |
 | 2026-06-22 | preserve-agent-config-edits | init 的 `AGENTS.md` 改為 managed 合併（既有內容遷入 `prospec:user` 區塊、stub 入 auto），trust-zone 維持 skip-if-exists | REQ-SETUP-018 (MODIFIED) |
 | 2026-06-22 | remove-deprecated-steering-command | 移除 deprecated `prospec steering` 指令與專屬死碼；退役 architecture.md 生成與 .prospec.yaml per-module paths 回寫（刻意捨棄） | US-004 (REMOVED); REQ-SETUP-008/009/010 (REMOVED) |
+| 2026-06-27 | upgrade-config-nudges | upgrade 互動補齊缺漏策展設定（nudge registry + `--no-interactive`）、writeConfig 就地合併保留註解；更正 REQ-SETUP-019/SERVICES-035 的 canonical-rewrite 說法 | US-013/014 (ADDED); REQ-SETUP-020/021、REQ-LIB-022 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
+| 2026-06-27 | upgrade-refresh-raw-scan | `prospec upgrade` best-effort 刷新 `raw-scan.md`（決定性，對齊新版掃描器）；將「不寫 ai-knowledge doc」收斂為「不寫 curated doc」 | REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |

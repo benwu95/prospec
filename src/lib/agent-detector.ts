@@ -10,9 +10,9 @@ export interface AgentInfo {
 
 const AGENT_DIRS: { id: string; name: string; dir: string }[] = [
   { id: 'claude', name: 'Claude Code', dir: '.claude' },
-  { id: 'antigravity', name: 'Antigravity CLI', dir: '.gemini/antigravity-cli' },
-  { id: 'copilot', name: 'GitHub Copilot CLI', dir: '.copilot' },
   { id: 'codex', name: 'Codex CLI', dir: '.codex' },
+  { id: 'copilot', name: 'GitHub Copilot CLI', dir: '.copilot' },
+  { id: 'antigravity', name: 'Antigravity CLI', dir: '.gemini/antigravity-cli' },
 ];
 
 /**

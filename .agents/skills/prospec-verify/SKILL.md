@@ -279,4 +279,3 @@ on **Y**, invoke it in this session; on **n**, stop and leave the suggestion —
 the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
 rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
 point to the corrective step instead of offering the next skill.
-

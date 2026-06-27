@@ -5,7 +5,7 @@ import { ProspecConfigSchema, DEFAULT_ARTIFACT_LANGUAGE, DEFAULT_BASE_DIR } from
 import type { ProspecConfig } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
-import { parseYaml, parseYamlDocument, stringifyYamlDocument } from './yaml-utils.js';
+import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 
 const CONFIG_FILENAME = '.prospec.yaml';
 
@@ -54,6 +54,21 @@ export function resolveArtifactLanguage(config: ProspecConfig): string {
  */
 export function isDefaultArtifactLanguage(language: string): boolean {
   return language.trim().toLowerCase() === DEFAULT_ARTIFACT_LANGUAGE.toLowerCase();
+}
+
+/**
+ * Whether `.prospec.yaml` carries no artifact-language choice at all — the
+ * `artifact_language` field is absent or blank, as opposed to an explicit value
+ * like "English". Distinct from `isDefaultArtifactLanguage`, which collapses
+ * "unset" and "explicitly English" into one (both resolve to English).
+ *
+ * True only for a project that predates the `artifact_language` feature: `prospec
+ * init` always writes the field, so its absence means an older CLI scaffolded the
+ * project and the user never had the chance to pick a language. `prospec upgrade`
+ * uses this to nudge such a project that it can opt into a non-English language.
+ */
+export function isArtifactLanguageUnset(config: ProspecConfig): boolean {
+  return (config.artifact_language ?? '').trim() === '';
 }
 
 /**
@@ -111,7 +126,9 @@ export function validateConfig(
 /**
  * Write config to .prospec.yaml using atomic write.
  *
- * If the file already exists, uses Document API to preserve comments.
+ * If the file already exists, the config is merged into the existing Document in
+ * place: only changed values are rewritten, so user comments and formatting on
+ * untouched lines survive (e.g. `prospec upgrade` bumping just `version`).
  * Otherwise writes a fresh YAML file.
  */
 export async function writeConfig(
@@ -124,10 +141,9 @@ export async function writeConfig(
 
   try {
     const existing = await fs.promises.readFile(configPath, 'utf-8');
-    // Preserve comments by using Document API
+    // Merge into the existing Document in place so comments/formatting survive.
     const doc = parseYamlDocument(existing, configPath);
-    // Update document contents with new config values
-    doc.contents = doc.createNode(config) as typeof doc.contents;
+    mergeIntoDocument(doc, config as unknown as Record<string, unknown>);
     output = stringifyYamlDocument(doc);
   } catch {
     // File doesn't exist or can't be read — write fresh

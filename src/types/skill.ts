@@ -196,8 +196,8 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.claude/skills',
     configPath: 'CLAUDE.md',
   },
-  antigravity: {
-    name: 'antigravity',
+  codex: {
+    name: 'codex',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
   },
@@ -206,8 +206,8 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
   },
-  codex: {
-    name: 'codex',
+  antigravity: {
+    name: 'antigravity',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
   },

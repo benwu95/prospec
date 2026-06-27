@@ -811,6 +811,10 @@ describe('prospec upgrade E2E', () => {
     const lifecyclePath = path.join(tmpDir, 'prospec', 'ai-knowledge', '_status-lifecycle.md');
     await fs.promises.writeFile(lifecyclePath, 'CUSTOM\n');
 
+    // `init` does not create raw-scan.md — upgrade refreshes it (like agent sync)
+    const rawScanPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'raw-scan.md');
+    expect(fs.existsSync(rawScanPath)).toBe(false);
+
     const { stdout, exitCode } = await runCli(['upgrade']);
     expect(exitCode).toBe(0);
 
@@ -823,8 +827,66 @@ describe('prospec upgrade E2E', () => {
     // the init-created doc is byte-unchanged (consent-gated skill owns doc formats)
     expect(await fs.promises.readFile(lifecyclePath, 'utf-8')).toBe('CUSTOM\n');
 
+    // the deterministic raw-scan.md is now refreshed (the one allowed ai-knowledge write)
+    expect(fs.existsSync(rawScanPath)).toBe(true);
+    expect(stdout).toContain('raw-scan refreshed');
+
     expect(stdout).toContain('Upgrade report');
     expect(stdout).toContain('/prospec-upgrade');
+    // `init` wrote artifact_language: English, so this deliberate choice must NOT
+    // be nagged — it reports triggers up to date, never the unset-language nudge.
+    expect(stdout).toContain('skill triggers up to date');
+    expect(stdout).not.toContain('no artifact_language set');
+  });
+
+  it('nudges a pre-feature project (no artifact_language) that it can set one, and keeps the field absent', async () => {
+    // Hand-write a .prospec.yaml as a pre-feature CLI would: no artifact_language
+    // field at all. `prospec init` always writes the field, so this state can only
+    // come from an older CLI — exactly the user this nudge targets.
+    const configPath = path.join(tmpDir, '.prospec.yaml');
+    await fs.promises.writeFile(
+      configPath,
+      'version: 0.1.0\nproject:\n  name: legacy\nagents:\n  - claude\n',
+    );
+
+    // Use --no-interactive (the /prospec-upgrade skill's exact invocation): print
+    // the report, never prompt. The report path is what the skill parses.
+    const { stdout, exitCode } = await runCli(['upgrade', '--no-interactive']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('no artifact_language set');
+    expect(stdout).toContain('/prospec-upgrade');
+    // The misleading "up to date" line must not appear for an unset language.
+    expect(stdout).not.toContain('skill triggers up to date');
+
+    // Upgrade must NOT answer the prompt for the user: the field stays absent…
+    const afterFirst = parseYamlRaw(
+      await fs.promises.readFile(configPath, 'utf-8'),
+    ) as { artifact_language?: string };
+    expect(afterFirst.artifact_language).toBeUndefined();
+
+    // …so a second upgrade still surfaces the nudge (idempotent until opt-in).
+    const second = await runCli(['upgrade', '--no-interactive']);
+    expect(second.exitCode).toBe(0);
+    expect(second.stdout).toContain('no artifact_language set');
+  });
+
+  it('preserves user comments and formatting in .prospec.yaml across an upgrade', async () => {
+    const configPath = path.join(tmpDir, '.prospec.yaml');
+    await fs.promises.writeFile(
+      configPath,
+      '# my prospec config\nversion: 0.1.0\nproject:\n  name: legacy # the project name\nagents:\n  - claude\nartifact_language: English\n',
+    );
+
+    const { exitCode } = await runCli(['upgrade']);
+    expect(exitCode).toBe(0);
+
+    const after = await fs.promises.readFile(configPath, 'utf-8');
+    // Comments survive the version bump (writeConfig merges in place).
+    expect(after).toContain('# my prospec config');
+    expect(after).toContain('# the project name');
+    // The version was actually updated.
+    expect(after).toMatch(/version:\s*"?\d+\.\d+\.\d+/);
+    expect(after).not.toContain('0.1.0');
   });
 
   it('never rewrites the curated trust zone (CONSTITUTION / _index / _conventions)', async () => {

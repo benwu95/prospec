@@ -75,12 +75,12 @@ describe('detectAgents', () => {
     vol.fromJSON({}, '/');
     const agents = detectAgents();
     // Pin the concrete id->name mapping and order, not just types.
-    expect(agents.map((a) => a.id)).toEqual(['claude', 'antigravity', 'copilot', 'codex']);
+    expect(agents.map((a) => a.id)).toEqual(['claude', 'codex', 'copilot', 'antigravity']);
     expect(agents.map((a) => a.name)).toEqual([
       'Claude Code',
-      'Antigravity CLI',
-      'GitHub Copilot CLI',
       'Codex CLI',
+      'GitHub Copilot CLI',
+      'Antigravity CLI',
     ]);
     expect(agents.every((a) => typeof a.detected === 'boolean')).toBe(true);
   });

@@ -30,7 +30,7 @@
 - `CANONICAL_CONVENTION_DOCS` — single source for the canonical convention-doc list `prospec init` seeds
 - `SKILL_DEFINITIONS` — 17 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
 - `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
-- `AGENT_CONFIGS` — 4 agent configs (Claude, Antigravity, Copilot, Codex); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
+- `AGENT_CONFIGS` — 4 agent configs in canonical order (Claude, Codex, Copilot, Antigravity, matching `VALID_AGENTS` — which drives the zod enum error message); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
 - `ChangeMetadataSchema` — Zod schema for change `metadata.yaml`; incl. optional `quality_log` Entry/Exit gate trail (`GATE_RESULTS` = PASS/WARN/FAIL) and optional `scale` (`CHANGE_SCALES` = quick/standard/full/backfill; absent = standard, BL-004; `backfill` is a promotion-time scale set by `/prospec-promote-backfill`)
 - `ModuleMapSchema` — Zod schema for `module-map.yaml`
 - `ProspecError` — Base error class (code + suggestion fields); accepts an optional `{ cause }` forwarded to `Error` (ModuleDetectionError also threads `cause`, preserving the underlying failure)

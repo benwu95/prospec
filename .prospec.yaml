@@ -14,9 +14,9 @@ exclude:
   - .git
 agents:
   - claude
-  - antigravity
-  - copilot
   - codex
+  - copilot
+  - antigravity
 knowledge:
   base_path: prospec/ai-knowledge
 artifact_language: Traditional Chinese (Taiwan)
