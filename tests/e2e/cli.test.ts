@@ -811,6 +811,10 @@ describe('prospec upgrade E2E', () => {
     const lifecyclePath = path.join(tmpDir, 'prospec', 'ai-knowledge', '_status-lifecycle.md');
     await fs.promises.writeFile(lifecyclePath, 'CUSTOM\n');
 
+    // `init` does not create raw-scan.md — upgrade refreshes it (like agent sync)
+    const rawScanPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'raw-scan.md');
+    expect(fs.existsSync(rawScanPath)).toBe(false);
+
     const { stdout, exitCode } = await runCli(['upgrade']);
     expect(exitCode).toBe(0);
 
@@ -822,6 +826,10 @@ describe('prospec upgrade E2E', () => {
 
     // the init-created doc is byte-unchanged (consent-gated skill owns doc formats)
     expect(await fs.promises.readFile(lifecyclePath, 'utf-8')).toBe('CUSTOM\n');
+
+    // the deterministic raw-scan.md is now refreshed (the one allowed ai-knowledge write)
+    expect(fs.existsSync(rawScanPath)).toBe(true);
+    expect(stdout).toContain('raw-scan refreshed');
 
     expect(stdout).toContain('Upgrade report');
     expect(stdout).toContain('/prospec-upgrade');

@@ -36,6 +36,9 @@ export function formatUpgradeOutput(
     `${pc.green('✓')} version ${report.versionFrom} ${pc.dim('→')} ${report.versionTo}`,
   );
   lines.push(`${pc.green('✓')} agent sync (${result.agentSync.totalFiles} files)`);
+  if (result.rawScanRefreshed) {
+    lines.push(`${pc.green('✓')} raw-scan refreshed`);
+  }
 
   // Confirm any nudges the user filled in interactively this run.
   for (const resolved of result.resolvedNudges) {

@@ -13,6 +13,7 @@ import {
   execute as agentSyncExecute,
   type AgentSyncFullResult,
 } from './agent-sync.service.js';
+import { generateRawScan } from './raw-scan.service.js';
 import { SKILL_DEFINITIONS } from '../types/skill.js';
 
 export interface UpgradeOptions {
@@ -69,6 +70,12 @@ export interface UpgradeResult {
   nextStep: string;
   /** Nudges the user filled in via interactive prompts this run (empty otherwise). */
   resolvedNudges: ResolvedNudge[];
+  /**
+   * Whether the deterministic `raw-scan.md` refresh ran (best-effort, non-fatal).
+   * Like agent sync, this regenerates a generated artifact to the new prospec
+   * version's scanner output; it never touches curated docs.
+   */
+  rawScanRefreshed: boolean;
 }
 
 /**
@@ -79,11 +86,16 @@ export interface UpgradeResult {
  *    nudge (like `prospec init`); the answers patch the config before it is written.
  * 3. Persist via a comment-preserving in-place merge (comments/formatting kept).
  * 4. Re-run agent sync (zone-1 generated files; reflects any just-set language).
- * 5. Build a report (version delta, skills missing triggers, remaining nudges) for
+ * 5. Refresh the deterministic `raw-scan.md` (best-effort) so the project-structure
+ *    snapshot reflects the new version's scanner — same idea as re-running agent
+ *    sync. `--raw-scan-only` semantics: it writes ONLY raw-scan.md.
+ * 6. Build a report (version delta, skills missing triggers, remaining nudges) for
  *    the `/prospec-upgrade` skill, which handles the consent-gated updates.
  *
- * It deliberately does NOT touch any `prospec/ai-knowledge/` doc or CONSTITUTION —
- * init-created doc format updates require user consent and are the skill's job.
+ * It deliberately does NOT touch any CURATED `prospec/ai-knowledge/` doc (module
+ * READMEs, _index, _conventions, the canonical convention docs) or CONSTITUTION —
+ * those need user consent and are the skill's job. The only `ai-knowledge/` write
+ * is the deterministic, always-regenerable `raw-scan.md` (step 5).
  */
 export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -120,6 +132,18 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   // 5. Re-sync agent config (zone-1 generated files + trigger hints/warnings).
   const agentSync = await agentSyncExecute({ cwd });
 
+  // 5b. Refresh the deterministic raw-scan.md (no LLM) so the project-structure
+  //     snapshot reflects the new version's scanner — mirrors the archive safety
+  //     net. Non-fatal: a scan failure must never block the upgrade, and it writes
+  //     ONLY raw-scan.md (never a curated doc).
+  let rawScanRefreshed = false;
+  try {
+    await generateRawScan({ cwd });
+    rawScanRefreshed = true;
+  } catch {
+    // Raw-scan refresh failure is non-fatal — the version bump + agent sync stand.
+  }
+
   // 6. Build the report from the POST-prompt config: a language set in step 3 now
   //    resolves here, so missingTriggers/nudges reflect what is still outstanding
   //    (e.g. a freshly-set non-English language surfaces every skill's triggers).
@@ -136,6 +160,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     agentSync,
     nextStep: '/prospec-upgrade',
     resolvedNudges,
+    rawScanRefreshed,
   };
 }
 

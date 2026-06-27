@@ -17,10 +17,23 @@ vi.mock('../../../src/services/agent-sync.service.js', () => ({
   execute: vi.fn().mockResolvedValue({ agents: [], totalFiles: 3, warnings: [], hints: [] }),
 }));
 
+// Stub the deterministic raw-scan refresh — fast-glob bypasses memfs, so the real
+// generateRawScan would scan the actual filesystem; the refresh wiring is asserted
+// via this mock instead.
+vi.mock('../../../src/services/raw-scan.service.js', () => ({
+  generateRawScan: vi.fn().mockResolvedValue({
+    configFiles: [],
+    outputFile: 'prospec/ai-knowledge/raw-scan.md',
+    dryRun: false,
+    files: [],
+  }),
+}));
+
 // Stub the interactive prompt; interactive-mode tests set its resolved value.
 vi.mock('@inquirer/prompts', () => ({ input: vi.fn() }));
 
 import { execute as agentSyncExecute } from '../../../src/services/agent-sync.service.js';
+import { generateRawScan } from '../../../src/services/raw-scan.service.js';
 import { input } from '@inquirer/prompts';
 
 const KB = '/project/prospec/ai-knowledge';
@@ -46,6 +59,13 @@ function seedProject(opts: { version?: string } = {}): void {
 beforeEach(() => {
   vol.reset();
   vi.mocked(input).mockReset();
+  vi.mocked(generateRawScan).mockReset();
+  vi.mocked(generateRawScan).mockResolvedValue({
+    configFiles: [],
+    outputFile: 'prospec/ai-knowledge/raw-scan.md',
+    dryRun: false,
+    files: [],
+  });
   vi.mocked(agentSyncExecute).mockResolvedValue({
     agents: [],
     totalFiles: 3,
@@ -55,7 +75,7 @@ beforeEach(() => {
 });
 
 describe('upgrade.service', () => {
-  it('records the prospec version in .prospec.yaml and runs agent sync', async () => {
+  it('records the prospec version, runs agent sync, and refreshes raw-scan', async () => {
     seedProject({ version: '0.1.0' });
 
     const result = await execute({ cwd: '/project' });
@@ -64,14 +84,31 @@ describe('upgrade.service', () => {
     expect(result.report.versionTo).toBe(PROSPEC_VERSION);
     expect((await readConfig('/project')).version).toBe(PROSPEC_VERSION);
     expect(agentSyncExecute).toHaveBeenCalledWith({ cwd: '/project' });
+    // raw-scan.md is refreshed to the new version's scanner (like agent sync).
+    expect(generateRawScan).toHaveBeenCalledWith({ cwd: '/project' });
+    expect(result.rawScanRefreshed).toBe(true);
     expect(result.nextStep).toBe('/prospec-upgrade');
   });
 
-  it('NEVER writes any ai-knowledge doc or CONSTITUTION (CLI touches only .prospec.yaml + zone-1)', async () => {
+  it('a raw-scan refresh failure is non-fatal — the version bump + agent sync still stand', async () => {
+    seedProject({ version: '0.1.0' });
+    vi.mocked(generateRawScan).mockRejectedValueOnce(new Error('scan blew up'));
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.rawScanRefreshed).toBe(false);
+    expect(result.report.versionTo).toBe(PROSPEC_VERSION);
+    expect((await readConfig('/project')).version).toBe(PROSPEC_VERSION);
+  });
+
+  it('NEVER writes a CURATED ai-knowledge doc or CONSTITUTION (only .prospec.yaml + zone-1 + raw-scan)', async () => {
     seedProject({ version: '0.1.0' });
 
     await execute({ cwd: '/project' });
 
+    // raw-scan.md is the one allowed ai-knowledge write (mocked here); the curated
+    // docs below must stay byte-identical — they are the consent-gated skill's job.
+    expect(generateRawScan).toHaveBeenCalledWith({ cwd: '/project' });
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
     expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');

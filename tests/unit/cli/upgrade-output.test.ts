@@ -46,6 +46,7 @@ function baseResult(
     agentSync: { agents: [], totalFiles: 3, warnings: [], hints: [] },
     nextStep: '/prospec-upgrade',
     resolvedNudges: [],
+    rawScanRefreshed: true,
     ...resultOverrides,
   };
 }
@@ -61,6 +62,17 @@ describe('formatUpgradeOutput', () => {
     expect(text).toContain('0.4.1');
     expect(text).toContain('Upgrade report');
     expect(text).toContain('/prospec-upgrade');
+  });
+
+  it('confirms the raw-scan refresh when it ran, and omits the line when it did not', () => {
+    const shown = captureStreams();
+    formatUpgradeOutput(baseResult({}, { rawScanRefreshed: true }), 'normal');
+    expect(shown.stdout()).toContain('raw-scan refreshed');
+    vi.restoreAllMocks();
+
+    const hidden = captureStreams();
+    formatUpgradeOutput(baseResult({}, { rawScanRefreshed: false }), 'normal');
+    expect(hidden.stdout()).not.toContain('raw-scan refreshed');
   });
 
   it('prints a config-field nudge (no artifact_language) instead of a misleading "up to date"', () => {
