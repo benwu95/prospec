@@ -8,17 +8,17 @@
 
 | File | Purpose |
 |------|---------|
-| `src/lib/config.ts` | readConfig(), resolveBasePaths(), resolveArtifactLanguage(), isDefaultArtifactLanguage() |
+| `src/lib/config.ts` | readConfig(), writeConfig() (comment-preserving in-place merge via mergeIntoDocument), resolveBasePaths(), resolveArtifactLanguage(), isDefaultArtifactLanguage(), isArtifactLanguageUnset() (field absent/blank vs explicit) |
 | `src/lib/fs-utils.ts` | atomicWrite(), ensureDir(), fileExists(), readFileIfExists() — read-or-empty (ENOENT→'', other errors propagate so an unreadable file is never mistaken for absent and clobbered) |
 | `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates; resolveTemplatesDir() resolves the templates root via fileURLToPath |
 | `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration, appending any surplus existing user sections; mergeManagedDoc() — managed-doc (CLAUDE.md/AGENTS.md) merge: in-place auto-block swap preserving the user block, or migrate marker-less existing content INTO the user block (vs mergeContent which discards it); hasAutoBlock()/replaceAutoBlock() — the single-source auto-block matcher (built from the marker constants, function-replacer) shared with knowledge-update.service |
 | `src/lib/key-exports.ts` | deriveKeyExports() — shared Recipe-First key-exports derivation (used by both knowledge generate + knowledge-update) |
-| `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API |
+| `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API; mergeIntoDocument() — in-place object→Document reconcile (mutate changed scalars, recurse maps, rebuild arrays/type-changes, delete removed keys) preserving comments/formatting |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir; `detectByDomain` decouples module NAME from path GLOB (one `**/<real-dir-segment>/**` per actual dir, unioned when several normalize to one name); `normalizeDomainName` strips a layer suffix only at a `-`/`_`/camelCase boundary (so `preview`/`reviews` survive); when no path is passed, the default `knowledgeBasePath` derives from `DEFAULT_BASE_DIR` (`prospec/ai-knowledge`) |
 | `src/lib/detector.ts` | detectTechStack(cwd, config, files?) + hasCFamilySource() — config-first stack (`.prospec.yaml` wins); auto-detects 11 languages incl. backend (Go/Rust/Java/C#/Ruby/PHP/C/C++/Swift) by manifest + C-vs-C++ extension heuristic; tree-wide pom/csproj/Package.swift via `files` |
 | `src/lib/manifest-parsers.ts` | Deterministic, no-network dependency/entry-point parsers — TOML (pyproject Poetry+PEP621, Cargo) via smol-toml, XML (pom.xml/*.csproj) via fast-xml-parser, hand-rolled go.mod/requirements.txt/composer.json/vcpkg.json/conanfile.txt; return `[]` on malformed |
-| `src/lib/agent-detector.ts` | detectAgents() — Claude, Antigravity, Copilot, Codex presence check |
+| `src/lib/agent-detector.ts` | detectAgents() — Claude, Codex, Copilot, Antigravity presence check (canonical agent order) |
 | `src/lib/constitution-rules.ts` | exampleRulesFor() starter rules + languagePolicyRule() — the [MUST] Language Policy rule init seeds first |
 | `src/lib/logger.ts` | createLogger() — quiet/normal/verbose with colored symbols (picocolors; auto-disabled on non-TTY via NO_COLOR set at CLI entry, see cli/setup-color.ts) |
 | `src/lib/token-accounting.ts` | Pure measurement math — savingRatio(), cacheHitRate(), effectiveInputCostUsd(), naive-rag keyword ranking |
@@ -43,7 +43,9 @@
 - `detectTechStack(cwd, configTechStack?, files?)` — Resolve language/framework/package manager across 11 languages (incl. backend); `.prospec.yaml` tech_stack wins, detection fills gaps; `source` = config/auto-detected/mixed; `hasCFamilySource(files)` — shared C/C++ source-evidence predicate
 - `parse{Pyproject,Cargo,GoMod,RequirementsTxt,Composer,Maven,Csproj,Vcpkg,ConanfileTxt}Dependencies(content)` → `ManifestDependency[]`; `parse{Pyproject,Cargo}EntryPoints` / `csprojIsExecutable` — per-ecosystem extraction, all pure + malformed-safe
 - `exampleRulesFor(techStack)` — Stack-appropriate starter rules; `languagePolicyRule(language)` — [MUST] artifact-language rule
-- `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check)
+- `resolveArtifactLanguage(config)` / `isDefaultArtifactLanguage(lang)` — language accessor (trim, blank→English; case-insensitive default check); `isArtifactLanguageUnset(config)` — true when `artifact_language` is absent/blank (vs explicit English), the pre-feature-project discriminator the upgrade nudge fires on
+- `writeConfig(config, cwd)` — persist `.prospec.yaml`; merges into the existing Document in place via `mergeIntoDocument` so user comments/formatting survive (fresh write when the file is absent)
+- `mergeIntoDocument(doc, value)` — apply a plain object to a YAML Document in place, preserving comments where structure is unchanged
 - `escapeYamlScalar(text)` — escape user text for double-quoted YAML scalars in noEscape templates
 - `savingRatio() / cacheHitRate() / effectiveInputCostUsd(usage, pricing)` — deterministic token accounting; `rankByRelevance()` / `selectWithinBudget()` — naive-rag scoring with codepoint tie-break
 - `runChecks(inputs)` — eight drift evaluators → validated DriftReport (incl. `evaluateDanglingPrefix` warn + `evaluateFeatureModules` fail, both skip when feature-map governance unavailable; `evaluateReadmeCounts` warn — README declared-count veracity, BL-043); `buildDependencyRules()` / `constitutionFallbackRules()` — module-map depends_on vs cli→services→lib→types fallback

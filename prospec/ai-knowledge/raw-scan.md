@@ -51,6 +51,7 @@
 ## Directory Tree
 
 ```
+docs/
 planning/
 prospec/
   ai-knowledge/
@@ -102,5 +103,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 328 |
+| Total files | 334 |
 | Scan depth | 10 |

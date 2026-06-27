@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 73 test files, 1,748 tests (unit 1137, contract 554, integration 16, e2e 41)
+> 4-layer test architecture using Vitest + memfs — 74 test files, 1,772 tests (unit 1159, contract 554, integration 16, e2e 43)
 
 <!-- prospec:auto-start -->
 
@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `tests/unit/lib/config.test.ts` | Config resolution and validation (20 tests) |
+| `tests/unit/lib/config.test.ts` | Config resolution and validation, incl. `isArtifactLanguageUnset` (absent/blank vs explicit) + `writeConfig` comment-preserving merge (keeps comments, adds key, deletes removed key) (26 tests) |
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes, incl. boundary-anchored relationships + barrel imports (26 tests) |
 | `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + non-fatal raw-scan refresh wiring + BL-043 related_modules forwarded to the auto knowledge-update (70 tests) |
 | `tests/unit/services/raw-scan.service.test.ts` | Deterministic `generateRawScan` — regenerate raw-scan.md, dry-run, depth, curated files byte-identical (never created), fixpoint idempotency (9 tests) |
@@ -19,14 +19,14 @@
 | `tests/unit/cli/output-sanitization.test.ts` | `measure`/error output strips control chars before printing (control-char-injection regression) |
 | `tests/unit/types/knowledge.test.ts` | Canonical _index column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/unit/types/version.test.ts` | `PROSPEC_VERSION` single-source — read from the package's own package.json, semver-shaped (BL-044) |
-| `tests/unit/services/upgrade.service.test.ts` | Upgrade orchestrator — records `version` + runs agentSync, NEVER writes a doc/CONSTITUTION (zone-1 only), partial-localization missing-triggers report, absent version → "unknown", uninitialized → ConfigNotFound; + `detectMissingTriggers` (BL-044) |
+| `tests/unit/services/upgrade.service.test.ts` | Upgrade orchestrator — records `version` + runs agentSync, NEVER writes a doc/CONSTITUTION (zone-1 only), partial-localization missing-triggers report, absent version → "unknown", uninitialized → ConfigNotFound; config-field nudge registry (`detectNudges` fires for absent artifact_language, silent when explicit), interactive fill (mock inquirer — non-English → all skills surface, empty → English self-terminates), field stays absent across re-runs, comment preservation; + `detectMissingTriggers` (BL-044, upgrade-config-nudges) |
 | `tests/integration/upgrade-flow.test.ts` | CLI bump + new skill end-to-end — records version, runs agent sync, flags the new skill, never touches docs (BL-044) |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |
 | `tests/contract/skill-format.test.ts` | All 17 skills format validation (incl. `excludeFromEntryConfig` — prospec-quickstart + prospec-upgrade are the entry-excluded pair, BL-044), incl. Output Contract + Startup Loading ordering (markers, STABLE-before-DYNAMIC, set-vs-baseline, contiguity) + BL-038 gate semantics + BL-004 scale/kind contract (frozen kind schema, quick gates, lifecycle-copy sync) + BL-029 flywheel block (relocated ledger path, archive Phase 4.5 auto-harvest, learn Entry Gate ledger-OR-archive, negative no-auto-write `_conventions.md`, archive self-contained promotion-format ref REQ-AGNT-015) + instruction-quality pass (ff Phase-1 start, per-phase gates on 8 skills, Constitution-empty prompt, status-aware handoff, entry session-detection, implement progress anchoring) + vendored engineering-heuristic references (full-MIT + SHA in each rendered ref, severity-mapped review lenses, on-demand-not-Startup-Loading citations, no `agent-skills:` runtime dep; REQ-TEMPLATES-083/084/085, REQ-AGNT-022) + BL-034 dependency-layer on-demand Context7 (section-scoped plan/implement assertions + negative no-Context7-in-Startup-Loading; REQ-TEMPLATES-101/102/103, REQ-TESTS-027); shared module-scope `sectionOf` helper (EOF-tolerant); prospec-backfill-spec section-scoped assertions (triangulation source→field, >50% denominator scoped to story-level intent, trust-zone never-write, route-compatible `backfill-draft.md`, WHAT-layer scoping; mutation-verified) + negative assertions that prospec-design no longer carries the variant (`input=code`/`Phase 2b-code`/`reverse-draft` absent) |
 | `tests/fixtures/startup-loading-baseline.json` | Pre-reorder loading-item baseline (81 items / 17 skills + MANDATORY counts) — regenerate when a loading item is intentionally added/removed |
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (incl. `### {Category}` grouping + canonical index-column single-source + Dependencies labels + `feature-map.yaml.hbs` format pin incl. empty `modules: []`, BL-040) |
-| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (43 tests, incl. `prospec quickstart` one-command onboarding + re-run skip, `prospec upgrade` (uninitialized-gate, version bump + report + `/prospec-upgrade` hint, zone-3 untouched), `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
+| `tests/e2e/cli.test.ts` | Real CLI in tmpdir (43 tests, incl. `prospec quickstart` one-command onboarding + re-run skip, `prospec upgrade` (uninitialized-gate, version bump + report + `/prospec-upgrade` hint, zone-3 untouched, `--no-interactive` pre-feature nudge + field stays absent, comment preservation, explicit-English not nagged), `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag codepoint-determinism (22 tests, TDD red-first) |
 | `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity); BL-040 adds feature-map collector + two evaluators (both severities mutation-verified); BL-043 adds the readme-counts collector/evaluator (declared-vs-actual count, string/template- and fenced-block-aware, WARN-only) |
 | `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, loadFeatureMap module-name safety (BL-043 traversal drop), searchModules distinct-term ranking, grouped-subtable parse resilience + attachModuleCategories join |
