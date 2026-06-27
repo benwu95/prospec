@@ -369,3 +369,41 @@ footer{ border-top:1px solid var(--line); padding-block:clamp(2.5rem,5vw,3.5rem)
   .btn:hover{ transform:none; } .btn:hover .arr{ transform:none; }
   .faq summary .pm, .faq details[open] summary .pm{ transition:none; }
 }
+
+/* ============================================================ i18n — language toggle */
+.lang{ display:none; }
+.js .lang{
+  display:inline-flex; align-items:center; gap:.32rem; cursor:pointer;
+  font-family:var(--font-mono); font-size:.8rem; font-weight:500; letter-spacing:.04em;
+  color:var(--faint); background:transparent; border:1px solid var(--line-2);
+  border-radius:var(--r); padding:.5rem .62rem; transition:border-color .16s, color .16s;
+}
+.lang:hover{ border-color:var(--seal); }
+.lang__sep{ color:var(--line-2); }
+.lang__en, .lang__zh{ transition:color .16s; }
+html[data-lang="en"] .lang__en{ color:var(--paper); }
+html[data-lang="zh"] .lang__zh{ color:var(--paper); }
+@media (pointer:coarse){ .js .lang{ min-height:2.6rem; } }
+
+/* ============================================================ i18n — Traditional Chinese typography
+   Latin glyphs keep the Latin stacks (Bricolage / IBM Plex); CJK glyphs fall
+   through to Noto Sans TC. CJK reads better without the Latin display tracking,
+   so loosen letter-spacing/leading and re-base ch-derived measures in em. */
+html[data-lang="zh"]{
+  --font-display:"Bricolage Grotesque","Noto Sans TC","Archivo",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans","Noto Sans TC",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --font-mono:"IBM Plex Mono","Noto Sans TC","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+html[data-lang="zh"] body{ line-height:1.8; }
+html[data-lang="zh"] h1,
+html[data-lang="zh"] h2,
+html[data-lang="zh"] h3,
+html[data-lang="zh"] h4{ letter-spacing:normal; line-height:1.3; }
+html[data-lang="zh"] .hero h1{ letter-spacing:normal; line-height:1.22; }
+html[data-lang="zh"] .eyebrow{ letter-spacing:.08em; }
+/* ch is sized off the Latin '0'; CJK advances are ~2× wider, so widen the measures */
+html[data-lang="zh"] .sec-head h2{ max-width:24em; }
+html[data-lang="zh"] .sec-head .lede{ max-width:40em; }
+html[data-lang="zh"] .hero .sub{ max-width:42em; }
+html[data-lang="zh"] .final h2{ max-width:18em; }
+html[data-lang="zh"] .final p{ max-width:36em; }
