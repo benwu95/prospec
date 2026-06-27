@@ -69,7 +69,7 @@ From zero to your first AI-driven change in about five minutes.
 ### Prerequisites
 
 - **Node.js** >= 22.13.0
-- An **AI CLI** (one or more): [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended), [Antigravity CLI](https://antigravity.google/), [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli), or [Codex CLI](https://developers.openai.com/codex/cli)
+- An **AI CLI** (one or more): [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended), [Codex CLI](https://developers.openai.com/codex/cli), [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli), or [Antigravity CLI](https://antigravity.google/)
 
 ### 1. Install
 
@@ -365,7 +365,7 @@ prospec upgrade                  # CLI (zero-LLM): record the new version + re-s
 /prospec-upgrade                 # in your AI agent: refresh init-doc formats + localize new-skill triggers (asks before each change)
 ```
 
-- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (rewritten in canonical format), re-runs `agent sync` so your per-agent config and Skills match the new templates, and prints a migration report (version delta + any newly-added skills missing native-language triggers). It **writes no docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `_index.md`, the canonical convention docs, or any module README.
+- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `_index.md`, the canonical convention docs, or any module README.
 - **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it scans the files `prospec init` created, compares them to the latest templates, and offers to update any whose **format** has drifted — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
 
 > `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
@@ -458,7 +458,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | Command | Description |
 |---------|-------------|
 | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
-| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (canonical format), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
+| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / _index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { execute, detectMissingTriggers } from '../../../src/services/upgrade.service.js';
+import { execute, detectMissingTriggers, detectNudges } from '../../../src/services/upgrade.service.js';
 import { readConfig } from '../../../src/lib/config.js';
 import { PROSPEC_VERSION } from '../../../src/types/version.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
@@ -17,7 +17,11 @@ vi.mock('../../../src/services/agent-sync.service.js', () => ({
   execute: vi.fn().mockResolvedValue({ agents: [], totalFiles: 3, warnings: [], hints: [] }),
 }));
 
+// Stub the interactive prompt; interactive-mode tests set its resolved value.
+vi.mock('@inquirer/prompts', () => ({ input: vi.fn() }));
+
 import { execute as agentSyncExecute } from '../../../src/services/agent-sync.service.js';
+import { input } from '@inquirer/prompts';
 
 const KB = '/project/prospec/ai-knowledge';
 
@@ -41,6 +45,7 @@ function seedProject(opts: { version?: string } = {}): void {
 
 beforeEach(() => {
   vol.reset();
+  vi.mocked(input).mockReset();
   vi.mocked(agentSyncExecute).mockResolvedValue({
     agents: [],
     totalFiles: 3,
@@ -85,6 +90,102 @@ describe('upgrade.service', () => {
     expect(report.missingTriggers).not.toContain('prospec-explore');
   });
 
+  it('fires the artifact_language nudge for a pre-feature project (and reports no missing triggers)', async () => {
+    // A project scaffolded by a pre-feature CLI: no artifact_language field at all.
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'version: 0.1.0\nproject:\n  name: legacy\nagents:\n  - claude\n',
+    });
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.nudges.map((n) => n.field)).toEqual(['artifact_language']);
+    // Unset resolves to English, so nothing is reported "missing" — the two
+    // signals are mutually exclusive in practice.
+    expect(report.missingTriggers).toEqual([]);
+    // Non-interactive: no prompt is shown — the report just names the nudge.
+    expect(input).not.toHaveBeenCalled();
+  });
+
+  it('interactive: prompts to fill an unset artifact_language and writes the answer', async () => {
+    vi.mocked(input).mockResolvedValue('日本語');
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'version: 0.1.0\nproject:\n  name: legacy\nagents:\n  - claude\n',
+    });
+
+    const result = await execute({ cwd: '/project', interactive: true });
+
+    expect(input).toHaveBeenCalledTimes(1);
+    expect((await readConfig('/project')).artifact_language).toBe('日本語');
+    expect(result.resolvedNudges).toEqual([{ field: 'artifact_language', value: '日本語' }]);
+    // Field is now set, so the nudge no longer fires…
+    expect(result.report.nudges).toEqual([]);
+    // …but a non-English language with no triggers yet surfaces every skill.
+    expect(result.report.missingTriggers).toContain('prospec-explore');
+  });
+
+  it('interactive: accepting the default (empty input) records English and self-terminates', async () => {
+    vi.mocked(input).mockResolvedValue(''); // user pressed Enter → falls back to English
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'version: 0.1.0\nproject:\n  name: legacy\nagents:\n  - claude\n',
+    });
+
+    const result = await execute({ cwd: '/project', interactive: true });
+
+    expect((await readConfig('/project')).artifact_language).toBe('English');
+    expect(result.resolvedNudges).toEqual([{ field: 'artifact_language', value: 'English' }]);
+    expect(result.report.nudges).toEqual([]);
+    expect(result.report.missingTriggers).toEqual([]); // English uses the baseline
+  });
+
+  it('interactive: does not prompt when no nudge fires (a language was already chosen)', async () => {
+    seedProject({ version: '0.1.0' }); // explicit Traditional Chinese (Taiwan)
+
+    await execute({ cwd: '/project', interactive: true });
+
+    expect(input).not.toHaveBeenCalled();
+  });
+
+  it('leaves a field-less config without artifact_language, so the nudge persists across re-runs', async () => {
+    // The nudge's central promise: upgrade must NOT silently "answer" the prompt
+    // by writing a language for the user. If the field were added (or written as
+    // null), the nudge would fire once and then vanish forever.
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'version: 0.1.0\nproject:\n  name: legacy\nagents:\n  - claude\n',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const afterFirst = await readConfig('/project');
+    expect(afterFirst.artifact_language).toBeUndefined();
+
+    // A second upgrade still fires the nudge — idempotent until the user opts in.
+    const { report: secondReport } = await execute({ cwd: '/project' });
+    expect(secondReport.nudges.map((n) => n.field)).toContain('artifact_language');
+  });
+
+  it('fires no nudge for a project that explicitly chose a language', async () => {
+    seedProject({ version: '0.1.0' }); // seeds artifact_language: Traditional Chinese (Taiwan)
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.nudges).toEqual([]);
+  });
+
+  it('preserves .prospec.yaml comments when recording the version', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        '# header comment\nversion: 0.1.0\nproject:\n  name: demo # inline\nagents:\n  - claude\n',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const raw = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(raw).toContain('# header comment');
+    expect(raw).toContain('# inline');
+    expect(raw).toContain(`version: ${PROSPEC_VERSION}`);
+    expect(raw).not.toContain('0.1.0');
+  });
+
   it('treats an absent version as "unknown"', async () => {
     seedProject(); // no version line
 
@@ -116,5 +217,23 @@ describe('detectMissingTriggers', () => {
     expect(missing).not.toContain('prospec-explore');
     expect(missing).toContain('prospec-plan'); // empty array counts as unset
     expect(missing).toContain('prospec-upgrade');
+  });
+});
+
+describe('detectNudges', () => {
+  const base = { project: { name: 'x' } };
+
+  it('fires the artifact_language nudge with a non-empty message when the field is absent', () => {
+    const nudges = detectNudges(base as ProspecConfig);
+    expect(nudges.map((n) => n.field)).toEqual(['artifact_language']);
+    expect(nudges[0]?.message).toContain('artifact_language');
+    expect(nudges[0]?.message.length).toBeGreaterThan(0);
+  });
+
+  it('fires no nudge when artifact_language is explicitly set (even to English)', () => {
+    expect(detectNudges({ ...base, artifact_language: 'English' } as ProspecConfig)).toEqual([]);
+    expect(
+      detectNudges({ ...base, artifact_language: 'Traditional Chinese (Taiwan)' } as ProspecConfig),
+    ).toEqual([]);
   });
 });

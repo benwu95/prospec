@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths } from '../../../src/lib/config.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -164,6 +164,47 @@ describe('writeConfig', () => {
     const content = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
     expect(content).toContain('name: new');
   });
+
+  it('preserves comments and untouched lines when only one value changes', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        '# Prospec project config\nversion: 0.1.0\nproject:\n  name: demo # the project name\nagents:\n  - claude\n',
+    });
+    // Mirror what `prospec upgrade` does: read, bump version, write back.
+    const cfg = await readConfig('/project');
+    cfg.version = '0.4.1';
+    await writeConfig(cfg, '/project');
+    const content = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(content).toContain('# Prospec project config'); // top-level comment kept
+    expect(content).toContain('# the project name'); // inline comment kept
+    expect(content).toContain('version: 0.4.1'); // changed value applied
+    expect(content).not.toContain('0.1.0'); // old value gone
+  });
+
+  it('adds a new key in place without dropping existing comments', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': '# header\nproject:\n  name: demo\n',
+    });
+    const cfg = await readConfig('/project');
+    cfg.artifact_language = 'Traditional Chinese (Taiwan)';
+    await writeConfig(cfg, '/project');
+    const content = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(content).toContain('# header');
+    expect(content).toContain('artifact_language: Traditional Chinese (Taiwan)');
+    expect(content).toContain('name: demo');
+  });
+
+  it('deletes a key that is no longer present in the config object', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: demo\nartifact_language: English\n',
+    });
+    const cfg = await readConfig('/project');
+    delete cfg.artifact_language;
+    await writeConfig(cfg, '/project');
+    const content = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
+    expect(content).not.toContain('artifact_language');
+    expect(content).toContain('name: demo');
+  });
 });
 
 describe('artifact_language and skill_triggers config fields', () => {
@@ -203,5 +244,24 @@ describe('artifact_language and skill_triggers config fields', () => {
   it('validates a legacy config (version: "1.0" or absent) for backward compatibility', () => {
     expect(validateConfig('version: "1.0"\nproject:\n  name: test\n').version).toBe('1.0');
     expect(validateConfig('project:\n  name: test\n').version).toBeUndefined();
+  });
+});
+
+describe('isArtifactLanguageUnset', () => {
+  it('is true when artifact_language is absent (a pre-feature project)', () => {
+    const config = validateConfig('project:\n  name: legacy\n');
+    expect(isArtifactLanguageUnset(config)).toBe(true);
+  });
+
+  it('is true when artifact_language is blank or whitespace-only', () => {
+    expect(isArtifactLanguageUnset(validateConfig('project:\n  name: t\nartifact_language: ""\n'))).toBe(true);
+    expect(isArtifactLanguageUnset(validateConfig('project:\n  name: t\nartifact_language: "   "\n'))).toBe(true);
+  });
+
+  it('is false for an explicit language — even the default English (a deliberate choice)', () => {
+    expect(isArtifactLanguageUnset(validateConfig('project:\n  name: t\nartifact_language: English\n'))).toBe(false);
+    expect(
+      isArtifactLanguageUnset(validateConfig('project:\n  name: t\nartifact_language: Traditional Chinese (Taiwan)\n')),
+    ).toBe(false);
   });
 });

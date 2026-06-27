@@ -24,12 +24,19 @@ export function registerUpgradeCommand(program: Command): void {
     .command('upgrade')
     .description('Refresh canonical docs + agent config to the current prospec version, then hand off to /prospec-upgrade')
     .option('--cwd <dir>', 'Project root to upgrade (default: current directory)')
-    .action(async (options: { cwd?: string }) => {
+    .option('--no-interactive', 'Never prompt; just print the migration report (for CI and the /prospec-upgrade skill)')
+    .action(async (options: { cwd?: string; interactive?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
+      // Prompt to fill nudges only on an interactive terminal (like `prospec init`),
+      // and never when --no-interactive is passed. A non-TTY stdin (piped, CI, or
+      // the skill's Bash call) falls back to the report — it never blocks on a prompt.
+      // commander maps --no-interactive to options.interactive === false.
+      const interactive = options.interactive !== false && Boolean(process.stdin.isTTY);
+
       try {
-        const result = await execute({ cwd: options.cwd });
+        const result = await execute({ cwd: options.cwd, interactive });
         formatUpgradeOutput(result, logLevel);
       } catch (err) {
         handleError(err, globalOpts.verbose ?? false);
