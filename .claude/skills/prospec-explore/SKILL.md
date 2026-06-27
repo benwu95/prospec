@@ -103,4 +103,3 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Constitution file not found | Note it and continue exploration without Constitution checks |
 | _index.md not found | Explore without module context, suggest running `prospec knowledge init` |
 | User wants to jump to implementation | Suggest at least creating a Story first via `/prospec-new-story` |
-

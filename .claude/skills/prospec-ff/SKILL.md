@@ -152,4 +152,3 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | Constitution severe violation at any phase | Pause FF, preserve completed parts, switch to single-phase Skill |
 | User changes requirements mid-flow | Restart from Phase 1 with new requirements |
 | Module Knowledge insufficient | Proceed with available info, note gaps in plan.md Risk Assessment |
-

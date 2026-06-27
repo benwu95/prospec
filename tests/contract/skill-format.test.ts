@@ -88,6 +88,19 @@ describe('Skill Format Contract', () => {
     }
   });
 
+  describe('Trailing newline', () => {
+    it('every skill template renders with exactly one trailing newline', () => {
+      for (const skill of SKILL_DEFINITIONS) {
+        const content = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+        expect(content.endsWith('\n'), `${skill.name} must end with a newline`).toBe(true);
+        expect(
+          content.endsWith('\n\n'),
+          `${skill.name} must not end with a trailing blank line`,
+        ).toBe(false);
+      }
+    });
+  });
+
   describe('Reference templates', () => {
     // each reference's distinctive title heading pins the correct template
     // rendered — a non-empty smoke check would also pass a swapped template

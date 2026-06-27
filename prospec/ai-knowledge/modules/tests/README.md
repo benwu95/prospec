@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 74 test files, 1,778 tests (unit 1165, contract 554, integration 16, e2e 43)
+> 4-layer test architecture using Vitest + memfs — 74 test files, 1,779 tests (unit 1165, contract 555, integration 16, e2e 43)
 
 <!-- prospec:auto-start -->
 
