@@ -322,7 +322,7 @@
     var saved;
     try { saved = localStorage.getItem(STORE_KEY); } catch (e) { saved = null; }
     if (saved === 'zh' || saved === 'en') return saved;
-    return /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+    return 'en';
   }
 
   var current = readLang();

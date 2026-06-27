@@ -19,7 +19,7 @@
     var h = document.documentElement;
     h.classList.add('js');
     try{
-      var l = localStorage.getItem('prospec-lang') || (/^zh/i.test(navigator.language || '') ? 'zh' : 'en');
+      var l = localStorage.getItem('prospec-lang') || 'en';
       h.dataset.lang = l;
       if(l === 'zh'){
         h.lang = 'zh-Hant';
