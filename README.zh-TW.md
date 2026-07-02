@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1821%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1824%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -228,6 +228,7 @@ your-project/
 ├── CLAUDE.md                  # Claude Code 配置（Layer 0，<100 行）
 ├── AGENTS.md                  # Antigravity / Codex / Copilot 配置（agents.md 標準）
 ├── {base_dir}/
+│   ├── README.md              # 給本專案讀者的 Prospec 簡短說明
 │   ├── CONSTITUTION.md        # 專案規則（使用者定義）
 │   ├── index.md               # AI 進入點與模組索引（Markdown 表格）
 │   ├── specs/
@@ -628,7 +629,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函數（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 模板（56 個 .hbs 檔案）
+└── templates/    — Handlebars 模板（58 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 模板 + 19 個 reference 模板
 ```
 
@@ -647,7 +648,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1821 個測試）
+# 執行所有測試（1824 個測試）
 pnpm test
 
 # Watch 模式
@@ -664,9 +665,9 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1821 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1192 tests
-- Contract tests（CLI 輸出 + Skill 格式）：569 tests
+**測試覆蓋率**：1824 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1193 tests
+- Contract tests（CLI 輸出 + Skill 格式）：571 tests
 - Integration tests：17 tests
 - E2E tests：43 tests
 

@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-07-02
+last_updated: 2026-07-03
 story_count: 15
-req_count: 33
+req_count: 34
 ---
 
 # 專案啟動
@@ -75,13 +75,13 @@ req_count: 33
 以便我能立即開始 Spec-Driven 開發流程。
 
 **Acceptance Scenarios:**
-- WHEN 在空目錄執行 `prospec init` THEN 建立 `.prospec.yaml`、AI Knowledge 目錄、Constitution、AGENTS.md
+- WHEN 在空目錄執行 `prospec init` THEN 建立 `.prospec.yaml`、AI Knowledge 目錄、Constitution、AGENTS.md、`{base_dir}/README.md`（Prospec 簡介）
 - WHEN `.prospec.yaml` 已存在 THEN 顯示警告並退出
 - WHEN 偵測到 package.json THEN 自動辨識為 TypeScript/Node
 - WHEN 偵測到已安裝的 AI CLI THEN 互動式選單讓使用者勾選
 
 #### REQ-SETUP-004: 建立專案結構
-執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、根層級 `{base_dir}/index.md`、`{base_dir}/ai-knowledge/`（含 `_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。寫入採 per-file skip-if-exists（見 REQ-SETUP-018）：既有檔一律保留、只建缺檔；單檔 gate（`.prospec.yaml` 存在即退出）行為不變。
+執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/README.md`（Prospec 簡介，見 REQ-SETUP-023）、根層級 `{base_dir}/index.md`、`{base_dir}/ai-knowledge/`（含 `_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。寫入採 per-file skip-if-exists（見 REQ-SETUP-018）：既有檔一律保留、只建缺檔；單檔 gate（`.prospec.yaml` 存在即退出）行為不變。
 
 **Scenarios:**
 - WHEN executing `prospec init` in empty directory, THEN create all required files and directories
@@ -89,6 +89,15 @@ req_count: 33
 - WHEN `CONSTITUTION.md` created, THEN contains Principles, Constraints, Quality Standards templates
 - WHEN `.prospec.yaml` already exists, THEN show warning and exit without modification (single-file gate unchanged)
 - WHEN `.prospec.yaml` is absent but curated files remain (recovery), THEN rebuild only the missing files; existing files stay byte-identical
+
+#### REQ-SETUP-023: 專案內 Prospec 簡介 README
+`prospec init` 在 `{base_dir}/README.md` 產生一份 English 簡介 README，讓採用專案的其他開發者就地理解 Prospec。內容濃縮自根 `README.md` 開頭的「What is Prospec?」——以 Skills / AI Knowledge / CLI 三元件協作說明 Prospec——並於結尾附指向 `https://github.com/benwu95/prospec` 的完整說明連結。此 doc 由 `INIT_DOC_REGISTRY` 的獨立 `base` 條目派生（`root: 'base'`, `output: 'README.md'`, 標準 init context, 非 `asKnowledgeInitDoc` 派生），沿用 init 既有 per-file skip-if-exists 與 upgrade docs inventory（皆依 registry 自動涵蓋）；template 全英文（REQ-TEMPLATES-073）。
+
+**Scenarios:**
+- WHEN executing `prospec init`, THEN create `{base_dir}/README.md` containing the Skills / AI Knowledge / CLI three-piece summary and the `https://github.com/benwu95/prospec` link
+- WHEN `{base_dir}/README.md` already exists, THEN per-file skip-if-exists preserves it byte-for-byte
+- WHEN executing `prospec upgrade`, THEN the docs inventory reports this README present/MISSING at its actual location (registry-derived)
+- WHEN inspecting `INIT_DOC_REGISTRY`, THEN README is a standalone `base` entry, not projected from a convention list via `asKnowledgeInitDoc`
 
 #### REQ-SETUP-005: 自動偵測技術棧
 自動偵測程式語言、框架與套件管理器，無法辨識時不阻斷初始化。
@@ -517,3 +526,4 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 | 2026-06-27 | upgrade-refresh-raw-scan | `prospec upgrade` best-effort 刷新 `raw-scan.md`（決定性，對齊新版掃描器）；將「不寫 ai-knowledge doc」收斂為「不寫 curated doc」 | REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-07-02 | fix-upgrade-doc-coverage | 升級文件覆蓋補全（issue #48）：`INIT_DOC_REGISTRY` 單一來源（root 判別 base/knowledge）、upgrade report 唯讀 docs inventory（實際位置、`knowledge.base_path`-aware）、init⇄registry 等式漂移防護 | US-015/016 (ADDED); REQ-TYPES-038、REQ-SETUP-022、REQ-TESTS-036 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-07-02 | dedupe-init-doc-registry | registry 平行重複收束（review F2/F3）：user-managed 清單升級為 `ConventionDocSource` 對並經 `asKnowledgeInitDoc` 推導、`InitDoc.context` 判別欄位取代範本路徑字串比對；行為逐位元不變 | REQ-TYPES-038 (MODIFIED，描述性) |
+| 2026-07-03 | add-init-project-readme | `prospec init` 產生專案內 Prospec 簡介 README（issue #50）：新增 `init/readme.md.hbs`、`INIT_DOC_REGISTRY` 獨立 base 條目（README.md），init create + upgrade docs inventory 自動涵蓋 | US-003; REQ-SETUP-023 (ADDED); REQ-SETUP-004 (MODIFIED) |

@@ -48,6 +48,7 @@ function seedProject(opts: { version?: string } = {}): void {
       'project:\n  name: demo\nagents:\n  - claude\n' +
       'artifact_language: Traditional Chinese (Taiwan)\n' +
       'skill_triggers:\n  prospec-explore: [探索]\n',
+    '/project/prospec/README.md': '# CURATED readme\n',
     '/project/prospec/CONSTITUTION.md': '# CURATED principles\n',
     '/project/prospec/index.md': '# CURATED index\n',
     [`${KB}/_conventions.md`]: '# CURATED conventions\n',
@@ -344,6 +345,7 @@ describe('upgrade.service docs inventory (issue #48)', () => {
     // it, so the inventory must too — else all five ai-knowledge docs misreport
     // as MISSING and the skill would create duplicates at the wrong location.
     vol.fromJSON({
+      '/p/prospec/README.md': '# r\n',
       '/p/prospec/CONSTITUTION.md': '# c\n',
       '/p/prospec/index.md': '# i\n',
       '/p/docs/kb/_conventions.md': '# conv\n',

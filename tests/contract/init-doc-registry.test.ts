@@ -42,6 +42,19 @@ describe('INIT_DOC_REGISTRY templates render (issue #48)', () => {
     },
   );
 
+  it('the project README renders the What-is-Prospec summary and the repo link (issue #50)', () => {
+    const readme = INIT_DOC_REGISTRY.find((d) => d.output === 'README.md');
+    expect(readme).toBeDefined();
+    const rendered = renderTemplate(readme!.template, TEMPLATE_CONTEXT);
+    expect(rendered).toContain('What is Prospec?');
+    expect(rendered).toContain('Skills');
+    expect(rendered).toContain('AI Knowledge');
+    expect(rendered).toContain('CLI');
+    expect(rendered).toContain('https://github.com/benwu95/prospec');
+    // the {{base_dir}} placeholder is populated from the standard init context
+    expect(rendered).toContain('prospec/');
+  });
+
   it('the index entry renders with its declared context — context-derived content present', () => {
     // Handlebars is non-strict: a wrong context renders empty holes and a bare
     // non-empty assertion stays green. Pin a context-derived marker instead.

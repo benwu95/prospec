@@ -96,6 +96,7 @@ export const asKnowledgeInitDoc = (doc: ConventionDocSource): InitDoc => ({
 });
 
 export const INIT_DOC_REGISTRY: InitDoc[] = [
+  { template: 'init/readme.md.hbs', root: 'base', output: 'README.md' },
   { template: 'init/constitution.md.hbs', root: 'base', output: 'CONSTITUTION.md' },
   ...USER_MANAGED_CONVENTION_DOCS.map(asKnowledgeInitDoc),
   { template: 'knowledge/index.md.hbs', root: 'base', output: 'index.md', context: 'index' },

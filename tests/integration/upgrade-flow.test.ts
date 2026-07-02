@@ -109,6 +109,8 @@ describe('Upgrade Flow Integration (BL-044)', () => {
     const byPath = new Map(result.report.docs.map((d) => [d.path, d.present]));
     expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
     expect(byPath.get('prospec/CONSTITUTION.md')).toBe(true);
+    // the in-project README is an init-created doc the inventory tracks too
+    expect(byPath.get('prospec/README.md')).toBe(true);
     // reporting is read-only — the CLI never creates the missing doc itself
     expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false);
   });
