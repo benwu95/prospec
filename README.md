@@ -209,9 +209,9 @@ prospec init          # → auto-detect tech stack; select AI assistants; choose
 prospec agent sync    # → per-agent config + Skills
 
 # `/prospec-quickstart` then, inside your AI agent:
-prospec knowledge init       # → generates raw-scan.md + empty skeletons (_index.md, _conventions.md, module-map.yaml)
+prospec knowledge init       # → generates raw-scan.md + empty skeletons (prospec/index.md, _conventions.md, module-map.yaml)
 /prospec-knowledge-generate  # → AI reads raw-scan.md, decides module partitioning,
-                             #   creates modules/*/README.md + fills _index.md
+                             #   creates modules/*/README.md + fills prospec/index.md
 ```
 
 Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
@@ -230,11 +230,11 @@ your-project/
 ├── AGENTS.md                  # Antigravity / Codex / Copilot config (agents.md standard)
 ├── {base_dir}/
 │   ├── CONSTITUTION.md        # Project rules (user-defined)
+│   ├── index.md               # AI Entry Point & Module index (Markdown table)
 │   ├── specs/
 │   │   ├── product.md         # Product Spec (PRD entry point)
 │   │   └── features/          # Living Feature Specs (accumulated)
 │   └── ai-knowledge/
-│       ├── _index.md          # Module index (Markdown table)
 │       ├── _conventions.md    # Project conventions
 │       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
 │       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
@@ -365,7 +365,7 @@ prospec upgrade                  # CLI (zero-LLM): record the new version + re-s
 /prospec-upgrade                 # in your AI agent: refresh init-doc formats + localize new-skill triggers (asks before each change)
 ```
 
-- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `_index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
+- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `prospec/index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
 - **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it scans the files `prospec init` created, compares them to the latest templates, and offers to update any whose **format** has drifted — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
 
 > `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
@@ -433,7 +433,7 @@ longest possible prefix across triggers. Each loading item carries one of two ma
 
 - **`[STABLE]`** — changes only on `agent sync` or governance edits: the skill's own
   `references/` format specs, the Constitution, `_conventions.md`. These load first.
-- **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `_index.md`
+- **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `prospec/index.md`
   (first after the cache boundary), module READMEs, `_playbook.md`, Feature/Product Specs,
   and `.prospec/changes/` artifacts. These load last.
 
@@ -460,7 +460,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
 | `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
-| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / _index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
+| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
@@ -470,6 +470,19 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 > Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
+
+#### Advanced Configuration
+
+Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can add `additional_core_conventions` to your `.prospec.yaml`:
+
+```yaml
+knowledge:
+  additional_core_conventions:
+    - _api-conventions.md
+    - _security-conventions.md
+```
+
+These paths are relative to the `ai-knowledge/` directory. Once configured, they will be pre-loaded alongside `_conventions.md` as global core instructions for the AI Agent.
 
 #### Project-scan language support
 
@@ -523,7 +536,7 @@ A **read-only**, stdio MCP server that exposes the project's truth — architect
 
 | URI | Content |
 |-----|---------|
-| `knowledge://index` | AI Knowledge module index (`_index.md`) |
+| `knowledge://index` | AI Knowledge module index (`prospec/index.md`) |
 | `knowledge://module/{name}` | One module's Recipe-First README |
 | `knowledge://module-map` | Module boundaries + `depends_on` (`module-map.yaml`) |
 | `knowledge://feature-map` | feature → module index + REQ prefixes (`feature-map.yaml`) |
@@ -756,7 +769,7 @@ Prospec's unique contribution: **Skills-driven SDD with a thin CLI** — Skills 
 
 ## Links
 
-- [AI Knowledge Index](./prospec/ai-knowledge/_index.md)
+- [AI Knowledge Index](./prospec/index.md)
 - [Feature Specs](./prospec/specs/features/)
 
 ---

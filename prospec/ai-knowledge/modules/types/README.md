@@ -1,6 +1,6 @@
 # types
 
-> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, feature-map index, prospec version + canonical convention-doc constants, plus the canonical _index column schema (14 files, 1,048 lines)
+> Foundational type system — Zod 4 schemas with runtime validation, error hierarchy, skill/agent definitions, Constitution rule types, change scale levels, token measurement, drift report and MCP server contracts, feature-map index, prospec version + canonical convention-doc constants, plus the canonical index column schema (14 files, 1,048 lines)
 
 <!-- prospec:auto-start -->
 
@@ -10,7 +10,7 @@
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type; the `version` field now means **the prospec version the project uses** (no separate `prospec_version`; legacy `version: "1.0"` reads as stale, bumped on first `prospec upgrade`) |
 | `src/types/version.ts` | `PROSPEC_VERSION` — single source for the running prospec version, read from the package's own package.json via `createRequire`; lives in the leaf `types` (the lint rule forbids `cli → lib`, and `types` is the common layer cli+services can import) |
-| `src/types/canonical-docs.ts` | `CANONICAL_CONVENTION_DOCS` — single source for the canonical/shipped convention-doc list `prospec init` seeds |
+| `src/types/conventions.ts` | `CORE_CONVENTIONS`, `CANONICAL_CONVENTION_DOCS`, `USER_MANAGED_CONVENTION_DOCS`, `PLACEHOLDER_CONVENTION_DOCS` — single source of truth for convention document registries and core (L0) vs load-on-demand (L1) classification |
 | `src/types/skill.ts` | SKILL_DEFINITIONS (17 skills, English `triggers` baselines; `hasReferences` gates reference deployment — incl. prospec-backfill-spec (extract a draft, BL-039), prospec-promote-backfill (formalize a reviewed draft into the backfill scaffold), and prospec-upgrade (version-upgrade finisher, BL-044); `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart + prospec-upgrade), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES (`quick`/`standard`/`full`/`backfill`), GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
@@ -21,13 +21,13 @@
 | `src/types/drift-report.ts` | DriftReportSchema for prospec-report.json — structural/semantic layering, 8 frozen check ids (incl. `dangling-prefix`, `feature-modules`, `readme-counts`), skipped-needs-reason rule, frozen knowledge-health field contract |
 | `src/types/feature-map.ts` | FeatureMapSchema for `feature-map.yaml` — feature→module index complementing module-map.yaml (which modules a feature spans + non-module REQ prefixes it owns); FEATURE_STATUSES, FeatureMap/FeatureEntry/FeatureStatus types |
 | `src/types/mcp.ts` | MCP server contract — `MCP_RESOURCE_URIS` (8 resource URIs; BL-042 appended `featureMap`/`product` append-only, protocol-frozen — never reorder/remove), tool I/O zod schemas (search_modules incl. additive `category` default [], get_dependency_direction) |
-| `src/types/knowledge.ts` | Canonical `_index.md` column schema — INDEX_TABLE_COLUMNS (7), INDEX_COLUMN, INDEX_TABLE_HEADER/SEPARATOR; single source for every index emitter + parser |
+| `src/types/knowledge.ts` | Canonical `index.md` column schema — INDEX_TABLE_COLUMNS (7), INDEX_COLUMN, INDEX_TABLE_HEADER/SEPARATOR; single source for every index emitter + parser |
 
 ## Public API
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words); `version` = the prospec version the project uses
 - `PROSPEC_VERSION` — single source for the running prospec version (read from the package's own package.json); consumed by cli `.version()` and `upgrade.service`
-- `CANONICAL_CONVENTION_DOCS` — single source for the canonical convention-doc list `prospec init` seeds
+- `CORE_CONVENTIONS` / `CANONICAL_CONVENTION_DOCS` — single source for the core (L0) and canonical convention-doc lists `prospec init` seeds
 - `SKILL_DEFINITIONS` — 17 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
 - `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
 - `AGENT_CONFIGS` — 4 agent configs in canonical order (Claude, Codex, Copilot, Antigravity, matching `VALID_AGENTS` — which drives the zod enum error message); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
@@ -41,7 +41,7 @@
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — validates prospec-report.json; `DRIFT_CHECK_IDS` now lists 8 ids (added `dangling-prefix`, `feature-modules`, `readme-counts`); semantic layer is literally `'not-checked'` (never gradable), `skipped` checks must carry a `reason`
 - `FeatureMapSchema` / `FEATURE_STATUSES` — Zod schema for `feature-map.yaml` (the feature→module index); only structural shape (slug safety + module-map membership are deferred to the lib loader/collector), `FeatureEntry.status` defaults to `active`
 - `MCP_RESOURCE_URIS` / `SearchModulesInputShape` / `DependencyDirectionResultSchema` — MCP resource URIs + tool I/O contracts; input shapes are raw Zod shapes (SDK registerTool takes ZodRawShape), wrapped schemas exist for standalone validation
-- `INDEX_TABLE_COLUMNS` / `INDEX_COLUMN` / `INDEX_TABLE_HEADER` / `INDEX_TABLE_SEPARATOR` — canonical `_index.md` module-table column schema; the single source every emitter (init/knowledge render-context injection, knowledge-update) and parser (change-story, knowledge-reader) derives from
+- `INDEX_TABLE_COLUMNS` / `INDEX_COLUMN` / `INDEX_TABLE_HEADER` / `INDEX_TABLE_SEPARATOR` — canonical `index.md` module-table column schema; the single source every emitter (init/knowledge render-context injection, knowledge-update) and parser (change-story, knowledge-reader) derives from
 
 ## Dependencies
 

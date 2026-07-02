@@ -1,9 +1,9 @@
 # Module dependency map — source of truth for module boundaries + dependency direction.
-# Authored to match prospec/ai-knowledge/_index.md (curated 6-module structure).
+# Authored to match prospec/index.md (curated 6-module structure).
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas, error hierarchy (13 classes), skill/agent definitions, change scale levels, measurement, drift report and MCP server contract schemas, plus the canonical _index column schema (single source)
+    description: Zod 4 schemas, error hierarchy (13 classes), skill/agent definitions, change scale levels, measurement, drift report and MCP server contract schemas, plus the canonical index column schema (single source)
     paths:
       - src/types
     keywords:
