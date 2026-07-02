@@ -10,7 +10,7 @@
 |------|---------|
 | `src/types/config.ts` | ProspecConfigSchema (incl. `artifact_language`, `skill_triggers`), DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS, `ValidAgent` type; the `version` field now means **the prospec version the project uses** (no separate `prospec_version`; legacy `version: "1.0"` reads as stale, bumped on first `prospec upgrade`) |
 | `src/types/version.ts` | `PROSPEC_VERSION` — single source for the running prospec version, read from the package's own package.json via `createRequire`; lives in the leaf `types` (the lint rule forbids `cli → lib`, and `types` is the common layer cli+services can import) |
-| `src/types/conventions.ts` | `CORE_CONVENTIONS`, `CANONICAL_CONVENTION_DOCS`, `USER_MANAGED_CONVENTION_DOCS`, `PLACEHOLDER_CONVENTION_DOCS` — single source of truth for convention document registries and core (L0) vs load-on-demand (L1) classification |
+| `src/types/conventions.ts` | `CORE_CONVENTIONS`, `CANONICAL_CONVENTION_DOCS`, `USER_MANAGED_CONVENTION_DOCS`, `PLACEHOLDER_CONVENTION_DOCS`, `INIT_DOC_REGISTRY` — single source of truth for convention document registries, core (L0) vs load-on-demand (L1) classification, and the root-discriminated (`base`/`knowledge`) list of every curated doc `prospec init` creates (shared by init + the upgrade docs inventory) |
 | `src/types/skill.ts` | SKILL_DEFINITIONS (17 skills, English `triggers` baselines; `hasReferences` gates reference deployment — incl. prospec-backfill-spec (extract a draft, BL-039), prospec-promote-backfill (formalize a reviewed draft into the backfill scaffold), and prospec-upgrade (version-upgrade finisher, BL-044); `excludeFromEntryConfig` omits a skill from the always-loaded entry config while still deploying its SKILL.md — prospec-quickstart + prospec-upgrade), AGENT_CONFIGS (`Record<ValidAgent, AgentConfig>`, 4 agents) |
 | `src/types/change.ts` | ChangeMetadataSchema (+ quality_log + optional scale), CHANGE_STATUSES, CHANGE_SCALES (`quick`/`standard`/`full`/`backfill`), GATE_RESULTS, QualityLogEntrySchema, `isStatusBefore` (forward-only status guard over CHANGE_STATUSES) |
 | `src/types/module-map.ts` | ModuleMapSchema, ModuleEntry (incl. optional ordered `category`, primary-first), ModuleRelationships |
@@ -27,7 +27,7 @@
 
 - `ProspecConfigSchema` — Zod schema validating `.prospec.yaml`; optional `artifact_language` (free-form, absent = English) and `skill_triggers` (skill name → custom trigger words); `version` = the prospec version the project uses
 - `PROSPEC_VERSION` — single source for the running prospec version (read from the package's own package.json); consumed by cli `.version()` and `upgrade.service`
-- `CORE_CONVENTIONS` / `CANONICAL_CONVENTION_DOCS` — single source for the core (L0) and canonical convention-doc lists `prospec init` seeds
+- `CORE_CONVENTIONS` / `CANONICAL_CONVENTION_DOCS` / `INIT_DOC_REGISTRY` — single source for the core (L0) / canonical convention-doc lists and the full init-created curated-doc registry (`{template, root, output}`, canonical docs derived not duplicated) that init creates from and the upgrade report inventories against
 - `SKILL_DEFINITIONS` — 17 skill configs: name, English description, `triggers` baseline (rendered into SKILL.md frontmatter), type, references, optional `excludeFromEntryConfig`
 - `ValidAgent` — `(typeof VALID_AGENTS)[number]`; the canonical supported-agent vocabulary
 - `AGENT_CONFIGS` — 4 agent configs in canonical order (Claude, Codex, Copilot, Antigravity, matching `VALID_AGENTS` — which drives the zod enum error message); typed `Record<ValidAgent, AgentConfig>` so adding/removing a `VALID_AGENTS` member is a compile error until the map is updated
@@ -74,6 +74,7 @@
 - `drift-report.ts` knowledge_health field names are a FROZEN downstream contract (Knowledge Flywheel, MCP server `knowledge://health`) — renaming them is a breaking change, not a refactor
 - `mcp.ts` tool result schemas are protocol-frozen (clients consume structuredContent) — `SEARCH_MATCH_FIELDS` / `DEPENDENCY_DIRECTION_SOURCES` literals are contract values, not free strings; extend ONLY additively (e.g. `SearchModuleMatch.category` was added as `default([])`, never reordering/removing existing fields)
 - `feature-map.ts` is intentionally shape-only — types is a leaf importing only `zod`, so the schema CANNOT call `isSafeResourceName` or check `modules[]` against module-map; that semantic validation lives in the lib loader/collector. Don't try to enforce it here.
+- `INIT_DOC_REGISTRY` is pinned by an init⇄registry bidirectional equality contract test — adding an init doc to one side only turns it red. Consumers resolve `root: 'knowledge'` entries via `resolveBasePaths().knowledgePath`, NEVER by joining `base_dir + 'ai-knowledge'` (a relocated `knowledge.base_path` would misreport every knowledge doc as missing)
 
 <!-- prospec:auto-end -->
 

@@ -178,7 +178,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-upgrade',
-    description: 'Upgrade Prospec to a new CLI version. After `prospec upgrade` refreshes the canonical (shipped) docs and emits a report, this Skill translates triggers for newly-added skills (fill-missing only) and migrates outdated curated-doc formats — each with user confirmation and a git diff preview — then re-syncs. Never auto-writes the curated trust zone. Excluded from the always-loaded entry config (periodic one-time use).',
+    description: 'Upgrade Prospec to a new CLI version. After `prospec upgrade` refreshes the canonical (shipped) docs and emits a report with a docs inventory, this Skill translates triggers for newly-added skills (fill-missing only), migrates outdated init-doc formats, and creates docs the inventory marks missing — each with user confirmation and a diff/content preview — then re-syncs. Never auto-writes the curated trust zone. Excluded from the always-loaded entry config (periodic one-time use).',
     triggers: ['upgrade', 'upgrade prospec', 'migrate version', 'version bump'],
     type: 'Lifecycle',
     cliDependency: 'prospec upgrade',

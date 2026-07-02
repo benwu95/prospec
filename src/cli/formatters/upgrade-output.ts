@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { UpgradeResult } from '../../services/upgrade.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the UpgradeResult for terminal output.
@@ -9,7 +10,9 @@ import type { UpgradeResult } from '../../services/upgrade.service.js';
  * 2. Version delta + agent-sync status, then any nudges resolved interactively
  * 3. Upgrade report — any still-outstanding config-field nudges (one line each),
  *    then skills missing triggers, falling back to "up to date"
- * 4. Agent-sync hints, then the next step (/prospec-upgrade)
+ * 4. Docs inventory — one fixed-format line per init-created doc
+ *    (present ✓ / MISSING ✗, with its source template)
+ * 5. Agent-sync hints, then the next step (/prospec-upgrade)
  *
  * The report is plain stdout text so the /prospec-upgrade skill can read it back
  * after shelling out to `prospec upgrade`.
@@ -64,13 +67,34 @@ export function formatUpgradeOutput(
     lines.push(`${pc.dim('•')} skill triggers up to date`);
   }
 
-  // 3. Agent-sync hints
+  // 3. Docs inventory — every init-created doc's present/missing status. Fixed,
+  //    parse-friendly lines: the /prospec-upgrade skill uses this as its
+  //    authoritative scan scope (diff present docs, offer to create MISSING
+  //    ones), so path + template must both appear on the line.
+  lines.push('');
+  lines.push(pc.bold('Docs inventory:'));
+  for (const doc of report.docs) {
+    const suffix = `(template: ${doc.template})`;
+    lines.push(
+      doc.present
+        ? `${pc.green('✓')} ${sanitizeTerminal(doc.path)} ${suffix}`
+        : `${pc.yellow('✗')} ${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
+    );
+  }
+  const missingCount = report.docs.filter((d) => !d.present).length;
+  if (missingCount > 0) {
+    lines.push(
+      `${pc.yellow('•')} ${missingCount} doc(s) missing — ${result.nextStep} will offer to create them`,
+    );
+  }
+
+  // 4. Agent-sync hints
   for (const hint of result.agentSync.hints) {
     lines.push('');
     lines.push(`${pc.cyan('ℹ')} ${hint}`);
   }
 
-  // 4. Next step — the AI-agent hand-off (consent-gated doc review needs an LLM)
+  // 5. Next step — the AI-agent hand-off (consent-gated doc review needs an LLM)
   lines.push('');
   lines.push(
     `${pc.dim('→')} .prospec.yaml upgraded and agents synced. In your AI agent, run ${pc.cyan(`\`${result.nextStep}\``)} to review init-created doc formats (with your confirmation) and localize any new-skill triggers.`,

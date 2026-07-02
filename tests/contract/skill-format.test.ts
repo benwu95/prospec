@@ -2502,3 +2502,46 @@ describe('prospec-upgrade: legacy index migration step', () => {
     expect(content).toMatch(/Do NOT run `prospec knowledge update`/);
   });
 });
+
+// Issue #48: the skill's Step 2 scan scope comes from the report's Docs
+// inventory (derived from INIT_DOC_REGISTRY) — a file list hardcoded in the
+// template is exactly the drift that made upgrade miss `_glossary.md`.
+describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
+  const render = () => renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
+
+  it('Step 1 documents the Docs inventory report section (present/MISSING lines)', () => {
+    const step1 = sectionOf(render(), '### Step 1');
+    expect(step1).toContain('Docs inventory:');
+    expect(step1).toContain('MISSING');
+  });
+
+  it('Step 2 takes its scan scope from the report inventory and offers to create MISSING docs', () => {
+    const step2 = sectionOf(render(), '### Step 2');
+    // pin the load-bearing instruction sentence, not just any mention of the
+    // section name — the version-mismatch fallback also says `Docs inventory:`
+    expect(step2).toContain("Take the scan scope from Step 1's `Docs inventory:` section");
+    expect(step2).toContain('That list is the ONLY scan scope');
+    expect(step2).toMatch(/marks MISSING.*offer to create/s);
+    // version-mismatch fallback: an inventory-less report stops the step
+    expect(step2).toContain('no `Docs inventory:` section');
+    expect(step2).toContain('re-run `prospec upgrade`');
+  });
+
+  it('Step 2 carries NO hardcoded convention-doc scan list (negative — the #48 root cause)', () => {
+    const step2 = sectionOf(render(), '### Step 2');
+    // The Index Migration pair (`_index.md` → root `index.md`) is the only
+    // per-file path allowed to remain; every convention-doc name must be gone.
+    expect(step2).not.toContain('_status-lifecycle.md');
+    expect(step2).not.toContain('_module-readme-conventions.md');
+    expect(step2).not.toContain('_diagram-conventions.md');
+    expect(step2).not.toContain('_glossary.md');
+    expect(step2).not.toContain('_conventions.md');
+    expect(step2).not.toContain('CONSTITUTION');
+  });
+
+  it('NEVER block forbids maintaining a file list inside the skill', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('**NEVER** scan from a file list maintained inside this skill');
+    expect(never).toMatch(/create a doc the inventory marks MISSING without/);
+  });
+});

@@ -50,6 +50,44 @@ export const ALL_INITIAL_CONVENTION_DOCS = [
 ];
 
 /**
+ * A curated document that `prospec init` creates.
+ */
+export interface InitDoc {
+  /** Handlebars template path under `src/templates/`. */
+  template: string;
+  /**
+   * Directory the doc lives under: `base` = the base dir (`paths.base_dir`),
+   * `knowledge` = the knowledge base (`knowledge.base_path`, which a user may
+   * relocate away from `<base_dir>/ai-knowledge` — consumers must resolve it
+   * via `resolveBasePaths`, never by joining `base_dir + 'ai-knowledge'`).
+   */
+  root: 'base' | 'knowledge';
+  /** Output path relative to the root directory. */
+  output: string;
+}
+
+/**
+ * Every curated document `prospec init` creates — the single source both
+ * `init.service` (create) and `upgrade.service` (docs-inventory report) derive
+ * from, so the upgrade flow can never drift out of sync with what init seeds.
+ *
+ * Deliberately excluded: `AGENTS.md` (zone-1 generated, owned by agent sync)
+ * and `specs/.gitkeep` (not a document). Entries keep init's write order.
+ */
+export const INIT_DOC_REGISTRY: InitDoc[] = [
+  { template: 'init/constitution.md.hbs', root: 'base', output: 'CONSTITUTION.md' },
+  { template: 'init/conventions.md.hbs', root: 'knowledge', output: '_conventions.md' },
+  { template: 'init/diagram-conventions.md.hbs', root: 'knowledge', output: '_diagram-conventions.md' },
+  { template: 'init/glossary.md.hbs', root: 'knowledge', output: '_glossary.md' },
+  { template: 'knowledge/index.md.hbs', root: 'base', output: 'index.md' },
+  ...CANONICAL_CONVENTION_DOCS.map((doc) => ({
+    template: doc.template,
+    root: 'knowledge' as const,
+    output: doc.output,
+  })),
+];
+
+/**
  * Core convention files (L1) that agents must read at the start of every task.
  * Any convention not in this list is treated as a load-on-demand (L2) convention.
  * `_playbook.md` is deliberately absent: feedback-promotion governance keeps it

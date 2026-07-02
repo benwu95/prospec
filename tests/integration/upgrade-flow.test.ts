@@ -91,5 +91,25 @@ describe('Upgrade Flow Integration (BL-044)', () => {
     expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');
     expect(fs.readFileSync(`${KB}/_status-lifecycle.md`, 'utf-8')).toBe('# canonical lifecycle (existing)\n');
+
+    // docs inventory: a freshly init'ed project has every init-created doc
+    expect(result.report.docs.length).toBeGreaterThan(0);
+    expect(result.report.docs.every((d) => d.present)).toBe(true);
+  });
+
+  it('docs inventory flags a doc deleted since init as missing — without recreating it (issue #48)', async () => {
+    vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'demo' }) });
+    await initExecute({ name: 'demo', agents: ['claude'], cwd: '/project' });
+
+    // Simulate the #48 gap: the project lost (or never had) the glossary.
+    fs.unlinkSync(`${KB}/_glossary.md`);
+
+    const result = await upgradeExecute({ cwd: '/project' });
+
+    const byPath = new Map(result.report.docs.map((d) => [d.path, d.present]));
+    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
+    expect(byPath.get('prospec/CONSTITUTION.md')).toBe(true);
+    // reporting is read-only — the CLI never creates the missing doc itself
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false);
   });
 });
