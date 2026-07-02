@@ -61,7 +61,7 @@ vi.mock('fast-glob', () => ({
 const RAW_SCAN_PATH = '/project/prospec/ai-knowledge/raw-scan.md';
 const CURATED = {
   moduleMap: '/project/prospec/ai-knowledge/module-map.yaml',
-  index: '/project/prospec/ai-knowledge/_index.md',
+  index: '/project/prospec/index.md',
   conventions: '/project/prospec/ai-knowledge/_conventions.md',
 };
 
@@ -105,7 +105,7 @@ describe('raw-scan.service / generateRawScan', () => {
     expect(content).toContain('Raw Scan');
   });
 
-  it('does NOT create curated files (module-map / _index / _conventions)', async () => {
+  it('does NOT create curated files (module-map / index.md / _conventions)', async () => {
     seedProject();
     await generateRawScan({ cwd: '/project' });
 

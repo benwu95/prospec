@@ -14,12 +14,12 @@ Applied per lesson ledger entry. Defaults (overridable in `.prospec.yaml` → `l
 suggest_promote = (frequency ≥ 3) AND (|impact_modules| ≥ 2)
 tier:
   kind == "constitution" → CONSTITUTION.md (ConstitutionRule)   # hard, verify-graded principle (MUST/SHOULD)
-  otherwise              → _playbook.md                          # team lesson — L1 on-demand + TTL-governed
+  otherwise              → _playbook.md                          # team lesson — L2 on-demand + TTL-governed
 ```
 
 - `frequency` — how many distinct changes the lesson recurred across (an incremental counter, never re-derived).
 - `|impact_modules|` — count of modules the lesson touches, from `module-map.yaml`.
-- `kind` — a **label** on the lesson: `convention` (how we code) / `playbook` (a process lesson or gotcha) / `constitution` (a hard, enforceable principle). `constitution` escalates to the Constitution; everything else lands in `_playbook.md` (the single governed team tier). A `convention`-labelled entry stays in `_playbook.md` so it keeps TTL/needs-review governance; a human **may** later hand-move it into `_conventions.md` `prospec:user` section, but the pipeline does **not** auto-write `_conventions.md` (it is L0 always-loaded and not TTL-governed).
+- `kind` — a **label** on the lesson: `convention` (how we code) / `playbook` (a process lesson or gotcha) / `constitution` (a hard, enforceable principle). `constitution` escalates to the Constitution; everything else lands in `_playbook.md` (the single governed team tier). A `convention`-labelled entry stays in `_playbook.md` so it keeps TTL/needs-review governance; a human **may** later hand-move it into `_conventions.md` `prospec:user` section, but the pipeline does **not** auto-write `_conventions.md` (it is an L1 Core Convention read on every task and not TTL-governed).
 - Below either threshold → stays **personal**, not suggested (avoids early noise).
 - Every suggestion emits a **score detail**: `frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`.
 - **Duplicate check**: if a lesson matches an existing Constitution rule, recommend **strengthening the existing rule**, not adding a new one.
@@ -70,7 +70,7 @@ When Score has produced suggestions, order the human-review queue by knowledge f
 
 ## Team Playbook Entry (`_playbook.md`, version-controlled, team tier)
 
-All non-`constitution` promoted lessons land here — one governed home (L1 on-demand + TTL). The `kind` label distinguishes a coding `convention` from a `playbook` gotcha; a `convention`-labelled entry may later be hand-moved into `_conventions.md` `prospec:user` section by a human, but that is a manual step, not pipeline-automated.
+All non-`constitution` promoted lessons land here — one governed home (L2 on-demand + TTL). The `kind` label distinguishes a coding `convention` from a `playbook` gotcha; a `convention`-labelled entry may later be hand-moved into `_conventions.md` `prospec:user` section by a human, but that is a manual step, not pipeline-automated.
 
 ```markdown
 ### PB-{NNN}: {one-line rule}
@@ -103,5 +103,5 @@ No shared-tier write occurs without an explicit human approval capturing: **sour
 ## Reference Information
 
 - Project name: `prospec`
-- Tiers: accumulating `{{knowledge_base_path}}/_lessons-ledger.md` (version-controlled, durable across worktrees) → team `_playbook.md` (VC, L1, TTL-governed; `kind` label) → `CONSTITUTION.md` ConstitutionRule (kind: constitution). `_conventions.md` is human-hand-moved only, never pipeline-written.
+- Tiers: accumulating `{{knowledge_base_path}}/_lessons-ledger.md` (version-controlled, durable across worktrees) → team `_playbook.md` (VC, L2, TTL-governed; `kind` label) → `CONSTITUTION.md` ConstitutionRule (kind: constitution). `_conventions.md` is human-hand-moved only, never pipeline-written.
 - Constitution file: `{{constitution_path}}`

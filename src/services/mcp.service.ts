@@ -60,6 +60,8 @@ export interface McpServeResult {
 
 export interface McpServerContext {
   cwd: string;
+  /** Resolved base dir — the root index.md lives at `<baseDir>/index.md`. */
+  baseDir: string;
   knowledgePath: string;
   specsPath: string;
   featuresDir: string;
@@ -74,6 +76,7 @@ export async function execute(options: McpServeOptions): Promise<McpServeResult>
 
   const server = buildMcpServer({
     cwd,
+    baseDir: paths.baseDir,
     knowledgePath: paths.knowledgePath,
     specsPath: paths.specsPath,
     featuresDir,
@@ -107,7 +110,7 @@ function registerKnowledgeResources(server: McpServer, ctx: McpServerContext): v
       description: 'Module index — where to look first',
       mimeType: 'text/markdown',
     },
-    (uri) => textResource(uri.href, 'text/markdown', readIndex(ctx.knowledgePath)),
+    (uri) => textResource(uri.href, 'text/markdown', readIndex(ctx.baseDir)),
   );
 
   server.registerResource(
@@ -253,7 +256,7 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       annotations: { readOnlyHint: true },
     },
     ({ query }) => {
-      const index = readIndex(ctx.knowledgePath);
+      const index = readIndex(ctx.baseDir);
       if (index === null) {
         return toolError('knowledge://index not found — generate AI Knowledge first');
       }

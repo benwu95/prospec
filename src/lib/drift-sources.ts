@@ -143,8 +143,11 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
 /** Collect every REQ id mention in markdown under the given roots. */
 export function collectReqReferences(roots: string[], cwd: string): ReqReference[] {
   const refs: ReqReference[] = [];
+  const seen = new Set<string>();
   for (const root of roots) {
     for (const { file, relPath } of markdownFiles(root, cwd)) {
+      if (seen.has(file)) continue;
+      seen.add(file);
       const lines = withoutFencedBlocks(readFileSync(file, 'utf-8').split('\n'));
       lines.forEach((text, i) => {
         for (const m of text.matchAll(REQ_ID_PATTERN)) {
@@ -162,7 +165,7 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
   if (existingRoots.length === 0) {
     return {
       available: false,
-      reason: 'source unavailable: no markdown roots (specs/knowledge) found',
+      reason: 'source unavailable: no markdown roots (specs/knowledge/base dir) found',
       links: [],
     };
   }
@@ -170,8 +173,11 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
   // so `design (v2).md` style names do not truncate at the first `)`.
   const linkPattern = /\[[^\]]*\]\(<([^>]+)>\)|\[[^\]]*\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g;
   const links: LinkReference[] = [];
+  const seen = new Set<string>();
   for (const root of existingRoots) {
     for (const { file, relPath } of markdownFiles(root, cwd)) {
+      if (seen.has(file)) continue;
+      seen.add(file);
       const lines = withoutFencedBlocks(readFileSync(file, 'utf-8').split('\n'));
       lines.forEach((text, i) => {
         for (const m of text.matchAll(linkPattern)) {

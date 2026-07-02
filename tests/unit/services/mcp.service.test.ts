@@ -72,6 +72,7 @@ import { execute, buildMcpServer, type McpServerContext } from '../../../src/ser
 
 const CTX: McpServerContext = {
   cwd: '/proj',
+  baseDir: '/proj',
   knowledgePath: '/proj/ai-knowledge',
   specsPath: '/proj/specs',
   featuresDir: '/proj/specs/features',
@@ -161,7 +162,7 @@ describe('mcp.service knowledge resources', () => {
 
     expect(res.contents[0].text).toBe('# Index body');
     expect(res.contents[0].mimeType).toBe('text/markdown');
-    expect(readIndex).toHaveBeenCalledWith(CTX.knowledgePath);
+    expect(readIndex).toHaveBeenCalledWith(CTX.baseDir);
   });
 
   it('index resource surfaces McpResourceNotFound when readIndex returns null', async () => {

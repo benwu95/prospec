@@ -153,14 +153,14 @@ describe('formatKnowledgeOutput', () => {
         moduleCount: 0,
         generatedFiles: [
           { path: 'ai-knowledge/auth/README.md', action: 'created' },
-          { path: 'ai-knowledge/_index.md', action: 'updated' },
+          { path: 'ai-knowledge/index.md', action: 'updated' },
         ],
       }),
       'normal',
     );
     const text = output();
     expect(text).toContain('Created ai-knowledge/auth/README.md');
-    expect(text).toContain('Updated ai-knowledge/_index.md');
+    expect(text).toContain('Updated ai-knowledge/index.md');
   });
 
   it('does not print generated files when the list is empty', () => {

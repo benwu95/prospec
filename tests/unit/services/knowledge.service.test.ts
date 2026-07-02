@@ -116,7 +116,7 @@ knowledge:
 
     await execute({ cwd: '/project' });
 
-    // renderTemplate is called for each module README and for _index.md
+    // renderTemplate is called for each module README and for index.md
     const calls = vi.mocked(mockRender).mock.calls;
     const readmeCall = calls.find((c) => c[0] === 'knowledge/module-readme.hbs');
     expect(readmeCall).toBeTruthy();
@@ -178,7 +178,7 @@ knowledge:
     expect(mergerExport?.description).toBe('TypeScript source');
   });
 
-  it('should render _index.md with knowledge/index.md.hbs template', async () => {
+  it('should render index.md with knowledge/index.md.hbs template', async () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
 
     vol.fromJSON({
@@ -205,12 +205,14 @@ knowledge:
     expect(indexCall).toBeTruthy();
 
     const context = indexCall![1] as Record<string, unknown>;
+    // shared-builder shape: base_dir substituted, columns pre-joined — the
+    // template consumes no modules array (the table is curated/updated in place)
     expect(context).toHaveProperty('project_name', 'test');
-    expect(context).toHaveProperty('modules');
-    const modules = context.modules as Array<Record<string, unknown>>;
-    expect(modules[0]).toHaveProperty('name', 'services');
-    expect(modules[0]).toHaveProperty('keywords');
-    expect(modules[0]).toHaveProperty('relationships');
+    expect(context).toHaveProperty('base_dir', 'prospec');
+    expect(context).toHaveProperty('knowledge_base_path', 'prospec/ai-knowledge');
+    expect(typeof context.index_table_columns).toBe('string');
+    expect(context.index_table_columns).toContain(' | ');
+    expect(context).not.toHaveProperty('modules');
   });
 
   it('should not write files in dry-run mode', async () => {
@@ -301,7 +303,7 @@ knowledge:
   });
 
   // L211 + L216 (cond-expr#0): existing README content -> action 'updated' and merge branch taken
-  // L259 + L264 (cond-expr#0): existing _index.md -> action 'updated' and merge branch taken
+  // L259 + L264 (cond-expr#0): existing index.md -> action 'updated' and merge branch taken
   it('should mark files as updated and preserve user sections when target files already exist', async () => {
     const existingReadme = [
       '# Old README',
@@ -332,13 +334,13 @@ knowledge:
 `,
       '/project/src/services/auth.ts': '',
       '/project/prospec/ai-knowledge/modules/services/README.md': existingReadme,
-      '/project/prospec/ai-knowledge/_index.md': existingIndex,
+      '/project/prospec/index.md': existingIndex,
     });
 
     const result = await execute({ cwd: '/project' });
 
     const readmeEntry = result.generatedFiles.find((f) => f.path.endsWith('README.md'));
-    const indexEntry = result.generatedFiles.find((f) => f.path.endsWith('_index.md'));
+    const indexEntry = result.generatedFiles.find((f) => f.path.endsWith('index.md'));
     expect(readmeEntry?.action).toBe('updated');
     expect(indexEntry?.action).toBe('updated');
 
@@ -351,7 +353,7 @@ knowledge:
     expect(writtenReadme).toContain('# Rendered Template Content');
 
     // mergeContent (L264 then-side) preserved the index user section
-    const writtenIndex = fs.readFileSync('/project/prospec/ai-knowledge/_index.md', 'utf-8');
+    const writtenIndex = fs.readFileSync('/project/prospec/index.md', 'utf-8');
     expect(writtenIndex).toContain('INDEX USER NOTE');
     expect(writtenIndex).toContain('# Rendered Template Content');
   });

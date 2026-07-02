@@ -70,7 +70,7 @@ describe('Upgrade Flow Integration (BL-044)', () => {
 
     // 3. Hand-curate the init-created docs (the CLI must touch none of them)
     fs.writeFileSync('/project/prospec/CONSTITUTION.md', '# CURATED principles\n');
-    fs.writeFileSync(`${KB}/_index.md`, '# CURATED index\n');
+    fs.writeFileSync('/project/prospec/index.md', '# CURATED index\n');
     fs.writeFileSync(`${KB}/_conventions.md`, '# CURATED conventions\n');
     fs.writeFileSync(`${KB}/_status-lifecycle.md`, '# canonical lifecycle (existing)\n');
 
@@ -88,7 +88,7 @@ describe('Upgrade Flow Integration (BL-044)', () => {
     // the CLI touches NO ai-knowledge doc or CONSTITUTION — all byte-unchanged
     // (init-created doc format updates are the consent-gated /prospec-upgrade skill's job)
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
-    expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# CURATED index\n');
+    expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');
     expect(fs.readFileSync(`${KB}/_status-lifecycle.md`, 'utf-8')).toBe('# canonical lifecycle (existing)\n');
   });

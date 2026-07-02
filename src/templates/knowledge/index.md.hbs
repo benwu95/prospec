@@ -1,38 +1,20 @@
 # AI Knowledge Index
 
-> This file is the entry point for AI assistants (L0 — always loaded).
-> Read this first, then load specific module READMEs (L1) as needed.
+> This file is the entry point for AI assistants, located at `{{base_dir}}/index.md`.
+> Read this first, then load specific module READMEs or load-on-demand conventions (L2) as needed.
 
 <!-- prospec:auto-start -->
-## Modules
-
-_Populated by `/prospec-knowledge-generate`. Run `prospec knowledge init` first to produce raw-scan.md, then use the AI Skill to analyze and fill this section._
-
-_Table format: {{index_table_columns}}_
-
-_Optional grouping: when modules fall into ≥2 domain categories, group rows under `### {Category}` sub-headings (each sub-table reuses the columns above; a module appears under its primary category only). Pure architectural-layer projects keep one flat table._
+{{> index-auto-block}}
+<!-- prospec:auto-end -->
 
 ## Project Info
 
 - **Project**: {{project_name}}
 {{#if tech_stack}}- **Tech Stack**: {{#if tech_stack.language}}{{tech_stack.language}}{{/if}}{{#if tech_stack.framework}} / {{tech_stack.framework}}{{/if}}
 {{/if}}- **Knowledge Base**: `{{knowledge_base_path}}`
-<!-- prospec:auto-end -->
 
 <!-- prospec:user-start -->
 <!-- Add custom project notes here. This section is preserved on regeneration. -->
 <!-- prospec:user-end -->
 
-## Loading Rules
-
-| Layer | Files | When to Load | Token Budget |
-|-------|-------|-------------|-------------|
-| **L0** | `_index.md` + `_conventions.md` | Every conversation (auto-injected via agent config) | ≤ 1,500 tokens total |
-| **L1** | `modules/{name}/README.md` (+ any `{sub-module}.md` it links) | When Skill identifies related modules from L0 keywords | ≤ 400 tokens per module |
-| **L2** | Source code files | When Agent needs implementation details | No limit (read on demand) |
-
-**Principles:**
-1. L0 answers "where to look" — L1 answers "how to modify" — L2 answers "how to write"
-2. Each layer must NOT duplicate information available in a lower layer
-3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
-4. Sub-modules are an L1 sub-layer reached via the README's `## Sub-Modules` links — never listed in `_index.md`
+{{> knowledge-loading-rules}}

@@ -52,7 +52,7 @@ export interface RawScanResult {
  * Scans the project (git-tracked files only when the project is a git work tree,
  * else the full glob), derives tech stack / entry points / dependencies / config
  * files / directory tree, and (unless `dryRun`) renders + writes ONLY
- * `raw-scan.md`. It never touches curated files (module-map.yaml, _index.md,
+ * `raw-scan.md`. It never touches curated files (module-map.yaml, index.md,
  * _conventions.md) — that boundary is what makes a refresh safe to re-run.
  *
  * Returns the scanned `files` so callers (knowledge init) can reuse the single

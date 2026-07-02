@@ -141,7 +141,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-knowledge-update',
-    description: 'Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, _index.md, and module-map.yaml.',
+    description: 'Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, index.md, and module-map.yaml.',
     triggers: ['knowledge update', 'incremental update', 'sync knowledge', 'update docs'],
     type: 'Lifecycle',
     hasReferences: false,

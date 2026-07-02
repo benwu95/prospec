@@ -24,15 +24,11 @@ When triggered, briefly describe:
 8. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview
 9. [DYNAMIC] Run `prospec check --json` (Bash) and read `prospec-report.json` — deterministic structural facts for Verification 1/5 and 4/5 (the same engine the CI gate runs). If the command is unavailable (not built/installed), state **"drift engine unavailable — falling back to manual checks"** and continue with the documented fallbacks; never fall back silently
 
-## Progressive Knowledge Loading Strategy
+{{> knowledge-loading-rules}}
 
-| Layer | What to Load | When to Load | Budget |
-|-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + all planning docs + Feature Specs | At startup — full context for comprehensive audit | ≤ 1,500 tokens (knowledge) |
-| L1 | All affected module `README.md` (Recipe-First) **+ any `{sub-module}.md` they link** | During Verification 2/5 and 4/5 — compare spec against knowledge | ≤ 400 tokens/module |
-| L2 | Source code files | During Verification 2/5 — verify implementation matches spec | On-demand |
-
-**Principles:** Verify loads more L1 than other skills (all affected modules, not just current task's module). L2 is loaded to find evidence for PASS/FAIL judgments.
+**Principles (Verify-specific):**
+- **L2** loads more modules than other skills (all affected modules, not just the current task's module), specifically **during Verification 2/5 and 4/5** to perform a comprehensive cross-module check and compare spec against knowledge.
+- **L3** is loaded **during Verification 2/5** to verify implementation matches spec and find evidence for PASS/FAIL judgments.
 
 ## Key Difference from Other Skills
 

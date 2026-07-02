@@ -23,15 +23,11 @@ When triggered, briefly describe:
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
 
-## Progressive Knowledge Loading Strategy
+{{> knowledge-loading-rules}}
 
-| Layer | What to Load | When to Load | Budget |
-|-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + tasks.md + plan.md + delta-spec.md (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source) | At startup — navigate modules and understand current tasks | ≤ 1,500 tokens (knowledge) |
-| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | When starting a task — understand APIs, modification patterns, and ripple effects | ≤ 400 tokens/module |
-| L2 | Source code files | When implementing — verify details, read exact signatures | On-demand |
-
-**Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
+**Principles (Implement-specific):**
+- **L2** is loaded per-module as needed **when starting a task** to understand APIs, modification patterns, and ripple effects.
+- (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source).
 
 ## Core Workflow
 

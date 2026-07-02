@@ -15,7 +15,7 @@ When triggered, briefly describe:
 ## Startup Loading
 
 1. [STABLE] Read `{{constitution_path}}` — understand project principles
-2. [DYNAMIC] Read `{{knowledge_base_path}}/_index.md` — understand existing modules
+2. [DYNAMIC] Read `{{base_dir}}/index.md` — understand existing modules
 
 ## Three-Space Exploration Framework
 
@@ -32,7 +32,7 @@ Expand each space sequentially:
 - Which approach best aligns with the Constitution?
 
 ### 3. Impact Space (Where)
-- Based on `_index.md`, which modules are affected?
+- Based on `{{base_dir}}/index.md`, which modules are affected?
 - Does it require API or data structure changes?
 - Backward compatibility considerations?
 
@@ -94,12 +94,12 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** ask more than 3 questions at once — maintain conversational rhythm
 - **NEVER** ignore constraints the user has already stated
 - **NEVER** produce any `.prospec/changes/` files during exploration — that's for Story phase
-- **NEVER** assume the user knows the project architecture — use `_index.md` information to assist
+- **NEVER** assume the user knows the project architecture — use `{{base_dir}}/index.md` information to assist
 
 ## Error Handling
 
 | Scenario | Action |
 |----------|--------|
 | Constitution file not found | Note it and continue exploration without Constitution checks |
-| _index.md not found | Explore without module context, suggest running `prospec knowledge init` |
+| {{base_dir}}/index.md not found | Explore without module context, suggest running `prospec knowledge init` |
 | User wants to jump to implementation | Suggest at least creating a Story first via `/prospec-new-story` |

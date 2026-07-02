@@ -4,7 +4,8 @@ import { detectModules, buildModuleMap } from '../lib/module-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir, fileExists } from '../lib/fs-utils.js';
 import { stringifyYaml } from '../lib/yaml-utils.js';
-import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
+import { buildIndexTemplateContext } from '../lib/index-template.js';
+import { scanDir, filterConventions } from '../lib/scanner.js';
 import { generateRawScan } from './raw-scan.service.js';
 
 export interface KnowledgeInitOptions {
@@ -32,14 +33,14 @@ export interface KnowledgeInitResult {
  * 1. Generate raw-scan.md via the shared `generateRawScan()` core (always
  *    overwritten unless dry-run).
  * 2. Detect modules from the SAME scan and write module-map.yaml — only if absent.
- * 3. Write _index.md and _conventions.md skeletons — only if absent.
+ * 3. Write index.md and _conventions.md skeletons — only if absent.
  *
  * With `rawScanOnly`, steps 2-3 are skipped entirely: only raw-scan.md is
  * (re)generated and the curated files are never created or touched — the
  * raw-scan-only contract behind `prospec knowledge init --raw-scan-only`, safe
  * to re-run mid-lifecycle without resurrecting deleted skeletons.
  *
- * Rerun safety: raw-scan.md is always overwritten; module-map.yaml, _index.md
+ * Rerun safety: raw-scan.md is always overwritten; module-map.yaml, index.md
  * and _conventions.md are only created if they don't exist (curated versions are
  * preserved). modules/ is never touched.
  *
@@ -56,8 +57,9 @@ export async function execute(
   const rawScanOnly = options.rawScanOnly ?? false;
 
   const config = await readConfig(cwd);
-  const { knowledgePath } = resolveBasePaths(config, cwd);
-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
+  const { baseDir, knowledgePath } = resolveBasePaths(config, cwd);
+  const baseDirPath = path.relative(cwd, baseDir).replace(/\\/g, '/');
+  const knowledgeBasePath = path.relative(cwd, knowledgePath).replace(/\\/g, '/');
 
   // 1. Raw scan + raw-scan.md (shared core; writes raw-scan.md unless dry-run)
   const rawScan = await generateRawScan({ cwd, depth, dryRun });
@@ -92,21 +94,28 @@ export async function execute(
         outputFiles.push(path.join(knowledgeBasePath, 'module-map.yaml'));
       }
 
-      // _index.md skeleton (only if not exists)
-      const indexPath = path.join(knowledgeDir, '_index.md');
+      // index.md skeleton (only if not exists)
+      const indexPath = path.join(cwd, baseDirPath, 'index.md');
       if (!fileExists(indexPath)) {
-        const indexContext = {
-          project_name: config.project.name,
-          tech_stack: {
+        await ensureDir(path.dirname(indexPath));
+        const conventionScan = await scanDir('_*.md', { cwd: path.join(cwd, knowledgeBasePath) });
+        const additionalCore = config.knowledge?.additional_core_conventions ?? [];
+        const { core, demand } = filterConventions(conventionScan.files, additionalCore);
+
+        const indexContext = buildIndexTemplateContext({
+          projectName: config.project.name,
+          techStack: {
             language: rawScan.techStack.language,
             framework: rawScan.techStack.framework,
           },
-          knowledge_base_path: knowledgeBasePath,
-          index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
-        };
+          baseDir: baseDirPath,
+          knowledgeBasePath,
+          coreConventions: core,
+          demandConventions: demand,
+        });
         const indexContent = renderTemplate('knowledge/index.md.hbs', indexContext);
         await atomicWrite(indexPath, indexContent);
-        outputFiles.push(path.join(knowledgeBasePath, '_index.md'));
+        outputFiles.push(path.join(baseDirPath, 'index.md'));
       }
 
       // _conventions.md skeleton (only if not exists)

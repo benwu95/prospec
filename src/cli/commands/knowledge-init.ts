@@ -23,7 +23,7 @@ export function registerKnowledgeInitCommand(
     .option('--depth <n>', 'Directory scan depth', parseDepth, 10)
     .option(
       '--raw-scan-only',
-      'Regenerate only raw-scan.md; leave curated files (module-map.yaml, _index.md, _conventions.md) untouched',
+      'Regenerate only raw-scan.md; leave curated files (module-map.yaml, <base_dir>/index.md, _conventions.md) untouched',
     )
     .action(
       async (options: {

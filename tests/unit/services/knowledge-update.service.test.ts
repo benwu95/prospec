@@ -39,13 +39,33 @@ vi.mock('../../../src/lib/scanner.js', () => ({
     files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
     count: 2,
   }),
+  filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
 }));
 
-vi.mock('../../../src/lib/template.js', () => ({
-  renderTemplate: vi.fn().mockReturnValue(
-    '# Test Module\n\n<!-- prospec:auto-start -->\n## Key Files\n\n| File | Purpose |\n|------|--------|\n\n## Public API\n\n## Dependencies\n\n## Modification Guide\n\n## Ripple Effects\n\n## Pitfalls\n\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
-  ),
-}));
+// README renders stay canned, but the knowledge index templates render for REAL
+// (via a Handlebars instance fed from the actual template files, read with the
+// unmocked fs) — updateIndex's whole contract is "never drift from the template",
+// so a canned index string would test nothing.
+vi.mock('../../../src/lib/template.js', async () => {
+  const realFs = await vi.importActual<typeof import('node:fs')>('node:fs');
+  const realPath = await vi.importActual<typeof import('node:path')>('node:path');
+  const { default: Handlebars } = await vi.importActual<typeof import('handlebars')>('handlebars');
+  const templatesDir = realPath.resolve(__dirname, '../../../src/templates');
+  const read = (rel: string) => realFs.readFileSync(realPath.join(templatesDir, rel), 'utf-8');
+  const hb = Handlebars.create();
+  hb.registerPartial('index-auto-block', read('knowledge/_index-auto-block.hbs'));
+  hb.registerPartial('knowledge-loading-rules', read('skills/_knowledge-loading-rules.hbs'));
+  const CANNED_README =
+    '# Test Module\n\n<!-- prospec:auto-start -->\n## Key Files\n\n| File | Purpose |\n|------|--------|\n\n## Public API\n\n## Dependencies\n\n## Modification Guide\n\n## Ripple Effects\n\n## Pitfalls\n\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n';
+  return {
+    renderTemplate: vi.fn().mockImplementation(
+      (templatePath: string, context: Record<string, unknown>) =>
+        templatePath === 'knowledge/index.md.hbs' || templatePath === 'knowledge/_index-auto-block.hbs'
+          ? hb.compile(read(templatePath), { noEscape: true })(context)
+          : CANNED_README,
+    ),
+  };
+});
 
 beforeEach(() => {
   vol.reset();
@@ -405,15 +425,21 @@ describe('updateIndex', () => {
   it('emits the canonical 7-column header/separator and 7-cell rows, no phantom Files column', async () => {
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     );
 
-    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
+    const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
     expect(content).toContain(INDEX_TABLE_HEADER);
     expect(content).toContain(INDEX_TABLE_SEPARATOR);
-    // the phantom "Files" column (and old README placeholder) must be gone
-    expect(content).not.toContain('Files');
-    expect(content).not.toContain('| README |');
+    // the phantom "Files" column (and old README placeholder) must be gone from
+    // the module table — scope to the auto block, since the appended loading
+    // strategy legitimately has a "Files" column of its own
+    const autoBlock = content.slice(
+      content.indexOf('prospec:auto-start'),
+      content.indexOf('prospec:auto-end'),
+    );
+    expect(autoBlock).not.toContain('| Files |');
+    expect(autoBlock).not.toContain('| README |');
 
     const row = content.split('\n').find((l) => l.startsWith('| auth '));
     expect(row).toBeDefined();
@@ -426,7 +452,7 @@ describe('updateIndex', () => {
     // + Project Info + How to Use, with NO user markers. Updating must replace
     // only the auto block, not wipe the title/intro/curated sections.
     vol.fromJSON({
-      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
+      '/test/prospec/index.md': `# AI Knowledge Index
 
 > This index helps AI Agents quickly understand the project structure.
 
@@ -449,10 +475,10 @@ ${INDEX_TABLE_SEPARATOR}
 
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     );
 
-    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
+    const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
     expect(result.action).toBe('updated');
     // the new row is present
     expect(content).toContain('| auth ');
@@ -467,7 +493,7 @@ ${INDEX_TABLE_SEPARATOR}
 
   it('emits $-containing descriptions verbatim (no replacement-pattern injection)', () => {
     vol.fromJSON({
-      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
+      '/test/prospec/index.md': `# AI Knowledge Index
 
 ## Modules
 
@@ -480,9 +506,9 @@ ${INDEX_TABLE_SEPARATOR}
 
     return updateIndex(
       [{ name: 'billing', description: 'cost is $1 per $& token', status: 'Active' }],
-      { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
     ).then(() => {
-      const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
+      const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
       // the literal $1 / $& must survive, and the auto block must not self-nest
       expect(content).toContain('cost is $1 per $& token');
       expect(content.match(/prospec:auto-start/g)?.length).toBe(1);
@@ -634,7 +660,7 @@ describe('execute', () => {
 
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -664,7 +690,7 @@ describe('execute', () => {
 `;
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -679,7 +705,7 @@ describe('execute', () => {
   it('should process manual mode', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
     });
 
     const result = await execute({
@@ -906,7 +932,7 @@ describe('execute', () => {
 
     await execute({ manualModules: ['services'], cwd: '/project' });
 
-    const scanCall = vi.mocked(scanDir).mock.calls.at(-1)!;
+    const scanCall = vi.mocked(scanDir).mock.calls.find((call) => call[0] !== '_*.md')!;
     expect((scanCall[1] as { exclude: string[] }).exclude).toEqual([]);
   });
 
@@ -935,7 +961,7 @@ describe('execute', () => {
   it('should return empty result when no input provided', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
     });
 
     const result = await execute({ cwd: '/project' });

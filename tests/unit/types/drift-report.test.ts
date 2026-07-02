@@ -75,7 +75,7 @@ describe('DriftReportSchema', () => {
           {
             check: 'req-references',
             severity: 'fail',
-            source_path: 'prospec/ai-knowledge/_index.md',
+            source_path: 'prospec/index.md',
             line: 12,
             detail: 'dangling REQ-X-001',
           },

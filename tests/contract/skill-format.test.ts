@@ -2482,3 +2482,23 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
     expect(verify?.hasReferences).toBe(true);
   });
 });
+
+// Hierarchical-index migration path (REQ-KNOW-034): the consent-gated upgrade
+// skill is the ONLY mechanism that moves a legacy <kb>/_index.md to the root
+// <base_dir>/index.md — pin its existence and its data-loss guard.
+describe('prospec-upgrade: legacy index migration step', () => {
+  it('carries the Index Migration instruction targeting the root index.md', () => {
+    const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('**Index Migration**');
+    expect(content).toContain('_index.md');
+    expect(content).toContain('/index.md');
+  });
+
+  it('instructs copying curated table rows and forbids rebuilding via knowledge update', () => {
+    const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
+    // the curated Keywords/Aliases/Rationale/Depends On cells exist nowhere else —
+    // `prospec knowledge update` rebuilds only Module/Status/Description and guts them
+    expect(content).toContain('copy the curated `Modules` table rows verbatim');
+    expect(content).toMatch(/Do NOT run `prospec knowledge update`/);
+  });
+});

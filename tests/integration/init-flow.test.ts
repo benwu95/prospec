@@ -65,7 +65,7 @@ describe('Init Flow Integration', () => {
         '.prospec.yaml',
         'AGENTS.md',
         'prospec/CONSTITUTION.md',
-        'prospec/ai-knowledge/_index.md',
+        'prospec/index.md',
         'prospec/ai-knowledge/_conventions.md',
         'prospec/specs/.gitkeep',
       ]),
@@ -119,14 +119,6 @@ describe('Init Flow Integration', () => {
 });
 
 describe('Init → agent sync block preservation (REQ-SETUP-018 / REQ-AGNT-023)', () => {
-  const AGENTS_STUB = `<!-- prospec:auto-start -->
-# stub
-<!-- prospec:auto-end -->
-
-<!-- prospec:user-start -->
-<!-- placeholder -->
-<!-- prospec:user-end -->
-`;
   const ENTRY = `<!-- prospec:auto-start -->
 # full entry config
 <!-- prospec:auto-end -->
@@ -138,7 +130,6 @@ describe('Init → agent sync block preservation (REQ-SETUP-018 / REQ-AGNT-023)'
 
   beforeEach(() => {
     vi.mocked(renderTemplate).mockImplementation((name: string) => {
-      if (name === 'init/agents.md.hbs') return AGENTS_STUB;
       if (name === 'agent-configs/entry.md.hbs') return ENTRY;
       return '# Template Content\n';
     });
@@ -157,13 +148,12 @@ describe('Init → agent sync block preservation (REQ-SETUP-018 / REQ-AGNT-023)'
 
     await execute({ name: 'test', agents: ['codex'], cwd: '/project' });
     const afterInit = fs.readFileSync('/project/AGENTS.md', 'utf-8');
-    expect(afterInit).toContain('# stub');   // init stub in auto block
+    expect(afterInit).toContain('# full entry config'); // init writes full entry config now
     expect(afterInit).toContain('keep me');  // hand-written content migrated to user block
 
     await agentSyncExecute({ cwd: '/project' });
     const afterSync = fs.readFileSync('/project/AGENTS.md', 'utf-8');
     expect(afterSync).toContain('# full entry config'); // auto swapped to full entry config
-    expect(afterSync).not.toContain('# stub');          // init stub replaced
     expect(afterSync).toContain('keep me');             // user block preserved across the hand-off
   });
 });

@@ -63,8 +63,7 @@ export async function execute(options: CheckOptions): Promise<CheckResult | Init
 
   const paths = resolveBasePaths(config, cwd);
   const featuresDir = path.join(paths.specsPath, 'features');
-  // collectors own availability judgments (FR-007) — pass roots unfiltered
-  const markdownRoots = [paths.specsPath, paths.knowledgePath];
+  const markdownRoots = [paths.specsPath, paths.knowledgePath, paths.baseDir];
 
   const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
   const attributionMap = moduleMap ?? constitutionFallbackModuleMap();

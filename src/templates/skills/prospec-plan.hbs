@@ -20,22 +20,17 @@ When triggered, briefly describe:
 2. [STABLE] **MANDATORY** — Read [`references/plan-format.md`](references/plan-format.md) for plan.md format
 3. [STABLE] **MANDATORY** — Read [`references/delta-spec-format.md`](references/delta-spec-format.md) for delta-spec.md format
 4. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse User Stories and acceptance scenarios
-5. [DYNAMIC] Read `{{knowledge_base_path}}/_index.md` — identify related modules (Layer 1)
+5. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules (Layer 1)
 6. [DYNAMIC] Read `{{base_dir}}/specs/features/` — load relevant Feature Specs for existing requirements and User Story context
 7. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview and feature map
 8. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for this change's modules (progressive disclosure; skip unrelated entries)
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
 
-## Progressive Knowledge Loading Strategy
+{{> knowledge-loading-rules}}
 
-| Layer | What to Load | When to Load | Budget |
-|-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + Feature Specs + Product Spec | At startup — navigate modules and understand existing requirements | ≤ 1,500 tokens (knowledge) |
-| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | During architecture design — understand APIs, dependencies, and modification patterns | ≤ 400 tokens/module |
-| L2 | Source code files | When technical questions arise — user can request explicitly | On-demand |
-
-**Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
+**Principles (Plan-specific):**
+- **L2** is loaded per-module as needed **during architecture design** to understand APIs, dependencies, and modification patterns.
 
 ## Entry Gate
 
