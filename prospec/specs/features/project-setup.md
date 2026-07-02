@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-06-27
-story_count: 13
-req_count: 30
+last_updated: 2026-07-02
+story_count: 15
+req_count: 33
 ---
 
 # 專案啟動
@@ -340,20 +340,20 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 - WHEN 檢查 import, THEN `cli` 與 `services` 皆 import `types/version`，無 `cli → lib` 違規（lint 守門）
 
 #### REQ-SERVICES-035: Upgrade Orchestrator Service
-`upgrade.service.execute({ cwd, interactive? })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION`；(3) 互動模式逐一提示補齊缺漏的策展欄位（`UPGRADE_NUDGE_RULES`），套用答案；(4) `writeConfig`（comment-preserving 就地合併，保留註解；見 REQ-LIB-022）；(5) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(6) best-effort 刷新 `raw-scan.md`（`generateRawScan`，等價 `--raw-scan-only`；非致命，回傳 `rawScanRefreshed`）；(7) `buildReport`（post-prompt）：version delta（from→to）、缺觸發詞 skill 清單、config-field nudges（`detectNudges`）。不寫任何 CURATED doc 或 CONSTITUTION；唯一 `prospec/ai-knowledge/` 寫入是決定性、可隨時重生的 `raw-scan.md`。
+`upgrade.service.execute({ cwd, interactive? })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION`；(3) 互動模式逐一提示補齊缺漏的策展欄位（`UPGRADE_NUDGE_RULES`），套用答案；(4) `writeConfig`（comment-preserving 就地合併，保留註解；見 REQ-LIB-022）；(5) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(6) best-effort 刷新 `raw-scan.md`（`generateRawScan`，等價 `--raw-scan-only`；非致命，回傳 `rawScanRefreshed`）；(7) `buildReport`（post-prompt）：version delta（from→to）、缺觸發詞 skill 清單、config-field nudges（`detectNudges`）、docs inventory（`buildDocsInventory`——依 `INIT_DOC_REGISTRY` × `resolveBasePaths` 逐檔於實際位置檢查存在性：base 文件對 `baseDir`、knowledge 文件對 `knowledgePath`（尊重遷移的 `knowledge.base_path`），唯讀 `fileExists`，見 REQ-SETUP-022）。不寫任何 CURATED doc 或 CONSTITUTION；唯一 `prospec/ai-knowledge/` 寫入是決定性、可隨時重生的 `raw-scan.md`。
 
 **Scenarios:**
 - WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`、agent sync 已跑、`raw-scan.md` 已刷新
 - WHEN execute 執行, THEN CURATED doc（CONSTITUTION/根層級 index/_conventions/canonical convention docs/module README）byte 不變（唯一 `ai-knowledge/` 寫入是 `raw-scan.md`）
 - WHEN `generateRawScan` 失敗, THEN `rawScanRefreshed` 為 false 且 upgrade 仍成功（version + agent sync 不受影響）
-- WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、與缺漏策展欄位的 nudges
+- WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、缺漏策展欄位的 nudges、與逐檔 docs inventory（path 為實際位置 + template + present）
 - WHEN orchestrate, THEN 呼叫 `agentSync` + `generateRawScan` 且依賴方向 `cli → services` 不破（不渲染 canonical docs、不跑 LLM knowledge generate）
 
 #### REQ-SETUP-019: prospec upgrade Command
-`prospec upgrade`（zero-LLM）CLI 指令。職責：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`，以 **comment-preserving 就地合併**持久化（保留使用者註解與排版，見 REQ-LIB-022）；(2) 執行 `agent sync`（zone-1 重生）並 best-effort 刷新 `raw-scan.md`（決定性，等價 `--raw-scan-only`，對齊新版掃描器）；(3) 輸出 report（version delta、缺觸發詞 skill、config-field nudges）+ 下一步 `/prospec-upgrade`。在互動式 TTY 逐一提示補齊缺漏的策展欄位（見 REQ-SETUP-021）；`--no-interactive`（及非 TTY stdin）強制 report-only，故 `/prospec-upgrade` skill 與 CI 不阻塞。不自動改寫任何 init 建立的 CURATED doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。
+`prospec upgrade`（zero-LLM）CLI 指令。職責：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`，以 **comment-preserving 就地合併**持久化（保留使用者註解與排版，見 REQ-LIB-022）；(2) 執行 `agent sync`（zone-1 重生）並 best-effort 刷新 `raw-scan.md`（決定性，等價 `--raw-scan-only`，對齊新版掃描器）；(3) 輸出 report（version delta、docs inventory——init 建立的每份文件 present/MISSING，見 REQ-SETUP-022、缺觸發詞 skill、config-field nudges）+ 下一步 `/prospec-upgrade`。在互動式 TTY 逐一提示補齊缺漏的策展欄位（見 REQ-SETUP-021）；`--no-interactive`（及非 TTY stdin）強制 report-only，故 `/prospec-upgrade` skill 與 CI 不阻塞。不自動改寫任何 init 建立的 CURATED doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。
 
 **Scenarios:**
-- WHEN 在已初始化專案執行 `prospec upgrade --no-interactive`, THEN `.prospec.yaml` `version` 更新且使用者註解保留、跑 agent sync、刷新 `raw-scan.md`、印 report，exit 0
+- WHEN 在已初始化專案執行 `prospec upgrade --no-interactive`, THEN `.prospec.yaml` `version` 更新且使用者註解保留、跑 agent sync、刷新 `raw-scan.md`、印 report（含 docs inventory），exit 0
 - WHEN 在互動式 TTY 執行且有缺漏的策展欄位, THEN 像 `prospec init` 一樣逐一提示補齊（如 artifact_language）
 - WHEN 在未初始化專案（無 `.prospec.yaml`）執行, THEN `ConfigNotFound` 阻擋並提示 `prospec init`，不寫任何檔
 - WHEN 執行 upgrade, THEN 不寫任何 CURATED doc 或 CONSTITUTION（唯一 `prospec/ai-knowledge/` 寫入是決定性可重生的 `raw-scan.md`；其餘僅動 `.prospec.yaml` + zone-1 agent-sync 產物）
@@ -407,6 +407,55 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 - WHEN 只變更一個純量, THEN top-level 與 inline 註解全保留、僅該值改寫
 - WHEN 新增鍵, THEN 尾端插入、未動既有鍵與註解；物件不含的鍵被刪除
 - WHEN 目標檔不存在, THEN 退回全新序列化
+
+---
+
+### US-015: 升級 report 揭示文件覆蓋狀態 [P1]
+
+身為升級 prospec 版本的專案維護者，
+我希望 `prospec upgrade` 的 report 列出 init 會建立的每份文件及其 present/missing 狀態（清單與 init 實作同源推導），
+以便升級時一眼看出哪些檔案缺漏，而不是事後才發現舊格式殘留或檔案未建立。
+
+**Acceptance Scenarios:**
+- WHEN 在缺少 `_glossary.md` 的既有專案執行 `prospec upgrade`, THEN report 的 docs inventory 將 `_glossary.md` 標記為 MISSING
+- WHEN 所有 init 文件皆存在, THEN inventory 逐檔標記 present，且不出現清單外的檔案
+- WHEN `prospec upgrade` 執行, THEN 任何 curated doc 與 CONSTITUTION 內容 byte 不變（CLI 只報告、不寫入）
+
+#### REQ-TYPES-038: Init-Doc Registry 單一事實來源
+`types/conventions.ts` 的 `INIT_DOC_REGISTRY`——init 建立的 7 份 curated 文件之單一事實來源：每項含範本名、root 判別（`base`＝`paths.base_dir` 下；`knowledge`＝知識庫下，消費端須經 `resolveBasePaths().knowledgePath` 解析、不得以 `base_dir + 'ai-knowledge'` 拼合）與 root 相對路徑；canonical convention docs 自 `CANONICAL_CONVENTION_DOCS` 推導不重複。排除 `AGENTS.md`（zone-1，agent-sync 擁有）與 `specs/.gitkeep`（非文件）。`init.service` 的 curated 清單由此推導（per-file skip-if-exists 與寫入行為不變）；位於 leaf `types` 層，純資料無 I/O。
+
+**Scenarios:**
+- WHEN 讀 registry, THEN 恰 7 項（base：`CONSTITUTION.md`、`index.md`；knowledge：`_conventions`、`_diagram-conventions`、`_glossary`、`_status-lifecycle`、`_module-readme-conventions`），每項含範本與 root
+- WHEN `prospec init` 於 greenfield 執行, THEN 實際建立的 curated 文件集合 == registry 推導集合（雙向等式）
+- WHEN 檢查 imports, THEN `conventions.ts` 無任何內部 import（leaf 純資料）
+
+#### REQ-SETUP-022: Upgrade Report Docs Inventory
+`prospec upgrade` report 的 docs inventory 區段：依 `INIT_DOC_REGISTRY` 逐檔以**實際位置**檢查存在性（knowledge root 經 `resolveBasePaths().knowledgePath`，尊重遷移的 `knowledge.base_path`——與 knowledge-init／agent-sync／knowledge-reader 一致）；formatter 以固定可解析行格式輸出 `✓ <path> (template: <hbs>)`／`✗ <path> — MISSING (template: <hbs>)`（路徑經 `sanitizeTerminal`），missing > 0 時提示 `/prospec-upgrade` 處理。CLI 僅報告——不寫任何 curated doc。
+
+**Scenarios:**
+- WHEN 專案缺 `_glossary.md`, THEN 該檔標記 MISSING、其餘 present，且 CLI 不建立它（唯讀）
+- WHEN `knowledge.base_path` 遷移至非預設位置, THEN 知識文件於實際位置檢查與標示，不誤報 MISSING、不指向錯誤路徑
+- WHEN 輸出 report, THEN docs 行格式固定（e2e 釘住精確字串），skill 可據以解析
+
+---
+
+### US-016: skill 依 inventory 完整刷新與補建 [P1]
+
+身為執行 `/prospec-upgrade` 的專案維護者，
+我希望 skill 消費 report 的 inventory 清單——存在的檔案逐檔 diff 最新範本並經我同意後更新、缺少的檔案詢問我後補建——取代範本內寫死的檔案清單，
+以便升級後不再殘留舊格式文件、也不再漏建新版本引入的文件。
+
+**Acceptance Scenarios:**
+- WHEN report 將某檔標記 MISSING 且使用者同意補建, THEN skill 以最新範本建立該檔；未同意則不動
+- WHEN report 將某檔標記 present 且格式與最新範本有落差, THEN 逐檔顯示 diff、經同意後只遷移格式
+- WHEN 渲染 skill 範本檢視 Step 2, THEN 不存在寫死的 init 文件清單（掃描範圍完全來自 report inventory）
+
+#### REQ-TESTS-036: Init⇄Registry 漂移防護測試
+三層漂移防護，全數 mutation-verified：unit 釘住 registry 形狀（恰 7 項 root:output、canonical 推導）；`init.service.test` 斷言 memfs init 實際產出集合與 registry 推導集合**雙向相等**（init 私加文件或 registry 缺項皆轉紅）；contract `init-doc-registry.test` 以真 `renderTemplate()` 渲染每個 registry 範本（範本名打錯即紅）。
+
+**Scenarios:**
+- WHEN 自 registry 移除任一項, THEN 形狀測試轉紅；WHEN init 私加清單外文件, THEN 等式測試轉紅
+- WHEN registry 範本路徑與實際 `.hbs` 不符, THEN contract 渲染測試轉紅
 
 ---
 
@@ -466,3 +515,4 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 | 2026-06-22 | remove-deprecated-steering-command | 移除 deprecated `prospec steering` 指令與專屬死碼；退役 architecture.md 生成與 .prospec.yaml per-module paths 回寫（刻意捨棄） | US-004 (REMOVED); REQ-SETUP-008/009/010 (REMOVED) |
 | 2026-06-27 | upgrade-config-nudges | upgrade 互動補齊缺漏策展設定（nudge registry + `--no-interactive`）、writeConfig 就地合併保留註解；更正 REQ-SETUP-019/SERVICES-035 的 canonical-rewrite 說法 | US-013/014 (ADDED); REQ-SETUP-020/021、REQ-LIB-022 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-06-27 | upgrade-refresh-raw-scan | `prospec upgrade` best-effort 刷新 `raw-scan.md`（決定性，對齊新版掃描器）；將「不寫 ai-knowledge doc」收斂為「不寫 curated doc」 | REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
+| 2026-07-02 | fix-upgrade-doc-coverage | 升級文件覆蓋補全（issue #48）：`INIT_DOC_REGISTRY` 單一來源（root 判別 base/knowledge）、upgrade report 唯讀 docs inventory（實際位置、`knowledge.base_path`-aware）、init⇄registry 等式漂移防護 | US-015/016 (ADDED); REQ-TYPES-038、REQ-SETUP-022、REQ-TESTS-036 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
