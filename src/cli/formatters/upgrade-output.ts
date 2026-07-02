@@ -10,8 +10,9 @@ import { sanitizeTerminal } from './sanitize.js';
  * 2. Version delta + agent-sync status, then any nudges resolved interactively
  * 3. Upgrade report — any still-outstanding config-field nudges (one line each),
  *    then skills missing triggers, falling back to "up to date"
- * 4. Docs inventory — one fixed-format line per init-created doc
- *    (present ✓ / MISSING ✗, with its source template)
+ * 4. Docs inventory (post-creation) — one fixed-format line per init-created doc
+ *    (present ✓ / MISSING ✗, with its source template), then any docs this run
+ *    back-filled and any still MISSING (back-fill failed)
  * 5. Agent-sync hints, then the next step (/prospec-upgrade)
  *
  * The report is plain stdout text so the /prospec-upgrade skill can read it back
@@ -67,10 +68,10 @@ export function formatUpgradeOutput(
     lines.push(`${pc.dim('•')} skill triggers up to date`);
   }
 
-  // 3. Docs inventory — every init-created doc's present/missing status. Fixed,
-  //    parse-friendly lines: the /prospec-upgrade skill uses this as its
-  //    authoritative scan scope (diff present docs, offer to create MISSING
-  //    ones), so path + template must both appear on the line.
+  // 3. Docs inventory (post-creation) — every init-created doc's present/missing
+  //    status. Fixed, parse-friendly lines: the /prospec-upgrade skill uses this
+  //    as its authoritative scan scope (diff present docs, enrich created ones),
+  //    so path + template must both appear on the line.
   lines.push('');
   lines.push(pc.bold('Docs inventory:'));
   for (const doc of report.docs) {
@@ -81,10 +82,17 @@ export function formatUpgradeOutput(
         : `${pc.yellow('✗')} ${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
     );
   }
+  // Docs back-filled this run — rendered from their template (skip-if-exists).
+  if (report.createdDocs.length > 0) {
+    lines.push(
+      `${pc.green('✓')} created ${report.createdDocs.length} missing doc(s): ${report.createdDocs.map(sanitizeTerminal).join(', ')}`,
+    );
+  }
+  // Anything still MISSING means back-fill failed — the skill's safety net.
   const missingCount = report.docs.filter((d) => !d.present).length;
   if (missingCount > 0) {
     lines.push(
-      `${pc.yellow('•')} ${missingCount} doc(s) missing — ${result.nextStep} will offer to create them`,
+      `${pc.yellow('•')} ${missingCount} doc(s) still missing — ${result.nextStep} will offer to create them`,
     );
   }
 
@@ -97,7 +105,7 @@ export function formatUpgradeOutput(
   // 5. Next step — the AI-agent hand-off (consent-gated doc review needs an LLM)
   lines.push('');
   lines.push(
-    `${pc.dim('→')} .prospec.yaml upgraded and agents synced. In your AI agent, run ${pc.cyan(`\`${result.nextStep}\``)} to review init-created doc formats (with your confirmation) and localize any new-skill triggers.`,
+    `${pc.dim('→')} .prospec.yaml upgraded, agents synced, and any missing init docs created. In your AI agent, run ${pc.cyan(`\`${result.nextStep}\``)} to review init-created doc formats (with your confirmation), enrich created docs, and localize any new-skill triggers.`,
   );
 
   process.stdout.write(lines.join('\n') + '\n');
