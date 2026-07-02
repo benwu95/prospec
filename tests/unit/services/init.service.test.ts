@@ -311,6 +311,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
     // block instead of being skipped or clobbered (REQ-SETUP-018).
     vol.fromJSON({
       '/project/package.json': '{}',
+      '/project/prospec/README.md': '# CURATED readme — do not clobber\n',
       '/project/prospec/CONSTITUTION.md': '# CURATED Constitution — do not clobber\n',
       '/project/prospec/ai-knowledge/_conventions.md': '# CURATED conventions\n',
       '/project/prospec/index.md': '# CURATED index\n',
@@ -328,6 +329,9 @@ describe('init.service per-file idempotency (BL-044)', () => {
     expect(result.createdFiles).toEqual(['.prospec.yaml', 'AGENTS.md']);
 
     // Every curated trust-zone file is byte-for-byte unchanged (still skip-if-exists).
+    expect(fs.readFileSync('/project/prospec/README.md', 'utf-8')).toBe(
+      '# CURATED readme — do not clobber\n',
+    );
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe(
       '# CURATED Constitution — do not clobber\n',
     );

@@ -7,11 +7,12 @@ import {
 } from '../../../src/types/conventions.js';
 
 describe('INIT_DOC_REGISTRY', () => {
-  it('lists exactly the 7 curated docs init creates, each under its root', () => {
+  it('lists exactly the 8 curated docs init creates, each under its root', () => {
     expect(
       INIT_DOC_REGISTRY.map((d) => `${d.root}:${d.output}`).sort(),
     ).toEqual(
       [
+        'base:README.md',
         'base:CONSTITUTION.md',
         'base:index.md',
         'knowledge:_conventions.md',
@@ -21,6 +22,21 @@ describe('INIT_DOC_REGISTRY', () => {
         'knowledge:_status-lifecycle.md',
       ].sort(),
     );
+  });
+
+  it('registers the project README as a standalone base doc, not derived from a convention list', () => {
+    const readme = INIT_DOC_REGISTRY.find((d) => d.output === 'README.md');
+    expect(readme).toEqual({
+      template: 'init/readme.md.hbs',
+      root: 'base',
+      output: 'README.md',
+    });
+    // it must NOT be a knowledge convention doc projected via asKnowledgeInitDoc
+    expect(
+      [...CANONICAL_CONVENTION_DOCS, ...USER_MANAGED_CONVENTION_DOCS].some(
+        (d) => d.output === 'README.md',
+      ),
+    ).toBe(false);
   });
 
   it('pairs every doc with a non-empty .hbs template path', () => {

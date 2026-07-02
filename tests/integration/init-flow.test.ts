@@ -81,6 +81,10 @@ describe('Init Flow Integration', () => {
     expect(fs.existsSync('/project/prospec/specs')).toBe(true);
     expect(fs.existsSync('/project/prospec/CONSTITUTION.md')).toBe(true);
     expect(fs.existsSync('/project/AGENTS.md')).toBe(true);
+
+    // The in-project Prospec README explains the directory to other developers.
+    // (renderTemplate is mocked here — content is asserted in the contract layer.)
+    expect(fs.existsSync('/project/prospec/README.md')).toBe(true);
   });
 
   it('should prevent double initialization', async () => {
