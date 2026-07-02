@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { scanDir } from '../lib/scanner.js';
+import { scanDir, filterConventions } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent, hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -11,6 +11,7 @@ import { loadFeatureMap } from '../lib/knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR, INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
+import { buildIndexTemplateContext } from '../lib/index-template.js';
 
 // --- Interfaces (Task 5: REQ-SERVICES-023) ---
 
@@ -228,16 +229,26 @@ export async function markModuleDeprecated(
 // --- Index Update (Task 10: REQ-SERVICES-022) ---
 
 /**
- * Update _index.md module table within prospec:auto-start/end markers.
+ * Update index.md module table within prospec:auto-start/end markers.
  */
 export async function updateIndex(
   modules: Array<{ name: string; description: string; status: string }>,
-  options: { cwd: string; knowledgeBasePath: string; projectName: string },
+  options: {
+    cwd: string;
+    baseDir: string;
+    knowledgeBasePath: string;
+    projectName: string;
+    techStack?: { language?: string; framework?: string; package_manager?: string };
+    additionalCore?: string[];
+  },
 ): Promise<GeneratedFile> {
-  const indexPath = path.join(options.cwd, options.knowledgeBasePath, '_index.md');
+  const indexPath = path.join(options.cwd, options.baseDir, 'index.md');
   await ensureDir(path.dirname(indexPath));
 
-  // Build new auto section content — header, separator, AND each row derive their
+  const conventionScan = await scanDir('_*.md', { cwd: path.join(options.cwd, options.knowledgeBasePath) });
+  const { core, demand } = filterConventions(conventionScan.files, options.additionalCore);
+
+  // Build the table — header, separator, AND each row derive their
   // column count from the canonical schema (types/knowledge.ts), so adding or
   // reordering a column is a one-line edit there.
   const tableRows = modules
@@ -255,17 +266,20 @@ export async function updateIndex(
     })
     .join('\n');
 
-  // The auto block holds ONLY the module table. Everything around it (H1, the
-  // intro, the `## Modules` heading, Project Info, How to Use, Conventions,
-  // Loading Rules, any user notes) is curated static content that MUST survive
-  // an incremental update.
-  const autoBlock = `<!-- prospec:auto-start -->
-${INDEX_TABLE_HEADER}
-${INDEX_TABLE_SEPARATOR}
-${tableRows}
-<!-- prospec:auto-end -->`;
+  // One context feeds both branches below AND the other index emitters
+  // (init / knowledge init / knowledge generate) via the shared partial, so
+  // the auto block can never drift from knowledge/index.md.hbs.
+  const templateContext = buildIndexTemplateContext({
+    projectName: options.projectName,
+    techStack: options.techStack,
+    baseDir: options.baseDir,
+    knowledgeBasePath: options.knowledgeBasePath,
+    coreConventions: core,
+    demandConventions: demand,
+    modulesTable: `${INDEX_TABLE_HEADER}\n${INDEX_TABLE_SEPARATOR}\n${tableRows}`,
+  });
 
-  // Read existing _index.md for in-place auto-block replacement
+  // Read existing index.md for in-place auto-block replacement
   // (read-or-empty; non-ENOENT errors propagate).
   const existingContent = await readFileIfExists(indexPath);
   const action: GeneratedFile['action'] = existingContent ? 'updated' : 'created';
@@ -275,30 +289,19 @@ ${tableRows}
     // Replace ONLY the auto block in place; preserve all curated content.
     // replaceAutoBlock uses a function replacer so `$`-sequences in module
     // descriptions (the table cells) are inserted verbatim.
+    const autoBlock = `<!-- prospec:auto-start -->
+${renderTemplate('knowledge/_index-auto-block.hbs', templateContext).trimEnd()}
+<!-- prospec:auto-end -->`;
     finalContent = replaceAutoBlock(existingContent, autoBlock);
   } else {
-    // Create (or a marker-less file): emit the canonical document with the
-    // `## Modules` heading and Project Info as static content around the block.
-    finalContent = `# AI Knowledge Index
-
-> This index helps AI Agents quickly understand the project structure.
-> Read this file first, then load specific module READMEs as needed.
-
-## Modules
-
-${autoBlock}
-
-## Project Info
-
-- **Project**: ${options.projectName}
-- **Knowledge Base**: \`${options.knowledgeBasePath}\`
-`;
+    // Create (or a marker-less file): emit the full canonical document.
+    finalContent = renderTemplate('knowledge/index.md.hbs', templateContext);
   }
 
   await atomicWrite(indexPath, finalContent);
 
   return {
-    path: path.join(options.knowledgeBasePath, '_index.md'),
+    path: path.join(options.baseDir, 'index.md'),
     action,
   };
 }
@@ -370,8 +373,9 @@ export async function execute(
 
   // Read config
   const config = await readConfig(cwd);
-  const { knowledgePath } = resolveBasePaths(config, cwd);
-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
+  const { knowledgePath, baseDir } = resolveBasePaths(config, cwd);
+  const baseDirPath = path.relative(cwd, baseDir).replace(/\\/g, '/');
+  const knowledgeBasePath = path.relative(cwd, knowledgePath).replace(/\\/g, '/');
   const excludePatterns = config.exclude ?? [];
   const projectName = config.project.name;
   const moduleMapPath = path.join(knowledgePath, 'module-map.yaml');
@@ -506,13 +510,16 @@ export async function execute(
     }
   }
 
-  // Update _index.md with all known modules
+  // Update index.md with all known modules
   const allModules = collectAllModules(result, moduleMapPath);
   if (allModules.length > 0) {
     const indexFile = await updateIndex(allModules, {
       cwd,
+      baseDir: baseDirPath,
       knowledgeBasePath,
       projectName,
+      techStack: config.tech_stack,
+      additionalCore: config.knowledge?.additional_core_conventions ?? [],
     });
     result.generatedFiles.push(indexFile);
   }

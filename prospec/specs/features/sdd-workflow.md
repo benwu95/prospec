@@ -43,10 +43,10 @@ req_count: 99
 - WHEN referencing proposal-format, THEN includes Why, User Stories, Edge Cases, FR, SC, Open Questions
 
 #### REQ-CHNG-003: Auto-Identify Related Modules
-透過關鍵字比對 `_index.md` 識別相關模組。
+透過關鍵字比對根層級 `{base_dir}/index.md` 識別相關模組。
 - WHEN change name contains module keywords, THEN Related Modules lists matches
 - WHEN no match, THEN Related Modules is empty
-- WHEN parsing the `_index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Loading Rules table) are skipped by column count
+- WHEN parsing the `{base_dir}/index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Progressive Knowledge Loading Strategy table) are skipped by column count
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
 透過 metadata.yaml 追蹤狀態，以 `ai-knowledge/_status-lifecycle.md` 為單一真實來源：`story` → `plan` → `tasks` → `implemented` → `verified` → `archived`；`scale: quick`（經使用者確認）允許 `story` → `tasks` 合法跳過 plan。

@@ -42,6 +42,7 @@ export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
 
 const KnowledgeSchema = z.object({
   base_path: z.string().optional(),
+  additional_core_conventions: z.array(z.string()).optional(),
   files: z.array(z.enum(KNOWLEDGE_FILE_TYPES)).optional(),
   strategy: z.enum(KNOWLEDGE_STRATEGIES).optional(),
   token_budget: TokenBudgetSchema,

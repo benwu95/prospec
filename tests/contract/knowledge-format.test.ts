@@ -4,17 +4,17 @@
  * Verifies that generated knowledge files conform to the expected format:
  * - Module README follows Recipe-First format (≤100 lines)
  * - Module README contains required sections (Modification Guide, Ripple Effects, Pitfalls)
- * - _index.md contains Rationale column and Loading Rules section
+ * - index.md contains Rationale column and Loading Rules section
  */
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
+import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { FeatureMapSchema } from '../../src/types/feature-map.js';
 import {
   INDEX_TABLE_HEADER,
-  INDEX_TABLE_SEPARATOR,
   INDEX_TABLE_COLUMNS,
 } from '../../src/types/knowledge.js';
 
@@ -128,33 +128,17 @@ describe('Knowledge Format Contract', () => {
     });
   });
 
-  describe('_index.md format', () => {
-    const templateContext = {
-      project_name: 'test-project',
-      tech_stack: { language: 'typescript', framework: 'express' },
-      knowledge_base_path: 'prospec/ai-knowledge',
-      index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
-      modules: [
-        {
-          name: 'services',
-          description: 'Business logic',
-          keywords: ['services'],
-          relationships: {
-            depends_on: ['lib'],
-            used_by: ['cli'],
-          },
-        },
-        {
-          name: 'lib',
-          description: 'Shared utilities',
-          keywords: ['lib', 'utils'],
-          relationships: {
-            depends_on: [],
-            used_by: ['services'],
-          },
-        },
-      ],
-    };
+  describe('index.md format', () => {
+    // The REAL context builder every emitter uses — a hand-built duplicate here
+    // once masked init.service passing a raw column array and no base_dir.
+    const templateContext = buildIndexTemplateContext({
+      projectName: 'test-project',
+      techStack: { language: 'typescript', framework: 'express' },
+      baseDir: 'prospec',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+      coreConventions: ['_conventions.md', '_glossary.md'],
+      demandConventions: ['_playbook.md'],
+    });
 
     it('should render without errors', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
@@ -168,23 +152,24 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('Rationale');
     });
 
-    it('should contain Loading Rules section', () => {
+    it('should contain Progressive Knowledge Loading Strategy section', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
-      expect(content).toContain('## Loading Rules');
+      expect(content).toContain('## Progressive Knowledge Loading Strategy');
     });
 
-    it('should define L0, L1, and L2 layers', () => {
+    it('should define L0, L1, L2, and L3 layers', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
       expect(content).toContain('L0');
       expect(content).toContain('L1');
       expect(content).toContain('L2');
+      expect(content).toContain('L3');
     });
 
     it('should not list api-surface, dependencies, or patterns as generated file types', () => {
       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
-      // The module table should not have columns for these file types
-      // (Loading Rules may mention them as "not generated" — that's OK)
-      const moduleTableSection = content.split('## Loading Rules')[0] ?? '';
+      // (Progressive Knowledge Loading Strategy may mention them as "not generated" — that's OK, we just want to ensure
+      // they aren't generated as separate files per module)
+      const moduleTableSection = content.split('## Progressive Knowledge Loading Strategy')[0] || '';
       expect(moduleTableSection).not.toContain('api-surface');
       expect(moduleTableSection).not.toContain('dependencies.md');
       expect(moduleTableSection).not.toContain('patterns.md');
@@ -209,27 +194,40 @@ describe('Knowledge Format Contract', () => {
   describe('canonical index-table column schema is single-sourced (REQ-KNOW-005/020)', () => {
     const TEMPLATES = path.resolve(__dirname, '../../src/templates');
 
-    it('init scaffold renders the canonical header/separator from injected context', () => {
-      const content = renderTemplate('init/index.md.hbs', {
-        project_name: 'p',
-        base_dir: 'prospec',
-        index_table_header: INDEX_TABLE_HEADER,
-        index_table_separator: INDEX_TABLE_SEPARATOR,
-      });
-      expect(content).toContain(INDEX_TABLE_HEADER);
-      expect(content).toContain(INDEX_TABLE_SEPARATOR);
+    it('init scaffold (shared context builder) renders base_dir and pipe-joined columns', () => {
+      const content = renderTemplate(
+        'knowledge/index.md.hbs',
+        buildIndexTemplateContext({
+          projectName: 'p',
+          baseDir: 'prospec',
+          knowledgeBasePath: 'prospec/ai-knowledge',
+          coreConventions: ['_conventions.md'],
+          demandConventions: [],
+        }),
+      );
+      expect(content).toContain(INDEX_TABLE_COLUMNS.join(' | '));
       expect(content).toContain('Aliases');
+      // base_dir must be substituted everywhere — an unsubstituted context
+      // renders "`/index.md`" in the header and loading-strategy table
+      expect(content).toContain('located at `prospec/index.md`');
+      expect(content).not.toContain('`/index.md`');
+      // columns arrive pre-joined from the builder, never comma-joined
+      expect(content).not.toContain('Module,Keywords');
       // the stale 5-column header must be gone
       expect(content).not.toContain('| Module | Keywords | Status | Description | Depends On |');
     });
 
     it('knowledge/index.md.hbs format hint lists the canonical columns', () => {
-      const content = renderTemplate('knowledge/index.md.hbs', {
-        project_name: 'p',
-        knowledge_base_path: 'prospec/ai-knowledge',
-        index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
-        modules: [],
-      });
+      const content = renderTemplate(
+        'knowledge/index.md.hbs',
+        buildIndexTemplateContext({
+          projectName: 'p',
+          baseDir: 'prospec',
+          knowledgeBasePath: 'prospec/ai-knowledge',
+          coreConventions: [],
+          demandConventions: [],
+        }),
+      );
       // Assert an independent literal of the documented schema, not the same
       // INDEX_TABLE_COLUMNS value fed into the context (which would move together).
       expect(content).toContain(

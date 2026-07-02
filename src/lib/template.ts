@@ -81,15 +81,23 @@ function readTemplateSource(templatePath: string): string {
 let builtinPartialsRegistered = false;
 
 /**
- * Register prospec-owned partials shared across skill templates.
- * Lazy — only skill templates reference them, so commands that never render
- * `skills/` templates stay decoupled from these files.
+ * Register prospec-owned partials shared across skill and knowledge templates.
+ * Lazy — registered on first render, so commands that never render templates
+ * stay decoupled from these files.
  */
 function ensureBuiltinPartials(): void {
   if (builtinPartialsRegistered) return;
   Handlebars.registerPartial(
     'language-policy',
     readTemplateSource('skills/_language-policy.hbs'),
+  );
+  Handlebars.registerPartial(
+    'knowledge-loading-rules',
+    readTemplateSource('skills/_knowledge-loading-rules.hbs'),
+  );
+  Handlebars.registerPartial(
+    'index-auto-block',
+    readTemplateSource('knowledge/_index-auto-block.hbs'),
   );
   builtinPartialsRegistered = true;
 }
@@ -116,9 +124,7 @@ export function renderTemplate(
   context: Record<string, unknown>,
 ): string {
   ensureInitialized();
-  if (templatePath.startsWith('skills/')) {
-    ensureBuiltinPartials();
-  }
+  ensureBuiltinPartials();
 
   const source = readTemplateSource(templatePath);
 

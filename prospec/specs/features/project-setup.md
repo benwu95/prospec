@@ -81,11 +81,11 @@ req_count: 30
 - WHEN 偵測到已安裝的 AI CLI THEN 互動式選單讓使用者勾選
 
 #### REQ-SETUP-004: 建立專案結構
-執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、`{base_dir}/ai-knowledge/`（含 `_index.md`、`_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。寫入採 per-file skip-if-exists（見 REQ-SETUP-018）：既有檔一律保留、只建缺檔；單檔 gate（`.prospec.yaml` 存在即退出）行為不變。
+執行 `prospec init` 時建立所有必要檔案與目錄：`.prospec.yaml`、`AGENTS.md`、根層級 `{base_dir}/index.md`、`{base_dir}/ai-knowledge/`（含 `_conventions.md`、`_status-lifecycle.md`、`_module-readme-conventions.md`、`_diagram-conventions.md`）、`{base_dir}/CONSTITUTION.md`、`{base_dir}/specs/`。寫入採 per-file skip-if-exists（見 REQ-SETUP-018）：既有檔一律保留、只建缺檔；單檔 gate（`.prospec.yaml` 存在即退出）行為不變。
 
 **Scenarios:**
 - WHEN executing `prospec init` in empty directory, THEN create all required files and directories
-- WHEN `_index.md` created, THEN contains empty module table
+- WHEN `{base_dir}/index.md` created, THEN contains empty module table
 - WHEN `CONSTITUTION.md` created, THEN contains Principles, Constraints, Quality Standards templates
 - WHEN `.prospec.yaml` already exists, THEN show warning and exit without modification (single-file gate unchanged)
 - WHEN `.prospec.yaml` is absent but curated files remain (recovery), THEN rebuild only the missing files; existing files stay byte-identical
@@ -120,7 +120,7 @@ req_count: 30
 
 **Scenarios:**
 - WHEN executing `prospec init`, THEN generate `_status-lifecycle.md` (canonical change status state machine), `_module-readme-conventions.md` (module README structure + marker contract), and `_diagram-conventions.md` (Mermaid diagram rules)
-- WHEN convention docs created, THEN `_index.md` links to them
+- WHEN convention docs created, THEN `{base_dir}/index.md` links to them
 - WHEN knowledge-generate / knowledge-update run, THEN defer to these docs as the single source of truth
 
 ### US-005: Base Directory 設定 [P1]
@@ -291,16 +291,16 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 身為刪除 `.prospec.yaml` 後重跑 init/quickstart 的 prospec 使用者，
 我希望 init 對既有 trust-zone 檔案逐檔跳過、只重建缺少的檔，
-以便我絕不會因為重跑初始化而遺失已策劃的 Constitution 原則、`_conventions` 與 `_index`。
+以便我絕不會因為重跑初始化而遺失已策劃的 Constitution 原則、`_conventions` 與根層級 `index.md`。
 
 **Acceptance Scenarios:**
-- WHEN 在已有 trust-zone 的專案刪除 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，`CONSTITUTION.md`/`_conventions.md`/`_index.md` 內容零變更
+- WHEN 在已有 trust-zone 的專案刪除 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`，`CONSTITUTION.md`/`_conventions.md`/根層級 `index.md` 內容零變更
 - WHEN trust-zone 檔案部分缺失（半初始化）後重跑 init, THEN 只重建缺少的檔，既有檔保留不動
 - WHEN 在全空目錄執行 init（greenfield）, THEN 行為不變，所有種子檔照常生成
 - WHEN 既有 `AGENTS.md`（managed 產物，非 trust-zone）存在, THEN 其手寫內容遷入 `prospec:user` 區塊、stub 入 `prospec:auto`（不 skip、不覆蓋）
 
 #### REQ-SETUP-018: Init Per-File Idempotency Guard
-`init.service.execute` 的 artifact 寫入迴圈：curated trust-zone 檔（`CONSTITUTION.md`/`_conventions.md`/`_index.md`/canonical convention docs）採 per-file skip-if-exists、既有檔 byte 不變；`AGENTS.md` 為 `managed` 產物，改走 `mergeManagedDoc`（既有內容遷入 `prospec:user` 區塊、stub 入 `prospec:auto`；缺檔則建立 auto=stub、user 空）並列入 `createdFiles`。`.prospec.yaml` 仍最後寫入，作為「init 完成」復原標記。
+`init.service.execute` 的 artifact 寫入迴圈：curated trust-zone 檔（`CONSTITUTION.md`/`_conventions.md`/根層級 `index.md`/canonical convention docs）採 per-file skip-if-exists、既有檔 byte 不變；`AGENTS.md` 為 `managed` 產物，改走 `mergeManagedDoc`（既有內容遷入 `prospec:user` 區塊、stub 入 `prospec:auto`；缺檔則建立 auto=stub、user 空）並列入 `createdFiles`。`.prospec.yaml` 仍最後寫入，作為「init 完成」復原標記。
 
 **Scenarios:**
 - WHEN 已有 trust-zone 的專案刪 `.prospec.yaml` 後重跑 `prospec init`, THEN 只重建 `.prospec.yaml`、trust-zone artifact byte 不變；`AGENTS.md` 經 merge 寫入並列入 `createdFiles`
@@ -344,7 +344,7 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 
 **Scenarios:**
 - WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`、agent sync 已跑、`raw-scan.md` 已刷新
-- WHEN execute 執行, THEN CURATED doc（CONSTITUTION/_index/_conventions/canonical convention docs/module README）byte 不變（唯一 `ai-knowledge/` 寫入是 `raw-scan.md`）
+- WHEN execute 執行, THEN CURATED doc（CONSTITUTION/根層級 index/_conventions/canonical convention docs/module README）byte 不變（唯一 `ai-knowledge/` 寫入是 `raw-scan.md`）
 - WHEN `generateRawScan` 失敗, THEN `rawScanRefreshed` 為 false 且 upgrade 仍成功（version + agent sync 不受影響）
 - WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、與缺漏策展欄位的 nudges
 - WHEN orchestrate, THEN 呼叫 `agentSync` + `generateRawScan` 且依賴方向 `cli → services` 不破（不渲染 canonical docs、不跑 LLM knowledge generate）

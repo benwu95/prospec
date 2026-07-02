@@ -1,7 +1,9 @@
 import fg from 'fast-glob';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import path from 'node:path';
 import { ScanError } from '../types/errors.js';
+import { CORE_CONVENTIONS } from '../types/conventions.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -31,6 +33,42 @@ const SENSITIVE_PATTERNS = [
   '**/*.key',
   '**/*.pem',
 ];
+
+
+
+export interface FilteredConventions {
+  core: string[];
+  demand: string[];
+}
+
+/**
+ * Filters a list of convention file paths into core and load-on-demand arrays.
+ * Always excludes `_index.md` (for backward compatibility).
+ * 
+ * @param files - Array of file paths (e.g. from a glob scan)
+ * @returns Filtered core and demand file paths
+ */
+export function filterConventions(
+  files: string[],
+  additionalCore: string[] = []
+): FilteredConventions {
+  const core: string[] = [];
+  const demand: string[] = [];
+  const coreSet = new Set([...CORE_CONVENTIONS, ...additionalCore]);
+
+  for (const file of files) {
+    const basename = path.basename(file);
+    if (basename === '_index.md') continue; // filter old index.md from previous versions
+
+    if (coreSet.has(basename)) {
+      core.push(file);
+    } else {
+      demand.push(file);
+    }
+  }
+
+  return { core, demand };
+}
 
 export interface ScanOptions {
   /**

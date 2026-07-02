@@ -1,0 +1,61 @@
+# AI Knowledge Index
+
+> This file is the entry point for AI assistants, located at `prospec/index.md`.
+> Read this first, then load specific module READMEs or load-on-demand conventions (L2) as needed.
+
+<!-- prospec:auto-start -->
+## Conventions
+
+**Core Conventions (L1)**
+These files are NOT auto-loaded. The AI MUST actively read them at the start of a task if not already in context:
+- `prospec/ai-knowledge/_conventions.md`
+- `prospec/ai-knowledge/_diagram-conventions.md`
+- `prospec/ai-knowledge/_glossary.md`
+- `prospec/ai-knowledge/_status-lifecycle.md`
+
+**Load-on-Demand Conventions (L2)**
+Load these specific convention files only when their topics are relevant to the task:
+- `prospec/ai-knowledge/_lessons-ledger.md`
+- `prospec/ai-knowledge/_module-readme-conventions.md`
+- `prospec/ai-knowledge/_playbook.md`
+
+## Modules
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| **types** | config, schema, errors, skill, change, zod, language, triggers, token-budget, measurement, scale, drift-report, feature-map, mcp, category, conventions | 型別, 結構描述, type definitions, 錯誤類別, validation, 量測, 複雜度, 漂移報告, MCP 契約, 模組分類 | Active | Zod 4 schemas (incl. artifact_language/skill_triggers/measurement report/change scale/drift report (8 check ids incl. readme-counts) with frozen knowledge-health contract/MCP resource URIs (8 URIs, BL-042 appended featureMap/product append-only) + tool I/O), error hierarchy, skill definitions with trigger baselines, Constitution rule types, canonical `index.md` column schema, and single-source convention registries (core vs demand); config exports the ValidAgent vocabulary, errors thread an optional cause, TaskMeasurement refines reason; `isStatusBefore` keeps status advances forward-only and `KnowledgeSchema.files` is constrained to `KNOWLEDGE_FILE_TYPES`; feature-map.yaml index schema (slug/membership validation deferred to lib) | Leaf module with zero internal deps — all others import from here | — |
+| **lib** | fs, config, template, scanner, merger, yaml, logger, detector, module-detector, module-map, strategy, token-accounting, drift-checker, drift-sources, task-markers, knowledge-reader, feature-map, manifest-parsers, category | 工具, 共用函式, utilities, helpers, 基礎設施, infrastructure, 量測計算, 漂移檢查, 知識讀取 | Active | Shared utilities — config (incl. artifact-language accessors), file I/O, Handlebars (lazy partials), YAML escaping, scanning, Constitution rule sets, deterministic token accounting, zero-LLM drift engine (collectors + pure evaluators), the frozen task-kind parser, the realpath-contained knowledge content read layer (`readIndex` targets root-level `index.md`), and the shared key-exports derivation; scanner exports `filterConventions` for L0/L1 split; domain detection decouples module name from path glob (real-dir-segment globs), drift link-checks resolve symlinks before reporting existence, import-edge collection scans `**/name/**` domain paths, and `resolveBasePaths` defaults to `DEFAULT_BASE_DIR`, and deterministic multi-language manifest parsing; feature-map governance — `loadFeatureMap` + `collectFeatureMapGovernance` + dangling-prefix (warn) / feature-modules (fail) evaluators, plus the README declared-count veracity collector/evaluator (`readme-counts`, warn) | Foundational infrastructure shared across services, CLI, and benchmark scripts | types |
+| **services** | init, knowledge, change, archive, agent-sync, spec-sync, product, feature-map, triggers, language, measure, check, mcp, serve | 服務, 業務邏輯, business logic, execute pattern, use case, 量測報告, 漂移檢查, 真相層 | Active | Business logic — 14 services with `execute()` pattern, incl. init language selection, the quickstart orchestrator, the upgrade orchestrator, trigger synthesis, Recipe-First knowledge generation (outputs `index.md` to project root and injects separated convention lists), deterministic multi-language raw-scan (11-language manifest detection), measurement-report loading, drift-check orchestration with --init-ci scaffold, and the read-only MCP server (8 resources + 2 tools, per-request reads, stderr-only diagnostics); archive task stats consume lib/task-markers; change-plan/change-tasks share the services/change-resolver helper; archive spec-sync is `$`-pattern-safe with feature-slug path containment + non-atomic-move rollback + forwarded knowledge warnings, change-plan/tasks guard re-runs (`--force`) and advance status forward-only, init writes its config marker last; archive `syncFeatureMap` is the sole writer of `feature-map.yaml` | Isolates business logic from I/O layer, enables testability | types, lib |
+| **cli** | commands, formatters, commander, output, preaction, measure, check, strict, mcp, stdio | 指令, 命令列, command line, 終端, entry point | Active | CLI entry point — 12 commands + 14 formatters, parse → execute → format (shared cli/log-level + cli/parse-options + cli/formatters/sanitize helpers); `quickstart` orchestrates init + agent-sync and is registered in INIT_COMMANDS (runs before `.prospec.yaml` exists); `upgrade` records the prospec `version` in `.prospec.yaml` + re-syncs (writes no docs), deliberately NOT in INIT_COMMANDS; `check --strict` maps FAIL to exit 1; `mcp serve` keeps stdout byte-clean (protocol channel, banner → stderr); the shared `sanitizeTerminal` strips C0/C1 from report/error strings on every formatter, and `change plan`/`change tasks` take `--force` | Thin I/O layer: no business logic, delegates to services | types, services |
+| **templates** | handlebars, hbs, skills, agent-configs, recipe-first, loading-rules, references, change, stable-prefix, entry-gate, scale, kind, ci-workflow, flywheel, lessons-ledger, feature-map, category, grouping | 模板, 範本, handlebars, template engine, resources, 穩定前綴, 知識同步閘門, 複雜度適配, CI 閘門 | Active | Handlebars template library — 17 skills + 1 shared partial, 19 references, 1 agent-config, 4 change, 14 init/knowledge (56 `.hbs`, English-only); `index.md.hbs` renders the 4-layer structure and L0/L1 splitting at the root level; `entry.md.hbs` points to `index.md` for the knowledge index; the prospec-quickstart and prospec-upgrade skills are `excludeFromEntryConfig`; skill Startup Loading is static-first with `[STABLE]/[DYNAMIC]` markers; archive carries the knowledge-sync Entry Gate; skills are scale-aware with the task kind schema frozen in tasks-format; verify consumes the drift report and a hardened CI workflow template ships with `check --init-ci`; learn/archive carry the knowledge flywheel — archive Phase 4.5 auto-harvest into the version-controlled `_lessons-ledger.md`, promotion-format single-sources the harvest format; instruction-quality pass — per-phase gates, Phase-1 numbering, status-aware Next-Step Handoff (workflow order), new-session change detection (entry config), implement progress anchoring, empty-Constitution prompt; plan/implement carry the BL-034 optional on-demand Context7 dependency-layer step; prospec-backfill-spec is feature-first — extracts by feature vertical-slice with feature-boundary criteria externalized to the 19th reference; `knowledge/feature-map.yaml.hbs` is the sole format authority for the feature→module index, regenerated at archive Phase 3.6; prospec-promote-backfill + `scale: backfill` let brownfield backfill specs graduate end-to-end | Pure resources — no logic, consumed by lib/template.ts | — |
+| **tests** | vitest, memfs, unit, integration, contract, e2e, knowledge-format, skill-format, token-corpus, drift, lessons-harvest, mcp-server, in-memory-transport | 測試, 單元測試, test suite, 驗證, vitest | Active | 4-layer test suite — 74 files, 1,791 tests (unit 1175 + contract 557 + integration 16 + e2e 43), incl. token-corpus + startup-loading-baseline + lessons-harvest fixtures; drift/reader tests run on real temp dirs (fast-glob/git bypass memfs); MCP protocol tested over in-memory transport, never a spawned daemon | Quality gate — validates all layers with pyramid coverage | all |
+
+_Table format: Module | Keywords | Aliases | Status | Description | Rationale | Depends On_
+
+_Optional grouping: when modules fall into ≥2 domain categories, group rows under `### {Category}` sub-headings (each sub-table reuses the columns above; a module appears under its primary category only). Pure architectural-layer projects keep one flat table._
+<!-- prospec:auto-end -->
+
+## Project Info
+
+- **Project**: prospec
+- **Tech Stack**: typescript
+- **Knowledge Base**: `prospec/ai-knowledge`
+
+<!-- prospec:user-start -->
+<!-- Add custom project notes here. This section is preserved on regeneration. -->
+<!-- prospec:user-end -->
+
+## Progressive Knowledge Loading Strategy
+
+| Layer | Files | When to Load | Token Budget |
+|-------|-------|-------------|-------------|
+| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,500 tokens total |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 400 tokens per module/feature |
+| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
+
+**Principles:**
+1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
+2. Each layer must NOT duplicate information available in a lower layer
+3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`

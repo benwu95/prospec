@@ -1,7 +1,7 @@
 /**
- * Canonical `_index.md` module-table column schema — the single source of truth.
+ * Canonical `index.md` module-table column schema — the single source of truth.
  *
- * Every _index.md emitter (init scaffold, knowledge-update) and every parser
+ * Every index.md emitter (init scaffold, knowledge-update) and every parser
  * (change-story related-module matching) derives its columns from here. Templates
  * cannot import TypeScript, so the render service injects INDEX_TABLE_HEADER /
  * INDEX_TABLE_SEPARATOR into the template context; static skill-doc examples are

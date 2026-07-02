@@ -79,20 +79,35 @@ describe('isSafeResourceName', () => {
 });
 
 describe('content reads (null = not found)', () => {
-  it('reads _index.md, _playbook.md and module-map.yaml when present', () => {
-    write('knowledge/_index.md', '# Index\n');
+  it('reads index.md, _playbook.md and module-map.yaml when present', () => {
+    write('index.md', '# Index\n');
     write('knowledge/_playbook.md', '# Playbook\n');
     write('knowledge/module-map.yaml', 'modules: []\n');
-    expect(readIndex(kp())).toBe('# Index\n');
+    expect(readIndex(tmpDir)).toBe('# Index\n');
     expect(readPlaybook(kp())).toBe('# Playbook\n');
     expect(readModuleMapRaw(kp())).toBe('modules: []\n');
   });
 
   it('returns null for missing files', () => {
-    expect(readIndex(kp())).toBeNull();
+    expect(readIndex(tmpDir)).toBeNull();
     expect(readPlaybook(kp())).toBeNull();
     expect(readModuleMapRaw(kp())).toBeNull();
     expect(readModuleReadme(kp(), 'lib')).toBeNull();
+  });
+
+  it('resolves the index from the base dir, not the knowledge path (non-sibling layouts)', () => {
+    // knowledge.base_path: docs/kb with paths.base_dir: proj — the writers put
+    // index.md at <base_dir>/index.md, so the reader must look there too.
+    write('proj/index.md', '# Root Index\n');
+    write('docs/kb/module-map.yaml', 'modules: []\n');
+    expect(readIndex(path.join(tmpDir, 'proj'))).toBe('# Root Index\n');
+    // the old derivation (knowledgePath/..) would have looked in docs/ — empty
+    expect(readIndex(path.join(tmpDir, 'docs'))).toBeNull();
+  });
+
+  it('does not fall back to a legacy ai-knowledge/_index.md (un-migrated project reads as not-found)', () => {
+    write('knowledge/_index.md', '# Legacy Index\n');
+    expect(readIndex(tmpDir)).toBeNull();
   });
 
   it('reads a module README and refuses traversal names', () => {

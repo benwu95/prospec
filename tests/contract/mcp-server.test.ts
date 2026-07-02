@@ -66,7 +66,7 @@ const FEATURE_MAP_YAML = [
 const PRODUCT_MD = '# Product\n\n## Feature Map\n\n### sdd-workflow\n';
 
 function writeFixtureProject(): McpServerContext {
-  write('prospec/ai-knowledge/_index.md', INDEX_MD);
+  write('prospec/index.md', INDEX_MD);
   write('prospec/ai-knowledge/_playbook.md', '# Playbook\n\nPB-001: lesson\n');
   write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_YAML);
   write('prospec/ai-knowledge/feature-map.yaml', FEATURE_MAP_YAML);
@@ -77,6 +77,7 @@ function writeFixtureProject(): McpServerContext {
   write('prospec/specs/features/_archived-old.md', '# old\n');
   return {
     cwd: tmpDir,
+    baseDir: path.join(tmpDir, 'prospec'),
     knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
     specsPath: path.join(tmpDir, 'prospec/specs'),
     featuresDir: path.join(tmpDir, 'prospec/specs/features'),
@@ -133,10 +134,11 @@ describe('resources (REQ-MCP-002/003)', () => {
 
   it('feature-map and product resources error when their files are absent, server survives (BL-042)', async () => {
     // A project with knowledge + features but no feature-map.yaml / product.md.
-    write('prospec/ai-knowledge/_index.md', INDEX_MD);
+    write('prospec/index.md', INDEX_MD);
     write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_YAML);
     const client = await connect({
       cwd: tmpDir,
+      baseDir: path.join(tmpDir, 'prospec'),
       knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
       specsPath: path.join(tmpDir, 'prospec/specs'),
       featuresDir: path.join(tmpDir, 'prospec/specs/features'),

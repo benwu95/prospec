@@ -1,0 +1,25 @@
+## Conventions
+
+**Core Conventions (L1)**
+These files are NOT auto-loaded. The AI MUST actively read them at the start of a task if not already in context:
+{{#each core_conventions}}
+- `{{../knowledge_base_path}}/{{this}}`
+{{/each}}
+
+**Load-on-Demand Conventions (L2)**
+Load these specific convention files only when their topics are relevant to the task:
+{{#each demand_conventions}}
+- `{{../knowledge_base_path}}/{{this}}`
+{{/each}}
+
+## Modules
+
+{{#if modules_table}}
+{{{modules_table}}}
+{{else}}
+_Populated by `/prospec-knowledge-generate`. Run `prospec knowledge init` first to produce raw-scan.md, then use the AI Skill to analyze and fill this section._
+{{/if}}
+
+_Table format: {{index_table_columns}}_
+
+_Optional grouping: when modules fall into ≥2 domain categories, group rows under `### {Category}` sub-headings (each sub-table reuses the columns above; a module appears under its primary category only). Pure architectural-layer projects keep one flat table._

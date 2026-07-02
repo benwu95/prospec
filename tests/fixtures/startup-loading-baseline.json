@@ -11,9 +11,9 @@
   },
   "prospec-backfill-spec": {
     "items": [
+      "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md"
+      "{{constitution_path}}"
     ],
     "mandatory": 0
   },
@@ -21,9 +21,9 @@
     "items": [
       ".prospec/changes/[name]/backfill-draft.md",
       "references/proposal-format.md",
+      "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md"
+      "{{constitution_path}}"
     ],
     "mandatory": 1
   },
@@ -40,16 +40,16 @@
   },
   "prospec-explore": {
     "items": [
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md"
+      "{{base_dir}}/index.md",
+      "{{constitution_path}}"
     ],
     "mandatory": 0
   },
   "prospec-ff": {
     "items": [
       "MANDATORY — Load these format references (bundled with this skill):",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md"
+      "{{base_dir}}/index.md",
+      "{{constitution_path}}"
     ],
     "mandatory": 1
   },
@@ -67,9 +67,9 @@
   "prospec-knowledge-generate": {
     "items": [
       ".prospec.yaml",
+      "{{base_dir}}/index.md",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_conventions.md",
-      "{{knowledge_base_path}}/_index.md",
       "{{knowledge_base_path}}/_module-readme-conventions.md",
       "{{knowledge_base_path}}/raw-scan.md"
     ],
@@ -78,9 +78,9 @@
   "prospec-knowledge-update": {
     "items": [
       ".prospec/changes/[name]/delta-spec.md",
+      "{{base_dir}}/index.md",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_conventions.md",
-      "{{knowledge_base_path}}/_index.md",
       "{{knowledge_base_path}}/_module-readme-conventions.md",
       "{{knowledge_base_path}}/module-map.yaml"
     ],
@@ -99,9 +99,9 @@
   "prospec-new-story": {
     "items": [
       "references/proposal-format.md",
+      "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md"
+      "{{constitution_path}}"
     ],
     "mandatory": 1
   },
@@ -122,10 +122,10 @@
       ".prospec/changes/[name]/proposal.md",
       "references/delta-spec-format.md",
       "references/plan-format.md",
+      "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
       "{{base_dir}}/specs/product.md",
       "{{constitution_path}}",
-      "{{knowledge_base_path}}/_index.md",
       "{{knowledge_base_path}}/_playbook.md"
     ],
     "mandatory": 2

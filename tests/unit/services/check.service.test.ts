@@ -88,7 +88,7 @@ describe('check.service execute', () => {
 
   it('reports hasFail on a dangling REQ reference', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
-    write('prospec/ai-knowledge/_index.md', 'mentions REQ-GONE-007\n');
+    write('prospec/index.md', 'mentions REQ-GONE-007\n');
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     expect(result.hasFail).toBe(true);

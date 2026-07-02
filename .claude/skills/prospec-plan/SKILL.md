@@ -21,7 +21,7 @@ Write generated documents in the language defined by the Constitution's Language
 2. [STABLE] **MANDATORY** — Read [`references/plan-format.md`](references/plan-format.md) for plan.md format
 3. [STABLE] **MANDATORY** — Read [`references/delta-spec-format.md`](references/delta-spec-format.md) for delta-spec.md format
 4. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse User Stories and acceptance scenarios
-5. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — identify related modules (Layer 1)
+5. [DYNAMIC] Read `prospec/index.md` — identify related modules (Layer 1)
 6. [DYNAMIC] Read `prospec/specs/features/` — load relevant Feature Specs for existing requirements and User Story context
 7. [DYNAMIC] Read `prospec/specs/product.md` — understand product-level overview and feature map
 8. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) — load **relevant** team lessons for this change's modules (progressive disclosure; skip unrelated entries)
@@ -30,13 +30,21 @@ Write generated documents in the language defined by the Constitution's Language
 
 ## Progressive Knowledge Loading Strategy
 
-| Layer | What to Load | When to Load | Budget |
-|-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + Feature Specs + Product Spec | At startup — navigate modules and understand existing requirements | ≤ 1,500 tokens (knowledge) |
-| L1 | Related module `README.md` (Recipe-First) **+ any `{sub-module}.md` it links** | During architecture design — understand APIs, dependencies, and modification patterns | ≤ 400 tokens/module |
-| L2 | Source code files | When technical questions arise — user can request explicitly | On-demand |
+| Layer | Files | When to Load | Token Budget |
+|-------|-------|-------------|-------------|
+| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,500 tokens total |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 400 tokens per module/feature |
+| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-**Principles:** L0 is always loaded. L1 is loaded per-module as needed. Never duplicate L2 content in L1.
+**Principles:**
+1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
+2. Each layer must NOT duplicate information available in a lower layer
+3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
+
+**Principles (Plan-specific):**
+- **L2** is loaded per-module as needed **during architecture design** to understand APIs, dependencies, and modification patterns.
 
 ## Entry Gate
 

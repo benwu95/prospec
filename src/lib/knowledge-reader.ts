@@ -38,8 +38,14 @@ export function isSafeResourceName(name: string): boolean {
 
 // --- Content reads (null = not found; callers map to MCP errors) ---
 
-export function readIndex(knowledgePath: string): string | null {
-  return readTextIfExists(path.join(knowledgePath, '_index.md'), knowledgePath);
+/**
+ * Read the root index at `<baseDir>/index.md`. Takes the resolved base dir
+ * (resolveBasePaths().baseDir) — NOT the knowledge path — so the read side can
+ * never disagree with the services that write the index when `knowledge.base_path`
+ * is not a direct child of `paths.base_dir`.
+ */
+export function readIndex(baseDir: string): string | null {
+  return readTextIfExists(path.join(baseDir, 'index.md'), baseDir);
 }
 
 export function readPlaybook(knowledgePath: string): string | null {
@@ -146,7 +152,7 @@ export function loadFeatureMap(knowledgePath: string): FeatureMap | null {
   };
 }
 
-// --- _index.md module table parsing + search (REQ-MCP-005) ---
+// --- index.md module table parsing + search (REQ-MCP-005) ---
 
 export interface IndexModule {
   name: string;
@@ -156,7 +162,7 @@ export interface IndexModule {
 }
 
 /**
- * Parse the module table inside the prospec:auto block of _index.md.
+ * Parse the module table inside the prospec:auto block of index.md.
  * Column positions are resolved from the header row, so reordering columns
  * in the template does not silently break the search fields.
  */

@@ -48,7 +48,7 @@ function seedProject(opts: { version?: string } = {}): void {
       'artifact_language: Traditional Chinese (Taiwan)\n' +
       'skill_triggers:\n  prospec-explore: [探索]\n',
     '/project/prospec/CONSTITUTION.md': '# CURATED principles\n',
-    [`${KB}/_index.md`]: '# CURATED index\n',
+    '/project/prospec/index.md': '# CURATED index\n',
     [`${KB}/_conventions.md`]: '# CURATED conventions\n',
     [`${KB}/_status-lifecycle.md`]: '# canonical lifecycle\n',
     [`${KB}/_module-readme-conventions.md`]: '# canonical readme conv\n',
@@ -110,12 +110,26 @@ describe('upgrade.service', () => {
     // docs below must stay byte-identical — they are the consent-gated skill's job.
     expect(generateRawScan).toHaveBeenCalledWith({ cwd: '/project' });
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
-    expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# CURATED index\n');
+    expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');
     // Even the shipped canonical docs are left untouched — the consent-gated skill owns them.
     expect(fs.readFileSync(`${KB}/_status-lifecycle.md`, 'utf-8')).toBe('# canonical lifecycle\n');
     expect(fs.readFileSync(`${KB}/_module-readme-conventions.md`, 'utf-8')).toBe('# canonical readme conv\n');
     expect(fs.readFileSync(`${KB}/_diagram-conventions.md`, 'utf-8')).toBe('# canonical diagram\n');
+  });
+
+  it('leaves a pre-migration legacy _index.md byte-identical and never creates the root index.md', async () => {
+    // A project scaffolded before the hierarchical-index migration: the index
+    // still lives at <kb>/_index.md and no <base_dir>/index.md exists. The CLI
+    // must not migrate — that is the consent-gated /prospec-upgrade skill's job.
+    seedProject({ version: '0.1.0' });
+    fs.rmSync('/project/prospec/index.md');
+    fs.writeFileSync(`${KB}/_index.md`, '# LEGACY curated index\n');
+
+    await execute({ cwd: '/project' });
+
+    expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# LEGACY curated index\n');
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(false);
   });
 
   it('reports skills missing triggers (non-English, partial localization)', async () => {

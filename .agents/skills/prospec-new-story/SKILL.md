@@ -19,7 +19,7 @@ Write generated documents in the language defined by the Constitution's Language
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
 2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
-3. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — identify related modules by matching proposal keywords against module `keywords` field
+3. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field
 4. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
 
 ## Entry Gate
@@ -111,12 +111,12 @@ Guide the user to define one or more INVEST User Stories (slim form when `scale:
 3. **Edge Cases**: Known boundary conditions and error scenarios
 4. **Functional Requirements**: Numbered FR-001, FR-002... for traceability
 5. **Success Criteria**: Measurable SC-001, SC-002...
-6. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `_index.md` module keywords. List matched modules with relevance reasoning.
+6. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `prospec/index.md` module keywords. List matched modules with relevance reasoning.
 7. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] >= 1 INVEST User Story defined, each with >= 2 WHEN/THEN acceptance scenarios
-> - [ ] Related Modules cross-referenced against `_index.md`
+> - [ ] Related Modules cross-referenced against `prospec/index.md`
 > - [ ] Edge Cases captured (FR/SC enumerated unless `scale: quick`)
 
 ### Phase 5: Write proposal.md
@@ -145,7 +145,7 @@ Before finalizing, verify Knowledge awareness:
 
 | Check Item | PASS | WARN |
 |------------|------|------|
-| Related Modules identified | >= 1 module matched from _index.md | No modules matched — verify _index.md coverage |
+| Related Modules identified | >= 1 module matched from prospec/index.md | No modules matched — verify prospec/index.md coverage |
 | Feature specs reviewed | Existing requirements checked for overlap | No feature specs found |
 | Module keywords matched | Proposal terms found in module keywords | Manual assignment needed |
 
@@ -170,7 +170,7 @@ Save proposal.md, suggest:
 - [ ] proposal.md has >= 1 INVEST User Story
 - [ ] each Story has >= 2 WHEN/THEN acceptance scenarios
 - [ ] Constitution Check section present
-- [ ] Related Modules cross-referenced against _index.md (>= 1 when Knowledge exists)
+- [ ] Related Modules cross-referenced against prospec/index.md (>= 1 when Knowledge exists)
 
 ### Failure Conditions
 - proposal.md empty or missing Background/Why

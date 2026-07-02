@@ -98,13 +98,13 @@ of trimming it away.
   ```
   The main README keeps the module overview and cross-cutting sections; the extracted detail moves
   into the sub-module file (do not duplicate it back into the README).
-- **Discovery / loading**: sub-modules are an **L1 sub-layer**, discovered ONLY through the parent
-  README's `## Sub-Modules` links — they are NOT listed in `_index.md` (L0 stays a lean top-level
-  map). Any skill that loads a module's README must also open the linked sub-module file(s) relevant
-  to its task, not stop at the main README.
+- **Discovery / loading**: sub-modules are an **L2 sub-layer**, discovered ONLY through the parent
+  README's `## Sub-Modules` links — they are NOT listed in `index.md` (the L1 index stays a lean
+  top-level map). Any skill that loads a module's README must also open the linked sub-module file(s)
+  relevant to its task, not stop at the main README.
 - **A sub-module is not a top-level module**: it stays under its parent's directory and is absent
-  from `_index.md` / `module-map.yaml`. If an area is independent enough to deserve its own
-  `_index.md` entry, make it a real module instead of a sub-module.
+  from `index.md` / `module-map.yaml`. If an area is independent enough to deserve its own
+  `index.md` entry, make it a real module instead of a sub-module.
 
 ## Principles
 

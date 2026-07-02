@@ -54,7 +54,7 @@ export function formatKnowledgeInitOutput(
   // 4b. Raw-scan-only note — curated files are deliberately left untouched
   if (result.rawScanOnly && !result.dryRun) {
     lines.push(
-      `${pc.dim('·')} Curated files (module-map.yaml, _index.md, _conventions.md) left untouched`,
+      `${pc.dim('·')} Curated files (module-map.yaml, <base_dir>/index.md, _conventions.md) left untouched`,
     );
   }
 

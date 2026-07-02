@@ -116,7 +116,7 @@ knowledge:
 `,
       // Canonical 7 columns with populated Aliases/Rationale — the column shift
       // that the old filter-empties + cells[3] parser misread (cells[3] = Status).
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -137,10 +137,33 @@ knowledge:
     );
   });
 
+  it('matches related modules from a custom paths.base_dir index (never the default prospec/)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test
+paths:
+  base_dir: docs
+`,
+      '/project/docs/index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| auth | auth, authentication, login | 認證 | Active | Authentication module | core security boundary | |
+`,
+    });
+
+    const result = await execute({
+      name: 'update-auth-flow',
+      cwd: '/project',
+    });
+
+    expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
+  });
+
   it('does not drop a data row whose Description cell contains --- (B11)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -163,7 +186,7 @@ knowledge:
 knowledge:
   base_path: prospec/ai-knowledge
 `,
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -173,7 +196,7 @@ knowledge:
 
 | Layer | Files | When to Load | Token Budget |
 |-------|-------|-------------|-------------|
-| L0 | _index.md + _conventions.md | Every conversation | ≤ 1,500 tokens total |
+| L0 | index.md + _conventions.md | Every conversation | ≤ 1,500 tokens total |
 | L1 | modules/{name}/README.md | On demand | ≤ 400 tokens |
 `,
     });
@@ -194,7 +217,7 @@ knowledge:
 knowledge:
   base_path: prospec/ai-knowledge
 `,
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -211,7 +234,7 @@ knowledge:
     expect(result.relatedModules.some((m) => m.name === '')).toBe(false);
   });
 
-  it('should return empty related modules when _index.md does not exist', async () => {
+  it('should return empty related modules when index.md does not exist', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
@@ -246,14 +269,14 @@ knowledge:
     expect(metadata.status).toBe('story');
     // created_at is `new Date().toISOString()` — assert it parses as a real ISO date.
     expect(new Date(metadata.created_at).toISOString()).toBe(metadata.created_at);
-    // No _index.md → relatedModules empty → the spread omits the key entirely.
+    // No index.md → relatedModules empty → the spread omits the key entirely.
     expect('related_modules' in metadata).toBe(false);
   });
 
   it('writes related_modules into metadata.yaml as a name array when modules match', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -306,7 +329,7 @@ describe('change-story metadata YAML escaping', () => {
   it('passes matched related_modules into the proposal template context (and undefined when none)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -327,7 +350,7 @@ describe('change-story metadata YAML escaping', () => {
       { name: 'auth', description: 'Authentication module' },
     ]);
 
-    // Now the empty branch: no _index.md → undefined, not [].
+    // Now the empty branch: no index.md → undefined, not [].
     vol.reset();
     vol.fromJSON({ '/p2/.prospec.yaml': 'project:\n  name: test\n' });
     vi.mocked(renderTemplate).mockClear();
@@ -391,11 +414,11 @@ describe('change-story branch coverage', () => {
   it('returns no related modules when every change-name word is a single char (L127)', async () => {
     // L127 if#0: changeWords.length === 0 — words length<=1 are filtered out, so a
     // name like "a-b-c" yields zero usable words and short-circuits BEFORE table
-    // parsing. _index.md exists (and has a row that WOULD match on "auth") to prove
+    // parsing. index.md exists (and has a row that WOULD match on "auth") to prove
     // the early return — not the missing-file catch — is what produced the empty list.
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|
@@ -415,7 +438,7 @@ describe('change-story branch coverage', () => {
     // from the module-name guard (L153) the blank-module-row test covers.
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
+      '/project/prospec/index.md': `# Module Index
 
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 |--------|----------|---------|--------|-------------|-----------|------------|

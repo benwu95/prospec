@@ -12,7 +12,7 @@ req_count: 10
 
 **Target users**: 使用任意 harness（不限 Claude Code、未裝 prospec skills）的開發者、需要程式化查詢專案真相的 agent 與工具
 
-**Problem solved**: prospec 的知識護城河（`_index.md`、module READMEs、module-map、feature specs、playbook）原本只有裝了 prospec skills 的 agent session 能消費——其他 harness 的 agent、vendor 子代理對專案真相是盲的，知識層價值被綁定在 skill 部署上。
+**Problem solved**: prospec 的知識護城河（根層級 `index.md`、module READMEs、module-map、feature specs、playbook）原本只有裝了 prospec skills 的 agent session 能消費——其他 harness 的 agent、vendor 子代理對專案真相是盲的，知識層價值被綁定在 skill 部署上。
 
 **Why it matters**: `prospec mcp serve` 把知識層解耦成任何 MCP client 都能消費的唯讀真相層，落地「prospec = 餵養任何 harness 的 knowledge 層」定位。誠實邊界：server 全程唯讀（無任何寫入面）、per-request 重讀（永遠新鮮、無 cache）、純加值面（server 不在時 skills 與 CLI 一切照常）、transport 僅 stdio。
 
@@ -43,6 +43,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 
 **Scenarios:**
 - WHEN resources/list，THEN 含 index、module-map、feature-map、playbook 與 map 中每個合法名稱 module 的 README resource；list 與 read 共用同一份 `isSafeResourceName` 守門
+- WHEN 讀取 `knowledge://index`，THEN 讀根層級 `<paths.base_dir>/index.md`（與 knowledge writers 共用同一 base-dir 解析）；未經 `/prospec-upgrade` 遷移的 legacy 專案（僅有 `ai-knowledge/_index.md`）回 `McpResourceNotFound`
 - WHEN 讀取 `knowledge://feature-map` 且 `feature-map.yaml` 存在，THEN 回原文（`application/yaml`）、逐請求重讀；缺檔回 `McpResourceNotFound`，server 存活
 - WHEN 讀取不存在的 module/檔案，THEN 回 MCP error（resource not found），server 進程不中斷
 - WHEN resource 參數含路徑分隔符或 `..`，THEN 一律拒絕
@@ -116,7 +117,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 - WHEN 詢問兩個 module 的依賴方向，THEN 回傳允許判定並標明來源
 
 #### REQ-MCP-005: search_modules 與 get_dependency_direction
-`search_modules` 對 `_index.md` auto block 模組表的 Module/Keywords/Aliases 欄做正規化 term-OR 比對（lowercase、`-`/`_`/空白等價分隔、任一 term 命中即列入），依確定性規則排序（欄位權重 name > keywords > aliases、相異命中 term 數，同分以 module 名 codepoint 序 tie-break）。`get_dependency_direction` 依 module-map `depends_on` 回答，缺 map 時 fallback Constitution 鏈並標明來源。`search_modules` 結果額外帶每個命中模組的 category 有序清單（由 `attachModuleCategories` 從 module-map join，非解析 _index heading）。
+`search_modules` 對根層級 `index.md` auto block 模組表的 Module/Keywords/Aliases 欄做正規化 term-OR 比對（lowercase、`-`/`_`/空白等價分隔、任一 term 命中即列入），依確定性規則排序（欄位權重 name > keywords > aliases、相異命中 term 數，同分以 module 名 codepoint 序 tie-break）。`get_dependency_direction` 依 module-map `depends_on` 回答，缺 map 時 fallback Constitution 鏈並標明來源。`search_modules` 結果額外帶每個命中模組的 category 有序清單（由 `attachModuleCategories` 從 module-map join，非解析 index heading）。
 
 **Scenarios:**
 - WHEN tool 輸入無效，THEN 回 MCP error（isError result），server 存活
@@ -145,7 +146,7 @@ CLI 第 11 個指令 `mcp` 的 `serve` 子指令以 stdio transport 啟動唯讀
 
 - module-map 缺失：map 依賴面 graceful unavailable + `prospec knowledge init` 提示；其餘 resources 照常
 - module-map 無效：request-scoped loud error，server 存活
-- `_playbook.md`/`_index.md` 不存在：該 resource 回 not found，其餘照常
+- `_playbook.md`/根層級 `index.md` 不存在（如未經 `/prospec-upgrade` 遷移的 legacy 專案）：該 resource 回 not found，其餘照常
 - committed symlink 外指：視同 not found（每個面一致——raw 讀取、listing、health、依賴查詢）
 - 不可信 repo 的 crafted module name（`../../…`）：列表不廣告、health 不探測
 

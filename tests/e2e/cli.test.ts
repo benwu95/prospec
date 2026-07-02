@@ -110,6 +110,25 @@ describe('CLI E2E', () => {
       // Verify directory structure
       expect(fs.existsSync(path.join(tmpDir, 'prospec', 'ai-knowledge'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'prospec', 'specs'))).toBe(true);
+
+      // The rendered root index must have base_dir substituted and the
+      // pipe-joined table-format line — a hand-built render context once
+      // shipped "`/index.md`" and a comma-joined column list unnoticed.
+      const indexContent = await fs.promises.readFile(
+        path.join(tmpDir, 'prospec', 'index.md'),
+        'utf-8',
+      );
+      expect(indexContent).toContain('located at `prospec/index.md`');
+      expect(indexContent).not.toContain('`/index.md`');
+      expect(indexContent).toContain(
+        '_Table format: Module | Keywords | Aliases | Status | Description | Rationale | Depends On_',
+      );
+      expect(indexContent).toContain('## Progressive Knowledge Loading Strategy');
+      // Core conventions are listed with knowledge-base-prefixed paths; the
+      // playbook stays load-on-demand (never core).
+      expect(indexContent).toContain('- `prospec/ai-knowledge/_conventions.md`');
+      const coreSection = indexContent.split('**Load-on-Demand Conventions (L2)**')[0];
+      expect(coreSection).not.toContain('_playbook.md');
     });
 
     it('should record --language and seed the Constitution Language Policy', async () => {
@@ -344,14 +363,16 @@ describe('CLI E2E', () => {
       await fs.promises.mkdir(srcDir, { recursive: true });
       await fs.promises.writeFile(path.join(srcDir, 'index.ts'), 'export const a = 1;\n');
 
-      // First-time scaffold (raw-scan + curated module-map/_index/_conventions)
+      // First-time scaffold (raw-scan + curated module-map/index.md/_conventions)
       await runCli(['knowledge', 'init']);
 
       const kbDir = path.join(tmpDir, 'prospec', 'ai-knowledge');
       const rawScanPath = path.join(kbDir, 'raw-scan.md');
-      const curatedPaths = ['module-map.yaml', '_index.md', '_conventions.md'].map(
-        (f) => path.join(kbDir, f),
-      );
+      const curatedPaths = [
+        path.join(kbDir, 'module-map.yaml'),
+        path.join(tmpDir, 'prospec', 'index.md'),
+        path.join(kbDir, '_conventions.md'),
+      ];
 
       const rawBefore = await fs.promises.readFile(rawScanPath, 'utf-8');
       const curatedBefore = await Promise.all(
@@ -889,7 +910,7 @@ describe('prospec upgrade E2E', () => {
     expect(after).not.toContain('0.1.0');
   });
 
-  it('never rewrites the curated trust zone (CONSTITUTION / _index / _conventions)', async () => {
+  it('never rewrites the curated trust zone (CONSTITUTION / index.md / _conventions)', async () => {
     await fs.promises.writeFile(
       path.join(tmpDir, 'package.json'),
       JSON.stringify({ name: 'e2e-upgrade-zone3' }),
@@ -898,15 +919,16 @@ describe('prospec upgrade E2E', () => {
 
     const kb = path.join(tmpDir, 'prospec', 'ai-knowledge');
     const constitution = path.join(tmpDir, 'prospec', 'CONSTITUTION.md');
+    const rootIndex = path.join(tmpDir, 'prospec', 'index.md');
     await fs.promises.writeFile(constitution, '# MY CURATED CONSTITUTION\n');
-    await fs.promises.writeFile(path.join(kb, '_index.md'), '# MY CURATED INDEX\n');
+    await fs.promises.writeFile(rootIndex, '# MY CURATED INDEX\n');
     await fs.promises.writeFile(path.join(kb, '_conventions.md'), '# MY CURATED CONVENTIONS\n');
 
     const { exitCode } = await runCli(['upgrade']);
     expect(exitCode).toBe(0);
 
     expect(await fs.promises.readFile(constitution, 'utf-8')).toBe('# MY CURATED CONSTITUTION\n');
-    expect(await fs.promises.readFile(path.join(kb, '_index.md'), 'utf-8')).toBe('# MY CURATED INDEX\n');
+    expect(await fs.promises.readFile(rootIndex, 'utf-8')).toBe('# MY CURATED INDEX\n');
     expect(await fs.promises.readFile(path.join(kb, '_conventions.md'), 'utf-8')).toBe(
       '# MY CURATED CONVENTIONS\n',
     );

@@ -128,8 +128,33 @@ describe('knowledge-init.service', () => {
     const base = '/project/prospec/ai-knowledge';
     expect(fs.existsSync(`${base}/raw-scan.md`)).toBe(true);
     expect(fs.existsSync(`${base}/module-map.yaml`)).toBe(true);
-    expect(fs.existsSync(`${base}/_index.md`)).toBe(true);
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
     expect(fs.existsSync(`${base}/_conventions.md`)).toBe(true);
+  });
+
+  it('honors a custom paths.base_dir — index.md lands at <base_dir>/index.md', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        'project:\n  name: test-project\npaths:\n  base_dir: docs\n',
+      '/project/package.json': JSON.stringify({ name: 'test-project' }),
+      '/project/src/services/auth.ts': '',
+      '/project/src/lib/config.ts': '',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.outputFiles).toContain('docs/index.md');
+    expect(fs.existsSync('/project/docs/index.md')).toBe(true);
+    expect(fs.existsSync('/project/docs/ai-knowledge/module-map.yaml')).toBe(true);
+    // never falls back to the default base dir
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(false);
+    // the render context carries the custom base dir for `{{base_dir}}` substitution
+    const renderTemplateMock = vi.mocked(renderTemplate);
+    // mock calls accumulate across tests (no clearAllMocks here) — take the last
+    const indexCall = renderTemplateMock.mock.calls
+      .filter((call) => call[0] === 'knowledge/index.md.hbs')
+      .at(-1);
+    expect(indexCall?.[1]).toMatchObject({ base_dir: 'docs' });
   });
 
   it('should not overwrite an existing module-map.yaml on rerun', async () => {
@@ -153,7 +178,7 @@ describe('knowledge-init.service', () => {
     expect(result.outputFiles).not.toContain('prospec/ai-knowledge/module-map.yaml');
   });
 
-  it('should generate empty skeleton (_index.md, _conventions.md)', async () => {
+  it('should generate empty skeleton (index.md, _conventions.md)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/src/index.ts': '',
@@ -161,7 +186,7 @@ describe('knowledge-init.service', () => {
 
     const result = await execute({ cwd: '/project' });
 
-    expect(result.outputFiles).toContain('prospec/ai-knowledge/_index.md');
+    expect(result.outputFiles).toContain('prospec/index.md');
     expect(result.outputFiles).toContain('prospec/ai-knowledge/_conventions.md');
 
     // Verify _conventions.md contains skeleton
@@ -173,14 +198,14 @@ describe('knowledge-init.service', () => {
     expect(conventions).toContain('prospec:user-start');
   });
 
-  it('should not overwrite existing _index.md or _conventions.md on rerun', async () => {
+  it('should not overwrite existing index.md or _conventions.md on rerun', async () => {
     const existingIndex = '# Existing Index\nCustom content\n';
     const existingConventions = '# Existing Conventions\nCustom rules\n';
 
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/src/index.ts': '',
-      '/project/prospec/ai-knowledge/_index.md': existingIndex,
+      '/project/prospec/index.md': existingIndex,
       '/project/prospec/ai-knowledge/_conventions.md': existingConventions,
     });
 
@@ -189,13 +214,13 @@ describe('knowledge-init.service', () => {
     // raw-scan.md should still be generated
     expect(result.outputFiles).toContain('prospec/ai-knowledge/raw-scan.md');
 
-    // _index.md and _conventions.md should NOT be in outputFiles (not overwritten)
-    expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_index.md');
+    // index.md and _conventions.md should NOT be in outputFiles (not overwritten)
+    expect(result.outputFiles).not.toContain('prospec/index.md');
     expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_conventions.md');
 
     // Verify existing content is preserved
     const index = fs.readFileSync(
-      '/project/prospec/ai-knowledge/_index.md',
+      '/project/prospec/index.md',
       'utf-8',
     );
     expect(index).toBe(existingIndex);
@@ -330,7 +355,7 @@ describe('knowledge-init.service', () => {
       expect(fs.existsSync(`${base}/raw-scan.md`)).toBe(true);
       // Curated files must NOT be seeded under --raw-scan-only (the negative guarantee)
       expect(fs.existsSync(`${base}/module-map.yaml`)).toBe(false);
-      expect(fs.existsSync(`${base}/_index.md`)).toBe(false);
+      expect(fs.existsSync('/project/prospec/index.md')).toBe(false);
       expect(fs.existsSync(`${base}/_conventions.md`)).toBe(false);
     });
 
@@ -342,7 +367,7 @@ describe('knowledge-init.service', () => {
         '/project/.prospec.yaml': 'project:\n  name: test-project\n',
         '/project/package.json': JSON.stringify({ name: 'test-project' }),
         '/project/prospec/ai-knowledge/module-map.yaml': curatedMap,
-        '/project/prospec/ai-knowledge/_index.md': curatedIndex,
+        '/project/prospec/index.md': curatedIndex,
         '/project/prospec/ai-knowledge/_conventions.md': curatedConventions,
         '/project/src/services/auth.ts': '',
       });
@@ -352,7 +377,7 @@ describe('knowledge-init.service', () => {
       expect(result.outputFiles).toEqual(['prospec/ai-knowledge/raw-scan.md']);
       const base = '/project/prospec/ai-knowledge';
       expect(fs.readFileSync(`${base}/module-map.yaml`, 'utf-8')).toBe(curatedMap);
-      expect(fs.readFileSync(`${base}/_index.md`, 'utf-8')).toBe(curatedIndex);
+      expect(fs.readFileSync(`/project/prospec/index.md`, 'utf-8')).toBe(curatedIndex);
       expect(fs.readFileSync(`${base}/_conventions.md`, 'utf-8')).toBe(
         curatedConventions,
       );

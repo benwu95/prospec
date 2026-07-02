@@ -22,7 +22,7 @@ Write generated documents in the language defined by the Constitution's Language
    - [`references/proposal-format.md`](references/proposal-format.md)
    - [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md)
    - [`references/tasks-format.md`](references/tasks-format.md)
-3. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — identify related modules
+3. [DYNAMIC] Read `prospec/index.md` — identify related modules
 
 ## What Makes FF Unique
 
@@ -63,7 +63,7 @@ Derive kebab-case change name, confirm before proceeding.
 | Check | Constitution check (3 most relevant principles) → PASS continue / FAIL pause |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
-delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `_index.md` from Startup
+delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `prospec/index.md` from Startup
 Loading is still read). Status advances `story → tasks` directly
 (a legal quick-path transition; see `prospec/ai-knowledge/_status-lifecycle.md`). The
 `/prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
@@ -77,7 +77,7 @@ Loading is still read). Status advances `story → tasks` directly
 
 | Step | Action |
 |------|--------|
-| Knowledge | Layer 1 (_index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
+| Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Scaffold | Create `plan.md` + `delta-spec.md`, update status → `plan` |
 | Populate | Write per plan-format.md and delta-spec-format.md |
 | Check | Constitution check → PASS continue / FAIL pause |

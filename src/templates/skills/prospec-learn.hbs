@@ -52,7 +52,7 @@ Apply the **explicit numeric rule** from `references/promotion-format.md` to eac
 
 **lessons ledger → team `{{knowledge_base_path}}/_playbook.md` → Constitution**, gated stricter at each step. Routing by the lesson's **kind** (see `references/promotion-format.md`):
 - **constitution** (hard, enforceable principle) → `{{constitution_path}}` as a `ConstitutionRule` (BL-031 severity form) that `/prospec-verify` grades.
-- **convention** / **playbook** → `{{knowledge_base_path}}/_playbook.md` — the single governed team tier (L1 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is L0 always-loaded and not TTL-governed).
+- **convention** / **playbook** → `{{knowledge_base_path}}/_playbook.md` — the single governed team tier (L2 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is an L1 Core Convention read on every task and not TTL-governed).
 
 - A suggestion is **never written** to `_playbook.md` or the Constitution without **explicit human approval**. Present the score detail, ask, and only on approval write the entry.
 - Every written entry is **version controlled** and records `source change(s)`, the `promotion criteria` that fired, the `kind`, and the `approver`.

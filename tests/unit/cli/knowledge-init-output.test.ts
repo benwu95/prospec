@@ -141,13 +141,13 @@ describe('formatKnowledgeInitOutput', () => {
     formatKnowledgeInitOutput(
       baseResult({
         dryRun: false,
-        outputFiles: ['ai-knowledge/raw-scan.md', 'ai-knowledge/_index.md'],
+        outputFiles: ['ai-knowledge/raw-scan.md', 'ai-knowledge/index.md'],
       }),
       'normal',
     );
     const out = output();
     expect(out).toContain('Created ai-knowledge/raw-scan.md');
-    expect(out).toContain('Created ai-knowledge/_index.md');
+    expect(out).toContain('Created ai-knowledge/index.md');
   });
 
   it('omits created files when there are output files but it is a dry run (L47 binary-expr#0 short-circuit false)', () => {
@@ -182,7 +182,7 @@ describe('formatKnowledgeInitOutput', () => {
       'normal',
     );
     const out = output();
-    expect(out).toContain('Curated files (module-map.yaml, _index.md, _conventions.md) left untouched');
+    expect(out).toContain('Curated files (module-map.yaml, <base_dir>/index.md, _conventions.md) left untouched');
   });
 
   it('suppresses the curated-files note when raw-scan-only but dry run (L55 binary-expr#1 false)', () => {

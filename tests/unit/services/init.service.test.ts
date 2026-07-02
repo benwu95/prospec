@@ -59,7 +59,7 @@ describe('init.service', () => {
     expect(fs.existsSync('/project/.prospec.yaml')).toBe(true);
     expect(fs.existsSync('/project/prospec/CONSTITUTION.md')).toBe(true);
     expect(fs.existsSync('/project/AGENTS.md')).toBe(true);
-    expect(fs.existsSync('/project/prospec/ai-knowledge/_index.md')).toBe(true);
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
     expect(fs.existsSync('/project/prospec/ai-knowledge/_conventions.md')).toBe(true);
     expect(fs.existsSync('/project/prospec/specs/.gitkeep')).toBe(true);
 
@@ -279,7 +279,7 @@ describe('init.service artifact language', () => {
     vol.fromJSON({ '/project/src/index.ts': '' });
     const mock = vi.mocked(renderTemplate);
     mock.mockImplementation((tpl: string) => {
-      if (tpl === 'init/index.md.hbs') throw new Error('render boom');
+      if (tpl === 'knowledge/index.md.hbs') throw new Error('render boom');
       return '# Rendered Template Content\n';
     });
 
@@ -312,10 +312,11 @@ describe('init.service per-file idempotency (BL-044)', () => {
       '/project/package.json': '{}',
       '/project/prospec/CONSTITUTION.md': '# CURATED Constitution — do not clobber\n',
       '/project/prospec/ai-knowledge/_conventions.md': '# CURATED conventions\n',
-      '/project/prospec/ai-knowledge/_index.md': '# CURATED index\n',
+      '/project/prospec/index.md': '# CURATED index\n',
       '/project/prospec/ai-knowledge/_status-lifecycle.md': '# CURATED lifecycle\n',
       '/project/prospec/ai-knowledge/_module-readme-conventions.md': '# CURATED readme conv\n',
       '/project/prospec/ai-knowledge/_diagram-conventions.md': '# CURATED diagram\n',
+      '/project/prospec/ai-knowledge/_glossary.md': '# CURATED glossary\n',
       '/project/AGENTS.md': '# CURATED agents\n',
       '/project/prospec/specs/.gitkeep': '',
     });
@@ -332,7 +333,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
     expect(fs.readFileSync('/project/prospec/ai-knowledge/_conventions.md', 'utf-8')).toBe(
       '# CURATED conventions\n',
     );
-    expect(fs.readFileSync('/project/prospec/ai-knowledge/_index.md', 'utf-8')).toBe(
+    expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe(
       '# CURATED index\n',
     );
     expect(fs.readFileSync('/project/prospec/ai-knowledge/_status-lifecycle.md', 'utf-8')).toBe(
@@ -357,8 +358,8 @@ describe('init.service per-file idempotency (BL-044)', () => {
     );
     expect(result.createdFiles).not.toContain('prospec/CONSTITUTION.md');
     // ...missing ones rebuilt.
-    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
-    expect(fs.existsSync('/project/prospec/ai-knowledge/_index.md')).toBe(true);
+    expect(result.createdFiles).toContain('prospec/index.md');
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
   });
 
   it('writes every artifact on a greenfield init (behavior unchanged)', async () => {
@@ -368,7 +369,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
 
     expect(result.createdFiles).toContain('prospec/CONSTITUTION.md');
     expect(result.createdFiles).toContain('AGENTS.md');
-    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
+    expect(result.createdFiles).toContain('prospec/index.md');
     expect(result.createdFiles).toContain('prospec/specs/.gitkeep');
   });
 
@@ -384,7 +385,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
 });
 
 describe('init.service managed AGENTS.md merge (REQ-SETUP-018)', () => {
-  // The real init/agents.md.hbs carries auto/user blocks; the file-level mock is
+  // The real agent-configs/entry.md.hbs carries auto/user blocks; the file-level mock is
   // markerless. Override it so the block structure can be asserted precisely.
   const STUB = `<!-- prospec:auto-start -->
 # AI Agents Configuration
@@ -398,7 +399,7 @@ run prospec agent sync
 
   beforeEach(() => {
     vi.mocked(renderTemplate).mockImplementation((name: string) =>
-      name === 'init/agents.md.hbs' ? STUB : '# doc\n',
+      name === 'agent-configs/entry.md.hbs' ? STUB : '# doc\n',
     );
   });
 

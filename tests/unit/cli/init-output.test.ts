@@ -57,12 +57,12 @@ describe('formatInitOutput', () => {
     it('emits one "Created" line per created file', () => {
       const { out } = captureStdout();
       formatInitOutput(
-        makeResult({ createdFiles: ['CONSTITUTION.md', 'prospec/_index.md'] }),
+        makeResult({ createdFiles: ['CONSTITUTION.md', 'prospec/index.md'] }),
         'normal',
       );
       const text = out();
       expect(text).toContain('Created CONSTITUTION.md');
-      expect(text).toContain('Created prospec/_index.md');
+      expect(text).toContain('Created prospec/index.md');
     });
 
     it('omits any "Created" line when createdFiles is empty', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fg from 'fast-glob';
-import { scanDir, scanDirSync, listGitTrackedFiles } from '../../../src/lib/scanner.js';
+import { scanDir, scanDirSync, listGitTrackedFiles, filterConventions } from '../../../src/lib/scanner.js';
+import { CORE_CONVENTIONS } from '../../../src/types/conventions.js';
 import { ScanError } from '../../../src/types/errors.js';
 
 // scanner uses fast-glob directly, so we test with real filesystem using temp dirs
@@ -261,5 +262,44 @@ describe('listGitTrackedFiles', () => {
     const tracked = await listGitTrackedFiles(tmpDir);
     expect(tracked?.has('a.txt')).toBe(true);
     expect(tracked?.has('b.txt')).toBe(false); // untracked
+  });
+});
+
+describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
+  it('splits files into core and demand per the CORE_CONVENTIONS registry', () => {
+    const { core, demand } = filterConventions([
+      '_conventions.md',
+      '_glossary.md',
+      '_lessons-ledger.md',
+      '_module-readme-conventions.md',
+    ]);
+    expect(core).toEqual(['_conventions.md', '_glossary.md']);
+    expect(demand).toEqual(['_lessons-ledger.md', '_module-readme-conventions.md']);
+  });
+
+  it('keeps _playbook.md load-on-demand — feedback-promotion governance forbids it in core', () => {
+    expect(CORE_CONVENTIONS).not.toContain('_playbook.md');
+    const { core, demand } = filterConventions(['_conventions.md', '_playbook.md']);
+    expect(core).toEqual(['_conventions.md']);
+    expect(demand).toEqual(['_playbook.md']);
+  });
+
+  it('always drops the legacy _index.md from both lists (pre-migration back-compat)', () => {
+    const { core, demand } = filterConventions(['_index.md', '_conventions.md', '_custom.md']);
+    expect(core).toEqual(['_conventions.md']);
+    expect(demand).toEqual(['_custom.md']);
+    expect([...core, ...demand]).not.toContain('_index.md');
+  });
+
+  it('matches on basename, so scan paths with directories still split correctly', () => {
+    const { core, demand } = filterConventions(['docs/kb/_glossary.md', 'docs/kb/_index.md', 'docs/kb/_notes.md']);
+    expect(core).toEqual(['docs/kb/_glossary.md']);
+    expect(demand).toEqual(['docs/kb/_notes.md']);
+  });
+
+  it('additionalCore promotes a demand convention into core (knowledge.additional_core_conventions)', () => {
+    const { core, demand } = filterConventions(['_conventions.md', '_team-style.md'], ['_team-style.md']);
+    expect(core).toEqual(['_conventions.md', '_team-style.md']);
+    expect(demand).toEqual([]);
   });
 });

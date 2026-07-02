@@ -1,6 +1,6 @@
 ---
 name: prospec-knowledge-update
-description: "Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, _index.md, and module-map.yaml incrementally. Triggers: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件"
+description: "Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, prospec/index.md, and module-map.yaml incrementally. Triggers: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件"
 ---
 
 # Prospec Knowledge Update Skill
@@ -10,7 +10,7 @@ description: "Incremental Knowledge Update - Parse delta-spec.md to identify aff
 When triggered, briefly describe:
 - That you'll parse delta-spec.md to identify affected modules
 - Only affected modules will be scanned (not the entire codebase)
-- Module README.md (Recipe-First format), _index.md, and module-map.yaml will be updated incrementally
+- Module README.md (Recipe-First format), prospec/index.md, and module-map.yaml will be updated incrementally
 - User-written sections (prospec:user-start/end) are always preserved
 
 ## Language Policy
@@ -22,19 +22,25 @@ Write generated documents in the language defined by the Constitution's Language
 2. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — team conventions (incl. the Module READMEs pointer)
 3. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_module-readme-conventions.md` for the canonical README output format (section order, `# {ProperName}` title, `prospec:auto`/`prospec:user` marker contract)
 4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — identify ADDED/MODIFIED/REMOVED requirements
-5. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` — current module index
+5. [DYNAMIC] Read `prospec/index.md` — current module index
 6. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — current dependency graph (if exists)
 
-## Token Budget Reminder
+## Progressive Knowledge Loading Strategy
 
-Updated knowledge must respect these limits:
+| Layer | Files | When to Load | Token Budget |
+|-------|-------|-------------|-------------|
+| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,500 tokens total |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 400 tokens per module/feature |
+| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-| Layer | Content | Budget |
-|-------|---------|--------|
-| L1 | Each module `README.md` (and each `{sub-module}.md`) | ≤ 400 tokens / ≤ 100 lines each |
-| L0 | `_index.md` + `_conventions.md` | ≤ 1,500 tokens total |
+**Principles:**
+1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
+2. Each layer must NOT duplicate information available in a lower layer
+3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-After updating, verify the affected README stays within budget. If it overflows and has a content-rich, functionally-independent sub-area, extract a sub-module (see Phase 3a) rather than trimming away useful detail; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact. Canonical rules: `prospec/ai-knowledge/_module-readme-conventions.md`.
+**Token Budget Reminder:** After updating, verify the affected README stays within budget. If it overflows and has a content-rich, functionally-independent sub-area, extract a sub-module (see Phase 3a) rather than trimming away useful detail; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact. Canonical rules: `prospec/ai-knowledge/_module-readme-conventions.md`.
 
 ## Core Workflow
 
@@ -44,7 +50,7 @@ Parse delta-spec.md to extract affected modules:
 
 | Section | Action | Example |
 |---------|--------|---------|
-| ADDED | Create new module README.md + add to _index.md + add to module-map.yaml | REQ-AUTH-001 → new `auth` module |
+| ADDED | Create new module README.md + add to prospec/index.md + add to module-map.yaml | REQ-AUTH-001 → new `auth` module |
 | MODIFIED | Update existing module README.md with current implementation | REQ-SERVICES-010 → update `services` README |
 | REMOVED | Mark module as deprecated in README.md (do NOT delete) | REQ-LEGACY-001 → deprecate `legacy` module |
 
@@ -72,7 +78,7 @@ For each affected module:
 
 Before writing, check whether the **existing** Knowledge files' format still matches the current
 templates/conventions — independent of this change's content:
-- `_index.md` column schema vs the canonical INDEX columns and `_module-readme-conventions.md`
+- `prospec/index.md` column schema vs the canonical INDEX columns and `_module-readme-conventions.md`
 - each affected module `README.md` section structure vs `_module-readme-conventions.md` (the section
   set + marker contract)
 - `_conventions.md` `prospec:auto`/`user` marker structure
@@ -118,15 +124,15 @@ For MODIFIED modules:
 - Update Key Files table, Public API list, dependency info
 - **Refresh Modification Guide** — if implementation patterns changed, update guidance
 - **Refresh Ripple Effects** — if new dependencies were added, update impact list
-- **Maintain sub-modules** — if the module already has `## Sub-Modules` links, update the affected `{sub-module}.md` (and the link's one-liner) instead of cramming the detail back into the README. If the change pushes the README over budget and a content-rich, independent sub-area now exists, extract a new sub-module (`{module}/{sub-module}.md`) and add it to `## Sub-Modules` — do NOT add it to `_index.md`.
+- **Maintain sub-modules** — if the module already has `## Sub-Modules` links, update the affected `{sub-module}.md` (and the link's one-liner) instead of cramming the detail back into the README. If the change pushes the README over budget and a content-rich, independent sub-area now exists, extract a new sub-module (`{module}/{sub-module}.md`) and add it to `## Sub-Modules` — do NOT add it to `prospec/index.md`.
 
 #### 3b: Module README.md (REMOVED)
 
 - Add deprecated banner at top of README.md
 - Do NOT delete the file or directory
-- Update status in _index.md to "Deprecated"
+- Update status in prospec/index.md to "Deprecated"
 
-#### 3c: _index.md
+#### 3c: prospec/index.md
 
 Update the module table within `prospec:auto-start/end` markers using the current format:
 
@@ -137,8 +143,8 @@ Update the module table within `prospec:auto-start/end` markers using the curren
 - Add new modules (ADDED) with Rationale explaining why the module exists, plus Aliases (synonyms + user-language terms that should match this module)
 - Update descriptions, keywords, and aliases (MODIFIED)
 - Mark as Deprecated (REMOVED)
-- Ensure Loading Rules section is present and accurate
-- If the _index.md uses `### {Category}` grouped sub-tables, keep the grouping — place each module under its primary category (`module-map.yaml` `category[0]`); an ADDED module goes under a derived category consistent with existing groups, listed under its primary heading only
+- Ensure Progressive Knowledge Loading Strategy section is intact
+- If the prospec/index.md uses `### {Category}` grouped sub-tables, keep the grouping — place each module under its primary category (`module-map.yaml` `category[0]`); an ADDED module goes under a derived category consistent with existing groups, listed under its primary heading only
 
 #### 3d: module-map.yaml
 
@@ -154,7 +160,7 @@ Update the module table within `prospec:auto-start/end` markers using the curren
 
 ### Success Criteria
 - [ ] every affected module README updated
-- [ ] _index.md and module-map.yaml synced
+- [ ] prospec/index.md and module-map.yaml synced
 - [ ] REMOVED requirements marked deprecated (not deleted)
 
 ### Failure Conditions
@@ -171,18 +177,18 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** delete module directories for REMOVED requirements — mark as deprecated only
 - **NEVER** scan the entire codebase — only scan modules identified from delta-spec
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required
-- **NEVER** skip _index.md update — the index must always reflect current module state
+- **NEVER** skip prospec/index.md update — the index must always reflect current module state
 - **NEVER** ignore module-map.yaml when it exists — dependency graph must stay in sync
 - **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md (or its sub-module files) only
 - **NEVER** exceed 100 lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
-- **NEVER** list sub-modules in `_index.md` or `module-map.yaml` — they are reached only via the parent README's `## Sub-Modules` links
+- **NEVER** list sub-modules in `prospec/index.md` or `module-map.yaml` — they are reached only via the parent README's `## Sub-Modules` links
 
 ## Error Handling
 
 | Scenario | Action |
 |----------|--------|
 | delta-spec.md not found | Ask user to specify modules manually or point to delta-spec path |
-| module-map.yaml not found | Skip module-map update, proceed with README and _index.md only |
+| module-map.yaml not found | Skip module-map update, proceed with README and prospec/index.md only |
 | Module directory doesn't exist (MODIFIED) | Treat as ADDED — create new module directory and README |
 | ContentMerger conflict | Prefer new auto content, always preserve user sections |
 | Source scan returns 0 files | Generate minimal README with module name only, warn user |

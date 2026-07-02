@@ -16,7 +16,7 @@ const task: CorpusTask = {
 
 const contents = new Map<string, string>([
   [`${KB}/_conventions.md`, 'conventions body'],
-  [`${KB}/_index.md`, 'index body'],
+  [`prospec/index.md`, 'index body'],
   [`${KB}/_glossary.md`, 'glossary body'],
   [`${KB}/modules/lib/README.md`, 'lib readme body'],
 ]);
@@ -26,14 +26,14 @@ describe('assembleProspec glossary variant (REQ-MEASURE-009)', () => {
     const context = assembleProspec(contents, task);
     expect(context).not.toContain('_glossary.md');
     expect(context).toContain('_conventions.md');
-    expect(context).toContain('_index.md');
+    expect(context).toContain('index.md');
   });
 
   it('includes _glossary.md at the stable-segment tail when enabled', () => {
     const context = assembleProspec(contents, task, { includeGlossary: true });
     const glossaryAt = context.indexOf('_glossary.md');
     expect(glossaryAt).toBeGreaterThan(context.indexOf('_conventions.md'));
-    expect(glossaryAt).toBeLessThan(context.indexOf('_index.md'));
+    expect(glossaryAt).toBeLessThan(context.indexOf('index.md'));
     expect(context).toContain('glossary body');
   });
 

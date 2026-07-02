@@ -27,10 +27,12 @@ The user's primary language for AI-generated documents is **{{artifact_language}
 Project principles and constraints: [`{{constitution_path}}`]({{constitution_path}})
 
 ### AI Knowledge Base
-Module index and project structure: [`{{knowledge_base_path}}/_index.md`]({{knowledge_base_path}}/_index.md)
+Module index and project structure (L1-L3 navigation): [`{{base_dir}}/index.md`]({{base_dir}}/index.md)
 
 ### Coding Conventions
 Coding standards and best practices: [`{{knowledge_base_path}}/_conventions.md`]({{knowledge_base_path}}/_conventions.md)
+Diagram conventions: [`{{knowledge_base_path}}/_diagram-conventions.md`]({{knowledge_base_path}}/_diagram-conventions.md)
+Project glossary and domain terms: [`{{knowledge_base_path}}/_glossary.md`]({{knowledge_base_path}}/_glossary.md)
 
 ## Available Prospec Skills
 
@@ -59,6 +61,8 @@ not status alone; cross-check `{{knowledge_base_path}}/_status-lifecycle.md`. Th
 right point instead of starting blind.
 
 ## Working with This Project
+
+**Constraint**: Follow the L0-L3 progressive loading model. Always read `{{base_dir}}/index.md` (L1) first. Never load L2 (Module READMEs) or L3 (Source Code) proactively before identifying the required modules.
 
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture

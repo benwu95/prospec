@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { scanDir } from '../lib/scanner.js';
+import { scanDir, filterConventions } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -9,7 +9,7 @@ import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml } from '../lib/yaml-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
-import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
+import { buildIndexTemplateContext } from '../lib/index-template.js';
 
 export interface KnowledgeOptions {
   dryRun?: boolean;
@@ -40,7 +40,7 @@ export interface KnowledgeResult {
  * 2. Read module-map.yaml (must exist — created by `prospec knowledge init`)
  * 3. Scan modules (respect .prospec.yaml exclude patterns, REQ-KNOW-007)
  * 4. Generate module README.md for each module (ContentMerger preserves user sections)
- * 5. Update _index.md (Markdown table)
+ * 5. Update index.md (Markdown table)
  * 6. Support --dry-run (preview without writing)
  */
 export async function execute(
@@ -51,8 +51,9 @@ export async function execute(
 
   // 1. Read config
   const config = await readConfig(cwd);
-  const { knowledgePath } = resolveBasePaths(config, cwd);
-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
+  const paths = resolveBasePaths(config, cwd);
+  const { knowledgePath } = paths;
+  const knowledgeBasePath = path.relative(cwd, knowledgePath).replace(/\\/g, '/');
   const excludePatterns = config.exclude ?? [];
 
   // 2. Read module-map.yaml
@@ -81,17 +82,20 @@ export async function execute(
       });
     }
 
-    // 5. Update _index.md
-    const indexPath = path.join(cwd, knowledgeBasePath, '_index.md');
+    // 5. Update index.md
+    const baseDir = path.relative(cwd, paths.baseDir).replace(/\\/g, '/');
+    const indexPath = path.join(paths.baseDir, 'index.md');
     const indexAction = await updateIndex(
-      moduleInfos,
       config.project.name,
       config.tech_stack,
       knowledgeBasePath,
       indexPath,
+      cwd,
+      config.knowledge?.additional_core_conventions ?? [],
+      baseDir,
     );
     generatedFiles.push({
-      path: path.join(knowledgeBasePath, '_index.md'),
+      path: path.join(baseDir, 'index.md'),
       action: indexAction,
     });
   }
@@ -217,30 +221,31 @@ async function generateModuleReadme(
 }
 
 /**
- * Generate or update the _index.md file.
+ * Generate or update the index.md file.
  * Uses ContentMerger to preserve user-written sections.
  */
 async function updateIndex(
-  modules: ModuleInfo[],
   projectName: string,
   techStack: { language?: string; framework?: string; package_manager?: string } | undefined,
   knowledgeBasePath: string,
   indexPath: string,
+  cwd: string,
+  additionalCore: string[],
+  baseDir: string,
 ): Promise<'created' | 'updated'> {
   await ensureDir(path.dirname(indexPath));
 
-  const templateContext = {
-    project_name: projectName,
-    tech_stack: techStack,
-    knowledge_base_path: knowledgeBasePath,
-    index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
-    modules: modules.map((m) => ({
-      name: m.name,
-      description: m.description,
-      keywords: m.keywords,
-      relationships: m.relationships,
-    })),
-  };
+  const conventionScan = await scanDir('_*.md', { cwd: path.join(cwd, knowledgeBasePath) });
+  const { core, demand } = filterConventions(conventionScan.files, additionalCore);
+
+  const templateContext = buildIndexTemplateContext({
+    projectName,
+    techStack,
+    baseDir,
+    knowledgeBasePath,
+    coreConventions: core,
+    demandConventions: demand,
+  });
 
   const newContent = renderTemplate(
     'knowledge/index.md.hbs',

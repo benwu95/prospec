@@ -71,7 +71,8 @@ edits, so updating their format requires consent. Do it here:
    - `prospec/ai-knowledge/_status-lifecycle.md` ← `src/templates/init/status-lifecycle.md.hbs`
    - `prospec/ai-knowledge/_module-readme-conventions.md` ← `src/templates/init/module-readme-conventions.md.hbs`
    - `prospec/ai-knowledge/_diagram-conventions.md` ← `src/templates/init/diagram-conventions.md.hbs`
-   - `prospec/CONSTITUTION.md` (Constitution), `prospec/ai-knowledge/_conventions.md`, `prospec/ai-knowledge/_index.md` — compare the **format/structure** (severity tags, section markers, index column schema), never the user's authored wording
+   - `prospec/CONSTITUTION.md` (Constitution), `prospec/ai-knowledge/_conventions.md` — compare the **format/structure** (severity tags, section markers), never the user's authored wording
+   - **Index Migration**: If `prospec/ai-knowledge/_index.md` exists, offer to migrate it to the new root location `prospec/index.md` using `src/templates/knowledge/index.md.hbs`. Preserve any user notes in the `<!-- prospec:user-start -->` block, and **copy the curated `Modules` table rows verbatim** into the new file's `prospec:auto` block — the Keywords / Aliases / Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from `module-map.yaml` and blanks every curated column to `—`. Delete the old `prospec/ai-knowledge/_index.md` after a successful move.
 3. For each file whose format has drifted, **show a diff and ask the user whether to update it** —
    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
    leave the rest unchanged.

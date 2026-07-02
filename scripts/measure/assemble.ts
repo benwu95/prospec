@@ -124,8 +124,8 @@ export interface ProspecAssemblyOptions {
 }
 
 /**
- * prospec: layered progressive disclosure — L0 (_index + _conventions)
- * followed by L1 (related module READMEs), stable content first.
+ * prospec: layered progressive disclosure — L1 (index + _conventions)
+ * followed by L2 (related module READMEs), stable content first.
  */
 export function assembleProspec(
   contents: Map<string, string>,
@@ -145,7 +145,7 @@ export function assembleProspec(
   if (options.includeGlossary) {
     sections.push(knowledgeFile(`${knowledgeBase}/_glossary.md`));
   }
-  sections.push(knowledgeFile(`${knowledgeBase}/_index.md`));
+  sections.push(knowledgeFile(path.posix.join(knowledgeBase, '../index.md')));
   for (const moduleName of [...task.modules].sort()) {
     sections.push(knowledgeFile(`${knowledgeBase}/modules/${moduleName}/README.md`));
   }

@@ -49,7 +49,7 @@ Types → Lib → Services → CLI → Tests
 
 **Only load AI Knowledge relevant to the current task:**
 
-1. **Before starting:** Read `prospec/ai-knowledge/_index.md` to understand overall architecture
+1. **Before starting:** Read `prospec/index.md` to understand overall architecture
 2. **During task execution:** Only read `prospec/ai-knowledge/modules/{module}/README.md` for the relevant module
 3. **Avoid:** Loading all AI Knowledge files at once
 

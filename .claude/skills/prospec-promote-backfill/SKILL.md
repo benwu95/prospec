@@ -21,7 +21,7 @@ Write generated documents in the language defined by the Constitution's Language
 1. [STABLE] Read `prospec/CONSTITUTION.md` — Constitution constraints the scaffold must satisfy
 2. [STABLE] **MANDATORY** — Load the format references this scaffold must match: `references/proposal-format.md`, `references/delta-spec-format.md`
 3. [DYNAMIC] Read `.prospec/changes/[name]/backfill-draft.md` — the reviewed source draft to formalize
-4. [DYNAMIC] Read `prospec/ai-knowledge/_index.md` + `prospec/ai-knowledge/module-map.yaml` — map the draft's traced `file:line` to module names for `related_modules`
+4. [DYNAMIC] Read `prospec/index.md` + `prospec/ai-knowledge/module-map.yaml` — map the draft's traced `file:line` to module names for `related_modules`
 5. [DYNAMIC] Read `prospec/specs/features/` — align the candidate feature slug to an existing Feature Spec when one fits
 
 ## Entry Gate

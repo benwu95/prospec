@@ -29,9 +29,9 @@ export interface ChangeStoryResult {
 /**
  * Execute the change story workflow:
  *
- * 1. Read config to get knowledge base path
+ * 1. Read config to validate project is initialized
  * 2. Validate change directory does not exist → AlreadyExistsError
- * 3. Match related modules from _index.md keywords
+ * 3. Match related modules from index.md keywords
  * 4. Render proposal.md and metadata.yaml templates
  * 5. Write files to .prospec/changes/{name}/
  */
@@ -39,10 +39,8 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   const cwd = options.cwd ?? process.cwd();
   const changeName = options.name;
 
-  // 1. Read config
+  // 1. Read config (throws ConfigNotFound if not initialized)
   const config = await readConfig(cwd);
-  const { knowledgePath } = resolveBasePaths(config, cwd);
-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
 
   // 2. Validate change directory does not exist
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
@@ -50,8 +48,8 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     throw new AlreadyExistsError(`.prospec/changes/${changeName}`);
   }
 
-  // 3. Match related modules from _index.md
-  const relatedModules = matchRelatedModules(changeName, knowledgeBasePath, cwd);
+  // 3. Match related modules from index.md
+  const relatedModules = matchRelatedModules(changeName, resolveBasePaths(config, cwd).baseDir);
 
   // 4. Create change directory
   await ensureDir(changeDir);
@@ -98,23 +96,22 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
 }
 
 /**
- * Match related modules by comparing change name keywords against _index.md.
+ * Match related modules by comparing change name keywords against index.md.
  *
- * Reads the _index.md Markdown table and matches keywords from module entries
+ * Reads the index.md Markdown table and matches keywords from module entries
  * against words extracted from the kebab-case change name.
  */
 function matchRelatedModules(
   changeName: string,
-  knowledgeBasePath: string,
-  cwd: string,
+  baseDir: string,
 ): RelatedModule[] {
-  const indexPath = path.join(cwd, knowledgeBasePath, '_index.md');
+  const indexPath = path.join(baseDir, 'index.md');
 
   let indexContent: string;
   try {
     indexContent = fs.readFileSync(indexPath, 'utf-8');
   } catch {
-    // No _index.md — return empty (not an error, just no modules to match)
+    // No index.md — return empty (not an error, just no modules to match)
     return [];
   }
 
@@ -126,7 +123,7 @@ function matchRelatedModules(
 
   if (changeWords.length === 0) return [];
 
-  // Parse _index.md table rows against the canonical column schema
+  // Parse index.md table rows against the canonical column schema
   // (types/knowledge.ts): | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
   const lines = indexContent.split('\n');
   const modules: RelatedModule[] = [];
