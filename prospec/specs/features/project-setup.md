@@ -2,8 +2,8 @@
 feature: project-setup
 status: active
 last_updated: 2026-07-03
-story_count: 15
-req_count: 34
+story_count: 16
+req_count: 40
 ---
 
 # 專案啟動
@@ -349,23 +349,23 @@ CLI option 說明、錯誤訊息（含 `suggestion`）、stdout/stderr 輸出統
 - WHEN 檢查 import, THEN `cli` 與 `services` 皆 import `types/version`，無 `cli → lib` 違規（lint 守門）
 
 #### REQ-SERVICES-035: Upgrade Orchestrator Service
-`upgrade.service.execute({ cwd, interactive? })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION`；(3) 互動模式逐一提示補齊缺漏的策展欄位（`UPGRADE_NUDGE_RULES`），套用答案；(4) `writeConfig`（comment-preserving 就地合併，保留註解；見 REQ-LIB-022）；(5) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(6) best-effort 刷新 `raw-scan.md`（`generateRawScan`，等價 `--raw-scan-only`；非致命，回傳 `rawScanRefreshed`）；(7) `buildReport`（post-prompt）：version delta（from→to）、缺觸發詞 skill 清單、config-field nudges（`detectNudges`）、docs inventory（`buildDocsInventory`——依 `INIT_DOC_REGISTRY` × `resolveBasePaths` 逐檔於實際位置檢查存在性：base 文件對 `baseDir`、knowledge 文件對 `knowledgePath`（尊重遷移的 `knowledge.base_path`），唯讀 `fileExists`，見 REQ-SETUP-022）。不寫任何 CURATED doc 或 CONSTITUTION；唯一 `prospec/ai-knowledge/` 寫入是決定性、可隨時重生的 `raw-scan.md`。
+`upgrade.service.execute({ cwd, interactive? })`：(1) `readConfig`；(2) 更新 `config.version = PROSPEC_VERSION`；(3) 互動模式逐一提示補齊缺漏的策展欄位（`UPGRADE_NUDGE_RULES`），套用答案；(4) `writeConfig`（comment-preserving 就地合併，保留註解；見 REQ-LIB-022）；(5) orchestrate sibling `agentSync.execute`（service-orchestrates-service，透傳 hints/warnings）；(6) best-effort 刷新 `raw-scan.md`（`generateRawScan`，非致命，回傳 `rawScanRefreshed`）；(7) **`createMissingDocs`**——以 `buildDocsInventory` 找出 MISSING 文件，逐檔經共用 `lib/init-docs` helper render＋`atomicWrite`（skip-if-exists、per-doc best-effort），成功者收入 `createdDocs`（見 REQ-SERVICES-061）；(8) `buildReport`（post-prompt、建立後）：version delta（from→to）、缺觸發詞 skill 清單、config-field nudges（`detectNudges`）、建立後 docs inventory（`buildDocsInventory`——依 `INIT_DOC_REGISTRY` × `resolveInitDocLocation` 逐檔於實際位置檢查，尊重遷移的 `knowledge.base_path`，見 REQ-SETUP-022）與 `createdDocs`。**只建缺檔、永不覆寫既有 curated doc**（格式遷移屬 `/prospec-upgrade` skill）；除可重生的 `raw-scan.md` 外，`prospec/ai-knowledge/` 寫入僅限本次補建的缺檔。
 
 **Scenarios:**
-- WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`、agent sync 已跑、`raw-scan.md` 已刷新
-- WHEN execute 執行, THEN CURATED doc（CONSTITUTION/根層級 index/_conventions/canonical convention docs/module README）byte 不變（唯一 `ai-knowledge/` 寫入是 `raw-scan.md`）
-- WHEN `generateRawScan` 失敗, THEN `rawScanRefreshed` 為 false 且 upgrade 仍成功（version + agent sync 不受影響）
-- WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、缺漏策展欄位的 nudges、與逐檔 docs inventory（path 為實際位置 + template + present）
-- WHEN orchestrate, THEN 呼叫 `agentSync` + `generateRawScan` 且依賴方向 `cli → services` 不破（不渲染 canonical docs、不跑 LLM knowledge generate）
+- WHEN execute 完成, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`、agent sync 已跑、`raw-scan.md` 已刷新、缺漏的 init 文件已補建
+- WHEN execute 執行且有既有 curated doc, THEN 既有 doc（CONSTITUTION/根層級 index/_conventions/canonical convention docs/module README）byte 不變（只補缺檔、不覆寫）
+- WHEN 單檔 render/write 失敗, THEN best-effort——該檔留 MISSING、upgrade 仍成功（version + agent sync 不受影響）；`generateRawScan` 失敗時 `rawScanRefreshed` 為 false 亦不中止
+- WHEN report 產出, THEN 含 version{from,to}、缺 `skill_triggers` 條目的 skill 清單（非英文時）、nudges、建立後逐檔 docs inventory 與 `createdDocs`
+- WHEN orchestrate, THEN 呼叫 `agentSync` + `generateRawScan` + 共用 `lib/init-docs`，依賴方向 `cli → services → lib → types` 不破（不渲染 canonical docs、不跑 LLM knowledge generate）
 
 #### REQ-SETUP-019: prospec upgrade Command
-`prospec upgrade`（zero-LLM）CLI 指令。職責：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`，以 **comment-preserving 就地合併**持久化（保留使用者註解與排版，見 REQ-LIB-022）；(2) 執行 `agent sync`（zone-1 重生）並 best-effort 刷新 `raw-scan.md`（決定性，等價 `--raw-scan-only`，對齊新版掃描器）；(3) 輸出 report（version delta、docs inventory——init 建立的每份文件 present/MISSING，見 REQ-SETUP-022、缺觸發詞 skill、config-field nudges）+ 下一步 `/prospec-upgrade`。在互動式 TTY 逐一提示補齊缺漏的策展欄位（見 REQ-SETUP-021）；`--no-interactive`（及非 TTY stdin）強制 report-only，故 `/prospec-upgrade` skill 與 CI 不阻塞。不自動改寫任何 init 建立的 CURATED doc。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。
+`prospec upgrade`（zero-LLM）CLI 指令。職責：(1) 升級 `.prospec.yaml`——`version` 更新為 `PROSPEC_VERSION`，以 **comment-preserving 就地合併**持久化（保留使用者註解與排版，見 REQ-LIB-022）；(2) 執行 `agent sync`（zone-1 重生）並 best-effort 刷新 `raw-scan.md`（決定性，等價 `--raw-scan-only`，對齊新版掃描器）；(3) **直接建立缺漏的 init 文件**（依 `INIT_DOC_REGISTRY` 逐檔 render＋write、skip-if-exists，見 REQ-SETUP-024）；(4) 輸出 report（version delta、docs inventory 與本次「已建立」清單，見 REQ-SETUP-022、缺觸發詞 skill、config-field nudges）+ 下一步 `/prospec-upgrade`。在互動式 TTY 逐一提示補齊缺漏的策展欄位（見 REQ-SETUP-021）；`--no-interactive`（及非 TTY stdin）強制不提示，但**缺檔建立與互動與否無關**，故 `/prospec-upgrade` skill 與 CI 仍會補檔。**永不覆寫既有 curated doc**、不遷移既有文件格式、不改 CONSTITUTION（格式遷移屬 `/prospec-upgrade` skill）。屬 post-init 指令——不列入 `INIT_COMMANDS`，未初始化時 `ConfigNotFound` 阻擋並提示先 `prospec init`。
 
 **Scenarios:**
-- WHEN 在已初始化專案執行 `prospec upgrade --no-interactive`, THEN `.prospec.yaml` `version` 更新且使用者註解保留、跑 agent sync、刷新 `raw-scan.md`、印 report（含 docs inventory），exit 0
+- WHEN 在已初始化專案執行 `prospec upgrade --no-interactive`, THEN `.prospec.yaml` `version` 更新且使用者註解保留、跑 agent sync、刷新 `raw-scan.md`、補建缺漏的 init 文件、印 report（含 docs inventory 與已建立清單），exit 0
 - WHEN 在互動式 TTY 執行且有缺漏的策展欄位, THEN 像 `prospec init` 一樣逐一提示補齊（如 artifact_language）
 - WHEN 在未初始化專案（無 `.prospec.yaml`）執行, THEN `ConfigNotFound` 阻擋並提示 `prospec init`，不寫任何檔
-- WHEN 執行 upgrade, THEN 不寫任何 CURATED doc 或 CONSTITUTION（唯一 `prospec/ai-knowledge/` 寫入是決定性可重生的 `raw-scan.md`；其餘僅動 `.prospec.yaml` + zone-1 agent-sync 產物）
+- WHEN 執行 upgrade, THEN 只建立缺漏的 curated doc；既有 curated doc 與 CONSTITUTION byte 不變（格式遷移屬 skill；`prospec/ai-knowledge/` 另一寫入是可重生的 `raw-scan.md`）
 
 ---
 
@@ -431,19 +431,19 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 - WHEN `prospec upgrade` 執行, THEN 任何 curated doc 與 CONSTITUTION 內容 byte 不變（CLI 只報告、不寫入）
 
 #### REQ-TYPES-038: Init-Doc Registry 單一事實來源
-`types/conventions.ts` 的 `INIT_DOC_REGISTRY`——init 建立的 7 份 curated 文件之單一事實來源：每項含範本名、root 判別（`base`＝`paths.base_dir` 下；`knowledge`＝知識庫下，消費端須經 `resolveBasePaths().knowledgePath` 解析、不得以 `base_dir + 'ai-knowledge'` 拼合）與 root 相對路徑；canonical 與 user-managed convention docs 皆自其 `ConventionDocSource` 常數（`{template, output}` 對）經共用 `asKnowledgeInitDoc` 投影推導不重複——任何文件名於 codebase 僅宣告一處；index 項以 `context: 'index'` 宣告渲染 context，消費端以欄位判別、不比對範本路徑字串。排除 `AGENTS.md`（zone-1，agent-sync 擁有）與 `specs/.gitkeep`（非文件）。`init.service` 的 curated 清單由此推導（per-file skip-if-exists 與寫入行為不變）；位於 leaf `types` 層，純資料無 I/O。
+`types/conventions.ts` 的 `INIT_DOC_REGISTRY`——init 建立的 8 份 curated 文件之單一事實來源：每項含範本名、root 判別（`base`＝`paths.base_dir` 下；`knowledge`＝知識庫下，消費端須經 `resolveBasePaths().knowledgePath` 解析、不得以 `base_dir + 'ai-knowledge'` 拼合）與 root 相對路徑；canonical 與 user-managed convention docs 皆自其 `ConventionDocSource` 常數（`{template, output}` 對）經共用 `asKnowledgeInitDoc` 投影推導不重複——任何文件名於 codebase 僅宣告一處；index 項以 `context: 'index'` 宣告渲染 context，消費端以欄位判別、不比對範本路徑字串。排除 `AGENTS.md`（zone-1，agent-sync 擁有）與 `specs/.gitkeep`（非文件）。`init.service` 的 curated 清單由此推導（per-file skip-if-exists 與寫入行為不變）；位於 leaf `types` 層，純資料無 I/O。
 
 **Scenarios:**
-- WHEN 讀 registry, THEN 恰 7 項（base：`CONSTITUTION.md`、`index.md`；knowledge：`_conventions`、`_diagram-conventions`、`_glossary`、`_status-lifecycle`、`_module-readme-conventions`），每項含範本與 root
+- WHEN 讀 registry, THEN 恰 8 項（base：`README.md`、`CONSTITUTION.md`、`index.md`；knowledge：`_conventions`、`_diagram-conventions`、`_glossary`、`_status-lifecycle`、`_module-readme-conventions`），每項含範本與 root
 - WHEN `prospec init` 於 greenfield 執行, THEN 實際建立的 curated 文件集合 == registry 推導集合（雙向等式）
 - WHEN 檢查 imports, THEN `conventions.ts` 無任何內部 import（leaf 純資料）
 
 #### REQ-SETUP-022: Upgrade Report Docs Inventory
-`prospec upgrade` report 的 docs inventory 區段：依 `INIT_DOC_REGISTRY` 逐檔以**實際位置**檢查存在性（knowledge root 經 `resolveBasePaths().knowledgePath`，尊重遷移的 `knowledge.base_path`——與 knowledge-init／agent-sync／knowledge-reader 一致）；formatter 以固定可解析行格式輸出 `✓ <path> (template: <hbs>)`／`✗ <path> — MISSING (template: <hbs>)`（路徑經 `sanitizeTerminal`），missing > 0 時提示 `/prospec-upgrade` 處理。CLI 僅報告——不寫任何 curated doc。
+`prospec upgrade` report 的 docs inventory 區段：依 `INIT_DOC_REGISTRY` 逐檔經共用 `resolveInitDocLocation` 以**實際位置**檢查存在性（knowledge root 尊重遷移的 `knowledge.base_path`——與 knowledge-init／agent-sync／knowledge-reader 一致）；因 CLI 先補建缺檔再回報，inventory 反映**建立後**狀態。formatter 以固定可解析行格式輸出 `✓ <path> (template: <hbs>)`／`✗ <path> — MISSING (template: <hbs>)`（路徑經 `sanitizeTerminal`），並以 `created N missing doc(s): …` 行列出本次補建者；仍為 MISSING（補建失敗）時提示 `/prospec-upgrade` 處理。`buildDocsInventory` 本身純唯讀（不寫入），建立由 `createMissingDocs` 負責。
 
 **Scenarios:**
-- WHEN 專案缺 `_glossary.md`, THEN 該檔標記 MISSING、其餘 present，且 CLI 不建立它（唯讀）
-- WHEN `knowledge.base_path` 遷移至非預設位置, THEN 知識文件於實際位置檢查與標示，不誤報 MISSING、不指向錯誤路徑
+- WHEN 專案缺 `_glossary.md`, THEN upgrade 補建它、inventory 標記 present 並列於 `createdDocs`
+- WHEN `knowledge.base_path` 遷移至非預設位置, THEN 缺檔於實際位置檢查與建立，不誤報 MISSING、不建到錯誤路徑
 - WHEN 輸出 report, THEN docs 行格式固定（e2e 釘住精確字串），skill 可據以解析
 
 ---
@@ -460,11 +460,73 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 - WHEN 渲染 skill 範本檢視 Step 2, THEN 不存在寫死的 init 文件清單（掃描範圍完全來自 report inventory）
 
 #### REQ-TESTS-036: Init⇄Registry 漂移防護測試
-三層漂移防護，全數 mutation-verified：unit 釘住 registry 形狀（恰 7 項 root:output、canonical 推導）；`init.service.test` 斷言 memfs init 實際產出集合與 registry 推導集合**雙向相等**（init 私加文件或 registry 缺項皆轉紅）；contract `init-doc-registry.test` 以真 `renderTemplate()` 渲染每個 registry 範本（範本名打錯即紅）。
+三層漂移防護，全數 mutation-verified：unit 釘住 registry 形狀（恰 8 項 root:output、canonical 推導）；`init.service.test` 斷言 memfs init 實際產出集合與 registry 推導集合**雙向相等**（init 私加文件或 registry 缺項皆轉紅）；contract `init-doc-registry.test` 以真 `renderTemplate()` 渲染每個 registry 範本（範本名打錯即紅）。
 
 **Scenarios:**
 - WHEN 自 registry 移除任一項, THEN 形狀測試轉紅；WHEN init 私加清單外文件, THEN 等式測試轉紅
 - WHEN registry 範本路徑與實際 `.hbs` 不符, THEN contract 渲染測試轉紅
+
+---
+
+### US-017: prospec upgrade 直接補建缺漏的 init 文件 [P1]
+
+身為升級 prospec CLI 版本的專案維護者，
+我希望 `prospec upgrade` 直接建立缺漏的 init 文件（以其範本 render、既有檔不覆寫），
+以便我不需重跑 `prospec init`（已初始化專案會被 `AlreadyExistsError` 擋）就能取得新版引入的文件。
+
+**Acceptance Scenarios:**
+- WHEN `prospec upgrade` 執行且某 `INIT_DOC_REGISTRY` 文件於實際位置缺漏 THEN CLI 以其範本 render 並寫入、report 列於「已建立」清單
+- WHEN 某 registry 文件已存在 THEN 逐位元保留（skip-if-exists、永不覆寫）
+- WHEN 帶 `--no-interactive`（skill／CI 路徑）執行 THEN 缺檔仍照建（建立與互動與否無關）
+- WHEN `index.md` 缺漏 THEN CLI 建立 baseline render；真實 modules table 與舊 `_index.md` 遷移由 `/prospec-upgrade` skill 補齊
+
+#### REQ-SETUP-024: prospec upgrade 直接補建缺漏的 init 文件
+`prospec upgrade` 在建立 docs inventory 後，對每個標記 MISSING 的 `INIT_DOC_REGISTRY` 文件以其範本 render 並寫入（skip-if-exists、既有檔永不覆寫），使已初始化專案不需重跑 `prospec init` 即可取得新版新增的 init 文件；建立在互動與 `--no-interactive` 皆生效（無 per-file 提示、無旗標）。`index.md` 一併建立為 baseline；真實 modules table 與舊 `_index.md` 遷移仍屬 `/prospec-upgrade` skill。
+
+**Scenarios:**
+- WHEN 某 registry 文件於實際位置缺漏, THEN upgrade render 其範本並寫入、report 列於「已建立」清單
+- WHEN 某 registry 文件已存在, THEN 逐位元保留（skip-if-exists）
+- WHEN 帶 `--no-interactive` 執行, THEN 缺檔仍照建
+- WHEN `index.md` 缺漏, THEN 建立 baseline（modules table 空），內容補齊由 skill 負責
+
+#### REQ-LIB-023: 共用 init-doc render helper
+新增 `lib/init-docs.ts`：`buildInitDocContexts(config, cwd)` 由 config 重建標準 render context 與 baseline index context（modules table 空）；`renderInitDoc(doc, contexts)` 依 `doc.context` 選 context 渲染；`resolveInitDocLocation(doc, config, cwd)` 經 `resolveBasePaths` 回傳 `{ absPath, label }`。`init.service` 與 `upgrade.service` 皆消費之，杜絕兩處渲染邏輯漂移；僅 import `lib`/`types`，維持依賴方向。
+
+**Scenarios:**
+- WHEN `init.service` 改用 helper, THEN greenfield init 產出集合與內容逐位元不變
+- WHEN 檢查 import, THEN `lib/init-docs` 無 `services`/`cli` 上行 import
+- WHEN `knowledge.base_path` 遷移, THEN `resolveInitDocLocation` 回傳實際位置（與 `buildDocsInventory` 一致）
+
+#### REQ-SERVICES-061: Upgrade 缺檔建立步驟
+`upgrade.service.execute` 於 agent sync／raw-scan 之後、build report 之前呼叫 `createMissingDocs`：以 `buildDocsInventory` 找 MISSING、逐檔經共用 helper render＋`atomicWrite`（`fileExists` 保險），成功者收入 `createdDocs`；單檔失敗為 best-effort（不中止 upgrade、該檔留 MISSING）；report `docs` 於建立後重建。不覆寫任何既有檔。
+
+**Scenarios:**
+- WHEN 有 MISSING 文件, THEN 逐份 render＋write、`createdDocs` 記錄成功者
+- WHEN 單檔建立丟例外, THEN upgrade 仍成功、該檔留 MISSING
+- WHEN 既有檔存在, THEN 不覆寫（byte 不變）
+
+#### REQ-TYPES-051: UpgradeReport 建立清單欄位
+`UpgradeReport` 新增 `createdDocs: string[]`（本次由 CLI 建立文件之專案相對 label）；docs inventory 於建立後回報，已建者標記 present 並列於 `createdDocs`。
+
+**Scenarios:**
+- WHEN upgrade 建立 N 份缺檔, THEN `createdDocs` 含該 N 份；未建任何檔時為空陣列
+- WHEN report 序列化, THEN `docs` 反映建立後狀態（已建者 present）
+
+#### REQ-TEMPLATES-124: prospec-upgrade skill Step 2 語義轉移
+`prospec-upgrade.hbs` Step 2 由「建立缺檔」改為：(a) 補齊 CLI 已建但需更多內容的文件（`index.md` 真實 modules table、舊 `_index.md` 遷移與策展欄位保留）；(b) 既有文件格式漂移之 diff＋同意遷移；建立缺檔降為安全網（僅 report 仍 MISSING＝建立失敗時）。掃描範圍仍完全來自 report 的 `Docs inventory:`（無寫死清單）。
+
+**Scenarios:**
+- WHEN 渲染 skill 檢視 Step 2, THEN 說明 CLI 已建缺檔、skill 負責補齊與格式遷移
+- WHEN report 仍列 MISSING（建立失敗）, THEN skill 以安全網提議補建
+- WHEN 渲染 skill, THEN 無寫死 init 文件清單
+
+#### REQ-TESTS-037: Upgrade 缺檔建立與共用 helper 測試
+新增/擴充測試：`upgrade-flow`／`upgrade.service` 斷言缺檔被建立（含 `--no-interactive`）、既有檔 byte 不變、`createdDocs` 正確、單檔失敗 best-effort；`init.service` 重構後 greenfield 輸出不變（既有等式測試續綠）；`lib/init-docs` 單元測試（context／path、`knowledge.base_path` 遷移）；e2e 實跑補建。
+
+**Scenarios:**
+- WHEN 在缺檔專案跑 upgrade（互動與 `--no-interactive`）, THEN 缺檔皆建立且既有檔不變
+- WHEN init 重構後跑既有 init⇄registry 等式測試, THEN 續綠
+- WHEN 覆蓋率量測, THEN ≥ 80%
 
 ---
 
@@ -527,3 +589,4 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 | 2026-07-02 | fix-upgrade-doc-coverage | 升級文件覆蓋補全（issue #48）：`INIT_DOC_REGISTRY` 單一來源（root 判別 base/knowledge）、upgrade report 唯讀 docs inventory（實際位置、`knowledge.base_path`-aware）、init⇄registry 等式漂移防護 | US-015/016 (ADDED); REQ-TYPES-038、REQ-SETUP-022、REQ-TESTS-036 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-07-02 | dedupe-init-doc-registry | registry 平行重複收束（review F2/F3）：user-managed 清單升級為 `ConventionDocSource` 對並經 `asKnowledgeInitDoc` 推導、`InitDoc.context` 判別欄位取代範本路徑字串比對；行為逐位元不變 | REQ-TYPES-038 (MODIFIED，描述性) |
 | 2026-07-03 | add-init-project-readme | `prospec init` 產生專案內 Prospec 簡介 README（issue #50）：新增 `init/readme.md.hbs`、`INIT_DOC_REGISTRY` 獨立 base 條目（README.md），init create + upgrade docs inventory 自動涵蓋 | US-003; REQ-SETUP-023 (ADDED); REQ-SETUP-004 (MODIFIED) |
+| 2026-07-03 | upgrade-create-missing-docs | prospec upgrade 直接補建缺漏的 init 文件（render-from-template、skip-if-exists、best-effort）；共用 `lib/init-docs` helper；skill Step 2 轉補齊＋格式遷移 | US-017; REQ-SETUP-024/TYPES-051/LIB-023/SERVICES-061/TEMPLATES-124/TESTS-037 (ADDED); REQ-SETUP-019/SERVICES-035/SETUP-022 (MODIFIED) |

@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, the knowledge content read layer, and deterministic multi-language manifest parsing (18 files, 3,629 lines)
+> Foundational utilities — config management, file I/O, Handlebars templates, scanning, module detection, logging, Constitution rule sets, token accounting, the deterministic drift engine, the knowledge content read layer, the shared init-doc render helper, and deterministic multi-language manifest parsing (20 files, 4,383 lines)
 
 <!-- prospec:auto-start -->
 
@@ -13,6 +13,7 @@
 | `src/lib/template.ts` | renderTemplate() with helpers (eq, contains, join, isoDate, indent); lazily registers `language-policy` partial for `skills/` templates; resolveTemplatesDir() resolves the templates root via fileURLToPath |
 | `src/lib/content-merger.ts` | mergeContent() — preserves prospec:user sections on regeneration, appending any surplus existing user sections; mergeManagedDoc() — managed-doc (CLAUDE.md/AGENTS.md) merge: in-place auto-block swap preserving the user block, or migrate marker-less existing content INTO the user block (vs mergeContent which discards it); hasAutoBlock()/replaceAutoBlock() — the single-source auto-block matcher (built from the marker constants, function-replacer) shared with knowledge-update.service |
 | `src/lib/key-exports.ts` | deriveKeyExports() — shared Recipe-First key-exports derivation (used by both knowledge generate + knowledge-update) |
+| `src/lib/init-docs.ts` | buildInitDocContexts()/renderInitDoc()/resolveInitDocLocation() — single source both `init.service` (greenfield create) and `upgrade.service` (back-fill of missing docs) render `INIT_DOC_REGISTRY` docs from; contexts rebuilt from config (standard + baseline index, empty module table), location resolved via `resolveBasePaths` (base vs knowledge root, relocated `knowledge.base_path` honored) |
 | `src/lib/yaml-utils.ts` | parseYaml(), stringifyYaml(), escapeYamlScalar(), comment-preserving Document API; mergeIntoDocument() — in-place object→Document reconcile (mutate changed scalars, recurse maps, rebuild arrays/type-changes, delete removed keys) preserving comments/formatting |
 | `src/lib/scanner.ts` | scanDir()/scanDirSync() with fast-glob, built-in security exclusions; `listGitTrackedFiles()` + scanDir's `gitTrackedOnly` option intersect the glob match with `git ls-files` (excludes everything gitignored, which the static ignore list cannot know), falling back to the full glob when `cwd` is not a git work tree; exports `filterConventions()` to separate core (L0) and demand-based (L1) convention docs |
 | `src/lib/module-detector.ts` | detectModules() — 4 strategies (auto/architecture/domain/package), buildModuleMap(), resolves module-map.yaml under config base_dir; `detectByDomain` decouples module NAME from path GLOB (one `**/<real-dir-segment>/**` per actual dir, unioned when several normalize to one name); `normalizeDomainName` strips a layer suffix only at a `-`/`_`/camelCase boundary (so `preview`/`reviews` survive); when no path is passed, the default `knowledgeBasePath` derives from `DEFAULT_BASE_DIR` (`prospec/ai-knowledge`) |
@@ -37,6 +38,7 @@
 - `hasAutoBlock(content)` / `replaceAutoBlock(content, autoBlock)` — single-source auto-block predicate + function-replacer swap (built from the marker constants), shared by mergeManagedDoc and knowledge-update.service
 - `readFileIfExists(path)` — read UTF-8 or '' on ENOENT; non-ENOENT errors propagate
 - `deriveKeyExports(keyFiles)` — derive the shared Recipe-First key-exports list (first 10 files, drop tests, `.service`→`.execute()`, kebab→camelCase, cap 8); single source for generate + knowledge-update
+- `buildInitDocContexts(config, cwd)` / `renderInitDoc(doc, contexts)` / `resolveInitDocLocation(doc, config, cwd)` — the shared init-doc render layer: rebuild the standard + baseline-index render contexts from config, render a registry doc by its `context` discriminator, and resolve its `{ absPath, label }` at the actual location; `init.service` and `upgrade.service` both consume it so greenfield init and upgrade back-fill cannot drift
 - `scanDir(patterns, options)` — Scan directory with fast-glob; `options.gitTrackedOnly` intersects the result with git-tracked files (falls back to the full glob when there is no git work tree)
 - `listGitTrackedFiles(cwd)` — set of git-tracked paths (relative to cwd) or `null` when cwd is not a git work tree / git is unavailable
 - `detectModules(files, cwd, strategy, knowledgeBasePath)` — Detect modules; loads existing module-map.yaml from knowledgeBasePath (default legacy `docs/ai-knowledge`)
