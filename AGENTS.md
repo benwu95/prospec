@@ -18,10 +18,12 @@ The user's primary language for AI-generated documents is **Traditional Chinese 
 Project principles and constraints: [`prospec/CONSTITUTION.md`](prospec/CONSTITUTION.md)
 
 ### AI Knowledge Base
-Module index and project structure: [`prospec/ai-knowledge/_index.md`](prospec/ai-knowledge/_index.md)
+Module index and project structure (L1-L3 navigation): [`prospec/index.md`](prospec/index.md)
 
 ### Coding Conventions
 Coding standards and best practices: [`prospec/ai-knowledge/_conventions.md`](prospec/ai-knowledge/_conventions.md)
+Diagram conventions: [`prospec/ai-knowledge/_diagram-conventions.md`](prospec/ai-knowledge/_diagram-conventions.md)
+Project glossary and domain terms: [`prospec/ai-knowledge/_glossary.md`](prospec/ai-knowledge/_glossary.md)
 
 ## Available Prospec Skills
 
@@ -115,7 +117,7 @@ Archive completed changes. Scans the changes directory, moves verified changes t
 
 ### /prospec-knowledge-update
 
-Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, _index.md, and module-map.yaml.
+Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, index.md, and module-map.yaml.
 
 **Type**: Lifecycle
 **Triggers**: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件
@@ -155,6 +157,8 @@ not status alone; cross-check `prospec/ai-knowledge/_status-lifecycle.md`. This 
 right point instead of starting blind.
 
 ## Working with This Project
+
+**Constraint**: Follow the L0-L3 progressive loading model. Always read `prospec/index.md` (L1) first. Never load L2 (Module READMEs) or L3 (Source Code) proactively before identifying the required modules.
 
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture

@@ -96,7 +96,7 @@ Measurable indicators of completion:
 
 ### 6. Related Modules
 
-List related modules based on keyword matching from `prospec/ai-knowledge/_index.md`:
+List related modules based on keyword matching from `prospec/index.md`:
 
 ```markdown
 ## Related Modules

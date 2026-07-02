@@ -26,13 +26,22 @@ When triggered, briefly describe:
 
 ## Progressive Knowledge Loading Strategy
 
-| Layer | What to Load | When to Load | Budget |
-|-------|-------------|--------------|--------|
-| L0 | `_index.md` + `_conventions.md` + all planning docs + Feature Specs | At startup — full context for comprehensive audit | ≤ 1,500 tokens (knowledge) |
-| L1 | All affected module `README.md` (Recipe-First) **+ any `{sub-module}.md` they link** | During Verification 2/5 and 4/5 — compare spec against knowledge | ≤ 400 tokens/module |
-| L2 | Source code files | During Verification 2/5 — verify implementation matches spec | On-demand |
+| Layer | Files | When to Load | Token Budget |
+|-------|-------|-------------|-------------|
+| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,500 tokens total |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 400 tokens per module/feature |
+| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-**Principles:** Verify loads more L1 than other skills (all affected modules, not just current task's module). L2 is loaded to find evidence for PASS/FAIL judgments.
+**Principles:**
+1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
+2. Each layer must NOT duplicate information available in a lower layer
+3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
+
+**Principles (Verify-specific):**
+- **L2** loads more modules than other skills (all affected modules, not just the current task's module), specifically **during Verification 2/5 and 4/5** to perform a comprehensive cross-module check and compare spec against knowledge.
+- **L3** is loaded **during Verification 2/5** to verify implementation matches spec and find evidence for PASS/FAIL judgments.
 
 ## Key Difference from Other Skills
 

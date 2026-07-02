@@ -62,7 +62,7 @@ scan fresh for the next step.
 ### Step 4: Generate AI Knowledge
 
 Chain directly into the `/prospec-knowledge-generate` workflow — read `raw-scan.md`,
-decide module boundaries, and write the module READMEs and `_index.md`. Do NOT inline a
+decide module boundaries, and write the module READMEs and `prospec/index.md`. Do NOT inline a
 copy of that workflow here; hand off to it so large repositories get their own context
 budget.
 
