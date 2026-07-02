@@ -2483,13 +2483,14 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
   });
 });
 
-// Hierarchical-index migration path (REQ-KNOW-034): the consent-gated upgrade
-// skill is the ONLY mechanism that moves a legacy <kb>/_index.md to the root
-// <base_dir>/index.md — pin its existence and its data-loss guard.
+// Hierarchical-index migration path (REQ-KNOW-034): `prospec upgrade` back-fills a
+// BASELINE root <base_dir>/index.md, but the consent-gated upgrade skill is the ONLY
+// mechanism that migrates a legacy <kb>/_index.md's curated content into it — pin
+// that instruction's existence and its data-loss guard.
 describe('prospec-upgrade: legacy index migration step', () => {
-  it('carries the Index Migration instruction targeting the root index.md', () => {
+  it('carries the index enrichment/migration instruction targeting the root index.md', () => {
     const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
-    expect(content).toContain('**Index Migration**');
+    expect(content).toContain('**Index enrichment / migration**');
     expect(content).toContain('_index.md');
     expect(content).toContain('/index.md');
   });

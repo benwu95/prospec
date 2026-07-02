@@ -1,18 +1,21 @@
-import * as path from 'node:path';
 import { input } from '@inquirer/prompts';
 import {
   readConfig,
   writeConfig,
   resolveArtifactLanguage,
-  resolveBasePaths,
   isDefaultArtifactLanguage,
   isArtifactLanguageUnset,
 } from '../lib/config.js';
-import { fileExists } from '../lib/fs-utils.js';
+import { fileExists, atomicWrite } from '../lib/fs-utils.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DEFAULT_ARTIFACT_LANGUAGE, DEFAULT_BASE_DIR } from '../types/config.js';
+import { DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import { INIT_DOC_REGISTRY } from '../types/conventions.js';
+import {
+  buildInitDocContexts,
+  renderInitDoc,
+  resolveInitDocLocation,
+} from '../lib/init-docs.js';
 import {
   execute as agentSyncExecute,
   type AgentSyncFullResult,
@@ -46,9 +49,11 @@ export interface UpgradeNudge {
 /**
  * One init-created curated doc's existence status, derived from
  * `INIT_DOC_REGISTRY` — the same single source `init.service` creates from.
- * The /prospec-upgrade skill consumes this list as its authoritative scan
- * scope (diff present docs, offer to create missing ones); it never keeps a
- * parallel hardcoded file list.
+ * `prospec upgrade` now back-fills the docs this marks MISSING, so the
+ * /prospec-upgrade skill consumes this list to diff PRESENT docs against their
+ * template (a consent-gated FORMAT migration) and to enrich docs the CLI just
+ * created; a doc still MISSING here (back-fill failed) is the skill's safety-net
+ * to offer creating. It never keeps a parallel hardcoded file list.
  */
 export interface DocInventoryEntry {
   /** Project-relative doc path (base_dir prefixed), matching init's labels. */
@@ -75,9 +80,17 @@ export interface UpgradeReport {
   nudges: UpgradeNudge[];
   /**
    * Docs inventory — every init-created curated doc with its present/missing
-   * status (read-only existence checks; the CLI still writes no curated doc).
+   * status, evaluated AFTER back-fill, so a doc this run created reads present.
+   * A doc still MISSING here means its render/write failed (best-effort).
    */
   docs: DocInventoryEntry[];
+  /**
+   * Docs this run BACK-FILLED — init-created docs that were MISSING and have now
+   * been rendered from their template (skip-if-exists; existing docs are never
+   * overwritten). Project-relative labels matching the docs inventory. Empty
+   * when nothing was missing.
+   */
+  createdDocs: string[];
 }
 
 /** A nudge the user resolved interactively this run (field set to a value). */
@@ -112,16 +125,23 @@ export interface UpgradeResult {
  * 3. Persist via a comment-preserving in-place merge (comments/formatting kept).
  * 4. Re-run agent sync (zone-1 generated files; reflects any just-set language).
  * 5. Refresh the deterministic `raw-scan.md` (best-effort) so the project-structure
- *    snapshot reflects the new version's scanner — same idea as re-running agent
- *    sync. `--raw-scan-only` semantics: it writes ONLY raw-scan.md.
- * 6. Build a report (version delta, skills missing triggers, remaining nudges,
- *    docs inventory) for the `/prospec-upgrade` skill, which handles the
- *    consent-gated updates.
+ *    snapshot reflects the new version's scanner. `--raw-scan-only` semantics: it
+ *    writes ONLY raw-scan.md.
+ * 6. Back-fill any MISSING init-created doc by rendering its template (the same
+ *    deterministic render `prospec init` uses, shared via lib/init-docs) —
+ *    skip-if-exists, so an existing doc is never overwritten. This closes the gap
+ *    where an already-initialized project could not obtain a newly-added init doc
+ *    (`prospec init` is blocked once `.prospec.yaml` exists).
+ * 7. Build a report (version delta, skills missing triggers, remaining nudges,
+ *    docs inventory + the docs just created) for the `/prospec-upgrade` skill,
+ *    which handles the consent-gated work the CLI cannot: ENRICHING a created doc
+ *    (e.g. index.md's real module table / a legacy _index.md migration) and
+ *    migrating an existing doc's FORMAT.
  *
- * It deliberately does NOT touch any CURATED `prospec/ai-knowledge/` doc (module
- * READMEs, _index, _conventions, the canonical convention docs) or CONSTITUTION —
- * those need user consent and are the skill's job. The only `ai-knowledge/` write
- * is the deterministic, always-regenerable `raw-scan.md` (step 5).
+ * It only ever CREATES a missing registry doc (CONSTITUTION, index, README, the
+ * convention docs); it never overwrites or reformats an existing one — that needs
+ * consent and is the skill's job. The `ai-knowledge/` writes are the deterministic
+ * `raw-scan.md` refresh (step 5) and any missing curated doc it back-fills (step 6).
  */
 export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -170,6 +190,13 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     // Raw-scan refresh failure is non-fatal — the version bump + agent sync stand.
   }
 
+  // 5c. Back-fill any init-created doc this project is missing (e.g. one a newer
+  //     prospec added). Deterministic render, skip-if-exists — never overwrites
+  //     authored content; a newly-added doc lands without re-running `prospec
+  //     init` (blocked once `.prospec.yaml` exists). The docs inventory in the
+  //     report below is built AFTER this, so it reflects the post-creation state.
+  const createdDocs = await createMissingDocs(config, cwd);
+
   // 6. Build the report from the POST-prompt config: a language set in step 3 now
   //    resolves here, so missingTriggers/nudges reflect what is still outstanding
   //    (e.g. a freshly-set non-English language surfaces every skill's triggers).
@@ -180,6 +207,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     missingTriggers: detectMissingTriggers(config, artifactLanguage),
     nudges: detectNudges(config),
     docs: buildDocsInventory(config, cwd),
+    createdDocs,
   };
 
   return {
@@ -193,33 +221,59 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
 
 /**
  * Existence status of every init-created curated doc, derived from
- * `INIT_DOC_REGISTRY` × the project's resolved roots. Read-only — the CLI
- * reports; creating a missing doc (with consent) is the skill's job.
- * Knowledge-rooted docs resolve through `resolveBasePaths().knowledgePath`, so
- * a project whose `knowledge.base_path` was relocated away from
- * `<base_dir>/ai-knowledge` (every other knowledge consumer honors this) is
- * checked — and reported — at its ACTUAL doc locations, never misreported as
- * missing at the default path.
+ * `INIT_DOC_REGISTRY` via the shared `resolveInitDocLocation` (base docs under
+ * `paths.base_dir`, knowledge docs under the resolved `knowledge.base_path`, so
+ * a project that relocated its knowledge base is checked at its ACTUAL doc
+ * locations, never misreported as missing at the default path). A pure existence
+ * probe: `createMissingDocs` calls it before creation (to find what to write)
+ * and the report is built from it after (so it reflects the post-creation state).
  */
 export function buildDocsInventory(
   config: ProspecConfig,
   cwd: string,
 ): DocInventoryEntry[] {
-  const { baseDir, knowledgePath } = resolveBasePaths(config, cwd);
-  const baseLabel = config.paths?.base_dir ?? DEFAULT_BASE_DIR;
-  const knowledgeLabel = path
-    .relative(cwd, knowledgePath)
-    .split(path.sep)
-    .join('/');
   return INIT_DOC_REGISTRY.map((doc) => {
-    const rootDir = doc.root === 'knowledge' ? knowledgePath : baseDir;
-    const rootLabel = doc.root === 'knowledge' ? knowledgeLabel : baseLabel;
+    const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
     return {
-      path: `${rootLabel}/${doc.output}`,
+      path: label,
       template: doc.template,
-      present: fileExists(path.join(rootDir, doc.output)),
+      present: fileExists(absPath),
     };
   });
+}
+
+/**
+ * Back-fill every registry doc marked MISSING by rendering its template — the
+ * same deterministic render `prospec init` uses (shared via lib/init-docs), so
+ * an already-initialized project gets a newly-added init doc without re-running
+ * `prospec init` (which the `.prospec.yaml` gate blocks). NEVER overwrites an
+ * existing doc: creation is skip-if-exists, so authored content is untouched
+ * (migrating an existing doc's FORMAT stays the consent-gated skill's job). A
+ * per-doc render/write failure is non-fatal (best-effort, like the raw-scan
+ * refresh) so it never aborts the version bump + agent sync that already landed
+ * — the doc simply stays MISSING and is reported. Returns the created labels.
+ */
+export async function createMissingDocs(
+  config: ProspecConfig,
+  cwd: string,
+): Promise<string[]> {
+  const anyMissing = buildDocsInventory(config, cwd).some((doc) => !doc.present);
+  if (!anyMissing) return [];
+
+  const contexts = buildInitDocContexts(config, cwd);
+  const created: string[] = [];
+  for (const doc of INIT_DOC_REGISTRY) {
+    const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
+    if (fileExists(absPath)) continue;
+    try {
+      await atomicWrite(absPath, renderInitDoc(doc, contexts));
+      created.push(label);
+    } catch {
+      // Best-effort: a single doc's render/write failure leaves it MISSING and
+      // reported; it must not abort the upgrade (version + agent sync stand).
+    }
+  }
+  return created;
 }
 
 /**

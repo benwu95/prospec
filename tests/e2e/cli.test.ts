@@ -821,7 +821,7 @@ describe('prospec upgrade E2E', () => {
     expect(stderr).toContain('.prospec.yaml');
   });
 
-  it('records the prospec version, prints a report + next step, and leaves init-created docs untouched', async () => {
+  it('records the prospec version, prints a report + next step, leaves existing init-created docs untouched, and back-fills missing ones', async () => {
     await fs.promises.writeFile(
       path.join(tmpDir, 'package.json'),
       JSON.stringify({ name: 'e2e-upgrade' }),
@@ -867,17 +867,21 @@ describe('prospec upgrade E2E', () => {
     );
     expect(stdout).not.toContain('MISSING');
 
-    // a doc deleted since init is reported MISSING — and NOT recreated (the
-    // consent-gated /prospec-upgrade skill owns creation), issue #48
+    // a doc deleted since init is BACK-FILLED by the CLI (rendered from its
+    // template) — closing the gap where an already-initialized project could not
+    // obtain a newly-added init doc without re-running `prospec init` (which the
+    // .prospec.yaml gate blocks). issue #48 → upgrade-create-missing-docs
     const glossaryPath = path.join(tmpDir, 'prospec', 'ai-knowledge', '_glossary.md');
     await fs.promises.rm(glossaryPath);
     const second = await runCli(['upgrade']);
     expect(second.exitCode).toBe(0);
     expect(second.stdout).toContain(
-      'prospec/ai-knowledge/_glossary.md — MISSING (template: init/glossary.md.hbs)',
+      'created 1 missing doc(s): prospec/ai-knowledge/_glossary.md',
     );
-    expect(second.stdout).toContain('1 doc(s) missing');
-    expect(fs.existsSync(glossaryPath)).toBe(false);
+    expect(second.stdout).not.toContain('MISSING');
+    // the file is actually recreated on disk, rendered from its template
+    expect(fs.existsSync(glossaryPath)).toBe(true);
+    expect((await fs.promises.readFile(glossaryPath, 'utf-8')).length).toBeGreaterThan(0);
   });
 
   it('nudges a pre-feature project (no artifact_language) that it can set one, and keeps the field absent', async () => {

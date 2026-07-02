@@ -4,20 +4,18 @@ import { AlreadyExistsError, ConfigInvalid } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
 import { writeConfig } from '../lib/config.js';
-import { buildIndexTemplateContext } from '../lib/index-template.js';
 import { fileExists, ensureDir, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
-import { filterConventions } from '../lib/scanner.js';
 import { PROSPEC_VERSION } from '../types/version.js';
-import { ALL_INITIAL_CONVENTION_DOCS, INIT_DOC_REGISTRY } from '../types/conventions.js';
+import { INIT_DOC_REGISTRY } from '../types/conventions.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
-import { exampleRulesFor, languagePolicyRule } from '../lib/constitution-rules.js';
 export { isDefaultArtifactLanguage } from '../lib/config.js';
 import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
+import { buildInitDocContexts, renderInitDoc, resolveInitDocLocation } from '../lib/init-docs.js';
 
 export interface InitOptions {
   name?: string;
@@ -135,40 +133,18 @@ export async function execute(options: InitOptions): Promise<InitResult> {
 
   // 9. Render ALL template contents up front. A render failure aborts before any
   // file is written, so init never leaves a partially-scaffolded project behind.
-  const templateContext = {
-    project_name: projectName,
-    tech_stack: hasTechStack(techStack) ? techStack : undefined,
-    agents: selectedAgents,
-    base_dir: baseDir,
-    artifact_language: artifactLanguage,
-    example_rules: [languagePolicyRule(artifactLanguage), ...exampleRulesFor(techStack)],
-  };
-
-  const { core: coreConventions, demand: demandConventions } = filterConventions(ALL_INITIAL_CONVENTION_DOCS);
-
-  const indexContext = buildIndexTemplateContext({
-    projectName,
-    techStack: hasTechStack(techStack) ? techStack : undefined,
-    baseDir,
-    knowledgeBasePath: path.relative(cwd, knowledgePath).replace(/\\/g, '/'),
-    coreConventions,
-    demandConventions,
-  });
+  // Registry docs derive their render contexts and locations from the config via
+  // lib/init-docs — the single source `prospec upgrade` also renders missing
+  // docs from, so greenfield init and upgrade-backfill can never drift apart.
+  // AGENTS.md reuses the standard context (same shape) plus its entry-config keys.
+  const contexts = buildInitDocContexts(config, cwd);
 
   const artifacts: { path: string; content: string; label: string; managed?: boolean }[] = [
-    ...INIT_DOC_REGISTRY.map((doc) => ({
-      // init always creates the knowledge base at <base_dir>/ai-knowledge and
-      // writes that same value to `knowledge.base_path`, so the two roots are
-      // consistent by construction here (a later hand-edited override is the
-      // upgrade inventory's concern, resolved via resolveBasePaths there).
-      path: doc.root === 'knowledge' ? path.join(knowledgePath, doc.output) : path.join(cwd, baseDir, doc.output),
-      content: renderTemplate(
-        doc.template,
-        doc.context === 'index' ? indexContext : templateContext,
-      ),
-      label: doc.root === 'knowledge' ? `${baseDir}/ai-knowledge/${doc.output}` : `${baseDir}/${doc.output}`,
-    })),
-    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...templateContext, skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
+    ...INIT_DOC_REGISTRY.map((doc) => {
+      const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
+      return { path: absPath, content: renderInitDoc(doc, contexts), label };
+    }),
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...contexts.standard, skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
 

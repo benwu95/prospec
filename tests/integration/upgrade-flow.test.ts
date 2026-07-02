@@ -3,9 +3,10 @@
  *
  * Simulates a CLI version bump + a newly-shipped skill on a non-English project,
  * then runs upgrade end-to-end (service → lib → agent-sync) on memfs. Asserts the
- * CLI contract: it records the prospec `version`, re-syncs agents (zone-1), and
- * reports the new skill's missing triggers — while touching NO init-created doc
- * (those are the consent-gated /prospec-upgrade skill's job).
+ * CLI contract: it records the prospec `version`, re-syncs agents (zone-1),
+ * reports the new skill's missing triggers, and BACK-FILLS any init-created doc
+ * that is missing (rendering it from its template) — while never overwriting an
+ * existing doc (a doc's FORMAT migration stays the /prospec-upgrade skill's job).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
@@ -85,8 +86,10 @@ describe('Upgrade Flow Integration (BL-044)', () => {
     // only the newly-shipped skill is flagged as missing triggers
     expect(result.report.missingTriggers).toEqual(['prospec-upgrade']);
 
-    // the CLI touches NO ai-knowledge doc or CONSTITUTION — all byte-unchanged
-    // (init-created doc format updates are the consent-gated /prospec-upgrade skill's job)
+    // every init-created doc is present here, so the CLI back-fills none and the
+    // hand-curated docs are byte-unchanged (it only ever creates a MISSING doc,
+    // never overwrites — a doc's FORMAT migration is the /prospec-upgrade skill's job)
+    expect(result.report.createdDocs).toEqual([]);
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
     expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');
@@ -97,21 +100,45 @@ describe('Upgrade Flow Integration (BL-044)', () => {
     expect(result.report.docs.every((d) => d.present)).toBe(true);
   });
 
-  it('docs inventory flags a doc deleted since init as missing — without recreating it (issue #48)', async () => {
+  it('back-fills a doc missing since init by rendering its template — without overwriting existing docs (issue #48 → upgrade-create-missing-docs)', async () => {
     vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'demo' }) });
     await initExecute({ name: 'demo', agents: ['claude'], cwd: '/project' });
 
-    // Simulate the #48 gap: the project lost (or never had) the glossary.
+    // The project lost (or a newer prospec added) the glossary; also hand-curate
+    // a doc that must survive the upgrade untouched.
     fs.unlinkSync(`${KB}/_glossary.md`);
+    fs.writeFileSync('/project/prospec/CONSTITUTION.md', '# CURATED principles\n');
 
     const result = await upgradeExecute({ cwd: '/project' });
 
+    // the CLI recreated the missing doc from its template ...
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(true);
+    expect(fs.readFileSync(`${KB}/_glossary.md`, 'utf-8')).toBe('# Template Content\n');
+
+    // ... reported it under createdDocs, and the inventory now reads it present
+    expect(result.report.createdDocs).toContain('prospec/ai-knowledge/_glossary.md');
     const byPath = new Map(result.report.docs.map((d) => [d.path, d.present]));
-    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
-    expect(byPath.get('prospec/CONSTITUTION.md')).toBe(true);
-    // the in-project README is an init-created doc the inventory tracks too
+    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(true);
     expect(byPath.get('prospec/README.md')).toBe(true);
-    // reporting is read-only — the CLI never creates the missing doc itself
-    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false);
+
+    // an existing curated doc is never overwritten (skip-if-exists)
+    expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
+    expect(result.report.createdDocs).not.toContain('prospec/CONSTITUTION.md');
+  });
+
+  it('back-fills missing docs in --no-interactive mode too (the /prospec-upgrade skill + CI path)', async () => {
+    vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'demo' }) });
+    await initExecute({ name: 'demo', agents: ['claude'], cwd: '/project' });
+
+    fs.unlinkSync('/project/prospec/README.md');
+    fs.unlinkSync('/project/prospec/index.md');
+
+    const result = await upgradeExecute({ cwd: '/project', interactive: false });
+
+    expect(fs.existsSync('/project/prospec/README.md')).toBe(true);
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
+    expect(result.report.createdDocs).toEqual(
+      expect.arrayContaining(['prospec/README.md', 'prospec/index.md']),
+    );
   });
 });

@@ -33,9 +33,20 @@ vi.mock('../../../src/services/raw-scan.service.js', () => ({
 // Stub the interactive prompt; interactive-mode tests set its resolved value.
 vi.mock('@inquirer/prompts', () => ({ input: vi.fn() }));
 
+// Stub template rendering — memfs has no template files on disk, so the real
+// renderTemplate would fail. The back-fill path only needs deterministic content
+// to write; per-doc render failures are exercised via mockImplementationOnce.
+vi.mock('../../../src/lib/template.js', () => ({
+  renderTemplate: vi.fn().mockReturnValue('# stub\n'),
+  registerPartial: vi.fn(),
+  registerPartialFromFile: vi.fn(),
+  registerHelper: vi.fn(),
+}));
+
 import { execute as agentSyncExecute } from '../../../src/services/agent-sync.service.js';
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
 import { input } from '@inquirer/prompts';
+import { renderTemplate } from '../../../src/lib/template.js';
 
 const KB = '/project/prospec/ai-knowledge';
 
@@ -74,6 +85,8 @@ beforeEach(() => {
     warnings: [],
     hints: [],
   });
+  vi.mocked(renderTemplate).mockReset();
+  vi.mocked(renderTemplate).mockReturnValue('# stub\n');
 });
 
 describe('upgrade.service', () => {
@@ -103,35 +116,74 @@ describe('upgrade.service', () => {
     expect((await readConfig('/project')).version).toBe(PROSPEC_VERSION);
   });
 
-  it('NEVER writes a CURATED ai-knowledge doc or CONSTITUTION (only .prospec.yaml + zone-1 + raw-scan)', async () => {
-    seedProject({ version: '0.1.0' });
+  it('never overwrites an existing curated doc — only back-fills the missing ones', async () => {
+    seedProject({ version: '0.1.0' }); // everything present except _glossary.md
 
-    await execute({ cwd: '/project' });
+    const { report } = await execute({ cwd: '/project' });
 
-    // raw-scan.md is the one allowed ai-knowledge write (mocked here); the curated
-    // docs below must stay byte-identical — they are the consent-gated skill's job.
-    expect(generateRawScan).toHaveBeenCalledWith({ cwd: '/project' });
+    // existing curated + canonical docs stay byte-identical (skip-if-exists) —
+    // migrating an existing doc's FORMAT is the consent-gated skill's job.
     expect(fs.readFileSync('/project/prospec/CONSTITUTION.md', 'utf-8')).toBe('# CURATED principles\n');
     expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe('# CURATED index\n');
     expect(fs.readFileSync(`${KB}/_conventions.md`, 'utf-8')).toBe('# CURATED conventions\n');
-    // Even the shipped canonical docs are left untouched — the consent-gated skill owns them.
     expect(fs.readFileSync(`${KB}/_status-lifecycle.md`, 'utf-8')).toBe('# canonical lifecycle\n');
     expect(fs.readFileSync(`${KB}/_module-readme-conventions.md`, 'utf-8')).toBe('# canonical readme conv\n');
     expect(fs.readFileSync(`${KB}/_diagram-conventions.md`, 'utf-8')).toBe('# canonical diagram\n');
+    // the one missing doc was back-filled — and only that one
+    expect(report.createdDocs).toEqual(['prospec/ai-knowledge/_glossary.md']);
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(true);
   });
 
-  it('leaves a pre-migration legacy _index.md byte-identical and never creates the root index.md', async () => {
+  it('back-fills a baseline root index.md but never migrates or deletes a legacy _index.md', async () => {
     // A project scaffolded before the hierarchical-index migration: the index
     // still lives at <kb>/_index.md and no <base_dir>/index.md exists. The CLI
-    // must not migrate — that is the consent-gated /prospec-upgrade skill's job.
+    // creates a BASELINE index.md; enriching it with the real module table and
+    // migrating the legacy _index.md's curated columns is the skill's job.
     seedProject({ version: '0.1.0' });
     fs.rmSync('/project/prospec/index.md');
     fs.writeFileSync(`${KB}/_index.md`, '# LEGACY curated index\n');
 
-    await execute({ cwd: '/project' });
+    const { report } = await execute({ cwd: '/project' });
 
+    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
+    expect(report.createdDocs).toContain('prospec/index.md');
+    // the legacy _index.md is left byte-identical — the CLI never migrates/deletes it
     expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# LEGACY curated index\n');
-    expect(fs.existsSync('/project/prospec/index.md')).toBe(false);
+  });
+
+  it('back-fills every missing registry doc (multiple) and lists them in createdDocs', async () => {
+    seedProject({ version: '0.1.0' });
+    fs.rmSync('/project/prospec/README.md');
+    fs.rmSync(`${KB}/_diagram-conventions.md`);
+    // _glossary.md is already absent in seedProject
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(fs.existsSync('/project/prospec/README.md')).toBe(true);
+    expect(fs.existsSync(`${KB}/_diagram-conventions.md`)).toBe(true);
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(true);
+    expect(report.createdDocs).toEqual(
+      expect.arrayContaining([
+        'prospec/README.md',
+        'prospec/ai-knowledge/_diagram-conventions.md',
+        'prospec/ai-knowledge/_glossary.md',
+      ]),
+    );
+    expect(report.docs.every((d) => d.present)).toBe(true);
+  });
+
+  it('a doc that fails to render is left MISSING and non-fatal — the upgrade still succeeds', async () => {
+    seedProject({ version: '0.1.0' }); // only _glossary.md is missing, so it is the only render call
+    vi.mocked(renderTemplate).mockImplementationOnce(() => {
+      throw new Error('render boom');
+    });
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.versionTo).toBe(PROSPEC_VERSION); // version bump + agent sync still stand
+    expect(report.createdDocs).toEqual([]);
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false); // stayed missing
+    expect(report.docs.find((d) => d.path === 'prospec/ai-knowledge/_glossary.md')?.present).toBe(false);
   });
 
   it('reports skills missing triggers (non-English, partial localization)', async () => {
@@ -291,9 +343,11 @@ describe('detectNudges', () => {
   });
 });
 
-// Issue #48: the report's docs inventory is the /prospec-upgrade skill's
-// authoritative scan scope — derived from INIT_DOC_REGISTRY, existence-checked
-// against the project, and strictly read-only.
+// Issue #48 → upgrade-create-missing-docs: the report's docs inventory is the
+// /prospec-upgrade skill's authoritative scan scope — derived from
+// INIT_DOC_REGISTRY and existence-checked against the project. `execute` now
+// BACK-FILLS the missing ones, so the inventory it reports is post-creation;
+// the pure `buildDocsInventory` function itself still writes nothing.
 describe('upgrade.service docs inventory (issue #48)', () => {
   it('covers exactly the INIT_DOC_REGISTRY paths, base_dir-prefixed, each with its template', async () => {
     seedProject({ version: '0.1.0' });
@@ -310,33 +364,38 @@ describe('upgrade.service docs inventory (issue #48)', () => {
     );
   });
 
-  it('marks a doc init would create but the project lacks (_glossary.md) as missing', async () => {
+  it('back-fills a doc init would create but the project lacks (_glossary.md) and reports it present', async () => {
     seedProject({ version: '0.1.0' }); // seeds everything except _glossary.md
 
     const { report } = await execute({ cwd: '/project' });
 
+    expect(report.createdDocs).toContain('prospec/ai-knowledge/_glossary.md');
     const byPath = new Map(report.docs.map((d) => [d.path, d.present]));
-    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
+    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(true); // created → now present
     expect(byPath.get('prospec/CONSTITUTION.md')).toBe(true);
     expect(byPath.get('prospec/index.md')).toBe(true);
     expect(byPath.get('prospec/ai-knowledge/_conventions.md')).toBe(true);
   });
 
-  it('marks every doc present on a fully-seeded project', async () => {
+  it('marks every doc present on a fully-seeded project and back-fills nothing', async () => {
     seedProject({ version: '0.1.0' });
     fs.writeFileSync(`${KB}/_glossary.md`, '# glossary\n');
 
     const { report } = await execute({ cwd: '/project' });
 
     expect(report.docs.every((d) => d.present)).toBe(true);
+    expect(report.createdDocs).toEqual([]);
   });
 
-  it('building the inventory writes nothing — a missing doc stays missing', async () => {
-    seedProject({ version: '0.1.0' });
+  it('buildDocsInventory is a pure existence probe — it writes nothing', () => {
+    seedProject({ version: '0.1.0' }); // _glossary.md absent
 
-    await execute({ cwd: '/project' });
+    const config = { project: { name: 'demo' }, paths: { base_dir: 'prospec' } } as ProspecConfig;
+    const docs = buildDocsInventory(config, '/project');
 
-    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false);
+    const byPath = new Map(docs.map((d) => [d.path, d.present]));
+    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false); // probing created nothing
   });
 
   it('honors a knowledge.base_path override — docs at the configured path are present, not MISSING', () => {

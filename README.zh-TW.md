@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1824%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1836%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -358,15 +358,15 @@ npm install -g github:benwu95/prospec     # 或：pnpm add -g github:benwu95/pro
 接著用兩步把既有專案帶到最新——先一個決定性的 CLI 步驟，再一個需同意的 AI 步驟：
 
 ```bash
-prospec upgrade                  # CLI（zero-LLM）：記錄新版本 + 重新同步 agents
+prospec upgrade                  # CLI（zero-LLM）：記錄新版本、重新同步 agents + 建立缺少的 init 文件
 ```
 
 ```text
-/prospec-upgrade                 # 在 AI agent 內：刷新漂移的 init 文件格式 + 補建缺少的文件 + 在地化新 skill 觸發詞（每項變更前先問你）
+/prospec-upgrade                 # 在 AI agent 內：補齊已建文件 + 遷移漂移的 init 文件格式 + 在地化新 skill 觸發詞（每項變更前先問你）
 ```
 
-- **`prospec upgrade`（CLI）** 在 `.prospec.yaml` `version` 記錄當前 prospec 版本（就地合併、保留你的註解與格式）、重跑 `agent sync` 讓各 agent 設定與 Skills 對齊最新模板、將決定性的 `raw-scan.md` 刷新到新版掃描器，並印出 migration report（版本差異；**docs inventory** 逐檔列出 `prospec init` 會建立的每份文件為 present 或 missing——清單與 init 本身用同一份 registry 推導，因此不可能漏列；接著在專案從未選擇語言時（例如由 pre-feature CLI 建立的專案）提示可設定 `artifact_language`，否則列出任何缺母語觸發詞的新 skill）。在互動式終端機中,它會像 `prospec init` 一樣逐一提示你填寫這些 nudge;piped/CI 執行——以及 `/prospec-upgrade` skill——會帶 `--no-interactive`,只取得報告。它**不寫任何 curated doc**——絕不碰 `CONSTITUTION.md`、`_conventions.md`、`prospec/index.md`、canonical convention docs，或任何 module README（唯一寫入 `ai-knowledge/` 的是可隨時重生的 `raw-scan.md`）。
-- **`/prospec-upgrade`（Skill）** 完成 CLI 無法安全做的判斷工作：依 report 的 docs inventory 逐檔處理——對存在的文件對照最新模板、對任何**格式**落差提出更新；對標記 missing 的文件（例如新版 prospec 才引入的）提議補建——**逐檔徵詢你的同意**（只遷移格式、絕不動你撰寫的內容）。接著依 `artifact_language` 為任何新 skill 在地化觸發詞（只補缺的），並重跑 `agent sync`。
+- **`prospec upgrade`（CLI）** 在 `.prospec.yaml` `version` 記錄當前 prospec 版本（就地合併、保留你的註解與格式）、重跑 `agent sync` 讓各 agent 設定與 Skills 對齊最新模板、將決定性的 `raw-scan.md` 刷新到新版掃描器，並印出 migration report（版本差異；**docs inventory** 逐檔列出 `prospec init` 會建立的每份文件為 present 或 missing——清單與 init 本身用同一份 registry 推導，因此不可能漏列；接著在專案從未選擇語言時（例如由 pre-feature CLI 建立的專案）提示可設定 `artifact_language`，否則列出任何缺母語觸發詞的新 skill）。在互動式終端機中,它會像 `prospec init` 一樣逐一提示你填寫這些 nudge;piped/CI 執行——以及 `/prospec-upgrade` skill——會帶 `--no-interactive`,只取得報告。它會**補建任何缺少的 init 文件**，以 `prospec init` 所用的同一份模板 render（skip-if-exists）——因此新版 prospec 新增的文件不必重跑 `prospec init`（檔案存在後 init 會被擋）即可補上——但它**絕不覆寫或重排既有文件**：`CONSTITUTION.md`、`_conventions.md`、`prospec/index.md`、canonical convention docs 與 module README 皆逐位元不變（遷移既有文件格式是 skill 的工作；另一個寫入 `ai-knowledge/` 的只有可隨時重生的 `raw-scan.md`）。
+- **`/prospec-upgrade`（Skill）** 完成 CLI 無法安全做的判斷工作：依 report 的 docs inventory 逐檔處理——對存在的文件對照最新模板、對任何**格式**落差提出更新；**補齊** CLI 剛補建、但需要 baseline 以上內容的文件（例如 `index.md` 的真實 modules table，或遷移舊 `_index.md` 的策展欄位）；並作為安全網，對任何仍標記 missing 的文件（補建失敗者）提議建立——**逐檔徵詢你的同意**（絕不覆寫你撰寫的內容）。接著依 `artifact_language` 為任何新 skill 在地化觸發詞（只補缺的），並重跑 `agent sync`。
 
 > `.prospec.yaml` `version` 是專案上次升級到的 prospec 版本（舊的 `version: "1.0"` 視為過時、首次 `prospec upgrade` 時更新）。新增 skill 後想（重新）在地化觸發詞？直接重跑 `prospec agent sync` —— 它會具名列出任何缺 `skill_triggers` 條目的 skill，你只補缺口即可。永遠不需要刪除 `.prospec.yaml`。
 
@@ -394,7 +394,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | **回填規格** | `/prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
 | **晉升回填** | `/prospec-promote-backfill` | 把審閱過的回填草稿定型化為 backfill change scaffold（proposal + delta-spec + metadata、`scale: backfill`、`status: implemented`;輕量 scale —— 無 plan/tasks）；絕不直寫信任區 |
 | **快速開始** | `/prospec-quickstart` | `prospec quickstart` 執行 init + agent sync 後，依 artifact language 在地化 skill 觸發詞、準備 Knowledge 掃描，並串接 `/prospec-knowledge-generate` 生成 AI Knowledge;絕不直寫信任區 |
-| **升級** | `/prospec-upgrade` | `prospec upgrade` 刷新 canonical docs 後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 文件格式 + 補建缺少的文件，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不自動寫信任區 |
+| **升級** | `/prospec-upgrade` | `prospec upgrade` 記錄版本、重新同步 agents 並補建缺少的 init 文件後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 文件格式 + 補齊已建文件，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不覆寫你撰寫的內容 |
 
 > **週期性收尾** —— `/prospec-quickstart`（`prospec quickstart` 後執行一次）與 `/prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
 
@@ -445,7 +445,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | 命令 | 說明 |
 |------|------|
 | `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`（跳過已完成步驟），接著在 AI agent 內交棒給 `/prospec-quickstart` 做 trigger 在地化與 Knowledge 生成。`--name`/`--agents`/`--language` 選項同 `init` |
-| `prospec upgrade [--cwd <dir>]` | prospec 版本升級後：在 `.prospec.yaml` 記錄 prospec `version`（就地合併、保留註解與格式）、重跑 `agent sync`、印出含 docs inventory 的 migration report（逐檔列出 init 建立的文件為 present 或 missing），接著交棒給 `/prospec-upgrade`。不寫任何 doc —— init 文件的格式更新與缺檔補建由需同意的 skill 處理 |
+| `prospec upgrade [--cwd <dir>]` | prospec 版本升級後：在 `.prospec.yaml` 記錄 prospec `version`（就地合併、保留註解與格式）、重跑 `agent sync`、**建立任何缺少的 init 文件**（以其模板 render、skip-if-exists），並印出含 docs inventory + 本次建立清單的 migration report，接著交棒給 `/prospec-upgrade`。絕不覆寫既有文件 —— 格式遷移與補齊已建文件由需同意的 skill 處理 |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + curated 骨架（module-map.yaml / prospec/index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
@@ -648,7 +648,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1824 個測試）
+# 執行所有測試（1836 個測試）
 pnpm test
 
 # Watch 模式
@@ -665,10 +665,10 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**測試覆蓋率**：1824 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1193 tests
+**測試覆蓋率**：1836 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1204 tests
 - Contract tests（CLI 輸出 + Skill 格式）：571 tests
-- Integration tests：17 tests
+- Integration tests：18 tests
 - E2E tests：43 tests
 
 `verify:skills` 在測試套件之外，以真實的 `init` + `agent sync` 產出做端到端驗證：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。

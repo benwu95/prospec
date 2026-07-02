@@ -42,6 +42,7 @@ function baseResult(
       missingTriggers: [],
       nudges: [],
       docs: [],
+      createdDocs: [],
       ...overrides,
     },
     agentSync: { agents: [], totalFiles: 3, warnings: [], hints: [] },
@@ -151,8 +152,25 @@ describe('formatUpgradeOutput', () => {
     expect(text).toContain(
       'prospec/ai-knowledge/_glossary.md — MISSING (template: init/glossary.md.hbs)',
     );
-    // one doc missing → the hand-off count line appears
-    expect(text).toContain('1 doc(s) missing');
+    // one doc still missing (back-fill failed) → the hand-off count line appears
+    expect(text).toContain('1 doc(s) still missing');
+  });
+
+  it('lists docs it back-filled this run under a created line', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: true },
+        ],
+        createdDocs: ['prospec/ai-knowledge/_glossary.md'],
+      }),
+      'normal',
+    );
+    const text = stdout();
+    expect(text).toContain('created 1 missing doc(s): prospec/ai-knowledge/_glossary.md');
+    // it was created (now present), so no "still missing" line
+    expect(text).not.toContain('still missing');
   });
 
   it('omits the missing-count line when every doc is present', () => {
