@@ -36,10 +36,18 @@ describe('INIT_DOC_REGISTRY templates render (issue #48)', () => {
   it.each(INIT_DOC_REGISTRY.map((doc) => [doc.template, doc]))(
     '%s renders to non-empty output',
     (_name, doc) => {
-      const context =
-        doc.template === 'knowledge/index.md.hbs' ? indexContext : TEMPLATE_CONTEXT;
+      const context = doc.context === 'index' ? indexContext : TEMPLATE_CONTEXT;
       const rendered = renderTemplate(doc.template, context);
       expect(rendered.length).toBeGreaterThan(0);
     },
   );
+
+  it('the index entry renders with its declared context — context-derived content present', () => {
+    // Handlebars is non-strict: a wrong context renders empty holes and a bare
+    // non-empty assertion stays green. Pin a context-derived marker instead.
+    const indexDoc = INIT_DOC_REGISTRY.find((d) => d.context === 'index');
+    expect(indexDoc).toBeDefined();
+    const rendered = renderTemplate(indexDoc!.template, indexContext);
+    expect(rendered).toContain('prospec/ai-knowledge');
+  });
 });

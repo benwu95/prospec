@@ -422,7 +422,7 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 - WHEN `prospec upgrade` 執行, THEN 任何 curated doc 與 CONSTITUTION 內容 byte 不變（CLI 只報告、不寫入）
 
 #### REQ-TYPES-038: Init-Doc Registry 單一事實來源
-`types/conventions.ts` 的 `INIT_DOC_REGISTRY`——init 建立的 7 份 curated 文件之單一事實來源：每項含範本名、root 判別（`base`＝`paths.base_dir` 下；`knowledge`＝知識庫下，消費端須經 `resolveBasePaths().knowledgePath` 解析、不得以 `base_dir + 'ai-knowledge'` 拼合）與 root 相對路徑；canonical convention docs 自 `CANONICAL_CONVENTION_DOCS` 推導不重複。排除 `AGENTS.md`（zone-1，agent-sync 擁有）與 `specs/.gitkeep`（非文件）。`init.service` 的 curated 清單由此推導（per-file skip-if-exists 與寫入行為不變）；位於 leaf `types` 層，純資料無 I/O。
+`types/conventions.ts` 的 `INIT_DOC_REGISTRY`——init 建立的 7 份 curated 文件之單一事實來源：每項含範本名、root 判別（`base`＝`paths.base_dir` 下；`knowledge`＝知識庫下，消費端須經 `resolveBasePaths().knowledgePath` 解析、不得以 `base_dir + 'ai-knowledge'` 拼合）與 root 相對路徑；canonical 與 user-managed convention docs 皆自其 `ConventionDocSource` 常數（`{template, output}` 對）經共用 `asKnowledgeInitDoc` 投影推導不重複——任何文件名於 codebase 僅宣告一處；index 項以 `context: 'index'` 宣告渲染 context，消費端以欄位判別、不比對範本路徑字串。排除 `AGENTS.md`（zone-1，agent-sync 擁有）與 `specs/.gitkeep`（非文件）。`init.service` 的 curated 清單由此推導（per-file skip-if-exists 與寫入行為不變）；位於 leaf `types` 層，純資料無 I/O。
 
 **Scenarios:**
 - WHEN 讀 registry, THEN 恰 7 項（base：`CONSTITUTION.md`、`index.md`；knowledge：`_conventions`、`_diagram-conventions`、`_glossary`、`_status-lifecycle`、`_module-readme-conventions`），每項含範本與 root
@@ -516,3 +516,4 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 | 2026-06-27 | upgrade-config-nudges | upgrade 互動補齊缺漏策展設定（nudge registry + `--no-interactive`）、writeConfig 就地合併保留註解；更正 REQ-SETUP-019/SERVICES-035 的 canonical-rewrite 說法 | US-013/014 (ADDED); REQ-SETUP-020/021、REQ-LIB-022 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-06-27 | upgrade-refresh-raw-scan | `prospec upgrade` best-effort 刷新 `raw-scan.md`（決定性，對齊新版掃描器）；將「不寫 ai-knowledge doc」收斂為「不寫 curated doc」 | REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
 | 2026-07-02 | fix-upgrade-doc-coverage | 升級文件覆蓋補全（issue #48）：`INIT_DOC_REGISTRY` 單一來源（root 判別 base/knowledge）、upgrade report 唯讀 docs inventory（實際位置、`knowledge.base_path`-aware）、init⇄registry 等式漂移防護 | US-015/016 (ADDED); REQ-TYPES-038、REQ-SETUP-022、REQ-TESTS-036 (ADDED); REQ-SETUP-019、REQ-SERVICES-035 (MODIFIED) |
+| 2026-07-02 | dedupe-init-doc-registry | registry 平行重複收束（review F2/F3）：user-managed 清單升級為 `ConventionDocSource` 對並經 `asKnowledgeInitDoc` 推導、`InitDoc.context` 判別欄位取代範本路徑字串比對；行為逐位元不變 | REQ-TYPES-038 (MODIFIED，描述性) |

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   CANONICAL_CONVENTION_DOCS,
+  USER_MANAGED_CONVENTION_DOCS,
   INIT_DOC_REGISTRY,
+  asKnowledgeInitDoc,
 } from '../../../src/types/conventions.js';
 
 describe('INIT_DOC_REGISTRY', () => {
@@ -39,11 +41,21 @@ describe('INIT_DOC_REGISTRY', () => {
 
   it('derives the canonical convention docs instead of duplicating them', () => {
     for (const canonical of CANONICAL_CONVENTION_DOCS) {
-      expect(INIT_DOC_REGISTRY).toContainEqual({
-        template: canonical.template,
-        root: 'knowledge',
-        output: canonical.output,
-      });
+      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(canonical));
     }
+  });
+
+  it('derives the user-managed convention docs instead of duplicating them', () => {
+    // a doc added to USER_MANAGED_CONVENTION_DOCS but not the registry (or
+    // vice versa) was exactly the drift class behind issue #48 — bind the lists
+    // (the pinned 7-doc shape test independently guards the projection itself)
+    for (const doc of USER_MANAGED_CONVENTION_DOCS) {
+      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(doc));
+    }
+  });
+
+  it('declares the index render context on exactly the index entry', () => {
+    const withContext = INIT_DOC_REGISTRY.filter((d) => d.context === 'index');
+    expect(withContext.map((d) => d.output)).toEqual(['index.md']);
   });
 });

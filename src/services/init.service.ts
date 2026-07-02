@@ -164,7 +164,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       path: doc.root === 'knowledge' ? path.join(knowledgePath, doc.output) : path.join(cwd, baseDir, doc.output),
       content: renderTemplate(
         doc.template,
-        doc.template === 'knowledge/index.md.hbs' ? indexContext : templateContext,
+        doc.context === 'index' ? indexContext : templateContext,
       ),
       label: doc.root === 'knowledge' ? `${baseDir}/ai-knowledge/${doc.output}` : `${baseDir}/${doc.output}`,
     })),
