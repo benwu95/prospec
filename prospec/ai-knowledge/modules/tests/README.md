@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 76 test files, 1,821 tests (unit 1192, contract 569, integration 17, e2e 43)
+> 4-layer test architecture using Vitest + memfs — 76 test files, 1,824 tests (unit 1193, contract 571, integration 17, e2e 43)
 
 <!-- prospec:auto-start -->
 
@@ -20,7 +20,7 @@
 | `tests/unit/types/knowledge.test.ts` | Canonical `index.md` column constant — order, derived header/separator, index lock (3 tests) |
 | `tests/unit/types/version.test.ts` | `PROSPEC_VERSION` single-source — read from the package's own package.json, semver-shaped (BL-044) |
 | `tests/unit/services/upgrade.service.test.ts` | Upgrade orchestrator — records `version` + runs agentSync + refreshes raw-scan (mocked `generateRawScan`; non-fatal when it throws), NEVER writes a CURATED doc/CONSTITUTION (zone-1 + raw-scan only), partial-localization missing-triggers report, absent version → "unknown", uninitialized → ConfigNotFound; config-field nudge registry + interactive fill; docs inventory (`buildDocsInventory`) — registry-path parity, missing `_glossary.md` → false, read-only (missing doc never created), custom `paths.base_dir` and relocated `knowledge.base_path` both honored |
-| `tests/unit/types/conventions.test.ts` + `tests/contract/init-doc-registry.test.ts` | `INIT_DOC_REGISTRY` drift guards — pinned 7-doc root:output shape + canonical AND user-managed derivation bindings (via the shared `asKnowledgeInitDoc` projection) + index-context uniqueness (unit); every registry template renders via real `renderTemplate()` + the index entry renders a context-derived marker under its declared context (contract); the init⇄registry bidirectional set-equality lives in `init.service.test.ts` (all mutation-verified) |
+| `tests/unit/types/conventions.test.ts` + `tests/contract/init-doc-registry.test.ts` | `INIT_DOC_REGISTRY` drift guards — pinned 8-doc root:output shape (incl. the standalone base `README.md` init scaffolds) + canonical AND user-managed derivation bindings (via the shared `asKnowledgeInitDoc` projection) + index-context uniqueness + README content render (unit); every registry template renders via real `renderTemplate()` + the index entry renders a context-derived marker under its declared context (contract); the init⇄registry bidirectional set-equality lives in `init.service.test.ts` (all mutation-verified) |
 | `tests/integration/upgrade-flow.test.ts` | CLI bump + new skill end-to-end — records version, runs agent sync, flags the new skill, never touches docs (BL-044); docs inventory flags a doc deleted since init as missing without recreating it |
 | `tests/integration/init-flow.test.ts` | Full init → scaffold workflow |
 | `tests/integration/change-flow.test.ts` | Story → Plan → Tasks flow |

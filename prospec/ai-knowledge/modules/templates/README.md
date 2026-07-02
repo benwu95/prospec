@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 56 `.hbs` files across 6 directories (skills/ nests references/), consumed via renderTemplate()
+> Handlebars template library — 58 `.hbs` files across 6 directories (skills/ nests references/), consumed via renderTemplate()
 
 <!-- prospec:auto-start -->
 
@@ -9,6 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `src/templates/init/prospec.yaml.hbs` | .prospec.yaml with strategy and token_budget defaults |
+| `src/templates/init/readme.md.hbs` | In-project Prospec intro `prospec init` scaffolds to `{base_dir}/README.md` — condensed "What is Prospec?" (Skills / AI Knowledge / CLI) + repo link, English-only; standalone `base` entry in `INIT_DOC_REGISTRY` |
 | `src/templates/knowledge/module-readme.hbs` | Recipe-First module README (Key Files → Public API → Modification Guide → Pitfalls) |
 | `src/templates/knowledge/index.md.hbs` | `index.md` (root level) with Rationale column, the Progressive Knowledge Loading Strategy footer, and L1/L2 convention splitting; delegates the auto block to the `index-auto-block` partial |
 | `src/templates/knowledge/_index-auto-block.hbs` | Shared auto-block partial (Conventions + Modules) — single source for the template render AND `knowledge-update.updateIndex`'s in-place block replacement. Includes a scaffold hint for optional `### {Category}` grouped sub-tables |
