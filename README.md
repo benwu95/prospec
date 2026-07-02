@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1748%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1821%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -362,11 +362,11 @@ prospec upgrade                  # CLI (zero-LLM): record the new version + re-s
 ```
 
 ```text
-/prospec-upgrade                 # in your AI agent: refresh init-doc formats + localize new-skill triggers (asks before each change)
+/prospec-upgrade                 # in your AI agent: refresh drifted init-doc formats + create missing docs + localize new-skill triggers (asks before each change)
 ```
 
-- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `prospec/index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
-- **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it scans the files `prospec init` created, compares them to the latest templates, and offers to update any whose **format** has drifted — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
+- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; a **docs inventory** listing every doc `prospec init` creates as present or missing — derived from the same registry init itself uses, so it can never miss a file; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `prospec/index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
+- **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it works through the report's docs inventory — comparing each present doc to its latest template and offering to update any whose **format** has drifted, and offering to create any doc marked missing (e.g. one a newer prospec version introduced) — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
 
 > `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
 
@@ -394,7 +394,7 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 | **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
 | **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
 | **Quickstart** | `/prospec-quickstart` | After `prospec quickstart` runs init + agent sync, localize skill triggers into your artifact language, prepare the Knowledge scan, and chain into `/prospec-knowledge-generate` to seed AI Knowledge; never writes the trust zone |
-| **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` refreshes the canonical docs, localize triggers for newly-added skills (fill-missing only) + migrate flagged curated-doc formats — each with confirmation + a diff preview; never auto-writes the trust zone |
+| **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` refreshes the canonical docs, work through the report's docs inventory: migrate drifted init-doc formats + create missing docs, and localize triggers for newly-added skills (fill-missing only) — each with confirmation + a diff/content preview; never auto-writes the trust zone |
 
 > **Periodic finishers** — `/prospec-quickstart` (run once after `prospec quickstart`) and `/prospec-upgrade` (run after `prospec upgrade` on a version bump) finish the judgment steps the CLI cannot do deterministically. Both are deployed as Skills on disk but kept out of the always-loaded entry config, so they add no recurring token cost.
 
@@ -458,7 +458,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | Command | Description |
 |---------|-------------|
 | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
-| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
+| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, and print a migration report with a docs inventory (every init-created doc, present or missing), then hand off to `/prospec-upgrade`. Writes no docs — init-created doc format updates and missing-doc creation are the consent-gated skill's job |
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
@@ -674,7 +674,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1748 tests)
+# Run all tests (1821 tests)
 pnpm test
 
 # Watch mode
@@ -691,11 +691,11 @@ pnpm run lint
 pnpm run verify:skills
 ```
 
-**Test Coverage**: 1748 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1137 tests
-- Contract tests (CLI output + Skill format): 554 tests
-- Integration tests: 16 tests
-- E2E tests: 41 tests
+**Test Coverage**: 1821 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1192 tests
+- Contract tests (CLI output + Skill format): 569 tests
+- Integration tests: 17 tests
+- E2E tests: 43 tests
 
 `verify:skills` complements the suite with a real `init` + `agent sync` run, asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and Copilot inlining.
 

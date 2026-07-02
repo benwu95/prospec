@@ -41,6 +41,7 @@ function baseResult(
       versionTo: '0.4.1',
       missingTriggers: [],
       nudges: [],
+      docs: [],
       ...overrides,
     },
     agentSync: { agents: [], totalFiles: 3, warnings: [], hints: [] },
@@ -131,6 +132,61 @@ describe('formatUpgradeOutput', () => {
     expect(text).toContain('artifact_language set to 日本語');
     // The field was filled, so it must NOT also still be nagged as a pending nudge.
     expect(text).not.toContain('no artifact_language set');
+  });
+
+  it('prints a Docs inventory section — present ✓ and MISSING ✗ lines each carry the template', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true },
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: false },
+        ],
+      }),
+      'normal',
+    );
+    const text = stdout();
+    expect(text).toContain('Docs inventory:');
+    expect(text).toContain('prospec/CONSTITUTION.md (template: init/constitution.md.hbs)');
+    expect(text).toContain(
+      'prospec/ai-knowledge/_glossary.md — MISSING (template: init/glossary.md.hbs)',
+    );
+    // one doc missing → the hand-off count line appears
+    expect(text).toContain('1 doc(s) missing');
+  });
+
+  it('omits the missing-count line when every doc is present', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true },
+        ],
+      }),
+      'normal',
+    );
+    const text = stdout();
+    expect(text).toContain('Docs inventory:');
+    expect(text).not.toContain('doc(s) missing');
+    expect(text).not.toContain('MISSING');
+  });
+
+  it('strips control characters from doc paths (terminal-injection guard)', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          {
+            path: 'prospec/[31mevil.md',
+            template: 'init/constitution.md.hbs',
+            present: false,
+          },
+        ],
+      }),
+      'normal',
+    );
+    expect(stdout()).not.toContain('[31m');
+    expect(stdout()).not.toContain('');
   });
 
   it('suppresses all stdout in quiet mode but still flushes warnings to stderr', () => {

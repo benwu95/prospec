@@ -858,6 +858,26 @@ describe('prospec upgrade E2E', () => {
     // be nagged — it reports triggers up to date, never the unset-language nudge.
     expect(stdout).toContain('skill triggers up to date');
     expect(stdout).not.toContain('no artifact_language set');
+
+    // docs inventory: fixed line format the /prospec-upgrade skill parses —
+    // every init-created doc listed with its template, none missing after init
+    expect(stdout).toContain('Docs inventory:');
+    expect(stdout).toContain(
+      'prospec/ai-knowledge/_glossary.md (template: init/glossary.md.hbs)',
+    );
+    expect(stdout).not.toContain('MISSING');
+
+    // a doc deleted since init is reported MISSING — and NOT recreated (the
+    // consent-gated /prospec-upgrade skill owns creation), issue #48
+    const glossaryPath = path.join(tmpDir, 'prospec', 'ai-knowledge', '_glossary.md');
+    await fs.promises.rm(glossaryPath);
+    const second = await runCli(['upgrade']);
+    expect(second.exitCode).toBe(0);
+    expect(second.stdout).toContain(
+      'prospec/ai-knowledge/_glossary.md — MISSING (template: init/glossary.md.hbs)',
+    );
+    expect(second.stdout).toContain('1 doc(s) missing');
+    expect(fs.existsSync(glossaryPath)).toBe(false);
   });
 
   it('nudges a pre-feature project (no artifact_language) that it can set one, and keeps the field absent', async () => {

@@ -6,6 +6,7 @@ import { AlreadyExistsError } from '../../../src/types/errors.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { input } from '@inquirer/prompts';
 import type { ConstitutionRule } from '../../../src/types/constitution.js';
+import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -431,5 +432,49 @@ run prospec agent sync
     // ...and the existing content sits inside the user block.
     expect(out.indexOf('<!-- prospec:user-start -->')).toBeLessThan(out.indexOf('rule A'));
     expect(out.indexOf('rule A')).toBeLessThan(out.indexOf('<!-- prospec:user-end -->'));
+  });
+});
+
+// Issue #48 drift guard: what init actually writes must equal what
+// INIT_DOC_REGISTRY declares (plus the non-doc artifacts), in BOTH directions —
+// a doc added to init but not the registry (or vice versa) turns this red, so
+// the upgrade docs inventory can never silently miss an init-created file.
+describe('init.service ⇄ INIT_DOC_REGISTRY equality (issue #48)', () => {
+  it('greenfield init creates exactly the registry docs plus .prospec.yaml, AGENTS.md, specs/.gitkeep', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    const written = new Set(
+      Object.entries(vol.toJSON())
+        .filter(([, content]) => content !== null)
+        .map(([abs]) => abs.replace('/project/', ''))
+        .filter((rel) => rel !== 'package.json'),
+    );
+    const expected = new Set([
+      '.prospec.yaml',
+      'AGENTS.md',
+      'prospec/specs/.gitkeep',
+      ...INIT_DOC_REGISTRY.map((doc) =>
+        doc.root === 'knowledge'
+          ? `prospec/ai-knowledge/${doc.output}`
+          : `prospec/${doc.output}`,
+      ),
+    ]);
+    expect(written).toEqual(expected);
+  });
+
+  it('labels every registry doc under its root in createdFiles', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    for (const doc of INIT_DOC_REGISTRY) {
+      expect(result.createdFiles).toContain(
+        doc.root === 'knowledge'
+          ? `prospec/ai-knowledge/${doc.output}`
+          : `prospec/${doc.output}`,
+      );
+    }
   });
 });

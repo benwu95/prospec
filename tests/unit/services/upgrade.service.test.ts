@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { execute, detectMissingTriggers, detectNudges } from '../../../src/services/upgrade.service.js';
+import { execute, detectMissingTriggers, detectNudges, buildDocsInventory } from '../../../src/services/upgrade.service.js';
+import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
 import { readConfig } from '../../../src/lib/config.js';
 import { PROSPEC_VERSION } from '../../../src/types/version.js';
 import { ConfigNotFound } from '../../../src/types/errors.js';
@@ -286,5 +287,98 @@ describe('detectNudges', () => {
     expect(
       detectNudges({ ...base, artifact_language: 'Traditional Chinese (Taiwan)' } as ProspecConfig),
     ).toEqual([]);
+  });
+});
+
+// Issue #48: the report's docs inventory is the /prospec-upgrade skill's
+// authoritative scan scope — derived from INIT_DOC_REGISTRY, existence-checked
+// against the project, and strictly read-only.
+describe('upgrade.service docs inventory (issue #48)', () => {
+  it('covers exactly the INIT_DOC_REGISTRY paths, base_dir-prefixed, each with its template', async () => {
+    seedProject({ version: '0.1.0' });
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.docs.map((d) => d.path)).toEqual(
+      INIT_DOC_REGISTRY.map((d) =>
+        d.root === 'knowledge' ? `prospec/ai-knowledge/${d.output}` : `prospec/${d.output}`,
+      ),
+    );
+    expect(report.docs.map((d) => d.template)).toEqual(
+      INIT_DOC_REGISTRY.map((d) => d.template),
+    );
+  });
+
+  it('marks a doc init would create but the project lacks (_glossary.md) as missing', async () => {
+    seedProject({ version: '0.1.0' }); // seeds everything except _glossary.md
+
+    const { report } = await execute({ cwd: '/project' });
+
+    const byPath = new Map(report.docs.map((d) => [d.path, d.present]));
+    expect(byPath.get('prospec/ai-knowledge/_glossary.md')).toBe(false);
+    expect(byPath.get('prospec/CONSTITUTION.md')).toBe(true);
+    expect(byPath.get('prospec/index.md')).toBe(true);
+    expect(byPath.get('prospec/ai-knowledge/_conventions.md')).toBe(true);
+  });
+
+  it('marks every doc present on a fully-seeded project', async () => {
+    seedProject({ version: '0.1.0' });
+    fs.writeFileSync(`${KB}/_glossary.md`, '# glossary\n');
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.docs.every((d) => d.present)).toBe(true);
+  });
+
+  it('building the inventory writes nothing — a missing doc stays missing', async () => {
+    seedProject({ version: '0.1.0' });
+
+    await execute({ cwd: '/project' });
+
+    expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false);
+  });
+
+  it('honors a knowledge.base_path override — docs at the configured path are present, not MISSING', () => {
+    // A user may hand-edit .prospec.yaml to relocate the knowledge base; every
+    // knowledge consumer (knowledge-init, agent-sync, knowledge-reader) honors
+    // it, so the inventory must too — else all five ai-knowledge docs misreport
+    // as MISSING and the skill would create duplicates at the wrong location.
+    vol.fromJSON({
+      '/p/prospec/CONSTITUTION.md': '# c\n',
+      '/p/prospec/index.md': '# i\n',
+      '/p/docs/kb/_conventions.md': '# conv\n',
+      '/p/docs/kb/_diagram-conventions.md': '# diag\n',
+      '/p/docs/kb/_glossary.md': '# glos\n',
+      '/p/docs/kb/_status-lifecycle.md': '# lc\n',
+      '/p/docs/kb/_module-readme-conventions.md': '# mrc\n',
+    });
+    const config = {
+      project: { name: 'demo' },
+      paths: { base_dir: 'prospec' },
+      knowledge: { base_path: 'docs/kb' },
+    } as ProspecConfig;
+
+    const docs = buildDocsInventory(config, '/p');
+
+    expect(docs.every((d) => d.present)).toBe(true);
+    // the reported paths point at the ACTUAL location the skill must diff/create
+    const paths = docs.map((d) => d.path);
+    expect(paths).toContain('docs/kb/_glossary.md');
+    expect(paths).toContain('prospec/CONSTITUTION.md');
+    expect(paths.some((p) => p.includes('prospec/ai-knowledge'))).toBe(false);
+  });
+
+  it('buildDocsInventory respects a custom paths.base_dir', () => {
+    vol.fromJSON({ '/p/docs/CONSTITUTION.md': '# c\n' });
+    const config = {
+      project: { name: 'demo' },
+      paths: { base_dir: 'docs' },
+    } as ProspecConfig;
+
+    const docs = buildDocsInventory(config, '/p');
+
+    const byPath = new Map(docs.map((d) => [d.path, d.present]));
+    expect(byPath.get('docs/CONSTITUTION.md')).toBe(true);
+    expect(byPath.get('docs/ai-knowledge/_glossary.md')).toBe(false);
   });
 });

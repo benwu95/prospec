@@ -1,14 +1,18 @@
+import * as path from 'node:path';
 import { input } from '@inquirer/prompts';
 import {
   readConfig,
   writeConfig,
   resolveArtifactLanguage,
+  resolveBasePaths,
   isDefaultArtifactLanguage,
   isArtifactLanguageUnset,
 } from '../lib/config.js';
+import { fileExists } from '../lib/fs-utils.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
+import { DEFAULT_ARTIFACT_LANGUAGE, DEFAULT_BASE_DIR } from '../types/config.js';
 import { PROSPEC_VERSION } from '../types/version.js';
+import { INIT_DOC_REGISTRY } from '../types/conventions.js';
 import {
   execute as agentSyncExecute,
   type AgentSyncFullResult,
@@ -39,6 +43,22 @@ export interface UpgradeNudge {
   message: string;
 }
 
+/**
+ * One init-created curated doc's existence status, derived from
+ * `INIT_DOC_REGISTRY` — the same single source `init.service` creates from.
+ * The /prospec-upgrade skill consumes this list as its authoritative scan
+ * scope (diff present docs, offer to create missing ones); it never keeps a
+ * parallel hardcoded file list.
+ */
+export interface DocInventoryEntry {
+  /** Project-relative doc path (base_dir prefixed), matching init's labels. */
+  path: string;
+  /** Handlebars template under `src/templates/` the doc is created from. */
+  template: string;
+  /** Whether the doc exists in this project. */
+  present: boolean;
+}
+
 export interface UpgradeReport {
   /** prospec version recorded before this upgrade ('unknown' if never stamped). */
   versionFrom: string;
@@ -53,6 +73,11 @@ export interface UpgradeReport {
    * flagged, so a deliberate choice is never nagged.
    */
   nudges: UpgradeNudge[];
+  /**
+   * Docs inventory — every init-created curated doc with its present/missing
+   * status (read-only existence checks; the CLI still writes no curated doc).
+   */
+  docs: DocInventoryEntry[];
 }
 
 /** A nudge the user resolved interactively this run (field set to a value). */
@@ -89,8 +114,9 @@ export interface UpgradeResult {
  * 5. Refresh the deterministic `raw-scan.md` (best-effort) so the project-structure
  *    snapshot reflects the new version's scanner — same idea as re-running agent
  *    sync. `--raw-scan-only` semantics: it writes ONLY raw-scan.md.
- * 6. Build a report (version delta, skills missing triggers, remaining nudges) for
- *    the `/prospec-upgrade` skill, which handles the consent-gated updates.
+ * 6. Build a report (version delta, skills missing triggers, remaining nudges,
+ *    docs inventory) for the `/prospec-upgrade` skill, which handles the
+ *    consent-gated updates.
  *
  * It deliberately does NOT touch any CURATED `prospec/ai-knowledge/` doc (module
  * READMEs, _index, _conventions, the canonical convention docs) or CONSTITUTION —
@@ -153,6 +179,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     versionTo: PROSPEC_VERSION,
     missingTriggers: detectMissingTriggers(config, artifactLanguage),
     nudges: detectNudges(config),
+    docs: buildDocsInventory(config, cwd),
   };
 
   return {
@@ -162,6 +189,37 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     resolvedNudges,
     rawScanRefreshed,
   };
+}
+
+/**
+ * Existence status of every init-created curated doc, derived from
+ * `INIT_DOC_REGISTRY` × the project's resolved roots. Read-only — the CLI
+ * reports; creating a missing doc (with consent) is the skill's job.
+ * Knowledge-rooted docs resolve through `resolveBasePaths().knowledgePath`, so
+ * a project whose `knowledge.base_path` was relocated away from
+ * `<base_dir>/ai-knowledge` (every other knowledge consumer honors this) is
+ * checked — and reported — at its ACTUAL doc locations, never misreported as
+ * missing at the default path.
+ */
+export function buildDocsInventory(
+  config: ProspecConfig,
+  cwd: string,
+): DocInventoryEntry[] {
+  const { baseDir, knowledgePath } = resolveBasePaths(config, cwd);
+  const baseLabel = config.paths?.base_dir ?? DEFAULT_BASE_DIR;
+  const knowledgeLabel = path
+    .relative(cwd, knowledgePath)
+    .split(path.sep)
+    .join('/');
+  return INIT_DOC_REGISTRY.map((doc) => {
+    const rootDir = doc.root === 'knowledge' ? knowledgePath : baseDir;
+    const rootLabel = doc.root === 'knowledge' ? knowledgeLabel : baseLabel;
+    return {
+      path: `${rootLabel}/${doc.output}`,
+      template: doc.template,
+      present: fileExists(path.join(rootDir, doc.output)),
+    };
+  });
 }
 
 /**

@@ -53,6 +53,7 @@ features:
     status: active
   - feature: project-setup
     modules:
+      - cli
       - lib
       - services
       - templates

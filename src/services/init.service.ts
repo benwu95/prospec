@@ -9,7 +9,7 @@ import { fileExists, ensureDir, atomicWrite, readFileIfExists } from '../lib/fs-
 import { mergeManagedDoc } from '../lib/content-merger.js';
 import { filterConventions } from '../lib/scanner.js';
 import { PROSPEC_VERSION } from '../types/version.js';
-import { CANONICAL_CONVENTION_DOCS, ALL_INITIAL_CONVENTION_DOCS } from '../types/conventions.js';
+import { ALL_INITIAL_CONVENTION_DOCS, INIT_DOC_REGISTRY } from '../types/conventions.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
@@ -146,25 +146,29 @@ export async function execute(options: InitOptions): Promise<InitResult> {
 
   const { core: coreConventions, demand: demandConventions } = filterConventions(ALL_INITIAL_CONVENTION_DOCS);
 
+  const indexContext = buildIndexTemplateContext({
+    projectName,
+    techStack: hasTechStack(techStack) ? techStack : undefined,
+    baseDir,
+    knowledgeBasePath: path.relative(cwd, knowledgePath).replace(/\\/g, '/'),
+    coreConventions,
+    demandConventions,
+  });
+
   const artifacts: { path: string; content: string; label: string; managed?: boolean }[] = [
-    { path: path.join(cwd, baseDir, 'CONSTITUTION.md'), content: renderTemplate('init/constitution.md.hbs', templateContext), label: `${baseDir}/CONSTITUTION.md` },
-    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...templateContext, skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
-    { path: path.join(knowledgePath, '_conventions.md'), content: renderTemplate('init/conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_conventions.md` },
-    { path: path.join(knowledgePath, '_diagram-conventions.md'), content: renderTemplate('init/diagram-conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_diagram-conventions.md` },
-    { path: path.join(knowledgePath, '_glossary.md'), content: renderTemplate('init/glossary.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_glossary.md` },
-    { path: path.join(cwd, baseDir, 'index.md'), content: renderTemplate('knowledge/index.md.hbs', buildIndexTemplateContext({
-      projectName,
-      techStack: hasTechStack(techStack) ? techStack : undefined,
-      baseDir,
-      knowledgeBasePath: path.relative(cwd, knowledgePath).replace(/\\/g, '/'),
-      coreConventions,
-      demandConventions,
-    })), label: `${baseDir}/index.md` },
-    ...CANONICAL_CONVENTION_DOCS.map((doc) => ({
-      path: path.join(knowledgePath, doc.output),
-      content: renderTemplate(doc.template, templateContext),
-      label: `${baseDir}/ai-knowledge/${doc.output}`,
+    ...INIT_DOC_REGISTRY.map((doc) => ({
+      // init always creates the knowledge base at <base_dir>/ai-knowledge and
+      // writes that same value to `knowledge.base_path`, so the two roots are
+      // consistent by construction here (a later hand-edited override is the
+      // upgrade inventory's concern, resolved via resolveBasePaths there).
+      path: doc.root === 'knowledge' ? path.join(knowledgePath, doc.output) : path.join(cwd, baseDir, doc.output),
+      content: renderTemplate(
+        doc.template,
+        doc.context === 'index' ? indexContext : templateContext,
+      ),
+      label: doc.root === 'knowledge' ? `${baseDir}/ai-knowledge/${doc.output}` : `${baseDir}/${doc.output}`,
     })),
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...templateContext, skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
 

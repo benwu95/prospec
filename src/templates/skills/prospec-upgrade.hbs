@@ -1,6 +1,6 @@
 ---
 name: prospec-upgrade
-description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, scan the files `prospec init` created and update their format to the latest templates (asking consent per file), then localize triggers for newly-added skills and re-sync. Triggers: {{trigger_words}}"
+description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, work through the report's docs inventory: update init-created files whose format drifted and create missing ones (asking consent per file), then localize triggers for newly-added skills and re-sync. Triggers: {{trigger_words}}"
 ---
 
 # Prospec Upgrade Skill
@@ -9,7 +9,7 @@ description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records
 
 When triggered, briefly describe:
 - That `prospec upgrade` has recorded the new prospec version in `.prospec.yaml` and re-synced agents, and you'll finish the judgment steps it cannot do deterministically
-- You'll scan the files `prospec init` created, offer to update any whose format has drifted from the latest templates (asking before each change), offer to set an artifact language if the project never chose one (a project from a pre-feature CLI), and localize triggers for skills that have none
+- You'll work through the report's docs inventory (every file `prospec init` creates): offer to update any whose format has drifted from the latest templates and to create any marked missing (asking before each change), offer to set an artifact language if the project never chose one (a project from a pre-feature CLI), and localize triggers for skills that have none
 - This is a periodic upgrade flow — re-runnable and self-terminating
 
 ## Language Policy
@@ -42,14 +42,18 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
   language (Step 3). Mutually exclusive with the line below: an unset language resolves to English, so
   no triggers are reported missing.
 - `skills missing triggers: …` — newly-added skills with no localized triggers (Step 4)
+- `Docs inventory:` — one line per init-created doc, `✓ <path> (template: <hbs>)` when present or
+  `✗ <path> — MISSING (template: <hbs>)` when absent. This section is Step 2's authoritative scan
+  scope: it is derived from the same registry `prospec init` creates from, so it can never miss a
+  file init would create.
 
 If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
 user to run `prospec init` first.
 
-### Step 2: Refresh init-created doc formats (scan → diff → consent)
+### Step 2: Refresh init-created docs (inventory → create/diff → consent)
 
 `prospec upgrade` deliberately does NOT touch any doc `prospec init` created — those may carry user
-edits, so updating their format requires consent. Do it here:
+edits, so updating their format (or creating a missing one) requires consent. Do it here:
 
 1. **Locate the latest templates** shipped with the installed prospec version. **Source-repo
    short-circuit first**: if the project's own `package.json` `name` equals the prospec package name
@@ -61,19 +65,25 @@ edits, so updating their format requires consent. Do it here:
    `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). If `require.resolve`
    fails — a `pnpm link`/globally-linked install keeps the package outside the project's
    `node_modules` — derive the root from the running CLI instead: follow `$(which prospec)` (a
-   shim/symlink to `<package-root>/dist/cli/index.js`) back up to `<package-root>`. The canonical
-   convention docs are language-neutral templates under `src/templates/init/` (the package ships and
+   shim/symlink to `<package-root>/dist/cli/index.js`) back up to `<package-root>`. All doc
+   templates are language-neutral `.hbs` files under `src/templates/` (the package ships and
    loads them from `src/templates/`, not a root-level `templates/` — `tsc` does not copy `.hbs` into
    `dist/`). If the templates cannot be located, say so and SKIP this step (do not guess the latest
    format).
-2. **Scan the init-created files** in the project's knowledge base and compare each to its latest
-   template:
-   - `{{knowledge_base_path}}/_status-lifecycle.md` ← `src/templates/init/status-lifecycle.md.hbs`
-   - `{{knowledge_base_path}}/_module-readme-conventions.md` ← `src/templates/init/module-readme-conventions.md.hbs`
-   - `{{knowledge_base_path}}/_diagram-conventions.md` ← `src/templates/init/diagram-conventions.md.hbs`
-   - `{{constitution_path}}` (Constitution), `{{knowledge_base_path}}/_conventions.md` — compare the **format/structure** (severity tags, section markers), never the user's authored wording
-   - **Index Migration**: If `{{knowledge_base_path}}/_index.md` exists, offer to migrate it to the new root location `{{base_dir}}/index.md` using `src/templates/knowledge/index.md.hbs`. Preserve any user notes in the `<!-- prospec:user-start -->` block, and **copy the curated `Modules` table rows verbatim** into the new file's `prospec:auto` block — the Keywords / Aliases / Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from `module-map.yaml` and blanks every curated column to `—`. Delete the old `{{knowledge_base_path}}/_index.md` after a successful move.
-3. For each file whose format has drifted, **show a diff and ask the user whether to update it** —
+2. **Take the scan scope from Step 1's `Docs inventory:` section** — every line names an init-created
+   doc, its present/MISSING status, and its source template path. That list is the ONLY scan scope:
+   do not keep, reconstruct, or fall back to a file list written into this skill. If the report has
+   no `Docs inventory:` section, the installed CLI predates it (CLI/skill version mismatch) — STOP
+   this step and tell the user to re-run `prospec upgrade` (which re-syncs this skill to match the
+   CLI), then re-run `/prospec-upgrade`.
+3. **Index Migration** (before creating a missing root index): If `{{knowledge_base_path}}/_index.md` exists, offer to migrate it to the new root location `{{base_dir}}/index.md` using `src/templates/knowledge/index.md.hbs`. Preserve any user notes in the `<!-- prospec:user-start -->` block, and **copy the curated `Modules` table rows verbatim** into the new file's `prospec:auto` block — the Keywords / Aliases / Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from `module-map.yaml` and blanks every curated column to `—`. Delete the old `{{knowledge_base_path}}/_index.md` after a successful move.
+4. **For each doc the inventory marks MISSING**, offer to create it by rendering its listed template
+   (skip `{{base_dir}}/index.md` when it was just produced by the Index Migration above). Creating a
+   file risks no authored content, but still **ask before each creation** and show what will be
+   written; leave declined files uncreated.
+5. **For each doc the inventory marks present**, compare it to its listed template — compare the
+   **format/structure** (severity tags, section markers), never the user's authored wording. For
+   each file whose format has drifted, **show a diff and ask the user whether to update it** —
    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
    leave the rest unchanged.
 
@@ -115,13 +125,15 @@ English or every skill already has an entry.
 
 ### Success Criteria
 - [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
-- [ ] every init-created file whose format drifted was shown to the user and updated only on consent (or templates were unavailable and the step was skipped with a note)
+- [ ] every doc in the report's `Docs inventory:` was handled — present docs diffed against their listed template and updated only on consent, MISSING docs offered for creation and created only on consent (or templates were unavailable / the inventory section was absent, and the step was skipped with a note)
 - [ ] when the report flagged `no artifact_language set`, the user was asked which language to use and `artifact_language` was written to their choice (or they declined)
 - [ ] every skill in the report's "missing triggers" list (and all skills, when Step 3 just set a non-English language) is localized (or the user declined)
 - [ ] `prospec agent sync` ran when Step 2, Step 3, or Step 4 changed anything
 
 ### Failure Conditions
 - updated an init-created file without showing a diff and getting confirmation
+- created a doc the inventory marked MISSING without asking first
+- scanned from a file list hardcoded in this skill instead of the report's `Docs inventory:`
 - set `artifact_language` (or wrote `skill_triggers`) without user confirmation
 - wrote malformed `artifact_language` or `skill_triggers` to `.prospec.yaml`
 - proceeded silently when the `prospec` CLI or its templates were unavailable
@@ -132,6 +144,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** update an init-created file without a diff preview AND explicit user confirmation — `prospec upgrade` never touches these, and the skill does so only with consent
+- **NEVER** create a doc the inventory marks MISSING without showing what will be written AND asking first
+- **NEVER** scan from a file list maintained inside this skill — the report's `Docs inventory:` (derived from init's own registry) is the only scan scope; a parallel list here drifts and re-opens the coverage gap
 - **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template
 - **NEVER** set or change `artifact_language` for a project that already has one — Step 3 runs only when the report flags it unset
 - **NEVER** set `artifact_language` without first asking the user which language they want
@@ -146,6 +160,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | `prospec` CLI unavailable | Stop; tell the user to install/rebuild prospec, then re-run — do not proceed silently |
 | `prospec upgrade` reports `ConfigNotFound` | Project not initialized — stop and instruct the user to run `prospec init` first |
 | prospec templates cannot be located | Skip Step 2 with a note; still do Step 3 (artifact language) and Step 4 (trigger localization) |
+| report has no `Docs inventory:` section | CLI/skill version mismatch — skip Step 2 with a note telling the user to re-run `prospec upgrade` (it re-syncs this skill), then re-run `/prospec-upgrade` |
+| User declines creating a MISSING doc | Leave it uncreated; record it as declined in the Output Summary (the next upgrade will list it again) |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
 | `.prospec.yaml` fails to parse after writing `artifact_language` or triggers | Restore the captured pre-write snapshot verbatim, then report the malformed write |
 | User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
