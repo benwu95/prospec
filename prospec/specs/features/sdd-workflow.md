@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-06-20
+last_updated: 2026-07-03
 story_count: 23
-req_count: 99
+req_count: 100
 ---
 
 # SDD 開發流程
@@ -107,6 +107,13 @@ req_count: 99
 - WHEN prospec-plan produces plan.md, THEN include a Call Chain section (and plan-format.hbs defines it)
 - WHEN Plan Phase 6 runs, THEN check the call chain's layering against the Constitution's dependency rule
 - WHEN verify dimension 3/5 runs, THEN re-check layering against the Constitution
+
+#### REQ-TEMPLATES-125: Plan Conditional User Story Flow Diagram
+`/prospec-plan` 對結構複雜的 user story 於 plan.md（Section 5）產生 Mermaid 行為/決策流程圖，沿用 `_diagram-conventions.md` 慣例，與 Call Chain（REQ-TEMPLATES-059）分工互補。
+- WHEN user story 符合 any-of 結構訊號（>=2 分支決策點／>=3 階段狀態轉移或多終止狀態／跨模組·跨角色且順序即理解重點）, THEN plan.md 內嵌一張該 story 行為/決策流程的 Mermaid 圖
+- WHEN user story 為單一線性 happy path 或單步驟 CRUD, THEN 不產生流程圖
+- WHEN 產生流程圖, THEN 沿用 `_diagram-conventions.md` classDef/節點慣例，且圖區塊不計入 120 行 standard 上限
+- WHEN 描述產圖步驟, THEN prospec-plan Phase 4 以 on-demand 讀取 `_diagram-conventions.md`，絕不加入 Startup Loading（快取穩定）
 
 ---
 
@@ -870,3 +877,4 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 | 2026-06-19 | feature-first-backfill | backfill 取材/覆蓋掃描單位 module→feature 縱切片（兩段式 gather→cluster、Pass-2 tracing cite `file:line`、跨模組 integration-edge 一等 AC gated on 兩端 grounding、Phase 4 未覆蓋 feature、基礎設施非 feature NEVER、feature-boundary-criteria reference 外置 hasReferences:true）（BL-039） | US-22; REQ-TEMPLATES-109~112, REQ-TESTS-030 (ADDED); REQ-TEMPLATES-104/105/107/108 + US-22 AC (MODIFIED) |
 | 2026-06-19 | backfill-promotion-path | `scale: backfill`（第 4 個 CHANGE_SCALES 值，輕量 scale）+ `/prospec-promote-backfill` skill 讓 brownfield backfill 規格端到端 graduate：promote 產輕量 scaffold（proposal+delta-spec+metadata，無 plan/tasks）；verify 評 spec-fidelity、既有品質 MUST 降 informational（provenance-gated）、1/5 N/A；archive 接受、related_modules/Feature→feature-map 推導、跳過 REQ-prefix auto knowledge-update | US-23; REQ-TEMPLATES-115~119, REQ-SERVICES-031, REQ-TESTS-034 (ADDED) |
 | 2026-06-20 | harden-feature-prefixed-req-sync | archive standard/full 對 feature-prefixed REQ 改由 related_modules/feature-map 推導（Entry Gate + service auto-update 一致），修 knowledge-sync 落空 + phantom module 風險（BL-043） | US-14; REQ-TEMPLATES-120, REQ-SERVICES-033, REQ-TESTS-035 (ADDED) |
+| 2026-07-03 | add-plan-flow-diagram | /prospec-plan 對複雜 user story 產生 Mermaid 行為流程圖（any-of 結構訊號、沿用 _diagram-conventions.md、不計入 120 行上限、on-demand 讀取不進 Startup Loading）；契約測試含跨檔一致性守衛（issue #47） | US-2; REQ-TEMPLATES-125 (ADDED) |
