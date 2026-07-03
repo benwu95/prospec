@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { execute } from '../../src/services/agent-sync.service.js';
+import { execute, getSkillReferences } from '../../src/services/agent-sync.service.js';
 import { PrerequisiteError } from '../../src/types/errors.js';
 import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 
@@ -68,11 +68,13 @@ knowledge:
 
     const result = await execute({ cwd: '/project' });
     const claudeResult = result.agents.find((a) => a.agent === 'claude');
-    // claude emits a fixed total of 26 reference files across the skills that
-    // declare references (new-story 1 + plan 2 + design 6 + tasks 1 + ff 4 +
-    // implement 1 + review 2 + verify 1 + archive 4 + backfill-spec 1 +
-    // promote-backfill 2 + learn 1).
-    expect(claudeResult!.referenceFiles).toHaveLength(26);
+    // Total reference files derive from the exported reference map — no magic
+    // number: actual execute() output vs the derived per-skill map (REQ-AGNT-030).
+    const expectedRefs = SKILL_DEFINITIONS.reduce(
+      (n, s) => n + getSkillReferences(s.name).length,
+      0,
+    );
+    expect(claudeResult!.referenceFiles).toHaveLength(expectedRefs);
     // A skill with hasReferences=false (prospec-explore) must emit none.
     expect(
       claudeResult!.referenceFiles.some((f) => f.includes('prospec-explore/')),
@@ -118,12 +120,16 @@ knowledge:
 
     const verifyDir = '/project/.claude/skills/prospec-verify/references';
     expect(fs.existsSync(`${verifyDir}/debug-recovery-format.md`)).toBe(true);
-    expect(fs.readdirSync(verifyDir)).toHaveLength(1);
+    expect(fs.readdirSync(verifyDir)).toHaveLength(
+      getSkillReferences('prospec-verify').length,
+    );
 
     const reviewDir = '/project/.claude/skills/prospec-review/references';
     expect(fs.existsSync(`${reviewDir}/review-format.md`)).toBe(true);
     expect(fs.existsSync(`${reviewDir}/review-lenses-content.md`)).toBe(true);
-    expect(fs.readdirSync(reviewDir)).toHaveLength(2);
+    expect(fs.readdirSync(reviewDir)).toHaveLength(
+      getSkillReferences('prospec-review').length,
+    );
   });
 
   it('should generate entry config file for each agent', async () => {

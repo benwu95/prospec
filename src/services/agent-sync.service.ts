@@ -336,7 +336,7 @@ async function generateEntryConfig(
   return agentConfig.configPath;
 }
 
-interface SkillReference {
+export interface SkillReference {
   templateName: string;
   outputName: string;
   title: string;
@@ -344,10 +344,12 @@ interface SkillReference {
 
 /**
  * Map skill names to their reference files. The map is fully static, so it is
- * built once and cached rather than reallocated on every call.
+ * built once and cached rather than reallocated on every call. Exported as the
+ * single source for per-skill reference counts so tests derive them instead of
+ * hardcoding literals (REQ-AGNT-030).
  */
 let referenceMapCache: Record<string, SkillReference[]> | null = null;
-function getSkillReferences(skillName: string): SkillReference[] {
+export function getSkillReferences(skillName: string): SkillReference[] {
   referenceMapCache ??= {
     'prospec-new-story': [
       {
