@@ -463,6 +463,88 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  describe('Plan User Story Flow diagram', () => {
+    it('plan-format defines a conditional User Story Flow section with any-of structural signals', () => {
+      const content = renderTemplate(
+        'skills/references/plan-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const section = sectionOf(content, '### 5. User Story Flow Diagram');
+      // any-of structural signals — the concrete complexity criterion (AC1)
+      expect(section).toContain('any-of');
+      expect(section).toContain('Branching');
+      expect(section).toContain('State machine');
+      expect(section).toContain('Cross-module');
+      // skip condition (AC2)
+      expect(section).toMatch(/Skip/);
+      // reuse of the project diagram conventions + guidance-not-gate framing (PB-003)
+      expect(section).toContain('_diagram-conventions.md');
+      expect(section).toContain('not a mechanical gate');
+    });
+
+    it('plan-format excludes the diagram block from the standard 120-line cap (AC2)', () => {
+      const content = renderTemplate(
+        'skills/references/plan-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const guidelines = sectionOf(content, '## File Length Guidelines');
+      expect(guidelines).toMatch(/User Story Flow diagram[\s\S]*excluded/i);
+    });
+
+    it('prospec-plan Phase 4 carries an on-demand diagram step, never in Startup Loading (AC3/AC5, BL-020)', () => {
+      const content = renderTemplate(
+        'skills/prospec-plan.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      // the on-demand sub-step exists in the workflow body
+      expect(content).toContain('User Story Flow diagram');
+      expect(content).toContain('on-demand');
+      // negative assertion: the diagram read must NOT leak into Startup Loading (cache stability)
+      const startup = sectionOf(content, '## Startup Loading');
+      expect(startup).not.toContain('_diagram-conventions');
+      expect(startup.toLowerCase()).not.toContain('flow diagram');
+    });
+
+    it('plan-format Section 5 and prospec-plan Phase 4 name the SAME any-of signal set (drift guard, PB-006)', () => {
+      const planFormat = renderTemplate(
+        'skills/references/plan-format.hbs',
+        TEMPLATE_CONTEXT,
+      ).toLowerCase();
+      const skill = renderTemplate(
+        'skills/prospec-plan.hbs',
+        TEMPLATE_CONTEXT,
+      ).toLowerCase();
+      const section = sectionOf(planFormat, '### 5. user story flow diagram');
+      // isolate the Phase 4 diagram sub-step paragraph — not the whole skill (PB-001 section-scoped)
+      const subStep =
+        /\*\*conditional[\s\S]*?(?=\n\n)/.exec(skill)?.[0] ?? '';
+      expect(
+        subStep.length,
+        'diagram sub-step not found in prospec-plan Phase 4',
+      ).toBeGreaterThan(0);
+      // the shared complexity signals must appear in BOTH renderings —
+      // editing the threshold in one file without the other turns this red
+      for (const token of [
+        'branching',
+        '>= 2',
+        'state transitions',
+        '>= 3',
+        'terminal states',
+        'cross-module',
+        'cross-actor',
+      ]) {
+        expect(
+          section,
+          `plan-format Section 5 missing signal token: ${token}`,
+        ).toContain(token);
+        expect(
+          subStep,
+          `prospec-plan Phase 4 missing signal token: ${token}`,
+        ).toContain(token);
+      }
+    });
+  });
+
   describe('Knowledge Quality Gate in Skills', () => {
     const SKILLS_WITH_QUALITY_GATE = [
       'prospec-new-story',
@@ -834,8 +916,9 @@ describe('Skill Format Contract', () => {
         TEMPLATE_CONTEXT,
       );
       expect(content).toContain('### 4. Call Chain');
-      expect(content).toContain('### 5. Implementation Steps');
-      expect(content).toContain('### 6. Risk Assessment');
+      expect(content).toContain('### 5. User Story Flow Diagram');
+      expect(content).toContain('### 6. Implementation Steps');
+      expect(content).toContain('### 7. Risk Assessment');
     });
 
     it('prospec-plan should reference Call Chain and layering inspection', () => {

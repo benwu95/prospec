@@ -46,6 +46,7 @@
 - `index.md.hbs` / `_index-auto-block.hbs` changes affect the root `index.md` format — update knowledge-generate and knowledge-update skills
 - Skill template changes require `prospec agent sync` to redeploy to `.claude/skills/` and other agent dirs
 - Reference files in `skills/references/` are `.hbs` rendered via `renderTemplate()` to `.md` on `agent sync` — NOT copied verbatim (templateName → outputName mapping lives in `agent-sync.service.ts`)
+- `prospec-plan.hbs` / `plan-format.hbs` carry the conditional **User Story Flow diagram** (plan-format Section 5 + Phase 4 on-demand `_diagram-conventions.md` read, any-of complexity signals, NEVER in Startup Loading) — `plan-format.hbs` is bundled by BOTH prospec-plan and prospec-ff, so `agent sync` redeploys the section to both reference dirs; guard edits with the `skill-format.test.ts` diagram assertions
 
 ## Pitfalls
 

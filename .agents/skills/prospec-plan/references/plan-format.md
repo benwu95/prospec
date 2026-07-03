@@ -148,7 +148,36 @@ POST /orders/{id}/submit
 
 ---
 
-### 5. Implementation Steps
+### 5. User Story Flow Diagram (Conditional)
+
+Add a **Mermaid flow diagram** of the User Story's behavioral/decision flow when — and only when — the story is structurally complex. This is a **guidance heuristic, not a mechanical gate**: it helps a reader grasp branches and states that prose obscures, and it does NOT replace the technical Call Chain (Section 4), which stays code-oriented.
+
+Add a diagram when **any-of** these structural signals holds:
+
+- **Branching** — acceptance scenarios fork on a condition into >= 2 distinct decision points / outcomes
+- **State machine** — the flow moves through >= 3 sequential state transitions, or has multiple terminal states (success / failure / cancelled ...)
+- **Cross-module / cross-actor sequence** — multiple modules or actors interact in an order where the ordering itself is what must be understood
+
+**Skip** the diagram for a single linear happy path, a story with no meaningful branching or state, or single-step CRUD — a diagram there is noise, not clarity.
+
+**How:**
+
+- Depict the **User Story's** behavioral/decision flow (user-observable outcomes), NOT the code call chain.
+- Follow `prospec/ai-knowledge/_diagram-conventions.md` — Mermaid `flowchart`, the `classDef` palette (diamond `decisionNode` for branches), node shapes, and label format. Read it on demand.
+- Place this section **before** Implementation Steps; title each diagram with the User Story it maps to (e.g. `US-1`), one diagram per complex story.
+
+```mermaid
+flowchart TD
+  s(["US-1: submit order"]) --> c{"payment valid?"}
+  c -->|Yes| ok["mark PAID"]
+  c -->|No| rej["reject + notify"]
+  classDef decisionNode fill:#fff,color:#333,stroke:#999
+  class c decisionNode
+```
+
+---
+
+### 6. Implementation Steps
 
 Use an ordered numbered list with details for each step:
 
@@ -192,7 +221,7 @@ Use an ordered numbered list with details for each step:
 
 ---
 
-### 6. Risk Assessment
+### 7. Risk Assessment
 
 Use a table to list risks, impacts, and mitigation strategies:
 
@@ -225,7 +254,7 @@ Plan depth follows the change's `metadata.scale`:
 | Scale | Plan output |
 |-------|-------------|
 | `quick` | No plan at all — `/prospec-plan` exits at its Entry Gate; proceed to tasks |
-| `standard` (or absent) | Concise plan, keep under **120 lines** — the default below |
+| `standard` (or absent) | Concise plan, keep under **120 lines** (the conditional Section 5 User Story Flow diagram block is excluded from the count) — the default below |
 | `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment; the 120-line cap does not apply |
 
 ---
@@ -233,6 +262,7 @@ Plan depth follows the change's `metadata.scale`:
 ## File Length Guidelines
 
 - Keep under **120 lines** (`standard`; see Scale Tiers for `full`)
+- The conditional **User Story Flow diagram** block (Section 5) is **excluded** from the 120-line count
 - Ideal number of Implementation Steps: 4-8
 - If steps exceed 10, consider splitting into multiple Stories
 
