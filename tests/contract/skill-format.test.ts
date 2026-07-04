@@ -1033,13 +1033,16 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('does NOT gate on Feature Spec freshness');
     });
 
-    it('status-lifecycle documents the knowledge-sync checkpoint at the archive Entry Gate', () => {
+    it('status-lifecycle syncs knowledge at the verify S/A commit prompt with the archive Entry Gate as backstop', () => {
       const content = renderTemplate(
         'init/status-lifecycle.md.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('single mandatory knowledge-sync checkpoint');
-      expect(content).toContain('affected-module Knowledge is synced (archive Entry Gate)');
+      // part b: prevention moved to the verify S/A commit prompt; Entry Gate demoted to backstop
+      expect(content).toContain('prevention point is the `/prospec-verify` S/A commit prompt');
+      expect(content).toContain('backstop');
+      // the absolute single-checkpoint claim is gone
+      expect(content).not.toContain('single mandatory knowledge-sync checkpoint');
       expect(content).not.toContain('any time before verify');
       expect(content).not.toContain('gates on **Knowledge ↔ code** consistency');
     });
@@ -1295,9 +1298,10 @@ describe('Skill Format Contract', () => {
       expect(graded).not.toMatch(/not updated → WARN/);
     });
 
-    it('prospec-verify no longer grades this-change knowledge sync anywhere', () => {
+    it('prospec-verify syncs knowledge at the commit prompt (part b), not by grading it', () => {
       const content = renderVerify();
-      expect(content).toContain('syncs at the `/prospec-archive` Entry Gate');
+      // part b: sync is folded into the S/A commit prompt (prevention); archive is the backstop
+      expect(content).toContain('backstop');
       expect(content).not.toContain('Knowledge staleness (graded WARN)');
     });
   });
@@ -2691,5 +2695,54 @@ describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEM
     // the name-aligned, date-prefixed committed record
     expect(harvest).toContain('{date}-{name}');
     expect(harvest).toMatch(/evidence/i);
+  });
+});
+
+describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES-129, REQ-CHNG-004)', () => {
+  const verify = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+  const archive = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+
+  it('verify commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
+    const status = sectionOf(verify(), '## Status Update');
+    expect(status).toMatch(/Sync affected-module Knowledge/);
+    expect(status).toContain('/prospec-knowledge-update');
+    expect(status).toMatch(/Re-derive factual counts/);
+    expect(status).toContain('into the feature commit');
+    // framed as prevention with archive as backstop, not archive-deferred
+    expect(status).toContain('backstop');
+  });
+
+  it('verify commit prompt stays generic — no repo-specific count command hardcoded', () => {
+    // the template ships to every prospec project; `pnpm counts` is this repo's own
+    expect(verify()).not.toContain('pnpm counts');
+  });
+
+  it('verify commit-prep avoids citing not-yet-graduated REQ ids (no req-references trip)', () => {
+    expect(sectionOf(verify(), '## Status Update')).toContain('not-yet-graduated REQ ids');
+  });
+
+  it('archive Entry Gate is a backstop that still FAILs on unsynced Knowledge (defense in depth)', () => {
+    const gate = sectionOf(archive(), '## Entry Gate');
+    expect(gate).toContain('backstop');
+    expect(gate).toMatch(/FAIL/); // the hard refuse-to-archive check is preserved
+    expect(gate).not.toContain('single mandatory'); // demoted from the absolute claim
+  });
+
+  it('lifecycle §What each gate checks is identical across canonical doc and shipped template (no dual-copy drift)', () => {
+    const gateSection = (text: string): string => {
+      const body = /## What each gate checks[^\n]*\n([\s\S]*?)(?=^## )/m.exec(text)?.[1] ?? '';
+      expect(body.trim().length, '§What each gate checks not found').toBeGreaterThan(0);
+      return body.trim();
+    };
+    const canonical = fs.readFileSync(
+      path.join(process.cwd(), 'prospec/ai-knowledge/_status-lifecycle.md'),
+      'utf-8',
+    );
+    const template = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+    const canonicalSection = gateSection(canonical);
+    expect(gateSection(template)).toBe(canonicalSection);
+    // the new framing is present in both copies
+    expect(canonicalSection).toContain('prevention point is the `/prospec-verify` S/A commit prompt');
+    expect(canonicalSection).toContain('backstop');
   });
 });

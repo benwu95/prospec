@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-1926%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-1934%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -54,7 +54,7 @@ Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**
 | AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → tasks → implement → review → verify → archive` |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `/prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
-| Knowledge 容易過時 | Archive Entry Gate 強制每個變更完成 Knowledge Update |
+| Knowledge 容易過時 | verify S/A commit prompt 把 Knowledge Update 折入 feature commit；archive Entry Gate 為 backstop 複核 |
 | verify 過了仍出細微 bug | `/prospec-review` —— implement 與 verify 間的獨立對抗式審查 |
 | 教訓無法跨 session 留存 | `/prospec-learn` —— 反覆出現的修正經人工核可晉升為版控的團隊規則 |
 
@@ -648,7 +648,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（1926 個測試）
+# 執行所有測試（1934 個測試）
 pnpm test
 
 # Watch 模式
@@ -661,9 +661,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：1926 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1265 tests
-- Contract tests（CLI 輸出 + Skill 格式）：580 tests
+**測試覆蓋率**：1934 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1268 tests
+- Contract tests（CLI 輸出 + Skill 格式）：585 tests
 - Integration tests：38 tests
 - E2E tests：43 tests
 

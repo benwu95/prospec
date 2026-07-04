@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1926%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1934%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -54,7 +54,7 @@ Three pieces work together:
 | Inconsistent AI workflows | Structured Skills enforce `story → plan → tasks → implement → review → verify → archive` |
 | Vendor lock-in | Works with 4+ AI CLIs; knowledge stored as universal Markdown |
 | No design-to-code bridge | `/prospec-design` generates visual + interaction specs with MCP tool integration |
-| Knowledge becomes stale | Archive's Entry Gate enforces a Knowledge Update every change |
+| Knowledge becomes stale | The verify S/A commit prompt folds a Knowledge Update into the feature commit; the archive Entry Gate re-confirms it as a backstop |
 | Verify passes but subtle bugs ship | `/prospec-review` — independent adversarial review between implement and verify |
 | Lessons don't persist across sessions | `/prospec-learn` — recurring fixes promote (human-gated) into versioned team rules |
 
@@ -675,7 +675,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1926 tests)
+# Run all tests (1934 tests)
 pnpm test
 
 # Watch mode
@@ -688,9 +688,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 1926 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1265 tests
-- Contract tests (CLI output + Skill format): 580 tests
+**Test Coverage**: 1934 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1268 tests
+- Contract tests (CLI output + Skill format): 585 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
 
