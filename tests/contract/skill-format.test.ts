@@ -2804,3 +2804,62 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
     expect(lenses).toContain('test-quality');
   });
 });
+
+describe('converge-constitution-audit — single full Constitution audit at verify (issue #66 scope 3)', () => {
+  const render = (name: string) => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+
+  it('verify is the sole full-audit station (every principle)', () => {
+    const v = render('prospec-verify');
+    expect(sectionOf(v, '## Key Difference from Other Skills')).toContain('sole');
+    expect(sectionOf(v, '### Verification 3/5: Constitution Full Audit')).toContain('every principle');
+  });
+
+  it('no other skill performs a full every-principle Constitution audit (negative)', () => {
+    for (const s of SKILL_DEFINITIONS) {
+      if (s.name === 'prospec-verify') continue;
+      const c = render(s.name);
+      expect(c, `${s.name} must not claim a Constitution full audit`).not.toContain('full audit');
+      expect(c, `${s.name} must not audit every principle`).not.toContain('every principle');
+    }
+  });
+
+  it('no skill instructs a generic multi-principle Constitution scan (negative)', () => {
+    for (const s of SKILL_DEFINITIONS) {
+      expect(render(s.name), `${s.name} must not do a generic 3+ principles scan`).not.toMatch(
+        /3\+ most relevant|3 most relevant principles|Compare against 3/,
+      );
+    }
+  });
+
+  it('planning/execution stations check only their site-specific Constitution rule', () => {
+    expect(
+      sectionOf(render('prospec-new-story'), '### Phase 6: Constitution Check (site-specific: INVEST)'),
+    ).toContain('INVEST');
+    expect(
+      sectionOf(render('prospec-plan'), '### Phase 6: Constitution Check (site-specific: dependency/layering)'),
+    ).toContain('dependency-direction/layering');
+    expect(
+      sectionOf(render('prospec-tasks'), '### Phase 6: Constitution Test Check (site-specific: TDD)'),
+    ).toContain('TDD');
+    expect(render('prospec-implement')).toContain('site-specific');
+  });
+
+  it('ff no longer forbids skipping the per-phase Constitution check (negative)', () => {
+    expect(render('prospec-ff')).not.toContain('skip Constitution check at any phase');
+  });
+
+  it('orphaned Constitution [STABLE] loads removed from non-consuming skills (negative)', () => {
+    for (const name of [
+      'prospec-archive',
+      'prospec-design',
+      'prospec-backfill-spec',
+      'prospec-promote-backfill',
+      'prospec-knowledge-update',
+    ]) {
+      const startup = sectionOf(render(name), '## Startup Loading');
+      expect(startup, `${name} Startup Loading must not load the Constitution (orphaned)`).not.toContain(
+        'prospec/CONSTITUTION.md',
+      );
+    }
+  });
+});

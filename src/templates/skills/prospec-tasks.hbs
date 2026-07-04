@@ -94,9 +94,9 @@ Add statistics at end of file: Total Tasks, Parallelizable Tasks, Total Estimate
 > - [ ] statistics block appended at end of `tasks.md` (Total Tasks, Parallelizable Tasks, Total Estimated Lines)
 > - [ ] Total Tasks count reconciles with the checkboxes in the file
 
-### Phase 6: Constitution Test Check
+### Phase 6: Constitution Test Check (site-specific: TDD)
 
-Ensure each new/modified module has corresponding test tasks. If coverage is insufficient, add test tasks or raise a warning.
+Check only this station's **site-specific** Constitution rule — **TDD / test coverage** — NOT a generic multi-principle scan (the full every-principle audit is `/prospec-verify` V3/5 only). Ensure each new/modified module has corresponding test tasks. If coverage is insufficient, add test tasks or raise a warning.
 
 > **Phase 6 Gate** — proceed when:
 > - [ ] every new/modified module has a corresponding test task in `tasks.md`
@@ -141,7 +141,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

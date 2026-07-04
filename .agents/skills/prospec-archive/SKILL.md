@@ -17,11 +17,10 @@ When triggered, briefly describe:
 Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution spot check
-2. [STABLE] **MANDATORY** — Read [`references/archive-format.md`](references/archive-format.md) for summary.md format specification
-3. [STABLE] **MANDATORY** — Read [`references/feature-spec-format.md`](references/feature-spec-format.md) for Feature Spec format
-4. [STABLE] **MANDATORY** — Read [`references/product-spec-format.md`](references/product-spec-format.md) for Product Spec format
-5. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
+1. [STABLE] **MANDATORY** — Read [`references/archive-format.md`](references/archive-format.md) for summary.md format specification
+2. [STABLE] **MANDATORY** — Read [`references/feature-spec-format.md`](references/feature-spec-format.md) for Feature Spec format
+3. [STABLE] **MANDATORY** — Read [`references/product-spec-format.md`](references/product-spec-format.md) for Product Spec format
+4. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
 
 ## Entry Gate
 

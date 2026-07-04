@@ -60,7 +60,7 @@ Derive kebab-case change name, confirm before proceeding.
 | Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
 | Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write `metadata.scale`. Quick → slim proposal form |
 | Populate | Write User Story and ACs per proposal-format.md |
-| Check | Constitution check (3 most relevant principles) → PASS continue / FAIL pause |
+| Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
 delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `prospec/index.md` from Startup
@@ -71,7 +71,7 @@ Loading is still read). Status advances `story → tasks` directly
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created
 > - [ ] `metadata.scale` confirmed by user and written
-> - [ ] Constitution check passed (pause on FAIL)
+> - [ ] Site-specific Constitution check (INVEST) passed (pause on FAIL)
 
 ### Phase 3: Plan Generation (skipped when `scale: quick`)
 
@@ -80,7 +80,7 @@ Loading is still read). Status advances `story → tasks` directly
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Scaffold | Create `plan.md` + `delta-spec.md`, update status → `plan` |
 | Populate | Write per plan-format.md and delta-spec-format.md |
-| Check | Constitution check → PASS continue / FAIL pause |
+| Check | Site-specific Constitution check (this phase's rule: dependency-direction/layering) → PASS continue / FAIL pause |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
@@ -132,12 +132,12 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
 - **NEVER** use FF when requirements are vague — guide user to `/prospec-explore` first
-- **NEVER** skip Constitution check at any phase — every phase must be checked
+- **NEVER** run a generic multi-principle Constitution scan per phase — each phase checks only its site-specific rule (INVEST / dependency-direction / TDD); the full every-principle audit is `/prospec-verify`'s job (single-full-audit convergence)
 - **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `/prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files (proposal / plan / delta-spec / tasks formats) directly
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks, or story → tasks only when `scale: quick`

@@ -4,16 +4,14 @@
       ".prospec/changes/",
       "references/archive-format.md",
       "references/feature-spec-format.md",
-      "references/product-spec-format.md",
-      "{{constitution_path}}"
+      "references/product-spec-format.md"
     ],
     "mandatory": 3
   },
   "prospec-backfill-spec": {
     "items": [
       "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/",
-      "{{constitution_path}}"
+      "{{base_dir}}/specs/features/"
     ],
     "mandatory": 0
   },
@@ -22,8 +20,7 @@
       ".prospec/changes/[name]/backfill-draft.md",
       "references/proposal-format.md",
       "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/",
-      "{{constitution_path}}"
+      "{{base_dir}}/specs/features/"
     ],
     "mandatory": 1
   },
@@ -33,8 +30,7 @@
       ".prospec/changes/[name]/proposal.md",
       "design.platform",
       "references/design-spec-format.md",
-      "references/interaction-spec-format.md",
-      "{{constitution_path}}"
+      "references/interaction-spec-format.md"
     ],
     "mandatory": 2
   },
@@ -79,7 +75,6 @@
     "items": [
       ".prospec/changes/[name]/delta-spec.md",
       "{{base_dir}}/index.md",
-      "{{constitution_path}}",
       "{{knowledge_base_path}}/_conventions.md",
       "{{knowledge_base_path}}/_module-readme-conventions.md",
       "{{knowledge_base_path}}/module-map.yaml"

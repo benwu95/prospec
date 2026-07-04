@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1959%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1965%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -675,7 +675,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (1959 tests)
+# Run all tests (1965 tests)
 pnpm test
 
 # Watch mode
@@ -688,9 +688,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 1959 tests across 4 categories:
+**Test Coverage**: 1965 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 1287 tests
-- Contract tests (CLI output + Skill format): 591 tests
+- Contract tests (CLI output + Skill format): 597 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
 
