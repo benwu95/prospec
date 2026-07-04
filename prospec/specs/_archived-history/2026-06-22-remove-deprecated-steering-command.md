@@ -36,6 +36,13 @@
 - **Verify**: Grade A — 5/5 維度 PASS、test 73 檔 1748、coverage 96.04%、drift 0 fail
 - **Review**: 0 critical、4 major（3 修＝services 計數對齊 14；1 resolved＝Deprecated Requirements 於本次 archive 以富格式填入）
 
+## Review & Verify
+
+- **Review**: 0 critical、4 major（3 修：services 計數對齊 14——implement 誤套 −1 delta，review 獨立 re-derive `execute()`-services=14 校正〔ledger docs/duplicated-count-drift 第 15 度〕；1 resolved：Deprecated Requirements 富格式填入）
+- **Verify**: Grade A；5/5 維度 PASS；test 73 檔 1748、coverage 96.04%、drift 0 fail
+- **Quality Log**: 無 WARN/FAIL（drift 0 fail）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 本變更已同步：`_index.md`、`_glossary.md`、`module-map.yaml`、`modules/{cli,services,templates,tests,lib,types}/README.md`；`raw-scan.md` 已 refresh。Deprecated Requirements 與 Change History 已於 project-setup.md graduate。

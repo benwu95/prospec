@@ -36,6 +36,13 @@ So that AI Knowledge generation sees the real stack instead of a JS/TS-only view
 - **Review**: 5 major (0 critical), all verifier-confirmed and fixed pre-commit
 - **Adopted deps**: smol-toml (BSD-3), fast-xml-parser (MIT)
 
+## Review & Verify
+
+- **Review**: 5 major（0 critical）皆 verifier-confirmed 後於 commit 前修復——含 Ruby+PHP polyglot Tech Stack/deps 不一致（Gemfile→[] 短路修，ledger raw-scan/techstack-deps-language-ordering）
+- **Verify**: Grade A；Tasks 16/16 code + 1 `[M]`、SC-001…006 全 met
+- **Quality Log**: 不可回收（bundle 已失；review 明細僅摘要「5 major」）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 Synced at archive Entry Gate:

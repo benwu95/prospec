@@ -79,7 +79,23 @@ List all REQ IDs from `delta-spec.md`:
 
 ---
 
-### 6. Knowledge Update Hints (Optional)
+### 6. Review & Verify
+
+Carry the review/verify evidence that otherwise survives only in the gitignored `.prospec/archive/` bundle (`review.md`, the verify report, `metadata.yaml` `quality_log`). Record three things: the **quality grade** (S/A/B/C/D/Unverified), the **critical/major counts with a short findings excerpt** from `review.md`, and a **`quality_log` digest** (the WARN/FAIL entries). When no review round ran, `quality_log` is empty, or the change predates these artifacts, say so plainly (`Unverified`, `no review round`) — **never fabricate** a grade or counts.
+
+```markdown
+## Review & Verify
+
+- **Review**: {rounds} round(s), {N} critical / {M} major — {short findings excerpt, or "review-clean"}
+- **Verify**: Grade {S/A/B/C/D}, {dimensions PASS summary}; {test-suite result}
+- **Quality Log**: {WARN/FAIL digest from metadata.yaml, or "no WARN/FAIL"}
+```
+
+A **backfilled or reconstructed** entry (evidence recovered from the committed summary + `_lessons-ledger.md` after the gitignored bundle was lost) additionally appends a `- **Source**: {where recovered}` bullet, so a reader can tell reconstructed evidence from evidence captured live at archive time. A live archive omits it.
+
+---
+
+### 7. Knowledge Update Hints (Optional)
 
 If affected modules have AI Knowledge documentation:
 

@@ -37,6 +37,13 @@
 - **Tasks**: 12/12 code (100%) + `[M]`×1 / `[V]`×2 done
 - **Quality**: Grade S — vitest 930、verify:skills 23/23、prospec check 5/5;2 輪對抗式 review 收斂（修掉 fix-round 自身引入的 2 majors）
 
+## Review & Verify
+
+- **Review**: 2 輪對抗式 review 收斂；修掉 fix-round 自身引入的 2 majors；round-2 揪出 entry-config session-detection 仍用舊 status-only lookup（ledger fix/rework-misses-parallel-site）
+- **Verify**: Grade S；vitest 930、verify:skills 23/23、prospec check 5/5；verify 補修 README 測試數 911→930（雙語）
+- **Quality Log**: 不可回收（bundle 已失；摘要僅記「2 majors」）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Process Notes
 
 - 2 處 mid-implement scope 修正：US-18 重編號縮為只修 ff Phase 0（保留語義小數，避免 cascade 破壞交叉引用）;US-20 ff→N/A（無逐 task 迴圈）

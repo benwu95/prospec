@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-06-12
+last_updated: 2026-07-04
 story_count: 4
-req_count: 10
+req_count: 11
 ---
 
 # Feedback Promotion Pipeline
@@ -43,6 +43,11 @@ req_count: 10
 archive Phase 4.5 交叉 `tasks.md` 完成狀態 × kind：跨 change 反覆未勾選的 `[M]` manual task 萃取成 `kind: playbook` process lesson；缺 kind 標記的舊 change 安全略過。
 - WHEN `[M]` task 跨多 change 反覆未完成, THEN 產生 process lesson
 - WHEN manual task 全完成或無 kind 標記, THEN 不產生/安全略過
+
+#### REQ-TEMPLATES-128: Canonical _archived-history Evidence Pointer
+promotion-format Harvest 明示 ledger 每個 `source_changes` 的 committed review/verify 證據位於 `specs/_archived-history/{date}-{name}.md`（該檔 `## Review & Verify` 節），取代已隨 worktree 蒸發的 gitignored `.prospec/archive/` bundle；`_lessons-ledger.md` header 同載此指標。
+- WHEN 稽核某 source_change 的 lesson 證據, THEN 指向 committed `_archived-history/{date}-{name}.md`，不依賴 gitignored bundle
+- WHEN promotion-format 渲染, THEN prospec-learn 與 prospec-archive 兩份 `promotion-format.md` 皆帶此指標
 
 ---
 
@@ -153,3 +158,4 @@ _(None)_
 |------|--------|--------|--------------|
 | 2026-06-08 | add-feedback-promotion-pipeline | 建立 G6 回饋晉升管線：蒐集→可審計判定→人工核可三層晉升→治理 | US-1~4; REQ-TYPES-024, REQ-TEMPLATES-069/070/071/072, REQ-TESTS-024 |
 | 2026-06-12 | add-knowledge-flywheel | ledger 版控化（跨 worktree 存活）+ archive Phase 4.5 自動萃取 + tasks×kind 進料 + knowledge_health 審查優先序 | US-1/2/4 reshaped; MODIFIED REQ-TEMPLATES-069/071/072; ADDED REQ-TEMPLATES-093/094/095, REQ-TESTS-025 |
+| 2026-07-04 | carry-review-verify-evidence | ledger 每個 source_changes 的 committed 證據指向 `_archived-history/{date}-{name}.md`（promotion-format Harvest + ledger header 明載），取代已蒸發的 gitignored bundle（issue #56）| US-1; REQ-TEMPLATES-128 (ADDED) |

@@ -40,6 +40,13 @@
 - **Tasks**: 17/17 code（100%）+ 1 `[V]` 驗證任務完成
 - **Acceptance Criteria**: 全數通過（verify Grade S；review 兩輪完整審查 + 4 criticals 修復收斂 review-clean）
 
+## Review & Verify
+
+- **Review**: 完整審查收斂 review-clean，4 criticals 全數修復（Round 1-3：listMapModules 吞無效 map；Round 4-5：searchModules 排序鍵矛盾、loadModuleMap 繞過圍堵、health 存在性 oracle——此 3 個共同根因「不變式漏套平行消費路徑」）+ 2 majors（symlink 圍堵、list/read 過濾），已餵 ledger（詳本檔「Review 重點」節）
+- **Verify**: Grade S；Tasks 17/17 code + 1 `[V]`、+60 tests（總數 909）
+- **Quality Log**: 不可回收（bundle 已失；review 明細見本檔「Review 重點」節）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Review 重點（永久記錄）
 
 - Round 1-3：listMapModules 吞無效 map（critical，修復）；symlink 圍堵與 list/read 過濾（2 majors，使用者指示修復）

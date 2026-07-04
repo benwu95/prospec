@@ -46,6 +46,13 @@ So that I never lose curated content and can bring a project up to date when pro
 - **Acceptance Criteria**: all user-story scenarios met; verify 5/5 PASS, drift 8/8, verify:skills 28/28, tests 1760, coverage 96%
 - **Dogfood**: ran `prospec upgrade` + `/prospec-upgrade` on this repo — version 1.0→0.3.2, prospec-upgrade triggers localized, init docs untouched
 
+## Review & Verify
+
+- **Review**: iter-2 對抗式 review 揪出 7 處 doc/comment 殘留舊宣稱（version/CLI 重設計後 CLI「re-render canonical docs」等與新契約矛盾），全數更正（README ×2、_index ×2、upgrade.ts/version.ts/canonical-docs.ts 註解；ledger docs/measurement-attribution-overclaim 第 8 度）
+- **Verify**: Grade A；verify 5/5 PASS、drift 8/8、verify:skills 28/28、tests 1760、coverage 96%；dogfood `prospec upgrade` + `/prospec-upgrade` 於本 repo
+- **Quality Log**: carried advisory 1（`readme-counts` drift 未覆蓋 `_index.md` module-table file counts，pre-existing tooling gap）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Notes
 
 - Two iterations: original BL-044 (Grade A) + a user-clarification iteration (version=prospec-version; CLI upgrade scope narrowed to `.prospec.yaml` + agent sync; doc-format refresh moved to the consent-gated `/prospec-upgrade` skill; knowledge-update format consent added).

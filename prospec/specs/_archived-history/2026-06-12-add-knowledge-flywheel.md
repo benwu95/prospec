@@ -37,6 +37,13 @@ So that the feedback-promotion flywheel actually accumulates — `frequency` sur
 - **Tasks**: 10/10 code tasks (100%); `[M]` T11 dogfood (exercised by this archive's Phase 4.5) + T13, `[V]` T12/T14 — not counted in the rate
 - **Acceptance**: 3 US acceptance scenarios contract-verified; harvest output dogfood-verified (LLM step, deliberate exclusion from vitest)
 
+## Review & Verify
+
+- **Review**: 2 輪對抗式審查，0 critical、4 majors resolved/decided（review-clean）——4 majors 同源於遷移引用掃描不完整（ledger refactor/relocation-reference-sweep-completeness）
+- **Verify**: Grade A（verified）；849/849 tests green、tsc + eslint clean
+- **Quality Log**: WARN 1（V4 pre-existing cli/lib README staleness，branch-base 4fb3225，非本變更）
+- **Source**: summary 內文（`## Quality`）+ _lessons-ledger
+
 ## Quality
 
 - **Review**: 2 rounds, 0 critical, 4 majors resolved/decided (review-clean)

@@ -39,6 +39,13 @@ So that 程式碼變動後能不重跑 `init`、不動用 LLM 即取得最新結
 - **Review**: review-clean（0 critical）；4 advisory majors（皆 defensible，記入 quality_log）
 - **Verify**: Grade A（5+1 維度全 PASS，1 WARN：coverage 數值未機器量測）
 
+## Review & Verify
+
+- **Review**: review-clean（0 critical）；4 advisory majors（皆 defensible，記入 quality_log）
+- **Verify**: Grade A；5+1 維度全 PASS；1087 passed / 54 files、lint + typecheck clean
+- **Quality Log**: WARN 1（coverage 數值未機器量測）；4 advisory majors 記入 quality_log（defensible）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 Affected module READMEs synced at this archive: `cli`, `services`, `templates`.

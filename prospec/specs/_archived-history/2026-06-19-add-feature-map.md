@@ -37,3 +37,10 @@
 ## Completion
 
 - **Tasks**: 16/16 (100%), 1/2 [M]/[V] (not counted)
+
+## Review & Verify
+
+- **Review**: 明細不可回收（bundle 已失）；ledger 記 count-drift 於 review 階段由 PB-004 lens 預先攔下（無 confirmed finding）
+- **Verify**: Grade S；ledger 記 verify 0 WARN；+31 tests 1627→1658（unit 1071→1099 / contract 499→502）、graduate commit 後 drift 0 stale
+- **Quality Log**: 無 WARN（ledger 記 verify 0 WARN）
+- **Source**: summary（task 計數）+ _lessons-ledger（PB-004 / PB-005）

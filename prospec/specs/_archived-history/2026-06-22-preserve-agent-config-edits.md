@@ -40,6 +40,13 @@ So that init / sync / quickstart / upgrade never destroy my custom agent instruc
 - **Tests**: 1786 passing; coverage 96.01%; typecheck/lint clean
 - **Commits**: `feat 6d20b16` + `refactor 099eb18` (DRY: dedupe auto-block swap, adopt `readFileIfExists` across knowledge services — resolves both review majors)
 
+## Review & Verify
+
+- **Review**: 2 review majors（auto-block 正則重複、`readFileIfExists` 未被既有 read-or-empty 採用）於 `refactor 099eb18` 反向修復（抽 content-merger 單一來源 + 採 fs-utils.readFileIfExists；ledger refactor/duplicated-helper-parallel-sites，PB-006）
+- **Verify**: Grade S；1786 passing、coverage 96.01%、typecheck/lint clean
+- **Quality Log**: 不可回收（bundle 已失；2 review majors 已於 refactor commit 修復）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 Synced for this change before archive:

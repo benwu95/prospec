@@ -34,6 +34,13 @@ As a prospec maintainer, I want the `_index.md` 7-column schema defined in one s
 - **Acceptance Criteria**: 4 INVEST stories, all scenarios met
 - **Quality**: review-clean (2 rounds, 0 critical, 3 majors fixed) → verify Grade S (5+1 all PASS); 955 tests green, typecheck clean
 
+## Review & Verify
+
+- **Review**: review-clean（2 rounds、0 critical、3 majors fixed）；review 抓出第三個 schema consumer（`lib/knowledge-reader`）與 knowledge-index format hint，均遷移至 canonical constant
+- **Verify**: Grade S；5+1 全 PASS；955 tests green、typecheck clean
+- **Quality Log**: 無 WARN/FAIL（review-clean）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 Synced at this archive (Entry Gate):

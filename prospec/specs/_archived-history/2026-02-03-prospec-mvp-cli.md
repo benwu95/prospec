@@ -28,3 +28,10 @@ CLI Infrastructure · `init` · `steering` · `knowledge generate` · `agent syn
 ## Successors
 
 此原始規格的行為已演進並分散到現行 Feature Specs：`project-setup`、`ai-knowledge`、`agent-integration`、`sdd-workflow`（見 `prospec/specs/features/`）。
+
+## Review & Verify
+
+- **Review**: 無 review 輪（pre-review-loop era；spec-kit 併入歷史之原始 MVP 規格）
+- **Verify**: Grade A（shipped）；本摘要為原 spec-kit 資料夾整理，無 verify 維度稽核留存
+- **Quality Log**: 不可回收（pre-review-loop era／bundle 已失）
+- **Source**: grade-only

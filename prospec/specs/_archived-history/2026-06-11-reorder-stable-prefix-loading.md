@@ -35,6 +35,13 @@ So that 每次觸發 skill 的 provider prompt-cache 前綴最大化，且效益
 - **Acceptance Criteria**: verify Grade A（FAIL 0 / WARN 2：量測 pending、Knowledge 陳舊已於歸檔前補救 `fd17c79`）
 - **Review**: 4 輪對抗式審查，3 critical 全數 verifier-confirmed 後修復（清單斷裂、pnpm `--`、runbook 前置）；2 major 開放（README `_index` 措辭、itemKey 單 backtick）；量測歸因 major 經人工核可以 deliberate-exclusion 措辭結案
 
+## Review & Verify
+
+- **Review**: 4 輪對抗式審查，3 critical 全數 verifier-confirmed 後修復（清單斷裂、pnpm `--`、runbook 前置）；2 major 開放（README `_index` 措辭、itemKey 單 backtick）；量測歸因 major 經人工核可以 deliberate-exclusion 措辭結案
+- **Verify**: Grade A（FAIL 0 / WARN 2）；Tasks 13/14（T14 量測 pending）
+- **Quality Log**: WARN 2（量測 pending、Knowledge 陳舊已於歸檔前補救 `fd17c79`）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 已於歸檔前完成（`fd17c79`）：templates / tests README、`_index.md`、`module-map.yaml`

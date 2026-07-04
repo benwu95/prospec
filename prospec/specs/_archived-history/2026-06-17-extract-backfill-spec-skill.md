@@ -35,6 +35,13 @@
 - **Acceptance Criteria**: 3 US 全達（可發現性 / 純 UI / 命名統一）
 - **Grade**: A — review-clean（0 critical，1 major README subline 已修）；verify 5+1，1 WARN = 預存 knowledge-health（已於本次 archive 清除）
 
+## Review & Verify
+
+- **Review**: review-clean（0 critical，1 major〔README「14 Skill templates」subline 漏更〕已修；ledger docs/duplicated-count-drift 第 8 度）
+- **Verify**: Grade A；5+1；Tasks 10/10 code、1160 tests
+- **Quality Log**: WARN 1（預存 knowledge-health，已於本次 archive 清除）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 本次 archive 已同步：`_index.md`（templates/tests 列）、`modules/{templates,types,tests}/README.md`（15 skills / 53 `.hbs` / 1160 tests）；feature specs `sdd-workflow.md`（US-22 + REQ-TEMPLATES-104~108 + REQ-TESTS-028）與 `design-phase.md`（REQ-DSGN-003）畢業；`product.md` 重生。歷史/已歸檔記錄（`add-reverse-spec-extraction.md`、`planning/`）保持不變。

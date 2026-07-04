@@ -39,6 +39,13 @@ So that G4「省 70-80% token」從行銷口號變成可自行量測、誠實呈
 - **Acceptance Criteria**: verify Grade A（FAIL 0 / WARN 2：真實 API 量測待金鑰環境驗收、Knowledge 陳舊已於歸檔前補救）
 - **Review**: 5 輪對抗式審查，5 critical 全數 verifier-confirmed 後修復；6 major 開放（quality_log 移交）
 
+## Review & Verify
+
+- **Review**: 5 輪對抗式審查，5 critical 全數 verifier-confirmed 後修復；6 major 開放（quality_log 移交）——其中 4 個 critical 同源於金流入帳失敗路徑（ledger measure/spend-accounting-failure-paths）
+- **Verify**: Grade A（FAIL 0 / WARN 2）；套件 641 綠
+- **Quality Log**: WARN 2（真實 API 量測待金鑰環境驗收、Knowledge 陳舊已於歸檔前補救）；6 major 移交 quality_log（明細不可回收）
+- **Source**: summary + _lessons-ledger
+
 ## Knowledge Update
 
 已於歸檔前完成（`/prospec-knowledge-update`）：
