@@ -37,6 +37,13 @@
 - **Verify Grade**: A（無 FAIL；1 WARN〔知識陳舊〕由 knowledge-update 解決）
 - **Adversarial Review**: 抓 1 major（`MAY→INFO` 引入第四 grade 狀態、違反鎖定的三級語彙）+ 3 minor，已全修
 
+## Review & Verify
+
+- **Review**: 對抗式 review 抓 1 major（`MAY→INFO` 引入第四 grade 狀態、違反鎖定的三級語彙）+ 3 minor，已全修
+- **Verify**: Grade A；497 tests passed、tsc clean
+- **Quality Log**: WARN 1（知識陳舊，已由 knowledge-update 解決）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 已更新：`lib/README`（constitution-rules.ts）、`types/README`（ConstitutionRule）、`tests/README` + `_index`（497 tests / 29 files）。

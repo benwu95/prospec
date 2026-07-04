@@ -41,6 +41,13 @@ So that an already-initialized project obtains newly-added init docs without re-
 - **Acceptance Criteria**: 5/5 (US-1) — verified end-to-end (`prospec upgrade` back-filled this repo's own `prospec/README.md`)
 - **Quality**: review-clean (0 critical/major); verify grade S (all 5 dimensions PASS; coverage 96.6%, 1836 tests)
 
+## Review & Verify
+
+- **Review**: review-clean（0 critical / 0 major）
+- **Verify**: Grade S；5 維度全 PASS；coverage 96.6%、1836 tests；AC 5/5（e2e：`prospec upgrade` back-fill 本 repo 自身 `prospec/README.md`）
+- **Quality Log**: 無 WARN/FAIL（review-clean、5 維度 PASS）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 Module READMEs synced this change: `lib`, `services`, `cli`, `templates`, `tests` + `prospec/index.md` (counts + lib/services rows). `types` README unchanged (no `types/` source touched — `createdDocs` lives in `services`).

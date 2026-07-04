@@ -33,6 +33,13 @@ So that the scan is useful beyond the languages with a declarative package manif
 - **Review**: 2 major (0 critical, 1 nit dropped), both verifier-confirmed and fixed pre-commit; C-family language/deps unified via `hasCFamilySource`
 - **New runtime deps**: none (JSON.parse + line scan)
 
+## Review & Verify
+
+- **Review**: 2 major（0 critical，1 nit dropped）皆 verifier-confirmed 後於 commit 前修復——C-family 語言/deps 閘不對稱以共用 `hasCFamilySource` gate 修（ledger raw-scan/techstack-deps-language-ordering）
+- **Verify**: Grade A；Tasks 11/11 code、SC-001…005 全 met
+- **Quality Log**: 不可回收（bundle 已失；review 明細僅摘要「2 major」）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 Synced at archive Entry Gate alongside raw-scan-multi-language:

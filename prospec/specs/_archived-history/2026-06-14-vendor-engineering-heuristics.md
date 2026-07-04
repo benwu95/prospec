@@ -36,6 +36,13 @@
 - **Tasks**: 13/13 code tasks (100%)；`[V]` T14 done；`[M]` T15/T16 done、T17（本歸檔的 Knowledge sync）此處完成
 - **Acceptance Criteria**: 4 User Stories 全達成（US-1 verify lens、US-2 review lens、US-3 自包含+MIT、US-4 README See Also）
 
+## Review & Verify
+
+- **Review**: review-clean（Mode A 5-lens、0 critical、1 major〔README 模板 inventory 漏更〕已修、3 nits dropped；ledger docs/duplicated-count-drift 第四度）
+- **Verify**: Grade S；5+1 全 PASS；971 tests green、verify-skills.sh 28/28、drift 0 fail/warn（同步後）
+- **Quality Log**: 無 WARN/FAIL（同步後 drift 0）
+- **Source**: summary 內文（`## Quality Trail`）+ _lessons-ledger
+
 ## Quality Trail
 
 - **review**: review-clean, Mode A 5-lens, 0 critical, 1 major（README inventory）已修, 3 nits dropped

@@ -33,6 +33,13 @@
 - **Verify Grade**: A（無 FAIL；1 WARN〔測試計數過期〕已由 knowledge-update 解決）
 - **Adversarial Review**: 獨立 review 抓 1 critical（contract test false-green）+ 3 major，已全修
 
+## Review & Verify
+
+- **Review**: 獨立對抗式 review 抓 1 critical（contract test false-green）+ 3 major，已全修
+- **Verify**: Grade A；488 tests passed、tsc clean、contract test green
+- **Quality Log**: WARN 1（測試計數過期，已由 knowledge-update 解決）
+- **Source**: summary 內文
+
 ## Lessons
 
 - contract test 的 `toContain` 子字串斷言易 false-green；應綁 heading 語境（`### X` 而非 `X`）。BL-036 晉升候選。

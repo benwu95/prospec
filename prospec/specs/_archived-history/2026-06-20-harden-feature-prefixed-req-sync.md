@@ -41,6 +41,13 @@
 - **Tests**: 1717 passed；`prospec check` 0 fail / 0 warn / 0 skipped
 - **Review**: 0 critical；4 majors fixed in-round；3 advisory majors（quality_log，非阻塞）
 
+## Review & Verify
+
+- **Review**: 0 critical；4 majors in-round fixed；3 advisory majors（非阻塞，移交 quality_log）——同源於「安全/格式邏輯複製於平行站點、缺單一真相」（ledger refactor/duplicated-helper-parallel-sites，PB-006）
+- **Verify**: Grade A；5+1 維度全 PASS；1717 passed、`prospec check` 0 fail / 0 warn / 0 skipped
+- **Quality Log**: 3 advisory majors（`readContainedFile`↔`readTextIfExists` 去重、`existsContained` 抽共用 predicate、`README_COUNT` 詞彙 single-source）
+- **Source**: summary 內文 + _lessons-ledger
+
 ## Knowledge Update
 
 Synced at archive Entry Gate（committed in archive commit）:

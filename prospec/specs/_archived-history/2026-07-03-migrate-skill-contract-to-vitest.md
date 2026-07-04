@@ -32,6 +32,13 @@
 - **Tasks**: 10/10 code tasks (100%) + 2 `[V]` done
 - **Acceptance Criteria**: 全部達成(SC-001~005);mutation-verify(M1/M2 證 E4 named-set + F1、M3 證 C/D/G 計數皆有 teeth,非 derived-vs-derived 自洽)
 
+## Review & Verify
+
+- **Review**: review-clean（0 critical / 0 major；3 nit：2 修、1 有理由駁回）——含 `skill-generation.test.ts` 殘留 ref 計數（26/1/2 magic number）未 derive（nit 已修，ledger docs/duplicated-count-drift 第 18 度）
+- **Verify**: Grade S；78 檔 / 1,860 test 全綠（新契約測試 20 cases）、coverage 96.6% lines、`prospec check` 8/8（0 fail / 0 warn）、typecheck + lint clean
+- **Quality Log**: follow-up 1（e2e `prospec --help` 滿載下偶發 5s timeout，入 quality_log，建議調高 testTimeout）
+- **Source**: summary 內文（`## Quality`）+ _lessons-ledger
+
 ## Quality
 
 - 78 檔 / 1,860 test 全綠(新契約測試 20 cases);coverage **96.6% lines**

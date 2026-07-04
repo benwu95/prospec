@@ -40,6 +40,13 @@
 - **Tasks**: 25/25 (100%)
 - **Acceptance Criteria**: 全數通過（verify Grade A；review 2 critical-class 修復 + 13 項 code-review 修正，詳 review.md）
 
+## Review & Verify
+
+- **Review**: review 2 critical-class 修復 + 13 項 code-review 修正（詳 review.md）
+- **Verify**: Grade A；Tasks 25/25、AC 全數通過；tests 549→600
+- **Quality Log**: 不可回收（bundle 已失；摘要僅記「詳 review.md」）
+- **Source**: summary 內文
+
 ## Knowledge Update
 
 已於歸檔前完成（commit `45eeb6e`）：`modules/{types,lib,services,templates}/README.md`、`_index.md`、`module-map.yaml`。

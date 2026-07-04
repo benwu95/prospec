@@ -35,6 +35,13 @@
 - **Review**: review-clean（0 critical，1 major 已修——proposal scope 文字校正）
 - **Verify**: Grade S（5+1 維度全 PASS，drift 5/5 PASS）
 
+## Review & Verify
+
+- **Review**: review-clean（0 critical，1 major〔proposal FR-003/Edge Cases 過度宣稱 scope〕已就地校正）
+- **Verify**: Grade S；5+1 維度全 PASS；drift 5/5 PASS；`pnpm test` 1039 綠
+- **Quality Log**: 無 WARN/FAIL（review-clean、drift 0 stale）
+- **Source**: summary 內文
+
 ## Quality / Lessons
 
 - 對抗式 review 揪出 proposal FR-003/Edge Cases 過度宣稱 scope（早於 plan 精煉），已就地校正（PB-003）。
