@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-06-20
-story_count: 5
-req_count: 10
+last_updated: 2026-07-04
+story_count: 6
+req_count: 15
 ---
 
 # 確定性 Drift 檢查
@@ -122,7 +122,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN module-map 缺失，THEN `readme-counts` skipped（帶原因），永不偽裝 PASS
 
 #### REQ-TYPES-034: Drift Report readme-counts Check Id
-`DRIFT_CHECK_IDS` append `readme-counts`（additive-only；不動 `knowledge_health` 凍結契約）——共 **8** 個 frozen check id。
+`DRIFT_CHECK_IDS` append `readme-counts`（additive-only；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**9** 個）。
 
 #### REQ-LIB-020: README 計數 collector + evaluator
 `collectReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateReadmeCounts`（宣告≠實際 → warn finding）。
@@ -134,6 +134,38 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 `check.service` 將 `collectReadmeCounts` 注入 `runChecks`（moduleMap 缺則 `{available:false}` 降級，與 `timestamps` 共用 `moduleMapMissing` helper）。
 
 ---
+
+## US-6: review-provenance 閘門檢查 [P1]
+
+身為一名把守 verify 閘門的 maintainer，
+我想要一個確定性的 `review-provenance` 檢查，判定 `implemented` 非 backfill 變更是否有記錄過、且仍反映當前程式碼的 review，
+以便「review 必經於 verify 之前」從流程散文變成機器可查、可測試的閘門。
+
+**Acceptance Scenarios:**
+- WHEN 一個 `implemented` 非 backfill 變更無記錄的 review baseline，THEN 回報 FAIL「no review recorded」（指向 `/prospec-review`）
+- WHEN 記錄的 review digest 與當前程式碼指紋不符（review 後改 code），THEN 回報 FAIL「stale review」
+- WHEN digest 相符，THEN PASS（無 finding）
+- WHEN 變更 `scale: backfill` 或 status 非 `implemented`，THEN 不 flag（豁免）
+- WHEN 非 git repo／`.prospec/changes/` 缺席／digest 不可計算，THEN 檢項 `skipped` + 原因（永不偽 PASS）
+
+#### REQ-TYPES-052: Drift Report review-provenance Check Id
+`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **9** 個 frozen check id。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
+
+#### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
+`computeChangeDigest(cwd)`：內容指紋 = HEAD sha + `git diff HEAD` + untracked，涵蓋整棵工作樹（review 所審的全部第一方內容），以 **denylist** 排除工作流狀態（`.prospec/`、`prospec-report.json`）、生成物（`.claude/`、`dist/`）與 lockfile——**fail-closed 而非 fail-open**（`src`/`tests` 以外的第一方 code 如 `scripts/` 仍納入）；不依賴 git commit 時間戳（commit boundary 在 verify S/A 之後，review/verify 期 code 未 commit）。`collectReviewProvenance(cwd)`（I/O）列舉 `.prospec/changes/*` 帶 status/scale/recorded digest + 當前 digest；`gitCapture` 助手由 `gitLastCommit` 與 digest 共用；`evaluateReviewProvenance`（純函式）僅對 `status==implemented` 且非 backfill 判定。
+**Scenarios:**
+- WHEN recorded digest 缺席，THEN fail「no review recorded」；WHEN recorded≠current，THEN fail「stale review」；相符→無 finding
+- WHEN backfill／非 implemented，THEN 不 flag；WHEN 非 git／無 changes 目錄／digest null，THEN skipped + reason；findings codepoint-sort
+- 單一 in-flight change 假設：一個整棵樹 digest 對比每個變更（fail-closed，不 fail-open）
+
+#### REQ-SERVICES-062: check.service 注入 + --record-review 寫入路徑
+`check.service` 將 `collectReviewProvenance` 注入 `runChecks`；`--record-review` 分支以 `resolveChange`（`--change` 可指定、`existsSync` 守衛，找不到 metadata 即誠實跳過）→ `computeChangeDigest` → comment-preserving Document 寫入 metadata `review_provenance`（沿用 `--json`/`--init-ci` 的 flag-gated 副作用；純檢查路徑維持唯讀、確定性）。
+
+#### REQ-CLI-012: prospec check --record-review 旗標
+`prospec check` 新增 `--record-review`（記錄 review baseline 後退出）與 `--change <name>`（多變更並行時目標化 record-review），與 `--json`/`--strict`/`--init-ci` 並列；旗標缺席時行為與現行完全一致。
+
+#### REQ-TESTS-042: review-provenance 引擎測試
+`evaluateReviewProvenance` 六情境（absent/stale/fresh/backfill/non-implemented/unavailable）、`computeChangeDigest`（temp git dir：改 `src`/`scripts`/docs 內容翻 digest、只改 `.prospec/`/report/generated 不翻）、`collectReviewProvenance`、`check.service` 注入 + `--record-review` 寫 metadata + `--strict` FAIL→exit 1 + backfill skipped——mutation-verified。
 
 ## Edge Cases
 
@@ -169,4 +201,5 @@ _(None)_
 |------|--------|--------|--------------|
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5；ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034（README 事實計數 drift check，BL-043） | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
+| 2026-07-04 | mechanize-review-gate | ADDED US-6（review-provenance 閘門檢查，第 9 個 check id）；ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042；MODIFIED REQ-TYPES-034（總數→9）（issue #66 scope 1+2） | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |

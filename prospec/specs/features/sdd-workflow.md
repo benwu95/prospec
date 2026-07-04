@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-07-04
-story_count: 23
-req_count: 104
+story_count: 24
+req_count: 109
 ---
 
 # SDD 開發流程
@@ -863,6 +863,45 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 
 ---
 
+## US-24: review provenance 機器閘門 [P1]
+
+身為一個把守 verify 閘門的 prospec maintainer，
+我想要 verify 對 non-backfill 變更於 review 缺席或 stale 時阻斷開跑、review 每輪留下機器可查的 provenance，並把殘餘 playbook 規則落回 authoring skill 的決策點，
+以便制度化的硬閘門與實際抓缺陷的 review 重合、蓋章式 verify 不再能略過 review，且教訓晉升後真正回寫到犯錯的 implementer。
+
+**Acceptance Scenarios:**
+- WHEN non-backfill 變更執行 `/prospec-verify` 而 `review-provenance` 檢查 FAIL（review 缺席或 stale），THEN Entry Gate 阻擋、拒絕開跑並指向 `/prospec-review`
+- WHEN `/prospec-review` 完成一輪（含 review-clean），THEN metadata `quality_log` 記一筆 `prospec-review` 條目，並以 `prospec check --record-review` code-computed 寫入 `review_provenance` baseline
+- WHEN `scale: backfill`，THEN 維持現行 review 豁免（recommended、非阻斷）
+- WHEN drift engine 不可用，THEN verify Entry Gate 退回讀 `quality_log`——缺 `prospec-review` 條目仍阻擋、staleness 降 WARN、never silently pass
+- WHEN 檢視 skill template，THEN 殘餘 playbook 規則 PB-001/003/006/007 於對應 template（implement NEVER + review lens）grep 可命中；#65 已修根因的 PB-004/005 於 ledger/playbook 退役
+
+### Behavior Specifications
+
+#### REQ-TYPES-053: Change Metadata review_provenance Field
+`ChangeMetadataSchema` 新增 optional `review_provenance {digest, date}`（code-computed review baseline，`review-provenance` 檢查比對之），與 `quality_log`（REQ-TYPES-022）並列；省略仍向後相容（metadata lossless 讀取，型別契約）。
+
+#### REQ-TEMPLATES-130: prospec-review 每輪記錄 provenance
+`prospec-review` 每輪完成（含 review-clean、0 critical/0 major）都寫一筆 `skill: prospec-review` `quality_log` 條目，並於 loop 收斂後執行 `prospec check --record-review` 記錄 baseline。
+- WHEN review-clean 完成, THEN quality_log 含機器可解析的 prospec-review 條目 + baseline 已蓋
+- WHEN CLI 不可用, THEN 明示 fallback、仍記 quality_log 條目（never silently skip）
+
+#### REQ-TEMPLATES-131: prospec-verify Entry Gate 阻斷缺席/stale review
+`prospec-verify` Entry Gate 由 recommended 升為阻斷：non-backfill 變更讀 `prospec check` 的 `review-provenance`，FAIL（缺席/stale）即擋、指向 `/prospec-review`；`scale: backfill` 維持 recommended-only 豁免；drift engine 不可用退回讀 `quality_log`（缺 prospec-review 條目仍擋、staleness 降 WARN、never silently pass）；對應 NEVER 同步（移除「Absence does NOT block verify」放行語）。
+- WHEN non-backfill 且 review-provenance FAIL, THEN Entry Gate 阻擋；WHEN PASS, THEN 正常開跑
+- WHEN backfill, THEN 豁免；WHEN engine 不可用, THEN quality_log fallback、不靜默放行
+
+#### REQ-TEMPLATES-132: 殘餘 playbook 規則落回 skill gate
+殘餘 playbook 規則內聯進 authoring 決策點：PB-001（contract 斷言 section-scoped+mutation-verify）→ `prospec-implement` NEVER + review test-quality lens；PB-003（claim ⊆ impl）→ review docs-claims lens；PB-006（parallel-module 抽 helper）→ 強化 review DRY lens；PB-007（sweep 每個 consumer）→ `prospec-implement` NEVER + review parallel-site lens。PB-002（freq 1、design-time）裁決維持 playbook。#65 已修根因的 PB-004/PB-005 於 `_playbook.md`/`_lessons-ledger.md` 退役。
+- WHEN 檢視 template, THEN PB-001/003/006/007 於對應 template grep 可命中
+- WHEN 檢視 ledger/playbook, THEN PB-004/005 標記 retired、PB-002 裁決記錄
+
+#### REQ-TESTS-043: gate 模板 contract 測試
+`skill-format.test.ts` section-scoped + mutation-verified 釘住：review 每輪記錄 provenance、verify Entry Gate 阻斷字樣（負向：無「Absence does NOT block verify」）、PB-001/003/006/007 於對應 template 的 grep-hit。
+- WHEN contract runs, THEN 上述各行為 section-scoped 斷言；移除任一目標字樣→轉紅
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -905,3 +944,4 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 | 2026-07-03 | add-plan-flow-diagram | /prospec-plan 對複雜 user story 產生 Mermaid 行為流程圖（any-of 結構訊號、沿用 _diagram-conventions.md、不計入 120 行上限、on-demand 讀取不進 Startup Loading）；契約測試含跨檔一致性守衛（issue #47） | US-2; REQ-TEMPLATES-125 (ADDED) |
 | 2026-07-04 | carry-review-verify-evidence | archive 摘要攜帶 review/verify 證據：archive-format §6 `## Review & Verify` 節（grade／criticals-majors／quality_log digest、no-fabrication、backfilled 附 Source）、prospec-archive Phase 2 寫入＋Gate＋NEVER、契約 section-scoped 釘住（issue #56）| US-6; REQ-TEMPLATES-126/127, REQ-TESTS-041 (ADDED) |
 | 2026-07-04 | sync-knowledge-at-verify-commit | knowledge 同步＋計數重導前移至 verify S/A commit prompt（預防點），archive Entry Gate 降為 backstop（仍 FAIL-if-not-synced）；殺 PB-005 結構性根因（issue #65 part b） | US-14 (MODIFIED); REQ-TEMPLATES-129 (ADDED); REQ-CHNG-004, REQ-TEMPLATES-045, REQ-TEMPLATES-083 (MODIFIED) |
+| 2026-07-04 | mechanize-review-gate | review provenance 機器閘門：verify Entry Gate 阻斷 non-backfill 缺席/stale review（backfill 豁免、CLI 不可用退回讀 quality_log）、review 每輪記 provenance + `--record-review` baseline、殘餘 playbook PB-001/003/006/007 落回 implement/review gate、PB-004/005 退役（issue #66 scope 1+2+4） | US-24; REQ-TYPES-053, REQ-TEMPLATES-130/131/132, REQ-TESTS-043 (ADDED) |
