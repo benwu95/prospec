@@ -11,7 +11,9 @@ import {
   collectReadmeCounts,
   collectReqDefinitions,
   collectReqReferences,
+  collectReviewProvenance,
   collectTaskStates,
+  computeChangeDigest,
   moduleAttributor,
 } from '../../../src/lib/drift-sources.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
@@ -363,6 +365,116 @@ describe('collectTaskStates', () => {
       [true, 'verification'],
     ]);
     expect(tasks[1]?.line).toBe(2);
+  });
+});
+
+describe('computeChangeDigest', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('returns null outside a git work tree', () => {
+    expect(computeChangeDigest(tmpDir)).toBeNull();
+  });
+
+  it('is stable for an unchanged tree but changes when tracked code changes', () => {
+    initRepo();
+    const d0 = computeChangeDigest(tmpDir);
+    expect(d0).toBeTruthy();
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
+    write('src/lib/x.ts', 'export const a = 2;\n'); // uncommitted code edit
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
+
+  it('folds in untracked code files', () => {
+    initRepo();
+    const d0 = computeChangeDigest(tmpDir);
+    write('src/lib/new.ts', 'export const b = 3;\n');
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
+
+  it('ignores workflow-owned + generated files so --record-review / status / agent-sync never self-trip', () => {
+    initRepo();
+    const d0 = computeChangeDigest(tmpDir);
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    write('prospec-report.json', '{}\n');
+    write('.claude/skills/prospec-x/SKILL.md', 'generated\n');
+    write('pnpm-lock.yaml', 'lockfile\n');
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
+  });
+
+  it('flips when first-party code OUTSIDE src/tests changes (e.g. scripts/) — no fail-open', () => {
+    initRepo();
+    write('scripts/counts/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'add script');
+    const d0 = computeChangeDigest(tmpDir);
+    write('scripts/counts/x.ts', 'export const a = 2;\n'); // edited after "review"
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
+
+  it('flips when reviewed docs change (fails closed — docs are part of the reviewed diff)', () => {
+    initRepo();
+    write('prospec/ai-knowledge/_playbook.md', '# doc v1\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'add doc');
+    const d0 = computeChangeDigest(tmpDir);
+    write('prospec/ai-knowledge/_playbook.md', '# doc v2\n');
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
+});
+
+describe('collectReviewProvenance', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('reports unavailable outside a git work tree', () => {
+    const r = collectReviewProvenance(tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not a git repository');
+  });
+
+  it('reports unavailable when .prospec/changes is missing', () => {
+    initRepo();
+    const r = collectReviewProvenance(tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('.prospec/changes');
+  });
+
+  it('reads status/scale and the recorded digest per change, with one current digest', () => {
+    initRepo();
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\nstatus: implemented\nscale: standard\nreview_provenance:\n  digest: ABC\n  date: "2026-07-04"\n',
+    );
+    write('.prospec/changes/c2/metadata.yaml', 'name: c2\nstatus: tasks\nscale: full\n');
+    const r = collectReviewProvenance(tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.current_digest).toBeTruthy();
+    expect(r.changes.find((c) => c.name === 'c1')).toMatchObject({
+      status: 'implemented',
+      scale: 'standard',
+      recorded_digest: 'ABC',
+    });
+    expect(r.changes.find((c) => c.name === 'c2')).toMatchObject({
+      status: 'tasks',
+      recorded_digest: null,
+    });
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
@@ -50,7 +51,7 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all eight checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (all nine checks, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
@@ -58,7 +59,7 @@ describe('check.service execute', () => {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(8);
+    expect(result.report.summary.skipped_count).toBe(9);
     expect(result.hasFail).toBe(false);
   });
 
@@ -138,6 +139,55 @@ describe('check.service execute', () => {
     if (result.kind !== 'report') throw new Error('expected report');
     expect(result.reportPath).toBeUndefined();
     expect(existsSync(path.join(tmpDir, DRIFT_REPORT_FILENAME))).toBe(false);
+  });
+});
+
+describe('check.service review-provenance', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  function initGitChange(scale = 'standard'): void {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    write('.prospec/changes/c1/metadata.yaml', `name: c1\nstatus: implemented\nscale: ${scale}\n`);
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  }
+  const provenance = (r: Awaited<ReturnType<typeof execute>>) => {
+    if (r.kind !== 'report') throw new Error('expected report');
+    return r.report.structural.checks.find((c) => c.id === 'review-provenance');
+  };
+
+  it('fails when an implemented change has no recorded review', async () => {
+    initGitChange();
+    const result = await execute({ cwd: tmpDir });
+    expect(provenance(result)?.status).toBe('fail');
+    if (result.kind === 'report') expect(result.hasFail).toBe(true);
+  });
+
+  it('--record-review writes the baseline and clears the gate', async () => {
+    initGitChange();
+    const rec = await execute({ cwd: tmpDir, recordReview: true });
+    expect(rec.kind).toBe('record-review');
+    if (rec.kind !== 'record-review') return;
+    expect(rec.recorded).toBe(true);
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(meta).toContain('review_provenance:');
+    expect(meta).toMatch(/digest:/);
+    expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  it('goes stale when code changes after the recorded review', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true });
+    write('src/lib/x.ts', 'export const a = 2;\n'); // edit after review
+    expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('fail');
+  });
+
+  it('exempts scale: backfill (no review required)', async () => {
+    initGitChange('backfill');
+    expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
   });
 });
 

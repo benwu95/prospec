@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import path from 'node:path';
 import type { LogLevel } from '../../types/config.js';
-import type { CheckResult, InitCiResult } from '../../services/check.service.js';
+import type { CheckResult, InitCiResult, RecordReviewResult } from '../../services/check.service.js';
 import { DRIFT_CHECK_IDS, type DriftCheckResult, type DriftReport } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
@@ -25,8 +25,22 @@ const STATUS_LABEL: Record<DriftCheckResult['status'], string> = {
   skipped: pc.dim('SKIP'),
 };
 
-export function formatCheckOutput(result: CheckResult | InitCiResult, logLevel: LogLevel): void {
+export function formatCheckOutput(
+  result: CheckResult | InitCiResult | RecordReviewResult,
+  logLevel: LogLevel,
+): void {
   if (logLevel === 'quiet') return;
+
+  if (result.kind === 'record-review') {
+    if (result.recorded) {
+      console.log(`${pc.green('✓')} Recorded review baseline for change "${result.change}"`);
+    } else {
+      console.log(
+        `${pc.yellow('●')} Review baseline not recorded for "${result.change}" — ${result.reason ?? 'skipped'}`,
+      );
+    }
+    return;
+  }
 
   if (result.kind === 'init-ci') {
     const rel = path.relative(process.cwd(), result.workflowPath);

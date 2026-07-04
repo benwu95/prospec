@@ -43,7 +43,7 @@ Must-run every round:
 - **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation vs `delta-spec` REQ intent, dependency direction `cli → services → lib → types`, module conventions, and unhandled ripple effects.
   - **Quick degradation** (`metadata.scale: quick`): the delta-spec REQ comparison is `not-applicable` (there is no delta-spec — never report it as PASS); dependency direction, module conventions, and ripple checks still run in full. Additionally, when the diff appears to touch behavior covered by existing `prospec/specs/features/` REQs, raise an early warning — the `/prospec-archive` Entry Gate re-checks this, but catching it at review is cheaper.
 
-Conditional: **security & data integrity** (untrusted input, auth, external integrations), efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions). When any conditional lens applies, load [`references/review-lenses-content.md`](references/review-lenses-content.md) **on demand** for its concrete, severity-pre-mapped criteria (OWASP/IDOR/SSRF/injection/secrets; N+1/CWV/blocking I/O; DRY/complexity/Rule-of-N) — severity vocabulary stays defined in `review-format.md`, the lens-content reference only maps onto it. This reference is on-demand only — it is NOT a Startup Loading item. A pluggable language-specific engine may add further language lenses; the spec-architecture lens is always added by prospec and is never replaced by the vendored lens criteria.
+Conditional: **security & data integrity** (untrusted input, auth, external integrations), efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions), **docs-claims** (the change adds/edits README or doc claims about behavior — check claim ⊆ implementation, PB-003), **parallel-site completeness** (the change touches a shared resolver / invariant / data source — grep EVERY consumer, PB-007), and **test-quality** (the change adds/edits tests — section-scoped + structural + negative + mutation-verified, PB-001). When any conditional lens applies, load [`references/review-lenses-content.md`](references/review-lenses-content.md) **on demand** for its concrete, severity-pre-mapped criteria (OWASP/IDOR/SSRF/injection/secrets; N+1/CWV/blocking I/O; DRY/complexity/Rule-of-N; docs-claims/parallel-site/test-quality) — severity vocabulary stays defined in `review-format.md`, the lens-content reference only maps onto it. This reference is on-demand only — it is NOT a Startup Loading item. A pluggable language-specific engine may add further language lenses; the spec-architecture lens is always added by prospec and is never replaced by the vendored lens criteria.
 
 ### Severity Routing
 
@@ -66,6 +66,15 @@ If the execution harness cannot spawn an independent sub-agent, **offer a choice
 
 Write findings to `.prospec/changes/[name]/review.md`: a cumulative table (`location | severity | lens | status`), deduplicated by Location with severity taken as the maximum, carried forward across rounds as the anchor so resolved items are not re-raised and verdicts stay consistent. Confirmed cross-change recurring criticals may be flagged for promotion (feeds the feedback-promotion pipeline).
 
+### Review Provenance (machine gate)
+
+Review must leave a machine-queryable record so `/prospec-verify`'s Entry Gate can prove it ran and is still current:
+
+1. **Every round** — including a **review-clean** round (0 critical / 0 major) — append a `skill: prospec-review` entry to `metadata.yaml` `quality_log` (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward). A clean review that records nothing is indistinguishable from a review that never ran.
+2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review` — it code-computes the reviewed change's digest and writes `review_provenance` to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against. **Graceful**: if the CLI is unavailable, state so explicitly and record the review entry anyway — never silently skip.
+
+Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `/prospec-verify` will then require a fresh review round before it runs.
+
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
@@ -74,6 +83,7 @@ Write findings to `.prospec/changes/[name]/review.md`: a cumulative table (`loca
 - [ ] no unresolved critical (loop converged, or escalated to the human with the list)
 - [ ] every fix round left `pnpm test` green
 - [ ] `review.md` written with the findings table
+- [ ] a `prospec-review` `quality_log` entry recorded (every round, incl. review-clean) and the review baseline stamped via `prospec check --record-review`
 - [ ] every auto-fixed critical was verifier-confirmed before the fix (manual)
 
 ### Failure Conditions
@@ -85,7 +95,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record this review's unresolved **major** findings (and any FAIL) to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) so the next stage (`/prospec-verify`) surfaces them; majors are advisory and do not block. Then suggest `/prospec-verify`.
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. **Always** record a `prospec-review` entry to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) — **every round, including review-clean** (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward) — so `/prospec-verify` can machine-verify review ran and surface any majors; majors are advisory and do not block. Then record the review baseline (`prospec check --record-review`, see Review Provenance) and suggest `/prospec-verify`.
 
 ## NEVER
 

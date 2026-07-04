@@ -2746,3 +2746,61 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(canonicalSection).toContain('backstop');
   });
 });
+
+describe('mechanize-review-gate — review provenance gate + playbook fall-back (issue #66)', () => {
+  const renderReview = () => renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+  const renderVerify = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+  const renderImplement = () => renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+  const renderLenses = () => renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+
+  it('prospec-review records a quality_log entry every round (incl. review-clean) and stamps the baseline', () => {
+    const prov = sectionOf(renderReview(), '### Review Provenance (machine gate)');
+    expect(prov).toContain('review-clean');
+    expect(prov).toContain('quality_log');
+    expect(prov).toContain('prospec check --record-review');
+    // negative: a clean review that records nothing is called out as indistinguishable from no review
+    expect(prov).toContain('indistinguishable from a review that never ran');
+  });
+
+  it('prospec-verify Entry Gate BLOCKS a non-backfill change with absent/stale review (not the old advisory note)', () => {
+    const gate = sectionOf(renderVerify(), '## Entry Gate');
+    expect(gate).toContain('Review provenance (blocking, non-backfill)');
+    expect(gate).toContain('review-provenance');
+    expect(gate).toContain('stale');
+    expect(gate).toContain('do not proceed');
+    // scale: backfill keeps the current recommended-only exemption
+    expect(gate).toContain('`scale: backfill` review exemption');
+    // negative: the bypassable "Absence does NOT block verify" language is gone
+    expect(gate).not.toContain('Absence does NOT block verify');
+  });
+
+  it('prospec-verify NEVER forbids proceeding when review-provenance FAILs', () => {
+    const never = sectionOf(renderVerify(), '## NEVER');
+    expect(never).toContain('review-provenance');
+    expect(never).toContain('review absent or stale');
+  });
+
+  it('residual playbook rules fall back to gates — PB-001 & PB-007 inline in prospec-implement NEVER', () => {
+    const never = sectionOf(renderImplement(), '## NEVER');
+    expect(never).toContain('PB-001');
+    expect(never).toContain('mutation-verify');
+    expect(never).toContain('PB-007');
+    expect(never).toContain('grep EVERY consumer');
+  });
+
+  it('residual playbook rules fall back to lenses — PB-001/003/006/007 grep-hittable in review-lenses-content', () => {
+    const lenses = renderLenses();
+    expect(sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens (PB-003)')).toContain('claim ⊆ implementation');
+    expect(sectionOf(lenses, '## Parallel-Site Completeness Lens (PB-007)')).toContain('parallel consumer');
+    expect(sectionOf(lenses, '## Test-Quality Lens (PB-001)')).toContain('mutation-verified');
+    // PB-006 strengthened the existing DRY lens with the parallel-module clause
+    expect(sectionOf(lenses, '## Maintainability / DRY Lens')).toContain('PB-006');
+  });
+
+  it('prospec-review Review Lenses reference the new docs-claims / parallel-site / test-quality lenses', () => {
+    const lenses = sectionOf(renderReview(), '### Review Lenses');
+    expect(lenses).toContain('docs-claims');
+    expect(lenses).toContain('parallel-site');
+    expect(lenses).toContain('test-quality');
+  });
+});

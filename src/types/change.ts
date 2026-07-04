@@ -25,6 +25,14 @@ export const QualityLogEntrySchema = z.object({
   warnings: z.array(z.string()).default([]),
 });
 
+/** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
+ *  code state; `date` is the ISO 8601 record date. Same lossless-read caveat as
+ *  quality_log — a type contract, not read-time strip protection. */
+export const ReviewProvenanceSchema = z.object({
+  digest: z.string(),
+  date: z.string(), // ISO 8601 date
+});
+
 export const ChangeMetadataSchema = z.object({
   name: z.string(),
   created_at: z.string(), // ISO 8601
@@ -39,6 +47,12 @@ export const ChangeMetadataSchema = z.object({
   // parseYaml(doc.toJS()) (lossless), not validated by this schema at read time —
   // so this field is a type contract + test fixture, not strip protection.
   quality_log: z.array(QualityLogEntrySchema).optional(),
+  // Machine-written review baseline (written by `prospec check --record-review`
+  // when `/prospec-review` completes). `digest` is a content fingerprint of the
+  // reviewed code state; the review-provenance drift check recomputes it and
+  // flags the change stale when it no longer matches. Optional keeps existing
+  // metadata valid and marks a change that has not been reviewed yet.
+  review_provenance: ReviewProvenanceSchema.optional(),
 });
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
@@ -59,4 +73,5 @@ export function isStatusBefore(
 }
 export type ChangeScale = (typeof CHANGE_SCALES)[number];
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
+export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;
 export type GateResult = (typeof GATE_RESULTS)[number];

@@ -10,6 +10,7 @@ import {
   evaluateKnowledgeHealth,
   evaluateReadmeCounts,
   evaluateReqReferences,
+  evaluateReviewProvenance,
   evaluateTaskCompletion,
   runChecks,
   type DriftCheckInputs,
@@ -18,6 +19,7 @@ import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
+  ReviewProvenanceSource,
   TaskSource,
 } from '../../../src/lib/drift-sources.js';
 
@@ -31,6 +33,7 @@ const emptyInputs: DriftCheckInputs = {
   tasks: { available: true, changes: [] },
   featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
   readmeCounts: { available: true, claims: [] },
+  reviewProvenance: { available: true, current_digest: 'CUR', changes: [] },
   generatedAt: '2026-06-12T00:00:00Z',
 };
 
@@ -231,6 +234,67 @@ describe('evaluateTaskCompletion', () => {
   it('skips with reason when .prospec/changes is unavailable', () => {
     const r = evaluateTaskCompletion({ available: false, reason: 'source unavailable: .prospec/changes/ not found', changes: [] });
     expect(r.result.status).toBe('skipped');
+  });
+});
+
+describe('evaluateReviewProvenance', () => {
+  const src = (
+    over: Partial<ReviewProvenanceSource['changes'][number]>,
+    current = 'CUR',
+  ): ReviewProvenanceSource => ({
+    available: true,
+    current_digest: current,
+    changes: [
+      {
+        name: 'c1',
+        source_path: '.prospec/changes/c1/metadata.yaml',
+        status: 'implemented',
+        scale: 'standard',
+        recorded_digest: 'CUR',
+        ...over,
+      },
+    ],
+  });
+
+  it('skips when the source is unavailable (not git / no changes dir)', () => {
+    const r = evaluateReviewProvenance({
+      available: false,
+      reason: 'source unavailable: not a git repository',
+      current_digest: null,
+      changes: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('not a git repository');
+  });
+
+  it('passes when an implemented change has a fresh recorded digest', () => {
+    const r = evaluateReviewProvenance(src({ recorded_digest: 'CUR' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails when an implemented, non-backfill change has no recorded review', () => {
+    const r = evaluateReviewProvenance(src({ recorded_digest: null }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no review recorded');
+  });
+
+  it('fails (stale) when the recorded digest no longer matches the current code', () => {
+    const r = evaluateReviewProvenance(src({ recorded_digest: 'OLD' }, 'CUR'));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('stale review');
+  });
+
+  it('exempts a scale: backfill change (not flagged even without a review)', () => {
+    const r = evaluateReviewProvenance(src({ scale: 'backfill', recorded_digest: null }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('does not flag a change that is not yet implemented (review not due)', () => {
+    const r = evaluateReviewProvenance(src({ status: 'tasks', recorded_digest: null }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
   });
 });
 

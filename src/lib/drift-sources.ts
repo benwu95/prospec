@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { scanDirSync } from './scanner.js';
+import { parseYaml } from './yaml-utils.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
   ARCHIVED_EXCLUDES,
@@ -115,6 +117,24 @@ export interface TaskSource {
   available: boolean;
   reason?: string;
   changes: Array<{ name: string; tasks_path: string; tasks: TaskItem[] }>;
+}
+
+export interface ReviewProvenanceChange {
+  name: string;
+  /** repo-relative metadata.yaml path (finding anchor). */
+  source_path: string;
+  status: string;
+  scale: string;
+  /** digest recorded by `--record-review`; null when never reviewed. */
+  recorded_digest: string | null;
+}
+
+export interface ReviewProvenanceSource {
+  available: boolean;
+  reason?: string;
+  /** current code fingerprint to compare each recorded digest against. */
+  current_digest: string | null;
+  changes: ReviewProvenanceChange[];
 }
 
 /** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included). */
@@ -627,15 +647,126 @@ function countCalls(content: string, token: RegExp): number {
   return (code.match(new RegExp(token.source, 'g')) ?? []).length;
 }
 
-function gitLastCommit(cwd: string, paths: string[]): string | null {
+/** Run git and capture stdout — null on failure, '' on empty success (the two
+ *  must stay distinct: an empty diff is a valid state, a git failure is not). */
+function gitCapture(cwd: string, args: string[]): string | null {
   try {
-    const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', ...paths], {
-      cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
-    }).trim();
-    return out || null;
+    return execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf-8' });
   } catch {
     return null;
   }
+}
+
+function gitLastCommit(cwd: string, paths: string[]): string | null {
+  const out = gitCapture(cwd, ['log', '-1', '--format=%cI', '--', ...paths]);
+  return out === null ? null : out.trim() || null;
+}
+
+/**
+ * Content fingerprint of the change's CODE state — NOT git commit timestamps
+ * (REQ-LIB-024). The commit boundary is after verify S/A, so review/verify run
+ * pre-commit and commit timestamps would all point at the branch base. Hash the
+ * working-tree code delta instead: HEAD sha + `git diff HEAD` + untracked
+ * contents, covering the WHOLE first-party change (everything `/prospec-review`
+ * reviews) via a denylist — excluding only workflow state (`.prospec/`,
+ * `prospec-report.json`), generated artifacts (deployed `.claude/` skills,
+ * `dist/`), and lockfiles. This fails CLOSED (over-review), never open: an edit
+ * to code outside `src/`+`tests/` (e.g. `scripts/`) still flips staleness, while
+ * a `--record-review`/status write or an `agent sync` cannot self-trip it.
+ * Returns null when not a git repo (honest skip; shallow clones are fine —
+ * no history is read, only the working tree).
+ */
+export function computeChangeDigest(cwd: string): string | null {
+  try {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
+  } catch {
+    return null;
+  }
+  const scope = [
+    '--',
+    '.',
+    ':(exclude).prospec',
+    ':(exclude)prospec-report.json',
+    ':(exclude).claude',
+    ':(exclude)dist',
+    ':(exclude)pnpm-lock.yaml',
+    ':(exclude)package-lock.json',
+    ':(exclude)yarn.lock',
+  ];
+  const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
+  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]) ?? '';
+  const untracked = (gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]) ?? '')
+    .split('\n')
+    .filter((l) => l.length > 0)
+    .sort();
+  const hash = createHash('sha256');
+  hash.update(`head\0${head === null ? '' : head.trim()}\0diff\0${diff}`);
+  for (const rel of untracked) {
+    hash.update(`\0file\0${rel}\0`);
+    try {
+      hash.update(readFileSync(path.resolve(cwd, rel)));
+    } catch {
+      // unreadable untracked file — fold in only its path (already hashed above)
+    }
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Collect review-provenance facts for every change in `.prospec/changes/`
+ * (REQ-LIB-024). Mirrors collectTaskStates' change enumeration. Each change
+ * carries its status/scale and the digest recorded by `--record-review`, plus
+ * the one current code digest to compare against. Unavailable (not a git repo,
+ * no `.prospec/changes/`, or the digest cannot be computed) → the check skips,
+ * never a fabricated pass.
+ */
+export function collectReviewProvenance(cwd: string): ReviewProvenanceSource {
+  try {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
+  } catch {
+    return {
+      available: false,
+      reason: 'source unavailable: not a git repository',
+      current_digest: null,
+      changes: [],
+    };
+  }
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  if (!existsSync(changesDir)) {
+    return {
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      current_digest: null,
+      changes: [],
+    };
+  }
+  const current_digest = computeChangeDigest(cwd);
+  if (current_digest === null) {
+    return {
+      available: false,
+      reason: 'source unavailable: could not compute the current change digest',
+      current_digest: null,
+      changes: [],
+    };
+  }
+  const changes: ReviewProvenanceChange[] = [];
+  for (const name of readdirSync(changesDir).sort()) {
+    const metadataPath = path.join(changesDir, name, 'metadata.yaml');
+    if (!existsSync(metadataPath)) continue;
+    let meta: Record<string, unknown>;
+    try {
+      meta = parseYaml<Record<string, unknown>>(readFileSync(metadataPath, 'utf-8'), metadataPath);
+    } catch {
+      continue; // unparseable metadata — skip this change, never fabricate a finding
+    }
+    const prov = meta.review_provenance as { digest?: unknown } | undefined;
+    changes.push({
+      name,
+      source_path: path.relative(cwd, metadataPath).replace(/\\/g, '/'),
+      status: typeof meta.status === 'string' ? meta.status : '',
+      scale: typeof meta.scale === 'string' ? meta.scale : '',
+      recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
+    });
+  }
+  return { available: true, current_digest, changes };
 }

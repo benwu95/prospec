@@ -29,6 +29,11 @@ export const DRIFT_CHECK_IDS = [
   // resources") that disagrees with the code it names (warn). Mechanizes the
   // count-accuracy gap the other checks deliberately do not cover.
   'readme-counts',
+  // Review provenance — an implemented change that has no recorded review, or
+  // whose recorded review predates the current code state (stale), fails (fail).
+  // Turns "review must run before verify" from prose into a machine gate;
+  // scale: backfill and non-implemented changes are exempt (not flagged).
+  'review-provenance',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
