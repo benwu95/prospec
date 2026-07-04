@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-04
 story_count: 23
-req_count: 103
+req_count: 104
 ---
 
 # SDD 開發流程
@@ -56,6 +56,7 @@ req_count: 103
 - WHEN archive runs, THEN accept only `verified` changes
 - WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
 - WHEN gating artifacts, THEN Feature Specs are updated ONLY by `/prospec-archive` (Phase 3.5 graduation); `/prospec-verify` gates on Knowledge↔code and does NOT gate on Feature Spec freshness — preventing a verify↔archive deadlock
+- WHEN reaching the S/A commit boundary, THEN module-README Knowledge is synced at the verify S/A commit prompt (the prevention point) and the archive Entry Gate is the backstop that still FAILs when unsynced; Feature Specs remain archive-Phase-3.5-only (the deadlock-avoidance line above is unchanged)
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit
@@ -217,7 +218,7 @@ tasks.md 末尾含 Summary 區段（total tasks、total lines、parallelizable c
 - WHEN ui_scope != none + design-spec.md exists, THEN execute design consistency check
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
-- WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the `/prospec-archive` Entry Gate（不計入等級）
+- WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the **verify S/A commit prompt**（於 commit 前折入同步；archive Entry Gate 為 backstop）（不計入等級）
 - WHEN `prospec check --json` 報告可用, THEN staleness 事實來源為其 `knowledge_health` 區段（git 時間戳，確定性）——verify 引用數據、不重新推導；不可用時退回 LLM 判斷並明示（等級語意不變）
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
@@ -559,22 +560,30 @@ plan/implement 的 Context7 步驟 graceful degradation：不可用/查無即靜
 ## US-14: Knowledge 同步閘門時序重整 [P1]
 
 身為一個使用 prospec 開發的工程師，
-我想要 verify 對「本變更 knowledge 落差」只給 informational 提示，並由 archive Entry Gate 作為唯一強制的 knowledge 同步檢查點，
-以便 WARN 恢復「真的有問題」的訊號價值，且同步檢查的是所有修正（review fix、FAIL 修正）完成後的最終狀態，不會漏更新。
+我想要 verify 對「本變更 knowledge 落差」只給 informational 提示（不計入等級），並在 verify 達 S/A 的 commit prompt 折入 knowledge 同步與計數重導作為**預防點**、由 archive Entry Gate 作為 **backstop**，
+以便 feat commit 落地當下 knowledge 已同步、source-only commit 不再必然把被改模組翻成 knowledge-health stale（消除 PB-005 每變更 stale-then-fix），且防護不因前移而移除。
 
 **Acceptance Scenarios:**
-- WHEN 變更已 implement 但受影響模組 README 未反映 delta-spec THEN verify V4 輸出 informational（列受影響模組、指向 archive Entry Gate），不計入 S/A/B/C/D 等級
+- WHEN 變更已 implement 但受影響模組 README 未反映 delta-spec THEN verify V4 輸出 informational（列受影響模組、指向 verify S/A commit prompt；archive Entry Gate 為 backstop），不計入 S/A/B/C/D 等級
+- WHEN verify 達 S/A THEN commit prompt 在提交指示前折入 `/prospec-knowledge-update`（只更描述、不引用本變更未畢業 REQ）+ 事實計數重導（通用措辭），與 feat commit 同一 commit——只在 S/A（最後可改 code 的 gate）故不 re-stale
 - WHEN 既有 knowledge 與目前程式碼不符且非本變更造成 THEN V4 仍以 graded WARN/FAIL 回報
-- WHEN 歸檔對象 knowledge 未同步 THEN archive Entry Gate FAIL、停止並引導 `/prospec-knowledge-update`；同步後重跑通過
+- WHEN 歸檔對象 knowledge 未同步 THEN archive Entry Gate（backstop）FAIL、停止並引導 `/prospec-knowledge-update`；同步後重跑通過
 - WHEN 變更不影響任何模組（純 planning/docs）THEN Entry Gate 視為 PASS
 
 ### Behavior Specifications
 
-#### REQ-TEMPLATES-083: Archive Knowledge Sync Entry Gate
-archive skill 含 `## Entry Gate`，為生命週期唯一強制 knowledge 同步檢查點：(1) status=verified；(2) 受影響模組（delta-spec ADDED/MODIFIED/REMOVED REQ 前綴）knowledge 已同步，REMOVED 行為須自 README 移除。生命週期語意雙檔同步：`_status-lifecycle.md` 與 init 模板 `status-lifecycle.md.hbs`（contract test 鎖定）。
-- WHEN rendered, THEN archive SKILL.md 含 Entry Gate（verified + knowledge sync 兩條件）；舊「Knowledge update failure 不可 block archiving」NEVER 文案不再出現（negative assertion）
+#### REQ-TEMPLATES-083: Archive Knowledge Sync Entry Gate（backstop）
+archive skill 含 `## Entry Gate`，為 knowledge 同步的 **backstop**（預防點是 verify S/A commit prompt，REQ-TEMPLATES-129）：(1) status=verified；(2) 受影響模組（delta-spec ADDED/MODIFIED/REMOVED REQ 前綴）knowledge 已同步，REMOVED 行為須自 README 移除；未同步仍 **FAIL**（防護不因前移而移除）。生命週期語意雙檔同步：`_status-lifecycle.md` 與 init 模板 `status-lifecycle.md.hbs`，§What each gate checks 逐字一致（contract test 鎖定）。
+- WHEN rendered, THEN archive SKILL.md 含 Entry Gate（verified + knowledge sync 兩條件）措辭為 backstop；不再宣稱「single mandatory knowledge-sync checkpoint」（negative assertion）
 - WHEN knowledge 未同步, THEN Entry Gate FAIL、停止歸檔並指向 `/prospec-knowledge-update`；無影響模組視為 PASS
 - WHEN 移除 Entry Gate 區段或恢復互動 Phase 4 文案, THEN 對應 contract test 轉紅（mutation-verified）
+
+#### REQ-TEMPLATES-129: Verify S/A Commit-Prompt Knowledge Sync（預防點）
+verify 達 S/A、設 verified 後、commit 提示前，折入 knowledge 同步 + 計數重導 sub-step：對受影響模組跑 `/prospec-knowledge-update`（只更描述、不引用本變更未畢業 REQ id）+ 重導事實計數（通用措辭：有生成器則跑、否則從來源重導，不硬編特定計數命令），折入同一 atomic commit。只在 S/A（最後可改 code 的 gate）觸發故不 re-stale；module-README Knowledge 於此同步，Feature Specs 仍僅 archive Phase 3.5 graduate（deadlock avoidance）。
+- WHEN verify 達 S/A, THEN commit prompt 在提交指示前含 knowledge 同步 + 計數重導步驟、明示折入同一 commit
+- WHEN shipped 範本渲染, THEN 措辭通用、不含特定計數命令字面（negative assertion）
+- WHEN `scale: backfill`, THEN 不跑 REQ-prefix 驅動 knowledge-update（feature-slug REQ 非模組名、會 mint phantom），只同步 `related_modules` READMEs、模組推導留給 Entry Gate
+- WHEN 移除 commit-prompt 同步步驟或硬編計數命令, THEN 對應 contract test 轉紅（mutation-verified）
 
 #### REQ-TEMPLATES-120: Archive Entry Gate standard/full Feature-Prefix Fallback
 prospec-archive Entry Gate 與 Phase 4：`standard`/`full` 的 delta-spec REQ prefix 命中 feature-map `req_prefixes` 時為 feature-prefix（非 module），改由 `metadata.related_modules` + (`**Feature:**`→feature-map `modules`) 推導受影響模組，與 backfill 同構；module-prefix REQ 維持原推導。修補 feature-prefixed REQ（如 `REQ-MCP-*`）在 standard/full 的 knowledge-sync 落空 + phantom module 風險（BL-043）。
@@ -895,3 +904,4 @@ skill 載明可執行的 gated tracing 程序（非僅換名詞）：枚舉 entr
 | 2026-06-20 | harden-feature-prefixed-req-sync | archive standard/full 對 feature-prefixed REQ 改由 related_modules/feature-map 推導（Entry Gate + service auto-update 一致），修 knowledge-sync 落空 + phantom module 風險（BL-043） | US-14; REQ-TEMPLATES-120, REQ-SERVICES-033, REQ-TESTS-035 (ADDED) |
 | 2026-07-03 | add-plan-flow-diagram | /prospec-plan 對複雜 user story 產生 Mermaid 行為流程圖（any-of 結構訊號、沿用 _diagram-conventions.md、不計入 120 行上限、on-demand 讀取不進 Startup Loading）；契約測試含跨檔一致性守衛（issue #47） | US-2; REQ-TEMPLATES-125 (ADDED) |
 | 2026-07-04 | carry-review-verify-evidence | archive 摘要攜帶 review/verify 證據：archive-format §6 `## Review & Verify` 節（grade／criticals-majors／quality_log digest、no-fabrication、backfilled 附 Source）、prospec-archive Phase 2 寫入＋Gate＋NEVER、契約 section-scoped 釘住（issue #56）| US-6; REQ-TEMPLATES-126/127, REQ-TESTS-041 (ADDED) |
+| 2026-07-04 | sync-knowledge-at-verify-commit | knowledge 同步＋計數重導前移至 verify S/A commit prompt（預防點），archive Entry Gate 降為 backstop（仍 FAIL-if-not-synced）；殺 PB-005 結構性根因（issue #65 part b） | US-14 (MODIFIED); REQ-TEMPLATES-129 (ADDED); REQ-CHNG-004, REQ-TEMPLATES-045, REQ-TEMPLATES-083 (MODIFIED) |
