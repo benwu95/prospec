@@ -6,6 +6,10 @@
 > Auto-fed by `/prospec-archive` Phase 4.5 (Harvest) and refreshed by `/prospec-learn` Collect.
 > Format + harvest rules: `.claude/skills/prospec-learn/references/promotion-format.md`.
 > Durable across worktrees/clones (replaces the retired gitignored `.prospec/lessons.md`).
+> Evidence pointer: each `source_changes` name resolves to its committed record at
+> `prospec/specs/_archived-history/{date}-{name}.md` — cite that file's `## Review & Verify` section
+> (grade, criticals/majors, quality_log digest) as the durable evidence, not the gitignored
+> `.prospec/archive/` bundle.
 
 | key | description | frequency | impact_modules | kind | source_changes | status |
 |-----|-------------|-----------|----------------|------|----------------|--------|

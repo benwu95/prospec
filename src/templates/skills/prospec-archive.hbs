@@ -60,10 +60,12 @@ For each change to archive:
 2. Read `delta-spec.md` — extract REQ IDs and affected modules (quick: absent — use the Spec Impact section and diff-derived modules from the Entry Gate)
 3. Read `tasks.md` — calculate completion rate over **code tasks only** (kind schema: tasks-format reference). Unchecked code tasks → **warn and list them** before archiving; unchecked `[M]` manual tasks → reminder only, never blocking. (`scale: backfill` has no tasks.md — skip this step.)
 4. Check for `design-spec.md` and `interaction-spec.md` — if present, note design artifacts in summary
-5. Generate `summary.md` following `references/archive-format.md` specification
+5. Assemble the **Review & Verify** section from `metadata.yaml` `quality_log` (WARN/FAIL digest), `review.md` (critical/major counts + a short findings excerpt), and the verify report (grade + dimensions) — archiving is the one moment these still exist before the worktree workflow can discard them (same window as Phase 4.5 Harvest). When a source is absent, state it plainly (`Unverified`, `no review round`); **never fabricate** a grade or counts. Format: `references/archive-format.md` §6
+6. Generate `summary.md` following `references/archive-format.md` specification — it MUST carry the `## Review & Verify` section from step 5
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `summary.md` generated per `references/archive-format.md` for each target change
+> - [ ] `summary.md` carries the `## Review & Verify` section (grade + criticals/majors + `quality_log` digest; `Unverified`/`no review round` when a source is absent, never fabricated)
 > - [ ] Code-task completion rate computed; any unchecked code tasks surfaced to the user
 
 ### Phase 3: Execute Archive
@@ -175,6 +177,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves
 - **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; archiving `story` / `plan` / `tasks` / `implemented` bypasses the verification gate and risks meaningless summaries, broken Spec Sync, or unverified work entering the permanent record. Tell the user to verify to S/A first (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`)
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
+- **NEVER** emit a summary.md that lacks the `## Review & Verify` section — the review/verify evidence (grade, criticals/majors, `quality_log`) lives only in the gitignored bundle otherwise, and the `_archived-history` copy is the sole durable record; when a source is absent record `Unverified`/`no review round`, never fabricate
 - **NEVER** delete original files instead of moving — deletion is irreversible; archive preserves all artifacts for future reference and debugging
 - **NEVER** modify the content of artifacts during archive — artifacts are the historical record; any modification falsifies the development history
 - **NEVER** bypass the Entry Gate knowledge-sync check — a failed `/prospec-knowledge-update` means the gate stays FAIL; fix it and re-run, then archive. Archiving with stale Knowledge writes a permanent record that contradicts the code, and no later checkpoint will force the sync

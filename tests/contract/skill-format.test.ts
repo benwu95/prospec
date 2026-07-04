@@ -2629,3 +2629,67 @@ describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
     expect(never).toMatch(/create a doc the inventory marks MISSING without/);
   });
 });
+
+describe('Archive summary Review & Verify section (REQ-TEMPLATES-126)', () => {
+  const render = () =>
+    renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
+
+  it('archive-format defines a Review & Verify section spec with grade, criticals/majors, and quality_log digest', () => {
+    // the content categories live in the intro prose BEFORE the fenced
+    // `## Review & Verify` example, so the sectionOf slice (which stops at the
+    // next line-start `## ` — including the one inside the fence) still sees them
+    const section = sectionOf(render(), '### 6. Review & Verify');
+    expect(section).toContain('quality grade');
+    expect(section).toContain('critical');
+    expect(section).toContain('major');
+    expect(section).toContain('findings excerpt');
+    expect(section).toContain('quality_log');
+    // AC3: no-fabrication guard when evidence is absent
+    expect(section).toMatch(/never fabricate/i);
+  });
+
+  it('Review & Verify sits between Completion and Knowledge Update (AC1 ordering)', () => {
+    const content = render();
+    const completionIdx = content.indexOf('### 5. Completion Summary');
+    const reviewIdx = content.indexOf('### 6. Review & Verify');
+    const knowledgeIdx = content.indexOf('Knowledge Update Hints');
+    expect(completionIdx).toBeGreaterThan(-1);
+    expect(reviewIdx).toBeGreaterThan(completionIdx);
+    expect(knowledgeIdx).toBeGreaterThan(reviewIdx);
+  });
+});
+
+describe('Archive skill writes the Review & Verify section (REQ-TEMPLATES-127)', () => {
+  const render = () =>
+    renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+
+  it('Phase 2 assembles the section from quality_log/review.md/verify report and its Gate checks it', () => {
+    const phase2 = sectionOf(render(), '### Phase 2: Generate Summary');
+    expect(phase2).toContain('Review & Verify');
+    expect(phase2).toContain('quality_log');
+    expect(phase2).toContain('review.md');
+    // no-fabrication rule carried into the write step
+    expect(phase2).toMatch(/fabricate/i);
+    // the Phase 2 Gate blockquote (inside the Phase 2 slice) checks the section
+    expect(phase2).toMatch(/Phase 2 Gate[\s\S]*Review & Verify/);
+  });
+
+  it('NEVER guards against emitting a summary that lacks the Review & Verify section', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toMatch(/NEVER[\s\S]*Review & Verify/);
+  });
+});
+
+describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEMPLATES-128)', () => {
+  it('Harvest names the committed _archived-history evidence pointer', () => {
+    const content = renderTemplate(
+      'skills/references/promotion-format.hbs',
+      TEMPLATE_CONTEXT,
+    );
+    const harvest = sectionOf(content, '## Harvest (archive-time auto-extraction)');
+    expect(harvest).toContain('_archived-history');
+    // the name-aligned, date-prefixed committed record
+    expect(harvest).toContain('{date}-{name}');
+    expect(harvest).toMatch(/evidence/i);
+  });
+});
