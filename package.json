@@ -22,7 +22,9 @@
     "lint": "eslint src/ tests/",
     "typecheck": "tsc --noEmit",
     "prepare": "tsc",
-    "measure:tokens": "npx tsx scripts/measure-tokens.ts"
+    "measure:tokens": "npx tsx scripts/measure-tokens.ts",
+    "counts": "npx tsx scripts/sync-counts.ts",
+    "counts:check": "npx tsx scripts/sync-counts.ts --check"
   },
   "keywords": [
     "progressive-disclosure",

@@ -114,7 +114,7 @@ Check **every principle** in the Constitution:
 
 ### Verification 4/5: Knowledge ↔ Implementation Consistency
 
-This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Both graduate at `/prospec-archive`: Feature Specs via Phase 3.5, Knowledge via the archive Entry Gate (the single mandatory knowledge-sync checkpoint). Lag behind this change is the normal pre-archive state — **not drift** — and must NOT lower the grade.
+This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs graduate at `/prospec-archive` Phase 3.5; module-README Knowledge is synced at the `/prospec-verify` S/A commit prompt (the archive Entry Gate re-confirms it as a **backstop**). Lag behind this change during grading is normal — it is synced at the S/A commit prompt that follows — **not drift**, and must NOT lower the grade.
 
 **Structural freshness facts come from the drift engine**: when the `prospec check --json`
 report is available, its `knowledge_health` section (git-timestamp staleness per module +
@@ -129,9 +129,9 @@ fallback explicitly. A `skipped` knowledge-health check is never presented as PA
 - **FAIL**: README describes behavior the codebase does not have, beyond this change's lag — or a module that existed before this change has no README at all (remediate: `/prospec-knowledge-update`, or `/prospec-knowledge-generate` for the missing README)
 
 **This change's Knowledge lag — informational only (does NOT affect the grade):**
-- A delta-spec ADDED/MODIFIED REQ not yet described — or a REMOVED REQ's behavior still described — in the affected module's README → informational note listing the affected modules; syncs at the `/prospec-archive` Entry Gate — run `/prospec-knowledge-update` before archiving
+- A delta-spec ADDED/MODIFIED REQ not yet described — or a REMOVED REQ's behavior still described — in the affected module's README → informational note listing the affected modules; synced at the S/A commit prompt below (run `/prospec-knowledge-update`, folded into the feature commit) — the archive Entry Gate re-confirms as backstop
 - Implementation changed but the module README not yet updated → same informational note; expected pre-archive state
-- A module introduced by this change has no README yet → same informational note; its README is created at the archive Entry Gate via `/prospec-knowledge-update` (or `/prospec-knowledge-generate`)
+- A module introduced by this change has no README yet → same informational note; its README is created at the S/A commit prompt below via `/prospec-knowledge-update` (or `/prospec-knowledge-generate`), folded into the feature commit; the archive Entry Gate re-confirms as backstop
 
 **Feature Spec — informational only (does NOT affect the grade):**
 - A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `/prospec-archive`"); expected, not drift
@@ -211,12 +211,19 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 > **`metadata.scale: backfill`**: grade S/A means the spec is **faithful to the code** (fidelity),
 > reached on the spec-fidelity contract in 2/5 — pre-existing code-quality debt (3/5) and missing
-> brownfield tests (5/5) are informational, not grade inputs. The `verified` gate and commit prompt
-> are otherwise unchanged.
+> brownfield tests (5/5) are informational, not grade inputs. The `verified` gate is unchanged; the
+> commit-prompt Knowledge-sync step below applies but **defers module derivation to the archive
+> Entry Gate** (see its `scale: backfill` exception — feature-slug REQ ids are not module names).
 
-**Commit prompt (S/A only)**: reaching S/A is the commit boundary — the last gate that can require code changes. After setting `status: verified`, **prompt the user to commit** the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes together. **Do not commit automatically** — prospec only prompts; the user runs the commit. (If the change was large enough to checkpoint-commit during implement, only the post-checkpoint fixes go in a follow-up commit.)
+**Commit prompt (S/A only)**: reaching S/A is the commit boundary — the last gate that can require code changes. Because no further code changes follow, this is the point to fold derived-artifact sync **into the feature commit** rather than deferring it to archive:
 
-> Neither Feature Spec freshness nor this change's Knowledge lag is an input to the grade — both graduate at `/prospec-archive` (Feature Specs at Phase 3.5, Knowledge at the Entry Gate). Verify gates on code↔delta-spec (2/5), Constitution (3/5), and pre-existing Knowledge↔code drift (4/5).
+1. **Sync affected-module Knowledge** — run `/prospec-knowledge-update` for the modules this change touched so each module README reflects the final code. Update descriptions only; do **not** cite this change's not-yet-graduated REQ ids (they graduate at `/prospec-archive` Phase 3.5 — citing them now trips `prospec check` `req-references`). **`scale: backfill` exception**: do **not** run REQ-prefix-driven `/prospec-knowledge-update` here — its feature-slug REQ ids (`REQ-{FEATURE-SLUG}-NNN`) are not module names and would mint phantom modules; sync only the READMEs named by `metadata.related_modules` (by description), leaving module derivation to the archive Entry Gate (`related_modules`/`**Feature:**`→feature-map).
+2. **Re-derive factual counts** — if the project has a factual-count generator (a script/command that regenerates the counts its docs declare), run it; otherwise re-derive those counts from source. (This repo's generator is named in its contributor docs.)
+3. **Prompt the user to commit** the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes **plus the sync from steps 1–2** together. **Do not commit automatically** — prospec only prompts; the user runs the commit. (If the change was large enough to checkpoint-commit during implement, only the post-checkpoint fixes + sync go in a follow-up commit.)
+
+Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `/prospec-archive` Entry Gate re-confirms this as a **backstop**.
+
+> The **grade** still does not gate on Feature Spec freshness or this change's Knowledge lag — 4/5 stays informational; grading and the commit-prep sync above are separate axes. Feature Specs still graduate only at `/prospec-archive` Phase 3.5 (verify never writes them — deadlock avoidance); module-README Knowledge is synced at the commit prompt above, with the archive Entry Gate as backstop. Verify gates on code↔delta-spec (2/5), Constitution (3/5), and pre-existing Knowledge↔code drift (4/5).
 
 ## Knowledge Quality Gate
 
@@ -226,7 +233,7 @@ Final Knowledge consistency summary:
 |------------|------|------|
 | No pre-existing Knowledge drift | Module READMEs accurate for code outside this change's scope | Drift identified in Verification 4/5 — suggest `/prospec-knowledge-update` |
 | No undocumented features | Knowledge entries trace to a delta-spec REQ or shipped behavior | Features in Knowledge without any requirement |
-| This change's Knowledge sync | Informational — syncs at the `/prospec-archive` Entry Gate; not gated here | — |
+| This change's Knowledge sync | Informational — synced at the verify S/A commit prompt (archive Entry Gate re-confirms as backstop); not gated here | — |
 | Feature Spec graduation | Informational — Feature Specs update at `/prospec-archive`; not gated here | — |
 
 WARN items are deployment risks — recommend resolving before `/prospec-archive`.

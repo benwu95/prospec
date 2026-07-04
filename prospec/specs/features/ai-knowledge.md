@@ -208,7 +208,7 @@ knowledge-update 解析 delta-spec entry 時，prefix 命中 feature-map `req_pr
 - WHEN no AI Knowledge modules, THEN detect as Greenfield
 
 #### REQ-TEMPLATES-045: Verify Spec-Knowledge Staleness Detection
-- WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the `/prospec-archive` Entry Gate（不計入等級；與 sdd-workflow 同名 REQ 一致）
+- WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the **verify S/A commit prompt**（於 commit 前折入同步；archive Entry Gate 為 backstop）（不計入等級；與 sdd-workflow 同名 REQ 一致）
 
 ---
 
@@ -479,3 +479,4 @@ _(None)_
 | 2026-06-16 | raw-scan-multi-language | raw-scan 後端多語言偵測（Node/Python/Go/Rust/Maven/.NET/PHP 依賴分派 + 後端 Tech Stack/Entry/Config）+ 區塊重排 | US-352, REQ-KNOW-027~030 (ADDED); REQ-KNOW-022 (MODIFIED — raw-scan.md 區塊重排) |
 | 2026-06-16 | raw-scan-c-cpp-swift | raw-scan C/C++/Swift 偵測（vcpkg/conan 宣告式解析、Swift/spm、C-vs-C++ 副檔名啟發式；命令式 manifest 交 LLM） | US-352, REQ-KNOW-031~033 (ADDED) |
 | 2026-06-16 | collapse-knowledge-refresh-into-init-flag | `knowledge refresh` 指令收斂為 `knowledge init --raw-scan-only` 旗標；移除獨立指令 + raw-scan.service `execute` 委派；skill/raw-scan 模板改呼叫旗標 | US-350/351, REQ-KNOW-022/023/024/025 (MODIFIED) |
+| 2026-07-04 | sync-knowledge-at-verify-commit | verify staleness note 指向改為 verify S/A commit prompt（archive Entry Gate 為 backstop）——與 sdd-workflow 同名 REQ 鏡像同步（issue #65 part b） | REQ-TEMPLATES-045 (MODIFIED) |

@@ -66,6 +66,7 @@ prospec/
     _archived-history/
     features/
 scripts/
+  counts/
   measure/
 src/
   cli/
@@ -103,5 +104,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 348 |
+| Total files | 360 |
 | Scan depth | 10 |

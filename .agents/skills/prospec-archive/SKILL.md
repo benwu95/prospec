@@ -10,7 +10,7 @@ description: "Archive Changes - Archive completed changes, generate summary, syn
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
 - Each archived change will get a summary.md and be moved to `.prospec/archive/`
-- Knowledge sync for affected modules is enforced by the Entry Gate before archiving
+- Knowledge sync for affected modules is folded into the verify S/A commit prompt; the Entry Gate re-confirms it (backstop) before archiving
 
 ## Language Policy
 
@@ -25,7 +25,7 @@ Write generated documents in the language defined by the Constitution's Language
 
 ## Entry Gate
 
-> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **single mandatory knowledge-sync checkpoint** in the lifecycle (`/prospec-verify` only reports this-change knowledge lag as informational).
+> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the knowledge sync folded into the verify S/A commit prompt (the prevention point); it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
 
 - Archive target is `status: verified` — only `/prospec-verify` at grade S/A produces `verified` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`).
 - Knowledge is synced for this change: every affected module README (modules from delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes) reflects the change's final state — REMOVED behavior must no longer appear in the README. Not synced → FAIL: run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive`. A change that touches no modules (planning/docs-only) passes this item.
