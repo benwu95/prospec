@@ -2,6 +2,7 @@
 name: prospec-explore
 description: "Explore - Requirement exploration, problem investigation, and solution comparison partner. Triggers: explore, compare, investigate, unsure, clarify, 探索, 比較, 釐清, 調查, 不確定"
 ---
+<!-- Generated from src/templates/skills/prospec-explore.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Explore Skill
 

@@ -2,6 +2,7 @@
 name: prospec-quickstart
 description: "Quickstart Onboarding Finisher - localize skill triggers, re-sync agent config, prepare the knowledge scan, and chain into knowledge generation. Triggers: quickstart, setup, bootstrap, onboard, get started, 快速開始, 初始化, 設定, 上手, 開始使用"
 ---
+<!-- Generated from src/templates/skills/prospec-quickstart.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Quickstart Skill
 

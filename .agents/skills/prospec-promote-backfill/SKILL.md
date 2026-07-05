@@ -2,6 +2,7 @@
 name: prospec-promote-backfill
 description: "Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone. Triggers: promote backfill, formalize backfill, backfill to delta-spec, promote draft, 晉升回填, 正式化回填, 回填轉正, 提升草稿"
 ---
+<!-- Generated from src/templates/skills/prospec-promote-backfill.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Promote Backfill Skill
 

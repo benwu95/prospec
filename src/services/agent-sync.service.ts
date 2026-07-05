@@ -306,6 +306,7 @@ async function syncSkillsDirSkills(
     // YAML scalar in the SKILL.md frontmatter.
     const content = renderTemplate(`skills/${skill.name}.hbs`, {
       ...templateContext,
+      skill_name: skill.name,
       skill_description: escapeYamlScalar(skill.description),
       trigger_words: escapeYamlScalar(triggerWordsBySkill.get(skill.name) ?? ''),
     });

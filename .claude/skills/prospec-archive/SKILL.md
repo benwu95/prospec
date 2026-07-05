@@ -2,6 +2,7 @@
 name: prospec-archive
 description: "Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync. Triggers: archive, clean up, wrap up, spec sync, 封存, 歸檔, 收尾, 規格同步, 清理"
 ---
+<!-- Generated from src/templates/skills/prospec-archive.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Archive Skill
 

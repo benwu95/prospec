@@ -2,6 +2,7 @@
 name: prospec-knowledge-update
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Knowledge Update Skill
 
@@ -151,7 +152,7 @@ cell renders `—` until `relationships.depends_on` is populated (re-run `/prosp
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] every affected module README updated

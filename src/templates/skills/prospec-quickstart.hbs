@@ -2,6 +2,7 @@
 name: prospec-quickstart
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Quickstart Skill
 
@@ -68,7 +69,7 @@ budget.
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] `.prospec.yaml` exists and parses as valid YAML

@@ -2,6 +2,7 @@
 name: prospec-tasks
 description: "Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md). Triggers: break down, tasks, task list, work items, how to split, 拆解, 任務, 任務清單, 工作項目, 如何拆分"
 ---
+<!-- Generated from src/templates/skills/prospec-tasks.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Tasks Skill
 

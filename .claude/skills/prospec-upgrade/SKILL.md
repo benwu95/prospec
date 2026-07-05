@@ -2,6 +2,7 @@
 name: prospec-upgrade
 description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, work through the report's docs inventory: update init-created files whose format drifted and create missing ones (asking consent per file), then localize triggers for newly-added skills and re-sync. Triggers: upgrade, upgrade prospec, migrate version, version bump, 升級, 升級 prospec, 版本遷移, 版本升級"
 ---
+<!-- Generated from src/templates/skills/prospec-upgrade.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Upgrade Skill
 

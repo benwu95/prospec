@@ -2,6 +2,7 @@
 name: prospec-plan
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Plan Skill
 
@@ -139,7 +140,7 @@ Suggest: `/prospec-tasks` or manual review.
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] Technical Summary non-empty (Brownfield or Greenfield)
@@ -181,13 +182,4 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 | Insufficient module info | Offer options: continue with available info / pause to supplement Knowledge / load source code |
 | Constitution conflict | Modify plan to comply (preferred) / document exception reasoning |
 
-## Next-Step Handoff
-
-After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
-`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
-on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
-the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
-rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
-point to the corrective step instead of offering the next skill.
+{{> next-step-handoff}}

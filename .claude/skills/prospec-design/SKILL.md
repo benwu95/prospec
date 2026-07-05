@@ -2,6 +2,7 @@
 name: prospec-design
 description: "Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms. Triggers: design, UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計"
 ---
+<!-- Generated from src/templates/skills/prospec-design.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Design Skill
 

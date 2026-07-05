@@ -1629,6 +1629,93 @@ describe('Skill Format Contract', () => {
   });
 });
 
+describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-143/144, REQ-TESTS-047)', () => {
+  const skillsDir = path.join(__dirname, '../../src/templates/skills');
+  const src = (name: string) => fs.readFileSync(path.join(skillsDir, `${name}.hbs`), 'utf-8');
+  const readPartial = (file: string) => fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+  // sentinel strings that live in exactly one place (the partial) post-extraction
+  const HANDOFF = 'recommend the next step in the SDD workflow order';
+  const OUTPUT_NOTE = 'self-assess and emit a concise Output Summary';
+
+  it('Next-Step Handoff is a partial single source: users reference it, none holds an inline copy (PB-006)', () => {
+    const users = SKILL_DEFINITIONS.map((s) => s.name).filter((n) =>
+      src(n).includes('{{> next-step-handoff}}'),
+    );
+    expect(users.length).toBeGreaterThanOrEqual(6); // dedup happened across the shared-handoff skills
+    // a user that reverts to an inline paste (dropping the include) turns this red
+    for (const n of users) expect(src(n)).not.toContain(HANDOFF);
+    expect(readPartial('_next-step-handoff.hbs')).toContain(HANDOFF); // single source holds it
+  });
+
+  it('Output Contract self-assess note is a partial single source: users reference it, none holds an inline copy (PB-006)', () => {
+    const users = SKILL_DEFINITIONS.map((s) => s.name).filter((n) =>
+      src(n).includes('{{> output-summary-note}}'),
+    );
+    expect(users.length).toBeGreaterThanOrEqual(15);
+    for (const n of users) expect(src(n)).not.toContain(OUTPUT_NOTE);
+    expect(readPartial('_output-summary-note.hbs')).toContain(OUTPUT_NOTE);
+  });
+
+  it('a referenced partial resolves into the rendered output (single source is live)', () => {
+    // prospec-plan references both partials; removing an include drops the sentinel → red
+    expect(src('prospec-plan')).toContain('{{> next-step-handoff}}');
+    expect(src('prospec-plan')).toContain('{{> output-summary-note}}');
+    const rendered = renderTemplate('skills/prospec-plan.hbs', {
+      ...TEMPLATE_CONTEXT,
+      skill_name: 'prospec-plan',
+    });
+    expect(rendered).toContain(HANDOFF);
+    expect(rendered).toContain(OUTPUT_NOTE);
+  });
+
+  it('every skill renders the generated marker naming its source template (REQ-TEMPLATES-144)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const rendered = renderTemplate(`skills/${skill.name}.hbs`, {
+        ...TEMPLATE_CONTEXT,
+        skill_name: skill.name,
+      });
+      expect(rendered).toContain(`Generated from src/templates/skills/${skill.name}.hbs`);
+    }
+  });
+
+  it('deployed SKILL.md files hold the exact expanded partial blocks — byte-sync guard (REQ-TESTS-047)', () => {
+    // Guards the invariant the refactor exists to protect: a whitespace/content
+    // edit to a partial that is NOT followed by `agent sync` would silently drift
+    // the committed .claude/.agents SKILL.md from the template — this asserts the
+    // FULL expanded block (not just a sentinel) is present, so such drift → red.
+    const repoRoot = path.join(__dirname, '../..');
+    const kbp = 'prospec/ai-knowledge'; // this repo's knowledge_base_path
+    const handoffExpanded = readPartial('_next-step-handoff.hbs')
+      .replace(/\{\{knowledge_base_path\}\}/g, kbp)
+      .trim();
+    const outputNote = readPartial('_output-summary-note.hbs').trim();
+    const agentDirs = ['.claude/skills', '.agents/skills'];
+    for (const skill of SKILL_DEFINITIONS) {
+      const usesHandoff = src(skill.name).includes('{{> next-step-handoff}}');
+      const usesNote = src(skill.name).includes('{{> output-summary-note}}');
+      for (const dir of agentDirs) {
+        const deployed = fs.readFileSync(
+          path.join(repoRoot, dir, skill.name, 'SKILL.md'),
+          'utf-8',
+        );
+        expect(deployed, `${dir}/${skill.name}: missing generated marker`).toContain(
+          `Generated from src/templates/skills/${skill.name}.hbs`,
+        );
+        if (usesHandoff) {
+          expect(deployed, `${dir}/${skill.name}: next-step-handoff drift`).toContain(
+            handoffExpanded,
+          );
+        }
+        if (usesNote) {
+          expect(deployed, `${dir}/${skill.name}: output-summary-note drift`).toContain(
+            outputNote,
+          );
+        }
+      }
+    }
+  });
+});
+
 describe('Dependency-layer knowledge — on-demand Context7 (BL-034)', () => {
   const renderPlan = () => renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
   const renderImplement = () =>

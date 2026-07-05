@@ -2,6 +2,7 @@
 name: prospec-ff
 description: "Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks). Triggers: fast-forward, ff, all at once, 一次到位, 快轉"
 ---
+<!-- Generated from src/templates/skills/prospec-ff.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Fast-Forward Skill
 

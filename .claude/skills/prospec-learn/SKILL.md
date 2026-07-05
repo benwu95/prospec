@@ -2,6 +2,7 @@
 name: prospec-learn
 description: "Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule). Triggers: learn, promote lesson, feedback, playbook, 學習, 晉升教訓, 回饋, 經驗手冊"
 ---
+<!-- Generated from src/templates/skills/prospec-learn.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Learn Skill
 

@@ -2,6 +2,7 @@
 name: prospec-archive
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Archive Skill
 
@@ -159,7 +160,7 @@ Then point the user at `/prospec-learn` for Score/Promote — auto-harvest only 
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] summary.md generated
@@ -197,13 +198,4 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Archive directory already exists | Warn user, ask whether to overwrite or skip |
 | File move fails | Roll back that specific change's archive, report error, continue with others |
 
-## Next-Step Handoff
-
-After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
-`metadata.yaml` status and `{{knowledge_base_path}}/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
-on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
-the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
-rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
-point to the corrective step instead of offering the next skill.
+{{> next-step-handoff}}

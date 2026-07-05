@@ -2,6 +2,7 @@
 name: prospec-explore
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Explore Skill
 
@@ -72,7 +73,7 @@ Use ASCII diagrams to aid thinking (architecture relationships, decision trees, 
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] all three spaces (Why/What/Where) explored (manual)

@@ -2,6 +2,7 @@
 name: prospec-knowledge-generate
 description: "Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index. Triggers: generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分"
 ---
+<!-- Generated from src/templates/skills/prospec-knowledge-generate.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Knowledge Generate Skill
 

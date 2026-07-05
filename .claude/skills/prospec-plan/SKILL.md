@@ -2,6 +2,7 @@
 name: prospec-plan
 description: "Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md). Triggers: plan, architecture, 規劃, 架構規劃"
 ---
+<!-- Generated from src/templates/skills/prospec-plan.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec Plan Skill
 

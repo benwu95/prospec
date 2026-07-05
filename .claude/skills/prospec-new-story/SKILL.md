@@ -2,6 +2,7 @@
 name: prospec-new-story
 description: "New Story - Create change requests by guiding User Story and acceptance criteria definition. Triggers: new feature, requirement, story, I want to, 新功能, 需求, 我想要, 新增需求"
 ---
+<!-- Generated from src/templates/skills/prospec-new-story.hbs by `prospec agent sync`. Edit the template, not this file — it is overwritten on the next sync. -->
 
 # Prospec New Story Skill
 
