@@ -17,29 +17,14 @@ vi.mock('node:fs', async () => {
   return { ...memfs.fs, default: memfs.fs };
 });
 
-// Isolate archive's wiring from the raw-scan internals (scanDir/template) — the
-// archive safety net's contract is "call generateRawScan, non-fatally".
+// Spy on the raw-scan + knowledge-update services solely to assert archive's
+// execute() NEVER invokes them (REQ-SERVICES-064): the auto knowledge-update and
+// raw-scan safety nets were removed, so manual phase-by-phase is the only path.
 vi.mock('../../../src/services/raw-scan.service.js', () => ({
-  generateRawScan: vi.fn().mockResolvedValue({
-    totalFiles: 0,
-    scanDepth: 10,
-    techStack: { language: 'typescript' },
-    entryPoints: [],
-    dependencies: [],
-    configFiles: [],
-    outputFile: 'prospec/ai-knowledge/raw-scan.md',
-    dryRun: false,
-    files: [],
-  }),
+  generateRawScan: vi.fn(),
 }));
-
-// Isolate archive's auto knowledge-update wiring. The real service needs a full
-// knowledge tree; archive's contract is "call it non-fatally and forward its
-// warnings". Default to rejecting so the un-asserting execute tests keep the
-// same observable result (knowledgeUpdated stays false, as with the real
-// service which fails without a knowledge tree).
 vi.mock('../../../src/services/knowledge-update.service.js', () => ({
-  execute: vi.fn().mockRejectedValue(new Error('no knowledge tree')),
+  execute: vi.fn(),
 }));
 
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
@@ -48,8 +33,7 @@ import { execute as executeKnowledgeUpdate } from '../../../src/services/knowled
 beforeEach(() => {
   vol.reset();
   vi.mocked(generateRawScan).mockClear();
-  vi.mocked(executeKnowledgeUpdate).mockReset();
-  vi.mocked(executeKnowledgeUpdate).mockRejectedValue(new Error('no knowledge tree'));
+  vi.mocked(executeKnowledgeUpdate).mockClear();
 });
 
 // --- scanChanges ---
@@ -456,46 +440,28 @@ Details.
     expect(fs.existsSync('/project/prospec/specs/features')).toBe(false);
   });
 
-  it('refreshes raw-scan.md after archiving (deterministic safety net)', async () => {
+  it('never auto-triggers knowledge-update or raw-scan (REQ-SERVICES-064)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
       '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
+      // A delta-spec present is the exact condition the removed safety net fired on —
+      // asserting non-invocation here proves the trigger is gone, not just absent.
+      '/project/.prospec/changes/feat-a/delta-spec.md':
+        '## ADDED\n\n### REQ-SERVICES-001: X\n\n**Feature:** f\n**Story:** US-1\n',
     });
 
     const result = await execute({ cwd: '/project' });
 
     expect(result.archived).toHaveLength(1);
-    expect(result.rawScanRefreshed).toBe(true);
-    expect(vi.mocked(generateRawScan)).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: '/project' }),
-    );
-  });
-
-  it('does not run raw-scan refresh when nothing was archived', async () => {
-    vol.fromJSON({
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: tasks\ncreated: "2026-01-01"\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-
-    expect(result.archived).toHaveLength(0);
-    expect(result.rawScanRefreshed).toBe(false);
+    // The auto knowledge-update + raw-scan safety nets were removed — manual
+    // phase-by-phase is the only knowledge-sync path.
+    expect(vi.mocked(executeKnowledgeUpdate)).not.toHaveBeenCalled();
     expect(vi.mocked(generateRawScan)).not.toHaveBeenCalled();
-  });
-
-  it('treats a raw-scan refresh failure as non-fatal (archive still succeeds)', async () => {
-    vi.mocked(generateRawScan).mockRejectedValueOnce(new Error('scan boom'));
-    vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
-      '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-
-    expect(result.archived).toHaveLength(1);
-    expect(result.rawScanRefreshed).toBe(false);
+    // ArchiveResult no longer carries the removed safety-net fields.
+    expect(result).not.toHaveProperty('knowledgeUpdated');
+    expect(result).not.toHaveProperty('knowledgeWarnings');
+    expect(result).not.toHaveProperty('rawScanRefreshed');
   });
 });
 
@@ -1327,88 +1293,6 @@ describe('execute additional branches', () => {
     expect(noDate).toContain('Original Created**: unknown');
   });
 
-  it('forwards knowledge-update warnings and sets knowledgeUpdated (L478-479)', async () => {
-    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
-      created: [],
-      updated: ['types'],
-      deprecated: [],
-      generatedFiles: [],
-      warnings: ['malformed REQ id: REQ-bad'],
-    });
-    vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: p\n',
-      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
-      '/project/.prospec/changes/feat/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: x\n\nbody\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-    expect(result.knowledgeUpdated).toBe(true);
-    expect(result.knowledgeWarnings).toContain('malformed REQ id: REQ-bad');
-  });
-
-  it('skips the REQ-prefix auto knowledge-update for scale: backfill (no phantom modules from feature-slug REQ ids)', async () => {
-    // A backfill change's delta-spec uses feature-slug REQ ids (REQ-{FEATURE-SLUG}-NNN).
-    // The REQ-prefix-driven knowledge-update would misread "USER-PROFILE" as a module
-    // and mint a phantom modules/user-profile/README.md + module-map entry. The service
-    // must skip it for backfill; backfill module sync is owned by the skill-level Entry Gate.
-    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
-      created: ['user-profile'],
-      updated: [],
-      deprecated: [],
-      generatedFiles: [],
-      warnings: [],
-    });
-    vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: p\n',
-      '/project/.prospec/changes/bf/metadata.yaml':
-        'name: bf\nstatus: verified\nscale: backfill\nrelated_modules:\n  - services\ncreated: "2026-01-01"\n',
-      '/project/.prospec/changes/bf/delta-spec.md':
-        '# Delta\n\n## ADDED\n\n### REQ-USER-PROFILE-001: x\n\n**Feature:** user-profile\n\nbody\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-    expect(result.archived).toHaveLength(1);
-    expect(vi.mocked(executeKnowledgeUpdate)).not.toHaveBeenCalled();
-    expect(result.knowledgeUpdated).toBe(false);
-  });
-
-  it('forwards metadata.related_modules to the auto knowledge-update for standard (BL-043 feature-prefix resolution)', async () => {
-    vi.mocked(executeKnowledgeUpdate).mockResolvedValueOnce({
-      created: [],
-      updated: ['services', 'lib'],
-      deprecated: [],
-      generatedFiles: [],
-      warnings: [],
-    });
-    vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: p\n',
-      '/project/.prospec/changes/feat/metadata.yaml':
-        'name: feat\nstatus: verified\nscale: standard\nrelated_modules:\n  - services\n  - lib\ncreated: "2026-01-01"\n',
-      '/project/.prospec/changes/feat/delta-spec.md':
-        '# Delta\n\n## MODIFIED\n\n### REQ-MCP-002: x\n\nbody\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-    expect(result.archived).toHaveLength(1);
-    // the feature-prefixed REQ resolves through related_modules, not the prefix-as-module
-    expect(vi.mocked(executeKnowledgeUpdate)).toHaveBeenCalledWith(
-      expect.objectContaining({ relatedModules: ['services', 'lib'] }),
-    );
-  });
-
-  it('leaves knowledgeUpdated false when no archived change has a delta-spec (L470/L473)', async () => {
-    vol.fromJSON({
-      '/project/.prospec.yaml': 'project:\n  name: p\n',
-      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
-    });
-
-    const result = await execute({ cwd: '/project' });
-    expect(result.archived).toHaveLength(1);
-    expect(result.knowledgeUpdated).toBe(false);
-    expect(result.knowledgeWarnings).toEqual([]);
-    expect(vi.mocked(executeKnowledgeUpdate)).not.toHaveBeenCalled();
-  });
-
   it('collects a change in skipped[] when moveToArchive fails (L450-451)', async () => {
     const today = new Date().toISOString().slice(0, 10);
     vol.fromJSON({
@@ -1420,17 +1304,12 @@ describe('execute additional branches', () => {
     const result = await execute({ cwd: '/project' });
     expect(result.archived).toHaveLength(0);
     expect(result.skipped).toEqual(['feat']);
-    // nothing archived → raw-scan refresh not triggered
-    expect(result.rawScanRefreshed).toBe(false);
   });
 
-  it('config-less run with a delta-spec: no spec sync (L425), but knowledge-update still fires off the delta-spec (L473)', async () => {
+  it('config-less run with a delta-spec: no spec sync (L425), archive still succeeds', async () => {
     // No .prospec.yaml → featuresPath stays null → the Feature Spec sync block
-    // (L425) is skipped entirely, so specFiles is empty. The knowledge-update
-    // safety net, however, keys off the archived change carrying a delta-spec
-    // (L473), independent of config — so it IS invoked here, in contrast to the
-    // no-delta-spec sibling test where executeKnowledgeUpdate is never called.
-    // The mock rejects, so knowledgeUpdated stays false (non-fatal).
+    // (L425) is skipped entirely, so specFiles is empty. Archiving still succeeds
+    // and rewrites the change's metadata to 'archived'.
     vol.fromJSON({
       '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: x\n\n**Feature:** f\n\nbody\n',
@@ -1441,14 +1320,8 @@ describe('execute additional branches', () => {
     expect(result.archived).toHaveLength(1);
     // no config → featuresPath null → no spec sync attempted
     expect(result.specFiles).toEqual([]);
-    // delta-spec present → knowledge-update attempted despite missing config
-    const archiveDir = result.archived[0]!.archivePath;
-    expect(vi.mocked(executeKnowledgeUpdate)).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaSpecPath: `${archiveDir}/delta-spec.md`, cwd: '/project' }),
-    );
-    // mock rejected → non-fatal → knowledgeUpdated stays false, archive succeeds
-    expect(result.knowledgeUpdated).toBe(false);
     // the archived metadata was still rewritten to 'archived' (L436 then-side)
+    const archiveDir = result.archived[0]!.archivePath;
     const metaContent = fs.readFileSync(`${archiveDir}/metadata.yaml`, 'utf-8');
     expect(metaContent).toContain('status: archived');
   });

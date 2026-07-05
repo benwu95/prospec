@@ -116,7 +116,7 @@ After Feature Spec Sync completes:
 1. Scan all `prospec/specs/features/*.md` — read frontmatter (`feature`, `status`, `story_count`)
 2. Extract P0 User Stories from each active Feature Spec for the Core Stories summary
 3. Regenerate `prospec/specs/product.md` following `references/product-spec-format.md`
-4. Regenerate `prospec/ai-knowledge/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net (mirrors the raw-scan refresh below).
+4. Regenerate `prospec/ai-knowledge/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net.
 
 **Product Spec and feature-map regeneration are non-fatal** — if either fails, Feature Spec Sync results are still valid.
 
@@ -137,9 +137,9 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
    - [module-2]: [N] requirements reflected
    ```
 3. If a gap is found (gate state regressed since the Entry Gate), STOP: run `/prospec-knowledge-update` for the gap, then continue — do not fall back to an optional prompt
-4. Refresh the deterministic project-structure snapshot so `prospec/ai-knowledge/raw-scan.md` reflects the just-archived code for the next `/prospec-knowledge-generate`. CLI fallback ladder (no LLM, Windows-safe, no Python/bash): `prospec knowledge init --raw-scan-only` (PATH) → `pnpm exec prospec knowledge init --raw-scan-only` / `npx -y prospec knowledge init --raw-scan-only` (project devDep). Non-fatal — if no Node toolchain is available, note it and continue (the archive service runs the same raw-scan regeneration as an idempotent safety net when invoked programmatically).
+4. Refresh the deterministic project-structure snapshot so `prospec/ai-knowledge/raw-scan.md` reflects the just-archived code for the next `/prospec-knowledge-generate`. CLI fallback ladder (no LLM, Windows-safe, no Python/bash): `prospec knowledge init --raw-scan-only` (PATH) → `pnpm exec prospec knowledge init --raw-scan-only` / `npx -y prospec knowledge init --raw-scan-only` (project devDep). Non-fatal — if no Node toolchain is available, note it and continue.
 
-> The archive service additionally auto-triggers a knowledge update AND the same `prospec knowledge init --raw-scan-only` as idempotent safety nets — with the Entry Gate already satisfied and the refresh just run, they are no-ops, not a substitute for the gate or for step 4. For `scale: backfill` the service **skips** the auto knowledge-update entirely: its feature-slug REQ ids (`REQ-{FEATURE-SLUG}-NNN`) are not module names, so the REQ-prefix-driven update would mint phantom modules — backfill module sync stays owned by the Entry Gate (`related_modules`/`**Feature:**`→feature-map).
+> The archive service does **not** auto-trigger a knowledge update or a raw-scan refresh. Steps 3–4 above (and the Entry Gate) are the only knowledge-sync path — perform them manually; there is no service-side fallback.
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] Every affected module README re-confirmed to reflect the archived change (no regression since the Entry Gate)
