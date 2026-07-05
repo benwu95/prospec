@@ -1170,37 +1170,54 @@ describe('Skill Format Contract', () => {
     });
   });
 
-  describe('Agent config skill reference paths', () => {
-    it('renders skills-dir references for the .claude/skills path', () => {
-      const content = renderTemplate('agent-configs/entry.md.hbs', {
-        ...TEMPLATE_CONTEXT,
-        skill_path: '.claude/skills',
-      });
-      expect(content).toContain('.claude/skills/prospec-archive/references/');
-      expect(content).not.toContain('.prospec/skills/');
-    });
-
-    it('renders skills-dir references for the .agents/skills path', () => {
+  describe('Agent config skill registry (per-agent frontmatter split)', () => {
+    it('full table (non-frontmatter agent) renders skills-dir references for .agents/skills', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
         skill_path: '.agents/skills',
+        surfaces_skill_frontmatter: false,
       });
       expect(content).toContain('.agents/skills/prospec-archive/references/');
+      expect(content).toContain('### /prospec-archive');
       expect(content).not.toContain('.prospec/skills/');
       expect(content).not.toContain('.instructions.md');
     });
 
-    it('self-contained skills should not emit a References line', () => {
+    it('full table omits a References line for self-contained skills', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.agents/skills',
+        surfaces_skill_frontmatter: false,
+      });
+      expect(content).not.toContain(
+        '.agents/skills/prospec-knowledge-generate/references/',
+      );
+      expect(content).not.toContain(
+        '.agents/skills/prospec-knowledge-update/references/',
+      );
+    });
+
+    it('slim registry (frontmatter-surfacing agent) drops the per-skill table', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
         skill_path: '.claude/skills',
+        surfaces_skill_frontmatter: true,
       });
-      expect(content).not.toContain(
-        '.claude/skills/prospec-knowledge-generate/references/',
-      );
-      expect(content).not.toContain(
-        '.claude/skills/prospec-knowledge-update/references/',
-      );
+      // no per-skill table, no reference paths — Claude Code surfaces frontmatter
+      expect(content).not.toContain('### /prospec-archive');
+      expect(content).not.toContain('**Triggers**:');
+      expect(content).not.toContain('.claude/skills/prospec-archive/references/');
+      // still names the slash-command invocation contract + the frontmatter source
+      expect(content).toContain('/prospec-');
+      expect(content).toContain('SKILL.md');
+    });
+
+    it('registry defaults to the full table when the flag is absent (unknown agent)', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.agents/skills',
+      });
+      expect(content).toContain('### /prospec-archive');
     });
 
     it('is the single shared entry template — no per-agent templates remain', () => {
@@ -1888,15 +1905,26 @@ describe('Skill trigger baselines', () => {
     }
   });
 
-  it('entry config lists trigger words for every skill', () => {
+  it('full-table entry config lists trigger words for every skill', () => {
     const content = renderTemplate('agent-configs/entry.md.hbs', {
       ...TEMPLATE_CONTEXT,
       artifact_language: 'English',
-      skill_path: '.claude/skills',
+      skill_path: '.agents/skills',
+      surfaces_skill_frontmatter: false,
     });
     for (const skill of SKILL_DEFINITIONS) {
       expect(content).toContain(`**Triggers**: ${skill.triggers.join(', ')}`);
     }
+  });
+
+  it('slim entry config lists no per-skill trigger words (frontmatter surfaces them)', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      artifact_language: 'English',
+      skill_path: '.claude/skills',
+      surfaces_skill_frontmatter: true,
+    });
+    expect(content).not.toContain('**Triggers**:');
   });
 });
 
@@ -2724,6 +2752,32 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
       const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
       expect(verify).not.toContain('agent-skills:');
       expect(review).not.toContain('agent-skills:');
+    });
+
+    // The format refs moved OUT of Startup Loading (baseline item-set + MANDATORY
+    // count guard the "not preloaded" side) MUST still be cited on-demand in the
+    // consuming phase, or a future edit silently deploys a ref no phase reads.
+    it('prospec-ff cites each format ref in its consuming phase, not as a Startup Loading MANDATORY item', () => {
+      const c = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+      expect(sectionOf(c, '### Phase 2: Story Generation')).toContain('references/proposal-format.md');
+      expect(sectionOf(c, '### Phase 3: Plan Generation (skipped when `scale: quick`)')).toContain('references/plan-format.md');
+      expect(sectionOf(c, '### Phase 4: Tasks Generation')).toContain('references/tasks-format.md');
+      expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
+    });
+
+    it('prospec-plan cites each format ref in its consuming phase, not as a Startup Loading MANDATORY item', () => {
+      const c = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+      expect(sectionOf(c, '### Phase 4: Design plan.md')).toContain('references/plan-format.md');
+      expect(sectionOf(c, '### Phase 5: Generate delta-spec.md')).toContain('references/delta-spec-format.md');
+      expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
+    });
+
+    it('prospec-archive cites each format ref in its consuming phase, not as a Startup Loading MANDATORY item', () => {
+      const c = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+      expect(sectionOf(c, '### Phase 2: Generate Summary')).toContain('references/archive-format.md');
+      expect(sectionOf(c, '### Phase 3.5: Feature Spec Sync')).toContain('references/feature-spec-format.md');
+      expect(sectionOf(c, '### Phase 3.6: Product Spec Regeneration')).toContain('references/product-spec-format.md');
+      expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
     });
   });
 

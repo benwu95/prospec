@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2056%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2062%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -432,8 +432,10 @@ Every skill's Startup Loading section is ordered **static-first** so provider pr
 (Anthropic explicit `cache_control`, OpenAI/Gemini automatic prefix caching) can reuse the
 longest possible prefix across triggers. Each loading item carries one of two markers:
 
-- **`[STABLE]`** — changes only on `agent sync` or governance edits: the skill's own
+- **`[STABLE]`** — changes only on `agent sync` or governance edits: startup-needed
   `references/` format specs, the Constitution, `_conventions.md`. These load first.
+  (Phase-specific format specs in `ff` / `plan` / `archive` are instead read **per-phase
+  on-demand** — off the stable prefix, so an early abort never pays for a later phase's format.)
 - **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `prospec/index.md`
   (first after the cache boundary), module READMEs, `_playbook.md`, Feature/Product Specs,
   and `.prospec/changes/` artifacts. These load last.
@@ -675,7 +677,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2056 tests)
+# Run all tests (2062 tests)
 pnpm test
 
 # Watch mode
@@ -688,9 +690,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2056 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1343 tests
-- Contract tests (CLI output + Skill format): 632 tests
+**Test Coverage**: 2062 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1344 tests
+- Contract tests (CLI output + Skill format): 637 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
 

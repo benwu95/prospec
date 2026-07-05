@@ -19,11 +19,9 @@ Write generated documents in the language defined by the Constitution's Language
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
-2. [STABLE] **MANDATORY** — Load these format references (bundled with this skill):
-   - [`references/proposal-format.md`](references/proposal-format.md)
-   - [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md)
-   - [`references/tasks-format.md`](references/tasks-format.md)
-3. [DYNAMIC] Read `prospec/index.md` — identify related modules
+2. [DYNAMIC] Read `prospec/index.md` — identify related modules
+
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## What Makes FF Unique
 
@@ -60,7 +58,7 @@ Derive kebab-case change name, confirm before proceeding.
 |------|--------|
 | Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
 | Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write `metadata.scale`. Quick → slim proposal form |
-| Populate | Write User Story and ACs per proposal-format.md |
+| Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
@@ -80,7 +78,7 @@ Loading is still read). Status advances `story → tasks` directly
 |------|--------|
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Scaffold | Create `plan.md` + `delta-spec.md`, update status → `plan` |
-| Populate | Write per plan-format.md and delta-spec-format.md |
+| Populate | Read [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) on demand, then write to those formats |
 | Check | Site-specific Constitution check (this phase's rule: dependency-direction/layering) → PASS continue / FAIL pause |
 
 > **Phase 3 Gate** — proceed when:
@@ -92,7 +90,7 @@ Loading is still read). Status advances `story → tasks` directly
 | Step | Action |
 |------|--------|
 | Scaffold | Create `tasks.md`, update status → `tasks` |
-| Populate | Decompose by architecture layer per tasks-format.md |
+| Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
 | Check | Test coverage check → PASS complete / WARN supplement |
 
 ### Completion: Summary Report

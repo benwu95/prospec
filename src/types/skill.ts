@@ -50,6 +50,14 @@ export interface AgentConfig {
   skillPath: string;
   /** Path for the agent's entry configuration file */
   configPath: string;
+  /**
+   * Whether the agent's runtime auto-injects each `SKILL.md` frontmatter
+   * (name + description + triggers) into the session context. When true, the
+   * entry config's skill registry is redundant with the native mechanism and is
+   * rendered as a slim pointer instead of the full per-skill table; when false,
+   * the entry config keeps the full table (the only place the agent sees skills).
+   */
+  surfacesSkillFrontmatter: boolean;
 }
 
 /**
@@ -195,21 +203,27 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     name: 'claude',
     skillPath: '.claude/skills',
     configPath: 'CLAUDE.md',
+    // Claude Code auto-injects each .claude/skills/*/SKILL.md frontmatter into
+    // the session's available-skills reminder → the entry registry is redundant.
+    surfacesSkillFrontmatter: true,
   },
   codex: {
     name: 'codex',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
+    surfacesSkillFrontmatter: false,
   },
   copilot: {
     name: 'copilot',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
+    surfacesSkillFrontmatter: false,
   },
   antigravity: {
     name: 'antigravity',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
+    surfacesSkillFrontmatter: false,
   },
 };
 

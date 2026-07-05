@@ -1,12 +1,9 @@
 {
   "prospec-archive": {
     "items": [
-      ".prospec/changes/",
-      "references/archive-format.md",
-      "references/feature-spec-format.md",
-      "references/product-spec-format.md"
+      ".prospec/changes/"
     ],
-    "mandatory": 3
+    "mandatory": 0
   },
   "prospec-backfill-spec": {
     "items": [
@@ -43,11 +40,10 @@
   },
   "prospec-ff": {
     "items": [
-      "MANDATORY — Load these format references (bundled with this skill):",
       "{{base_dir}}/index.md",
       "{{constitution_path}}"
     ],
-    "mandatory": 1
+    "mandatory": 0
   },
   "prospec-implement": {
     "items": [
@@ -115,15 +111,13 @@
   "prospec-plan": {
     "items": [
       ".prospec/changes/[name]/proposal.md",
-      "references/delta-spec-format.md",
-      "references/plan-format.md",
       "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
       "{{base_dir}}/specs/product.md",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_playbook.md"
     ],
-    "mandatory": 2
+    "mandatory": 0
   },
   "prospec-review": {
     "items": [

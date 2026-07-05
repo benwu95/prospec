@@ -20,7 +20,7 @@ Write generated documents in the language defined by the Constitution's Language
 ## Startup Loading
 
 1. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — if exists
-2. [STABLE] Read `prospec/ai-knowledge/_module-readme-conventions.md` and `prospec/ai-knowledge/_diagram-conventions.md` — the canonical module-README structure and diagram rules to generate against (this skill's Step 4 mirrors `_module-readme-conventions.md`)
+2. [STABLE] Read `prospec/ai-knowledge/_module-readme-conventions.md` and `prospec/ai-knowledge/_diagram-conventions.md` — the canonical module-README structure and diagram rules to generate against (Step 4 generates directly against this canonical file — it is not restated here)
 3. [STABLE] Read `prospec/CONSTITUTION.md` — if exists
 4. [DYNAMIC] Ensure `prospec/ai-knowledge/raw-scan.md` is current, then read it — first run `prospec knowledge init --raw-scan-only` (deterministic, no LLM; creates it if absent) so READMEs generate against the real current structure; if `prospec` is unavailable, see Prerequisite for the fallback ladder. `module-map.yaml` must already exist (init bootstrap)
 5. [DYNAMIC] Read `prospec/index.md` — if exists
@@ -102,67 +102,10 @@ Apply the chosen strategy to split the project into modules. Guidelines:
 
 ### Step 4: Create Module README.md (Recipe-First Format)
 
-For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{module}/README.md`
-
-**Recipe-First structure** (each section concise, total ≤100 lines):
-
-```markdown
-# {module_name}
-
-> One-line description of what this module does
-
-<!-- prospec:auto-start -->
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `path/to/file.ts` | Brief purpose |
-
-(Top 10 most important files only)
-
-## Public API
-
-- `functionName()` — what it does (1-line)
-- `ClassName` — what it does (1-line)
-
-(Signature + 1-line description. Max 8 entries. Agent reads source (L2) for full API.)
-
-## Dependencies
-
-**Depends on:** `module-a` (why), `module-b` (why)
-**Used by:** `module-c`, `module-d`
-
-## Modification Guide
-
-When changing this module:
-1. [Step-by-step guidance for common modifications]
-2. [What to update together]
-
-## Ripple Effects
-
-Changes here affect:
-- [What breaks or needs updating in other modules]
-
-## Pitfalls
-
-- [Common mistakes when modifying this module]
-- [Non-obvious constraints or gotchas]
-
-## Sub-Modules
-
-- [Sub Name](./{sub-module}.md) — one-line summary
-
-(Only when this module was split — see "Step 4.5". Omit the section otherwise.)
-
-<!-- prospec:auto-end -->
-
-<!-- prospec:user-start -->
-<!-- prospec:user-end -->
-```
+For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{module}/README.md`, following the **canonical Recipe-First structure** defined in `prospec/ai-knowledge/_module-readme-conventions.md` (loaded at Startup Loading — the single source for section order, the `# {ProperName}` title, each section's template, and the `prospec:auto`/`prospec:user` marker contract). Keep each section concise; total ≤100 lines.
 
 **Key principles:**
-- **Canonical template**: this Recipe-First structure mirrors `prospec/ai-knowledge/_module-readme-conventions.md` — if the two ever diverge, that file wins. (Section order, `# {ProperName}` title, and the `prospec:auto`/`prospec:user` marker contract are defined there.)
+- **Canonical template**: generate against `prospec/ai-knowledge/_module-readme-conventions.md` — it is the sole authority for README structure; do not restate the skeleton here.
 - **No api-surface.md, dependencies.md, or patterns.md** — all information consolidated into README.md (or its sub-module files, see Step 4.5)
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists
 - **Ripple Effects** — prevent agents from making isolated changes that break other modules

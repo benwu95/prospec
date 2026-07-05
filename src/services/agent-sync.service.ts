@@ -354,6 +354,9 @@ async function generateEntryConfig(
   const generated = renderTemplate('agent-configs/entry.md.hbs', {
     ...templateContext,
     skill_path: agentConfig.skillPath,
+    // Slim the always-loaded skill registry for agents whose runtime already
+    // surfaces SKILL.md frontmatter (claude); keep the full table otherwise.
+    surfaces_skill_frontmatter: agentConfig.surfacesSkillFrontmatter,
   });
 
   const configFilePath = path.join(cwd, agentConfig.configPath);

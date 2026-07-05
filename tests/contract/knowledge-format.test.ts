@@ -258,9 +258,11 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('**Used by:**');
     });
 
-    it('knowledge-generate skeleton documents canonical Dependencies labels', () => {
+    it('canonical _module-readme-conventions documents the Dependencies labels (single source)', () => {
+      // The kgen skill no longer restates the README skeleton — it generates
+      // against this canonical convention file, which is the sole authority.
       const raw = fs.readFileSync(
-        path.join(TEMPLATES, 'skills', 'prospec-knowledge-generate.hbs'),
+        path.join(TEMPLATES, 'init', 'module-readme-conventions.md.hbs'),
         'utf-8',
       );
       expect(raw).toContain('**Depends on:**');
