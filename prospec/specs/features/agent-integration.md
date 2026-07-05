@@ -139,8 +139,8 @@ verbatim-identical skill-template boilerplate is single-sourced as Handlebars pa
 - WHEN templates are re-rendered + deployed, THEN SKILL.md is byte-identical to before (generated marker excepted)
 
 #### REQ-TEMPLATES-144: SKILL.md Generated Marker
-每個部署 SKILL.md 於 frontmatter 後帶 `_generated-notice.hbs` 標記，註明由 `src/templates/skills/{name}.hbs` 生成、下次 sync 覆寫、修改請改 template（`skill_name` 由 render context 提供）。標記為唯一相對現況的輸出差異，且置於 YAML frontmatter 外（不破壞 frontmatter 解析）。
-- WHEN a SKILL.md is deployed, THEN it carries a generated marker naming its own source template
+每個部署 SKILL.md 於 frontmatter 後帶 `_generated-notice.hbs` 標記，註明由 `prospec agent sync` 生成、下次 sync 覆寫、勿手改。標記 **consumer-agnostic**——不引用 prospec 內部 `src/templates/skills/` 路徑（下游安裝 prospec 的專案無此路徑，指向它會誤導），僅警示為生成檔。置於 YAML frontmatter 外（不破壞 frontmatter 解析），為唯一相對現況的輸出差異。
+- WHEN a SKILL.md is deployed, THEN it carries a generated marker warning it is generated + overwritten on the next sync, with no consumer-invalid internal template path
 - WHEN the marker is added, THEN it is the only output difference vs before and the frontmatter YAML stays valid
 
 #### REQ-TESTS-047: Partial Single-Source + Marker + Byte-Sync Contract
