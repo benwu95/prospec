@@ -19,6 +19,7 @@ import type {
   ReadmeCountSource,
   ReqDefinitionIndex,
   ReqReference,
+  ReviewProvenanceSource,
   TaskSource,
 } from './drift-sources.js';
 
@@ -48,6 +49,7 @@ export interface DriftCheckInputs {
   tasks: TaskSource;
   featureMapGovernance: FeatureMapGovernanceSource;
   readmeCounts: ReadmeCountSource;
+  reviewProvenance: ReviewProvenanceSource;
   generatedAt: string;
 }
 
@@ -306,6 +308,48 @@ export function evaluateReadmeCounts(src: ReadmeCountSource): CheckOutcome {
   return outcome('readme-counts', findings);
 }
 
+/**
+ * Review provenance — an `implemented`, non-backfill change must carry a review
+ * baseline whose digest still matches the current code (REQ-LIB-024). Absent →
+ * fail (review never ran); mismatch → fail (code changed since review, re-review
+ * needed). FAIL-class: this is the machine gate that makes review non-skippable
+ * before verify. Backfill and non-`implemented` changes are exempt (not flagged);
+ * an unavailable source (not git / no changes dir / no digest) skips.
+ *
+ * Assumes a single change in flight at a time (the normal prospec workflow): the
+ * one whole-tree `current_digest` is compared against every change, so with
+ * concurrent changes, editing one flips the others stale — over-blocking
+ * (fail-closed), never fail-open.
+ */
+export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('review-provenance', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const c of src.changes) {
+    if (c.status !== 'implemented' || c.scale === 'backfill') continue;
+    if (c.recorded_digest === null) {
+      findings.push({
+        check: 'review-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `no review recorded for change "${c.name}" — run /prospec-review before /prospec-verify`,
+      });
+    } else if (c.recorded_digest !== src.current_digest) {
+      findings.push({
+        check: 'review-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `stale review for change "${c.name}": code changed since the recorded review — ` +
+          `re-run /prospec-review`,
+      });
+    }
+  }
+  return outcome('review-provenance', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -317,6 +361,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'dangling-prefix': evaluateDanglingPrefix(inputs.featureMapGovernance),
     'feature-modules': evaluateFeatureModules(inputs.featureMapGovernance),
     'readme-counts': evaluateReadmeCounts(inputs.readmeCounts),
+    'review-provenance': evaluateReviewProvenance(inputs.reviewProvenance),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

@@ -21,7 +21,7 @@
 | `src/cli/commands/change-tasks.ts` | `prospec change tasks` — break plan into tasks; `--force` overwrites an existing tasks.md |
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment |
 | `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
-| `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it) |
+| `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it); `--record-review` records the active change's review baseline (`--change <name>` disambiguates when several are in flight) |
 | `src/cli/commands/mcp.ts` | `prospec mcp serve [--cwd <path>]` — read-only MCP server on stdio (`--cwd` pins the served project root, default `process.cwd()`, so one agent can run several project servers); action writes nothing to stdout |
 | `src/cli/formatters/mcp-output.ts` | Startup banner to STDERR by design — stdout is the MCP protocol channel |
 | `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts; report-derived strings go through `sanitizeTerminal()` |

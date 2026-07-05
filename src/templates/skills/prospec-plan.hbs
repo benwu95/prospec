@@ -118,9 +118,9 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 > - [ ] delta-spec.md has ADDED/MODIFIED/REMOVED sections populated as applicable
 > - [ ] every requirement has a REQ ID plus Feature and Story routing fields
 
-### Phase 6: Constitution Check
+### Phase 6: Constitution Check (site-specific: dependency/layering)
 
-Compare against 3+ most relevant principles, focusing on architecture, testing, performance, and security. **Inspect the Phase 4 Call Chain for layering violations against the Constitution's dependency/layering rule** — e.g. a layer reaching past its neighbor, business logic placed in the entry/transport layer, a chain skipping its data-access layer, or a side effect emitted before commit — and flag any in Risk Assessment. (Structural/design review only; code-level layering is audited later by `/prospec-verify`.)
+Check only this station's **site-specific** Constitution rule — the **dependency-direction/layering** rule — NOT a generic multi-principle scan (the full every-principle audit is `/prospec-verify` V3/5 only). **Inspect the Phase 4 Call Chain for layering violations against the Constitution's dependency/layering rule** — e.g. a layer reaching past its neighbor, business logic placed in the entry/transport layer, a chain skipping its data-access layer, or a side effect emitted before commit — and flag any in Risk Assessment. (Structural/design review only; code-level layering is audited later by `/prospec-verify`.)
 
 > **Phase 6 Gate** — proceed when:
 > - [ ] The Call Chain is checked against the Constitution's dependency/layering rule
@@ -166,7 +166,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

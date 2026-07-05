@@ -32,8 +32,7 @@ When triggered, briefly describe:
 
 ## Key Difference from Other Skills
 
-Other Skills only perform **spot checks** (3 most relevant principles).
-Verify Skill performs a **full audit** (every Constitution principle is checked).
+Verify is the **sole** station that performs a Constitution **full audit** (every principle checked). Every other **SDD-pipeline** skill (new-story → plan → tasks → implement → review → archive, plus periodic learn) checks only its **site-specific** rule — new-story→INVEST, plan→dependency/layering, tasks→TDD coverage, implement→TDD/commit, review→dependency/layering, learn→promotion-approval — never a generic multi-principle scan. (The pre-SDD `/prospec-explore` thinking-partner keeps its own advisory multi-principle Constitution Checkpoint — it is a decision aid, not a verification gate.) Converging the every-principle audit to this one station is why verify's Constitution audit is the one that gates.
 
 ## Entry Gate
 
@@ -44,7 +43,8 @@ Verify Skill performs a **full audit** (every Constitution principle is checked)
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages (including `/prospec-review` majors).
 - **`metadata.scale: backfill` provenance** (gates the backfill quality relaxations in 3/5 and 5/5): `scale` is plain, hand-editable metadata, so the marker alone does not prove the code is pre-existing. The backfill downgrades apply **only** when `.prospec/changes/[name]/backfill-draft.md` exists — proof the change came through `/prospec-promote-backfill`, which records *existing* brownfield behavior. If the draft is **absent**, grade 3/5 and 5/5 under the **standard** contract (a code-quality `[MUST]` violation → FAIL, missing tests → graded normally) and record a WARN: "`scale: backfill` claimed but no `backfill-draft.md` — graded as standard". This keeps `scale: backfill` from becoming a quality-gate bypass for new code.
 
-> **Recommended (non-blocking)**: if `.prospec/changes/[name]/review.md` is absent, suggest running `/prospec-review` first — verify grades contract compliance, not adversarial correctness. Absence does NOT block verify; it is a recommendation only.
+- **Review provenance (blocking, non-backfill)**: run `prospec check --json` and read the `review-provenance` check for this change. If it is **FAIL** — no review recorded, or the recorded review is **stale** (code changed since the review) — **stop and do not proceed**; point the user to `/prospec-review` to review the current code. This makes review non-skippable before verify: verify grades contract compliance, not adversarial correctness, so an unreviewed change must not reach an S/A grade. **Drift engine unavailable** (CLI not installed/built): state so, then fall back to the CLI-free signal — read `metadata.yaml` `quality_log` directly and **still block when there is no `prospec-review` entry** (absence needs no engine to detect); staleness cannot be machine-verified without the engine, so surface it as a WARN that relies on whether code changed since that entry — never silently pass.
+- **`scale: backfill` review exemption (non-blocking)**: the backfill path has no review station, so `review-provenance` skips it — verify does NOT block on a missing review for `scale: backfill`. Running `/prospec-review` first stays recommended but optional.
 
 ## Core Workflow
 
@@ -252,6 +252,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** give PASS without supporting evidence — unsubstantiated PASS creates false confidence; evidence ensures the assessment is reproducible
 - **NEVER** give FAIL without remediation steps — a FAIL without fix guidance blocks the user; they need actionable next steps to resolve
 - **NEVER** skip any verification dimension — each dimension catches different defect classes; skipping one leaves a blind spot in quality assurance
+- **NEVER** proceed on a non-backfill change whose `review-provenance` check FAILs (review absent or stale) — the review gate keeps an S/A grade from resting on unreviewed code; send the user to `/prospec-review` instead of grading
 - **NEVER** continue verification when planning documents are missing — verifying against incomplete specs produces meaningless results and wastes tokens (`scale: quick` legitimately omits plan/delta-spec and 2/5 reports `not-applicable`; `scale: backfill` legitimately omits plan/tasks and 1/5 reports `not-applicable` — these are the only exceptions)
 - **NEVER** report a `not-applicable` dimension as PASS — quick's missing delta-spec dimension stays visibly unchecked
 - **NEVER** treat a drift-report `skipped` check as PASS — skipped means unchecked; present the skip reason instead

@@ -126,16 +126,16 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 > - [ ] `proposal.md` written following `references/proposal-format.md`
 > - [ ] All Phase 4 sections present (no empty Background/Why)
 
-### Phase 6: Constitution Check
+### Phase 6: Constitution Check (site-specific: INVEST)
 
-Compare against 3+ most relevant Constitution principles:
-- **PASS**: Fully aligned
-- **WARN**: Partially aligned, with suggestions
-- **FAIL**: Violates principle, must adjust
+Check only this station's **site-specific** Constitution rule — **User Stories Follow INVEST** — NOT a generic multi-principle scan. The full every-principle audit is `/prospec-verify` V3/5 only (single-full-audit convergence):
+- **PASS**: the Story satisfies INVEST
+- **WARN**: partially satisfies, with suggestions
+- **FAIL**: violates INVEST, must adjust
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Proposal compared against >= 3 most relevant Constitution principles
-> - [ ] Each principle graded PASS/WARN/FAIL
+> - [ ] Proposal checked against the INVEST rule (not a generic 3+ principles scan)
+> - [ ] Graded PASS/WARN/FAIL
 > - [ ] Any FAIL resolved or documented as an exception
 
 ### Phase 7: Knowledge Quality Gate
@@ -180,12 +180,12 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**INVEST**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
 - **NEVER** create non-kebab-case change names — all lowercase, hyphen-separated, verb-first
-- **NEVER** complete a Story without Constitution check — principles must validate the proposal
+- **NEVER** complete a Story without the site-specific INVEST check — the Story must satisfy INVEST; the full every-principle Constitution audit is `/prospec-verify`'s job, not new-story's
 - **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md

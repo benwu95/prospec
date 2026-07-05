@@ -18,12 +18,11 @@ When triggered, briefly describe:
 Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
-2. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
-3. [STABLE] **MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format
-4. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse UI Scope and User Stories
-5. [DYNAMIC] Read `.prospec.yaml` — check `design.platform` setting (pencil|figma|penpot|html)
-6. [DYNAMIC] Load the platform adapter reference based on `design.platform`:
+1. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
+2. [STABLE] **MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format
+3. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse UI Scope and User Stories
+4. [DYNAMIC] Read `.prospec.yaml` — check `design.platform` setting (pencil|figma|penpot|html)
+5. [DYNAMIC] Load the platform adapter reference based on `design.platform`:
    - pencil → [`references/adapter-pencil.md`](references/adapter-pencil.md)
    - figma → [`references/adapter-figma.md`](references/adapter-figma.md)
    - penpot → [`references/adapter-penpot.md`](references/adapter-penpot.md)

@@ -83,7 +83,7 @@ SOFTWARE.
 | Criterion | Default severity |
 |-----------|------------------|
 | Removing an error-handling path "for cleanliness" | critical (hides bugs) |
-| Duplicated logic > ~5 lines, or repeated conditionals — extract a named function | major (DRY) |
+| Duplicated logic > ~5 lines, or repeated conditionals — extract a named function; logic needed in a **parallel module** must be extracted to ONE shared leaf helper and imported, never hand-copied (PB-006 — mind dependency direction, no lib→lib cycle) | major (DRY) |
 | Deep nesting > 3 levels, or functions > ~50 lines — guard clauses / split by responsibility | major |
 | Dead code (unreachable branches, unused vars, commented-out blocks) | major |
 | Speculative/premature abstraction not yet used; over-engineered patterns (factory-of-factory) | major / nit (generalize at the 3rd use, not the 1st) |
@@ -94,6 +94,43 @@ SOFTWARE.
 often encodes a real constraint. **Change-size signal:** ~100 lines reviews in one sitting; ~300 stretches
 a reviewer (major); ~1000 should be split (critical to reviewability). A "simplification" that needs the
 test changed likely changed behavior — treat as suspect.
+
+---
+
+---
+
+## Docs-Claims / Measurement-Attribution Lens (PB-003)
+
+Applies when the change adds or edits README/doc/spec prose that claims behavior.
+
+| Criterion | Default severity |
+|-----------|------------------|
+| A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | critical (spec contradiction) / major (overclaim) |
+| A gap or non-goal left silent — what is not done / not measurable must carry explicit **deliberate-exclusion** wording ("not measured here", "left to …") so review/verify can diff claims against behavior | major |
+| A count/attribution stated in prose that the code does not back (see also the deterministic `readme-counts` check) | major |
+
+---
+
+## Parallel-Site Completeness Lens (PB-007)
+
+Applies when the change introduces or touches an invariant or a shared resolver / config / data source.
+
+| Criterion | Default severity |
+|-----------|------------------|
+| An invariant (realpath containment, terminal sanitization, resource-name guard) or resolution rule applied at one site but a **parallel consumer of the same data source was missed** — grep every consumer and apply + test each | critical (the missed site is the next bug) |
+| A NEW consumer re-derives a shared path/config or re-implements the check ad hoc instead of going through the canonical resolver | major |
+
+---
+
+## Test-Quality Lens (PB-001)
+
+Applies when the change adds or edits tests (esp. contract/structural assertions).
+
+| Criterion | Default severity |
+|-----------|------------------|
+| A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard) | major (false-green risk) |
+| Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing | major |
+| A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red) | major (an unmutated assertion may be a tautology) |
 
 ---
 

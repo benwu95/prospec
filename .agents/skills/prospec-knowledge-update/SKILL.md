@@ -18,12 +18,11 @@ When triggered, briefly describe:
 Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — verify compliance constraints
-2. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — team conventions (incl. the Module READMEs pointer)
-3. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_module-readme-conventions.md` for the canonical README output format (section order, `# {ProperName}` title, `prospec:auto`/`prospec:user` marker contract)
-4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — identify ADDED/MODIFIED/REMOVED requirements
-5. [DYNAMIC] Read `prospec/index.md` — current module index
-6. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — current dependency graph (if exists)
+1. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — team conventions (incl. the Module READMEs pointer)
+2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_module-readme-conventions.md` for the canonical README output format (section order, `# {ProperName}` title, `prospec:auto`/`prospec:user` marker contract)
+3. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — identify ADDED/MODIFIED/REMOVED requirements
+4. [DYNAMIC] Read `prospec/index.md` — current module index
+5. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — current dependency graph (if exists)
 
 ## Progressive Knowledge Loading Strategy
 

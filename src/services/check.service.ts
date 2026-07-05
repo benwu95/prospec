@@ -1,9 +1,10 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
+import { parseYamlDocument, stringifyYamlDocument } from '../lib/yaml-utils.js';
 import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
@@ -18,8 +19,11 @@ import {
   collectReadmeCounts,
   collectReqDefinitions,
   collectReqReferences,
+  collectReviewProvenance,
   collectTaskStates,
+  computeChangeDigest,
 } from '../lib/drift-sources.js';
+import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
 
 export interface CheckOptions {
@@ -28,6 +32,10 @@ export interface CheckOptions {
   json?: boolean;
   /** Scaffold .github/workflows/prospec-check.yml instead of running checks. */
   initCi?: boolean;
+  /** Record the active change's review baseline (digest) instead of running checks. */
+  recordReview?: boolean;
+  /** Disambiguate which change `--record-review` targets when several are in flight. */
+  change?: string;
 }
 
 export interface CheckResult {
@@ -45,6 +53,15 @@ export interface InitCiResult {
   created: boolean;
 }
 
+export interface RecordReviewResult {
+  kind: 'record-review';
+  /** The change whose review baseline was recorded. */
+  change: string;
+  /** False when skipped honestly (e.g. not a git repo) — no fake digest written. */
+  recorded: boolean;
+  reason?: string;
+}
+
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
 
 /**
@@ -53,12 +70,18 @@ export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
  * produce the report, and this service handles config resolution and the
  * optional report/workflow writes.
  */
-export async function execute(options: CheckOptions): Promise<CheckResult | InitCiResult> {
+export async function execute(
+  options: CheckOptions,
+): Promise<CheckResult | InitCiResult | RecordReviewResult> {
   const cwd = options.cwd ?? process.cwd();
   const config = await readConfig(cwd);
 
   if (options.initCi) {
     return initCiWorkflow(cwd, config.tech_stack?.package_manager);
+  }
+
+  if (options.recordReview) {
+    return recordReviewProvenance(cwd, options.change);
   }
 
   const paths = resolveBasePaths(config, cwd);
@@ -102,6 +125,7 @@ export async function execute(options: CheckOptions): Promise<CheckResult | Init
     readmeCounts: moduleMap
       ? collectReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
+    reviewProvenance: collectReviewProvenance(cwd),
     generatedAt: new Date().toISOString(),
   });
 
@@ -136,4 +160,33 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
   });
   await atomicWrite(workflowPath, content);
   return { kind: 'init-ci', workflowPath, created: true };
+}
+
+/**
+ * Record the active change's review baseline (REQ-SERVICES-062). Run by
+ * `/prospec-review` at loop convergence so the digest is code-computed, not
+ * hand-derived. Writes `review_provenance` into metadata.yaml with the
+ * comment-preserving Document round-trip; a non-git repo yields no digest, so
+ * it honestly skips rather than writing a fake baseline.
+ */
+async function recordReviewProvenance(
+  cwd: string,
+  explicitChange?: string,
+): Promise<RecordReviewResult> {
+  // quiet=true keeps `check` non-interactive; with several in-flight changes it
+  // errors with "use --change <name>", so --change is the disambiguation path.
+  const change = await resolveChange(cwd, explicitChange, true, 'Which change to record the review for?');
+  const metadataPath = path.join(cwd, '.prospec', 'changes', change, 'metadata.yaml');
+  if (!existsSync(metadataPath)) {
+    // resolveChange only guarantees the dir exists — honest skip, no fake baseline.
+    return { kind: 'record-review', change, recorded: false, reason: 'metadata.yaml not found' };
+  }
+  const digest = computeChangeDigest(cwd);
+  if (digest === null) {
+    return { kind: 'record-review', change, recorded: false, reason: 'not a git repository' };
+  }
+  const doc = parseYamlDocument(readFileSync(metadataPath, 'utf-8'), metadataPath);
+  doc.set('review_provenance', doc.createNode({ digest, date: new Date().toISOString().slice(0, 10) }));
+  await atomicWrite(metadataPath, stringifyYamlDocument(doc));
+  return { kind: 'record-review', change, recorded: true };
 }

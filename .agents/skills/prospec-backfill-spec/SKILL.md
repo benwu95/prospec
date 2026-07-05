@@ -18,9 +18,8 @@ When triggered, briefly describe:
 Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
-2. [DYNAMIC] Read `prospec/index.md` — module routing only
-3. [DYNAMIC] Read `prospec/specs/features/` — see which features already have Feature Spec coverage
+1. [DYNAMIC] Read `prospec/index.md` — module routing only
+2. [DYNAMIC] Read `prospec/specs/features/` — see which features already have Feature Spec coverage
 
 ## Core Workflow
 
