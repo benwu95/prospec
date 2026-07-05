@@ -13,6 +13,7 @@ import {
   INDEX_TABLE_HEADER,
   INDEX_TABLE_SEPARATOR,
   INDEX_TABLE_COLUMNS,
+  INDEX_COLUMN,
 } from '../../../src/types/knowledge.js';
 
 vi.mock('node:fs', async () => {
@@ -441,7 +442,7 @@ describe('updateIndex', () => {
     expect(autoBlock).not.toContain('| Files |');
     expect(autoBlock).not.toContain('| README |');
 
-    const row = content.split('\n').find((l) => l.startsWith('| auth '));
+    const row = content.split('\n').find((l) => l.startsWith('| **auth** '));
     expect(row).toBeDefined();
     expect(row!.split('|').slice(1, -1)).toHaveLength(INDEX_TABLE_COLUMNS.length);
     expect(result.action).toBe('created');
@@ -480,8 +481,8 @@ ${INDEX_TABLE_SEPARATOR}
 
     const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
     expect(result.action).toBe('updated');
-    // the new row is present
-    expect(content).toContain('| auth ');
+    // the new row is present (module names are bold, matching the curated convention)
+    expect(content).toContain('| **auth** ');
     // curated static content survives
     expect(content).toContain('# AI Knowledge Index');
     expect(content).toContain('quickly understand the project structure');
@@ -513,6 +514,38 @@ ${INDEX_TABLE_SEPARATOR}
       expect(content).toContain('cost is $1 per $& token');
       expect(content.match(/prospec:auto-start/g)?.length).toBe(1);
     });
+  });
+
+  it('renders curated columns from module data instead of blanking them to — (REQ-KNOW-036)', async () => {
+    vol.fromJSON({
+      '/test/prospec/index.md': `# AI Knowledge Index\n\n## Modules\n\n<!-- prospec:auto-start -->\n${INDEX_TABLE_HEADER}\n${INDEX_TABLE_SEPARATOR}\n<!-- prospec:auto-end -->\n`,
+    });
+
+    await updateIndex(
+      [
+        {
+          name: 'types',
+          description: 'Zod schemas',
+          status: 'Active',
+          keywords: ['config', 'schema'],
+          aliases: ['型別', 'type defs'],
+          rationale: 'Leaf module',
+          dependsOn: ['lib'],
+        },
+      ],
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+    );
+
+    const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+    const row = content.split('\n').find((l) => l.startsWith('| **types** '))!;
+    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
+    expect(cells[INDEX_COLUMN.KEYWORDS]).toBe('config, schema');
+    expect(cells[INDEX_COLUMN.ALIASES]).toBe('型別, type defs');
+    expect(cells[INDEX_COLUMN.RATIONALE]).toBe('Leaf module');
+    expect(cells[INDEX_COLUMN.DEPENDS_ON]).toBe('lib');
+    // mutation guard: a module with no curated data still renders — placeholders,
+    // never crashing or dropping columns
+    expect(cells[INDEX_COLUMN.KEYWORDS]).not.toBe('—');
   });
 });
 
@@ -631,16 +664,28 @@ describe('collectAllModules', () => {
       name: 'newmod',
       description: 'newmod module',
       status: 'Active',
+      keywords: [],
+      aliases: [],
+      rationale: '',
+      dependsOn: [],
     });
     expect(modules).toContainEqual({
       name: 'changedmod',
       description: 'changedmod module',
       status: 'Active',
+      keywords: [],
+      aliases: [],
+      rationale: '',
+      dependsOn: [],
     });
     expect(modules).toContainEqual({
       name: 'goneMod',
       description: 'goneMod module',
       status: 'Deprecated',
+      keywords: [],
+      aliases: [],
+      rationale: '',
+      dependsOn: [],
     });
   });
 });
@@ -671,6 +716,66 @@ describe('execute', () => {
 
     expect(result.created).toContain('auth');
     expect(result.generatedFiles.length).toBeGreaterThan(0);
+  });
+
+  it('migrates curated columns index→module-map on the fly before regen (no-clobber, idempotent) (REQ-KNOW-036 AC2)', async () => {
+    const indexWithCurated = [
+      '# AI Knowledge Index',
+      '',
+      '<!-- prospec:auto-start -->',
+      '## Modules',
+      '',
+      INDEX_TABLE_HEADER,
+      INDEX_TABLE_SEPARATOR,
+      '| **auth** | login, jwt | 認證, 登入 | Active | Auth module | Handles login flow | types |',
+      '<!-- prospec:auto-end -->',
+      '',
+      '<!-- prospec:user-start -->',
+      '<!-- prospec:user-end -->',
+      '',
+    ].join('\n');
+    // module-map has auth but LACKS the curated aliases/rationale that live in index.md
+    const moduleMapMissing = [
+      'modules:',
+      '  - name: auth',
+      '    description: Auth module',
+      '    paths:',
+      '      - src/auth',
+      '    keywords:',
+      '      - login',
+      '      - jwt',
+      '    relationships:',
+      '      depends_on:',
+      '        - types',
+      '',
+    ].join('\n');
+    // The mocked resolveBasePaths points knowledge paths at /test/prospec (ignores cwd),
+    // so the curated index + module-map fixtures must live there.
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/test/prospec/index.md': indexWithCurated,
+      '/test/prospec/ai-knowledge/module-map.yaml': moduleMapMissing,
+      '/project/delta-spec.md': '## ADDED\n\n### REQ-AUTH-001: x\n\n**Description:** y\n\n---\n',
+    });
+
+    await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    // (a) the backfill persisted the missing curated columns into module-map
+    const mapAfter = vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8') as string;
+    expect(mapAfter).toContain('認證');
+    expect(mapAfter).toContain('登入');
+    expect(mapAfter).toContain('Handles login flow');
+
+    // (b) the regenerated index preserved them — proves backfill ran BEFORE
+    // collectAllModules (else the rebuilt row would blank aliases/rationale to —)
+    const indexAfter = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+    expect(indexAfter).toContain('認證, 登入');
+    expect(indexAfter).toContain('Handles login flow');
+
+    // (c) idempotent — a 2nd run leaves module-map byte-stable (no re-write)
+    await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    const mapAfter2 = vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8') as string;
+    expect(mapAfter2).toBe(mapAfter);
   });
 
   it('surfaces malformed REQ ids through execute().warnings on the live path (not silently dropped)', async () => {

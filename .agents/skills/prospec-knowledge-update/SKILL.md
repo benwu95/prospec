@@ -131,27 +131,37 @@ For MODIFIED modules:
 - Do NOT delete the file or directory
 - Update status in prospec/index.md to "Deprecated"
 
-#### 3c: prospec/index.md
+#### 3c: module-map.yaml (curated single source)
 
-Update the module table within `prospec:auto-start/end` markers using the current format:
+The module table's curated columns — Keywords, Aliases, Rationale, Description, and Depends On (via
+`relationships.depends_on`) — live in `prospec/ai-knowledge/module-map.yaml` as the single source;
+`prospec/index.md`'s `prospec:auto` block is **generated** from it (`updateIndex`). Curate here,
+NOT by hand-editing the index table (it gets regenerated).
+
+- Add new module entries (ADDED) with `keywords`, `aliases`, `rationale`, `description` and `relationships`
+- Update `keywords`/`aliases`/`rationale`/`description`/`relationships` (MODIFIED)
+- Remove module entries (REMOVED)
+- Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
+- Skip if module-map.yaml doesn't exist
+
+#### 3d: prospec/index.md (generated from module-map)
+
+The `prospec:auto` block is regenerated from `module-map.yaml` by `updateIndex` using the canonical
+column format — you do not hand-fill curated cells:
 
 ```
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
 ```
 
-- Add new modules (ADDED) with Rationale explaining why the module exists, plus Aliases (synonyms + user-language terms that should match this module)
-- Update descriptions, keywords, and aliases (MODIFIED)
-- Mark as Deprecated (REMOVED)
-- Ensure Progressive Knowledge Loading Strategy section is intact
+On a project that curated in index.md, the first run **backfills** the curated **content**
+columns (Keywords/Aliases/Rationale/Description) into `module-map.yaml` (no-clobber) before
+regenerating, so those are not lost. **Depends On** is NOT backfilled — it derives from
+`relationships.depends_on` (the drift-enforced dependency set); if a module-map lacks it, that
+cell renders `—` until `relationships.depends_on` is populated (re-run `/prospec-knowledge-generate`).
+
+- Confirm Status reflects ADDED (Active) / REMOVED (Deprecated)
+- Ensure the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
 - If the prospec/index.md uses `### {Category}` grouped sub-tables, keep the grouping — place each module under its primary category (`module-map.yaml` `category[0]`); an ADDED module goes under a derived category consistent with existing groups, listed under its primary heading only
-
-#### 3d: module-map.yaml
-
-- Add new module entries (ADDED)
-- Update relationships if changed (MODIFIED)
-- Remove module entries (REMOVED)
-- Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
-- Skip if module-map.yaml doesn't exist
 
 ## Output Contract
 

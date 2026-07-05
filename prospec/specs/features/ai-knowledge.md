@@ -3,7 +3,7 @@ feature: ai-knowledge
 status: active
 last_updated: 2026-07-05
 story_count: 14
-req_count: 48
+req_count: 51
 ---
 
 # AI Knowledge
@@ -137,12 +137,29 @@ req_count: 48
 - WHEN a consumer parses the table, THEN it reads columns by the canonical index/labels from the same constant
 
 #### REQ-KNOW-008: Index Idempotent Update
-- WHEN `{base_dir}/index.md` already exists, THEN update auto section, preserve user section
+- WHEN `{base_dir}/index.md` already exists, THEN update auto section **preserving curated columns** (Keywords/Aliases/Rationale/Depends On generated from `module-map.yaml` as the single source, never blanked to `—`), preserve user section
+- WHEN the existing index.md holds curated columns not yet in module-map, THEN no-clobber backfill them into `module-map.yaml` (bootstrap-once) before regenerating
 - WHEN module directory already exists, THEN update README.md rather than rebuild
 
 #### REQ-KNOW-012: Module Split Rationale Transparency
 - WHEN rendering `{base_dir}/index.md`, THEN each module has a Rationale cell explaining the split decision
 - WHEN knowledge.service generates `{base_dir}/index.md`, THEN auto-infer and fill the Rationale
+
+#### REQ-TYPES-056: ModuleEntry Curated Index Columns
+`ModuleEntrySchema` carries the curated index columns as optional fields — `aliases` (`string[]`) and `rationale` (`string`), alongside the existing `keywords`/`description`/`relationships.depends_on` — so `module-map.yaml` is the single source every index.md column is generated from.
+- WHEN validating an existing module-map.yaml without these fields, THEN it still passes (optional)
+- WHEN a new project scaffolds module-map.yaml, THEN the template shows `aliases`/`rationale` for curation
+
+#### REQ-LIB-026: Index-Table Single-Source Helpers
+lib provides `buildIndexRow`/`buildIndexTable` (render all 7 columns from module data, positioned by `INDEX_COLUMN`, reorder-safe, `—` for empties), extends `parseIndexModules` to resolve rationale/dependsOn, and provides `backfillCuratedFromIndex` (seed curated content columns index→module-map, no-clobber + idempotent, skipping `relationships.depends_on`).
+- WHEN building a row, THEN column order/header derive from the canonical `types` constant (REQ-KNOW-020)
+- WHEN backfilling, THEN a non-empty module-map value is never overwritten; a second run makes no change (idempotent)
+
+#### REQ-KNOW-036: updateIndex Generates From module-map + No-Clobber Migration
+`knowledge-update` `updateIndex` renders the module table from `module-map.yaml` (curated columns preserved, not blanked to `—`); `execute()` backfills an existing index.md's curated columns into module-map (no-clobber, bootstrap-once) before rebuilding, so downstream projects migrate losslessly on first `/prospec-knowledge-update`.
+- WHEN updating an index that holds curated content, THEN the regenerated auto block preserves Keywords/Aliases/Rationale/Description
+- WHEN module-map lacks a curated column the index has, THEN it is backfilled before regen; a second run is idempotent
+- WHEN a module-map curated column is cleared, THEN the regenerated cell shows `—` (mutation-verifiable)
 
 #### REQ-KNOW-013: L0-L3 Layered Loading
 - WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,500 tokens total, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤400 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
@@ -496,3 +513,4 @@ _(None)_
 | 2026-06-16 | collapse-knowledge-refresh-into-init-flag | `knowledge refresh` 指令收斂為 `knowledge init --raw-scan-only` 旗標；移除獨立指令 + raw-scan.service `execute` 委派；skill/raw-scan 模板改呼叫旗標 | US-350/351, REQ-KNOW-022/023/024/025 (MODIFIED) |
 | 2026-07-04 | sync-knowledge-at-verify-commit | verify staleness note 指向改為 verify S/A commit prompt（archive Entry Gate 為 backstop）——與 sdd-workflow 同名 REQ 鏡像同步（issue #65 part b） | REQ-TEMPLATES-045 (MODIFIED) |
 | 2026-07-05 | remove-archive-auto-knowledge-update | `generateRawScan()` 共用消費者移除 archive safety net（archive.service 不再刷新 raw-scan）；改列 knowledge-init + `prospec upgrade`（issue #57） | REQ-KNOW-023 (MODIFIED) |
+| 2026-07-05 | preserve-curated-index-columns | curated index 欄位收斂為 module-map.yaml 單一真相、index.md ## Modules 由其生成；updateIndex 自 module-map 生成 + execute() no-clobber 回填遷移（下游零遺失）；index-table.ts 保真工具（issue #58 根治 #57 止血的 clobber） | US-303; REQ-TYPES-056, REQ-LIB-026, REQ-KNOW-036 (ADDED); REQ-KNOW-008 (MODIFIED) |

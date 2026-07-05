@@ -255,6 +255,8 @@ describe('parseIndexModules', () => {
       keywords: ['schema', 'zod'],
       aliases: ['型別', 'type definitions'],
       description: 'Zod schemas',
+      rationale: 'leaf',
+      dependsOn: ['—'],
     });
   });
 
@@ -271,6 +273,8 @@ describe('parseIndexModules', () => {
       keywords: ['fs', 'drift'],
       aliases: ['工具'],
       description: 'Shared utilities',
+      rationale: 'infra',
+      dependsOn: ['types'],
     });
   });
 
@@ -287,6 +291,9 @@ describe('parseIndexModules', () => {
       keywords: ['drift-checker'],
       aliases: ['工具'],
       description: 'Shared utilities',
+      // this fixture header has no Rationale / Depends On columns → empty
+      rationale: '',
+      dependsOn: [],
     });
   });
 
@@ -317,6 +324,8 @@ describe('parseIndexModules', () => {
       keywords: ['grade', 'question'],
       aliases: ['測驗'],
       description: 'Quiz',
+      rationale: 'core',
+      dependsOn: ['auth'],
     });
   });
 });

@@ -6,12 +6,12 @@ import { renderTemplate } from '../lib/template.js';
 import { mergeContent, hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
-import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+import { parseYaml, stringifyYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
 import { loadFeatureMap } from '../lib/knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
-import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR, INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 import { buildIndexTemplateContext } from '../lib/index-template.js';
+import { buildIndexTable, backfillCuratedFromIndex, type IndexRowModule } from '../lib/index-table.js';
 
 // --- Interfaces (Task 5: REQ-SERVICES-023) ---
 
@@ -232,7 +232,7 @@ export async function markModuleDeprecated(
  * Update index.md module table within prospec:auto-start/end markers.
  */
 export async function updateIndex(
-  modules: Array<{ name: string; description: string; status: string }>,
+  modules: IndexRowModule[],
   options: {
     cwd: string;
     baseDir: string;
@@ -248,23 +248,11 @@ export async function updateIndex(
   const conventionScan = await scanDir('_*.md', { cwd: path.join(options.cwd, options.knowledgeBasePath) });
   const { core, demand } = filterConventions(conventionScan.files, options.additionalCore);
 
-  // Build the table — header, separator, AND each row derive their
-  // column count from the canonical schema (types/knowledge.ts), so adding or
-  // reordering a column is a one-line edit there.
-  const tableRows = modules
-    .map((m) => {
-      const cells = INDEX_TABLE_COLUMNS.map((_, i) =>
-        i === INDEX_COLUMN.MODULE
-          ? m.name
-          : i === INDEX_COLUMN.STATUS
-            ? m.status
-            : i === INDEX_COLUMN.DESCRIPTION
-              ? m.description
-              : '—',
-      );
-      return `| ${cells.join(' | ')} |`;
-    })
-    .join('\n');
+  // Render every column from module-map data (the single source) — curated
+  // columns (Keywords/Aliases/Rationale, Depends On via relationships.depends_on)
+  // are preserved, never blanked to `—`. Header/separator/cell order derive from
+  // the canonical schema in types/knowledge.ts.
+  const modulesTable = buildIndexTable(modules);
 
   // One context feeds both branches below AND the other index emitters
   // (init / knowledge init / knowledge generate) via the shared partial, so
@@ -276,7 +264,7 @@ export async function updateIndex(
     knowledgeBasePath: options.knowledgeBasePath,
     coreConventions: core,
     demandConventions: demand,
-    modulesTable: `${INDEX_TABLE_HEADER}\n${INDEX_TABLE_SEPARATOR}\n${tableRows}`,
+    modulesTable,
   });
 
   // Read existing index.md for in-place auto-block replacement
@@ -510,7 +498,28 @@ export async function execute(
     }
   }
 
-  // Update index.md with all known modules
+  // Migrate curated columns into module-map (the single source) before rebuilding
+  // the index. A project that curated Keywords/Aliases/Rationale/Description in
+  // index.md gets them seeded into module-map on the fly — no-clobber (never
+  // overwrites a non-empty module-map value) and idempotent — so the rebuilt
+  // index preserves them instead of blanking to `—`.
+  const existingIndex = await readFileIfExists(path.join(cwd, baseDirPath, 'index.md'));
+  if (existingIndex && fs.existsSync(moduleMapPath)) {
+    try {
+      const moduleMap = parseYaml<ModuleMap>(fs.readFileSync(moduleMapPath, 'utf-8'), moduleMapPath);
+      const { moduleMap: migrated, changed } = backfillCuratedFromIndex(existingIndex, moduleMap);
+      if (changed) {
+        const doc = parseYamlDocument(fs.readFileSync(moduleMapPath, 'utf-8'), moduleMapPath);
+        mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>);
+        await atomicWrite(moduleMapPath, stringifyYamlDocument(doc));
+      }
+    } catch {
+      // Backfill is a non-fatal migration convenience — a malformed module-map
+      // or index must not block the index rebuild below.
+    }
+  }
+
+  // Update index.md with all known modules (module-map now holds curated columns)
   const allModules = collectAllModules(result, moduleMapPath);
   if (allModules.length > 0) {
     const indexFile = await updateIndex(allModules, {
@@ -581,15 +590,18 @@ function featurePrefixModules(featureMap: FeatureMap | null, prefix: string): st
 export function collectAllModules(
   result: KnowledgeUpdateResult,
   moduleMapPath: string,
-): Array<{ name: string; description: string; status: string }> {
-  const modules: Array<{ name: string; description: string; status: string }> = [];
+): IndexRowModule[] {
+  const modules: IndexRowModule[] = [];
 
   // result.deprecated holds lowercased delta-spec module names; module-map
   // entry.name is canonical-case. Compare case-insensitively (as updateModuleMap
   // and buildModulePathMap already do) so a mixed-case module isn't mislabeled.
   const deprecatedSet = new Set(result.deprecated.map((n) => n.toLowerCase()));
 
-  // Try reading existing module-map for known modules
+  // Try reading existing module-map for known modules. module-map.yaml is the
+  // single source for the curated columns (keywords/aliases/rationale, and
+  // Depends On via relationships.depends_on) — carry them through so updateIndex
+  // renders them instead of blanking to `—`.
   try {
     const content = fs.readFileSync(moduleMapPath, 'utf-8');
     const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
@@ -599,15 +611,19 @@ export function collectAllModules(
         name: entry.name,
         description: entry.description ?? `${entry.name} module`,
         status: isDeprecated ? 'Deprecated' : 'Active',
+        keywords: entry.keywords ?? [],
+        aliases: entry.aliases ?? [],
+        rationale: entry.rationale ?? '',
+        dependsOn: entry.relationships?.depends_on ?? [],
       });
     }
   } catch {
-    // Fallback: use result data only
+    // Fallback: use result data only (curated columns unknown → left empty).
     for (const name of [...result.created, ...result.updated]) {
-      modules.push({ name, description: `${name} module`, status: 'Active' });
+      modules.push({ name, description: `${name} module`, status: 'Active', keywords: [], aliases: [], rationale: '', dependsOn: [] });
     }
     for (const name of result.deprecated) {
-      modules.push({ name, description: `${name} module`, status: 'Deprecated' });
+      modules.push({ name, description: `${name} module`, status: 'Deprecated', keywords: [], aliases: [], rationale: '', dependsOn: [] });
     }
   }
 

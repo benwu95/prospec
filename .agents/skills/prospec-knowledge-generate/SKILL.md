@@ -178,6 +178,14 @@ If a module's README would exceed the ≤100 line / ≤400 token budget even aft
 
 ### Step 5: Populate prospec/index.md
 
+> **Single source = `module-map.yaml`.** The curated columns — Keywords, Aliases, Rationale,
+> Description, and Depends On (via `relationships.depends_on`) — are curated in
+> `prospec/ai-knowledge/module-map.yaml`; `prospec/index.md`'s `prospec:auto` block is
+> **generated** from it. Curate these fields in `module-map.yaml`, not by hand-editing the index
+> table — `/prospec-knowledge-update` regenerates the auto block from `module-map.yaml` (blanking any
+> index-only curated cell). Fill the table below only for a first-pass bootstrap; the values belong in
+> `module-map.yaml`.
+
 Fill module table within `prospec:auto-start/end` markers using new format:
 
 ```

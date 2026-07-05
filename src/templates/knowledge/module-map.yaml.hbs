@@ -6,7 +6,10 @@ modules:
 {{#each this.paths}}      - "{{this}}"
 {{/each}}    keywords:
 {{#each this.keywords}}      - {{this}}
-{{/each}}{{#if this.relationships}}    relationships:
+{{/each}}{{#if this.aliases}}    aliases:
+{{#each this.aliases}}      - {{this}}
+{{/each}}{{/if}}{{#if this.rationale}}    rationale: "{{this.rationale}}"
+{{/if}}{{#if this.relationships}}    relationships:
 {{#if this.relationships.depends_on}}      depends_on:
 {{#each this.relationships.depends_on}}        - {{this}}
 {{/each}}{{/if}}{{#if this.relationships.used_by}}      used_by:
