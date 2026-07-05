@@ -46,6 +46,24 @@ Different derived artifacts have different rightful update times — the gates a
 - **AI Knowledge** (module READMEs) tracks the current code; updated by `/prospec-knowledge-update` at any point. `/prospec-verify` grades only **pre-existing Knowledge ↔ code drift**; lag behind the change being verified is not a grade input (informational only). The knowledge-sync **prevention point is the `/prospec-verify` S/A commit prompt**: S/A is the last gate that can require code changes, so syncing there — folded into the feature commit — is not re-staled by later fixes, and a source-only commit therefore does not flip `knowledge-health` stale. The `/prospec-archive` Entry Gate is the **backstop**: it re-confirms the sync and still refuses to archive until affected-module READMEs reflect the change's final state (defense in depth — the sync is moved earlier, not removed).
 - **Feature Specs** (`specs/features/`) describe *graduated* (shipped/archived) capabilities. They are updated **only** by `/prospec-archive` (Phase 3.5 graduation). A Feature Spec that does not yet reflect an un-archived change is the normal pre-archive state — so `/prospec-verify` **does NOT gate on Feature Spec freshness**; the spec graduates when the change archives. This keeps verify (gate) and archive (the sole Feature Spec writer) from forming a deadlock.
 
+## Escaped-defect registration (`introduced_by`)
+
+A bug-fix change MAY name the earlier change whose gates let the defect through, so
+per-gate escaped-defect rate becomes trackable (the only ground-truth accuracy signal).
+In `metadata.yaml`:
+
+```yaml
+introduced_by: <change-name>   # the change whose gates missed this defect
+```
+
+- **Value**: the offending change's directory name (a plain string) — e.g.
+  `introduced_by: fix-init-clobber-add-upgrade` for the P0 defect that shipped as issue #48.
+- **Optional, convention-only**: absent on a non-bug-fix change. The schema does not require
+  it and does **not** verify the referenced change exists — it is a registration convention,
+  not a referential-integrity check (no drift enforcement).
+- **When to set it**: once the offending change is identified — at `/prospec-new-story` for the
+  fix, or back-filled by hand onto an existing bug-fix change's metadata.
+
 ## Rules
 
 - The skill that owns a transition MUST update `metadata.yaml` `status` when it completes its phase.

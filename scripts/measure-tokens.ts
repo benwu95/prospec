@@ -6,12 +6,15 @@ import {
   effectiveInputCostUsd,
   outputCostUsd,
   savingRatio,
+  TOKEN_ESTIMATOR_LABEL,
 } from '../src/lib/token-accounting.js';
 import {
   ASSEMBLY_STRATEGIES,
   DEFAULT_REPORT_FILENAME,
+  DEFAULT_SIZE_REPORT_FILENAME,
   MEASUREMENT_BASELINES,
   MeasurementReportSchema,
+  SizeReportSchema,
   type AssemblyMeasurement,
   type BaselineComparison,
   type MeasurementReport,
@@ -29,6 +32,7 @@ import {
   AssemblyError,
   type Corpus,
 } from './measure/assemble.js';
+import { buildSizeReport } from './measure/offline.js';
 
 /**
  * Token measurement benchmark runner (mode A, offline).
@@ -37,10 +41,15 @@ import {
  *   pnpm measure:tokens [--provider anthropic[,openai,google]]
  *                       [--budget 10] [--report measurement-report.json]
  *                       [--prospec-glossary]
+ *   pnpm measure:tokens --offline [--report size-report.json] [--prospec-glossary]
  *
  * Sends each assembled context twice (cold + warm, same assembly) per
  * strategy and records real provider usage. No thresholds, no CI gating —
  * the output is an honest report for humans.
+ *
+ * `--offline` needs no API key: it estimates context size with the
+ * deterministic char/4 heuristic and writes a SizeReport (no cache, no cost —
+ * those require a live provider call).
  *
  * Everything that can fail without an API call (corpus, repo snapshot,
  * git commit) is resolved up front, before any money is spent.
@@ -58,6 +67,8 @@ interface CliArgs {
   /** OPT-D8 comparison: include _glossary.md in the prospec assembly. */
   prospecGlossary: boolean;
   reportPathExplicit: boolean;
+  /** Keyless mode: estimate context size only, no provider call. */
+  offline: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -72,12 +83,15 @@ function parseArgs(argv: string[]): CliArgs {
     reportPath: DEFAULT_REPORT_FILENAME,
     prospecGlossary: false,
     reportPathExplicit: false,
+    offline: false,
   };
   for (let i = 0; i < tokens.length; i += 1) {
     const arg = tokens[i];
     // pnpm forwards a literal `--` separator into argv — tolerate both forms
     if (arg === '--') continue;
-    if (arg === '--prospec-glossary') {
+    if (arg === '--offline') {
+      args.offline = true;
+    } else if (arg === '--prospec-glossary') {
       args.prospecGlossary = true;
     } else if (arg === '--provider') {
       args.providers = [...new Set((tokens[++i] ?? '').split(',').filter(Boolean))];
@@ -98,13 +112,15 @@ function parseArgs(argv: string[]): CliArgs {
       args.reportPath = value;
       args.reportPathExplicit = true;
     } else {
-      console.error(`Unknown option: ${arg}. Valid: --provider, --budget, --report, --prospec-glossary`);
+      console.error(`Unknown option: ${arg}. Valid: --provider, --budget, --report, --prospec-glossary, --offline`);
       process.exit(1);
     }
   }
-  // glossary runs default to a separate report so the main report is not overwritten
-  if (args.prospecGlossary && !args.reportPathExplicit) {
-    args.reportPath = DEFAULT_REPORT_FILENAME.replace(/\.json$/, '.glossary.json');
+  // Default report filename: offline writes a size report; a glossary run keeps
+  // its own file so the main report is not overwritten (both suffixes compose).
+  if (!args.reportPathExplicit) {
+    const base = args.offline ? DEFAULT_SIZE_REPORT_FILENAME : DEFAULT_REPORT_FILENAME;
+    args.reportPath = args.prospecGlossary ? base.replace(/\.json$/, '.glossary.json') : base;
   }
   return args;
 }
@@ -257,6 +273,29 @@ async function runProvider(
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const cwd = process.cwd();
+
+  // Offline: estimate context size with no provider call (no API key needed).
+  if (args.offline) {
+    const gitCommit = execSync('git rev-parse HEAD', { cwd }).toString().trim();
+    const corpus = loadCorpus(path.join(cwd, CORPUS_DIR));
+    const files = await listRepoFiles(cwd);
+    const contents = readRepoContents(cwd, files);
+    const fullDump = assembleFullDump(contents);
+    const { report, skipped } = buildSizeReport(
+      { corpus, contents, fullDump, includeGlossary: args.prospecGlossary },
+      { git_commit: gitCommit, generated_at: new Date().toISOString() },
+    );
+    const validated = SizeReportSchema.parse(report);
+    await atomicWrite(path.join(cwd, args.reportPath), JSON.stringify(validated, null, 2) + '\n');
+    for (const s of skipped) console.warn(`  Skipped ${s.task_id}: ${s.reason}`);
+    console.log(
+      `\nOffline size estimate written to ${args.reportPath} (estimator: ${TOKEN_ESTIMATOR_LABEL}).\n` +
+        'Deterministic char-based size estimate — no API call. Cache behavior and $ cost require a provider API key and are NOT part of this report.\n' +
+        'View with: prospec measure --offline',
+    );
+    return;
+  }
+
   const explicit = args.providers !== undefined;
 
   if (explicit) {
@@ -276,7 +315,10 @@ async function main(): Promise<void> {
     console.warn(`Skipping ${adapter.provider}: no API key (set ${adapter.envKeys.join(' or ')})`);
   }
   if (available.length === 0) {
-    console.error('No provider has an API key set. Nothing measured; no report written.');
+    console.error(
+      'No provider has an API key set. Nothing measured; no report written. ' +
+        'Run with --offline for a keyless size estimate.',
+    );
     process.exit(1);
   }
 

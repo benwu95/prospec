@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2023%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2056%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -597,8 +597,8 @@ deliberately not included in this version.
 
 | Command | Description |
 |---------|-------------|
-| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | Run the offline benchmark: assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider) |
-| `prospec measure [--report <path>]` | Display the measurement report (read-only — never calls an API, never burns tokens) |
+| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>] [-- --offline]` | Assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider). `--offline` skips all provider calls and writes a keyless char-based **size estimate** to `size-report.json` — cache behavior and $ cost still need an API key |
+| `prospec measure [--report <path>] [--offline]` | Display the measurement report (read-only — never calls an API, never burns tokens). `--offline` displays the keyless `size-report.json` size estimate instead |
 
 The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
 (`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
@@ -675,7 +675,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2023 tests)
+# Run all tests (2056 tests)
 pnpm test
 
 # Watch mode
@@ -688,9 +688,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2023 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1313 tests
-- Contract tests (CLI output + Skill format): 629 tests
+**Test Coverage**: 2056 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1343 tests
+- Contract tests (CLI output + Skill format): 632 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
 

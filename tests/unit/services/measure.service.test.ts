@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
-import { execute } from '../../../src/services/measure.service.js';
+import { execute, executeOffline } from '../../../src/services/measure.service.js';
 import { MeasurementReportInvalid, PrerequisiteError } from '../../../src/types/errors.js';
 import {
   MeasurementReportSchema,
   type MeasurementReport,
+  type SizeReport,
 } from '../../../src/types/measurement.js';
 
 vi.mock('node:fs', async () => {
@@ -176,5 +177,59 @@ describe('measure.service execute', () => {
 
     expect(error).toBeInstanceOf(MeasurementReportInvalid);
     expect((error as MeasurementReportInvalid).message).toContain('RangeError: schema blew up');
+  });
+});
+
+const validSizeReport: SizeReport = {
+  corpus: 'sdd-tasks-v1',
+  git_commit: 'abc1234def5678',
+  generated_at: '2026-07-05T00:00:00.000Z',
+  estimator: 'chars-per-token:4',
+  tasks: [
+    {
+      task_id: 'add-knowledge-service',
+      estimates: [
+        { strategy: 'full-dump', cold_input_tokens: 142_000 },
+        { strategy: 'naive-rag', cold_input_tokens: 5_000 },
+        { strategy: 'prospec', cold_input_tokens: 4_000 },
+      ],
+    },
+  ],
+  comparisons: [
+    { baseline: 'full-dump', baseline_input_tokens: 142_000, prospec_input_tokens: 4_000, input_saving_ratio: 0.9718 },
+    { baseline: 'naive-rag', baseline_input_tokens: 5_000, prospec_input_tokens: 4_000, input_saving_ratio: 0.2 },
+  ],
+};
+
+describe('measure.service executeOffline', () => {
+  it('reads and validates an existing size report (default filename)', async () => {
+    vol.fromJSON({ '/proj/size-report.json': JSON.stringify(validSizeReport) });
+
+    const result = await executeOffline({ cwd: '/proj' });
+
+    expect(result.sizeReport.estimator).toBe('chars-per-token:4');
+    expect(result.reportPath).toBe('/proj/size-report.json');
+  });
+
+  it('does not fall back to the online default filename', async () => {
+    // Only the online report exists; offline must look for size-report.json and miss.
+    vol.fromJSON({ '/proj/measurement-report.json': JSON.stringify(validReport) });
+
+    const error = await executeOffline({ cwd: '/proj' }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(PrerequisiteError);
+  });
+
+  it('throws PrerequisiteError pointing at --offline when the size report is missing', async () => {
+    vol.fromJSON({ '/proj/.keep': '' });
+
+    const error = await executeOffline({ cwd: '/proj' }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(PrerequisiteError);
+    expect((error as PrerequisiteError).suggestion).toMatch(/measure:tokens --offline/);
+  });
+
+  it('throws MeasurementReportInvalid when the size report fails schema (empty tasks)', async () => {
+    vol.fromJSON({ '/proj/size-report.json': JSON.stringify({ ...validSizeReport, tasks: [] }) });
+
+    await expect(executeOffline({ cwd: '/proj' })).rejects.toThrow(MeasurementReportInvalid);
   });
 });

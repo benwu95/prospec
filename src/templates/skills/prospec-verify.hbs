@@ -204,6 +204,14 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `{{knowledge_base_path}}/_status-lifecycle.md`.
 
+**Record the verify result to `quality_log` (structured).** Append one `skill: prospec-verify` entry to `metadata.yaml` `quality_log` carrying:
+- `grade` — the S/A/B/C/D quality grade (structured, machine-aggregatable);
+- `dimensions` — one `{ name, result }` per graded 5+1 dimension (each `PASS`/`WARN`/`FAIL`; omit a `not-applicable` dimension);
+- `result` — the gate three-state (`PASS` at grade S/A, else `WARN`/`FAIL`); **never overwrite `result` with the grade** — the grade lives in `grade`;
+- `warnings` — any WARN/FAIL detail strings.
+
+The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
+
 > **`metadata.scale: backfill`**: grade S/A means the spec is **faithful to the code** (fidelity),
 > reached on the spec-fidelity contract in 2/5 — pre-existing code-quality debt (3/5) and missing
 > brownfield tests (5/5) are informational, not grade inputs. The `verified` gate is unchanged; the
@@ -252,7 +260,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Fold each WARN/FAIL into the same `prospec-verify` `quality_log` entry written in Status Update (`skill` / `date` / `result` / `warnings`, plus the structured `grade` / `dimensions`) — one entry per verify run, not a second one. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

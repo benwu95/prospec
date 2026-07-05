@@ -3091,3 +3091,34 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
     expect(section).toContain('between `plan` and `tasks`');
   });
 });
+
+describe('Structured quality_log + escaped-defect registration (issue #61)', () => {
+  it('prospec-verify Status Update instructs a structured grade + dimensions quality_log entry', () => {
+    const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(verify, '## Status Update');
+    expect(section).toContain('quality_log');
+    expect(section).toContain('`grade`');
+    expect(section).toContain('`dimensions`');
+    // result must NOT be overwritten by the grade — the reconciliation contract
+    expect(section).toMatch(/never overwrite `result`/i);
+    expect(section).toContain('hasVerifyGrade');
+  });
+
+  it('prospec-review records structured criticals/majors counts every round', () => {
+    const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(review, '### Review Provenance (machine gate)');
+    expect(section).toContain('criticals_found');
+    expect(section).toContain('criticals_fixed');
+    expect(section).toContain('majors');
+  });
+
+  it('the shipped status-lifecycle template documents the introduced_by convention + example', () => {
+    const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lifecycle, '## Escaped-defect registration (`introduced_by`)');
+    expect(section).toContain('introduced_by');
+    expect(section).toMatch(/convention-only|does \*\*not\*\* verify/);
+    expect(section).toContain('<change-name>');
+    // REQ-TYPES-058 AC2: a concrete example value, not just the <change-name> placeholder
+    expect(section).toMatch(/introduced_by:\s*[a-z][a-z0-9-]+/);
+  });
+});

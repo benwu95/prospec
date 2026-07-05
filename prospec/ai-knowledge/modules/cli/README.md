@@ -20,11 +20,11 @@
 | `src/cli/commands/change-plan.ts` | `prospec change plan` — generate implementation plan; `--force` overwrites an existing plan.md/delta-spec.md |
 | `src/cli/commands/change-tasks.ts` | `prospec change tasks` — break plan into tasks; `--force` overwrites an existing tasks.md |
 | `src/cli/commands/agent-sync.ts` | `prospec agent sync` — multi-agent config deployment; the formatter (`agent-sync-output.ts`) reports swept orphan skills (`removedSkills`) alongside warnings/hints |
-| `src/cli/commands/measure.ts` | `prospec measure` — read-only token measurement report display |
+| `src/cli/commands/measure.ts` | `prospec measure [--offline]` — read-only token measurement report display; `--offline` displays the keyless `size-report.json` size estimate instead |
 | `src/cli/commands/check.ts` | `prospec check` — drift check; `--strict` ∧ hasFail → exitCode 1 (warn/skipped never affect it); `--record-review` records the active change's review baseline (`--change <name>` disambiguates when several are in flight) |
 | `src/cli/commands/mcp.ts` | `prospec mcp serve [--cwd <path>]` — read-only MCP server on stdio (`--cwd` pins the served project root, default `process.cwd()`, so one agent can run several project servers); action writes nothing to stdout |
 | `src/cli/formatters/mcp-output.ts` | Startup banner to STDERR by design — stdout is the MCP protocol channel |
-| `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts; report-derived strings go through `sanitizeTerminal()` |
+| `src/cli/formatters/measure-output.ts` | Per-provider sections, two baselines, warm asterisk — numbers only, no verdicts; `formatSizeOutput` renders the offline size table (size + saving ratio only, no cache/cost columns, no thresholds); report-derived strings go through `sanitizeTerminal()` |
 | `src/cli/formatters/check-output.ts` | Five check statuses with explicit skip reasons; re-exports `sanitizeTerminal()` from `sanitize.ts` to strip C0/C1 from untrusted repo strings |
 | `src/cli/formatters/error-output.ts` | handleError() — error type dispatch to stderr; error message/suggestion strings go through `sanitizeTerminal()` |
 | `src/cli/formatters/sanitize.ts` | Shared helper (not a formatXxxOutput module) — `sanitizeTerminal()` codepoint-based stripper (C0 except tab/newline, plus C1/DEL); single source consumed by check/measure/error output to close the ANSI/OSC-injection gap |

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2023%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2056%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -580,8 +580,8 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 
 | 命令 | 說明 |
 |------|------|
-| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>]` | 執行離線 benchmark：從活的 repo 組裝 full-dump / naive-rag / prospec 三種 context，記錄 provider API 真實 usage（需 API key；預設每 provider 上限 US$10） |
-| `prospec measure [--report <path>]` | 顯示量測報告（唯讀 —— 不呼叫 API、不燒 token） |
+| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>] [-- --offline]` | 從活的 repo 組裝 full-dump / naive-rag / prospec 三種 context，記錄 provider API 真實 usage（需 API key；預設每 provider 上限 US$10）。`--offline` 跳過所有 provider 呼叫，改以字元數估算寫出 keyless **size 報告**（`size-report.json`）—— cache 行為與 $ 成本仍需 API key |
+| `prospec measure [--report <path>] [--offline]` | 顯示量測報告（唯讀 —— 不呼叫 API、不燒 token）。`--offline` 改為顯示 keyless `size-report.json` size 估算 |
 
 harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
 
@@ -648,7 +648,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2023 個測試）
+# 執行所有測試（2056 個測試）
 pnpm test
 
 # Watch 模式
@@ -661,9 +661,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2023 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1313 tests
-- Contract tests（CLI 輸出 + Skill 格式）：629 tests
+**測試覆蓋率**：2056 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1343 tests
+- Contract tests（CLI 輸出 + Skill 格式）：632 tests
 - Integration tests：38 tests
 - E2E tests：43 tests
 

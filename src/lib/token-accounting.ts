@@ -106,6 +106,11 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
+/** Provenance label for how `estimateTokens` counts — the single source both the
+ *  offline size-report producer and any display cite, so the heuristic is named
+ *  in one place (never a hand-copied magic string). */
+export const TOKEN_ESTIMATOR_LABEL = `chars-per-token:${CHARS_PER_TOKEN}`;
+
 /**
  * Walk items in given (ranked) order, selecting each whose estimated token
  * count fits the remaining budget. Oversized items are skipped, not fatal.

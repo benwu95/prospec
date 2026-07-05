@@ -856,12 +856,16 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
   return { available: true, changes };
 }
 
-/** True when quality_log carries a /prospec-verify entry graded S or A. */
+/** True when quality_log carries a /prospec-verify entry graded S or A.
+ *  Prefers the structured `grade` field (issue #61); falls back to the legacy
+ *  shape where the grade was written into `result` (pre-#61 metadata) so already
+ *  archived changes still satisfy the gate. */
 function hasVerifyGrade(quality_log: unknown): boolean {
   if (!Array.isArray(quality_log)) return false;
   return quality_log.some((entry) => {
     if (entry === null || typeof entry !== 'object') return false;
-    const e = entry as { skill?: unknown; result?: unknown };
-    return e.skill === 'prospec-verify' && (e.result === 'S' || e.result === 'A');
+    const e = entry as { skill?: unknown; result?: unknown; grade?: unknown };
+    if (e.skill !== 'prospec-verify') return false;
+    return e.grade === 'S' || e.grade === 'A' || e.result === 'S' || e.result === 'A';
   });
 }

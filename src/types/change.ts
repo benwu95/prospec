@@ -17,12 +17,34 @@ export const CHANGE_SCALES = ['quick', 'standard', 'full', 'backfill'] as const;
 /** Severity vocabulary shared with Entry/Exit gates and verify (no fourth state). */
 export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;
 
-/** One Entry/Exit gate record, appended per skill stage for cross-stage traceability. */
+/** /prospec-verify quality grade vocabulary (S/A graduate; B/C/D do not). */
+export const VERIFY_GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
+
+/** One /prospec-verify dimension outcome, for machine-aggregatable quality trends. */
+export const QualityDimensionSchema = z.object({
+  name: z.string(),
+  result: z.enum(GATE_RESULTS),
+});
+
+/** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
+ *  `result` is the gate three-state (PASS/WARN/FAIL). The structured fields below are
+ *  optional and machine-aggregatable (BL — issue #61): verify writes `grade`+`dimensions`,
+ *  review writes the critical/major counts. Absent keeps every existing entry valid. */
 export const QualityLogEntrySchema = z.object({
   skill: z.string(),
   date: z.string(), // ISO 8601 date
   result: z.enum(GATE_RESULTS),
   warnings: z.array(z.string()).default([]),
+  /** /prospec-verify grade; `result` stays the gate three-state, never a grade. */
+  grade: z.enum(VERIFY_GRADES).optional(),
+  /** /prospec-verify 5+1 dimension results. */
+  dimensions: z.array(QualityDimensionSchema).optional(),
+  /** /prospec-review criticals surfaced this round. */
+  criticals_found: z.number().int().nonnegative().optional(),
+  /** /prospec-review criticals auto-fixed this round. */
+  criticals_fixed: z.number().int().nonnegative().optional(),
+  /** /prospec-review majors surfaced this round (advisory, never counted in grade). */
+  majors: z.number().int().nonnegative().optional(),
 });
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
@@ -53,6 +75,11 @@ export const ChangeMetadataSchema = z.object({
   // flags the change stale when it no longer matches. Optional keeps existing
   // metadata valid and marks a change that has not been reviewed yet.
   review_provenance: ReviewProvenanceSchema.optional(),
+  // Escaped-defect registration (issue #61): on a bug-fix change, names the change
+  // that missed the defect (its change-name string), so per-gate escaped-defect rate
+  // can be tracked. Optional keeps existing metadata valid; a convention + example
+  // live in `_status-lifecycle.md`. No referential-integrity check by design.
+  introduced_by: z.string().optional(),
 });
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
@@ -73,5 +100,7 @@ export function isStatusBefore(
 }
 export type ChangeScale = (typeof CHANGE_SCALES)[number];
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
+export type QualityDimension = z.infer<typeof QualityDimensionSchema>;
+export type VerifyGrade = (typeof VERIFY_GRADES)[number];
 export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;
 export type GateResult = (typeof GATE_RESULTS)[number];
