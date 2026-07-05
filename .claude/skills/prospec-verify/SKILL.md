@@ -1,6 +1,6 @@
 ---
 name: prospec-verify
-description: "Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D). Triggers: verify, check, audit, quality, done, grade, 驗證, 檢查, 稽核, 品質, 完成, 評級"
+description: "Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D). Triggers: verify, audit, quality, done, 驗證, 稽核, 品質, 完成, 評級"
 ---
 
 # Prospec Verify Skill

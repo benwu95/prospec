@@ -60,37 +60,37 @@ export interface AgentConfig {
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-explore',
-    description: 'Exploration mode — acts as a thinking partner to clarify requirements, investigate problems, and compare solutions.',
+    description: 'Explore - Requirement exploration, problem investigation, and solution comparison partner.',
     triggers: ['explore', 'compare', 'investigate', 'unsure', 'clarify'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-new-story',
-    description: 'Create a new change request. Guides the user through describing the requirement and calls prospec change story to create a structured proposal.md and metadata.yaml.',
-    triggers: ['new feature', 'requirement', 'story', 'I want to', 'change'],
+    description: 'New Story - Create change requests by guiding User Story and acceptance criteria definition.',
+    triggers: ['new feature', 'requirement', 'story', 'I want to'],
     type: 'Planning',
     cliDependency: 'prospec change story',
     hasReferences: true,
   },
   {
     name: 'prospec-plan',
-    description: 'Generate an implementation plan from a change request. Reads proposal.md, related module AI Knowledge, and the Constitution to produce a structured plan.md and delta-spec.md.',
-    triggers: ['plan', 'design architecture', 'how to implement'],
+    description: 'Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).',
+    triggers: ['plan', 'architecture'],
     type: 'Planning',
     cliDependency: 'prospec change plan',
     hasReferences: true,
   },
   {
     name: 'prospec-design',
-    description: 'Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.',
+    description: 'Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.',
     triggers: ['design', 'UI spec', 'generate design', 'extract design'],
     type: 'Planning',
     hasReferences: true,
   },
   {
     name: 'prospec-tasks',
-    description: 'Break an implementation plan into an actionable task checklist, ordered by architecture layer, in checkbox format with complexity estimates and parallelization markers.',
+    description: 'Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md).',
     triggers: ['break down', 'tasks', 'task list', 'work items', 'how to split'],
     type: 'Planning',
     cliDependency: 'prospec change tasks',
@@ -98,78 +98,78 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-ff',
-    description: 'Fast-forward — generate all planning artifacts (story → plan → tasks) in one pass. Suited for moving fast when requirements are clear.',
-    triggers: ['fast-forward', 'ff', 'all at once', 'quick plan'],
+    description: 'Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks).',
+    triggers: ['fast-forward', 'ff', 'all at once'],
     type: 'Planning',
     cliDependency: 'prospec change story + plan + tasks',
     hasReferences: true,
   },
   {
     name: 'prospec-implement',
-    description: 'Implement tasks from tasks.md one by one. Reads the task list, implements in order, and checks off each completed checkbox.',
-    triggers: ['implement', 'start coding', 'write code', 'execute tasks'],
+    description: 'Implementation - Execute tasks from the task list, implementing features one by one.',
+    triggers: ['implement', 'start coding', 'write code'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-review',
-    description: 'Adversarial code review → fix loop. Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec REQs, dependency direction, and module conventions.',
+    description: 'Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.',
     triggers: ['review', 'code review', 'adversarial review', 'find bugs', 'critical'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-verify',
-    description: 'Verify the implementation against specs and plan. Runs full Constitution validation, tasks.md completion, spec consistency, and test pass rate.',
-    triggers: ['verify', 'check', 'audit', 'quality', 'done', 'grade'],
+    description: 'Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).',
+    triggers: ['verify', 'audit', 'quality', 'done'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-knowledge-generate',
-    description: 'Generate AI Knowledge. Reads raw-scan.md, analyzes project structure, autonomously decides module boundaries, and produces module READMEs and the index.',
-    triggers: ['knowledge', 'generate knowledge', 'analyze project', 'module split'],
+    description: 'Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index.',
+    triggers: ['generate knowledge', 'analyze project', 'module split'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-archive',
-    description: 'Archive completed changes. Scans the changes directory, moves verified changes to archive, generates summary.md, and gates archiving on Knowledge sync.',
+    description: 'Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.',
     triggers: ['archive', 'clean up', 'wrap up', 'spec sync'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-knowledge-update',
-    description: 'Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, index.md, and module-map.yaml.',
+    description: 'Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, index.md, and module-map.yaml incrementally.',
     triggers: ['knowledge update', 'incremental update', 'sync knowledge', 'update docs'],
     type: 'Lifecycle',
     hasReferences: false,
   },
   {
     name: 'prospec-backfill-spec',
-    description: 'Backfill a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
-    triggers: ['backfill spec', 'spec from code', 'brownfield', 'backfill', 'document existing code'],
+    description: 'Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
+    triggers: ['backfill spec', 'spec from code', 'brownfield', 'document existing code'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-promote-backfill',
-    description: 'Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal + delta-spec + metadata with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan/tasks; the single, repeatable draft→scaffold step; never writes the trust zone.',
-    triggers: ['promote backfill', 'formalize backfill', 'backfill to delta-spec', 'scaffold backfill', 'promote draft'],
+    description: 'Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone.',
+    triggers: ['promote backfill', 'formalize backfill', 'backfill to delta-spec', 'promote draft'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-learn',
-    description: 'Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (accumulating ledger → team playbook → Constitution rule).',
+    description: 'Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).',
     triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-quickstart',
-    description: 'One-command onboarding finisher. After `prospec quickstart` scaffolds the project, this Skill localizes skill triggers to the configured language, re-syncs agent config, prepares the knowledge scan, and chains into knowledge generation. Excluded from the always-loaded entry config (one-time use).',
+    description: 'Quickstart Onboarding Finisher - localize skill triggers, re-sync agent config, prepare the knowledge scan, and chain into knowledge generation.',
     triggers: ['quickstart', 'setup', 'bootstrap', 'onboard', 'get started'],
     type: 'Lifecycle',
     cliDependency: 'prospec quickstart',
@@ -178,7 +178,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-upgrade',
-    description: 'Upgrade Prospec to a new CLI version. After `prospec upgrade` refreshes the canonical (shipped) docs and emits a report with a docs inventory, this Skill translates triggers for newly-added skills (fill-missing only), migrates outdated init-doc formats, and creates docs the inventory marks missing — each with user confirmation and a diff/content preview — then re-syncs. Never auto-writes the curated trust zone. Excluded from the always-loaded entry config (periodic one-time use).',
+    description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, work through the report's docs inventory: update init-created files whose format drifted and create missing ones (asking consent per file), then localize triggers for newly-added skills and re-sync.",
     triggers: ['upgrade', 'upgrade prospec', 'migrate version', 'version bump'],
     type: 'Lifecycle',
     cliDependency: 'prospec upgrade',
@@ -225,4 +225,10 @@ export interface AgentSyncResult {
   skillFiles: string[];
   /** Generated reference file paths */
   referenceFiles: string[];
+  /**
+   * `prospec-*` skill directories removed as orphans — a shipped skill that was
+   * renamed or dropped leaves a stale SKILL.md that would keep participating in
+   * dispatch. Non-`prospec-` directories (the user's own skills) are never swept.
+   */
+  removedSkills: string[];
 }

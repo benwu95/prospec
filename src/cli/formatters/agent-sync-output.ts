@@ -72,6 +72,13 @@ export function formatAgentSyncOutput(
         );
       }
     }
+
+    // Orphan skill dirs swept (renamed/removed shipped skills)
+    if (agent.removedSkills.length > 0) {
+      lines.push(
+        `${childPrefix}${pc.yellow('−')} removed ${agent.removedSkills.length} orphan skill(s): ${agent.removedSkills.join(', ')}`,
+      );
+    }
   }
 
   // 3. Hints (next-step suggestions)

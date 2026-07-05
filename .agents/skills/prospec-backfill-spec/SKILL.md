@@ -1,6 +1,6 @@
 ---
 name: prospec-backfill-spec
-description: "Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone. Triggers: backfill spec, spec from code, brownfield, backfill, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 回填, 補規格"
+description: "Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone. Triggers: backfill spec, spec from code, brownfield, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 補規格"
 ---
 
 # Prospec Backfill Spec Skill

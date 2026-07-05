@@ -1,6 +1,6 @@
 ---
 name: prospec-new-story
-description: "New Story - Create change requests by guiding User Story and acceptance criteria definition. Triggers: new feature, requirement, story, I want to, change, 新功能, 需求, 我想要, 變更, 新增需求"
+description: "New Story - Create change requests by guiding User Story and acceptance criteria definition. Triggers: new feature, requirement, story, I want to, 新功能, 需求, 我想要, 新增需求"
 ---
 
 # Prospec New Story Skill

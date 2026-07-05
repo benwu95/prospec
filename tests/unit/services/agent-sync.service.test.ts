@@ -81,6 +81,34 @@ knowledge:
     );
   });
 
+  it('sweeps orphan prospec-* skill dirs but preserves user skills (REQ-AGNT-032)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  base_path: prospec/ai-knowledge
+`,
+      // a renamed/removed shipped skill left behind by a prior sync
+      '/project/.claude/skills/prospec-gone/SKILL.md': '# stale orphan\n',
+      // the user's OWN skill (no prospec- prefix) — must never be swept
+      '/project/.claude/skills/my-skill/SKILL.md': '# mine\n',
+    });
+
+    const result = await execute({ cwd: '/project' });
+
+    // orphan prospec-* dir removed
+    expect(fs.existsSync('/project/.claude/skills/prospec-gone')).toBe(false);
+    // user skill preserved
+    expect(fs.existsSync('/project/.claude/skills/my-skill/SKILL.md')).toBe(true);
+    // a current shipped skill still present
+    expect(fs.existsSync('/project/.claude/skills/prospec-verify/SKILL.md')).toBe(true);
+    // reported in the result
+    expect(result.agents[0]!.removedSkills).toContain('prospec-gone');
+    expect(result.agents[0]!.removedSkills).not.toContain('my-skill');
+  });
+
   it('should generate skill files for a specific CLI', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
@@ -404,7 +432,7 @@ describe('agent-sync skill_triggers warnings', () => {
     const planCall = calls.find(([name]) => name === 'skills/prospec-plan.hbs');
     const planCtx = planCall![1] as Record<string, unknown>;
     expect(planCtx.trigger_words).toBe(
-      'plan, design architecture, how to implement — or equivalent terms in Traditional Chinese (Taiwan)',
+      'plan, architecture — or equivalent terms in Traditional Chinese (Taiwan)',
     );
 
     const entryCall = calls.find(([name]) => name === 'agent-configs/entry.md.hbs');

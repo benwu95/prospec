@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   readConfig,
@@ -241,12 +242,42 @@ async function syncAgent(
     cwd,
   );
 
+  // Sweep orphaned prospec-* skill dirs (renamed/removed skills leave a stale
+  // SKILL.md that would keep participating in dispatch).
+  const removedSkills = sweepOrphanSkillDirs(agentConfig.skillPath, cwd);
+
   return {
     agent: agentConfig.name,
     configFile,
     skillFiles,
     referenceFiles,
+    removedSkills,
   };
+}
+
+/**
+ * Remove `prospec-*` skill directories under `skillPath` that are not in the
+ * current `SKILL_DEFINITIONS` — orphans left by a renamed or dropped shipped
+ * skill. The `prospec-` prefix is RESERVED for shipped skills: only
+ * `prospec-`-prefixed dirs are candidates, so a user skill under any other name
+ * (and any non-directory entry) is always preserved. A dir named `prospec-*`
+ * that is not a current skill IS removed by design — the removed names are
+ * returned and surfaced by the caller (never a silent delete), so a user must
+ * not squat the reserved `prospec-` prefix for their own skill.
+ */
+function sweepOrphanSkillDirs(skillPath: string, cwd: string): string[] {
+  const skillsDir = path.join(cwd, skillPath);
+  if (!fs.existsSync(skillsDir)) return [];
+  const known = new Set(SKILL_DEFINITIONS.map((s) => s.name));
+  const removed: string[] = [];
+  for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (!entry.name.startsWith('prospec-')) continue; // non-prospec = user skill, preserve
+    if (known.has(entry.name)) continue;
+    fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
+    removed.push(entry.name);
+  }
+  return removed.sort();
 }
 
 /**
@@ -275,6 +306,7 @@ async function syncSkillsDirSkills(
     // YAML scalar in the SKILL.md frontmatter.
     const content = renderTemplate(`skills/${skill.name}.hbs`, {
       ...templateContext,
+      skill_description: escapeYamlScalar(skill.description),
       trigger_words: escapeYamlScalar(triggerWordsBySkill.get(skill.name) ?? ''),
     });
 
