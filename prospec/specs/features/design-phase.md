@@ -1,9 +1,9 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-06-17
-story_count: 3
-req_count: 9
+last_updated: 2026-07-05
+story_count: 4
+req_count: 10
 ---
 
 # 設計整合
@@ -119,6 +119,21 @@ _(Extract Mode 行為規格已涵蓋在 REQ-DSGN-003)_
 - WHEN Phase 3 executes, THEN first read design values via adapter MCP, then implement
 - WHEN no design-spec.md, THEN warn (UI task lacks design spec)
 
+---
+
+## US-004: Design 在 SDD lifecycle 的定位 [P2]
+
+身為一個 resume 中斷工作或跑 verify 的 agent，
+我想要 design 的 lifecycle 定位明文化，
+以便判斷 design 何時介入、何時不適用，而非憑猜測。
+
+**Acceptance Scenarios:**
+- WHEN 查閱 `_status-lifecycle.md`，THEN 有明文：design 無 status、僅 `ui_scope != none` 時介入、位於 plan 與 tasks 之間
+- WHEN `ui_scope: none`，THEN design 不執行、verify V6 `not-applicable`，lifecycle 與從未 design 者相同
+
+#### REQ-TEMPLATES-138: `_status-lifecycle.md` 明文 design 定位
+`_status-lifecycle.md`（＋shipped `init/status-lifecycle.md.hbs`，雙拷貝一致）新增「Stations without a status transition」節，記 design（`ui_scope != none`、plan↔tasks 間、無 status）／review／learn，使 resume 邏輯依 workflow order 定位而非 status。
+
 ## Edge Cases
 
 - `.prospec.yaml` 無 `design.platform`：預設 html adapter
@@ -154,3 +169,4 @@ _(None)_
 | 2026-03-02 | v2-product-first | 遷移為 Feature Spec，REQ ID 從 REQ-TEMPLATES-050~058 改為 REQ-DSGN-001~009 | All |
 | 2026-06-16 | add-reverse-spec-extraction | REQ-DSGN-003 加 input=code 反向 spec 變體交叉引用（行為實質歸 sdd-workflow US-22，避免 UI feature 語意污染） | REQ-DSGN-003 (MODIFIED) |
 | 2026-06-17 | extract-backfill-spec-skill | REQ-DSGN-003 移除 input=code 反向變體交叉引用——能力抽離至獨立 skill prospec-backfill-spec；prospec-design 回歸純 Generate/Extract | REQ-DSGN-003 (MODIFIED) |
+| 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-004（design 在 lifecycle 的定位）+ REQ-TEMPLATES-138（`_status-lifecycle.md` + shipped template 明文 design 無 status、ui_scope-gated）（issue #67） | US-004, REQ-TEMPLATES-138 |

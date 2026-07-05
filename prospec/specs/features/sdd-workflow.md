@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-07-05
-story_count: 25
-req_count: 111
+story_count: 26
+req_count: 117
 ---
 
 # SDD 開發流程
@@ -533,6 +533,40 @@ plan/implement 的 Context7 步驟 graceful degradation：不可用/查無即靜
 
 ---
 
+## US-26: Scale 誠實化與儀式修剪 [P1]
+
+身為一個跑 SDD 流水線的開發者與維護者，
+我想要 `scale: quick` 在下游真減量、無消費者的儀式欄位降級、skill 間規則不互相矛盾，
+以便流程重量與變更規模相稱，且 agent 不會面對「無論怎麼選都違規」的指示。
+
+**Acceptance Scenarios:**
+- WHEN 對 `scale: quick` 跑 `/prospec-verify`，THEN Startup Loading 略去 plan/delta-spec/Feature-Spec 比對項、報告收斂為 condensed table（2/5 顯 `not-applicable`），適用維度仍全跑
+- WHEN 對 `scale: quick` 跑 `/prospec-archive`，THEN 不比 standard 淨加重（quick 專屬步驟為 delta-spec 的 diff-sourced 替代，非額外儀式）
+- WHEN 拆解任務，THEN `[P]`/`~lines` 非必填 gate 欄位（`[M]`/`[V]` kind 標記仍必填）
+- WHEN 建立 Story，THEN INVEST 逐條稽核為 advisory（不 hard-block；INVEST 仍為 Constitution `[MUST]`，於 verify 全審強制）
+- WHEN 檢視五個 SDD skill，THEN 完整 Knowledge Quality-Gate 表僅存於 `/prospec-verify`，其餘四站為一行指標註記
+- WHEN 對照 implement 與 verify 的 commit 指示，THEN 一致：commit boundary 為 verify S/A 單一提交點（無 checkpoint-commit 讓步）
+
+#### REQ-TEMPLATES-134: verify quick scale-aware 減量
+`/prospec-verify` 對 `scale: quick` 走 scale-aware 分支：略過 Startup Loading 的 plan/delta-spec/Feature-Spec 比對項、2/5 `not-applicable`、輸出 condensed 報告；1/3/4/5 維度仍全跑（減儀式非減適用維度）。
+
+#### REQ-TEMPLATES-135: archive quick 不比 standard 淨加重
+`/prospec-archive` 的 quick 專屬步驟（diff-path 模組推導、spec-impact 判定）定位為 standard 之 delta-spec 的 diff-sourced 替代（parity of purpose，implement 後才有 diff、無法更早），非額外儀式；quick 減量的真正落點在 verify。
+
+#### REQ-TEMPLATES-136: `[P]`/`~lines` 降為選填
+`/prospec-tasks` 的 `[P]` 平行標記與 `~{lines}` 估算移出 Phase Gate／Failure Condition／NEVER 的必填語境（無 skill gates on them；implement 的 `[P]` 為 best-effort reminder）；`[M]`/`[V]` kind 標記維持必填。
+
+#### REQ-TEMPLATES-137: INVEST 逐條稽核降 advisory
+`/prospec-new-story` Phase 6 的逐條 INVEST 稽核降為 advisory（記 `quality_log`、不 hard-block）；INVEST 維持 Constitution `[MUST]`（六準則表不變），權威強制在 `/prospec-verify` 全審。
+
+#### REQ-TEMPLATES-139: Knowledge Quality-Gate 表去重
+new-story/plan/tasks/implement 的 Knowledge Quality-Gate 表收斂為一行 pass/warn 指標註記（記 `quality_log`）；完整表僅留 `/prospec-verify`（資訊量不減）。
+
+#### REQ-TEMPLATES-140: implement/verify commit 語意統一
+移除 `/prospec-verify` 的 checkpoint-commit 讓步括號，對齊 implement「commit boundary = verify S/A 單一提交點」；implement 期不 commit。
+
+---
+
 ## Edge Cases
 
 - 觸及第三方 lib 但 Context7 不可用：靜默跳過 + 一行 informational（依賴層知識，US-21）
@@ -942,6 +976,7 @@ Constitution 完整分級稽核（every principle）只在 `/prospec-verify` V3/
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-26（scale 誠實化與儀式修剪）+ REQ-TEMPLATES-134/135/136/137/139/140（verify quick 減量、archive quick parity、[P]/~lines 選填、INVEST advisory、Quality-Gate 去重、commit 語意統一）（issue #67） | US-26, REQ-TEMPLATES-134, REQ-TEMPLATES-135, REQ-TEMPLATES-136, REQ-TEMPLATES-137, REQ-TEMPLATES-139, REQ-TEMPLATES-140 |
 | 2026-06-19 | archive-sync | MODIFIED REQ-SERVICES-010; MODIFIED REQ-TEMPLATES-010; ADDED REQ-TESTS-033 | REQ-SERVICES-010, REQ-TEMPLATES-010, REQ-TESTS-033 |
 | 2026-02-04 | mvp-initial | 建立變更管理核心流程 | US-1, US-2, US-4; REQ-CHNG-001~016 |
 | 2026-02-09 | add-archive-system | 新增歸檔生命週期階段 | US-6; REQ-TYPES-010, REQ-SERVICES-010, REQ-TEMPLATES-010 |
