@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
 import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
+import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
@@ -70,22 +71,92 @@ describe('Skill Format Contract', () => {
           expect(frontmatter).toContain(`name: ${skill.name}`);
         });
 
-        it('should render a description field carrying the synthesized triggers', () => {
-          const content = renderTemplate(
-            `skills/${skill.name}.hbs`,
-            TEMPLATE_CONTEXT,
-          );
+        it('renders the frontmatter description from the single-source skill.description + Triggers (REQ-AGNT-031)', () => {
+          // render exactly as the service does — skill_description is escaped for
+          // the double-quoted YAML scalar (exercises the escaping path)
+          const content = renderTemplate(`skills/${skill.name}.hbs`, {
+            ...TEMPLATE_CONTEXT,
+            skill_description: escapeYamlScalar(skill.description),
+          });
           const frontmatter = extractFrontmatter(content);
-          expect(frontmatter).toContain('description:');
-          // the description suffix renders `Triggers: {{trigger_words}}`, so a
-          // missing/empty/un-rendered description value (not just the key) fails
-          expect(frontmatter).toContain(
-            `Triggers: ${TEMPLATE_CONTEXT.trigger_words}`,
+          // single source: the escaped scalar must round-trip through YAML parse
+          // back to skill.ts's raw description (+ Triggers suffix) — the registry
+          // reads the same raw skill.description, so the two can no longer drift
+          const parsed = parseYaml<{ description: string }>(frontmatter, `${skill.name}.hbs`);
+          expect(parsed.description).toBe(
+            `${skill.description} Triggers: ${TEMPLATE_CONTEXT.trigger_words}`,
+          );
+        });
+
+        it('does not hardcode a description in the .hbs (single-source guard, mutation-verified)', () => {
+          const src = fs.readFileSync(
+            path.join(__dirname, '../../src/templates/skills', `${skill.name}.hbs`),
+            'utf-8',
+          );
+          // the frontmatter description line must be the single-source template,
+          // never a hardcoded string — hardcoding one turns this red
+          expect(src).toContain(
+            'description: "{{skill_description}} Triggers: {{trigger_words}}"',
           );
         });
 
       });
     }
+  });
+
+  describe('Trigger collision-free baselines (REQ-AGNT-033)', () => {
+    // A cross-skill collision is: an exact duplicate trigger across two skills,
+    // or one skill's trigger being a pure substring of another skill's trigger
+    // (typing the longer would ambiguously match the shorter's skill). Same-skill
+    // overlaps (e.g. `design` ⊂ `generate design`) are intentional and allowed.
+    const detectCollisions = (
+      defs: ReadonlyArray<{ name: string; triggers: string[] }>,
+    ): string[] => {
+      const flat = defs.flatMap((d) =>
+        d.triggers.map((t) => ({ skill: d.name, t: t.toLowerCase() })),
+      );
+      const violations: string[] = [];
+      for (let i = 0; i < flat.length; i++) {
+        for (let j = 0; j < flat.length; j++) {
+          if (i === j) continue;
+          const a = flat[i]!;
+          const b = flat[j]!;
+          if (a.skill === b.skill) continue;
+          if (a.t === b.t) {
+            if (i < j) violations.push(`dup "${a.t}" in ${a.skill} & ${b.skill}`);
+          } else if (b.t.includes(a.t)) {
+            violations.push(`"${a.t}" (${a.skill}) ⊂ "${b.t}" (${b.skill})`);
+          }
+        }
+      }
+      return violations;
+    };
+
+    it('the baselines have zero cross-skill substring/duplicate collisions', () => {
+      expect(detectCollisions(SKILL_DEFINITIONS)).toEqual([]);
+    });
+
+    it('the detector actually flags a collision (mutation guard)', () => {
+      expect(
+        detectCollisions([
+          { name: 'a', triggers: ['plan'] },
+          { name: 'b', triggers: ['quick plan'] },
+        ]),
+      ).not.toEqual([]);
+    });
+
+    it('this project .prospec.yaml Chinese triggers are collision-free (REQ-AGNT-033 AC3)', () => {
+      // REQ-AGNT-033 brings the localized triggers into scope; guard this repo's
+      // curated Chinese skill_triggers with the same detector so they cannot regress.
+      const raw = fs.readFileSync(path.join(__dirname, '../../.prospec.yaml'), 'utf-8');
+      const config = parseYaml<{ skill_triggers?: Record<string, string[]> }>(raw, '.prospec.yaml');
+      const defs = Object.entries(config.skill_triggers ?? {}).map(([name, triggers]) => ({
+        name,
+        triggers,
+      }));
+      expect(defs.length).toBeGreaterThan(0);
+      expect(detectCollisions(defs)).toEqual([]);
+    });
   });
 
   describe('Trailing newline', () => {
@@ -610,10 +681,11 @@ describe('Skill Format Contract', () => {
     });
 
     it('should contain YAML frontmatter with design triggers', () => {
-      const content = renderTemplate(
-        'skills/prospec-design.hbs',
-        TEMPLATE_CONTEXT,
-      );
+      const designDesc = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-design')!.description;
+      const content = renderTemplate('skills/prospec-design.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_description: designDesc,
+      });
       const frontmatter = extractFrontmatter(content);
       expect(frontmatter).toContain('name: prospec-design');
       expect(frontmatter).toContain('Design Phase');

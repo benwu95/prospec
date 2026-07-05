@@ -31,13 +31,10 @@ skill_triggers:
     - 新功能
     - 需求
     - 我想要
-    - 變更
     - 新增需求
   prospec-plan:
     - 規劃
-    - 設計架構
-    - 如何實作
-    - 實作計畫
+    - 架構規劃
   prospec-design:
     - 設計
     - UI 規格
@@ -51,15 +48,12 @@ skill_triggers:
     - 工作項目
     - 如何拆分
   prospec-ff:
-    - 快速規劃
-    - 一次完成
     - 一次到位
     - 快轉
   prospec-implement:
     - 實作
     - 開始寫程式
     - 寫程式
-    - 執行任務
     - 開始實作
   prospec-review:
     - 審查
@@ -69,7 +63,6 @@ skill_triggers:
     - 找問題
   prospec-verify:
     - 驗證
-    - 檢查
     - 稽核
     - 品質
     - 完成
@@ -94,7 +87,6 @@ skill_triggers:
     - 回填規格
     - 從程式碼產生規格
     - 既有程式碼
-    - 回填
     - 補規格
   prospec-promote-backfill:
     - 晉升回填

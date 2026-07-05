@@ -31,30 +31,30 @@ This project ships with the following Prospec Skills, triggered via slash comman
 
 ### /prospec-explore
 
-Exploration mode — acts as a thinking partner to clarify requirements, investigate problems, and compare solutions.
+Explore - Requirement exploration, problem investigation, and solution comparison partner.
 
 **Type**: Lifecycle
 **Triggers**: explore, compare, investigate, unsure, clarify, 探索, 比較, 釐清, 調查, 不確定
 
 ### /prospec-new-story
 
-Create a new change request. Guides the user through describing the requirement and calls prospec change story to create a structured proposal.md and metadata.yaml.
+New Story - Create change requests by guiding User Story and acceptance criteria definition.
 
 **Type**: Planning
-**Triggers**: new feature, requirement, story, I want to, change, 新功能, 需求, 我想要, 變更, 新增需求
+**Triggers**: new feature, requirement, story, I want to, 新功能, 需求, 我想要, 新增需求
 **References**: `.claude/skills/prospec-new-story/references/`
 
 ### /prospec-plan
 
-Generate an implementation plan from a change request. Reads proposal.md, related module AI Knowledge, and the Constitution to produce a structured plan.md and delta-spec.md.
+Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).
 
 **Type**: Planning
-**Triggers**: plan, design architecture, how to implement, 規劃, 設計架構, 如何實作, 實作計畫
+**Triggers**: plan, architecture, 規劃, 架構規劃
 **References**: `.claude/skills/prospec-plan/references/`
 
 ### /prospec-design
 
-Design phase — generate visual and interaction specs from a proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.
+Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.
 
 **Type**: Planning
 **Triggers**: design, UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計
@@ -62,7 +62,7 @@ Design phase — generate visual and interaction specs from a proposal (Generate
 
 ### /prospec-tasks
 
-Break an implementation plan into an actionable task checklist, ordered by architecture layer, in checkbox format with complexity estimates and parallelization markers.
+Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md).
 
 **Type**: Planning
 **Triggers**: break down, tasks, task list, work items, how to split, 拆解, 任務, 任務清單, 工作項目, 如何拆分
@@ -70,23 +70,23 @@ Break an implementation plan into an actionable task checklist, ordered by archi
 
 ### /prospec-ff
 
-Fast-forward — generate all planning artifacts (story → plan → tasks) in one pass. Suited for moving fast when requirements are clear.
+Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks).
 
 **Type**: Planning
-**Triggers**: fast-forward, ff, all at once, quick plan, 快速規劃, 一次完成, 一次到位, 快轉
+**Triggers**: fast-forward, ff, all at once, 一次到位, 快轉
 **References**: `.claude/skills/prospec-ff/references/`
 
 ### /prospec-implement
 
-Implement tasks from tasks.md one by one. Reads the task list, implements in order, and checks off each completed checkbox.
+Implementation - Execute tasks from the task list, implementing features one by one.
 
 **Type**: Execution
-**Triggers**: implement, start coding, write code, execute tasks, 實作, 開始寫程式, 寫程式, 執行任務, 開始實作
+**Triggers**: implement, start coding, write code, 實作, 開始寫程式, 寫程式, 開始實作
 **References**: `.claude/skills/prospec-implement/references/`
 
 ### /prospec-review
 
-Adversarial code review → fix loop. Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec REQs, dependency direction, and module conventions.
+Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.
 
 **Type**: Execution
 **Triggers**: review, code review, adversarial review, find bugs, critical, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
@@ -94,22 +94,22 @@ Adversarial code review → fix loop. Between implement and verify, an independe
 
 ### /prospec-verify
 
-Verify the implementation against specs and plan. Runs full Constitution validation, tasks.md completion, spec consistency, and test pass rate.
+Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).
 
 **Type**: Execution
-**Triggers**: verify, check, audit, quality, done, grade, 驗證, 檢查, 稽核, 品質, 完成, 評級
+**Triggers**: verify, audit, quality, done, 驗證, 稽核, 品質, 完成, 評級
 **References**: `.claude/skills/prospec-verify/references/`
 
 ### /prospec-knowledge-generate
 
-Generate AI Knowledge. Reads raw-scan.md, analyzes project structure, autonomously decides module boundaries, and produces module READMEs and the index.
+Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index.
 
 **Type**: Lifecycle
-**Triggers**: knowledge, generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分
+**Triggers**: generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分
 
 ### /prospec-archive
 
-Archive completed changes. Scans the changes directory, moves verified changes to archive, generates summary.md, and gates archiving on Knowledge sync.
+Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.
 
 **Type**: Lifecycle
 **Triggers**: archive, clean up, wrap up, spec sync, 封存, 歸檔, 收尾, 規格同步, 清理
@@ -117,30 +117,30 @@ Archive completed changes. Scans the changes directory, moves verified changes t
 
 ### /prospec-knowledge-update
 
-Incrementally update AI Knowledge. Parses delta-spec.md to identify affected modules, scans source code, then updates module READMEs, index.md, and module-map.yaml.
+Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, index.md, and module-map.yaml incrementally.
 
 **Type**: Lifecycle
 **Triggers**: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件
 
 ### /prospec-backfill-spec
 
-Backfill a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.
+Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.
 
 **Type**: Lifecycle
-**Triggers**: backfill spec, spec from code, brownfield, backfill, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 回填, 補規格
+**Triggers**: backfill spec, spec from code, brownfield, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 補規格
 **References**: `.claude/skills/prospec-backfill-spec/references/`
 
 ### /prospec-promote-backfill
 
-Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal + delta-spec + metadata with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan/tasks; the single, repeatable draft→scaffold step; never writes the trust zone.
+Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone.
 
 **Type**: Lifecycle
-**Triggers**: promote backfill, formalize backfill, backfill to delta-spec, scaffold backfill, promote draft, 晉升回填, 正式化回填, 回填轉正, 提升草稿
+**Triggers**: promote backfill, formalize backfill, backfill to delta-spec, promote draft, 晉升回填, 正式化回填, 回填轉正, 提升草稿
 **References**: `.claude/skills/prospec-promote-backfill/references/`
 
 ### /prospec-learn
 
-Feedback promotion pipeline. Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger; scores them with an explicit, reproducible rule (frequency + impacted modules); and promotes — only with explicit human approval — across three tiers (accumulating ledger → team playbook → Constitution rule).
+Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).
 
 **Type**: Lifecycle
 **Triggers**: learn, promote lesson, feedback, playbook, 學習, 晉升教訓, 回饋, 經驗手冊

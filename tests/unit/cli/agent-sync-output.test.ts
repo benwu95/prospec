@@ -9,6 +9,7 @@ function makeAgent(over: Partial<AgentSyncResult> = {}): AgentSyncResult {
     configFile: 'CLAUDE.md',
     skillFiles: [],
     referenceFiles: [],
+    removedSkills: [],
     ...over,
   };
 }
@@ -214,6 +215,24 @@ describe('formatAgentSyncOutput', () => {
         'normal',
       );
       expect(s.stdout()).toMatch(/0.* skills/);
+    });
+
+    it('reports swept orphan skills (REQ-AGNT-032)', () => {
+      const s = spyStreams();
+      formatAgentSyncOutput(
+        makeResult({ agents: [makeAgent({ removedSkills: ['prospec-gone'] })] }),
+        'normal',
+      );
+      expect(s.stdout()).toContain('prospec-gone');
+    });
+
+    it('omits the orphan line when nothing was swept (REQ-AGNT-032)', () => {
+      const s = spyStreams();
+      formatAgentSyncOutput(
+        makeResult({ agents: [makeAgent({ removedSkills: [] })] }),
+        'normal',
+      );
+      expect(s.stdout()).not.toMatch(/orphan/i);
     });
   });
 

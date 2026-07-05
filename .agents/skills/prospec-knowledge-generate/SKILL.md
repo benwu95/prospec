@@ -1,6 +1,6 @@
 ---
 name: prospec-knowledge-generate
-description: "Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index. Triggers: knowledge, generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分"
+description: "Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index. Triggers: generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分"
 ---
 
 # Prospec Knowledge Generate Skill

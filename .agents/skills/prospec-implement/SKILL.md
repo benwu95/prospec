@@ -1,6 +1,6 @@
 ---
 name: prospec-implement
-description: "Implementation - Execute tasks from the task list, implementing features one by one. Triggers: implement, start coding, write code, execute tasks, 實作, 開始寫程式, 寫程式, 執行任務, 開始實作"
+description: "Implementation - Execute tasks from the task list, implementing features one by one. Triggers: implement, start coding, write code, 實作, 開始寫程式, 寫程式, 開始實作"
 ---
 
 # Prospec Implement Skill

@@ -1,6 +1,6 @@
 ---
 name: prospec-plan
-description: "Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md). Triggers: plan, design architecture, how to implement, 規劃, 設計架構, 如何實作, 實作計畫"
+description: "Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md). Triggers: plan, architecture, 規劃, 架構規劃"
 ---
 
 # Prospec Plan Skill

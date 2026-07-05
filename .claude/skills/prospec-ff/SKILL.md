@@ -1,6 +1,6 @@
 ---
 name: prospec-ff
-description: "Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks). Triggers: fast-forward, ff, all at once, quick plan, 快速規劃, 一次完成, 一次到位, 快轉"
+description: "Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks). Triggers: fast-forward, ff, all at once, 一次到位, 快轉"
 ---
 
 # Prospec Fast-Forward Skill
