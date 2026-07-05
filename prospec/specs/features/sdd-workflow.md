@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-05
 story_count: 26
-req_count: 116
+req_count: 118
 ---
 
 # SDD 開發流程
@@ -435,10 +435,11 @@ Reference documents 僅定義結構（英文 headings），不強制內容語言
 ### Behavior Specifications
 
 #### REQ-TYPES-022: quality_log Metadata Field
-`ChangeMetadataSchema` 新增 optional `quality_log`（`skill`/`date`/`result`/`warnings[]`），作為 gate 記錄形狀的型別契約。
-- WHEN metadata 含 quality_log, THEN schema 接受且 `ChangeMetadata.quality_log` 型別正確
-- WHEN metadata 省略 quality_log, THEN 仍通過驗證（向後相容）
-- WHEN result 非 PASS/WARN/FAIL, THEN 拒絕（不新增第四狀態）
+`ChangeMetadataSchema` 的 optional `quality_log` entry：`skill`/`date`/`result`/`warnings[]`，另攜帶 optional 結構化欄位 `grade`（enum S/A/B/C/D）、`dimensions`（`{name, result: PASS|WARN|FAIL}[]`）、`criticals_found`/`criticals_fixed`/`majors`（int≥0）——讓 verify grade+維度與 review 計數可機器聚合。`result` 維持 `GATE_RESULTS`（PASS/WARN/FAIL）閘門語意，grade 走獨立 `grade` 欄位、不覆寫 result。
+- WHEN metadata 含 quality_log（含新結構化欄位）, THEN schema 接受且型別正確
+- WHEN metadata 省略 quality_log 或省略新結構化欄位, THEN 仍通過驗證（向後相容）
+- WHEN result 非 PASS/WARN/FAIL, THEN 拒絕（不新增第四 result 狀態）
+- WHEN grade 非 S/A/B/C/D, THEN 拒絕
 - 註：metadata.yaml 經 `parseYaml(doc.toJS())` lossless 讀取（非此 schema 在讀取時 `.parse()`）；persist 靠 round-trip，本欄位為型別契約
 
 #### REQ-TEMPLATES-064: Entry Gate (Blocking Preconditions)
@@ -454,9 +455,19 @@ skill-end 摘要折入 Exit Gate：**非 verify** 站把「比對整部 Constitu
 - WHEN Constitution 為自由文字（無 severity）, THEN 退回不分級判讀（向後相容）
 
 #### REQ-TESTS-022: Gate + quality_log Tests
-contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit test 驗證 `quality_log` schema（接受/省略/result 三態/lifecycle 含 `implemented`）。
+contract test 驗證 5 skill 含 `## Entry Gate` 與 Exit Gate 折入；unit test 驗證 `quality_log` schema（接受/省略/result 三態/lifecycle 含 `implemented`，以及結構化 grade/dimensions/criticals 計數欄位）。
 - WHEN contract test 執行, THEN 對 new-story/plan/tasks/ff/verify 斷言 Entry/Exit Gate 存在
-- WHEN unit test 執行, THEN quality_log 可省略、result 限 PASS/WARN/FAIL、6 個 lifecycle 狀態（含 implemented）皆通過
+- WHEN unit test 執行, THEN quality_log 可省略、result 限 PASS/WARN/FAIL、grade 限 S/A/B/C/D、新結構化欄位可省略且型別正確、6 個 lifecycle 狀態（含 implemented）皆通過；result 三態不被 grade 取代（mutation-verified）
+
+#### REQ-TYPES-058: ChangeMetadata introduced_by escaped-defect 登記欄位
+`ChangeMetadataSchema` 新增 optional `introduced_by`（字串，回指漏掉該 defect 的 change name），讓 per-gate escaped-defect rate 可累積；`_status-lifecycle.md`（及 shipped `init/status-lifecycle.md.hbs`）記其格式約定與範例。僅登記約定，不做參照完整性驗證、不新增 drift 強制。
+- WHEN metadata 含 introduced_by, THEN schema 接受；省略仍通過（向後相容）
+- WHEN 查閱慣例文件, THEN 命中 introduced_by 定義＋範例（shipped template 用 consumer-agnostic 範例；project doc 用 issue #48 → fix-init-clobber-add-upgrade）
+
+#### REQ-TEMPLATES-145: verify/review 寫結構化 quality_log 欄位
+`prospec-verify` 於 Exit/Status 段寫入結構化 `grade`（S/A/B/C/D）與 `dimensions`（5+1 各維度 PASS/WARN/FAIL），`result` 仍記閘門三態；`prospec-review` 每輪 quality_log entry 寫 `criticals_found`/`criticals_fixed`/`majors`。`metadata-completeness` 只讀 `grade`（`dimensions`/計數為聚合用途、無 check 讀取）。
+- WHEN contract test 執行, THEN verify 段含 `grade`+`dimensions` 寫入指令、review 段含 criticals/majors 寫入指令
+- WHEN verify 寫入, THEN `result` 仍為 PASS/WARN/FAIL（grade 不覆寫 result）
 
 ---
 
@@ -1014,3 +1025,4 @@ Constitution 完整分級稽核（every principle）只在 `/prospec-verify` V3/
 | 2026-07-04 | mechanize-review-gate | review provenance 機器閘門：verify Entry Gate 阻斷 non-backfill 缺席/stale review（backfill 豁免、CLI 不可用退回讀 quality_log）、review 每輪記 provenance + `--record-review` baseline、殘餘 playbook PB-001/003/006/007 落回 implement/review gate、PB-004/005 退役（issue #66 scope 1+2+4） | US-24; REQ-TYPES-053, REQ-TEMPLATES-130/131/132, REQ-TESTS-043 (ADDED) |
 | 2026-07-05 | converge-constitution-audit | Constitution 全審收斂到 verify 單站：規劃/執行站降站點特定、非 verify Exit Gate 收窄站點特定（quality_log 保留）、清 orphaned Constitution [STABLE] 載入、移除 ff NEVER-skip；verify 維持唯一全審（issue #66 scope 3） | US-25; REQ-TEMPLATES-133, REQ-TESTS-044 (ADDED); REQ-CHNG-008, REQ-TEMPLATES-065 (MODIFIED) |
 | 2026-07-05 | remove-archive-auto-knowledge-update | 移除 archive.service.execute() 自動 knowledge-update（`updateIndex` 會清空 curated index）與同段 raw-scan safety net 死碼＋ArchiveResult/ArchivedChange 欄位，修 prospec-archive skill 反向宣稱；knowledge 同步統歸 Entry Gate（issue #57 止血） | US-6; REQ-SERVICES-064 (ADDED); REQ-TESTS-034/035 (MODIFIED); REQ-SERVICES-031/033 (REMOVED) |
+| 2026-07-05 | unlock-measurement | quality_log 結構化計數欄位（verify grade/dimensions、review criticals/majors 可機器聚合）＋ introduced_by escaped-defect 登記約定（shipped template + project doc）；verify/review template 寫入結構化欄位（issue #61） | US-12; REQ-TYPES-058, REQ-TEMPLATES-145 (ADDED); REQ-TYPES-022, REQ-TESTS-022 (MODIFIED) |

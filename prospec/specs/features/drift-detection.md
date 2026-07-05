@@ -184,9 +184,9 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 `DRIFT_CHECK_IDS` append `metadata-completeness`（第 10 個 frozen check id，FAIL-class；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
 
 #### REQ-LIB-025: metadata-completeness Collector + Evaluator
-`collectMetadataCompleteness(cwd)`（I/O）列舉 `.prospec/changes/*` 讀 metadata：檢 `REQUIRED_METADATA_FIELDS`（name/created_at/status/scale）存在性 + `GRADED_STATUSES`（verified/archived）者 `hasVerifyGrade`（`quality_log` 有 `prospec-verify` S/A entry）；非-mapping parse（空/註解/null）視為全欄缺失，非崩潰。pure `evaluateMetadataCompleteness` 對缺欄與缺評級各發 fail finding；in-progress 不套 grade 規則。
+`collectMetadataCompleteness(cwd)`（I/O）列舉 `.prospec/changes/*` 讀 metadata：檢 `REQUIRED_METADATA_FIELDS`（name/created_at/status/scale）存在性 + `GRADED_STATUSES`（verified/archived）者 `hasVerifyGrade`——優先讀 `prospec-verify` entry 的結構化 `grade ∈ {S,A}`，保留 legacy `result ∈ {S,A}` fallback 使既有 archived metadata 仍通過；非-mapping parse（空/註解/null）視為全欄缺失，非崩潰。pure `evaluateMetadataCompleteness` 對缺欄與缺評級各發 fail finding；in-progress 不套 grade 規則。`metadata-completeness` check id 不變。
 **Scenarios:**
-- WHEN 缺必填欄，THEN fail 列缺項；WHEN verified 無 S/A grade，THEN fail；in-progress 豁免 grade
+- WHEN 缺必填欄，THEN fail 列缺項；WHEN verified 有結構化 grade S/A 或 legacy result S/A，THEN pass；WHEN verified 兩者皆無，THEN fail；in-progress 豁免 grade
 - WHEN 空/null metadata，THEN 全欄缺失 finding（不 deref null）；無 changes 目錄→skipped + reason；findings codepoint-sort
 
 #### REQ-SERVICES-063: check.service 注入 metadata-completeness collector
@@ -236,4 +236,5 @@ _(None)_
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5；ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034（README 事實計數 drift check，BL-043） | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
 | 2026-07-04 | mechanize-review-gate | ADDED US-6（review-provenance 閘門檢查，第 9 個 check id）；ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042；MODIFIED REQ-TYPES-034（總數→9）（issue #66 scope 1+2） | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | MODIFIED US-5 + REQ-TYPES-034/REQ-LIB-020/REQ-SERVICES-034（readme-counts→mcp-readme-counts 改名，名實相符 MCP-only）；MODIFIED REQ-TYPES-052（總數→10）；ADDED US-7（metadata-completeness 閘門，第 10 個 check id）+ REQ-TYPES-055/REQ-LIB-025/REQ-SERVICES-063/REQ-TEMPLATES-142/REQ-TESTS-045（issue #67） | US-5, US-7, REQ-TYPES-034, REQ-TYPES-052, REQ-TYPES-055, REQ-LIB-020, REQ-LIB-025, REQ-SERVICES-034, REQ-SERVICES-063, REQ-TEMPLATES-142, REQ-TESTS-045 |
+| 2026-07-05 | unlock-measurement | MODIFIED REQ-LIB-025：`hasVerifyGrade` 優先讀結構化 `grade ∈ {S,A}`、保留 legacy `result ∈ {S,A}` fallback（收斂 schema/現實落差、向後相容）；`metadata-completeness` check id 不變（issue #61） | US-7; REQ-LIB-025 (MODIFIED) |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
