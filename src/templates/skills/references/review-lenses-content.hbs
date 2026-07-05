@@ -107,7 +107,7 @@ Applies when the change adds or edits README/doc/spec prose that claims behavior
 |-----------|------------------|
 | A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | critical (spec contradiction) / major (overclaim) |
 | A gap or non-goal left silent — what is not done / not measurable must carry explicit **deliberate-exclusion** wording ("not measured here", "left to …") so review/verify can diff claims against behavior | major |
-| A count/attribution stated in prose that the code does not back (see also the deterministic `readme-counts` check) | major |
+| A count/attribution stated in prose that the code does not back (the deterministic `mcp-readme-counts` check covers only MCP-registration counts, so general count/attribution prose still needs this lens) | major |
 
 ---
 

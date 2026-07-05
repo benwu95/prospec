@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 82 test files, 1,965 tests (unit 1287, contract 597, integration 38, e2e 43)
+> 4-layer test architecture using Vitest + memfs — 82 test files, 1,991 tests (unit 1306, contract 604, integration 38, e2e 43)
 
 <!-- prospec:auto-start -->
 
@@ -31,10 +31,10 @@
 | `tests/contract/knowledge-format.test.ts` | Knowledge output format contract (incl. `### {Category}` grouping + canonical index-column single-source + Dependencies labels + `feature-map.yaml.hbs` format pin incl. empty `modules: []`, BL-040) |
 | `tests/e2e/cli.test.ts` | Real CLI in tmpdir (43 tests, incl. `prospec quickstart` one-command onboarding + re-run skip, `prospec upgrade` (uninitialized-gate, version bump + report + `/prospec-upgrade` hint, existing docs untouched + back-fills a doc missing since init, `--no-interactive` pre-feature nudge + field stays absent, comment preservation, explicit-English not nagged), `prospec measure`, `prospec check`, and `mcp serve --cwd` config-resolution paths) |
 | `tests/unit/lib/token-accounting.test.ts` | Pure measurement math + naive-rag codepoint-determinism (22 tests, TDD red-first) |
-| `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity); BL-040 adds feature-map collector + two evaluators (both severities mutation-verified); BL-043 adds the readme-counts collector/evaluator (declared-vs-actual count, string/template- and fenced-block-aware, WARN-only) |
+| `tests/unit/lib/drift-sources.test.ts` + `drift-checker.test.ts` | Drift collectors (real tmpdir + git, incl. shallow clone) and pure evaluators (honest-skip, WARN-only staleness, byte-identity); BL-040 adds feature-map collector + two evaluators (both severities mutation-verified); the `mcp-readme-counts` collector/evaluator (declared-vs-actual MCP-registration count, string/template- and fenced-block-aware, WARN-only); the `metadata-completeness` collector/evaluator (required-field + verify-grade presence, FAIL-class, empty/null-metadata guarded, S/A and skill clauses mutation-verified) |
 | `tests/unit/lib/knowledge-reader.test.ts` | Content read layer (real tmpdir) — realpath/symlink containment both directions, archived exclusion, name guard, loadModuleMap missing-vs-invalid, loadFeatureMap module-name safety (BL-043 traversal drop), searchModules distinct-term ranking, grouped-subtable parse resilience + attachModuleCategories join |
 | `tests/contract/mcp-server.test.ts` | MCP protocol surface over InMemoryTransport.createLinkedPair() — resources/tools/health parity with `prospec check` (SC-006), stdout purity spy, loud invalid-map listing, search_modules category join from module-map; BL-042 adds the `knowledge://feature-map` + `spec://product` resource registration/read coverage (8 resources total); the stdio daemon is never spawned in tests |
-| `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS (all 8 checks), init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose), feature-map drift wiring (BL-040), readme-counts wiring (BL-043) |
+| `tests/unit/services/check.service.test.ts` | Drift orchestration — skipped-never-PASS (all 10 checks), init-ci hardening assertions (SHA pins, shell: bash, fence-proof compose), feature-map drift wiring (BL-040), mcp-readme-counts + metadata-completeness wiring |
 | `tests/unit/types/feature-map.test.ts` | `FeatureMapSchema` shape/validation (BL-040) |
 | `tests/unit/services/archive-feature-map.service.test.ts` | `syncFeatureMap` bootstrap + no-clobber on real temp dirs (renders a real template, so not memfs — like check.service.test) (BL-040) |
 | `tests/fixtures/token-corpus/` | 12 task DESCRIPTIONS for the benchmark runner — contexts assembled live, never pre-baked |

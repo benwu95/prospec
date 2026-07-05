@@ -112,15 +112,7 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 
 ## Knowledge Quality Gate
 
-After completing each task, verify Knowledge alignment:
-
-| Check Item | PASS | WARN |
-|------------|------|------|
-| _conventions.md patterns followed | execute()/atomicWrite()/ContentMerger used where applicable | Patterns not followed — justify deviation |
-| Module README consulted | Related module API verified before implementation, incl. linked sub-modules | Implemented without checking module README / skipped a relevant sub-module |
-| Delta-spec compliance | Implementation matches specification | Deviation documented in tasks.md |
-
-WARN items do not block — document reasoning in task completion notes.
+After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed (execute()/atomicWrite()/ContentMerger where applicable), the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
 
 ## Output Contract
 

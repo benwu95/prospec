@@ -10,7 +10,7 @@
 
 ## Language Policy
 
-The user's primary language for AI-generated documents is **Traditional Chinese (Taiwan)** (see the Constitution's Language Policy rule). Requests may be phrased in it. Code, identifiers, technical terms, and git commit messages always remain in English.
+The user's primary language for **change artifacts** under `.prospec/changes/` is **Traditional Chinese (Taiwan)** (see the Constitution's Language Policy rule). Requests may be phrased in it. Code, identifiers, technical terms, git commit messages, and the AI Knowledge base (`prospec/ai-knowledge`, `prospec/specs`, `prospec/index.md`) always remain in English — the Knowledge base is trust-zone technical documentation, exempt from the Traditional Chinese (Taiwan) requirement.
 
 ## Core Resources
 

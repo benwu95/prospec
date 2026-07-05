@@ -142,20 +142,10 @@ Check only this station's **site-specific** Constitution rule — the **dependen
 
 ### Phase 7: Knowledge Quality Gate
 
-Before finalizing, verify Knowledge loading completeness:
-
-| Check Item | PASS | WARN |
-|------------|------|------|
-| Context mode detected | Brownfield/Greenfield identified | Could not determine — defaulted |
-| Module Knowledge loaded | All related module READMEs read | Some modules missing README |
-| Technical Summary synthesized | Section included in plan.md | Skipped or incomplete |
-| Feature Specs checked | Existing User Stories and requirements reviewed | No Feature Specs found |
-
-WARN items do not block — note them in plan.md Risk Assessment.
+Confirm Knowledge-loading completeness in **one line**: Context mode detected (Brownfield/Greenfield), related module READMEs read, Technical Summary synthesized, and existing Feature Specs checked. Any gap → WARN, noted in plan.md Risk Assessment (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
 
 > **Phase 7 Gate** — proceed when:
-> - [ ] Every Knowledge Quality Gate check item is graded PASS or WARN
-> - [ ] Any WARN is noted in plan.md Risk Assessment
+> - [ ] the one-line Knowledge check is recorded PASS or WARN (WARNs noted in Risk Assessment)
 
 ### Phase 8: Summary + Next Steps
 

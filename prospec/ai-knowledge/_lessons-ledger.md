@@ -10,6 +10,11 @@
 > `prospec/specs/_archived-history/{date}-{name}.md` — cite that file's `## Review & Verify` section
 > (grade, criticals/majors, quality_log digest) as the durable evidence, not the gitignored
 > `.prospec/archive/` bundle.
+>
+> **Description language**: the `description` column is written in the original correction's language
+> (often Traditional Chinese) — a deliberate, declared exception to the Constitution's English-for-AI-Knowledge
+> rule, kept so the raw correction context is not lost in translation at this working-notes tier. Keys,
+> `kind`, `status`, and structural fields stay English; promoted lessons in `_playbook.md` are fully English.
 
 | key | description | frequency | impact_modules | kind | source_changes | status |
 |-----|-------------|-----------|----------------|------|----------------|--------|

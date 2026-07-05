@@ -8,7 +8,8 @@ import {
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
-  collectReadmeCounts,
+  collectMcpReadmeCounts,
+  collectMetadataCompleteness,
   collectReqDefinitions,
   collectReqReferences,
   collectReviewProvenance,
@@ -478,6 +479,108 @@ describe('collectReviewProvenance', () => {
   });
 });
 
+describe('collectMetadataCompleteness', () => {
+  it('reports unavailable when .prospec/changes is missing', () => {
+    const r = collectMetadataCompleteness(tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('.prospec/changes');
+  });
+
+  it('reports a complete in-progress change with no missing fields or grade need', () => {
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\ncreated_at: "2026-07-05"\nstatus: implemented\nscale: full\n',
+    );
+    const r = collectMetadataCompleteness(tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.changes.find((c) => c.name === 'c1')).toMatchObject({
+      status: 'implemented',
+      missing_fields: [],
+      missing_verify_grade: false,
+    });
+  });
+
+  it('flags the required fields absent from a stub metadata (name/created_at)', () => {
+    write('.prospec/changes/c2/metadata.yaml', 'status: implemented\nscale: quick\n');
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c2');
+    expect(c?.missing_fields).toEqual(['name', 'created_at']);
+  });
+
+  it('flags a verified change with no /prospec-verify S/A grade in quality_log', () => {
+    write(
+      '.prospec/changes/c3/metadata.yaml',
+      'name: c3\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-review\n    date: "2026-07-05"\n    result: PASS\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c3');
+    expect(c?.missing_fields).toEqual([]);
+    expect(c?.missing_verify_grade).toBe(true);
+  });
+
+  it('accepts a verified change carrying an S/A verify grade', () => {
+    write(
+      '.prospec/changes/c4/metadata.yaml',
+      'name: c4\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: A\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c4');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  it('treats unparseable metadata as fully incomplete (never silently skipped)', () => {
+    write('.prospec/changes/c5/metadata.yaml', ':\n  - not: [valid\n');
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c5');
+    expect(c?.missing_fields).toEqual(['name', 'created_at', 'status', 'scale']);
+  });
+
+  it('treats empty / comment-only / null metadata as fully incomplete, never a crash', () => {
+    // parseYaml returns null (does NOT throw) for these — a truncated/blank file
+    // must be reported fully-incomplete, not dereference null and abort the run.
+    write('.prospec/changes/c6/metadata.yaml', '');
+    write('.prospec/changes/c7/metadata.yaml', '# just a comment\n');
+    write('.prospec/changes/c8/metadata.yaml', 'null\n');
+    const r = collectMetadataCompleteness(tmpDir);
+    expect(r.available).toBe(true);
+    for (const name of ['c6', 'c7', 'c8']) {
+      expect(r.changes.find((x) => x.name === name)?.missing_fields).toEqual([
+        'name',
+        'created_at',
+        'status',
+        'scale',
+      ]);
+    }
+  });
+
+  it('flags a present-but-empty required field (not only an absent one)', () => {
+    write(
+      '.prospec/changes/c9/metadata.yaml',
+      'name: ""\ncreated_at: "   "\nstatus: implemented\nscale: full\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c9');
+    expect(c?.missing_fields).toEqual(['name', 'created_at']);
+  });
+
+  it('a verified change with a non-S/A verify grade still lacks the grade (S/A clause pinned)', () => {
+    write(
+      '.prospec/changes/c10/metadata.yaml',
+      'name: c10\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: B\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c10');
+    expect(c?.missing_verify_grade).toBe(true);
+  });
+
+  it('only a prospec-verify entry satisfies the grade — a review entry graded A does not (skill clause pinned)', () => {
+    write(
+      '.prospec/changes/c11/metadata.yaml',
+      'name: c11\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-review\n    date: "2026-07-05"\n    result: A\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c11');
+    expect(c?.missing_verify_grade).toBe(true);
+  });
+});
+
 describe('moduleAttributor', () => {
   it('attributes by longest path prefix and returns null outside all modules', () => {
     const attribute = moduleAttributor({
@@ -559,7 +662,7 @@ describe('collectFeatureMapGovernance', () => {
   });
 });
 
-describe('collectReadmeCounts', () => {
+describe('collectMcpReadmeCounts', () => {
   const SMAP: ModuleMap = { modules: [{ name: 'services', paths: ['src/services'], keywords: [] }] };
   const knowledgePath = () => path.join(tmpDir, 'prospec/ai-knowledge');
   const writeReadme = (body: string) =>
@@ -573,7 +676,7 @@ describe('collectReadmeCounts', () => {
       'src/services/mcp.service.ts',
       'export function build(s) {\n  s.registerResource("a");\n  s.registerResource("b");\n  s.registerTool("t1");\n}\n',
     );
-    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    const r = collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP);
     expect(r.available).toBe(true);
     expect(r.claims).toEqual([
       {
@@ -603,7 +706,7 @@ describe('collectReadmeCounts', () => {
       'src/services/mcp.service.ts',
       Array.from({ length: 8 }, (_, i) => `s.registerResource("r${i}");`).join('\n'),
     );
-    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    const r = collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP);
     expect(r.claims).toHaveLength(1);
     expect(r.claims[0]).toMatchObject({ noun: 'resources', claimed: 6, actual: 8 });
   });
@@ -614,24 +717,24 @@ describe('collectReadmeCounts', () => {
       'src/services/mcp.service.ts',
       's.registerResource("real");\n// s.registerResource("commented");\n/* s.registerResource("block"); */\n',
     );
-    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    const r = collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP);
     expect(r.claims[0]).toMatchObject({ claimed: 1, actual: 1 });
   });
 
   it('produces no claim when the README has no count prose', () => {
     writeReadme('# services\n\n| `src/services/mcp.service.ts` | the MCP server |\n');
     write('src/services/mcp.service.ts', 's.registerResource("a");\n');
-    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+    expect(collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
   });
 
   it('produces no claim when the named source file is absent (file-paths owns broken links)', () => {
     writeReadme('| `src/services/mcp.service.ts` | registers 3 resources |\n');
-    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+    expect(collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
   });
 
   it('skips a module whose README is absent', () => {
     write('src/services/mcp.service.ts', 's.registerResource("a");\n');
-    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
+    expect(collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP).claims).toEqual([]);
   });
 
   it('counts calls correctly when a string literal contains // or a register token (string-aware)', () => {
@@ -643,7 +746,7 @@ describe('collectReadmeCounts', () => {
     );
     // the `//` inside "spec://a" must not truncate the line (both calls count);
     // the register token embedded in a string must not count
-    expect(collectReadmeCounts(tmpDir, knowledgePath(), SMAP).claims[0]).toMatchObject({
+    expect(collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP).claims[0]).toMatchObject({
       claimed: 2,
       actual: 2,
     });
@@ -655,7 +758,7 @@ describe('collectReadmeCounts', () => {
         '| `src/services/mcp.service.ts` | registers 1 resources |\n',
     );
     write('src/services/mcp.service.ts', 's.registerResource("a");\n');
-    const r = collectReadmeCounts(tmpDir, knowledgePath(), SMAP);
+    const r = collectMcpReadmeCounts(tmpDir, knowledgePath(), SMAP);
     // only the live (non-fenced) claim is parsed; the fenced "99" is ignored
     expect(r.claims).toHaveLength(1);
     expect(r.claims[0]).toMatchObject({ claimed: 1, actual: 1 });

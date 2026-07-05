@@ -129,31 +129,19 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
-Check only this station's **site-specific** Constitution rule — **User Stories Follow INVEST** — NOT a generic multi-principle scan. The full every-principle audit is `/prospec-verify` V3/5 only (single-full-audit convergence):
+Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it to `metadata.yaml` `quality_log`; **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
 - **PASS**: the Story satisfies INVEST
-- **WARN**: partially satisfies, with suggestions
-- **FAIL**: violates INVEST, must adjust
+- **WARN**: partially satisfies — record suggestions, proceed
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Proposal checked against the INVEST rule (not a generic 3+ principles scan)
-> - [ ] Graded PASS/WARN/FAIL
-> - [ ] Any FAIL resolved or documented as an exception
+> - [ ] An advisory INVEST self-check was run and any concern noted to `quality_log` (advisory — never blocks)
 
 ### Phase 7: Knowledge Quality Gate
 
-Before finalizing, verify Knowledge awareness:
-
-| Check Item | PASS | WARN |
-|------------|------|------|
-| Related Modules identified | >= 1 module matched from prospec/index.md | No modules matched — verify prospec/index.md coverage |
-| Feature specs reviewed | Existing requirements checked for overlap | No feature specs found |
-| Module keywords matched | Proposal terms found in module keywords | Manual assignment needed |
-
-WARN items do not block — note them in Open Questions section.
+Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `prospec/index.md` (by module keywords), and existing Feature Specs checked for overlap. Any gap → WARN, noted in the Open Questions section (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
 
 > **Phase 7 Gate** — proceed when:
-> - [ ] Each Knowledge check item graded PASS/WARN
-> - [ ] Any WARN items recorded in the Open Questions section
+> - [ ] the one-line Knowledge check is recorded PASS or WARN (WARNs noted in Open Questions)
 
 ### Phase 8: Summary + Next Steps
 
@@ -186,7 +174,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 ## NEVER
 
 - **NEVER** create non-kebab-case change names — all lowercase, hyphen-separated, verb-first
-- **NEVER** complete a Story without the site-specific INVEST check — the Story must satisfy INVEST; the full every-principle Constitution audit is `/prospec-verify`'s job, not new-story's
+- **NEVER** hard-block a Story on the INVEST check here — it is **advisory** at new-story: record concerns to `quality_log` and proceed. INVEST stays a Constitution `[MUST]`; its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit, not a new-story gate
 - **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md

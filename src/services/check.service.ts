@@ -16,7 +16,8 @@ import {
   collectGitTimestamps,
   collectImportEdges,
   collectMarkdownLinks,
-  collectReadmeCounts,
+  collectMcpReadmeCounts,
+  collectMetadataCompleteness,
   collectReqDefinitions,
   collectReqReferences,
   collectReviewProvenance,
@@ -122,10 +123,11 @@ export async function execute(
       cwd,
       attributionMap,
     ),
-    readmeCounts: moduleMap
-      ? collectReadmeCounts(cwd, paths.knowledgePath, moduleMap)
+    mcpReadmeCounts: moduleMap
+      ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
     reviewProvenance: collectReviewProvenance(cwd),
+    metadataCompleteness: collectMetadataCompleteness(cwd),
     generatedAt: new Date().toISOString(),
   });
 

@@ -25,15 +25,23 @@ export const DRIFT_CHECK_IDS = [
   // REQ-prefix legality (warn) and the feature→module edge (fail).
   'dangling-prefix',
   'feature-modules',
-  // README factual-count veracity — a declared count (e.g. "registers N
-  // resources") that disagrees with the code it names (warn). Mechanizes the
-  // count-accuracy gap the other checks deliberately do not cover.
-  'readme-counts',
+  // MCP README count veracity — a module README line declaring an MCP surface
+  // count (e.g. "`src/x.ts` … registers N resources + M tools") that disagrees
+  // with the code it names (warn). Scope is deliberately the MCP registration
+  // pattern only — the id says `mcp-` so no reader mistakes it for a general
+  // README-count gate (root-README badges/inventory counts are NOT covered).
+  'mcp-readme-counts',
   // Review provenance — an implemented change that has no recorded review, or
   // whose recorded review predates the current code state (stale), fails (fail).
   // Turns "review must run before verify" from prose into a machine gate;
   // scale: backfill and non-implemented changes are exempt (not flagged).
   'review-provenance',
+  // Change metadata completeness — a change whose metadata.yaml is missing a
+  // required field (name/created_at/status/scale), or that is verified/archived
+  // yet records no /prospec-verify S/A grade in quality_log, fails (fail). Backs
+  // the /prospec-archive Entry Gate so incomplete metadata cannot enter the
+  // permanent record; in-progress changes are exempt from the grade rule.
+  'metadata-completeness',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

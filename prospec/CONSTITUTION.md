@@ -9,11 +9,11 @@
 
 ### [MUST] Language Policy
 
-**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in Traditional Chinese (Taiwan). Code, identifiers, technical terms, and git commit messages always remain in English.
+**Description**: All change artifacts under `.prospec/changes/` (proposal.md, plan.md, delta-spec.md, tasks.md) and their archived summaries are written in Traditional Chinese (Taiwan). Code, identifiers, technical terms, git commit messages, **and the AI Knowledge base** (module READMEs, conventions, `index.md`, specs) always remain in English — the Knowledge base is trust-zone technical documentation and is **explicitly NOT** subject to the Traditional-Chinese requirement.
 
-**Rationale**: A single declared document language keeps generated artifacts consistent and reviewable, while English code, terminology, and commit history follow industry convention.
+**Rationale**: The project owner reviews change artifacts in their native language, reducing communication barriers. The AI Knowledge base sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches the base's actual, review-endorsed state.
 
-**Verify**: Documents under `.prospec/changes/` and the AI Knowledge base are written in Traditional Chinese (Taiwan); code, technical terms, and commit messages are in English.
+**Verify**: Documents under `.prospec/changes/` are written in Traditional Chinese (Taiwan); code, technical terms, commit messages, and the AI Knowledge base are in English. A Constitution audit does NOT flag the English Knowledge base as a Language-Policy violation (the base is exempt).
 
 ---
 ### [MUST] Atomic Commits by Feature
@@ -40,7 +40,7 @@
 
 **Rationale**: INVEST ensures requirement quality. Stories that violate it tend to cause scope creep, inaccurate estimates, and delivery delays.
 
-**Verify**: `/prospec-new-story` and `/prospec-verify` check each User Story against all six criteria; non-compliant stories are rewritten or split before entering the Plan stage.
+**Verify**: `/prospec-verify`'s full audit checks each User Story against the six criteria and grades a violation by severity (this rule is `[MUST]` → FAIL). `/prospec-new-story` runs the same check as an **advisory** nudge — concerns are recorded to `quality_log` but do not hard-block the Story (a per-criterion gate at new-story historically blocked nothing). Non-compliant stories should be rewritten or split; authoritative enforcement is this audit, not the new-story station.
 
 ---
 ### [MUST] Test-Driven Development
@@ -73,9 +73,9 @@
 
 ## Constraints
 
-- [x] Change workflow documents and AI Knowledge are written in Traditional Chinese (Taiwan)
+- [x] Change workflow documents (`.prospec/changes/`) are written in Traditional Chinese (Taiwan); the AI Knowledge base stays English (exempt)
 - [x] No mixed commits across unrelated features; commit messages in English; bulleted bodies; no AI co-authorship
-- [x] User Stories pass INVEST validation before entering the Plan stage
+- [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
 - [x] Dependency direction is `cli → services → lib → types` — no reverse or circular imports
 - [x] User-facing changes update the root `README.md` in the same change ([SHOULD] — verify Constitution audit WARNs on a gap)
@@ -85,7 +85,7 @@
 ## Quality Standards
 
 - **Testing**: All public functions have unit tests; coverage ≥ 80%
-- **Documentation**: Change documents and AI Knowledge in Traditional Chinese (Taiwan); code in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
+- **Documentation**: Change documents (`.prospec/changes/`) in Traditional Chinese (Taiwan); code, commit messages, and the AI Knowledge base in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
 

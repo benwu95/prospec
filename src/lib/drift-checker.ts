@@ -16,7 +16,8 @@ import type {
   GitTimestampSource,
   ImportEdgeSource,
   LinkSource,
-  ReadmeCountSource,
+  McpReadmeCountSource,
+  MetadataCompletenessSource,
   ReqDefinitionIndex,
   ReqReference,
   ReviewProvenanceSource,
@@ -48,8 +49,9 @@ export interface DriftCheckInputs {
   timestamps: GitTimestampSource;
   tasks: TaskSource;
   featureMapGovernance: FeatureMapGovernanceSource;
-  readmeCounts: ReadmeCountSource;
+  mcpReadmeCounts: McpReadmeCountSource;
   reviewProvenance: ReviewProvenanceSource;
+  metadataCompleteness: MetadataCompletenessSource;
   generatedAt: string;
 }
 
@@ -285,19 +287,21 @@ export function evaluateFeatureModules(src: FeatureMapGovernanceSource): CheckOu
 }
 
 /**
- * README declared counts must match the code they name — drift is WARN-class
+ * MCP README declared counts must match the code they name — drift is WARN-class
  * (REQ-LIB-020). Mechanizes the count-accuracy gap the other checks leave to
- * human review; whitelist-bounded in the collector, so unmatched prose never
- * reaches here. Skips when module-map is absent (no module boundaries).
+ * human review; whitelist-bounded in the collector to the MCP registration
+ * pattern, so unmatched prose never reaches here. Skips when module-map is absent
+ * (no module boundaries). The `mcp-` id keeps the scope honest — root-README
+ * badges/inventory counts are deliberately out of scope.
  */
-export function evaluateReadmeCounts(src: ReadmeCountSource): CheckOutcome {
+export function evaluateMcpReadmeCounts(src: McpReadmeCountSource): CheckOutcome {
   if (!src.available) {
-    return skipped('readme-counts', src.reason ?? 'source unavailable');
+    return skipped('mcp-readme-counts', src.reason ?? 'source unavailable');
   }
   const findings: DriftFinding[] = src.claims
     .filter((c) => c.claimed !== c.actual)
     .map((c) => ({
-      check: 'readme-counts' as const,
+      check: 'mcp-readme-counts' as const,
       severity: 'warn' as const,
       source_path: c.readme_path,
       line: c.line,
@@ -305,7 +309,7 @@ export function evaluateReadmeCounts(src: ReadmeCountSource): CheckOutcome {
         `count drift: README claims ${c.claimed} ${c.noun} for ${c.source_path} ` +
         `but the code has ${c.actual}`,
     }));
-  return outcome('readme-counts', findings);
+  return outcome('mcp-readme-counts', findings);
 }
 
 /**
@@ -350,6 +354,45 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
   return outcome('review-provenance', findings);
 }
 
+/**
+ * Metadata completeness — a change whose metadata.yaml is missing a required
+ * field (name/created_at/status/scale), or that is verified/archived yet records
+ * no /prospec-verify S/A grade in quality_log, fails (FAIL-class). Backs the
+ * /prospec-archive Entry Gate so incomplete metadata cannot enter the permanent
+ * record. In-progress changes (story/plan/tasks/implemented) are exempt from the
+ * grade rule — the collector only sets missing_verify_grade for graded statuses.
+ * An unavailable source (no `.prospec/changes/`) skips, never a fabricated pass.
+ */
+export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('metadata-completeness', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const c of src.changes) {
+    if (c.missing_fields.length > 0) {
+      findings.push({
+        check: 'metadata-completeness',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `incomplete metadata for change "${c.name}": missing required field(s) ` +
+          `${c.missing_fields.join(', ')}`,
+      });
+    }
+    if (c.missing_verify_grade) {
+      findings.push({
+        check: 'metadata-completeness',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `change "${c.name}" is ${c.status} but quality_log records no ` +
+          `/prospec-verify S/A grade`,
+      });
+    }
+  }
+  return outcome('metadata-completeness', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -360,8 +403,9 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'task-completion': evaluateTaskCompletion(inputs.tasks),
     'dangling-prefix': evaluateDanglingPrefix(inputs.featureMapGovernance),
     'feature-modules': evaluateFeatureModules(inputs.featureMapGovernance),
-    'readme-counts': evaluateReadmeCounts(inputs.readmeCounts),
+    'mcp-readme-counts': evaluateMcpReadmeCounts(inputs.mcpReadmeCounts),
     'review-provenance': evaluateReviewProvenance(inputs.reviewProvenance),
+    'metadata-completeness': evaluateMetadataCompleteness(inputs.metadataCompleteness),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);
