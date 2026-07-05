@@ -2,6 +2,7 @@
 name: prospec-knowledge-generate
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Knowledge Generate Skill
 
@@ -227,7 +228,7 @@ until real principles exist, and point them to edit `{{constitution_path}}`. Adv
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] each module has exactly one Recipe-First README

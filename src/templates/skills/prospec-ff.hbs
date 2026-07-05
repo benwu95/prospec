@@ -2,6 +2,7 @@
 name: prospec-ff
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Fast-Forward Skill
 
@@ -117,7 +118,7 @@ List all produced files, task statistics, suggest `/prospec-implement` as next s
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] proposal and tasks produced; plan produced unless `scale: quick` (quick: plan.md/delta-spec.md absent by contract)

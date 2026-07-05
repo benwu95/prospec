@@ -96,6 +96,18 @@ function ensureBuiltinPartials(): void {
     readTemplateSource('skills/_knowledge-loading-rules.hbs'),
   );
   Handlebars.registerPartial(
+    'next-step-handoff',
+    readTemplateSource('skills/_next-step-handoff.hbs'),
+  );
+  Handlebars.registerPartial(
+    'output-summary-note',
+    readTemplateSource('skills/_output-summary-note.hbs'),
+  );
+  Handlebars.registerPartial(
+    'generated-notice',
+    readTemplateSource('skills/_generated-notice.hbs'),
+  );
+  Handlebars.registerPartial(
     'index-auto-block',
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );

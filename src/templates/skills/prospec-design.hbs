@@ -2,6 +2,7 @@
 name: prospec-design
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Design Skill
 
@@ -140,7 +141,7 @@ Suggest: `/prospec-plan` (if plan.md doesn't exist) or `/prospec-tasks` (if plan
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] design-spec.md + interaction-spec.md produced (Generate) or extracted (Extract)

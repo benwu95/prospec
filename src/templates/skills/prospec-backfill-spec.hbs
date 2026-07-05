@@ -2,6 +2,7 @@
 name: prospec-backfill-spec
 description: "{{skill_description}} Triggers: {{trigger_words}}"
 ---
+{{> generated-notice}}
 
 # Prospec Backfill Spec Skill
 
@@ -83,7 +84,7 @@ Present the draft, resolve `[NEEDS CLARIFICATION]`, and confirm the candidate fe
 
 ## Output Contract
 
-> After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
+{{> output-summary-note}}
 
 ### Success Criteria
 - [ ] `.prospec/changes/[name]/backfill-draft.md` written, route-compatible (grep `**Feature:**`/`**Story:**`)
