@@ -565,6 +565,29 @@ describe('agent-sync skill_triggers warnings', () => {
     );
     expect(quickstartRender).toBeDefined();
   });
+
+  it('threads per-agent surfaces_skill_frontmatter into the entry render (REQ-AGNT-034/REQ-TYPES-059)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml':
+        'project:\n  name: test\nagents:\n  - claude\n  - codex\n  - copilot\n  - antigravity\n',
+    });
+
+    vi.mocked(renderTemplate).mockClear();
+    await execute({ cwd: '/project' });
+
+    const entryCalls = vi
+      .mocked(renderTemplate)
+      .mock.calls.filter(([name]) => name === 'agent-configs/entry.md.hbs')
+      .map(([, ctx]) => ctx as Record<string, unknown>);
+
+    const claude = entryCalls.find((c) => c.skill_path === '.claude/skills');
+    const agentsMd = entryCalls.find((c) => c.skill_path === '.agents/skills');
+
+    // claude auto-surfaces SKILL.md frontmatter → slim registry
+    expect(claude?.surfaces_skill_frontmatter).toBe(true);
+    // codex/copilot/antigravity do not → full table
+    expect(agentsMd?.surfaces_skill_frontmatter).toBe(false);
+  });
 });
 
 describe('agent-sync entry config block merge (REQ-AGNT-023 / REQ-AGNT-008)', () => {

@@ -505,7 +505,9 @@ describe('CLI E2E', () => {
         path.join(tmpDir, 'CLAUDE.md'),
         'utf-8',
       );
-      expect(claudeMd).toContain('**Triggers**: explore, compare, investigate, unsure, clarify, 探索, 比較, 調查');
+      // CLAUDE.md registry is slim for claude — the trigger words are surfaced via
+      // the SKILL.md frontmatter (asserted above), not duplicated in the entry config.
+      expect(claudeMd).not.toContain('**Triggers**:');
       expect(claudeMd).toContain('**Traditional Chinese (Taiwan)**');
     });
 
@@ -783,13 +785,16 @@ describe('prospec mcp E2E', () => {
         ),
       ).toBe(true);
 
-      // ...but is NOT listed in the always-loaded entry config (Layer 0 stays lean)
+      // ...and CLAUDE.md's registry is slim (claude surfaces SKILL.md frontmatter):
+      // no per-skill table at all, so nothing — including the excluded quickstart —
+      // is enumerated. Full-table exclusion is covered by the agent-sync unit test
+      // (skills array) and the integration contract (AGENTS.md).
       const claudeMd = await fs.promises.readFile(
         path.join(tmpDir, 'CLAUDE.md'),
         'utf-8',
       );
-      expect(claudeMd).not.toContain('prospec-quickstart');
-      expect(claudeMd).toContain('/prospec-explore');
+      expect(claudeMd).not.toContain('### /prospec-'); // slim: no per-skill entries
+      expect(claudeMd).toContain('/prospec-'); // slim pointer names the command family
 
       // the hand-off line names the exact next slash command
       expect(stdout).toContain('/prospec-quickstart');

@@ -75,18 +75,22 @@ describe('Skill generation contract (verify-skills.sh port)', () => {
       expect(read('CLAUDE.md')).not.toContain('.prospec/skills/');
       expect(read('AGENTS.md')).not.toContain('.prospec/skills/');
     });
-    it('CLAUDE.md points at .claude/skills, AGENTS.md at .agents/skills', () => {
-      expect(read('CLAUDE.md')).toContain('.claude/skills/prospec-archive/references/');
+    it('AGENTS.md keeps the full table; CLAUDE.md registry is slim', () => {
+      // AGENTS.md (non-frontmatter agents) keeps the full per-skill table + reference paths
       expect(read('AGENTS.md')).toContain('.agents/skills/prospec-archive/references/');
+      expect(read('AGENTS.md')).toContain('### /prospec-archive');
+      // CLAUDE.md is slim — Claude Code surfaces SKILL.md frontmatter, so no per-skill table
+      expect(read('CLAUDE.md')).not.toContain('.claude/skills/prospec-archive/references/');
+      expect(read('CLAUDE.md')).not.toContain('### /prospec-archive');
     });
   });
 
   // [B] self-contained knowledge skills: no References line / no refs dir
   describe('[B] knowledge skills are self-contained', () => {
-    it('CLAUDE.md carries no References line for kg/ku', () => {
-      const claude = read('CLAUDE.md');
-      expect(claude).not.toContain('prospec-knowledge-generate/references');
-      expect(claude).not.toContain('prospec-knowledge-update/references');
+    it('AGENTS.md carries no References line for kg/ku (self-contained)', () => {
+      const agents = read('AGENTS.md');
+      expect(agents).not.toContain('prospec-knowledge-generate/references');
+      expect(agents).not.toContain('prospec-knowledge-update/references');
     });
     it('kg/ku emit no references/ dir', () => {
       expect(existsSync(at('.claude/skills/prospec-knowledge-generate/references'))).toBe(false);

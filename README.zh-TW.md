@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2056%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2062%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -429,7 +429,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 每個 skill 的 Startup Loading 區段以**靜態優先**排序，讓 provider 的 prompt cache（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）能跨觸發重用最長前綴。每個載入項帶兩種標注之一：
 
-- **`[STABLE]`** — 僅在 `agent sync` 或治理變更時改動：skill 自身的 `references/` 格式規格、Constitution、`_conventions.md`。最先載入。
+- **`[STABLE]`** — 僅在 `agent sync` 或治理變更時改動：啟動即需的 `references/` 格式規格、Constitution、`_conventions.md`。最先載入。（`ff` / `plan` / `archive` 的分階段格式規格改為**逐 phase on-demand** 讀取 —— 移出穩定前綴，中途 abort 就不必為後續 phase 的格式付出成本。）
 - **`[DYNAMIC]`** — 隨 knowledge 更新、change 或每次觸發變動：`prospec/index.md`（cache boundary 後第一位）、模組 README、`_playbook.md`、Feature/Product Specs、`.prospec/changes/` artifacts。最後載入。
 
 判準是**跨請求前綴穩定性**，不是「是否由模板生成」：entry config 的 Available Skills 列表每專案固定（只在 skill 集變動時改變），因此屬 `[STABLE]`。Extension 開發者新增 skill 須遵循同一排序 —— 靜態在 boundary 前、動態在後 —— 否則每次觸發都打破 cache 前綴。harness 量測的是 **prospec 組裝管線**（corpus 組裝的是 knowledge 檔案，非 skill 模板本身）—— 見下方 Token 量測。模板層重排的效果發生在 agent 部署層，不在 harness 可觀測範圍（deliberate exclusion）：其效益依據各 provider 文件化的 prefix-caching 語意推導，而非 before/after 直接量測。
@@ -648,7 +648,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2056 個測試）
+# 執行所有測試（2062 個測試）
 pnpm test
 
 # Watch 模式
@@ -661,9 +661,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2056 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1343 tests
-- Contract tests（CLI 輸出 + Skill 格式）：632 tests
+**測試覆蓋率**：2062 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1344 tests
+- Contract tests（CLI 輸出 + Skill 格式）：637 tests
 - Integration tests：38 tests
 - E2E tests：43 tests
 

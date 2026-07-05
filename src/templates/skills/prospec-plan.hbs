@@ -18,15 +18,15 @@ When triggered, briefly describe:
 ## Startup Loading
 
 1. [STABLE] Read `{{constitution_path}}` — prepare Constitution check
-2. [STABLE] **MANDATORY** — Read [`references/plan-format.md`](references/plan-format.md) for plan.md format
-3. [STABLE] **MANDATORY** — Read [`references/delta-spec-format.md`](references/delta-spec-format.md) for delta-spec.md format
-4. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse User Stories and acceptance scenarios
-5. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules (Layer 1)
-6. [DYNAMIC] Read `{{base_dir}}/specs/features/` — load relevant Feature Specs for existing requirements and User Story context
-7. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview and feature map
-8. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for this change's modules (progressive disclosure; skip unrelated entries)
+2. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse User Stories and acceptance scenarios
+3. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules (Layer 1)
+4. [DYNAMIC] Read `{{base_dir}}/specs/features/` — load relevant Feature Specs for existing requirements and User Story context
+5. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview and feature map
+6. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for this change's modules (progressive disclosure; skip unrelated entries)
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
+
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5. Read each when entering its phase; do not preload them into the stable prefix.
 
 {{> knowledge-loading-rules}}
 
@@ -86,7 +86,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 - `standard` (or absent): concise plan, keep under 120 lines — the current default
 - `full`: complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, explicit trade-off notes in Risk Assessment
 
-Follow `references/plan-format.md` format:
+Follow `references/plan-format.md` (read it on demand at this step — not a Startup Loading item):
 - **Overview**: Implementation strategy summary
 - **Technical Summary** (Brownfield) or **Technical Context** (Greenfield): Auto-synthesized from Phase 2 — see `references/plan-format.md` Section 2
 - **Affected Modules**: Table of impacted modules and changes
@@ -108,7 +108,7 @@ When a User Story is structurally complex — **any-of**: >= 2 branching decisio
 
 ### Phase 5: Generate delta-spec.md
 
-Follow `references/delta-spec-format.md` format:
+Follow `references/delta-spec-format.md` (read it on demand at this step — not a Startup Loading item):
 - **ADDED**: New requirements (REQ ID + Description + AC + Priority)
 - **MODIFIED**: Changed requirements — reference existing behavior from Feature Specs as "Before" (Before/After/Reason)
 - **REMOVED**: Removed requirements (Reason)

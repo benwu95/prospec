@@ -17,10 +17,9 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. [STABLE] **MANDATORY** — Read [`references/archive-format.md`](references/archive-format.md) for summary.md format specification
-2. [STABLE] **MANDATORY** — Read [`references/feature-spec-format.md`](references/feature-spec-format.md) for Feature Spec format
-3. [STABLE] **MANDATORY** — Read [`references/product-spec-format.md`](references/product-spec-format.md) for Product Spec format
-4. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
+1. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
+
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/archive-format.md`](references/archive-format.md) at Phase 2/3 (summary + spec archiving), [`references/feature-spec-format.md`](references/feature-spec-format.md) at Phase 3.5, [`references/product-spec-format.md`](references/product-spec-format.md) at Phase 3.6. (`references/promotion-format.md` is already read on demand at Phase 4.5.) Read each when entering its phase; do not preload them into the stable prefix.
 
 ## Entry Gate
 

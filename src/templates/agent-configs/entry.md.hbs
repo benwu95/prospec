@@ -36,6 +36,9 @@ Project glossary and domain terms: [`{{knowledge_base_path}}/_glossary.md`]({{kn
 
 ## Available Prospec Skills
 
+{{#if surfaces_skill_frontmatter}}
+Prospec Skills are invoked via `/prospec-*` slash commands — each skill's description and trigger words are surfaced automatically from its `SKILL.md` frontmatter, so run the matching `/prospec-<name>` command to trigger one.
+{{else}}
 This project ships with the following Prospec Skills, triggered via slash commands:
 
 {{#each skills}}
@@ -50,6 +53,7 @@ This project ships with the following Prospec Skills, triggered via slash comman
 {{/if}}
 
 {{/each}}
+{{/if}}
 
 ## Session Start
 
