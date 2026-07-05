@@ -159,6 +159,8 @@ export interface IndexModule {
   keywords: string[];
   aliases: string[];
   description: string;
+  rationale: string;
+  dependsOn: string[];
 }
 
 /**
@@ -188,6 +190,8 @@ export function parseIndexModules(indexContent: string): IndexModule[] {
   const keywordsCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.KEYWORDS]);
   const aliasesCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.ALIASES]);
   const descriptionCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.DESCRIPTION]);
+  const rationaleCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.RATIONALE]);
+  const dependsOnCol = col(INDEX_TABLE_COLUMNS[INDEX_COLUMN.DEPENDS_ON]);
   const modules: IndexModule[] = [];
   for (const cells of rows) {
     const raw = cells[nameCol] ?? '';
@@ -198,6 +202,8 @@ export function parseIndexModules(indexContent: string): IndexModule[] {
       keywords: splitList(cells[keywordsCol]),
       aliases: splitList(cells[aliasesCol]),
       description: cells[descriptionCol] ?? '',
+      rationale: cells[rationaleCol] ?? '',
+      dependsOn: splitList(cells[dependsOnCol]),
     });
   }
   return modules;

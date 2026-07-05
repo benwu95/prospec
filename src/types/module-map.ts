@@ -14,6 +14,11 @@ const ModuleEntrySchema = z.object({
   description: z.string().optional(),
   paths: z.array(z.string()),
   keywords: z.array(z.string()),
+  // Human-readable localized search aliases (index.md "Aliases" column). Curated
+  // here as the single source; index.md is generated from it.
+  aliases: z.array(z.string()).optional(),
+  // Module-split rationale (index.md "Rationale" column). Curated here.
+  rationale: z.string().optional(),
   // Ordered domain categories; element[0] is the primary category that drives
   // index.md grouping. Absent/empty = ungrouped (flat table). Single source of truth.
   category: z.array(z.string()).optional(),
