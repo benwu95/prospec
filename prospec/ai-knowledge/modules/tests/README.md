@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer test architecture using Vitest + memfs — 82 test files, 1,991 tests (unit 1306, contract 604, integration 38, e2e 43)
+> 4-layer test architecture using Vitest + memfs — 82 test files, 1,985 tests (unit 1300, contract 604, integration 38, e2e 43)
 
 <!-- prospec:auto-start -->
 
@@ -11,7 +11,7 @@
 | `tests/unit/lib/config.test.ts` | Config resolution and validation, incl. `isArtifactLanguageUnset` (absent/blank vs explicit) + `writeConfig` comment-preserving merge (keeps comments, adds key, deletes removed key) (26 tests) |
 | `tests/unit/lib/module-detector.test.ts` | Module detection with 4 strategy modes, incl. boundary-anchored relationships + barrel imports (26 tests) |
 | `tests/unit/lib/init-docs.test.ts` | Shared init-doc render helper — `buildInitDocContexts` (agents/blank-language defaults, baseline index with empty module table), `resolveInitDocLocation` (base vs knowledge root, relocated `knowledge.base_path`), `renderInitDoc` context selection by `doc.context` |
-| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + non-fatal raw-scan refresh wiring + BL-043 related_modules forwarded to the auto knowledge-update (70 tests) |
+| `tests/unit/services/archive.service.test.ts` | Archive + spec sync workflow, incl. kind-aware task stats + MODIFIED-REQ h2/--- boundary + regression that execute() auto-triggers neither knowledge-update nor raw-scan (64 tests) |
 | `tests/unit/services/raw-scan.service.test.ts` | Deterministic `generateRawScan` — regenerate raw-scan.md, dry-run, depth, curated files byte-identical (never created), fixpoint idempotency (9 tests) |
 | `tests/unit/services/knowledge-init.service.test.ts` | Init scaffolding + `--raw-scan-only` branch — raw-scan-only regenerates only raw-scan.md, never seeds/touches curated files, dry-run writes nothing |
 | `tests/unit/services/knowledge.service.test.ts` | Knowledge generation with key_exports (7 tests) |

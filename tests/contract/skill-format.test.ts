@@ -2083,10 +2083,12 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     expect(p35).toContain('`backfill` → delta-spec');
   });
 
-  it('documents that the auto knowledge-update is skipped for backfill (phantom-module guard)', () => {
+  it('documents that the archive service does not auto-trigger knowledge-update or raw-scan', () => {
     const c = renderArchive();
-    expect(c).toContain('For `scale: backfill` the service **skips** the auto knowledge-update');
-    expect(c).toContain('mint phantom modules');
+    expect(c).toContain('does **not** auto-trigger a knowledge update or a raw-scan refresh');
+    expect(c).toContain('only knowledge-sync path');
+    // the removed reverse claim (service auto-triggers a safety net) must not reappear
+    expect(c).not.toContain('auto-triggers a knowledge update');
   });
 
   it('Phase 2 skips the tasks-completion check for backfill (no tasks.md)', () => {

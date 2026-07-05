@@ -12,8 +12,6 @@ import type { ChangeStatus } from '../types/change.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
 import { ScanError, WriteError } from '../types/errors.js';
-import { execute as executeKnowledgeUpdate } from './knowledge-update.service.js';
-import { generateRawScan } from './raw-scan.service.js';
 
 // --- Interfaces ---
 
@@ -37,12 +35,7 @@ export interface ArchiveResult {
   archived: ArchivedChange[];
   skipped: string[];
   affectedModules: string[];
-  knowledgeUpdated: boolean;
   specFiles: string[];
-  /** Non-fatal notices forwarded from the auto knowledge-update (e.g. malformed REQ ids). */
-  knowledgeWarnings: string[];
-  /** Whether the deterministic raw-scan.md refresh ran after archiving (non-fatal safety net). */
-  rawScanRefreshed: boolean;
 }
 
 export interface ArchivedChange {
@@ -50,10 +43,6 @@ export interface ArchivedChange {
   sourcePath: string;
   archivePath: string;
   summaryGenerated: boolean;
-  /** metadata.scale — gates the REQ-prefix auto knowledge-update (skipped for `backfill`). */
-  scale: string;
-  /** metadata.related_modules — resolves feature-prefixed REQ ids in the auto knowledge-update. */
-  relatedModules: string[];
 }
 
 /** Routing info extracted from delta-spec Feature/Story fields. */
@@ -514,10 +503,6 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         sourcePath: change.dir,
         archivePath: archiveDir,
         summaryGenerated,
-        scale: String(change.metadata.scale ?? ''),
-        relatedModules: Array.isArray(change.metadata.related_modules)
-          ? change.metadata.related_modules.filter((m): m is string => typeof m === 'string')
-          : [],
       });
     } catch {
       skipped.push(change.name);
@@ -543,64 +528,11 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     }
   }
 
-  // Auto-trigger incremental Knowledge update (non-fatal). Without a delta-spec
-  // (the quick path) this safety net cannot derive modules and is skipped — the
-  // skill-level archive Entry Gate, which derives modules from diff paths, remains
-  // the mandatory knowledge-sync checkpoint there.
-  // `scale: backfill` is also skipped: its delta-spec uses feature-slug REQ ids
-  // (REQ-{FEATURE-SLUG}-NNN), which this REQ-prefix-driven update would misread as
-  // module names and mint phantom modules/<slug>/README.md + module-map entries.
-  // Backfill module sync is owned by the skill-level Entry Gate (related_modules /
-  // **Feature:**→feature-map), not this REQ-prefix safety net.
-  // For standard/full, `relatedModules` is forwarded so a feature-prefixed REQ
-  // (e.g. REQ-MCP-*) resolves to real modules via feature-map instead of minting
-  // a phantom modules/<prefix>/ (BL-043).
-  let knowledgeUpdated = false;
-  const knowledgeWarnings: string[] = [];
-  if (archived.length > 0) {
-    for (const change of archived) {
-      if (change.scale === 'backfill') continue;
-      const deltaSpecPath = path.join(change.archivePath, 'delta-spec.md');
-      if (fs.existsSync(deltaSpecPath)) {
-        try {
-          // Capture the result so non-fatal notices (e.g. malformed REQ ids)
-          // are forwarded to the archive caller instead of being dropped here.
-          const ku = await executeKnowledgeUpdate({
-            deltaSpecPath,
-            cwd,
-            relatedModules: change.relatedModules,
-          });
-          knowledgeUpdated = true;
-          knowledgeWarnings.push(...ku.warnings);
-        } catch {
-          // Knowledge update failure is non-fatal
-        }
-      }
-    }
-  }
-
-  // Refresh raw-scan.md deterministically (no LLM) so the project structure
-  // snapshot reflects the just-archived code. Non-fatal, like the knowledge
-  // update above — a scan failure must never block archiving. Mirrors the
-  // operative driver in the /prospec-archive skill template.
-  let rawScanRefreshed = false;
-  if (archived.length > 0) {
-    try {
-      await generateRawScan({ cwd });
-      rawScanRefreshed = true;
-    } catch {
-      // Raw-scan refresh failure is non-fatal
-    }
-  }
-
   return {
     archived,
     skipped,
     affectedModules: [...allAffectedModules],
-    knowledgeUpdated,
     specFiles,
-    knowledgeWarnings,
-    rawScanRefreshed,
   };
 }
 
