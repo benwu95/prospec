@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { MeasureResult } from '../../services/measure.service.js';
+import type { MeasureResult, SizeMeasureResult } from '../../services/measure.service.js';
 import type { BaselineComparison, ProviderRun } from '../../types/measurement.js';
 import { AGENT_PROVIDER_MAP } from '../../types/measurement.js';
 import { sanitizeTerminal } from './sanitize.js';
@@ -95,6 +95,41 @@ export function formatMeasureOutput(
   lines.push(pc.dim('* warm = synthetic cache hit (two back-to-back calls); production hit rates depend on the cache TTL.'));
   lines.push(pc.dim('G4 wording: input-token cost vs the full-dump baseline. Output tokens are unaffected and listed honestly.'));
   lines.push(pc.dim('copilot/codex are measured via their model provider (OpenAI), not the agent harness itself.'));
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+/**
+ * Format an offline SizeReport for terminal output.
+ *
+ * Honesty rules (REQ-MEASURE-006): size estimates only — no cache/cost columns,
+ * no threshold-style verdicts, numbers only. States plainly that it is a
+ * deterministic estimate and that cache/cost require a live API key.
+ */
+export function formatSizeOutput(
+  result: SizeMeasureResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const { sizeReport } = result;
+  const lines: string[] = [];
+
+  lines.push(pc.bold('Token Size Estimate (offline — no API call)'));
+  lines.push(
+    `Corpus: ${pc.cyan(sanitizeTerminal(sizeReport.corpus))} | Snapshot: ${pc.cyan(sanitizeTerminal(sizeReport.git_commit.slice(0, 12)))} | Generated: ${sanitizeTerminal(sizeReport.generated_at)} | Estimator: ${sanitizeTerminal(sizeReport.estimator)}`,
+  );
+  lines.push(pc.dim(`Tasks estimated: ${sizeReport.tasks.length}. Numbers are deterministic token-size estimates, comparable within this report only.`));
+  lines.push('');
+
+  for (const c of sizeReport.comparisons) {
+    lines.push(`  Baseline: ${pc.bold(c.baseline)}`);
+    lines.push(`    ${'metric'.padEnd(30)}${'baseline'.padStart(12)}${'prospec'.padStart(12)}${'saving'.padStart(9)}`);
+    lines.push(`    ${'est. input tokens (cold)'.padEnd(30)}${num(c.baseline_input_tokens).padStart(12)}${num(c.prospec_input_tokens).padStart(12)}${pct(c.input_saving_ratio).padStart(9)}`);
+    lines.push('');
+  }
+
+  lines.push(pc.dim('Deterministic char-based size estimate (no tokenizer, no API). Cache behavior and $ cost require a provider API key and are NOT part of this report.'));
 
   process.stdout.write(lines.join('\n') + '\n');
 }

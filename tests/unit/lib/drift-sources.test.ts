@@ -579,6 +579,38 @@ describe('collectMetadataCompleteness', () => {
     const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c11');
     expect(c?.missing_verify_grade).toBe(true);
   });
+
+  it('accepts a verified change graded via the structured grade field (result stays PASS)', () => {
+    write(
+      '.prospec/changes/c12/metadata.yaml',
+      'name: c12\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c12');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  it('a structured grade of B does not satisfy the S/A gate', () => {
+    write(
+      '.prospec/changes/c13/metadata.yaml',
+      'name: c13\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: WARN\n    grade: B\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c13');
+    expect(c?.missing_verify_grade).toBe(true);
+  });
+
+  it('still accepts the legacy shape where the grade lived in result (pre-#61 back-compat)', () => {
+    // c4 above already exercises result: A; this pins the fallback stays alive
+    // alongside the new grade field so archived metadata never regresses.
+    write(
+      '.prospec/changes/c14/metadata.yaml',
+      'name: c14\ncreated_at: "2026-07-05"\nstatus: archived\nscale: standard\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: S\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c14');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
 });
 
 describe('moduleAttributor', () => {

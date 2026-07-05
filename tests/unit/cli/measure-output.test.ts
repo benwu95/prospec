@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatMeasureOutput } from '../../../src/cli/formatters/measure-output.js';
-import type { MeasureResult } from '../../../src/services/measure.service.js';
+import { formatMeasureOutput, formatSizeOutput } from '../../../src/cli/formatters/measure-output.js';
+import type { MeasureResult, SizeMeasureResult } from '../../../src/services/measure.service.js';
 import type {
   BaselineComparison,
   ProviderRun,
   ProviderSummary,
   MeasurementReport,
+  SizeReport,
 } from '../../../src/types/measurement.js';
 
 function makeComparison(over: Partial<BaselineComparison> = {}): BaselineComparison {
@@ -250,5 +251,78 @@ describe('formatRun — model name sanitization', () => {
     // sanitizeTerminal removes the ESC bytes but keeps the printable remainder
     expect(out).toContain('[31mevil[0m');
     expect(out).not.toContain(`${ESC}[31m`);
+  });
+});
+
+function makeSizeResult(over: Partial<SizeReport> = {}): SizeMeasureResult {
+  const sizeReport: SizeReport = {
+    corpus: 'sdd-tasks-v1',
+    git_commit: 'abcdef0123456789',
+    generated_at: '2026-07-05T00:00:00Z',
+    estimator: 'chars-per-token:4',
+    tasks: [
+      {
+        task_id: 't1',
+        estimates: [
+          { strategy: 'full-dump', cold_input_tokens: 120000 },
+          { strategy: 'naive-rag', cold_input_tokens: 9000 },
+          { strategy: 'prospec', cold_input_tokens: 8000 },
+        ],
+      },
+    ],
+    comparisons: [
+      { baseline: 'full-dump', baseline_input_tokens: 120000, prospec_input_tokens: 8000, input_saving_ratio: 0.9333 },
+      { baseline: 'naive-rag', baseline_input_tokens: 9000, prospec_input_tokens: 8000, input_saving_ratio: 0.1111 },
+    ],
+    ...over,
+  };
+  return { reportPath: '/tmp/size-report.json', sizeReport };
+}
+
+function captureSize(result: SizeMeasureResult, logLevel?: 'quiet' | 'normal' | 'verbose'): {
+  out: string;
+  write: ReturnType<typeof vi.spyOn>;
+} {
+  const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  if (logLevel === undefined) formatSizeOutput(result);
+  else formatSizeOutput(result, logLevel);
+  const out = write.mock.calls.map((c) => String(c[0])).join('');
+  return { out, write };
+}
+
+describe('formatSizeOutput — offline size estimate', () => {
+  it('writes nothing when logLevel is quiet', () => {
+    const { out, write } = captureSize(makeSizeResult(), 'quiet');
+    expect(write).not.toHaveBeenCalled();
+    expect(out).toBe('');
+  });
+
+  it('renders the offline header with corpus, 12-char snapshot, and estimator', () => {
+    const { out } = captureSize(makeSizeResult());
+    expect(out).toContain('Token Size Estimate (offline — no API call)');
+    expect(out).toContain('sdd-tasks-v1');
+    expect(out).toContain('abcdef012345');
+    expect(out).not.toContain('abcdef0123456789');
+    expect(out).toContain('chars-per-token:4');
+  });
+
+  it('renders one Baseline block per comparison with num/pct formatting', () => {
+    const { out } = captureSize(makeSizeResult());
+    expect(out).toContain('120,000');
+    expect(out).toContain('8,000');
+    expect(out).toContain('93.3%');
+    const baselineCount = out.split('Baseline:').length - 1;
+    expect(baselineCount).toBe(2);
+    expect(out).toContain('est. input tokens (cold)');
+  });
+
+  it('shows no cache/cost columns and no threshold-style verdict (REQ-MEASURE-006 honesty)', () => {
+    const { out } = captureSize(makeSizeResult());
+    expect(out).not.toContain('Cache hit rate');
+    expect(out).not.toMatch(/\$\d/); // no dollar-cost figures
+    expect(out).not.toMatch(/threshold|verdict|\bpass\b|\bfail\b/i);
+    // states plainly it is an estimate and that cache/cost need a key
+    expect(out).toContain('Deterministic char-based size estimate');
+    expect(out).toContain('require a provider API key');
   });
 });

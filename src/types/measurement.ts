@@ -109,6 +109,48 @@ export const MeasurementReportSchema = z.object({
   runs: z.array(ProviderRunSchema).min(1),
 });
 
+export const DEFAULT_SIZE_REPORT_FILENAME = 'size-report.json';
+
+/**
+ * Offline size report — a deterministic char-based token-size estimate produced
+ * WITHOUT any provider API key (`pnpm measure:tokens --offline`). It is a
+ * separate shape from MeasurementReport on purpose: size estimation observes no
+ * provider, no cache behavior, and no cost — those require a live API. Keeping
+ * it distinct leaves the online MeasurementReport contract (provider runs,
+ * pricing, cache) untouched.
+ */
+export const SizeStrategyEstimateSchema = z.object({
+  strategy: z.enum(ASSEMBLY_STRATEGIES),
+  /** Deterministic estimated token count of the assembled cold input. */
+  cold_input_tokens: z.number().int().nonnegative(),
+});
+
+export const SizeTaskEstimateSchema = z.object({
+  task_id: z.string(),
+  estimates: z.array(SizeStrategyEstimateSchema),
+});
+
+export const SizeBaselineComparisonSchema = z.object({
+  baseline: z.enum(MEASUREMENT_BASELINES),
+  baseline_input_tokens: z.number().int().nonnegative(),
+  prospec_input_tokens: z.number().int().nonnegative(),
+  /** (baseline - prospec) / baseline over estimated cold input tokens, 0..1. */
+  input_saving_ratio: z.number(),
+});
+
+export const SizeReportSchema = z.object({
+  /** Corpus identifier, e.g. 'sdd-tasks-v1'. */
+  corpus: z.string().min(1),
+  /** Git commit of the repo snapshot the contexts were assembled from. */
+  git_commit: z.string().min(1),
+  generated_at: z.string(),
+  /** How tokens were estimated (e.g. 'chars-per-token:4'). Size-only: no
+   *  provider/cache/cost — those require a live API key (deliberate exclusion). */
+  estimator: z.string().min(1),
+  tasks: z.array(SizeTaskEstimateSchema).min(1),
+  comparisons: z.array(SizeBaselineComparisonSchema),
+});
+
 export type MeasurementProvider = (typeof MEASUREMENT_PROVIDERS)[number];
 export type AssemblyStrategy = (typeof ASSEMBLY_STRATEGIES)[number];
 export type MeasurementBaseline = (typeof MEASUREMENT_BASELINES)[number];
@@ -120,3 +162,7 @@ export type BaselineComparison = z.infer<typeof BaselineComparisonSchema>;
 export type ProviderSummary = z.infer<typeof ProviderSummarySchema>;
 export type ProviderRun = z.infer<typeof ProviderRunSchema>;
 export type MeasurementReport = z.infer<typeof MeasurementReportSchema>;
+export type SizeStrategyEstimate = z.infer<typeof SizeStrategyEstimateSchema>;
+export type SizeTaskEstimate = z.infer<typeof SizeTaskEstimateSchema>;
+export type SizeBaselineComparison = z.infer<typeof SizeBaselineComparisonSchema>;
+export type SizeReport = z.infer<typeof SizeReportSchema>;
