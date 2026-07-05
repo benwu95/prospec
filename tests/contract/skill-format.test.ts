@@ -1702,7 +1702,12 @@ describe('Language Policy mechanism', () => {
     const section = sectionOf(content, '## Language Policy');
     expect(section.length).toBeGreaterThan(0);
     expect(section).toContain('**Traditional Chinese (Taiwan)**');
-    expect(section).toContain('git commit messages always remain in English');
+    // scoped to change artifacts; the AI Knowledge base is explicitly on the
+    // English/exempt side — assert the association so a meaning-inverted rewrite
+    // (Knowledge base in {{artifact_language}}) cannot pass on loose substrings.
+    expect(section).toContain('change artifacts');
+    expect(section).toMatch(/AI Knowledge base.*remain in English/);
+    expect(section).toMatch(/exempt from the .* requirement/);
   });
 
   it('every skill frontmatter renders the synthesized trigger words', () => {
@@ -2861,5 +2866,70 @@ describe('converge-constitution-audit — single full Constitution audit at veri
         'prospec/CONSTITUTION.md',
       );
     }
+  });
+});
+
+describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony pruning (issue #67)', () => {
+  const render = (name: string) => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+  const QUALITY_GATE_TABLE = '| Check Item | PASS | WARN |';
+
+  it('verify gives quick a genuine scale-aware reduction, not just a relabel', () => {
+    const v = render('prospec-verify');
+    const startup = sectionOf(v, '## Startup Loading');
+    expect(startup).toContain('Scale-aware execution (`metadata.scale: quick`)');
+    expect(startup).toContain('genuinely lighter');
+    expect(v).toContain('Condensed report (`metadata.scale: quick`)');
+  });
+
+  it('verify has a single commit point — the checkpoint-commit escape hatch is gone (commit semantics unified)', () => {
+    const v = render('prospec-verify');
+    expect(v, 'the implement-vs-verify commit contradiction must be gone').not.toContain(
+      'checkpoint-commit during implement',
+    );
+    expect(v).toContain('single commit point');
+  });
+
+  it('the full Knowledge Quality-Gate table lives only in verify — the four SDD stations carry a one-line note', () => {
+    expect(render('prospec-verify')).toContain(QUALITY_GATE_TABLE);
+    for (const name of ['prospec-new-story', 'prospec-plan', 'prospec-tasks', 'prospec-implement']) {
+      const c = render(name);
+      expect(c, `${name} must not restate the full Quality-Gate table`).not.toContain(QUALITY_GATE_TABLE);
+      expect(c, `${name} must defer to verify for the full table`).toContain(
+        'full per-station Quality-Gate table lives only in `/prospec-verify`',
+      );
+    }
+  });
+
+  it('new-story runs INVEST as an advisory check, not a hard gate (principle kept)', () => {
+    const nc = render('prospec-new-story');
+    const phase6 = sectionOf(nc, '### Phase 6: Constitution Check (site-specific: INVEST)');
+    expect(phase6).toContain('advisory');
+    expect(phase6).toContain('do not hard-block');
+    expect(phase6).toContain('stays a Constitution `[MUST]`');
+    expect(sectionOf(nc, '## NEVER')).toContain('hard-block a Story on the INVEST check');
+  });
+
+  it('tasks makes [P] and ~lines optional while keeping [M]/[V] kind markers required', () => {
+    const t = render('prospec-tasks');
+    const never = sectionOf(t, '## NEVER');
+    expect(never).toContain('gate on `[P]` or `~lines`');
+    expect(never, 'the forced-[P] NEVER must be gone').not.toContain('forget to mark `[P]`');
+    expect(never).toContain("omit a non-code task's `[M]`/`[V]` kind marker");
+    expect(t).toContain('Phase 4 (Optional): Mark Parallelization');
+  });
+
+  it('archive Entry Gate blocks archiving on the metadata-completeness machine check', () => {
+    const gate = sectionOf(render('prospec-archive'), '## Entry Gate');
+    expect(gate).toContain('Metadata completeness (machine-checked)');
+    expect(gate).toContain('metadata-completeness');
+    expect(gate).toContain('do not archive');
+  });
+
+  it('the shipped status-lifecycle template documents design as a no-status station (ui_scope-gated)', () => {
+    const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lifecycle, '## Stations without a status transition');
+    expect(section).toContain('/prospec-design');
+    expect(section).toContain('ui_scope != none');
+    expect(section).toContain('between `plan` and `tasks`');
   });
 });

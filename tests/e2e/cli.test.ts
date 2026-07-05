@@ -5,13 +5,21 @@
  * memfs does NOT propagate to child processes, so we test
  * with the real filesystem here.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFile } from 'node:child_process';
 import { parse as parseYamlRaw } from 'yaml';
 import { promisify } from 'node:util';
+
+// Every test here spawns a cold `node dist/cli/index.js` subprocess (full CLI
+// import graph). Under the full parallel suite, CPU contention makes an
+// occasional cold start exceed the 5s default testTimeout — a load flake, not a
+// real hang (each `runCli` still self-limits via execFile's 15s timeout below).
+// Give the whole file generous headroom above that 15s so a genuinely stuck
+// child is caught by execFile, never by a premature vitest timeout.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 const execFileAsync = promisify(execFile);
 

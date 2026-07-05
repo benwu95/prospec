@@ -31,6 +31,14 @@ story → plan → tasks → implemented → verified → archived
 - **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change — then archive sets `archived`.
 - **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, with no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists — there is nothing to story/plan/tasks/implement). Under metadata `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and records pre-existing code-quality gaps as informational tech debt, and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map (feature-slug REQ IDs do not map to modules by prefix).
 
+## Stations without a status transition
+
+Some workflow stations participate in the SDD order but own **no** `status` transition — they operate on the working tree and leave `status` to the stations above. Resume logic must place them by workflow order, not by `status`:
+
+- **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design.
+- **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify); records `review_provenance` but does not change `status`.
+- **`/prospec-learn`** — periodic; promotes lessons, owns no `status`.
+
 ## What each gate checks (artifact ownership)
 
 Different derived artifacts have different rightful update times — the gates are scoped accordingly:

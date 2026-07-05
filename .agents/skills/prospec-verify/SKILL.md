@@ -16,13 +16,15 @@ When triggered, briefly describe:
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — for full audit
 2. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — task completion status
-3. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — design intent
-4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — file specifications
+3. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — design intent (**skip for `scale: quick`/`backfill`** — no plan by contract)
+4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — file specifications (**skip for `scale: quick`** — no delta-spec by contract; 2/5 is `not-applicable`)
 5. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — acceptance scenarios
 6. [DYNAMIC] Read `.prospec/changes/[name]/metadata.yaml` — current status (updated on pass; see Status Update)
-7. [DYNAMIC] Read `prospec/specs/features/` — load relevant Feature Specs for consistency check
+7. [DYNAMIC] Read `prospec/specs/features/` — load relevant Feature Specs for consistency check (**skip for `scale: quick`** — no delta-spec REQs to compare)
 8. [DYNAMIC] Read `prospec/specs/product.md` — understand product-level overview
 9. [DYNAMIC] Run `prospec check --json` (Bash) and read `prospec-report.json` — deterministic structural facts for Verification 1/5 and 4/5 (the same engine the CI gate runs). If the command is unavailable (not built/installed), state **"drift engine unavailable — falling back to manual checks"** and continue with the documented fallbacks; never fall back silently
+
+> **Scale-aware execution (`metadata.scale: quick`)** — a quick change is genuinely lighter here, not just relabeled: skip Startup Loading items 3, 4, and 7 (plan/delta-spec/Feature-Spec-comparison — absent or moot by contract), run dimension 2/5 as `not-applicable` (spec impact is re-checked against the actual diff at the `/prospec-archive` Entry Gate), and emit the **condensed report** below (omit the `not-applicable` dimension's detail block). The dimensions that genuinely apply to a quick change (1/5 tasks, 3/5 Constitution, 4/5 Knowledge, 5/5 tests) still run in full — this trims ceremony, never a dimension that applies. `standard`/`full` run every item above.
 
 ## Progressive Knowledge Loading Strategy
 
@@ -200,6 +202,11 @@ Deployment Recommendation:
 - C, D: Not recommended for deployment
 ```
 
+> **Condensed report (`metadata.scale: quick`)**: present the grade + a single dimension table
+> (one row per applicable dimension: 1/5, 3/5, 4/5, 5/5, plus a `2/5 — not-applicable` row and
+> 6 only when `ui_scope != none`) instead of the full per-dimension prose blocks. Same grade, same
+> evidence-per-row rule — fewer sections, matched to a small change.
+
 ## Status Update
 
 After grading, update `.prospec/changes/[name]/metadata.yaml`:
@@ -219,7 +226,7 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 1. **Sync affected-module Knowledge** — run `/prospec-knowledge-update` for the modules this change touched so each module README reflects the final code. Update descriptions only; do **not** cite this change's not-yet-graduated REQ ids (they graduate at `/prospec-archive` Phase 3.5 — citing them now trips `prospec check` `req-references`). **`scale: backfill` exception**: do **not** run REQ-prefix-driven `/prospec-knowledge-update` here — its feature-slug REQ ids (`REQ-{FEATURE-SLUG}-NNN`) are not module names and would mint phantom modules; sync only the READMEs named by `metadata.related_modules` (by description), leaving module derivation to the archive Entry Gate (`related_modules`/`**Feature:**`→feature-map).
 2. **Re-derive factual counts** — if the project has a factual-count generator (a script/command that regenerates the counts its docs declare), run it; otherwise re-derive those counts from source. (This repo's generator is named in its contributor docs.)
-3. **Prompt the user to commit** the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes **plus the sync from steps 1–2** together. **Do not commit automatically** — prospec only prompts; the user runs the commit. (If the change was large enough to checkpoint-commit during implement, only the post-checkpoint fixes + sync go in a follow-up commit.)
+3. **Prompt the user to commit** the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes **plus the sync from steps 1–2** together. **Do not commit automatically** — prospec only prompts; the user runs the commit. This S/A boundary is the change's **single commit point** — implement never commits (see `/prospec-implement`), so the whole change lands as one commit here.
 
 Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `/prospec-archive` Entry Gate re-confirms this as a **backstop**.
 
@@ -243,7 +250,7 @@ WARN items are deployment risks — recommend resolving before `/prospec-archive
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
 
 ### Success Criteria
-- [ ] all 5+1 dimensions executed (6 dimension sections present)
+- [ ] all applicable dimensions executed (6 dimension sections for standard/full; `scale: quick` uses the condensed table — one row per applicable dimension, 2/5 shown as `not-applicable`, 6 only when `ui_scope != none`)
 - [ ] each dimension graded PASS/WARN/FAIL with evidence (manual)
 - [ ] status updated per grade (S/A -> verified)
 - [ ] FAIL items include remediation steps

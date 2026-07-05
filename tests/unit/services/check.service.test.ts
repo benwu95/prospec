@@ -51,7 +51,7 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all nine checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (all ten checks, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
@@ -59,7 +59,7 @@ describe('check.service execute', () => {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(9);
+    expect(result.report.summary.skipped_count).toBe(10);
     expect(result.hasFail).toBe(false);
   });
 
@@ -188,6 +188,28 @@ describe('check.service review-provenance', () => {
   it('exempts scale: backfill (no review required)', async () => {
     initGitChange('backfill');
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+});
+
+describe('check.service metadata-completeness', () => {
+  const completeness = (r: Awaited<ReturnType<typeof execute>>) => {
+    if (r.kind !== 'report') throw new Error('expected report');
+    return r.report.structural.checks.find((c) => c.id === 'metadata-completeness');
+  };
+
+  it('fails a change whose metadata omits required fields', async () => {
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\nscale: quick\n');
+    const result = await execute({ cwd: tmpDir });
+    expect(completeness(result)?.status).toBe('fail');
+    if (result.kind === 'report') expect(result.hasFail).toBe(true);
+  });
+
+  it('passes when every change carries the required fields', async () => {
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\ncreated_at: "2026-07-05"\nstatus: implemented\nscale: full\n',
+    );
+    expect(completeness(await execute({ cwd: tmpDir }))?.status).toBe('pass');
   });
 });
 

@@ -8,7 +8,8 @@ import {
   evaluateFilePaths,
   evaluateImportDirection,
   evaluateKnowledgeHealth,
-  evaluateReadmeCounts,
+  evaluateMcpReadmeCounts,
+  evaluateMetadataCompleteness,
   evaluateReqReferences,
   evaluateReviewProvenance,
   evaluateTaskCompletion,
@@ -19,6 +20,7 @@ import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
+  MetadataCompletenessSource,
   ReviewProvenanceSource,
   TaskSource,
 } from '../../../src/lib/drift-sources.js';
@@ -32,8 +34,9 @@ const emptyInputs: DriftCheckInputs = {
   timestamps: { available: true, modules: [] },
   tasks: { available: true, changes: [] },
   featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
-  readmeCounts: { available: true, claims: [] },
+  mcpReadmeCounts: { available: true, claims: [] },
   reviewProvenance: { available: true, current_digest: 'CUR', changes: [] },
+  metadataCompleteness: { available: true, changes: [] },
   generatedAt: '2026-06-12T00:00:00Z',
 };
 
@@ -704,8 +707,8 @@ describe('evaluateFeatureModules (REQ-LIB-019)', () => {
   });
 });
 
-describe('evaluateReadmeCounts (REQ-LIB-020)', () => {
-  const claim = (over: Partial<import('../../../src/lib/drift-sources.js').ReadmeCountClaim>) => ({
+describe('evaluateMcpReadmeCounts (REQ-LIB-020)', () => {
+  const claim = (over: Partial<import('../../../src/lib/drift-sources.js').McpReadmeCountClaim>) => ({
     module: 'services',
     readme_path: 'k/modules/services/README.md',
     line: 26,
@@ -717,7 +720,7 @@ describe('evaluateReadmeCounts (REQ-LIB-020)', () => {
   });
 
   it('skips when module-map is unavailable (never a false positive)', () => {
-    const r = evaluateReadmeCounts({
+    const r = evaluateMcpReadmeCounts({
       available: false,
       reason: 'source unavailable: module-map.yaml not found — module boundaries unknown',
       claims: [],
@@ -727,23 +730,23 @@ describe('evaluateReadmeCounts (REQ-LIB-020)', () => {
   });
 
   it('falls back to "source unavailable" when no reason is supplied', () => {
-    const r = evaluateReadmeCounts({ available: false, claims: [] });
+    const r = evaluateMcpReadmeCounts({ available: false, claims: [] });
     expect(r.result.status).toBe('skipped');
     expect(r.result.reason).toBe('source unavailable');
   });
 
   it('passes when every declared count matches the code', () => {
-    const r = evaluateReadmeCounts({ available: true, claims: [claim({}), claim({ noun: 'tools', claimed: 2, actual: 2 })] });
+    const r = evaluateMcpReadmeCounts({ available: true, claims: [claim({}), claim({ noun: 'tools', claimed: 2, actual: 2 })] });
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
   });
 
   it('warns (never fails) with file:line + expected-vs-actual on a mismatch', () => {
-    const r = evaluateReadmeCounts({ available: true, claims: [claim({ claimed: 6, actual: 8 })] });
+    const r = evaluateMcpReadmeCounts({ available: true, claims: [claim({ claimed: 6, actual: 8 })] });
     expect(r.result.status).toBe('warn');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]).toMatchObject({
-      check: 'readme-counts',
+      check: 'mcp-readme-counts',
       severity: 'warn',
       source_path: 'k/modules/services/README.md',
       line: 26,
@@ -754,12 +757,85 @@ describe('evaluateReadmeCounts (REQ-LIB-020)', () => {
   });
 
   it('reports only the mismatched claim when one of several drifts', () => {
-    const r = evaluateReadmeCounts({
+    const r = evaluateMcpReadmeCounts({
       available: true,
       claims: [claim({ noun: 'resources', claimed: 6, actual: 6 }), claim({ noun: 'tools', claimed: 2, actual: 3 })],
     });
     expect(r.result.status).toBe('warn');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]?.detail).toContain('2 tools');
+  });
+});
+
+describe('evaluateMetadataCompleteness', () => {
+  const change = (
+    over: Partial<MetadataCompletenessSource['changes'][number]> = {},
+  ): MetadataCompletenessSource['changes'][number] => ({
+    name: 'demo',
+    source_path: '.prospec/changes/demo/metadata.yaml',
+    status: 'tasks',
+    missing_fields: [],
+    missing_verify_grade: false,
+    ...over,
+  });
+  const src = (
+    over: Partial<MetadataCompletenessSource['changes'][number]> = {},
+  ): MetadataCompletenessSource => ({ available: true, changes: [change(over)] });
+
+  it('skips when the source is unavailable (never a fabricated pass)', () => {
+    const r = evaluateMetadataCompleteness({
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      changes: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+  });
+
+  it('falls back to "source unavailable" when no reason is supplied', () => {
+    const r = evaluateMetadataCompleteness({ available: false, changes: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('source unavailable');
+  });
+
+  it('passes a complete in-progress change with no verify grade (no false-block)', () => {
+    const r = evaluateMetadataCompleteness(src({ status: 'implemented' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails and lists the missing required field(s)', () => {
+    const r = evaluateMetadataCompleteness(src({ missing_fields: ['scale', 'created_at'] }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({
+      check: 'metadata-completeness',
+      severity: 'fail',
+      source_path: '.prospec/changes/demo/metadata.yaml',
+    });
+    expect(r.findings[0]?.detail).toContain('scale');
+    expect(r.findings[0]?.detail).toContain('created_at');
+  });
+
+  it('fails a verified change missing the /prospec-verify S/A grade', () => {
+    const r = evaluateMetadataCompleteness(src({ status: 'verified', missing_verify_grade: true }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('verified');
+    expect(r.findings[0]?.detail).toContain('S/A grade');
+  });
+
+  it('passes a verified change that has the grade recorded', () => {
+    const r = evaluateMetadataCompleteness(src({ status: 'verified', missing_verify_grade: false }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('emits both findings when a change is missing fields AND a grade', () => {
+    const r = evaluateMetadataCompleteness(
+      src({ status: 'verified', missing_fields: ['name'], missing_verify_grade: true }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(2);
   });
 });

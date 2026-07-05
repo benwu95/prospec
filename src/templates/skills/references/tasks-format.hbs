@@ -6,7 +6,7 @@ This document defines the expected format for `tasks.md`, used by the **prospec-
 
 ## Purpose
 
-`tasks.md` breaks down `plan.md` implementation steps into concrete development tasks with complexity estimates and dependency markers.
+`tasks.md` breaks down `plan.md` implementation steps into concrete development tasks, each carrying its `[M]`/`[V]` kind marker (required); complexity estimates and `[P]` parallelization markers are optional.
 
 ---
 
@@ -82,9 +82,9 @@ Group tasks by architecture layer in recommended order:
 
 ---
 
-### 3. Parallelizable Task Markers
+### 3. Parallelizable Task Markers (Optional)
 
-Use `[P]` to mark tasks that can be executed in parallel (no dependencies):
+`[P]` is an **optional** reader aid — no skill or service consumes it (implement executes tasks sequentially), so never gate on it. Use it only when it helps a human split the work: mark tasks that can run in parallel (no dependencies):
 
 ```markdown
 - [ ] [P] Parallelizable task 1 ~50 lines
@@ -122,9 +122,9 @@ Every task has exactly one kind. Mark non-code tasks; an unmarked task **is** co
 
 ---
 
-### 5. Complexity Estimate Format
+### 5. Complexity Estimate Format (Optional)
 
-Use `~{lines} lines` to estimate complexity:
+`~{lines} lines` is an **optional** estimate — nothing downstream reads it, so never gate on it. When you do include one, use this format (not S/M/L):
 
 ```markdown
 - [ ] Simple task ~20 lines

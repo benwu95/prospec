@@ -86,7 +86,7 @@ export interface GitTimestampSource {
   modules: ModuleTimestamps[];
 }
 
-export interface ReadmeCountClaim {
+export interface McpReadmeCountClaim {
   module: string;
   readme_path: string;
   line: number;
@@ -98,10 +98,10 @@ export interface ReadmeCountClaim {
   actual: number;
 }
 
-export interface ReadmeCountSource {
+export interface McpReadmeCountSource {
   available: boolean;
   reason?: string;
-  claims: ReadmeCountClaim[];
+  claims: McpReadmeCountClaim[];
 }
 
 export type { TaskKind } from './task-markers.js';
@@ -135,6 +135,30 @@ export interface ReviewProvenanceSource {
   /** current code fingerprint to compare each recorded digest against. */
   current_digest: string | null;
   changes: ReviewProvenanceChange[];
+}
+
+/** Required metadata fields a well-formed change carries — checked for presence
+ *  (non-empty), stricter than ChangeMetadataSchema (which makes `scale` optional). */
+export const REQUIRED_METADATA_FIELDS = ['name', 'created_at', 'status', 'scale'] as const;
+
+/** Statuses at/after which a /prospec-verify S/A grade must be recorded. */
+const GRADED_STATUSES = new Set(['verified', 'archived']);
+
+export interface MetadataCompletenessChange {
+  name: string;
+  /** repo-relative metadata.yaml path (finding anchor). */
+  source_path: string;
+  status: string;
+  /** subset of REQUIRED_METADATA_FIELDS absent or empty in metadata.yaml. */
+  missing_fields: string[];
+  /** true when status is verified/archived but quality_log has no S/A verify grade. */
+  missing_verify_grade: boolean;
+}
+
+export interface MetadataCompletenessSource {
+  available: boolean;
+  reason?: string;
+  changes: MetadataCompletenessChange[];
 }
 
 /** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included). */
@@ -346,32 +370,33 @@ export function collectGitTimestamps(
   return { available: true, modules };
 }
 
-/** Whitelisted README count claims — a prose noun → the code call that realizes it. */
-const README_COUNT_RULES: ReadonlyArray<{ noun: string; token: RegExp }> = [
+/** Whitelisted MCP README count claims — a prose noun → the code call that realizes it. */
+const MCP_README_COUNT_RULES: ReadonlyArray<{ noun: string; token: RegExp }> = [
   { noun: 'resources', token: /\bregisterResource\s*\(/ },
   { noun: 'tools', token: /\bregisterTool\s*\(/ },
 ];
 
 // "… `src/foo.ts` … registers 6 resources + 2 tools …" — one README line naming
 // a source file and declaring its resource (and optional tool) count.
-const README_COUNT_CLAIM =
+const MCP_README_COUNT_CLAIM =
   /`(src\/[^`]+\.[cm]?tsx?)`[^\n]*?\bregisters\s+(\d+)\s+resources(?:\s*\+\s*(\d+)\s+tools)?/;
 
 /**
- * Collect declared-vs-actual count claims from module READMEs (REQ-LIB-020).
+ * Collect declared-vs-actual MCP count claims from module READMEs (REQ-LIB-020).
  * A README line stating "`src/x.ts` … registers N resources + M tools" is
  * checked against the actual registerResource/registerTool call count in that
- * file. Whitelist-driven (README_COUNT_RULES) — prose that does not match a
+ * file. Whitelist-driven (MCP_README_COUNT_RULES) — prose that does not match a
  * rule yields no claim, never a false finding. The named file missing yields no
  * claim (file-paths owns broken links). Counting strips comments so a
- * commented-out call is not counted.
+ * commented-out call is not counted. Scope is the MCP registration pattern only
+ * (hence the `mcp-` check id) — root-README badges/inventory counts are not covered.
  */
-export function collectReadmeCounts(
+export function collectMcpReadmeCounts(
   cwd: string,
   knowledgePath: string,
   moduleMap: ModuleMap,
-): ReadmeCountSource {
-  const claims: ReadmeCountClaim[] = [];
+): McpReadmeCountSource {
+  const claims: McpReadmeCountClaim[] = [];
   const knowledgeRel = path.relative(cwd, path.resolve(cwd, knowledgePath));
   for (const entry of moduleMap.modules) {
     if (!isSafeResourceName(entry.name)) continue;
@@ -383,7 +408,7 @@ export function collectReadmeCounts(
     // strip fenced examples first — a count claim inside a ``` block is illustrative,
     // not a live claim (same reason as collectReqReferences/collectMarkdownLinks)
     withoutFencedBlocks(readme.split('\n')).forEach((line, i) => {
-      const m = README_COUNT_CLAIM.exec(line);
+      const m = MCP_README_COUNT_CLAIM.exec(line);
       if (m === null) return;
       const sourceRel = m[1]!;
       const code = readContainedFile(cwd, sourceRel);
@@ -391,7 +416,7 @@ export function collectReadmeCounts(
       const declared = [{ noun: 'resources', claimed: Number(m[2]) }];
       if (m[3] !== undefined) declared.push({ noun: 'tools', claimed: Number(m[3]) });
       for (const { noun, claimed } of declared) {
-        const rule = README_COUNT_RULES.find((r) => r.noun === noun);
+        const rule = MCP_README_COUNT_RULES.find((r) => r.noun === noun);
         if (rule === undefined) continue;
         claims.push({
           module: entry.name,
@@ -769,4 +794,74 @@ export function collectReviewProvenance(cwd: string): ReviewProvenanceSource {
     });
   }
   return { available: true, current_digest, changes };
+}
+
+/**
+ * Collect metadata-completeness facts for every change in `.prospec/changes/`.
+ * Each change reports which REQUIRED_METADATA_FIELDS are absent/empty and, for a
+ * verified/archived change, whether quality_log records a /prospec-verify S/A
+ * grade. Mirrors collectTaskStates' change enumeration; needs no git. Unparseable
+ * metadata is reported as fully incomplete (a corrupt file must not slip through),
+ * never skipped. Unavailable (no `.prospec/changes/`) → the check skips.
+ */
+export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSource {
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  if (!existsSync(changesDir)) {
+    return {
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      changes: [],
+    };
+  }
+  const changes: MetadataCompletenessChange[] = [];
+  for (const name of readdirSync(changesDir).sort()) {
+    const metadataPath = path.join(changesDir, name, 'metadata.yaml');
+    if (!existsSync(metadataPath)) continue;
+    const source_path = path.relative(cwd, metadataPath).replace(/\\/g, '/');
+    let meta: Record<string, unknown> | null = null;
+    try {
+      const parsed = parseYaml<unknown>(readFileSync(metadataPath, 'utf-8'), metadataPath);
+      // parseYaml returns null (never throws) for empty/blank/comment-only/`null`
+      // content — treat any non-mapping result as the worst incompleteness, same
+      // as a thrown parse error, rather than dereferencing null below.
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        meta = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // unparseable metadata — fall through to the fully-incomplete report
+    }
+    if (meta === null) {
+      changes.push({
+        name,
+        source_path,
+        status: '',
+        missing_fields: [...REQUIRED_METADATA_FIELDS],
+        missing_verify_grade: false,
+      });
+      continue;
+    }
+    const missing_fields = REQUIRED_METADATA_FIELDS.filter((f) => {
+      const v = meta[f];
+      return typeof v !== 'string' ? true : v.trim().length === 0;
+    });
+    const status = typeof meta.status === 'string' ? meta.status : '';
+    changes.push({
+      name,
+      source_path,
+      status,
+      missing_fields,
+      missing_verify_grade: GRADED_STATUSES.has(status) && !hasVerifyGrade(meta.quality_log),
+    });
+  }
+  return { available: true, changes };
+}
+
+/** True when quality_log carries a /prospec-verify entry graded S or A. */
+function hasVerifyGrade(quality_log: unknown): boolean {
+  if (!Array.isArray(quality_log)) return false;
+  return quality_log.some((entry) => {
+    if (entry === null || typeof entry !== 'object') return false;
+    const e = entry as { skill?: unknown; result?: unknown };
+    return e.skill === 'prospec-verify' && (e.result === 'S' || e.result === 'A');
+  });
 }

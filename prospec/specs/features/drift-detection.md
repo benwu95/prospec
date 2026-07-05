@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-04
-story_count: 6
-req_count: 15
+last_updated: 2026-07-05
+story_count: 7
+req_count: 20
 ---
 
 # 確定性 Drift 檢查
@@ -119,19 +119,19 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 **Acceptance Scenarios:**
 - WHEN module README 宣告計數與其指名程式碼的實際數不符，THEN 報 WARN（含 README `file:line` + expected vs actual）
 - WHEN 計數相符、無可解析宣告、或宣告落在 fenced code block 內，THEN 不報（不偽陽）
-- WHEN module-map 缺失，THEN `readme-counts` skipped（帶原因），永不偽裝 PASS
+- WHEN module-map 缺失，THEN `mcp-readme-counts` skipped（帶原因），永不偽裝 PASS
 
-#### REQ-TYPES-034: Drift Report readme-counts Check Id
-`DRIFT_CHECK_IDS` append `readme-counts`（additive-only；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**9** 個）。
+#### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
+`DRIFT_CHECK_IDS` rename `readme-counts`→`mcp-readme-counts`（名實相符：範圍僅 MCP registration 計數，非泛用 README 計數；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**10** 個，含 metadata-completeness）。
 
 #### REQ-LIB-020: README 計數 collector + evaluator
-`collectReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateReadmeCounts`（宣告≠實際 → warn finding）。
+`collectMcpReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateMcpReadmeCounts`（宣告≠實際 → warn finding）。
 **Scenarios:**
 - WHEN README 宣告 N 但指名程式 M（N≠M），THEN warn finding：severity `warn`、`source_path`=README、detail 含 expected/actual
 - WHEN 缺 module-map，THEN `skipped` + reason；evaluator 維持 I/O-free、findings codepoint-sort
 
-#### REQ-SERVICES-034: check.service 注入 readme-counts collector
-`check.service` 將 `collectReadmeCounts` 注入 `runChecks`（moduleMap 缺則 `{available:false}` 降級，與 `timestamps` 共用 `moduleMapMissing` helper）。
+#### REQ-SERVICES-034: check.service 注入 mcp-readme-counts collector
+`check.service` 將 `collectMcpReadmeCounts` 注入 `runChecks`（moduleMap 缺則 `{available:false}` 降級，與 `timestamps` 共用 `moduleMapMissing` helper）。
 
 ---
 
@@ -149,7 +149,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN 非 git repo／`.prospec/changes/` 缺席／digest 不可計算，THEN 檢項 `skipped` + 原因（永不偽 PASS）
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **9** 個 frozen check id。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
+`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **10** 個 frozen check id。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
 `computeChangeDigest(cwd)`：內容指紋 = HEAD sha + `git diff HEAD` + untracked，涵蓋整棵工作樹（review 所審的全部第一方內容），以 **denylist** 排除工作流狀態（`.prospec/`、`prospec-report.json`）、生成物（`.claude/`、`dist/`）與 lockfile——**fail-closed 而非 fail-open**（`src`/`tests` 以外的第一方 code 如 `scripts/` 仍納入）；不依賴 git commit 時間戳（commit boundary 在 verify S/A 之後，review/verify 期 code 未 commit）。`collectReviewProvenance(cwd)`（I/O）列舉 `.prospec/changes/*` 帶 status/scale/recorded digest + 當前 digest；`gitCapture` 助手由 `gitLastCommit` 與 digest 共用；`evaluateReviewProvenance`（純函式）僅對 `status==implemented` 且非 backfill 判定。
@@ -166,6 +166,39 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 
 #### REQ-TESTS-042: review-provenance 引擎測試
 `evaluateReviewProvenance` 六情境（absent/stale/fresh/backfill/non-implemented/unavailable）、`computeChangeDigest`（temp git dir：改 `src`/`scripts`/docs 內容翻 digest、只改 `.prospec/`/report/generated 不翻）、`collectReviewProvenance`、`check.service` 注入 + `--record-review` 寫 metadata + `--strict` FAIL→exit 1 + backfill skipped——mutation-verified。
+
+## US-7: metadata-completeness 閘門檢查 [P1]
+
+身為一名把守 archive 閘門的 maintainer，
+我想要一個機器可查的 `metadata-completeness` 檢查，判定每個變更的 metadata.yaml 是否欄位完整、且 verified/archived 者有記錄 verify S/A 評級，
+以便殘缺或無評級的 metadata 無法悄悄進入永久紀錄（同「只 archive verified」的防護等級）。
+
+**Acceptance Scenarios:**
+- WHEN 變更 metadata 缺 `name`/`created_at`/`status`/`scale` 任一，THEN 回報 FAIL 並列出缺項
+- WHEN 變更 `status: verified`/`archived` 但 `quality_log` 無 `prospec-verify` S/A 評級，THEN 回報 FAIL
+- WHEN 變更為 in-progress（story/plan/tasks/implemented），THEN 不套 grade 規則（不 false-block）
+- WHEN metadata 空/註解/null/非-mapping（parseYaml 回 null 不 throw），THEN 回報全欄缺失，永不崩潰
+- WHEN 無 `.prospec/changes/`，THEN 檢項 `skipped` + 原因（永不偽 PASS）
+
+#### REQ-TYPES-055: Drift Report metadata-completeness Check Id
+`DRIFT_CHECK_IDS` append `metadata-completeness`（第 10 個 frozen check id，FAIL-class；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
+
+#### REQ-LIB-025: metadata-completeness Collector + Evaluator
+`collectMetadataCompleteness(cwd)`（I/O）列舉 `.prospec/changes/*` 讀 metadata：檢 `REQUIRED_METADATA_FIELDS`（name/created_at/status/scale）存在性 + `GRADED_STATUSES`（verified/archived）者 `hasVerifyGrade`（`quality_log` 有 `prospec-verify` S/A entry）；非-mapping parse（空/註解/null）視為全欄缺失，非崩潰。pure `evaluateMetadataCompleteness` 對缺欄與缺評級各發 fail finding；in-progress 不套 grade 規則。
+**Scenarios:**
+- WHEN 缺必填欄，THEN fail 列缺項；WHEN verified 無 S/A grade，THEN fail；in-progress 豁免 grade
+- WHEN 空/null metadata，THEN 全欄缺失 finding（不 deref null）；無 changes 目錄→skipped + reason；findings codepoint-sort
+
+#### REQ-SERVICES-063: check.service 注入 metadata-completeness collector
+`check.service` 將 `collectMetadataCompleteness` 注入 `runChecks`，比照 `collectReviewProvenance` 佈線；純檢查路徑維持唯讀、確定性。
+
+#### REQ-TEMPLATES-142: archive Entry Gate 消費 metadata-completeness
+`/prospec-archive` Entry Gate 新增機器檢查項：跑 `prospec check --json` 讀 `metadata-completeness`，FAIL→拒絕入庫（CLI 不在退回直讀該變更 metadata）；防殘缺/無評級 metadata 進永久紀錄。
+
+#### REQ-TESTS-045: metadata-completeness 引擎測試
+`evaluateMetadataCompleteness`（pass/缺各欄/verified-無評級/in-progress-豁免/both-findings）、`collectMetadataCompleteness`（changes-dir fixture：完整/stub/present-but-empty/verified-無評級/verified-有A/空-null-註解/unparseable）、`check.service` 注入 + skipped-never-PASS 全 10 checks——S/A clause 與 skill clause mutation-verified。
+
+---
 
 ## Edge Cases
 
@@ -202,4 +235,5 @@ _(None)_
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5；ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034（README 事實計數 drift check，BL-043） | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
 | 2026-07-04 | mechanize-review-gate | ADDED US-6（review-provenance 閘門檢查，第 9 個 check id）；ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042；MODIFIED REQ-TYPES-034（總數→9）（issue #66 scope 1+2） | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
+| 2026-07-05 | quick-scale-and-ceremony-cleanup | MODIFIED US-5 + REQ-TYPES-034/REQ-LIB-020/REQ-SERVICES-034（readme-counts→mcp-readme-counts 改名，名實相符 MCP-only）；MODIFIED REQ-TYPES-052（總數→10）；ADDED US-7（metadata-completeness 閘門，第 10 個 check id）+ REQ-TYPES-055/REQ-LIB-025/REQ-SERVICES-063/REQ-TEMPLATES-142/REQ-TESTS-045（issue #67） | US-5, US-7, REQ-TYPES-034, REQ-TYPES-052, REQ-TYPES-055, REQ-LIB-020, REQ-LIB-025, REQ-SERVICES-034, REQ-SERVICES-063, REQ-TEMPLATES-142, REQ-TESTS-045 |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
