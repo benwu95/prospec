@@ -32,13 +32,29 @@ export const KNOWLEDGE_FILE_TYPES = [
 export const KNOWLEDGE_STRATEGIES = ['auto', 'architecture', 'domain', 'package'] as const;
 export type KnowledgeStrategy = typeof KNOWLEDGE_STRATEGIES[number];
 
+// Field names align with the index.md progressive-loading layers (L1/L2), the
+// single taxonomy the knowledge-size drift check enforces:
+//   l1_per_file     — max tokens for each L1 file (index.md and each core convention)
+//   l2_per_module   — max tokens for each L2 module README
+//   readme_max_lines — max lines for each module README
 const TokenBudgetSchema = z.object({
-  l0_max: z.number().optional(),
-  l1_per_module: z.number().optional(),
+  l1_per_file: z.number().optional(),
+  l2_per_module: z.number().optional(),
   readme_max_lines: z.number().optional(),
 }).optional();
 
 export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
+
+/**
+ * Single source of truth for the knowledge-size drift check thresholds and the
+ * numbers declared in index.md's progressive-loading table. `knowledge.token_budget`
+ * in .prospec.yaml overrides individual fields; anything unset falls back here.
+ */
+export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
+  l1_per_file: 1500,
+  l2_per_module: 400,
+  readme_max_lines: 100,
+} as const;
 
 const KnowledgeSchema = z.object({
   base_path: z.string().optional(),

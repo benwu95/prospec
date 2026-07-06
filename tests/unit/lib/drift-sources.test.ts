@@ -7,6 +7,7 @@ import {
   collectFeatureMapGovernance,
   collectGitTimestamps,
   collectImportEdges,
+  collectKnowledgeSize,
   collectMarkdownLinks,
   collectMcpReadmeCounts,
   collectMetadataCompleteness,
@@ -16,6 +17,7 @@ import {
   collectTaskStates,
   computeChangeDigest,
   moduleAttributor,
+  type KnowledgeSizeBudget,
 } from '../../../src/lib/drift-sources.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 
@@ -45,6 +47,39 @@ const MODULE_MAP: ModuleMap = {
     { name: 'types', paths: ['src/types'], keywords: [], relationships: { depends_on: [] } },
   ],
 };
+
+describe('collectKnowledgeSize (REQ-LIB-027)', () => {
+  const BUDGET: KnowledgeSizeBudget = { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 };
+  const baseDir = () => path.join(tmpDir, 'prospec');
+  const knowledgePath = () => path.join(tmpDir, 'prospec', 'ai-knowledge');
+
+  it('measures index.md + core conventions as L1 and module READMEs as L2, with repo-relative paths', () => {
+    write('prospec/index.md', 'A'.repeat(40)); // 40 chars → 10 tokens, 1 line
+    write('prospec/ai-knowledge/_conventions.md', 'B'.repeat(20)); // 5 tokens
+    write('prospec/ai-knowledge/modules/lib/README.md', 'line1\nline2\n'); // 12 chars → 3 tokens, 2 lines
+    write('prospec/ai-knowledge/modules/types/README.md', 'C'.repeat(8)); // 2 tokens
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.available).toBe(true);
+    expect(src.budget).toEqual(BUDGET);
+
+    const byPath = new Map(src.items.map((i) => [i.source_path, i]));
+    expect(byPath.get('prospec/index.md')).toMatchObject({ kind: 'l1', tokens: 10, lines: 1 });
+    expect(byPath.get('prospec/ai-knowledge/_conventions.md')).toMatchObject({ kind: 'l1', tokens: 5 });
+    expect(byPath.get('prospec/ai-knowledge/modules/lib/README.md')).toMatchObject({ kind: 'l2', tokens: 3, lines: 2 });
+    expect(byPath.get('prospec/ai-knowledge/modules/types/README.md')).toMatchObject({ kind: 'l2' });
+    // absent core conventions are simply not measured (their absence is knowledge-health's concern)
+    expect(byPath.has('prospec/ai-knowledge/_glossary.md')).toBe(false);
+    expect([...byPath.keys()].every((p) => p.startsWith('prospec/'))).toBe(true);
+  });
+
+  it('skips (never PASS) when the knowledge base is absent', () => {
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.available).toBe(false);
+    expect(src.reason).toContain('source unavailable');
+    expect(src.items).toHaveLength(0);
+  });
+});
 
 describe('collectReqDefinitions', () => {
   it('indexes REQ ids from headings, including deprecated ~~REQ~~ ones', () => {

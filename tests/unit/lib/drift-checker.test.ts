@@ -8,6 +8,7 @@ import {
   evaluateFilePaths,
   evaluateImportDirection,
   evaluateKnowledgeHealth,
+  evaluateKnowledgeSize,
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
@@ -20,6 +21,9 @@ import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
+  KnowledgeSizeBudget,
+  KnowledgeSizeItem,
+  KnowledgeSizeSource,
   MetadataCompletenessSource,
   ReviewProvenanceSource,
   TaskSource,
@@ -37,8 +41,88 @@ const emptyInputs: DriftCheckInputs = {
   mcpReadmeCounts: { available: true, claims: [] },
   reviewProvenance: { available: true, current_digest: 'CUR', changes: [] },
   metadataCompleteness: { available: true, changes: [] },
+  knowledgeSize: {
+    available: true,
+    budget: { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 },
+    items: [],
+  },
   generatedAt: '2026-06-12T00:00:00Z',
 };
+
+const SIZE_BUDGET: KnowledgeSizeBudget = { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 };
+const sizeSrc = (items: KnowledgeSizeItem[], budget: KnowledgeSizeBudget = SIZE_BUDGET): KnowledgeSizeSource => ({
+  available: true,
+  budget,
+  items,
+});
+
+describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
+  it('skips (never PASS) when the source is unavailable', () => {
+    const r = evaluateKnowledgeSize({ available: false, reason: 'source unavailable: knowledge base not found', budget: SIZE_BUDGET, items: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes when every file is within budget (boundary ≤ is not over)', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 1500, lines: 60 },
+      { source_path: 'prospec/ai-knowledge/modules/x/README.md', kind: 'l2', tokens: 400, lines: 100 },
+    ]));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns on an L1 file over the per-file token budget', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 3118, lines: 61 },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({ check: 'knowledge-size', severity: 'warn', source_path: 'prospec/index.md' });
+    expect(r.findings[0]!.detail).toContain('3118');
+    expect(r.findings[0]!.detail).toContain('1500');
+  });
+
+  it('warns on an L2 README over the per-module token budget', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/lib/README.md', kind: 'l2', tokens: 4683, lines: 100 },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('token budget');
+    expect(r.findings[0]!.detail).toContain('4683');
+  });
+
+  it('warns on an L2 README over the line budget independently of tokens', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/x/README.md', kind: 'l2', tokens: 100, lines: 130 },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('line budget');
+    expect(r.findings[0]!.detail).toContain('130');
+  });
+
+  it('emits both token and line findings when an L2 README busts both', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/x/README.md', kind: 'l2', tokens: 4683, lines: 130 },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings.map((f) => f.detail).join(' ')).toMatch(/token budget/);
+    expect(r.findings.map((f) => f.detail).join(' ')).toMatch(/line budget/);
+  });
+
+  it('honours the budget carried on the source (config override)', () => {
+    const r = evaluateKnowledgeSize(sizeSrc(
+      [{ source_path: 'prospec/index.md', kind: 'l1', tokens: 3118, lines: 61 }],
+      { l1_per_file: 10000, l2_per_module: 400, readme_max_lines: 100 },
+    ));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+});
 
 describe('evaluateReqReferences', () => {
   it('fails on dangling references with source location', () => {

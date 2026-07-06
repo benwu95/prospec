@@ -42,6 +42,13 @@ export const DRIFT_CHECK_IDS = [
   // the /prospec-archive Entry Gate so incomplete metadata cannot enter the
   // permanent record; in-progress changes are exempt from the grade rule.
   'metadata-completeness',
+  // Knowledge size budget — an L1 file (index.md or a core convention) over the
+  // per-file token budget, or a module README over its per-module token or line
+  // budget, warns (warn). Thresholds come from knowledge.token_budget, defaulting
+  // to DEFAULT_KNOWLEDGE_TOKEN_BUDGET; L0 agent config is deliberately out of
+  // scope. Turns the long-declared-but-unenforced index.md layer budgets into a
+  // machine check so the progressive-loading model cannot silently regrow.
+  'knowledge-size',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

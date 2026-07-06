@@ -15,6 +15,7 @@ import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
   ImportEdgeSource,
+  KnowledgeSizeSource,
   LinkSource,
   McpReadmeCountSource,
   MetadataCompletenessSource,
@@ -23,6 +24,7 @@ import type {
   ReviewProvenanceSource,
   TaskSource,
 } from './drift-sources.js';
+import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 
 /**
  * Drift evaluators — zero-LLM pure functions over collector data
@@ -52,6 +54,7 @@ export interface DriftCheckInputs {
   mcpReadmeCounts: McpReadmeCountSource;
   reviewProvenance: ReviewProvenanceSource;
   metadataCompleteness: MetadataCompletenessSource;
+  knowledgeSize: KnowledgeSizeSource;
   generatedAt: string;
 }
 
@@ -393,6 +396,56 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
   return outcome('metadata-completeness', findings);
 }
 
+/**
+ * Knowledge size budget — an L1 file (index.md or a core convention) over the
+ * per-file token budget, or a module README over its per-module token or line
+ * budget, warns (REQ-LIB-027). WARN-class: the progressive-loading budget is a
+ * pressure signal against silent regrowth, never a build breaker. Turns the
+ * long-declared-but-unenforced index.md layer budgets into a machine check; L0
+ * (agent-injected config) is out of scope. An unavailable source (no knowledge
+ * base) skips, never a fabricated pass.
+ */
+export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('knowledge-size', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const item of src.items) {
+    if (item.kind === 'l1') {
+      if (item.tokens > src.budget.l1_per_file) {
+        findings.push({
+          check: 'knowledge-size',
+          severity: 'warn',
+          source_path: item.source_path,
+          detail:
+            `L1 file over budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
+            `> ${src.budget.l1_per_file} per-file budget`,
+        });
+      }
+      continue;
+    }
+    if (item.tokens > src.budget.l2_per_module) {
+      findings.push({
+        check: 'knowledge-size',
+        severity: 'warn',
+        source_path: item.source_path,
+        detail:
+          `L2 README over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
+          `> ${src.budget.l2_per_module} per-module budget`,
+      });
+    }
+    if (item.lines > src.budget.readme_max_lines) {
+      findings.push({
+        check: 'knowledge-size',
+        severity: 'warn',
+        source_path: item.source_path,
+        detail: `L2 README over line budget: ${item.lines} lines > ${src.budget.readme_max_lines} budget`,
+      });
+    }
+  }
+  return outcome('knowledge-size', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -406,6 +459,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'mcp-readme-counts': evaluateMcpReadmeCounts(inputs.mcpReadmeCounts),
     'review-provenance': evaluateReviewProvenance(inputs.reviewProvenance),
     'metadata-completeness': evaluateMetadataCompleteness(inputs.metadataCompleteness),
+    'knowledge-size': evaluateKnowledgeSize(inputs.knowledgeSize),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

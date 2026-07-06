@@ -15,6 +15,7 @@ import {
   collectFeatureMapGovernance,
   collectGitTimestamps,
   collectImportEdges,
+  collectKnowledgeSize,
   collectMarkdownLinks,
   collectMcpReadmeCounts,
   collectMetadataCompleteness,
@@ -23,9 +24,11 @@ import {
   collectReviewProvenance,
   collectTaskStates,
   computeChangeDigest,
+  type KnowledgeSizeBudget,
 } from '../lib/drift-sources.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../types/config.js';
 
 export interface CheckOptions {
   cwd?: string;
@@ -64,6 +67,21 @@ export interface RecordReviewResult {
 }
 
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
+
+/**
+ * Resolve the knowledge-size budget: `knowledge.token_budget` in .prospec.yaml
+ * overrides individual fields; anything unset falls back to
+ * DEFAULT_KNOWLEDGE_TOKEN_BUDGET (the single source shared with index.md's
+ * declared budgets).
+ */
+export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSizeBudget {
+  const tb = config.knowledge?.token_budget;
+  return {
+    l1_per_file: tb?.l1_per_file ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
+    l2_per_module: tb?.l2_per_module ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
+    readme_max_lines: tb?.readme_max_lines ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
+  };
+}
 
 /**
  * Execute the drift check — thin orchestration only (REQ-SERVICES-027):
@@ -128,6 +146,12 @@ export async function execute(
       : moduleMapMissing({ claims: [] }),
     reviewProvenance: collectReviewProvenance(cwd),
     metadataCompleteness: collectMetadataCompleteness(cwd),
+    knowledgeSize: collectKnowledgeSize(
+      cwd,
+      paths.baseDir,
+      paths.knowledgePath,
+      resolveKnowledgeTokenBudget(config),
+    ),
     generatedAt: new Date().toISOString(),
   });
 

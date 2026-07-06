@@ -3,8 +3,9 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { execute, CI_WORKFLOW_PATH, resolveKnowledgeTokenBudget } from '../../../src/services/check.service.js';
 import { DriftReportSchema, DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../../../src/types/config.js';
 
 // check.service drives fast-glob + git collectors — real temp dirs, like scanner.test.ts.
 
@@ -39,6 +40,27 @@ function write(relPath: string, content: string): void {
   writeFileSync(abs, content);
 }
 
+describe('resolveKnowledgeTokenBudget', () => {
+  it('falls back to DEFAULT_KNOWLEDGE_TOKEN_BUDGET when knowledge.token_budget is unset', () => {
+    const budget = resolveKnowledgeTokenBudget({ project: { name: 't' } } as ProspecConfig);
+    expect(budget).toEqual({
+      l1_per_file: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
+      l2_per_module: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
+      readme_max_lines: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
+    });
+  });
+
+  it('overrides only the fields set in knowledge.token_budget, keeping defaults for the rest', () => {
+    const budget = resolveKnowledgeTokenBudget({
+      project: { name: 't' },
+      knowledge: { token_budget: { l1_per_file: 9999 } },
+    } as ProspecConfig);
+    expect(budget.l1_per_file).toBe(9999);
+    expect(budget.l2_per_module).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module);
+    expect(budget.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
+  });
+});
+
 describe('check.service execute', () => {
   it('produces a schema-valid report and writes it with --json', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\nsee REQ-A-001\n');
@@ -51,7 +73,7 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all ten checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (all eleven checks, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
@@ -59,8 +81,22 @@ describe('check.service execute', () => {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(10);
+    expect(result.report.summary.skipped_count).toBe(11);
     expect(result.hasFail).toBe(false);
+  });
+
+  it('warns via knowledge-size on an over-budget module README (SC-001/SC-002)', async () => {
+    write('prospec/index.md', '# small index\n'); // well within L1 budget
+    write('prospec/ai-knowledge/modules/big/README.md', 'x'.repeat(2000)); // ~500 tokens > 400
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const size = result.report.structural.checks.find((c) => c.id === 'knowledge-size');
+    expect(size?.status).toBe('warn');
+    const finding = result.report.structural.findings.find(
+      (f) => f.check === 'knowledge-size' && f.source_path.endsWith('big/README.md'),
+    );
+    expect(finding?.severity).toBe('warn');
+    expect(finding?.detail).toContain('token budget');
   });
 
   it('runs feature-map governance when feature-map.yaml is present (wired into the report)', async () => {
