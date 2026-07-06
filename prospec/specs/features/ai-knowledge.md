@@ -170,6 +170,7 @@ The `index.md` Modules-table `Description` column carries only routing-level pos
 #### REQ-KNOW-013: L0-L3 Layered Loading
 - WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤1,000 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
 - WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0-L3 definitions
+- WHEN the Loading Strategy note names its budget source (skill templates + generated `index.md`), THEN it points to `.prospec.yaml` `knowledge.token_budget` and `prospec check knowledge-size` (downstream-visible / runnable), never the internal `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol
 
 ---
 
@@ -521,3 +522,4 @@ _(None)_
 | 2026-07-05 | remove-archive-auto-knowledge-update | `generateRawScan()` 共用消費者移除 archive safety net（archive.service 不再刷新 raw-scan）；改列 knowledge-init + `prospec upgrade`（issue #57） | REQ-KNOW-023 (MODIFIED) |
 | 2026-07-05 | preserve-curated-index-columns | curated index 欄位收斂為 module-map.yaml 單一真相、index.md ## Modules 由其生成；updateIndex 自 module-map 生成 + execute() no-clobber 回填遷移（下游零遺失）；index-table.ts 保真工具（issue #58 根治 #57 止血的 clobber） | US-303; REQ-TYPES-056, REQ-LIB-026, REQ-KNOW-036 (ADDED); REQ-KNOW-008 (MODIFIED) |
 | 2026-07-06 | slim-knowledge-l1-l2 | ADDED REQ-KNOW-037（index Description routing-only、單一來源 module-map）；MODIFIED REQ-KNOW-011（README 預算 ≤400→≤1000）、REQ-KNOW-013（L1 ≤1,800 per file、L2 ≤1,000、total→per-file 語意對齊）（issue #64） | US-303; REQ-KNOW-037 (ADDED); REQ-KNOW-011, REQ-KNOW-013 (MODIFIED) |
+| 2026-07-06 | inject-resolved-knowledge-budgets | MODIFIED REQ-KNOW-013（Loading Strategy 預算來源註解指向 `.prospec.yaml` `knowledge.token_budget` + `prospec check knowledge-size`,不再具名 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`） | REQ-KNOW-013 (MODIFIED) |

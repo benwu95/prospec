@@ -3,7 +3,7 @@ feature: drift-detection
 status: active
 last_updated: 2026-07-06
 story_count: 8
-req_count: 26
+req_count: 27
 ---
 
 # 確定性 Drift 檢查
@@ -217,7 +217,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 `DRIFT_CHECK_IDS` append `knowledge-size`（第 11 個 frozen check id，**warn-class**；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
 
 #### REQ-TYPES-061: token_budget 誠實命名 + DEFAULT 單一來源
-`TokenBudgetSchema` 欄位重命名 `l0_max`→`l1_per_file`、`l1_per_module`→`l2_per_module`（`readme_max_lines` 不變，皆 optional），名實對齊 index.md 的 L1/L2 語意。新增 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1800, l2_per_module:1000, readme_max_lines:100}` 作為 knowledge-size 閾值與 index.md 宣告的**單一權威來源**（舊欄位名為 dead config，從未被程式碼讀取）。預設值經 slim-knowledge-l1-l2（#64）誠實校準：1500/400 對已充分自律的 index/README 偏緊，1800/1000 為結構性下限、仍為 warn-class 防回彈 ratchet；`.prospec.yaml` 逐欄可覆寫、init seed 同步。
+`TokenBudgetSchema` 欄位重命名 `l0_max`→`l1_per_file`、`l1_per_module`→`l2_per_module`（`readme_max_lines` 不變，皆 optional），名實對齊 index.md 的 L1/L2 語意。新增 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1800, l2_per_module:1000, readme_max_lines:100}` 作為 knowledge-size 閾值與 index.md 宣告的**單一權威來源**（舊欄位名為 dead config，從未被程式碼讀取）。預設值經 slim-knowledge-l1-l2（#64）誠實校準：1500/400 對已充分自律的 index/README 偏緊，1800/1000 為結構性下限、仍為 warn-class 防回彈 ratchet；`.prospec.yaml` 逐欄可覆寫、init seed 同步。inject-resolved-knowledge-budgets 起,此單一來源亦透過 `lib/config` 的 `resolveKnowledgeTokenBudget` + agent-sync 注入生成 skill 模板的預算渲染（模板不再寫死預算數字或具名 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`）；`KnowledgeSizeBudget`（resolved 型別）由 `lib/drift-sources` 移至 `types/config`。
 
 #### REQ-LIB-027: knowledge-size Collector + Evaluator
 `collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)`（I/O）：以 canonical contained readers（`readIndex`/`readContainedFile`/`readModuleReadme`）讀 index.md + `CORE_CONVENTIONS`（L1）與 `modules/*/README.md`（L2），`estimateTokens` 計 token、`countLines` 計行；module 名由 README 路徑推得（不需 module-map）；`knowledgePath` 不存在 → `{available:false, reason}`。pure `evaluateKnowledgeSize`：`!available→skipped`；L1 檔 tokens > `l1_per_file`、L2 README tokens > `l2_per_module` 或 lines > `readme_max_lines` → warn finding；L0 out of scope。
@@ -225,8 +225,11 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN L1/L2 檔超標，THEN warn finding（`source_path` + detail 含實測/預算/`TOKEN_ESTIMATOR_LABEL`）；`≤` 邊界不報
 - WHEN 知識庫缺席，THEN `skipped` + reason；evaluator I/O-free、findings codepoint-sort
 
+#### REQ-LIB-028: resolveKnowledgeTokenBudget canonical helper（lib/config）
+`resolveKnowledgeTokenBudget(config): KnowledgeSizeBudget` 位於 `lib/config.ts`（config 解析,與 `resolveBasePaths`/`resolveArtifactLanguage` 同類）,逐欄以 `config.knowledge?.token_budget` 覆蓋 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`；`KnowledgeSizeBudget` 型別位於 `types/config`。`check.service` 與 `agent-sync` 皆自 `lib/config` import 此單一來源,無重複實作、無 service→service 耦合（PB-006/PB-007、依賴方向 `cli→services→lib→types`）。
+
 #### REQ-SERVICES-065: check.service 注入 knowledge-size collector
-`check.service.execute` 將 `collectKnowledgeSize(cwd, paths.baseDir, paths.knowledgePath, resolveKnowledgeTokenBudget(config))` 注入 `runChecks`；`resolveKnowledgeTokenBudget` 以 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 逐欄被 `config.knowledge?.token_budget` 覆蓋；純檢查路徑維持唯讀、確定性。
+`check.service.execute` 將 `collectKnowledgeSize(cwd, paths.baseDir, paths.knowledgePath, resolveKnowledgeTokenBudget(config))` 注入 `runChecks`；`resolveKnowledgeTokenBudget`（自 `lib/config` import,見 REQ-LIB-028）以 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 逐欄被 `config.knowledge?.token_budget` 覆蓋；純檢查路徑維持唯讀、確定性。
 
 #### REQ-TEMPLATES-149: init scaffold 採用重命名 budget 欄位
 `init/prospec.yaml.hbs` 的 `knowledge.token_budget` seed 改用 `l1_per_file`/`l2_per_module`/`readme_max_lines`，值與 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 一致。
@@ -276,3 +279,4 @@ _(None)_
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
 | 2026-07-06 | enforce-knowledge-size-budget | ADDED US-8（knowledge-size 預算檢查，第 11 個 check id，warn-class）+ REQ-TYPES-060/061、REQ-LIB-027、REQ-SERVICES-065、REQ-TEMPLATES-149、REQ-TESTS-048；MODIFIED REQ-TYPES-052/034（總數→11）+ REQ-TESTS-045（skipped-never-PASS→11 checks）；config token_budget 誠實重命名 + DEFAULT_KNOWLEDGE_TOKEN_BUDGET 單一來源（issue #63） | US-8, REQ-TYPES-060, REQ-TYPES-061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
 | 2026-07-06 | slim-knowledge-l1-l2 | MODIFIED REQ-TYPES-061：`DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 誠實校準 `l1_per_file` 1500→1800、`l2_per_module` 400→1000（warn-class 不變、init seed 同步）（issue #64） | REQ-TYPES-061 (MODIFIED) |
+| 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-LIB-028（`resolveKnowledgeTokenBudget` 移至 `lib/config` canonical 單一來源、`KnowledgeSizeBudget` 移至 `types/config`）；MODIFIED REQ-TYPES-061（單一來源亦餵生成 skill 模板預算渲染）、REQ-SERVICES-065（resolver 改自 `lib/config` import） | REQ-LIB-028 (ADDED); REQ-TYPES-061, REQ-SERVICES-065 (MODIFIED) |
