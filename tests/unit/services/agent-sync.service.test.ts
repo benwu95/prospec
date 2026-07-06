@@ -5,6 +5,7 @@ import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.se
 import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { parse as parseYamlDoc } from 'yaml';
 
 vi.mock('node:fs', async () => {
@@ -42,6 +43,34 @@ agents:
     await expect(execute({ cli: 'antigravity', cwd: '/project' })).rejects.toThrow(
       PrerequisiteError,
     );
+  });
+
+  it('injects the resolved knowledge token budget into the skill template context', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  base_path: prospec/ai-knowledge
+  token_budget:
+    l2_per_module: 1234
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+
+    await execute({ cwd: '/project' });
+
+    // Every skill render receives the per-project resolved budget in its context, so
+    // the template's `{{l1_per_file}}`/`{{l2_per_module}}` render real numbers — the
+    // override is honored and unset fields fall back to DEFAULT_KNOWLEDGE_TOKEN_BUDGET.
+    const skillCall = rt.mock.calls.find(([name]) => String(name).startsWith('skills/'));
+    expect(skillCall, 'expected at least one skills/*.hbs render').toBeDefined();
+    const ctx = skillCall![1] as Record<string, unknown>;
+    expect(ctx.l2_per_module).toBe(1234);
+    expect(ctx.l1_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file);
+    expect(ctx.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
   });
 
   it('should generate skill files for configured agent', async () => {

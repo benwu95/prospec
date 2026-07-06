@@ -30,11 +30,11 @@ Write generated documents in the language defined by the Constitution's Language
 | Layer | Files | When to Load | Token Budget |
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
-| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,800 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1,000 tokens per module/feature |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1800 tokens per file |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1000 tokens per module/feature |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> L1/L2 token/line budgets are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` and overridable per-field via `.prospec.yaml` `knowledge.token_budget` (the numbers above are the defaults); over-budget files WARN via `prospec check` `knowledge-size` — a pressure signal, never a build breaker.
+> L1/L2 token/line budgets come from `.prospec.yaml` `knowledge.token_budget` (the numbers above reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` — a pressure signal, never a build breaker.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"

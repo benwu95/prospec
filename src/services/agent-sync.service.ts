@@ -5,6 +5,7 @@ import {
   resolveBasePaths,
   resolveArtifactLanguage,
   isDefaultArtifactLanguage,
+  resolveKnowledgeTokenBudget,
 } from '../lib/config.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
@@ -139,6 +140,11 @@ export async function execute(
     constitution_path: constitutionPath,
     tech_stack: config.tech_stack ?? {},
     artifact_language: artifactLanguage,
+    // L1/L2 token/line budgets (l1_per_file / l2_per_module / readme_max_lines)
+    // rendered into the knowledge-loading skill templates — resolved per-project
+    // so a downstream reader sees real numbers and a source they can inspect,
+    // never the internal DEFAULT_KNOWLEDGE_TOKEN_BUDGET symbol.
+    ...resolveKnowledgeTokenBudget(config),
     // Entry config (CLAUDE.md/AGENTS.md) is always-loaded Layer 0 — exclude
     // excludeFromEntryConfig skills so a one-shot onboarding skill costs no
     // recurring tokens. syncSkillsDirSkills still writes its SKILL.md (below),

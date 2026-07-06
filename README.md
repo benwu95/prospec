@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2079%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2086%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -644,7 +644,7 @@ never a fake PASS — and semantic spec↔code consistency stays with `/prospec-
 permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
 the developer and the CI gate always see the same facts, token-free.
 
-**Tuning the `knowledge-size` budgets** — the token/line thresholds are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (`l1_per_file: 1800`, `l2_per_module: 1000`, `readme_max_lines: 100`) and are overridable **per field** in `.prospec.yaml`. Set only the fields you want to change; anything unset falls back to the default:
+**Tuning the `knowledge-size` budgets** — the token/line thresholds default to `l1_per_file: 1800`, `l2_per_module: 1000`, `readme_max_lines: 100` and are overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
 ```yaml
 # .prospec.yaml
@@ -690,7 +690,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2079 tests)
+# Run all tests (2086 tests)
 pnpm test
 
 # Watch mode
@@ -703,9 +703,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2079 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1361 tests
-- Contract tests (CLI output + Skill format): 637 tests
+**Test Coverage**: 2086 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1362 tests
+- Contract tests (CLI output + Skill format): 643 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
 

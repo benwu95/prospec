@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `change.ts` | `ChangeMetadataSchema`, CHANGE_STATUSES/SCALES, GATE_RESULTS/VERIFY_GRADES, `isStatusBefore` |
-| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`TokenBudgetSchema`, VALID_AGENTS |
+| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`/`TokenBudgetSchema`, VALID_AGENTS |
 | `constitution.ts` | `ConstitutionRule` — RFC-2119 severity + name/description/rationale/check |
 | `conventions.ts` | Convention-doc registries — CORE_CONVENTIONS, INIT_DOC_REGISTRY |
 | `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (11 frozen) |

@@ -17,8 +17,8 @@ import {
   collectTaskStates,
   computeChangeDigest,
   moduleAttributor,
-  type KnowledgeSizeBudget,
 } from '../../../src/lib/drift-sources.js';
+import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 
 // drift-sources uses fast-glob + git, so tests run on real temp dirs

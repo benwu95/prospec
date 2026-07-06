@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `config.ts` | readConfig/writeConfig, resolveBasePaths, artifact-language accessors |
+| `config.ts` | readConfig/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language accessors |
 | `fs-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→'') |
 | `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir |
 | `content-merger.ts` | mergeContent/mergeManagedDoc (preserve user blocks); hasAutoBlock/replaceAutoBlock |

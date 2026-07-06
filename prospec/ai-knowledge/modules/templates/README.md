@@ -41,6 +41,7 @@
 ## Pitfalls
 
 - Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output; names must match context keys.
+- Knowledge-loading budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) are injected by `agent-sync` from `resolveKnowledgeTokenBudget` — render them as variables, never hardcode a budget or name the `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol in a skill `.hbs` (downstream cannot resolve it).
 - Skill templates MUST end with exactly one trailing newline — a trailing blank line propagates into every generated `SKILL.md` (`skill-format.test.ts`).
 - All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy, never hardcoded.
 - Values reaching YAML frontmatter scalars (`{{trigger_words}}`) must be pre-escaped by the caller (`escapeYamlScalar`).

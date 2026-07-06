@@ -56,6 +56,16 @@ export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
   readme_max_lines: 100,
 } as const;
 
+/** Resolved token/line budget (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden by config). */
+export interface KnowledgeSizeBudget {
+  /** max tokens per L1 file (index.md + each core convention) */
+  l1_per_file: number;
+  /** max tokens per L2 module README */
+  l2_per_module: number;
+  /** max lines per module README */
+  readme_max_lines: number;
+}
+
 const KnowledgeSchema = z.object({
   base_path: z.string().optional(),
   additional_core_conventions: z.array(z.string()).optional(),

@@ -21,13 +21,13 @@ import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
-  KnowledgeSizeBudget,
   KnowledgeSizeItem,
   KnowledgeSizeSource,
   MetadataCompletenessSource,
   ReviewProvenanceSource,
   TaskSource,
 } from '../../../src/lib/drift-sources.js';
+import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
 
 const emptyInputs: DriftCheckInputs = {
   reqDefinitions: { available: true, ids: [] },
