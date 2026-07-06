@@ -7,7 +7,7 @@
 |------|------|
 | **Constitution** | 專案不可違反的原則集，存於 `CONSTITUTION.md`。每個 Skill 啟動時載入作為架構與品質約束。 |
 | **Knowledge Engine** | AI Knowledge 的分層 Progressive Disclosure 系統（L0/L1/L2）+ 隨 archive 持續更新的正回饋循環。 |
-| **Progressive Disclosure（L0-L3）** | L0=`AGENTS.md`/`CLAUDE.md`（agent config 自動注入，~500 tokens）；L1=`prospec/index.md`+Core Conventions（任務開始時主動讀取，≤1,500 tokens）；L2=`modules/{name}/README.md`+Demand Conventions+Feature Specs（按關鍵字命中載入，≤400 tokens/模組）；L3=原始碼（按需）。原則：低層不重複高層資訊。 |
+| **Progressive Disclosure（L0-L3）** | L0=`AGENTS.md`/`CLAUDE.md`（agent config 自動注入，~500 tokens）；L1=`prospec/index.md`+Core Conventions（任務開始時主動讀取，≤1,800 tokens/檔）；L2=`modules/{name}/README.md`+Demand Conventions+Feature Specs（按關鍵字命中載入，≤1,000 tokens/模組）；L3=原始碼（按需）。原則：低層不重複高層資訊。 |
 | **Proposal** | `proposal.md` — 使用者意圖（Why + What）。INVEST User Stories + Acceptance Scenarios + Edge Cases + Success Criteria。由 `/prospec-new-story` 產生。 |
 | **Delta Spec** | `delta-spec.md` — 技術規格（How）。記錄 ADDED/MODIFIED/REMOVED requirements，每條帶 `REQ-{MODULE}-{NUMBER}` ID + Feature/Story 路由。由 `/prospec-plan` 產生。 |
 | **REQ ID** | requirement 的穩定錨點，格式 `REQ-{MODULE}-{NUMBER}`。verify 以此逐項比對，archive 以此推導受影響模組。 |

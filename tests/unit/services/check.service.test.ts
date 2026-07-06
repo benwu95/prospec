@@ -87,7 +87,7 @@ describe('check.service execute', () => {
 
   it('warns via knowledge-size on an over-budget module README (SC-001/SC-002)', async () => {
     write('prospec/index.md', '# small index\n'); // well within L1 budget
-    write('prospec/ai-knowledge/modules/big/README.md', 'x'.repeat(2000)); // ~500 tokens > 400
+    write('prospec/ai-knowledge/modules/big/README.md', 'x'.repeat(4400)); // ~1100 tokens > 1000
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     const size = result.report.structural.checks.find((c) => c.id === 'knowledge-size');

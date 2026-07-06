@@ -45,7 +45,7 @@ first-ever run still needs the full init.
 
 {{> knowledge-loading-rules}}
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context.
+**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` and overridable per-field via `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — the numbers below are those defaults (L1 ≤1,800/file, L2 ≤1,000/module, ≤100 lines); target the project's configured values when they differ.
 
 ## Core Workflow
 
@@ -99,7 +99,7 @@ For each module, generate **exactly one file**: `{{knowledge_base_path}}/modules
 
 ### Step 4.5: Extract Sub-Modules (only when a README would overflow)
 
-If a module's README would exceed the ≤100 line / ≤400 token budget even after reasonable trimming, AND it contains a **content-rich, functionally-independent** sub-area, extract that area into a sub-module file instead of trimming away useful detail (canonical rules: `{{knowledge_base_path}}/_module-readme-conventions.md`).
+If a module's README would exceed the ≤100 line / ≤1000 token budget even after reasonable trimming, AND it contains a **content-rich, functionally-independent** sub-area, extract that area into a sub-module file instead of trimming away useful detail (canonical rules: `{{knowledge_base_path}}/_module-readme-conventions.md`).
 
 - **Both conditions required** — overflow AND a self-contained sub-area (rich enough for its own Key Files / Public API / Pitfalls, understandable on its own). If only one holds, just trim.
 - **Layout**: `{{knowledge_base_path}}/modules/{module}/{sub-module}.md` — a sibling of `README.md`, kebab-case, same Recipe-First structure and same budget. A sub-module that still overflows is split again the same way.
@@ -141,7 +141,7 @@ domain split, keep ONE flat table — do not force grouping.
 - **Primary first**: a module appears under its primary (`category[0]`) `### {Category}` heading
   **exactly once** — never list it under two headings (the index must stay duplicate-free). Secondary
   categories live only in `module-map.yaml` (surfaced by the MCP `search_modules` join), not in `{{base_dir}}/index.md`.
-- Keep the whole L1 within budget regardless of grouping (≤ 1,500 tokens).
+- Keep every L1 file within budget regardless of grouping (≤ 1,800 tokens per file).
 
 
 ### Step 6: Populate _conventions.md
@@ -157,7 +157,7 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
 - {{base_dir}}/index.md has Aliases + Rationale columns
 - If grouped, every `### {Category}` sub-table reuses the identical column layout (keeps the index machine-parseable) and each module is listed under its primary category only
-- **L1 total ({{base_dir}}/index.md + _conventions.md) ≤ 1,500 tokens** (estimate ~4 chars/token)
+- **Each L1 file ({{base_dir}}/index.md, each core convention) ≤ 1,800 tokens per file** (estimate ~4 chars/token)
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
 
@@ -176,7 +176,7 @@ until real principles exist, and point them to edit `{{constitution_path}}`. Adv
 ### Success Criteria
 - [ ] each module has exactly one Recipe-First README
 - [ ] {{base_dir}}/index.md has the module table + Progressive Knowledge Loading Strategy section
-- [ ] L1 total <= 1,500 tokens
+- [ ] each L1 file <= 1,800 tokens
 - [ ] >= 2 modules
 
 ### Failure Conditions
