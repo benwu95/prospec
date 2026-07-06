@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 85 test files, 2,086 tests (unit 1362, contract 643, integration 38, e2e 43)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 86 test files, 2,090 tests (unit 1362, contract 647, integration 38, e2e 43)); tests every source module.
 
 <!-- prospec:auto-start -->
 
@@ -43,6 +43,7 @@
 - Contract assertions must be section-scoped AND structure-aware (PB-001) — bare `toContain` over a whole doc yields false-greens; mutation-verify new assertions.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
 - `vi.mock()` is hoisted — dynamic import paths don't resolve inside the mock factory.
+- Tests ARE type-checked: `pnpm typecheck` runs `tsc -p tsconfig.typecheck.json` (includes `tests/` + `scripts/`, `rootDir:"."`+`noEmit`) — a test-file type error fails the gate. Never re-add `tests` to that config's `exclude` (guarded by `tests/contract/typecheck-config.test.ts`); the build `tsc` stays on the base config and emits `src` only.
 
 <!-- prospec:auto-end -->
 

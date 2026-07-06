@@ -50,7 +50,9 @@ vi.mock('../../../src/lib/scanner.js', () => ({
 vi.mock('../../../src/lib/template.js', async () => {
   const realFs = await vi.importActual<typeof import('node:fs')>('node:fs');
   const realPath = await vi.importActual<typeof import('node:path')>('node:path');
-  const { default: Handlebars } = await vi.importActual<typeof import('handlebars')>('handlebars');
+  const { default: Handlebars } = await vi.importActual<{ default: typeof import('handlebars') }>(
+    'handlebars',
+  );
   const templatesDir = realPath.resolve(__dirname, '../../../src/templates');
   const read = (rel: string) => realFs.readFileSync(realPath.join(templatesDir, rel), 'utf-8');
   const hb = Handlebars.create();
@@ -625,7 +627,7 @@ describe('collectAllModules', () => {
 
     // result.deprecated holds the lowercased delta-spec name
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: ['api'], generatedFiles: [] },
+      { created: [], updated: [], deprecated: ['api'], generatedFiles: [], warnings: [] },
       '/project/module-map.yaml',
     );
 
@@ -640,7 +642,7 @@ describe('collectAllModules', () => {
     });
 
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: [], generatedFiles: [] },
+      { created: [], updated: [], deprecated: [], generatedFiles: [], warnings: [] },
       '/project/module-map.yaml',
     );
 
@@ -656,6 +658,7 @@ describe('collectAllModules', () => {
         updated: ['changedmod'],
         deprecated: ['goneMod'],
         generatedFiles: [],
+        warnings: [],
       },
       '/nonexistent/module-map.yaml',
     );

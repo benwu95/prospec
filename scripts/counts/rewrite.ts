@@ -39,16 +39,17 @@ export function applyCounts(
       // capture group 1, and without `g` so exec targets a single match.
       const flags = occ.anchor.flags.replace(/[dg]/g, '') + 'd';
       const re = new RegExp(occ.anchor.source, flags);
-      const m = re.exec(lines[i]);
+      const line = lines[i]!;
+      const m = re.exec(line);
       const span = m?.indices?.[1];
       if (m === null || span === undefined) continue;
 
       const [start, end] = span;
-      const current = lines[i].slice(start, end);
+      const current = line.slice(start, end);
       const rendered = renderCount(truth, occ.format);
       if (current === rendered) continue; // already correct — idempotent no-op
 
-      lines[i] = lines[i].slice(0, start) + rendered + lines[i].slice(end);
+      lines[i] = line.slice(0, start) + rendered + line.slice(end);
       changes.push({ doc, key, line: i + 1, from: current, to: rendered });
     }
   }

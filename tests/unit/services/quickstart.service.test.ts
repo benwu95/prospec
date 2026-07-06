@@ -32,7 +32,7 @@ describe('quickstart.service', () => {
     expect(vol.existsSync('/project/.prospec.yaml')).toBe(true);
     // totalFiles = entry config (1) + every SKILL.md + every reference file,
     // summed per agent. One agent here, so it equals that agent's own counts.
-    const agent = result.agentSync.agents[0];
+    const agent = result.agentSync.agents[0]!;
     expect(result.agentSync.totalFiles).toBe(
       1 + agent.skillFiles.length + agent.referenceFiles.length,
     );

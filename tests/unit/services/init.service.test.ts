@@ -270,9 +270,9 @@ describe('init.service artifact language', () => {
     expect(constitutionCall).toBeDefined();
     const ctx = constitutionCall![1] as { example_rules: ConstitutionRule[]; artifact_language: string };
     expect(ctx.artifact_language).toBe('Japanese');
-    expect(ctx.example_rules[0].name).toBe('Language Policy');
-    expect(ctx.example_rules[0].severity).toBe('MUST');
-    expect(ctx.example_rules[0].description).toContain('Japanese');
+    expect(ctx.example_rules[0]!.name).toBe('Language Policy');
+    expect(ctx.example_rules[0]!.severity).toBe('MUST');
+    expect(ctx.example_rules[0]!.description).toContain('Japanese');
     expect(ctx.example_rules.length).toBeGreaterThanOrEqual(4);
   });
 

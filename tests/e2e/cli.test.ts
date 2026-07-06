@@ -495,7 +495,7 @@ describe('CLI E2E', () => {
         path.join(tmpDir, '.claude', 'skills', 'prospec-explore', 'SKILL.md'),
         'utf-8',
       );
-      const frontmatter = skillMd.split('---')[1];
+      const frontmatter = skillMd.split('---')[1]!;
       expect(frontmatter).toContain(
         'Triggers: explore, compare, investigate, unsure, clarify, 探索, 比較, 調查',
       );

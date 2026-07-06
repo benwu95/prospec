@@ -51,7 +51,7 @@ describe('formatMcpServeOutput', () => {
 
     formatMcpServeOutput(makeResult());
 
-    const out = String(stderr.mock.calls[0][0]);
+    const out = String(stderr.mock.calls[0]![0]);
     expect(out.endsWith('\n')).toBe(true);
     // three logical lines: status, knowledge, specs
     expect(out.split('\n').filter((line) => line.length > 0)).toHaveLength(3);
