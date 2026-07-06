@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-05
+last_updated: 2026-07-06
 story_count: 14
-req_count: 51
+req_count: 52
 ---
 
 # AI Knowledge
@@ -101,7 +101,7 @@ req_count: 51
 - WHEN generating module README, THEN include `## Pitfalls` listing 2-3 common mistakes
 
 #### REQ-KNOW-011: Module README Token Budget
-- WHEN generating module README, THEN keep within 100 lines and a ≤400 token budget
+- WHEN generating module README, THEN keep within 100 lines and a ≤1,000 token budget (`l2_per_module`; calibrated by #64)
 - WHEN listing Public API, THEN include only public signatures with a one-line purpose
 
 #### REQ-KNOW-015: Convention Docs as Single Source of Truth
@@ -161,8 +161,14 @@ lib provides `buildIndexRow`/`buildIndexTable` (render all 7 columns from module
 - WHEN module-map lacks a curated column the index has, THEN it is backfilled before regen; a second run is idempotent
 - WHEN a module-map curated column is cleared, THEN the regenerated cell shows `—` (mutation-verifiable)
 
+#### REQ-KNOW-037: index.md Description Column Is Routing-Only
+The `index.md` Modules-table `Description` column carries only routing-level positioning (1-2 sentences on what the module is / when to look here), never accumulated implementation detail (REQ ids, function names, per-change behavior) — that lives in L2 (module README + sub-modules), per index.md Principle 2 (no lower-layer duplication).
+- WHEN rendering the `Description` cell, THEN it is routing-only; implementation detail lives in the module README/sub-modules and the Keywords/Aliases/Status/Depends On columns
+- WHEN curating a module's positioning, THEN edit `module-map.yaml` `description` (the single source); the index cell is regenerated from it (a non-empty module-map value is never overwritten by the index backfill)
+- WHEN measuring `index.md`, THEN it stays within the L1 per-file token budget (`knowledge-size` PASS)
+
 #### REQ-KNOW-013: L0-L3 Layered Loading
-- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,500 tokens total, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤400 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
+- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤1,000 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
 - WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0-L3 definitions
 
 ---
@@ -514,3 +520,4 @@ _(None)_
 | 2026-07-04 | sync-knowledge-at-verify-commit | verify staleness note 指向改為 verify S/A commit prompt（archive Entry Gate 為 backstop）——與 sdd-workflow 同名 REQ 鏡像同步（issue #65 part b） | REQ-TEMPLATES-045 (MODIFIED) |
 | 2026-07-05 | remove-archive-auto-knowledge-update | `generateRawScan()` 共用消費者移除 archive safety net（archive.service 不再刷新 raw-scan）；改列 knowledge-init + `prospec upgrade`（issue #57） | REQ-KNOW-023 (MODIFIED) |
 | 2026-07-05 | preserve-curated-index-columns | curated index 欄位收斂為 module-map.yaml 單一真相、index.md ## Modules 由其生成；updateIndex 自 module-map 生成 + execute() no-clobber 回填遷移（下游零遺失）；index-table.ts 保真工具（issue #58 根治 #57 止血的 clobber） | US-303; REQ-TYPES-056, REQ-LIB-026, REQ-KNOW-036 (ADDED); REQ-KNOW-008 (MODIFIED) |
+| 2026-07-06 | slim-knowledge-l1-l2 | ADDED REQ-KNOW-037（index Description routing-only、單一來源 module-map）；MODIFIED REQ-KNOW-011（README 預算 ≤400→≤1000）、REQ-KNOW-013（L1 ≤1,800 per file、L2 ≤1,000、total→per-file 語意對齊）（issue #64） | US-303; REQ-KNOW-037 (ADDED); REQ-KNOW-011, REQ-KNOW-013 (MODIFIED) |

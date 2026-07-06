@@ -29,7 +29,7 @@ story → plan → tasks → implemented → verified → archived
 - **`/prospec-implement`** sets `implemented` only when every `tasks.md` **code-task** checkbox is done (unchecked `[M]`/`[V]` tasks are reminders, not blockers) — this distinguishes "implemented, awaiting verify" from "tasks planned".
 - **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged (stays `implemented`); fix the WARN/FAIL items and re-run.
 - **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change — then archive sets `archived`.
-- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, with no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists — there is nothing to story/plan/tasks/implement). Under metadata `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and records pre-existing code-quality gaps as informational tech debt, and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map (feature-slug REQ IDs do not map to modules by prefix).
+- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into a light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists). Under `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map.
 
 ## Stations without a status transition
 
@@ -41,10 +41,10 @@ Some workflow stations participate in the SDD order but own **no** `status` tran
 
 ## What each gate checks (artifact ownership)
 
-Different derived artifacts have different rightful update times — the gates are scoped accordingly:
+Different derived artifacts have different rightful update times — gates are scoped accordingly:
 
-- **AI Knowledge** (module READMEs) tracks the current code; updated by `/prospec-knowledge-update` at any point. `/prospec-verify` grades only **pre-existing Knowledge ↔ code drift**; lag behind the change being verified is not a grade input (informational only). The knowledge-sync **prevention point is the `/prospec-verify` S/A commit prompt**: S/A is the last gate that can require code changes, so syncing there — folded into the feature commit — is not re-staled by later fixes, and a source-only commit therefore does not flip `knowledge-health` stale. The `/prospec-archive` Entry Gate is the **backstop**: it re-confirms the sync and still refuses to archive until affected-module READMEs reflect the change's final state (defense in depth — the sync is moved earlier, not removed).
-- **Feature Specs** (`specs/features/`) describe *graduated* (shipped/archived) capabilities. They are updated **only** by `/prospec-archive` (Phase 3.5 graduation). A Feature Spec that does not yet reflect an un-archived change is the normal pre-archive state — so `/prospec-verify` **does NOT gate on Feature Spec freshness**; the spec graduates when the change archives. This keeps verify (gate) and archive (the sole Feature Spec writer) from forming a deadlock.
+- **AI Knowledge** (module READMEs) tracks current code; updated by `/prospec-knowledge-update` anytime. `/prospec-verify` grades only **pre-existing Knowledge ↔ code drift** (lag behind the change under verification is informational). Knowledge-sync's **prevention point is the `/prospec-verify` S/A commit prompt** — folded into the feature commit, so a later source-only commit doesn't flip `knowledge-health` stale; the `/prospec-archive` Entry Gate is the **backstop** that still refuses to archive until affected-module READMEs reflect the change's final state.
+- **Feature Specs** (`specs/features/`) describe *graduated* capabilities, updated **only** by `/prospec-archive` (Phase 3.5 graduation). A spec not yet reflecting an un-archived change is the normal pre-archive state — so `/prospec-verify` **does NOT gate on Feature Spec freshness**, keeping verify (gate) and archive (sole spec writer) from deadlocking.
 
 ## Escaped-defect registration (`introduced_by`)
 
@@ -56,11 +56,8 @@ introduced_by: <change-name>   # the change whose gates missed this defect
 ```
 
 - **Value**: the offending change's directory name (a plain string), e.g. `introduced_by: add-user-auth`.
-- **Optional, convention-only**: absent on a non-bug-fix change. The schema does not require it and
-  does **not** verify the referenced change exists — a registration convention, not a
-  referential-integrity check (no drift enforcement).
-- **When to set it**: once the offending change is identified — at `/prospec-new-story` for the fix,
-  or back-filled onto an existing bug-fix change's metadata.
+- **Optional, convention-only**: absent on non-bug-fix changes; the schema neither requires it nor verifies the referenced change exists (a registration convention, not a referential-integrity check).
+- **When to set it**: once the offending change is identified — at `/prospec-new-story`, or back-filled onto the bug-fix change's metadata.
 
 ## Rules
 

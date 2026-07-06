@@ -644,6 +644,19 @@ never a fake PASS — and semantic spec↔code consistency stays with `/prospec-
 permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
 the developer and the CI gate always see the same facts, token-free.
 
+**Tuning the `knowledge-size` budgets** — the token/line thresholds are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (`l1_per_file: 1800`, `l2_per_module: 1000`, `readme_max_lines: 100`) and are overridable **per field** in `.prospec.yaml`. Set only the fields you want to change; anything unset falls back to the default:
+
+```yaml
+# .prospec.yaml
+knowledge:
+  token_budget:
+    l1_per_file: 1800       # max tokens per L1 file (index.md + each core convention)
+    l2_per_module: 1000     # max tokens per module README
+    readme_max_lines: 100   # max lines per module README
+```
+
+`prospec init` seeds these three fields into a new project's `.prospec.yaml` so they are explicit and adjustable from day one; anything you delete falls back to the default. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code).
+
 </details>
 
 ---

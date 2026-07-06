@@ -3,22 +3,9 @@
 # Dependency direction (Constitution): cli → services → lib → types (no upward imports).
 modules:
   - name: types
-    description: Zod 4 schemas (incl. artifact_language/skill_triggers/measurement
-      report/change scale + review_provenance/drift report (11 check ids incl.
-      mcp-readme-counts + review-provenance + metadata-completeness + knowledge-size) with frozen
-      knowledge-health contract/MCP resource URIs (8 URIs, BL-042 appended
-      featureMap/product append-only) + tool I/O), error hierarchy, skill
-      definitions with trigger baselines, Constitution rule types, canonical
-      `index.md` column schema, and single-source convention registries (core vs
-      demand); config exports the ValidAgent vocabulary, errors thread an
-      optional cause, TaskMeasurement refines reason; `isStatusBefore` keeps
-      status advances forward-only and `KnowledgeSchema.files` is constrained to
-      `KNOWLEDGE_FILE_TYPES`; feature-map.yaml index schema (slug/membership
-      validation deferred to lib); `INIT_DOC_REGISTRY` — root-discriminated
-      (base/knowledge) single source of every curated doc init creates
-      (canonical + user-managed lists both derive in via `asKnowledgeInitDoc`;
-      index render context declared on the entry), shared by init + the upgrade
-      docs inventory
+    description: Zod schemas, error hierarchy, skill definitions, Constitution rule
+      types, and the canonical index-table column + knowledge-token-budget
+      contracts. Leaf module — every other module imports its types.
     paths:
       - src/types
     keywords:
@@ -59,25 +46,10 @@ modules:
     rationale: Leaf module with zero internal deps — all others import from here
 
   - name: lib
-    description: Shared utilities — config (incl. artifact-language accessors), file
-      I/O, Handlebars (lazy partials), YAML escaping, scanning, Constitution
-      rule sets, deterministic token accounting, zero-LLM drift engine
-      (collectors + pure evaluators), the frozen task-kind parser, the
-      realpath-contained knowledge content read layer (`readIndex` targets
-      root-level `index.md`), the shared key-exports derivation, and the shared
-      init-doc render helper
-      (`buildInitDocContexts`/`renderInitDoc`/`resolveInitDocLocation`, consumed
-      by init + upgrade); scanner exports `filterConventions` for L0/L1 split;
-      domain detection decouples module name from path glob (real-dir-segment
-      globs), drift link-checks resolve symlinks before reporting existence,
-      import-edge collection scans `**/name/**` domain paths, and
-      `resolveBasePaths` defaults to `DEFAULT_BASE_DIR`, and deterministic
-      multi-language manifest parsing; feature-map governance — `loadFeatureMap`
-      + `collectFeatureMapGovernance` + dangling-prefix (warn) / feature-modules
-      (fail) evaluators, plus the MCP README declared-count veracity
-      collector/evaluator (`mcp-readme-counts`, warn — MCP-registration counts
-      only) and the change-metadata completeness collector/evaluator
-      (`metadata-completeness`, fail — required fields + verify-grade presence)
+    description: Shared stateless utilities — config, file I/O, Handlebars
+      rendering, scanning, deterministic token accounting, the zero-LLM drift
+      engine (collectors + evaluators), knowledge readers, and multi-language
+      manifest parsers.
     paths:
       - src/lib
     keywords:
@@ -121,25 +93,10 @@ modules:
       scripts
 
   - name: services
-    description: Business logic — 14 services with `execute()` pattern, incl. init
-      language selection, the quickstart orchestrator, the upgrade orchestrator,
-      trigger synthesis, Recipe-First knowledge generation (outputs `index.md`
-      to project root and injects separated convention lists), deterministic
-      multi-language raw-scan (11-language manifest detection),
-      measurement-report loading, drift-check orchestration with --init-ci
-      scaffold, and the read-only MCP server (8 resources + 2 tools, per-request
-      reads, stderr-only diagnostics); archive task stats consume
-      lib/task-markers; change-plan/change-tasks share the
-      services/change-resolver helper; archive spec-sync is `$`-pattern-safe
-      with feature-slug path containment + non-atomic-move rollback + forwarded
-      knowledge warnings, change-plan/tasks guard re-runs (`--force`) and
-      advance status forward-only, init writes its config marker last (curated
-      docs derived from `INIT_DOC_REGISTRY`); upgrade back-fills missing
-      `INIT_DOC_REGISTRY` docs (`createMissingDocs` — render-from-template via
-      shared `lib/init-docs`, skip-if-exists, best-effort, never overwrites) and
-      its report carries a docs inventory + `createdDocs` (per-doc
-      present/missing at the ACTUAL location, `knowledge.base_path`-aware);
-      archive `syncFeatureMap` is the sole writer of `feature-map.yaml`
+    description: Business logic — one `execute()` service per command — init /
+      quickstart / upgrade, knowledge generate + update, change story / plan /
+      tasks, archive + spec-sync, agent-sync, measure, drift check, and the
+      read-only MCP server.
     paths:
       - src/services
     keywords:
@@ -176,17 +133,9 @@ modules:
     rationale: Isolates business logic from I/O layer, enables testability
 
   - name: cli
-    description: CLI entry point — 12 commands + 14 formatters, parse → execute →
-      format (shared cli/log-level + cli/parse-options + cli/formatters/sanitize
-      helpers); `quickstart` orchestrates init + agent-sync and is registered in
-      INIT_COMMANDS (runs before `.prospec.yaml` exists); `upgrade` records the
-      prospec `version` in `.prospec.yaml` + re-syncs (writes no docs) and
-      prints the docs inventory (fixed parse-friendly `present`/`MISSING` lines
-      per init doc), deliberately NOT in INIT_COMMANDS; `check --strict` maps
-      FAIL to exit 1; `mcp serve` keeps stdout byte-clean (protocol channel,
-      banner → stderr); the shared `sanitizeTerminal` strips C0/C1 from
-      report/error strings on every formatter, and `change plan`/`change tasks`
-      take `--force`
+    description: Thin CLI entry — Commander commands + formatters that parse → call
+      one service → format output. No business logic (delegates everything to
+      services).
     paths:
       - src/cli
     keywords:
@@ -216,38 +165,10 @@ modules:
     rationale: "Thin I/O layer: no business logic, delegates to services"
 
   - name: templates
-    description: "Handlebars template library — 17 skills + 2 shared partials, 19
-      references, 1 agent-config, 4 change, 15 init/knowledge (58 `.hbs`,
-      English-only; init ships `readme.md.hbs` — the in-project Prospec intro
-      `prospec init` scaffolds); `index.md.hbs` renders the 4-layer structure
-      and L0/L1 splitting at the root level; `entry.md.hbs` points to `index.md`
-      for the knowledge index; the prospec-quickstart and prospec-upgrade skills
-      are `excludeFromEntryConfig` (prospec-upgrade Step 2 is inventory-driven —
-      consumes the upgrade report's docs inventory as its only scan scope,
-      format-diffs present docs and offers to create MISSING ones, no hardcoded
-      file list); skill Startup Loading is static-first with
-      `[STABLE]/[DYNAMIC]` markers; the verify S/A commit prompt folds
-      knowledge-sync + count re-derivation into the feature commit (prevention)
-      and archive carries the knowledge-sync Entry Gate as backstop; skills are
-      scale-aware with the task kind schema frozen in tasks-format; verify
-      consumes the drift report and a hardened CI workflow template ships with
-      `check --init-ci`; learn/archive carry the knowledge flywheel — archive
-      Phase 4.5 auto-harvest into the version-controlled `_lessons-ledger.md`,
-      promotion-format single-sources the harvest format and names
-      `_archived-history/{date}-{name}.md` as the ledger's canonical evidence
-      pointer, and archive Phase 2 writes a `## Review & Verify` section (grade
-      + criticals/majors + quality_log digest, archive-format §6) into the
-      committed spec-history summary so the audit trail carries review/verify
-      evidence; instruction-quality pass — per-phase gates, Phase-1 numbering,
-      status-aware Next-Step Handoff (workflow order), new-session change
-      detection (entry config), implement progress anchoring, empty-Constitution
-      prompt; plan/implement carry the BL-034 optional on-demand Context7
-      dependency-layer step; prospec-backfill-spec is feature-first — extracts
-      by feature vertical-slice with feature-boundary criteria externalized to
-      the 19th reference; `knowledge/feature-map.yaml.hbs` is the sole format
-      authority for the feature→module index, regenerated at archive Phase 3.6;
-      prospec-promote-backfill + `scale: backfill` let brownfield backfill specs
-      graduate end-to-end"
+    description: "Handlebars template library — 17 skills + 5 shared partials, 19
+      references, 1 agent-config, 4 change, 15 init/knowledge (61 `.hbs`
+      templates). Pure resources consumed by lib/template — the source of every
+      generated skill, README, and index."
     paths:
       - src/templates
     keywords:
@@ -287,18 +208,10 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
 
   - name: tests
-    description: 4-layer test suite — 82 files, 1,985 tests (unit 1300 + contract
-      604 + integration 38 + e2e 43), incl. token-corpus +
-      startup-loading-baseline + lessons-harvest fixtures + INIT_DOC_REGISTRY
-      drift guards (init⇄registry equality, derivation bindings, template
-      renderability) + the skill-generation contract (real init+agent-sync in a
-      temp dir, ported from verify-skills.sh, reference counts derived from the
-      exported map, status-lifecycle a named-set) + the archive Review & Verify
-      contract (archive-format §6 section spec, prospec-archive Phase 2
-      write-step/Gate/NEVER, promotion-format `_archived-history` evidence
-      pointer; section-scoped + mutation-verified); drift/reader tests run on
-      real temp dirs (fast-glob/git bypass memfs); MCP protocol tested over
-      in-memory transport, never a spawned daemon
+    description: 4-layer test suite — 85 files, 2,079 tests (unit 1361 + contract
+      637 + integration 38 + e2e 43) across unit / contract / integration / e2e.
+      Validates every module — format contracts, the drift engine, token corpus,
+      and the MCP protocol over in-memory transport.
     paths:
       - tests
     keywords:

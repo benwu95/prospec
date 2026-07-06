@@ -51,8 +51,8 @@ export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
  * in .prospec.yaml overrides individual fields; anything unset falls back here.
  */
 export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
-  l1_per_file: 1500,
-  l2_per_module: 400,
+  l1_per_file: 1800,
+  l2_per_module: 1000,
   readme_max_lines: 100,
 } as const;
 

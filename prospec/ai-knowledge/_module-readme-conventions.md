@@ -33,7 +33,7 @@ Every module README is split by HTML-comment markers into a generated block and 
 
 ## Section template (inside the auto block)
 
-The order is fixed. Keep each section concise; the whole README stays **≤ 100 lines / ≤ 400 tokens**.
+The order is fixed. Keep each section concise; the whole README stays within its budget — **default ≤ 100 lines / ≤ 1000 tokens**, overridable per project via `.prospec.yaml` `knowledge.token_budget` (`readme_max_lines` / `l2_per_module`).
 
 | Section | Required | Content |
 |---------|----------|---------|
@@ -77,7 +77,7 @@ The order is fixed. Keep each section concise; the whole README stays **≤ 100 
 
 ## Sub-Modules (splitting an oversized README)
 
-A module README must stay within budget (≤ 100 lines / ≤ 400 tokens). When a module is large
+A module README must stay within budget (default ≤ 100 lines / ≤ 1000 tokens; overridable via `.prospec.yaml` `knowledge.token_budget`). When a module is large
 enough that trimming would discard genuinely useful detail, AND it contains a
 **content-rich, functionally-independent** area, extract that area into a sub-module file instead
 of trimming it away.
@@ -88,7 +88,7 @@ of trimming it away.
      Pitfalls, and independent enough to be understood on its own.
 - **Layout**: `modules/{module}/{sub-module}.md` — a sibling of the module's `README.md`, kebab-case
   name after the sub-area (e.g. `modules/services/spec-sync.md`). Same Recipe-First structure and
-  same ≤ 100 line / ≤ 400 token budget as a README. If a sub-module would itself overflow, split it
+  same budget as a README. If a sub-module would itself overflow, split it
   again the same way.
 - **Link from the main README**: keep a `## Sub-Modules` section (inside the auto block) listing each:
   ```markdown
