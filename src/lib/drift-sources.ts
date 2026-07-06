@@ -17,6 +17,7 @@ import { estimateTokens } from './token-accounting.js';
 import { CORE_CONVENTIONS } from '../types/conventions.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
+import type { KnowledgeSizeBudget } from '../types/config.js';
 
 /**
  * Drift source collectors — ALL filesystem/git I/O for `prospec check`
@@ -109,16 +110,6 @@ export interface McpReadmeCountSource {
 
 /** Which progressive-loading layer a knowledge file belongs to. */
 export type KnowledgeSizeKind = 'l1' | 'l2';
-
-/** Resolved token/line budget (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden by config). */
-export interface KnowledgeSizeBudget {
-  /** max tokens per L1 file (index.md + each core convention) */
-  l1_per_file: number;
-  /** max tokens per L2 module README */
-  l2_per_module: number;
-  /** max lines per module README */
-  readme_max_lines: number;
-}
 
 export interface KnowledgeSizeItem {
   /** repo-relative path of the measured knowledge file */

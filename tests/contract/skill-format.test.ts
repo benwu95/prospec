@@ -21,6 +21,9 @@ const TEMPLATE_CONTEXT = {
   base_dir: 'prospec',
   tech_stack: { language: 'typescript', framework: 'express' },
   artifact_language: 'English',
+  l1_per_file: 1800,
+  l2_per_module: 1000,
+  readme_max_lines: 100,
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
   skills: SKILL_DEFINITIONS.map((s) => ({
     name: s.name,
@@ -43,6 +46,40 @@ const sectionOf = (content: string, heading: string): string => {
   ).toBeGreaterThan(0);
   return body;
 };
+
+const KNOWLEDGE_LOADING_SKILLS = [
+  'prospec-knowledge-generate',
+  'prospec-knowledge-update',
+  'prospec-plan',
+  'prospec-implement',
+  'prospec-verify',
+];
+
+describe('Knowledge budget rendering (no leaked symbol, values from injected context)', () => {
+  // Sentinel budgets distinct from DEFAULT_KNOWLEDGE_TOKEN_BUDGET prove the rendered
+  // numbers come from the injected context (agent-sync's resolveKnowledgeTokenBudget),
+  // not a hardcoded literal in the template. Downstream projects can only read the
+  // rendered number and a source they can inspect — never the internal TS symbol.
+  const ctx = { ...TEMPLATE_CONTEXT, l1_per_file: 4242, l2_per_module: 2424, readme_max_lines: 77 };
+
+  for (const name of KNOWLEDGE_LOADING_SKILLS) {
+    it(`${name}: leaks no internal budget symbol and takes the L1 budget from context`, () => {
+      const content = renderTemplate(`skills/${name}.hbs`, ctx);
+      // negative — the internal TS constant name must never reach a downstream doc
+      expect(content).not.toContain('DEFAULT_KNOWLEDGE_TOKEN_BUDGET');
+      // positive — the L1 budget shown is the injected sentinel (via the shared partial)
+      expect(content).toContain('4242');
+      // no stale hardcoded default budget survived the variable-ization
+      expect(content).not.toMatch(/1,800|1,000/);
+    });
+  }
+
+  it('knowledge-generate takes the L2 token and README-line budgets from context too', () => {
+    const content = renderTemplate('skills/prospec-knowledge-generate.hbs', ctx);
+    expect(content).toContain('2424');
+    expect(content).toContain('77');
+  });
+});
 
 describe('Skill Format Contract', () => {
   describe('Skill template rendering', () => {

@@ -28,7 +28,6 @@
 - `execute(options)` per service (`init`/`quickstart`/`upgrade`/`agentSync`/`knowledge`/`knowledgeUpdate`/`archive`/`check`/`measure`/`mcp`/`change-*`) → typed `Result`
 - `resolveChange(cwd, explicit, quiet, msg)` — shared change selector (zero/ambiguous → `PrerequisiteError`)
 - `generateRawScan(options)` — deterministic raw-scan core (shared by knowledge-init + upgrade)
-- `resolveKnowledgeTokenBudget(config)` — `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` with per-field `.prospec.yaml` override
 - `buildMcpServer(ctx)` — assemble the MCP server transport-free
 
 ## Dependencies

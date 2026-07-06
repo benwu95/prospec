@@ -176,7 +176,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** skip {{base_dir}}/index.md update — the index must always reflect current module state
 - **NEVER** ignore module-map.yaml when it exists — dependency graph must stay in sync
 - **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md (or its sub-module files) only
-- **NEVER** exceed 100 lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
+- **NEVER** exceed {{readme_max_lines}} lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
 - **NEVER** list sub-modules in `{{base_dir}}/index.md` or `module-map.yaml` — they are reached only via the parent README's `## Sub-Modules` links
 
 ## Error Handling
@@ -188,4 +188,4 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Module directory doesn't exist (MODIFIED) | Treat as ADDED — create new module directory and README |
 | ContentMerger conflict | Prefer new auto content, always preserve user sections |
 | Source scan returns 0 files | Generate minimal README with module name only, warn user |
-| README exceeds 100 lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls |
+| README exceeds {{readme_max_lines}} lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls |

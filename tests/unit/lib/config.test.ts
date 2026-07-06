@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset } from '../../../src/lib/config.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -144,6 +145,27 @@ describe('resolveBasePaths', () => {
     expect(result.baseDir).toBe('/project/prospec');
     expect(result.knowledgePath).toBe('/project/custom/knowledge');
     expect(result.constitutionPath).toBe('/project/prospec/CONSTITUTION.md');
+  });
+});
+
+describe('resolveKnowledgeTokenBudget', () => {
+  it('falls back to DEFAULT_KNOWLEDGE_TOKEN_BUDGET when knowledge.token_budget is unset', () => {
+    const budget = resolveKnowledgeTokenBudget({ project: { name: 't' } } as ProspecConfig);
+    expect(budget).toEqual({
+      l1_per_file: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
+      l2_per_module: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
+      readme_max_lines: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
+    });
+  });
+
+  it('overrides only the fields set in knowledge.token_budget, keeping defaults for the rest', () => {
+    const budget = resolveKnowledgeTokenBudget({
+      project: { name: 't' },
+      knowledge: { token_budget: { l1_per_file: 9999 } },
+    } as ProspecConfig);
+    expect(budget.l1_per_file).toBe(9999);
+    expect(budget.l2_per_module).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module);
+    expect(budget.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
   });
 });
 

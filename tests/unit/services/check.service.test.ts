@@ -3,9 +3,8 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { execute, CI_WORKFLOW_PATH, resolveKnowledgeTokenBudget } from '../../../src/services/check.service.js';
+import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
 import { DriftReportSchema, DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../../../src/types/config.js';
 
 // check.service drives fast-glob + git collectors — real temp dirs, like scanner.test.ts.
 
@@ -39,27 +38,6 @@ function write(relPath: string, content: string): void {
   mkdirSync(path.dirname(abs), { recursive: true });
   writeFileSync(abs, content);
 }
-
-describe('resolveKnowledgeTokenBudget', () => {
-  it('falls back to DEFAULT_KNOWLEDGE_TOKEN_BUDGET when knowledge.token_budget is unset', () => {
-    const budget = resolveKnowledgeTokenBudget({ project: { name: 't' } } as ProspecConfig);
-    expect(budget).toEqual({
-      l1_per_file: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
-      l2_per_module: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
-      readme_max_lines: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
-    });
-  });
-
-  it('overrides only the fields set in knowledge.token_budget, keeping defaults for the rest', () => {
-    const budget = resolveKnowledgeTokenBudget({
-      project: { name: 't' },
-      knowledge: { token_budget: { l1_per_file: 9999 } },
-    } as ProspecConfig);
-    expect(budget.l1_per_file).toBe(9999);
-    expect(budget.l2_per_module).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module);
-    expect(budget.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
-  });
-});
 
 describe('check.service execute', () => {
   it('produces a schema-valid report and writes it with --json', async () => {

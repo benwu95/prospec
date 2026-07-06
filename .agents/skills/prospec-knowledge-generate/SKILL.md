@@ -49,11 +49,11 @@ first-ever run still needs the full init.
 | Layer | Files | When to Load | Token Budget |
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
-| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1,800 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1,000 tokens per module/feature |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 1800 tokens per file |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1000 tokens per module/feature |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> L1/L2 token/line budgets are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` and overridable per-field via `.prospec.yaml` `knowledge.token_budget` (the numbers above are the defaults); over-budget files WARN via `prospec check` `knowledge-size` — a pressure signal, never a build breaker.
+> L1/L2 token/line budgets come from `.prospec.yaml` `knowledge.token_budget` (the numbers above reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` — a pressure signal, never a build breaker.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
@@ -61,7 +61,7 @@ first-ever run still needs the full init.
 3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds are single-sourced from `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` and overridable per-field via `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — the numbers below are those defaults (L1 ≤1,800/file, L2 ≤1,000/module, ≤100 lines); target the project's configured values when they differ.
+**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's current settings are L1 ≤1800/file, L2 ≤1000/module, ≤100 lines. When writing `index.md`'s budget note, cite `.prospec.yaml` `knowledge.token_budget` as the source (and `prospec check knowledge-size` as the enforcement), never an internal constant name.
 
 ## Core Workflow
 
@@ -157,7 +157,7 @@ domain split, keep ONE flat table — do not force grouping.
 - **Primary first**: a module appears under its primary (`category[0]`) `### {Category}` heading
   **exactly once** — never list it under two headings (the index must stay duplicate-free). Secondary
   categories live only in `module-map.yaml` (surfaced by the MCP `search_modules` join), not in `prospec/index.md`.
-- Keep every L1 file within budget regardless of grouping (≤ 1,800 tokens per file).
+- Keep every L1 file within budget regardless of grouping (≤ 1800 tokens per file).
 
 
 ### Step 6: Populate _conventions.md
@@ -173,7 +173,7 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
 - prospec/index.md has Aliases + Rationale columns
 - If grouped, every `### {Category}` sub-table reuses the identical column layout (keeps the index machine-parseable) and each module is listed under its primary category only
-- **Each L1 file (prospec/index.md, each core convention) ≤ 1,800 tokens per file** (estimate ~4 chars/token)
+- **Each L1 file (prospec/index.md, each core convention) ≤ 1800 tokens per file** (estimate ~4 chars/token)
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)
 
@@ -192,7 +192,7 @@ until real principles exist, and point them to edit `prospec/CONSTITUTION.md`. A
 ### Success Criteria
 - [ ] each module has exactly one Recipe-First README
 - [ ] prospec/index.md has the module table + Progressive Knowledge Loading Strategy section
-- [ ] each L1 file <= 1,800 tokens
+- [ ] each L1 file <= 1800 tokens
 - [ ] >= 2 modules
 
 ### Failure Conditions

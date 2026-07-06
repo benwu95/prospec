@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2079%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2086%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -615,7 +615,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，
 開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
-**調整 `knowledge-size` 預算** —— token／行數門檻單一來源於 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`（`l1_per_file: 1800`、`l2_per_module: 1000`、`readme_max_lines: 100`），可在 `.prospec.yaml` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
+**調整 `knowledge-size` 預算** —— token／行數門檻預設為 `l1_per_file: 1800`、`l2_per_module: 1000`、`readme_max_lines: 100`，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
 
 ```yaml
 # .prospec.yaml
@@ -661,7 +661,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2079 個測試）
+# 執行所有測試（2086 個測試）
 pnpm test
 
 # Watch 模式
@@ -674,9 +674,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2079 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1361 tests
-- Contract tests（CLI 輸出 + Skill 格式）：637 tests
+**測試覆蓋率**：2086 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1362 tests
+- Contract tests（CLI 輸出 + Skill 格式）：643 tests
 - Integration tests：38 tests
 - E2E tests：43 tests
 

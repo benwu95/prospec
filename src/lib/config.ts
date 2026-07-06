@@ -1,8 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
-import { ProspecConfigSchema, DEFAULT_ARTIFACT_LANGUAGE, DEFAULT_BASE_DIR } from '../types/config.js';
-import type { ProspecConfig } from '../types/config.js';
+import {
+  ProspecConfigSchema,
+  DEFAULT_ARTIFACT_LANGUAGE,
+  DEFAULT_BASE_DIR,
+  DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+} from '../types/config.js';
+import type { ProspecConfig, KnowledgeSizeBudget } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
@@ -69,6 +74,21 @@ export function isDefaultArtifactLanguage(language: string): boolean {
  */
 export function isArtifactLanguageUnset(config: ProspecConfig): boolean {
   return (config.artifact_language ?? '').trim() === '';
+}
+
+/**
+ * Resolve the knowledge-size budget: `knowledge.token_budget` in .prospec.yaml
+ * overrides individual fields; anything unset falls back to
+ * DEFAULT_KNOWLEDGE_TOKEN_BUDGET — the single source shared with index.md's
+ * declared budgets and the budget numbers rendered into generated skills.
+ */
+export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSizeBudget {
+  const tb = config.knowledge?.token_budget;
+  return {
+    l1_per_file: tb?.l1_per_file ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
+    l2_per_module: tb?.l2_per_module ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
+    readme_max_lines: tb?.readme_max_lines ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
+  };
 }
 
 /**
