@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-05
-story_count: 7
-req_count: 20
+last_updated: 2026-07-06
+story_count: 8
+req_count: 26
 ---
 
 # 確定性 Drift 檢查
@@ -122,7 +122,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN module-map 缺失，THEN `mcp-readme-counts` skipped（帶原因），永不偽裝 PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` rename `readme-counts`→`mcp-readme-counts`（名實相符：範圍僅 MCP registration 計數，非泛用 README 計數；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**10** 個，含 metadata-completeness）。
+`DRIFT_CHECK_IDS` rename `readme-counts`→`mcp-readme-counts`（名實相符：範圍僅 MCP registration 計數，非泛用 README 計數；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**11** 個，含 knowledge-size）。
 
 #### REQ-LIB-020: README 計數 collector + evaluator
 `collectMcpReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateMcpReadmeCounts`（宣告≠實際 → warn finding）。
@@ -149,7 +149,7 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 - WHEN 非 git repo／`.prospec/changes/` 缺席／digest 不可計算，THEN 檢項 `skipped` + 原因（永不偽 PASS）
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **10** 個 frozen check id。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
+`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **11** 個 frozen check id（第 11 個為 `knowledge-size`，見 US-8）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
 `computeChangeDigest(cwd)`：內容指紋 = HEAD sha + `git diff HEAD` + untracked，涵蓋整棵工作樹（review 所審的全部第一方內容），以 **denylist** 排除工作流狀態（`.prospec/`、`prospec-report.json`）、生成物（`.claude/`、`dist/`）與 lockfile——**fail-closed 而非 fail-open**（`src`/`tests` 以外的第一方 code 如 `scripts/` 仍納入）；不依賴 git commit 時間戳（commit boundary 在 verify S/A 之後，review/verify 期 code 未 commit）。`collectReviewProvenance(cwd)`（I/O）列舉 `.prospec/changes/*` 帶 status/scale/recorded digest + 當前 digest；`gitCapture` 助手由 `gitLastCommit` 與 digest 共用；`evaluateReviewProvenance`（純函式）僅對 `status==implemented` 且非 backfill 判定。
@@ -196,7 +196,43 @@ kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`
 `/prospec-archive` Entry Gate 新增機器檢查項：跑 `prospec check --json` 讀 `metadata-completeness`，FAIL→拒絕入庫（CLI 不在退回直讀該變更 metadata）；防殘缺/無評級 metadata 進永久紀錄。
 
 #### REQ-TESTS-045: metadata-completeness 引擎測試
-`evaluateMetadataCompleteness`（pass/缺各欄/verified-無評級/in-progress-豁免/both-findings）、`collectMetadataCompleteness`（changes-dir fixture：完整/stub/present-but-empty/verified-無評級/verified-有A/空-null-註解/unparseable）、`check.service` 注入 + skipped-never-PASS 全 10 checks——S/A clause 與 skill clause mutation-verified。
+`evaluateMetadataCompleteness`（pass/缺各欄/verified-無評級/in-progress-豁免/both-findings）、`collectMetadataCompleteness`（changes-dir fixture：完整/stub/present-but-empty/verified-無評級/verified-有A/空-null-註解/unparseable）、`check.service` 注入 + skipped-never-PASS 全 11 checks（含 knowledge-size）——S/A clause 與 skill clause mutation-verified。
+
+---
+
+## US-8: knowledge-size 預算檢查 [P2]
+
+身為一名維護分層知識載入效益的 maintainer，
+我想要一個確定性的 `knowledge-size` 檢查，對 index.md、core conventions、各 module README 計 token/行數並與宣告預算比對，
+以便長期宣告卻無機制查核的分層 token budget 變成機器可查的 warn，防止分層模型效益逐 change 無聲流失。
+
+**Acceptance Scenarios:**
+- WHEN 某 L1 檔（index.md 或 core convention）token 超過 per-file 預算，THEN 回報 WARN（含 `source_path` + 實測 token/預算 + `TOKEN_ESTIMATOR_LABEL`）
+- WHEN 某 module README token 超過 per-module 預算或行數超過 readme 行數上限，THEN 回報 WARN（token 與行數各自成獨立 finding）
+- WHEN 檔案大小 `≤` 預算，THEN 不報（邊界包含）
+- WHEN 知識庫不存在，THEN `knowledge-size` skipped（帶原因），永不偽裝 PASS
+- WHEN `.prospec.yaml` 設 `knowledge.token_budget`，THEN 逐欄覆蓋 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`；否則用預設
+
+#### REQ-TYPES-060: Drift Report knowledge-size Check Id
+`DRIFT_CHECK_IDS` append `knowledge-size`（第 11 個 frozen check id，**warn-class**；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
+
+#### REQ-TYPES-061: token_budget 誠實命名 + DEFAULT 單一來源
+`TokenBudgetSchema` 欄位重命名 `l0_max`→`l1_per_file`、`l1_per_module`→`l2_per_module`（`readme_max_lines` 不變，皆 optional），名實對齊 index.md 的 L1/L2 語意。新增 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1500, l2_per_module:400, readme_max_lines:100}` 作為 knowledge-size 閾值與 index.md 宣告的**單一權威來源**（舊欄位名為 dead config，從未被程式碼讀取）。
+
+#### REQ-LIB-027: knowledge-size Collector + Evaluator
+`collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)`（I/O）：以 canonical contained readers（`readIndex`/`readContainedFile`/`readModuleReadme`）讀 index.md + `CORE_CONVENTIONS`（L1）與 `modules/*/README.md`（L2），`estimateTokens` 計 token、`countLines` 計行；module 名由 README 路徑推得（不需 module-map）；`knowledgePath` 不存在 → `{available:false, reason}`。pure `evaluateKnowledgeSize`：`!available→skipped`；L1 檔 tokens > `l1_per_file`、L2 README tokens > `l2_per_module` 或 lines > `readme_max_lines` → warn finding；L0 out of scope。
+**Scenarios:**
+- WHEN L1/L2 檔超標，THEN warn finding（`source_path` + detail 含實測/預算/`TOKEN_ESTIMATOR_LABEL`）；`≤` 邊界不報
+- WHEN 知識庫缺席，THEN `skipped` + reason；evaluator I/O-free、findings codepoint-sort
+
+#### REQ-SERVICES-065: check.service 注入 knowledge-size collector
+`check.service.execute` 將 `collectKnowledgeSize(cwd, paths.baseDir, paths.knowledgePath, resolveKnowledgeTokenBudget(config))` 注入 `runChecks`；`resolveKnowledgeTokenBudget` 以 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 逐欄被 `config.knowledge?.token_budget` 覆蓋；純檢查路徑維持唯讀、確定性。
+
+#### REQ-TEMPLATES-149: init scaffold 採用重命名 budget 欄位
+`init/prospec.yaml.hbs` 的 `knowledge.token_budget` seed 改用 `l1_per_file`/`l2_per_module`/`readme_max_lines`，值與 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 一致。
+
+#### REQ-TESTS-048: knowledge-size 引擎測試 + single-source 斷言
+`evaluateKnowledgeSize`（over-L1／over-L2-tokens／over-L2-lines／邊界／skipped／config-override）；`collectKnowledgeSize`（temp fixture：超標 + 合規 + 缺 knowledgePath skipped）；`drift-report.test.ts` frozen 數 10→11 + 清單加 id；**single-source 測試**：讀 repo `prospec/index.md` 抽 L1/L2 預算數，斷言 == `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`（不一致即 FAIL，mutation-verified）。
 
 ---
 
@@ -238,3 +274,4 @@ _(None)_
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | MODIFIED US-5 + REQ-TYPES-034/REQ-LIB-020/REQ-SERVICES-034（readme-counts→mcp-readme-counts 改名，名實相符 MCP-only）；MODIFIED REQ-TYPES-052（總數→10）；ADDED US-7（metadata-completeness 閘門，第 10 個 check id）+ REQ-TYPES-055/REQ-LIB-025/REQ-SERVICES-063/REQ-TEMPLATES-142/REQ-TESTS-045（issue #67） | US-5, US-7, REQ-TYPES-034, REQ-TYPES-052, REQ-TYPES-055, REQ-LIB-020, REQ-LIB-025, REQ-SERVICES-034, REQ-SERVICES-063, REQ-TEMPLATES-142, REQ-TESTS-045 |
 | 2026-07-05 | unlock-measurement | MODIFIED REQ-LIB-025：`hasVerifyGrade` 優先讀結構化 `grade ∈ {S,A}`、保留 legacy `result ∈ {S,A}` fallback（收斂 schema/現實落差、向後相容）；`metadata-completeness` check id 不變（issue #61） | US-7; REQ-LIB-025 (MODIFIED) |
 | 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
+| 2026-07-06 | enforce-knowledge-size-budget | ADDED US-8（knowledge-size 預算檢查，第 11 個 check id，warn-class）+ REQ-TYPES-060/061、REQ-LIB-027、REQ-SERVICES-065、REQ-TEMPLATES-149、REQ-TESTS-048；MODIFIED REQ-TYPES-052/034（總數→11）+ REQ-TESTS-045（skipped-never-PASS→11 checks）；config token_budget 誠實重命名 + DEFAULT_KNOWLEDGE_TOKEN_BUDGET 單一來源（issue #63） | US-8, REQ-TYPES-060, REQ-TYPES-061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
