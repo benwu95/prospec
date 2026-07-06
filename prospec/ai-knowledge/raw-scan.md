@@ -46,6 +46,7 @@
 - `eslint.config.mjs`
 - `package.json`
 - `tsconfig.json`
+- `tsconfig.typecheck.json`
 - `vitest.config.ts`
 
 ## Directory Tree
@@ -104,5 +105,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 380 |
+| Total files | 384 |
 | Scan depth | 10 |
