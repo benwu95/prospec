@@ -37,7 +37,7 @@
 - `archive.execute(options)` — Archive verified changes, sync Feature Specs; Result carries `archived`/`skipped`/`affectedModules`/`specFiles` (no auto knowledge-update or raw-scan side effect)
 - `agentSync.execute(options)` — Deploy skills/entry configs; result carries `warnings` (unknown skill_triggers keys), `hints` (populate skill_triggers for non-English languages), and `removedSkills` (orphan `prospec-*` skill dirs swept)
 - `measure.execute({cwd, reportPath?, offline?})` — Load the measurement report for display (or, with `offline`, the keyless `size-report.json` size estimate); missing file → PrerequisiteError (run `pnpm measure:tokens`, or `--offline`), invalid → MeasurementReportInvalid
-- `check.execute({cwd, json?, initCi?})` — Run the drift engine (Result carries `hasFail`; exit-code mapping stays in cli) or scaffold the hardened CI workflow
+- `check.execute({cwd, json?, initCi?})` — Run the drift engine (Result carries `hasFail`; exit-code mapping stays in cli) or scaffold the hardened CI workflow; injects the knowledge-size collector with `resolveKnowledgeTokenBudget(config)` (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden per-field by `knowledge.token_budget`)
 - `mcp.execute({cwd})` / `buildMcpServer(ctx)` — start the stdio MCP server / assemble it transport-free (tests drive it over InMemoryTransport)
 
 ## Dependencies

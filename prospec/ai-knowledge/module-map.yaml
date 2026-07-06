@@ -4,8 +4,8 @@
 modules:
   - name: types
     description: Zod 4 schemas (incl. artifact_language/skill_triggers/measurement
-      report/change scale + review_provenance/drift report (10 check ids incl.
-      mcp-readme-counts + review-provenance + metadata-completeness) with frozen
+      report/change scale + review_provenance/drift report (11 check ids incl.
+      mcp-readme-counts + review-provenance + metadata-completeness + knowledge-size) with frozen
       knowledge-health contract/MCP resource URIs (8 URIs, BL-042 appended
       featureMap/product append-only) + tool I/O), error hierarchy, skill
       definitions with trigger baselines, Constitution rule types, canonical

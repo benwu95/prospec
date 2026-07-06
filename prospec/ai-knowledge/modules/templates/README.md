@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `src/templates/init/prospec.yaml.hbs` | .prospec.yaml with strategy and token_budget defaults |
+| `src/templates/init/prospec.yaml.hbs` | .prospec.yaml with strategy and token_budget defaults (`l1_per_file`/`l2_per_module`/`readme_max_lines`, enforced by the knowledge-size drift check) |
 | `src/templates/init/readme.md.hbs` | In-project Prospec intro `prospec init` scaffolds to `{base_dir}/README.md` — condensed "What is Prospec?" (Skills / AI Knowledge / CLI) + repo link, English-only; standalone `base` entry in `INIT_DOC_REGISTRY` |
 | `src/templates/knowledge/module-readme.hbs` | Recipe-First module README (Key Files → Public API → Modification Guide → Pitfalls) |
 | `src/templates/knowledge/index.md.hbs` | `index.md` (root level) with Rationale column, the Progressive Knowledge Loading Strategy footer, and L1/L2 convention splitting; delegates the auto block to the `index-auto-block` partial |

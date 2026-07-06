@@ -10,8 +10,11 @@ import {
   isArchivedSpec,
   isSafeResourceName,
   loadFeatureMap,
+  readIndex,
   readModuleReadme,
 } from './knowledge-reader.js';
+import { estimateTokens } from './token-accounting.js';
+import { CORE_CONVENTIONS } from '../types/conventions.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 
@@ -102,6 +105,34 @@ export interface McpReadmeCountSource {
   available: boolean;
   reason?: string;
   claims: McpReadmeCountClaim[];
+}
+
+/** Which progressive-loading layer a knowledge file belongs to. */
+export type KnowledgeSizeKind = 'l1' | 'l2';
+
+/** Resolved token/line budget (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden by config). */
+export interface KnowledgeSizeBudget {
+  /** max tokens per L1 file (index.md + each core convention) */
+  l1_per_file: number;
+  /** max tokens per L2 module README */
+  l2_per_module: number;
+  /** max lines per module README */
+  readme_max_lines: number;
+}
+
+export interface KnowledgeSizeItem {
+  /** repo-relative path of the measured knowledge file */
+  source_path: string;
+  kind: KnowledgeSizeKind;
+  tokens: number;
+  lines: number;
+}
+
+export interface KnowledgeSizeSource {
+  available: boolean;
+  reason?: string;
+  budget: KnowledgeSizeBudget;
+  items: KnowledgeSizeItem[];
 }
 
 export type { TaskKind } from './task-markers.js';
@@ -433,6 +464,67 @@ export function collectMcpReadmeCounts(
   return { available: true, claims };
 }
 
+/**
+ * Collect token/line sizes of the knowledge files the progressive-loading
+ * budget governs (REQ-LIB-027): `index.md` + each core convention (L1) and
+ * every module README (L2). Sizes come from the deterministic `estimateTokens`
+ * (chars-per-token) so the check stays zero-LLM; the pure evaluator compares
+ * them against `budget`. L0 (`AGENTS.md`/`CLAUDE.md`) is agent-injected config,
+ * not a knowledge-base file, and is out of scope. The whole check skips when the
+ * knowledge base is absent — never a fabricated pass. Module READMEs are
+ * enumerated straight from `modules/` (no module-map needed: sizing needs only
+ * the file, and the module name is its directory).
+ */
+export function collectKnowledgeSize(
+  cwd: string,
+  baseDir: string,
+  knowledgePath: string,
+  budget: KnowledgeSizeBudget,
+): KnowledgeSizeSource {
+  if (!existsSync(path.resolve(cwd, knowledgePath))) {
+    return {
+      available: false,
+      reason: 'source unavailable: knowledge base not found',
+      budget,
+      items: [],
+    };
+  }
+  const knowledgeRel = path.relative(cwd, path.resolve(cwd, knowledgePath)).replace(/\\/g, '/');
+  const items: KnowledgeSizeItem[] = [];
+  const measure = (relPath: string, kind: KnowledgeSizeKind, content: string | null): void => {
+    if (content === null) return;
+    items.push({
+      source_path: relPath.replace(/\\/g, '/'),
+      kind,
+      tokens: estimateTokens(content),
+      lines: countLines(content),
+    });
+  };
+
+  // L1 — index.md (via the canonical base-dir reader, so this can never disagree
+  // with the services that write it) + each core convention.
+  measure(path.relative(cwd, path.resolve(cwd, baseDir, 'index.md')), 'l1', readIndex(baseDir));
+  for (const conv of CORE_CONVENTIONS) {
+    const rel = path.join(knowledgeRel, conv);
+    measure(rel, 'l1', readContainedFile(cwd, rel));
+  }
+
+  // L2 — every module README under modules/.
+  const modulesDir = path.resolve(cwd, knowledgePath, 'modules');
+  if (existsSync(modulesDir)) {
+    for (const name of readdirSync(modulesDir).sort()) {
+      if (!isSafeResourceName(name)) continue;
+      measure(
+        path.join(knowledgeRel, 'modules', name, 'README.md'),
+        'l2',
+        readModuleReadme(knowledgePath, name),
+      );
+    }
+  }
+
+  return { available: true, budget, items };
+}
+
 /** Collect checkbox/kind state from every active change's tasks.md. */
 export function collectTaskStates(cwd: string): TaskSource {
   const changesDir = path.resolve(cwd, '.prospec/changes');
@@ -654,6 +746,13 @@ function readContainedFile(cwd: string, relPath: string): string | null {
   const abs = path.resolve(cwd, relPath);
   if (path.relative(cwd, abs).startsWith('..') || !existsContained(abs, cwd)) return null;
   return readFileSync(abs, 'utf-8');
+}
+
+/** Text line count (matches `wc -l`: a trailing newline does not add a line). */
+function countLines(text: string): number {
+  if (text === '') return 0;
+  const n = text.split('\n').length;
+  return text.endsWith('\n') ? n - 1 : n;
 }
 
 /**

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2062%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2079%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -636,7 +636,7 @@ model provider, not the agent harness itself):
 
 | Command | Description |
 |---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / module READMEs vs their token & line budget, WARN-only), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
 | `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
 
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
@@ -677,7 +677,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2062 tests)
+# Run all tests (2079 tests)
 pnpm test
 
 # Watch mode
@@ -690,8 +690,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2062 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1344 tests
+**Test Coverage**: 2079 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1361 tests
 - Contract tests (CLI output + Skill format): 637 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
