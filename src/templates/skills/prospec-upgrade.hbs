@@ -80,7 +80,16 @@ baseline, requires consent. Do that here:
    no `Docs inventory:` section, the installed CLI predates it (CLI/skill version mismatch) — STOP
    this step and tell the user to re-run `prospec upgrade` (which re-syncs this skill to match the
    CLI), then re-run `/prospec-upgrade`.
-3. **Index enrichment / migration**: `prospec upgrade` back-fills `{{base_dir}}/index.md` as a BASELINE — its module table is empty. Offer to populate that table from the current modules, and if `{{knowledge_base_path}}/_index.md` exists (a project from before the hierarchical-index move), migrate its curated content into that baseline: preserve any user notes in the `<!-- prospec:user-start -->` block, and **copy the curated `Modules` table rows verbatim** into the `prospec:auto` block — the Keywords / Aliases / Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from `module-map.yaml` and blanks every curated column to `—`. Delete the old `{{knowledge_base_path}}/_index.md` after a successful migration.
+3. **Index enrichment / migration**: `prospec upgrade` back-fills `{{base_dir}}/index.md` as a
+   BASELINE — its module table is empty. Offer to populate that table from the current modules,
+   and if `{{knowledge_base_path}}/_index.md` exists (a project from before the hierarchical-index
+   move), migrate its curated content into that baseline: preserve any user notes in the
+   `<!-- prospec:user-start -->` block, and **copy both the Core/Demand Conventions lists and the
+   curated `Modules` table rows verbatim** into the `prospec:auto` block — the Keywords / Aliases /
+   Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run
+   `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from
+   `module-map.yaml` and blanks every curated column to `—`. Delete the old
+   `{{knowledge_base_path}}/_index.md` after a successful migration.
 4. **Back-fill safety net** — `prospec upgrade` already created every doc it could (the report's
    `created …` line), so the inventory should show them present. For any doc the inventory **still
    marks MISSING** (its back-fill failed), offer to create it by rendering its listed template.

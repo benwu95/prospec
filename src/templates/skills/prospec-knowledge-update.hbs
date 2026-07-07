@@ -131,10 +131,15 @@ NOT by hand-editing the index table (it gets regenerated).
 - Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
 - Skip if module-map.yaml doesn't exist
 
-#### 3d: {{base_dir}}/index.md (generated from module-map)
+#### 3d: {{base_dir}}/index.md (generated from module-map and conventions)
 
-The `prospec:auto` block is regenerated from `module-map.yaml` by `updateIndex` using the canonical
-column format — you do not hand-fill curated cells:
+The `prospec:auto` block contains two auto-generated sections:
+1. **Conventions**: Core Conventions (L1) and Load-on-Demand Conventions (L2) lists.
+2. **Modules**: The module table regenerated from `module-map.yaml` using the canonical column format.
+
+When updating the auto block manually, **you must preserve and update both sections**.
+- **Conventions**: Scan the `{{knowledge_base_path}}/` directory for `.md` files (excluding `_index.md`). List them under Core Conventions if they are built-in core files (e.g. `_conventions.md`) or defined in `.prospec.yaml`'s `additional_core_conventions`. Otherwise, list them under Load-on-Demand Conventions.
+- **Modules**: Regenerate the table from `module-map.yaml` using the canonical columns. You do not hand-fill curated cells:
 
 ```
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |

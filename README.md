@@ -474,18 +474,46 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
-#### Advanced Configuration
+#### `.prospec.yaml` Configuration
 
-Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can add `additional_core_conventions` to your `.prospec.yaml`:
+Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates.
 
+Key configurations you can tweak:
+
+- **`artifact_language`**: Sets the language for AI-generated documents (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages are always kept in English.
+- **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
+- **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
+- **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
+- **`knowledge.strategy`**: Determines how the project is split into modules during knowledge generation (`auto`, `architecture`, `domain`, `package`).
+- **`knowledge.token_budget`**: Controls token/line size limits for L1 and L2 knowledge files.
+- **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
+- **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
+
+Example `.prospec.yaml`:
 ```yaml
+version: "1.0"
+project:
+  name: my-project
+artifact_language: Traditional Chinese (Taiwan)
+exclude:
+  - "*.env*"
+  - "node_modules"
+agents:
+  - claude
+  - antigravity
 knowledge:
+  strategy: domain
+  token_budget:
+    l1_per_file: 1800
+    l2_per_module: 1000
+    readme_max_lines: 100
   additional_core_conventions:
-    - _api-conventions.md
-    - _security-conventions.md
+    - my-custom-api-rules.md
+skill_triggers:
+  prospec-explore:
+    - explore
+    - 探索
 ```
-
-These paths are relative to the `ai-knowledge/` directory. Once configured, they will be pre-loaded alongside `_conventions.md` as global core instructions for the AI Agent.
 
 #### Project-scan language support
 

@@ -112,11 +112,16 @@ If a module's README would exceed the ≤{{readme_max_lines}} line / ≤{{l2_per
 > Description, and Depends On (via `relationships.depends_on`) — are curated in
 > `{{knowledge_base_path}}/module-map.yaml`; `{{base_dir}}/index.md`'s `prospec:auto` block is
 > **generated** from it. Curate these fields in `module-map.yaml`, not by hand-editing the index
-> table — `/prospec-knowledge-update` regenerates the auto block from `module-map.yaml` (blanking any
-> index-only curated cell). Fill the table below only for a first-pass bootstrap; the values belong in
-> `module-map.yaml`.
+> table.
 
-Fill module table within `prospec:auto-start/end` markers using new format:
+The `prospec:auto` block contains two auto-generated sections. Populate them within `prospec:auto-start/end` markers:
+
+1. **Conventions**:
+   - Scan the `{{knowledge_base_path}}/` directory for `.md` files (excluding `_index.md`).
+   - List them under **Core Conventions (L1)** if they are built-in core files (e.g. `_conventions.md`) or defined in `.prospec.yaml`'s `additional_core_conventions`.
+   - List the rest under **Load-on-Demand Conventions (L2)**.
+
+2. **Modules**: Fill the module table using the new format:
 
 ```
 | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |

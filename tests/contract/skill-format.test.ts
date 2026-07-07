@@ -2840,8 +2840,10 @@ describe('prospec-upgrade: legacy index migration step', () => {
     const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
     // the curated Keywords/Aliases/Rationale/Depends On cells exist nowhere else —
     // `prospec knowledge update` rebuilds only Module/Status/Description and guts them
-    expect(content).toContain('copy the curated `Modules` table rows verbatim');
-    expect(content).toMatch(/Do NOT run `prospec knowledge update`/);
+    expect(content).toContain(
+      'copy both the Core/Demand Conventions lists and the\n   curated `Modules` table rows verbatim'
+    );
+    expect(content).toMatch(/Do NOT run\s+`prospec knowledge update`/);
   });
 });
 

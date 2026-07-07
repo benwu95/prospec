@@ -458,18 +458,46 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 >
 > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 
-#### 進階設定 (Advanced Configuration)
+#### `.prospec.yaml` 設定 (Configuration)
 
-Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔（例如 API 規範、資安規範等）也希望能做為 Core Conventions 預設載入，可以在 `.prospec.yaml` 中加入 `additional_core_conventions`：
+Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製化 AI Knowledge 生成方式以及工作流程的主要途徑。
 
+你可以調整的關鍵設定包含：
+
+- **`artifact_language`**：控制 AI 產生變更規格與任務檔案時所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 將一律維持英文。
+- **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 .git 與常見的編譯目錄。
+- **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
+- **`tech_stack`**：可手動覆寫自動偵測的技術棧（例如 `language: zig`, `package_manager: zig build`）。
+- **`knowledge.strategy`**：決定在產生知識庫時，專案模組的切分策略（`auto`, `architecture`, `domain`, `package`）。
+- **`knowledge.token_budget`**：控制 L1 與 L2 知識庫檔案的 token 數與行數上限。
+- **`knowledge.additional_core_conventions`**：Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔（例如 API 規範、資安規範等）也希望能做為 Core Conventions (L1) 強制預先載入，可以將相對於 `ai-knowledge/` 的檔名加在這裡。
+- **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
+
+`.prospec.yaml` 範例：
 ```yaml
+version: "1.0"
+project:
+  name: my-project
+artifact_language: Traditional Chinese (Taiwan)
+exclude:
+  - "*.env*"
+  - "node_modules"
+agents:
+  - claude
+  - antigravity
 knowledge:
+  strategy: domain
+  token_budget:
+    l1_per_file: 1800
+    l2_per_module: 1000
+    readme_max_lines: 100
   additional_core_conventions:
-    - _api-conventions.md
-    - _security-conventions.md
+    - my-custom-api-rules.md
+skill_triggers:
+  prospec-explore:
+    - explore
+    - 探索
 ```
-
-這些檔案路徑相對於 `ai-knowledge/` 目錄。加上此設定後，它們就會與 `_conventions.md` 一同被預先載入，成為 AI Agent 的全域核心指示。
 
 #### 專案掃描支援語言
 
