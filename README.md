@@ -81,6 +81,11 @@ For macOS and Linux, run the one-click installer script:
 curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
 ```
 
+For Windows, run the one-click PowerShell installer script:
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
+```
+
 Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page:
 
 - **Linux (x64)**: `prospec-linux-x64`
@@ -88,7 +93,7 @@ Alternatively, download the precompiled binary manually from the [GitHub Release
 - **macOS (Intel)**: `prospec-macos-x64`
 - **Windows (x64)**: `prospec-windows-x64.exe`
 
-(For Windows, download the `.exe` and add it to your PATH. For manual macOS/Linux installation, run `chmod +x prospec-<os>-<arch>` and move the file to `/usr/local/bin/prospec`).
+(For manual macOS/Linux installation, run `chmod +x prospec-<os>-<arch>` and move the file to `/usr/local/bin/prospec`).
 
 
 **Option B: Run on demand with npx (Node.js environments)**

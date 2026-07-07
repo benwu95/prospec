@@ -81,6 +81,11 @@ Prospec 是 **bootstrap／update 用的 CLI** —— `prospec quickstart` 跑完
 curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
 ```
 
+對於 Windows，可執行一鍵 PowerShell 安裝腳本：
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
+```
+
 或者，您也可以手動自 [GitHub Releases](https://github.com/benwu95/prospec/releases) 頁面下載適用您平台的二進位檔：
 
 - **Linux (x64)**: `prospec-linux-x64`
@@ -88,7 +93,7 @@ curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | b
 - **macOS (Intel)**: `prospec-macos-x64`
 - **Windows (x64)**: `prospec-windows-x64.exe`
 
-（Windows 使用者請下載 `.exe` 檔並將其加入系統 PATH 中；手動安裝 macOS/Linux 版本時，請執行 `chmod +x prospec-<os>-<arch>` 並將檔案移動至 `/usr/local/bin/prospec`）。
+（手動安裝 macOS/Linux 版本時，請執行 `chmod +x prospec-<os>-<arch>` 並將檔案移動至 `/usr/local/bin/prospec`）。
 
 
 **選項 B：使用 npx 按需執行（Node.js 環境）**
