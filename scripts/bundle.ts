@@ -1,8 +1,10 @@
-import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
+
+
+import { bundleTemplates } from './bundle-templates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgPath = path.resolve(__dirname, '../package.json');
@@ -11,7 +13,8 @@ const version = pkg.version;
 
 // 1. Run templates bundle first
 console.log('Bundling templates...');
-execSync('npx tsx scripts/bundle-templates.ts', { stdio: 'inherit' });
+bundleTemplates();
+
 
 // 2. Build with esbuild
 console.log('Bundling CLI with esbuild...');
