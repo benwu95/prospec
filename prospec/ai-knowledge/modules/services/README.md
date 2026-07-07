@@ -1,6 +1,6 @@
 # services
 
-> Business logic — one `execute(options) → Promise<Result>` service per command, plus shared helpers (16 files)
+> Business logic — one `execute(options) → Promise<Result>` service per command, plus shared helpers (17 files)
 
 <!-- prospec:auto-start -->
 
@@ -11,6 +11,7 @@
 | `init.service.ts` | Scaffold config + Constitution + AI Knowledge; per-file skip-if-exists; writes `.prospec.yaml` last |
 | `quickstart.service.ts` | Orchestrate init + agentSync (no LLM work) |
 | `upgrade.service.ts` | Record `version`, re-sync, back-fill missing init docs (never overwrite), build migration report |
+| `print-template.service.ts` | Retrieve raw Handlebars template contents from lib |
 | `agent-sync.service.ts` | Sync skills + references + entry configs; synthesize triggers; sweep orphan skill dirs; merge user blocks |
 | `knowledge.service.ts` | Generate module READMEs + root `index.md` (Recipe-First, ContentMerger) |
 | `knowledge-init.service.ts` | Initial scan → raw-scan.md + module-map.yaml + skeletons |
@@ -25,22 +26,22 @@
 
 ## Public API
 
-- `execute(options)` per service (`init`/`quickstart`/`upgrade`/`agentSync`/`knowledge`/`knowledgeUpdate`/`archive`/`check`/`measure`/`mcp`/`change-*`) → typed `Result`
+- `execute(options)` per service (`init`/`quickstart`/`upgrade`/`print-template`/`agentSync`/`knowledge`/`knowledgeUpdate`/`archive`/`check`/`measure`/`mcp`/`change-*`) → typed `Result`
 - `resolveChange(cwd, explicit, quiet, msg)` — shared change selector (zero/ambiguous → `PrerequisiteError`)
 - `generateRawScan(options)` — deterministic raw-scan core (shared by knowledge-init + upgrade)
 - `buildMcpServer(ctx)` — assemble the MCP server transport-free
 
 ## Dependencies
 
-**Depends on:** `lib` (config, scanner, template, fs-utils, content-merger, yaml-utils, detector), `types` (schemas, errors)
+**Depends on:** `lib` (config, scanner, template, fs-utils, content-merger, yaml-utils), `types` (schemas, errors)
 **Used by:** `cli` (each command calls one service), `tests`
 
 ## Modification Guide
 
-1. **Add a service** — create `{name}.service.ts` exporting `execute()`; add matching CLI command + formatter + unit test.
-2. **Change a Result type** — update the interface → its CLI formatter → unit-test assertions.
-3. **Change knowledge output** — edit `knowledge.service.ts`; context keys must match `module-readme.hbs` variables.
-4. **Change archive/spec-sync** — edit `archive.service.ts`; affects Feature Specs, product.md, `feature-map.yaml`.
+1. **Add a service** — create `{name}.service.ts` exporting `execute()`; add command + formatter + unit test.
+2. **Change a Result type** — update interface → CLI formatter → unit-test assertions.
+3. **Change knowledge output** — edit `knowledge.service.ts` (keys must match `module-readme.hbs` variables).
+4. **Change archive/spec-sync** — edit `archive.service.ts` (affects Feature Specs, product.md, `feature-map.yaml`).
 
 ## Ripple Effects
 

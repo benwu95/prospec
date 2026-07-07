@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2092%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2096%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -483,6 +483,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
+| `prospec print-template <path>` | Print the raw content of a bundled template (Offline, Node.js-free template retrieval) |
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
@@ -739,7 +740,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2092 tests)
+# Run all tests (2096 tests)
 pnpm test
 
 # Watch mode
@@ -752,11 +753,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2092 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1364 tests
+**Test Coverage**: 2096 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1366 tests
 - Contract tests (CLI output + Skill format): 647 tests
 - Integration tests: 38 tests
-- E2E tests: 43 tests
+- E2E tests: 45 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 
