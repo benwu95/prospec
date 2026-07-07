@@ -87,6 +87,19 @@ async function connectClient(ctx: McpServerContext = CTX): Promise<Client> {
   return client;
 }
 
+/**
+ * Narrow the first resource content to the text variant, asserting it is present
+ * and carries `text` (vs the `{ uri, blob }` binary variant). Keeps the union
+ * handling in one place so each assertion reads a plain `.text`/`.mimeType`.
+ */
+function firstText(res: Awaited<ReturnType<Client['readResource']>>) {
+  const first = res.contents[0];
+  if (first === undefined || !('text' in first)) {
+    throw new Error('expected the first resource content to carry text');
+  }
+  return first;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   // sensible defaults so connect()/list don't blow up unless a test overrides
@@ -160,8 +173,8 @@ describe('mcp.service knowledge resources', () => {
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.index });
 
-    expect(res.contents[0].text).toBe('# Index body');
-    expect(res.contents[0].mimeType).toBe('text/markdown');
+    expect(firstText(res).text).toBe('# Index body');
+    expect(firstText(res).mimeType).toBe('text/markdown');
     expect(readIndex).toHaveBeenCalledWith(CTX.baseDir);
   });
 
@@ -188,8 +201,8 @@ describe('mcp.service knowledge resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.moduleMap });
-    expect(res.contents[0].text).toBe('modules: []');
-    expect(res.contents[0].mimeType).toBe('application/yaml');
+    expect(firstText(res).text).toBe('modules: []');
+    expect(firstText(res).mimeType).toBe('application/yaml');
   });
 
   it('playbook resource returns the body and markdown mime when present', async () => {
@@ -197,8 +210,8 @@ describe('mcp.service knowledge resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.playbook });
-    expect(res.contents[0].text).toBe('## Playbook');
-    expect(res.contents[0].mimeType).toBe('text/markdown');
+    expect(firstText(res).text).toBe('## Playbook');
+    expect(firstText(res).mimeType).toBe('text/markdown');
   });
 
   it('playbook resource throws not-found (no custom hint) when readPlaybook returns null', async () => {
@@ -217,8 +230,8 @@ describe('mcp.service knowledge resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.featureMap });
-    expect(res.contents[0].text).toBe('features: []');
-    expect(res.contents[0].mimeType).toBe('application/yaml');
+    expect(firstText(res).text).toBe('features: []');
+    expect(firstText(res).mimeType).toBe('application/yaml');
     expect(readFeatureMapRaw).toHaveBeenCalledWith(CTX.knowledgePath);
   });
 
@@ -236,8 +249,8 @@ describe('mcp.service knowledge resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.product });
-    expect(res.contents[0].text).toBe('# Product');
-    expect(res.contents[0].mimeType).toBe('text/markdown');
+    expect(firstText(res).text).toBe('# Product');
+    expect(firstText(res).mimeType).toBe('text/markdown');
     expect(readProduct).toHaveBeenCalledWith(CTX.specsPath);
   });
 
@@ -255,7 +268,7 @@ describe('mcp.service knowledge resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: 'knowledge://module/cli' });
-    expect(res.contents[0].text).toBe('# cli module');
+    expect(firstText(res).text).toBe('# cli module');
     expect(readModuleReadme).toHaveBeenCalledWith(CTX.knowledgePath, 'cli');
   });
 
@@ -302,7 +315,7 @@ describe('mcp.service feature-spec resources', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: 'spec://feature/payments' });
-    expect(res.contents[0].text).toBe('#### REQ-X-001');
+    expect(firstText(res).text).toBe('#### REQ-X-001');
     expect(readFeatureSpec).toHaveBeenCalledWith(CTX.featuresDir, 'payments');
   });
 
@@ -350,9 +363,9 @@ describe('mcp.service health resource', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.health });
-    const payload = JSON.parse(res.contents[0].text);
+    const payload = JSON.parse(firstText(res).text);
     expect(payload).toEqual({ stale_modules: ['cli'], coverage: 0.5 });
-    expect(res.contents[0].mimeType).toBe('application/json');
+    expect(firstText(res).mimeType).toBe('application/json');
   });
 
   it('falls back to the outcome reason when knowledgeHealth is absent (L261 reason present)', async () => {
@@ -365,7 +378,7 @@ describe('mcp.service health resource', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.health });
-    const payload = JSON.parse(res.contents[0].text);
+    const payload = JSON.parse(firstText(res).text);
     expect(payload).toEqual({ unavailable: true, reason: 'git history unavailable' });
   });
 
@@ -379,7 +392,7 @@ describe('mcp.service health resource', () => {
     const client = await connectClient();
 
     const res = await client.readResource({ uri: MCP_RESOURCE_URIS.health });
-    const payload = JSON.parse(res.contents[0].text);
+    const payload = JSON.parse(firstText(res).text);
     expect(payload).toEqual({ unavailable: true, reason: 'source unavailable' });
   });
 });
@@ -391,7 +404,7 @@ describe('mcp.service search_modules tool', () => {
 
     const res = await client.callTool({ name: 'search_modules', arguments: { query: 'cli' } });
     expect(res.isError).toBe(true);
-    const text = (res.content as Array<{ text: string }>)[0].text;
+    const text = (res.content as Array<{ text: string }>)[0]!.text;
     expect(text).toContain('knowledge://index not found');
     // toolError carries no structuredContent
     expect(res.structuredContent).toBeUndefined();
@@ -424,7 +437,7 @@ describe('mcp.service search_modules tool', () => {
 
     const res = await client.callTool({ name: 'search_modules', arguments: { query: '' } });
     expect(res.isError).toBe(true);
-    const text = (res.content as Array<{ text: string }>)[0].text;
+    const text = (res.content as Array<{ text: string }>)[0]!.text;
     expect(text).toContain('Input validation error');
     // schema rejection short-circuits before the handler runs
     expect(readIndex).not.toHaveBeenCalled();

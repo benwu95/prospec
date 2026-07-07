@@ -24,7 +24,7 @@ describe('formatKnowledgeInitOutput', () => {
   }
 
   function output(): string {
-    return write.mock.calls.map((c) => String(c[0])).join('');
+    return write.mock.calls.map((c: unknown[]) => String(c[0])).join('');
   }
 
   afterEach(() => {

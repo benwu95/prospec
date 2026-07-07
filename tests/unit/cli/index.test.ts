@@ -243,7 +243,7 @@ describe('preAction config guard', () => {
 });
 
 describe('main entry point (error dispatch on parseAsync)', () => {
-  let exitCodeBefore: number | undefined;
+  let exitCodeBefore: typeof process.exitCode;
 
   beforeEach(() => {
     exitCodeBefore = process.exitCode;
@@ -303,7 +303,7 @@ describe('main entry point (error dispatch on parseAsync)', () => {
     vol.reset();
     await runMain(['node', 'prospec', 'check']);
     expect(handleErrorMock).toHaveBeenCalledTimes(1);
-    const [err, verbose] = handleErrorMock.mock.calls[0];
+    const [err, verbose] = handleErrorMock.mock.calls[0]!;
     // resetModules() gives the re-imported entry point a fresh errors.js
     // realm, so identity-based instanceof would compare across module
     // instances. Assert the machine-readable code instead — it still proves
@@ -318,7 +318,7 @@ describe('main entry point (error dispatch on parseAsync)', () => {
     vol.reset();
     await runMain(['node', 'prospec', '--verbose', 'check']);
     expect(handleErrorMock).toHaveBeenCalledTimes(1);
-    const [err, verbose] = handleErrorMock.mock.calls[0];
+    const [err, verbose] = handleErrorMock.mock.calls[0]!;
     expect((err as ConfigNotFound).code).toBe('CONFIG_NOT_FOUND');
     expect(verbose).toBe(true);
   });

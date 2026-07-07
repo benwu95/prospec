@@ -95,7 +95,9 @@ async function connect(ctx: McpServerContext): Promise<Client> {
 async function readText(client: Client, uri: string): Promise<string> {
   const result = await client.readResource({ uri });
   const first = result.contents[0];
-  if (first === undefined || typeof first.text !== 'string') throw new Error(`no text at ${uri}`);
+  if (first === undefined || !('text' in first) || typeof first.text !== 'string') {
+    throw new Error(`no text at ${uri}`);
+  }
   return first.text;
 }
 

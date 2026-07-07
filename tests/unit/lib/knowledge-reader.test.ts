@@ -357,9 +357,9 @@ describe('searchModules (REQ-MCP-005)', () => {
   it('counts a term once even when it hits several fields (distinct-term rule)', () => {
     const pair = [
       // one distinct term ('drift') hitting name+keywords+aliases
-      { name: 'alpha-drift', keywords: ['drift'], aliases: ['drift'], description: '' },
+      { name: 'alpha-drift', keywords: ['drift'], aliases: ['drift'], description: '', rationale: '', dependsOn: [] },
       // two distinct terms hitting name only
-      { name: 'drift-checker', keywords: [], aliases: [], description: '' },
+      { name: 'drift-checker', keywords: [], aliases: [], description: '', rationale: '', dependsOn: [] },
     ];
     const result = searchModules('drift checker', pair);
     expect(result.matches.map((m) => m.module)).toEqual(['drift-checker', 'alpha-drift']);
@@ -367,8 +367,8 @@ describe('searchModules (REQ-MCP-005)', () => {
 
   it('breaks ties by codepoint order of the module name, deterministically', () => {
     const tied = [
-      { name: 'beta', keywords: ['shared'], aliases: [], description: '' },
-      { name: 'alpha', keywords: ['shared'], aliases: [], description: '' },
+      { name: 'beta', keywords: ['shared'], aliases: [], description: '', rationale: '', dependsOn: [] },
+      { name: 'alpha', keywords: ['shared'], aliases: [], description: '', rationale: '', dependsOn: [] },
     ];
     const first = searchModules('shared', tied);
     const second = searchModules('shared', tied);

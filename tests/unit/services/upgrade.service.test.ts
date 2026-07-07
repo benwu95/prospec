@@ -74,6 +74,11 @@ beforeEach(() => {
   vi.mocked(input).mockReset();
   vi.mocked(generateRawScan).mockReset();
   vi.mocked(generateRawScan).mockResolvedValue({
+    totalFiles: 0,
+    scanDepth: 10,
+    techStack: {},
+    entryPoints: [],
+    dependencies: [],
     configFiles: [],
     outputFile: 'prospec/ai-knowledge/raw-scan.md',
     dryRun: false,
