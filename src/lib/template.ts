@@ -70,7 +70,7 @@ function registerHelpers(): void {
 /**
  * Read a template source file or throw a TemplateError.
  */
-function readTemplateSource(templatePath: string): string {
+export function readTemplateSource(templatePath: string): string {
   // Normalize path to use forward slashes as keys in BUNDLED_TEMPLATES
   const key = templatePath.replace(/\\/g, '/');
   if (key in BUNDLED_TEMPLATES) {

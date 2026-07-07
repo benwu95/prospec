@@ -18,6 +18,7 @@
 
 ## Public API
 
+- `prospec print-template <path>` — CLI command to print the raw content of any bundled template.
 - No code API — pure `.hbs` resources, consumed via `renderTemplate(name, ctx)` / `registerPartial()` from `lib/template.ts`.
 
 ## Dependencies
@@ -27,11 +28,11 @@
 
 ## Modification Guide
 
-1. **Add a skill** — create `skills/prospec-{name}.hbs`, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync`; needs a `## Output Contract` before `## NEVER` (`skill-format.test.ts`).
-2. **Add a reference** — create `skills/references/{name}.hbs`, map templateName→outputName in `agent-sync.service.ts`, cite it from the owning skill.
-3. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}` matching the service's context keys.
-4. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs` / `_index-auto-block.hbs`; sync context keys with `knowledge.service.ts` and update the knowledge-generate/update skills.
-5. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (all STABLE first), then regenerate `tests/fixtures/startup-loading-baseline.json`.
+1. **Add a skill** — create `skills/prospec-{name}.hbs`, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
+2. **Add a reference** — create `skills/references/{name}.hbs`, map in `agent-sync.service.ts`, cite it in skill.
+3. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}` matching context keys.
+4. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge.service.ts` and update skills.
+5. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then run tests to update baseline.
 
 ## Ripple Effects
 

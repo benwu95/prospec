@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2092%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2096%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -467,6 +467,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + 精選骨架（module-map.yaml / prospec/index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
+| `prospec print-template <path>` | 輸出內置樣板的原始內容（離線、免 Node.js 讀取樣板） |
 
 > **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
@@ -710,7 +711,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2092 個測試）
+# 執行所有測試（2096 個測試）
 pnpm test
 
 # Watch 模式
@@ -723,11 +724,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2092 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1364 tests
+**測試覆蓋率**：2096 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1366 tests
 - Contract tests（CLI 輸出 + Skill 格式）：647 tests
 - Integration tests：38 tests
-- E2E tests：43 tests
+- E2E tests：45 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

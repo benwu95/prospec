@@ -59,21 +59,14 @@ user to run `prospec init` first.
 touches an EXISTING one — updating a present doc's format, or enriching a freshly-created doc beyond its
 baseline, requires consent. Do that here:
 
-1. **Locate the latest templates** shipped with the installed prospec version. **Source-repo
+1. **Retrieve the latest templates** shipped with the installed prospec version. **Source-repo
    short-circuit first**: if the project's own `package.json` `name` equals the prospec package name
-   (`@benwu95/prospec`), the working directory IS the package root — use `.` and skip the resolution
-   below. This is the dogfooding case; `require.resolve('@benwu95/prospec/package.json')` fails here
-   because the package is absent from its own `node_modules` and the package has no `exports` field
-   to enable Node self-referencing. Otherwise resolve the package root (e.g.
-   `node -e "console.log(require.resolve('@benwu95/prospec/package.json'))"`, or check
-   `node_modules/@benwu95/prospec`, or a global install via `npm root -g`). If `require.resolve`
-   fails — a `pnpm link`/globally-linked install keeps the package outside the project's
-   `node_modules` — derive the root from the running CLI instead: follow `$(which prospec)` (a
-   shim/symlink to `<package-root>/dist/cli/index.js`) back up to `<package-root>`. All doc
-   templates are language-neutral `.hbs` files under `src/templates/` (the package ships and
-   loads them from `src/templates/`, not a root-level `templates/` — `tsc` does not copy `.hbs` into
-   `dist/`). If the templates cannot be located, say so and SKIP this step (do not guess the latest
-   format).
+   (`@benwu95/prospec`), the working directory IS the package root — read the templates directly from
+   `src/templates/` and skip the CLI call below (dogfooding case). Otherwise, retrieve the template
+   content directly by running the CLI command:
+   `prospec print-template <template_path>` (Bash).
+   For example, to get the template for `init/constitution.md.hbs`, run `prospec print-template init/constitution.md.hbs`.
+   If the template cannot be retrieved, say so and SKIP this step (do not guess the latest format).
 2. **Take the scan scope from Step 1's `Docs inventory:` section** — every line names an init-created
    doc, its present/MISSING status, and its source template path. That list is the ONLY scan scope:
    do not keep, reconstruct, or fall back to a file list written into this skill. If the report has
@@ -173,7 +166,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | `prospec` CLI unavailable | Stop; tell the user to install/rebuild prospec, then re-run — do not proceed silently |
 | `prospec upgrade` reports `ConfigNotFound` | Project not initialized — stop and instruct the user to run `prospec init` first |
-| prospec templates cannot be located | Skip Step 2 with a note; still do Step 3 (artifact language) and Step 4 (trigger localization) |
+| `prospec print-template` fails to retrieve a template | Skip Step 2 with a note; still do Step 3 (artifact language) and Step 4 (trigger localization) |
 | report has no `Docs inventory:` section | CLI/skill version mismatch — skip Step 2 with a note telling the user to re-run `prospec upgrade` (it re-syncs this skill), then re-run `/prospec-upgrade` |
 | User declines creating a still-MISSING doc | Leave it uncreated; the next `prospec upgrade` will attempt to back-fill it again |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |

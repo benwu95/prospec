@@ -970,4 +970,18 @@ describe('prospec upgrade E2E', () => {
       '# MY CURATED CONVENTIONS\n',
     );
   });
+
+  describe('prospec print-template E2E', () => {
+    it('prints a valid template without requiring .prospec.yaml', async () => {
+      const { stdout, exitCode } = await runCli(['print-template', 'skills/prospec-upgrade.hbs']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Prospec Upgrade Skill');
+    });
+
+    it('fails with non-zero exit code for invalid template path', async () => {
+      const { stderr, exitCode } = await runCli(['print-template', 'non-existent-template.hbs']);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Template file not found');
+    });
+  });
 });

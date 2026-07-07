@@ -34,6 +34,10 @@ vi.mock('../../../src/cli/commands/quickstart.js', () => ({
   registerQuickstartCommand: (program: Command) =>
     program.command('quickstart').action(() => undefined),
 }));
+vi.mock('../../../src/cli/commands/print-template.js', () => ({
+  registerPrintTemplateCommand: (program: Command) =>
+    program.command('print-template <path>').action(() => undefined),
+}));
 vi.mock('../../../src/cli/commands/knowledge-generate.js', () => ({
   registerKnowledgeCommand: (program: Command) => {
     const knowledge = program.command('knowledge');
@@ -132,6 +136,7 @@ describe('createProgram', () => {
         'mcp',
         'measure',
         'plan',
+        'print-template',
         'quickstart',
         'tasks',
         'upgrade',
