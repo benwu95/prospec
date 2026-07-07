@@ -24,7 +24,8 @@
     "prepare": "tsc",
     "measure:tokens": "npx tsx scripts/measure-tokens.ts",
     "counts": "npx tsx scripts/sync-counts.ts",
-    "counts:check": "npx tsx scripts/sync-counts.ts --check"
+    "counts:check": "npx tsx scripts/sync-counts.ts --check",
+    "bundle": "npx tsx scripts/bundle.ts"
   },
   "keywords": [
     "progressive-disclosure",
@@ -73,6 +74,7 @@
     "tsx": "^4.22.4",
     "typescript": "5.9",
     "typescript-eslint": "^8.54.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "esbuild": "^0.28.1"
   }
 }

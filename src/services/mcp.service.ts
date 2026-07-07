@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
@@ -33,10 +32,8 @@ import {
   DependencyDirectionResultSchema,
   type DependencyDirectionResult,
 } from '../types/mcp.js';
+import { PROSPEC_VERSION } from '../types/version.js';
 import { McpResourceNotFound } from '../types/errors.js';
-
-const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
 
 /**
  * Read-only MCP server (REQ-MCP-001..005). Every resource read goes through
@@ -86,7 +83,7 @@ export async function execute(options: McpServeOptions): Promise<McpServeResult>
   return {
     kind: 'serve',
     serverName: MCP_SERVER_NAME,
-    version: pkg.version,
+    version: PROSPEC_VERSION,
     knowledgePath: paths.knowledgePath,
     featuresDir,
   };
@@ -94,7 +91,7 @@ export async function execute(options: McpServeOptions): Promise<McpServeResult>
 
 /** Assemble the server — exported separately so tests drive it over an in-memory transport. */
 export function buildMcpServer(ctx: McpServerContext): McpServer {
-  const server = new McpServer({ name: MCP_SERVER_NAME, version: pkg.version });
+  const server = new McpServer({ name: MCP_SERVER_NAME, version: PROSPEC_VERSION });
   registerKnowledgeResources(server, ctx);
   registerSpecResources(server, ctx);
   registerTools(server, ctx);

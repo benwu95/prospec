@@ -8,7 +8,14 @@ import { createRequire } from 'node:module';
  * and the dependency rule forbids `cli → lib` directly. Read from the package's
  * own package.json so there is no duplicated version literal anywhere.
  */
-const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
+let pkgVersion = '';
+try {
+  const require = createRequire(import.meta.url);
+  const pkg = require('../../package.json') as { version: string };
+  pkgVersion = pkg.version;
+} catch {
+  // Fallback for bundled/compiled environments where package.json does not exist
+  pkgVersion = '0.0.0-bundled';
+}
 
-export const PROSPEC_VERSION: string = pkg.version;
+export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion;

@@ -1,0 +1,87 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            output: prospec-linux-x64
+          - os: macos-latest
+            target: bun-darwin-arm64
+            output: prospec-macos-arm64
+            sign: true
+          - os: macos-latest
+            target: bun-darwin-x64
+            output: prospec-macos-x64
+            sign: true
+          - os: windows-latest
+            target: bun-windows-x64
+            output: prospec-windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build bundle
+        run: pnpm run bundle
+
+      - name: Compile Standalone Binary
+        run: bun build ./dist/cli-bundle.js --compile --minify --target=${{ matrix.target }} --outfile=dist/${{ matrix.output }}
+
+      - name: Code Sign (macOS only)
+        if: ${{ matrix.sign }}
+        run: codesign --sign - dist/${{ matrix.output }}
+
+      - name: Smoke Test (Non-Windows)
+        if: matrix.os != 'windows-latest'
+        run: ./dist/${{ matrix.output }} --version
+
+      - name: Smoke Test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: .\dist\${{ matrix.output }} --version
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: dist/${{ matrix.output }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          merge-multiple: true
+
+      - name: Display binaries
+        run: ls -la binaries
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: binaries/*

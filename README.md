@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2090%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2092%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -75,24 +75,37 @@ From zero to your first AI-driven change in about five minutes.
 
 Prospec is a **bootstrap/update CLI** — once `prospec quickstart` has run (it chains `init` + `agent sync`), your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate.
 
-> [!TIP]
-> Since Prospec is an unpublished fork, global installation compiles TypeScript on the fly. We recommend running via **npx** (clones + builds on the fly) or installing as a **devDependency** to avoid global build failures:
->
-> **Option A: Run on demand with npx (Recommended)**
-> ```bash
-> npx github:benwu95/prospec <command>
-> ```
->
-> **Option B: Pin as devDependency (Recommended for Node.js projects)**
-> ```bash
-> npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
-> ```
-
-If you still prefer a global install:
+**Option A: Standalone Binary (Recommended & No Node.js Required)**
+For macOS and Linux, run the one-click installer script:
 ```bash
-npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
-prospec --help                            # verify
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
 ```
+
+Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page:
+
+- **Linux (x64)**: `prospec-linux-x64`
+- **macOS (Apple Silicon)**: `prospec-macos-arm64`
+- **macOS (Intel)**: `prospec-macos-x64`
+- **Windows (x64)**: `prospec-windows-x64.exe`
+
+(For Windows, download the `.exe` and add it to your PATH. For manual macOS/Linux installation, run `chmod +x prospec-<os>-<arch>` and move the file to `/usr/local/bin/prospec`).
+
+
+**Option B: Run on demand with npx (Node.js environments)**
+Run without installing globally:
+```bash
+npx github:benwu95/prospec <command>
+```
+
+**Option C: Pin as devDependency (Node.js projects)**
+Install as a local project dependency:
+```bash
+npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
+```
+
+> [!WARNING]
+> We do **NOT** recommend installing globally via `npm install -g` as global compiling of unpublished forks can fail depending on your local Node/compile environment.
+
 
 ### 2. Bootstrap your project
 
@@ -721,7 +734,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2090 tests)
+# Run all tests (2092 tests)
 pnpm test
 
 # Watch mode
@@ -734,8 +747,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2090 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1362 tests
+**Test Coverage**: 2092 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1364 tests
 - Contract tests (CLI output + Skill format): 647 tests
 - Integration tests: 38 tests
 - E2E tests: 43 tests
