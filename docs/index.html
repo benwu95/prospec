@@ -89,8 +89,19 @@
     <p class="sub sub--tail" data-i18n="hero.subtail">Plus adversarial review, S-to-D quality grades, and project knowledge that compounds on every change.</p>
 
     <div class="hero__install">
-      <span class="lbl" data-i18n="hero.lbl1">// install globally, once</span>
-      <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
+      <div class="hero__install-header">
+        <span class="lbl" data-i18n="hero.lbl1">// install globally, once</span>
+        <div class="install-tabs" role="tablist">
+          <button class="install-tab active" data-platform="mac" role="tab" aria-selected="true">macOS / Linux</button>
+          <button class="install-tab" data-platform="win" role="tab" aria-selected="false">Windows</button>
+        </div>
+      </div>
+      <div class="platform-cmd active" data-platform="mac">
+        <div class="cmd"><code><span class="pr">$ </span>curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash">Copy</button></div>
+      </div>
+      <div class="platform-cmd" data-platform="win">
+        <div class="cmd"><code><span class="pr">> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
+      </div>
       <span class="lbl" data-i18n="hero.lbl2">// bootstrap any project — new or existing</span>
       <div class="cmd"><code><span class="pr">$ </span>prospec quickstart</code><button class="copy" data-copy="prospec quickstart">Copy</button></div>
     </div>
@@ -308,7 +319,7 @@
             <div class="cmd"><code><span class="pr">$ </span>curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash">Copy</button></div>
             
             <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optA2">// Option A2: Standalone Binary (Recommended / Windows)</div>
-            <div class="cmd"><code><span class="pr">PS> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
+            <div class="cmd"><code><span class="pr">> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
             
             <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optB">// Option B: Run on demand with npx (Node.js environments)</div>
             <div class="cmd"><code><span class="pr">$ </span>npx github:benwu95/prospec --help</code><button class="copy" data-copy="npx github:benwu95/prospec --help">Copy</button></div>
@@ -528,7 +539,19 @@
     <h2 class="reveal" data-i18n="final.h2">Every AI change — reviewed, graded, and archived before it ships.</h2>
     <p class="reveal" data-i18n="final.p">Install once, bootstrap any project, then describe your first change in plain language.</p>
     <div class="final__cmds reveal">
-      <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
+      <div class="final__install-header">
+        <span class="lbl" data-i18n="hero.lbl1">// install globally, once</span>
+        <div class="install-tabs" role="tablist">
+          <button class="install-tab active" data-platform="mac" role="tab" aria-selected="true">macOS / Linux</button>
+          <button class="install-tab" data-platform="win" role="tab" aria-selected="false">Windows</button>
+        </div>
+      </div>
+      <div class="platform-cmd active" data-platform="mac">
+        <div class="cmd"><code><span class="pr">$ </span>curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash">Copy</button></div>
+      </div>
+      <div class="platform-cmd" data-platform="win">
+        <div class="cmd"><code><span class="pr">> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
+      </div>
       <div class="cmd"><code><span class="pr">$ </span>cd my-project &amp;&amp; prospec quickstart</code><button class="copy" data-copy="cd my-project && prospec quickstart">Copy</button></div>
     </div>
     <div class="final__cta reveal">
@@ -607,6 +630,20 @@
           try{ document.execCommand('copy'); done(); }catch(e){}
           document.body.removeChild(ta);
         }
+      });
+    });
+
+    document.querySelectorAll('.install-tab').forEach(function(tab){
+      tab.addEventListener('click', function(){
+        var platform = tab.getAttribute('data-platform');
+        document.querySelectorAll('.install-tab').forEach(function(t){
+          var matched = t.getAttribute('data-platform') === platform;
+          t.classList.toggle('active', matched);
+          t.setAttribute('aria-selected', String(matched));
+        });
+        document.querySelectorAll('.platform-cmd').forEach(function(cmdEl){
+          cmdEl.classList.toggle('active', cmdEl.getAttribute('data-platform') === platform);
+        });
       });
     });
 
