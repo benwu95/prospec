@@ -110,7 +110,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'fs-glob', describe: 'src/templates/**/*.hbs' },
     occurrences: [
       { doc: README, anchor: /Handlebars templates \((\d+) \.hbs files\)/, format: 'plain' },
-      { doc: README_ZH, anchor: /Handlebars 模板（(\d+) 個 \.hbs 檔案）/, format: 'plain' },
+      { doc: README_ZH, anchor: /Handlebars 範本（(\d+) 個 \.hbs 檔案）/, format: 'plain' },
       { doc: INDEX, anchor: /\((\d+) `\.hbs`/, format: 'plain' },
       { doc: TEMPLATES_README, anchor: /library — (\d+) `\.hbs` files across/, format: 'plain' },
     ],

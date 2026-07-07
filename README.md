@@ -73,31 +73,26 @@ From zero to your first AI-driven change in about five minutes.
 
 ### 1. Install
 
-Prospec is a **bootstrap/update CLI** — once `prospec quickstart` has run (it chains `init` + `agent sync`), your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate. So install it once, globally.
+Prospec is a **bootstrap/update CLI** — once `prospec quickstart` has run (it chains `init` + `agent sync`), your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate.
 
+> [!TIP]
+> Since Prospec is an unpublished fork, global installation compiles TypeScript on the fly. We recommend running via **npx** (clones + builds on the fly) or installing as a **devDependency** to avoid global build failures:
+>
+> **Option A: Run on demand with npx (Recommended)**
+> ```bash
+> npx github:benwu95/prospec <command>
+> ```
+>
+> **Option B: Pin as devDependency (Recommended for Node.js projects)**
+> ```bash
+> npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
+> ```
+
+If you still prefer a global install:
 ```bash
 npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
 prospec --help                            # verify
 ```
-
-<details>
-<summary>Other install options (npx, or pin per-project)</summary>
-
-Prospec is an unpublished fork — npm/pnpm clones the repo, installs dev deps, and builds it via the `prepare` script.
-
-Run on demand with npx (clones + builds each time):
-
-```bash
-npx github:benwu95/prospec quickstart
-```
-
-Pin the version per-project so re-running `agent sync` regenerates identical Skills across contributors — and so downstream developers can run the deterministic `prospec knowledge init --raw-scan-only` (invoked by `/prospec-knowledge-generate` and `/prospec-archive` to keep `raw-scan.md` current) via `pnpm exec` / `npx` **without a global install**. For **Node.js projects**, install as a devDependency (other ecosystems: a global install is the path):
-
-```bash
-npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
-```
-
-</details>
 
 ### 2. Bootstrap your project
 
@@ -105,12 +100,14 @@ One command does the deterministic setup — it chains `init` + `agent sync`, sk
 
 ```bash
 cd my-project                 # a new or existing project
+
 prospec quickstart            # → select AI assistants, choose doc language; creates .prospec.yaml + per-agent config + Skills
 ```
 
 `prospec quickstart` runs `agent sync`, which writes **Claude Code** → `CLAUDE.md` + `.claude/skills/`; **Antigravity / Codex / Copilot** → `AGENTS.md` + `.agents/skills/`. Then finish onboarding inside your AI agent:
 
-```bash
+```text
+🤖 Run inside your AI Agent chat:
 /prospec-quickstart           # localize skill triggers, re-sync config, generate AI Knowledge
 ```
 
@@ -121,6 +118,7 @@ This one-time finisher is re-runnable and self-terminating; on an existing codeb
 You don't have to remember the steps — **describe the change in plain language and the agent drives the SDD loop**, pausing only to ask you questions and to confirm each handoff:
 
 ```text
+🤖 Run inside your AI Agent chat:
 You ▸ Use prospec to add a dark-mode toggle
 
 The agent picks up the request and runs /prospec-ff:
@@ -138,7 +136,8 @@ Every stage ends by telling you what's next and waiting for your `Y` — answer 
 
 Prefer to drive each step yourself? Run them explicitly:
 
-```bash
+```text
+🤖 Run inside your AI Agent chat:
 /prospec-explore                   # (optional) clarify the requirement first
 /prospec-new-story add-my-feature  # capture it as a structured story
 /prospec-design                    # (optional) UI / interaction specs
@@ -363,6 +362,7 @@ prospec upgrade                  # CLI (zero-LLM): record the new version, re-sy
 ```
 
 ```text
+🤖 Run inside your AI Agent chat:
 /prospec-upgrade                 # in your AI agent: enrich created docs + migrate drifted init-doc formats + localize new-skill triggers (asks before each change)
 ```
 
@@ -474,46 +474,6 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 
-#### `.prospec.yaml` Configuration
-
-Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates.
-
-Key configurations you can tweak:
-
-- **`artifact_language`**: Sets the language for AI-generated documents (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages are always kept in English.
-- **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
-- **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
-- **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
-- **`knowledge.strategy`**: Determines how the project is split into modules during knowledge generation (`auto`, `architecture`, `domain`, `package`).
-- **`knowledge.token_budget`**: Controls token/line size limits for L1 and L2 knowledge files.
-- **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
-- **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
-
-Example `.prospec.yaml`:
-```yaml
-version: "1.0"
-project:
-  name: my-project
-artifact_language: Traditional Chinese (Taiwan)
-exclude:
-  - "*.env*"
-  - "node_modules"
-agents:
-  - claude
-  - antigravity
-knowledge:
-  strategy: domain
-  token_budget:
-    l1_per_file: 1800
-    l2_per_module: 1000
-    readme_max_lines: 100
-  additional_core_conventions:
-    - my-custom-api-rules.md
-skill_triggers:
-  prospec-explore:
-    - explore
-    - 探索
-```
 
 #### Project-scan language support
 
@@ -686,6 +646,49 @@ knowledge:
 `prospec init` seeds these three fields into a new project's `.prospec.yaml` so they are explicit and adjustable from day one; anything you delete falls back to the default. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code).
 
 </details>
+
+---
+
+## Configuration
+
+Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates.
+
+Key configurations you can tweak:
+
+- **`artifact_language`**: Sets the language for AI-generated documents (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages are always kept in English.
+- **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
+- **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
+- **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
+- **`knowledge.strategy`**: Determines how the project is split into modules during knowledge generation (`auto`, `architecture`, `domain`, `package`).
+- **`knowledge.token_budget`**: Controls token/line size limits for L1 and L2 knowledge files.
+- **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
+- **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
+
+Example `.prospec.yaml`:
+```yaml
+version: "1.0"
+project:
+  name: my-project
+artifact_language: Traditional Chinese (Taiwan)
+exclude:
+  - "*.env*"
+  - "node_modules"
+agents:
+  - claude
+  - antigravity
+knowledge:
+  strategy: domain
+  token_budget:
+    l1_per_file: 1800
+    l2_per_module: 1000
+    readme_max_lines: 100
+  additional_core_conventions:
+    - my-custom-api-rules.md
+skill_triggers:
+  prospec-explore:
+    - explore
+    - 探索
+```
 
 ---
 
