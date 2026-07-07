@@ -21,7 +21,7 @@
 | `change-resolver.ts` | Shared `resolveChange()` — pick the target change (explicit/auto/prompt/quiet) |
 | `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; `--json`/`--init-ci`/`--record-review` |
 | `measure.service.ts` | Read + Zod-validate the measurement report (read-only; `--offline` size report) |
-| `mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 8 resources + 2 tools, per-request reads |
+| `mcp.service.ts` | Read-only MCP server (using types/version for static packaging resolution) — buildMcpServer() registers 8 resources + 2 tools, per-request reads |
 
 ## Public API
 
