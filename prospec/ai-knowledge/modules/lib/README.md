@@ -26,7 +26,7 @@ Also: `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers
 ## Public API
 
 - `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists` — validated read; comment-preserving/atomic writes; ENOENT→''
-- `renderTemplate`/`mergeContent`/`mergeManagedDoc` — render + user-block-preserving merges
+- `renderTemplate`/`readTemplateSource`/`mergeContent`/`mergeManagedDoc` — render + template source read + user-block-preserving merges
 - `scanDir`/`detectModules`/`detectTechStack` — scan + module/stack detection
 - `parse*Dependencies(content)` — pure, malformed-safe manifest parsers
 - `runChecks(inputs)` + `collect*` — 11 evaluators → DriftReport; `loadModuleMap`/`loadFeatureMap`/`searchModules` — realpath-contained reads

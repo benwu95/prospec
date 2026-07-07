@@ -1,9 +1,9 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-07-07
+last_updated: 2026-07-08
 story_count: 1
-req_count: 4
+req_count: 8
 ---
 
 # Standalone Binary Compilation
@@ -58,6 +58,32 @@ So that 我不需要在機器上另外安裝 Node.js 就能直接使用 prospec 
 - WHEN 查看 README.md 與 README.zh-TW.md，THEN 新增一鍵安裝腳本、standalone binary 下載、以及 npx/devDependency 選項，且移除了 global npm install。
 - WHEN 造訪 docs/ 網站，THEN 相關網頁的安裝說明同步調整為一鍵安裝腳本。
 
+#### REQ-CLI-020: 新增 print-template 子命令
+為 `prospec` CLI 新增 `print-template <path>` 子指令，以便直接輸出內置 Handlebars 樣板的源碼內容。
+
+**Scenarios:**
+- WHEN 執行 `prospec print-template <path>` 且樣板存在，THEN 無格式地直接輸出樣板原始字串至 `stdout`。
+- WHEN 傳入不存在的樣板路徑，THEN 拋出 `TemplateError` 且以退出碼 `1` 結束執行。
+
+#### REQ-SERVICES-015: 實現 Print-Template 業務邏輯
+實作對應 `print-template` 的服務，從 `lib/template.ts` 中的 `readTemplateSource` 取得樣板內容。
+
+**Scenarios:**
+- WHEN 傳入參數 `templatePath` 並傳遞給 `readTemplateSource`，THEN 回傳對應的樣板源碼字串。
+
+#### REQ-TEMPLATES-005: 更新 prospec-upgrade.hbs 中的樣板讀取邏輯
+修改 `prospec-upgrade` 技能的執行步驟，將原先使用 Node.js (`require.resolve`) 和尋找 package 的腳本完全移除，改為原生呼叫 `prospec print-template <template_path>` 指令。
+
+**Scenarios:**
+- WHEN 執行 `prospec-upgrade` 技能，THEN 不再呼叫任何 `node` 指令。
+- WHEN 尋找樣板時，THEN 一律優先呼叫 `prospec print-template` 取得樣板內容。
+
+#### REQ-LIB-008: 導出 readTemplateSource 函數
+修改 `src/lib/template.ts` 以公開導出 `readTemplateSource`。
+
+**Scenarios:**
+- WHEN 其他模組需要讀取樣板源碼，THEN 可直接調用導出的 `readTemplateSource` 函數。
+
 ## Edge Cases
 
 - **範本找不到的錯誤**：在 Standalone Binary 中執行涉及檔案生成的指令（如 `prospec init`）時，Handlebars 範本讀取機制若預期存取外部 `src/templates` 目錄會崩潰。預期行為：範本內容在打包時需被內嵌於二進位檔中，確保不需外部實體範本檔案即可正常讀取。
@@ -85,3 +111,4 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-001, REQ-TYPES-001, REQ-DOCS-001 |
+| 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |

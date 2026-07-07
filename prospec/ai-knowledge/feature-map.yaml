@@ -79,12 +79,14 @@ features:
       - cli
       - lib
       - services
+      - templates
       - types
     req_prefixes:
       - CLI
       - LIB
       - TYPES
       - DOCS
+      - TEMPLATES
     status: active
   - feature: token-measurement
     modules:
