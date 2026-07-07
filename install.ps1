@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $Owner = "benwu95"
 $Repo = "prospec"
-$AssetName = "prospec-windows-x64.exe"
+$AssetName = "prospec-windows-x64.zip"
 $InstallDir = "$Home\.prospec\bin"
 $TargetPath = "$InstallDir\prospec.exe"
 
@@ -13,13 +13,31 @@ if (-not (Test-Path $InstallDir)) {
 
 $DownloadUrl = "https://github.com/$Owner/$Repo/releases/latest/download/$AssetName"
 
+# Temporary path for the downloaded zip file
+$TempZipPath = Join-Path $env:TEMP "prospec-windows-x64.zip"
+
 Write-Host "Downloading $AssetName from latest release..."
 try {
-    # Download the binary file following redirects
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $TargetPath -UseBasicParsing
+    # Download the zip file following redirects
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempZipPath -UseBasicParsing
 } catch {
     Write-Error "Failed to download $AssetName from $DownloadUrl"
     exit 1
+}
+
+Write-Host "Extracting prospec.exe to $InstallDir..."
+try {
+    # Extract the binary from the zip file, forcing overwrite of existing files
+    Expand-Archive -Path $TempZipPath -DestinationPath $InstallDir -Force
+} catch {
+    Write-Error "Failed to extract prospec.exe from zip file"
+    Remove-Item $TempZipPath -ErrorAction SilentlyContinue
+    exit 1
+} finally {
+    # Clean up temporary zip file
+    if (Test-Path $TempZipPath) {
+        Remove-Item $TempZipPath
+    }
 }
 
 Write-Host "Successfully installed prospec.exe to $TargetPath"
