@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2090%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2092%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -75,24 +75,42 @@ Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**
 
 Prospec 是 **bootstrap／update 用的 CLI** —— `prospec quickstart` 跑完後（它會串接 `init` + `agent sync`），你的 Agent 用的是已 commit 的 Skills 與 Knowledge（Markdown），除非要重新生成，否則不會再用到 binary。所以全域安裝一次即可。
 
-> [!TIP]
-> 由於 Prospec 目前為尚未發佈的 fork，全域安裝時會在本機進行編譯。我們建議使用 **npx** 執行（每次執行自動 clone + build）或安裝為專案的 **devDependency**，以避免本機全域編譯環境問題：
->
-> **選項 A：使用 npx 按需執行（推薦）**
-> ```bash
-> npx github:benwu95/prospec <command>
-> ```
->
-> **選項 B：在專案內固定為開發期依賴 (devDependency)（Node.js 專案推薦）**
-> ```bash
-> npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/prospec
-> ```
-
-如果您仍偏好全域安裝：
+**選項 A：獨立執行檔 (Standalone Binary)（推薦 & 免安裝 Node.js 執行期環境）**
+對於 macOS 和 Linux，可執行一鍵安裝腳本：
 ```bash
-npm install -g github:benwu95/prospec     # 或：pnpm add -g github:benwu95/prospec
-prospec --help                            # 驗證
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
 ```
+
+對於 Windows，可執行一鍵 PowerShell 安裝腳本：
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
+```
+
+或者，您也可以手動自 [GitHub Releases](https://github.com/benwu95/prospec/releases) 頁面下載適用您平台的二進位檔：
+
+- **Linux (x64)**: `prospec-linux-x64`
+- **macOS (Apple Silicon)**: `prospec-macos-arm64`
+- **macOS (Intel)**: `prospec-macos-x64`
+- **Windows (x64)**: `prospec-windows-x64.exe`
+
+（手動安裝 macOS/Linux 版本時，請執行 `chmod +x prospec-<os>-<arch>` 並將檔案移動至 `/usr/local/bin/prospec`）。
+
+
+**選項 B：使用 npx 按需執行（Node.js 環境）**
+不需全域安裝即可執行：
+```bash
+npx github:benwu95/prospec <command>
+```
+
+**選項 C：在專案內固定為開發期依賴 (devDependency)（Node.js 專案）**
+作為專案本地依賴進行安裝：
+```bash
+npm install -D github:benwu95/prospec     # 或：pnpm add -D github:benwu95/prospec
+```
+
+> [!WARNING]
+> 我們**不推薦**使用 `npm install -g` 進行全域安裝，因為非發布版分支 (unpublished fork) 的全域編譯可能會因為您本機的 Node/編譯環境不同而失敗。
+
 
 ### 2. 建立專案骨架
 
@@ -692,7 +710,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2090 個測試）
+# 執行所有測試（2092 個測試）
 pnpm test
 
 # Watch 模式
@@ -705,8 +723,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2090 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1362 tests
+**測試覆蓋率**：2092 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1364 tests
 - Contract tests（CLI 輸出 + Skill 格式）：647 tests
 - Integration tests：38 tests
 - E2E tests：43 tests

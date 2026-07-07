@@ -301,11 +301,17 @@
       <div class="step">
         <div class="step__n" aria-hidden="true">1</div>
         <div>
-          <h3 data-i18n="quickstart.s1.h">Install the CLI globally</h3>
-          <p data-i18n="quickstart.s1.p">It's an unpublished GitHub fork, so npm/pnpm clones and builds it via the <code>prepare</code> script.</p>
+          <h3 data-i18n="quickstart.s1.h">Install the CLI</h3>
+          <p data-i18n="quickstart.s1.p">Download the precompiled binary from Releases, or install via npm/pnpm.</p>
           <div class="cmds">
-            <div class="cmd"><code><span class="pr">$ </span>npm install -g github:benwu95/prospec</code><button class="copy" data-copy="npm install -g github:benwu95/prospec">Copy</button></div>
-            <div class="cmd"><code><span class="pr">$ </span>prospec --help <span class="cm" data-i18n="quickstart.cm.verify"># verify</span></code><button class="copy" data-copy="prospec --help">Copy</button></div>
+            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optA1">// Option A1: Standalone Binary (Recommended / macOS & Linux)</div>
+            <div class="cmd"><code><span class="pr">$ </span>curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash">Copy</button></div>
+            
+            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optA2">// Option A2: Standalone Binary (Recommended / Windows)</div>
+            <div class="cmd"><code><span class="pr">PS> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
+            
+            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optB">// Option B: Run on demand with npx (Node.js environments)</div>
+            <div class="cmd"><code><span class="pr">$ </span>npx github:benwu95/prospec --help</code><button class="copy" data-copy="npx github:benwu95/prospec --help">Copy</button></div>
           </div>
         </div>
       </div>

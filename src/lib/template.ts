@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
 import { TemplateError } from '../types/errors.js';
+import { BUNDLED_TEMPLATES } from './bundled-templates.js';
 
 // Singleton Handlebars instance with helpers and partials registered
 let initialized = false;
@@ -70,6 +71,12 @@ function registerHelpers(): void {
  * Read a template source file or throw a TemplateError.
  */
 function readTemplateSource(templatePath: string): string {
+  // Normalize path to use forward slashes as keys in BUNDLED_TEMPLATES
+  const key = templatePath.replace(/\\/g, '/');
+  if (key in BUNDLED_TEMPLATES) {
+    return BUNDLED_TEMPLATES[key]!;
+  }
+
   const fullPath = path.join(getTemplatesDir(), templatePath);
   try {
     return fs.readFileSync(fullPath, 'utf-8');

@@ -74,6 +74,18 @@ features:
       - SPECS
       - REF
     status: active
+  - feature: standalone-binary
+    modules:
+      - cli
+      - lib
+      - services
+      - types
+    req_prefixes:
+      - CLI
+      - LIB
+      - TYPES
+      - DOCS
+    status: active
   - feature: token-measurement
     modules:
       - cli

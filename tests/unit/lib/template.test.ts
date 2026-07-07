@@ -282,3 +282,19 @@ describe('registerPartialFromFile', () => {
     expect(() => registerPartialFromFile('missingFile', 'no/such/file.hbs')).toThrow(TemplateError);
   });
 });
+
+describe('bundled templates integration', () => {
+  it('reads template from BUNDLED_TEMPLATES memory map first', () => {
+    import('../../../src/lib/bundled-templates.js').then((module) => {
+      const dummyKey = 'test/dummy-bundled-template.hbs';
+      module.BUNDLED_TEMPLATES[dummyKey] = 'BUNDLED CONTENT: {{name}}';
+
+      const result = renderTemplate(dummyKey, { name: 'Prospec' });
+      expect(result).toBe('BUNDLED CONTENT: Prospec');
+
+      // Clean up
+      delete module.BUNDLED_TEMPLATES[dummyKey];
+    });
+  });
+});
+

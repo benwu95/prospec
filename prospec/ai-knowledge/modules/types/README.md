@@ -21,7 +21,7 @@
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
 | `skill.ts` | SKILL_DEFINITIONS (17 skills), AGENT_CONFIGS (4 agents) |
 | `spec.ts` | Feature/Product spec frontmatter schemas |
-| `version.ts` | `PROSPEC_VERSION` — running version from package.json |
+| `version.ts` | `PROSPEC_VERSION` — running version with process.env / package.json resolution |
 
 ## Public API
 

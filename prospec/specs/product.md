@@ -1,6 +1,6 @@
 ---
 product: prospec
-last_updated: 2026-07-06
+last_updated: 2026-07-07
 ---
 
 # prospec
@@ -30,6 +30,9 @@ last_updated: 2026-07-06
 
 ### sdd-workflow
 → [features/sdd-workflow.md](features/sdd-workflow.md)
+
+### standalone-binary
+→ [features/standalone-binary.md](features/standalone-binary.md)
 
 ### token-measurement
 → [features/token-measurement.md](features/token-measurement.md)
