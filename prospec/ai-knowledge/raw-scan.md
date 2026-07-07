@@ -40,6 +40,7 @@
 - `typescript` @ 5.9
 - `typescript-eslint` @ ^8.54.0
 - `vitest` @ ^4.0.18
+- `esbuild` @ ^0.28.1
 
 ## Config Files
 
@@ -105,5 +106,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 384 |
+| Total files | 388 |
 | Scan depth | 10 |
