@@ -88,12 +88,12 @@ powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/instal
 
 或者，您也可以手動自 [GitHub Releases](https://github.com/benwu95/prospec/releases) 頁面下載適用您平台的二進位檔：
 
-- **Linux (x64)**: `prospec-linux-x64`
-- **macOS (Apple Silicon)**: `prospec-macos-arm64`
-- **macOS (Intel)**: `prospec-macos-x64`
-- **Windows (x64)**: `prospec-windows-x64.exe`
+- **Linux (x64)**: `prospec-linux-x64.tar.gz`
+- **macOS (Apple Silicon)**: `prospec-macos-arm64.tar.gz`
+- **macOS (Intel)**: `prospec-macos-x64.tar.gz`
+- **Windows (x64)**: `prospec-windows-x64.zip`
 
-（手動安裝 macOS/Linux 版本時，請執行 `chmod +x prospec-<os>-<arch>` 並將檔案移動至 `/usr/local/bin/prospec`）。
+（手動安裝時，請自壓縮包中解壓出 `prospec` 或 `prospec.exe` 檔案，並將其移動至您的執行檔 `PATH` 目錄下）。
 
 
 **選項 B：使用 npx 按需執行（Node.js 環境）**

@@ -16,17 +16,21 @@ jobs:
           - os: ubuntu-latest
             target: bun-linux-x64
             output: prospec-linux-x64
+            archive: prospec-linux-x64.tar.gz
           - os: macos-latest
             target: bun-darwin-arm64
             output: prospec-macos-arm64
             sign: true
+            archive: prospec-macos-arm64.tar.gz
           - os: macos-latest
             target: bun-darwin-x64
             output: prospec-macos-x64
             sign: true
+            archive: prospec-macos-x64.tar.gz
           - os: windows-latest
             target: bun-windows-x64
             output: prospec-windows-x64.exe
+            archive: prospec-windows-x64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -63,11 +67,25 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: .\dist\${{ matrix.output }} --version
 
+      - name: Package Binary (Non-Windows)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp dist/${{ matrix.output }} dist/prospec
+          tar -czf dist/${{ matrix.archive }} -C dist prospec
+          rm dist/prospec
+
+      - name: Package Binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Copy-Item dist\${{ matrix.output }} dist\prospec.exe
+          Compress-Archive -Path dist\prospec.exe -DestinationPath dist\${{ matrix.archive }}
+          Remove-Item dist\prospec.exe
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.output }}
-          path: dist/${{ matrix.output }}
+          name: ${{ matrix.archive }}
+          path: dist/${{ matrix.archive }}
 
   publish:
     needs: build

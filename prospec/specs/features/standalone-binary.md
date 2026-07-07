@@ -28,11 +28,11 @@ So that 我不需要在機器上另外安裝 Node.js 就能直接使用 prospec 
 - WHEN 在乾淨無 Node.js 環境的 Linux/macOS/Windows 下執行下載的 `prospec --version`，THEN 成功印出當前版本。
 - WHEN 在下游專案目錄下執行 `prospec check`，THEN 可以正常進行漂移稽核並輸出稽核結果。
 
-#### REQ-CLI-001: Standalone Binary Compilation for Multi-Platform
-在 GitHub 發布 Release 時，自動觸發建置管線編譯出 Linux x64、macOS arm64/x64、Windows x64 的 Standalone Binary 獨立執行檔，並完成 macOS 的 codesign。
+#### REQ-CLI-001: Standalone Binary Compilation and Packaging for Multi-Platform
+在 GitHub 發布 Release 時，自動觸發建置管線編譯出 Linux x64、macOS arm64/x64、Windows x64 的 Standalone Binary 獨立執行檔，完成 macOS codesign，並將其自動打包壓縮為 `.zip` 或 `.tar.gz` 壓縮包。
 
 **Scenarios:**
-- WHEN 發布 Release 後，THEN assets 中包含 prospec-linux-x64、prospec-macos-arm64、prospec-macos-x64、prospec-windows-x64.exe。
+- WHEN 發布 Release 後，THEN assets 中包含 prospec-linux-x64.tar.gz、prospec-macos-arm64.tar.gz、prospec-macos-x64.tar.gz、prospec-windows-x64.zip。
 - WHEN 執行 macOS 二進位檔，THEN 已完成 codesign ad-hoc 簽署，能在 macOS 系統下執行。
 - WHEN 執行任何二進位檔，THEN 無須外部 Node.js 執行期環境即可單獨執行。
 
@@ -91,7 +91,7 @@ So that 我不需要在機器上另外安裝 Node.js 就能直接使用 prospec 
 
 ## Success Criteria
 
-- **SC-1**: GitHub Release 的 assets 中包含 `prospec-linux-x64`、`prospec-macos-arm64`、`prospec-macos-x64`、`prospec-windows-x64.exe` 等獨立執行檔。
+- **SC-1**: GitHub Release 的 assets 中包含 `prospec-linux-x64.tar.gz`、`prospec-macos-arm64.tar.gz`、`prospec-macos-x64.tar.gz`、`prospec-windows-x64.zip` 等壓縮包，解壓後可直接執行。
 - **SC-2**: 所有二進位檔無須安裝 any 外部 Node.js 執行期環境即可正常運作。
 - **SC-3**: 二進位檔支援呼叫包括 `prospec init`、`prospec check`、`prospec serve` 等現有完整指令，且範本載入運作正常。
 
@@ -112,3 +112,4 @@ _(None)_
 |------|--------|--------|-------------|
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-001, REQ-TYPES-001, REQ-DOCS-001 |
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |
+| 2026-07-08 | compress-release-binaries | Package binaries in .zip and .tar.gz archives and update installers | REQ-CLI-001 |

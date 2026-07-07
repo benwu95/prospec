@@ -23,13 +23,13 @@ esac
 
 # Determine correct asset name
 if [ "${OS_NAME}" = "macos" ]; then
-    ASSET_NAME="prospec-macos-${ARCH_NAME}"
+    ASSET_NAME="prospec-macos-${ARCH_NAME}.tar.gz"
 else
     if [ "${ARCH_NAME}" != "x64" ]; then
         echo "Unsupported Linux architecture: ${ARCH_NAME}. Only x64 is supported." >&2;
         exit 1
     fi
-    ASSET_NAME="prospec-linux-x64"
+    ASSET_NAME="prospec-linux-x64.tar.gz"
 fi
 
 DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/latest/download/${ASSET_NAME}"
@@ -53,7 +53,14 @@ fi
 
 # Install binary
 echo "Installing to ${TARGET_PATH}..."
-mv "${TEMP_FILE}" "${TARGET_PATH}"
+# Extract the binary named "prospec" from the tar.gz into the INSTALL_DIR
+if ! tar -xzf "${TEMP_FILE}" -C "${INSTALL_DIR}" prospec; then
+    echo "Error: Failed to extract binary from ${TEMP_FILE}" >&2
+    rm -f "${TEMP_FILE}"
+    exit 1
+fi
+
+rm -f "${TEMP_FILE}"
 chmod +x "${TARGET_PATH}"
 
 echo "Successfully installed prospec to ${TARGET_PATH}!"

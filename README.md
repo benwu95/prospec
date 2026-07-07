@@ -88,12 +88,12 @@ powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/instal
 
 Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page:
 
-- **Linux (x64)**: `prospec-linux-x64`
-- **macOS (Apple Silicon)**: `prospec-macos-arm64`
-- **macOS (Intel)**: `prospec-macos-x64`
-- **Windows (x64)**: `prospec-windows-x64.exe`
+- **Linux (x64)**: `prospec-linux-x64.tar.gz`
+- **macOS (Apple Silicon)**: `prospec-macos-arm64.tar.gz`
+- **macOS (Intel)**: `prospec-macos-x64.tar.gz`
+- **Windows (x64)**: `prospec-windows-x64.zip`
 
-(For manual macOS/Linux installation, run `chmod +x prospec-<os>-<arch>` and move the file to `/usr/local/bin/prospec`).
+(For manual installation, extract the `prospec` or `prospec.exe` file from the archive and move it to your executable PATH).
 
 
 **Option B: Run on demand with npx (Node.js environments)**
