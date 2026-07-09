@@ -273,6 +273,18 @@ describe('collectImportEdges', () => {
     expect(r.reason).toContain('source unavailable');
   });
 
+  it('reports skipped (not a vacuous PASS) for a non-JS/TS project whose module paths exist but hold no JS/TS source', () => {
+    // The dirs exist and contain source — but Python, not JS/TS. import-direction
+    // is JS/TS-only, so it must degrade to skipped, never report available/PASS
+    // (which would falsely claim the dependency direction was verified).
+    write('src/services/main.py', 'from ..cli.app import x\n');
+    write('src/cli/app.py', 'pass\n');
+    const r = collectImportEdges(tmpDir, MODULE_MAP);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('JavaScript/TypeScript');
+    expect(r.edges).toEqual([]);
+  });
+
   it('ignores imports inside block comments (commented-out code is not an edge)', () => {
     write(
       'src/types/x.ts',
