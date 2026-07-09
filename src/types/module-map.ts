@@ -12,6 +12,9 @@ const ModuleRelationshipsSchema = z.object({
 const ModuleEntrySchema = z.object({
   name: z.string(),
   description: z.string().optional(),
+  // Each entry is a directory (scanned as its subtree), a single file
+  // (scanned/attributed as just that file), or a glob (`**/x/**`, `dir/**` —
+  // honored verbatim). Which one is decided on-disk by classifyModulePath.
   paths: z.array(z.string()),
   keywords: z.array(z.string()),
   // Human-readable localized search aliases (index.md "Aliases" column). Curated

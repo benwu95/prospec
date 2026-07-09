@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { scanDirSync } from './scanner.js';
+import { scanDirSync, classifyModulePath } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
@@ -300,7 +300,9 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
       // when the glob actually matches files (domain projects relied on the
       // import-direction check silently degrading to `skipped` before this).
       if (!isGlob && !existsSync(path.resolve(cwd, prefix))) continue;
-      const { files } = scanDirSync(importScanPattern(prefix), { cwd });
+      const pattern = importScanPattern(prefix, cwd);
+      if (pattern === null) continue; // non-source file entry — carries no import edges
+      const { files } = scanDirSync(pattern, { cwd });
       if (isGlob && files.length === 0) continue;
       anyPathExists = true;
       for (const relPath of files) {
@@ -678,12 +680,18 @@ function existsContained(abs: string, cwd: string): boolean {
 }
 
 /**
- * Build the file-scan glob for a module path prefix. Supports both literal dir
- * prefixes (`src/lib` → `src/lib/**\/*.ext`) and domain globs (`**\/auth/**`,
- * `packages/web/**` → `<prefix>/*.ext`).
+ * Build the file-scan glob for a module path entry, or `null` when the entry
+ * carries no scannable source. A single SOURCE file entry (`src/lib/config.ts`)
+ * is scanned as just itself; a NON-source file entry (`docs/x.md`) yields `null`
+ * — import edges come only from source, and globbing `<file>/**` would ENOTDIR.
+ * A literal dir prefix (`src/lib` → `src/lib/**\/*.ext`) expands to its subtree;
+ * domain globs (`**\/auth/**`, `packages/web/**` → `<prefix>/*.ext`) are verbatim.
  */
-function importScanPattern(prefix: string): string {
+function importScanPattern(prefix: string, cwd: string): string | null {
   const EXT = '*.{ts,tsx,mts,cts,js,jsx}';
+  if (classifyModulePath(prefix, cwd) === 'file') {
+    return /\.(?:ts|tsx|mts|cts|js|jsx)$/.test(prefix) ? prefix : null;
+  }
   return prefix.endsWith('/**') ? `${prefix}/${EXT}` : `${prefix}/**/${EXT}`;
 }
 

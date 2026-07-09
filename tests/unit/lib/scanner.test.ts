@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fg from 'fast-glob';
-import { scanDir, scanDirSync, listGitTrackedFiles, filterConventions } from '../../../src/lib/scanner.js';
+import { scanDir, scanDirSync, listGitTrackedFiles, filterConventions, classifyModulePath, moduleScanPatterns } from '../../../src/lib/scanner.js';
 import { CORE_CONVENTIONS } from '../../../src/types/conventions.js';
 import { ScanError } from '../../../src/types/errors.js';
 
@@ -301,5 +301,86 @@ describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
     const { core, demand } = filterConventions(['_conventions.md', '_team-style.md'], ['_team-style.md']);
     expect(core).toEqual(['_conventions.md', '_team-style.md']);
     expect(demand).toEqual([]);
+  });
+});
+
+describe('classifyModulePath', () => {
+  it('classifies a glob entry (contains *) as glob without touching disk', () => {
+    // Purely syntactic — no files created.
+    expect(classifyModulePath('**/auth/**', tmpDir)).toBe('glob');
+    expect(classifyModulePath('packages/*/src', tmpDir)).toBe('glob');
+    expect(classifyModulePath('src/lib/**', tmpDir)).toBe('glob');
+  });
+
+  it('classifies an existing directory as dir', () => {
+    createFiles({ 'src/lib/config.ts': '' });
+    expect(classifyModulePath('src/lib', tmpDir)).toBe('dir');
+    expect(classifyModulePath('src', tmpDir)).toBe('dir');
+  });
+
+  it('classifies an existing file as file', () => {
+    createFiles({ 'src/lib/config.ts': '' });
+    expect(classifyModulePath('src/lib/config.ts', tmpDir)).toBe('file');
+  });
+
+  it('classifies a non-existent path as missing', () => {
+    expect(classifyModulePath('src/does-not-exist', tmpDir)).toBe('missing');
+    expect(classifyModulePath('src/gone.ts', tmpDir)).toBe('missing');
+  });
+
+  it('classifies a repo-escaping path as missing even when the target exists (containment, not existence)', () => {
+    const outsideName = `escape-${path.basename(tmpDir)}.ts`;
+    const outsideAbs = path.join(tmpDir, '..', outsideName);
+    fs.writeFileSync(outsideAbs, '');
+    try {
+      // A real file exists just outside cwd; both the relative and absolute
+      // spelling must be rejected by the same lexical guard as clampModulePaths.
+      expect(classifyModulePath(`../${outsideName}`, tmpDir)).toBe('missing');
+      expect(classifyModulePath(outsideAbs, tmpDir)).toBe('missing');
+    } finally {
+      fs.rmSync(outsideAbs, { force: true });
+    }
+  });
+});
+
+describe('moduleScanPatterns', () => {
+  it('expands a directory entry to its subtree', () => {
+    createFiles({ 'src/lib/a.ts': '' });
+    expect(moduleScanPatterns(['src/lib'], tmpDir)).toEqual(['src/lib/**']);
+  });
+
+  it('strips a trailing slash before expanding a directory', () => {
+    createFiles({ 'src/lib/a.ts': '' });
+    expect(moduleScanPatterns(['src/lib/'], tmpDir)).toEqual(['src/lib/**']);
+  });
+
+  it('keeps a file entry verbatim (scans just that file)', () => {
+    createFiles({ 'src/lib/config.ts': '' });
+    expect(moduleScanPatterns(['src/lib/config.ts'], tmpDir)).toEqual(['src/lib/config.ts']);
+  });
+
+  it('passes glob and missing entries through verbatim', () => {
+    expect(moduleScanPatterns(['**/auth/**', 'src/gone'], tmpDir)).toEqual([
+      '**/auth/**',
+      'src/gone',
+    ]);
+  });
+
+  it('handles a mixed file + dir + glob array', () => {
+    createFiles({ 'src/lib/config.ts': '', 'src/services/x.ts': '' });
+    expect(moduleScanPatterns(['src/lib/config.ts', 'src/services', 'pkg/**'], tmpDir)).toEqual([
+      'src/lib/config.ts',
+      'src/services/**',
+      'pkg/**',
+    ]);
+  });
+
+  it('the expanded dir pattern actually reaches the subtree via scanDir (fixes bare-dir 0 files)', async () => {
+    createFiles({ 'src/lib/a.ts': '', 'src/lib/nested/b.ts': '' });
+    // Positive control: a bare 'src/lib' entry scans 0 files (the bug this fixes).
+    const { files: bare } = await scanDir(['src/lib'], { cwd: tmpDir });
+    expect(bare).toEqual([]);
+    const { files } = await scanDir(moduleScanPatterns(['src/lib'], tmpDir), { cwd: tmpDir });
+    expect(files).toEqual(['src/lib/a.ts', 'src/lib/nested/b.ts']);
   });
 });

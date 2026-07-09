@@ -13,7 +13,7 @@
 | `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir; memory bundled-templates resolution |
 | `content-merger.ts` | mergeContent/mergeManagedDoc (preserve user blocks); hasAutoBlock/replaceAutoBlock |
 | `yaml-utils.ts` | parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
-| `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions |
+| `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath/moduleScanPatterns (module-map path → scan) |
 | `module-detector.ts` | detectModules (auto/architecture/domain/package), buildModuleMap |
 | `detector.ts` | detectTechStack over 11 languages; hasCFamilySource |
 | `manifest-parsers.ts` | Deterministic dep/entry-point parsers (TOML/XML/hand-rolled), []-safe |
@@ -27,7 +27,7 @@ Also: `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers
 
 - `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists` — validated read; comment-preserving/atomic writes; ENOENT→''
 - `renderTemplate`/`readTemplateSource`/`mergeContent`/`mergeManagedDoc` — render + template source read + user-block-preserving merges
-- `scanDir`/`detectModules`/`detectTechStack` — scan + module/stack detection
+- `scanDir`/`moduleScanPatterns`/`classifyModulePath`/`detectModules`/`detectTechStack` — scan (with module-map file/dir/glob path classification) + module/stack detection
 - `parse*Dependencies(content)` — pure, malformed-safe manifest parsers
 - `runChecks(inputs)` + `collect*` — 11 evaluators → DriftReport; `loadModuleMap`/`loadFeatureMap`/`searchModules` — realpath-contained reads
 

@@ -418,6 +418,9 @@ describe('knowledge://health (REQ-MCP-004, SC-006)', () => {
     }
   });
 
+  // Heaviest case in this file: a real git fixture PLUS a full checkExecute, both
+  // synchronous git-subprocess work. Under the parallel suite this can exceed the
+  // 5s default timeout on a loaded machine, so give it explicit headroom.
   it('matches the knowledge_health section of `prospec check` byte-for-byte (SC-006)', async () => {
     const ctx = gitFixture();
     const client = await connect(ctx);
@@ -425,7 +428,7 @@ describe('knowledge://health (REQ-MCP-004, SC-006)', () => {
     const checkResult = await checkExecute({ cwd: tmpDir });
     if (checkResult.kind !== 'report') throw new Error('expected report');
     expect(fromResource).toEqual(checkResult.report.structural.knowledge_health);
-  });
+  }, 20000);
 
   it('never probes or reports a traversal module name (no existence oracle)', async () => {
     const ctx = gitFixture();
