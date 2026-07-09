@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-06
+last_updated: 2026-07-09
 story_count: 8
 req_count: 27
 ---
@@ -36,6 +36,7 @@ req_count: 27
 - WHEN 三類違規任一出現，THEN finding 含 `source_path` + `line`，依（檢項、路徑、行號）codepoint 排序
 - WHEN module-map 存在但 schema 不合法，THEN 拋 typed error（fail loudly，不默默換規則集）
 - WHEN module-map paths 指向 repo 外，THEN 該路徑被 clamp，不驅動掃描或讀檔
+- WHEN module-map paths 條目為單一源碼檔，THEN import-edge 蒐集僅掃描該檔本身（依 `classifyModulePath` 判定 file/dir/glob）；非源碼檔條目不產生 import 邊（不再展開為 `<file>/**` 而 ENOTDIR）
 
 ---
 
@@ -280,3 +281,4 @@ _(None)_
 | 2026-07-06 | enforce-knowledge-size-budget | ADDED US-8（knowledge-size 預算檢查，第 11 個 check id，warn-class）+ REQ-TYPES-060/061、REQ-LIB-027、REQ-SERVICES-065、REQ-TEMPLATES-149、REQ-TESTS-048；MODIFIED REQ-TYPES-052/034（總數→11）+ REQ-TESTS-045（skipped-never-PASS→11 checks）；config token_budget 誠實重命名 + DEFAULT_KNOWLEDGE_TOKEN_BUDGET 單一來源（issue #63） | US-8, REQ-TYPES-060, REQ-TYPES-061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
 | 2026-07-06 | slim-knowledge-l1-l2 | MODIFIED REQ-TYPES-061：`DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 誠實校準 `l1_per_file` 1500→1800、`l2_per_module` 400→1000（warn-class 不變、init seed 同步）（issue #64） | REQ-TYPES-061 (MODIFIED) |
 | 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-LIB-028（`resolveKnowledgeTokenBudget` 移至 `lib/config` canonical 單一來源、`KnowledgeSizeBudget` 移至 `types/config`）；MODIFIED REQ-TYPES-061（單一來源亦餵生成 skill 模板預算渲染）、REQ-SERVICES-065（resolver 改自 `lib/config` import） | REQ-LIB-028 (ADDED); REQ-TYPES-061, REQ-SERVICES-065 (MODIFIED) |
+| 2026-07-09 | support-file-module-paths | MODIFIED REQ-LIB-014：import-edge 蒐集依 `classifyModulePath` 處理單一檔案條目（源碼檔→掃該檔、非源碼檔→無邊、修 `<file>/**` ENOTDIR）；分類器本體 REQ-LIB-029 落在 ai-knowledge feature | REQ-LIB-014 (MODIFIED) |
