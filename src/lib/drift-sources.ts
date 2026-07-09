@@ -679,6 +679,16 @@ function existsContained(abs: string, cwd: string): boolean {
   }
 }
 
+// The extensions the import-direction scan understands — the SINGLE source for
+// both the directory-scan glob and the single-file-entry guard, so the two can
+// never drift. NOTE: this check is JS/TS-ESM-specific (the `import … from '…'`
+// regex in collectImportEdges parses ESM syntax only); a downstream project in
+// another language gets no import-direction edges from it. Widening to other
+// languages means per-language import parsing, not just more extensions here.
+const IMPORT_SCAN_EXTS = ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx'] as const;
+const IMPORT_SCAN_GLOB = `*.{${IMPORT_SCAN_EXTS.join(',')}}`;
+const IMPORT_SCAN_FILE_RE = new RegExp(`\\.(?:${IMPORT_SCAN_EXTS.join('|')})$`);
+
 /**
  * Build the file-scan glob for a module path entry, or `null` when the entry
  * carries no scannable source. A single SOURCE file entry (`src/lib/config.ts`)
@@ -688,11 +698,12 @@ function existsContained(abs: string, cwd: string): boolean {
  * domain globs (`**\/auth/**`, `packages/web/**` → `<prefix>/*.ext`) are verbatim.
  */
 function importScanPattern(prefix: string, cwd: string): string | null {
-  const EXT = '*.{ts,tsx,mts,cts,js,jsx}';
   if (classifyModulePath(prefix, cwd) === 'file') {
-    return /\.(?:ts|tsx|mts|cts|js|jsx)$/.test(prefix) ? prefix : null;
+    return IMPORT_SCAN_FILE_RE.test(prefix) ? prefix : null;
   }
-  return prefix.endsWith('/**') ? `${prefix}/${EXT}` : `${prefix}/**/${EXT}`;
+  return prefix.endsWith('/**')
+    ? `${prefix}/${IMPORT_SCAN_GLOB}`
+    : `${prefix}/**/${IMPORT_SCAN_GLOB}`;
 }
 
 function markdownFiles(root: string, cwd: string): Array<{ file: string; relPath: string }> {
