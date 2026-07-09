@@ -11,9 +11,14 @@
 <meta property="og:url" content="https://benwu95.github.io/prospec/">
 <meta property="og:title" content="Prospec — the governed spec loop for AI coding agents">
 <meta property="og:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and project knowledge that compounds every change.">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://benwu95.github.io/prospec/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Prospec — spec-driven development that audits itself, for AI coding agents. story → plan → tasks → implement → review → verify → archive.">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Prospec — the governed spec loop for AI coding agents">
 <meta name="twitter:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and knowledge that compounds.">
+<meta name="twitter:image" content="https://benwu95.github.io/prospec/og.png">
 <script>
   (function(){
     var h = document.documentElement;
@@ -40,10 +45,49 @@
   "applicationCategory":"DeveloperApplication",
   "operatingSystem":"Node.js >= 22.13",
   "softwareVersion":"0.5.2",
+  "dateModified":"2026-07-10",
   "license":"https://opensource.org/licenses/MIT",
   "url":"https://benwu95.github.io/prospec/",
   "codeRepository":"https://github.com/benwu95/prospec",
   "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"FAQPage",
+  "mainEntity":[
+    {
+      "@type":"Question",
+      "name":"Do I need the CLI running while I work?",
+      "acceptedAnswer":{"@type":"Answer","text":"No. The CLI is a bootstrap/update tool. Once prospec quickstart has generated the Skills and Knowledge (plain Markdown, committed to your repo), your agent works from those files. The binary isn't needed again until you regenerate or upgrade. The MCP server is a pure add-on — nothing depends on it."}
+    },
+    {
+      "@type":"Question",
+      "name":"Does it lock me into one AI vendor?",
+      "acceptedAnswer":{"@type":"Answer","text":"No. Prospec is AI-agent-agnostic. agent sync writes Claude Code (CLAUDE.md + .claude/skills/) and the agents.md standard for Antigravity, Codex, and Copilot (AGENTS.md + .agents/skills/). Knowledge is universal Markdown — switching agents doesn't strand your project's memory."}
+    },
+    {
+      "@type":"Question",
+      "name":"Is the token-saving claim real or marketing?",
+      "acceptedAnswer":{"@type":"Answer","text":"It's measured, not asserted. Prospec ships a benchmark harness (pnpm measure:tokens / prospec measure) that assembles real contexts and records actual provider usage. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data. Numbers are comparable only within the same provider and repo snapshot."}
+    },
+    {
+      "@type":"Question",
+      "name":"What does it deliberately not do?",
+      "acceptedAnswer":{"@type":"Answer","text":"The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec-to-code consistency — that stays with the adversarial review. And no scale skips engineering discipline: TDD, review, and Constitution audits run everywhere."}
+    },
+    {
+      "@type":"Question",
+      "name":"Greenfield or brownfield?",
+      "acceptedAnswer":{"@type":"Answer","text":"Both, with the same two bootstrap commands. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, /prospec-quickstart reads your code into AI Knowledge up front, and the backfill path can reverse-extract specs from behavior that was never documented."}
+    },
+    {
+      "@type":"Question",
+      "name":"What's the lineage and license?",
+      "acceptedAnswer":{"@type":"Answer","text":"MIT-licensed. This project is a fork of ci-yang/prospec, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD with a thin CLI, plus AI Knowledge as structured, versioned context engineering."}
+    }
+  ]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
