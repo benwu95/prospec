@@ -1,5 +1,6 @@
 import fg from 'fast-glob';
 import { execFile } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { ScanError } from '../types/errors.js';
@@ -228,4 +229,42 @@ export function scanDirSync(
       err instanceof Error ? err.message : String(err),
     );
   }
+}
+
+export type ModulePathKind = 'glob' | 'file' | 'dir' | 'missing';
+
+/**
+ * Classify one `module-map.yaml` `paths` entry by what it points at on disk —
+ * the single source of truth for how the entry is scanned/attributed. A glob
+ * (contains `*`) is honored verbatim. An entry that resolves outside `cwd` (same
+ * lexical containment as `clampModulePaths`) or does not exist is `missing`, so
+ * callers fall back to literal-prefix behavior rather than fabricating a match.
+ */
+export function classifyModulePath(rawPath: string, cwd: string): ModulePathKind {
+  if (rawPath.includes('*')) return 'glob';
+  const abs = path.resolve(cwd, rawPath);
+  const rel = path.relative(cwd, abs);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return 'missing';
+  try {
+    const stat = statSync(abs);
+    if (stat.isDirectory()) return 'dir';
+    if (stat.isFile()) return 'file';
+    return 'missing';
+  } catch {
+    return 'missing';
+  }
+}
+
+/**
+ * Map `module-map.yaml` `paths` entries to fast-glob scan patterns with
+ * file/folder semantics: a directory expands to its subtree, a file scans only
+ * itself, and a glob or a missing/out-of-repo entry passes through verbatim
+ * (fast-glob then yields the literal match or nothing). Shared by the knowledge
+ * README scanners so their `paths` interpretation matches the drift engine's.
+ */
+export function moduleScanPatterns(paths: string[], cwd: string): string[] {
+  return paths.map((p) => {
+    if (classifyModulePath(p, cwd) === 'dir') return `${p.replace(/\/+$/, '')}/**`;
+    return p;
+  });
 }

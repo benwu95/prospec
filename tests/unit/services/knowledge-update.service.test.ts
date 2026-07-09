@@ -35,13 +35,22 @@ vi.mock('../../../src/lib/config.js', () => ({
   }),
 }));
 
-vi.mock('../../../src/lib/scanner.js', () => ({
-  scanDir: vi.fn().mockResolvedValue({
-    files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
-    count: 2,
-  }),
-  filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
-}));
+// Partial mock: keep the REAL moduleScanPatterns/classifyModulePath (so the
+// path→scan-pattern wiring is exercised for real against memfs) and stub only
+// the fast-glob-backed scanDir + filterConventions.
+vi.mock('../../../src/lib/scanner.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/lib/scanner.js')>(
+    '../../../src/lib/scanner.js',
+  );
+  return {
+    ...actual,
+    scanDir: vi.fn().mockResolvedValue({
+      files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
+      count: 2,
+    }),
+    filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
+  };
+});
 
 // README renders stay canned, but the knowledge index templates render for REAL
 // (via a Handlebars instance fed from the actual template files, read with the
@@ -291,6 +300,23 @@ describe('updateModuleReadme', () => {
       .at(-1);
     const context = renderCall![1] as Record<string, unknown>;
     expect(context.path).toBe('auth');
+  });
+
+  it('routes a directory module path through moduleScanPatterns (scans dir/** not the bare dir)', async () => {
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+    vol.fromJSON({ '/project/src/realmod/index.ts': 'export const x = 1;\n' });
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
+
+    await updateModuleReadme('realmod', ['src/realmod'], {
+      cwd: '/project',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+    });
+
+    // A bare 'src/realmod' entry scans 0 files under fast-glob onlyFiles; the fix
+    // must expand it to 'src/realmod/**' before scanDir. Reverting the service to
+    // raw modulePaths makes scanDir receive ['src/realmod'] → this goes red.
+    const scanArgs = vi.mocked(scanDir).mock.calls.at(-1)!;
+    expect(scanArgs[0]).toEqual(['src/realmod/**']);
   });
 
   it('infers per-extension and per-suffix file descriptions into key_files (L548/L551-554/L565)', async () => {

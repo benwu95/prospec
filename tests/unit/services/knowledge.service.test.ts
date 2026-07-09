@@ -93,6 +93,35 @@ knowledge:
     expect(result.generatedFiles.length).toBeGreaterThan(0);
   });
 
+  it('routes a bare directory module path through moduleScanPatterns before scanning (getModuleInfos)', async () => {
+    const fg = (await import('fast-glob')).default;
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test
+knowledge:
+  base_path: prospec/ai-knowledge
+`,
+      // Bare directory entry (no /** suffix) — the case that scanned 0 files before.
+      '/project/prospec/ai-knowledge/module-map.yaml': `modules:
+  - name: services
+    description: Business logic
+    paths:
+      - src/services
+    keywords:
+      - services
+`,
+      '/project/src/services/auth.ts': '',
+    });
+
+    await execute({ cwd: '/project' });
+
+    const patternArgs = vi.mocked(fg.glob).mock.calls.map((c) => c[0]);
+    // The bare 'src/services' entry must reach fast-glob expanded to 'src/services/**';
+    // reverting getModuleInfos to raw entry.paths makes it scan bare 'src/services' (0 files).
+    expect(patternArgs).toContainEqual(['src/services/**']);
+    expect(patternArgs).not.toContainEqual(['src/services']);
+  });
+
   it('should call renderTemplate with key_exports in context', async () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
 

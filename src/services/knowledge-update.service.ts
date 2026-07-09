@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { scanDir, filterConventions } from '../lib/scanner.js';
+import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent, hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -142,7 +142,10 @@ export async function updateModuleReadme(
   await ensureDir(path.dirname(readmePath));
 
   // Scan module files
-  const patterns = modulePaths.length > 0 ? modulePaths : [`${moduleName}/**`];
+  const patterns =
+    modulePaths.length > 0
+      ? moduleScanPatterns(modulePaths, options.cwd)
+      : [`${moduleName}/**`];
   const scanResult = await scanDir(patterns, {
     cwd: options.cwd,
     exclude: options.excludePatterns ?? [],

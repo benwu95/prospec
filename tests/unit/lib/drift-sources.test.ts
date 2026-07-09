@@ -312,6 +312,54 @@ describe('collectImportEdges', () => {
     expect(available).toBe(true);
     expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('auth->billing');
   });
+
+  it('scans a single-file module path entry (file entries no longer expand to <file>/**)', () => {
+    const FILE_MAP: ModuleMap = {
+      modules: [
+        { name: 'entry', paths: ['src/lib/entry.ts'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'types', paths: ['src/types'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    write('src/lib/entry.ts', "import { X } from '../types/x.js';\n");
+    write('src/types/x.ts', '');
+    const { available, edges } = collectImportEdges(tmpDir, FILE_MAP);
+    // Before the fix importScanPattern turned 'src/lib/entry.ts' into
+    // 'src/lib/entry.ts/**/*.ext' → 0 files → this edge was silently missed and
+    // a file-only module reported unavailable (skipped).
+    expect(available).toBe(true);
+    expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('entry->types');
+  });
+
+  it('does not scan a non-source file path entry (no spurious edge from its text)', () => {
+    const DOC_MAP: ModuleMap = {
+      modules: [
+        { name: 'alpha', paths: ['src/alpha/notes.md'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'beta', paths: ['src/beta'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    // A non-source file must not be import-scanned at all. The bare import line
+    // resolves to src/beta/x — a real cross-module target — so pre-fix (which read
+    // the .md verbatim) emitted a spurious alpha->beta. (Unfenced on purpose: a
+    // ```ts fence is already blanked by the template-literal stripper.)
+    write('src/alpha/notes.md', "Usage example:\nimport { x } from '../beta/x.js';\n");
+    write('src/beta/x.ts', '');
+    const { edges } = collectImportEdges(tmpDir, DOC_MAP);
+    expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).not.toContain('alpha->beta');
+  });
+
+  it('honors the explicit dir-glob form (`src/x/**`) so existing glob paths keep working', () => {
+    const GLOB_MAP: ModuleMap = {
+      modules: [
+        { name: 'services', paths: ['src/services/**'], keywords: [], relationships: { depends_on: ['types'] } },
+        { name: 'types', paths: ['src/types/**'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    write('src/services/a.ts', "import { X } from '../types/x.js';\n");
+    write('src/types/x.ts', '');
+    const { available, edges } = collectImportEdges(tmpDir, GLOB_MAP);
+    expect(available).toBe(true);
+    expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('services->types');
+  });
 });
 
 describe('collectGitTimestamps', () => {

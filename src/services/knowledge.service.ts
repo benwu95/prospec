@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { scanDir, filterConventions } from '../lib/scanner.js';
+import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
 import { mergeContent } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -154,7 +154,8 @@ async function scanModules(
   const moduleInfos: ModuleInfo[] = [];
 
   for (const entry of moduleMap.modules) {
-    const patterns = entry.paths.length > 0 ? entry.paths : [`${entry.name}/**`];
+    const patterns =
+      entry.paths.length > 0 ? moduleScanPatterns(entry.paths, cwd) : [`${entry.name}/**`];
     const scanResult = await scanDir(patterns, {
       cwd,
       exclude: excludePatterns,
