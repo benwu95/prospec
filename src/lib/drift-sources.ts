@@ -281,7 +281,15 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
   return { available: true, links };
 }
 
-/** Collect cross-module static import edges, attributed via module-map paths. */
+/**
+ * Collect cross-module static import edges, attributed via module-map paths.
+ * Deliberately JS/TS-only: it parses ES-module `import … from` / side-effect
+ * imports. Other languages resolve imports through their own systems (package
+ * roots, namespaces) a lightweight scan cannot follow, and each has a
+ * purpose-built architecture linter (import-linter, deptrac, packwerk,
+ * dependency-cruiser, go-arch-lint, …) that does it properly — so on a project
+ * with no JS/TS source this reports honest `skipped`, never a vacuous PASS.
+ */
 export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdgeSource {
   const toModule = moduleAttributor(moduleMap);
   // Whole-content matching so multi-line `import { … }\nfrom 'x'` statements are
@@ -290,21 +298,21 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   const importPattern =
     /(?:^|\n)\s*(?:(?:import|export)\s+[^;'"`]*?from\s*|import\s*)['"]([^'"]+)['"]/g;
   const edges: ImportEdge[] = [];
-  let anyPathExists = false;
+  let anyJsTsSource = false;
   for (const entry of moduleMap.modules) {
     for (const prefix of entry.paths) {
       const isGlob = prefix.includes('*');
-      // A literal dir prefix is gated by its on-disk existence. A domain glob
-      // ('**/auth/**') has no literal path to stat — `existsSync` on it is
-      // always false — so it is scanned directly and counts as available only
-      // when the glob actually matches files (domain projects relied on the
-      // import-direction check silently degrading to `skipped` before this).
+      // A literal dir prefix is gated by its on-disk existence; a domain glob
+      // ('**/auth/**') has no literal path to stat, so it is scanned directly.
       if (!isGlob && !existsSync(path.resolve(cwd, prefix))) continue;
       const pattern = importScanPattern(prefix, cwd);
       if (pattern === null) continue; // non-source file entry — carries no import edges
       const { files } = scanDirSync(pattern, { cwd });
-      if (isGlob && files.length === 0) continue;
-      anyPathExists = true;
+      // The check is `available` only where JS/TS source is actually found —
+      // a path (or whole project) with no .ts/.js contributes nothing, so a
+      // non-JS/TS project degrades to honest `skipped`, not a vacuous PASS.
+      if (files.length === 0) continue;
+      anyJsTsSource = true;
       for (const relPath of files) {
         const fromModule = toModule(relPath);
         if (fromModule !== entry.name) continue; // longest-prefix owner emits the edge once
@@ -331,10 +339,11 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
       }
     }
   }
-  if (!anyPathExists) {
+  if (!anyJsTsSource) {
     return {
       available: false,
-      reason: 'source unavailable: none of the module paths exist on disk',
+      reason:
+        "source unavailable: no JavaScript/TypeScript source under module paths (import-direction is JS/TS-only — use your language's import linter, e.g. import-linter / deptrac / packwerk, for others)",
       edges: [],
     };
   }
