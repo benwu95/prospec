@@ -3,7 +3,7 @@ feature: agent-integration
 status: active
 last_updated: 2026-07-12
 story_count: 17
-req_count: 71
+req_count: 72
 ---
 
 # Agent Integration
@@ -242,15 +242,20 @@ skill-format 契約斷言 rendered skill 輸出不含 `DEFAULT_KNOWLEDGE_TOKEN_B
 - WHEN `prospec-<gone>` 不在當前清單, THEN 被移除且回報（`prospec-` 前綴為保留字）
 - WHEN 目錄非 `prospec-` 前綴（user skill）, THEN 保留
 
-#### REQ-AGNT-033: Collision-Free Trigger Baselines
-baseline 觸發詞（skill.ts）無跨 skill substring 或 exact-dup 碰撞，且移除與 CLI 指令同名的泛用詞（check/change）；本專案 `.prospec.yaml` 中文觸發詞一併無碰撞。
+#### REQ-AGNT-033: Collision-Free, Prospec-Specific Trigger Baselines
+baseline 觸發詞（skill.ts）無跨 skill substring 或 exact-dup 碰撞，且為 **prospec-specific**——移除與 CLI 指令同名或一般開發對話常見的裸泛用詞（check/change/upgrade/setup/done/critical/feedback/clean up/I want to/migrate version/version bump），改用 prospec-qualified 片語（如 `upgrade prospec`/`user story`/`quality check`/`finalize change`/`technical plan`）；本專案 `.prospec.yaml` 中文觸發詞一併無碰撞且同樣收斂。每個 skill ≥3 詞（由 REQ-TESTS-053 機器強制）。
 - WHEN 防碰撞 contract test 對 baseline 跑, THEN 0 violation（跨 skill substring + exact-dup）
 - WHEN 對 `.prospec.yaml` skill_triggers 跑同一偵測器, THEN 0 violation
-- WHEN 檢視任一 skill, THEN 保留主觸發詞且 ≥3 詞
+- WHEN 檢視任一 skill, THEN triggers 為 prospec-specific 片語且 ≥3 詞（無裸泛用詞）
 
 #### REQ-TESTS-046: Agent-Sync Hygiene Contract
 契約/單元測試釘住：description 等價性（每 skill registry↔frontmatter，escaped round-trip）、orphan sweep（移除 orphan + 保留 user skill + 回報）、trigger 防碰撞（baseline + `.prospec.yaml`，0 violation）。全部 mutation-verified。
 - WHEN 改壞任一（description 漂移／sweep 誤刪或漏刪／新增碰撞）, THEN 對應斷言轉紅
+
+#### REQ-TESTS-053: Minimum Trigger Count Contract (≥3 per skill)
+skill-format 契約斷言每個 `SKILL_DEFINITIONS` skill `triggers.length >= 3`，把 REQ-AGNT-033 的「≥3 詞」意圖由 spec 文字升級為機器強制（此前唯一機器約束為 `> 0`，故 prospec-plan 的 2 詞缺口無守門）。實斷言與 mutation guard 共用 `skillsBelowMinTriggers` 述詞，鬆綁下限會同時打紅兩者。
+- WHEN 任一 skill triggers 少於 3 詞, THEN 斷言轉紅
+- WHEN 全 17 skill ≥3, THEN 斷言綠；mutation guard 以真 `SKILL_DEFINITIONS` + 合成 2-trigger skill 證述詞非 vacuous
 
 ---
 
@@ -671,3 +676,4 @@ mutation-verified 契約：baseline 逐字 == `SKILL_DEFINITIONS`；fill-missing
 | 2026-07-06 | slim-skill-trigger-context | L0 registry per-agent 精簡（claude slim / AGENTS.md 完整，`AgentConfig.surfacesSkillFrontmatter` 單一來源）+ ff/plan/archive format refs → per-phase on-demand + knowledge-generate 去 conventions 內嵌鏡像（issue #62） | US-438; REQ-TYPES-059, REQ-AGNT-034, REQ-TEMPLATES-146/147/148 (ADDED); REQ-AGNT-020 (MODIFIED) |
 | 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-AGNT-035（agent-sync 注入 resolved token 預算、knowledge-loading 模板變數渲染、去 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 符號、指向 `.prospec.yaml` + `prospec check knowledge-size`）、REQ-TESTS-049（生成 skill 預算渲染契約，mutation-verified） | US-401; REQ-AGNT-035, REQ-TESTS-049 (ADDED) |
 | 2026-07-12 | emit-trigger-scaffold | `prospec agent triggers` fill-missing scaffold（baseline 單一來源 `computeUnlocalizedSkills`）；agent-sync hint 與 quickstart/upgrade onboarding 指向該指令 | US-439 (ADDED); REQ-AGNT-036、REQ-SERVICES-066、REQ-TESTS-052 (ADDED); REQ-AGNT-021、REQ-TEMPLATES-108、REQ-TEMPLATES-121 (MODIFIED) |
+| 2026-07-12 | converge-skill-triggers | 8 skill trigger baseline 收斂為 prospec-specific/collision-free/≥3（移除裸泛用詞、補 plan 第 3 詞）+ .prospec.yaml 中文鏡像；≥3 意圖機器化 | US-411; REQ-TESTS-053 (ADDED); REQ-AGNT-033 (MODIFIED) |
