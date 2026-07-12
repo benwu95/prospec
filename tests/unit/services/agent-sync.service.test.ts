@@ -461,7 +461,7 @@ describe('agent-sync skill_triggers warnings', () => {
     const planCall = calls.find(([name]) => name === 'skills/prospec-plan.hbs');
     const planCtx = planCall![1] as Record<string, unknown>;
     expect(planCtx.trigger_words).toBe(
-      'plan, architecture — or equivalent terms in Traditional Chinese (Taiwan)',
+      'plan, architecture, technical plan — or equivalent terms in Traditional Chinese (Taiwan)',
     );
 
     const entryCall = calls.find(([name]) => name === 'agent-configs/entry.md.hbs');

@@ -165,7 +165,7 @@ modules:
     rationale: "Thin I/O layer: no business logic, delegates to services"
 
   - name: templates
-    description: "Handlebars template library — 17 skills + 5 shared partials, 20
+    description: "Handlebars template library — 17 skills + 5 shared partials, 19
       references, 1 agent-config, 4 change, 15 init/knowledge (62 `.hbs`
       templates). Pure resources consumed by lib/template — the source of every
       generated skill, README, and index."

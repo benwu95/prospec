@@ -19,7 +19,7 @@
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
 | `measurement.ts` | `MeasurementReportSchema` + offline `SizeReportSchema` |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
-| `skill.ts` | SKILL_DEFINITIONS (17 skills), AGENT_CONFIGS (4 agents) |
+| `skill.ts` | SKILL_DEFINITIONS (17 skills; each ≥3 collision-free trigger baselines), AGENT_CONFIGS (4 agents) |
 | `spec.ts` | Feature/Product spec frontmatter schemas |
 | `version.ts` | `PROSPEC_VERSION` — running version with process.env / package.json resolution |
 
