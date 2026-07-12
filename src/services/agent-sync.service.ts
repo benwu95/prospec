@@ -11,6 +11,7 @@ import { renderTemplate } from '../lib/template.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
+import { computeUnlocalizedSkills } from './trigger-localization.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
 import {
@@ -99,27 +100,22 @@ export async function execute(
   }
   const hints: string[] = [];
   if (!isDefaultArtifactLanguage(artifactLanguage)) {
-    // A skill is localized only with a non-empty skill_triggers entry (empty
-    // arrays count as unset, cf. REQ-AGNT-019). Naming the gap lets the user fill
-    // just the newly-added skills after a CLI upgrade — never deleting
+    // Fill-missing gap set — computed via the shared single source (PB-007),
+    // also consumed by `prospec agent triggers`. Naming the gap lets the user
+    // fill just the newly-added skills after a CLI upgrade — never deleting
     // .prospec.yaml to force a full re-localization through init.
-    const localized = new Set(
-      Object.entries(skillTriggers)
-        .filter(([, words]) => words.length > 0)
-        .map(([name]) => name),
-    );
-    const missing = SKILL_DEFINITIONS.filter((s) => !localized.has(s.name));
+    const missing = computeUnlocalizedSkills(config);
     if (missing.length === SKILL_DEFINITIONS.length) {
       // None localized yet — generic onboarding guidance (don't enumerate all).
       hints.push(
-        `Native-language skill triggers: ask your AI agent to translate each skill's English trigger baseline into ${artifactLanguage}, add them under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\`.`,
+        `Native-language skill triggers: run \`prospec agent triggers\` to get a ready-to-translate skill_triggers scaffold, translate each English baseline into ${artifactLanguage}, add them under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\`.`,
       );
     } else if (missing.length > 0) {
       // Partially localized — name the skills still missing triggers.
       hints.push(
         `These skills have no ${artifactLanguage} skill_triggers entry yet: ${missing
           .map((s) => s.name)
-          .join(', ')}. Add their triggers under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\` — no need to re-init.`,
+          .join(', ')}. Run \`prospec agent triggers\` to get their baselines, add their triggers under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\` — no need to re-init.`,
       );
     }
   }

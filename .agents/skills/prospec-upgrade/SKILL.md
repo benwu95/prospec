@@ -117,13 +117,16 @@ localize every skill that still has **no `skill_triggers` entry** — that is St
 triggers" list, plus, when Step 3 just set the language, all skills. Skip entirely when the language is
 English or every skill already has an entry.
 
-1. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from
-2. Translate ONLY those skills' English trigger baselines into `artifact_language`
-3. **Show the proposed translations and wait for confirmation** before writing anything
-4. On confirmation, add the new `skill_triggers` keys by a **minimal in-place edit** — insert only the
+1. Run `prospec agent triggers` (Bash) to get a ready-to-translate `skill_triggers` scaffold — the skills
+   still missing an entry, each with its English baseline sourced from the CLI (authoritative; never grep
+   a deployed SKILL.md, whose frontmatter already merges custom words)
+2. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from
+3. Translate each scaffold value into `artifact_language`
+4. **Show the proposed translations and wait for confirmation** before writing anything
+5. On confirmation, add the new `skill_triggers` keys by a **minimal in-place edit** — insert only the
    missing keys; never re-serialize the file or touch existing keys, their order, or comments
-5. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if not, restore the snapshot
-6. If anything changed in Step 2, Step 3, or Step 4, run `prospec agent sync` (Bash) so the language,
+6. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if not, restore the snapshot
+7. If anything changed in Step 2, Step 3, or Step 4, run `prospec agent sync` (Bash) so the language,
    localized triggers, and refreshed docs land in each SKILL.md frontmatter and the entry config
 
 ## Output Contract

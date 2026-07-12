@@ -15,6 +15,7 @@ import { registerPrintTemplateCommand } from './commands/print-template.js';
 import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
 import { registerAgentCommand } from './commands/agent-sync.js';
+import { registerConfigCommand } from './commands/config.js';
 import { registerChangeCommand } from './commands/change-story.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
@@ -26,7 +27,7 @@ import { PROSPEC_VERSION } from '../types/version.js';
 /**
  * Commands that do NOT require .prospec.yaml to exist.
  */
-const INIT_COMMANDS = new Set(['init', 'quickstart', 'help', 'print-template']);
+const INIT_COMMANDS = new Set(['init', 'quickstart', 'help', 'print-template', 'config']);
 
 /**
  * Resolve verbose/quiet from global options into a log level.
@@ -88,6 +89,7 @@ export function createProgram(): Command {
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);
   registerAgentCommand(program);
+  registerConfigCommand(program);
   registerChangeCommand(program);
   registerChangePlanCommand(program);
   registerChangeTasksCommand(program);

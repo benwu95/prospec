@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2112%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2129%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -483,6 +483,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
+| `prospec agent triggers` | Print a ready-to-translate `skill_triggers` scaffold — the skills still missing a native-language entry, each with its English baseline (from `SKILL_DEFINITIONS`). Translate the values into your `artifact_language` and add them under `skill_triggers`; English or fully-localized projects print an informational note instead |
+| `prospec config example` | Print a complete, annotated `.prospec.yaml` reference — every field prospec reads, with an example value and note. Runs without an initialized project |
 | `prospec print-template <path>` | Print the raw content of a bundled template (Offline, Node.js-free template retrieval) |
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
@@ -683,11 +685,16 @@ Key configurations you can tweak:
 - **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
 - **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
 
-Example `.prospec.yaml`:
+Example `.prospec.yaml` (for the full annotated reference of every field, run `prospec config example`):
 ```yaml
 version: "1.0"
 project:
   name: my-project
+tech_stack:
+  language: typescript
+  package_manager: pnpm
+paths:
+  base_dir: prospec
 artifact_language: Traditional Chinese (Taiwan)
 exclude:
   - "*.env*"
@@ -696,6 +703,7 @@ agents:
   - claude
   - antigravity
 knowledge:
+  base_path: prospec/ai-knowledge
   strategy: domain
   token_budget:
     l1_per_file: 1800
@@ -721,7 +729,7 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (61 .hbs files)
+└── templates/    — Handlebars templates (62 .hbs files)
     └── skills/   — 17 Skill templates + 19 reference templates
 ```
 
@@ -740,7 +748,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2112 tests)
+# Run all tests (2129 tests)
 pnpm test
 
 # Watch mode
@@ -753,9 +761,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2112 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1382 tests
-- Contract tests (CLI output + Skill format): 647 tests
+**Test Coverage**: 2129 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1392 tests
+- Contract tests (CLI output + Skill format): 654 tests
 - Integration tests: 38 tests
 - E2E tests: 45 tests
 

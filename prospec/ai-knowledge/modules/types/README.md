@@ -9,13 +9,13 @@
 | File | Purpose |
 |------|---------|
 | `change.ts` | `ChangeMetadataSchema`, CHANGE_STATUSES/SCALES, GATE_RESULTS/VERIFY_GRADES, `isStatusBefore` |
-| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`/`TokenBudgetSchema`, VALID_AGENTS |
+| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, top-level `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`/`TokenBudgetSchema`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS |
 | `constitution.ts` | `ConstitutionRule` — RFC-2119 severity + name/description/rationale/check |
 | `conventions.ts` | Convention-doc registries — CORE_CONVENTIONS, INIT_DOC_REGISTRY |
 | `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (11 frozen) |
 | `errors.ts` | `ProspecError` base + 13 error subclasses |
 | `feature-map.ts` | `FeatureMapSchema` (feature→module index), FEATURE_STATUSES — shape-only |
-| `knowledge.ts` | `index.md` column schema (INDEX_TABLE_COLUMNS); KNOWLEDGE_STRATEGIES/FILE_TYPES |
+| `knowledge.ts` | `index.md` column schema (INDEX_TABLE_COLUMNS) + table header/separator helpers |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
 | `measurement.ts` | `MeasurementReportSchema` + offline `SizeReportSchema` |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |

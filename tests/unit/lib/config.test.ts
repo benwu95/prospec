@@ -287,3 +287,38 @@ describe('isArtifactLanguageUnset', () => {
     ).toBe(false);
   });
 });
+
+describe('US-3 schema cleanup: dead fields removed, top-level loose preserved', () => {
+  it('still parses a config that carries the removed nested dead keys, but strips them from the result', () => {
+    // project.version, knowledge.files, and an extra paths.* key were all dead
+    // (no runtime reader) and are removed from the schema — a config that still
+    // carries them must validate (Zod strips unknown nested keys), never error.
+    const config = validateConfig(
+      [
+        'project:',
+        '  name: test',
+        '  version: "9.9"',
+        'knowledge:',
+        '  base_path: prospec/ai-knowledge',
+        '  files:',
+        '    - readme',
+        'paths:',
+        '  base_dir: docs',
+        '  extra_path: whatever',
+        '',
+      ].join('\n'),
+    );
+    expect(config.project.name).toBe('test');
+    expect((config.project as Record<string, unknown>)['version']).toBeUndefined();
+    expect((config.knowledge as Record<string, unknown> | undefined)?.['files']).toBeUndefined();
+    expect((config.paths as Record<string, unknown> | undefined)?.['extra_path']).toBeUndefined();
+    // a live nested field alongside the stripped ones still resolves
+    expect(config.paths?.base_dir).toBe('docs');
+    expect(config.knowledge?.base_path).toBe('prospec/ai-knowledge');
+  });
+
+  it('keeps preserving unknown TOP-LEVEL keys via .loose() (a tested extensibility point, not dead)', () => {
+    const config = validateConfig('project:\n  name: test\ncustom_field: value\n');
+    expect((config as Record<string, unknown>)['custom_field']).toBe('value');
+  });
+});
