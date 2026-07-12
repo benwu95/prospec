@@ -1942,6 +1942,29 @@ describe('Skill trigger baselines', () => {
     }
   });
 
+  // REQ-TESTS-053: machine-enforce REQ-AGNT-033's "keep >= 3 triggers" intent
+  // (previously only spec text; the sole machine bound was > 0, so a 2-trigger
+  // skill like the old prospec-plan slipped through). Shared predicate so the
+  // mutation guard exercises the SAME logic the real assertion runs (cf. the
+  // collision detector guard above) — loosening the bound breaks both.
+  const skillsBelowMinTriggers = (
+    defs: ReadonlyArray<{ name: string; triggers: string[] }>,
+    min: number,
+  ): string[] => defs.filter((s) => s.triggers.length < min).map((s) => s.name);
+
+  it('every skill baseline has >= 3 triggers (REQ-TESTS-053)', () => {
+    expect(skillsBelowMinTriggers(SKILL_DEFINITIONS, 3), 'skills with < 3 triggers').toEqual([]);
+  });
+
+  it('the >= 3 min-count check flags a 2-trigger skill in the real set (mutation guard)', () => {
+    expect(
+      skillsBelowMinTriggers(
+        [...SKILL_DEFINITIONS, { name: 'mutant', triggers: ['a', 'b'] }],
+        3,
+      ),
+    ).toEqual(['mutant']);
+  });
+
   it('full-table entry config lists trigger words for every skill', () => {
     const content = renderTemplate('agent-configs/entry.md.hbs', {
       ...TEMPLATE_CONTEXT,

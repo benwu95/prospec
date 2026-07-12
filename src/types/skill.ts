@@ -76,7 +76,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-new-story',
     description: 'New Story - Create change requests by guiding User Story and acceptance criteria definition.',
-    triggers: ['new feature', 'requirement', 'story', 'I want to'],
+    triggers: ['new feature', 'requirement', 'user story'],
     type: 'Planning',
     cliDependency: 'prospec change story',
     hasReferences: true,
@@ -84,7 +84,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-plan',
     description: 'Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).',
-    triggers: ['plan', 'architecture'],
+    triggers: ['plan', 'architecture', 'technical plan'],
     type: 'Planning',
     cliDependency: 'prospec change plan',
     hasReferences: true,
@@ -122,14 +122,14 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-review',
     description: 'Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.',
-    triggers: ['review', 'code review', 'adversarial review', 'find bugs', 'critical'],
+    triggers: ['review', 'code review', 'adversarial review', 'find bugs'],
     type: 'Execution',
     hasReferences: true,
   },
   {
     name: 'prospec-verify',
     description: 'Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).',
-    triggers: ['verify', 'audit', 'quality', 'done'],
+    triggers: ['verify', 'audit', 'quality check'],
     type: 'Execution',
     hasReferences: true,
   },
@@ -143,7 +143,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-archive',
     description: 'Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.',
-    triggers: ['archive', 'clean up', 'wrap up', 'spec sync'],
+    triggers: ['archive', 'spec sync', 'finalize change'],
     type: 'Lifecycle',
     hasReferences: true,
   },
@@ -171,14 +171,14 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-learn',
     description: 'Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).',
-    triggers: ['learn', 'promote lesson', 'feedback', 'playbook'],
+    triggers: ['learn', 'promote lesson', 'playbook'],
     type: 'Lifecycle',
     hasReferences: true,
   },
   {
     name: 'prospec-quickstart',
     description: 'Quickstart Onboarding Finisher - localize skill triggers, re-sync agent config, prepare the knowledge scan, and chain into knowledge generation.',
-    triggers: ['quickstart', 'setup', 'bootstrap', 'onboard', 'get started'],
+    triggers: ['quickstart', 'onboard', 'bootstrap', 'get started'],
     type: 'Lifecycle',
     cliDependency: 'prospec quickstart',
     hasReferences: false,
@@ -187,7 +187,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
     name: 'prospec-upgrade',
     description: "Prospec Version Upgrade Finisher - after `prospec upgrade` records the version, syncs agents, and reports gaps, work through the report's docs inventory: update init-created files whose format drifted and create missing ones (asking consent per file), then localize triggers for newly-added skills and re-sync.",
-    triggers: ['upgrade', 'upgrade prospec', 'migrate version', 'version bump'],
+    triggers: ['upgrade prospec', 'prospec upgrade', 'migrate prospec version'],
     type: 'Lifecycle',
     cliDependency: 'prospec upgrade',
     hasReferences: false,

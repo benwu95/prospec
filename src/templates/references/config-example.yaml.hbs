@@ -1,0 +1,64 @@
+# Complete .prospec.yaml reference — every field prospec reads, with an example
+# value and a note. Emitted by `prospec config example`. Copy the fields you need
+# into your project's .prospec.yaml; all fields except `project.name` are optional
+# and fall back to the defaults noted below.
+
+# The prospec version the project last upgraded to. Stamped by `prospec init`,
+# refreshed by `prospec upgrade`. A legacy `version: "1.0"` is treated as stale.
+version: "1.0"
+
+project:
+  # Project name (the only REQUIRED field).
+  name: my-project
+
+# Overrides auto-detected tech stack (reported with `Source: config`).
+tech_stack:
+  language: typescript
+  framework: none
+  package_manager: pnpm
+
+paths:
+  # Root of the prospec artifact tree (Constitution, index.md, specs, knowledge).
+  # Defaults to `prospec`.
+  base_dir: prospec
+
+# Glob patterns excluded from AI-knowledge scanning.
+exclude:
+  - "*.env*"
+  - "*credential*"
+  - "*secret*"
+  - node_modules
+  - .git
+
+# AI agent configs to generate. Valid: claude, codex, copilot, antigravity.
+agents:
+  - claude
+
+knowledge:
+  # Knowledge base location. Defaults to `{base_dir}/ai-knowledge`.
+  base_path: prospec/ai-knowledge
+  # Extra convention files to pre-load as L1 Core Conventions, relative to the
+  # ai-knowledge/ directory.
+  additional_core_conventions:
+    - my-custom-api-rules.md
+  # Module-partitioning strategy. Valid: auto, architecture, domain, package.
+  strategy: auto
+  # L1/L2 size limits for the knowledge-size drift check. Set only the fields you
+  # want to change; anything unset falls back to the default shown here.
+  token_budget:
+    l1_per_file: 1800
+    l2_per_module: 1000
+    readme_max_lines: 100
+
+# Language for AI-generated change artifacts. Code, identifiers, technical terms,
+# commit messages, and the AI Knowledge base always stay English. Defaults to
+# English when absent.
+artifact_language: Traditional Chinese (Taiwan)
+
+# Native-language activation keywords per skill (skill-name -> list of strings),
+# merged onto each skill's English trigger baseline. Run `prospec agent triggers`
+# to get a ready-to-translate scaffold of the skills still missing an entry.
+skill_triggers:
+  prospec-explore:
+    - explore
+    - 探索

@@ -17,10 +17,6 @@ const TechStackSchema = z.object({
   package_manager: z.string().optional(),
 }).optional();
 
-export const KNOWLEDGE_FILE_TYPES = [
-  'readme', 'endpoints', 'components', 'screens',
-] as const;
-
 /**
  * Knowledge module partitioning strategies.
  *
@@ -69,7 +65,6 @@ export interface KnowledgeSizeBudget {
 const KnowledgeSchema = z.object({
   base_path: z.string().optional(),
   additional_core_conventions: z.array(z.string()).optional(),
-  files: z.array(z.enum(KNOWLEDGE_FILE_TYPES)).optional(),
   strategy: z.enum(KNOWLEDGE_STRATEGIES).optional(),
   token_budget: TokenBudgetSchema,
 }).optional();
@@ -92,19 +87,18 @@ export const ProspecConfigSchema = z
     version: z.string().optional(),
     project: z.object({
       name: z.string({ error: 'project.name is a required field' }),
-      version: z.string().optional(),
     }),
     tech_stack: TechStackSchema,
     paths: z.object({
       base_dir: z.string().optional(),
-    }).catchall(z.string()).optional(),
+    }).optional(),
     exclude: z.array(z.string()).optional(),
     agents: z.array(z.enum(VALID_AGENTS)).optional(),
     knowledge: KnowledgeSchema,
     artifact_language: z.string().optional(),
     skill_triggers: z.record(z.string(), z.array(z.string())).optional(),
   })
-  .passthrough();
+  .loose();
 
 export type ProspecConfig = z.infer<typeof ProspecConfigSchema>;
 export type TechStack = z.infer<typeof TechStackSchema>;

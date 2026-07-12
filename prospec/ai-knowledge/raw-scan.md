@@ -81,6 +81,7 @@ src/
     change/
     init/
     knowledge/
+    references/
     skills/
       references/
   types/
@@ -106,5 +107,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 397 |
+| Total files | 411 |
 | Scan depth | 10 |

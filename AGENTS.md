@@ -41,7 +41,7 @@ Explore - Requirement exploration, problem investigation, and solution compariso
 New Story - Create change requests by guiding User Story and acceptance criteria definition.
 
 **Type**: Planning
-**Triggers**: new feature, requirement, story, I want to, 新功能, 需求, 我想要, 新增需求
+**Triggers**: new feature, requirement, user story, 新功能, 需求, 新增需求
 **References**: `.agents/skills/prospec-new-story/references/`
 
 ### /prospec-plan
@@ -49,7 +49,7 @@ New Story - Create change requests by guiding User Story and acceptance criteria
 Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).
 
 **Type**: Planning
-**Triggers**: plan, architecture, 規劃, 架構規劃
+**Triggers**: plan, architecture, technical plan, 規劃, 架構規劃, 技術規劃
 **References**: `.agents/skills/prospec-plan/references/`
 
 ### /prospec-design
@@ -89,7 +89,7 @@ Implementation - Execute tasks from the task list, implementing features one by 
 Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.
 
 **Type**: Execution
-**Triggers**: review, code review, adversarial review, find bugs, critical, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
+**Triggers**: review, code review, adversarial review, find bugs, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
 **References**: `.agents/skills/prospec-review/references/`
 
 ### /prospec-verify
@@ -97,7 +97,7 @@ Adversarial Code Review → Fix Loop - Between implement and verify, an independ
 Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).
 
 **Type**: Execution
-**Triggers**: verify, audit, quality, done, 驗證, 稽核, 品質, 完成, 評級
+**Triggers**: verify, audit, quality check, 驗證, 稽核, 品質檢查, 評級
 **References**: `.agents/skills/prospec-verify/references/`
 
 ### /prospec-knowledge-generate
@@ -112,7 +112,7 @@ Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomousl
 Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.
 
 **Type**: Lifecycle
-**Triggers**: archive, clean up, wrap up, spec sync, 封存, 歸檔, 收尾, 規格同步, 清理
+**Triggers**: archive, spec sync, finalize change, 封存, 歸檔, 收尾, 規格同步
 **References**: `.agents/skills/prospec-archive/references/`
 
 ### /prospec-knowledge-update
@@ -143,7 +143,7 @@ Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill chan
 Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).
 
 **Type**: Lifecycle
-**Triggers**: learn, promote lesson, feedback, playbook, 學習, 晉升教訓, 回饋, 經驗手冊
+**Triggers**: learn, promote lesson, playbook, 學習, 晉升教訓, 經驗手冊
 **References**: `.agents/skills/prospec-learn/references/`
 
 

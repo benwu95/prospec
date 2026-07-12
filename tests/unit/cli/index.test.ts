@@ -131,6 +131,7 @@ describe('createProgram', () => {
         'agent',
         'change',
         'check',
+        'config',
         'init',
         'knowledge',
         'mcp',
