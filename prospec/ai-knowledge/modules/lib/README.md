@@ -52,7 +52,7 @@ Also: `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers
 
 - `mergeContent()` relies on exact marker strings (typos fail silently); `scanDir()` custom excludes ADD to security defaults.
 - noEscape YAML templates MUST run user text through `escapeYamlScalar()`, else unparseable YAML.
-- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass.
+- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only → honest `skipped`, not a 0-file PASS).
 - knowledge-reader reads: realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null vs invalid→throw.
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`.
 
