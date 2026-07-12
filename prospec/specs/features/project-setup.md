@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-07-03
-story_count: 16
-req_count: 40
+last_updated: 2026-07-12
+story_count: 18
+req_count: 43
 ---
 
 # 專案啟動
@@ -530,6 +530,55 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 
 ---
 
+### US-018: 完整的 .prospec.yaml 參考範例 [P1]
+
+身為想理解或校正 `.prospec.yaml` 全欄位的 prospec 使用者（含 onboarding agent），
+我希望一個 CLI 指令吐出完整、合法、逐欄註解的 `.prospec.yaml` 範例，
+以便我不必讀 minified binary 或殘缺的 README 就能發現每個可設欄位。
+
+**Acceptance Scenarios:**
+- WHEN 執行 `prospec config example` THEN 輸出涵蓋 `ProspecConfigSchema` 全欄位、逐欄帶註解、parse 過 `safeParse`
+- WHEN 在未初始化專案執行 THEN 仍可輸出（範例與專案狀態無關）
+- WHEN schema 新增欄位而範例未同步 THEN 完整性契約測試轉紅
+
+#### REQ-CLI-021: `prospec config example` Emits Complete Annotated Config
+新 `config` command group + `example` 子指令印出完整、合法、逐欄註解的 `.prospec.yaml` 範例，涵蓋 `ProspecConfigSchema` 全欄位；登錄於 `INIT_COMMANDS`（未 init 可跑）；success→stdout。
+
+**Scenarios:**
+- WHEN 輸出被 parse, THEN 合法 YAML 且 `ProspecConfigSchema.safeParse` 成功
+- WHEN 檢視輸出, THEN 涵蓋 schema 每個欄位（含 README 曾漏的 `tech_stack` / `paths.base_dir` / `knowledge.base_path`）
+- WHEN 未 init 專案執行, THEN 可執行（`INIT_COMMANDS`）；`README.md`/`README.zh-TW.md` 記載此指令
+
+#### REQ-TESTS-051: config-example Completeness Contract
+structure-aware、mutation-verified 契約：`config example` 輸出 parse 過 `ProspecConfigSchema`，且 schema 每個 key（含 nested，經各 nested schema `.shape` 派生）皆現於範例。
+
+**Scenarios:**
+- WHEN 範例缺任一 schema key（含 nested）, THEN 契約轉紅
+- WHEN schema 已無死欄位, THEN 範例每個宣告 key 皆 live（無 dead allowlist）
+
+---
+
+### US-019: 清理 config schema 的 dead 欄位 [P2]
+
+身為 prospec 維護者，
+我希望從 `ProspecConfigSchema` 移除宣告了但程式碼從不讀的 dead 欄位、並汰換 deprecated 的 `.passthrough()`，
+以便 schema 只保留有實效欄位、且不用被淘汰的 API。
+
+**Acceptance Scenarios:**
+- WHEN 檢視 `ProspecConfigSchema` THEN 不含 `project.version`、`knowledge.files`（+ `KNOWLEDGE_FILE_TYPES`）、`paths` catchall
+- WHEN 既有含這些 key 的 config parse THEN 仍成功（Zod strip 未知 nested key），零行為改變
+- WHEN 檢視頂層物件 THEN 以 `.loose()` 取代 deprecated `.passthrough()`，loose 行為保留
+
+#### REQ-TYPES-062: Config Schema Carries Only Live Fields + Non-Deprecated Loose API
+`ProspecConfigSchema` 只保留有 runtime reader 的宣告欄位；移除 dead 的 `project.version`、`knowledge.files`（+ orphaned `KNOWLEDGE_FILE_TYPES`）、`paths` 的 `.catchall`。頂層 `.passthrough()` 汰換為 Zod 4 `.loose()`（行為等價，保留未知頂層 key）。既有 config 仍 parse：移除的 nested key 被 strip（本就無 reader，零行為改變），未知頂層 key 仍 passthrough。
+
+**Scenarios:**
+- WHEN schema 檢視, THEN 不宣告 `project.version` / `knowledge.files` / `KNOWLEDGE_FILE_TYPES` / `paths` catchall
+- WHEN 含被移除 nested key 的 config `validateConfig`, THEN 成功且結果不含它們
+- WHEN 未知頂層 key, THEN 仍被 `.loose()` 保留（既有 passthrough 測試續綠）
+
+---
+
 ## Edge Cases
 
 - `.prospec.yaml` 格式錯誤（YAML 語法）：提供具體錯誤位置與修正建議
@@ -590,3 +639,4 @@ lib `mergeIntoDocument(doc, value)`：把物件就地合併進既有 YAML Docume
 | 2026-07-02 | dedupe-init-doc-registry | registry 平行重複收束（review F2/F3）：user-managed 清單升級為 `ConventionDocSource` 對並經 `asKnowledgeInitDoc` 推導、`InitDoc.context` 判別欄位取代範本路徑字串比對；行為逐位元不變 | REQ-TYPES-038 (MODIFIED，描述性) |
 | 2026-07-03 | add-init-project-readme | `prospec init` 產生專案內 Prospec 簡介 README（issue #50）：新增 `init/readme.md.hbs`、`INIT_DOC_REGISTRY` 獨立 base 條目（README.md），init create + upgrade docs inventory 自動涵蓋 | US-003; REQ-SETUP-023 (ADDED); REQ-SETUP-004 (MODIFIED) |
 | 2026-07-03 | upgrade-create-missing-docs | prospec upgrade 直接補建缺漏的 init 文件（render-from-template、skip-if-exists、best-effort）；共用 `lib/init-docs` helper；skill Step 2 轉補齊＋格式遷移 | US-017; REQ-SETUP-024/TYPES-051/LIB-023/SERVICES-061/TEMPLATES-124/TESTS-037 (ADDED); REQ-SETUP-019/SERVICES-035/SETUP-022 (MODIFIED) |
+| 2026-07-12 | emit-trigger-scaffold | `prospec config example`（完整逐欄註解 .prospec.yaml 範例，INIT_COMMANDS）；清理 config schema dead 欄位 + `.passthrough()`→`.loose()` | US-018/019 (ADDED); REQ-CLI-021、REQ-TYPES-062、REQ-TESTS-051 (ADDED) |
