@@ -32,11 +32,12 @@ Thumbs.db
 # Task scratch (per-branch todo / lessons)
 .tasks/
 
-# Agents — track only prospec-* skills, ignore the rest.
+# Agents — track prospec-* skills + the release maintainer skill; ignore the rest.
 .claude/*
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/prospec-*
+!.claude/skills/release/
 .agents/*
 !.agents/skills/
 .agents/skills/*
