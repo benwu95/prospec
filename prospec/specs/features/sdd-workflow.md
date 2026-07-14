@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-05
+last_updated: 2026-07-14
 story_count: 26
-req_count: 118
+req_count: 119
 ---
 
 # SDD 開發流程
@@ -65,6 +65,12 @@ req_count: 118
 `prospec-new-story.hbs` 引導產出 INVEST User Stories。
 - WHEN triggered, THEN interview flow guides multiple independent Stories with P0/P1/P2 + WHEN/THEN
 - WHEN complete, THEN conform to proposal-format.hbs + execute Knowledge Quality Gate
+
+#### REQ-TEMPLATES-150: metadata.yaml Format Reference
+`references/metadata-format.hbs` 為 metadata.yaml 序列化格式的單一權威（canonical 欄位順序、最小引號、`created_at` ISO 8601、`quality_log` entry 形狀），語意 defer 給 `ChangeMetadataSchema`（`src/types/change.ts`）與 `_status-lifecycle.md`，不重述。
+- WHEN new-story/ff scaffold metadata.yaml, THEN follow the reference's canonical field order and serialization conventions (loaded MANDATORY at new-story Startup Loading / on-demand at ff Phase 2)
+- WHEN a downstream skill (plan/tasks/implement/review/verify/archive) appends a `quality_log` entry or edits `status`, THEN follow the reference's entry shape — `result` stays the gate three-state, the verify grade lives in `grade`, never in `result`
+- WHEN the reference documents field domains, THEN it points to the schema/`_status-lifecycle.md` rather than restating them (avoids the templates restatement-contract failure)
 
 ---
 
@@ -991,6 +997,7 @@ Constitution 完整分級稽核（every principle）只在 `/prospec-verify` V3/
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-14 | add-metadata-format-reference | ADDED REQ-TEMPLATES-150（metadata.yaml 序列化格式的單一權威 reference：new-story/ff 載入、下游 skill 追加欄位時指向、語意 defer schema/`_status-lifecycle.md`） | US-1; REQ-TEMPLATES-150 (ADDED) |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-26（scale 誠實化與儀式修剪）+ REQ-TEMPLATES-134/135/136/137/139/140（verify quick 減量、archive quick parity、[P]/~lines 選填、INVEST advisory、Quality-Gate 去重、commit 語意統一）（issue #67） | US-26, REQ-TEMPLATES-134, REQ-TEMPLATES-135, REQ-TEMPLATES-136, REQ-TEMPLATES-137, REQ-TEMPLATES-139, REQ-TEMPLATES-140 |
 | 2026-06-19 | archive-sync | MODIFIED REQ-SERVICES-010; MODIFIED REQ-TEMPLATES-010; ADDED REQ-TESTS-033 | REQ-SERVICES-010, REQ-TEMPLATES-010, REQ-TESTS-033 |
 | 2026-02-04 | mvp-initial | 建立變更管理核心流程 | US-1, US-2, US-4; REQ-CHNG-001~016 |

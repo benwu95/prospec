@@ -89,12 +89,13 @@
   },
   "prospec-new-story": {
     "items": [
+      "references/metadata-format.md",
       "references/proposal-format.md",
       "{{base_dir}}/index.md",
       "{{base_dir}}/specs/features/",
       "{{constitution_path}}"
     ],
-    "mandatory": 1
+    "mandatory": 2
   },
   "prospec-quickstart": {
     "items": [

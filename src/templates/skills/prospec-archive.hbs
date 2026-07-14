@@ -76,7 +76,7 @@ For each confirmed change:
 1. Create `.prospec/archive/{YYYY-MM-DD}-{change-name}/`
 2. Move all artifacts (proposal.md, plan.md, delta-spec.md, tasks.md, metadata.yaml, and design-spec.md + interaction-spec.md if present)
 3. Place generated summary.md in archive directory
-4. Update `metadata.yaml` to `status: archived`
+4. Update `metadata.yaml` to `status: archived` (edit in place; keep the `metadata-format` serialization intact — do not reorder or reformat fields)
 5. Copy `summary.md` → `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date prefix = the archive date, same as the `.prospec/archive/{YYYY-MM-DD}-{change-name}/` folder) — the **committed** spec-history audit trail (`.prospec/archive/` is gitignored, so this copy is the only per-change record in version control). It lands in `_archived-history/` (drift-excluded via `ARCHIVED_EXCLUDES`), never flat under `{{base_dir}}/specs/`. Non-fatal — a copy failure never blocks archiving. Format: `references/archive-format.md` §Spec Archiving.
 
 > **Phase 3 Gate** — proceed when:

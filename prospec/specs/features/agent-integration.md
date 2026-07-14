@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-07-12
+last_updated: 2026-07-14
 story_count: 17
-req_count: 72
+req_count: 73
 ---
 
 # Agent Integration
@@ -120,6 +120,11 @@ entry config（CLAUDE.md/AGENTS.md）採 `prospec:auto`/`prospec:user` 區塊合
 - WHEN agent sync runs, THEN prospec-verify deploys 1 reference and prospec-review 2, each rendered into the skill's OWN `references/` dir (self-contained — REQ-AGNT-015)
 - WHEN a consuming repo lacks the addyosmani/agent-skills plugin, THEN verify/review still work — the skill bodies carry no `agent-skills:` runtime invocation (zero runtime external dependency)
 - WHEN `getSkillReferences` is read, THEN prospec-verify is registered (its `hasReferences` flipped true, gating deployment) and prospec-review carries a second reference
+
+#### REQ-AGNT-037: metadata-format Reference Registered for Scaffolding Skills
+- WHEN `getSkillReferences` is read, THEN prospec-new-story and prospec-ff each carry a `metadata-format` entry (both already `hasReferences: true` — no flag flip)
+- WHEN agent sync runs, THEN `metadata-format.md` is rendered self-contained into new-story and ff `references/` (REQ-AGNT-015), and each skill's `references/` dir count equals its `getSkillReferences` length
+- WHEN new-story/ff SKILL.md is deployed, THEN it cites its own `references/metadata-format.md`, never a sibling skill's dir
 
 #### REQ-TEMPLATES-083: Verify Failure-Recovery Reference
 - WHEN agent sync runs, THEN `prospec-verify/references/debug-recovery-format.md` exists (verify's first `references/` dir)
@@ -650,6 +655,7 @@ mutation-verified 契約：baseline 逐字 == `SKILL_DEFINITIONS`；fill-missing
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-14 | add-metadata-format-reference | ADDED REQ-AGNT-037（`getSkillReferences` 為 new-story/ff 註冊 `metadata-format`、agent sync 自足部署、references 目錄計數由 map 衍生） | US-401; REQ-AGNT-037 (ADDED) |
 | 2026-07-03 | migrate-skill-contract-to-vitest | verify-skills.sh 28 項生成契約搬入 vitest real-temp-dir;計數自 `getSkillReferences`/`SKILL_DEFINITIONS` derive、status-lifecycle 改 named-set 契約;移除 bash script + `verify:skills` + README 引用 | US-437; REQ-TESTS-038/039/040, REQ-AGNT-030 (ADDED) |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-AGNT-029 | US-436, REQ-AGNT-029 |
 | 2026-02-04 | mvp-initial | 建立 agent sync，支援 4 種 Agent | US-400~402, REQ-AGNT-001~012 |
