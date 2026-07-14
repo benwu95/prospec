@@ -10,7 +10,7 @@
 |------|---------|
 | `config.ts` | readConfig/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language accessors |
 | `fs-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→'') |
-| `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir; memory bundled-templates resolution |
+| `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir; generated `bundled-templates.ts` resolution |
 | `content-merger.ts` | mergeContent/mergeManagedDoc (preserve user blocks); hasAutoBlock/replaceAutoBlock |
 | `yaml-utils.ts` | parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath/moduleScanPatterns (module-map path → scan) |
