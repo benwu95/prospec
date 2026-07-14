@@ -21,7 +21,7 @@ Write generated documents in the language defined by the Constitution's Language
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
 2. [DYNAMIC] Read `prospec/index.md` — identify related modules
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## What Makes FF Unique
 
@@ -56,7 +56,7 @@ Derive kebab-case change name, confirm before proceeding.
 
 | Step | Action |
 |------|--------|
-| Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
+| Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story, serialized per [`references/metadata-format.md`](references/metadata-format.md)) + `proposal.md` |
 | Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write `metadata.scale`. Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |

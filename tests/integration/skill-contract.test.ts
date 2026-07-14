@@ -47,6 +47,12 @@ const EXPECTED_STATUS_LIFECYCLE_SKILLS = [
   'prospec-verify',
 ].sort();
 
+// The scaffolding skills that must carry the metadata-format reference — the two
+// entry points that create/seed metadata.yaml (REQ-TEMPLATES-150, REQ-AGNT-037).
+// A named set, not a bare count: a skill that gains or drops the reference makes
+// the registered set differ from this one (RED), and it self-documents intent.
+const EXPECTED_METADATA_FORMAT_SKILLS = ['prospec-ff', 'prospec-new-story'].sort();
+
 let tmp: string;
 const at = (...p: string[]) => path.join(tmp, ...p);
 const read = (...p: string[]) => readFileSync(at(...p), 'utf-8');
@@ -100,17 +106,41 @@ describe('Skill generation contract (verify-skills.sh port)', () => {
 
   // [C] references actually generated — counts DERIVED from the reference map
   describe('[C] reference files generated (counts derived)', () => {
-    it.each(['prospec-archive', 'prospec-ff', 'prospec-verify', 'prospec-review'])(
-      '%s deploys exactly its reference-map count',
-      (skill) => {
-        const dir = at('.claude/skills', skill, 'references');
-        expect(readdirSync(dir)).toHaveLength(refCount(skill));
-      },
-    );
+    it.each([
+      'prospec-archive',
+      'prospec-ff',
+      'prospec-new-story',
+      'prospec-verify',
+      'prospec-review',
+    ])('%s deploys exactly its reference-map count', (skill) => {
+      const dir = at('.claude/skills', skill, 'references');
+      expect(readdirSync(dir)).toHaveLength(refCount(skill));
+    });
     it('ff cites no sibling skill references', () => {
       expect(read('.claude/skills/prospec-ff/SKILL.md')).not.toMatch(
         /prospec-(new-story|plan|tasks)\/references\//,
       );
+    });
+    it('metadata-format reference is registered for exactly the scaffolding skills', () => {
+      const actual = SKILL_DEFINITIONS.filter((s) =>
+        getSkillReferences(s.name).some((r) => r.outputName === 'metadata-format.md'),
+      )
+        .map((s) => s.name)
+        .sort();
+      expect(actual).toEqual(EXPECTED_METADATA_FORMAT_SKILLS);
+    });
+    it('each scaffolding skill deploys metadata-format.md and cites it self-contained', () => {
+      for (const skill of EXPECTED_METADATA_FORMAT_SKILLS) {
+        expect(existsSync(at('.claude/skills', skill, 'references/metadata-format.md'))).toBe(true);
+        expect(read('.claude/skills', skill, 'SKILL.md')).toContain('references/metadata-format.md');
+      }
+    });
+    it('metadata-format reference pins canonical field order and the grade/result rule', () => {
+      const ref = read('.claude/skills/prospec-new-story/references/metadata-format.md');
+      // AC1: canonical field order (drift observed: related_modules ↔ description swapped)
+      expect(ref).toContain('`name` → `created_at` → `status`');
+      // AC3: verify grade goes in `grade`, never in `result` (drift observed: `result: A`)
+      expect(ref).toContain('never in `result`');
     });
     it('verify + review cite their own vendored references', () => {
       const verifyRef = getSkillReferences('prospec-verify')[0]!.outputName;

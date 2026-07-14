@@ -394,6 +394,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'proposal-format.md',
         title: 'Proposal Format',
       },
+      {
+        templateName: 'metadata-format.hbs',
+        outputName: 'metadata-format.md',
+        title: 'Metadata (metadata.yaml) Format',
+      },
     ],
     'prospec-plan': [
       {
@@ -466,6 +471,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'tasks-format.hbs',
         outputName: 'tasks-format.md',
         title: 'Tasks Format',
+      },
+      {
+        templateName: 'metadata-format.hbs',
+        outputName: 'metadata-format.md',
+        title: 'Metadata (metadata.yaml) Format',
       },
     ],
     'prospec-implement': [

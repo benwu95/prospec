@@ -20,8 +20,9 @@ Write generated documents in the language defined by the Constitution's Language
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
 2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
-3. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field
-4. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
+3. [STABLE] **MANDATORY** — Read [`references/metadata-format.md`](references/metadata-format.md) for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape) — the scaffolded metadata.yaml MUST follow it
+4. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field
+5. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
 
 ## Entry Gate
 
@@ -54,7 +55,7 @@ Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm
 
 | Scenario | Action |
 |----------|--------|
-| Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + empty `proposal.md` |
+| Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story, serialized per [`references/metadata-format.md`](references/metadata-format.md)) + empty `proposal.md` |
 | Already exists | Read existing files, proceed to populate |
 
 > **Phase 3 Gate** — proceed when:

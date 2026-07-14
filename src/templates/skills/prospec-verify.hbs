@@ -204,7 +204,7 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `{{knowledge_base_path}}/_status-lifecycle.md`.
 
-**Record the verify result to `quality_log` (structured).** Append one `skill: prospec-verify` entry to `metadata.yaml` `quality_log` carrying:
+**Record the verify result to `quality_log` (structured).** Append one `skill: prospec-verify` entry to `metadata.yaml` `quality_log` (canonical entry shape: the `metadata-format` reference, bundled with `/prospec-new-story` · `/prospec-ff`) carrying:
 - `grade` — the S/A/B/C/D quality grade (structured, machine-aggregatable);
 - `dimensions` — one `{ name, result }` per graded 5+1 dimension (each `PASS`/`WARN`/`FAIL`; omit a `not-applicable` dimension);
 - `result` — the gate three-state (`PASS` at grade S/A, else `WARN`/`FAIL`); **never overwrite `result` with the grade** — the grade lives in `grade`;

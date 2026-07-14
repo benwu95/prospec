@@ -102,7 +102,7 @@ code tasks are done, emit `Progress Y/Y (Complete)` and point to `/prospec-revie
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), update `.prospec/changes/[name]/metadata.yaml` → `status: implemented`, then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), update `.prospec/changes/[name]/metadata.yaml` → `status: implemented` (edit in place; keep the `metadata-format` serialization intact — do not reorder or reformat fields), then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 

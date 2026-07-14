@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 62 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 63 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 
 <!-- prospec:auto-start -->
 
@@ -10,7 +10,7 @@
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → rendered to `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts` |
 | `skills/_*.hbs` (5) | Shared partials: `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy`, `knowledge-loading-rules` |
-| `skills/references/*.hbs` (19) | Per-skill format specs + design adapters, rendered to `.md` on demand (e.g. `tasks-format`, `plan-format`) |
+| `skills/references/*.hbs` (20) | Per-skill format specs + design adapters, rendered to `.md` on demand (e.g. `tasks-format`, `plan-format`, `metadata-format`) |
 | `knowledge/*.hbs` (6) | `module-readme.hbs`, `index.md.hbs` + `_index-auto-block.hbs`, `raw-scan.md.hbs`, `module-map.yaml.hbs`, `feature-map.yaml.hbs` |
 | `change/*.hbs` (4) | proposal / plan / delta-spec / tasks scaffolds (metadata.yaml is serialized in `change-story.service`, not templated) |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
