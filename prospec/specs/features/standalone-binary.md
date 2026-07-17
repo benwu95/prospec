@@ -18,82 +18,82 @@ req_count: 8
 
 ## User Stories & Behavior Specifications
 
-### US-1: 下載並執行 Standalone Binary [P1]
+### US-1: Download and Run the Standalone Binary [P1]
 
-As a 下游專案的開發者,
-I want 直接下載適用於我作業系統平台的 prospec 獨立執行檔並在終端機中執行,
-So that 我不需要在機器上另外安裝 Node.js 就能直接使用 prospec 進行 Spec-Driven Development.
+As a developer of a downstream project,
+I want to directly download the prospec standalone binary for my operating system platform and run it in the terminal,
+So that I can use prospec for Spec-Driven Development directly without needing to install Node.js separately on my machine.
 
 **Acceptance Scenarios:**
-- WHEN 在乾淨無 Node.js 環境的 Linux/macOS/Windows 下執行下載的 `prospec --version`，THEN 成功印出當前版本。
-- WHEN 在下游專案目錄下執行 `prospec check`，THEN 可以正常進行漂移稽核並輸出稽核結果。
+- WHEN running the downloaded `prospec --version` on a clean Linux/macOS/Windows environment without Node.js, THEN the current version is printed successfully.
+- WHEN running `prospec check` in a downstream project directory, THEN drift auditing can proceed normally and the audit results are output.
 
 #### REQ-CLI-001: Standalone Binary Compilation and Packaging for Multi-Platform
-在 GitHub 發布 Release 時，自動觸發建置管線編譯出 Linux x64、macOS arm64/x64、Windows x64 的 Standalone Binary 獨立執行檔，完成 macOS codesign，並將其自動打包壓縮為 `.zip` 或 `.tar.gz` 壓縮包。
+When a Release is published on GitHub, automatically trigger the build pipeline to compile Standalone Binary executables for Linux x64, macOS arm64/x64, and Windows x64, complete the macOS codesign, and automatically package and compress them into `.zip` or `.tar.gz` archives.
 
 **Scenarios:**
-- WHEN 發布 Release 後，THEN assets 中包含 prospec-linux-x64.tar.gz、prospec-macos-arm64.tar.gz、prospec-macos-x64.tar.gz、prospec-windows-x64.zip。
-- WHEN 執行 macOS 二進位檔，THEN 已完成 codesign ad-hoc 簽署，能在 macOS 系統下執行。
-- WHEN 執行任何二進位檔，THEN 無須外部 Node.js 執行期環境即可單獨執行。
+- WHEN a Release has been published, THEN the assets include prospec-linux-x64.tar.gz, prospec-macos-arm64.tar.gz, prospec-macos-x64.tar.gz, and prospec-windows-x64.zip.
+- WHEN running the macOS binary, THEN the ad-hoc codesign signature has been completed, allowing it to run on macOS systems.
+- WHEN running any binary, THEN it can run standalone without an external Node.js runtime environment.
 
 #### REQ-LIB-001: Template Embedded Compilation
-為了解決獨立執行檔無法存取外部檔案系統中範本的問題，必須在打包編譯前，將所有 `.hbs` 範本內容聚合成一個記憶體對照字典，並於執行期優先自該字典中讀取。
+To solve the problem that a standalone binary cannot access templates in the external file system, all `.hbs` template contents must be aggregated into an in-memory lookup dictionary before packaging and compilation, and read preferentially from that dictionary at runtime.
 
 **Scenarios:**
-- WHEN 執行 `pnpm run bundle` 時，THEN 會先自動生成 `src/lib/bundled-templates.ts`。
-- WHEN 執行期 template.ts 無法在檔案系統定位到 `templates/` 目錄時，THEN 仍能利用 `BUNDLED_TEMPLATES` 成功渲染出初始設定、Change 提案及任務清單。
+- WHEN running `pnpm run bundle`, THEN `src/lib/bundled-templates.ts` is automatically generated first.
+- WHEN template.ts cannot locate the `templates/` directory in the file system at runtime, THEN it can still use `BUNDLED_TEMPLATES` to successfully render the initial configuration, Change proposal, and task list.
 
 #### REQ-TYPES-001: Static Version Resolution Fallback
-為了解決獨立執行檔無 `package.json` 可供讀取版本號的問題，`PROSPEC_VERSION` 的讀取須支援透過打包時注入的環境變數進行靜態解析。
+To solve the problem that a standalone binary has no `package.json` from which to read the version number, reading `PROSPEC_VERSION` must support static resolution via an environment variable injected at packaging time.
 
 **Scenarios:**
-- WHEN `process.env.PROSPEC_VERSION` 存在，THEN `PROSPEC_VERSION` 直接使用該環境變數值。
-- WHEN 執行 MCP 服務，THEN 透過 `types/version` 統一讀取 `PROSPEC_VERSION`，不使用 `require('../../package.json')`。
-- WHEN 在未打包環境（本地開發）下執行，THEN 仍能透過 fallback 讀取 `package.json` 的版本號。
+- WHEN `process.env.PROSPEC_VERSION` exists, THEN `PROSPEC_VERSION` directly uses that environment variable value.
+- WHEN running the MCP service, THEN `PROSPEC_VERSION` is read uniformly via `types/version`, without using `require('../../package.json')`.
+- WHEN running in an unpackaged environment (local development), THEN the version number can still be read from `package.json` via fallback.
 
 #### REQ-DOCS-001: Standalone Binary Installation Documentation
-調整安裝與執行說明，包含根目錄下的英文 README.md 與中文 README.zh-TW.md，以及 docs/ 目錄下的網站安裝說明網頁，提供使用者清晰的 standalone binary 安裝與啟動指引。
+Adjust the installation and execution instructions, including the English README.md and the Chinese README.zh-TW.md in the root directory, as well as the website installation instruction pages under the docs/ directory, to provide users with clear guidance for installing and launching the standalone binary.
 
 **Scenarios:**
-- WHEN 查看 README.md 與 README.zh-TW.md，THEN 新增一鍵安裝腳本、standalone binary 下載、以及 npx/devDependency 選項，且移除了 global npm install。
-- WHEN 造訪 docs/ 網站，THEN 相關網頁的安裝說明同步調整為一鍵安裝腳本。
+- WHEN viewing README.md and README.zh-TW.md, THEN a one-click installation script, standalone binary download, and npx/devDependency options have been added, and the global npm install has been removed.
+- WHEN visiting the docs/ website, THEN the installation instructions on the relevant pages are synchronously adjusted to the one-click installation script.
 
-#### REQ-CLI-020: 新增 print-template 子命令
-為 `prospec` CLI 新增 `print-template <path>` 子指令，以便直接輸出內置 Handlebars 樣板的源碼內容。
-
-**Scenarios:**
-- WHEN 執行 `prospec print-template <path>` 且樣板存在，THEN 無格式地直接輸出樣板原始字串至 `stdout`。
-- WHEN 傳入不存在的樣板路徑，THEN 拋出 `TemplateError` 且以退出碼 `1` 結束執行。
-
-#### REQ-SERVICES-015: 實現 Print-Template 業務邏輯
-實作對應 `print-template` 的服務，從 `lib/template.ts` 中的 `readTemplateSource` 取得樣板內容。
+#### REQ-CLI-020: Add the print-template Subcommand
+Add the `print-template <path>` subcommand to the `prospec` CLI to directly output the source content of the built-in Handlebars templates.
 
 **Scenarios:**
-- WHEN 傳入參數 `templatePath` 並傳遞給 `readTemplateSource`，THEN 回傳對應的樣板源碼字串。
+- WHEN running `prospec print-template <path>` and the template exists, THEN the raw template string is output directly to `stdout` without formatting.
+- WHEN passing a non-existent template path, THEN a `TemplateError` is thrown and execution ends with exit code `1`.
 
-#### REQ-TEMPLATES-005: 更新 prospec-upgrade.hbs 中的樣板讀取邏輯
-修改 `prospec-upgrade` 技能的執行步驟，將原先使用 Node.js (`require.resolve`) 和尋找 package 的腳本完全移除，改為原生呼叫 `prospec print-template <template_path>` 指令。
-
-**Scenarios:**
-- WHEN 執行 `prospec-upgrade` 技能，THEN 不再呼叫任何 `node` 指令。
-- WHEN 尋找樣板時，THEN 一律優先呼叫 `prospec print-template` 取得樣板內容。
-
-#### REQ-LIB-008: 導出 readTemplateSource 函數
-修改 `src/lib/template.ts` 以公開導出 `readTemplateSource`。
+#### REQ-SERVICES-015: Implement the Print-Template Business Logic
+Implement the service corresponding to `print-template`, obtaining the template content from `readTemplateSource` in `lib/template.ts`.
 
 **Scenarios:**
-- WHEN 其他模組需要讀取樣板源碼，THEN 可直接調用導出的 `readTemplateSource` 函數。
+- WHEN the parameter `templatePath` is passed and forwarded to `readTemplateSource`, THEN the corresponding template source string is returned.
+
+#### REQ-TEMPLATES-005: Update the Template-Reading Logic in prospec-upgrade.hbs
+Modify the execution steps of the `prospec-upgrade` skill to completely remove the scripts that previously used Node.js (`require.resolve`) and package lookup, replacing them with a native call to the `prospec print-template <template_path>` command.
+
+**Scenarios:**
+- WHEN running the `prospec-upgrade` skill, THEN no `node` command is called anymore.
+- WHEN looking for a template, THEN always call `prospec print-template` preferentially to obtain the template content.
+
+#### REQ-LIB-008: Export the readTemplateSource Function
+Modify `src/lib/template.ts` to publicly export `readTemplateSource`.
+
+**Scenarios:**
+- WHEN another module needs to read template source code, THEN it can directly call the exported `readTemplateSource` function.
 
 ## Edge Cases
 
-- **範本找不到的錯誤**：在 Standalone Binary 中執行涉及檔案生成的指令（如 `prospec init`）時，Handlebars 範本讀取機制若預期存取外部 `src/templates` 目錄會崩潰。預期行為：範本內容在打包時需被內嵌於二進位檔中，確保不需外部實體範本檔案即可正常讀取。
-- **版本號讀取失敗**：二進位檔沒有 `package.json` 可供 require。預期行為：`PROSPEC_VERSION` 能自靜態環境變數或打包參數中讀取，而不致發生找不到 `package.json` 的錯誤。
+- **Template-not-found error**: When running commands that involve file generation (such as `prospec init`) in the Standalone Binary, the Handlebars template-reading mechanism will crash if it expects to access the external `src/templates` directory. Expected behavior: template content must be embedded in the binary at packaging time, ensuring it can be read normally without external physical template files.
+- **Version-number read failure**: The binary has no `package.json` to require. Expected behavior: `PROSPEC_VERSION` can be read from a static environment variable or a packaging parameter, without producing the error of not finding `package.json`.
 
 ## Success Criteria
 
-- **SC-1**: GitHub Release 的 assets 中包含 `prospec-linux-x64.tar.gz`、`prospec-macos-arm64.tar.gz`、`prospec-macos-x64.tar.gz`、`prospec-windows-x64.zip` 等壓縮包，解壓後可直接執行。
-- **SC-2**: 所有二進位檔無須安裝 any 外部 Node.js 執行期環境即可正常運作。
-- **SC-3**: 二進位檔支援呼叫包括 `prospec init`、`prospec check`、`prospec serve` 等現有完整指令，且範本載入運作正常。
+- **SC-1**: The assets of the GitHub Release include archives such as `prospec-linux-x64.tar.gz`, `prospec-macos-arm64.tar.gz`, `prospec-macos-x64.tar.gz`, and `prospec-windows-x64.zip`, which can be run directly after extraction.
+- **SC-2**: All binaries work normally without installing any external Node.js runtime environment.
+- **SC-3**: The binaries support calling the full set of existing commands, including `prospec init`, `prospec check`, and `prospec serve`, and template loading works normally.
 
 ## Maintenance Rules
 
@@ -113,3 +113,4 @@ _(None)_
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-001, REQ-TYPES-001, REQ-DOCS-001 |
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |
 | 2026-07-08 | compress-release-binaries | Package binaries in .zip and .tar.gz archives and update installers | REQ-CLI-001 |
+| 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |

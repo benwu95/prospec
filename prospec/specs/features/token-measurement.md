@@ -6,150 +6,150 @@ story_count: 4
 req_count: 12
 ---
 
-# Token 量測 Harness
+# Token Measurement Harness
 
 ## Who & Why
 
-**Target users**: prospec 維護者（執行量測）與所有 agent 的使用者（檢視報告）
+**Target users**: prospec maintainers (who run the measurement) and all agent users (who review the reports)
 
-**Problem solved**: G4「省 70-80% token」原本是無資料源的行銷宣稱——LLM 無法誠實自報 token 用量，任何「節省」數字都只能估算捏造。
+**Problem solved**: G4's "save 70-80% token" was originally a marketing claim with no data source—an LLM cannot honestly self-report token usage, so any "savings" figure could only be estimated or fabricated.
 
-**Why it matters**: 量測由 LLM 外部、確定性的程式對 provider API 真實 `usage` 取數，讓 token 效率主張可驗證、可重現；同時是 BL-020 穩定前綴重排（Story B）before/after 驗收的唯一誠實資料源。定位為量測工具——**不設硬性門檻、不進 CI**。
+**Why it matters**: Measurement takes numbers from the provider API's real `usage` via a deterministic program external to the LLM, making token-efficiency claims verifiable and reproducible; it is also the only honest data source for the BL-020 stable-prefix reordering (Story B) before/after acceptance. Positioned as a measurement tool—**no hard thresholds, not part of CI**.
 
 ## User Stories & Behavior Specifications
 
-### US-1: 執行 token 量測產出真實數字 [P1]
+### US-1: Run token measurement to produce real numbers [P1]
 
 As a prospec maintainer,
-I want 對版控的代表性 SDD 任務描述執行 benchmark 腳本，對 full-dump / naive-rag / prospec 三種 context 組裝法，自選定的 provider API（Anthropic / OpenAI / Google）取得真實 usage,
-So that G4 的節省主張對四個支援 agent 的模型來源都有 LLM 外部、可重複執行的誠實資料源。
+I want to run the benchmark script against version-controlled representative SDD task descriptions, obtaining real usage from a chosen provider API (Anthropic / OpenAI / Google) for the three context-assembly methods full-dump / naive-rag / prospec,
+So that G4's savings claim has an LLM-external, repeatably runnable, honest data source for the model origins of all four supported agents.
 
 **Acceptance Scenarios:**
-- WHEN 對 corpus 執行量測腳本（已設定該 provider 的 API key），THEN 產出 `measurement-report.json`，每個 provider 區段含每任務三種組裝法 × cold/warm 的 input / output / cache 讀寫 token 數
-- WHEN 指定的 provider 未設定 API key，THEN 該 provider 明確跳過（單 provider 模式下中止），不寫出殘缺數字
-- WHEN 任一任務的 context 活引用組裝失敗，THEN 該任務標記 skipped 並列入報告，不產生估算數字
+- WHEN the measurement script is run against the corpus (with that provider's API key configured), THEN it produces `measurement-report.json`, where each provider section contains, per task, the input / output / cache read-write token counts for the three assembly methods × cold/warm
+- WHEN the specified provider has no API key configured, THEN that provider is explicitly skipped (aborted in single-provider mode), and no incomplete numbers are written out
+- WHEN a task's context live-reference assembly fails, THEN that task is marked skipped and listed in the report, and no estimated numbers are produced
 
-#### REQ-MEASURE-001: 版控任務描述 corpus（活引用組裝）
-`tests/fixtures/token-corpus/` 版控 ≥10 個任務描述（frontmatter 標注引用模組），context 於量測時即時從 repo 組裝，corpus 內無預組 context。
+#### REQ-MEASURE-001: Version-controlled task-description corpus (live-reference assembly)
+`tests/fixtures/token-corpus/` version-controls ≥10 task descriptions (frontmatter annotates the referenced modules); context is assembled from the repo on the fly at measurement time, with no pre-assembled context inside the corpus.
 
-#### REQ-MEASURE-002: 三組裝 benchmark runner
+#### REQ-MEASURE-002: Three-assembly benchmark runner
 **Scenarios:**
-- WHEN 量測一個任務，THEN 三種組裝各連送兩次（cold/warm 共用同一份組裝結果），spend 逐呼叫入帳
-- WHEN 每 provider 累計費用超過上限（預設 US$10，任務內逐策略檢查），THEN 停止該 provider 並標記 aborted
-- WHEN 任務 API 失敗，THEN 標 failed（含原因）續跑，不以估算值填補
+- WHEN a task is measured, THEN each of the three assemblies is sent twice in a row (cold/warm share the same assembly result), and spend is accounted per call
+- WHEN a provider's cumulative cost exceeds the limit (default US$10, checked per strategy within a task), THEN that provider is stopped and marked aborted
+- WHEN a task's API call fails, THEN it is marked failed (with the reason) and the run continues, without filling in estimated values
 
-#### REQ-MEASURE-003: 確定性成本計算純函式
-節省比、cache 命中率、有效成本由 `lib/token-accounting.ts` 純函式計算；pricing（折扣率/寫入倍率）為輸入參數、無寫死常數；naive-rag 計分含字典序 tie-break，相同輸入必得相同輸出。
+#### REQ-MEASURE-003: Deterministic cost-calculation pure functions
+Savings ratio, cache hit rate, and effective cost are computed by pure functions in `lib/token-accounting.ts`; pricing (discount rate / write multiplier) is an input parameter with no hardcoded constants; naive-rag scoring includes a lexicographic tie-break, so identical inputs always yield identical outputs.
 
-#### REQ-MEASURE-007: 多 provider 覆蓋
-三個 provider adapter（client、caching 啟用、usage 映射、pricing 表、低成本預設 model），覆蓋 claude→Anthropic、codex/copilot→OpenAI、antigravity→Google；`--provider` 可單選或預設量測所有有 key 的 provider；無 cache 寫入計量者 cache_write 記 0。
+#### REQ-MEASURE-007: Multi-provider coverage
+Three provider adapters (client, caching enablement, usage mapping, pricing table, low-cost default model), covering claude→Anthropic, codex/copilot→OpenAI, antigravity→Google; `--provider` can select a single one or, by default, measures all providers that have a key; for providers that do not meter cache writes, cache_write is recorded as 0.
 
-#### REQ-MEASURE-009: glossary 組裝變體與成本對照
-prospec 組裝的 opt-in 變體：啟用時於 STABLE 段尾附加 `_glossary.md`；runner 旗標 `--prospec-glossary`，啟用且未指定 `--report` 時報告另存 `measurement-report.glossary.json`。
+#### REQ-MEASURE-009: glossary assembly variant and cost comparison
+An opt-in variant of the prospec assembly: when enabled, `_glossary.md` is appended to the end of the STABLE section; the runner flag is `--prospec-glossary`, and when enabled without specifying `--report`, the report is saved separately as `measurement-report.glossary.json`.
 **Scenarios:**
-- WHEN 變體未啟用, THEN 既有量測行為與報告不變
-- WHEN 啟用旗標, THEN prospec 組裝含 `_glossary.md` 且兩 baseline byte-identical 不受影響
-- 範圍限定：對照量的是 glossary 的 input-token 成本面；反事實去重收益歸因為 deliberate exclusion（對照組無法誠實構造）
+- WHEN the variant is not enabled, THEN existing measurement behavior and reports are unchanged
+- WHEN the flag is enabled, THEN the prospec assembly includes `_glossary.md` and both baselines remain byte-identical and unaffected
+- Scope limitation: the comparison measures the input-token cost side of the glossary; the counterfactual dedup benefit is attributed as a deliberate exclusion (the comparison group cannot be honestly constructed)
 
 ---
 
-### US-2: 檢視節省比與 cache 命中率報告 [P1]
+### US-2: Review the savings-ratio and cache-hit-rate report [P1]
 
 As a prospec user,
-I want 執行 `prospec measure` 看到誠實格式的量測報告（input/output 分列、cold/warm、兩個 baseline、cache 命中率）,
-So that 我能得知 prospec 實際的 input-token 節省比與 cache 命中率，而非相信行銷口號。
+I want to run `prospec measure` and see an honestly formatted measurement report (input/output listed separately, cold/warm, two baselines, cache hit rate),
+So that I can learn prospec's actual input-token savings ratio and cache hit rate, rather than trusting a marketing slogan.
 
 **Acceptance Scenarios:**
-- WHEN 已存在報告時執行 `prospec measure`，THEN 以 per-provider 區段顯示兩個 baseline 的節省比、命中率、有效成本（warm 帶星號註記），不呼叫 API
-- WHEN 報告檔不存在，THEN stderr 指引先執行量測腳本
-- WHEN 報告 schema 不符，THEN 顯示驗證錯誤、不輸出部分表格
-- WHEN 檢視任一輸出，THEN 不出現任何「未達門檻」式判定——只呈現數字
+- WHEN `prospec measure` is run while a report already exists, THEN it displays, per-provider section, the savings ratio, hit rate, and effective cost for both baselines (warm carries an asterisk note), without calling the API
+- WHEN the report file does not exist, THEN stderr instructs running the measurement script first
+- WHEN the report schema does not match, THEN it shows a validation error and does not output a partial table
+- WHEN reviewing any output, THEN no "below threshold"-style verdict appears—only the numbers are presented
 
-#### REQ-MEASURE-005: `prospec measure` 唯讀報告顯示
-唯讀讀取 `measurement-report.json`；區段標頭含 provider + model 與對應 agent；含「數字僅同 provider 內可比」註記；零量測任務時省略比較表並明示原因。
+#### REQ-MEASURE-005: `prospec measure` read-only report display
+Read-only reading of `measurement-report.json`; section headers include the provider + model and the corresponding agent; includes a "numbers are only comparable within the same provider" note; when there are zero measured tasks, the comparison table is omitted and the reason is stated explicitly.
 
-#### REQ-MEASURE-006: 誠實邊界約束
-不設任何節省比/命中率硬性門檻、不新增 CI workflow；措辭明示「G4 = vs full-dump baseline 的 input-token 成本」、output token 誠實列出、warm 為合成命中、各 provider cache 折扣結構不同、copilot 為模型來源（OpenAI）代理量測。
+#### REQ-MEASURE-006: Honesty-boundary constraints
+No hard threshold on savings ratio / hit rate is set, and no CI workflow is added; the wording states explicitly that "G4 = input-token cost vs the full-dump baseline", output tokens are honestly listed, warm is a synthetic hit, each provider's cache discount structure differs, and copilot is measured by proxy via its model origin (OpenAI).
 
 ---
 
-### US-3: 跨次量測的可比性識別 [P2]
+### US-3: Comparability identification across measurement runs [P2]
 
 As a prospec maintainer,
-I want 報告記錄量測當下的 repo 快照識別（git commit）與 corpus 版本,
-So that 進行 before/after 比較（如 BL-020 重排）時，能判讀兩份報告是否在可比的快照上量測。
+I want the report to record the repo snapshot identity (git commit) and corpus version at measurement time,
+So that when performing before/after comparisons (such as the BL-020 reordering), I can judge whether the two reports were measured on comparable snapshots.
 
 **Acceptance Scenarios:**
-- WHEN 產出報告，THEN 含 git commit hash 與 corpus 識別欄位（缺漏即 schema 驗證失敗）
-- WHEN `prospec measure` 顯示報告，THEN 標頭呈現快照識別與活引用特性註記
+- WHEN a report is produced, THEN it contains the git commit hash and corpus identity fields (a missing one causes schema validation to fail)
+- WHEN `prospec measure` displays the report, THEN the header presents the snapshot identity and a live-reference characteristic note
 
-#### REQ-MEASURE-004: 量測報告 schema 與快照識別
-`types/measurement.ts` Zod schema：corpus 識別、git commit、per-provider 區段（model/pricing/aborted/逐任務明細與彙總）；TokenUsage 欄位語意中立（provider 專屬欄位由 runner adapter 映射）；可同時容納多個 provider 區段。
+#### REQ-MEASURE-004: Measurement-report schema and snapshot identity
+`types/measurement.ts` Zod schema: corpus identity, git commit, per-provider sections (model/pricing/aborted/per-task detail and aggregate); TokenUsage fields are semantically neutral (provider-specific fields are mapped by the runner adapter); it can hold multiple provider sections simultaneously.
 
-#### REQ-MEASURE-008: before/after 對照程序
-跨快照對照的操作契約：before 快照 hash 於變更前凍結（必晚於 harness 合併點）、前置條件為 working tree 乾淨（否則 checkout 不還原、兩報告 git_commit 相同）。
+#### REQ-MEASURE-008: before/after comparison procedure
+The operational contract for cross-snapshot comparison: the before-snapshot hash is frozen before the change (it must be later than the harness merge point), and the precondition is a clean working tree (otherwise checkout does not restore, and both reports have the same git_commit).
 **Scenarios:**
-- WHEN 執行 before/after 對照, THEN 兩份報告快照識別可區分、provider 與 model 相同
-- WHEN 呈現對照, THEN 只引用報告數字、不設門檻；無改善亦如實呈現
-- 範圍限定（deliberate exclusion）：harness corpus 量的是 prospec 組裝管線，量不到模板層排序效益（identical 重送下順序不影響結果）；量級驗證需「跨任務部分前綴」量測模式（未來候選）
+- WHEN running a before/after comparison, THEN the two reports' snapshot identities are distinguishable and the provider and model are the same
+- WHEN presenting the comparison, THEN it cites only the report numbers and sets no threshold; a lack of improvement is also presented truthfully
+- Scope limitation (deliberate exclusion): the harness corpus measures the prospec assembly pipeline and cannot measure the template-layer ordering benefit (under identical re-sends, order does not affect the result); magnitude validation requires a "cross-task partial prefix" measurement mode (a future candidate)
 
-### US-4: 離線 size 估算 mode（無 API key） [P1]
+### US-4: Offline size-estimation mode (no API key) [P1]
 
-As a prospec 維護者（無 provider API key 可用）,
-I want `prospec measure` 提供離線估算路徑，用 `lib/token-accounting` 計各 assembly 的 size,
-So that 無 key 環境也能追蹤 context 組裝規模，不再因 credential 阻塞而零數據。
+As a prospec maintainer (with no provider API key available),
+I want `prospec measure` to provide an offline estimation path that uses `lib/token-accounting` to compute the size of each assembly,
+So that a keyless environment can also track context-assembly scale, and is no longer left with zero data because it is blocked on credentials.
 
 **Acceptance Scenarios:**
-- WHEN 環境無任何 provider API key 執行離線估算，THEN 產出 full-dump / naive-rag / prospec 三策略的 size 報告（input token 估算），全程不呼叫 provider API、不含 cache/cost
-- WHEN 離線報告產出，THEN CLI 唯讀顯示 per-strategy size 與 size saving ratio，無任何門檻判定
-- WHEN 既有需 API key 的線上量測路徑執行，THEN 行為不變（離線 mode 為新增，不取代）
+- WHEN offline estimation is run in an environment with no provider API key, THEN it produces a size report for the three strategies full-dump / naive-rag / prospec (input-token estimate), never calling the provider API throughout and containing no cache/cost
+- WHEN the offline report is produced, THEN the CLI read-only displays the per-strategy size and size saving ratio, with no threshold verdict
+- WHEN the existing online measurement path that requires an API key is run, THEN behavior is unchanged (offline mode is an addition, not a replacement)
 
-#### REQ-MEASURE-010: 離線 size 報告 schema
-`types/measurement.ts` 新增 `SizeReportSchema`（獨立於 `MeasurementReport`，不含 provider/cache/cost）：`corpus`、`git_commit`、`generated_at`、`estimator`（如 `chars-per-token:4`），每任務每組裝法的 cold input token 估算，及對兩 baseline 的 size saving ratio；`DEFAULT_SIZE_REPORT_FILENAME='size-report.json'`。
+#### REQ-MEASURE-010: Offline size-report schema
+`types/measurement.ts` adds `SizeReportSchema` (independent of `MeasurementReport`, containing no provider/cache/cost): `corpus`, `git_commit`, `generated_at`, `estimator` (e.g. `chars-per-token:4`), a cold input-token estimate per task per assembly method, and the size saving ratio against both baselines; `DEFAULT_SIZE_REPORT_FILENAME='size-report.json'`.
 **Scenarios:**
-- WHEN parse 合法 size 報告，THEN 通過；缺 `corpus`/`git_commit` 即驗證失敗
-- WHEN 檢視 `MeasurementReportSchema`，THEN 欄位與行為不變（線上契約不受影響）
-- 誠實邊界（deliberate exclusion）：size 報告不含 provider/pricing/cache/門檻欄位（比照 REQ-MEASURE-006）
+- WHEN parsing a valid size report, THEN it passes; a missing `corpus`/`git_commit` causes validation to fail
+- WHEN inspecting `MeasurementReportSchema`, THEN its fields and behavior are unchanged (the online contract is unaffected)
+- Honesty boundary (deliberate exclusion): the size report contains no provider/pricing/cache/threshold fields (mirroring REQ-MEASURE-006)
 
-#### REQ-MEASURE-011: harness 離線 size 產出（無 API key）
-`scripts/measure-tokens.ts` `--offline`：跳過所有 provider adapter，複用 API-free 的 `measure/assemble.ts` 組裝三策略、以 `estimateTokens`（char/4 heuristic）計 size，產出 `size-report.json`；既有無 key 硬退訊息追加 `--offline` 指引。
+#### REQ-MEASURE-011: harness offline size production (no API key)
+`scripts/measure-tokens.ts` `--offline`: skips all provider adapters, reuses the API-free `measure/assemble.ts` to assemble the three strategies, computes size with `estimateTokens` (char/4 heuristic), and produces `size-report.json`; the existing keyless hard-exit message is extended with `--offline` guidance.
 **Scenarios:**
-- WHEN 清空所有 provider env 變數後 `--offline`，THEN 全程不呼叫 provider API，產出含三策略估算的非空 `size-report.json`
-- WHEN 離線輸出，THEN 明示「keyless size estimate；cache/cost 需 API key」
-- WHEN 有 key 的線上路徑，THEN 行為不變
+- WHEN all provider env variables are cleared and `--offline` is run, THEN the provider API is never called throughout, and a non-empty `size-report.json` containing the three-strategy estimates is produced
+- WHEN producing offline output, THEN it states explicitly "keyless size estimate; cache/cost requires an API key"
+- WHEN the online path with a key is used, THEN behavior is unchanged
 
-#### REQ-MEASURE-012: `prospec measure --offline` 唯讀 size 顯示
-`prospec measure --offline` 唯讀讀取 `size-report.json`（`measure.service` offline 分支、`SizeReportSchema` 驗證），formatter 呈現 per-strategy size 與 size saving ratio；不呼叫 API、不含 cache/cost 欄、不做門檻判定；缺報告檔以 `PrerequisiteError` 指引先跑 `pnpm measure:tokens --offline`。
+#### REQ-MEASURE-012: `prospec measure --offline` read-only size display
+`prospec measure --offline` reads `size-report.json` read-only (the `measure.service` offline branch, validated by `SizeReportSchema`), and the formatter presents the per-strategy size and size saving ratio; it does not call the API, contains no cache/cost columns, and makes no threshold verdict; when the report file is missing, a `PrerequisiteError` instructs running `pnpm measure:tokens --offline` first.
 **Scenarios:**
-- WHEN 存在 `size-report.json`，THEN 顯示 size 表、不呼叫 API
-- WHEN 報告缺失，THEN 指引離線產出指令；schema 不符 → 顯示驗證錯誤、不輸出部分表格
-- WHEN 檢視輸出，THEN 不出現任何「未達門檻」式判定（僅呈現數字）
+- WHEN `size-report.json` exists, THEN it displays the size table without calling the API
+- WHEN the report is missing, THEN it points to the offline production command; if the schema does not match → it shows a validation error and does not output a partial table
+- WHEN reviewing the output, THEN no "below threshold"-style verdict appears (only the numbers are presented)
 
 ---
 
 ## Edge Cases
 
-- 只有部分 provider 的 API key：只量測可用者，報告明示缺漏，不互相填補
-- API 限流/失敗：該任務 failed 並計入統計，整體續跑；spend 逐呼叫入帳故失敗路徑不漏計
-- 跨任務 cache 污染：每任務 context 帶唯一前綴，task N>1 的 cold 仍真冷
-- 小型組裝低於 provider 最小可 cache 前綴（如 haiku 4,096 tokens）：誠實記錄 0% 命中
-- CRLF checkout / frontmatter 於 EOF：corpus 解析容錯，不致整跑中斷
+- Only some providers' API keys present: only the available ones are measured, the report states the missing ones explicitly, and they do not fill in for each other
+- API rate-limiting/failure: that task is marked failed and counted in the statistics while the overall run continues; because spend is accounted per call, the failure path is not under-counted
+- Cross-task cache pollution: each task's context carries a unique prefix, so the cold of task N>1 is still genuinely cold
+- A small assembly below the provider's minimum cacheable prefix (e.g. haiku's 4,096 tokens): honestly records a 0% hit rate
+- CRLF checkout / frontmatter at EOF: corpus parsing is fault-tolerant and does not abort the whole run
 
 ## Success Criteria
 
-- **SC-1**: corpus 任務描述 ≥10 且覆蓋六模組（實際 12）
-- **SC-2**: 報告經 schema 驗證，含三組裝 × cold/warm usage 與快照欄位
-- **SC-3**: `prospec measure` 輸出含兩 baseline、節省比、命中率、warm 星號
-- **SC-4**: accounting 純函式單元測試全綠（pricing 參數化、確定性）
-- **SC-5**: change diff 不含 `.github/workflows/` 變更
-- **SC-6**: 三 provider 在各自 API key 下皆能完成量測（待首次真實執行驗收）
+- **SC-1**: corpus task descriptions ≥10 and covering six modules (12 in practice)
+- **SC-2**: the report passes schema validation, containing three-assembly × cold/warm usage and snapshot fields
+- **SC-3**: `prospec measure` output contains two baselines, savings ratio, hit rate, and warm asterisk
+- **SC-4**: accounting pure-function unit tests all green (pricing parameterized, deterministic)
+- **SC-5**: the change diff contains no `.github/workflows/` changes
+- **SC-6**: all three providers can complete measurement under their respective API keys (pending first real-run acceptance)
 
 ## Maintenance Rules
 
-1. **Replace-in-Place**: MODIFIED User Stories 與 REQs 直接取代現有版本
-2. **Functional Grouping**: 新需求插入對應 User Story 之下
-3. **No Inline Provenance**: 歷史出處只記在 Change History 表
-4. **Deprecation over Deletion**: 移除的需求移至 Deprecated 區段
+1. **Replace-in-Place**: MODIFIED User Stories and REQs directly replace the existing versions
+2. **Functional Grouping**: new requirements are inserted under the corresponding User Story
+3. **No Inline Provenance**: historical provenance is recorded only in the Change History table
+4. **Deprecation over Deletion**: removed requirements are moved to the Deprecated section
 
 ## Deprecated Requirements
 
@@ -159,6 +159,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-06-11 | add-token-measurement-harness | 新 Feature：多 provider token 量測 harness + 唯讀報告 CLI | US-1~3, REQ-MEASURE-001~007 |
-| 2026-06-11 | reorder-stable-prefix-loading | before/after 對照程序（含歸因 deliberate-exclusion 邊界）+ glossary 組裝變體 | REQ-MEASURE-008~009 (ADDED) |
-| 2026-07-05 | unlock-measurement | 離線 size 估算 mode：無 API key 也能追蹤 context 組裝規模（SizeReportSchema 獨立於 MeasurementReport、harness `--offline` 產 size-report.json、`prospec measure --offline` 唯讀顯示、誠實邊界無門檻；LiteLLM 評估後不採用，沿用 char/4 heuristic）（issue #61） | US-4; REQ-MEASURE-010~012 (ADDED) |
+| 2026-06-11 | add-token-measurement-harness | New Feature: multi-provider token measurement harness + read-only report CLI | US-1~3, REQ-MEASURE-001~007 |
+| 2026-06-11 | reorder-stable-prefix-loading | before/after comparison procedure (including the attribution deliberate-exclusion boundary) + glossary assembly variant | REQ-MEASURE-008~009 (ADDED) |
+| 2026-07-05 | unlock-measurement | Offline size-estimation mode: context-assembly scale can be tracked even without an API key (SizeReportSchema independent of MeasurementReport, harness `--offline` produces size-report.json, `prospec measure --offline` read-only display, honesty boundary with no threshold; LiteLLM evaluated but not adopted, continuing with the char/4 heuristic) (issue #61) | US-4; REQ-MEASURE-010~012 (ADDED) |
+| 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |

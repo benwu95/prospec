@@ -10,143 +10,143 @@ req_count: 11
 
 ## Who & Why
 
-**服務對象**：使用 Prospec 的開發者與專案維護者，希望團隊「越用越聰明」——session 回饋能沉澱為共享經驗。
+**Audience**: Developers and project maintainers using Prospec who want the team to "get smarter the more it is used" — session feedback can settle into shared experience.
 
-**解決問題**：session 中的糾正、verify 反覆 FAIL、review 重複 critical 目前不會回流成持久規則（`.tasks/lessons.md` 只是個人筆記、不進 Constitution/conventions）。每個新 session 與新人從同一基礎重來，目標 G6 在現況為 absent。業界（Claude memory、Cursor Team Rules、AGENTS.md）能做「糾正→規則」，但都缺「一條回饋值不值得升級為團隊共享規則」的**可審計決策步驟**。
+**Problem solved**: Corrections during a session, repeated verify FAILs, and recurring review criticals currently do not flow back into durable rules (`.tasks/lessons.md` is only a personal note and does not enter Constitution/conventions). Every new session and every new hire starts over from the same baseline; goal G6 is absent in the current state. The industry (Claude memory, Cursor Team Rules, AGENTS.md) can do "correction → rule", but all lack an **auditable decision step** for whether a piece of feedback is worth promoting to a team-shared rule.
 
-**為什麼重要**：Prospec 用其結構化資產（archive 跨 change 統計、module-map 影響範圍、Constitution 作門檻）做出差異化——把晉升判定變成**明文、可重現、版控留痕**的流程，而非黑箱啟發式。這是 G6「越用越聰明」的正面設計。
+**Why it matters**: Prospec differentiates itself with its structured assets (archive cross-change statistics, module-map impact scope, Constitution as a gate) — turning the promotion decision into an **explicit, reproducible, version-control-traced** process rather than a black-box heuristic. This is the positive design for G6 "get smarter the more it is used".
 
 ---
 
-## US-1: 自動蒐集 session 回饋成個人教訓 [P1]
+## US-1: Automatically Collect Session Feedback into Personal Lessons [P1]
 
-身為一個團隊開發者，
-我想要 Prospec 把 session 糾正與反覆出現的問題自動匯整成個人教訓清單，
-以便不必手動記錄，且這些教訓成為後續判斷的素材。
+As a team developer,
+I want Prospec to automatically consolidate session corrections and recurring problems into a personal lessons list,
+so that I don't have to record them manually, and these lessons become material for subsequent judgments.
 
 **Acceptance Scenarios:**
-- WHEN 一次 verify 對同一類問題反覆 FAIL THEN 記入版控教訓 ledger 並標來源 change 與出現次數
-- WHEN 一個 change 歸檔 THEN archive Phase 4.5 自動把其 quality_log + review.md + tasks×kind 萃取進版控 ledger（跨 worktree/clone 存活，無需手動觸發 `/prospec-learn`）
-- WHEN 教訓尚未跨多次變更累積 THEN 不主動建議升級（避免早期雜訊）
+- WHEN a verify repeatedly FAILs on the same class of problem THEN record it into the version-controlled lessons ledger and tag the source change and occurrence count
+- WHEN a change is archived THEN archive Phase 4.5 automatically extracts its quality_log + review.md + tasks×kind into the version-controlled ledger (survives across worktree/clone, no need to manually trigger `/prospec-learn`)
+- WHEN a lesson has not yet accumulated across multiple changes THEN do not proactively suggest promotion (to avoid early noise)
 
 #### REQ-TYPES-024: Register prospec-learn Skill
-`SKILL_DEFINITIONS` 新增第 13 skill `prospec-learn`（type `Lifecycle`、hasReferences）；`agent-sync` 的 `getSkillReferences` referenceMap 加 `prospec-learn → promotion-format`。無新 metadata schema、無 lib/cli code（蒐集源復用 quality_log/review.md）。
-- WHEN `prospec agent sync`, THEN deployed 含 `prospec-learn/SKILL.md` + `references/promotion-format.md`
-- WHEN registered, THEN `SKILL_DEFINITIONS` 為 13 skill
+`SKILL_DEFINITIONS` adds the 13th skill `prospec-learn` (type `Lifecycle`, hasReferences); `agent-sync`'s `getSkillReferences` referenceMap adds `prospec-learn → promotion-format`. No new metadata schema, no lib/cli code (collection sources reuse quality_log/review.md).
+- WHEN `prospec agent sync`, THEN deployed includes `prospec-learn/SKILL.md` + `references/promotion-format.md`
+- WHEN registered, THEN `SKILL_DEFINITIONS` has 13 skills
 
 #### REQ-TEMPLATES-093: Version-Controlled Lessons Ledger
-教訓 ledger 落版控 `prospec/ai-knowledge/_lessons-ledger.md`（取代 gitignored `.prospec/lessons.md`），登錄根層級 `index.md` Conventions（L2 load-on-demand、非核心 L1）；首版一次性遷移既有 frequency。
-- WHEN 在新 worktree/clone 檢出, THEN ledger 既有 frequency 累積完整保留（git 可 diff）
-- WHEN 遷移, THEN 既有計數不歸零、舊路徑退役
+The lessons ledger is placed under version control at `prospec/ai-knowledge/_lessons-ledger.md` (replacing the gitignored `.prospec/lessons.md`), registered in the root-level `index.md` Conventions (L2 load-on-demand, not core L1); the first version performs a one-time migration of existing frequency.
+- WHEN checked out in a new worktree/clone, THEN the ledger's existing frequency accumulation is fully preserved (git can diff)
+- WHEN migrating, THEN existing counts are not reset to zero and the old path is retired
 
 #### REQ-TEMPLATES-094: tasks×kind Manual-Skip Harvest
-archive Phase 4.5 交叉 `tasks.md` 完成狀態 × kind：跨 change 反覆未勾選的 `[M]` manual task 萃取成 `kind: playbook` process lesson；缺 kind 標記的舊 change 安全略過。
-- WHEN `[M]` task 跨多 change 反覆未完成, THEN 產生 process lesson
-- WHEN manual task 全完成或無 kind 標記, THEN 不產生/安全略過
+archive Phase 4.5 crosses `tasks.md` completion status × kind: `[M]` manual tasks that are repeatedly left unchecked across changes are extracted into a `kind: playbook` process lesson; old changes lacking a kind marker are safely skipped.
+- WHEN an `[M]` task is repeatedly incomplete across multiple changes, THEN generate a process lesson
+- WHEN manual tasks are all complete or have no kind marker, THEN do not generate / safely skip
 
 #### REQ-TEMPLATES-128: Canonical _archived-history Evidence Pointer
-promotion-format Harvest 明示 ledger 每個 `source_changes` 的 committed review/verify 證據位於 `specs/_archived-history/{date}-{name}.md`（該檔 `## Review & Verify` 節），取代已隨 worktree 蒸發的 gitignored `.prospec/archive/` bundle；`_lessons-ledger.md` header 同載此指標。
-- WHEN 稽核某 source_change 的 lesson 證據, THEN 指向 committed `_archived-history/{date}-{name}.md`，不依賴 gitignored bundle
-- WHEN promotion-format 渲染, THEN prospec-learn 與 prospec-archive 兩份 `promotion-format.md` 皆帶此指標
+The promotion-format Harvest explicitly states that the committed review/verify evidence for each `source_changes` in the ledger is located at `specs/_archived-history/{date}-{name}.md` (that file's `## Review & Verify` section), replacing the gitignored `.prospec/archive/` bundle that has evaporated along with the worktree; the `_lessons-ledger.md` header carries this pointer as well.
+- WHEN auditing the lesson evidence of a source_change, THEN point to the committed `_archived-history/{date}-{name}.md`, not relying on the gitignored bundle
+- WHEN promotion-format renders, THEN both the prospec-learn and prospec-archive copies of `promotion-format.md` carry this pointer
 
 ---
 
-## US-2: 可審計的晉升判定（核心差異化）[P1]
+## US-2: Auditable Promotion Decision (Core Differentiator) [P1]
 
-身為一個專案維護者，
-我想要 Prospec 用明文、可重現的準則判斷一條教訓值不值得升級為團隊共享規則，而非黑箱啟發式，
-以便升級決策可被檢視、可被信任、跨人一致。
+As a project maintainer,
+I want Prospec to judge whether a lesson is worth promoting to a team-shared rule using explicit, reproducible criteria rather than a black-box heuristic,
+so that the promotion decision can be reviewed, trusted, and is consistent across people.
 
 **Acceptance Scenarios:**
-- WHEN 教訓的跨變更頻次達門檻且影響模組數（查 module-map）達標 THEN 標「建議升級」並列判定依據（頻次／影響範圍／是否屬 Constitution 範疇）
-- WHEN 教訓僅出現一次或影響極小 THEN 維持個人層、不建議升級
-- WHEN 升級判定產生結果 THEN 每個建議附可追溯計分明細（非僅一個「應升級」結論）
+- WHEN a lesson's cross-change frequency reaches the threshold and its number of impacted modules (checked against module-map) meets the bar THEN mark it "suggested for promotion" and list the decision basis (frequency / impact scope / whether it falls within the Constitution's scope)
+- WHEN a lesson appears only once or has minimal impact THEN keep it at the personal tier and do not suggest promotion
+- WHEN the promotion decision produces a result THEN each suggestion carries traceable scoring details (not merely a "should be promoted" conclusion)
 
 #### REQ-TEMPLATES-069: Collect + Auditable Deterministic Scoring
-`prospec-learn` Collect + Score：掃 archived changes 的 quality_log/review.md + 既有 ledger，依**確定性 key** 萃取/配對、增量更新 frequency/impact_modules/scope/source（落版控 `prospec/ai-knowledge/_lessons-ledger.md`，跨 worktree/clone 存活；由 `/prospec-archive` Phase 4.5 自動進料）；Score 套**明文數值規則**標「建議升級」附計分明細。
-- WHEN 同類問題跨變更反覆, THEN 記入 ledger 帶 source 與 frequency
-- WHEN 頻次與影響模組達門檻, THEN 標「建議升級」+ 計分明細；同 ledger ⇒ 同輸出（規則明文 + keyed ledger，非黑箱）
-- WHEN 僅一次或影響極小, THEN 維持個人層
+`prospec-learn` Collect + Score: scans archived changes' quality_log/review.md + the existing ledger, extracts/matches by a **deterministic key**, and incrementally updates frequency/impact_modules/scope/source (placed under version control at `prospec/ai-knowledge/_lessons-ledger.md`, surviving across worktree/clone; fed automatically by `/prospec-archive` Phase 4.5); Score applies **explicit numeric rules** to mark "suggested for promotion" with scoring details.
+- WHEN the same class of problem recurs across changes, THEN record it into the ledger with source and frequency
+- WHEN frequency and impacted modules reach the threshold, THEN mark "suggested for promotion" + scoring details; the same ledger ⇒ the same output (explicit rules + keyed ledger, not a black box)
+- WHEN it occurs only once or has minimal impact, THEN keep it at the personal tier
 
 #### REQ-TEMPLATES-072: Promotion Format Reference
-`references/promotion-format.md`：明文晉升規則（預設 freq≥3 / impact_modules≥2，可由 `.prospec.yaml` 覆寫）+ 版控 ledger（`_lessons-ledger.md`）/ playbook entry / 核可記錄 / TTL 結構，並**單一定義 Harvest（archive Phase 4.5 進料）與 Review-Queue Prioritization 規則**。規則明文化＝可重現/可審計的根據（reproducibility 條件於穩定 ledger key）。
-- WHEN referenced, THEN 含明文數值門檻 + `.prospec.yaml` 可設定 + 結構定義 + Harvest/Review-Queue Prioritization 單一定義
-- WHEN 與既有 Constitution 規則重複, THEN 建議「強化既有」而非新增
+`references/promotion-format.md`: explicit promotion rules (default freq≥3 / impact_modules≥2, overridable via `.prospec.yaml`) + version-controlled ledger (`_lessons-ledger.md`) / playbook entry / approval record / TTL structure, and is the **single definition of the Harvest (archive Phase 4.5 feed) and Review-Queue Prioritization rules**. Making the rules explicit = a reproducible/auditable basis (reproducibility is conditioned on a stable ledger key).
+- WHEN referenced, THEN includes explicit numeric thresholds + `.prospec.yaml` configurability + structure definitions + a single definition of Harvest/Review-Queue Prioritization
+- WHEN it duplicates an existing Constitution rule, THEN suggest "strengthen the existing one" rather than adding a new one
 
 #### REQ-TESTS-024: Pipeline Contract Tests
-contract 驗證 skill 數 13；`prospec-learn` 四 phase（section-scoped）+ 明文數值規則 + 人工核可閘門 + Output Contract + Entry/Exit gates；plan/implement 含 playbook 載入文字；promotion-format 渲染。
-- WHEN contract runs, THEN 斷言 section-scoped；移除任一 phase 或核可閘門 → 轉紅
+contract verifies skill count is 13; `prospec-learn` four phases (section-scoped) + explicit numeric rules + human approval gate + Output Contract + Entry/Exit gates; plan/implement include playbook-loading text; promotion-format renders.
+- WHEN contract runs, THEN assert section-scoped; removing any phase or the approval gate → turns red
 
 #### REQ-TEMPLATES-095: knowledge_health Review-Queue Prioritization
-`prospec-learn` Score 後讀 `prospec-report.json` 檔案：stale 模組為 `structural.knowledge_health.modules[]` 篩 `.stale`（無頂層 `stale[]`）；`convention`-kind 教訓 impact_modules ∩ stale 時於人工審查佇列提權+標註；pipeline 全程不自動寫 `_conventions.md`。
-- WHEN convention 教訓 impact ∩ stale ≠ ∅, THEN 佇列提權+標註
-- WHEN 無報告, THEN 退預設排序（不阻斷）；`_conventions.md` 永不自動寫
+After `prospec-learn` Score, read the `prospec-report.json` file: stale modules are `structural.knowledge_health.modules[]` filtered by `.stale` (there is no top-level `stale[]`); when a `convention`-kind lesson's impact_modules ∩ stale, raise its priority + annotate it in the human review queue; the pipeline never automatically writes `_conventions.md` at any point.
+- WHEN a convention lesson's impact ∩ stale ≠ ∅, THEN raise queue priority + annotate
+- WHEN there is no report, THEN fall back to the default ordering (non-blocking); `_conventions.md` is never automatically written
 
 #### REQ-TESTS-025: Flywheel Contract + Fixture Corpus
-`skill-format.test.ts` flywheel block（relocated-path、Phase 4.5 non-fatal/idempotent、Entry Gate ledger-OR-archive、negative 無自動寫 `_conventions.md`，section-scoped）+ 版控合成 archive fixture 集（recurrence / all-complete 情境）。harvest 輸出為 LLM 步，dogfood 驗證、非 vitest。
-- WHEN contract runs, THEN 斷言 section-scoped；mutation 移除對應行為 → 轉紅
-- WHEN fixture corpus, THEN well-formed + 情境可辨（不依賴真實 archive）
+`skill-format.test.ts` flywheel block (relocated-path, Phase 4.5 non-fatal/idempotent, Entry Gate ledger-OR-archive, negative no automatic write to `_conventions.md`, section-scoped) + a version-controlled synthetic archive fixture set (recurrence / all-complete scenarios). harvest output is an LLM step, verified by dogfood, not vitest.
+- WHEN contract runs, THEN assert section-scoped; a mutation removing the corresponding behavior → turns red
+- WHEN fixture corpus, THEN well-formed + scenarios distinguishable (not relying on real archives)
 
 ---
 
-## US-3: 三層晉升與人工核可閘門 [P1]
+## US-3: Three-Tier Promotion and Human Approval Gate [P1]
 
-身為一個專案維護者，
-我想要教訓只有經人工核可才會從個人層升級到團隊共享層或 Constitution 規則，且全程版控留痕，
-以便共享規則的變更可被審查、可被 diff、可被回溯到來源。
+As a project maintainer,
+I want lessons to be promoted from the personal tier to the team-shared tier or Constitution rules only after human approval, with the entire process traced in version control,
+so that changes to shared rules can be reviewed, diffed, and traced back to their source.
 
 **Acceptance Scenarios:**
-- WHEN 教訓被建議升級到 playbook/Constitution THEN 必須顯式人工核可才寫入，且記來源 change／判定準則／核可者
-- WHEN 升級為 Constitution/conventions 規則 THEN 進入版控、可被後續 verify 引用
-- WHEN 使用者拒絕某項升級 THEN 教訓留在個人層、記已否決、不重複建議
+- WHEN a lesson is suggested for promotion to playbook/Constitution THEN it must be explicitly approved by a human before being written, and record the source change / decision criteria / approver
+- WHEN promoted to a Constitution/conventions rule THEN it enters version control and can be referenced by subsequent verify
+- WHEN the user rejects a promotion THEN the lesson stays at the personal tier, records the rejection, and is not suggested again
 
 #### REQ-TEMPLATES-070: Human-Gated Promotion (kind-labelled)
-個人 ledger → 團隊 `_playbook.md`（L2 load-on-demand、TTL 治理）→ Constitution。`kind` 為標籤：`constitution`（硬規則）→ `CONSTITUTION.md` 的 `ConstitutionRule`（BL-031 形態）；其餘（`convention`/`playbook`）→ `_playbook.md` 單一治理團隊層。`convention` 標籤供人工日後**手動**搬進 `_conventions.md` `prospec:user` 區——pipeline **不自動寫** `_conventions.md`（L1 核心 convention、任務開始即須主動讀取、無 TTL 治理）。寫入 `_playbook`/Constitution **必經顯式人工核可**，版控留 source/準則/kind/核可者；否決則記錄不再擾。
-- WHEN 建議升級, THEN 依 kind（`constitution`→Constitution；其餘→`_playbook.md`）路由，且必須顯式人工核可才寫入
-- WHEN 升級為 Constitution 規則, THEN 進版控、可被 verify 引用（ConstitutionRule 形態）
-- WHEN 使用者否決, THEN 留個人層 + 記已否決
+Personal ledger → team `_playbook.md` (L2 load-on-demand, TTL governance) → Constitution. `kind` is a label: `constitution` (hard rules) → `CONSTITUTION.md`'s `ConstitutionRule` (BL-031 form); the rest (`convention`/`playbook`) → `_playbook.md`, a single governed team tier. The `convention` label lets a human later **manually** move it into the `prospec:user` section of `_conventions.md` — the pipeline does **not** automatically write `_conventions.md` (an L1 core convention that must be actively read at the start of a task, with no TTL governance). Writing to `_playbook`/Constitution **requires explicit human approval**, keeping source/criteria/kind/approver under version control; a rejection is recorded and no longer prompts.
+- WHEN suggesting promotion, THEN route by kind (`constitution`→Constitution; the rest→`_playbook.md`), and it must be explicitly approved by a human before being written
+- WHEN promoted to a Constitution rule, THEN it enters version control and can be referenced by verify (ConstitutionRule form)
+- WHEN the user rejects, THEN keep it at the personal tier + record the rejection
 
 ---
 
-## US-4: 共享規則治理與 Entry 載入 [P2]
+## US-4: Shared Rule Governance and Entry Loading [P2]
 
-身為一個新加入成員，
-我想要載入工作時自動取得相關的團隊共享教訓，且過期或衝突的規則會被定期清理，
-以便直接受益於團隊累積的經驗，且不被陳舊或矛盾的規則誤導。
+As a newly joined member,
+I want to automatically obtain the relevant team-shared lessons when loading work, and for expired or conflicting rules to be periodically cleaned up,
+so that I directly benefit from the team's accumulated experience and am not misled by stale or contradictory rules.
 
 **Acceptance Scenarios:**
-- WHEN 開始規劃或實作一個變更 THEN 與該變更相關的 playbook 教訓被載入為參考（漸進揭露，避免 context 膨脹）
-- WHEN 一條共享規則逾 TTL 或與另一條衝突 THEN 出現在「待 review 清單」供人工淘汰
-- WHEN 共享規則被淘汰 THEN 版控記錄淘汰原因與時間
+- WHEN starting to plan or implement a change THEN the playbook lessons relevant to that change are loaded as reference (progressive disclosure, avoiding context bloat)
+- WHEN a shared rule exceeds its TTL or conflicts with another THEN it appears in the "pending review list" for human retirement
+- WHEN a shared rule is retired THEN version control records the reason and time of retirement
 
 #### REQ-TEMPLATES-071: Governance + Progressive Playbook Loading
-Govern：共享規則帶 TTL 與來源；過期/衝突 → 待 review 清單，淘汰於版控留原因。建 `_playbook.md`（版控）並登錄根層級 `index.md` Conventions；plan/implement Startup 載入**相關** playbook（漸進揭露）；archive Phase 4.5 **歸檔即自動萃取進版控 ledger（non-fatal/idempotent）**，learn Entry Gate「有料」= archived change 存在 **OR** 非空 ledger（避免新 worktree false-block）。
-- WHEN 規劃/實作一變更, THEN 相關 playbook 教訓被載入（漸進揭露、非全載、`if present` 防呆）
-- WHEN 共享規則逾 TTL 或衝突, THEN 入待 review 清單；淘汰於版控留原因
-- WHEN `_playbook.md` 登錄根層級 `index.md` Conventions, THEN skill 按需載入（L2 load-on-demand，不入核心 L1）
+Govern: shared rules carry a TTL and source; on expiry/conflict → pending review list, with the retirement reason kept under version control. Create `_playbook.md` (version-controlled) and register it in the root-level `index.md` Conventions; plan/implement Startup loads the **relevant** playbook (progressive disclosure); archive Phase 4.5 **automatically extracts into the version-controlled ledger upon archiving (non-fatal/idempotent)**, and the learn Entry Gate's "has material" = an archived change exists **OR** a non-empty ledger (to avoid false-blocking in a new worktree).
+- WHEN planning/implementing a change, THEN the relevant playbook lessons are loaded (progressive disclosure, not full loading, `if present` safeguard)
+- WHEN a shared rule exceeds its TTL or conflicts, THEN enter the pending review list; the retirement reason is kept under version control
+- WHEN `_playbook.md` is registered in the root-level `index.md` Conventions, THEN the skill loads it on demand (L2 load-on-demand, not entering core L1)
 
 ---
 
 ## Edge Cases
 
-- 早期專案變更數少、無足夠樣本：不產生升級建議，僅累積個人教訓
-- 跨人偏好衝突（兩位開發者相反回饋）：判定層標衝突、交人工裁決，不自動選邊
-- 教訓與既有 Constitution 規則重複：偵測重複，建議「強化既有」而非新增
-- 升級寫入失敗：不靜默；保留待升級佇列並回報
+- Early project with few changes and insufficient samples: do not generate promotion suggestions, only accumulate personal lessons
+- Cross-person preference conflict (two developers giving opposite feedback): the decision layer flags the conflict and defers to human arbitration, not automatically picking a side
+- A lesson duplicates an existing Constitution rule: detect the duplication and suggest "strengthen the existing one" rather than adding a new one
+- Promotion write failure: do not fail silently; retain the pending-promotion queue and report it
 
 ## Success Criteria
 
-- **SC-1**: 一條跨多次變更重複的教訓可走完「蒐集 → 判定建議 → 人工核可 → 寫入共享規則 → verify 可引用」完整循環
-- **SC-2**: 升級判定對相同 ledger 產生相同輸出，每個建議附可追溯計分明細（非黑箱；reproducibility 條件於穩定 ledger key）
-- **SC-3**: 所有共享層/Constitution 升級皆有版控 diff 記來源 change 與核可者
-- **SC-4**: 過期或衝突的共享規則 100% 進入待 review 清單，不靜默沿用
+- **SC-1**: A lesson that recurs across multiple changes can complete the full cycle of "collect → decision suggestion → human approval → write to shared rule → referenceable by verify"
+- **SC-2**: The promotion decision produces the same output for the same ledger, with each suggestion carrying traceable scoring details (not a black box; reproducibility is conditioned on a stable ledger key)
+- **SC-3**: All shared-tier/Constitution promotions have a version-controlled diff recording the source change and approver
+- **SC-4**: Expired or conflicting shared rules 100% enter the pending review list and are not silently carried over
 
 ## Maintenance Rules
 
-1. **Replace-in-Place**: MODIFIED User Stories 與 REQs 直接取代既有版本
-2. **Functional Grouping**: 新需求插入對應 User Story 之下
-3. **No Inline Provenance**: 歷史歸屬只在 Change History 表
-4. **Deprecation over Deletion**: 移除的需求移至 Deprecated 區段
+1. **Replace-in-Place**: MODIFIED User Stories and REQs directly replace the existing version
+2. **Functional Grouping**: New requirements are inserted under the corresponding User Story
+3. **No Inline Provenance**: Historical attribution lives only in the Change History table
+4. **Deprecation over Deletion**: Removed requirements are moved to the Deprecated section
 
 ## Deprecated Requirements
 
@@ -156,6 +156,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
-| 2026-06-08 | add-feedback-promotion-pipeline | 建立 G6 回饋晉升管線：蒐集→可審計判定→人工核可三層晉升→治理 | US-1~4; REQ-TYPES-024, REQ-TEMPLATES-069/070/071/072, REQ-TESTS-024 |
-| 2026-06-12 | add-knowledge-flywheel | ledger 版控化（跨 worktree 存活）+ archive Phase 4.5 自動萃取 + tasks×kind 進料 + knowledge_health 審查優先序 | US-1/2/4 reshaped; MODIFIED REQ-TEMPLATES-069/071/072; ADDED REQ-TEMPLATES-093/094/095, REQ-TESTS-025 |
-| 2026-07-04 | carry-review-verify-evidence | ledger 每個 source_changes 的 committed 證據指向 `_archived-history/{date}-{name}.md`（promotion-format Harvest + ledger header 明載），取代已蒸發的 gitignored bundle（issue #56）| US-1; REQ-TEMPLATES-128 (ADDED) |
+| 2026-06-08 | add-feedback-promotion-pipeline | Establish the G6 feedback promotion pipeline: collect → auditable decision → human-approved three-tier promotion → governance | US-1~4; REQ-TYPES-024, REQ-TEMPLATES-069/070/071/072, REQ-TESTS-024 |
+| 2026-06-12 | add-knowledge-flywheel | Version-control the ledger (survives across worktree) + archive Phase 4.5 automatic extraction + tasks×kind feed + knowledge_health review prioritization | US-1/2/4 reshaped; MODIFIED REQ-TEMPLATES-069/071/072; ADDED REQ-TEMPLATES-093/094/095, REQ-TESTS-025 |
+| 2026-07-04 | carry-review-verify-evidence | The committed evidence for each source_changes in the ledger points to `_archived-history/{date}-{name}.md` (explicitly carried in the promotion-format Harvest + ledger header), replacing the evaporated gitignored bundle (issue #56) | US-1; REQ-TEMPLATES-128 (ADDED) |
+| 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
