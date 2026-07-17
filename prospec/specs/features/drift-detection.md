@@ -6,256 +6,256 @@ story_count: 8
 req_count: 27
 ---
 
-# 確定性 Drift 檢查
+# Deterministic Drift Check
 
 ## Who & Why
 
-**Target users**: 維護 spec 與 code 同步的開發者、為團隊把守 main 分支的 maintainer
+**Target users**: Developers who keep spec and code in sync; maintainers who guard the team's main branch
 
-**Problem solved**: G2「spec 是 source of truth」原本只有開發期 LLM 手動驗證——指涉性 drift（REQ-ID 失引、檔案路徑失效、import 依賴方向反轉、Knowledge 過期、code task 未完成）會無聲累積，CI 層沒有任何守門。
+**Problem solved**: G2 "spec is the source of truth" was previously verified only by a manual LLM check during development — referential drift (dangling REQ-ID references, broken file paths, reversed import dependency direction, stale Knowledge, incomplete code tasks) accumulates silently, with no gatekeeping at the CI layer.
 
-**Why it matters**: `prospec check` 是完全確定性、零 LLM、零 token 的機械檢查器——同一 repo 狀態產出逐位元一致的報告，可進 CI 主流程強制執行。誠實邊界：語意一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）；料源不可用一律顯式 `skipped` + 原因，嚴禁偽裝 PASS。
+**Why it matters**: `prospec check` is a fully deterministic, zero-LLM, zero-token mechanical checker — the same repo state produces a byte-for-byte identical report, and it can be enforced in the CI main pipeline. Honest boundary: semantic consistency still belongs to `/prospec-review` (the report always marks it `not-checked`); whenever a source is unavailable it is always explicitly `skipped` + reason, and faking a PASS is strictly prohibited.
 
 ## User Stories & Behavior Specifications
 
-### US-1: 結構一致性檢查指令 [P1]
+### US-1: Structural consistency check command [P1]
 
-身為一名維護 spec 與 code 同步的開發者，
-我想要一個確定性的 `prospec check` 指令，檢出懸空的 REQ-ID 引用、失效的檔案路徑引用、違反方向的模組依賴，
-以便結構性 drift 在累積成真實混亂之前被機器抓到。
+As a developer who keeps spec and code in sync,
+I want a deterministic `prospec check` command that detects dangling REQ-ID references, broken file-path references, and direction-violating module dependencies,
+so that structural drift is caught by a machine before it accumulates into real chaos.
 
 **Acceptance Scenarios:**
-- WHEN 文件引用的 REQ-ID 不存在於 `specs/features/`，THEN 回報 FAIL 並列出引用位置（檔案 + 行號）
-- WHEN markdown 相對連結指向不存在的 repo 內檔案，THEN 回報 FAIL（佔位／glob／repo 外目標不檢查）
-- WHEN import 違反 `module-map.yaml` `depends_on` 宣告，THEN 回報 FAIL 並列出違規邊
-- WHEN 連續兩次對相同 repo 狀態執行，THEN 結果完全一致（零 LLM、零網路）
+- WHEN a document references a REQ-ID that does not exist in `specs/features/`, THEN report FAIL and list the reference location (file + line number)
+- WHEN a markdown relative link points to a nonexistent in-repo file, THEN report FAIL (placeholder / glob / out-of-repo targets are not checked)
+- WHEN an import violates the `module-map.yaml` `depends_on` declaration, THEN report FAIL and list the violating edge
+- WHEN run twice consecutively against the same repo state, THEN results are completely identical (zero LLM, zero network)
 
-#### REQ-LIB-014: 確定性結構 drift 引擎
-零 LLM 純函式評估器；蒐集器（I/O）與評估器（純函式）分離。REQ 定義源 = `specs/features/` 標題（排除 `_archived*`）；fenced code block 內容不掃描（CommonMark 關閉規則：同字元、≥ 長度、無 info string）；依賴方向以專案 `module-map.yaml` `depends_on` 為準（缺失退回 Constitution 分層），通用於任何 prospec 專案。
+#### REQ-LIB-014: Deterministic structural drift engine
+A zero-LLM pure-function evaluator; the collector (I/O) is separated from the evaluator (pure function). The REQ definition source = `specs/features/` headings (excluding `_archived*`); fenced code block content is not scanned (CommonMark closing rule: same character, ≥ length, no info string); dependency direction follows the project's `module-map.yaml` `depends_on` (falling back to Constitution layering when absent), applicable to any prospec project.
 **Scenarios:**
-- WHEN 三類違規任一出現，THEN finding 含 `source_path` + `line`，依（檢項、路徑、行號）codepoint 排序
-- WHEN module-map 存在但 schema 不合法，THEN 拋 typed error（fail loudly，不默默換規則集）
-- WHEN module-map paths 指向 repo 外，THEN 該路徑被 clamp，不驅動掃描或讀檔
-- WHEN module-map paths 條目為單一源碼檔，THEN import-edge 蒐集僅掃描該檔本身（依 `classifyModulePath` 判定 file/dir/glob）；非源碼檔條目不產生 import 邊（不再展開為 `<file>/**` 而 ENOTDIR）
+- WHEN any of the three violation categories appears, THEN the finding contains `source_path` + `line`, sorted by (check, path, line number) codepoint
+- WHEN module-map exists but its schema is invalid, THEN throw a typed error (fail loudly, do not silently switch rule sets)
+- WHEN module-map paths point outside the repo, THEN that path is clamped and does not drive scanning or file reads
+- WHEN a module-map paths entry is a single source file, THEN import-edge collection scans only that file itself (file/dir/glob determined by `classifyModulePath`); non-source-file entries produce no import edges (no longer expanded to `<file>/**` and hitting ENOTDIR)
 
 ---
 
-### US-2: Knowledge 健康度檢查 [P2]
+### US-2: Knowledge health check [P2]
 
-身為一名依賴 AI Knowledge 判斷上下文可信度的開發者，
-我想要 check 以 git commit 時間戳比對模組原始碼與 README 並回報覆蓋率，
-以便 Knowledge 是否過期可被判斷，而不是盲信。
+As a developer who relies on AI Knowledge to judge context trustworthiness,
+I want check to compare module source code against its README by git commit timestamp and report coverage,
+so that whether Knowledge is stale can be judged rather than blindly trusted.
 
 **Acceptance Scenarios:**
-- WHEN 模組 src 最後 commit 晚於 README 最後 commit，THEN 該模組標 stale、嚴重度恆 WARN（永不 FAIL）
-- WHEN 報告產出，THEN `knowledge_health` 欄位為凍結契約（modules[]{name, last_src_commit, last_readme_commit, stale} + coverage{documented, total}），供下游（Knowledge Flywheel、MCP server）直接消費
-- WHEN git 時間戳不可得（非 git／shallow clone）或 module-map 缺失，THEN 檢項 `skipped` + 原因
+- WHEN a module's last src commit is later than its last README commit, THEN mark the module stale, severity always WARN (never FAIL)
+- WHEN the report is produced, THEN the `knowledge_health` field is a frozen contract (modules[]{name, last_src_commit, last_readme_commit, stale} + coverage{documented, total}), consumed directly by downstream (Knowledge Flywheel, MCP server)
+- WHEN git timestamps are unavailable (non-git / shallow clone) or module-map is missing, THEN the check is `skipped` + reason
 
-#### REQ-LIB-015: Knowledge 健康度檢查（git 時間戳）
-比對來源為 git log 時間戳（檔案 mtime 在 CI checkout 後失真、不參與判定）；時間戳以 epoch 比較（%cI 帶各自時區偏移）。shallow clone 的邊界 commit 時間是捏造事實——降級為 skipped。module-map 缺失時不得以 Constitution fallback 模組捏造 phantom coverage。
+#### REQ-LIB-015: Knowledge health check (git timestamps)
+The comparison source is git log timestamps (file mtime is distorted after a CI checkout and does not participate in the judgment); timestamps are compared by epoch (%cI carries each one's own timezone offset). A shallow clone's boundary commit time is a fabricated fact — degrade to skipped. When module-map is missing, phantom coverage must not be fabricated from Constitution fallback modules.
 
 ---
 
-### US-3: Code-task 完成率檢查 [P2]
+### US-3: Code-task completion-rate check [P2]
 
-身為一名在歸檔前確認工作完成度的開發者，
-我想要 check 依凍結 kind schema 只以 code task 計算完成率，
-以便完成率反映真實程式工作，不被 manual/verification task 失真。
+As a developer who confirms work completeness before archiving,
+I want check to compute the completion rate from code tasks only, per the frozen kind schema,
+so that the completion rate reflects real code work and is not distorted by manual/verification tasks.
 
 **Acceptance Scenarios:**
-- WHEN active change 有未勾選 code task，THEN 回報 FAIL 含清單與位置
-- WHEN 未勾選 task 全為 `[M]`/`[V]`，THEN 不判 FAIL
-- WHEN `.prospec/changes/` 缺席（如 CI checkout），THEN `skipped (source unavailable)`
+- WHEN an active change has unchecked code tasks, THEN report FAIL including the list and locations
+- WHEN all unchecked tasks are `[M]`/`[V]`, THEN do not judge FAIL
+- WHEN `.prospec/changes/` is absent (e.g., a CI checkout), THEN `skipped (source unavailable)`
 
-#### REQ-LIB-016: Kind-aware 任務完成率檢查
-kind 文法的唯一可執行副本在 `lib/task-markers.ts`（`parseTaskLine()`），drift 引擎與 archive task stats 共同消費——兩者對同一份 tasks.md 永不分歧。
+#### REQ-LIB-016: Kind-aware task completion-rate check
+The only executable copy of the kind grammar lives in `lib/task-markers.ts` (`parseTaskLine()`), consumed jointly by the drift engine and archive task stats — the two never diverge on the same tasks.md.
 
 ---
 
-### US-4: 機器可讀報告與 CI 閘門 [P1]
+### US-4: Machine-readable report and CI gate [P1]
 
-身為一名為團隊把守 main 分支的 maintainer，
-我想要機器可讀的 `prospec-report.json`、`--strict` exit 語意與 hardened CI workflow 模板，
-以便 drift 檢查進 CI 主流程強制執行且不燒任何 token。
+As a maintainer who guards the team's main branch,
+I want a machine-readable `prospec-report.json`, `--strict` exit semantics, and a hardened CI workflow template,
+so that drift checks are enforced in the CI main pipeline without burning any tokens.
 
 **Acceptance Scenarios:**
-- WHEN 以 `--json` 執行，THEN 報告 schema 分層 structural/semantic，semantic 恆 `not-checked`
-- WHEN 以 `--strict` 執行且存在 FAIL，THEN exit 1；WARN 與 skipped 永不影響 exit code
-- WHEN 報告含 skipped 檢項，THEN 報告與 PR comment 均明示原因、不計入 PASS
+- WHEN run with `--json`, THEN the report schema is layered into structural/semantic, with semantic always `not-checked`
+- WHEN run with `--strict` and a FAIL exists, THEN exit 1; WARN and skipped never affect the exit code
+- WHEN the report contains skipped checks, THEN both the report and the PR comment explicitly state the reason and do not count toward PASS
 
-#### REQ-TYPES-027: Drift Report Schema（擴充兩個 check id）
+#### REQ-TYPES-027: Drift Report Schema (extend with two check ids)
 
-#### REQ-SERVICES-027: Check Service 薄編排
-`execute()` pattern：蒐集 → 評估 → schema 驗證 →（--json）atomicWrite 報告；`--init-ci` 渲染 workflow 模板（rerun-safe 不覆寫）；Result 含 `hasFail`，exit code 判斷留在 cli 層。
+#### REQ-SERVICES-027: Check Service thin orchestration
+`execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the workflow template (rerun-safe, does not overwrite); the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
 
-#### REQ-CLI-011: `prospec check` 指令
-旗標 `--json`/`--strict`/`--init-ci`；人讀輸出列五檢項各自狀態（skipped 顯式附原因）；untrusted repo 字串經 `sanitizeTerminal()` 過濾 C0/C1 控制字元後輸出。
+#### REQ-CLI-011: `prospec check` command
+Flags `--json`/`--strict`/`--init-ci`; the human-readable output lists each of the five checks with its own status (skipped explicitly attaches a reason); untrusted repo strings are output after `sanitizeTerminal()` filters C0/C1 control characters.
 
-#### REQ-TEMPLATES-091: CI Workflow 模板
-兩 job：check（checkout `fetch-depth: 0` → `--strict --json`（`shell: bash` 啟用 pipefail，tee 不得遮蔽 exit code）→ 報告 artifact）+ comment（**不 checkout**、僅下載 artifact、現成 sticky action 貼 4 空格縮排 code block——無 fence 可逃逸、`head -c 60000` 上限）。supply-chain hardening 為預設：第三方 action pin 完整 commit SHA、最小權限 `permissions:`。
-
----
-
-
-#### REQ-LIB-018: dangling-prefix drift（REQ-prefix 合法性 lint，warn-class）
+#### REQ-TEMPLATES-091: CI Workflow template
+Two jobs: check (checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` enables pipefail, tee must not mask the exit code) → report artifact) + comment (**no checkout**, only downloads the artifact, an off-the-shelf sticky action posts a 4-space-indented code block — no fence can escape, `head -c 60000` cap). Supply-chain hardening is the default: third-party actions are pinned to full commit SHAs, minimal-privilege `permissions:`.
 
 ---
 
 
-#### REQ-LIB-019: feature-modules self-validating drift（驗 modules 邊，fail-class）
+#### REQ-LIB-018: dangling-prefix drift (REQ-prefix validity lint, warn-class)
 
 ---
 
 
-#### REQ-TESTS-031: feature-map drift collector/evaluator 測試
+#### REQ-LIB-019: feature-modules self-validating drift (validates the modules edge, fail-class)
 
 ---
 
-## US-5: README 事實計數真實性檢查 [P2]
 
-身為一名維護 README 與程式碼一致的開發者，
-我想要 check 機械化比對 module README 宣告的計數（如「registers N resources」）與其指名程式碼的實際數，
-以便事實計數漂移在 CI 被機器攔截，不再只靠人工。
+#### REQ-TESTS-031: feature-map drift collector/evaluator tests
+
+---
+
+## US-5: README factual-count truthfulness check [P2]
+
+As a developer who keeps README and code consistent,
+I want check to mechanically compare the counts a module README declares (e.g., "registers N resources") against the actual count in the code it names,
+so that factual-count drift is intercepted by a machine in CI, no longer relying solely on humans.
 
 **Acceptance Scenarios:**
-- WHEN module README 宣告計數與其指名程式碼的實際數不符，THEN 報 WARN（含 README `file:line` + expected vs actual）
-- WHEN 計數相符、無可解析宣告、或宣告落在 fenced code block 內，THEN 不報（不偽陽）
-- WHEN module-map 缺失，THEN `mcp-readme-counts` skipped（帶原因），永不偽裝 PASS
+- WHEN a module README's declared count does not match the actual count in the code it names, THEN report WARN (including README `file:line` + expected vs actual)
+- WHEN counts match, there is no parseable declaration, or the declaration falls inside a fenced code block, THEN do not report (no false positives)
+- WHEN module-map is missing, THEN `mcp-readme-counts` is skipped (with reason), never faking a PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` rename `readme-counts`→`mcp-readme-counts`（名實相符：範圍僅 MCP registration 計數，非泛用 README 計數；不動 `knowledge_health` 凍結契約）。當前 frozen check id 總數見 REQ-TYPES-052（**11** 個，含 knowledge-size）。
+`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**11**, including knowledge-size).
 
-#### REQ-LIB-020: README 計數 collector + evaluator
-`collectMcpReadmeCounts`（I/O：whitelist pattern 抓 README 計數宣告 + 數其指名檔的 `registerResource`/`registerTool`；字串/template-literal/fenced-block-aware 計數；缺源略過該 claim）+ pure `evaluateMcpReadmeCounts`（宣告≠實際 → warn finding）。
+#### REQ-LIB-020: README count collector + evaluator
+`collectMcpReadmeCounts` (I/O: a whitelist pattern captures README count declarations + counts `registerResource`/`registerTool` in the named file; string/template-literal/fenced-block-aware counting; skips the claim when the source is missing) + pure `evaluateMcpReadmeCounts` (declared ≠ actual → warn finding).
 **Scenarios:**
-- WHEN README 宣告 N 但指名程式 M（N≠M），THEN warn finding：severity `warn`、`source_path`=README、detail 含 expected/actual
-- WHEN 缺 module-map，THEN `skipped` + reason；evaluator 維持 I/O-free、findings codepoint-sort
+- WHEN the README declares N but the named code has M (N≠M), THEN a warn finding: severity `warn`, `source_path`=README, detail contains expected/actual
+- WHEN module-map is missing, THEN `skipped` + reason; the evaluator stays I/O-free, findings codepoint-sort
 
-#### REQ-SERVICES-034: check.service 注入 mcp-readme-counts collector
-`check.service` 將 `collectMcpReadmeCounts` 注入 `runChecks`（moduleMap 缺則 `{available:false}` 降級，與 `timestamps` 共用 `moduleMapMissing` helper）。
+#### REQ-SERVICES-034: check.service injects the mcp-readme-counts collector
+`check.service` injects `collectMcpReadmeCounts` into `runChecks` (when moduleMap is missing it degrades to `{available:false}`, sharing the `moduleMapMissing` helper with `timestamps`).
 
 ---
 
-## US-6: review-provenance 閘門檢查 [P1]
+## US-6: review-provenance gate check [P1]
 
-身為一名把守 verify 閘門的 maintainer，
-我想要一個確定性的 `review-provenance` 檢查，判定 `implemented` 非 backfill 變更是否有記錄過、且仍反映當前程式碼的 review，
-以便「review 必經於 verify 之前」從流程散文變成機器可查、可測試的閘門。
+As a maintainer who guards the verify gate,
+I want a deterministic `review-provenance` check that determines whether an `implemented` non-backfill change has a recorded review that still reflects the current code,
+so that "review must precede verify" turns from process prose into a machine-checkable, testable gate.
 
 **Acceptance Scenarios:**
-- WHEN 一個 `implemented` 非 backfill 變更無記錄的 review baseline，THEN 回報 FAIL「no review recorded」（指向 `/prospec-review`）
-- WHEN 記錄的 review digest 與當前程式碼指紋不符（review 後改 code），THEN 回報 FAIL「stale review」
-- WHEN digest 相符，THEN PASS（無 finding）
-- WHEN 變更 `scale: backfill` 或 status 非 `implemented`，THEN 不 flag（豁免）
-- WHEN 非 git repo／`.prospec/changes/` 缺席／digest 不可計算，THEN 檢項 `skipped` + 原因（永不偽 PASS）
+- WHEN an `implemented` non-backfill change has no recorded review baseline, THEN report FAIL "no review recorded" (points to `/prospec-review`)
+- WHEN the recorded review digest does not match the current code fingerprint (code changed after review), THEN report FAIL "stale review"
+- WHEN the digest matches, THEN PASS (no finding)
+- WHEN the change is `scale: backfill` or its status is not `implemented`, THEN do not flag (exempt)
+- WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` append `review-provenance`（additive-only；不動 `knowledge_health` 凍結契約）——共 **11** 個 frozen check id（第 11 個為 `knowledge-size`，見 US-8）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 型別窮盡護欄）。
+`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **11** frozen check ids in total (the 11th is `knowledge-size`, see US-8). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
-`computeChangeDigest(cwd)`：內容指紋 = HEAD sha + `git diff HEAD` + untracked，涵蓋整棵工作樹（review 所審的全部第一方內容），以 **denylist** 排除工作流狀態（`.prospec/`、`prospec-report.json`）、生成物（`.claude/`、`dist/`）與 lockfile——**fail-closed 而非 fail-open**（`src`/`tests` 以外的第一方 code 如 `scripts/` 仍納入）；不依賴 git commit 時間戳（commit boundary 在 verify S/A 之後，review/verify 期 code 未 commit）。`collectReviewProvenance(cwd)`（I/O）列舉 `.prospec/changes/*` 帶 status/scale/recorded digest + 當前 digest；`gitCapture` 助手由 `gitLastCommit` 與 digest 共用；`evaluateReviewProvenance`（純函式）僅對 `status==implemented` 且非 backfill 判定。
+`computeChangeDigest(cwd)`: the content fingerprint = HEAD sha + `git diff HEAD` + untracked, covering the whole working tree (all first-party content that a review audits), using a **denylist** to exclude workflow state (`.prospec/`, `prospec-report.json`), generated artifacts (`.claude/`, `dist/`), and the lockfile — **fail-closed rather than fail-open** (first-party code outside `src`/`tests`, such as `scripts/`, is still included); it does not rely on git commit timestamps (the commit boundary is after verify S/A, and during review/verify the code is not committed). `collectReviewProvenance(cwd)` (I/O) enumerates `.prospec/changes/*` with status/scale/recorded digest + the current digest; the `gitCapture` helper is shared by `gitLastCommit` and digest; `evaluateReviewProvenance` (pure function) judges only `status==implemented` and non-backfill.
 **Scenarios:**
-- WHEN recorded digest 缺席，THEN fail「no review recorded」；WHEN recorded≠current，THEN fail「stale review」；相符→無 finding
-- WHEN backfill／非 implemented，THEN 不 flag；WHEN 非 git／無 changes 目錄／digest null，THEN skipped + reason；findings codepoint-sort
-- 單一 in-flight change 假設：一個整棵樹 digest 對比每個變更（fail-closed，不 fail-open）
+- WHEN the recorded digest is absent, THEN fail "no review recorded"; WHEN recorded ≠ current, THEN fail "stale review"; match → no finding
+- WHEN backfill / not implemented, THEN do not flag; WHEN not git / no changes directory / digest null, THEN skipped + reason; findings codepoint-sort
+- Single in-flight change assumption: one whole-tree digest is compared against each change (fail-closed, not fail-open)
 
-#### REQ-SERVICES-062: check.service 注入 + --record-review 寫入路徑
-`check.service` 將 `collectReviewProvenance` 注入 `runChecks`；`--record-review` 分支以 `resolveChange`（`--change` 可指定、`existsSync` 守衛，找不到 metadata 即誠實跳過）→ `computeChangeDigest` → comment-preserving Document 寫入 metadata `review_provenance`（沿用 `--json`/`--init-ci` 的 flag-gated 副作用；純檢查路徑維持唯讀、確定性）。
+#### REQ-SERVICES-062: check.service injection + --record-review write path
+`check.service` injects `collectReviewProvenance` into `runChecks`; the `--record-review` branch uses `resolveChange` (`--change` can specify it, guarded by `existsSync`; if metadata is not found it honestly skips) → `computeChangeDigest` → a comment-preserving Document writes the metadata `review_provenance` (following the flag-gated side effects of `--json`/`--init-ci`; the pure check path stays read-only and deterministic).
 
-#### REQ-CLI-012: prospec check --record-review 旗標
-`prospec check` 新增 `--record-review`（記錄 review baseline 後退出）與 `--change <name>`（多變更並行時目標化 record-review），與 `--json`/`--strict`/`--init-ci` 並列；旗標缺席時行為與現行完全一致。
+#### REQ-CLI-012: prospec check --record-review flag
+`prospec check` adds `--record-review` (records the review baseline then exits) and `--change <name>` (targets record-review when multiple changes run in parallel), alongside `--json`/`--strict`/`--init-ci`; when the flags are absent, behavior is completely identical to the current one.
 
-#### REQ-TESTS-042: review-provenance 引擎測試
-`evaluateReviewProvenance` 六情境（absent/stale/fresh/backfill/non-implemented/unavailable）、`computeChangeDigest`（temp git dir：改 `src`/`scripts`/docs 內容翻 digest、只改 `.prospec/`/report/generated 不翻）、`collectReviewProvenance`、`check.service` 注入 + `--record-review` 寫 metadata + `--strict` FAIL→exit 1 + backfill skipped——mutation-verified。
+#### REQ-TESTS-042: review-provenance engine tests
+`evaluateReviewProvenance` six scenarios (absent/stale/fresh/backfill/non-implemented/unavailable), `computeChangeDigest` (temp git dir: changing `src`/`scripts`/docs content flips the digest, changing only `.prospec/`/report/generated does not), `collectReviewProvenance`, `check.service` injection + `--record-review` writes metadata + `--strict` FAIL → exit 1 + backfill skipped — mutation-verified.
 
-## US-7: metadata-completeness 閘門檢查 [P1]
+## US-7: metadata-completeness gate check [P1]
 
-身為一名把守 archive 閘門的 maintainer，
-我想要一個機器可查的 `metadata-completeness` 檢查，判定每個變更的 metadata.yaml 是否欄位完整、且 verified/archived 者有記錄 verify S/A 評級，
-以便殘缺或無評級的 metadata 無法悄悄進入永久紀錄（同「只 archive verified」的防護等級）。
+As a maintainer who guards the archive gate,
+I want a machine-checkable `metadata-completeness` check that determines whether each change's metadata.yaml has complete fields and, for verified/archived ones, has a recorded verify S/A grade,
+so that incomplete or ungraded metadata cannot quietly enter the permanent record (the same protection level as "only archive verified").
 
 **Acceptance Scenarios:**
-- WHEN 變更 metadata 缺 `name`/`created_at`/`status`/`scale` 任一，THEN 回報 FAIL 並列出缺項
-- WHEN 變更 `status: verified`/`archived` 但 `quality_log` 無 `prospec-verify` S/A 評級，THEN 回報 FAIL
-- WHEN 變更為 in-progress（story/plan/tasks/implemented），THEN 不套 grade 規則（不 false-block）
-- WHEN metadata 空/註解/null/非-mapping（parseYaml 回 null 不 throw），THEN 回報全欄缺失，永不崩潰
-- WHEN 無 `.prospec/changes/`，THEN 檢項 `skipped` + 原因（永不偽 PASS）
+- WHEN a change's metadata is missing any of `name`/`created_at`/`status`/`scale`, THEN report FAIL and list the missing items
+- WHEN a change is `status: verified`/`archived` but `quality_log` has no `prospec-verify` S/A grade, THEN report FAIL
+- WHEN a change is in-progress (story/plan/tasks/implemented), THEN do not apply the grade rule (no false-block)
+- WHEN metadata is empty/comment/null/non-mapping (parseYaml returns null without throwing), THEN report all fields missing, never crashing
+- WHEN there is no `.prospec/changes/`, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-055: Drift Report metadata-completeness Check Id
-`DRIFT_CHECK_IDS` append `metadata-completeness`（第 10 個 frozen check id，FAIL-class；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
+`DRIFT_CHECK_IDS` appends `metadata-completeness` (the 10th frozen check id, FAIL-class; additive-only, does not touch the `knowledge_health` frozen contract). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).
 
 #### REQ-LIB-025: metadata-completeness Collector + Evaluator
-`collectMetadataCompleteness(cwd)`（I/O）列舉 `.prospec/changes/*` 讀 metadata：檢 `REQUIRED_METADATA_FIELDS`（name/created_at/status/scale）存在性 + `GRADED_STATUSES`（verified/archived）者 `hasVerifyGrade`——優先讀 `prospec-verify` entry 的結構化 `grade ∈ {S,A}`，保留 legacy `result ∈ {S,A}` fallback 使既有 archived metadata 仍通過；非-mapping parse（空/註解/null）視為全欄缺失，非崩潰。pure `evaluateMetadataCompleteness` 對缺欄與缺評級各發 fail finding；in-progress 不套 grade 規則。`metadata-completeness` check id 不變。
+`collectMetadataCompleteness(cwd)` (I/O) enumerates `.prospec/changes/*` and reads metadata: it checks the existence of `REQUIRED_METADATA_FIELDS` (name/created_at/status/scale) + `hasVerifyGrade` for `GRADED_STATUSES` (verified/archived) ones — prioritizing the structured `grade ∈ {S,A}` of the `prospec-verify` entry, keeping the legacy `result ∈ {S,A}` fallback so that existing archived metadata still passes; a non-mapping parse (empty/comment/null) is treated as all fields missing, not a crash. Pure `evaluateMetadataCompleteness` emits a fail finding for each missing field and each missing grade; in-progress does not apply the grade rule. The `metadata-completeness` check id is unchanged.
 **Scenarios:**
-- WHEN 缺必填欄，THEN fail 列缺項；WHEN verified 有結構化 grade S/A 或 legacy result S/A，THEN pass；WHEN verified 兩者皆無，THEN fail；in-progress 豁免 grade
-- WHEN 空/null metadata，THEN 全欄缺失 finding（不 deref null）；無 changes 目錄→skipped + reason；findings codepoint-sort
+- WHEN a required field is missing, THEN fail listing the missing items; WHEN verified has a structured grade S/A or a legacy result S/A, THEN pass; WHEN verified has neither, THEN fail; in-progress is exempt from the grade
+- WHEN metadata is empty/null, THEN an all-fields-missing finding (does not deref null); no changes directory → skipped + reason; findings codepoint-sort
 
-#### REQ-SERVICES-063: check.service 注入 metadata-completeness collector
-`check.service` 將 `collectMetadataCompleteness` 注入 `runChecks`，比照 `collectReviewProvenance` 佈線；純檢查路徑維持唯讀、確定性。
+#### REQ-SERVICES-063: check.service injects the metadata-completeness collector
+`check.service` injects `collectMetadataCompleteness` into `runChecks`, wired the same way as `collectReviewProvenance`; the pure check path stays read-only and deterministic.
 
-#### REQ-TEMPLATES-142: archive Entry Gate 消費 metadata-completeness
-`/prospec-archive` Entry Gate 新增機器檢查項：跑 `prospec check --json` 讀 `metadata-completeness`，FAIL→拒絕入庫（CLI 不在退回直讀該變更 metadata）；防殘缺/無評級 metadata 進永久紀錄。
+#### REQ-TEMPLATES-142: archive Entry Gate consumes metadata-completeness
+The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --json` and read `metadata-completeness`, FAIL → refuse archiving (when the CLI is absent, fall back to reading that change's metadata directly); prevents incomplete/ungraded metadata from entering the permanent record.
 
-#### REQ-TESTS-045: metadata-completeness 引擎測試
-`evaluateMetadataCompleteness`（pass/缺各欄/verified-無評級/in-progress-豁免/both-findings）、`collectMetadataCompleteness`（changes-dir fixture：完整/stub/present-but-empty/verified-無評級/verified-有A/空-null-註解/unparseable）、`check.service` 注入 + skipped-never-PASS 全 11 checks（含 knowledge-size）——S/A clause 與 skill clause mutation-verified。
+#### REQ-TESTS-045: metadata-completeness engine tests
+`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 11 checks (including knowledge-size) — the S/A clause and the skill clause mutation-verified.
 
 ---
 
-## US-8: knowledge-size 預算檢查 [P2]
+## US-8: knowledge-size budget check [P2]
 
-身為一名維護分層知識載入效益的 maintainer，
-我想要一個確定性的 `knowledge-size` 檢查，對 index.md、core conventions、各 module README 計 token/行數並與宣告預算比對，
-以便長期宣告卻無機制查核的分層 token budget 變成機器可查的 warn，防止分層模型效益逐 change 無聲流失。
+As a maintainer who maintains the effectiveness of layered knowledge loading,
+I want a deterministic `knowledge-size` check that counts tokens/lines for index.md, the core conventions, and each module README and compares them against the declared budget,
+so that the layered token budget — long declared but never mechanically enforced — becomes a machine-checkable warn, preventing the layered model's effectiveness from silently eroding change by change.
 
 **Acceptance Scenarios:**
-- WHEN 某 L1 檔（index.md 或 core convention）token 超過 per-file 預算，THEN 回報 WARN（含 `source_path` + 實測 token/預算 + `TOKEN_ESTIMATOR_LABEL`）
-- WHEN 某 module README token 超過 per-module 預算或行數超過 readme 行數上限，THEN 回報 WARN（token 與行數各自成獨立 finding）
-- WHEN 檔案大小 `≤` 預算，THEN 不報（邊界包含）
-- WHEN 知識庫不存在，THEN `knowledge-size` skipped（帶原因），永不偽裝 PASS
-- WHEN `.prospec.yaml` 設 `knowledge.token_budget`，THEN 逐欄覆蓋 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`；否則用預設
+- WHEN an L1 file (index.md or a core convention) exceeds the per-file token budget, THEN report WARN (including `source_path` + measured token/budget + `TOKEN_ESTIMATOR_LABEL`)
+- WHEN a module README's tokens exceed the per-module budget or its line count exceeds the readme line-count cap, THEN report WARN (tokens and lines each form an independent finding)
+- WHEN the file size is `≤` the budget, THEN do not report (boundary inclusive)
+- WHEN the knowledge base does not exist, THEN `knowledge-size` is skipped (with reason), never faking a PASS
+- WHEN `.prospec.yaml` sets `knowledge.token_budget`, THEN override `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` field by field; otherwise use the default
 
 #### REQ-TYPES-060: Drift Report knowledge-size Check Id
-`DRIFT_CHECK_IDS` append `knowledge-size`（第 11 個 frozen check id，**warn-class**；additive-only、不動 `knowledge_health` 凍結契約）。未於 `runChecks` dispatch 對應 evaluator 即編譯失敗（`Record<DriftCheckId, CheckOutcome>` 窮盡護欄）。
+`DRIFT_CHECK_IDS` appends `knowledge-size` (the 11th frozen check id, **warn-class**; additive-only, does not touch the `knowledge_health` frozen contract). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).
 
-#### REQ-TYPES-061: token_budget 誠實命名 + DEFAULT 單一來源
-`TokenBudgetSchema` 欄位重命名 `l0_max`→`l1_per_file`、`l1_per_module`→`l2_per_module`（`readme_max_lines` 不變，皆 optional），名實對齊 index.md 的 L1/L2 語意。新增 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1800, l2_per_module:1000, readme_max_lines:100}` 作為 knowledge-size 閾值與 index.md 宣告的**單一權威來源**（舊欄位名為 dead config，從未被程式碼讀取）。預設值經 slim-knowledge-l1-l2（#64）誠實校準：1500/400 對已充分自律的 index/README 偏緊，1800/1000 為結構性下限、仍為 warn-class 防回彈 ratchet；`.prospec.yaml` 逐欄可覆寫、init seed 同步。inject-resolved-knowledge-budgets 起,此單一來源亦透過 `lib/config` 的 `resolveKnowledgeTokenBudget` + agent-sync 注入生成 skill 模板的預算渲染（模板不再寫死預算數字或具名 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`）；`KnowledgeSizeBudget`（resolved 型別）由 `lib/drift-sources` 移至 `types/config`。
+#### REQ-TYPES-061: token_budget honest naming + DEFAULT single source
+`TokenBudgetSchema` renames the fields `l0_max` → `l1_per_file` and `l1_per_module` → `l2_per_module` (`readme_max_lines` unchanged, all optional), aligning name with reality to index.md's L1/L2 semantics. It adds `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1800, l2_per_module:1000, readme_max_lines:100}` as the **single authoritative source** for the knowledge-size thresholds and index.md's declaration (the old field names were dead config, never read by the code). The default values were honestly calibrated by slim-knowledge-l1-l2 (#64): 1500/400 was too tight for already well-disciplined index/README, 1800/1000 is the structural lower bound and still warn-class as an anti-regression ratchet; `.prospec.yaml` can override field by field, and the init seed is synced. Since inject-resolved-knowledge-budgets, this single source is also injected — via `lib/config`'s `resolveKnowledgeTokenBudget` + agent-sync — into the budget rendering of generated skill templates (templates no longer hardcode budget numbers or a named `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`); `KnowledgeSizeBudget` (the resolved type) moves from `lib/drift-sources` to `types/config`.
 
 #### REQ-LIB-027: knowledge-size Collector + Evaluator
-`collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)`（I/O）：以 canonical contained readers（`readIndex`/`readContainedFile`/`readModuleReadme`）讀 index.md + `CORE_CONVENTIONS`（L1）與 `modules/*/README.md`（L2），`estimateTokens` 計 token、`countLines` 計行；module 名由 README 路徑推得（不需 module-map）；`knowledgePath` 不存在 → `{available:false, reason}`。pure `evaluateKnowledgeSize`：`!available→skipped`；L1 檔 tokens > `l1_per_file`、L2 README tokens > `l2_per_module` 或 lines > `readme_max_lines` → warn finding；L0 out of scope。
+`collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)` (I/O): using the canonical contained readers (`readIndex`/`readContainedFile`/`readModuleReadme`) it reads index.md + `CORE_CONVENTIONS` (L1) and `modules/*/README.md` (L2), `estimateTokens` counts tokens, `countLines` counts lines; the module name is derived from the README path (no module-map needed); if `knowledgePath` does not exist → `{available:false, reason}`. Pure `evaluateKnowledgeSize`: `!available → skipped`; an L1 file with tokens > `l1_per_file`, an L2 README with tokens > `l2_per_module` or lines > `readme_max_lines` → warn finding; L0 is out of scope.
 **Scenarios:**
-- WHEN L1/L2 檔超標，THEN warn finding（`source_path` + detail 含實測/預算/`TOKEN_ESTIMATOR_LABEL`）；`≤` 邊界不報
-- WHEN 知識庫缺席，THEN `skipped` + reason；evaluator I/O-free、findings codepoint-sort
+- WHEN an L1/L2 file exceeds the limit, THEN a warn finding (`source_path` + detail contains measured/budget/`TOKEN_ESTIMATOR_LABEL`); the `≤` boundary is not reported
+- WHEN the knowledge base is absent, THEN `skipped` + reason; the evaluator is I/O-free, findings codepoint-sort
 
-#### REQ-LIB-028: resolveKnowledgeTokenBudget canonical helper（lib/config）
-`resolveKnowledgeTokenBudget(config): KnowledgeSizeBudget` 位於 `lib/config.ts`（config 解析,與 `resolveBasePaths`/`resolveArtifactLanguage` 同類）,逐欄以 `config.knowledge?.token_budget` 覆蓋 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`；`KnowledgeSizeBudget` 型別位於 `types/config`。`check.service` 與 `agent-sync` 皆自 `lib/config` import 此單一來源,無重複實作、無 service→service 耦合（PB-006/PB-007、依賴方向 `cli→services→lib→types`）。
+#### REQ-LIB-028: resolveKnowledgeTokenBudget canonical helper (lib/config)
+`resolveKnowledgeTokenBudget(config): KnowledgeSizeBudget` lives in `lib/config.ts` (config resolution, the same category as `resolveBasePaths`/`resolveArtifactLanguage`), overriding `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` field by field with `config.knowledge?.token_budget`; the `KnowledgeSizeBudget` type lives in `types/config`. Both `check.service` and `agent-sync` import this single source from `lib/config`, with no duplicate implementation and no service→service coupling (PB-006/PB-007, dependency direction `cli→services→lib→types`).
 
-#### REQ-SERVICES-065: check.service 注入 knowledge-size collector
-`check.service.execute` 將 `collectKnowledgeSize(cwd, paths.baseDir, paths.knowledgePath, resolveKnowledgeTokenBudget(config))` 注入 `runChecks`；`resolveKnowledgeTokenBudget`（自 `lib/config` import,見 REQ-LIB-028）以 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 逐欄被 `config.knowledge?.token_budget` 覆蓋；純檢查路徑維持唯讀、確定性。
+#### REQ-SERVICES-065: check.service injects the knowledge-size collector
+`check.service.execute` injects `collectKnowledgeSize(cwd, paths.baseDir, paths.knowledgePath, resolveKnowledgeTokenBudget(config))` into `runChecks`; `resolveKnowledgeTokenBudget` (imported from `lib/config`, see REQ-LIB-028) has `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` overridden field by field by `config.knowledge?.token_budget`; the pure check path stays read-only and deterministic.
 
-#### REQ-TEMPLATES-149: init scaffold 採用重命名 budget 欄位
-`init/prospec.yaml.hbs` 的 `knowledge.token_budget` seed 改用 `l1_per_file`/`l2_per_module`/`readme_max_lines`，值與 `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 一致。
+#### REQ-TEMPLATES-149: init scaffold adopts the renamed budget fields
+The `knowledge.token_budget` seed in `init/prospec.yaml.hbs` switches to `l1_per_file`/`l2_per_module`/`readme_max_lines`, with values consistent with `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`.
 
-#### REQ-TESTS-048: knowledge-size 引擎測試 + single-source 斷言
-`evaluateKnowledgeSize`（over-L1／over-L2-tokens／over-L2-lines／邊界／skipped／config-override）；`collectKnowledgeSize`（temp fixture：超標 + 合規 + 缺 knowledgePath skipped）；`drift-report.test.ts` frozen 數 10→11 + 清單加 id；**single-source 測試**：讀 repo `prospec/index.md` 抽 L1/L2 預算數，斷言 == `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`（不一致即 FAIL，mutation-verified）。
+#### REQ-TESTS-048: knowledge-size engine tests + single-source assertion
+`evaluateKnowledgeSize` (over-L1 / over-L2-tokens / over-L2-lines / boundary / skipped / config-override); `collectKnowledgeSize` (temp fixture: over-limit + compliant + missing knowledgePath skipped); `drift-report.test.ts` frozen count 10→11 + adds the id to the list; **single-source test**: reads the repo's `prospec/index.md`, extracts the L1/L2 budget numbers, and asserts == `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (a mismatch is a FAIL, mutation-verified).
 
 ---
 
 ## Edge Cases
 
-- `specs/features/` 不存在或為空：req-references `skipped (source unavailable)`，非 FAIL
-- `_archived*` 目錄與平鋪檔案：兩側（定義／引用）一致排除
-- block comment 內註解掉的 import：不計入邊；`export const X = './path'` 字串常數不計入
-- 括號／percent-encoded 連結（`design%20(v2).md`）：decodeURI + 平衡括號，不誤判 broken
-- repo 外路徑（`../` 連結、module-map paths）：不探測、不掃描——無檔案存在性 oracle
-- 同檔多筆違規：全部列出；Windows 反斜線一律正規化為 `/`
+- `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
+- `_archived*` directories and flat files: consistently excluded on both sides (definition / reference)
+- imports commented out inside a block comment: not counted as edges; the `export const X = './path'` string constant is not counted
+- parenthesized / percent-encoded links (`design%20(v2).md`): decodeURI + balanced parentheses, not misjudged as broken
+- out-of-repo paths (`../` links, module-map paths): not probed, not scanned — no file-existence oracle
+- multiple violations in the same file: all listed; Windows backslashes are always normalized to `/`
 
 ## Success Criteria
 
-- **SC-1**: 一致狀態 repo `check --strict` exit 0，五檢項各有明確狀態
-- **SC-2**: 注入三類 drift 後 `--strict` exit 1，findings 均可定位
-- **SC-3**: 同 repo 狀態連續執行報告逐位元一致（generated_at 除外）；排序為 codepoint（跨環境穩定）
-- **SC-4**: semantic 層任何執行下均 `not-checked`
-- **SC-5**: 無 `.prospec/changes/` 時完成率 skipped 且不影響 exit code
+- **SC-1**: On a consistent-state repo, `check --strict` exits 0, and each of the five checks has an explicit status
+- **SC-2**: After injecting the three drift categories, `--strict` exits 1, and all findings are locatable
+- **SC-3**: On the same repo state, consecutive runs produce byte-for-byte identical reports (except generated_at); sorting is by codepoint (stable across environments)
+- **SC-4**: The semantic layer is `not-checked` under any run
+- **SC-5**: When there is no `.prospec/changes/`, the completion rate is skipped and does not affect the exit code
 
 ## Maintenance Rules
 
@@ -273,12 +273,13 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
-| 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5；ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034（README 事實計數 drift check，BL-043） | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
-| 2026-07-04 | mechanize-review-gate | ADDED US-6（review-provenance 閘門檢查，第 9 個 check id）；ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042；MODIFIED REQ-TYPES-034（總數→9）（issue #66 scope 1+2） | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
-| 2026-07-05 | quick-scale-and-ceremony-cleanup | MODIFIED US-5 + REQ-TYPES-034/REQ-LIB-020/REQ-SERVICES-034（readme-counts→mcp-readme-counts 改名，名實相符 MCP-only）；MODIFIED REQ-TYPES-052（總數→10）；ADDED US-7（metadata-completeness 閘門，第 10 個 check id）+ REQ-TYPES-055/REQ-LIB-025/REQ-SERVICES-063/REQ-TEMPLATES-142/REQ-TESTS-045（issue #67） | US-5, US-7, REQ-TYPES-034, REQ-TYPES-052, REQ-TYPES-055, REQ-LIB-020, REQ-LIB-025, REQ-SERVICES-034, REQ-SERVICES-063, REQ-TEMPLATES-142, REQ-TESTS-045 |
-| 2026-07-05 | unlock-measurement | MODIFIED REQ-LIB-025：`hasVerifyGrade` 優先讀結構化 `grade ∈ {S,A}`、保留 legacy `result ∈ {S,A}` fallback（收斂 schema/現實落差、向後相容）；`metadata-completeness` check id 不變（issue #61） | US-7; REQ-LIB-025 (MODIFIED) |
-| 2026-06-12 | add-drift-checker | 確定性 drift 引擎 + `prospec check` CLI + hardened CI 閘門（BL-030 + OPT-A2；OPT-B3 消費） | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
-| 2026-07-06 | enforce-knowledge-size-budget | ADDED US-8（knowledge-size 預算檢查，第 11 個 check id，warn-class）+ REQ-TYPES-060/061、REQ-LIB-027、REQ-SERVICES-065、REQ-TEMPLATES-149、REQ-TESTS-048；MODIFIED REQ-TYPES-052/034（總數→11）+ REQ-TESTS-045（skipped-never-PASS→11 checks）；config token_budget 誠實重命名 + DEFAULT_KNOWLEDGE_TOKEN_BUDGET 單一來源（issue #63） | US-8, REQ-TYPES-060, REQ-TYPES-061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
-| 2026-07-06 | slim-knowledge-l1-l2 | MODIFIED REQ-TYPES-061：`DEFAULT_KNOWLEDGE_TOKEN_BUDGET` 誠實校準 `l1_per_file` 1500→1800、`l2_per_module` 400→1000（warn-class 不變、init seed 同步）（issue #64） | REQ-TYPES-061 (MODIFIED) |
-| 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-LIB-028（`resolveKnowledgeTokenBudget` 移至 `lib/config` canonical 單一來源、`KnowledgeSizeBudget` 移至 `types/config`）；MODIFIED REQ-TYPES-061（單一來源亦餵生成 skill 模板預算渲染）、REQ-SERVICES-065（resolver 改自 `lib/config` import） | REQ-LIB-028 (ADDED); REQ-TYPES-061, REQ-SERVICES-065 (MODIFIED) |
-| 2026-07-09 | support-file-module-paths | MODIFIED REQ-LIB-014：import-edge 蒐集依 `classifyModulePath` 處理單一檔案條目（源碼檔→掃該檔、非源碼檔→無邊、修 `<file>/**` ENOTDIR）；分類器本體 REQ-LIB-029 落在 ai-knowledge feature | REQ-LIB-014 (MODIFIED) |
+| 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5; ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034 (README factual-count drift check, BL-043) | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
+| 2026-07-04 | mechanize-review-gate | ADDED US-6 (review-provenance gate check, the 9th check id); ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042; MODIFIED REQ-TYPES-034 (total → 9) (issue #66 scope 1+2) | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
+| 2026-07-05 | quick-scale-and-ceremony-cleanup | MODIFIED US-5 + REQ-TYPES-034/REQ-LIB-020/REQ-SERVICES-034 (readme-counts→mcp-readme-counts rename, name matches reality, MCP-only); MODIFIED REQ-TYPES-052 (total → 10); ADDED US-7 (metadata-completeness gate, the 10th check id) + REQ-TYPES-055/REQ-LIB-025/REQ-SERVICES-063/REQ-TEMPLATES-142/REQ-TESTS-045 (issue #67) | US-5, US-7, REQ-TYPES-034, REQ-TYPES-052, REQ-TYPES-055, REQ-LIB-020, REQ-LIB-025, REQ-SERVICES-034, REQ-SERVICES-063, REQ-TEMPLATES-142, REQ-TESTS-045 |
+| 2026-07-05 | unlock-measurement | MODIFIED REQ-LIB-025: `hasVerifyGrade` prioritizes reading the structured `grade ∈ {S,A}`, keeping the legacy `result ∈ {S,A}` fallback (converges the schema/reality gap, backward-compatible); the `metadata-completeness` check id is unchanged (issue #61) | US-7; REQ-LIB-025 (MODIFIED) |
+| 2026-06-12 | add-drift-checker | Deterministic drift engine + `prospec check` CLI + hardened CI gate (BL-030 + OPT-A2; OPT-B3 consumed) | US-1~4; REQ-TYPES-027, REQ-LIB-014~016, REQ-SERVICES-027, REQ-CLI-011, REQ-TEMPLATES-091 |
+| 2026-07-06 | enforce-knowledge-size-budget | ADDED US-8 (knowledge-size budget check, the 11th check id, warn-class) + REQ-TYPES-060/061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048; MODIFIED REQ-TYPES-052/034 (total → 11) + REQ-TESTS-045 (skipped-never-PASS → 11 checks); config token_budget honest rename + DEFAULT_KNOWLEDGE_TOKEN_BUDGET single source (issue #63) | US-8, REQ-TYPES-060, REQ-TYPES-061, REQ-LIB-027, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
+| 2026-07-06 | slim-knowledge-l1-l2 | MODIFIED REQ-TYPES-061: `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` honestly recalibrates `l1_per_file` 1500→1800, `l2_per_module` 400→1000 (warn-class unchanged, init seed synced) (issue #64) | REQ-TYPES-061 (MODIFIED) |
+| 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-LIB-028 (`resolveKnowledgeTokenBudget` moved to the `lib/config` canonical single source, `KnowledgeSizeBudget` moved to `types/config`); MODIFIED REQ-TYPES-061 (the single source also feeds the budget rendering of generated skill templates), REQ-SERVICES-065 (the resolver now imports from `lib/config`) | REQ-LIB-028 (ADDED); REQ-TYPES-061, REQ-SERVICES-065 (MODIFIED) |
+| 2026-07-09 | support-file-module-paths | MODIFIED REQ-LIB-014: import-edge collection handles single-file entries via `classifyModulePath` (source file → scan that file, non-source file → no edge, fixes `<file>/**` ENOTDIR); the classifier itself, REQ-LIB-029, lives in the ai-knowledge feature | REQ-LIB-014 (MODIFIED) |
+| 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
