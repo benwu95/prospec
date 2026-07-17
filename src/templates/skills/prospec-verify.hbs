@@ -23,7 +23,7 @@ When triggered, briefly describe:
 6. [DYNAMIC] Read `.prospec/changes/[name]/metadata.yaml` — current status (updated on pass; see Status Update)
 7. [DYNAMIC] Read `{{base_dir}}/specs/features/` — load relevant Feature Specs for consistency check (**skip for `scale: quick`** — no delta-spec REQs to compare)
 8. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview
-9. [DYNAMIC] Run `prospec check --json` (Bash) and read `prospec-report.json` — deterministic structural facts for Verification 1/5 and 4/5 (the same engine the CI gate runs). If the command is unavailable (not built/installed), state **"drift engine unavailable — falling back to manual checks"** and continue with the documented fallbacks; never fall back silently
+9. [DYNAMIC] Run `prospec check --json` (Bash), then **read the `prospec-report.json` file** — deterministic structural facts for Verification 1/5 and 4/5 (the same engine the CI gate runs). `--json` **writes the file**; stdout is a human-readable summary, **not JSON** — take structured facts from the file. Its shape (checks keyed by `id` under `structural.checks[]`, problems under `structural.findings[]`, freshness under `structural.knowledge_health.modules[]`) is documented in [`references/drift-report-format.md`](references/drift-report-format.md) — consult it instead of reverse-engineering the JSON. If the command is unavailable (not built/installed), state **"drift engine unavailable — falling back to manual checks"** and continue with the documented fallbacks; never fall back silently
 
 > **Scale-aware execution (`metadata.scale: quick`)** — a quick change is genuinely lighter here, not just relabeled: skip Startup Loading items 3, 4, and 7 (plan/delta-spec/Feature-Spec-comparison — absent or moot by contract), run dimension 2/5 as `not-applicable` (spec impact is re-checked against the actual diff at the `/prospec-archive` Entry Gate), and emit the **condensed report** below (omit the `not-applicable` dimension's detail block). The dimensions that genuinely apply to a quick change (1/5 tasks, 3/5 Constitution, 4/5 Knowledge, 5/5 tests) still run in full — this trims ceremony, never a dimension that applies. `standard`/`full` run every item above.
 
@@ -107,9 +107,10 @@ Check **every principle** in the Constitution:
 This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs graduate at `/prospec-archive` Phase 3.5; module-README Knowledge is synced at the `/prospec-verify` S/A commit prompt (the archive Entry Gate re-confirms it as a **backstop**). Lag behind this change during grading is normal — it is synced at the S/A commit prompt that follows — **not drift**, and must NOT lower the grade.
 
 **Structural freshness facts come from the drift engine**: when the `prospec check --json`
-report is available, its `knowledge_health` section (git-timestamp staleness per module +
-README coverage) is the factual base for this dimension — cite it instead of re-deriving
-freshness by hand. The semantic judgments below (does the README describe behavior the code
+report is available, its `knowledge_health` section — git-timestamp staleness per module (each
+entry in `structural.knowledge_health.modules[]` carries a `stale` flag) plus README `coverage`
+(shape: [`references/drift-report-format.md`](references/drift-report-format.md)) — is the factual
+base for this dimension; cite it instead of re-deriving freshness by hand. The semantic judgments below (does the README describe behavior the code
 does not have?) remain LLM work layered on those facts. Engine unavailable → state the
 fallback explicitly. A `skipped` knowledge-health check is never presented as PASS.
 

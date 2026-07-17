@@ -503,6 +503,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'debug-recovery-format.md',
         title: 'Debug & Recovery Triage Reference',
       },
+      {
+        templateName: 'drift-report-format.hbs',
+        outputName: 'drift-report-format.md',
+        title: 'Drift Report (prospec-report.json) Format',
+      },
     ],
     'prospec-archive': [
       {
@@ -550,6 +555,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'promotion-format.hbs',
         outputName: 'promotion-format.md',
         title: 'Feedback Promotion Rule and Ledger Format',
+      },
+      {
+        templateName: 'drift-report-format.hbs',
+        outputName: 'drift-report-format.md',
+        title: 'Drift Report (prospec-report.json) Format',
       },
     ],
   };
