@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
 import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
+import { DRIFT_CHECK_IDS } from '../../src/types/drift-report.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
 const TEMPLATE_CONTEXT = {
@@ -230,6 +231,7 @@ describe('Skill Format Contract', () => {
       ['review-format.hbs', '# Review Format Reference'],
       ['review-lenses-content.hbs', '# Review Lens Criteria Reference'],
       ['debug-recovery-format.hbs', '# Debug & Recovery Reference'],
+      ['drift-report-format.hbs', '# Drift Report (prospec-report.json) Format Reference'],
     ];
 
     for (const [ref, title] of REFERENCE_TEMPLATES) {
@@ -241,6 +243,63 @@ describe('Skill Format Contract', () => {
         expect(content).toContain(title);
       });
     }
+  });
+
+  // Regression guard for the document-drift-report-contract change (PB-001):
+  // the drift-report reference must stay faithful to the frozen schema, and no
+  // report-consuming skill may reinstate the phantom `knowledge_health.stale[]`
+  // field (which never existed in DriftReportSchema and silently no-op'd learn's
+  // freshness prioritization). Section-scoped + structural + negative + the
+  // fidelity loop goes red if a DRIFT_CHECK_IDS entry is added without documenting it.
+  describe('Drift report contract — schema fidelity + phantom-field guard (PB-001)', () => {
+    const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
+    const REPORT_CONSUMERS = [
+      'skills/prospec-verify.hbs',
+      'skills/prospec-learn.hbs',
+      'skills/references/promotion-format.hbs',
+      'skills/references/drift-report-format.hbs',
+    ];
+
+    it('drift-report-format documents every DRIFT_CHECK_IDS entry (fidelity to the frozen schema)', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      // Section-scope to the canonical id enumeration so ids restated elsewhere
+      // (e.g. the "Gates skills read by id" line) cannot mask a deletion from the list.
+      const enumStart = ref.indexOf('DRIFT_CHECK_IDS` set:');
+      expect(enumStart, 'DRIFT_CHECK_IDS enumeration block not found').toBeGreaterThan(-1);
+      const enumBlock = ref.slice(enumStart, ref.indexOf('Gates skills read by id', enumStart));
+      for (const id of DRIFT_CHECK_IDS) {
+        expect(enumBlock, `enumeration must document check id "${id}"`).toContain(id);
+      }
+    });
+
+    it('drift-report-format documents knowledge_health as modules[] filtered by stale', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      expect(ref).toContain('knowledge_health.modules');
+      expect(ref).toContain('m.stale');
+    });
+
+    it('no report-consuming skill/reference reads the phantom knowledge_health.stale field', () => {
+      for (const t of REPORT_CONSUMERS) {
+        // Broader than the historical `stale[]` spelling — also catches a
+        // dot-notation reintroduction (`knowledge_health.stale`).
+        expect(
+          render(t),
+          `${t} must not read the non-existent field knowledge_health.stale`,
+        ).not.toContain('knowledge_health.stale');
+      }
+    });
+
+    it('report-consuming skills cite the real field knowledge_health.modules[]', () => {
+      for (const t of [
+        'skills/prospec-verify.hbs',
+        'skills/prospec-learn.hbs',
+        'skills/references/promotion-format.hbs',
+      ]) {
+        expect(render(t), `${t} must cite knowledge_health.modules[]`).toContain(
+          'knowledge_health.modules[]',
+        );
+      }
+    });
   });
 
   describe('Skill definitions', () => {

@@ -48,7 +48,7 @@ Apply the **explicit numeric rule** from `references/promotion-format.md` to eac
 - **suggest promote** WHEN `frequency ≥ 3` AND `|impact_modules| ≥ 2` (a `kind: constitution` lesson routes to the Constitution tier; otherwise to `_playbook.md`).
 - Below either threshold → stays personal, not suggested (avoids early noise when samples are few).
 - Emit an **auditable score detail** per suggestion: `frequency=N, impact_modules=M, kind=…, rule=freq≥3 ∧ modules≥2 → suggest`. Same ledger input ⇒ same output (the rule is fixed and the data is stored, not re-derived) — this is the SC-002 reproducibility guarantee, by construction (given a stable ledger key).
-- **Prioritize the review queue by knowledge freshness** (see promotion-format "Review-Queue Prioritization"): read `prospec-report.json` (`prospec check`) `knowledge_health.stale[]`; raise a `convention`-kind suggestion whose `impact_modules` intersect a stale module and annotate "this module's knowledge is also stale — refresh on hand-move". No report present → default order (non-blocking). Prioritization only — never auto-writes `_conventions.md`.
+- **Prioritize the review queue by knowledge freshness** (see promotion-format "Review-Queue Prioritization"): read the `prospec-report.json` file (`prospec check`) — its stale modules are `structural.knowledge_health.modules[]` filtered by `.stale` (there is no top-level `stale[]` array; shape: [`references/drift-report-format.md`](references/drift-report-format.md)); raise a `convention`-kind suggestion whose `impact_modules` intersect a stale module and annotate "this module's knowledge is also stale — refresh on hand-move". No report present → default order (non-blocking). Prioritization only — never auto-writes `_conventions.md`.
 
 ### Promote
 

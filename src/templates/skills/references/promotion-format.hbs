@@ -67,7 +67,7 @@ Keyed by a deterministic signature so counting is reproducible:
 
 ## Review-Queue Prioritization (knowledge_health)
 
-When Score has produced suggestions, order the human-review queue by knowledge freshness: read `prospec-report.json` (`prospec check`) `knowledge_health.stale[]`; a `convention`-kind lesson whose `impact_modules` intersect a stale module is raised in the queue and annotated "this module's knowledge is also stale — good moment to refresh on hand-move". If no report is present, fall back to default order (non-blocking). This drives **prioritization only** — the hand-move into `_conventions.md` stays a human action; the pipeline never auto-writes `_conventions.md`.
+When Score has produced suggestions, order the human-review queue by knowledge freshness: read the `prospec-report.json` file (`prospec check`) — its stale modules are `structural.knowledge_health.modules[]` filtered by `.stale` (there is no top-level `stale[]` array; report shape: the drift-report-format reference); a `convention`-kind lesson whose `impact_modules` intersect a stale module is raised in the queue and annotated "this module's knowledge is also stale — good moment to refresh on hand-move". If no report is present, fall back to default order (non-blocking). This drives **prioritization only** — the hand-move into `_conventions.md` stays a human action; the pipeline never auto-writes `_conventions.md`.
 
 ## Team Playbook Entry (`_playbook.md`, version-controlled, team tier)
 
