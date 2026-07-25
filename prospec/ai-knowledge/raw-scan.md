@@ -107,5 +107,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 416 |
+| Total files | 421 |
 | Scan depth | 10 |

@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-09
+last_updated: 2026-07-25
 story_count: 15
 req_count: 54
 ---
@@ -457,12 +457,13 @@ I want the AI Knowledge base to be explicitly exempt from the Traditional Chines
 so that the English knowledge base no longer constitutes a Language Policy `[MUST]` violation (verify does not turn the project against itself).
 
 **Acceptance Scenarios:**
-- WHEN verify runs the Language Policy audit on this project, THEN the English `prospec/ai-knowledge/`, `prospec/specs/`, and `prospec/index.md` are not judged as violations (explicitly exempt)
-- WHEN writing `.prospec/changes/` change artifacts, THEN they remain Traditional Chinese (Taiwan)
-- WHEN reviewing the three parties (Constitution / CLAUDE.md/entry.md.hbs / `_lessons-ledger` header), THEN the language scope is consistent, with no place requiring AI Knowledge to be zh-TW
+- WHEN verify runs the Language Policy audit on any project, THEN the English trust zone — `<knowledge>/**`, `specs/features/**`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md` — is not judged a violation (explicitly exempt, generated per project)
+- WHEN writing `.prospec/changes/` change artifacts or their archived summaries under `specs/_archived-history/`, THEN they remain in the artifact language
+- WHEN reviewing the parties that state the scope (Constitution / entry config / `_lessons-ledger` header / the shared skill partial), THEN the scope is consistent, with no place requiring the trust zone to be non-English
+- WHEN the trust zone legitimately holds native-language content (alias/keyword data, the ledger's description+status columns, `_playbook.md` correction evidence, the user-managed `_glossary.md`), THEN the rule names it as an exception rather than flagging it
 
-#### REQ-TEMPLATES-141: Language Policy Exempts the AI Knowledge base
-The Constitution Language Policy (Description/Verify/checklist/quality-standards) restores the AI Knowledge base exemption (reverting to the pre-`0d35f85` semantics) — change artifacts are zh-TW, while code/commit/Knowledge base are English; `entry.md.hbs` (which generates CLAUDE.md/AGENTS.md) narrows its scope to change artifacts + explicitly lists the Knowledge base exemption; the `_lessons-ledger` header adds a description-language declaration (the ledger description may be zh-TW as an explicit exception). INVEST stays `[MUST]` in the same Constitution edit; only the Verify clause is reworded so the new-story audit is advisory.
+#### REQ-TEMPLATES-141: Language Policy Exempts the Trust Zone
+The trust-zone exemption is **generated**, not hand-written per project: `languagePolicyRule` (REQ-LIB-013) renders it from the resolved scope, so every `prospec init` project gets the same adjudication its entry config states. Scope: change artifacts and their archived summaries (`.prospec/changes/**`, `.prospec/archive/**`, `<base_dir>/specs/_archived-history/**`) follow the artifact language — archive summaries are the change narrative's committed copy, so they follow it rather than the English Feature Specs; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, terms and commit messages stay English. Four named in-zone exceptions may use the artifact language: alias/keyword data (`module-map.yaml` `aliases`, the index Aliases column), the `_lessons-ledger.md` `description` + `status` columns, correction evidence in `_playbook.md`, and the user-managed `_glossary.md` as a whole. The shared skill partial assigns language by document path (REQ-SKILL-012), and the ledger header declares the same exception.
 
 ### US-361: module-map `paths` Consistently Supports Files and Folders [P1]
 
@@ -553,3 +554,4 @@ _(None)_
 | 2026-07-06 | inject-resolved-knowledge-budgets | MODIFIED REQ-KNOW-013 (the Loading Strategy budget-source note points to `.prospec.yaml` `knowledge.token_budget` + `prospec check knowledge-size`, no longer naming `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`) | REQ-KNOW-013 (MODIFIED) |
 | 2026-07-09 | support-file-module-paths | ADDED US-361 + REQ-LIB-029 (module-map `paths` stat-based file/dir/glob classifier + `moduleScanPatterns`), REQ-TESTS-050 (cross-caller consistency tests); MODIFIED REQ-KNOW-004 (README scan interprets paths via `moduleScanPatterns`, fixing bare folders scanning 0 files) | US-361, REQ-LIB-029, REQ-TESTS-050 (ADDED); REQ-KNOW-004 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-25 | align-language-policy-scope | Trust-zone exemption now generated per project (not hand-written); `specs/_archived-history/` follows the artifact language while `specs/features/` stays English; four named in-zone exceptions | US-360, REQ-TEMPLATES-141 (MODIFIED) |

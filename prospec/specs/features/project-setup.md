@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-07-12
-story_count: 18
-req_count: 43
+last_updated: 2026-07-25
+story_count: 19
+req_count: 46
 ---
 
 # Project Setup
@@ -241,11 +241,12 @@ so that all AI-generated documents use my language without manually editing the 
 - WHEN `skill_triggers` values are not string arrays, THEN validation fails (ConfigInvalid)
 
 #### REQ-LIB-013: Language Policy Constitution Rule
-`languagePolicyRule(language)` returns a [MUST] rule — all AI-generated documents (change artifacts + AI Knowledge) use the primary language, while code and technical terms are always in English; init places it first in `example_rules`.
+`languagePolicyRule(scope)` returns a [MUST] rule rendered from a resolved `LanguageScope` (REQ-LIB-030), stated **by path** so an audit decides by file location: change artifacts and their archived summaries use the artifact language; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, technical terms and commit messages stay English, with the scope's named exceptions listed as non-violations. An English project gets a condensed single sentence (one zone, no exemption clause). init places it first in `example_rules`.
 
 **Scenarios:**
-- WHEN `init --language X`, THEN CONSTITUTION.md contains a [MUST] Language Policy rule rendering X
-- WHEN no language chosen, THEN the rule renders English
+- WHEN `init --language X`, THEN CONSTITUTION.md contains a [MUST] Language Policy rule rendering X and both path sets
+- WHEN no language chosen, THEN the rule renders the condensed English form
+- WHEN the rule and the entry config are compared, THEN both state the same path sets (they render from one scope)
 
 ### US-009: English CLI Output [P2]
 
@@ -349,7 +350,7 @@ Add `types/version.ts` that uses `createRequire` to read the package `package.js
 - WHEN inspecting imports, THEN both `cli` and `services` import `types/version`, with no `cli → lib` violation (lint-guarded)
 
 #### REQ-SERVICES-035: Upgrade Orchestrator Service
-`upgrade.service.execute({ cwd, interactive? })`: (1) `readConfig`; (2) update `config.version = PROSPEC_VERSION`; (3) in interactive mode, prompt one by one to fill in missing curated fields (`UPGRADE_NUDGE_RULES`) and apply the answers; (4) `writeConfig` (comment-preserving in-place merge, preserving comments; see REQ-LIB-022); (5) orchestrate sibling `agentSync.execute` (service-orchestrates-service, forwarding hints/warnings); (6) best-effort refresh of `raw-scan.md` (`generateRawScan`, non-fatal, returns `rawScanRefreshed`); (7) **`createMissingDocs`** — use `buildDocsInventory` to find MISSING documents, and for each render via the shared `lib/init-docs` helper + `atomicWrite` (skip-if-exists, per-doc best-effort), collecting successes into `createdDocs` (see REQ-SERVICES-061); (8) `buildReport` (post-prompt, post-creation): version delta (from→to), the list of skills missing triggers, config-field nudges (`detectNudges`), the post-creation docs inventory (`buildDocsInventory` — checking each file at its actual location per `INIT_DOC_REGISTRY` × `resolveInitDocLocation`, respecting a migrated `knowledge.base_path`, see REQ-SETUP-022), and `createdDocs`. **Only create missing files, never overwrite an existing curated doc** (format migration belongs to the `/prospec-upgrade` skill); apart from the regenerable `raw-scan.md`, writes to `prospec/ai-knowledge/` are limited to the missing files created this run.
+`upgrade.service.execute({ cwd, interactive? })`: (1) `readConfig`; (2) update `config.version = PROSPEC_VERSION`; (3) in interactive mode, prompt one by one to fill in missing curated fields (`UPGRADE_NUDGE_RULES`) and apply the answers; (4) `writeConfig` (comment-preserving in-place merge, preserving comments; see REQ-LIB-022); (5) orchestrate sibling `agentSync.execute` (service-orchestrates-service, forwarding hints/warnings); (6) best-effort refresh of `raw-scan.md` (`generateRawScan`, non-fatal, returns `rawScanRefreshed`); (7) **`createMissingDocs`** — use `buildDocsInventory` to find MISSING documents, and for each render via the shared `lib/init-docs` helper + `atomicWrite` (skip-if-exists, per-doc best-effort), collecting successes into `createdDocs` (see REQ-SERVICES-061); (8) `buildReport` (post-prompt, post-creation): version delta (from→to), the list of skills missing triggers, config-field nudges (`detectNudges`), `staleLanguagePolicy` + the rendered `currentLanguagePolicy` when it fires (best-effort read — an unreadable Constitution must not abort a report whose writes already landed), the post-creation docs inventory (`buildDocsInventory` — checking each file at its actual location per `INIT_DOC_REGISTRY` × `resolveInitDocLocation`, respecting a migrated `knowledge.base_path`, see REQ-SETUP-022), and `createdDocs`. **Only create missing files, never overwrite an existing curated doc** (format migration belongs to the `/prospec-upgrade` skill); apart from the regenerable `raw-scan.md`, writes to `prospec/ai-knowledge/` are limited to the missing files created this run.
 
 **Scenarios:**
 - WHEN execute completes, THEN `.prospec.yaml` `version` = `PROSPEC_VERSION`, agent sync has run, `raw-scan.md` has been refreshed, and missing init docs have been created
@@ -359,7 +360,7 @@ Add `types/version.ts` that uses `createRequire` to read the package `package.js
 - WHEN orchestrating, THEN it calls `agentSync` + `generateRawScan` + the shared `lib/init-docs`, without breaking the dependency direction `cli → services → lib → types` (it does not render canonical docs, nor run LLM knowledge generate)
 
 #### REQ-SETUP-019: prospec upgrade Command
-The `prospec upgrade` (zero-LLM) CLI command. Responsibilities: (1) upgrade `.prospec.yaml` — update `version` to `PROSPEC_VERSION`, persisting it via a **comment-preserving in-place merge** (preserving user comments and formatting, see REQ-LIB-022); (2) run `agent sync` (zone-1 regeneration) and best-effort refresh `raw-scan.md` (deterministic, equivalent to `--raw-scan-only`, aligned with the new-version scanner); (3) **directly create missing init docs** (rendering + writing each file per `INIT_DOC_REGISTRY`, skip-if-exists, see REQ-SETUP-024); (4) output a report (version delta, docs inventory and this run's "created" list, see REQ-SETUP-022, skills missing triggers, config-field nudges) + the next step `/prospec-upgrade`. In an interactive TTY, prompt one by one to fill in missing curated fields (see REQ-SETUP-021); `--no-interactive` (and non-TTY stdin) forces no prompting, but **missing-file creation is independent of interactivity**, so the `/prospec-upgrade` skill and CI still create the files. **Never overwrite an existing curated doc**, do not migrate existing document formats, and do not modify the CONSTITUTION (format migration belongs to the `/prospec-upgrade` skill). It is a post-init command — not listed in `INIT_COMMANDS`; when uninitialized, `ConfigNotFound` blocks it and prompts to run `prospec init` first.
+The `prospec upgrade` (zero-LLM) CLI command. Responsibilities: (1) upgrade `.prospec.yaml` — update `version` to `PROSPEC_VERSION`, persisting it via a **comment-preserving in-place merge** (preserving user comments and formatting, see REQ-LIB-022); (2) run `agent sync` (zone-1 regeneration) and best-effort refresh `raw-scan.md` (deterministic, equivalent to `--raw-scan-only`, aligned with the new-version scanner); (3) **directly create missing init docs** (rendering + writing each file per `INIT_DOC_REGISTRY`, skip-if-exists, see REQ-SETUP-024); (4) output a report (version delta, docs inventory and this run's "created" list, see REQ-SETUP-022, skills missing triggers, config-field nudges, plus a stale-Language-Policy-wording signal and, when it fires, the rule as this version renders it for this project) + the next step `/prospec-upgrade`. In an interactive TTY, prompt one by one to fill in missing curated fields (see REQ-SETUP-021); `--no-interactive` (and non-TTY stdin) forces no prompting, but **missing-file creation is independent of interactivity**, so the `/prospec-upgrade` skill and CI still create the files. **Never overwrite an existing curated doc**, do not migrate existing document formats, and do not modify the CONSTITUTION (format migration belongs to the `/prospec-upgrade` skill). It is a post-init command — not listed in `INIT_COMMANDS`; when uninitialized, `ConfigNotFound` blocks it and prompts to run `prospec init` first.
 
 **Scenarios:**
 - WHEN running `prospec upgrade --no-interactive` in an initialized project, THEN `.prospec.yaml` `version` is updated and user comments are preserved, agent sync runs, `raw-scan.md` is refreshed, missing init docs are created, and a report is printed (including the docs inventory and the created list), exit 0
@@ -577,6 +578,42 @@ so that the schema retains only effective fields and does not use a deprecated A
 - WHEN `validateConfig` runs on a config containing the removed nested keys, THEN it succeeds and the result does not contain them
 - WHEN there are unknown top-level keys, THEN they are still preserved by `.loose()` (the existing passthrough test stays green)
 
+### US-020: One Path-Scoped Language Scope, Generated From a Single Source [P1]
+
+As a project owner whose artifact language is not English,
+I want the seeded Constitution rule and the agent entry config to state one path-scoped language scope generated from the same resolved data,
+so that no project is set against itself — the file my agent obeys and the file verify audits can no longer disagree.
+
+**Acceptance Scenarios:**
+- WHEN `init` + `agent sync` run for a non-English project, THEN CONSTITUTION.md and the entry config declare the same native/English path sets
+- WHEN `paths.base_dir` or `knowledge.base_path` is relocated (including to the repo root), THEN both documents render the resolved paths, never a hardcoded default and never a root-anchored path
+- WHEN `init` runs alone, without a following `agent sync`, THEN the entry config it writes already carries the full path sets
+- WHEN the language is English, THEN both documents state one English zone with no exemption clause
+
+#### REQ-TYPES-063: LanguageScope Contract
+`types/constitution.ts` exports `LanguageScope` — `language` plus `nativePaths` / `englishPaths` / `namedExceptions`, all repo-relative POSIX values filled by the lib resolver. Pure type addition; `ConstitutionRule` is unchanged.
+
+**Scenarios:**
+- WHEN lib or services import it, THEN the dependency direction stays `cli → services → lib → types`
+- WHEN the type is inspected, THEN it hardcodes no path strings
+
+#### REQ-LIB-030: Language Scope Single Source + Stale-Seed Detector
+`lib/language-policy.ts` is the one source of the language scope: `resolveLanguageScope(config, cwd)` derives the three sets from `resolveBasePaths` + `resolveArtifactLanguage` (composing with `path.posix.join`, so a `base_dir` resolving to cwd yields repo-relative, not root-anchored, paths); `formatPathList` renders a set; `entryLanguageContext(scope)` returns the entry config's three template keys for **both** render sites; `isSeededLanguagePolicyStale(content, language)` is a pure, section-scoped predicate over the pre-fix seed wording.
+
+**Scenarios:**
+- WHEN `base_dir`/`knowledge.base_path` are relocated, THEN every emitted path is resolved from config (no `prospec/ai-knowledge` literal)
+- WHEN the native and English sets are compared, THEN no path appears in both
+- WHEN the seed is untouched and the language is non-English, THEN the predicate is true; when the owner reworded it, or the seed and the project are both English, THEN false
+- WHEN an English project's seed still names another language, THEN the predicate stays true (the owner switched language after init)
+
+#### REQ-TESTS-054: Language Scope Cross-Document Tests
+Contract tests drive the real `init` + `agent sync` services and compare the two generated documents' path sets (both languages, relocated paths, and the entry config `init` writes before any sync); unit tests pin the scope sets, the heading boundaries the detector relies on, and the language/seed combinations. A bundle-sync contract test asserts `bundled-templates.ts` is byte-identical to `src/templates/**`.
+
+**Scenarios:**
+- WHEN the knowledge base is dropped from the English set, or the rule restates the pre-fix contradiction in prose, THEN a test goes red (mutation-verified)
+- WHEN only one render site loses the scope keys, THEN the init-only cases go red
+- WHEN a `.hbs` changes without `pnpm bundle`, THEN the bundle-sync test names the drifted template
+
 ---
 
 ## Edge Cases
@@ -641,3 +678,4 @@ so that the schema retains only effective fields and does not use a deprecated A
 | 2026-07-03 | upgrade-create-missing-docs | prospec upgrade directly creates missing init docs (render-from-template, skip-if-exists, best-effort); shared `lib/init-docs` helper; skill Step 2 shifts to fill-in + format migration | US-017; REQ-SETUP-024/TYPES-051/LIB-023/SERVICES-061/TEMPLATES-124/TESTS-037 (ADDED); REQ-SETUP-019/SERVICES-035/SETUP-022 (MODIFIED) |
 | 2026-07-12 | emit-trigger-scaffold | `prospec config example` (complete per-field-annotated .prospec.yaml example, INIT_COMMANDS); cleaned up config schema dead fields + `.passthrough()`→`.loose()` | US-018/019 (ADDED); REQ-CLI-021, REQ-TYPES-062, REQ-TESTS-051 (ADDED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-25 | align-language-policy-scope | Path-scoped Language Policy generated from one resolved scope (lib/language-policy); entry config + Constitution rule share it; upgrade reports the stale seed with the rendered replacement rule | US-020; REQ-TYPES-063, REQ-LIB-030, REQ-TESTS-054 (ADDED); REQ-LIB-013, REQ-SETUP-019, REQ-SERVICES-035 (MODIFIED) |

@@ -1,7 +1,7 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-07-04
+last_updated: 2026-07-25
 story_count: 4
 req_count: 11
 ---
@@ -72,6 +72,7 @@ so that the promotion decision can be reviewed, trusted, and is consistent acros
 `references/promotion-format.md`: explicit promotion rules (default freq≥3 / impact_modules≥2, overridable via `.prospec.yaml`) + version-controlled ledger (`_lessons-ledger.md`) / playbook entry / approval record / TTL structure, and is the **single definition of the Harvest (archive Phase 4.5 feed) and Review-Queue Prioritization rules**. Making the rules explicit = a reproducible/auditable basis (reproducibility is conditioned on a stable ledger key).
 - WHEN referenced, THEN includes explicit numeric thresholds + `.prospec.yaml` configurability + structure definitions + a single definition of Harvest/Review-Queue Prioritization
 - WHEN it duplicates an existing Constitution rule, THEN suggest "strengthen the existing one" rather than adding a new one
+- WHEN the ledger table is described, THEN it declares the `description` column (and the promotion provenance annotated in `status`) as the Language Policy's named in-zone exception — written in the language of the original correction, so downstream projects inherit the adjudication instead of only prospec's own hand-written header carrying it
 
 #### REQ-TESTS-024: Pipeline Contract Tests
 contract verifies skill count is 13; `prospec-learn` four phases (section-scoped) + explicit numeric rules + human approval gate + Output Contract + Entry/Exit gates; plan/implement include playbook-loading text; promotion-format renders.
@@ -160,3 +161,4 @@ _(None)_
 | 2026-06-12 | add-knowledge-flywheel | Version-control the ledger (survives across worktree) + archive Phase 4.5 automatic extraction + tasks×kind feed + knowledge_health review prioritization | US-1/2/4 reshaped; MODIFIED REQ-TEMPLATES-069/071/072; ADDED REQ-TEMPLATES-093/094/095, REQ-TESTS-025 |
 | 2026-07-04 | carry-review-verify-evidence | The committed evidence for each source_changes in the ledger points to `_archived-history/{date}-{name}.md` (explicitly carried in the promotion-format Harvest + ledger header), replacing the evaporated gitignored bundle (issue #56) | US-1; REQ-TEMPLATES-128 (ADDED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-25 | align-language-policy-scope | promotion-format declares the ledger description/status language exception, so downstream ledgers inherit it | REQ-TEMPLATES-072 (MODIFIED) |
