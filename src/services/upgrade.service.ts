@@ -7,7 +7,9 @@ import {
   isArtifactLanguageUnset,
   resolveBasePaths,
 } from '../lib/config.js';
-import { isSeededLanguagePolicyStale } from '../lib/language-policy.js';
+import { isSeededLanguagePolicyStale, resolveLanguageScope } from '../lib/language-policy.js';
+import { languagePolicyRule } from '../lib/constitution-rules.js';
+import type { ConstitutionRule } from '../types/constitution.js';
 import { fileExists, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
@@ -100,6 +102,15 @@ export interface UpgradeReport {
    * diff and rewrites the section only with the user's consent.
    */
   staleLanguagePolicy: boolean;
+  /**
+   * The Language Policy rule as THIS version generates it for THIS project,
+   * present only when `staleLanguagePolicy` is set. The skill needs the
+   * replacement wording, and `print-template init/constitution.md.hbs` cannot
+   * supply it: that template is a `{{#each example_rules}}` loop and the rule body
+   * is built in `lib/constitution-rules`. Carrying the rendered rule here keeps
+   * the wording single-sourced in code instead of restating it in the skill.
+   */
+  currentLanguagePolicy?: ConstitutionRule;
 }
 
 /** A nudge the user resolved interactively this run (field set to a value). */
@@ -210,6 +221,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   //    resolves here, so missingTriggers/nudges reflect what is still outstanding
   //    (e.g. a freshly-set non-English language surfaces every skill's triggers).
   const artifactLanguage = resolveArtifactLanguage(config);
+  const staleLanguagePolicy = await detectStaleLanguagePolicy(config, cwd);
   const report: UpgradeReport = {
     versionFrom,
     versionTo: PROSPEC_VERSION,
@@ -217,7 +229,10 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     nudges: detectNudges(config),
     docs: buildDocsInventory(config, cwd),
     createdDocs,
-    staleLanguagePolicy: await detectStaleLanguagePolicy(config, cwd),
+    staleLanguagePolicy,
+    ...(staleLanguagePolicy
+      ? { currentLanguagePolicy: languagePolicyRule(resolveLanguageScope(config, cwd)) }
+      : {}),
   };
 
   return {
@@ -288,17 +303,32 @@ export async function createMissingDocs(
 
 /**
  * Whether the existing Constitution still carries the pre-fix seeded Language
- * Policy. I/O lives here; the judgment is the pure `isSeededLanguagePolicyStale`
- * so the wording it keys off stays next to the generator that emits it. An
- * absent Constitution reads as not stale — there is nothing to migrate (the
- * back-fill step writes a fresh, already-correct one).
+ * Policy. I/O lives here; the judgment (including which language combinations are
+ * worth migrating) is the pure `isSeededLanguagePolicyStale`, so the wording it
+ * keys off stays next to the generator that emits it. An absent Constitution reads
+ * as not stale — there is nothing to migrate (the back-fill step writes a fresh,
+ * already-correct one).
  */
 export async function detectStaleLanguagePolicy(
   config: ProspecConfig,
   cwd: string,
 ): Promise<boolean> {
   const { constitutionPath } = resolveBasePaths(config, cwd);
-  return isSeededLanguagePolicyStale(await readFileIfExists(constitutionPath));
+  try {
+    // The language decides whether the old seed is worth migrating — an English
+    // project whose seed also said English has no contradiction, but one that was
+    // seeded under another language and later switched does.
+    return isSeededLanguagePolicyStale(
+      await readFileIfExists(constitutionPath),
+      resolveArtifactLanguage(config),
+    );
+  } catch {
+    // Report-phase step, like the docs inventory and the raw-scan refresh: the
+    // version bump, agent sync and doc back-fill have already hit disk, so an
+    // unreadable Constitution (EISDIR/EACCES) must not abort the upgrade and
+    // swallow the report the /prospec-upgrade skill parses.
+    return false;
+  }
 }
 
 /**

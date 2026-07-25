@@ -10,8 +10,8 @@
 |------|---------|
 | `init.service.ts` | Scaffold config + Constitution + AI Knowledge; per-file skip-if-exists; writes `.prospec.yaml` last |
 | `quickstart.service.ts` | Orchestrate init + agentSync (no LLM work) |
-| `upgrade.service.ts` | Record `version`, re-sync, back-fill missing init docs (never overwrite), build migration report |
-| `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs; triggers; sweep orphan dirs; merge user blocks |
+| `upgrade.service.ts` | Record `version`, re-sync, back-fill missing init docs (never overwrite), build migration report (+ stale-Language-Policy signal & rendered rule) |
+| `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs (scope via `entryLanguageContext`); triggers; sweep orphans; merge user blocks |
 | `agent-triggers.service.ts` | Emit fill-missing `skill_triggers` localization scaffold (baselines from SKILL_DEFINITIONS) |
 | `trigger-localization.ts` | `computeUnlocalizedSkills` — shared fill-missing gap set (consumed by agent-sync hint + agent-triggers) |
 | `config-example.service.ts` | Return the complete annotated `.prospec.yaml` reference (bundled template) |

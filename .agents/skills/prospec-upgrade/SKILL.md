@@ -15,8 +15,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
-
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
 1. [DYNAMIC] Read `.prospec.yaml` — `version`, `artifact_language`, and `skill_triggers` drive the steps below
@@ -51,7 +50,9 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
   MISSING means its back-fill failed — Step 2's safety net.
 - `stale Language Policy wording: …` — the seeded Language Policy rule in `prospec/CONSTITUTION.md` still
   carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). Absent when the
-  rule was already rewritten (by a newer init or by the user).
+  rule was already rewritten (by a newer init or by the user). It is immediately followed by a
+  `Current Language Policy rule:` block holding the replacement wording — **carry that block forward
+  verbatim**; Step 2.5 has no other source for it.
 
 If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
 user to run `prospec init` first.
@@ -105,9 +106,11 @@ not something the owner authored: the old seed put the AI Knowledge base under t
 requirement while the entry config declares it permanently English, so verify's Constitution audit
 (`[MUST]` → FAIL) turns the project against itself whichever document the agent obeys.
 
-1. Retrieve the current rule as this prospec version generates it — the same Step 2 retrieval path
-   (source-repo short-circuit, else `prospec print-template init/constitution.md.hbs`) plus the seeded
-   rule text visible in a freshly-initialized project. If it cannot be retrieved, say so and SKIP.
+1. Take the replacement wording from the report's `Current Language Policy rule:` block — the CLI renders
+   it from THIS project's resolved paths and language, so it is ready to paste. Do NOT try
+   `prospec print-template init/constitution.md.hbs`: that template only loops over the rules injected into
+   it and carries no rule text of its own (the body is generated in code), so retrieval yields nothing. If
+   the report has no such block, the installed CLI predates it — say so and SKIP.
 2. **Show a diff of the Language Policy section only** and ask whether to rewrite it.
 3. On consent, replace **only that principle's `Description` / `Rationale` / `Verify` body** — leave its
    heading, severity tag, every other principle, the Constraints/Quality-Standards checklists, and all
@@ -121,8 +124,9 @@ Run this step ONLY when Step 1's report shows `no artifact_language set` (a proj
 pre-feature CLI — `prospec init` always writes the field). Skip it entirely otherwise; never re-ask a
 project that already chose a language, including an explicit `English`.
 
-1. Tell the user their project has no `artifact_language`, so AI-generated documents currently default
-   to **English**, and ask which language they want for AI-generated documents (default: English).
+1. Tell the user their project has no `artifact_language`, so change artifacts currently default
+   to **English**, and ask which language they want for them (default: English; the trust zone stays
+   English either way).
 2. **If they choose a non-English language**: capture `.prospec.yaml` verbatim as a snapshot, add the
    `artifact_language` key by a **minimal in-place edit** (insert the single key; never re-serialize or
    reorder), then read the file back to confirm it still parses — restore the snapshot if not. Every
@@ -157,7 +161,7 @@ English or every skill already has an entry.
 ### Success Criteria
 - [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
 - [ ] every doc in the report's `Docs inventory:` was handled — present docs diffed against their listed template and updated only on consent, the docs `prospec upgrade` back-filled were enriched where needed (index module table / legacy `_index.md` migration) on consent, and any still-MISSING doc was offered for creation as a safety net (or templates were unavailable / the inventory section was absent, and the step was skipped with a note)
-- [ ] when the report flagged `stale Language Policy wording`, a diff of that section alone was shown and it was rewritten only on consent (or declined / templates unavailable and skipped with a note)
+- [ ] when the report flagged `stale Language Policy wording`, a diff of that section alone was shown and it was rewritten only on consent (or declined / the report carried no `Current Language Policy rule:` block and the step was skipped with a note)
 - [ ] when the report flagged `no artifact_language set`, the user was asked which language to use and `artifact_language` was written to their choice (or they declined)
 - [ ] every skill in the report's "missing triggers" list (and all skills, when Step 3 just set a non-English language) is localized (or the user declined)
 - [ ] `prospec agent sync` ran when Step 2, Step 3, or Step 4 changed anything
@@ -201,3 +205,4 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
 | User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |
 | User declines the Language Policy rewrite | Leave `prospec/CONSTITUTION.md` unchanged and record it as declined; the next upgrade offers again |
+| report flags stale wording but carries no `Current Language Policy rule:` block | Installed CLI predates the block — skip Step 2.5 with a note; never hand-author replacement wording |

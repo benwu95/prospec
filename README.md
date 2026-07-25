@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2176%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2191%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -677,7 +677,7 @@ Prospec can be configured via a `.prospec.yaml` file in the project root. This i
 
 Key configurations you can tweak:
 
-- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). The trust zone — the AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md` — plus code, identifiers, technical terms, and git commit messages are always kept in English. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from these same paths, so the rule and your agent's entry config (`CLAUDE.md`/`AGENTS.md`) always state one scope.
+- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). The trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md` — plus code, identifiers, technical terms, and git commit messages are always kept in English. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from these same paths, so the rule and your agent's entry config (`CLAUDE.md`/`AGENTS.md`) always state one scope.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -749,7 +749,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2176 tests)
+# Run all tests (2191 tests)
 pnpm test
 
 # Watch mode
@@ -762,9 +762,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2176 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1416 tests
-- Contract tests (CLI output + Skill format): 673 tests
+**Test Coverage**: 2191 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1426 tests
+- Contract tests (CLI output + Skill format): 678 tests
 - Integration tests: 42 tests
 - E2E tests: 45 tests
 

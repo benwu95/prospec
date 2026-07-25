@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → rendered to `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts` |
-| `skills/_*.hbs` (5) | Shared partials: `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy`, `knowledge-loading-rules` |
+| `skills/_*.hbs` (5) | Shared partials: `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
 | `skills/references/*.hbs` (20) | Per-skill format specs + design adapters, rendered to `.md` on demand (e.g. `tasks-format`, `plan-format`, `metadata-format`) |
 | `knowledge/*.hbs` (6) | `module-readme.hbs`, `index.md.hbs` + `_index-auto-block.hbs`, `raw-scan.md.hbs`, `module-map.yaml.hbs`, `feature-map.yaml.hbs` |
 | `change/*.hbs` (4) | proposal / plan / delta-spec / tasks scaffolds (metadata.yaml is serialized in `change-story.service`, not templated) |
@@ -44,7 +44,7 @@
 - Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output; names must match context keys.
 - Knowledge-loading budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) are injected by `agent-sync` from `resolveKnowledgeTokenBudget` — render them as variables, never hardcode a budget or name the `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol in a skill `.hbs` (downstream cannot resolve it).
 - Skill templates MUST end with exactly one trailing newline — a trailing blank line propagates into every generated `SKILL.md` (`skill-format.test.ts`).
-- All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy, never hardcoded.
+- All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy, never hardcoded — `entry.md.hbs` takes its scope from injected `language_*` keys that BOTH render sites (`init.service`, `agent-sync.service`) must supply; a missing key renders empty, not an error. Never quote literal mustaches in prose (breaks compilation).
 - Values reaching YAML frontmatter scalars (`{{trigger_words}}`) must be pre-escaped by the caller (`escapeYamlScalar`).
 - Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; status-lifecycle is duplicated in `init/status-lifecycle.md.hbs` AND `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
 

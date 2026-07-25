@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2176%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2191%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -647,7 +647,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 
 你可以調整的關鍵設定包含：
 
-- **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。trust zone —— AI Knowledge base、`specs/features/`、`index.md`、`CONSTITUTION.md` —— 以及程式碼、變數名稱、專業術語與 git commit message 將一律維持英文。`prospec init` 會以同一組路徑把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，因此該規則與 agent entry config（`CLAUDE.md`/`AGENTS.md`）永遠陳述同一個範圍。
+- **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 以及程式碼、變數名稱、專業術語與 git commit message 將一律維持英文。`prospec init` 會以同一組路徑把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，因此該規則與 agent entry config（`CLAUDE.md`/`AGENTS.md`）永遠陳述同一個範圍。
 - **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
@@ -719,7 +719,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2176 個測試）
+# 執行所有測試（2191 個測試）
 pnpm test
 
 # Watch 模式
@@ -732,9 +732,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2176 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1416 tests
-- Contract tests（CLI 輸出 + Skill 格式）：673 tests
+**測試覆蓋率**：2191 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1426 tests
+- Contract tests（CLI 輸出 + Skill 格式）：678 tests
 - Integration tests：42 tests
 - E2E tests：45 tests
 

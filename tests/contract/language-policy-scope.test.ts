@@ -8,8 +8,11 @@
  * base in the artifact language while the entry config declared it permanently
  * English. Verify audits only the Constitution and grades a MUST violation as
  * FAIL, so a fresh project failed its first verify whichever document its agent
- * obeyed. These assertions drive the REAL services (no re-implemented context) so
- * the wiring — not a test-local copy of it — is what gets pinned.
+ * obeyed. These assertions drive the REAL services, so the wiring — not a
+ * test-local copy of the render context — is what gets pinned. The one exception
+ * is `scaffold`'s `configPatch` branch, which re-renders the Constitution the way
+ * `prospec upgrade`'s back-fill does (init already wrote it from the pre-patch
+ * config); it uses the same `buildInitDocContexts` those commands use.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fs from 'node:fs';
@@ -107,8 +110,12 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     // in the artifact language while the entry config called it English. Scoped to
     // the sentences that actually impose the requirement, so a later mention of
     // the same path in the English clause is not mistaken for a violation.
-    const knowledgeGlob = scope.englishPaths.find((p) => p.includes('ai-knowledge'))!;
-    const imposesJapanese = /written in Japanese|is \*\*Japanese\*\*/;
+    const knowledgeGlob = scope.englishPaths.find((p) => p.includes('ai-knowledge'));
+    // Without this, a scope that drops the knowledge base from englishPaths makes
+    // knowledgeGlob undefined — and `not.toContain(undefined)` passes, so the whole
+    // assertion below would go vacuous exactly when it matters.
+    expect(knowledgeGlob).toBeDefined();
+    const imposesJapanese = /(?:written in\s+|is\s+\**)Japanese/;
 
     for (const doc of [rule, entry]) {
       // Clause-level, not sentence-level: the Verify hint states both zones in one
@@ -116,7 +123,10 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
       const requirements = doc.split(/(?<=[.;])\s/).filter((s) => imposesJapanese.test(s));
       expect(requirements.length).toBeGreaterThan(0);
       for (const sentence of requirements) {
-        expect(sentence).not.toContain(knowledgeGlob);
+        expect(sentence).not.toContain(knowledgeGlob!);
+        // Prose form of the same bug: naming the knowledge base in the requirement
+        // clause without its glob. The literal-glob check alone lets that through.
+        expect(sentence).not.toMatch(/AI Knowledge|knowledge base/i);
       }
     }
   });
@@ -146,6 +156,44 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     expect(entry).not.toContain('prospec/ai-knowledge/**');
   });
 
+  // `prospec init` renders the entry config itself, from its own context. When only
+  // agent-sync carried the scope keys, init's AGENTS.md rendered empty path lists
+  // beside a fully-scoped Constitution — and for a claude-only project agent sync
+  // never rewrites AGENTS.md, so that file stayed blank permanently.
+  it('renders the scope in the entry config init writes, before any agent sync', async () => {
+    vol.reset();
+    vol.fromJSON({ [`${CWD}/package.json`]: '{"name":"demo"}' });
+    await initExecute({ cwd: CWD, name: 'demo', agents: ['claude'], language: 'Japanese' });
+
+    const { readConfig } = await import('../../src/lib/config.js');
+    const scope = resolveLanguageScope(await readConfig(CWD), CWD);
+    const written = ['AGENTS.md', 'CLAUDE.md'].filter((f) => fs.existsSync(`${CWD}/${f}`));
+    expect(written.length).toBeGreaterThan(0);
+
+    for (const file of written) {
+      const section = sectionOf(fs.readFileSync(`${CWD}/${file}`, 'utf-8'), /^##\s+Language Policy\s*$/);
+      expect(section.trim().length).toBeGreaterThan(0);
+      for (const p of [...scope.nativePaths, ...scope.englishPaths]) {
+        expect(section).toContain(p);
+      }
+      expect(section).not.toMatch(/\(\s*\)/);
+    }
+  });
+
+  it('takes the English branch in the entry config init writes for an English project', async () => {
+    vol.reset();
+    vol.fromJSON({ [`${CWD}/package.json`]: '{"name":"demo"}' });
+    await initExecute({ cwd: CWD, name: 'demo', agents: ['claude'], language: 'English' });
+
+    const written = ['AGENTS.md', 'CLAUDE.md'].filter((f) => fs.existsSync(`${CWD}/${f}`));
+    for (const file of written) {
+      const section = sectionOf(fs.readFileSync(`${CWD}/${file}`, 'utf-8'), /^##\s+Language Policy\s*$/);
+      expect(section).toMatch(/written in English/);
+      expect(section).not.toMatch(/exempt/i);
+      expect(section).not.toMatch(/\(\s*\)/);
+    }
+  });
+
   it('states one English zone for an English project, with no exemption clause', async () => {
     const { rule, entry } = await scaffold('English');
 
@@ -158,7 +206,7 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
 });
 
 describe('resolveLanguageScope is the single source both documents read', () => {
-  it('derives every rendered path from config, never a hardcoded default', async () => {
+  it('derives every path from config, never a hardcoded default', async () => {
     const config = {
       project: { name: 'demo' },
       paths: { base_dir: 'x' },
@@ -168,6 +216,20 @@ describe('resolveLanguageScope is the single source both documents read', () => 
 
     const scope = resolveLanguageScope(config, CWD);
 
-    expect(scope.nativePaths.concat(scope.englishPaths).filter((p) => p.startsWith('prospec/'))).toEqual([]);
+    // Exact sets, not a "no prospec/ prefix" filter: that filter passes for any
+    // arbitrary path and so constrains nothing positive.
+    expect(scope.nativePaths).toEqual([
+      '.prospec/changes/**',
+      '.prospec/archive/**',
+      'x/specs/_archived-history/**',
+    ]);
+    expect(scope.englishPaths).toEqual([
+      'x/CONSTITUTION.md',
+      'x/README.md',
+      'x/index.md',
+      'x/specs/product.md',
+      'x/specs/features/**',
+      'y/**',
+    ]);
   });
 });

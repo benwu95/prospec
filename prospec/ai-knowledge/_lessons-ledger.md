@@ -11,10 +11,11 @@
 > (grade, criticals/majors, quality_log digest) as the durable evidence, not the gitignored
 > `.prospec/archive/` bundle.
 >
-> **Description language**: the `description` column is written in the original correction's language
-> (often Traditional Chinese) — a deliberate, declared exception to the Constitution's English-for-AI-Knowledge
-> rule, kept so the raw correction context is not lost in translation at this working-notes tier. Keys,
-> `kind`, `status`, and structural fields stay English; promoted lessons in `_playbook.md` are fully English.
+> **Description language**: the `description` column — and the promotion provenance annotated in `status` —
+> are written in the original correction's language (often Traditional Chinese), a named exception the
+> Constitution's Language Policy rule declares for this file, kept so the raw correction context is not
+> lost in translation at this working-notes tier. Keys, `kind` and the structural fields stay English;
+> `_playbook.md` is English apart from the correction evidence the same rule exempts.
 
 | key | description | frequency | impact_modules | kind | source_changes | status |
 |-----|-------------|-----------|----------------|------|----------------|--------|

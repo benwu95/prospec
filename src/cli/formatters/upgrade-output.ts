@@ -11,7 +11,8 @@ import { sanitizeTerminal } from './sanitize.js';
  * 3. Upgrade report — any still-outstanding config-field nudges (one line each),
  *    then skills missing triggers, falling back to "up to date"; plus a stale
  *    Language-Policy-wording signal when the seeded rule predates the path-scoped
- *    version (report-only — rewriting it is the skill's consent-gated job)
+ *    version, followed by the rule as this version renders it for this project
+ *    (report-only — rewriting the file is the skill's consent-gated job)
  * 4. Docs inventory (post-creation) — one fixed-format line per init-created doc
  *    (present ✓ / MISSING ✗, with its source template), then any docs this run
  *    back-filled and any still MISSING (back-fill failed)
@@ -69,11 +70,27 @@ export function formatUpgradeOutput(
   } else if (report.nudges.length === 0) {
     lines.push(`${pc.dim('•')} skill triggers up to date`);
   }
-  // Report-only: the CLI never edits CONSTITUTION.md — the skill asks first.
+  // Report-only: the CLI never edits CONSTITUTION.md — the skill asks first. The
+  // rendered replacement travels with the signal because no template carries it
+  // (the rule body is built in lib/constitution-rules, not in the .hbs).
   if (report.staleLanguagePolicy) {
     lines.push(
       `${pc.yellow('•')} stale Language Policy wording: the seeded rule still claims the AI Knowledge base follows the artifact language, which contradicts the entry config — ${result.nextStep} will show a diff and ask before rewriting that section`,
     );
+    const rule = report.currentLanguagePolicy;
+    if (rule) {
+      lines.push('');
+      lines.push(pc.bold('Current Language Policy rule:'));
+      lines.push(`### [${rule.severity}] ${rule.name}`);
+      lines.push('');
+      lines.push(`**Description**: ${sanitizeTerminal(rule.description)}`);
+      lines.push('');
+      lines.push(`**Rationale**: ${sanitizeTerminal(rule.rationale)}`);
+      if (rule.check) {
+        lines.push('');
+        lines.push(`**Verify**: ${sanitizeTerminal(rule.check)}`);
+      }
+    }
   }
 
   // 3. Docs inventory (post-creation) — every init-created doc's present/missing

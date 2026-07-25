@@ -46,7 +46,7 @@ Keyed by a deterministic signature so counting is reproducible:
 ```
 
 - **key**: normalized signature (the rule/REQ/file-pattern the lesson concerns) — same lesson ⇒ same key; keys stay English (they are identifiers).
-- **description**: written in the language of the original correction. The ledger sits inside the English trust zone, so the Constitution's Language Policy names this column as an explicit exception — a lesson quoted in the words it was given in stays matchable and loses no nuance.
+- **description**: written in the language of the original correction — the ledger sits inside the English trust zone, so the Constitution's Language Policy names this column (with the promotion provenance annotated in `status`) as an explicit exception: a lesson quoted in the words it was given in stays matchable and loses no nuance.
 - **kind**: `convention` | `playbook` | `constitution` — selects the shared destination on promotion.
 - **status**: `personal` | `suggest-promote` | `promoted` | `declined` — a lesson's promotion state, independent of where the ledger lives.
 - Carried forward across runs as the anchor; declined items are not re-suggested.

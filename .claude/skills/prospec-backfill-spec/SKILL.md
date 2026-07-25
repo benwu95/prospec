@@ -16,7 +16,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
 1. [DYNAMIC] Read `prospec/index.md` — module routing only

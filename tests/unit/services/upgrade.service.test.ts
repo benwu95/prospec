@@ -352,7 +352,11 @@ describe('detectNudges', () => {
 // CONSTITUTION.md belongs to its owner and upgrade only back-fills MISSING docs,
 // so this signal is what routes the migration to the consent-gated skill.
 describe('detectStaleLanguagePolicy', () => {
-  const config = { project: { name: 'demo' }, paths: { base_dir: 'prospec' } } as ProspecConfig;
+  const config = {
+    project: { name: 'demo' },
+    paths: { base_dir: 'prospec' },
+    artifact_language: 'Japanese',
+  } as ProspecConfig;
 
   const constitution = (policyBody: string): string =>
     ['# Project Constitution: demo', '', '## Principles', '', '### [MUST] Language Policy', '', policyBody, '', '---'].join('\n');
@@ -392,10 +396,93 @@ describe('detectStaleLanguagePolicy', () => {
 
     expect(
       await detectStaleLanguagePolicy(
-        { project: { name: 'demo' }, paths: { base_dir: 'docs/spec' } } as ProspecConfig,
+        {
+          project: { name: 'demo' },
+          paths: { base_dir: 'docs/spec' },
+          artifact_language: 'Japanese',
+        } as ProspecConfig,
         '/project',
       ),
     ).toBe(true);
+  });
+
+  // An English project's old seed said "…written in English" and its entry config
+  // agreed, so there was no contradiction to migrate — flagging it would propose a
+  // cosmetic rewrite of the owner's Constitution.
+  it('does not flag an English project carrying the same old seed', async () => {
+    vol.fromJSON({
+      '/project/prospec/CONSTITUTION.md': constitution(
+        '**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in English.',
+      ),
+    });
+
+    for (const language of ['English', 'english', undefined]) {
+      expect(
+        await detectStaleLanguagePolicy(
+          { project: { name: 'demo' }, paths: { base_dir: 'prospec' }, artifact_language: language } as ProspecConfig,
+          '/project',
+        ),
+      ).toBe(false);
+    }
+  });
+
+  // The gate keys off the seed's own language, not just the config's: a project
+  // seeded under Japanese and later switched to English still carries a rule
+  // demanding Japanese for everything while its entry config says English.
+  it('still flags an English project whose seed names another language', async () => {
+    vol.fromJSON({
+      '/project/prospec/CONSTITUTION.md': constitution(
+        '**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in Japanese.',
+      ),
+    });
+
+    expect(
+      await detectStaleLanguagePolicy(
+        { project: { name: 'demo' }, paths: { base_dir: 'prospec' }, artifact_language: 'English' } as ProspecConfig,
+        '/project',
+      ),
+    ).toBe(true);
+  });
+
+  // Without this, the detector and the formatter are each covered while the wire
+  // between them is not — the whole migration can be dead with a green suite.
+  it('is carried into execute()\'s report together with the rendered replacement rule', async () => {
+    seedProject({ version: '0.5.0' });
+    vol.fromJSON(
+      {
+        '/project/prospec/CONSTITUTION.md': constitution(
+          '**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in Traditional Chinese (Taiwan).',
+        ),
+      },
+      '/',
+    );
+
+    const stale = await execute({ cwd: '/project' });
+    expect(stale.report.staleLanguagePolicy).toBe(true);
+    expect(stale.report.currentLanguagePolicy?.name).toBe('Language Policy');
+    expect(stale.report.currentLanguagePolicy?.description).toContain('.prospec/changes/**');
+
+    vol.fromJSON(
+      {
+        '/project/prospec/CONSTITUTION.md': constitution(
+          '**Description**: Change artifacts under `.prospec/changes/**` are Traditional Chinese (Taiwan); the trust zone stays English.',
+        ),
+      },
+      '/',
+    );
+
+    const current = await execute({ cwd: '/project' });
+    expect(current.report.staleLanguagePolicy).toBe(false);
+    expect(current.report.currentLanguagePolicy).toBeUndefined();
+  });
+
+  it('survives an unreadable Constitution instead of aborting the report', async () => {
+    // The version bump, agent sync and doc back-fill have already hit disk by the
+    // time the report is built; a directory where the file should be (EISDIR) must
+    // not throw away the report the /prospec-upgrade skill parses.
+    vol.fromJSON({ '/project/prospec/CONSTITUTION.md/nested.md': 'not a file\n' });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(false);
   });
 });
 

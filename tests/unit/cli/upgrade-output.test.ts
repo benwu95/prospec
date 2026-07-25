@@ -62,8 +62,45 @@ describe('formatUpgradeOutput', () => {
 
     formatUpgradeOutput(baseResult({ staleLanguagePolicy: true }));
 
-    expect(stdout()).toContain('stale Language Policy wording');
-    expect(stdout()).toContain('/prospec-upgrade');
+    // Asserted inside the signal line: the next-step hand-off is printed for every
+    // result, so matching '/prospec-upgrade' anywhere in stdout is a tautology and
+    // would pass even for a line promising an automatic rewrite.
+    const line = stdout()
+      .split('\n')
+      .find((l) => l.includes('stale Language Policy wording'));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/\/prospec-upgrade will show a diff and ask before rewriting/);
+  });
+
+  it('prints the rendered replacement rule the skill has no other way to obtain', () => {
+    const { stdout } = captureStreams();
+
+    formatUpgradeOutput(
+      baseResult({
+        staleLanguagePolicy: true,
+        currentLanguagePolicy: {
+          severity: 'MUST',
+          name: 'Language Policy',
+          description: 'Change artifacts under `.prospec/changes/**` are written in Japanese.',
+          rationale: 'One resolved path set generates both documents.',
+          check: 'Files under `.prospec/changes/**` are written in Japanese.',
+        },
+      }),
+    );
+
+    expect(stdout()).toContain('Current Language Policy rule:');
+    expect(stdout()).toContain('### [MUST] Language Policy');
+    expect(stdout()).toContain('**Description**: Change artifacts under `.prospec/changes/**`');
+    expect(stdout()).toContain('**Rationale**: One resolved path set');
+    expect(stdout()).toContain('**Verify**: Files under `.prospec/changes/**`');
+  });
+
+  it('prints no rule block when the wording is current', () => {
+    const { stdout } = captureStreams();
+
+    formatUpgradeOutput(baseResult({ staleLanguagePolicy: false }));
+
+    expect(stdout()).not.toContain('Current Language Policy rule:');
   });
 
   it('says nothing about the Language Policy when the wording is current', () => {

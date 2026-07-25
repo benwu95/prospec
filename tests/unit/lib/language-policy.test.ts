@@ -78,6 +78,17 @@ describe('resolveLanguageScope', () => {
     expect(scope.namedExceptions.join('\n')).toContain('docs/kb/_lessons-ledger.md');
   });
 
+  it('keeps paths repo-relative when base_dir resolves to the repo root', () => {
+    // `path.relative` returns '' here, and `${base}/x` would emit the root-anchored
+    // '/x' — a MUST rule naming paths no project file can match.
+    const scope = resolveLanguageScope(config({ paths: { base_dir: '.' } }), '/p');
+
+    expect(scope.englishPaths).toContain('CONSTITUTION.md');
+    expect(scope.nativePaths).toContain('specs/_archived-history/**');
+    expect(scope.englishPaths.some((p) => p.startsWith('/'))).toBe(false);
+    expect(scope.nativePaths.some((p) => p.startsWith('/'))).toBe(false);
+  });
+
   it('falls back to the canonical base dir when paths.base_dir is absent', () => {
     const scope = resolveLanguageScope(
       { project: { name: 'demo' } } as ProspecConfig,
@@ -120,6 +131,16 @@ describe('isSeededLanguagePolicyStale', () => {
     expect(isSeededLanguagePolicyStale(stale)).toBe(true);
   });
 
+  it('skips an English project only when the seed itself said English', () => {
+    const englishSeed = stale.replace('are written in Japanese.', 'are written in English.');
+
+    expect(isSeededLanguagePolicyStale(englishSeed, 'English')).toBe(false);
+    // Seeded under another language, switched to English afterwards: the rule still
+    // demands that language for everything while the entry config says English.
+    expect(isSeededLanguagePolicyStale(stale, 'English')).toBe(true);
+    expect(isSeededLanguagePolicyStale(englishSeed, 'Japanese')).toBe(true);
+  });
+
   it('does not flag a Constitution the user already rewrote', () => {
     const rewritten = stale.replace(
       'All AI-generated documents (change artifacts and AI Knowledge) are written in Japanese.',
@@ -151,5 +172,20 @@ describe('isSeededLanguagePolicyStale', () => {
 
   it('does not flag an empty or missing file body', () => {
     expect(isSeededLanguagePolicyStale('')).toBe(false);
+  });
+
+  // The heading match is the whole basis of the section scoping, and a detector's
+  // false negative is the least visible failure mode — pin the boundaries.
+  it('matches the heading across CRLF and heading depths it must support', () => {
+    expect(isSeededLanguagePolicyStale(stale.replace(/\n/g, '\r\n'))).toBe(true);
+    expect(isSeededLanguagePolicyStale(stale.replace('### [MUST] Language Policy', '## Language Policy'))).toBe(true);
+    expect(isSeededLanguagePolicyStale(stale.replace('### [MUST] Language Policy', '#### Language Policy'))).toBe(true);
+  });
+
+  it('deliberately ignores a heading depth or suffix outside the generated shape', () => {
+    expect(isSeededLanguagePolicyStale(stale.replace('###', '#####'))).toBe(false);
+    expect(
+      isSeededLanguagePolicyStale(stale.replace('### [MUST] Language Policy', '### [MUST] Language Policy (v1)')),
+    ).toBe(false);
   });
 });

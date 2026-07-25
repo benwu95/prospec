@@ -7,7 +7,7 @@ import {
   isDefaultArtifactLanguage,
   resolveKnowledgeTokenBudget,
 } from '../lib/config.js';
-import { resolveLanguageScope, formatPathList } from '../lib/language-policy.js';
+import { resolveLanguageScope, entryLanguageContext } from '../lib/language-policy.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
@@ -143,9 +143,7 @@ export async function execute(
     // (lib/language-policy), so L0 and the audited Constitution cannot declare
     // contradictory scopes. Named exceptions stay out of L0: the entry config
     // points at the Constitution rule for them, keeping this always-loaded file lean.
-    language_is_english: isDefaultArtifactLanguage(artifactLanguage),
-    language_native_paths: formatPathList(languageScope.nativePaths),
-    language_english_paths: formatPathList(languageScope.englishPaths),
+    ...entryLanguageContext(languageScope),
     // L1/L2 token/line budgets (l1_per_file / l2_per_module / readme_max_lines)
     // rendered into the knowledge-loading skill templates — resolved per-project
     // so a downstream reader sees real numbers and a source they can inspect,
