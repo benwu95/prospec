@@ -14,19 +14,19 @@
 | `conventions.ts` | Convention-doc registries — CORE_CONVENTIONS, INIT_DOC_REGISTRY |
 | `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (11 frozen) |
 | `errors.ts` | `ProspecError` base + 13 error subclasses |
-| `feature-map.ts` | `FeatureMapSchema` (feature→module index), FEATURE_STATUSES — shape-only |
-| `knowledge.ts` | `index.md` column schema (INDEX_TABLE_COLUMNS) + table header/separator helpers |
+| `feature-map.ts` | `FeatureMapSchema` (feature→module index), FEATURE_STATUSES |
+| `knowledge.ts` | `index.md` column schema (INDEX_TABLE_COLUMNS) + header/separator helpers |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
 | `measurement.ts` | `MeasurementReportSchema` + offline `SizeReportSchema` |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
 | `skill.ts` | SKILL_DEFINITIONS (17 skills; each ≥3 collision-free trigger baselines), AGENT_CONFIGS (4 agents) |
 | `spec.ts` | Feature/Product spec frontmatter schemas |
-| `version.ts` | `PROSPEC_VERSION` — running version with process.env / package.json resolution |
+| `version.ts` | `PROSPEC_VERSION` — running version via process.env / package.json |
 
 ## Public API
 
 - `ChangeMetadataSchema` / `isStatusBefore` — change `metadata.yaml` + forward-only status guard
-- `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + knowledge-size L1/L2 thresholds
+- `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + knowledge-size thresholds
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`)
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 11 frozen check ids
 - `MeasurementReportSchema` / `SizeReportSchema` — provider-neutral report + offline size report
@@ -41,7 +41,7 @@
 
 ## Modification Guide
 
-1. **Add a schema field** — edit the schema; use `.optional()`/`.default()` so existing YAML keeps validating.
+1. **Add a schema field** — use `.optional()`/`.default()` so existing YAML keeps validating.
 2. **Add an error class** — extend `ProspecError` in `errors.ts` with `code` (UPPER_SNAKE) + `suggestion`.
 3. **Add a skill** — append to `SKILL_DEFINITIONS` in `skill.ts`, then bump the count in `skill-format.test.ts`.
 4. **Add a drift check id** — append to `DRIFT_CHECK_IDS` in `drift-report.ts` (frozen, additive) → wire it in drift services.
@@ -54,7 +54,7 @@
 ## Pitfalls
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; adding a required field breaks existing `.prospec.yaml`.
-- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, and `drift-report` knowledge_health fields are FROZEN contracts — extend additively only, never reorder/remove.
+- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, and `drift-report` knowledge_health fields are FROZEN — extend additively only, never reorder/remove.
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.
 - `feature-map.ts` is shape-only — slug/module-map checks live in the lib loader/collector, not here.
 - `INIT_DOC_REGISTRY` is pinned by an init⇄registry equality test; resolve `root: 'knowledge'` via `resolveBasePaths().knowledgePath`.

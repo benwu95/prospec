@@ -13,13 +13,13 @@
 | `upgrade.service.ts` | Record `version`, re-sync, back-fill missing init docs (never overwrite), build migration report (+ stale-Language-Policy signal & rendered rule) |
 | `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs (scope via `entryLanguageContext`); triggers; sweep orphans; merge user blocks |
 | `agent-triggers.service.ts` | Emit fill-missing `skill_triggers` localization scaffold (baselines from SKILL_DEFINITIONS) |
-| `trigger-localization.ts` | `computeUnlocalizedSkills` — shared fill-missing gap set (consumed by agent-sync hint + agent-triggers) |
-| `config-example.service.ts` | Return the complete annotated `.prospec.yaml` reference (bundled template) |
+| `trigger-localization.ts` | `computeUnlocalizedSkills` — shared fill-missing gap set |
+| `config-example.service.ts` | Return the annotated `.prospec.yaml` reference (bundled template) |
 | `knowledge.service.ts` | Generate module READMEs + root `index.md` (Recipe-First, ContentMerger) |
 | `knowledge-init.service.ts` + `raw-scan.service.ts` | Initial scan → raw-scan.md (git-tracked, 11-lang manifests) + module-map.yaml + skeletons |
 | `knowledge-update.service.ts` | Delta-spec-driven incremental README/index update; index table rendered from `module-map.yaml` |
 | `archive.service.ts` | Archive + spec-sync to Feature-Spec/product.md/`feature-map.yaml` (`syncFeatureMap` sole writer) |
-| `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only); `resolveChange()` picks the target |
+| `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only) |
 | `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; `--json` writes `prospec-report.json`; `--init-ci`/`--record-review` |
 | `mcp.service.ts` | Read-only MCP server — `buildMcpServer()` registers 8 resources + 2 tools, per-request reads |
 
@@ -45,7 +45,7 @@
 
 ## Ripple Effects
 
-- A service `Result` type change ripples to its CLI formatter; `archive.service` writes to `specs/` + `feature-map.yaml`, affecting verify and planning.
+- A service `Result` type change ripples to its CLI formatter; `archive.service` writes `specs/` + `feature-map.yaml`, affecting verify and planning.
 
 ## Pitfalls
 

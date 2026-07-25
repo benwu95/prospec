@@ -8,9 +8,9 @@
 
 | File | Purpose |
 |------|---------|
-| `config.ts` | readConfig/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language accessors |
+| `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language accessors |
 | `fs-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→'') |
-| `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir; generated `bundled-templates.ts` resolution |
+| `template.ts` | renderTemplate + Handlebars helpers/partials; resolveTemplatesDir; generated `bundled-templates.ts` |
 | `content-merger.ts` | mergeContent/mergeManagedDoc (preserve user blocks); hasAutoBlock/replaceAutoBlock |
 | `yaml-utils.ts` | parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath/moduleScanPatterns (module-map path → scan) |
@@ -21,15 +21,15 @@
 | `drift-checker.ts` | Pure evaluators + runChecks (11 checks); codepoint-sorted |
 | `knowledge-reader.ts` | Realpath-contained reads; loadModuleMap/loadFeatureMap, searchModules |
 
-Also: `language-policy.ts` (language-scope single source), `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
+Also: `language-policy.ts`, `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
 
 ## Public API
 
-- `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists` — validated read; comment-preserving/atomic writes; ENOENT→''
-- `renderTemplate`/`readTemplateSource`/`mergeContent`/`mergeManagedDoc` — render + template source read + user-block-preserving merges
-- `scanDir`/`moduleScanPatterns`/`classifyModulePath`/`detectModules`/`detectTechStack` — scan (with module-map file/dir/glob path classification) + module/stack detection
-- `parse*Dependencies(content)` — pure, malformed-safe manifest parsers
-- `runChecks(inputs)` + `collect*` — 11 evaluators → DriftReport; `loadModuleMap`/`loadFeatureMap`/`searchModules` — realpath-contained reads
+- `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists` — validated read; comment-preserving/atomic writes
+- `renderTemplate`/`readTemplateSource`/`mergeContent`/`mergeManagedDoc` — render + user-block-preserving merges
+- `scanDir`/`moduleScanPatterns`/`classifyModulePath`/`detectModules`/`detectTechStack` — scan + module/stack detection
+- `parse*Dependencies(content)` — pure, malformed-safe parsers
+- `runChecks(inputs)` + `collect*` — 11 evaluators → DriftReport; `loadModuleMap`/`loadFeatureMap`/`searchModules`
 
 ## Dependencies
 
@@ -52,7 +52,7 @@ Also: `language-policy.ts` (language-scope single source), `token-accounting.ts`
 
 - `mergeContent()` relies on exact marker strings (typos fail silently); `scanDir()` custom excludes ADD to security defaults.
 - noEscape YAML templates MUST run user text through `escapeYamlScalar()`, else unparseable YAML.
-- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only → honest `skipped`, not a 0-file PASS).
+- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only, not a 0-file PASS).
 - knowledge-reader reads: realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null vs invalid→throw.
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`.
 - `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it); compose paths with `path.posix.join`.
