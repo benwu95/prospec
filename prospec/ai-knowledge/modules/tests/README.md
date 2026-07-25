@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/{lib,services,cli,types}/*.test.ts` | Isolated units — mock `node:fs` with memfs; heaviest suites are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
-| `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract (section-scoped, mutation-verified). |
+| `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 14 `references/*.hbs` format contracts — column sets and closed enums (e.g. the ledger `status` token set) rendered, section-scoped, mutation-verified. |
 | `tests/contract/{knowledge,cli-output}-format.test.ts`, `init-doc-registry.test.ts`, `mcp-server.test.ts`, `language-policy-scope.test.ts`, `bundled-templates-sync.test.ts` | Output-format + registry + MCP-protocol pins via real `renderTemplate()` / InMemoryTransport; cross-document language-scope agreement; bundle ≡ `src/templates`. |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
 | `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure, check, mcp serve). |
@@ -31,6 +31,7 @@
 3. **Add an integration test** — `tests/integration/{flow}.test.ts`; drive multiple services over memfs.
 4. **Add an E2E case** — extend `tests/e2e/cli.test.ts`; spawn `dist/cli/index.js` (run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
+6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
 
 ## Ripple Effects
 
@@ -42,6 +43,7 @@
 - MCP behavior is tested over the SDK in-memory linked transport, never a spawned daemon.
 - Contract assertions must be section-scoped AND structure-aware (PB-001) — bare `toContain` over a whole doc yields false-greens; mutation-verify new assertions.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
+- v8 instrumentation slows the real-temp-dir git suites past vitest's 5s default: bare `pnpm test:coverage` times out ~7 passing tests. Raise `--testTimeout`; a plain `pnpm test` is the authority on pass/fail.
 - `vi.mock()` is hoisted — dynamic import paths don't resolve inside the mock factory.
 - Tests ARE type-checked: `pnpm typecheck` runs `tsc -p tsconfig.typecheck.json` (includes `tests/` + `scripts/`, `rootDir:"."`+`noEmit`) — a test-file type error fails the gate. Never re-add `tests` to that config's `exclude` (guarded by `tests/contract/typecheck-config.test.ts`); the build `tsc` stays on the base config and emits `src` only.
 
