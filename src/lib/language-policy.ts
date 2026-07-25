@@ -58,7 +58,7 @@ export function resolveLanguageScope(config: ProspecConfig, cwd: string): Langua
     ],
     namedExceptions: [
       `keyword data — the \`aliases\` in \`${underKnowledge('module-map.yaml')}\` and the Aliases column of \`${underBase('index.md')}\` (native-language terms widen L1 keyword matching)`,
-      `the \`description\` and \`status\` columns of \`${underKnowledge('_lessons-ledger.md')}\` (each lesson is quoted, and its promotion provenance recorded, in the language of the original correction)`,
+      `the \`description\` column of \`${underKnowledge('_lessons-ledger.md')}\` (each lesson — and its promotion provenance suffix — is quoted in the language of the original correction; every other column stays English)`,
       `correction evidence recorded in the original language in \`${underKnowledge('_playbook.md')}\` (its \`Re-evidence\` bullets)`,
       `\`${underKnowledge('_glossary.md')}\` as a whole (user-managed — the project owner picks its language)`,
     ],

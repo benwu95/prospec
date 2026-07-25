@@ -3053,14 +3053,17 @@ describe('prospec-upgrade: seeded Language Policy migration (Step 2.5)', () => {
     expect(failures).toMatch(/rewrote the Language Policy section without a diff and confirmation/);
   });
 
-  it('promotion-format declares the ledger description/status columns as the in-zone exception', () => {
+  it('promotion-format scopes the language exception to description and keeps status a bare enum', () => {
     const c = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
     const ledger = sectionOf(c, '## Lessons Ledger');
     expect(ledger).toMatch(/\*\*description\*\*: written in the language of the original correction/);
     expect(ledger).toMatch(/Language Policy names this column/);
-    // The provenance annotated in `status` is the second half of the exception —
-    // naming only `description` is what left this repo's own ledger in violation.
-    expect(ledger).toMatch(/provenance annotated in `status`/);
+    expect(ledger).toMatch(/Every other column stays English/);
+    // status is a closed token set; provenance prose there is what put this repo's
+    // own ledger outside both the enum and the language exception.
+    expect(ledger).toMatch(/\*\*status\*\*:.*`retired`/);
+    expect(ledger).toMatch(/a \*\*bare token\*\*/);
+    expect(ledger).toMatch(/never appended to this column/);
   });
 });
 

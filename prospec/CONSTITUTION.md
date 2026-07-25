@@ -12,7 +12,7 @@
 **Description**: Change artifacts and their archived summaries — `.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**` — are written in Traditional Chinese (Taiwan). The trust zone — `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**` — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the Traditional Chinese (Taiwan) requirement. Named exceptions inside the trust zone, which MAY use Traditional Chinese (Taiwan):
 
 - keyword data — the `aliases` in `prospec/ai-knowledge/module-map.yaml` and the Aliases column of `prospec/index.md` (native-language terms widen L1 keyword matching)
-- the `description` and `status` columns of `prospec/ai-knowledge/_lessons-ledger.md` (each lesson is quoted, and its promotion provenance recorded, in the language of the original correction)
+- the `description` column of `prospec/ai-knowledge/_lessons-ledger.md` (each lesson — and its promotion provenance suffix — is quoted in the language of the original correction; every other column stays English)
 - correction evidence recorded in the original language in `prospec/ai-knowledge/_playbook.md` (its `Re-evidence` bullets)
 - `prospec/ai-knowledge/_glossary.md` as a whole (user-managed — the project owner picks its language)
 
