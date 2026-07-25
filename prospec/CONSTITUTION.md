@@ -9,11 +9,16 @@
 
 ### [MUST] Language Policy
 
-**Description**: All change artifacts under `.prospec/changes/` (proposal.md, plan.md, delta-spec.md, tasks.md) and their archived summaries are written in Traditional Chinese (Taiwan). Code, identifiers, technical terms, git commit messages, **and the AI Knowledge base** (module READMEs, conventions, `index.md`, specs) always remain in English — the Knowledge base is trust-zone technical documentation and is **explicitly NOT** subject to the Traditional-Chinese requirement.
+**Description**: Change artifacts and their archived summaries — `.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**` — are written in Traditional Chinese (Taiwan). The trust zone — `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**` — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is trust-zone technical documentation and is **explicitly NOT** subject to the Traditional-Chinese requirement. Named exceptions inside the trust zone, which MAY use Traditional Chinese (Taiwan):
 
-**Rationale**: The project owner reviews change artifacts in their native language, reducing communication barriers. The AI Knowledge base sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches the base's actual, review-endorsed state.
+- keyword data — the `aliases` in `prospec/ai-knowledge/module-map.yaml`, the Aliases column of `prospec/index.md`, and the Alias column of `prospec/ai-knowledge/_glossary.md` (native-language terms widen L1 keyword matching)
+- the `description` column of `prospec/ai-knowledge/_lessons-ledger.md` (each lesson is quoted in the language of the original correction)
+- verbatim correction evidence quoted in `prospec/ai-knowledge/_playbook.md`
+- `prospec/ai-knowledge/_glossary.md` as a whole (user-managed — the project owner picks its language)
 
-**Verify**: Documents under `.prospec/changes/` are written in Traditional Chinese (Taiwan); code, technical terms, commit messages, and the AI Knowledge base are in English. A Constitution audit does NOT flag the English Knowledge base as a Language-Policy violation (the base is exempt).
+**Rationale**: The project owner reviews their own change narrative in Traditional Chinese (Taiwan), reducing communication barriers; archive summaries are that narrative's committed copy, so they follow it rather than the English Feature Specs. The trust zone sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches its actual, review-endorsed state. This rule and the entry config are generated from one resolved path set (`lib/language-policy.ts`), so the two cannot drift into contradicting each other.
+
+**Verify**: Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations, and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
 
 ---
 ### [MUST] Atomic Commits by Feature
@@ -73,7 +78,7 @@
 
 ## Constraints
 
-- [x] Change workflow documents (`.prospec/changes/`) are written in Traditional Chinese (Taiwan); the AI Knowledge base stays English (exempt)
+- [x] Change artifacts (`.prospec/changes/`, `.prospec/archive/`, `specs/_archived-history/`) are written in Traditional Chinese (Taiwan); the trust zone stays English (exempt, minus the named exceptions)
 - [x] No mixed commits across unrelated features; commit messages in English; bulleted bodies; no AI co-authorship
 - [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
@@ -85,10 +90,10 @@
 ## Quality Standards
 
 - **Testing**: All public functions have unit tests; coverage ≥ 80%
-- **Documentation**: Change documents (`.prospec/changes/`) in Traditional Chinese (Taiwan); code, commit messages, and the AI Knowledge base in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
+- **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
 
 ---
 
-> Last updated: 2026-06-21
+> Last updated: 2026-07-25
