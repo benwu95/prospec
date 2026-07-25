@@ -22,6 +22,14 @@ const TEMPLATE_CONTEXT = {
   base_dir: 'prospec',
   tech_stack: { language: 'typescript', framework: 'express' },
   artifact_language: 'English',
+  // Language scope injected by agent-sync from lib/language-policy — the same
+  // resolved path sets the seeded Constitution rule renders (a single source, so
+  // the two documents cannot declare contradictory scopes). Kept consistent with
+  // `artifact_language` above: a fixture whose flag contradicts its language makes
+  // every other entry-config render take the wrong branch.
+  language_is_english: true,
+  language_native_paths: '`.prospec/changes/**`, `prospec/specs/_archived-history/**`',
+  language_english_paths: '`prospec/CONSTITUTION.md`, `prospec/ai-knowledge/**`',
   l1_per_file: 1800,
   l2_per_module: 1000,
   readme_max_lines: 100,
@@ -1799,10 +1807,15 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
       .replace(/\{\{knowledge_base_path\}\}/g, kbp)
       .trim();
     const outputNote = readPartial('_output-summary-note.hbs').trim();
+    // The language-policy partial takes no variables, so its expansion is literal.
+    // Left unguarded, rewording it and skipping `agent sync` leaves every deployed
+    // SKILL.md instructing the old policy with a green suite.
+    const policyExpanded = readPartial('_language-policy.hbs').trim();
     const agentDirs = ['.claude/skills', '.agents/skills'];
     for (const skill of SKILL_DEFINITIONS) {
       const usesHandoff = src(skill.name).includes('{{> next-step-handoff}}');
       const usesNote = src(skill.name).includes('{{> output-summary-note}}');
+      const usesPolicy = src(skill.name).includes('{{> language-policy}}');
       for (const dir of agentDirs) {
         const deployed = fs.readFileSync(
           path.join(repoRoot, dir, skill.name, 'SKILL.md'),
@@ -1814,6 +1827,11 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
         if (usesHandoff) {
           expect(deployed, `${dir}/${skill.name}: next-step-handoff drift`).toContain(
             handoffExpanded,
+          );
+        }
+        if (usesPolicy) {
+          expect(deployed, `${dir}/${skill.name}: language-policy drift`).toContain(
+            policyExpanded,
           );
         }
         if (usesNote) {
@@ -1966,6 +1984,7 @@ describe('Language Policy mechanism', () => {
     const content = renderTemplate('agent-configs/entry.md.hbs', {
       ...TEMPLATE_CONTEXT,
       artifact_language: 'Traditional Chinese (Taiwan)',
+      language_is_english: false,
       skill_path: '.claude/skills',
     });
     const section = sectionOf(content, '## Language Policy');
@@ -1975,8 +1994,28 @@ describe('Language Policy mechanism', () => {
     // English/exempt side — assert the association so a meaning-inverted rewrite
     // (Knowledge base in {{artifact_language}}) cannot pass on loose substrings.
     expect(section).toContain('change artifacts');
-    expect(section).toMatch(/AI Knowledge base.*remain in English/);
+    expect(section).toMatch(/trust zone.*remains in English/);
     expect(section).toMatch(/exempt from the .* requirement/);
+    // The path sets come from the injected scope, so the entry config and the
+    // Constitution rule state one scope; a hardcoded list here is the drift the
+    // #67 three-way alignment missed in the generator.
+    expect(section).toContain('`prospec/ai-knowledge/**`');
+    expect(section).toContain('`.prospec/changes/**`');
+    // Named exceptions stay out of L0 — the entry config points at the rule.
+    expect(section).toMatch(/Constitution's Language Policy rule/);
+  });
+
+  it('entry config states a single English zone for an English project', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      language_is_english: true,
+      artifact_language: 'English',
+      skill_path: '.claude/skills',
+    });
+    const section = sectionOf(content, '## Language Policy');
+    expect(section).toMatch(/written in English/);
+    expect(section).not.toMatch(/exempt/i);
+    expect(section).not.toContain('`.prospec/changes/**`');
   });
 
   it('every skill frontmatter renders the synthesized trigger words', () => {
@@ -2969,6 +3008,62 @@ describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('**NEVER** scan from a file list maintained inside this skill');
     expect(never).toMatch(/create a doc the inventory marks MISSING without/);
+  });
+});
+
+// The generator fix reaches only projects initialized after it; an existing
+// CONSTITUTION.md is the owner's file and `prospec upgrade` never edits it. This
+// step is the consent-gated migration path — the one authored-wording change the
+// skill may propose, because that wording is an init seed.
+describe('prospec-upgrade: seeded Language Policy migration (Step 2.5)', () => {
+  const render = () => renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
+
+  it('Step 1 documents the stale-wording report line and the block Step 2.5 needs', () => {
+    const step1 = sectionOf(render(), '### Step 1');
+    expect(step1).toContain('stale Language Policy wording:');
+    expect(step1).toContain('Current Language Policy rule:');
+  });
+
+  it('Step 2.5 is report-gated, diff-first, consent-gated, and section-scoped', () => {
+    const step = sectionOf(render(), '### Step 2.5');
+    expect(step).toContain('stale Language Policy wording:');
+    expect(step).toMatch(/Show a diff of the Language Policy section only/);
+    expect(step).toMatch(/ask whether to rewrite/);
+    expect(step).toMatch(/only that principle's `Description` \/ `Rationale` \/ `Verify` body/);
+    expect(step).toMatch(/declines/);
+  });
+
+  // The retrieval source is the thing that made this step a no-op for every
+  // downstream project: the constitution template carries no rule text, so an
+  // instruction to fetch it there can never succeed.
+  it('Step 2.5 takes the wording from the report and forbids the impossible retrieval', () => {
+    const step = sectionOf(render(), '### Step 2.5');
+    expect(step).toMatch(/Take the replacement wording from the report's `Current Language Policy rule:` block/);
+    expect(step).toMatch(/Do NOT try\s+`prospec print-template init\/constitution\.md\.hbs`/);
+  });
+
+  it('Output Contract and NEVER pin the consent gate', () => {
+    const criteria = sectionOf(render(), '### Success Criteria');
+    expect(criteria).toMatch(/stale Language Policy wording.*consent/s);
+
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toMatch(/\*\*NEVER\*\* run Step 2\.5 unprompted/);
+
+    const failures = sectionOf(render(), '### Failure Conditions');
+    expect(failures).toMatch(/rewrote the Language Policy section without a diff and confirmation/);
+  });
+
+  it('promotion-format scopes the language exception to description and keeps status a bare enum', () => {
+    const c = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+    const ledger = sectionOf(c, '## Lessons Ledger');
+    expect(ledger).toMatch(/\*\*description\*\*: written in the language of the original correction/);
+    expect(ledger).toMatch(/Language Policy names this column/);
+    expect(ledger).toMatch(/Every other column stays English/);
+    // status is a closed token set; provenance prose there is what put this repo's
+    // own ledger outside both the enum and the language exception.
+    expect(ledger).toMatch(/\*\*status\*\*:.*`retired`/);
+    expect(ledger).toMatch(/a \*\*bare token\*\*/);
+    expect(ledger).toMatch(/never appended to this column/);
   });
 });
 

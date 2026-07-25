@@ -7,6 +7,7 @@ import {
   isDefaultArtifactLanguage,
   resolveKnowledgeTokenBudget,
 } from '../lib/config.js';
+import { resolveLanguageScope, entryLanguageContext } from '../lib/language-policy.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
@@ -90,6 +91,7 @@ export async function execute(
 
   // 3. Resolve language + custom triggers; absent artifact_language means English
   const artifactLanguage = resolveArtifactLanguage(config);
+  const languageScope = resolveLanguageScope(config, cwd);
   const skillTriggers = config.skill_triggers ?? {};
   const knownSkillNames = new Set(SKILL_DEFINITIONS.map((s) => s.name));
   const warnings: string[] = [];
@@ -136,6 +138,12 @@ export async function execute(
     constitution_path: constitutionPath,
     tech_stack: config.tech_stack ?? {},
     artifact_language: artifactLanguage,
+    // Language scope rendered into the entry config's Language Policy — the SAME
+    // resolved path sets the seeded Constitution rule is generated from
+    // (lib/language-policy), so L0 and the audited Constitution cannot declare
+    // contradictory scopes. Named exceptions stay out of L0: the entry config
+    // points at the Constitution rule for them, keeping this always-loaded file lean.
+    ...entryLanguageContext(languageScope),
     // L1/L2 token/line budgets (l1_per_file / l2_per_module / readme_max_lines)
     // rendered into the knowledge-loading skill templates — resolved per-project
     // so a downstream reader sees real numbers and a source they can inspect,

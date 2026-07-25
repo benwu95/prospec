@@ -9,6 +9,7 @@ import { renderTemplate } from './template.js';
 import { filterConventions } from './scanner.js';
 import { buildIndexTemplateContext } from './index-template.js';
 import { languagePolicyRule, exampleRulesFor } from './constitution-rules.js';
+import { resolveLanguageScope, entryLanguageContext } from './language-policy.js';
 
 /**
  * The two Handlebars render contexts every `INIT_DOC_REGISTRY` doc needs.
@@ -52,6 +53,7 @@ export function buildInitDocContexts(
   const baseDir = config.paths?.base_dir ?? DEFAULT_BASE_DIR;
   const artifactLanguage = resolveArtifactLanguage(config);
   const techStack = (config.tech_stack ?? {}) as TechStackResult;
+  const languageScope = resolveLanguageScope(config, cwd);
 
   const standard: Record<string, unknown> = {
     project_name: config.project.name,
@@ -59,7 +61,10 @@ export function buildInitDocContexts(
     agents: config.agents ?? [],
     base_dir: baseDir,
     artifact_language: artifactLanguage,
-    example_rules: [languagePolicyRule(artifactLanguage), ...exampleRulesFor(techStack)],
+    // init renders the entry config from this same context, so the entry keys
+    // must travel with it — a missing key renders an empty path list, not an error.
+    ...entryLanguageContext(languageScope),
+    example_rules: [languagePolicyRule(languageScope), ...exampleRulesFor(techStack)],
   };
 
   const { core: coreConventions, demand: demandConventions } =

@@ -49,10 +49,16 @@ export function formatInitOutput(
     lines.push(`Selected agents: ${result.selectedAgents.join(', ')}`);
   }
 
-  // 5. Document language (Language Policy seeded into CONSTITUTION.md)
+  // 5. Document language (Language Policy seeded into CONSTITUTION.md). The
+  //    seeded rule is path-scoped, so name the scope here too — "document
+  //    language" alone reads as "every document", which is the ambiguity that let
+  //    the Constitution and the entry config drift apart.
   lines.push(''); // Empty line separator
+  const languageScopeNote = isDefaultArtifactLanguage(result.artifactLanguage)
+    ? ''
+    : ' for change artifacts; the trust zone (Knowledge base, specs/features, index.md, Constitution) stays English';
   lines.push(
-    `Document language: ${pc.cyan(result.artifactLanguage)} (Language Policy added to CONSTITUTION.md)`,
+    `Document language: ${pc.cyan(result.artifactLanguage)}${languageScopeNote} (Language Policy added to CONSTITUTION.md)`,
   );
 
   // 6. Next steps suggestion

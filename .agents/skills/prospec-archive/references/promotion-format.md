@@ -45,9 +45,10 @@ Keyed by a deterministic signature so counting is reproducible:
 | test/toContain-false-green | section-scope contract slices + mutation-verify | 3 | 2 (templates,tests) | convention | add-output-contract, add-entry-exit-gates, add-review-fix-loop | suggest-promote |
 ```
 
-- **key**: normalized signature (the rule/REQ/file-pattern the lesson concerns) — same lesson ⇒ same key.
+- **key**: normalized signature (the rule/REQ/file-pattern the lesson concerns) — same lesson ⇒ same key; keys stay English (they are identifiers).
+- **description**: written in the language of the original correction, including the provenance suffix — the ledger sits inside the English trust zone, so the Constitution's Language Policy names this column as its explicit exception: a lesson quoted in the words it was given in stays matchable and loses no nuance. Every other column stays English.
 - **kind**: `convention` | `playbook` | `constitution` — selects the shared destination on promotion.
-- **status**: `personal` | `suggest-promote` | `promoted` | `declined` — a lesson's promotion state, independent of where the ledger lives.
+- **status**: `personal` | `suggest-promote` | `promoted` | `declined` | `retired` (root cause eliminated; the row is kept for history) — a **bare token**, independent of where the ledger lives. Approval, scoring and retirement provenance belongs in `description` (as a `｜ **Promotion**:` / `｜ **Retired**:` suffix), never appended to this column: prose here breaks the closed set every consumer reads.
 - Carried forward across runs as the anchor; declined items are not re-suggested.
 - **Version-controlled** at `prospec/ai-knowledge/_lessons-ledger.md` (not the gitignored `.prospec/`), so frequency counters survive worktree switches and clones — the durability that makes `frequency ≥ 3` reachable. Auto-fed at archive time (see **Harvest** below).
 

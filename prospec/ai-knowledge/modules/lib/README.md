@@ -21,7 +21,7 @@
 | `drift-checker.ts` | Pure evaluators + runChecks (11 checks); codepoint-sorted |
 | `knowledge-reader.ts` | Realpath-contained reads; loadModuleMap/loadFeatureMap, searchModules |
 
-Also: `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
+Also: `language-policy.ts` (language-scope single source), `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
 
 ## Public API
 
@@ -55,6 +55,7 @@ Also: `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers
 - Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only → honest `skipped`, not a 0-file PASS).
 - knowledge-reader reads: realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null vs invalid→throw.
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`.
+- `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it); compose paths with `path.posix.join`.
 
 <!-- prospec:auto-end -->
 

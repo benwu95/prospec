@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { exampleRulesFor, languagePolicyRule } from '../../../src/lib/constitution-rules.js';
+import type { LanguageScope } from '../../../src/types/constitution.js';
 
 const SEVERITIES = ['MUST', 'SHOULD', 'MAY'];
 
@@ -65,26 +66,68 @@ describe('exampleRulesFor', () => {
 });
 
 describe('languagePolicyRule', () => {
+  const scope = (over: Partial<LanguageScope> = {}): LanguageScope => ({
+    language: 'Japanese',
+    nativePaths: ['.prospec/changes/**', 'prospec/specs/_archived-history/**'],
+    englishPaths: ['prospec/CONSTITUTION.md', 'prospec/ai-knowledge/**'],
+    namedExceptions: ['the `description` column of `prospec/ai-knowledge/_lessons-ledger.md`'],
+    ...over,
+  });
+
   it('returns a MUST rule named Language Policy', () => {
-    const rule = languagePolicyRule('English');
+    const rule = languagePolicyRule(scope({ language: 'English' }));
     expect(rule.severity).toBe('MUST');
     expect(rule.name).toBe('Language Policy');
   });
 
   it('renders the chosen language into description and check', () => {
-    const rule = languagePolicyRule('Traditional Chinese (Taiwan)');
+    const rule = languagePolicyRule(scope({ language: 'Traditional Chinese (Taiwan)' }));
     expect(rule.description).toContain('Traditional Chinese (Taiwan)');
     expect(rule.check).toContain('Traditional Chinese (Taiwan)');
   });
 
   it('always keeps code and technical terms in English', () => {
-    const rule = languagePolicyRule('Japanese');
+    const rule = languagePolicyRule(scope());
     expect(rule.description).toContain('English');
   });
 
   it('always keeps git commit messages in English', () => {
-    const rule = languagePolicyRule('Japanese');
+    const rule = languagePolicyRule(scope());
     expect(rule.description).toContain('git commit messages');
     expect(rule.check).toContain('commit messages');
+  });
+
+  // The scope assertions below are the guard the pre-fix rule lacked: its tests
+  // only checked severity/name/language interpolation, so nothing went red when
+  // the rule's scope contradicted the entry config's.
+  it('scopes the artifact language to the resolved native paths', () => {
+    const rule = languagePolicyRule(scope());
+    for (const p of ['.prospec/changes/**', 'prospec/specs/_archived-history/**']) {
+      expect(rule.description).toContain(p);
+      expect(rule.check).toContain(p);
+    }
+  });
+
+  it('declares the resolved trust-zone paths English', () => {
+    const rule = languagePolicyRule(scope());
+    for (const p of ['prospec/CONSTITUTION.md', 'prospec/ai-knowledge/**']) {
+      expect(rule.description).toContain(p);
+      expect(rule.check).toContain(p);
+    }
+  });
+
+  it('lists the named in-zone exceptions so an audit does not flag them', () => {
+    const rule = languagePolicyRule(scope());
+    expect(rule.description).toContain(
+      'the `description` column of `prospec/ai-knowledge/_lessons-ledger.md`',
+    );
+    expect(rule.check).toMatch(/named exception/i);
+  });
+
+  it('renders no trust-zone exemption for an English project (both zones English)', () => {
+    const rule = languagePolicyRule(scope({ language: 'English' }));
+    expect(rule.description).not.toMatch(/exempt|trust zone/i);
+    expect(rule.description).not.toContain('.prospec/changes/**');
+    expect(rule.description).toContain('English');
   });
 });

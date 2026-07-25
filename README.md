@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2140%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2191%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -191,8 +191,9 @@ Those two commands expand to:
 prospec init --name my-project   # → select AI assistants (interactive checkbox)
                                  # → choose the doc language (default: English, or
                                  #   --language "Traditional Chinese (Taiwan)"); a [MUST]
-                                 #   Language Policy rule is seeded into CONSTITUTION.md —
-                                 #   code and git commit messages stay in English
+                                 #   path-scoped Language Policy rule is seeded into
+                                 #   CONSTITUTION.md — the trust zone, code, and git commit
+                                 #   messages stay in English
                                  # → creates .prospec.yaml + directory structure
 prospec agent sync               # → per-agent config + Skills (Claude Code → CLAUDE.md +
                                  #   .claude/skills/; Antigravity / Codex / Copilot →
@@ -338,7 +339,7 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 3. **Zero Startup Cost for Brownfield** — no need to document the entire codebase upfront
 4. **AI Agent Agnostic** — works with any AI CLI via Markdown adapters
 5. **User Controls the Rules** — Constitution is user-defined, the tool enforces
-6. **Language Policy** — AI-generated docs in the language you choose at `prospec init` (default: English); code, technical terms, and git commit messages always in English
+6. **Language Policy** — change artifacts in the language you choose at `prospec init` (default: English); the trust zone (AI Knowledge base, Feature Specs, Constitution), code, technical terms, and git commit messages always in English
 
 ---
 
@@ -676,7 +677,7 @@ Prospec can be configured via a `.prospec.yaml` file in the project root. This i
 
 Key configurations you can tweak:
 
-- **`artifact_language`**: Sets the language for AI-generated documents (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages are always kept in English.
+- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). The trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md` — plus code, identifiers, technical terms, and git commit messages are always kept in English. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from these same paths, so the rule and your agent's entry config (`CLAUDE.md`/`AGENTS.md`) always state one scope.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -748,7 +749,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2140 tests)
+# Run all tests (2191 tests)
 pnpm test
 
 # Watch mode
@@ -761,9 +762,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2140 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1392 tests
-- Contract tests (CLI output + Skill format): 661 tests
+**Test Coverage**: 2191 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1426 tests
+- Contract tests (CLI output + Skill format): 678 tests
 - Integration tests: 42 tests
 - E2E tests: 45 tests
 

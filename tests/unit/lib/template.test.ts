@@ -172,7 +172,9 @@ describe('renderTemplate', () => {
       // file gone they only succeed because the cached registration is reused.
       const first = renderTemplate('skills/__first.hbs', {});
       const second = renderTemplate('skills/__second.hbs', {});
-      expect(first).toBe('A## Language Policy\n\nWrite generated documents in the language defined by the Constitution\'s Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.');
+      // Compared against the partial's own source (read before it was unlinked),
+      // so this pins the cached-registration reuse without re-pinning its wording.
+      expect(first).toBe(`A${policyBody}`);
       expect(second.startsWith('B')).toBe(true);
       expect(second).toContain('Language Policy');
     } finally {

@@ -15,8 +15,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write generated documents in the language defined by the Constitution's Language Policy rule. Keep code, identifiers, technical terms, and git commit messages in English.
-
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
 ## Startup Loading
 
 1. [DYNAMIC] Read `.prospec.yaml` — `version`, `artifact_language`, and `skill_triggers` drive the steps below
@@ -49,6 +48,11 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
   wrote. This section is Step 2's authoritative scan scope: it is derived from the same registry
   `prospec init` creates from, so it can never miss a file init would create. A line still marked
   MISSING means its back-fill failed — Step 2's safety net.
+- `stale Language Policy wording: …` — the seeded Language Policy rule in `prospec/CONSTITUTION.md` still
+  carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). Absent when the
+  rule was already rewritten (by a newer init or by the user). It is immediately followed by a
+  `Current Language Policy rule:` block holding the replacement wording — **carry that block forward
+  verbatim**; Step 2.5 has no other source for it.
 
 If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
 user to run `prospec init` first.
@@ -94,14 +98,35 @@ baseline, requires consent. Do that here:
    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
    leave the rest unchanged.
 
+### Step 2.5: Migrate the seeded Language Policy wording (only when flagged)
+
+Run this ONLY when Step 1's report carries the `stale Language Policy wording:` line. It is the one
+authored-wording change this skill may propose, because that wording is a **seed** `prospec init` wrote,
+not something the owner authored: the old seed put the AI Knowledge base under the artifact-language
+requirement while the entry config declares it permanently English, so verify's Constitution audit
+(`[MUST]` → FAIL) turns the project against itself whichever document the agent obeys.
+
+1. Take the replacement wording from the report's `Current Language Policy rule:` block — the CLI renders
+   it from THIS project's resolved paths and language, so it is ready to paste. Do NOT try
+   `prospec print-template init/constitution.md.hbs`: that template only loops over the rules injected into
+   it and carries no rule text of its own (the body is generated in code), so retrieval yields nothing. If
+   the report has no such block, the installed CLI predates it — say so and SKIP.
+2. **Show a diff of the Language Policy section only** and ask whether to rewrite it.
+3. On consent, replace **only that principle's `Description` / `Rationale` / `Verify` body** — leave its
+   heading, severity tag, every other principle, the Constraints/Quality-Standards checklists, and all
+   user-authored text byte-unchanged. Re-read the file afterwards to confirm the section structure still
+   parses (heading + `---` separators intact).
+4. If the user declines, leave the file untouched and record it as declined; the next upgrade offers again.
+
 ### Step 3: Offer to set an artifact language (only when unset)
 
 Run this step ONLY when Step 1's report shows `no artifact_language set` (a project scaffolded by a
 pre-feature CLI — `prospec init` always writes the field). Skip it entirely otherwise; never re-ask a
 project that already chose a language, including an explicit `English`.
 
-1. Tell the user their project has no `artifact_language`, so AI-generated documents currently default
-   to **English**, and ask which language they want for AI-generated documents (default: English).
+1. Tell the user their project has no `artifact_language`, so change artifacts currently default
+   to **English**, and ask which language they want for them (default: English; the trust zone stays
+   English either way).
 2. **If they choose a non-English language**: capture `.prospec.yaml` verbatim as a snapshot, add the
    `artifact_language` key by a **minimal in-place edit** (insert the single key; never re-serialize or
    reorder), then read the file back to confirm it still parses — restore the snapshot if not. Every
@@ -136,12 +161,14 @@ English or every skill already has an entry.
 ### Success Criteria
 - [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
 - [ ] every doc in the report's `Docs inventory:` was handled — present docs diffed against their listed template and updated only on consent, the docs `prospec upgrade` back-filled were enriched where needed (index module table / legacy `_index.md` migration) on consent, and any still-MISSING doc was offered for creation as a safety net (or templates were unavailable / the inventory section was absent, and the step was skipped with a note)
+- [ ] when the report flagged `stale Language Policy wording`, a diff of that section alone was shown and it was rewritten only on consent (or declined / the report carried no `Current Language Policy rule:` block and the step was skipped with a note)
 - [ ] when the report flagged `no artifact_language set`, the user was asked which language to use and `artifact_language` was written to their choice (or they declined)
 - [ ] every skill in the report's "missing triggers" list (and all skills, when Step 3 just set a non-English language) is localized (or the user declined)
 - [ ] `prospec agent sync` ran when Step 2, Step 3, or Step 4 changed anything
 
 ### Failure Conditions
 - updated an init-created file without showing a diff and getting confirmation
+- rewrote the Language Policy section without a diff and confirmation, or touched anything beyond that one principle's body
 - created a doc the inventory marked MISSING without asking first
 - scanned from a file list hardcoded in this skill instead of the report's `Docs inventory:`
 - set `artifact_language` (or wrote `skill_triggers`) without user confirmation
@@ -156,7 +183,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** update an init-created file without a diff preview AND explicit user confirmation — `prospec upgrade` never touches these, and the skill does so only with consent
 - **NEVER** create a doc the inventory marks MISSING without showing what will be written AND asking first
 - **NEVER** scan from a file list maintained inside this skill — the report's `Docs inventory:` (derived from init's own registry) is the only scan scope; a parallel list here drifts and re-opens the coverage gap
-- **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template
+- **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template; the single exception is Step 2.5's seeded Language Policy body, and only after a diff and consent
+- **NEVER** run Step 2.5 unprompted — it fires only on the report's `stale Language Policy wording` line, so a rule the owner already reworded is never touched
 - **NEVER** set or change `artifact_language` for a project that already has one — Step 3 runs only when the report flags it unset
 - **NEVER** set `artifact_language` without first asking the user which language they want
 - **NEVER** re-translate or overwrite an existing `skill_triggers` entry — localize only the skills with no entry yet
@@ -176,3 +204,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | `.prospec.yaml` fails to parse after writing `artifact_language` or triggers | Restore the captured pre-write snapshot verbatim, then report the malformed write |
 | User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
 | User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |
+| User declines the Language Policy rewrite | Leave `prospec/CONSTITUTION.md` unchanged and record it as declined; the next upgrade offers again |
+| report flags stale wording but carries no `Current Language Policy rule:` block | Installed CLI predates the block — skip Step 2.5 with a note; never hand-author replacement wording |

@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-07-14
-story_count: 17
-req_count: 73
+last_updated: 2026-07-25
+story_count: 18
+req_count: 75
 ---
 
 # Agent Integration
@@ -211,9 +211,10 @@ so that the Constitution's language setting is not overridden by Skill-level Eng
 - WHEN AI executes Activation, THEN response language determined by external mechanism
 
 #### REQ-SKILL-012: Artifact Skills Follow Constitution Language Policy
-Artifact-producing skills (new-story/plan/tasks/ff/design/archive/learn/knowledge-generate/knowledge-update) load an explicit compliance directive via a shared partial (`{{> language-policy}}`) that only points at the Constitution and does not hardcode a language name.
-- WHEN rendering an artifact-producing skill, THEN it contains a Language Policy section pointing at the Constitution rule
+Artifact-producing skills (new-story/plan/tasks/ff/design/archive/learn/knowledge-generate/knowledge-update, plus prospec-upgrade) load an explicit compliance directive via a shared partial (`{{> language-policy}}`) that points at the Constitution and hardcodes no language name. The directive is **path-scoped**: each generated document takes the language the rule assigns to its path — change artifacts and their archived summaries in the artifact language, the trust zone in English — and states that one skill run may write both (archive writes `specs/_archived-history/` and `specs/features/**` in the same pass).
+- WHEN rendering an artifact-producing skill, THEN it contains a Language Policy section pointing at the Constitution rule and assigning language by path
 - WHEN grepping skill templates, THEN `written in English` count is 0 (neutrality preserved)
+- WHEN the partial is reworded without a re-deploy, THEN the deployed-SKILL.md byte-sync guard goes red
 
 ---
 
@@ -283,10 +284,12 @@ agent sync synthesizes the frontmatter Triggers: English baseline + `skill_trigg
 - WHEN `skill_triggers` has an unknown skill key, THEN warn (stderr, even in quiet mode) and ignore it; empty arrays count as unset
 
 #### REQ-AGNT-020: Entry Config Language Declaration
-The entry config contains the primary-language declaration (L0-resident; an absent or blank `artifact_language` is treated as English). The skill registry is routed by agent: an agent whose runtime does not automatically surface SKILL.md frontmatter (the AGENTS.md group) keeps the full per-skill table (including each skill's Triggers line), and so does the default when the flag is unset; an agent that does auto-surface (claude → CLAUDE.md) instead renders a slim `/prospec-*` guidance section, whose trigger words are surfaced by the SKILL.md frontmatter (not re-listed in the entry config).
+The entry config contains the primary-language declaration (L0-resident; an absent or blank `artifact_language` is treated as English), rendered from the shared `LanguageScope` (REQ-LIB-030) via `entryLanguageContext` — the same resolved path sets the seeded Constitution rule renders, so the two documents cannot state conflicting scopes. Both render sites (`prospec init` and `prospec agent sync`) supply those keys; Handlebars is non-strict, so a site that omits them renders an empty path list instead of failing. Named exceptions stay out of L0 — the declaration points at the Constitution rule for them. The skill registry is routed by agent: an agent whose runtime does not automatically surface SKILL.md frontmatter (the AGENTS.md group) keeps the full per-skill table (including each skill's Triggers line), and so does the default when the flag is unset; an agent that does auto-surface (claude → CLAUDE.md) instead renders a slim `/prospec-*` guidance section, whose trigger words are surfaced by the SKILL.md frontmatter (not re-listed in the entry config).
 - WHEN syncing a non-frontmatter agent with language X, THEN the entry config declares X and lists per-skill trigger words
 - WHEN syncing a frontmatter-surfacing agent (claude), THEN the entry config declares the language but renders a slim registry pointer (no per-skill Triggers)
-- WHEN the field is absent or blank, THEN the declaration renders English
+- WHEN the field is absent or blank, THEN the declaration renders the single English zone
+- WHEN `init` runs without a following `agent sync`, THEN the entry config it writes already carries the resolved path sets
+- WHEN the declaration and the Constitution rule are compared, THEN their native/English path sets are identical
 
 #### REQ-AGNT-021: Skill Triggers Population Hint
 agent sync computes the missing set (`computeUnlocalizedSkills` single source, see REQ-SERVICES-066). When the language is non-English and the set is non-empty, the hint directs running `prospec agent triggers` to obtain a translatable scaffold: all missing → generic guidance; partially missing (existing ones already translated, new skills not yet) → name the skills lacking trigger words and fill only the missing ones. English or all present → no hint.
@@ -433,12 +436,14 @@ so that the parts of the upgrade requiring judgment are AI-assisted but human-ga
 - WHEN agent sync runs, THEN each agent skill dir deploys `prospec-upgrade/SKILL.md`
 
 #### REQ-TEMPLATES-121: prospec-upgrade Skill Template
-`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline): (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, detect format drift against the latest templates of the installed prospec package, show a per-file diff, and update only after asking the user's consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and the curated Modules table, and deleting the old file after a successful migration); (3) per `artifact_language`, first run `prospec agent triggers` to get the fill-missing scaffold, translate `skill_triggers` for the skills lacking trigger words (fill only the missing ones, snapshot/confirm/minimal in-place/read back to validate YAML) → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
+`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline): (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, detect format drift against the latest templates of the installed prospec package, show a per-file diff, and update only after asking the user's consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and the curated Modules table, and deleting the old file after a successful migration); (2.5) when the report carries a `stale Language Policy wording:` line, migrate that one seeded principle — the sole authored-wording change this skill may propose — taking the replacement from the report's `Current Language Policy rule:` block (never from `print-template`, which returns an unrendered template carrying no rule text), showing a diff of that section only and rewriting just its Description/Rationale/Verify after consent; (3) per `artifact_language`, first run `prospec agent triggers` to get the fill-missing scaffold, translate `skill_triggers` for the skills lacking trigger words (fill only the missing ones, snapshot/confirm/minimal in-place/read back to validate YAML) → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
 - WHEN rendered, THEN it carries an Output Contract and a NEVER section, has no hardcoded language directives (English baseline), and Step 2 has no hardcoded convention-doc list (pinned by a negative contract assertion)
 - WHEN the report marks a file MISSING and the user consents to create it, THEN create it from the latest template; if not consented, leave it untouched
 - WHEN a present file's format does not match the latest template, THEN show a per-file diff and change it only after asking consent; if not consented, leave the file untouched
 - WHEN `artifact_language` is non-English and there are skills lacking trigger words, THEN first run `prospec agent triggers` to get the scaffold, translate only the missing ones, and after confirmation write `skill_triggers` via a minimal in-place edit and read back to validate YAML
 - WHEN finishing (if there were any changes), THEN run `prospec agent sync` again so the deployment reflects the latest trigger words
+- WHEN the report flags stale Language Policy wording, THEN show a diff of that section alone and rewrite it only on consent; when the report carries no rendered-rule block, skip with a note
+- WHEN the report does not flag it, THEN the step never runs (a rule the owner already reworded is never touched)
 
 #### REQ-AGNT-026: User-Facing Docs Reflect prospec-upgrade
 The skill catalog table + lifecycle workflow subsection in `README.md`/`README.zh-TW.md` are synced bilingually to add `prospec-upgrade` and the `prospec upgrade` CLI command, with the header skill count going 16→17; `CLAUDE.md` Available Prospec Skills (regenerated by agent sync from `SKILL_DEFINITIONS`) is synced; the root-level `index.md` templates module description goes from "16 skills" → "17 skills".
@@ -645,6 +650,36 @@ mutation-verified contract: baseline verbatim == `SKILL_DEFINITIONS`; fill-missi
 3. **No Inline Provenance**: Historical traceability lives only in the Change History
 4. **Deprecation over Deletion**: Removed requirements are moved to the Deprecated section
 
+### US-440: Entry Config and Constitution Share One Language Scope [P1]
+
+As an AI agent working in a non-English project,
+I want the always-loaded entry config and the audited Constitution to state the same language scope, and a way to migrate a project still carrying the old seeded wording,
+so that I never have to choose which of two contradictory documents to obey.
+
+**Acceptance Scenarios:**
+- WHEN the entry config renders, THEN its native/English path sets come from the injected scope, not a hand-written list, and it names no in-zone exception (L0 stays lean, <100 lines)
+- WHEN `base_dir`/`knowledge.base_path` are relocated, THEN the rendered paths follow
+- WHEN `prospec upgrade` flags a stale seeded rule, THEN `/prospec-upgrade` shows a diff of that section and rewrites it only on consent
+- WHEN the report carries no rendered-rule block, THEN the migration step skips with a note rather than hand-authoring wording
+
+#### REQ-TEMPLATES-151: Entry Config Renders the Shared Language Scope
+`agent-configs/entry.md.hbs` renders its Language Policy from the injected `language_is_english` / `language_native_paths` / `language_english_paths` keys instead of a hardcoded path list, with a single-zone branch for English projects. Named exceptions are not listed in L0; the section points at the Constitution rule instead. Both render sites spread `entryLanguageContext(scope)`.
+
+**Scenarios:**
+- WHEN a non-English project syncs, THEN the rendered section states both path sets and points at the Constitution for exceptions
+- WHEN the project is English, THEN the single-zone branch renders (no exemption clause, no path list)
+- WHEN either render site drops the keys, THEN a contract test goes red (mutation-verified)
+
+#### REQ-TEMPLATES-152: prospec-upgrade Seeded-Wording Migration Step
+`templates/skills/prospec-upgrade.hbs` gains Step 2.5: gated on the report's `stale Language Policy wording:` line, it takes the replacement from the report's `Current Language Policy rule:` block, shows a diff of that principle only, and rewrites just its Description/Rationale/Verify after consent — the single named exception to the skill's "never rewrite authored content" invariant, because that wording is an init seed. It explicitly forbids `print-template init/constitution.md.hbs` as a source (the template carries no rule text).
+
+**Scenarios:**
+- WHEN the signal is absent, THEN the step self-terminates without prompting
+- WHEN consent is declined, THEN the Constitution is untouched and recorded as declined
+- WHEN the rendered-rule block is missing, THEN skip with a note (never hand-author the wording)
+
+---
+
 ## Deprecated Requirements
 
 #### ~~Gemini CLI Target~~
@@ -684,3 +719,4 @@ mutation-verified contract: baseline verbatim == `SKILL_DEFINITIONS`; fill-missi
 | 2026-07-12 | emit-trigger-scaffold | `prospec agent triggers` fill-missing scaffold (baseline single source `computeUnlocalizedSkills`); the agent-sync hint and quickstart/upgrade onboarding point at this command | US-439 (ADDED); REQ-AGNT-036, REQ-SERVICES-066, REQ-TESTS-052 (ADDED); REQ-AGNT-021, REQ-TEMPLATES-108, REQ-TEMPLATES-121 (MODIFIED) |
 | 2026-07-12 | converge-skill-triggers | 8 skill trigger baselines converged to prospec-specific/collision-free/≥3 (removed bare generic terms, added plan's 3rd word) + .prospec.yaml Chinese mirror; ≥3 intent machine-enforced | US-411; REQ-TESTS-053 (ADDED); REQ-AGNT-033 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-25 | align-language-policy-scope | Entry config renders the shared LanguageScope (both render sites); prospec-upgrade gains the consent-gated seeded-wording migration; the language-policy partial goes path-scoped | US-440 (ADDED); REQ-TEMPLATES-151/152 (ADDED); REQ-AGNT-020, REQ-TEMPLATES-121, REQ-SKILL-012 (MODIFIED) |

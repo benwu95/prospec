@@ -10,7 +10,7 @@
 |------|---------|
 | `change.ts` | `ChangeMetadataSchema`, CHANGE_STATUSES/SCALES, GATE_RESULTS/VERIFY_GRADES, `isStatusBefore` |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, top-level `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`/`TokenBudgetSchema`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS |
-| `constitution.ts` | `ConstitutionRule` — RFC-2119 severity + name/description/rationale/check |
+| `constitution.ts` | `ConstitutionRule` — RFC-2119 severity + name/description/rationale/check; `LanguageScope` — resolved language path sets |
 | `conventions.ts` | Convention-doc registries — CORE_CONVENTIONS, INIT_DOC_REGISTRY |
 | `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (11 frozen) |
 | `errors.ts` | `ProspecError` base + 13 error subclasses |
