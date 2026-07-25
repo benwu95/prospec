@@ -22,6 +22,12 @@ const TEMPLATE_CONTEXT = {
   base_dir: 'prospec',
   tech_stack: { language: 'typescript', framework: 'express' },
   artifact_language: 'English',
+  // Language scope injected by agent-sync from lib/language-policy — the same
+  // resolved path sets the seeded Constitution rule renders (a single source, so
+  // the two documents cannot declare contradictory scopes).
+  language_is_english: false,
+  language_native_paths: '`.prospec/changes/**`, `prospec/specs/_archived-history/**`',
+  language_english_paths: '`prospec/CONSTITUTION.md`, `prospec/ai-knowledge/**`',
   l1_per_file: 1800,
   l2_per_module: 1000,
   readme_max_lines: 100,
@@ -1975,8 +1981,28 @@ describe('Language Policy mechanism', () => {
     // English/exempt side — assert the association so a meaning-inverted rewrite
     // (Knowledge base in {{artifact_language}}) cannot pass on loose substrings.
     expect(section).toContain('change artifacts');
-    expect(section).toMatch(/AI Knowledge base.*remain in English/);
+    expect(section).toMatch(/trust zone.*remains in English/);
     expect(section).toMatch(/exempt from the .* requirement/);
+    // The path sets come from the injected scope, so the entry config and the
+    // Constitution rule state one scope; a hardcoded list here is the drift the
+    // #67 three-way alignment missed in the generator.
+    expect(section).toContain('`prospec/ai-knowledge/**`');
+    expect(section).toContain('`.prospec/changes/**`');
+    // Named exceptions stay out of L0 — the entry config points at the rule.
+    expect(section).toMatch(/Constitution's Language Policy rule/);
+  });
+
+  it('entry config states a single English zone for an English project', () => {
+    const content = renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      language_is_english: true,
+      artifact_language: 'English',
+      skill_path: '.claude/skills',
+    });
+    const section = sectionOf(content, '## Language Policy');
+    expect(section).toMatch(/written in English/);
+    expect(section).not.toMatch(/exempt/i);
+    expect(section).not.toContain('`.prospec/changes/**`');
   });
 
   it('every skill frontmatter renders the synthesized trigger words', () => {
@@ -2969,6 +2995,46 @@ describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('**NEVER** scan from a file list maintained inside this skill');
     expect(never).toMatch(/create a doc the inventory marks MISSING without/);
+  });
+});
+
+// The generator fix reaches only projects initialized after it; an existing
+// CONSTITUTION.md is the owner's file and `prospec upgrade` never edits it. This
+// step is the consent-gated migration path — the one authored-wording change the
+// skill may propose, because that wording is an init seed.
+describe('prospec-upgrade: seeded Language Policy migration (Step 2.5)', () => {
+  const render = () => renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
+
+  it('Step 1 documents the stale-wording report line', () => {
+    const step1 = sectionOf(render(), '### Step 1');
+    expect(step1).toContain('stale Language Policy wording:');
+  });
+
+  it('Step 2.5 is report-gated, diff-first, consent-gated, and section-scoped', () => {
+    const step = sectionOf(render(), '### Step 2.5');
+    expect(step).toContain('stale Language Policy wording:');
+    expect(step).toMatch(/Show a diff of the Language Policy section only/);
+    expect(step).toMatch(/ask whether to rewrite/);
+    expect(step).toMatch(/only that principle's `Description` \/ `Rationale` \/ `Verify` body/);
+    expect(step).toMatch(/declines/);
+  });
+
+  it('Output Contract and NEVER pin the consent gate', () => {
+    const criteria = sectionOf(render(), '### Success Criteria');
+    expect(criteria).toMatch(/stale Language Policy wording.*consent/s);
+
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toMatch(/\*\*NEVER\*\* run Step 2\.5 unprompted/);
+
+    const failures = sectionOf(render(), '### Failure Conditions');
+    expect(failures).toMatch(/rewrote the Language Policy section without a diff and confirmation/);
+  });
+
+  it('promotion-format declares the ledger description column as the in-zone exception', () => {
+    const c = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+    const ledger = sectionOf(c, '## Lessons Ledger');
+    expect(ledger).toMatch(/\*\*description\*\*: written in the language of the original correction/);
+    expect(ledger).toMatch(/Language Policy names this column as an explicit exception/);
   });
 });
 

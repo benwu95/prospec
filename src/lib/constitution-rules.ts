@@ -1,5 +1,7 @@
 import type { TechStackResult } from './detector.js';
-import type { ConstitutionRule } from '../types/constitution.js';
+import type { ConstitutionRule, LanguageScope } from '../types/constitution.js';
+import { isDefaultArtifactLanguage } from './config.js';
+import { formatPathList } from './language-policy.js';
 
 /**
  * Stack-appropriate starter Constitution rules.
@@ -106,16 +108,38 @@ const GENERIC_RULES: ConstitutionRule[] = [
 /**
  * The Language Policy rule seeded into every Constitution by `prospec init`.
  *
- * `language` is the user-chosen artifact language (free-form string, e.g.
- * "Traditional Chinese (Taiwan)"); callers pass "English" when none was chosen.
+ * Takes a resolved `LanguageScope` rather than a bare language string: the same
+ * scope renders the agent entry config's declaration, so the two documents
+ * cannot disagree about which paths are English (see `lib/language-policy.ts`).
+ * The rule is stated by path so a verify audit can decide by file location
+ * instead of re-interpreting what "AI-generated documents" covers.
  */
-export function languagePolicyRule(language: string): ConstitutionRule {
+export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
+  const { language, nativePaths, englishPaths, namedExceptions } = scope;
+
+  // An English project has one zone, so the exemption clauses would only add
+  // noise to a MUST rule the owner has to read.
+  if (isDefaultArtifactLanguage(language)) {
+    return {
+      severity: 'MUST',
+      name: 'Language Policy',
+      description:
+        'All generated documents, code, identifiers, technical terms, and git commit messages are written in English.',
+      rationale:
+        'One declared document language keeps generated artifacts consistent and reviewable; English code, terminology, and commit history follow industry convention.',
+      check:
+        'Generated documents, code, technical terms, and commit messages are in English.',
+    };
+  }
+
+  const exceptions = namedExceptions.map((e) => `  - ${e}`).join('\n');
+
   return {
     severity: 'MUST',
     name: 'Language Policy',
-    description: `All AI-generated documents (change artifacts and AI Knowledge) are written in ${language}. Code, identifiers, technical terms, and git commit messages always remain in English.`,
-    rationale: 'A single declared document language keeps generated artifacts consistent and reviewable, while English code, terminology, and commit history follow industry convention.',
-    check: `Documents under .prospec/changes/ and the AI Knowledge base are written in ${language}; code, technical terms, and commit messages are in English.`,
+    description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(englishPaths)} — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the ${language} requirement. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}`,
+    rationale: `The project owner reviews their own change narrative in ${language}, while the trust zone stays English so it reads like the code it documents and travels beyond this project. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
+    check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${formatPathList(englishPaths)}, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations, and an audit does NOT flag the English trust zone as a Language-Policy violation.`,
   };
 }
 

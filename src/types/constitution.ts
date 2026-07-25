@@ -9,6 +9,26 @@
 /** RFC-2119 severity for a Constitution rule. */
 export type ConstitutionSeverity = 'MUST' | 'SHOULD' | 'MAY';
 
+/**
+ * Resolved language scope for the seeded Language Policy rule.
+ *
+ * The path sets are the single source shared by the Constitution rule and the
+ * agent entry config (CLAUDE.md/AGENTS.md): both are generated from one
+ * `LanguageScope`, so the two documents cannot declare contradictory scopes.
+ * Paths are repo-relative POSIX globs resolved from `paths.base_dir` and
+ * `knowledge.base_path` — never hardcoded defaults.
+ */
+export interface LanguageScope {
+  /** Resolved artifact language (free-form; 'English' when unset/blank). */
+  language: string;
+  /** Paths written in `language` — change artifacts and their archived summaries. */
+  nativePaths: string[];
+  /** Trust-zone paths that stay English regardless of `language`. */
+  englishPaths: string[];
+  /** Trust-zone spots where `language` is allowed, each with its reason. */
+  namedExceptions: string[];
+}
+
 /** A single guided Constitution rule. */
 export interface ConstitutionRule {
   /** RFC-2119 weight; drives verify's FAIL/WARN/INFO grading. */

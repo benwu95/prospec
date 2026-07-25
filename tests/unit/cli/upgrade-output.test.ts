@@ -43,6 +43,7 @@ function baseResult(
       nudges: [],
       docs: [],
       createdDocs: [],
+      staleLanguagePolicy: false,
       ...overrides,
     },
     agentSync: { agents: [], totalFiles: 3, warnings: [], hints: [] },
@@ -55,6 +56,23 @@ function baseResult(
 
 describe('formatUpgradeOutput', () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it('reports a stale Language Policy and routes the rewrite to the skill', () => {
+    const { stdout } = captureStreams();
+
+    formatUpgradeOutput(baseResult({ staleLanguagePolicy: true }));
+
+    expect(stdout()).toContain('stale Language Policy wording');
+    expect(stdout()).toContain('/prospec-upgrade');
+  });
+
+  it('says nothing about the Language Policy when the wording is current', () => {
+    const { stdout } = captureStreams();
+
+    formatUpgradeOutput(baseResult({ staleLanguagePolicy: false }));
+
+    expect(stdout()).not.toContain('Language Policy');
+  });
 
   it('prints the version delta, agent sync, and the /prospec-upgrade hand-off', () => {
     const { stdout } = captureStreams();

@@ -5,8 +5,10 @@ import {
   resolveArtifactLanguage,
   isDefaultArtifactLanguage,
   isArtifactLanguageUnset,
+  resolveBasePaths,
 } from '../lib/config.js';
-import { fileExists, atomicWrite } from '../lib/fs-utils.js';
+import { isSeededLanguagePolicyStale } from '../lib/language-policy.js';
+import { fileExists, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_ARTIFACT_LANGUAGE } from '../types/config.js';
 import { PROSPEC_VERSION } from '../types/version.js';
@@ -91,6 +93,13 @@ export interface UpgradeReport {
    * when nothing was missing.
    */
   createdDocs: string[];
+  /**
+   * Whether the project's Constitution still carries the pre-fix seeded Language
+   * Policy, whose scope contradicted the entry config's. Report-only: this
+   * command never edits `CONSTITUTION.md` — the `/prospec-upgrade` skill shows a
+   * diff and rewrites the section only with the user's consent.
+   */
+  staleLanguagePolicy: boolean;
 }
 
 /** A nudge the user resolved interactively this run (field set to a value). */
@@ -208,6 +217,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     nudges: detectNudges(config),
     docs: buildDocsInventory(config, cwd),
     createdDocs,
+    staleLanguagePolicy: await detectStaleLanguagePolicy(config, cwd),
   };
 
   return {
@@ -274,6 +284,21 @@ export async function createMissingDocs(
     }
   }
   return created;
+}
+
+/**
+ * Whether the existing Constitution still carries the pre-fix seeded Language
+ * Policy. I/O lives here; the judgment is the pure `isSeededLanguagePolicyStale`
+ * so the wording it keys off stays next to the generator that emits it. An
+ * absent Constitution reads as not stale — there is nothing to migrate (the
+ * back-fill step writes a fresh, already-correct one).
+ */
+export async function detectStaleLanguagePolicy(
+  config: ProspecConfig,
+  cwd: string,
+): Promise<boolean> {
+  const { constitutionPath } = resolveBasePaths(config, cwd);
+  return isSeededLanguagePolicyStale(await readFileIfExists(constitutionPath));
 }
 
 /**

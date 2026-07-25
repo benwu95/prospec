@@ -9,7 +9,9 @@ import { sanitizeTerminal } from './sanitize.js';
  * 1. Agent-sync warnings (always, on stderr, even in quiet mode)
  * 2. Version delta + agent-sync status, then any nudges resolved interactively
  * 3. Upgrade report — any still-outstanding config-field nudges (one line each),
- *    then skills missing triggers, falling back to "up to date"
+ *    then skills missing triggers, falling back to "up to date"; plus a stale
+ *    Language-Policy-wording signal when the seeded rule predates the path-scoped
+ *    version (report-only — rewriting it is the skill's consent-gated job)
  * 4. Docs inventory (post-creation) — one fixed-format line per init-created doc
  *    (present ✓ / MISSING ✗, with its source template), then any docs this run
  *    back-filled and any still MISSING (back-fill failed)
@@ -66,6 +68,12 @@ export function formatUpgradeOutput(
     );
   } else if (report.nudges.length === 0) {
     lines.push(`${pc.dim('•')} skill triggers up to date`);
+  }
+  // Report-only: the CLI never edits CONSTITUTION.md — the skill asks first.
+  if (report.staleLanguagePolicy) {
+    lines.push(
+      `${pc.yellow('•')} stale Language Policy wording: the seeded rule still claims the AI Knowledge base follows the artifact language, which contradicts the entry config — ${result.nextStep} will show a diff and ask before rewriting that section`,
+    );
   }
 
   // 3. Docs inventory (post-creation) — every init-created doc's present/missing

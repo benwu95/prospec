@@ -19,7 +19,11 @@
 
 ## Language Policy
 
-The user's primary language for **change artifacts** under `.prospec/changes/` is **{{artifact_language}}** (see the Constitution's Language Policy rule). Requests may be phrased in it. Code, identifiers, technical terms, git commit messages, and the AI Knowledge base (`{{knowledge_base_path}}`, `{{base_dir}}/specs`, `{{base_dir}}/index.md`) always remain in English — the Knowledge base is trust-zone technical documentation, exempt from the {{artifact_language}} requirement.
+{{#if language_is_english}}
+All generated documents — code, identifiers, technical terms, and git commit messages included — are written in English (see the Constitution's Language Policy rule).
+{{else}}
+The user's primary language for **change artifacts** ({{language_native_paths}}) is **{{artifact_language}}**, and requests may be phrased in it. The trust zone ({{language_english_paths}}) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the {{artifact_language}} requirement. The Constitution's Language Policy rule is generated from this same path set and names the few spots inside the trust zone that may use {{artifact_language}}.
+{{/if}}
 
 ## Core Resources
 

@@ -9,6 +9,7 @@ import { renderTemplate } from './template.js';
 import { filterConventions } from './scanner.js';
 import { buildIndexTemplateContext } from './index-template.js';
 import { languagePolicyRule, exampleRulesFor } from './constitution-rules.js';
+import { resolveLanguageScope } from './language-policy.js';
 
 /**
  * The two Handlebars render contexts every `INIT_DOC_REGISTRY` doc needs.
@@ -59,7 +60,10 @@ export function buildInitDocContexts(
     agents: config.agents ?? [],
     base_dir: baseDir,
     artifact_language: artifactLanguage,
-    example_rules: [languagePolicyRule(artifactLanguage), ...exampleRulesFor(techStack)],
+    example_rules: [
+      languagePolicyRule(resolveLanguageScope(config, cwd)),
+      ...exampleRulesFor(techStack),
+    ],
   };
 
   const { core: coreConventions, demand: demandConventions } =

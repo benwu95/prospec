@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { execute, detectMissingTriggers, detectNudges, buildDocsInventory } from '../../../src/services/upgrade.service.js';
+import { execute, detectMissingTriggers, detectNudges, buildDocsInventory, detectStaleLanguagePolicy } from '../../../src/services/upgrade.service.js';
 import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
 import { readConfig } from '../../../src/lib/config.js';
 import { PROSPEC_VERSION } from '../../../src/types/version.js';
@@ -345,6 +345,57 @@ describe('detectNudges', () => {
     expect(
       detectNudges({ ...base, artifact_language: 'Traditional Chinese (Taiwan)' } as ProspecConfig),
     ).toEqual([]);
+  });
+});
+
+// The generator fix only reaches projects initialized after it. An already-init'd
+// CONSTITUTION.md belongs to its owner and upgrade only back-fills MISSING docs,
+// so this signal is what routes the migration to the consent-gated skill.
+describe('detectStaleLanguagePolicy', () => {
+  const config = { project: { name: 'demo' }, paths: { base_dir: 'prospec' } } as ProspecConfig;
+
+  const constitution = (policyBody: string): string =>
+    ['# Project Constitution: demo', '', '## Principles', '', '### [MUST] Language Policy', '', policyBody, '', '---'].join('\n');
+
+  it('flags a Constitution still carrying the old seeded wording', async () => {
+    vol.fromJSON({
+      '/project/prospec/CONSTITUTION.md': constitution(
+        '**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in Japanese.',
+      ),
+    });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(true);
+  });
+
+  it('does not flag a rule the owner already rewrote', async () => {
+    vol.fromJSON({
+      '/project/prospec/CONSTITUTION.md': constitution(
+        '**Description**: Change artifacts under `.prospec/changes/**` are Japanese; the trust zone stays English.',
+      ),
+    });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(false);
+  });
+
+  it('does not flag an absent Constitution (back-fill writes a correct one)', async () => {
+    vol.fromJSON({ '/project/.prospec.yaml': 'project:\n  name: demo\n' });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(false);
+  });
+
+  it('resolves the Constitution at a relocated base_dir', async () => {
+    vol.fromJSON({
+      '/project/docs/spec/CONSTITUTION.md': constitution(
+        '**Description**: All AI-generated documents (change artifacts and AI Knowledge) are written in Japanese.',
+      ),
+    });
+
+    expect(
+      await detectStaleLanguagePolicy(
+        { project: { name: 'demo' }, paths: { base_dir: 'docs/spec' } } as ProspecConfig,
+        '/project',
+      ),
+    ).toBe(true);
   });
 });
 
