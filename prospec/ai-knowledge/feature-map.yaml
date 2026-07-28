@@ -64,6 +64,7 @@ features:
     status: active
   - feature: sdd-workflow
     modules:
+      - lib
       - services
       - templates
       - tests

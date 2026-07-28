@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-14
-story_count: 26
-req_count: 119
+last_updated: 2026-07-28
+story_count: 27
+req_count: 121
 ---
 
 # SDD Workflow
@@ -43,10 +43,12 @@ Generate a proposal.md in INVEST User Story format.
 - WHEN referencing proposal-format, THEN includes Why, User Stories, Edge Cases, FR, SC, Open Questions
 
 #### REQ-CHNG-003: Auto-Identify Related Modules
-Identify related modules by keyword-matching against the root-level `{base_dir}/index.md`.
+Identify related modules by keyword-matching against the root-level `{base_dir}/index.md`, taking the **bare** module name from the Module cell.
 - WHEN change name contains module keywords, THEN Related Modules lists matches
 - WHEN no match, THEN Related Modules is empty
 - WHEN parsing the `{base_dir}/index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Progressive Knowledge Loading Strategy table) are skipped by column count
+- WHEN the Module cell carries display emphasis (`**types**`), THEN the emphasis is stripped via the shared `stripCellEmphasis` before the value is used as a module name — one source shared with `parseIndexModules`, so the two never disagree on a module's identity
+- WHEN the name reaches `related_modules` or the proposal, THEN it is bare: metadata holds `types`, and the proposal template applies the single layer of bolding
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
 Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the single source of truth: `story` → `plan` → `tasks` → `implemented` → `verified` → `archived`; `scale: quick` (after user confirmation) permits `story` → `tasks`, a legal skip of plan.
@@ -977,6 +979,47 @@ The full graded Constitution audit (every principle) runs only at `/prospec-veri
 
 ---
 
+## US-27: Change Metadata as an Enforced Contract [P1]
+
+As a developer using the prospec SDD flow,
+I want a structural error in `metadata.yaml` reported at the read that finds it, and every write to be checked before it lands,
+So that a broken field never travels silently to a later station that misreads it.
+
+**Acceptance Scenarios:**
+- WHEN a station reads metadata whose `status`, `quality_log` entry, or `review_provenance` violates the schema, THEN it throws, naming the change and the offending field path
+- WHEN a station writes metadata that violates the schema, THEN the write is refused and the target file is left untouched
+- WHEN metadata carries keys the schema does not model, THEN validation passes and those keys survive the round trip unchanged
+
+#### REQ-TYPES-064: Metadata Validation Error and Bare Module Names
+Define the metadata contract's error type and the value-level constraints the stations enforce.
+- WHEN validation fails, THEN a `MetadataValidationError` (`METADATA_VALIDATION_FAILED`) carries the change name and the zod field paths, and points at the metadata-format reference
+- WHEN a `related_modules` entry carries markdown emphasis, backticks, surrounding whitespace, or is empty, THEN it is rejected; a bare name (`types`, `api-middleware`, `user_profile`) is accepted
+- WHEN a `dimensions` entry reports a dimension the change's scale, `ui_scope`, or absent Knowledge base skipped, THEN `not-applicable` is valid there — never as the gate-level `result`, which stays the three-state
+- WHEN metadata carries unmodeled keys at any level, THEN the schema (loose at every level) keeps them; the sole deliberate divergence is `warnings`, whose default only ever adds the key the format requires
+- WHEN a station BUILDS metadata, THEN it uses the strict `NewChangeMetadata` view, because `z.infer` of a loose schema gains an index signature that would disable the excess-property check
+
+#### REQ-LIB-031: Single Validated Entry Point for Change Metadata
+`lib/change-metadata.ts` is the only place a station reads or writes a change's `metadata.yaml`.
+- WHEN a station reads, THEN it receives both the validated value and the `Document`, so a later write preserves comments and unmodeled keys
+- WHEN a station writes, THEN the value is validated first; a rejected write leaves the file byte-identical
+- WHEN validation runs, THEN it only inspects — it never rewrites, reorders, or strips the caller's data
+- WHEN metadata is written, THEN it goes through `atomicWrite()`; the helper imports only `types` and `lib`
+
+#### REQ-SERVICES-067: Stations Read and Write Metadata Only Through the Helper
+The stations that previously cast `doc.toJS() as ChangeMetadata` now go through the shared helper.
+- WHEN change-story, change-plan, change-tasks, or `check --record-review` touches metadata, THEN it uses `lib/change-metadata`; no `as ChangeMetadata` cast remains in `services/`
+- WHEN those stations meet metadata violating the required-field floor — including a pre-schema record with no `created_at` — THEN they reject it, naming the change and field
+- WHEN `archive.service` or `lib/drift-sources` reads metadata, THEN it stays lenient by design: both scan every change directory, so a malformed record must surface as a report or a skip, never as a thrown scan. Archive is the terminal station and must still absorb records the earlier stations now reject; its floor is the archive Entry Gate's `metadata-completeness` check
+
+#### REQ-TESTS-055: Metadata Contract Regression Coverage
+Pin the contract against both the failures it must catch and the shapes it must not reject.
+- WHEN a corrupted `status`, `quality_log`, or `review_provenance` is read, THEN a test asserts the error names the offending field path
+- WHEN metadata carries unmodeled keys or YAML comments, THEN a test asserts a read → modify → write round trip preserves them
+- WHEN shapes transcribed from real archived records are validated (grade, `not-applicable` dimension, `archived_at`, review counts), THEN they pass; the two historical malformations (grade in `result`, `warnings` as a string) fail
+- WHEN the proposal template renders related modules, THEN a contract test using the real renderer asserts each name is bolded exactly once
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -1034,3 +1077,4 @@ The full graded Constitution audit (every principle) runs only at `/prospec-veri
 | 2026-07-05 | remove-archive-auto-knowledge-update | remove archive.service.execute()'s auto knowledge-update (`updateIndex` would wipe the curated index) and the same block's raw-scan safety-net dead code + ArchiveResult/ArchivedChange fields, fix the prospec-archive skill's reverse claim; knowledge sync handled uniformly by the Entry Gate (issue #57 stop-the-bleed) | US-6; REQ-SERVICES-064 (ADDED); REQ-TESTS-034/035 (MODIFIED); REQ-SERVICES-031/033 (REMOVED) |
 | 2026-07-05 | unlock-measurement | quality_log structured count fields (verify grade/dimensions, review criticals/majors machine-aggregatable) + introduced_by escaped-defect registration convention (shipped template + project doc); verify/review templates write the structured fields (issue #61) | US-12; REQ-TYPES-058, REQ-TEMPLATES-145 (ADDED); REQ-TYPES-022, REQ-TESTS-022 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-28 | enforce-metadata-schema | metadata.yaml enforced as a runtime contract at the four stations that cast it unchecked; single validated read/write helper; bare module names with one shared stripper; dimension vocabulary widened to `not-applicable`; loose-at-every-level schema plus a strict build view | US-27; REQ-TYPES-064, REQ-LIB-031, REQ-SERVICES-067, REQ-TESTS-055 (ADDED); REQ-CHNG-003 (MODIFIED) |
