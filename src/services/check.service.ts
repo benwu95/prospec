@@ -1,10 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
-import { parseYamlDocument, stringifyYamlDocument } from '../lib/yaml-utils.js';
 import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
@@ -194,8 +194,8 @@ async function recordReviewProvenance(
   if (digest === null) {
     return { kind: 'record-review', change, recorded: false, reason: 'not a git repository' };
   }
-  const doc = parseYamlDocument(readFileSync(metadataPath, 'utf-8'), metadataPath);
+  const { doc } = readChangeMetadata(metadataPath, change);
   doc.set('review_provenance', doc.createNode({ digest, date: new Date().toISOString().slice(0, 10) }));
-  await atomicWrite(metadataPath, stringifyYamlDocument(doc));
+  await writeChangeMetadataDoc(metadataPath, doc, change);
   return { kind: 'record-review', change, recorded: true };
 }

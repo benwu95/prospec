@@ -137,6 +137,47 @@ knowledge:
     );
   });
 
+  // A generated index.md renders the Module column bold. Forwarding the cell
+  // verbatim produced `**auth**` in metadata (unresolvable as a module directory)
+  // and `****auth****` in the proposal, since the template bolds it again.
+  it('takes the bare module name from a bold Module cell, as the generated index writes it', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/prospec/index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| **auth** | auth, authentication, login | 認證 | Active | Authentication module | core security boundary | |
+`,
+    });
+
+    // mock.calls accumulate across tests in this file — clear so the assertion
+    // below reads THIS execute()'s context, not an earlier test's.
+    vi.mocked(renderTemplate).mockClear();
+
+    const result = await execute({ name: 'update-auth-flow', cwd: '/project' });
+
+    expect(result.relatedModules.map((m) => m.name)).toEqual(['auth']);
+
+    const metadata = vol.readFileSync(
+      '/project/.prospec/changes/update-auth-flow/metadata.yaml',
+      'utf-8',
+    ) as string;
+    const relatedBlock = metadata.slice(metadata.indexOf('related_modules:'));
+    expect(relatedBlock).toContain('- auth');
+    expect(relatedBlock).not.toContain('*');
+
+    // The proposal template bolds the name itself, so the context must carry it
+    // bare — otherwise the rendered line reads `****auth****`. (The rendered
+    // output is asserted in the integration test; renderTemplate is mocked here.)
+    const proposalCtx = vi
+      .mocked(renderTemplate)
+      .mock.calls.find(([name]) => name === 'change/proposal.md.hbs')?.[1] as
+      | { related_modules?: { name: string }[] }
+      | undefined;
+    expect(proposalCtx?.related_modules?.map((m) => m.name)).toEqual(['auth']);
+  });
+
   it('matches related modules from a custom paths.base_dir index (never the default prospec/)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

@@ -69,6 +69,7 @@ modules:
       - drift-sources
       - task-markers
       - knowledge-reader
+      - change-metadata
       - feature-map
       - manifest-parsers
       - category

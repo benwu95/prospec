@@ -40,11 +40,12 @@
 
 ## Pitfalls
 
-- Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output; names must match context keys.
-- Budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) are injected by `agent-sync` from `resolveKnowledgeTokenBudget` — always variables; never hardcode a budget or name `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` in a skill `.hbs` (downstream cannot resolve it).
-- Skill templates MUST end with exactly one trailing newline — a blank line propagates into every generated `SKILL.md` (`skill-format.test.ts`).
-- All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy, never hardcoded — `entry.md.hbs` renders its scope from injected `language_*` keys that BOTH render sites (`init.service`, `agent-sync.service`) must supply (missing key → empty, not an error). Never quote literal mustaches in prose (breaks compilation).
-- Values reaching YAML frontmatter scalars (`{{trigger_words}}`) must be pre-escaped by the caller (`escapeYamlScalar`).
+- Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output.
+- Budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) are injected by `agent-sync` from `resolveKnowledgeTokenBudget` — always variables; never hardcode a budget or name `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` in a skill `.hbs`.
+- Skill templates MUST end with exactly one trailing newline — a blank line propagates into every generated `SKILL.md`.
+- All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy — `entry.md.hbs` renders its scope from injected `language_*` keys that BOTH render sites must supply (missing key → empty, not an error). Never quote literal mustaches in prose.
+- Values reaching YAML frontmatter scalars must be pre-escaped by the caller (`escapeYamlScalar`).
+- Editing a shipped `.hbs` takes two steps: `pnpm bundle`, then sync from source (`npx tsx src/cli/index.ts agent sync`) — `pnpm exec prospec` resolves to the globally installed binary and silently deploys the released templates.
 - Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
 
 <!-- prospec:auto-end -->

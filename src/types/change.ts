@@ -20,20 +20,29 @@ export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;
 /** /prospec-verify quality grade vocabulary (S/A graduate; B/C/D do not). */
 export const VERIFY_GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
 
+/** A single verify dimension's outcome. Wider than `GATE_RESULTS`: a dimension
+ *  that does not apply to this change's scale is reported `not-applicable`, which
+ *  `/prospec-verify` mandates over PASS (a quick change has no delta-spec to
+ *  compare, a backfill change has no tasks.md — an unchecked dimension must not
+ *  read as a passed one). The gate `result` stays the three-state. */
+export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable'] as const;
+
 /** One /prospec-verify dimension outcome, for machine-aggregatable quality trends. */
-export const QualityDimensionSchema = z.object({
+export const QualityDimensionSchema = z.looseObject({
   name: z.string(),
-  result: z.enum(GATE_RESULTS),
+  result: z.enum(DIMENSION_RESULTS),
 });
 
 /** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
  *  `result` is the gate three-state (PASS/WARN/FAIL). The structured fields below are
  *  optional and machine-aggregatable (BL — issue #61): verify writes `grade`+`dimensions`,
  *  review writes the critical/major counts. Absent keeps every existing entry valid. */
-export const QualityLogEntrySchema = z.object({
+export const QualityLogEntrySchema = z.looseObject({
   skill: z.string(),
   date: z.string(), // ISO 8601 date
   result: z.enum(GATE_RESULTS),
+  // `.default([])` only ever ADDS this key (the metadata-format reference
+  // requires it present, `[]` when empty) — it never drops caller data.
   warnings: z.array(z.string()).default([]),
   /** /prospec-verify grade; `result` stays the gate three-state, never a grade. */
   grade: z.enum(VERIFY_GRADES).optional(),
@@ -48,26 +57,37 @@ export const QualityLogEntrySchema = z.object({
 });
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
- *  code state; `date` is the ISO 8601 record date. Same lossless-read caveat as
- *  quality_log — a type contract, not read-time strip protection. */
-export const ReviewProvenanceSchema = z.object({
+ *  code state; `date` is the ISO 8601 record date. */
+export const ReviewProvenanceSchema = z.looseObject({
   digest: z.string(),
   date: z.string(), // ISO 8601 date
 });
 
-export const ChangeMetadataSchema = z.object({
+/** A module name as written to `related_modules` — the plain name, matching a
+ *  `module-map.yaml` entry. Rejects the markdown emphasis and stray whitespace a
+ *  producer picks up when it forwards a rendered table cell (`**types**`) verbatim:
+ *  downstream module derivation resolves this value as a directory, so decoration
+ *  silently targets a module that does not exist. Deliberately a rejection rule, not
+ *  a whitelist pattern — other projects name modules in ways a regex would misjudge. */
+export const BareModuleNameSchema = z
+  .string()
+  .min(1, 'must not be empty')
+  .refine((v) => v === v.trim(), 'must not have leading or trailing whitespace')
+  // `_` is NOT rejected — snake_case module names (`user_profile`) are legitimate,
+  // and underscore emphasis only reads as such when it wraps the whole token.
+  .refine((v) => !/[*`~]/.test(v), 'must be a bare module name, without markdown emphasis');
+
+/** Field shape shared by the strict (build) and loose (read) views below. */
+const ChangeMetadataShape = {
   name: z.string(),
   created_at: z.string(), // ISO 8601
   status: z.enum(CHANGE_STATUSES),
   // Written by new-story after user-confirmed complexity assessment (BL-004).
   // Optional keeps existing metadata valid; absent reads as `standard`.
   scale: z.enum(CHANGE_SCALES).optional(),
-  related_modules: z.array(z.string()).optional(),
+  related_modules: z.array(BareModuleNameSchema).optional(),
   description: z.string().optional(),
-  // Entry/Exit gate trail (BL-003). Typed contract for the gate-record shape;
-  // optional keeps existing metadata valid. NOTE: metadata.yaml is read via
-  // parseYaml(doc.toJS()) (lossless), not validated by this schema at read time —
-  // so this field is a type contract + test fixture, not strip protection.
+  // Entry/Exit gate trail (BL-003).
   quality_log: z.array(QualityLogEntrySchema).optional(),
   // Machine-written review baseline (written by `prospec check --record-review`
   // when `/prospec-review` completes). `digest` is a content fingerprint of the
@@ -80,9 +100,33 @@ export const ChangeMetadataSchema = z.object({
   // can be tracked. Optional keeps existing metadata valid; a convention + example
   // live in `_status-lifecycle.md`. No referential-integrity check by design.
   introduced_by: z.string().optional(),
-});
+} as const;
+
+/** Strict view — no index signature, so tsc's excess-property check still
+ *  catches a typo'd key in an object literal. Use it when BUILDING metadata;
+ *  the loose `ChangeMetadataSchema` below is for validating what was READ. */
+export const NewChangeMetadataSchema = z.object(ChangeMetadataShape);
+
+/**
+ * The change `metadata.yaml` contract, enforced at read AND write by
+ * `lib/change-metadata.ts` — the single entry point every SDD station goes
+ * through. (`archive.service` and `lib/drift-sources.ts` read leniently on
+ * purpose: both scan every change directory and must report a malformed
+ * record rather than throw on it.)
+ *
+ * Loose at every level (here and in the nested entry schemas), and that is
+ * load-bearing rather than incidental: metadata legitimately carries keys this
+ * schema does not model (`archived_at`, historical `quality_grade`), and
+ * validation is a gate, never a rewrite. Stripping them would make the parsed
+ * value diverge from the file, so a caller doing read → modify → write would
+ * silently drop them. The one deliberate divergence is `warnings`, whose
+ * `.default([])` only ever ADDS the key the format reference requires.
+ */
+export const ChangeMetadataSchema = NewChangeMetadataSchema.loose();
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
+/** The shape a station constructs from scratch — see NewChangeMetadataSchema. */
+export type NewChangeMetadata = z.infer<typeof NewChangeMetadataSchema>;
 export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
 
 /**

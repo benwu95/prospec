@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CHANGE_SCALES, ChangeMetadataSchema, VERIFY_GRADES } from '../../../src/types/change.js';
+import type { ChangeMetadata, NewChangeMetadata } from '../../../src/types/change.js';
 
 const base = {
   name: 'x',
@@ -180,5 +181,151 @@ describe('ChangeMetadataSchema introduced_by (escaped-defect registration, issue
     const r = ChangeMetadataSchema.safeParse(base);
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.introduced_by).toBeUndefined();
+  });
+});
+
+describe('QualityDimensionSchema result vocabulary (REQ-TYPES-064)', () => {
+  const entry = (result: string) => ({
+    ...base,
+    quality_log: [
+      {
+        skill: 'prospec-verify',
+        date: '2026-07-06',
+        result: 'PASS',
+        warnings: [],
+        grade: 'A',
+        dimensions: [{ name: 'delta-spec-compliance', result }],
+      },
+    ],
+  });
+
+  // /prospec-verify mandates `not-applicable` for a dimension its scale skips
+  // (quick has no delta-spec, backfill no tasks.md) and forbids reporting it as
+  // PASS. A three-state-only dimension schema would reject correct metadata.
+  it.each(['PASS', 'WARN', 'FAIL', 'not-applicable'])('accepts the dimension result %s', (r) => {
+    expect(ChangeMetadataSchema.safeParse(entry(r)).success).toBe(true);
+  });
+
+  it('still rejects a grade leaking into a dimension result', () => {
+    expect(ChangeMetadataSchema.safeParse(entry('A')).success).toBe(false);
+  });
+
+  it('keeps the gate result a strict three-state — not-applicable is dimension-only', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      quality_log: [
+        { skill: 'prospec-verify', date: '2026-07-06', result: 'not-applicable', warnings: [] },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe('ChangeMetadataSchema related_modules (bare module names, REQ-TYPES-064)', () => {
+  // The index.md Module column is bold (`**types**`); a consumer that forwards the
+  // cell verbatim writes an unresolvable module name that downstream module
+  // derivation (archive Entry Gate) then looks up as a directory.
+  it.each([
+    ['markdown emphasis', '**types**'],
+    ['single-asterisk emphasis', '*lib*'],
+    ['backticks', '`services`'],
+    ['leading whitespace', ' lib'],
+    ['trailing whitespace', 'lib '],
+    ['empty string', ''],
+  ])('rejects related_modules with %s', (_label, value) => {
+    const r = ChangeMetadataSchema.safeParse({ ...base, related_modules: [value] });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path.join('.') === 'related_modules.0')).toBe(true);
+    }
+  });
+
+  it.each(['types', 'lib', 'api-middleware', 'user_profile', 'Core.Domain'])(
+    'accepts the bare module name %s',
+    (value) => {
+      const r = ChangeMetadataSchema.safeParse({ ...base, related_modules: [value] });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.related_modules).toEqual([value]);
+    },
+  );
+
+  it('reports the offending index when only one entry is malformed', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      related_modules: ['types', '**lib**', 'services'],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const paths = r.error.issues.map((i) => i.path.join('.'));
+      expect(paths).toContain('related_modules.1');
+      expect(paths).not.toContain('related_modules.0');
+      expect(paths).not.toContain('related_modules.2');
+    }
+  });
+
+  it('accepts metadata without related_modules (backward compatible)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.related_modules).toBeUndefined();
+  });
+});
+
+describe('unmodeled keys survive validation at every level (REQ-TYPES-064)', () => {
+  it('keeps a top-level key the schema does not model', () => {
+    const r = ChangeMetadataSchema.safeParse({ ...base, archived_at: '2026-07-06' });
+    expect(r.success).toBe(true);
+    if (r.success) expect((r.data as Record<string, unknown>).archived_at).toBe('2026-07-06');
+  });
+
+  it('keeps an unmodeled key inside a quality_log entry', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      quality_log: [
+        { skill: 'prospec-verify', date: '2026-07-06', result: 'PASS', warnings: [], notes: 'kept' },
+      ],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data.quality_log?.[0] as Record<string, unknown>).notes).toBe('kept');
+    }
+  });
+
+  it('keeps an unmodeled key inside review_provenance and a dimension', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      review_provenance: { digest: 'd', date: '2026-07-06', extra: 1 },
+      quality_log: [
+        {
+          skill: 'prospec-verify',
+          date: '2026-07-06',
+          result: 'PASS',
+          warnings: [],
+          dimensions: [{ name: 'tests', result: 'PASS', note: 'kept' }],
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data.review_provenance as Record<string, unknown>).extra).toBe(1);
+      const dim = r.data.quality_log?.[0]?.dimensions?.[0] as Record<string, unknown>;
+      expect(dim.note).toBe('kept');
+    }
+  });
+
+  it('still injects the warnings default — the one deliberate divergence (additive only)', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      quality_log: [{ skill: 'prospec-plan', date: '2026-07-06', result: 'PASS' }],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.quality_log?.[0]?.warnings).toEqual([]);
+  });
+
+  it('keeps the strict build view free of an index signature (compile-time guard)', () => {
+    // @ts-expect-error — NewChangeMetadata must still reject a typo'd key.
+    const typo: NewChangeMetadata = { ...base, scal: 'quick' };
+    // The loose read view intentionally accepts it, so the two views differ.
+    const loose: ChangeMetadata = { ...base, scal: 'quick' };
+    expect(typo.name).toBe(loose.name);
   });
 });

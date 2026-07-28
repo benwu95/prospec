@@ -80,6 +80,13 @@ quality_log:
 - **`result` is always the gate three-state `PASS` / `WARN` / `FAIL`.** The `/prospec-verify`
   quality grade (`S`/`A`/`B`/`C`/`D`) is written to the separate `grade` key and is **never in
   `result`** — `result: A` is malformed.
+- **A `dimensions` entry's `result` has a wider vocabulary than the gate's**: `PASS` / `WARN` /
+  `FAIL` / `not-applicable`. Any dimension that does not apply to the change is recorded
+  `not-applicable` — never omitted and never `PASS`, so an unchecked dimension stays
+  distinguishable from a passed one. This covers every skip reason, not just scale: no delta-spec
+  under `quick`, no tasks.md under `backfill`, the design dimension under `ui_scope: none`, and the
+  knowledge dimension when no Knowledge base exists. `not-applicable` is valid **only** here, never
+  as the entry-level `result`.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.
 

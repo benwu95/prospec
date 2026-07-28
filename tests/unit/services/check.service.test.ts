@@ -164,7 +164,10 @@ describe('check.service review-provenance', () => {
     git('config', 'user.email', 'test@test.dev');
     git('config', 'user.name', 'test');
     write('src/lib/x.ts', 'export const a = 1;\n');
-    write('.prospec/changes/c1/metadata.yaml', `name: c1\nstatus: implemented\nscale: ${scale}\n`);
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      `name: c1\ncreated_at: 2026-07-13T09:51:00.000Z\nstatus: implemented\nscale: ${scale}\n`,
+    );
     git('add', '.');
     git('commit', '-q', '-m', 'init');
   }

@@ -10,6 +10,8 @@ import { execute as storyExecute } from '../../src/services/change-story.service
 import { execute as planExecute } from '../../src/services/change-plan.service.js';
 import { execute as tasksExecute } from '../../src/services/change-tasks.service.js';
 import { PrerequisiteError } from '../../src/types/errors.js';
+import { ChangeMetadataSchema } from '../../src/types/change.js';
+import { parseYaml } from '../../src/lib/yaml-utils.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -95,6 +97,39 @@ describe('Change Management Flow Integration', () => {
       'utf-8',
     );
     expect(metadataAfterTasks).toContain('status: tasks');
+  });
+
+  it('leaves metadata schema-valid after every station writes it', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/prospec/index.md': `# Module Index
+
+| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+|--------|----------|---------|--------|-------------|-----------|------------|
+| **lib** | lib, feature | 工具 | Active | Shared utilities | foundation | |
+`,
+    });
+    const metadataPath = '/project/.prospec/changes/add-feature/metadata.yaml';
+    const parseMetadata = () =>
+      ChangeMetadataSchema.safeParse(
+        parseYaml(fs.readFileSync(metadataPath, 'utf-8') as string, metadataPath),
+      );
+
+    await storyExecute({ name: 'add-feature', description: 'A new feature', cwd: '/project' });
+    const afterStory = parseMetadata();
+    expect(afterStory.success).toBe(true);
+    // The bold Module cell must not reach metadata as part of the name.
+    if (afterStory.success) expect(afterStory.data.related_modules).toEqual(['lib']);
+
+    await planExecute({ change: 'add-feature', cwd: '/project' });
+    const afterPlan = parseMetadata();
+    expect(afterPlan.success).toBe(true);
+    if (afterPlan.success) expect(afterPlan.data.status).toBe('plan');
+
+    await tasksExecute({ change: 'add-feature', cwd: '/project' });
+    const afterTasks = parseMetadata();
+    expect(afterTasks.success).toBe(true);
+    if (afterTasks.success) expect(afterTasks.data.status).toBe('tasks');
   });
 
   it('should not allow plan without story', async () => {
