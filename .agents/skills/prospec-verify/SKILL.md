@@ -222,7 +222,7 @@ After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
 **Record the verify result to `quality_log` (structured).** Append one `skill: prospec-verify` entry to `metadata.yaml` `quality_log` (canonical entry shape: the `metadata-format` reference, bundled with `/prospec-new-story` · `/prospec-ff`) carrying:
 - `grade` — the S/A/B/C/D quality grade (structured, machine-aggregatable);
-- `dimensions` — one `{ name, result }` per graded 5+1 dimension (each `PASS`/`WARN`/`FAIL`; omit a `not-applicable` dimension);
+- `dimensions` — one `{ name, result }` per 5+1 dimension (each `PASS`/`WARN`/`FAIL`/`not-applicable`). Any dimension that does not apply to this change — whether by `scale`, by `ui_scope: none` (6), or by an absent Knowledge base (4/5) — is recorded `not-applicable`, **never omitted and never PASS**, so an unchecked dimension stays distinguishable from a passed one;
 - `result` — the gate three-state (`PASS` at grade S/A, else `WARN`/`FAIL`); **never overwrite `result` with the grade** — the grade lives in `grade`;
 - `warnings` — any WARN/FAIL detail strings.
 
@@ -263,7 +263,7 @@ WARN items are deployment risks — recommend resolving before `/prospec-archive
 
 ### Success Criteria
 - [ ] all applicable dimensions executed (6 dimension sections for standard/full; `scale: quick` uses the condensed table — one row per applicable dimension, 2/5 shown as `not-applicable`, 6 only when `ui_scope != none`)
-- [ ] each dimension graded PASS/WARN/FAIL with evidence (manual)
+- [ ] each dimension graded PASS/WARN/FAIL/not-applicable with evidence (manual)
 - [ ] status updated per grade (S/A -> verified)
 - [ ] FAIL items include remediation steps
 

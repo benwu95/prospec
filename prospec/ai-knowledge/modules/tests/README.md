@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 94 test files, 2,191 tests (unit 1426, contract 678, integration 42, e2e 45)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 96 test files, 2,247 tests (unit 1479, contract 680, integration 43, e2e 45)); tests every source module.
 
 <!-- prospec:auto-start -->
 
@@ -10,6 +10,7 @@
 |------|---------|
 | `tests/unit/{lib,services,cli,types}/*.test.ts` | Isolated units — mock `node:fs` with memfs; heaviest suites are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 14 `references/*.hbs` format contracts — column sets and closed enums (e.g. the ledger `status` token set) rendered, section-scoped, mutation-verified. |
+| `tests/contract/change-artifact-format.test.ts` | Renders the real `change/proposal.md.hbs` (no mocks) — pins that a module name is bolded exactly once, with a `****` negative. |
 | `tests/contract/{knowledge,cli-output}-format.test.ts`, `init-doc-registry.test.ts`, `mcp-server.test.ts`, `language-policy-scope.test.ts`, `bundled-templates-sync.test.ts` | Output-format + registry + MCP-protocol pins via real `renderTemplate()` / InMemoryTransport; cross-document language-scope agreement; bundle ≡ `src/templates`. |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
 | `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure, check, mcp serve). |

@@ -147,6 +147,19 @@ export class DriftReportInvalid extends ProspecError {
   }
 }
 
+// --- Change metadata errors ---
+
+export class MetadataValidationError extends ProspecError {
+  constructor(changeName: string, details: string) {
+    super(
+      `Change metadata validation failed: ${changeName} (${details})`,
+      'METADATA_VALIDATION_FAILED',
+      'Fix the named field in .prospec/changes/<change>/metadata.yaml — field order and value shape are defined by the metadata-format reference',
+    );
+    this.name = 'MetadataValidationError';
+  }
+}
+
 // --- MCP errors ---
 
 export class McpResourceNotFound extends ProspecError {

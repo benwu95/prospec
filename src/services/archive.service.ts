@@ -86,6 +86,9 @@ export async function scanChanges(cwd: string): Promise<ChangeEntry[]> {
     // Skip directories without metadata.yaml
     if (!fs.existsSync(metadataPath)) continue;
 
+    // Discovery pass over EVERY change directory — deliberately lenient, like
+    // the drift collectors. Enforcing the schema here would let one malformed
+    // sibling hide every archivable change.
     try {
       const content = await fs.promises.readFile(metadataPath, 'utf-8');
       const metadata = parseYaml<Record<string, unknown>>(content, metadataPath);
@@ -488,7 +491,14 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         }
       }
 
-      // Update metadata to archived
+      // Update metadata to archived. Deliberately NOT schema-validated here:
+      // archive is the terminal station and must still absorb records the
+      // earlier stations would now reject — a pre-schema change with no
+      // `created_at` archives with its summary rendering "unknown" rather than
+      // becoming unarchivable. The completeness floor is enforced ahead of this
+      // by the archive skill's Entry Gate via the `metadata-completeness` drift
+      // check, so validating again here would only convert a reportable gap
+      // into a silent skip.
       const metadataPath = path.join(archiveDir, 'metadata.yaml');
       if (fs.existsSync(metadataPath)) {
         const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');

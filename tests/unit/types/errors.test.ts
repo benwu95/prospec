@@ -11,6 +11,7 @@ import {
   ModuleDetectionError,
   MeasurementReportInvalid,
   DriftReportInvalid,
+  MetadataValidationError,
   McpResourceNotFound,
   AlreadyExistsError,
   PrerequisiteError,
@@ -147,6 +148,22 @@ describe('TemplateError', () => {
   it('omits the parenthetical when no cause is provided', () => {
     const err = new TemplateError('readme.hbs');
     expect(err.message).toBe('Template processing failed: readme.hbs');
+  });
+});
+
+describe('MetadataValidationError', () => {
+  it('names both the change and the offending field so the reader can locate it', () => {
+    const err = new MetadataValidationError('add-widget', 'quality_log.0.result: invalid enum value');
+    expect(err.name).toBe('MetadataValidationError');
+    expect(err.code).toBe('METADATA_VALIDATION_FAILED');
+    expect(err.message).toBe(
+      'Change metadata validation failed: add-widget (quality_log.0.result: invalid enum value)',
+    );
+    expect(err.suggestion).toContain('metadata.yaml');
+  });
+
+  it('is a ProspecError so the CLI error formatter handles it', () => {
+    expect(new MetadataValidationError('c', 'd')).toBeInstanceOf(ProspecError);
   });
 });
 

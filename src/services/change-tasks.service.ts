@@ -4,9 +4,8 @@ import { PrerequisiteError } from '../types/errors.js';
 import { readConfig } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { parseYamlDocument, stringifyYamlDocument } from '../lib/yaml-utils.js';
+import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { isStatusBefore } from '../types/change.js';
-import type { ChangeMetadata } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ChangeTasksOptions {
@@ -67,14 +66,13 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
     );
   }
 
-  // 4. Read metadata ONCE as a Document — preserves comments/field order on the
-  // status write; toJS() gives the typed view for related_modules + status guard.
+  // 4. Read metadata ONCE — validated at the boundary, and the Document keeps
+  // comments/field order intact for the status write below.
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  const metaDoc = fs.existsSync(metadataPath)
-    ? parseYamlDocument(fs.readFileSync(metadataPath, 'utf-8'), metadataPath)
+  const meta = fs.existsSync(metadataPath)
+    ? readChangeMetadata(metadataPath, changeName)
     : null;
-  const metadata = metaDoc?.toJS() as ChangeMetadata | undefined;
-  const relatedModules = metadata?.related_modules ?? [];
+  const relatedModules = meta?.metadata.related_modules ?? [];
 
   // 5. Build template context
   const templateContext = {
@@ -92,9 +90,9 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
   createdFiles.push(`.prospec/changes/${changeName}/tasks.md`);
 
   // 7. Advance status to 'tasks' forward-only, preserving metadata comments.
-  if (metaDoc && isStatusBefore(metadata?.status, 'tasks')) {
-    metaDoc.set('status', 'tasks');
-    await atomicWrite(metadataPath, stringifyYamlDocument(metaDoc));
+  if (meta && isStatusBefore(meta.metadata.status, 'tasks')) {
+    meta.doc.set('status', 'tasks');
+    await writeChangeMetadataDoc(metadataPath, meta.doc, changeName);
   }
 
   return {

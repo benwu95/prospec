@@ -36,6 +36,21 @@ export function isSafeResourceName(name: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && !name.includes('..');
 }
 
+/**
+ * The bare value of a rendered `index.md` table cell.
+ *
+ * The Module column is emphasized for display (`**types**`), but the module
+ * NAME is the undecorated text — every consumer resolves it against
+ * `module-map.yaml` or a module directory, so decoration silently targets a
+ * module that does not exist. Single source for both consumers of that column
+ * (`parseIndexModules` here and `matchRelatedModules` in change-story): two
+ * copies with different character sets would disagree on a module's identity.
+ * Kept in step with `BareModuleNameSchema`, which rejects what this strips.
+ */
+export function stripCellEmphasis(cell: string): string {
+  return cell.replace(/[*`~]/g, '').trim();
+}
+
 // --- Content reads (null = not found; callers map to MCP errors) ---
 
 /**
@@ -195,7 +210,7 @@ export function parseIndexModules(indexContent: string): IndexModule[] {
   const modules: IndexModule[] = [];
   for (const cells of rows) {
     const raw = cells[nameCol] ?? '';
-    const name = raw.replace(/\*\*/g, '').trim();
+    const name = stripCellEmphasis(raw);
     if (raw === '' || name === '' || /^module$/i.test(name) || /^[-: ]+$/.test(name)) continue;
     modules.push({
       name,

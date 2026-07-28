@@ -4,7 +4,9 @@ import { AlreadyExistsError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { stringifyYaml } from '../lib/yaml-utils.js';
+import { writeChangeMetadataObject } from '../lib/change-metadata.js';
+import { stripCellEmphasis } from '../lib/knowledge-reader.js';
+import type { NewChangeMetadata } from '../types/change.js';
 import { INDEX_COLUMN, INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 
 export interface ChangeStoryOptions {
@@ -73,17 +75,24 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   createdFiles.push(`.prospec/changes/${changeName}/proposal.md`);
 
   // metadata.yaml
-  const metadata = {
+  // The conditional spreads keep an absent key OUT of the YAML entirely (writing
+  // `description: undefined` would serialize a null). `satisfies` restores the
+  // excess-property check on each spread body — TypeScript does not apply it to
+  // spread members, so without this a typo'd optional key would compile, pass the
+  // loose read-side schema, and reach disk under the wrong name.
+  const metadata: NewChangeMetadata = {
     name: changeName,
     created_at: new Date().toISOString(),
     status: 'story',
     ...(relatedModules.length > 0
-      ? { related_modules: relatedModules.map((m) => m.name) }
+      ? ({ related_modules: relatedModules.map((m) => m.name) } satisfies Partial<NewChangeMetadata>)
       : {}),
-    ...(options.description ? { description: options.description } : {}),
+    ...(options.description
+      ? ({ description: options.description } satisfies Partial<NewChangeMetadata>)
+      : {}),
   };
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  await atomicWrite(metadataPath, stringifyYaml(metadata));
+  await writeChangeMetadataObject(metadataPath, metadata);
   createdFiles.push(`.prospec/changes/${changeName}/metadata.yaml`);
 
   return {
@@ -146,7 +155,10 @@ function matchRelatedModules(
 
     if (cells.length < INDEX_TABLE_COLUMNS.length) continue;
 
-    const moduleName = cells[INDEX_COLUMN.MODULE] ?? '';
+    // The Module cell is rendered bold (`**types**`); the module NAME is the
+    // undecorated text. Forwarding the cell verbatim writes a name no consumer
+    // can resolve to a directory, and proposal.md.hbs bolds it a second time.
+    const moduleName = stripCellEmphasis(cells[INDEX_COLUMN.MODULE] ?? '');
     if (!moduleName) continue;
     const keywordsCell = cells[INDEX_COLUMN.KEYWORDS];
     if (!keywordsCell) continue;

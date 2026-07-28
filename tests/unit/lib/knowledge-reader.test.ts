@@ -18,11 +18,13 @@ import {
   loadFeatureMap,
   clampModulePaths,
   parseIndexModules,
+  stripCellEmphasis,
   searchModules,
   attachModuleCategories,
   normalizeSearchText,
 } from '../../../src/lib/knowledge-reader.js';
 import { ModuleDetectionError } from '../../../src/types/errors.js';
+import { BareModuleNameSchema } from '../../../src/types/change.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../../../src/types/knowledge.js';
 
 // knowledge-reader uses plain node:fs only (no fast-glob/git), but tests run
@@ -243,6 +245,33 @@ describe('loadFeatureMap module-name safety (BL-043 hardening)', () => {
     // the slug is safe, but a traversal-shaped module name is dropped at the load
     // boundary — knowledge-update drives README writes off these names
     expect(loadFeatureMap(kp())?.features[0]?.modules).toEqual(['lib', 'services']);
+  });
+});
+
+describe('stripCellEmphasis', () => {
+  // Single source for both consumers of the index.md Module column
+  // (parseIndexModules here, matchRelatedModules in change-story). Two copies
+  // with different character sets would disagree on a module's identity.
+  it.each([
+    ['**types**', 'types'],
+    ['*lib*', 'lib'],
+    ['`services`', 'services'],
+    ['~~cli~~', 'cli'],
+    ['  templates  ', 'templates'],
+    ['tests', 'tests'],
+  ])('reduces %s to the bare name %s', (cell, expected) => {
+    expect(stripCellEmphasis(cell)).toBe(expected);
+  });
+
+  it('leaves snake_case and kebab-case names intact', () => {
+    expect(stripCellEmphasis('user_profile')).toBe('user_profile');
+    expect(stripCellEmphasis('api-middleware')).toBe('api-middleware');
+  });
+
+  it('produces names the metadata contract accepts', () => {
+    for (const cell of ['**types**', '*lib*', '`services`', '  templates  ']) {
+      expect(BareModuleNameSchema.safeParse(stripCellEmphasis(cell)).success).toBe(true);
+    }
   });
 });
 
