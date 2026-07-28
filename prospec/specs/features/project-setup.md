@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-07-25
+last_updated: 2026-07-28
 story_count: 19
-req_count: 46
+req_count: 47
 ---
 
 # Project Setup
@@ -559,6 +559,11 @@ A structure-aware, mutation-verified contract: the `config example` output parse
 
 ---
 
+#### REQ-TYPES-068: config `tech_stack.test_command`
+`ProspecConfigSchema`'s `tech_stack` gains an optional `test_command` so a project outside the JS ecosystem can name its own test command; `resolveTestCommand` prefers it, otherwise falls back to `<package_manager> test` **only when package.json declares a test script**, and returns `null` when neither exists (the consumer then skips honestly rather than guessing). An empty or whitespace value reads as unset so no empty argv can be produced. The command is tokenized on whitespace and run without a shell, so shell syntax is deliberately unsupported. Both the `.prospec.yaml` reference example and the `init` seed document the field, the fallback's package.json condition, and the no-shell constraint.
+- WHEN `test_command` is set, THEN `.prospec.yaml` validates; omitting it also validates (backward-compatible)
+- WHEN the field is absent and package.json declares no test script, THEN no command is invented
+
 ### US-019: Clean Up Dead Fields in the config schema [P2]
 
 As a prospec maintainer,
@@ -679,3 +684,4 @@ Contract tests drive the real `init` + `agent sync` services and compare the two
 | 2026-07-12 | emit-trigger-scaffold | `prospec config example` (complete per-field-annotated .prospec.yaml example, INIT_COMMANDS); cleaned up config schema dead fields + `.passthrough()`→`.loose()` | US-018/019 (ADDED); REQ-CLI-021, REQ-TYPES-062, REQ-TESTS-051 (ADDED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-25 | align-language-policy-scope | Path-scoped Language Policy generated from one resolved scope (lib/language-policy); entry config + Constitution rule share it; upgrade reports the stale seed with the rendered replacement rule | US-020; REQ-TYPES-063, REQ-LIB-030, REQ-TESTS-054 (ADDED); REQ-LIB-013, REQ-SETUP-019, REQ-SERVICES-035 (MODIFIED) |
+| 2026-07-28 | split-verify-adjudication | ADDED REQ-TYPES-068 (`tech_stack.test_command` — the escape hatch that lets a non-JS project satisfy the new test-provenance check; documented in the config reference example and the init seed) (issue #96) | US-018; REQ-TYPES-068 |
