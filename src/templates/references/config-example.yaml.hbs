@@ -16,6 +16,11 @@ tech_stack:
   language: typescript
   framework: none
   package_manager: pnpm
+  # Test command recorded by `prospec check --record-tests` (the fact verify's test
+  # dimension is graded on). Unset falls back to `<package_manager> test` when
+  # package.json declares a test script. Run WITHOUT a shell — argv-tokenized, so
+  # pipes / `&&` / redirection are not supported.
+  test_command: pnpm test
 
 paths:
   # Root of the prospec artifact tree (Constitution, index.md, specs, knowledge).

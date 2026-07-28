@@ -12,13 +12,16 @@ import {
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
+  evaluateConstitutionSeverity,
   evaluateReviewProvenance,
   evaluateTaskCompletion,
+  evaluateTestProvenance,
   runChecks,
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
+  ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
   KnowledgeSizeItem,
@@ -26,6 +29,7 @@ import type {
   MetadataCompletenessSource,
   ReviewProvenanceSource,
   TaskSource,
+  TestProvenanceSource,
 } from '../../../src/lib/drift-sources.js';
 import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
 
@@ -45,6 +49,12 @@ const emptyInputs: DriftCheckInputs = {
     available: true,
     budget: { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 },
     items: [],
+  },
+  testProvenance: { available: true, current_digest: 'CUR', changes: [] },
+  constitutionRules: {
+    available: true,
+    source_path: 'prospec/CONSTITUTION.md',
+    rules: [{ name: 'Tagged rule', severity: 'MUST', has_verify_hint: true, line: 5 }],
   },
   generatedAt: '2026-06-12T00:00:00Z',
 };
@@ -921,5 +931,210 @@ describe('evaluateMetadataCompleteness', () => {
     );
     expect(r.result.status).toBe('fail');
     expect(r.findings).toHaveLength(2);
+  });
+});
+
+describe('evaluateTestProvenance (REQ-LIB-033)', () => {
+  const src = (
+    over: Partial<TestProvenanceSource['changes'][number]>,
+    current = 'CUR',
+  ): TestProvenanceSource => ({
+    available: true,
+    current_digest: current,
+    changes: [
+      {
+        name: 'c1',
+        source_path: '.prospec/changes/c1/metadata.yaml',
+        status: 'implemented',
+        scale: 'standard',
+        recorded_digest: 'CUR',
+        recorded_exit_code: 0,
+        recorded_command: 'pnpm test',
+        backfill_draft_present: false,
+        ...over,
+      },
+    ],
+  });
+
+  it('skips (never PASS) when the source is unavailable', () => {
+    const r = evaluateTestProvenance({
+      available: false,
+      reason: 'source unavailable: not a git repository',
+      current_digest: null,
+      changes: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes when the recorded run matches the current code and exited 0', () => {
+    const r = evaluateTestProvenance(src({}));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails when no test run was ever recorded', () => {
+    const r = evaluateTestProvenance(src({ recorded_digest: null, recorded_exit_code: null, recorded_command: '' }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({ check: 'test-provenance', severity: 'fail' });
+    expect(r.findings[0]?.detail).toContain('no test run recorded');
+    expect(r.findings[0]?.detail).toContain('--record-tests');
+  });
+
+  it('fails when the recorded run predates the current code (stale)', () => {
+    const r = evaluateTestProvenance(src({ recorded_digest: 'OLD' }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('stale test run');
+  });
+
+  it('fails when the recorded run exited non-zero, naming the command and code', () => {
+    const r = evaluateTestProvenance(src({ recorded_exit_code: 1 }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('failing test run');
+    // the whole rendered clause — a bare '1' would match the change name "c1"
+    expect(r.findings[0]?.detail).toContain('`pnpm test` exited 1');
+  });
+
+  it('fails when a run was recorded without an exit code', () => {
+    const r = evaluateTestProvenance(src({ recorded_exit_code: null }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('without a status');
+  });
+
+  it('exempts a PROVEN backfill from the missing-record branch (brownfield code has no run)', () => {
+    const r = evaluateTestProvenance(
+      src({ scale: 'backfill', backfill_draft_present: true, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('exempts a PROVEN backfill from the stale branch (outcome unknown, same as no run)', () => {
+    const r = evaluateTestProvenance(
+      src({ scale: 'backfill', backfill_draft_present: true, recorded_digest: 'OLD' }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  // The verify contract is explicit: "never suppress a recorded non-zero exit".
+  // Since 5/5 now adopts this status verbatim, exempting it would make a red suite
+  // graduate to `verified` with no way for the agent to intervene.
+  it('NEVER exempts a recorded FAILING run, even for a proven backfill', () => {
+    const r = evaluateTestProvenance(
+      src({ scale: 'backfill', backfill_draft_present: true, recorded_exit_code: 3 }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('`pnpm test` exited 3');
+  });
+
+  // Branch precedence matters: if staleness were tested first, this record would
+  // take the backfill-exempt path and the recorded failure would be suppressed —
+  // exactly what the verify contract forbids ("never suppress a recorded non-zero exit").
+  it('NEVER exempts a recorded failing run that is ALSO stale (proven backfill)', () => {
+    const r = evaluateTestProvenance(
+      src({
+        scale: 'backfill',
+        backfill_draft_present: true,
+        recorded_digest: 'OLD',
+        recorded_exit_code: 3,
+      }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('`pnpm test` exited 3');
+    expect(r.findings[0]?.detail).toContain('the record is stale');
+  });
+
+  it('still exempts a proven backfill whose stale record was GREEN', () => {
+    const r = evaluateTestProvenance(
+      src({
+        scale: 'backfill',
+        backfill_draft_present: true,
+        recorded_digest: 'OLD',
+        recorded_exit_code: 0,
+      }),
+    );
+    expect(r.result.status).toBe('pass');
+  });
+
+  // `scale` is hand-editable metadata; without the draft it must not buy any
+  // relaxation, or typing `scale: backfill` bypasses the tested-code gate.
+  it('grants NO relaxation to an unproven backfill (no backfill-draft.md)', () => {
+    const r = evaluateTestProvenance(
+      src({ scale: 'backfill', backfill_draft_present: false, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no test run recorded');
+  });
+
+  it('exempts a change that is not yet implemented', () => {
+    for (const status of ['story', 'plan', 'tasks', 'verified', 'archived']) {
+      const r = evaluateTestProvenance(src({ status, recorded_digest: null }));
+      expect(r.result.status, status).toBe('pass');
+      expect(r.findings, status).toHaveLength(0);
+    }
+  });
+});
+
+describe('evaluateConstitutionSeverity (REQ-LIB-032)', () => {
+  const src = (rules: ConstitutionRuleSource['rules']): ConstitutionRuleSource => ({
+    available: true,
+    source_path: 'prospec/CONSTITUTION.md',
+    rules,
+  });
+
+  it('skips (never PASS) when the source is unavailable, and emits no inventory', () => {
+    const r = evaluateConstitutionSeverity({
+      available: false,
+      reason: 'source unavailable: prospec/CONSTITUTION.md declares no principles',
+      source_path: 'prospec/CONSTITUTION.md',
+      rules: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('declares no principles');
+    expect(r.constitution).toBeUndefined();
+  });
+
+  it('passes when every principle carries an RFC-2119 severity', () => {
+    const r = evaluateConstitutionSeverity(
+      src([
+        { name: 'A', severity: 'MUST', has_verify_hint: true, line: 3 },
+        { name: 'B', severity: 'SHOULD', has_verify_hint: false, line: 9 },
+        { name: 'C', severity: 'MAY', has_verify_hint: true, line: 15 },
+      ]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns (never fails) once per untagged principle, anchored at its heading line', () => {
+    const r = evaluateConstitutionSeverity(
+      src([
+        { name: 'Tagged', severity: 'MUST', has_verify_hint: true, line: 3 },
+        { name: 'Untagged one', severity: null, has_verify_hint: false, line: 20 },
+        { name: 'Untagged two', severity: null, has_verify_hint: true, line: 30 },
+      ]),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]).toMatchObject({
+      check: 'constitution-severity',
+      severity: 'warn',
+      source_path: 'prospec/CONSTITUTION.md',
+      line: 20,
+    });
+    expect(r.findings[0]?.detail).toContain('Untagged one');
+    expect(r.findings[0]?.detail).toContain('by weight');
+  });
+
+  it('always emits the full inventory, including untagged rules, for verify to audit 1:1', () => {
+    const rules = [
+      { name: 'A', severity: 'MUST' as const, has_verify_hint: true, line: 3 },
+      { name: 'B', severity: null, has_verify_hint: false, line: 8 },
+    ];
+    const r = evaluateConstitutionSeverity(src(rules));
+    expect(r.constitution?.rules).toEqual(rules);
   });
 });

@@ -1,6 +1,6 @@
 # types
 
-> Zod schemas, errors, and frozen registries — the leaf type layer every module imports (14 files)
+> Zod schemas, errors, and frozen registries — the leaf type layer every module imports (15 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,23 +9,23 @@
 | File | Purpose |
 |------|---------|
 | `change.ts` | Change metadata contract — loose read + strict build views, `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, GATE/DIMENSION_RESULTS, VERIFY_GRADES |
-| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`/`TokenBudgetSchema`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS |
+| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` |
-| `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (11 frozen) |
-| `errors.ts` | `ProspecError` base + 14 error subclasses |
+| `drift-report.ts` | `DriftReportSchema`, `DRIFT_CHECK_IDS` (13 frozen), Constitution rule inventory |
+| `errors.ts` | `ProspecError` base + 15 error subclasses |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
 | `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents) |
 
-Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts`.
+Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts`.
 
 ## Public API
 
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`)
-- `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 11 frozen check ids
+- `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 13 frozen check ids
 - `MeasurementReportSchema` / `SizeReportSchema` — provider-neutral + offline size report
 - `MCP_RESOURCE_URIS` / `SearchModulesInputShape` — 8 frozen URIs, tool I/O shapes
 - `INIT_DOC_REGISTRY` / `CORE_CONVENTIONS` / `INDEX_TABLE_COLUMNS` — init docs, L0 conventions, index columns
@@ -50,12 +50,12 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `feature-map.ts`, 
 
 ## Pitfalls
 
-- `.optional()` → `T | undefined`, `.default()` → `T`; adding a required field breaks existing `.prospec.yaml`.
-- `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of a loose schema gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` is dimension-only).
-- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health fields are FROZEN — extend additively, never reorder/remove.
+- `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`.
+- `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of a loose schema gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` and `not-adjudicated` are dimension-only).
+- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.
 - `feature-map.ts` is shape-only — slug/module-map checks live in the lib loader, not here.
-- `INIT_DOC_REGISTRY` is pinned by an init⇄registry equality test; resolve `root: 'knowledge'` via `resolveBasePaths()`.
+- `INIT_DOC_REGISTRY` is pinned by an init⇄registry equality test; resolve `root: 'knowledge'` via `resolveBasePaths()`. `test_provenance` is deliberately outside the metadata required-field floor.
 
 <!-- prospec:auto-end -->
 

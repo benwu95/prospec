@@ -39,9 +39,10 @@ describe('TokenBudgetSchema (renamed fields)', () => {
 });
 
 describe('single-source: index.md declares the DEFAULT budget numbers', () => {
-  // The knowledge-size check enforces DEFAULT_KNOWLEDGE_TOKEN_BUDGET; index.md's
-  // progressive-loading table must declare the same numbers, or the honest-boundary
-  // contract has drifted. This reads the repo's own index.md (vitest cwd = repo root).
+  // index.md's progressive-loading table declares the SHIPPED DEFAULTS, which is what
+  // this pins — a project may then override them per field in `.prospec.yaml` (this repo
+  // does), and the table says so in the sentence below it. What must never drift is the
+  // declared defaults vs DEFAULT_KNOWLEDGE_TOKEN_BUDGET. Reads the repo's own index.md.
   const index = readFileSync(path.resolve(process.cwd(), 'prospec', 'index.md'), 'utf-8');
   const rowOf = (layer: string): string =>
     index.split('\n').find((l) => l.includes(`**${layer}**`)) ?? '';

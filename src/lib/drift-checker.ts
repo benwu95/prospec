@@ -5,6 +5,7 @@ import {
   DriftReportSchema,
   type DriftCheckId,
   type DriftCheckResult,
+  type ConstitutionInventory,
   type DriftFinding,
   type DriftReport,
   type KnowledgeHealth,
@@ -12,6 +13,7 @@ import {
 import { DriftReportInvalid } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type {
+  ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
   ImportEdgeSource,
@@ -23,6 +25,7 @@ import type {
   ReqReference,
   ReviewProvenanceSource,
   TaskSource,
+  TestProvenanceSource,
 } from './drift-sources.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 
@@ -55,6 +58,8 @@ export interface DriftCheckInputs {
   reviewProvenance: ReviewProvenanceSource;
   metadataCompleteness: MetadataCompletenessSource;
   knowledgeSize: KnowledgeSizeSource;
+  testProvenance: TestProvenanceSource;
+  constitutionRules: ConstitutionRuleSource;
   generatedAt: string;
 }
 
@@ -62,6 +67,7 @@ interface CheckOutcome {
   result: DriftCheckResult;
   findings: DriftFinding[];
   knowledgeHealth?: KnowledgeHealth;
+  constitution?: ConstitutionInventory;
 }
 
 /** Derive allowed-import rules from module-map depends_on declarations. */
@@ -446,6 +452,109 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   return outcome('knowledge-size', findings);
 }
 
+/**
+ * Test provenance — an `implemented` change must carry a recorded test run whose
+ * digest still matches the current code AND whose exit code is zero (REQ-LIB-033).
+ * Absent → fail (the suite was never recorded); digest mismatch → fail (code
+ * changed since the run); non-zero exit → fail (the suite failed). FAIL-class:
+ * this is what makes verify's test dimension a machine verdict instead of an
+ * agent's self-report. A non-`implemented` change is exempt; an unavailable source
+ * (no test command / not git / no changes dir / no digest) skips.
+ *
+ * **The backfill relaxation is per-branch, not wholesale.** A proven backfill
+ * (`backfill-draft.md` present) records pre-existing brownfield code, so a
+ * *missing* or *stale* record is the expected "outcome unknown" state and is
+ * exempt — but a recorded run that actually FAILED is never exempt, because the
+ * verify skill's own contract is "never suppress a recorded non-zero exit" and
+ * that dimension now adopts this status verbatim. The relaxation keys on the
+ * draft, not on the hand-editable `scale`, so `scale: backfill` cannot be typed
+ * into metadata to bypass the tested-code gate for new work.
+ *
+ * Shares collectReviewProvenance's single-in-flight-change assumption: the one
+ * whole-tree digest is compared against every change, so concurrent changes
+ * over-block (fail-closed), never fail-open.
+ */
+export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('test-provenance', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const c of src.changes) {
+    if (c.status !== 'implemented') continue;
+    const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
+    if (c.recorded_digest === null) {
+      if (provenBackfill) continue; // brownfield code legitimately has no run
+      findings.push({
+        check: 'test-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `no test run recorded for change "${c.name}" — run ` +
+          '`prospec check --record-tests` before /prospec-verify',
+      });
+    } else if (c.recorded_exit_code !== 0) {
+      // Checked BEFORE staleness, and never exempt under backfill: a recorded
+      // failure is a KNOWN failure whatever the tree did afterwards, and the verify
+      // contract this status feeds is absolute — "never suppress a recorded non-zero
+      // exit". Ordering it after staleness would let a stale+failing backfill record
+      // slip through the exempt branch and suppress exactly that.
+      findings.push({
+        check: 'test-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `failing test run for change "${c.name}": \`${c.recorded_command}\` exited ` +
+          `${c.recorded_exit_code === null ? 'without a status' : c.recorded_exit_code}` +
+          (c.recorded_digest === src.current_digest ? '' : ' (and the record is stale)'),
+      });
+    } else if (c.recorded_digest !== src.current_digest) {
+      // Stale with a GREEN record means "current outcome unknown", which for proven
+      // brownfield code is the same exempt state as no record at all — and failing it
+      // would punish recording a run while staying silent rewards not recording one.
+      if (provenBackfill) continue;
+      findings.push({
+        check: 'test-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `stale test run for change "${c.name}": code changed since the recorded run — ` +
+          're-run `prospec check --record-tests`',
+      });
+    }
+  }
+  return outcome('test-provenance', findings);
+}
+
+/**
+ * Constitution severity — every principle heading must carry an RFC-2119 tag so
+ * verify can grade a violation by weight (REQ-LIB-032). WARN-class: an untagged
+ * rule is still auditable, verify just falls back to judgment grading for it, so
+ * this is a pressure signal against severity-free prose, never a build breaker.
+ * Emits the rule inventory verify audits 1:1 against; an unavailable source (no
+ * Constitution, or one declaring no principles) skips — no facts must never
+ * present as a pass.
+ */
+export function evaluateConstitutionSeverity(src: ConstitutionRuleSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('constitution-severity', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = src.rules
+    .filter((r) => r.severity === null)
+    .map((r) => ({
+      check: 'constitution-severity' as const,
+      severity: 'warn' as const,
+      source_path: src.source_path,
+      line: r.line,
+      detail:
+        `untagged principle: "${r.name}" carries no [MUST]/[SHOULD]/[MAY] severity — ` +
+        'verify cannot grade its violation by weight',
+    }));
+  return {
+    ...outcome('constitution-severity', findings),
+    constitution: { rules: src.rules },
+  };
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -460,6 +569,8 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'review-provenance': evaluateReviewProvenance(inputs.reviewProvenance),
     'metadata-completeness': evaluateMetadataCompleteness(inputs.metadataCompleteness),
     'knowledge-size': evaluateKnowledgeSize(inputs.knowledgeSize),
+    'test-provenance': evaluateTestProvenance(inputs.testProvenance),
+    'constitution-severity': evaluateConstitutionSeverity(inputs.constitutionRules),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);
@@ -470,6 +581,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
       checks,
       findings,
       knowledge_health: outcomes['knowledge-health'].knowledgeHealth,
+      constitution: outcomes['constitution-severity'].constitution,
     },
     semantic: {
       status: 'not-checked',

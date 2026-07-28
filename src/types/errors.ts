@@ -147,6 +147,17 @@ export class DriftReportInvalid extends ProspecError {
   }
 }
 
+export class EscapedDefectReportInvalid extends ProspecError {
+  constructor(details: string) {
+    super(
+      `Escaped-defect report validation failed (${details})`,
+      'ESCAPED_DEFECT_REPORT_INVALID',
+      'Check the `introduced_by` and `quality_log` values in the changes the report aggregates',
+    );
+    this.name = 'EscapedDefectReportInvalid';
+  }
+}
+
 // --- Change metadata errors ---
 
 export class MetadataValidationError extends ProspecError {

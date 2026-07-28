@@ -1,7 +1,13 @@
 import pc from 'picocolors';
 import path from 'node:path';
 import type { LogLevel } from '../../types/config.js';
-import type { CheckResult, InitCiResult, RecordReviewResult } from '../../services/check.service.js';
+import type {
+  CheckResult,
+  EscapedDefectsResult,
+  InitCiResult,
+  RecordReviewResult,
+  RecordTestsResult,
+} from '../../services/check.service.js';
 import { DRIFT_CHECK_IDS, type DriftCheckResult, type DriftReport } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
@@ -13,7 +19,7 @@ export { sanitizeTerminal };
  * Format the drift check result for terminal output.
  *
  * Honesty rules (REQ-CLI-011):
- * - all five checks are listed with their own status
+ * - every check in DRIFT_CHECK_IDS is listed with its own status
  * - skipped checks show their reason explicitly and are never counted as PASS
  * - the semantic layer is always shown as not-checked, never graded
  */
@@ -26,17 +32,33 @@ const STATUS_LABEL: Record<DriftCheckResult['status'], string> = {
 };
 
 export function formatCheckOutput(
-  result: CheckResult | InitCiResult | RecordReviewResult,
+  result:
+    | CheckResult
+    | InitCiResult
+    | RecordReviewResult
+    | RecordTestsResult
+    | EscapedDefectsResult,
   logLevel: LogLevel,
 ): void {
   if (logLevel === 'quiet') return;
 
+  if (result.kind === 'record-tests') {
+    formatRecordTests(result);
+    return;
+  }
+
+  if (result.kind === 'escaped-defects') {
+    formatEscapedDefects(result);
+    return;
+  }
+
   if (result.kind === 'record-review') {
+    const change = sanitizeTerminal(result.change);
     if (result.recorded) {
-      console.log(`${pc.green('✓')} Recorded review baseline for change "${result.change}"`);
+      console.log(`${pc.green('✓')} Recorded review baseline for change "${change}"`);
     } else {
       console.log(
-        `${pc.yellow('●')} Review baseline not recorded for "${result.change}" — ${result.reason ?? 'skipped'}`,
+        `${pc.yellow('●')} Review baseline not recorded for "${change}" — ${sanitizeTerminal(result.reason ?? 'skipped')}`,
       );
     }
     return;
@@ -85,9 +107,94 @@ export function formatCheckOutput(
     );
   }
 
+  const constitution = report.structural.constitution;
+  if (constitution) {
+    const untagged = constitution.rules.filter((r) => r.severity === null).length;
+    console.log(
+      `Constitution rules: ${constitution.rules.length} parsed` +
+        `${untagged > 0 ? pc.yellow(`, ${untagged} untagged`) : ''}`,
+    );
+  }
+
   console.log('');
   console.log(summaryLine(report));
   console.log(pc.dim(`Semantic consistency: ${report.semantic.status} (run /prospec-review)`));
+  if (result.reportPath) {
+    console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
+  }
+}
+
+/** A recorded run is reported by what happened, never as a verdict — the FAIL for
+ *  a non-zero exit code belongs to the `test-provenance` check, not to this line. */
+function formatRecordTests(result: RecordTestsResult): void {
+  const cmd = result.command === undefined ? '' : ` (\`${sanitizeTerminal(result.command)}\`)`;
+  if (!result.recorded) {
+    console.log(
+      `${pc.yellow('●')} Test baseline not recorded for "${sanitizeTerminal(result.change)}"${cmd}` +
+        ` — ${sanitizeTerminal(result.reason ?? 'skipped')}`,
+    );
+    return;
+  }
+  const passed = result.exitCode === 0;
+  const mark = passed ? pc.green('✓') : pc.red('✗');
+  console.log(
+    `${mark} Recorded test baseline for change "${sanitizeTerminal(result.change)}"${cmd}` +
+      ` — exit ${result.exitCode}`,
+  );
+  if (!passed) {
+    console.log('  → recorded as failing; `test-provenance` will FAIL until the suite is green');
+  }
+  if (result.treeChangedDuringRun === true) {
+    console.log(
+      `  ${pc.yellow('●')} the tree changed while the suite ran — the recorded fingerprint covers` +
+        ' code the run may not have exercised',
+    );
+  }
+}
+
+function formatEscapedDefects(result: EscapedDefectsResult): void {
+  const { report } = result;
+  console.log(pc.bold('Escaped-defect rate per gate (from metadata `introduced_by`)'));
+  console.log('');
+  if (!report.ledger_available) {
+    // Never claim a fact about records that were never opened.
+    console.log(
+      `  ${pc.dim('ledger unavailable')} — neither \`.prospec/changes/\` nor \`.prospec/archive/\` exists,` +
+        ' so no gate record was read at all',
+    );
+  } else if (report.sample_count === 0) {
+    console.log(
+      `  ${pc.dim('no registered samples')} — no change records \`introduced_by\`, so no rate can be computed`,
+    );
+    console.log(pc.dim('  (an empty sample is not a 0% escape rate)'));
+  } else {
+    for (const g of report.gates) {
+      const pct = `${(g.escaped_rate * 100).toFixed(1)}%`;
+      const label = g.escaped > 0 ? pc.yellow(pct) : pc.green(pct);
+      console.log(`  ${label}  ${sanitizeTerminal(g.gate)} — ${g.escaped}/${g.passed} passed changes later blamed`);
+    }
+    console.log('');
+    console.log(`Samples: ${report.sample_count}`);
+    for (const s of report.samples) {
+      console.log(
+        `  ${sanitizeTerminal(s.fix_change)} → blames ${sanitizeTerminal(s.introduced_by)}` +
+          ` (gates passed: ${s.gates_passed.map(sanitizeTerminal).join(', ') || 'none'})`,
+      );
+    }
+  }
+  if (report.unresolved_references.length > 0) {
+    console.log('');
+    console.log(pc.yellow(`Unresolved \`introduced_by\` references: ${report.unresolved_references.length}`));
+    for (const s of report.unresolved_references) {
+      console.log(
+        `  ${sanitizeTerminal(s.fix_change)} names "${sanitizeTerminal(s.introduced_by)}" — no single change in either ledger resolves it (missing, or the name is shared)`,
+      );
+    }
+  }
+  if (!report.archive_available) {
+    console.log('');
+    console.log(pc.dim('.prospec/archive/ not found — sample covers in-flight changes only'));
+  }
   if (result.reportPath) {
     console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
   }

@@ -132,9 +132,10 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the eleven frozen check ids', () => {
+  it('exposes exactly the thirteen frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual(
       [
+        'constitution-severity',
         'dangling-prefix',
         'feature-modules',
         'file-paths',
@@ -146,9 +147,64 @@ describe('DriftReportSchema', () => {
         'req-references',
         'review-provenance',
         'task-completion',
+        'test-provenance',
       ].sort(),
     );
-    expect(DRIFT_CHECK_IDS).toHaveLength(11);
+    expect(DRIFT_CHECK_IDS).toHaveLength(13);
+  });
+
+  // The registry is FROZEN: report `checks[]` order and the CLI's status-line order
+  // both derive from it, so the existing ids must keep their relative positions.
+  // Asserted UNSORTED and literal — a sorted comparison cannot see a reorder.
+  it('keeps the pre-existing eleven ids in their frozen order (additive-only growth)', () => {
+    expect([...DRIFT_CHECK_IDS].slice(0, 11)).toEqual([
+      'req-references',
+      'file-paths',
+      'import-direction',
+      'knowledge-health',
+      'task-completion',
+      'dangling-prefix',
+      'feature-modules',
+      'mcp-readme-counts',
+      'review-provenance',
+      'metadata-completeness',
+      'knowledge-size',
+    ]);
+    expect([...DRIFT_CHECK_IDS].slice(11)).toEqual(['test-provenance', 'constitution-severity']);
+  });
+
+  it('accepts the optional constitution inventory, including an untagged rule', () => {
+    const r = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        constitution: {
+          rules: [
+            { name: 'Language Policy', severity: 'MUST', has_verify_hint: true, line: 10 },
+            { name: 'Legacy rule', severity: null, has_verify_hint: false, line: 42 },
+          ],
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects an unknown severity and a non-positive line in the inventory', () => {
+    for (const rule of [
+      { name: 'X', severity: 'CRITICAL', has_verify_hint: false, line: 3 },
+      { name: 'X', severity: 'MUST', has_verify_hint: false, line: 0 },
+      { name: '', severity: 'MUST', has_verify_hint: false, line: 3 },
+    ]) {
+      const r = DriftReportSchema.safeParse({
+        ...baseReport,
+        structural: { ...baseReport.structural, constitution: { rules: [rule] } },
+      });
+      expect(r.success, JSON.stringify(rule)).toBe(false);
+    }
+  });
+
+  it('stays valid without the constitution section (absent = no facts, not all-tagged)', () => {
+    expect(DriftReportSchema.safeParse(baseReport).success).toBe(true);
   });
 
   it('rejects an unknown check id', () => {

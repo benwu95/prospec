@@ -1,10 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
-import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../lib/config.js';
+import {
+  readConfig,
+  resolveBasePaths,
+  resolveKnowledgeTokenBudget,
+  resolveTestCommand,
+} from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
+import type { ProspecConfig } from '../types/config.js';
 import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
@@ -12,6 +18,7 @@ import {
   runChecks,
 } from '../lib/drift-checker.js';
 import {
+  collectConstitutionRules,
   collectFeatureMapGovernance,
   collectGitTimestamps,
   collectImportEdges,
@@ -19,14 +26,22 @@ import {
   collectMarkdownLinks,
   collectMcpReadmeCounts,
   collectMetadataCompleteness,
+  collectQualityLedger,
   collectReqDefinitions,
   collectReqReferences,
   collectReviewProvenance,
   collectTaskStates,
+  collectTestProvenance,
   computeChangeDigest,
 } from '../lib/drift-sources.js';
+import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
+import { DEFAULT_TEST_TIMEOUT_MS, runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
+import {
+  ESCAPED_DEFECT_REPORT_FILENAME,
+  type EscapedDefectReport,
+} from '../types/escaped-defect.js';
 
 export interface CheckOptions {
   cwd?: string;
@@ -36,7 +51,11 @@ export interface CheckOptions {
   initCi?: boolean;
   /** Record the active change's review baseline (digest) instead of running checks. */
   recordReview?: boolean;
-  /** Disambiguate which change `--record-review` targets when several are in flight. */
+  /** Run the project's test command and record its outcome instead of running checks. */
+  recordTests?: boolean;
+  /** Aggregate per-gate escaped-defect rate instead of running checks. */
+  escapedDefects?: boolean;
+  /** Disambiguate which change `--record-review`/`--record-tests` targets when several are in flight. */
   change?: string;
 }
 
@@ -64,6 +83,29 @@ export interface RecordReviewResult {
   reason?: string;
 }
 
+export interface RecordTestsResult {
+  kind: 'record-tests';
+  /** The change whose test baseline was recorded. */
+  change: string;
+  /** False when skipped honestly (no test command, not a git repo, timeout). */
+  recorded: boolean;
+  reason?: string;
+  /** The command that ran, when one did. */
+  command?: string;
+  /** Its exit code — recorded even when non-zero; a failing suite IS the fact. */
+  exitCode?: number | null;
+  /** True when the digest changed across the run — an artifact the suite wrote, or
+   *  a real edit landing mid-run. Surfaced so the latter is never silently absorbed. */
+  treeChangedDuringRun?: boolean;
+}
+
+export interface EscapedDefectsResult {
+  kind: 'escaped-defects';
+  report: EscapedDefectReport;
+  /** Absolute report path when --json was requested. */
+  reportPath?: string;
+}
+
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
 
 /**
@@ -74,7 +116,9 @@ export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
  */
 export async function execute(
   options: CheckOptions,
-): Promise<CheckResult | InitCiResult | RecordReviewResult> {
+): Promise<
+  CheckResult | InitCiResult | RecordReviewResult | RecordTestsResult | EscapedDefectsResult
+> {
   const cwd = options.cwd ?? process.cwd();
   const config = await readConfig(cwd);
 
@@ -86,9 +130,21 @@ export async function execute(
     return recordReviewProvenance(cwd, options.change);
   }
 
+  if (options.recordTests) {
+    return recordTestProvenance(cwd, config, options.change);
+  }
+
+  if (options.escapedDefects) {
+    return aggregateEscapedDefectReport(cwd, options.json);
+  }
+
   const paths = resolveBasePaths(config, cwd);
   const featuresDir = path.join(paths.specsPath, 'features');
   const markdownRoots = [paths.specsPath, paths.knowledgePath, paths.baseDir];
+
+  // One digest per run, shared by both provenance collectors: it is the most
+  // expensive fact the engine gathers and the two can never disagree within a run.
+  const currentDigest = computeChangeDigest(cwd);
 
   const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
   const attributionMap = moduleMap ?? constitutionFallbackModuleMap();
@@ -127,7 +183,7 @@ export async function execute(
     mcpReadmeCounts: moduleMap
       ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
-    reviewProvenance: collectReviewProvenance(cwd),
+    reviewProvenance: collectReviewProvenance(cwd, currentDigest),
     metadataCompleteness: collectMetadataCompleteness(cwd),
     knowledgeSize: collectKnowledgeSize(
       cwd,
@@ -135,6 +191,11 @@ export async function execute(
       paths.knowledgePath,
       resolveKnowledgeTokenBudget(config),
     ),
+    // The resolved command decides whether this check can apply at all — a project
+    // with none skips honestly instead of failing a gate it can never satisfy.
+    testProvenance: collectTestProvenance(cwd, resolveTestCommand(config, cwd), currentDigest),
+    // The Constitution path comes from the canonical resolver, never re-derived here.
+    constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
     generatedAt: new Date().toISOString(),
   });
 
@@ -198,4 +259,109 @@ async function recordReviewProvenance(
   doc.set('review_provenance', doc.createNode({ digest, date: new Date().toISOString().slice(0, 10) }));
   await writeChangeMetadataDoc(metadataPath, doc, change);
   return { kind: 'record-review', change, recorded: true };
+}
+
+/**
+ * Run the project's test command and record the outcome (REQ-SERVICES-068). The
+ * ONE place `check` executes a project command, and it is flag-gated — the pure
+ * check path stays read-only and deterministic, so the report a CI run produces is
+ * still reproducible without ever spawning a suite.
+ *
+ * A non-zero exit code IS recorded: the fact verify must see is "the suite ran and
+ * failed", and `evaluateTestProvenance` turns that into the FAIL. Only cases where
+ * nothing trustworthy happened (no command, not a git repo, timeout) skip, and they
+ * write nothing rather than half a record.
+ */
+async function recordTestProvenance(
+  cwd: string,
+  config: ProspecConfig,
+  explicitChange?: string,
+): Promise<RecordTestsResult> {
+  const change = await resolveChange(cwd, explicitChange, true, 'Which change to record the test run for?');
+  const metadataPath = path.join(cwd, '.prospec', 'changes', change, 'metadata.yaml');
+  if (!existsSync(metadataPath)) {
+    return { kind: 'record-tests', change, recorded: false, reason: 'metadata.yaml not found' };
+  }
+  const command = resolveTestCommand(config, cwd);
+  if (command === null) {
+    return {
+      kind: 'record-tests',
+      change,
+      recorded: false,
+      reason: 'no test command — set tech_stack.test_command in .prospec.yaml',
+    };
+  }
+  // Every precondition is checked BEFORE the suite runs — a 15-minute run that is
+  // then discarded (or that dies on a schema error) is the worst possible outcome.
+  // The pre-run digest doubles as the git-repo guard; the metadata read is hoisted
+  // here because it validates and throws.
+  const before = computeChangeDigest(cwd);
+  if (before === null) {
+    return { kind: 'record-tests', change, recorded: false, reason: 'not a git repository' };
+  }
+  const { doc } = readChangeMetadata(metadataPath, change);
+
+  const run = runTestCommand(cwd, command);
+  if (run.timed_out || run.exit_code === null) {
+    return {
+      kind: 'record-tests',
+      change,
+      recorded: false,
+      command: run.command,
+      reason: run.timed_out
+        ? `test run timed out after ${DEFAULT_TEST_TIMEOUT_MS} ms`
+        : run.signal !== undefined
+          ? `test run killed by ${run.signal}`
+          : (run.error ?? 'test run produced no exit code'),
+    };
+  }
+
+  // Record the POST-run digest. A suite that writes an untracked artifact (junit
+  // xml, coverage summary, a fresh snapshot) changes the tree it just ran against;
+  // recording the pre-run value would make the very next check report "stale" and,
+  // whenever the artifact's bytes vary per run, never converge. Hashing after the
+  // run is what the check compares against, so it converges in one run.
+  const after = computeChangeDigest(cwd);
+  if (after === null) {
+    return { kind: 'record-tests', change, recorded: false, reason: 'not a git repository' };
+  }
+  doc.set(
+    'test_provenance',
+    doc.createNode({
+      command: run.command,
+      exit_code: run.exit_code,
+      digest: after,
+      date: new Date().toISOString().slice(0, 10),
+    }),
+  );
+  await writeChangeMetadataDoc(metadataPath, doc, change);
+  return {
+    kind: 'record-tests',
+    change,
+    recorded: true,
+    command: run.command,
+    exitCode: run.exit_code,
+    // Disclosed, not silently absorbed: the tree changed while the suite ran, so
+    // the recorded fingerprint may cover an edit the run never exercised.
+    treeChangedDuringRun: before !== after,
+  };
+}
+
+/**
+ * Aggregate per-gate escaped-defect rate from `introduced_by` (REQ-SERVICES-069).
+ * A reporting mode, not a check: it grades no current repo state, produces no
+ * findings, and never affects `--strict`'s exit code.
+ */
+async function aggregateEscapedDefectReport(
+  cwd: string,
+  json?: boolean,
+): Promise<EscapedDefectsResult> {
+  const report = aggregateEscapedDefects(collectQualityLedger(cwd), new Date().toISOString());
+  const result: EscapedDefectsResult = { kind: 'escaped-defects', report };
+  if (json) {
+    const reportPath = path.resolve(cwd, ESCAPED_DEFECT_REPORT_FILENAME);
+    await atomicWrite(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    result.reportPath = reportPath;
+  }
+  return result;
 }

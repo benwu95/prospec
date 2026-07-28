@@ -1,4 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Same load class as the git-bound unit files: gitFixture() spawns 5 git
+// subprocesses and the health resource runs collectGitTimestamps. The 5s default
+// made this file fail ~40% of full-suite runs once the drift engine's own test
+// count grew — and a flaky suite corrupts `--record-tests`, which stamps the exit
+// code into metadata as the fact the verify gate is graded on.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';

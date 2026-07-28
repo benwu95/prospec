@@ -15,6 +15,12 @@ const TechStackSchema = z.object({
   language: z.string().optional(),
   framework: z.string().optional(),
   package_manager: z.string().optional(),
+  /** The project's test command, e.g. `pnpm test` or `pytest -q`. Read by
+   *  `resolveTestCommand` for `check --record-tests`; when unset it falls back to
+   *  `<package_manager> test` for a project whose package.json declares a test
+   *  script. Tokenized on whitespace and run without a shell, so shell syntax
+   *  (pipes, `&&`, redirection) is deliberately unsupported. */
+  test_command: z.string().optional(),
 }).optional();
 
 /**

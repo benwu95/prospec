@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { scanDirSync, classifyModulePath } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
+import { withoutFencedBlocks } from './markdown-fences.js';
+import { parseConstitutionRules } from './constitution-parser.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
   ARCHIVED_EXCLUDES,
@@ -15,6 +17,8 @@ import {
 } from './knowledge-reader.js';
 import { estimateTokens } from './token-accounting.js';
 import { CORE_CONVENTIONS } from '../types/conventions.js';
+import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drift-report.js';
+import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import type { KnowledgeSizeBudget } from '../types/config.js';
@@ -32,6 +36,15 @@ import type { KnowledgeSizeBudget } from '../types/config.js';
 
 /** REQ-{MODULE}-{NUMBER} with uppercase, possibly hyphenated module names. */
 const REQ_ID_PATTERN = /REQ-(?:[A-Z][A-Z0-9]*-)+\d+/g;
+
+/** Reports `prospec check` itself writes into the repo root. Excluded from the
+ *  change digest so a command cannot invalidate the very baselines it feeds —
+ *  derived from the filename constants, never re-typed, so a future report joins
+ *  this list by construction. */
+const DIGEST_EXCLUDED_REPORTS = [
+  DRIFT_REPORT_FILENAME,
+  ESCAPED_DEFECT_REPORT_FILENAME,
+] as const;
 
 // Archived exclusion is single-sourced in knowledge-reader.ts so the MCP
 // spec listing and this check can never drift apart (REQ-MCP-003).
@@ -181,6 +194,66 @@ export interface MetadataCompletenessSource {
   available: boolean;
   reason?: string;
   changes: MetadataCompletenessChange[];
+}
+
+export interface TestProvenanceChange {
+  name: string;
+  /** repo-relative metadata.yaml path (finding anchor). */
+  source_path: string;
+  status: string;
+  scale: string;
+  /** digest recorded by `--record-tests`; null when no run was ever recorded. */
+  recorded_digest: string | null;
+  /** exit code of the recorded run; null when absent or not a number. */
+  recorded_exit_code: number | null;
+  /** the recorded command, for a finding that has to name what failed. */
+  recorded_command: string;
+  /** True when `backfill-draft.md` sits beside the metadata — proof the change
+   *  came through `/prospec-promote-backfill` and really does record pre-existing
+   *  code. `scale` alone is hand-editable, so the backfill relaxation is gated on
+   *  this, exactly as the verify skill's Entry Gate requires. */
+  backfill_draft_present: boolean;
+}
+
+export interface TestProvenanceSource {
+  available: boolean;
+  reason?: string;
+  /** current code fingerprint to compare each recorded digest against. */
+  current_digest: string | null;
+  changes: TestProvenanceChange[];
+}
+
+export interface ConstitutionRuleSource {
+  available: boolean;
+  reason?: string;
+  /** repo-relative CONSTITUTION.md path (finding anchor). */
+  source_path: string;
+  rules: ConstitutionRuleEntry[];
+}
+
+export interface QualityLedgerChange {
+  /** Canonical change name — metadata `name`, falling back to the directory name.
+   *  `introduced_by` is registered as this name, so it is what resolution keys on. */
+  name: string;
+  /** The ledger directory name. Archived dirs carry a `YYYY-MM-DD-` prefix the
+   *  canonical name does not, which is why both are reported. */
+  dir: string;
+  /** `changes` for an in-flight change, `archive` for an archived one. */
+  ledger: 'changes' | 'archive';
+  status: string;
+  /** the change this one blames for letting a defect through, when registered. */
+  introduced_by: string | null;
+  /** `{skill, result}` pairs distilled from quality_log, in file order. */
+  gate_results: Array<{ skill: string; result: string }>;
+}
+
+export interface QualityLedgerSource {
+  available: boolean;
+  reason?: string;
+  /** False when `.prospec/archive/` is absent (gitignored by design) — the sample
+   *  is then honestly partial rather than silently so. */
+  archive_available: boolean;
+  changes: QualityLedgerChange[];
 }
 
 /** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included). */
@@ -725,34 +798,6 @@ function markdownFiles(root: string, cwd: string): Array<{ file: string; relPath
   }));
 }
 
-/**
- * Blank out fenced code block content (``` / ~~~), preserving line count so
- * finding line numbers stay correct. Fences carry illustrative examples —
- * scanning them produced false positives on first dogfood, and false
- * positives are what kills trust in a checker.
- *
- * CommonMark close rules matter here: the closer must use the same character,
- * be at least as long as the opener, and carry no info string — otherwise a
- * 4-backtick fence wrapping a 3-backtick example leaks its content.
- */
-function withoutFencedBlocks(lines: string[]): string[] {
-  let fence: { char: string; len: number } | null = null;
-  return lines.map((line) => {
-    const m = /^\s*(`{3,}|~{3,})\s*(.*)$/.exec(line);
-    if (m !== null && m[1] !== undefined) {
-      const marker = m[1];
-      const info = (m[2] ?? '').trim();
-      if (fence === null) {
-        fence = { char: marker[0] ?? '`', len: marker.length };
-      } else if (marker[0] === fence.char && marker.length >= fence.len && info === '') {
-        fence = null;
-      }
-      return '';
-    }
-    return fence === null ? line : '';
-  });
-}
-
 function isCheckableLink(raw: string): boolean {
   if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return false; // http:, https:, mailto:, vscode:, …
   if (raw.startsWith('#') || raw.startsWith('/')) return false;
@@ -764,7 +809,14 @@ function isCheckableLink(raw: string): boolean {
 function readContainedFile(cwd: string, relPath: string): string | null {
   const abs = path.resolve(cwd, relPath);
   if (path.relative(cwd, abs).startsWith('..') || !existsContained(abs, cwd)) return null;
-  return readFileSync(abs, 'utf-8');
+  try {
+    return readFileSync(abs, 'utf-8');
+  } catch {
+    // A path that exists but cannot be read (EISDIR / EACCES / too large) is
+    // reported as absent: every caller already degrades a null to an honest
+    // `{available:false}` skip, whereas a throw here kills the whole check run.
+    return null;
+  }
 }
 
 /** Text line count (matches `wc -l`: a trailing newline does not add a line). */
@@ -790,11 +842,23 @@ function countCalls(content: string, token: RegExp): number {
   return (code.match(new RegExp(token.source, 'g')) ?? []).length;
 }
 
+/** Upper bound on captured git stdout. The default 1 MB silently turned a large
+ *  `git diff HEAD` into an ENOBUFS failure — and a failure the digest then folded
+ *  into a CONSTANT, disabling staleness detection exactly when a change is big.
+ *  Generous enough that a real diff never trips it; bounded so a pathological
+ *  repo cannot exhaust memory unnoticed. */
+const GIT_CAPTURE_MAX_BUFFER = 256 * 1024 * 1024;
+
 /** Run git and capture stdout — null on failure, '' on empty success (the two
  *  must stay distinct: an empty diff is a valid state, a git failure is not). */
 function gitCapture(cwd: string, args: string[]): string | null {
   try {
-    return execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf-8' });
+    return execFileSync('git', args, {
+      cwd,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      maxBuffer: GIT_CAPTURE_MAX_BUFFER,
+    });
   } catch {
     return null;
   }
@@ -811,33 +875,42 @@ function gitLastCommit(cwd: string, paths: string[]): string | null {
  * pre-commit and commit timestamps would all point at the branch base. Hash the
  * working-tree code delta instead: HEAD sha + `git diff HEAD` + untracked
  * contents, covering the WHOLE first-party change (everything `/prospec-review`
- * reviews) via a denylist — excluding only workflow state (`.prospec/`,
- * `prospec-report.json`), generated artifacts (deployed `.claude/` skills,
- * `dist/`), and lockfiles. This fails CLOSED (over-review), never open: an edit
- * to code outside `src/`+`tests/` (e.g. `scripts/`) still flips staleness, while
- * a `--record-review`/status write or an `agent sync` cannot self-trip it.
- * Returns null when not a git repo (honest skip; shallow clones are fine —
- * no history is read, only the working tree).
+ * reviews) via a denylist — excluding only workflow state (`.prospec/`) and
+ * check-written reports, generated artifacts (deployed `.claude/`/`.agents/`
+ * skills, `dist/`), and lockfiles. This fails CLOSED (over-review), never open:
+ * an edit to code outside `src/`+`tests/` (e.g. `scripts/`) still flips
+ * staleness, while a `--record-review`/`--record-tests`/status write, a report
+ * this very command generated, or an `agent sync` cannot self-trip it. Returns
+ * null when not a git repo AND when the diff cannot be captured (honest skip;
+ * shallow clones are fine — no history is read, only the working tree).
+ *
+ * The generated-artifact exclusions are derived from the report filename
+ * constants, so adding a new report cannot silently re-open the self-trip hole.
+ *
+ * Callers pass the result INTO the provenance collectors rather than letting each
+ * compute its own: this is the most expensive collector (a whole-tree `git diff`
+ * plus a hash of every untracked file), the two results can never differ within a
+ * run, and computing it per-collector doubled every `prospec check`.
  */
 export function computeChangeDigest(cwd: string): string | null {
-  try {
-    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
-  } catch {
-    return null;
-  }
+  if (!isGitWorkTree(cwd)) return null;
   const scope = [
     '--',
     '.',
     ':(exclude).prospec',
-    ':(exclude)prospec-report.json',
+    ...DIGEST_EXCLUDED_REPORTS.map((f) => `:(exclude)${f}`),
     ':(exclude).claude',
+    ':(exclude).agents',
     ':(exclude)dist',
     ':(exclude)pnpm-lock.yaml',
     ':(exclude)package-lock.json',
     ':(exclude)yarn.lock',
   ];
   const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
-  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]) ?? '';
+  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
+  // A capture failure (e.g. a diff past gitCapture's buffer) must NOT collapse
+  // into a constant digest — that would silently certify stale code as current.
+  if (diff === null) return null;
   const untracked = (gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]) ?? '')
     .split('\n')
     .filter((l) => l.length > 0)
@@ -863,10 +936,11 @@ export function computeChangeDigest(cwd: string): string | null {
  * no `.prospec/changes/`, or the digest cannot be computed) → the check skips,
  * never a fabricated pass.
  */
-export function collectReviewProvenance(cwd: string): ReviewProvenanceSource {
-  try {
-    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
-  } catch {
+export function collectReviewProvenance(
+  cwd: string,
+  digest: string | null,
+): ReviewProvenanceSource {
+  if (!isGitWorkTree(cwd)) {
     return {
       available: false,
       reason: 'source unavailable: not a git repository',
@@ -883,7 +957,7 @@ export function collectReviewProvenance(cwd: string): ReviewProvenanceSource {
       changes: [],
     };
   }
-  const current_digest = computeChangeDigest(cwd);
+  const current_digest = digest;
   if (current_digest === null) {
     return {
       available: false,
@@ -893,25 +967,226 @@ export function collectReviewProvenance(cwd: string): ReviewProvenanceSource {
     };
   }
   const changes: ReviewProvenanceChange[] = [];
-  for (const name of readdirSync(changesDir).sort()) {
-    const metadataPath = path.join(changesDir, name, 'metadata.yaml');
-    if (!existsSync(metadataPath)) continue;
-    let meta: Record<string, unknown>;
-    try {
-      meta = parseYaml<Record<string, unknown>>(readFileSync(metadataPath, 'utf-8'), metadataPath);
-    } catch {
-      continue; // unparseable metadata — skip this change, never fabricate a finding
-    }
-    const prov = meta.review_provenance as { digest?: unknown } | undefined;
+  for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
+    // unparseable metadata — skip this change, never fabricate a finding
+    if (entry.meta === null) continue;
+    const prov = entry.meta.review_provenance as { digest?: unknown } | undefined;
     changes.push({
-      name,
-      source_path: path.relative(cwd, metadataPath).replace(/\\/g, '/'),
-      status: typeof meta.status === 'string' ? meta.status : '',
-      scale: typeof meta.scale === 'string' ? meta.scale : '',
+      name: entry.name,
+      source_path: entry.source_path,
+      status: readString(entry.meta.status),
+      scale: readString(entry.meta.scale),
       recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
     });
   }
   return { available: true, current_digest, changes };
+}
+
+/**
+ * Collect test-provenance facts for every change in `.prospec/changes/`
+ * (REQ-LIB-033). Sibling of collectReviewProvenance — same whole-tree digest
+ * comparison, reading the baseline `--record-tests` wrote. Unavailable (not a git
+ * repo, no `.prospec/changes/`, or the digest cannot be computed) → the check
+ * skips, never a fabricated pass.
+ */
+export function collectTestProvenance(
+  cwd: string,
+  testCommand: string | null,
+  digest: string | null,
+): TestProvenanceSource {
+  const unavailable = (reason: string): TestProvenanceSource => ({
+    available: false,
+    reason,
+    current_digest: null,
+    changes: [],
+  });
+  // A project with no resolvable test command can never satisfy this check, so
+  // failing it would be a permanent, unfixable gate rather than a signal. No
+  // command means no facts — the honest state is skipped, with the fix named.
+  if (testCommand === null) {
+    return unavailable(
+      'source unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml',
+    );
+  }
+  if (!isGitWorkTree(cwd)) return unavailable('source unavailable: not a git repository');
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  if (!existsSync(changesDir)) {
+    return unavailable(
+      'source unavailable: .prospec/changes/ not found (not version-controlled)',
+    );
+  }
+  const current_digest = digest;
+  if (current_digest === null) {
+    return unavailable('source unavailable: could not compute the current change digest');
+  }
+  const changes: TestProvenanceChange[] = [];
+  for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
+    if (entry.meta === null) continue; // unparseable — metadata-completeness owns that finding
+    const prov = entry.meta.test_provenance as
+      | { digest?: unknown; exit_code?: unknown; command?: unknown }
+      | undefined;
+    changes.push({
+      name: entry.name,
+      source_path: entry.source_path,
+      status: readString(entry.meta.status),
+      scale: readString(entry.meta.scale),
+      recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
+      recorded_exit_code: prov && typeof prov.exit_code === 'number' ? prov.exit_code : null,
+      recorded_command: prov ? readString(prov.command) : '',
+      backfill_draft_present: existsSync(
+        path.join(changesDir, entry.name, 'backfill-draft.md'),
+      ),
+    });
+  }
+  return { available: true, current_digest, changes };
+}
+
+/**
+ * Collect the Constitution's rule inventory (REQ-LIB-032). The parse itself is the
+ * pure `parseConstitutionRules`; this is only the read. Two distinct honest
+ * unavailable reasons — the file is missing, or it declares no principles — because
+ * an empty inventory is no facts, and no facts must never present as a pass.
+ */
+export function collectConstitutionRules(
+  constitutionPath: string,
+  cwd: string,
+): ConstitutionRuleSource {
+  const source_path = path.relative(cwd, constitutionPath).replace(/\\/g, '/');
+  // Read through the canonical contained reader: a `paths.base_dir` escaping the
+  // repo must not turn the report into an out-of-tree file oracle, and an
+  // unreadable path (EISDIR/EACCES/oversized) must degrade to an honest skip
+  // rather than throw out of runChecks and kill every other check.
+  const content = readContainedFile(cwd, source_path);
+  if (content === null) {
+    return {
+      available: false,
+      reason: `source unavailable: ${source_path} not found or not readable inside the repo`,
+      source_path,
+      rules: [],
+    };
+  }
+  const rules = parseConstitutionRules(content);
+  if (rules.length === 0) {
+    return {
+      available: false,
+      reason: `source unavailable: ${source_path} declares no principles`,
+      source_path,
+      rules: [],
+    };
+  }
+  return { available: true, source_path, rules };
+}
+
+/**
+ * Collect the gate ledger across BOTH `.prospec/changes/` and `.prospec/archive/`
+ * (REQ-LIB-034) — the input to escaped-defect aggregation. The archive is
+ * gitignored by design, so its absence is reported rather than treated as an empty
+ * history. Needs no git.
+ */
+export function collectQualityLedger(cwd: string): QualityLedgerSource {
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  const archiveDir = path.resolve(cwd, '.prospec/archive');
+  const archive_available = existsSync(archiveDir);
+  if (!existsSync(changesDir) && !archive_available) {
+    return {
+      available: false,
+      reason: 'source unavailable: neither .prospec/changes/ nor .prospec/archive/ found',
+      archive_available: false,
+      changes: [],
+    };
+  }
+  const changes: QualityLedgerChange[] = [];
+  const ledgers: Array<{ dir: string; ledger: 'changes' | 'archive' }> = [
+    { dir: changesDir, ledger: 'changes' },
+    { dir: archiveDir, ledger: 'archive' },
+  ];
+  for (const { dir, ledger } of ledgers) {
+    if (!existsSync(dir)) continue;
+    for (const entry of enumerateChangeMetadata(dir, cwd)) {
+      if (entry.meta === null) continue; // unparseable — no gate facts to harvest
+      const introduced = entry.meta.introduced_by;
+      const declaredName = readString(entry.meta.name).trim();
+      changes.push({
+        name: declaredName.length > 0 ? declaredName : entry.name,
+        dir: entry.name,
+        ledger,
+        status: readString(entry.meta.status),
+        introduced_by:
+          typeof introduced === 'string' && introduced.trim().length > 0
+            ? introduced.trim()
+            : null,
+        gate_results: readGateResults(entry.meta.quality_log),
+      });
+    }
+  }
+  return { available: true, archive_available, changes };
+}
+
+/** Distil quality_log into `{skill, result}` pairs, dropping malformed entries —
+ *  an aggregate must not invent a gate record it cannot read. */
+function readGateResults(quality_log: unknown): Array<{ skill: string; result: string }> {
+  if (!Array.isArray(quality_log)) return [];
+  const out: Array<{ skill: string; result: string }> = [];
+  for (const entry of quality_log) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const e = entry as { skill?: unknown; result?: unknown };
+    if (typeof e.skill !== 'string' || typeof e.result !== 'string') continue;
+    // A blank skill/result is as malformed as a missing one — and downstream the
+    // escaped-defect schema rejects an empty gate name, so letting it through
+    // would take the whole report down instead of dropping one bad record.
+    if (e.skill.trim().length === 0 || e.result.trim().length === 0) continue;
+    out.push({ skill: e.skill.trim(), result: e.result });
+  }
+  return out;
+}
+
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function isGitWorkTree(cwd: string): boolean {
+  try {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enumerate one change ledger directory, yielding every entry that HAS a
+ * metadata.yaml. `meta` is null when the file is unparseable or not a mapping, so
+ * each caller keeps its own policy for a corrupt record (review-provenance skips
+ * it; metadata-completeness reports it fully incomplete) instead of four
+ * hand-copied enumerations drifting apart (PB-006).
+ */
+function enumerateChangeMetadata(
+  dir: string,
+  cwd: string,
+): Array<{
+  name: string;
+  source_path: string;
+  meta: Record<string, unknown> | null;
+}> {
+  const out: Array<{ name: string; source_path: string; meta: Record<string, unknown> | null }> = [];
+  for (const name of readdirSync(dir).sort()) {
+    const metadataPath = path.join(dir, name, 'metadata.yaml');
+    if (!existsSync(metadataPath)) continue;
+    const source_path = path.relative(cwd, metadataPath).replace(/\\/g, '/');
+    let meta: Record<string, unknown> | null = null;
+    try {
+      const parsed = parseYaml<unknown>(readFileSync(metadataPath, 'utf-8'), metadataPath);
+      // parseYaml returns null (never throws) for empty/blank/comment-only/`null`
+      // content — any non-mapping result is reported as null, same as a parse error.
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        meta = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // unparseable metadata — reported as null for the caller to decide
+    }
+    out.push({ name, source_path, meta });
+  }
+  return out;
 }
 
 /**
@@ -932,22 +1207,9 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
     };
   }
   const changes: MetadataCompletenessChange[] = [];
-  for (const name of readdirSync(changesDir).sort()) {
-    const metadataPath = path.join(changesDir, name, 'metadata.yaml');
-    if (!existsSync(metadataPath)) continue;
-    const source_path = path.relative(cwd, metadataPath).replace(/\\/g, '/');
-    let meta: Record<string, unknown> | null = null;
-    try {
-      const parsed = parseYaml<unknown>(readFileSync(metadataPath, 'utf-8'), metadataPath);
-      // parseYaml returns null (never throws) for empty/blank/comment-only/`null`
-      // content — treat any non-mapping result as the worst incompleteness, same
-      // as a thrown parse error, rather than dereferencing null below.
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        meta = parsed as Record<string, unknown>;
-      }
-    } catch {
-      // unparseable metadata — fall through to the fully-incomplete report
-    }
+  for (const { name, source_path, meta } of enumerateChangeMetadata(changesDir, cwd)) {
+    // unparseable or non-mapping metadata is the worst incompleteness, not a skip —
+    // a corrupt file must not slip through.
     if (meta === null) {
       changes.push({
         name,
@@ -962,7 +1224,7 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
       const v = meta[f];
       return typeof v !== 'string' ? true : v.trim().length === 0;
     });
-    const status = typeof meta.status === 'string' ? meta.status : '';
+    const status = readString(meta.status);
     changes.push({
       name,
       source_path,
