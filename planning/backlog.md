@@ -8,9 +8,9 @@
 >
 > **保留而非刪除的理由**：全檔 67 個項目（BL 27 + OPT 等，僅 2 項未結）各自帶著判決理由——為什麼做、為什麼 CUT、為什麼降級重塑、併入哪一項。這是防止重複提案的唯一記錄（例：`analysis-graph-engineering-2026-07.md` 靠本檔的 BL-027/028 降級判決，避免順著 2026-07 的 graph engineering 熱度把並行 orchestration 推回 P0）。內容原封保留，不再增修。
 >
-> **凍結時仍未結的承接項**（尚待移交 GitHub issue）：
-> - [OPT-A5](#opt-a5brownfield-module-偵測精度) Brownfield Module 偵測精度
-> - [OPT-D9](#opt-d9few-shot-examples) Few-Shot Examples（icebox）
+> **凍結時仍未結的承接項**（已移交 GitHub issue，本檔不再追蹤其狀態）：
+> - [OPT-A5](#opt-a5brownfield-module-偵測精度) Brownfield Module 偵測精度 → [#92](https://github.com/benwu95/prospec/issues/92)
+> - [OPT-D9](#opt-d9few-shot-examples) Few-Shot Examples（icebox）→ [#93](https://github.com/benwu95/prospec/issues/93)
 >
 > **三層分工**：GitHub issues ＝ 意圖佇列（做什麼、優先序、討論）｜`planning/*.md` ＝ 設計論證語料（為什麼這樣做、判決理由）｜`.prospec/changes/` + `prospec/specs/_archived-history/` ＝ 執行紀錄（做了什麼、怎麼驗的）。佇列可以外放到 GitHub，論證必須留在 repo——後者是「Git-tracked、agent-agnostic、可審閱」定位的一部分。
 

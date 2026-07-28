@@ -150,12 +150,12 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 
 排序準則：前置依賴 → 風險成本 → 對 G1–G6 的推進幅度。
 
-### Step 0 — 修正 Skill 職責矩陣的「驗證/審計」列（零程式碼）
+### Step 0 — 修正 Skill 職責矩陣的「驗證/審計」列（✅ 已由本文件完成，無 issue）
 
-- **做什麼**：把該列拆成「有機械 oracle 的核對 → CLI」與「需理解力的判斷 → Skill」兩列，並在說明欄註記 BL-030 已是前者的實例。
+- **做什麼**：把該列的單一分類拆成「有機械 oracle 的核對 → CLI」與「需理解力的判斷 → Skill」，並以 BL-030 交付的 `prospec check` 作為前者的既成事實。
 - **為什麼先做**：Step 2/3/4 都會把原本歸 Skill 的工作下放 CLI，不先修正原則，後續每一步都會與既有設計原則衝突並反覆爭論。
-- **依賴**：無 ｜ **風險**：無 ｜ **驗收**：`backlog.md` 矩陣更新，且能引用 `prospec check` 作為既成事實
-- **G**：治理前置
+- **記錄在哪**：**本文件 §2.3**。`planning/backlog.md` 已於 2026-07-28 凍結（內容原封保留、不再增修），因此**不回頭改那張矩陣**——矩陣留在凍結檔中作為當時的判斷，更正以本文件為準。
+- **依賴**：無 ｜ **風險**：無 ｜ **G**：治理前置
 
 ### Step 1 — state contract 執行期強制（低風險、防禦性）
 
@@ -163,7 +163,7 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 - **為什麼排第二**：Step 2 與 Step 3 都要讀 metadata 作為事實來源，先把地基硬化。成本最低、無 UX 變化。
 - **依賴**：無 ｜ **風險**：低（需保留 lossless 寫回，避免剝掉未知欄位）
 - **驗收**：損壞的 `status`／`quality_log`／`review_provenance` 在讀取點即報錯並指名欄位；既有 archived change 全數通過驗證
-- **G**：G1、G5 ｜ **建議 BL-046**
+- **G**：G1、G5 ｜ **issue [#94](https://github.com/benwu95/prospec/issues/94)**
 
 ### Step 2 — verify 維度分流（最高價值，也最難）
 
@@ -172,7 +172,7 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 - **依賴**：Step 0（歸屬原則）、Step 1（metadata 可信）
 - **風險**：**高**——動到 grade 定義與 status 轉換守門邏輯，須走完整 SDD 流程（story→plan→tasks→implement→review→verify）
 - **驗收**：V1/V4/V5 的判定可在無 LLM 下重現；同一 change 重跑 verify 兩次，機械維度結果完全一致；escaped-defect 報表可對既有 archived change 回溯產出
-- **G**：G1、G5、G6 ｜ **建議 BL-047**
+- **G**：G1、G5、G6 ｜ **issue [#96](https://github.com/benwu95/prospec/issues/96)**
 
 ### Step 3 — routing as code（`prospec status` / `prospec next`）
 
@@ -181,7 +181,7 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 - **依賴**：Step 1（router 讀 metadata）
 - **風險**：中（`_status-lifecycle.md` 的 backfill 入口與「無 status 轉換的站」需完整編碼，不能只看 status）
 - **驗收**：對每個既有 archived change 回溯，router 算出的站序與 `_status-lifecycle.md` 完全一致；`CLAUDE.md` Session Start 段落淨減
-- **G**：G4、G1 ｜ **建議 BL-048**
+- **G**：G4、G1 ｜ **issue [#97](https://github.com/benwu95/prospec/issues/97)**
 
 ### Step 4 — archive 入口歸位（先釐清再動手）
 
@@ -189,14 +189,14 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 - **依賴**：Step 0（歸屬原則）、Step 1（metadata 契約）
 - **風險**：中（archive 是唯一的 feature spec 寫入者，且 `syncFeatureMap` 是唯一寫入點，回歸代價高）
 - **驗收**：對既有 archived change 以 `--dry-run` 重放，輸出與實際歷史一致
-- **G**：G2 ｜ **建議 BL-049**
+- **G**：G2 ｜ **issue [#98](https://github.com/benwu95/prospec/issues/98)**
 
 ### Step 5 — harness capability matrix（選配、低成本）
 
 - **做什麼**：把逐站散文降級收斂成宣告式旗標（`can_spawn_subagent`／`can_worktree`／`can_background`），由 `agent-sync` 偵測並注入，各 skill 讀旗標而非各自寫散文。沿用既有 per-agent registry 旗標機制。
 - **依賴**：無（但排在後面因為價值低於前四步）
 - **驗收**：`/prospec-review` 的 Harness Degradation 段落改為讀旗標；新增第二個消費者（例如 verify 的 fresh-context 要求）驗證機制可複用
-- **G**：G1 ｜ **建議 BL-050**
+- **G**：G1 ｜ **issue [#95](https://github.com/benwu95/prospec/issues/95)**
 
 ### BUILD-LATER — work graph 依賴邊（BL-027 殘值）
 
@@ -220,7 +220,13 @@ Bouchard 的切點值得記錄：普通 pipeline 的 step 遵守固定規則，a
 - **延續**：`future-directions-2026-h2.md` 洞察 2（Prospec 是層不是 harness）、方向 4（verify → 連續 drift）。
 - **修正**：`backlog.md` Skill 職責矩陣「驗證/審計」列（Step 0）。
 - **維持**：`backlog-evaluation-2026-06-07.md` 對 BL-027/028 的降級判決；`design-parallel-orchestration.md` 整份維持 BUILD-LATER 參考狀態，不重啟。
-- **新增建議**：BL-046（state contract 強制）、BL-047（verify 維度分流 + escaped-defect 聚合）、BL-048（routing as code）、BL-049（archive 入口歸位）、BL-050（harness capability matrix）。
+- **已開立 issue**（2026-07-28，`planning/backlog.md` 凍結後不再配發 BL 編號）：
+  - [#94](https://github.com/benwu95/prospec/issues/94) metadata.yaml 執行期強制 schema（Step 1）
+  - [#96](https://github.com/benwu95/prospec/issues/96) verify 維度分流 + escaped-defect 聚合（Step 2，依賴 #94）
+  - [#97](https://github.com/benwu95/prospec/issues/97) routing as code（Step 3，依賴 #94）
+  - [#98](https://github.com/benwu95/prospec/issues/98) archive 入口歸位（Step 4，依賴 #94）
+  - [#95](https://github.com/benwu95/prospec/issues/95) harness capability matrix（Step 5）
+  - Step 0 無 issue——更正已記於本文件 §2.3。
 
 ### 差異化立論（供對外敘事使用）
 
