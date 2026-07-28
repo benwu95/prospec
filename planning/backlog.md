@@ -1,8 +1,23 @@
 # Prospec Backlog 規格書
 
+> ## 🧊 已凍結（2026-07-28）
+>
+> **本文件不再作為待辦佇列維護。新項目一律開 GitHub issue。**
+>
+> 凍結的事實依據：`planning/` 最後一次變動是 2026-06-22（`cc34fd9`），其後所有工作（issues #57–#67）皆走 GitHub issue + PR。遷移事實上已完成，本次只是承認它。
+>
+> **保留而非刪除的理由**：全檔 67 個項目（BL 27 + OPT 等，僅 2 項未結）各自帶著判決理由——為什麼做、為什麼 CUT、為什麼降級重塑、併入哪一項。這是防止重複提案的唯一記錄（例：`analysis-graph-engineering-2026-07.md` 靠本檔的 BL-027/028 降級判決，避免順著 2026-07 的 graph engineering 熱度把並行 orchestration 推回 P0）。內容原封保留，不再增修。
+>
+> **凍結時仍未結的承接項**（尚待移交 GitHub issue）：
+> - [OPT-A5](#opt-a5brownfield-module-偵測精度) Brownfield Module 偵測精度
+> - [OPT-D9](#opt-d9few-shot-examples) Few-Shot Examples（icebox）
+>
+> **三層分工**：GitHub issues ＝ 意圖佇列（做什麼、優先序、討論）｜`planning/*.md` ＝ 設計論證語料（為什麼這樣做、判決理由）｜`.prospec/changes/` + `prospec/specs/_archived-history/` ＝ 執行紀錄（做了什麼、怎麼驗的）。佇列可以外放到 GitHub，論證必須留在 repo——後者是「Git-tracked、agent-agnostic、可審閱」定位的一部分。
+
 > Skills-First 設計：所有未來功能以 Skill 為核心載體，CLI 僅處理檔案系統操作
 >
-> 本文件供 `/prospec-new-story` 引用，每個 Backlog Item 可直接轉為 change story
+> ~~本文件供 `/prospec-new-story` 引用，每個 Backlog Item 可直接轉為 change story~~
+> **【2026-07-28 更正】** 此聲明已過時：全 repo 沒有任何 skill template 或原始碼引用 `planning/backlog.md`，凍結無技術依賴。
 
 ---
 
@@ -148,7 +163,7 @@
 - [x] [BL-044](#bl-044) `prospec init` 覆寫破口修復 + `prospec upgrade`（CLI+skill）升級路徑 — 修「刪 `.prospec.yaml` 重跑 quickstart 清空 trust-zone（CONSTITUTION/_conventions/_index）」資料遺失 bug（P0，可獨立先上），並補 CLI 版本升級／新 skill 觸發詞再本地化／curated 格式遷移的缺失升級路徑（P1+P2）；發現於 dogfood `/prospec-quickstart` 重跑（G1/G5）✅ 已完成（2026-06-22 `fix-init-clobber-add-upgrade`，Grade A）· P1
 
 ### 殘留指令清理（2026-06-22）
-- [ ] [BL-045](#bl-045) 移除 deprecated `prospec steering` 指令與其專屬程式碼 — steering 已被 `prospec knowledge init` 取代、live 路徑無人 import，屬殘留死碼；移除 command+service+formatter+architecture.md.hbs，退役 project-setup REQ-SETUP-008/009/010（接受 architecture.md 生成與 .prospec.yaml 回寫兩能力永久消失），同步 specs/knowledge、提示字串改指 `knowledge init`（G3/G4）· P2
+- [x] [BL-045](#bl-045) 移除 deprecated `prospec steering` 指令與其專屬程式碼 — steering 已被 `prospec knowledge init` 取代、live 路徑無人 import，屬殘留死碼；移除 command+service+formatter+architecture.md.hbs，退役 project-setup REQ-SETUP-008/009/010（接受 architecture.md 生成與 .prospec.yaml 回寫兩能力永久消失），同步 specs/knowledge、提示字串改指 `knowledge init`（G3/G4）✅ 已完成（2026-06-22 `remove-deprecated-steering-command`，commit `cc34fd9`）· P2
 
 ### 即時優化（OPT，不需 BL — 修改現有 Skill 即可）
 > entry 見下方「## 即時優化」段。**【2026-06-13 對抗式稽核】** 全 20 項對照部署 skills／`src/`／tests／reference／`.prospec/archive/`／git log 複查（workflow `opt-audit`，每項 verify→對抗式 challenge），修正 backlog 高估。obsolete 不再實作；remaining 依文末「OPT remaining 優先序」推進。
@@ -186,6 +201,8 @@
 ## 實作狀態總覽
 
 > **2026-06-13 證據驗證快照**（更新自 2026-06-08）。對照部署 skills、`src/`、tests、reference 格式、`.prospec/archive/`、git log。判定原則：證據優先，無證據即判未完成。
+>
+> **【2026-07-28 凍結時補記】** 本節是**帶日期的快照**，刻意不追平後續進度——BL-039～045 於快照後陸續完成，各項最終狀態以「## 目錄」為準。
 
 ### ✅ 已完成（DONE）
 
@@ -2698,7 +2715,9 @@ Constitution 目前是自由文字；OPT-B1 指出實務上常空白。2026 Cons
 
 **移除 deprecated `prospec steering` 指令與其專屬程式碼**
 
-> **待處理（2026-06-22 提出，change name `remove-deprecated-steering-command`，scale 預估 standard）**：決議走 SDD change 流程移除，並**接受兩個能力永久消失**（見下），於退役 REQ 明文記錄為刻意捨棄。
+> **✅ 已完成（2026-06-22 `remove-deprecated-steering-command`，commit `cc34fd9`）**：走完 SDD 全流程並歸檔（`prospec/specs/_archived-history/2026-06-22-remove-deprecated-steering-command.md`）。證據：`src/cli/commands/steering.ts` + `src/cli/formatters/steering-output.ts` 已刪除、`src/cli/index.ts` 解註冊、`src/` 全域 grep `steering` 為零。**【2026-07-28 凍結時補標】** 原判決當時未回標，本次依證據更正。
+
+> **〔原判決，保留追溯〕待處理（2026-06-22 提出，scale 預估 standard）**：決議走 SDD change 流程移除，並**接受兩個能力永久消失**（見下），於退役 REQ 明文記錄為刻意捨棄。
 
 > **2026-06-22 影響範圍依據**：對抗式 workflow（7 平行 mapper + max-effort completeness critic，`steering-removal-impact`）盤點全倉 48 個 tracked 檔，逐一 grep+read 分類並由 critic 對賬；四個關鍵論點（能力損失、目錄刪除陷阱、REQ 退役無 dangling reference、漏網 GAP 檔）已由主程式獨立複驗。
 
@@ -3395,6 +3414,8 @@ quality_metrics:
 ---
 
 ## 如何使用此 Backlog
+
+> **【2026-07-28 凍結】** 下述用法已停用——本文件不再是待辦來源。新項目開 GitHub issue，再由 issue 內容作為 `/prospec-new-story` 的輸入；SDD 流程本身不變。以下保留為歷史記錄。
 
 每個 BL 項目可直接作為 `/prospec-new-story` 的輸入：
 
