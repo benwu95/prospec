@@ -19,6 +19,7 @@ import { registerConfigCommand } from './commands/config.js';
 import { registerChangeCommand } from './commands/change-story.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
+import { registerStatusCommand } from './commands/status.js';
 import { registerMeasureCommand } from './commands/measure.js';
 import { registerCheckCommand } from './commands/check.js';
 import { registerMcpCommand } from './commands/mcp.js';
@@ -93,6 +94,7 @@ export function createProgram(): Command {
   registerChangeCommand(program);
   registerChangePlanCommand(program);
   registerChangeTasksCommand(program);
+  registerStatusCommand(program);
   registerMeasureCommand(program);
   registerCheckCommand(program);
   registerMcpCommand(program);

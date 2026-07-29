@@ -65,6 +65,10 @@ vi.mock('../../../src/cli/commands/change-tasks.js', () => ({
   registerChangeTasksCommand: (program: Command) =>
     program.command('tasks').action(() => undefined),
 }));
+vi.mock('../../../src/cli/commands/status.js', () => ({
+  registerStatusCommand: (program: Command) =>
+    program.command('status').action(() => undefined),
+}));
 vi.mock('../../../src/cli/commands/measure.js', () => ({
   registerMeasureCommand: (program: Command) =>
     program.command('measure').action(() => undefined),
@@ -139,6 +143,7 @@ describe('createProgram', () => {
         'plan',
         'print-template',
         'quickstart',
+        'status',
         'tasks',
         'upgrade',
       ].sort(),

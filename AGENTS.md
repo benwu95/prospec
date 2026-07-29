@@ -149,12 +149,10 @@ Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs
 
 ## Session Start
 
-At the start of a session, scan `.prospec/changes/` for in-progress changes (each change's
-`metadata.yaml` `status` ≠ `archived`). If any exist, surface each change's name, status, and the
-suggested next step in the SDD workflow order (`story → plan → tasks → implement → review → verify →
-archive`, then periodic `learn`) — review and learn own no status transition, so follow this order,
-not status alone; cross-check `prospec/ai-knowledge/_status-lifecycle.md`. This resumes work at the
-right point instead of starting blind.
+At the start of a session, run `prospec status` — it deterministically reports each in-progress
+change's name, current node, suggested next step, and blocking gates (the executable copy of
+`prospec/ai-knowledge/_status-lifecycle.md`). If the CLI is unavailable, fall back to scanning
+`.prospec/changes/` manually per that file.
 
 ## Working with This Project
 

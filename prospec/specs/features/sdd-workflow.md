@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-28
-story_count: 27
-req_count: 128
+last_updated: 2026-07-29
+story_count: 28
+req_count: 133
 ---
 
 # SDD Workflow
@@ -800,7 +800,7 @@ so that the flow is continuous and does not go wrong or redo work due to a sessi
 **Acceptance Scenarios:**
 - WHEN plan/tasks/implement/review/verify/archive finishes THEN suggest the next step per the SDD workflow order (review/learn have no status node, so it is by order, not by status alone) + ask "Run <next-step> now? (Y/n)"; Y→agent triggers, n→stay; never silently auto-run
 - WHEN the phase is terminal (archived) THEN point to periodic `/prospec-learn`; if grade B/C/D does not advance, point to the fix step rather than the next skill
-- WHEN a new session starts and a change with status≠archived exists THEN the entry config surfaces its name, status, and continuation step
+- WHEN a new session starts and a change with status≠archived exists THEN the entry config directs running `prospec status`, which surfaces its name, current node, and continuation step
 
 ### Behavior Specifications
 
@@ -809,8 +809,8 @@ plan/tasks/implement/review/verify/archive end with a Next-Step Handoff per the 
 - WHEN rendered, THEN the six skills contain `Next-Step Handoff` + `(Y/n)` + `_status-lifecycle.md` (contract assertion)
 
 #### REQ-TEMPLATES-099: New-Session In-Progress Change Detection
-The agent entry config detects `.prospec/changes/` changes with status≠archived at session startup and surfaces the continuation step (per workflow order).
-- WHEN rendered, THEN the entry config contains `Session Start` + `.prospec/changes/` detection
+The agent entry config's Session Start instructs running `prospec status` — the deterministic router reports each in-flight change's name, current node, suggested next step, and blocking gates — instead of prose scanning-and-derivation rules; a one-line fallback keeps manual `.prospec/changes/` scanning per `_status-lifecycle.md` for CLI-less environments.
+- WHEN rendered, THEN the entry config Session Start contains the `prospec status` pointer (plus the fallback) and no longer contains the prose station-order derivation (contract-pinned positively and negatively)
 
 ## US-20: implement progress anchoring [P3]
 
@@ -1057,6 +1057,56 @@ Pin the contract against both the failures it must catch and the shapes it must 
 
 ---
 
+## US-28: Deterministic SDD Station Routing [P1]
+
+As an AI agent working a prospec project (resuming work at session start),
+I want a `prospec status` command that computes each in-flight change's current node, next station, blocking gates, and reasons from `.prospec/changes/` metadata,
+So that station-order derivation is testable deterministic code instead of per-session LLM interpretation of prose.
+
+**Acceptance Scenarios:**
+- WHEN a change is at `status: plan` THEN report current node plan and next station `/prospec-tasks`, with the reason citing the lifecycle edge
+- WHEN `scale: quick` at `status: story` THEN next is `/prospec-tasks` (the legal skip) — `/prospec-plan` is never suggested
+- WHEN `scale: backfill` at `status: implemented` THEN it is judged a legal lifecycle entry (not a skipped station) and routed onward per the review → verify order
+- WHEN `status: implemented` THEN review is suggested before verify by workflow order (review owns no status transition; done-ness is read from `review_provenance`)
+- WHEN proposal.md declares `ui_scope` full/partial at `status: plan` with no design-spec.md THEN `/prospec-design` is inserted between plan and tasks — never under `scale: quick` (router ruling, recorded in `_status-lifecycle.md`)
+- WHEN no non-archived change exists THEN report the clean state
+
+### Behavior Specifications
+
+#### REQ-TYPES-070: Station-Routing Contract and Canonical Order
+The types layer defines the SDD station order — including the workflow rank of the no-status-transition design/review stations — and the `ChangeRouteFacts`/`ChangeRoute`/`StatusReport` report contract (current node, next station, blocking gates, reasons, per-change error entries). Implemented as `ChangeRoute` + `ChangeRouteError` (the delta-spec's `ChangeRouteEntry` expressiveness, split into routed/error shapes).
+- WHEN the station order is read, THEN `SDD_STATIONS` matches `_status-lifecycle.md`'s `story → plan → tasks → implement → review → verify → archive` (periodic learn excluded from the linear order)
+- WHEN a change cannot be routed, THEN the contract expresses it as a named error entry, never a dropped record
+- WHEN the change schema is consulted, THEN `CHANGE_STATUSES`/`CHANGE_SCALES` are unchanged — routing adds no status value
+
+#### REQ-LIB-035: Pure Route Evaluator
+`lib/status-router.ts` exposes the I/O-free `routeChange(facts)` — the executable copy of `_status-lifecycle.md`: six-state order, the `scale: quick` story→tasks legal skip, the `scale: backfill` `implemented` entry (absent plan/tasks are its normal state), the design station insertion (`ui_scope` full/partial between plan and tasks, never under quick), review done-ness via `review_provenance`, verify B/C/D stay reasons, and the archive Knowledge-sync gate declaration.
+- WHEN the full status × scale matrix runs, THEN every computed station matches `_status-lifecycle.md` (fixture-pinned; retro-validated 46/46 against the local archive at verification)
+- WHEN `scale: quick` at `story`, THEN next is tasks and plan.md is never gated on; WHEN `scale: backfill` at `implemented`, THEN it is a legal entry, not a skip
+- WHEN `status: implemented` without `review_provenance`, THEN next is review (by workflow order, not status); with it, next is verify
+- WHEN the function runs, THEN it performs no I/O (drift-checker evaluator precedent)
+
+#### REQ-SERVICES-070: Status Service (Scan + Facts + Tolerance)
+`status.service.ts` `execute()` scans non-archived changes in `.prospec/changes/`, reads each metadata through the schema-enforced `lib/change-metadata`, collects routing facts (artifact existence, `lib/task-markers` code-task completion, proposal `ui_scope`, provenance/quality_log), and routes via the pure evaluator. Read-only.
+- WHEN metadata is missing or fails the schema, THEN that change yields a named error entry and the rest still route (never a crash, never a silent skip)
+- WHEN `.prospec/changes/` is absent or holds no non-archived change, THEN the clean state is reported
+- WHEN multiple changes are in flight, THEN each is reported with its own current/next/gates/reasons
+- WHEN the service runs, THEN it writes nothing (byte-identical filesystem, test-pinned)
+
+#### REQ-CLI-023: prospec status Command and Formatter
+`commands/status.ts` (`registerStatusCommand`) + `formatters/status-output.ts`, registered in `index.ts`; thin delegation to the service, stdout for results, stderr via `handleError`, repo-derived strings through `sanitizeTerminal`.
+- WHEN `prospec status` runs, THEN each in-flight change prints name, current node, next station, blocking gates, and reasons
+- WHEN output renders, THEN free-form strings pass `sanitizeTerminal`; errors route to stderr
+- WHEN the real CLI is exercised end-to-end, THEN the clean-state and in-flight scenarios pass
+
+#### REQ-TESTS-058: Routing Test Matrix and Contract Updates
+Unit (router full status × scale matrix, service memfs tolerance, formatter), contract (entry-config positive/negative Session Start assertions, dual-copy lifecycle markers), e2e (`prospec status`); the archive back-run is one-off verify evidence, with committed fixtures carrying the per-station pins.
+- WHEN the router matrix runs, THEN six statuses, the quick skip, the backfill entry, B/C/D stays, and design/review placement are all covered
+- WHEN service tests run, THEN invalid metadata, missing metadata, unparseable YAML, empty dir, and multi-change scenarios are covered
+- WHEN contract assertions run, THEN they are section-scoped and mutation-verified (bundled templates are the render source — mutations must target the bundle)
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -1116,3 +1166,4 @@ Pin the contract against both the failures it must catch and the shapes it must 
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-28 | enforce-metadata-schema | metadata.yaml enforced as a runtime contract at the four stations that cast it unchecked; single validated read/write helper; bare module names with one shared stripper; dimension vocabulary widened to `not-applicable`; loose-at-every-level schema plus a strict build view | US-27; REQ-TYPES-064, REQ-LIB-031, REQ-SERVICES-067, REQ-TESTS-055 (ADDED); REQ-CHNG-003 (MODIFIED) |
 | 2026-07-28 | split-verify-adjudication | ADDED REQ-TYPES-066, REQ-TEMPLATES-153/154/155/156/157, REQ-TESTS-057 (verify dimensions split between engine adjudication and fresh-context judgment); MODIFIED US-5 acceptance scenarios, REQ-TEMPLATES-034/045/063/145 (machine verdicts adopted verbatim, severities from the machine inventory, adjudicator recorded), REQ-TYPES-022 + REQ-TESTS-022 (dimension vocabulary) (issue #96) | US-5, US-12, REQ-TYPES-066, REQ-TEMPLATES-153, REQ-TEMPLATES-154, REQ-TEMPLATES-155, REQ-TEMPLATES-156, REQ-TEMPLATES-157, REQ-TESTS-057, REQ-TYPES-022, REQ-TEMPLATES-034, REQ-TEMPLATES-045, REQ-TEMPLATES-063, REQ-TEMPLATES-145, REQ-TESTS-022 |
+| 2026-07-29 | add-status-router | Routing as code: read-only `prospec status` computes each in-flight change's current node / next station / blocking gates / reasons — the executable copy of `_status-lifecycle.md` (quick skip, backfill entry, no-status design/review placement, B/C/D stays); entry-config Session Start points at the command (net L0 reduction); MODIFIED REQ-TEMPLATES-099 + US-19 scenario (prose derivation → command); REQ-TEMPLATES-158 graduates in agent-integration (issue #97) | US-28; REQ-TYPES-070, REQ-LIB-035, REQ-SERVICES-070, REQ-CLI-023, REQ-TESTS-058 (ADDED); REQ-TEMPLATES-099 (MODIFIED) |

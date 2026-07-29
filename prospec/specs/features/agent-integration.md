@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-07-25
-story_count: 18
-req_count: 75
+last_updated: 2026-07-29
+story_count: 19
+req_count: 76
 ---
 
 # Agent Integration
@@ -680,6 +680,25 @@ so that I never have to choose which of two contradictory documents to obey.
 
 ---
 
+### US-441: Session Start Routing as Code [P1]
+
+As a prospec user's AI agent starting a session,
+I want the entry config's Session Start section to point at `prospec status` instead of prose scanning-and-derivation rules,
+so that resident L0 tokens shrink and station-order derivation happens in tested, deterministic code.
+
+**Acceptance Scenarios:**
+- WHEN agent sync regenerates the entry config THEN Session Start instructs running `prospec status`, keeps a one-line CLI-unavailable fallback (manual scan per `_status-lifecycle.md`), and carries no station-order derivation prose
+- WHEN the section is compared before/after THEN it is a net token reduction (measured 545→330 chars)
+- WHEN the agent runs the command THEN the output covers everything the old prose asked for (change name, current node, suggested next step, reasons)
+
+#### REQ-TEMPLATES-158: Entry Config Session Start Points at prospec status
+`agent-configs/entry.md.hbs`'s Session Start instructs running `prospec status` (with a one-line `_status-lifecycle.md` fallback for CLI-less environments) and drops the scanning/derivation prose; both status-lifecycle copies (`init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md`) carry an identical executable-copy pointer line.
+- WHEN CLAUDE.md/AGENTS.md are generated, THEN Session Start contains the `prospec status` pointer and no derivation prose (contract-pinned positively and negatively, mutation-verified against the bundle)
+- WHEN the section is measured against the prose version, THEN net token reduction
+- WHEN either lifecycle copy is edited, THEN both carry the same pointer wording (dual-copy sync marker, contract-asserted)
+
+---
+
 ## Deprecated Requirements
 
 #### ~~Gemini CLI Target~~
@@ -720,3 +739,4 @@ so that I never have to choose which of two contradictory documents to obey.
 | 2026-07-12 | converge-skill-triggers | 8 skill trigger baselines converged to prospec-specific/collision-free/≥3 (removed bare generic terms, added plan's 3rd word) + .prospec.yaml Chinese mirror; ≥3 intent machine-enforced | US-411; REQ-TESTS-053 (ADDED); REQ-AGNT-033 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-25 | align-language-policy-scope | Entry config renders the shared LanguageScope (both render sites); prospec-upgrade gains the consent-gated seeded-wording migration; the language-policy partial goes path-scoped | US-440 (ADDED); REQ-TEMPLATES-151/152 (ADDED); REQ-AGNT-020, REQ-TEMPLATES-121, REQ-SKILL-012 (MODIFIED) |
+| 2026-07-29 | add-status-router | Session Start routes as code: the entry config points at read-only `prospec status` (net L0 reduction, CLI-unavailable fallback); both status-lifecycle copies carry the executable-copy pointer; the prose derivation's REQ-TEMPLATES-099 is MODIFIED in sdd-workflow (issue #97) | US-441; REQ-TEMPLATES-158 (ADDED) |

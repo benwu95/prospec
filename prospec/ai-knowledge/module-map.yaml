@@ -75,6 +75,7 @@ modules:
       - feature-map
       - manifest-parsers
       - category
+      - status-router
     relationships:
       depends_on:
         - types
@@ -118,6 +119,7 @@ modules:
       - check
       - mcp
       - serve
+      - status
     relationships:
       depends_on:
         - types

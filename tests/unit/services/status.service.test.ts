@@ -1,0 +1,239 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { vol } from 'memfs';
+import { execute } from '../../../src/services/status.service.js';
+
+vi.mock('node:fs', async () => {
+  const memfs = await import('memfs');
+  return { ...memfs.fs, default: memfs.fs };
+});
+
+beforeEach(() => {
+  vol.reset();
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+const CWD = '/project';
+
+function metadataYaml(fields: { name: string; status: string; scale?: string; extra?: string }): string {
+  return (
+    `name: ${fields.name}\n` +
+    `created_at: 2026-01-01T00:00:00.000Z\n` +
+    `status: ${fields.status}\n` +
+    (fields.scale === undefined ? '' : `scale: ${fields.scale}\n`) +
+    (fields.extra ?? '')
+  );
+}
+
+describe('status.service — clean states', () => {
+  it('reports clean when .prospec/changes/ does not exist', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\n' });
+    const report = await execute({ cwd: CWD });
+    expect(report.clean).toBe(true);
+    expect(report.changes).toEqual([]);
+    expect(report.errors).toEqual([]);
+  });
+
+  it('reports clean when the changes directory is empty', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec/changes/.gitkeep`]: '' });
+    const report = await execute({ cwd: CWD });
+    expect(report.clean).toBe(true);
+  });
+
+  it('excludes archived changes — archived-only is clean', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/old-change/metadata.yaml`]: metadataYaml({
+        name: 'old-change',
+        status: 'archived',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.clean).toBe(true);
+    expect(report.changes).toEqual([]);
+  });
+});
+
+describe('status.service — routing in-flight changes', () => {
+  it('routes a standard change at plan to tasks', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.clean).toBe(false);
+    expect(report.changes).toHaveLength(1);
+    expect(report.changes[0]).toMatchObject({
+      name: 'add-auth',
+      status: 'plan',
+      scale: 'standard', // absent scale resolves to standard
+      current: 'plan',
+      next: 'tasks',
+    });
+  });
+
+  it('routes multiple in-flight changes, sorted by name', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/b-change/metadata.yaml`]: metadataYaml({
+        name: 'b-change',
+        status: 'story',
+        scale: 'quick',
+      }),
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes.map((c) => c.name)).toEqual(['a-change', 'b-change']);
+    expect(report.changes[0]?.next).toBe('archive');
+    expect(report.changes[1]?.next).toBe('tasks'); // quick legal skip
+  });
+
+  it('counts only code tasks for the implement gate ([M]/[V] excluded)', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+      }),
+      [`${CWD}/.prospec/changes/add-auth/tasks.md`]: [
+        '- [x] T1 code task done',
+        '- [ ] T2 code task pending',
+        '- [ ] T3 [M] manual task never counted',
+        '- [x] T4 [V] verification task never counted',
+        'not a task line',
+      ].join('\n'),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.blockingGates.join(' ')).toContain('1/2');
+  });
+
+  it('inserts the design station when proposal.md declares ui_scope full at plan', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-ui/metadata.yaml`]: metadataYaml({
+        name: 'add-ui',
+        status: 'plan',
+      }),
+      [`${CWD}/.prospec/changes/add-ui/proposal.md`]:
+        '# Proposal\n\n## UI Scope\n\n**Scope:** full\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('design');
+  });
+
+  it('treats the unfilled proposal-format placeholder as no declared ui_scope', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-y/metadata.yaml`]: metadataYaml({
+        name: 'add-y',
+        status: 'plan',
+      }),
+      // The literal placeholder snippet from the proposal-format reference —
+      // no value was chosen, so design must NOT engage.
+      [`${CWD}/.prospec/changes/add-y/proposal.md`]:
+        '# Proposal\n\n## UI Scope\n\n**Scope:** full | partial | none\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  it('does not read a Scope line outside the UI Scope section', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-x/metadata.yaml`]: metadataYaml({
+        name: 'add-x',
+        status: 'plan',
+      }),
+      [`${CWD}/.prospec/changes/add-x/proposal.md`]:
+        '# Proposal\n\n## UI Scope\n\nnothing declared here\n\n## Notes\n\n**Scope:** full\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  it('routes implemented → verify when review_provenance exists, with the last verify grade', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'implemented',
+        extra:
+          'review_provenance:\n  digest: abc123\n  date: 2026-01-02\n' +
+          'quality_log:\n' +
+          '  - skill: prospec-verify\n    date: 2026-01-02\n    result: WARN\n    warnings: []\n    grade: B\n',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('verify');
+    expect(report.changes[0]?.reasons.join(' ')).toContain('grade B did not advance');
+  });
+
+  it('routes a backfill change at implemented as a legal entry', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/doc-legacy/metadata.yaml`]: metadataYaml({
+        name: 'doc-legacy',
+        status: 'implemented',
+        scale: 'backfill',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('review');
+    expect(report.changes[0]?.reasons.join(' ')).toContain('legal lifecycle entry');
+  });
+});
+
+describe('status.service — malformed records are reported, never fatal', () => {
+  it('names a change whose metadata fails the schema and still routes the rest', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/bad-change/metadata.yaml`]: metadataYaml({
+        name: 'bad-change',
+        status: 'not-a-status',
+      }),
+      [`${CWD}/.prospec/changes/good-change/metadata.yaml`]: metadataYaml({
+        name: 'good-change',
+        status: 'story',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.clean).toBe(false);
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]?.name).toBe('bad-change');
+    expect(report.errors[0]?.error).toContain('status');
+    expect(report.changes.map((c) => c.name)).toEqual(['good-change']);
+  });
+
+  it('reports a change directory without metadata.yaml', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/no-metadata/proposal.md`]: '# Proposal\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.errors).toEqual([
+      { name: 'no-metadata', error: 'metadata.yaml missing' },
+    ]);
+  });
+
+  it('reports unparseable YAML as an error entry', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/bad-yaml/metadata.yaml`]: 'name: [unclosed\n  status:::\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]?.name).toBe('bad-yaml');
+  });
+});
+
+describe('status.service — read-only purity', () => {
+  it('leaves the filesystem byte-identical', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+      }),
+      [`${CWD}/.prospec/changes/add-auth/tasks.md`]: '- [ ] T1 pending\n',
+    });
+    const before = vol.toJSON();
+    await execute({ cwd: CWD });
+    expect(vol.toJSON()).toEqual(before);
+  });
+});
