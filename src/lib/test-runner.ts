@@ -31,6 +31,9 @@ export interface TestRunResult {
   /** Process exit code; null when the process never produced one (timeout/signal). */
   exit_code: number | null;
   timed_out: boolean;
+  /** The timeout the run was actually given — reporting must not restate the
+   *  default, which would lie the day a caller overrides it. */
+  timeout_ms: number;
   /** The signal that ended the run, when one did — so a crash (SIGSEGV) or an
    *  OOM kill is never reported to the developer as a timeout. */
   signal?: string;
@@ -189,13 +192,13 @@ export function runTestCommand(
   const argv = tokenizeCommand(command);
   const [bin, ...args] = argv;
   if (bin === undefined) {
-    return { command, exit_code: null, timed_out: false, error: 'empty test command' };
+    return { command, exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: 'empty test command' };
   }
   // Refuse before spawning rather than letting Node's EINVAL surface as a mystery:
   // the same reason string the pure check path reports, so both paths agree.
   const unspawnable = describeUnspawnable(bin, classifyExecutable(bin, probe));
   if (unspawnable !== null) {
-    return { command: argv.join(' '), exit_code: null, timed_out: false, error: unspawnable };
+    return { command: argv.join(' '), exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: unspawnable };
   }
   const res = spawnSync(bin, args, {
     cwd,
@@ -216,12 +219,19 @@ export function runTestCommand(
       command: ranAs,
       exit_code: null,
       timed_out,
+      timeout_ms: timeoutMs,
       ...(res.signal === null ? {} : { signal: res.signal }),
       error: res.error.message,
     };
   }
   if (res.signal !== null) {
-    return { command: ranAs, exit_code: null, timed_out: isTimeout(res.signal), signal: res.signal };
+    return {
+      command: ranAs,
+      exit_code: null,
+      timed_out: isTimeout(res.signal),
+      timeout_ms: timeoutMs,
+      signal: res.signal,
+    };
   }
-  return { command: ranAs, exit_code: res.status, timed_out: false };
+  return { command: ranAs, exit_code: res.status, timed_out: false, timeout_ms: timeoutMs };
 }

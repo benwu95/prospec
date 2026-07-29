@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2470%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2500%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -619,7 +619,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 | 命令 | 說明 |
 |------|------|
 | `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／module README 對照其 token 與行數預算，恆 WARN 級）、review provenance（implemented 變更須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊，以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
-| `prospec check --record-tests [--change <name>]` | 執行專案測試指令（`tech_stack.test_command`；未設時，僅當 package.json 宣告 test script 才回退 `<package_manager> test`，兩者皆無則誠實回報、絕不猜測）並把 `{command, exit_code, digest, date}` 寫進該變更的 `metadata.yaml`。這是 `/prospec-verify` 測試維度的裁決依據——測試結果成為機器事實，而非 agent 自陳。指令以 argv 切分、**不經 shell** 執行；無法誠實執行時（無指令、Windows 上的 `.cmd`／`.bat` shim —— Node 拒絕無 shell 執行之、非 git repo、逾時）不寫入任何紀錄，並各自回報原因且該 check 為 `skipped`，絕不留下任何設定都清不掉的 FAIL |
+| `prospec check --record-tests [--change <name>]` | 執行專案測試指令（`tech_stack.test_command`；未設時，僅當 package.json 宣告 test script 才回退 `<package_manager> test`，兩者皆無則誠實回報、絕不猜測）並把 `{command, exit_code, digest, date}` 寫進該變更的 `metadata.yaml`。這是 `/prospec-verify` 測試維度的裁決依據——測試結果成為機器事實，而非 agent 自陳。指令以 argv 切分、**不經 shell** 執行；無法誠實執行時（無指令、Windows 上的 `.cmd`／`.bat` shim —— Node 拒絕無 shell 執行之、非 git repo、逾時）不寫入任何紀錄，並各自回報原因且該 check 為 `skipped`，絕不留下任何設定都清不掉的 FAIL。唯一例外：先前**已記錄的非零退出碼即使指令事後變得不可解析仍判 FAIL** —— 已知紅燈是事實，缺指令抑制不了它 |
 | `prospec check --escaped-defects [--json]` | 依 `introduced_by` 登記聚合各 gate 的 escaped-defect 率，橫跨 `.prospec/changes/` 與 `.prospec/archive/`——目前唯一針對 gate 本身的 ground-truth 準確度訊號。屬報表模式而非檢項：不產 finding、不影響 `--strict`。無登記樣本時明說無樣本，而不是輸出 0% 漏失率 |
 | `prospec check --record-review [--change <name>]` | 記錄該變更的 review 基線（程式 digest），供 `review-provenance` 證明 review 跑過且仍對應現行程式 |
 | `prospec check --init-ci` | 生成 supply-chain 強化的 GitHub Actions 閘門（`.github/workflows/prospec-check.yml`）：action pin 完整 commit SHA、最小權限、報告 artifact 上傳、由不 checkout 原始碼的 job 貼 sticky PR comment |
@@ -729,7 +729,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2470 個測試）
+# 執行所有測試（2500 個測試）
 pnpm test
 
 # Watch 模式
@@ -742,9 +742,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2470 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1683 tests
-- Contract tests（CLI 輸出 + Skill 格式）：693 tests
+**測試覆蓋率**：2500 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1711 tests
+- Contract tests（CLI 輸出 + Skill 格式）：695 tests
 - Integration tests：43 tests
 - E2E tests：51 tests
 

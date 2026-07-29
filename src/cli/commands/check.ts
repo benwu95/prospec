@@ -23,7 +23,11 @@ export function registerCheckCommand(program: Command): void {
   program
     .command('check')
     .description('Run the deterministic spec/code/knowledge drift check')
-    .option('--json', 'Write the machine-readable report to prospec-report.json')
+    .option(
+      '--json',
+      'Write the machine-readable report to a file (prospec-report.json; ' +
+        'escaped-defect-report.json with --escaped-defects)',
+    )
     .option('--strict', 'Exit with code 1 when any check fails (CI gate)')
     .option('--init-ci', 'Scaffold .github/workflows/prospec-check.yml and exit')
     .option('--record-review', "Record the active change's review baseline and exit")

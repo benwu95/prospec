@@ -50,7 +50,12 @@ const emptyInputs: DriftCheckInputs = {
     budget: { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 },
     items: [],
   },
-  testProvenance: { available: true, current_digest: 'CUR', changes: [] },
+  testProvenance: {
+    available: true,
+    command_unavailable_reason: null,
+    current_digest: 'CUR',
+    changes: [],
+  },
   constitutionRules: {
     available: true,
     source_path: 'prospec/CONSTITUTION.md',
@@ -348,6 +353,7 @@ describe('evaluateReviewProvenance', () => {
         status: 'implemented',
         scale: 'standard',
         recorded_digest: 'CUR',
+        backfill_draft_present: false,
         ...over,
       },
     ],
@@ -382,10 +388,23 @@ describe('evaluateReviewProvenance', () => {
     expect(r.findings[0]?.detail).toContain('stale review');
   });
 
-  it('exempts a scale: backfill change (not flagged even without a review)', () => {
-    const r = evaluateReviewProvenance(src({ scale: 'backfill', recorded_digest: null }));
+  it('exempts a PROVEN backfill (backfill-draft.md present) even without a review', () => {
+    const r = evaluateReviewProvenance(
+      src({ scale: 'backfill', backfill_draft_present: true, recorded_digest: null }),
+    );
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
+  });
+
+  // Aligned with test-provenance by #103: `scale` is hand-editable metadata, so
+  // without the draft it buys no exemption — typing `scale: backfill` must not
+  // become a review-gate bypass.
+  it('grants NO exemption to an unproven backfill (no backfill-draft.md)', () => {
+    const r = evaluateReviewProvenance(
+      src({ scale: 'backfill', backfill_draft_present: false, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no review recorded');
   });
 
   it('does not flag a change that is not yet implemented (review not due)', () => {
@@ -940,6 +959,7 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     current = 'CUR',
   ): TestProvenanceSource => ({
     available: true,
+    command_unavailable_reason: null,
     current_digest: current,
     changes: [
       {
@@ -960,6 +980,7 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     const r = evaluateTestProvenance({
       available: false,
       reason: 'source unavailable: not a git repository',
+      command_unavailable_reason: null,
       current_digest: null,
       changes: [],
     });
@@ -1045,6 +1066,39 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     expect(r.result.status).toBe('fail');
     expect(r.findings[0]?.detail).toContain('`pnpm test` exited 3');
     expect(r.findings[0]?.detail).toContain('the record is stale');
+  });
+
+  // #103 must-fix 1: an unresolvable command used to flip the whole SOURCE
+  // unavailable before enumeration, so a recorded red run never reached this
+  // evaluator. A recorded failure is a fact that needs no runnable command —
+  // it is judged BEFORE the command-unavailability skip.
+  it('fails a recorded non-zero exit even when the test command is unresolvable', () => {
+    const r = evaluateTestProvenance({
+      ...src({ recorded_exit_code: 1 }),
+      command_unavailable_reason: 'test command unavailable: no test command configured',
+    });
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('`pnpm test` exited 1');
+  });
+
+  it('skips honestly when the command is unresolvable and nothing recorded failed', () => {
+    const r = evaluateTestProvenance({
+      ...src({ recorded_digest: null, recorded_exit_code: null, recorded_command: '' }),
+      command_unavailable_reason:
+        'test command unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml',
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('no test command configured');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('skips a stale GREEN record when the command is unresolvable (cannot demand a re-run)', () => {
+    const r = evaluateTestProvenance({
+      ...src({ recorded_digest: 'OLD', recorded_exit_code: 0 }),
+      command_unavailable_reason: 'test command unavailable: no test command configured',
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.findings).toHaveLength(0);
   });
 
   it('still exempts a proven backfill whose stale record was GREEN', () => {

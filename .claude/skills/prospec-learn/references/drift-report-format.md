@@ -49,7 +49,9 @@ position. Each entry: `{ id, status, reason? }`.
 Gates skills read by id: `review-provenance` (review recorded and not stale),
 `task-completion` (code-task completion), `knowledge-health` (module staleness — see below),
 `test-provenance` (a test run recorded, current, and green — `skipped` when the project has no
-resolvable test command, so a project that cannot satisfy it is never permanently barred).
+resolvable test command, so a project that cannot satisfy it is never permanently barred; a
+recorded **non-zero exit still FAILs** even then — a known-red run is a fact no unresolvable
+command can suppress).
 
 **These are verdicts, not hints.** `/prospec-verify`'s machine dimensions (1/5 `task-completion`,
 4/5 `knowledge-health`, 5/5 `test-provenance`) take their result from the check's `status` verbatim;

@@ -80,7 +80,7 @@ If `prospec check` cannot run (not built/installed) — or a machine dimension's
 
 - Report it as `not-adjudicated`, state why (engine unavailable, or the check's own skip reason), and record it as a **WARN**.
 - **Grade S becomes unreachable** for this run: S asserts that everything mechanically checkable was mechanically checked.
-- **A `not-adjudicated` WARN does NOT consume the grade-A ≤ 2 WARN budget.** Without this, a project with no CLI would collect three such WARNs (1/5, 4/5, 5/5), land at B, and — since only S/A graduate — could never reach `verified` at all. Count only *substantive* WARNs against that budget, so A stays reachable and a CLI-less project can still ship; it simply cannot claim S.
+- **Engine-unavailability WARNs do NOT consume the grade-A ≤ 2 WARN budget.** This is a **closed class of exactly three shapes**, all with the same root cause — the engine (or one of its checks) could not run: **(a)** a machine dimension recorded `not-adjudicated` (1/5, 4/5, 5/5); **(b)** the 3/5 missing-inventory WARN (no machine rule inventory to audit against); **(c)** the Entry Gate's degraded review-staleness WARN (the CLI-free fallback). Without the exclusion, a project with no CLI would collect these WARNs from one outage, land at B, and — since only S/A graduate — could never reach `verified` at all. **Every WARN outside these three shapes counts against the budget** — when the engine ran and a check or a judgment dimension produced a real WARN (e.g. a SHOULD violation), it consumes the budget; there is no further "substantive or not" call to make.
 - Do **not** substitute your own reasoning for the missing verdict. Reading tasks.md yourself and calling 1/5 PASS re-creates exactly the generator-is-its-own-validator problem this split exists to remove; the honest output is "not adjudicated", plus the command the developer should run.
 - `not-applicable` remains reserved for a dimension that genuinely does not apply (no delta-spec under `quick`, no tasks.md under `backfill`, `ui_scope: none`, no Knowledge base). Never conflate the two.
 
@@ -97,8 +97,8 @@ Every other **SDD-pipeline** skill (new-story → plan → tasks → implement �
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages (including `/prospec-review` majors).
 - **`metadata.scale: backfill` provenance** (gates the backfill quality relaxations in 3/5 and 5/5): `scale` is plain, hand-editable metadata, so the marker alone does not prove the code is pre-existing. The backfill downgrades apply **only** when `.prospec/changes/[name]/backfill-draft.md` exists — proof the change came through `/prospec-promote-backfill`, which records *existing* brownfield behavior. If the draft is **absent**, grade 3/5 and 5/5 under the **standard** contract (a code-quality `[MUST]` violation → FAIL, missing tests → graded normally) and record a WARN: "`scale: backfill` claimed but no `backfill-draft.md` — graded as standard". This keeps `scale: backfill` from becoming a quality-gate bypass for new code.
 
-- **Review provenance (blocking, non-backfill)**: run `prospec check --json` and read the `review-provenance` check for this change. If it is **FAIL** — no review recorded, or the recorded review is **stale** (code changed since the review) — **stop and do not proceed**; point the user to `/prospec-review` to review the current code. This makes review non-skippable before verify: verify grades contract compliance, not adversarial correctness, so an unreviewed change must not reach an S/A grade. **Drift engine unavailable** (CLI not installed/built): state so, then fall back to the CLI-free signal — read `metadata.yaml` `quality_log` directly and **still block when there is no `prospec-review` entry** (absence needs no engine to detect); staleness cannot be machine-verified without the engine, so surface it as a WARN that relies on whether code changed since that entry — never silently pass.
-- **`scale: backfill` review exemption (non-blocking)**: the backfill path has no review station, so `review-provenance` skips it — verify does NOT block on a missing review for `scale: backfill`. Running `/prospec-review` first stays recommended but optional.
+- **Review provenance (blocking, non-backfill)**: run `prospec check --json` and read the `review-provenance` check for this change. If it is **FAIL** — no review recorded, or the recorded review is **stale** (code changed since the review) — **stop and do not proceed**; point the user to `/prospec-review` to review the current code. This makes review non-skippable before verify: verify grades contract compliance, not adversarial correctness, so an unreviewed change must not reach an S/A grade. **Drift engine unavailable** (CLI not installed/built): state so, then fall back to the CLI-free signal — read `metadata.yaml` `quality_log` directly and **still block when there is no `prospec-review` entry** (absence needs no engine to detect); staleness cannot be machine-verified without the engine, so surface it as a WARN that relies on whether code changed since that entry (an **engine-unavailability WARN** — shape (c) of the closed class, excluded from A's budget) — never silently pass.
+- **`scale: backfill` review exemption (non-blocking, draft-gated)**: the backfill path has no review station, so `review-provenance` skips a **proven** backfill (`backfill-draft.md` present) — verify does NOT block on a missing review there. An unproven `scale: backfill` (no draft) gets no exemption: the engine grades it under the standard contract, exactly like 3/5 and 5/5. Running `/prospec-review` first stays recommended but optional for proven backfills.
 
 ## Core Workflow
 
@@ -181,7 +181,8 @@ failure modes an unaided read has: silently skipping a principle, and re-assigni
   (backward-compatible with a free-text Constitution) and note that `constitution-severity` warns on it.
 - When the inventory is unavailable (engine unavailable, or the check `skipped` because the
   Constitution is missing/declares no principles), state so and audit from the file directly — this
-  dimension is mixed, so the judgment half still runs; record the WARN for the missing inventory.
+  dimension is mixed, so the judgment half still runs; record the WARN for the missing inventory
+  (an **engine-unavailability WARN** — shape (b) of the closed class, excluded from A's budget).
 - Find **evidence** from implementation code and planning documents; mark PASS / WARN / FAIL with
   score (1-5). A rule's `Verify` hint guides the check (mechanically-checkable rules use it directly;
   others are interpretive).
@@ -247,7 +248,9 @@ Read the check, cite the recorded command and exit code, and explain what failed
 - **The project has no resolvable test command** → the check itself reports `skipped`, so this
   dimension is `not-adjudicated`. Say what must be configured (`tech_stack.test_command`). This is
   deliberately not a FAIL: a project that cannot satisfy the check must not be permanently barred
-  from `verified`.
+  from `verified`. One exception, and it is the engine's, not yours: a **recorded non-zero exit
+  still FAILs even under an unresolvable command** — a known-red run is a fact that needs no
+  runnable command.
 - Engine unavailable → `not-adjudicated`.
 
 **`metadata.scale: backfill`** (only when the Entry Gate's backfill provenance check passed): the
@@ -299,7 +302,7 @@ Judgment ledger:                 2/5 PASS (fresh context) · 3/5 PASS (12/12 rul
 Quality Grade: [S / A / B / C / D]
 
 S (Excellent): All PASS, score >= 4.5, and every machine dimension actually adjudicated
-A (Good): Mostly PASS, <= 2 WARN, no FAIL
+A (Good): Mostly PASS, <= 2 WARN (engine-unavailability WARNs excluded — closed class above), no FAIL
 B (Fair): Some WARN, no FAIL
 C (Needs Improvement): Has FAIL (<= 2)
 D (Poor): Multiple FAIL (> 2)
@@ -313,9 +316,10 @@ Deployment Recommendation:
 Merge rules (both directions matter):
 - **A machine FAIL caps the grade at C or below** — it cannot be narrated away, and no number of
   judgment PASSes offsets it.
-- **A `not-adjudicated` machine dimension is recorded as a WARN and makes S unreachable**, but it
-  does **not** count against A's ≤ 2 WARN budget (see the contract above) — otherwise three
-  unadjudicated dimensions would strand a CLI-less project below the `verified` gate forever.
+- **An engine-unavailability WARN (the closed three-shape class above) makes S unreachable when it
+  is a `not-adjudicated` machine dimension, but never counts against A's ≤ 2 WARN budget** —
+  otherwise one engine outage would strand a CLI-less project below the `verified` gate forever.
+  Only WARNs outside that class consume the budget.
 - **Judgment WARN/FAIL is not offset by machine PASSes** — the ledgers merge, they do not net out.
 
 > **Condensed report (`metadata.scale: quick`)**: present the grade + a single dimension table
@@ -327,7 +331,7 @@ Merge rules (both directions matter):
 
 After grading, update `.prospec/changes/[name]/metadata.yaml`:
 
-- **Grade S or A** (Ready to deploy — no FAIL, ≤ 2 WARN) → set `status: verified`. This is the gate `/prospec-archive` looks for.
+- **Grade S or A** (Ready to deploy — no FAIL, ≤ 2 budget-counted WARN; engine-unavailability WARNs are excluded per the closed class in "When the machine adjudicator is unavailable") → set `status: verified`. This is the gate `/prospec-archive` looks for.
 - **Grade B / C / D** → **leave `status` unchanged**; state in the report that the change is NOT verified, list the WARN/FAIL items to resolve, then re-run `/prospec-verify` after fixing.
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `prospec/ai-knowledge/_status-lifecycle.md`.

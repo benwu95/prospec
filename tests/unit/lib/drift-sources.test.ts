@@ -543,6 +543,16 @@ describe('computeChangeDigest', () => {
     }
   });
 
+  // The test above never reaches the capture-failure branch — a dir outside any
+  // repo exits at the isGitWorkTree guard, so reverting the fail-closed fix back
+  // to `?? ''` kept the whole suite green (issue #103). An unborn-HEAD repo IS a
+  // work tree, but `git diff HEAD` fails on real git — this is that branch.
+  it('returns null via the capture-failure branch on an unborn-HEAD repo', () => {
+    git('init', '-q');
+    write('src/lib/x.ts', 'export const a = 1;\n'); // a constant digest would hash this
+    expect(computeChangeDigest(tmpDir)).toBeNull();
+  });
+
   it('flips when first-party code OUTSIDE src/tests changes (e.g. scripts/) — no fail-open', () => {
     initRepo();
     write('scripts/counts/x.ts', 'export const a = 1;\n');
@@ -609,6 +619,16 @@ describe('collectReviewProvenance', () => {
       recorded_digest: null,
     });
   });
+
+  it('reports whether backfill-draft.md proves a backfill (drives the exemption)', () => {
+    initRepo();
+    write('.prospec/changes/proven/metadata.yaml', 'name: proven\nstatus: implemented\nscale: backfill\n');
+    write('.prospec/changes/proven/backfill-draft.md', '# draft\n');
+    write('.prospec/changes/claimed/metadata.yaml', 'name: claimed\nstatus: implemented\nscale: backfill\n');
+    const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
+    expect(r.changes.find((c) => c.name === 'proven')).toMatchObject({ backfill_draft_present: true });
+    expect(r.changes.find((c) => c.name === 'claimed')).toMatchObject({ backfill_draft_present: false });
+  });
 });
 
 describe('collectMetadataCompleteness', () => {
@@ -656,6 +676,19 @@ describe('collectMetadataCompleteness', () => {
         'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: A\n',
     );
     const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c4');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  // Same trim rule as readGateResults: these rows come off raw YAML (no schema),
+  // and an exact match on `"A "` would FAIL a genuinely verified change —
+  // a wrong FAIL-class verdict from whitespace (#103 review, PB-007 sweep).
+  it('accepts an S/A grade carrying stray whitespace (trimmed like every quality_log consumer)', () => {
+    write(
+      '.prospec/changes/c4w/metadata.yaml',
+      'name: c4w\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: "A "\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c4w');
     expect(c?.missing_verify_grade).toBe(false);
   });
 
@@ -983,10 +1016,12 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     expect(r.changes[0]).toMatchObject({ recorded_digest: null, recorded_exit_code: null, recorded_command: '' });
   });
 
-  // Wiring proof for the Windows shim path: the collector must report the SOURCE as
-  // unavailable (an honest skip), because failing it would bar every Windows project
-  // from `verified` with no configuration that could fix it.
-  it('skips honestly when the test command is a Windows shim (platform-injected)', () => {
+  // Wiring proof for the Windows shim path: unresolvability is a fact about THIS
+  // machine, not about the recorded runs — the source stays available (changes are
+  // enumerated so recorded failures survive) and the reason lands in the dedicated
+  // field for the evaluator's honest skip. #103 must-fix 1: the old early-return
+  // (available: false, changes: []) suppressed recorded non-zero exits.
+  it('keeps enumerating when the test command is a Windows shim (platform-injected)', () => {
     initRepo();
     write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
     const winProbe = {
@@ -995,14 +1030,27 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
       exists: (c: string) => c === 'C:\\tools\\bin\\pnpm.cmd',
     };
     const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), winProbe);
-    expect(r.available).toBe(false);
-    expect(r.reason).toContain('source unavailable');
-    expect(r.reason).toContain('Windows shim');
-    expect(r.reason).toContain('tech_stack.test_command');
-    expect(r.changes).toHaveLength(0);
+    expect(r.available).toBe(true);
+    expect(r.command_unavailable_reason).toContain('Windows shim');
+    expect(r.command_unavailable_reason).toContain('tech_stack.test_command');
+    expect(r.changes).toHaveLength(1);
   });
 
-  it('stays available when the same command is spawnable on this platform', () => {
+  it('enumerates recorded facts when no test command is configured at all', () => {
+    initRepo();
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\nstatus: implemented\nscale: standard\ntest_provenance:\n' +
+        '  command: pnpm test\n  exit_code: 1\n  digest: ABC\n  date: "2026-07-28"\n',
+    );
+    const r = collectTestProvenance(tmpDir, null, computeChangeDigest(tmpDir));
+    expect(r.available).toBe(true);
+    expect(r.command_unavailable_reason).toContain('no test command configured');
+    expect(r.changes).toHaveLength(1);
+    expect(r.changes[0]).toMatchObject({ recorded_exit_code: 1 });
+  });
+
+  it('stays available with no unavailability reason when the command is spawnable', () => {
     initRepo();
     write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
     const posixProbe = {
@@ -1012,6 +1060,7 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     };
     const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), posixProbe);
     expect(r.available).toBe(true);
+    expect(r.command_unavailable_reason).toBeNull();
     expect(r.changes).toHaveLength(1);
   });
 
@@ -1110,6 +1159,18 @@ describe('collectQualityLedger (REQ-LIB-034)', () => {
     write(
       '.prospec/changes/c/metadata.yaml',
       'name: c\nstatus: tasks\nquality_log:\n  - skill: prospec-plan\n    result: PASS\n  - date: "2026-07-01"\n  - null\n',
+    );
+    const r = collectQualityLedger(tmpDir);
+    expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);
+  });
+
+  // `skill` was already trimmed; `result` was not — a `'PASS '` record neither
+  // entered the gate's denominator nor gates_passed, silently vanishing from the
+  // escape stats (issue #103).
+  it('trims result the same way it trims skill', () => {
+    write(
+      '.prospec/changes/c/metadata.yaml',
+      'name: c\nstatus: tasks\nquality_log:\n  - skill: prospec-plan\n    result: "PASS "\n',
     );
     const r = collectQualityLedger(tmpDir);
     expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);

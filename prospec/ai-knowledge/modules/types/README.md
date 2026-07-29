@@ -52,7 +52,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`.
 - `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of a loose schema gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` and `not-adjudicated` are dimension-only).
-- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove.
+- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove. The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (both provenance checks' backfill exemptions are draft-gated, and a recorded non-zero exit is never exempt); a stale claim here has twice invited reopening a closed bypass.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.
 - `feature-map.ts` is shape-only — slug/module-map checks live in the lib loader, not here.
 - `INIT_DOC_REGISTRY` is pinned by an init⇄registry equality test; resolve `root: 'knowledge'` via `resolveBasePaths()`. `test_provenance` is deliberately outside the metadata required-field floor.

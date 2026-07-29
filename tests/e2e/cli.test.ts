@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { parse as parseYamlRaw } from 'yaml';
 import { promisify } from 'node:util';
 
@@ -698,6 +698,18 @@ describe('prospec check E2E', () => {
     writeFixture('.prospec/changes/done/tasks.md', '- [x] T1 implemented ~5 lines\n- [ ] T2 [M] manual step ~5 lines\n');
   }
 
+  /** The no-test-command skip reason is only reachable once the git / changes-dir /
+   *  digest guards pass — without a repo the truthful reason is "not a git
+   *  repository" (the #103 guard reorder made that ordering observable). */
+  function gitInitFixture(): void {
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe' });
+    git('init', '-q');
+    git('config', 'user.email', 'e2e@test.dev');
+    git('config', 'user.name', 'e2e');
+    git('add', '.');
+    git('commit', '-q', '-m', 'fixture');
+  }
+
   it('exits 0 on a consistent project and reports skipped checks honestly', async () => {
     scaffoldProject();
     const { stdout, exitCode } = await runCli(['check', '--strict']);
@@ -716,6 +728,7 @@ describe('prospec check E2E', () => {
       'prospec/CONSTITUTION.md',
       '# C\n\n## Principles\n\n### [MUST] Tagged rule\n\n**Verify**: x.\n\n### Untagged rule\n\nprose\n',
     );
+    gitInitFixture();
     const { stdout, exitCode } = await runCli(['check']);
     expect(exitCode).toBe(0);
     // both new checks appear with their own status line, with the state PINNED —

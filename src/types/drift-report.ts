@@ -33,8 +33,10 @@ export const DRIFT_CHECK_IDS = [
   'mcp-readme-counts',
   // Review provenance — an implemented change that has no recorded review, or
   // whose recorded review predates the current code state (stale), fails (fail).
-  // Turns "review must run before verify" from prose into a machine gate;
-  // scale: backfill and non-implemented changes are exempt (not flagged).
+  // Turns "review must run before verify" from prose into a machine gate.
+  // Non-implemented changes are exempt. Backfill is exempt only with
+  // backfill-draft.md present (`scale` alone proves nothing) — same draft
+  // gating as test-provenance below.
   'review-provenance',
   // Change metadata completeness — a change whose metadata.yaml is missing a
   // required field (name/created_at/status/scale), or that is verified/archived
@@ -54,7 +56,9 @@ export const DRIFT_CHECK_IDS = [
   // exit code is non-zero, fails (fail). Makes verify's test dimension a machine
   // verdict instead of an agent's self-report; the run itself happens in the
   // flag-gated `check --record-tests` write path, never in the pure check path.
-  // scale: backfill and non-implemented changes are exempt (not flagged).
+  // Non-implemented changes are exempt. Backfill is exempt only from the
+  // missing/stale branches, only with backfill-draft.md present (`scale` alone
+  // proves nothing), and a recorded non-zero exit is NEVER exempt.
   'test-provenance',
   // Constitution severity — a Constitution principle whose heading carries no
   // RFC-2119 tag cannot be graded by weight, so it warns (warn). Pairs with the
