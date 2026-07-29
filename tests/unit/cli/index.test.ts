@@ -133,6 +133,7 @@ describe('createProgram', () => {
     expect(names).toEqual(
       [
         'agent',
+        'archive',
         'change',
         'check',
         'config',

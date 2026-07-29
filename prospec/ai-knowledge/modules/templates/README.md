@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts` |
+| `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; prospec-archive's deterministic phases delegate to the `prospec archive` CLI (Phase 3/3.5/3.6 wording pinned by skill-format contract tests) |
 | `skills/_*.hbs` (5) | Shared partials: `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
 | `skills/references/*.hbs` (20) | Per-skill format specs + design adapters, rendered to `.md` on demand (`tasks-format`, `plan-format`, …) |
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md`, `module-map.yaml`, `feature-map.yaml` |

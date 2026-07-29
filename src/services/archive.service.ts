@@ -22,6 +22,8 @@ export interface ArchiveOptions {
   names?: string[];
   /** Working directory */
   cwd?: string;
+  /** Compute and report every mutation without writing anything */
+  dryRun?: boolean;
 }
 
 export interface ChangeEntry {
@@ -34,8 +36,30 @@ export interface ChangeEntry {
 export interface ArchiveResult {
   archived: ArchivedChange[];
   skipped: string[];
+  /** Why each skipped change was skipped, keyed by change name */
+  skippedReasons: Record<string, string>;
   affectedModules: string[];
   specFiles: string[];
+  /** True when the run was a dry-run preview (nothing written) */
+  dryRun: boolean;
+  /** Mutations a dry-run would perform; empty on a real run */
+  planned: PlannedMutation[];
+  /** Named targets that exist but do not have the target status */
+  refused: RefusedChange[];
+  /** Named targets with no matching change directory */
+  notFound: string[];
+}
+
+export interface PlannedMutation {
+  action: 'move' | 'write' | 'update';
+  target: string;
+  detail: string;
+}
+
+export interface RefusedChange {
+  name: string;
+  status: string;
+  reason: string;
 }
 
 export interface ArchivedChange {
@@ -118,15 +142,22 @@ export function filterByStatus(
 }
 
 /**
+ * Compute the .prospec/archive/{YYYY-MM-DD}-{name}/ destination for a change.
+ * Single source for the archive-dir naming, shared by moveToArchive and dry-run.
+ */
+export function archiveDirFor(cwd: string, changeName: string): string {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return path.join(cwd, '.prospec', 'archive', `${today}-${changeName}`);
+}
+
+/**
  * Move a change directory to .prospec/archive/{YYYY-MM-DD}-{name}/.
  */
 export async function moveToArchive(
   change: ChangeEntry,
   cwd: string,
 ): Promise<string> {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const archiveName = `${today}-${change.name}`;
-  const archiveDir = path.join(cwd, '.prospec', 'archive', archiveName);
+  const archiveDir = archiveDirFor(cwd, change.name);
 
   if (fs.existsSync(archiveDir)) {
     throw new WriteError(archiveDir, 'Archive directory already exists');
@@ -254,18 +285,29 @@ ${reqTable}
  * Routes each requirement by its **Feature** field to the correct Feature Spec file.
  * Returns list of created/updated Feature Spec file paths.
  */
+/**
+ * Read the delta-spec's Feature routes from a change/archive dir.
+ * Single source for spec-sync's trigger: `routes.length > 0` is exactly the
+ * condition under which syncToFeatureSpecs touches featuresPath (ensureDir),
+ * so the dry-run prediction must consult THIS, not the returned file list —
+ * an all-unsafe-slug delta-spec writes no spec file yet still creates the dir.
+ */
+async function readFeatureRoutes(artifactsDir: string): Promise<FeatureRoute[]> {
+  const deltaSpecPath = path.join(artifactsDir, 'delta-spec.md');
+  if (!fs.existsSync(deltaSpecPath)) return [];
+  const deltaContent = await fs.promises.readFile(deltaSpecPath, 'utf-8');
+  return extractFeatureRoutes(deltaContent);
+}
+
 export async function syncToFeatureSpecs(
   archiveDir: string,
   featuresPath: string,
+  dryRun = false,
 ): Promise<string[]> {
-  const deltaSpecPath = path.join(archiveDir, 'delta-spec.md');
-  if (!fs.existsSync(deltaSpecPath)) return [];
-
-  const deltaContent = await fs.promises.readFile(deltaSpecPath, 'utf-8');
-  const routes = extractFeatureRoutes(deltaContent);
+  const routes = await readFeatureRoutes(archiveDir);
   if (routes.length === 0) return [];
 
-  await ensureDir(featuresPath);
+  if (!dryRun) await ensureDir(featuresPath);
 
   // Group routes by feature slug
   const byFeature = new Map<string, FeatureRoute[]>();
@@ -298,10 +340,10 @@ export async function syncToFeatureSpecs(
 
       content = updateFeatureSpecFrontmatter(content, today);
       content = appendToChangeHistory(content, featureRoutes, today);
-      await atomicWrite(specFile, content);
+      if (!dryRun) await atomicWrite(specFile, content);
     } else {
       const content = createNewFeatureSpec(feature, featureRoutes, today);
-      await atomicWrite(specFile, content);
+      if (!dryRun) await atomicWrite(specFile, content);
     }
 
     updatedFiles.push(specFile);
@@ -424,6 +466,7 @@ export async function syncFeatureMap(
 export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const cwd = options.cwd ?? process.cwd();
   const targetStatus = options.status ?? 'verified';
+  const dryRun = options.dryRun ?? false;
 
   // 1. Scan all changes
   const allChanges = await scanChanges(cwd);
@@ -431,15 +474,45 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // 2. Filter by status
   let candidates = filterByStatus(allChanges, targetStatus);
 
-  // 3. Filter by name if specified
+  // 3. Filter by name if specified — a named target that will not be archived
+  // is reported (refused/notFound), never silently filtered out.
+  const refused: RefusedChange[] = [];
+  const notFound: string[] = [];
   if (options.names && options.names.length > 0) {
+    for (const name of options.names) {
+      const found = allChanges.find((c) => c.name === name);
+      if (!found) {
+        // scanChanges silently drops a directory whose metadata.yaml is missing
+        // or unparseable — an existing-but-broken target is refused with the
+        // real diagnosis, never misreported as nonexistent.
+        const changeDir = path.join(cwd, '.prospec', 'changes', name);
+        if (fs.existsSync(changeDir) && fs.statSync(changeDir).isDirectory()) {
+          refused.push({
+            name,
+            status: 'unknown',
+            reason: 'change directory exists but its metadata.yaml is missing or unparseable',
+          });
+        } else {
+          notFound.push(name);
+        }
+      } else if (found.status !== targetStatus) {
+        refused.push({
+          name,
+          status: found.status,
+          reason: `status is '${found.status}' — only '${targetStatus}' changes can be archived`,
+        });
+      }
+    }
     candidates = candidates.filter((c) => options.names!.includes(c.name));
   }
 
   const archived: ArchivedChange[] = [];
   const skipped: string[] = [];
+  const skippedReasons: Record<string, string> = {};
   const allAffectedModules = new Set<string>();
   const specFiles: string[] = [];
+  const planned: PlannedMutation[] = [];
+  let specSyncWouldTouchFeaturesDir = false;
 
   // Resolve specsPath from config (non-fatal if config is missing)
   // Feature Specs go to specs/features/ subdirectory
@@ -462,19 +535,42 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     try {
       const createdDate = String(change.metadata.created ?? change.metadata.created_at ?? 'unknown');
 
-      // Move to archive
-      const archiveDir = await moveToArchive(change, cwd);
+      // Move to archive. Dry-run mirrors moveToArchive: an existing archive
+      // directory makes the real run throw → skipped, so predict the same.
+      const archiveDir = dryRun ? archiveDirFor(cwd, change.name) : await moveToArchive(change, cwd);
+      if (dryRun) {
+        if (fs.existsSync(archiveDir)) {
+          skipped.push(change.name);
+          skippedReasons[change.name] = `archive destination already exists: ${archiveDir}`;
+          continue;
+        }
+        planned.push({
+          action: 'move',
+          target: archiveDir,
+          detail: `move ${change.dir} → ${archiveDir}`,
+        });
+      }
+      // Dry-run reads artifacts from the change dir (nothing was moved)
+      const artifactsDir = dryRun ? change.dir : archiveDir;
 
       // Generate summary
       let summaryGenerated = false;
       try {
         const { content, affectedModules } = await generateSummary(
-          archiveDir,
+          artifactsDir,
           change.name,
           createdDate,
         );
         const summaryPath = path.join(archiveDir, 'summary.md');
-        await atomicWrite(summaryPath, content);
+        if (dryRun) {
+          planned.push({
+            action: 'write',
+            target: summaryPath,
+            detail: 'generate summary.md scaffold',
+          });
+        } else {
+          await atomicWrite(summaryPath, content);
+        }
         summaryGenerated = true;
         affectedModules.forEach((m) => allAffectedModules.add(m));
       } catch {
@@ -484,8 +580,22 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       // Sync requirements to Feature Specs (non-fatal)
       if (featuresPath) {
         try {
-          const syncedFiles = await syncToFeatureSpecs(archiveDir, featuresPath);
+          const syncedFiles = await syncToFeatureSpecs(artifactsDir, featuresPath, dryRun);
           specFiles.push(...syncedFiles);
+          if (dryRun) {
+            for (const specFile of syncedFiles) {
+              planned.push({
+                action: 'write',
+                target: specFile,
+                detail: `sync requirements into ${path.basename(specFile)}`,
+              });
+            }
+            // Mirror the real run's ensureDir trigger (routes exist), not its
+            // outcome (files written) — see readFeatureRoutes.
+            if ((await readFeatureRoutes(artifactsDir)).length > 0) {
+              specSyncWouldTouchFeaturesDir = true;
+            }
+          }
         } catch {
           // Feature Spec sync failure is non-fatal
         }
@@ -499,13 +609,21 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       // by the archive skill's Entry Gate via the `metadata-completeness` drift
       // check, so validating again here would only convert a reportable gap
       // into a silent skip.
-      const metadataPath = path.join(archiveDir, 'metadata.yaml');
+      const metadataPath = path.join(artifactsDir, 'metadata.yaml');
       if (fs.existsSync(metadataPath)) {
-        const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
-        const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
-        meta.status = 'archived';
-        meta.archived_at = new Date().toISOString().slice(0, 10);
-        await atomicWrite(metadataPath, stringifyYaml(meta));
+        if (dryRun) {
+          planned.push({
+            action: 'update',
+            target: path.join(archiveDir, 'metadata.yaml'),
+            detail: 'set status: archived + archived_at',
+          });
+        } else {
+          const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
+          const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
+          meta.status = 'archived';
+          meta.archived_at = new Date().toISOString().slice(0, 10);
+          await atomicWrite(metadataPath, stringifyYaml(meta));
+        }
       }
 
       archived.push({
@@ -514,26 +632,51 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         archivePath: archiveDir,
         summaryGenerated,
       });
-    } catch {
+    } catch (err) {
       skipped.push(change.name);
+      skippedReasons[change.name] = err instanceof Error ? err.message : String(err);
     }
   }
 
-  // Regenerate product.md from Feature Specs (non-fatal)
+  // Regenerate product.md from Feature Specs (non-fatal). Dry-run cannot scan
+  // the post-sync spec state (nothing was written), so it predicts the ACTION
+  // from the same guards the real run uses, not the bytes.
   if (archived.length > 0 && featuresPath && productSpecPath) {
-    try {
-      await generateProductSpec(featuresPath, productSpecPath, projectName);
-    } catch {
-      // Product Spec regeneration failure is non-fatal
+    if (dryRun) {
+      planned.push({
+        action: 'write',
+        target: productSpecPath,
+        detail: 'regenerate product.md from Feature Specs',
+      });
+    } else {
+      try {
+        await generateProductSpec(featuresPath, productSpecPath, projectName);
+      } catch {
+        // Product Spec regeneration failure is non-fatal
+      }
     }
     // feature-map.yaml is the sibling feature→module index — same scan point as
     // product.md, bootstrap-once + no-clobber. Non-fatal, like product.md above.
     if (knowledgePath) {
-      try {
-        const moduleMap = loadModuleMap(knowledgePath, cwd) ?? constitutionFallbackModuleMap();
-        await syncFeatureMap(featuresPath, path.join(knowledgePath, 'feature-map.yaml'), moduleMap);
-      } catch {
-        // feature-map regeneration failure is non-fatal
+      const featureMapPath = path.join(knowledgePath, 'feature-map.yaml');
+      if (dryRun) {
+        // syncFeatureMap's no-clobber probe, against the state spec-sync WOULD
+        // leave on disk: an existing dir, or the ensureDir the real run performs
+        // whenever a delta-spec had routes (even all-unsafe-slug ones).
+        if (!fs.existsSync(featureMapPath) && (fs.existsSync(featuresPath) || specSyncWouldTouchFeaturesDir)) {
+          planned.push({
+            action: 'write',
+            target: featureMapPath,
+            detail: 'bootstrap feature-map.yaml (no-clobber)',
+          });
+        }
+      } else {
+        try {
+          const moduleMap = loadModuleMap(knowledgePath, cwd) ?? constitutionFallbackModuleMap();
+          await syncFeatureMap(featuresPath, featureMapPath, moduleMap);
+        } catch {
+          // feature-map regeneration failure is non-fatal
+        }
       }
     }
   }
@@ -541,8 +684,13 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   return {
     archived,
     skipped,
+    skippedReasons,
     affectedModules: [...allAffectedModules],
     specFiles,
+    dryRun,
+    planned,
+    refused,
+    notFound,
   };
 }
 

@@ -155,6 +155,8 @@ modules:
       - strict
       - mcp
       - stdio
+      - archive
+      - dry-run
     relationships:
       depends_on:
         - types

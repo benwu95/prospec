@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2500%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2526%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -535,6 +535,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change plan [--change <name>] [--force]` | Generate implementation plan (scaffold); refuses to overwrite an existing plan/delta-spec unless `--force` |
 | `prospec change tasks [--change <name>] [--force]` | Break down tasks (scaffold); refuses to overwrite an existing tasks.md unless `--force` |
 | `prospec status` | **Read-only** deterministic SDD routing — reports each in-flight change's current node, suggested next station, blocking gates, and reasons. The executable copy of `_status-lifecycle.md` (quick's story→tasks skip, backfill's `implemented` entry, and the no-status-transition design/review stations included); malformed metadata is reported per change, never fatal |
+| `prospec archive <name...> [--dry-run]` | Execute the deterministic archive mutations for a **verified** change: move the bundle to `.prospec/archive/{date}-{name}/`, generate the summary scaffold, run the mechanical Feature Spec sync, set `status: archived`, and regenerate `product.md` + `feature-map.yaml` (no-clobber / non-fatal semantics unchanged). `--dry-run` prints every planned mutation without writing; a named target that is not archivable is reported `refused`/`not found` (exit 1), never silently skipped. `/prospec-archive` drives it and keeps the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation) |
 
 > **Note**: These commands scaffold empty change artifacts. The Skills (`/prospec-new-story`, `/prospec-ff`, …) now create `.prospec/changes/<name>/` and its files directly, so the workflow doesn't call them — they remain available for manual or scripted scaffolding.
 
@@ -762,7 +763,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2500 tests)
+# Run all tests (2526 tests)
 pnpm test
 
 # Watch mode
@@ -775,11 +776,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2500 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1711 tests
-- Contract tests (CLI output + Skill format): 695 tests
+**Test Coverage**: 2526 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1728 tests
+- Contract tests (CLI output + Skill format): 700 tests
 - Integration tests: 43 tests
-- E2E tests: 51 tests
+- E2E tests: 55 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

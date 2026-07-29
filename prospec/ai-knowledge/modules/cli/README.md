@@ -1,6 +1,6 @@
 # cli
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (37 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (39 files)
 
 <!-- prospec:auto-start -->
 
@@ -8,9 +8,9 @@
 
 | File | Purpose |
 |------|---------|
-| `index.ts` | `createProgram()` registers all 15 commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
-| `commands/` | 15 `registerXxxCommand(program)` files, one per command (init, quickstart, upgrade, print-template, knowledge[+init], agent, config, change story/plan/tasks, status, measure, check, mcp): parse flags → call service → format |
-| `formatters/` | 18 `formatXxxOutput(result, logLevel)` modules — stdout success, stderr errors; `error-output.ts` also has `handleError()` |
+| `index.ts` | `createProgram()` registers all 16 commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
+| `commands/` | 16 `registerXxxCommand(program)` files, one per command (init, quickstart, upgrade, print-template, knowledge[+init], agent, config, change story/plan/tasks, status, archive, measure, check, mcp): parse flags → call service → format |
+| `formatters/` | 19 `formatXxxOutput(result, logLevel)` modules — stdout success, stderr errors; `error-output.ts` also has `handleError()`; `archive-output.ts` routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`) |
 | `formatters/sanitize.ts` | Shared `sanitizeTerminal()` — strips C0/C1/DEL; single source for check/measure/error output |
 | `log-level.ts` | `resolveLogLevel(opts)` — root-flag → LogLevel; imported by every command |
 | `parse-options.ts` | `parseDepth(value)` — shared `--depth` validator (positive int or throws) |
@@ -18,8 +18,8 @@
 
 ## Public API
 
-- `createProgram()` — Commander program, all 15 commands; `main()` runs on load (NOT exported)
-- `registerXxxCommand(program)` — 15 registrars; `formatXxxOutput(result, logLevel)` — 18 formatters; `handleError(err, verbose)` → stderr
+- `createProgram()` — Commander program, all 16 commands; `main()` runs on load (NOT exported)
+- `registerXxxCommand(program)` — 16 registrars; `formatXxxOutput(result, logLevel)` — 19 formatters; `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`

@@ -326,6 +326,83 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec archive', () => {
+    async function writeVerifiedChange(name: string): Promise<void> {
+      const changeDir = path.join(tmpDir, '.prospec', 'changes', name);
+      await fs.promises.mkdir(changeDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(changeDir, 'metadata.yaml'),
+        `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\n`,
+      );
+      await fs.promises.writeFile(
+        path.join(changeDir, 'proposal.md'),
+        '# Proposal\n\n## User Story\n\nAs a dev, I want X, so that Y.\n',
+      );
+      await fs.promises.writeFile(
+        path.join(changeDir, 'delta-spec.md'),
+        '# Delta Spec\n\n## ADDED\n\n### REQ-LIB-001: New helper\n\n**Feature:** alpha\n**Story:** US-1\n\n**Description:**\nDetails.\n\n---\n',
+      );
+      await fs.promises.writeFile(path.join(changeDir, 'tasks.md'), '- [x] T1 do it ~5 lines\n');
+    }
+
+    beforeEach(async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'archive-test' }),
+      );
+      await runCli(['init', '--name', 'archive-test', '--agents', 'claude']);
+    });
+
+    it('previews every mutation with --dry-run and writes nothing', async () => {
+      await writeVerifiedChange('feat-x');
+
+      const { stdout, exitCode } = await runCli(['archive', 'feat-x', '--dry-run']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Dry-run — nothing was written');
+      expect(stdout).toContain('feat-x');
+      expect(stdout).toContain('summary.md');
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-x'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'archive'))).toBe(false);
+    });
+
+    it('archives a verified change and syncs Feature Specs', async () => {
+      await writeVerifiedChange('feat-x');
+
+      const { stdout, exitCode } = await runCli(['archive', 'feat-x']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('archived feat-x');
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-x'))).toBe(false);
+      const today = new Date().toISOString().slice(0, 10);
+      const archiveDir = path.join(tmpDir, '.prospec', 'archive', `${today}-feat-x`);
+      expect(fs.existsSync(path.join(archiveDir, 'summary.md'))).toBe(true);
+      const meta = await fs.promises.readFile(path.join(archiveDir, 'metadata.yaml'), 'utf-8');
+      expect(meta).toContain('status: archived');
+      expect(
+        fs.existsSync(path.join(tmpDir, 'prospec', 'specs', 'features', 'alpha.md')),
+      ).toBe(true);
+    });
+
+    it('refuses a non-verified named target with exit 1', async () => {
+      const changeDir = path.join(tmpDir, '.prospec', 'changes', 'feat-y');
+      await fs.promises.mkdir(changeDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(changeDir, 'metadata.yaml'),
+        'name: feat-y\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: tasks\nscale: quick\n',
+      );
+
+      const { stderr, exitCode } = await runCli(['archive', 'feat-y']);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('refused feat-y');
+      expect(fs.existsSync(changeDir)).toBe(true);
+    });
+
+    it('requires at least one change name', async () => {
+      const { exitCode, stderr } = await runCli(['archive']);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('names');
+    });
+  });
+
   describe('prospec knowledge generate', () => {
     it('should fail without .prospec.yaml', async () => {
       const { exitCode } = await runCli(['knowledge', 'generate']);
