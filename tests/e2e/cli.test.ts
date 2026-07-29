@@ -293,6 +293,39 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec status', () => {
+    it('should report the clean state when nothing is in flight', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'status-test' }),
+      );
+      await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
+
+      const { stdout, exitCode } = await runCli(['status']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('No in-progress changes');
+    });
+
+    it('should route an in-flight change to its next station', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'status-test' }),
+      );
+      await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+
+      const { stdout, exitCode } = await runCli(['status']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('add-feature');
+      expect(stdout).toContain('/prospec-plan');
+    });
+
+    it('should fail without .prospec.yaml', async () => {
+      const { exitCode } = await runCli(['status']);
+      expect(exitCode).not.toBe(0);
+    });
+  });
+
   describe('prospec knowledge generate', () => {
     it('should fail without .prospec.yaml', async () => {
       const { exitCode } = await runCli(['knowledge', 'generate']);

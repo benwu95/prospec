@@ -2295,6 +2295,10 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       'skipped when metadata `scale: quick`',
       '**quick path**: metadata `scale: quick` (user-confirmed)',
       'The only legal skip is `story → tasks` under a user-confirmed `scale: quick`',
+      // REQ-TEMPLATES-158 AC3: the executable-router pointer stays in both copies.
+      '**Executable copy**: `prospec status` computes',
+      // Review F4 ruling: the router does not suggest design under quick.
+      'Under `scale: quick` the router does not suggest design',
     ]) {
       expect(tmpl).toContain(marker);
       expect(copy).toContain(marker);
@@ -2804,10 +2808,22 @@ describe('US-19: status-aware handoff + session detection', () => {
     });
   }
 
-  it('entry config detects in-progress changes at session start', () => {
+  it('entry config points session start at `prospec status` (routing as code)', () => {
     const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
-    expect(content).toContain('Session Start');
-    expect(content).toContain('.prospec/changes/');
+    // Section-scoped (PB-001): slice Session Start to the next ## heading.
+    const start = content.indexOf('## Session Start');
+    expect(start).toBeGreaterThan(-1);
+    const rest = content.slice(start + '## Session Start'.length);
+    const next = rest.search(/\n## /);
+    const section = next === -1 ? rest : rest.slice(0, next);
+    expect(section.length).toBeGreaterThan(0);
+    expect(section).toContain('prospec status');
+    expect(section).toContain('_status-lifecycle.md');
+    // CLI-unavailable fallback keeps the manual scan pointer.
+    expect(section).toContain('.prospec/changes/');
+    // The prose station-order derivation is gone — the router owns it now.
+    expect(section).not.toContain('suggested next step in the SDD workflow order');
+    expect(section).not.toContain('own no status transition');
   });
 });
 

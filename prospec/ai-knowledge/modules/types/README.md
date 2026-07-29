@@ -1,6 +1,6 @@
 # types
 
-> Zod schemas, errors, and frozen registries — the leaf type layer every module imports (15 files)
+> Zod schemas, errors, and frozen registries — the leaf type layer every module imports (16 files)
 
 <!-- prospec:auto-start -->
 
@@ -18,7 +18,7 @@
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
 | `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents) |
 
-Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts`.
+Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` workflow order incl. the no-status design/review stations, `STATION_SKILLS`, `ChangeRouteFacts`/`ChangeRoute`/`StatusReport`), `version.ts`.
 
 ## Public API
 

@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config, file I/O, templates, scanning, detection, manifest parsing, drift engine, knowledge reads (28 files)
+> Foundational utilities — config, file I/O, templates, scanning, detection, manifest parsing, drift engine, status routing, knowledge reads (29 files)
 
 <!-- prospec:auto-start -->
 
@@ -18,6 +18,7 @@
 | `drift-sources.ts` | Drift collectors (ALL I/O); unavailable → `{available:false, reason}` |
 | `drift-checker.ts` | Pure evaluators + runChecks (13 checks) |
 | `knowledge-reader.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis |
+| `status-router.ts` | Pure I/O-free SDD station router (`routeChange`) — the executable copy of `_status-lifecycle.md` (quick skip, backfill entry, no-status design/review placement) |
 
 Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-policy.ts`, `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`/`constitution-parser.ts`, `markdown-fences.ts`, `test-runner.ts`, `escaped-defects.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
 

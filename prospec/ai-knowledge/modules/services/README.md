@@ -1,6 +1,6 @@
 # services
 
-> Business logic — one `execute(options) → Promise<Result>` service per command, plus shared helpers (20 files)
+> Business logic — one `execute(options) → Promise<Result>` service per command, plus shared helpers (21 files)
 
 <!-- prospec:auto-start -->
 
@@ -19,6 +19,7 @@
 | `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only); metadata I/O via `lib/change-metadata` |
 | `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; non-check modes `--json`/`--init-ci`/`--record-review`/`--record-tests`/`--escaped-defects` |
 | `mcp.service.ts` | Read-only MCP server — `buildMcpServer()`: 8 resources + 2 tools, per-request reads |
+| `status.service.ts` | Read-only SDD routing — scan `.prospec/changes/`, collect per-change facts (schema-validated metadata, task completion, ui_scope, provenance), route via `lib/status-router`; malformed records become named error entries, never fatal |
 
 Also: `agent-triggers.service.ts` + `trigger-localization.ts` (fill-missing trigger scaffold), `config-example.service.ts`.
 

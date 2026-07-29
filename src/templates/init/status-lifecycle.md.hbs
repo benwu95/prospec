@@ -3,6 +3,8 @@
 > Canonical definition of the `status` field in a prospec change's `metadata.yaml`
 > (`.prospec/changes/{name}/metadata.yaml`). All prospec skills MUST follow this — do not
 > introduce statuses or transitions outside this file.
+>
+> **Executable copy**: `prospec status` computes current/next station and blocking gates from these rules.
 
 ## States and transitions
 
@@ -35,7 +37,7 @@ story → plan → tasks → implemented → verified → archived
 
 Some workflow stations participate in the SDD order but own **no** `status` transition — they operate on the working tree and leave `status` to the stations above. Resume logic must place them by workflow order, not by `status`:
 
-- **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design.
+- **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design. Under `scale: quick` the router does not suggest design (quick skips `plan`); run `/prospec-design` manually.
 - **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `/prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`.
 - **`/prospec-learn`** — periodic; promotes lessons, owns no `status`.
 
