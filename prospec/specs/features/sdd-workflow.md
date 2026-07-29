@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-29
 story_count: 28
-req_count: 133
+req_count: 136
 ---
 
 # SDD Workflow
@@ -279,6 +279,7 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 - WHEN Feature Spec Sync THEN read delta-spec ADDED/MODIFIED/REMOVED and merge into `specs/features/` (Replace-in-Place)
 - WHEN Feature Spec Sync completes THEN auto-regenerate `specs/product.md`
 - WHEN archiving completes THEN summary.md (and its committed `_archived-history` copy) carries a `## Review & Verify` section, so the audit trail carries review/verify evidence and does not evaporate with the gitignored bundle
+- WHEN executing the deterministic mutations THEN `prospec archive <name...>` performs them (previewable with `--dry-run`), and the skill keeps only the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation)
 
 ### Behavior Specifications
 
@@ -311,10 +312,29 @@ prospec-archive Phase 2 aggregates from metadata.yaml `quality_log` / `review.md
 - WHEN contract runs, THEN assertions are section-scoped; removing any target token → turns red
 
 #### REQ-SERVICES-064: archive.service does not auto-trigger knowledge-update / raw-scan
-`archive.service.execute()` no longer auto-triggers `executeKnowledgeUpdate` (→ `updateIndex`) or `generateRawScan` after archiving — because there is no `prospec archive` CLI command, and the auto knowledge-update's `updateIndex` would wipe the curated `index.md` table. Knowledge sync is enforced by the `/prospec-archive` skill Entry Gate, and the module README is folded in at the verify S/A commit; running each phase manually is the only path. `ArchiveResult` does not include `knowledgeUpdated`/`knowledgeWarnings`/`rawScanRefreshed` (`generateProductSpec`/`syncFeatureMap` are retained).
+`archive.service.execute()` does not auto-trigger `executeKnowledgeUpdate` (→ `updateIndex`) or `generateRawScan` after archiving — the auto knowledge-update's `updateIndex` would wipe the curated `index.md` table. This holds with the `prospec archive` CLI entry in place (REQ-CLI-024): the command runs only the archive mutations. Knowledge sync is enforced by the `/prospec-archive` skill Entry Gate, and the module README is folded in at the verify S/A commit; the skill performs those steps, never the service. `ArchiveResult` does not include `knowledgeUpdated`/`knowledgeWarnings`/`rawScanRefreshed` (`generateProductSpec`/`syncFeatureMap` are retained).
 - WHEN `execute()` finishes archiving, THEN it does not call `executeKnowledgeUpdate`, does not call `generateRawScan`
 - WHEN inspecting `ArchiveResult`, THEN it does not include knowledgeUpdated/knowledgeWarnings/rawScanRefreshed fields
 - WHEN inspecting the prospec-archive skill template, THEN there is no reverse claim of a "service auto-triggers knowledge-update/raw-scan safety net"
+
+#### REQ-CLI-024: `prospec archive` command with dry-run preview
+The CLI registers `prospec archive <name...>` — a thin command (parse → `archive.service.execute()` → format) executing the deterministic archive mutations. Names are required: the explicit target carries the caller's confirmation. `--dry-run` prints every planned mutation without writing.
+- WHEN running `prospec archive <name>` on a verified change, THEN the bundle moves to `.prospec/archive/{date}-{name}/` with summary scaffold, mechanical Feature Spec sync, `status: archived` + `archived_at`, product.md regeneration, and feature-map bootstrap (no-clobber)
+- WHEN running with `--dry-run`, THEN every planned mutation (move destination, summary, spec-sync targets, metadata update, product.md/feature-map actions) is printed and nothing is written
+- WHEN no name is given, THEN the command exits with an error; an unknown name reports `not found` with a pointer to `prospec status`
+- WHEN formatting output, THEN repo-derived strings pass `sanitizeTerminal()`; skipped/refused/not-found are failure-class output on stderr, each driving exit 1 and visible under `--quiet`
+
+#### REQ-SERVICES-071: archive.service dry-run mode and refusal reporting
+`ArchiveOptions.dryRun` short-circuits every write point of the one `execute()` flow (no parallel implementation) and returns the `planned` mutations; predictions mirror the real run's triggers (`readFeatureRoutes` — routes existing, not files written — drives the feature-map probe). Named targets are never silently filtered: a non-target-status change reports `refused {name, status, reason}` (including existing-but-unparseable metadata, `status: unknown`), a missing one reports `notFound`; `skippedReasons` carries each skip's real cause. Pre-existing no-clobber, non-fatal, and terminal-station no-schema-validation semantics are unchanged.
+- WHEN running with `dryRun`, THEN the filesystem is byte-identical before and after (directories included), and a subsequent real run performs exactly the predicted mutations (both directions, replay equivalence)
+- WHEN a named change exists but is not `verified`, THEN the result carries `refused` with its status and reason; a nonexistent name lands in `notFound`
+- WHEN a change's archive move fails mid-loop, THEN the move rolls back and `skippedReasons` carries the error message
+
+#### REQ-TEMPLATES-159: archive skill delegates deterministic mutations to the CLI
+The `prospec-archive` skill's deterministic phases delegate to `prospec archive` (dry-run preview first, CLI resolution ladder, explicit CLI-unavailable manual fallback); the skill retains the judgment work — the Entry Gate verbatim, the Review & Verify summary, REQ semantic graduation (wording convergence, Story placement, frontmatter counter reconciliation), lessons harvest, the `_archived-history` copy, and the raw-scan refresh.
+- WHEN reading the generated SKILL.md, THEN no step hand-runs the move or hand-writes feature-map.yaml; `prospec archive` appears in the deterministic steps with a `--dry-run` preview
+- WHEN comparing the Entry Gate against the pre-change template, THEN its items (only-verified, metadata-completeness, knowledge-sync backstop) are semantically unchanged
+- WHEN the CLI is unavailable, THEN the skill states so and performs the manual fallback — never silently skips the mutations
 
 ---
 
@@ -1127,6 +1147,7 @@ Unit (router full status × scale matrix, service memfs tolerance, formatter), c
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-29 | archive-cli-entry | ADDED REQ-CLI-024; ADDED REQ-SERVICES-071; ADDED REQ-TEMPLATES-159; REQ-SERVICES-064 rationale updated (CLI entry now exists, still no auto knowledge-update) | REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-SERVICES-064 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-TEMPLATES-150 (the single authority reference for the metadata.yaml serialization format: loaded by new-story/ff, pointed to when downstream skills append fields, semantics defer to schema/`_status-lifecycle.md`) | US-1; REQ-TEMPLATES-150 (ADDED) |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-26 (scale honesty and ceremony pruning) + REQ-TEMPLATES-134/135/136/137/139/140 (verify quick reduction, archive quick parity, [P]/~lines optional, INVEST advisory, Quality-Gate dedup, commit semantics unified) (issue #67) | US-26, REQ-TEMPLATES-134, REQ-TEMPLATES-135, REQ-TEMPLATES-136, REQ-TEMPLATES-137, REQ-TEMPLATES-139, REQ-TEMPLATES-140 |
 | 2026-06-19 | archive-sync | MODIFIED REQ-SERVICES-010; MODIFIED REQ-TEMPLATES-010; ADDED REQ-TESTS-033 | REQ-SERVICES-010, REQ-TEMPLATES-010, REQ-TESTS-033 |
