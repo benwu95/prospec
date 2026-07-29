@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { withoutFencedBlocks } from '../../../src/lib/markdown-fences.js';
 
 /**
- * REQ-LIB-035 — CommonMark fence boundaries for the shared blanking helper.
+ * REQ-LIB-036 — CommonMark fence boundaries for the shared blanking helper.
  *
  * Every markdown scanner in lib (Constitution parser, drift collectors) runs
  * through this; a wrong fence flip blinds a scanner to the whole rest of the
@@ -28,8 +28,8 @@ describe('withoutFencedBlocks', () => {
   // block — its literal ``` must not flip fence state and blind everything
   // after it (issue #103; the old `^\s*` opener accepted any indentation).
   it('does not treat a 4-space-indented ``` literal as a fence', () => {
-    const out = run(['    ```', 'REQ-LIB-035 stays visible', '    ```'].join('\n'));
-    expect(out[1]).toBe('REQ-LIB-035 stays visible');
+    const out = run(['    ```', 'REQ-LIB-036 stays visible', '    ```'].join('\n'));
+    expect(out[1]).toBe('REQ-LIB-036 stays visible');
   });
 
   it('still opens a fence indented up to three spaces', () => {
