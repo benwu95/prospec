@@ -15,7 +15,7 @@
 | `knowledge.service.ts` | Generate module READMEs + root `index.md` (Recipe-First, ContentMerger) |
 | `knowledge-init.service.ts` + `raw-scan.service.ts` | Initial scan → raw-scan.md (11-lang manifests) + module-map.yaml + skeletons |
 | `knowledge-update.service.ts` | Delta-spec-driven incremental README/index update; index table rendered from `module-map.yaml` |
-| `archive.service.ts` | Archive + spec-sync to Feature-Spec/product.md/`feature-map.yaml` (`syncFeatureMap` sole writer) |
+| `archive.service.ts` | Archive + spec-sync to Feature-Spec/product.md/`feature-map.yaml` (`syncFeatureMap` sole writer); `dryRun` short-circuits every write point in the one `execute()` flow and returns `planned` mutations; named targets report `refused`/`notFound`, never silently filtered |
 | `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only); metadata I/O via `lib/change-metadata` |
 | `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; non-check modes `--json`/`--init-ci`/`--record-review`/`--record-tests`/`--escaped-defects` |
 | `mcp.service.ts` | Read-only MCP server — `buildMcpServer()`: 8 resources + 2 tools, per-request reads |

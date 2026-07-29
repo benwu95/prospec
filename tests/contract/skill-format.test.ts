@@ -3600,3 +3600,47 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     });
   });
 });
+
+describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-159, issue #98)', () => {
+  const render = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+
+  it('Phase 3 executes via prospec archive with a dry-run preview, never hand-run steps', () => {
+    const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
+    expect(phase3).toContain('prospec archive');
+    expect(phase3).toContain('--dry-run');
+    // resolution ladder for the CLI binary
+    expect(phase3).toContain('pnpm exec prospec archive');
+    // the old hand-run move instruction is gone
+    expect(phase3).not.toContain('Move all artifacts');
+    // the judgment summary still replaces the scaffold
+    expect(phase3).toContain('Review & Verify');
+  });
+
+  it('Phase 3 keeps an explicit CLI-unavailable manual fallback', () => {
+    const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
+    expect(phase3).toContain('CLI unavailable');
+    expect(flat(phase3)).toContain('never silently skip the mutations');
+  });
+
+  it('Phase 3.5 reviews the mechanical sync instead of re-running it', () => {
+    const phase35 = sectionOf(render(), '### Phase 3.5: Feature Spec Sync');
+    expect(flat(phase35)).toContain('already performed the **mechanical** Feature Spec Sync');
+    // the judgment work that stays with the skill
+    expect(phase35).toContain('Converge wording');
+    expect(flat(phase35)).toContain('frontmatter counters');
+  });
+
+  it('Phase 3.6 confirms the CLI outputs instead of regenerating them', () => {
+    const phase36 = sectionOf(render(), '### Phase 3.6: Product Spec Regeneration');
+    expect(flat(phase36)).toContain('already regenerated');
+    expect(phase36).toContain('product.md');
+    expect(phase36).toContain('feature-map.yaml');
+    expect(phase36).not.toContain('Extract P0 User Stories');
+  });
+
+  it('NEVER forbids hand-executing the deterministic mutations when the CLI is available', () => {
+    const never = sectionOf(render(), '## NEVER');
+    expect(never).toContain('hand-execute the deterministic mutations');
+    expect(never).toContain('--dry-run');
+  });
+});

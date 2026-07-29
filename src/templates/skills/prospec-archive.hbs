@@ -10,7 +10,7 @@ description: "{{skill_description}} Triggers: {{trigger_words}}"
 
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
-- Each archived change will get a summary.md and be moved to `.prospec/archive/`
+- The deterministic mutations (move to `.prospec/archive/`, summary scaffold, mechanical Feature Spec sync, product.md + feature-map.yaml) are executed by `prospec archive <name>` (previewed with `--dry-run`); this skill keeps the judgment work — the Entry Gate, the Review & Verify summary, and REQ semantic graduation
 - Knowledge sync for affected modules is folded into the verify S/A commit prompt; the Entry Gate re-confirms it (backstop) before archiving
 
 {{> language-policy}}
@@ -72,50 +72,44 @@ For each change to archive:
 
 ### Phase 3: Execute Archive
 
-For each confirmed change:
-1. Create `.prospec/archive/{YYYY-MM-DD}-{change-name}/`
-2. Move all artifacts (proposal.md, plan.md, delta-spec.md, tasks.md, metadata.yaml, and design-spec.md + interaction-spec.md if present)
-3. Place generated summary.md in archive directory
-4. Update `metadata.yaml` to `status: archived` (edit in place; keep the `metadata-format` serialization intact — do not reorder or reformat fields)
-5. Copy `summary.md` → `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date prefix = the archive date, same as the `.prospec/archive/{YYYY-MM-DD}-{change-name}/` folder) — the **committed** spec-history audit trail (`.prospec/archive/` is gitignored, so this copy is the only per-change record in version control). It lands in `_archived-history/` (drift-excluded via `ARCHIVED_EXCLUDES`), never flat under `{{base_dir}}/specs/`. Non-fatal — a copy failure never blocks archiving. Format: `references/archive-format.md` §Spec Archiving.
+The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
+1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations (move destination, summary scaffold, Feature Spec targets, metadata update, product.md/feature-map actions). CLI resolution ladder: `prospec archive` (PATH) → `pnpm exec prospec archive` / `npx -y prospec archive` (project devDep).
+2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, writes the scaffold summary.md, runs the mechanical Feature Spec sync, sets `status: archived` + `archived_at`, regenerates product.md, and bootstraps feature-map.yaml (no-clobber). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
+3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record.
+4. Copy `summary.md` → `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date prefix = the archive date, same as the `.prospec/archive/{YYYY-MM-DD}-{change-name}/` folder) — the **committed** spec-history audit trail (`.prospec/archive/` is gitignored, so this copy is the only per-change record in version control). It lands in `_archived-history/` (drift-excluded via `ARCHIVED_EXCLUDES`), never flat under `{{base_dir}}/specs/`. Non-fatal — a copy failure never blocks archiving. Format: `references/archive-format.md` §Spec Archiving.
+
+**CLI unavailable** (no Node toolchain): state so, then fall back manually — move the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, set `status: archived` + `archived_at` (edit in place; keep the `metadata-format` serialization intact), place the Phase 2 summary.md, and treat Phase 3.5/3.6 as fully manual; never silently skip the mutations.
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] `.prospec/archive/{YYYY-MM-DD}-{change-name}/` created with all artifacts moved (originals not deleted)
-> - [ ] `summary.md` placed in the archive directory
+> - [ ] `prospec archive` executed (dry-run previewed first) — bundle moved to `.prospec/archive/{YYYY-MM-DD}-{change-name}/` with all artifacts (originals not deleted), or the manual fallback performed with the CLI-unavailable note
+> - [ ] Phase 2 `summary.md` (with `## Review & Verify`) placed in the archive directory, replacing the scaffold
 > - [ ] `metadata.yaml` `status` set to `archived`
 > - [ ] `summary.md` copied to `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date-prefixed, committed spec history, non-fatal)
 
 ### Phase 3.5: Feature Spec Sync
 
-> `/prospec-archive` is the **sole writer** of Feature Specs — requirements graduate into the permanent capability record here. `/prospec-verify` deliberately does not gate on Feature Spec freshness (see `_status-lifecycle.md`), so this graduation step is where `specs/features/` catches up to the change.
+> `/prospec-archive` is the **sole writer** of Feature Specs — requirements graduate into the permanent capability record here (the archive service is this station's mechanical writer; it writes nowhere else). `/prospec-verify` deliberately does not gate on Feature Spec freshness (see `_status-lifecycle.md`), so this graduation step is where `specs/features/` catches up to the change.
 
-After archiving, sync User Stories and requirements to Feature Specs:
+`prospec archive` (Phase 3) already performed the **mechanical** Feature Spec Sync — each delta-spec REQ routed by its `**Feature**` field: ADDED appended (new spec created per `references/feature-spec-format.md` scaffold), MODIFIED replaced in place, REMOVED moved to Deprecated Requirements, Change History rows and `last_updated` written. What remains is the **judgment** work — REQ semantic graduation:
 
-1. Read the archived `proposal.md` — extract User Stories (As a / I want / So that + Acceptance Scenarios)
-2. Read the archived `delta-spec.md` — parse ADDED / MODIFIED / REMOVED sections with **Feature** and **Story** routing fields. **Graduation key by scale**: `standard`/`full` → delta-spec; `backfill` → delta-spec (same path — REQ + Story; feature-slug REQ ids route by `**Feature**` as usual); `quick` → the proposal's **Spec Impact** section (when the Entry Gate diagnosed no spec impact, skip graduation entirely — the summary.md diagnostic is the record)
-3. For each requirement, route by the `**Feature**` field:
-   - **ADDED (new Feature)**: Create `{{base_dir}}/specs/features/{feature-slug}.md` following `references/feature-spec-format.md`. Insert User Story (from proposal) + REQ (from delta-spec) together
-   - **ADDED (existing Feature)**: Merge User Story and REQ into the existing Feature Spec under the appropriate Story section
-   - **MODIFIED**: Replace-in-place — update the User Story and REQ to their latest versions in the Feature Spec. Record the change in Change History table only (no inline Before/After)
-   - **REMOVED**: Move the requirement to the Feature Spec's Deprecated Requirements section with removal reason and date
-4. Update each affected Feature Spec's Change History table
-5. Update frontmatter counters (`story_count`, `req_count`, `last_updated`)
+1. Read each Feature Spec the CLI reported as synced. **Graduation key by scale**: `standard`/`full` → delta-spec; `backfill` → delta-spec (same path — REQ + Story; feature-slug REQ ids route by `**Feature**` as usual); `quick` → the proposal's **Spec Impact** section, applied manually (no delta-spec for the CLI to route; when the Entry Gate diagnosed no spec impact, skip graduation entirely — the summary.md diagnostic is the record)
+2. Converge wording: the merged REQ text arrived verbatim from the change artifacts — rewrite it into the spec's English, behavior-first voice; trim narrative that only made sense inside the change
+3. Place each ADDED REQ under the appropriate User Story section (the mechanical merge appends before Edge Cases) and insert the User Story context (As a / I want / So that from proposal.md) where the feature spec lacks it; fill a new spec's `Who & Why` TBDs
+4. Reconcile frontmatter counters (`story_count`, `req_count`) against the spec body — the mechanical merge does not recount them on existing specs
 
 **Feature Spec Sync is non-fatal** — if it fails, archiving still succeeds. Warn the user to manually update Feature Specs.
 
 > **Phase 3.5 Gate** — proceed when:
-> - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `{{base_dir}}/specs/features/` (or graduation skipped for a quick change diagnosed as no-impact)
-> - [ ] Affected Feature Specs' Change History tables and frontmatter counters updated
+> - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `{{base_dir}}/specs/features/` (CLI-reported, spot-checked; or graduation skipped for a quick change diagnosed as no-impact)
+> - [ ] Merged REQ wording converged and placed under the right Story section; frontmatter counters reconciled
 > - [ ] Any sync failure logged and surfaced to the user (non-fatal)
 
 ### Phase 3.6: Product Spec Regeneration
 
-After Feature Spec Sync completes:
+`prospec archive` (Phase 3) already regenerated both outputs — confirm rather than re-derive:
 
-1. Scan all `{{base_dir}}/specs/features/*.md` — read frontmatter (`feature`, `status`, `story_count`)
-2. Extract P0 User Stories from each active Feature Spec for the Core Stories summary
-3. Regenerate `{{base_dir}}/specs/product.md` following `references/product-spec-format.md`
-4. Regenerate `{{knowledge_base_path}}/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net.
+1. Confirm `{{base_dir}}/specs/product.md` was regenerated (per `references/product-spec-format.md`) and its Feature Map lists every active Feature Spec — including any spec Phase 3.5's wording pass just touched
+2. Confirm `{{knowledge_base_path}}/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net.
 
 **Product Spec and feature-map regeneration are non-fatal** — if either fails, Feature Spec Sync results are still valid.
 
@@ -176,7 +170,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves
+- **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves. The explicit change name passed to `prospec archive <name>` is that confirmation's carrier — never archive unnamed
+- **NEVER** hand-execute the deterministic mutations when the CLI is available — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and product/feature-map regeneration; hand-running them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
 - **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; archiving `story` / `plan` / `tasks` / `implemented` bypasses the verification gate and risks meaningless summaries, broken Spec Sync, or unverified work entering the permanent record. Tell the user to verify to S/A first (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`)
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
 - **NEVER** emit a summary.md that lacks the `## Review & Verify` section — the review/verify evidence (grade, criticals/majors, `quality_log`) lives only in the gitignored bundle otherwise, and the `_archived-history` copy is the sole durable record; when a source is absent record `Unverified`/`no review round`, never fabricate
@@ -194,7 +189,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Entry Gate knowledge-sync FAIL | Guide user to run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive` |
 | Change missing metadata.yaml | Skip that change, warn user about incomplete change directory |
 | Change missing delta-spec.md | `scale: quick`: expected — run the quick spec-impact check instead. Otherwise: archive with partial summary, note missing spec in summary.md |
-| Archive directory already exists | Warn user, ask whether to overwrite or skip |
-| File move fails | Roll back that specific change's archive, report error, continue with others |
+| `prospec archive` reports `refused` / `not found` | The named target is not archivable (wrong status) or misspelled — resolve per the report (verify to S/A, or `prospec status` to list names); never force |
+| Archive directory already exists | The CLI reports it skipped (exit 1) — investigate the stale destination with the user before retrying |
+| File move fails | The CLI rolls back that change's move and reports the error — surface it, continue with others |
 
 {{> next-step-handoff}}
