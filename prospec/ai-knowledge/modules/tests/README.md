@@ -40,7 +40,7 @@
 
 ## Pitfalls
 
-- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`.
+- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every such git/spawn-bound file declares `vi.setConfig({ testTimeout: 30_000 })` at FILE level (PB-010): full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
 - MCP behavior is tested over the SDK in-memory linked transport, never a spawned daemon.
 - Contract assertions must be section-scoped AND structure-aware (PB-001) — bare `toContain` over a whole doc yields false-greens; mutation-verify new assertions.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
