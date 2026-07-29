@@ -72,6 +72,30 @@ describe('aggregateEscapedDefects', () => {
     expect(report.gates.some((g) => g.gate === 'prospec-plan')).toBe(false);
   });
 
+  // #103 must-fix 2: the blamed set used to key on the RAW introduced_by string,
+  // so two accepted spellings of one change counted as two escapes — silently
+  // inflating the rate, and at the passed=1 boundary producing escaped_rate=2,
+  // which fails the schema's max(1) and aborts the whole report.
+  it('counts ONE escape when two fixes blame the same change through different aliases', () => {
+    const report = aggregateEscapedDefects(
+      src([
+        change({
+          name: 'offender',
+          dir: '2026-07-05-offender',
+          ledger: 'archive',
+          gate_results: [{ skill: 'prospec-verify', result: 'PASS' }],
+        }),
+        change({ name: 'fix-a', introduced_by: 'offender' }),
+        change({ name: 'fix-b', introduced_by: '2026-07-05-offender' }),
+      ]),
+      AT,
+    );
+    // two defects (samples), but ONE change the gate passed — a true rate in 0..1
+    expect(report.sample_count).toBe(2);
+    const verify = report.gates.find((g) => g.gate === 'prospec-verify');
+    expect(verify).toEqual({ gate: 'prospec-verify', passed: 1, escaped: 1, escaped_rate: 1 });
+  });
+
   it('resolves introduced_by against a date-prefixed archive directory', () => {
     const report = aggregateEscapedDefects(
       src([

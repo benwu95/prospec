@@ -67,7 +67,11 @@ export function aggregateEscapedDefects(
   // counts changes — so the ratio is a true rate in 0..1. Two fixes blaming the
   // same change are two defects but one change the gate passed; counting blame
   // events here would make `escaped_rate` exceed 1 and print as e.g. "300%".
-  const escapedChangesByGate = new Map<string, Set<string>>();
+  // The set member is the resolved gate-set OBJECT, one per change, not the raw
+  // `introduced_by` string: two aliases of one change resolve to the same object,
+  // while the raw strings would count one change twice — inflating the rate and,
+  // at passed=1, failing the schema's max(1) and aborting the report (issue #103).
+  const escapedChangesByGate = new Map<string, Set<ReadonlySet<string>>>();
   for (const change of source.changes) {
     if (change.introduced_by === null) continue;
     const blamedGates = passedGatesByChange.get(change.introduced_by);
@@ -83,8 +87,8 @@ export function aggregateEscapedDefects(
     }
     samples.push(sample);
     for (const gate of sample.gates_passed) {
-      const blamed = escapedChangesByGate.get(gate) ?? new Set<string>();
-      blamed.add(change.introduced_by);
+      const blamed = escapedChangesByGate.get(gate) ?? new Set<ReadonlySet<string>>();
+      blamed.add(blamedGates as Set<string>);
       escapedChangesByGate.set(gate, blamed);
     }
   }
@@ -113,7 +117,7 @@ export function aggregateEscapedDefects(
 
 function buildGateAccuracy(
   gateSets: ReadonlyArray<ReadonlySet<string>>,
-  escapedChangesByGate: ReadonlyMap<string, ReadonlySet<string>>,
+  escapedChangesByGate: ReadonlyMap<string, ReadonlySet<ReadonlySet<string>>>,
 ): GateAccuracy[] {
   const passedByGate = new Map<string, number>();
   for (const gates of gateSets) {

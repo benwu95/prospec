@@ -43,6 +43,7 @@
 | REQ-TESTS-056 | ADDED | 新引擎的 collector／evaluator 測試 |
 | REQ-TESTS-057 | ADDED | 報告契約、skill 契約與 CLI 整合測試 |
 | REQ-TYPES-052 | MODIFIED | frozen check id 計數 11 → 13 |
+| REQ-TYPES-034 | MODIFIED | 檢查總數改由 REQ-TYPES-052 單源引用（defers the count） |
 | REQ-TYPES-022 | MODIFIED | quality_log dimension 詞彙擴充（`not-adjudicated`／`adjudicator`） |
 | REQ-TEMPLATES-034 | MODIFIED | verify 4/5 Knowledge 維度改為機械裁決 |
 | REQ-TEMPLATES-045 | MODIFIED | verify Knowledge 新鮮度來源升級為裁決 |

@@ -45,7 +45,7 @@
 
 - No business logic in cli — always delegate to services; `.action()` callbacks are async → `await` + try/catch with `handleError()`.
 - Success → stdout, errors → stderr; `mcp serve` keeps stdout byte-clean (JSON-RPC channel — any write corrupts the session; contract test spies on `process.stdout.write`).
-- `check --strict` ∧ hasFail → exit 1 (warn/skipped never affect it); skipped ≠ PASS — show its reason. `--record-tests`/`--escaped-defects` are non-check modes that exit without grading drift, so they never touch the exit code.
+- `check --strict` ∧ hasFail → exit 1 (warn/skipped never affect it); skipped ≠ PASS — show its reason. `--record-tests`/`--escaped-defects` are non-check modes that exit without grading drift, so they never touch the exit code. `--json` help names its output file per mode (`prospec-report.json`; `escaped-defect-report.json` with `--escaped-defects`) — keep it in step when a mode gains a file.
 - `upgrade-output.ts` labels (`Docs inventory:`, `stale Language Policy wording:`, `Current Language Policy rule:`) are the `/prospec-upgrade` skill's parse contract — renaming one silently disables the step that reads it.
 - `sanitizeTerminal()` strips C0/C1/DEL, lives once in `formatters/sanitize.ts` — route all free-form repo/report/error strings through it (reimplementing reopens the ANSI/OSC-injection gap). `measure-output.ts` stays verdict-free (numbers only, REQ-MEASURE-005).
 - `setup-color.ts` MUST be the first import in `index.ts` — reordering re-enables color on non-TTY stdout and corrupts piped output.

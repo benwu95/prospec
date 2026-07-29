@@ -25,7 +25,9 @@ tech_stack:
   # without a shell (CVE-2024-27980), even via an absolute path. `pnpm test` is such
   # a shim, so name a shell-free invocation instead — the check reports an honest
   # skip (never a FAIL you cannot fix) and tells you this when it detects one.
-  test_command: pnpm test
+  # The example below is one such shell-free, shim-free invocation (Node's builtin
+  # runner); on POSIX-only projects `pnpm test` also works.
+  test_command: node --test
 
 paths:
   # Root of the prospec artifact tree (Constitution, index.md, specs, knowledge).

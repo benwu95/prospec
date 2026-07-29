@@ -326,8 +326,9 @@ export function evaluateMcpReadmeCounts(src: McpReadmeCountSource): CheckOutcome
  * baseline whose digest still matches the current code (REQ-LIB-024). Absent →
  * fail (review never ran); mismatch → fail (code changed since review, re-review
  * needed). FAIL-class: this is the machine gate that makes review non-skippable
- * before verify. Backfill and non-`implemented` changes are exempt (not flagged);
- * an unavailable source (not git / no changes dir / no digest) skips.
+ * before verify. Non-`implemented` changes are exempt; backfill is exempt only
+ * when proven by `backfill-draft.md` (`scale` alone is hand-editable, #103); an
+ * unavailable source (not git / no changes dir / no digest) skips.
  *
  * Assumes a single change in flight at a time (the normal prospec workflow): the
  * one whole-tree `current_digest` is compared against every change, so with
@@ -340,7 +341,10 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
   }
   const findings: DriftFinding[] = [];
   for (const c of src.changes) {
-    if (c.status !== 'implemented' || c.scale === 'backfill') continue;
+    if (c.status !== 'implemented') continue;
+    // Draft-gated like test-provenance (issue #103): `scale` is hand-editable, so
+    // only a proven backfill (backfill-draft.md present) skips the review gate.
+    if (c.scale === 'backfill' && c.backfill_draft_present) continue;
     if (c.recorded_digest === null) {
       findings.push({
         check: 'review-provenance',
@@ -459,7 +463,13 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
  * changed since the run); non-zero exit → fail (the suite failed). FAIL-class:
  * this is what makes verify's test dimension a machine verdict instead of an
  * agent's self-report. A non-`implemented` change is exempt; an unavailable source
- * (no test command / not git / no changes dir / no digest) skips.
+ * (not git / no changes dir / no digest) skips.
+ *
+ * **A recorded failure outranks an unresolvable command.** When the test command
+ * cannot run on this machine (unset, or a Windows shim), the missing/stale
+ * branches skip honestly — you cannot demand a run that cannot spawn — but a
+ * recorded non-zero exit still FAILs: it is a fact that needs no runnable command
+ * (issue #103; same principle as the backfill ordering below, one level up).
  *
  * **The backfill relaxation is per-branch, not wholesale.** A proven backfill
  * (`backfill-draft.md` present) records pre-existing brownfield code, so a
@@ -482,6 +492,29 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   for (const c of src.changes) {
     if (c.status !== 'implemented') continue;
     const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
+    if (c.recorded_digest !== null && c.recorded_exit_code !== 0) {
+      // Checked FIRST — before staleness, before the unresolvable-command skip —
+      // and never exempt under backfill: a recorded failure is a KNOWN failure
+      // whatever the tree or the toolchain did afterwards, and the verify contract
+      // this status feeds is absolute — "never suppress a recorded non-zero exit".
+      // Any later ordering opens a suppression path (stale+failing backfill via the
+      // exempt branch; a red record via a command that stopped resolving — #103).
+      findings.push({
+        check: 'test-provenance',
+        severity: 'fail',
+        source_path: c.source_path,
+        detail:
+          `failing test run for change "${c.name}": \`${c.recorded_command}\` exited ` +
+          `${c.recorded_exit_code === null ? 'without a status' : c.recorded_exit_code}` +
+          (c.recorded_digest === src.current_digest ? '' : ' (and the record is stale)'),
+      });
+      continue;
+    }
+    // Missing/stale demand a (re-)run — meaningless to demand when the command
+    // cannot spawn on this machine; those branches skip honestly below. Loose
+    // `!= null` on purpose: a source built before this field existed must read
+    // as "command resolvable", never as a skip.
+    if (src.command_unavailable_reason != null) continue;
     if (c.recorded_digest === null) {
       if (provenBackfill) continue; // brownfield code legitimately has no run
       findings.push({
@@ -491,21 +524,6 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
         detail:
           `no test run recorded for change "${c.name}" — run ` +
           '`prospec check --record-tests` before /prospec-verify',
-      });
-    } else if (c.recorded_exit_code !== 0) {
-      // Checked BEFORE staleness, and never exempt under backfill: a recorded
-      // failure is a KNOWN failure whatever the tree did afterwards, and the verify
-      // contract this status feeds is absolute — "never suppress a recorded non-zero
-      // exit". Ordering it after staleness would let a stale+failing backfill record
-      // slip through the exempt branch and suppress exactly that.
-      findings.push({
-        check: 'test-provenance',
-        severity: 'fail',
-        source_path: c.source_path,
-        detail:
-          `failing test run for change "${c.name}": \`${c.recorded_command}\` exited ` +
-          `${c.recorded_exit_code === null ? 'without a status' : c.recorded_exit_code}` +
-          (c.recorded_digest === src.current_digest ? '' : ' (and the record is stale)'),
       });
     } else if (c.recorded_digest !== src.current_digest) {
       // Stale with a GREEN record means "current outcome unknown", which for proven
@@ -521,6 +539,9 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
           're-run `prospec check --record-tests`',
       });
     }
+  }
+  if (findings.length === 0 && src.command_unavailable_reason != null) {
+    return skipped('test-provenance', src.command_unavailable_reason);
   }
   return outcome('test-provenance', findings);
 }

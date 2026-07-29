@@ -18,13 +18,21 @@
 export function withoutFencedBlocks(lines: string[]): string[] {
   let fence: { char: string; len: number } | null = null;
   return lines.map((line) => {
-    const m = /^\s*(`{3,}|~{3,})\s*(.*)$/.exec(line);
+    // Up to three spaces of indentation only: four or more (or a tab) makes an
+    // indented code block, whose literal ``` must not flip fence state — the old
+    // `^\s*` opener let one blind the scanner to the whole rest of the file.
+    const m = /^ {0,3}(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
     if (m !== null && m[1] !== undefined) {
       const marker = m[1];
-      const info = (m[2] ?? '').trim();
+      const rest = m[2] ?? '';
+      const info = rest.trim();
+      const char = marker[0] ?? '`';
       if (fence === null) {
-        fence = { char: marker[0] ?? '`', len: marker.length };
-      } else if (marker[0] === fence.char && marker.length >= fence.len && info === '') {
+        // A backtick fence's info string may not contain a backtick (a one-line
+        // ```code``` span is inline code, not an opener); tilde info may.
+        if (char === '`' && rest.includes('`')) return line;
+        fence = { char, len: marker.length };
+      } else if (char === fence.char && marker.length >= fence.len && info === '') {
         fence = null;
       }
       return '';

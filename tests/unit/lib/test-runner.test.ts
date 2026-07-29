@@ -54,6 +54,14 @@ describe('runTestCommand', () => {
     const r = runTestCommand(os.tmpdir(), `${NODE} -e while(true){}`, 300);
     expect(r.timed_out).toBe(true);
     expect(r.exit_code).toBeNull();
+    // the ACTUAL window, so a timeout report can never restate the default —
+    // reverting check.service to DEFAULT_TEST_TIMEOUT_MS would lie here
+    expect(r.timeout_ms).toBe(300);
+  });
+
+  it('carries the timeout it actually ran with on every path', () => {
+    expect(runTestCommand(os.tmpdir(), `${NODE} -e process.exit(0)`, 12_345).timeout_ms).toBe(12_345);
+    expect(runTestCommand(os.tmpdir(), 'definitely-not-an-installed-binary-xyz', 777).timeout_ms).toBe(777);
   });
 
   it('reports an unrunnable command as an error, not a pass', () => {

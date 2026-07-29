@@ -33,9 +33,10 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  isGitWorkTree,
 } from '../lib/drift-sources.js';
 import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
-import { DEFAULT_TEST_TIMEOUT_MS, runTestCommand } from '../lib/test-runner.js';
+import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
 import {
@@ -253,12 +254,20 @@ async function recordReviewProvenance(
   }
   const digest = computeChangeDigest(cwd);
   if (digest === null) {
-    return { kind: 'record-review', change, recorded: false, reason: 'not a git repository' };
+    return { kind: 'record-review', change, recorded: false, reason: digestFailureReason(cwd) };
   }
   const { doc } = readChangeMetadata(metadataPath, change);
   doc.set('review_provenance', doc.createNode({ digest, date: new Date().toISOString().slice(0, 10) }));
   await writeChangeMetadataDoc(metadataPath, doc, change);
   return { kind: 'record-review', change, recorded: true };
+}
+
+/** A null digest has two very different causes — misreporting a capture failure
+ *  as "not a git repository" sends the developer to the wrong fix (issue #103). */
+function digestFailureReason(cwd: string): string {
+  return isGitWorkTree(cwd)
+    ? 'could not compute the change digest (a git capture failed)'
+    : 'not a git repository';
 }
 
 /**
@@ -293,13 +302,14 @@ async function recordTestProvenance(
   }
   // Every precondition is checked BEFORE the suite runs — a 15-minute run that is
   // then discarded (or that dies on a schema error) is the worst possible outcome.
-  // The pre-run digest doubles as the git-repo guard; the metadata read is hoisted
-  // here because it validates and throws.
+  // The pre-run digest doubles as the git-repo guard; the metadata read here is
+  // pure fail-fast validation (it throws on a schema error) — the document it
+  // returns is deliberately NOT the one written back.
   const before = computeChangeDigest(cwd);
   if (before === null) {
-    return { kind: 'record-tests', change, recorded: false, reason: 'not a git repository' };
+    return { kind: 'record-tests', change, recorded: false, reason: digestFailureReason(cwd) };
   }
-  const { doc } = readChangeMetadata(metadataPath, change);
+  readChangeMetadata(metadataPath, change);
 
   const run = runTestCommand(cwd, command);
   if (run.timed_out || run.exit_code === null) {
@@ -309,7 +319,7 @@ async function recordTestProvenance(
       recorded: false,
       command: run.command,
       reason: run.timed_out
-        ? `test run timed out after ${DEFAULT_TEST_TIMEOUT_MS} ms`
+        ? `test run timed out after ${run.timeout_ms} ms`
         : run.signal !== undefined
           ? `test run killed by ${run.signal}`
           : (run.error ?? 'test run produced no exit code'),
@@ -323,7 +333,25 @@ async function recordTestProvenance(
   // run is what the check compares against, so it converges in one run.
   const after = computeChangeDigest(cwd);
   if (after === null) {
-    return { kind: 'record-tests', change, recorded: false, reason: 'not a git repository' };
+    return { kind: 'record-tests', change, recorded: false, reason: digestFailureReason(cwd) };
+  }
+  // Re-read AFTER the run and write into the fresh document: a long suite leaves a
+  // wide window in which the metadata may be edited, and writing back the pre-run
+  // snapshot would silently clobber that edit (issue #103). If the file no longer
+  // validates, record nothing — a stale snapshot must not resurrect itself.
+  let doc: ReturnType<typeof readChangeMetadata>['doc'];
+  try {
+    ({ doc } = readChangeMetadata(metadataPath, change));
+  } catch (err) {
+    return {
+      kind: 'record-tests',
+      change,
+      recorded: false,
+      command: run.command,
+      reason:
+        'metadata.yaml changed during the run and no longer validates — ' +
+        `fix it and re-run (${err instanceof Error ? err.message : String(err)})`,
+    };
   }
   doc.set(
     'test_provenance',

@@ -3466,6 +3466,36 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(section).toContain('not-applicable');
     });
 
+    // #103 must-fix 3: the A-budget carve-out was an open "substantive WARNs"
+    // judgment call — two defensible readings gave session-dependent grades in
+    // the one place this template mechanizes. Now a closed enumeration.
+    it('defines the A-budget exclusion as a CLOSED class naming all three engine-outage WARN shapes', () => {
+      const section = flat(sectionOf(verify(), '### When the machine adjudicator is unavailable'));
+      expect(section).toContain('closed class of exactly three shapes');
+      expect(section).toContain('not-adjudicated');
+      expect(section).toContain('missing-inventory');
+      expect(section).toContain('review-staleness');
+      // the complement rule is total — no residual judgment vocabulary
+      expect(section).toContain('Every WARN outside these three shapes counts');
+      expect(section).not.toContain('Count only');
+    });
+
+    // Structure-aware (PB-001): EVERY restatement of the ≤ 2 WARN budget must
+    // carry the exclusion or a pointer to it — an unannotated copy is exactly
+    // how the contradiction shipped in #102 (two bare restatements).
+    it('annotates every mention of the ≤ 2 WARN budget with the exclusion', () => {
+      const doc = flat(verify());
+      const hits = [...doc.matchAll(/(?:≤|<=)\s*2\s+(?:budget-counted\s+)?WARN/g)];
+      // definition + rubric + merge rule + status gate
+      expect(hits.length).toBeGreaterThanOrEqual(4);
+      for (const m of hits) {
+        const window = doc.slice(Math.max(0, (m.index ?? 0) - 200), (m.index ?? 0) + 200);
+        expect(window, `budget mention lacks the exclusion near: …${window.slice(150, 250)}…`).toMatch(
+          /[Ee]ngine-unavailability|closed class|budget-counted/,
+        );
+      }
+    });
+
     it('forbids overturning a machine verdict and reporting not-adjudicated as PASS', () => {
       const never = sectionOf(verify(), '## NEVER');
       expect(never).toMatch(/NEVER\*\* overturn a machine dimension/);
@@ -3481,7 +3511,8 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(sectionOf(content, '## Startup Loading')).not.toContain('--record-tests');
       const step0 = sectionOf(content, '### Step 0: Record the test run (before reading the report)');
       expect(step0).toContain('--record-tests');
-      expect(step0).toContain('after the Entry\nGate');
+      // flat() so the pin survives a semantics-preserving re-wrap of the prose
+      expect(flat(step0)).toContain('after the Entry Gate');
       // ordering still matters, but it is now an instruction rather than document
       // order: the startup copy predates the record, so Step 0 must re-read it.
       expect(flat(step0)).toContain('re-run `prospec check --json` and re-read');

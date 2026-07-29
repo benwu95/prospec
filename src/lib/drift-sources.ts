@@ -163,6 +163,10 @@ export interface ReviewProvenanceChange {
   scale: string;
   /** digest recorded by `--record-review`; null when never reviewed. */
   recorded_digest: string | null;
+  /** True when `backfill-draft.md` sits beside the metadata — the backfill
+   *  exemption keys on this, not on the hand-editable `scale`, exactly like
+   *  test-provenance (issue #103 aligned the two). */
+  backfill_draft_present: boolean;
 }
 
 export interface ReviewProvenanceSource {
@@ -219,6 +223,11 @@ export interface TestProvenanceChange {
 export interface TestProvenanceSource {
   available: boolean;
   reason?: string;
+  /** Why the test command cannot run on this machine (unset / unspawnable shim),
+   *  or null when it can. A fact about THIS machine, deliberately NOT source-level
+   *  unavailability: recorded runs are still enumerated so a recorded non-zero
+   *  exit is never suppressed by an unresolvable command (issue #103). */
+  command_unavailable_reason: string | null;
   /** current code fingerprint to compare each recorded digest against. */
   current_digest: string | null;
   changes: TestProvenanceChange[];
@@ -912,7 +921,12 @@ export function computeChangeDigest(cwd: string): string | null {
   // A capture failure (e.g. a diff past gitCapture's buffer) must NOT collapse
   // into a constant digest — that would silently certify stale code as current.
   if (diff === null) return null;
-  const untracked = (gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]) ?? '')
+  // Same rule for the untracked listing: `?? ''` here would silently drop the
+  // untracked dimension from the digest — fail-open, the pattern issue #103
+  // removed. Fail closed to an honest skip instead.
+  const untrackedOut = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
+  if (untrackedOut === null) return null;
+  const untracked = untrackedOut
     .split('\n')
     .filter((l) => l.length > 0)
     .sort();
@@ -978,6 +992,9 @@ export function collectReviewProvenance(
       status: readString(entry.meta.status),
       scale: readString(entry.meta.scale),
       recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
+      backfill_draft_present: existsSync(
+        path.join(changesDir, entry.name, 'backfill-draft.md'),
+      ),
     });
   }
   return { available: true, current_digest, changes };
@@ -988,7 +1005,9 @@ export function collectReviewProvenance(
  * (REQ-LIB-033). Sibling of collectReviewProvenance — same whole-tree digest
  * comparison, reading the baseline `--record-tests` wrote. Unavailable (not a git
  * repo, no `.prospec/changes/`, or the digest cannot be computed) → the check
- * skips, never a fabricated pass.
+ * skips, never a fabricated pass. An unresolvable test command is NOT source
+ * unavailability — it lands in `command_unavailable_reason` while the changes are
+ * still enumerated, so recorded failures survive it (issue #103).
  */
 export function collectTestProvenance(
   cwd: string,
@@ -1002,22 +1021,10 @@ export function collectTestProvenance(
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,
     reason,
+    command_unavailable_reason: null,
     current_digest: null,
     changes: [],
   });
-  // A project with no resolvable test command can never satisfy this check, so
-  // failing it would be a permanent, unfixable gate rather than a signal. No
-  // command means no facts — the honest state is skipped, with the fix named.
-  if (testCommand === null) {
-    return unavailable(
-      'source unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml',
-    );
-  }
-  // Same reasoning one step further: a command that exists but cannot be spawned on
-  // this platform (a Windows `.cmd`/`.bat` shim) is equally unsatisfiable, and
-  // failing it would bar every Windows project from `verified` with no config fix.
-  const unspawnable = unspawnableReason(testCommand, probe);
-  if (unspawnable !== null) return unavailable(`source unavailable: ${unspawnable}`);
   if (!isGitWorkTree(cwd)) return unavailable('source unavailable: not a git repository');
   const changesDir = path.resolve(cwd, '.prospec/changes');
   if (!existsSync(changesDir)) {
@@ -1028,6 +1035,21 @@ export function collectTestProvenance(
   const current_digest = digest;
   if (current_digest === null) {
     return unavailable('source unavailable: could not compute the current change digest');
+  }
+  // An unset or unspawnable command is a fact about THIS machine, not about the
+  // recorded runs — it must never gate enumeration. The old early-return here
+  // (available: false, changes: []) suppressed recorded non-zero exits, letting a
+  // known-red change reach `verified` wherever the command stopped resolving
+  // (issue #103). The evaluator judges recorded failures before this reason.
+  let command_unavailable_reason: string | null = null;
+  if (testCommand === null) {
+    command_unavailable_reason =
+      'test command unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml';
+  } else {
+    const unspawnable = unspawnableReason(testCommand, probe);
+    if (unspawnable !== null) {
+      command_unavailable_reason = `test command unavailable: ${unspawnable}`;
+    }
   }
   const changes: TestProvenanceChange[] = [];
   for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
@@ -1048,7 +1070,7 @@ export function collectTestProvenance(
       ),
     });
   }
-  return { available: true, current_digest, changes };
+  return { available: true, command_unavailable_reason, current_digest, changes };
 }
 
 /**
@@ -1145,7 +1167,9 @@ function readGateResults(quality_log: unknown): Array<{ skill: string; result: s
     // escaped-defect schema rejects an empty gate name, so letting it through
     // would take the whole report down instead of dropping one bad record.
     if (e.skill.trim().length === 0 || e.result.trim().length === 0) continue;
-    out.push({ skill: e.skill.trim(), result: e.result });
+    // Both trimmed, symmetrically: an untrimmed result made `'PASS '` invisible to
+    // the exact-match PASS comparison — the change silently left the escape stats.
+    out.push({ skill: e.skill.trim(), result: e.result.trim() });
   }
   return out;
 }
@@ -1154,7 +1178,10 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-function isGitWorkTree(cwd: string): boolean {
+/** Exported for the record paths in check.service, which must tell "not a git
+ *  repository" apart from "in a repo, but the digest could not be computed"
+ *  (issue #103: both used to report the former). */
+export function isGitWorkTree(cwd: string): boolean {
   try {
     execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
     return true;
@@ -1255,7 +1282,13 @@ function hasVerifyGrade(quality_log: unknown): boolean {
   return quality_log.some((entry) => {
     if (entry === null || typeof entry !== 'object') return false;
     const e = entry as { skill?: unknown; result?: unknown; grade?: unknown };
-    if (e.skill !== 'prospec-verify') return false;
-    return e.grade === 'S' || e.grade === 'A' || e.result === 'S' || e.result === 'A';
+    // Trimmed like readGateResults: these rows come off raw YAML with no schema
+    // pass, and an exact match on `"A "` would flip a genuinely verified change
+    // into a FAIL-class metadata-completeness finding (#103, PB-007 sweep).
+    const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+    if (str(e.skill) !== 'prospec-verify') return false;
+    const grade = str(e.grade);
+    const result = str(e.result);
+    return grade === 'S' || grade === 'A' || result === 'S' || result === 'A';
   });
 }

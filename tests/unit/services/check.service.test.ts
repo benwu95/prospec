@@ -214,9 +214,16 @@ describe('check.service review-provenance', () => {
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('fail');
   });
 
-  it('exempts scale: backfill (no review required)', async () => {
+  it('exempts a PROVEN backfill (backfill-draft.md present) from the review gate', async () => {
     initGitChange('backfill');
+    write('.prospec/changes/c1/backfill-draft.md', '# draft\n');
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  // Aligned with test-provenance by #103: `scale` alone is hand-editable.
+  it('grants no review exemption to an unproven backfill (no backfill-draft.md)', async () => {
+    initGitChange('backfill');
+    expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('fail');
   });
 });
 
@@ -434,6 +441,55 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
     expect(rec.recorded).toBe(true);
     expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  // A long suite leaves a wide window; writing back the pre-run snapshot would
+  // silently clobber any edit that landed during the run (issue #103).
+  it('preserves a metadata edit that lands while the suite is running', async () => {
+    initGitChange();
+    write(
+      'edit-meta.cjs',
+      "require('fs').appendFileSync('.prospec/changes/c1/metadata.yaml', 'description: edited-mid-run\\n');\n",
+    );
+    setTestCommandArgv(`${NODE} edit-meta.cjs`);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(true);
+    const raw = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(raw).toContain('description: edited-mid-run');
+    expect(raw).toContain('test_provenance:');
+  });
+
+  it('records nothing when metadata stops validating during the run — the stale snapshot must not resurrect', async () => {
+    initGitChange();
+    write(
+      'corrupt-meta.cjs',
+      "require('fs').writeFileSync('.prospec/changes/c1/metadata.yaml', 'name: [unclosed\\n');\n",
+    );
+    setTestCommandArgv(`${NODE} corrupt-meta.cjs`);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(false);
+    expect(rec.reason).toContain('no longer validates');
+    // the corrupted content is still there — untouched, not overwritten
+    const raw = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(raw).toBe('name: [unclosed\n');
+  });
+
+  // A null digest inside a real repo is a capture failure, not "not a git
+  // repository" — the wrong reason sends the developer to the wrong fix (#103).
+  it('names a digest failure honestly when the directory IS a git repository', async () => {
+    git('init', '-q'); // unborn HEAD: work tree yes, `git diff HEAD` fails
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\ncreated_at: 2026-07-13T09:51:00.000Z\nstatus: implemented\nscale: standard\n',
+    );
+    setTestCommand(0);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(false);
+    expect(rec.reason).toContain('could not compute the change digest');
+    expect(rec.reason).not.toContain('not a git repository');
   });
 
   it('writes no record when the run is killed, and reports the signal honestly', async () => {
