@@ -677,6 +677,54 @@ describe('prospec check E2E', () => {
     expect(stdout).toContain('not-checked');
   });
 
+  it('lists the two adjudication checks and the parsed Constitution inventory', async () => {
+    scaffoldProject();
+    writeFixture(
+      'prospec/CONSTITUTION.md',
+      '# C\n\n## Principles\n\n### [MUST] Tagged rule\n\n**Verify**: x.\n\n### Untagged rule\n\nprose\n',
+    );
+    const { stdout, exitCode } = await runCli(['check']);
+    expect(exitCode).toBe(0);
+    // both new checks appear with their own status line, with the state PINNED —
+    // an alternation over every status would pass whatever the engine reported.
+    // This fixture declares no test command, so the honest state is SKIP + reason.
+    expect(stdout).toContain('SKIP  test-provenance');
+    expect(stdout).toMatch(/SKIP\s+test-provenance[^\n]*no test command configured/);
+    expect(stdout).toContain('WARN  constitution-severity');
+    expect(stdout).toContain('Constitution rules: 2 parsed');
+    expect(stdout).toContain('1 untagged');
+  });
+
+  it('--escaped-defects reports honestly with no registered samples and never writes a file', async () => {
+    scaffoldProject();
+    const { stdout, exitCode } = await runCli(['check', '--escaped-defects']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('no registered samples');
+    expect(stdout).toContain('not a 0% escape rate');
+    expect(fs.existsSync(path.join(tmpDir, 'escaped-defect-report.json'))).toBe(false);
+  });
+
+  it('--escaped-defects --json writes the report with per-gate rates', async () => {
+    scaffoldProject();
+    writeFixture(
+      '.prospec/archive/2026-07-05-offender/metadata.yaml',
+      'name: offender\nstatus: archived\nscale: standard\nquality_log:\n' +
+        '  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
+    );
+    writeFixture(
+      '.prospec/changes/fix/metadata.yaml',
+      'name: fix\nstatus: implemented\nscale: quick\nintroduced_by: offender\n',
+    );
+    const { stdout, exitCode } = await runCli(['check', '--escaped-defects', '--json']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('prospec-verify');
+    const report = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'escaped-defect-report.json'), 'utf-8'),
+    );
+    expect(report.sample_count).toBe(1);
+    expect(report.gates[0]).toMatchObject({ gate: 'prospec-verify', passed: 1, escaped: 1 });
+  });
+
   it('exits 1 with --strict on injected drift, 0 without --strict', async () => {
     scaffoldProject();
     writeFixture('prospec/specs/features/demo.md', '#### REQ-DEMO-001: Demo\nsee REQ-DANGLING-999\n');

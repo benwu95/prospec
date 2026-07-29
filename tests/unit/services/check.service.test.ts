@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
@@ -7,6 +7,14 @@ import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.j
 import { DriftReportSchema, DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 
 // check.service drives fast-glob + git collectors — real temp dirs, like scanner.test.ts.
+
+// Each test here spawns real `git` (and, in the record paths, the project's test
+// command) against a temp repo — 1-2s per test idle, several times that under full
+// parallel-suite contention. vitest's 5s default then times out load-dependently,
+// which is intolerable for THIS change specifically: `--record-tests` stamps the
+// suite's exit code into `test_provenance`, so a flaky suite makes the
+// `test-provenance` verdict non-deterministic. Same precedent as tests/e2e/cli.test.ts.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let tmpDir: string;
 
@@ -51,16 +59,20 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all eleven checks, FR-007)', async () => {
-    // no specs, no knowledge, no module paths, no .prospec/changes, no git repo, no feature-map.yaml
+  it('marks unavailable sources as skipped — never PASS (all thirteen checks, FR-007)', async () => {
+    // no specs, no knowledge, no module paths, no .prospec/changes, no git repo,
+    // no feature-map.yaml, no CONSTITUTION.md
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     for (const check of result.report.structural.checks) {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       expect(check.reason ?? '').toContain('source unavailable');
     }
-    expect(result.report.summary.skipped_count).toBe(11);
+    expect(result.report.summary.skipped_count).toBe(13);
+    expect(result.report.structural.checks).toHaveLength(13);
     expect(result.hasFail).toBe(false);
+    // no facts → no inventory section at all (absent, not empty-and-passing)
+    expect(result.report.structural.constitution).toBeUndefined();
   });
 
   it('warns via knowledge-size on an over-budget module README (SC-001/SC-002)', async () => {
@@ -274,5 +286,231 @@ describe('check.service --init-ci', () => {
     expect(content).toContain('npx prospec check --strict --json');
     expect(content).toContain('npm ci');
     expect(content).not.toContain('pnpm/action-setup');
+  });
+});
+
+describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const NODE = process.execPath;
+
+  function initGitChange(scale = 'standard', extraMetadata = ''): void {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      `# leading comment must survive the write\nname: c1\ncreated_at: 2026-07-13T09:51:00.000Z\n` +
+        `status: implemented\nscale: ${scale}\nunmodelled_key: keep-me\n${extraMetadata}`,
+    );
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  }
+
+  const testCheck = (r: Awaited<ReturnType<typeof execute>>) => {
+    if (r.kind !== 'report') throw new Error('expected report');
+    return r.report.structural.checks.find((c) => c.id === 'test-provenance');
+  };
+
+  /** Point the project's test command at a trivial node invocation. */
+  function setTestCommand(exitCode: number): void {
+    setTestCommandArgv(`${NODE} -e process.exit(${exitCode})`);
+  }
+
+  function setTestCommandArgv(command: string): void {
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: prospec',
+        'tech_stack:',
+        '  language: typescript',
+        '  package_manager: pnpm',
+        `  test_command: ${command}`,
+      ].join('\n'),
+    );
+  }
+
+  it('fails when an implemented change has no recorded test run', async () => {
+    initGitChange();
+    setTestCommand(0);
+    const result = await execute({ cwd: tmpDir });
+    expect(testCheck(result)?.status).toBe('fail');
+    if (result.kind === 'report') expect(result.hasFail).toBe(true);
+  });
+
+  it('--record-tests writes the baseline and clears the gate, preserving comments and unknown keys', async () => {
+    initGitChange();
+    setTestCommand(0);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    expect(rec.kind).toBe('record-tests');
+    if (rec.kind !== 'record-tests') return;
+    expect(rec).toMatchObject({ change: 'c1', recorded: true, exitCode: 0 });
+
+    const raw = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(raw).toContain('# leading comment must survive the write');
+    expect(raw).toContain('unmodelled_key: keep-me');
+    expect(raw).toContain('test_provenance:');
+    expect(raw).toContain('exit_code: 0');
+
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  it('records a failing suite as a fact — the check turns it into the FAIL', async () => {
+    initGitChange();
+    setTestCommand(3);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec).toMatchObject({ recorded: true, exitCode: 3 });
+    const result = await execute({ cwd: tmpDir });
+    expect(testCheck(result)?.status).toBe('fail');
+    const finding = (result.kind === 'report' ? result.report.structural.findings : []).find(
+      (f) => f.check === 'test-provenance',
+    );
+    expect(finding?.detail).toContain('failing test run');
+  });
+
+  it('goes stale when code changes after the recorded run', async () => {
+    initGitChange();
+    setTestCommand(0);
+    await execute({ cwd: tmpDir, recordTests: true });
+    write('src/lib/x.ts', 'export const a = 2;\n');
+    const result = await execute({ cwd: tmpDir });
+    expect(testCheck(result)?.status).toBe('fail');
+    const finding = (result.kind === 'report' ? result.report.structural.findings : []).find(
+      (f) => f.check === 'test-provenance',
+    );
+    expect(finding?.detail).toContain('stale test run');
+  });
+
+  it('skips honestly (no record written) when no test command is configured', async () => {
+    initGitChange();
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(false);
+    expect(rec.reason).toContain('no test command');
+    expect(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8')).not.toContain(
+      'test_provenance',
+    );
+  });
+
+  it('exempts a PROVEN backfill (backfill-draft.md present)', async () => {
+    initGitChange('backfill');
+    setTestCommand(0);
+    write('.prospec/changes/c1/backfill-draft.md', '# draft\n');
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  it('grants no relaxation to an unproven backfill — `scale` alone is hand-editable', async () => {
+    initGitChange('backfill');
+    setTestCommand(0);
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('fail');
+  });
+
+  it('skips honestly when the project has no resolvable test command', async () => {
+    initGitChange();
+    // .prospec.yaml declares no test_command and the fixture has no package.json,
+    // so the check must SKIP with the fix named — not FAIL a gate it can never pass.
+    const result = await execute({ cwd: tmpDir });
+    const check = testCheck(result);
+    expect(check?.status).toBe('skipped');
+    expect(check?.reason).toContain('no test command configured');
+    // a skipped check contributes no finding — never a fabricated pass either
+    const findings = result.kind === 'report' ? result.report.structural.findings : [];
+    expect(findings.filter((f) => f.check === 'test-provenance')).toHaveLength(0);
+  });
+
+  it('converges in one run when the suite writes an untracked artifact', async () => {
+    initGitChange();
+    // A suite emitting junit.xml / coverage output changes the tree it just ran
+    // against; recording the pre-run digest would report "stale" forever.
+    write('emit.cjs', "require('fs').writeFileSync('junit.xml', String(Date.now()));\n");
+    setTestCommandArgv(`${NODE} emit.cjs`);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(true);
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  it('writes no record when the run is killed, and reports the signal honestly', async () => {
+    initGitChange();
+    setTestCommandArgv(`${NODE} -e process.kill(process.pid,'SIGTERM')`);
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(false);
+    expect(rec.reason).toContain('SIGTERM');
+    expect(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8')).not.toContain(
+      'test_provenance',
+    );
+  });
+
+  it('never spawns the suite on the pure check path (read-only)', async () => {
+    initGitChange();
+    write('spy.cjs', "require('fs').writeFileSync('SUITE_RAN', 'x');\n");
+    setTestCommandArgv(`${NODE} spy.cjs`);
+    await execute({ cwd: tmpDir });
+    expect(existsSync(path.join(tmpDir, 'SUITE_RAN'))).toBe(false);
+  });
+
+  it('leaves no record when metadata.yaml is absent, without running the suite', async () => {
+    initGitChange();
+    write('spy2.cjs', "require('fs').writeFileSync('SUITE_RAN2', 'x');\n");
+    setTestCommandArgv(`${NODE} spy2.cjs`);
+    rmSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'));
+    const rec = await execute({ cwd: tmpDir, recordTests: true });
+    if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    expect(rec.recorded).toBe(false);
+    expect(rec.reason).toContain('metadata.yaml not found');
+    expect(existsSync(path.join(tmpDir, 'SUITE_RAN2'))).toBe(false);
+  });
+});
+
+describe('--escaped-defects aggregation (REQ-SERVICES-069)', () => {
+  it('reports no samples honestly when nothing registers introduced_by', async () => {
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: tasks\nscale: standard\n');
+    const r = await execute({ cwd: tmpDir, escapedDefects: true });
+    expect(r.kind).toBe('escaped-defects');
+    if (r.kind !== 'escaped-defects') return;
+    expect(r.report.sample_count).toBe(0);
+    expect(r.report.gates).toEqual([]);
+    expect(r.reportPath).toBeUndefined(); // no --json → no file written
+  });
+
+  it('computes per-gate rate across changes + archive and writes the report with --json', async () => {
+    write(
+      '.prospec/archive/2026-07-05-offender/metadata.yaml',
+      'name: offender\nstatus: archived\nscale: standard\nquality_log:\n' +
+        '  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
+    );
+    write(
+      '.prospec/changes/fix/metadata.yaml',
+      'name: fix\nstatus: implemented\nscale: quick\nintroduced_by: offender\n',
+    );
+    const r = await execute({ cwd: tmpDir, escapedDefects: true, json: true });
+    if (r.kind !== 'escaped-defects') throw new Error('expected escaped-defects');
+    expect(r.report.sample_count).toBe(1);
+    expect(r.report.gates).toEqual([
+      { gate: 'prospec-verify', passed: 1, escaped: 1, escaped_rate: 1 },
+    ]);
+    expect(r.report.archive_available).toBe(true);
+    expect(existsSync(r.reportPath!)).toBe(true);
+    const onDisk = JSON.parse(readFileSync(r.reportPath!, 'utf-8'));
+    expect(onDisk.samples[0]).toMatchObject({ fix_change: 'fix', introduced_by: 'offender' });
+  });
+
+  it('surfaces an unresolved introduced_by and flags an absent archive', async () => {
+    write(
+      '.prospec/changes/fix/metadata.yaml',
+      'name: fix\nstatus: implemented\nscale: quick\nintroduced_by: never-existed\n',
+    );
+    const r = await execute({ cwd: tmpDir, escapedDefects: true });
+    if (r.kind !== 'escaped-defects') throw new Error('expected escaped-defects');
+    expect(r.report.unresolved_references).toHaveLength(1);
+    expect(r.report.archive_available).toBe(false);
+    expect(r.report.sample_count).toBe(0);
   });
 });

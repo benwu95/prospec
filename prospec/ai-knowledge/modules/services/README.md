@@ -17,7 +17,7 @@
 | `knowledge-update.service.ts` | Delta-spec-driven incremental README/index update; index table rendered from `module-map.yaml` |
 | `archive.service.ts` | Archive + spec-sync to Feature-Spec/product.md/`feature-map.yaml` (`syncFeatureMap` sole writer) |
 | `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only); metadata I/O via `lib/change-metadata` |
-| `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; `--json`, `--init-ci`, `--record-review` |
+| `check.service.ts` | Drift-check orchestration — collectors → evaluators → report; non-check modes `--json`/`--init-ci`/`--record-review`/`--record-tests`/`--escaped-defects` |
 | `mcp.service.ts` | Read-only MCP server — `buildMcpServer()`: 8 resources + 2 tools, per-request reads |
 
 Also: `agent-triggers.service.ts` + `trigger-localization.ts` (fill-missing trigger scaffold), `config-example.service.ts`.
@@ -52,6 +52,7 @@ Also: `agent-triggers.service.ts` + `trigger-localization.ts` (fill-missing trig
 - change metadata.yaml is built + serialized, never templated; status advances forward-only via `isStatusBefore`. change-story/plan/tasks + `check --record-review` do metadata I/O ONLY via `lib/change-metadata` — never re-cast `doc.toJS()`. `archive.service` skips that validation on purpose: as the terminal station it must absorb pre-schema records the earlier stations now reject (its floor is the archive skill's Entry Gate).
 - archive: FUNCTION replacers (verbatim `$`), path-contained `**Feature:**` slug, no-clobber `feature-map.yaml`; NO auto knowledge-update (owned by the skill + verify prompt).
 - `mcp.service` stdout is the JSON-RPC channel — diagnostics to stderr only; resources are per-request reads, never cached.
+- check.service keeps every side effect behind a flag (the pure path is read-only and byte-reproducible); it computes the change digest ONCE and passes it to both provenance collectors, and `--record-tests` checks every precondition (command, git, metadata) BEFORE spawning the suite, recording the POST-run digest so a suite that writes artifacts still converges.
 
 <!-- prospec:auto-end -->
 

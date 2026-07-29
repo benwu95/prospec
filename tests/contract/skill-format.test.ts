@@ -56,6 +56,9 @@ const sectionOf = (content: string, heading: string): string => {
   return body;
 };
 
+/** Collapse prose line wrapping so an assertion pins meaning, not wrap position. */
+const flat = (text: string): string => text.replace(/\s+/g, ' ');
+
 const KNOWLEDGE_LOADING_SKILLS = [
   'prospec-knowledge-generate',
   'prospec-knowledge-update',
@@ -1402,12 +1405,15 @@ describe('Skill Format Contract', () => {
 
     it('prospec-verify grades the Constitution by RFC-2119 severity', () => {
       const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-      expect(content).toContain('MUST');
-      expect(content).toContain('SHOULD');
-      expect(content).toContain('MAY');
-      expect(content).toContain('Severity-graded');
+      // section-scoped: whole-document `toContain('MUST')` survives gutting the
+      // mapping, because MUST/SHOULD/MAY appear in unrelated sections too.
+      const v3 = sectionOf(content, '### Verification 3/5: Constitution Full Audit');
+      // the weight mapping itself, as one string — this is the only test pinning it
+      expect(flat(v3)).toContain('**MUST → FAIL**, **SHOULD → WARN**');
+      // the severities now come from the machine rule inventory, not a re-read
+      expect(v3).toContain('Take each severity from the inventory');
       // MAY is advisory/informational — must NOT introduce a 4th grade state
-      expect(content).toContain('informational');
+      expect(v3).toContain('informational');
       expect(content).not.toContain('MAY → INFO');
     });
   });
@@ -2679,8 +2685,10 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
   it('Verification 1/5 sources completion facts from the task-completion check', () => {
     const v1 = sectionOf(render(), '### Verification 1/5');
     expect(v1).toContain('`task-completion`');
-    expect(v1).toContain('do not recount by hand');
-    expect(v1).toContain('never treated as complete or PASS');
+    expect(flat(v1)).toContain('do not recount tasks.md by hand');
+    // the check no longer merely supplies facts — its status IS the verdict
+    expect(v1).toContain("Its status IS this dimension's result");
+    expect(v1).toContain('never a manual PASS');
     // denominator semantics unchanged (MODIFIED REQ-TEMPLATES-088 keeps grading intact)
     expect(v1).toContain('code tasks only');
     expect(v1).toContain('never counted in the rate');
@@ -2688,11 +2696,12 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
 
   it('Verification 4/5 bases freshness on the knowledge_health report section', () => {
     const v4 = sectionOf(render(), '### Verification 4/5');
-    expect(v4).toContain('`knowledge_health`');
-    expect(v4).toContain('git-timestamp staleness');
-    expect(v4).toContain('never presented as PASS');
-    // semantic judgment stays LLM work (REQ-TEMPLATES-034 untouched)
-    expect(v4).toContain('remain LLM work');
+    expect(v4).toContain('`structural.knowledge_health`');
+    expect(flat(v4)).toContain('git-timestamp staleness');
+    expect(v4).toContain('never PASS');
+    // semantic observations stay LLM work, layered on — but never overturning — the verdict
+    expect(flat(v4)).toContain('**add** semantic observations');
+    expect(v4).toContain('never overturn');
   });
 
   it('NEVER section forbids skipped-as-PASS and silent fallback', () => {
@@ -2704,7 +2713,9 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
   it('Error Handling covers engine unavailability with the explicit fallback wording', () => {
     const errors = sectionOf(render(), '## Error Handling');
     expect(errors).toContain('`prospec check` unavailable or fails');
-    expect(errors).toContain('drift engine unavailable — falling back to manual checks');
+    expect(errors).toContain('drift engine unavailable — machine dimensions not adjudicated');
+    // the fallback is honest disclosure, never a hand-made verdict
+    expect(errors).toContain('never adjudicate them by hand');
   });
 });
 
@@ -2882,7 +2893,7 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
     it('prospec-verify cites debug-recovery-format in Verification 5/5, not Startup Loading', () => {
       const c = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
       // section-scoped: the citation lives in V5/5, not merely somewhere in the doc
-      expect(sectionOf(c, '### Verification 5/5: Test Verification')).toContain(
+      expect(sectionOf(c, '### Verification 5/5: Test Verification — `[machine]`')).toContain(
         'references/debug-recovery-format.md',
       );
       const startup = sectionOf(c, '## Startup Loading');
@@ -3390,5 +3401,155 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     expect(section).toContain('<change-name>');
     // REQ-TYPES-058 AC2: a concrete example value, not just the <change-name> placeholder
     expect(section).toMatch(/introduced_by:\s*[a-z][a-z0-9-]+/);
+  });
+
+  describe('verify dimension adjudication split (REQ-TEMPLATES-153..157)', () => {
+    const verify = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    const review = () => renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+
+    it('labels every dimension with its adjudicator and names the fact source', () => {
+      const content = verify();
+      // per-dimension labels — a reader must never have to guess who decided
+      expect(content).toContain('### Verification 1/5: Task Completion — `[machine]`');
+      expect(content).toContain('### Verification 2/5: Delta Spec Compliance — `[judgment]`');
+      expect(content).toContain('### Verification 3/5: Constitution Full Audit — `[mixed]`');
+      expect(content).toContain('### Verification 4/5: Knowledge ↔ Implementation Consistency — `[machine]`');
+      expect(content).toContain('### Verification 5/5: Test Verification — `[machine]`');
+      expect(content).toContain('### Verification 6 (Conditional): Design Consistency — `[judgment]`');
+      // the ledger table binds each dimension to the check that decides it
+      const ledger = sectionOf(content, '### Two adjudicators, two ledgers');
+      for (const id of ['task-completion', 'knowledge-health', 'test-provenance', 'structural.constitution']) {
+        expect(ledger, `ledger table must name ${id}`).toContain(id);
+      }
+      expect(ledger).toContain('verbatim');
+    });
+
+    it('states the review/verify boundary exactly once across the two skills', () => {
+      const occurrences = [verify(), review()]
+        .map((c) => (c.match(/open-ended defect discovery/g) ?? []).length)
+        .reduce((a, b) => a + b, 0);
+      expect(occurrences).toBe(1);
+      // and it is verify that owns the statement
+      expect(verify()).toContain('open-ended defect discovery');
+      expect(review()).not.toContain('open-ended defect discovery');
+    });
+
+    it('review points at that single statement instead of restating it', () => {
+      const lenses = sectionOf(review(), '### Review Lenses');
+      expect(lenses).toContain('Key Difference from Other Skills');
+      expect(lenses).toContain('do not restate');
+      // review owns contradiction; completeness is verify's
+      expect(lenses).toContain('contradicting');
+    });
+
+    it('defines not-adjudicated as distinct from not-applicable, with S unreachable', () => {
+      const section = sectionOf(verify(), '### When the machine adjudicator is unavailable');
+      expect(section).toContain('not-adjudicated');
+      expect(section).toContain('WARN');
+      expect(section).toContain('Grade S becomes unreachable');
+      expect(section).toContain('not-applicable');
+    });
+
+    it('forbids overturning a machine verdict and reporting not-adjudicated as PASS', () => {
+      const never = sectionOf(verify(), '## NEVER');
+      expect(never).toMatch(/NEVER\*\* overturn a machine dimension/);
+      expect(never).toMatch(/NEVER\*\* adjudicate a machine dimension yourself/);
+      expect(never).toContain('not-adjudicated');
+      expect(never).toMatch(/NEVER\*\* grade 2\/5 or 6 in the implementation's own context/);
+    });
+
+    it('records the test run before reading the report, and grades 5/5 from test-provenance', () => {
+      const content = verify();
+      // The record step sits in Core Workflow, AFTER the Entry Gate — it costs a
+      // suite run and mutates metadata, so a refused change must not pay for it.
+      expect(sectionOf(content, '## Startup Loading')).not.toContain('--record-tests');
+      const step0 = sectionOf(content, '### Step 0: Record the test run (before reading the report)');
+      expect(step0).toContain('--record-tests');
+      expect(step0).toContain('after the Entry\nGate');
+      // ordering still matters, but it is now an instruction rather than document
+      // order: the startup copy predates the record, so Step 0 must re-read it.
+      expect(flat(step0)).toContain('re-run `prospec check --json` and re-read');
+      const tests = sectionOf(content, '### Verification 5/5: Test Verification — `[machine]`');
+      expect(tests).toContain('test-provenance');
+      expect(tests).toContain('exit code');
+      expect(tests).toContain('not-adjudicated');
+      // backfill relaxation survives the mechanization, but a real failure never does
+      expect(tests).toContain('never suppress a recorded non-zero exit');
+    });
+
+    it('requires a 1:1 Constitution audit against the machine rule inventory', () => {
+      const section = sectionOf(verify(), '### Verification 3/5: Constitution Full Audit — `[mixed]`');
+      expect(section).toContain('structural.constitution.rules[]');
+      expect(section).toMatch(/statement count must be ≥ the inventory's entry count/);
+      expect(section).toContain('never re-derive or re-assign it');
+      // untagged rules still fall back to judgment grading (backward-compatible)
+      expect(section).toContain('null');
+    });
+
+    it('requires fresh context for 2/5 and 6, with an explicit degradation disclosure', () => {
+      const content = verify();
+      const spec = sectionOf(content, '### Verification 2/5: Delta Spec Compliance — `[judgment]`');
+      expect(spec).toContain('No mechanical oracle exists here');
+      expect(flat(spec)).toContain("does not share the implementation's context");
+      expect(spec).toContain('spawn a sub-agent');
+      expect(spec).toContain('Harness degradation');
+      expect(spec).toContain('WARN');
+      const design = sectionOf(content, '### Verification 6 (Conditional): Design Consistency — `[judgment]`');
+      expect(design).toContain('fresh context');
+      expect(design).toContain('degradation');
+    });
+
+    it('reports two ledgers and caps the grade on a machine FAIL', () => {
+      const section = sectionOf(verify(), '## Report Format');
+      expect(section).toContain('Machine ledger');
+      expect(section).toContain('Judgment ledger');
+      expect(section).toContain('caps the grade at C');
+      expect(section).toContain('makes S unreachable');
+    });
+
+    it('writes the adjudicator into each quality_log dimension entry', () => {
+      const section = sectionOf(verify(), '## Status Update');
+      expect(section).toContain('adjudicator');
+      expect(section).toContain('not-adjudicated');
+      expect(section).toContain('never omitted and never PASS');
+    });
+
+    it('documents the new checks and the constitution section in the drift-report reference', () => {
+      const ref = renderTemplate('skills/references/drift-report-format.hbs', TEMPLATE_CONTEXT);
+      const checks = sectionOf(ref, '## `structural.checks[]` — one entry per check, keyed by `id`');
+      expect(checks).toContain('test-provenance');
+      expect(checks).toContain('constitution-severity');
+      expect(checks).toContain('verbatim');
+      const inventory = sectionOf(ref, '## `structural.constitution` (optional) — the rule inventory verify audits against');
+      expect(inventory).toContain('severity');
+      expect(inventory).toContain('null');
+      expect(inventory).toContain('1:1');
+      const sibling = sectionOf(ref, '## Sibling report — `escaped-defect-report.json`');
+      expect(sibling).toContain('escaped_rate');
+      expect(sibling).toContain('sample_count: 0');
+      expect(sibling).toContain('archive_available');
+    });
+
+    it('documents test_provenance in the metadata-format reference, in canonical order', () => {
+      const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+      const order = sectionOf(ref, '## Canonical field order');
+      expect(order).toContain('`review_provenance` → `test_provenance` → `introduced_by`');
+      expect(order).toContain('--record-tests');
+      const prov = sectionOf(ref, '### `test_provenance` — the recorded test run');
+      expect(prov).toContain('exit_code');
+      expect(prov).toContain('digest');
+      // deliberately outside the required-field floor (no retroactive archive failures)
+      expect(prov).toContain('not** part');
+      const log = sectionOf(ref, '## `quality_log` entry shape');
+      expect(log).toContain('not-adjudicated');
+      expect(log).toContain('adjudicator');
+    });
+
+    it('the shipped status-lifecycle template records the machine adjudication of the verify gate', () => {
+      const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+      expect(lifecycle).toContain('adjudicated by `prospec check`');
+      expect(lifecycle).toContain('not-adjudicated');
+      expect(lifecycle).toContain('--escaped-defects');
+    });
   });
 });

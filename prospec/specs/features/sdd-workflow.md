@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-28
 story_count: 27
-req_count: 121
+req_count: 128
 ---
 
 # SDD Workflow
@@ -214,11 +214,14 @@ so that quality is assured before archiving.
 - WHEN running `/prospec-verify` THEN compare Feature Spec requirements against ai-knowledge descriptions, and assess Spec Health
 - WHEN each requirement THEN show PASS/WARN/FAIL
 - WHEN `ui_scope != none` and design-spec.md exists THEN additionally run design consistency verification
+- WHEN a dimension has a mechanical oracle (task completion, Knowledge, tests) THEN its verdict is the `prospec check` engine's, adopted verbatim — the agent interprets and narrates it but never re-grades it
+- WHEN a dimension has no mechanical oracle (delta-spec compliance, design consistency) THEN it is graded in fresh context by a reviewer that does not share the implementation's context, and a harness that cannot spawn one must disclose the degradation as a WARN
+- WHEN the engine cannot run THEN the machine dimensions are reported `not-adjudicated` (never PASS), grade S becomes unreachable, and grade A stays reachable so a project without the CLI can still ship
 
 ### Behavior Specifications
 
 #### REQ-TEMPLATES-034: Verify Skill Knowledge↔Implementation Consistency
-- WHEN triggered, THEN verify dimension 4/5 grades ONLY pre-existing Knowledge drift (module READMEs vs code not touched by this change)
+- WHEN triggered, THEN verify dimension 4/5 takes its verdict from the `knowledge-health` check verbatim and grades ONLY pre-existing Knowledge drift (module READMEs vs code not touched by this change); semantic observations may be ADDED as WARN detail but never overturn the machine verdict
 - WHEN a README describes behavior the code lacks (beyond this change's gap) or an existing module has no README at all, THEN graded WARN/FAIL (remediate via /prospec-knowledge-update or /prospec-knowledge-generate)
 - WHEN this change's knowledge gap (delta-spec REQ not entered into README / README not updated / a module newly added by this change has no README yet), THEN informational only — not counted toward the grade, points to the `/prospec-archive` Entry Gate
 - WHEN a permanent Feature Spec lags an un-archived change, THEN informational only (graduates at /prospec-archive) — not drift, does not affect grade
@@ -227,12 +230,40 @@ so that quality is assured before archiving.
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
 - WHEN delta-spec MODIFIED but module README not updated, THEN informational note + pointer to the **verify S/A commit prompt** (folding the sync in before commit; the archive Entry Gate is the backstop) (not counted toward the grade)
-- WHEN the `prospec check --json` report is available, THEN the source of truth for staleness is its `knowledge_health` section (git timestamps, deterministic) — verify references the data and does not re-derive it; when unavailable, fall back to LLM judgment and state so explicitly (grade semantics unchanged)
+- WHEN the `prospec check --json` report is available, THEN staleness is **adjudicated** by its `structural.knowledge_health` section (git timestamps, deterministic) — verify adopts that verdict and never re-derives it; when unavailable the dimension is `not-adjudicated` + WARN (S unreachable), never replaced by LLM judgment
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
-verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade vocabulary stays PASS/WARN/FAIL (no fourth state added).
+verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade vocabulary stays PASS/WARN/FAIL (no fourth state added). The rule list and severities are taken from the report's `structural.constitution.rules[]` inventory — never re-derived or re-assigned — and the audit is 1:1 against it (statement count ≥ entry count), so a principle cannot be silently skipped.
 - WHEN a principle carries `[MUST]`/`[SHOULD]`/`[MAY]`, THEN map a violation MUST→FAIL, SHOULD→WARN, MAY→informational (does not affect grade)
 - WHEN the Constitution is free-text without severity tags, THEN fall back to judgment-based PASS/WARN/FAIL (backward-compatible)
+
+#### REQ-TEMPLATES-153: Verify dimension adjudication split + two-ledger grade
+`prospec-verify` labels every dimension with its adjudicator — `[machine]` for 1/5, 4/5, 5/5, `[judgment]` for 2/5 and 6, `[mixed]` for 3/5 — and states the division once in `## Key Difference from Other Skills`. A machine dimension's verdict is the engine's, adopted verbatim; the NEVER list forbids overturning it and forbids reporting `not-adjudicated` as PASS. The report presents the two ledgers separately before the merged grade.
+- WHEN a machine dimension FAILs, THEN the grade is capped below S/A no matter how the narrative reads, and no number of judgment PASSes offsets it
+- WHEN the engine is unavailable, THEN the dimension is `not-adjudicated` + WARN and grade S is unreachable — but that WARN does NOT consume grade A's ≤ 2 WARN budget, so three unadjudicated dimensions cannot strand a CLI-less project below the `verified` gate
+- WHEN `quality_log` is written, THEN each `dimensions[]` entry carries its `adjudicator`
+
+#### REQ-TEMPLATES-154: Verify 5/5 and 3/5 consume the new engine facts
+Core Workflow **Step 0** runs `prospec check --record-tests` — after the Entry Gate (it costs a suite run and mutates metadata, so a change the gate is about to refuse must not pay for it) and after the last code edit — then re-runs `prospec check --json` because the copy read at startup predates the record. 5/5 is adjudicated by the `test-provenance` check; 3/5 audits 1:1 against `structural.constitution.rules[]`.
+- WHEN the recorded run failed, THEN 5/5 is FAIL and may not be re-graded as a WARN; under `scale: backfill` a *missing* run stays informational but a recorded non-zero exit is never suppressed
+- WHEN no test command resolves, THEN the check `skipped` makes 5/5 `not-adjudicated` with `tech_stack.test_command` named as the fix
+- WHEN a principle's inventory severity is `null`, THEN grade it by judgment (backward-compatible with a free-text Constitution)
+
+#### REQ-TEMPLATES-155: Verify 2/5 and 6 require fresh context, with degradation disclosed
+Both judgment dimensions are graded by an independent reviewer that does not share the implementation's context — a grader that just implemented the change validates its own reasoning, not the change against the spec. When the harness cannot spawn one, the skill offers the degraded path and records the disclosure WARN; the NEVER list forbids grading them silently in-session.
+- WHEN `scale: quick`, THEN 2/5 stays `not-applicable` — neither the mechanization nor the fresh-context requirement turns it into a FAIL
+
+#### REQ-TEMPLATES-156: review / verify division of labour stated once
+`/prospec-review` is open-ended defect discovery (unbounded search, necessarily probabilistic); `/prospec-verify` is closed-ended contract checking (bounded comparison, mechanical wherever an oracle exists). The statement lives **only** in `prospec-verify`; `prospec-review` keeps a one-line pointer and its own major→WARN contract, and its spec-architecture lens covers REQ *contradiction* while completeness stays verify's 2/5.
+- WHEN the two skill templates are rendered, THEN the boundary statement occurs exactly once across both (contract-asserted, mutation-verified)
+
+#### REQ-TEMPLATES-157: Reference and shipped-template contract sync
+`references/drift-report-format` documents the two new check ids, the `structural.constitution` section, and the escaped-defect sibling report with its three distinct honesty flags; `references/metadata-format` places `test_provenance` in the canonical field order and records the dimension vocabulary plus `adjudicator`; `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` both state that the `implemented → verified` gate's machine dimensions are engine-adjudicated.
+- WHEN the reference lists check ids, THEN the set is machine-pinned to `DRIFT_CHECK_IDS`, not hand-listed
+- WHEN either lifecycle copy is edited, THEN both carry the same wording (dual-copy drift is contract-asserted)
+
+#### REQ-TESTS-057: Report contract, skill contract and CLI integration tests
+Frozen count 11 → 13 plus an **unsorted** literal assertion pinning the pre-existing eleven ids in order; skipped-never-PASS across 13 checks; section-scoped verify-template assertions (adjudicator labels, the two new NEVERs, the `not-adjudicated` contract, the 1:1 inventory rule) and a cross-template count proving the boundary statement appears exactly once; formatter unit coverage for both new output paths including terminal sanitisation; service tests for the honest-skip branches, the artifact-writing convergence case and read-only purity; e2e pinning the `SKIP` state with its reason.
 
 ---
 
@@ -443,7 +474,7 @@ so that low-quality preconditions are not carried into the next phase, and unres
 ### Behavior Specifications
 
 #### REQ-TYPES-022: quality_log Metadata Field
-The `ChangeMetadataSchema` optional `quality_log` entry: `skill`/`date`/`result`/`warnings[]`, additionally carrying optional structured fields `grade` (enum S/A/B/C/D), `dimensions` (`{name, result: PASS|WARN|FAIL}[]`), `criticals_found`/`criticals_fixed`/`majors` (int≥0) — so verify grade + dimensions and review counts can be machine-aggregated. `result` retains `GATE_RESULTS` (PASS/WARN/FAIL) gate semantics; grade goes in the separate `grade` field and does not override result.
+The `ChangeMetadataSchema` optional `quality_log` entry: `skill`/`date`/`result`/`warnings[]`, additionally carrying optional structured fields `grade` (enum S/A/B/C/D), `dimensions` (`{name, result: PASS|WARN|FAIL|not-applicable|not-adjudicated, adjudicator?: machine|judgment}[]`), `criticals_found`/`criticals_fixed`/`majors` (int≥0) — so verify grade + dimensions and review counts can be machine-aggregated. `result` retains `GATE_RESULTS` (PASS/WARN/FAIL) gate semantics; grade goes in the separate `grade` field and does not override result.
 - WHEN metadata contains quality_log (including the new structured fields), THEN the schema accepts it and the types are correct
 - WHEN metadata omits quality_log or omits the new structured fields, THEN it still passes validation (backward-compatible)
 - WHEN result is not PASS/WARN/FAIL, THEN reject (no fourth result state added)
@@ -465,7 +496,7 @@ The skill-end summary folds in the Exit Gate: **non-verify** sites narrow "compa
 #### REQ-TESTS-022: Gate + quality_log Tests
 The contract test verifies that 5 skills contain `## Entry Gate` and a folded-in Exit Gate; the unit test verifies the `quality_log` schema (accept/omit/result three-state/lifecycle including `implemented`, plus the structured grade/dimensions/criticals count fields).
 - WHEN the contract test runs, THEN assert the presence of Entry/Exit Gates for new-story/plan/tasks/ff/verify
-- WHEN the unit test runs, THEN quality_log may be omitted, result is limited to PASS/WARN/FAIL, grade is limited to S/A/B/C/D, the new structured fields may be omitted and are correctly typed, and all 6 lifecycle states (including implemented) pass; the result three-state is not replaced by grade (mutation-verified)
+- WHEN the unit test runs, THEN quality_log may be omitted, the entry-level result is limited to PASS/WARN/FAIL, grade is limited to S/A/B/C/D, a dimension result additionally accepts `not-applicable`/`not-adjudicated` (both rejected at entry level), `adjudicator` is optional and two-valued, the new structured fields may be omitted and are correctly typed, and all 6 lifecycle states (including implemented) pass; the result three-state is not replaced by grade (mutation-verified)
 
 #### REQ-TYPES-058: ChangeMetadata introduced_by escaped-defect registration field
 `ChangeMetadataSchema` adds an optional `introduced_by` (string, pointing back to the change name that let this defect escape), so per-gate escaped-defect rate can accumulate; `_status-lifecycle.md` (and the shipped `init/status-lifecycle.md.hbs`) documents its format convention and example. It only registers a convention, performing no referential-integrity validation and adding no drift enforcement.
@@ -473,9 +504,15 @@ The contract test verifies that 5 skills contain `## Entry Gate` and a folded-in
 - WHEN consulting the convention doc, THEN hit the introduced_by definition + example (the shipped template uses a consumer-agnostic example; the project doc uses issue #48 → fix-init-clobber-add-upgrade)
 
 #### REQ-TEMPLATES-145: verify/review write structured quality_log fields
-`prospec-verify` writes the structured `grade` (S/A/B/C/D) and `dimensions` (5+1 per-dimension PASS/WARN/FAIL) in the Exit/Status section; `result` still records the gate three-state; `prospec-review` writes `criticals_found`/`criticals_fixed`/`majors` in each round's quality_log entry. `metadata-completeness` reads only `grade` (`dimensions`/counts are for aggregation, read by no check).
+`prospec-verify` writes the structured `grade` (S/A/B/C/D) and `dimensions` (5+1 per-dimension result plus its `adjudicator` — `machine` for task completion/Knowledge/tests, `judgment` for delta-spec/Constitution/design) in the Exit/Status section; `result` still records the gate three-state; `prospec-review` writes `criticals_found`/`criticals_fixed`/`majors` in each round's quality_log entry. `metadata-completeness` reads only `grade` (`dimensions`/counts are for aggregation, read by no check).
 - WHEN the contract test runs, THEN the verify section contains the `grade`+`dimensions` write instructions, and the review section contains the criticals/majors write instructions
 - WHEN verify writes, THEN `result` is still PASS/WARN/FAIL (grade does not override result)
+
+#### REQ-TYPES-066: metadata test_provenance + dimension adjudicator vocabulary
+`ChangeMetadataSchema` gains an optional `test_provenance` (`command`/`exit_code`/`digest`/`date`), positioned between `review_provenance` and `introduced_by` in the canonical field order and written only by `prospec check --record-tests`. `DIMENSION_RESULTS` gains `not-adjudicated` — the machine adjudicator could not run — kept distinct from `not-applicable` (the dimension is moot); `QualityDimensionSchema` gains an optional `adjudicator`. The gate-level `result` stays the three-state.
+- WHEN metadata omits `test_provenance`, THEN it still validates (every pre-existing archived change stays legal)
+- WHEN a recorded run failed, THEN the non-zero `exit_code` is preserved (a failing suite is the fact the check grades)
+- WHEN `test_provenance` is absent, THEN `metadata-completeness` is unaffected — it is deliberately outside the required-field floor, so no change archived before the field existed retroactively fails
 
 ---
 
@@ -1078,3 +1115,4 @@ Pin the contract against both the failures it must catch and the shapes it must 
 | 2026-07-05 | unlock-measurement | quality_log structured count fields (verify grade/dimensions, review criticals/majors machine-aggregatable) + introduced_by escaped-defect registration convention (shipped template + project doc); verify/review templates write the structured fields (issue #61) | US-12; REQ-TYPES-058, REQ-TEMPLATES-145 (ADDED); REQ-TYPES-022, REQ-TESTS-022 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-28 | enforce-metadata-schema | metadata.yaml enforced as a runtime contract at the four stations that cast it unchecked; single validated read/write helper; bare module names with one shared stripper; dimension vocabulary widened to `not-applicable`; loose-at-every-level schema plus a strict build view | US-27; REQ-TYPES-064, REQ-LIB-031, REQ-SERVICES-067, REQ-TESTS-055 (ADDED); REQ-CHNG-003 (MODIFIED) |
+| 2026-07-28 | split-verify-adjudication | ADDED REQ-TYPES-066, REQ-TEMPLATES-153/154/155/156/157, REQ-TESTS-057 (verify dimensions split between engine adjudication and fresh-context judgment); MODIFIED US-5 acceptance scenarios, REQ-TEMPLATES-034/045/063/145 (machine verdicts adopted verbatim, severities from the machine inventory, adjudicator recorded), REQ-TYPES-022 + REQ-TESTS-022 (dimension vocabulary) (issue #96) | US-5, US-12, REQ-TYPES-066, REQ-TEMPLATES-153, REQ-TEMPLATES-154, REQ-TEMPLATES-155, REQ-TEMPLATES-156, REQ-TEMPLATES-157, REQ-TESTS-057, REQ-TYPES-022, REQ-TEMPLATES-034, REQ-TEMPLATES-045, REQ-TEMPLATES-063, REQ-TEMPLATES-145, REQ-TESTS-022 |

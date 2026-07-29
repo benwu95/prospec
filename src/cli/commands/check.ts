@@ -10,10 +10,14 @@ import { resolveLogLevel } from '../log-level.js';
  *
  * Usage:
  *   prospec check [--json] [--strict] [--init-ci] [--record-review]
+ *                [--record-tests] [--escaped-defects]
  *
  * Deterministic, zero-LLM drift check (REQ-CLI-011). `--strict` maps any
  * FAIL to exit code 1 — warn and skipped never affect the exit code.
- * `--record-review` records the active change's review baseline (REQ-CLI-012).
+ * `--record-review` records the active change's review baseline (REQ-CLI-012);
+ * `--record-tests` runs the project's test command and records its outcome, and
+ * `--escaped-defects` reports per-gate miss rate (REQ-CLI-022) — both are
+ * non-check modes that exit without grading drift.
  */
 export function registerCheckCommand(program: Command): void {
   program
@@ -23,13 +27,20 @@ export function registerCheckCommand(program: Command): void {
     .option('--strict', 'Exit with code 1 when any check fails (CI gate)')
     .option('--init-ci', 'Scaffold .github/workflows/prospec-check.yml and exit')
     .option('--record-review', "Record the active change's review baseline and exit")
-    .option('--change <name>', 'Target change for --record-review (disambiguates when several are in flight)')
+    .option('--record-tests', "Run the project's test command, record the outcome, and exit")
+    .option('--escaped-defects', 'Report per-gate escaped-defect rate from `introduced_by` and exit')
+    .option(
+      '--change <name>',
+      'Target change for --record-review/--record-tests (disambiguates when several are in flight)',
+    )
     .action(
       async (options: {
         json?: boolean;
         strict?: boolean;
         initCi?: boolean;
         recordReview?: boolean;
+        recordTests?: boolean;
+        escapedDefects?: boolean;
         change?: string;
       }) => {
         const globalOpts = program.opts<GlobalOptions>();
@@ -40,6 +51,8 @@ export function registerCheckCommand(program: Command): void {
             json: options.json,
             initCi: options.initCi,
             recordReview: options.recordReview,
+            recordTests: options.recordTests,
+            escapedDefects: options.escapedDefects,
             change: options.change,
           });
           formatCheckOutput(result, logLevel);

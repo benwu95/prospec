@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
@@ -13,16 +13,29 @@ import {
   collectMetadataCompleteness,
   collectReqDefinitions,
   collectReqReferences,
+  collectConstitutionRules,
+  collectQualityLedger,
   collectReviewProvenance,
   collectTaskStates,
+  collectTestProvenance,
   computeChangeDigest,
   moduleAttributor,
 } from '../../../src/lib/drift-sources.js';
+import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
+import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
 import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 
 // drift-sources uses fast-glob + git, so tests run on real temp dirs
 // (same approach as scanner.test.ts — memfs is not visible to fast-glob).
+
+// Each test here spawns real `git` (and, in the record paths, the project's test
+// command) against a temp repo — 1-2s per test idle, several times that under full
+// parallel-suite contention. vitest's 5s default then times out load-dependently,
+// which is intolerable for THIS change specifically: `--record-tests` stamps the
+// suite's exit code into `test_provenance`, so a flaky suite makes the
+// `test-provenance` verdict non-deterministic. Same precedent as tests/e2e/cli.test.ts.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let tmpDir: string;
 
@@ -426,10 +439,9 @@ describe('collectGitTimestamps', () => {
     const r = collectGitTimestamps(cloneDir, MODULE_MAP, 'knowledge');
     expect(r.available).toBe(false);
     expect(r.reason).toContain('shallow');
-    // A real `git clone` is the heaviest op in the suite; under full parallel load
-    // it can take >5s, so this test needs more than the default 5s timeout (it
-    // completes, it does not hang). Surfaced when git-based scanner tests were added.
-  }, 20000);
+    // A real `git clone` is the heaviest op in the suite (it completes, it does not
+    // hang) — covered by this file's timeout, declared once at the top.
+  });
 });
 
 describe('collectTaskStates', () => {
@@ -500,10 +512,35 @@ describe('computeChangeDigest', () => {
     initRepo();
     const d0 = computeChangeDigest(tmpDir);
     write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
-    write('prospec-report.json', '{}\n');
     write('.claude/skills/prospec-x/SKILL.md', 'generated\n');
+    write('.agents/skills/prospec-x/SKILL.md', 'generated\n');
     write('pnpm-lock.yaml', 'lockfile\n');
     expect(computeChangeDigest(tmpDir)).toBe(d0);
+  });
+
+  // Derived from the filename CONSTANTS, not hand-listed: the hand-enumerated
+  // version of this guard silently stopped covering the artifact set when a new
+  // report was added, which is exactly how the self-trip hole reopened.
+  it.each([DRIFT_REPORT_FILENAME, ESCAPED_DEFECT_REPORT_FILENAME])(
+    'never self-trips on the check-written report %s',
+    (reportFile) => {
+      initRepo();
+      const d0 = computeChangeDigest(tmpDir);
+      write(reportFile, '{"generated_at":"now"}\n');
+      expect(computeChangeDigest(tmpDir)).toBe(d0);
+    },
+  );
+
+  it('returns null (honest skip) rather than a constant when the diff cannot be captured', () => {
+    initRepo();
+    // A capture failure must never collapse into a fixed digest — that would
+    // certify stale code as current for every provenance gate at once.
+    const outsideRepo = mkdtempSync(path.join(os.tmpdir(), 'not-a-repo-'));
+    try {
+      expect(computeChangeDigest(outsideRepo)).toBeNull();
+    } finally {
+      rmSync(outsideRepo, { recursive: true, force: true });
+    }
   });
 
   it('flips when first-party code OUTSIDE src/tests changes (e.g. scripts/) — no fail-open', () => {
@@ -540,14 +577,14 @@ describe('collectReviewProvenance', () => {
   };
 
   it('reports unavailable outside a git work tree', () => {
-    const r = collectReviewProvenance(tmpDir);
+    const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
     expect(r.available).toBe(false);
     expect(r.reason).toContain('not a git repository');
   });
 
   it('reports unavailable when .prospec/changes is missing', () => {
     initRepo();
-    const r = collectReviewProvenance(tmpDir);
+    const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
     expect(r.available).toBe(false);
     expect(r.reason).toContain('.prospec/changes');
   });
@@ -559,7 +596,7 @@ describe('collectReviewProvenance', () => {
       'name: c1\nstatus: implemented\nscale: standard\nreview_provenance:\n  digest: ABC\n  date: "2026-07-04"\n',
     );
     write('.prospec/changes/c2/metadata.yaml', 'name: c2\nstatus: tasks\nscale: full\n');
-    const r = collectReviewProvenance(tmpDir);
+    const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
     expect(r.available).toBe(true);
     expect(r.current_digest).toBeTruthy();
     expect(r.changes.find((c) => c.name === 'c1')).toMatchObject({
@@ -889,5 +926,192 @@ describe('collectMcpReadmeCounts', () => {
     // only the live (non-fenced) claim is parsed; the fenced "99" is ignored
     expect(r.claims).toHaveLength(1);
     expect(r.claims[0]).toMatchObject({ claimed: 1, actual: 1 });
+  });
+});
+
+describe('collectTestProvenance (REQ-LIB-033)', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('reports unavailable outside a git work tree', () => {
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir));
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not a git repository');
+    expect(r.current_digest).toBeNull();
+  });
+
+  it('reports unavailable when .prospec/changes is missing', () => {
+    initRepo();
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir));
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('.prospec/changes');
+  });
+
+  it('reads the recorded command, exit code and digest per change', () => {
+    initRepo();
+    write(
+      '.prospec/changes/c1/metadata.yaml',
+      'name: c1\nstatus: implemented\nscale: standard\ntest_provenance:\n' +
+        '  command: pnpm test\n  exit_code: 0\n  digest: ABC\n  date: "2026-07-28"\n',
+    );
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir));
+    expect(r.available).toBe(true);
+    expect(r.current_digest).toBeTruthy();
+    expect(r.changes).toHaveLength(1);
+    expect(r.changes[0]).toMatchObject({
+      name: 'c1',
+      status: 'implemented',
+      scale: 'standard',
+      recorded_digest: 'ABC',
+      recorded_exit_code: 0,
+      recorded_command: 'pnpm test',
+    });
+  });
+
+  it('reports a change with no test_provenance as never recorded', () => {
+    initRepo();
+    write('.prospec/changes/c2/metadata.yaml', 'name: c2\nstatus: implemented\nscale: standard\n');
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir));
+    expect(r.changes[0]).toMatchObject({ recorded_digest: null, recorded_exit_code: null, recorded_command: '' });
+  });
+
+  // Wiring proof for the Windows shim path: the collector must report the SOURCE as
+  // unavailable (an honest skip), because failing it would bar every Windows project
+  // from `verified` with no configuration that could fix it.
+  it('skips honestly when the test command is a Windows shim (platform-injected)', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
+    const winProbe = {
+      platform: 'win32',
+      pathDirs: ['C:\\tools\\bin'],
+      exists: (c: string) => c === 'C:\\tools\\bin\\pnpm.cmd',
+    };
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), winProbe);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('source unavailable');
+    expect(r.reason).toContain('Windows shim');
+    expect(r.reason).toContain('tech_stack.test_command');
+    expect(r.changes).toHaveLength(0);
+  });
+
+  it('stays available when the same command is spawnable on this platform', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
+    const posixProbe = {
+      platform: 'linux',
+      pathDirs: ['/usr/bin'],
+      exists: () => false,
+    };
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), posixProbe);
+    expect(r.available).toBe(true);
+    expect(r.changes).toHaveLength(1);
+  });
+
+  it('skips a change whose metadata is unparseable rather than fabricating a record', () => {
+    initRepo();
+    write('.prospec/changes/bad/metadata.yaml', 'name: [unclosed\n');
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir));
+    expect(r.available).toBe(true);
+    expect(r.changes).toHaveLength(0);
+  });
+});
+
+describe('collectConstitutionRules (REQ-LIB-032)', () => {
+  it('reports unavailable with the path when the Constitution is missing', () => {
+    const r = collectConstitutionRules(path.join(tmpDir, 'prospec/CONSTITUTION.md'), tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not found');
+    expect(r.source_path).toBe('prospec/CONSTITUTION.md');
+    expect(r.rules).toEqual([]);
+  });
+
+  it('reports unavailable (distinct reason) when the file declares no principles', () => {
+    write('prospec/CONSTITUTION.md', '# C\n\n## Constraints\n\n- [x] nothing\n');
+    const r = collectConstitutionRules(path.join(tmpDir, 'prospec/CONSTITUTION.md'), tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('declares no principles');
+  });
+
+  it('returns the parsed inventory with a repo-relative source path', () => {
+    write(
+      'prospec/CONSTITUTION.md',
+      '# C\n\n## Principles\n\n### [MUST] A\n\n**Verify**: x.\n\n### B\n\nprose\n',
+    );
+    const r = collectConstitutionRules(path.join(tmpDir, 'prospec/CONSTITUTION.md'), tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.source_path).toBe('prospec/CONSTITUTION.md');
+    expect(r.rules.map((x) => [x.name, x.severity])).toEqual([['A', 'MUST'], ['B', null]]);
+  });
+});
+
+describe('collectQualityLedger (REQ-LIB-034)', () => {
+  it('reports unavailable when neither ledger directory exists', () => {
+    const r = collectQualityLedger(tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('.prospec/archive');
+    expect(r.archive_available).toBe(false);
+  });
+
+  it('collects both ledgers, keeping the dated archive dir alongside the canonical name', () => {
+    write(
+      '.prospec/changes/live/metadata.yaml',
+      'name: live\nstatus: implemented\nintroduced_by: old-change\n',
+    );
+    write(
+      '.prospec/archive/2026-07-05-old-change/metadata.yaml',
+      'name: old-change\nstatus: archived\nquality_log:\n' +
+        '  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
+    );
+    const r = collectQualityLedger(tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.archive_available).toBe(true);
+    expect(r.changes).toEqual([
+      {
+        name: 'live',
+        dir: 'live',
+        ledger: 'changes',
+        status: 'implemented',
+        introduced_by: 'old-change',
+        gate_results: [],
+      },
+      {
+        name: 'old-change',
+        dir: '2026-07-05-old-change',
+        ledger: 'archive',
+        status: 'archived',
+        introduced_by: null,
+        gate_results: [{ skill: 'prospec-verify', result: 'PASS' }],
+      },
+    ]);
+  });
+
+  it('falls back to the directory name when metadata declares no name', () => {
+    write('.prospec/changes/nameless/metadata.yaml', 'status: tasks\n');
+    const r = collectQualityLedger(tmpDir);
+    expect(r.changes[0]).toMatchObject({ name: 'nameless', dir: 'nameless' });
+  });
+
+  it('flags an absent archive ledger instead of silently reporting a partial sample', () => {
+    write('.prospec/changes/live/metadata.yaml', 'name: live\nstatus: tasks\n');
+    const r = collectQualityLedger(tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.archive_available).toBe(false);
+  });
+
+  it('drops malformed quality_log entries rather than inventing a gate record', () => {
+    write(
+      '.prospec/changes/c/metadata.yaml',
+      'name: c\nstatus: tasks\nquality_log:\n  - skill: prospec-plan\n    result: PASS\n  - date: "2026-07-01"\n  - null\n',
+    );
+    const r = collectQualityLedger(tmpDir);
+    expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);
   });
 });

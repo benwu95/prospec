@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-09
-story_count: 8
-req_count: 27
+last_updated: 2026-07-29
+story_count: 11
+req_count: 39
 ---
 
 # Deterministic Drift Check
@@ -123,7 +123,7 @@ so that factual-count drift is intercepted by a machine in CI, no longer relying
 - WHEN module-map is missing, THEN `mcp-readme-counts` is skipped (with reason), never faking a PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**11**, including knowledge-size).
+`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**13**).
 
 #### REQ-LIB-020: README count collector + evaluator
 `collectMcpReadmeCounts` (I/O: a whitelist pattern captures README count declarations + counts `registerResource`/`registerTool` in the named file; string/template-literal/fenced-block-aware counting; skips the claim when the source is missing) + pure `evaluateMcpReadmeCounts` (declared ≠ actual → warn finding).
@@ -150,7 +150,7 @@ so that "review must precede verify" turns from process prose into a machine-che
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **11** frozen check ids in total (the 11th is `knowledge-size`, see US-8). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
+`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **13** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
 `computeChangeDigest(cwd)`: the content fingerprint = HEAD sha + `git diff HEAD` + untracked, covering the whole working tree (all first-party content that a review audits), using a **denylist** to exclude workflow state (`.prospec/`, `prospec-report.json`), generated artifacts (`.claude/`, `dist/`), and the lockfile — **fail-closed rather than fail-open** (first-party code outside `src`/`tests`, such as `scripts/`, is still included); it does not rely on git commit timestamps (the commit boundary is after verify S/A, and during review/verify the code is not committed). `collectReviewProvenance(cwd)` (I/O) enumerates `.prospec/changes/*` with status/scale/recorded digest + the current digest; the `gitCapture` helper is shared by `gitLastCommit` and digest; `evaluateReviewProvenance` (pure function) judges only `status==implemented` and non-backfill.
@@ -197,7 +197,7 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --json` and read `metadata-completeness`, FAIL → refuse archiving (when the CLI is absent, fall back to reading that change's metadata directly); prevents incomplete/ungraded metadata from entering the permanent record.
 
 #### REQ-TESTS-045: metadata-completeness engine tests
-`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 11 checks (including knowledge-size) — the S/A clause and the skill clause mutation-verified.
+`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 13 checks (including knowledge-size, test-provenance and constitution-severity) — the S/A clause and the skill clause mutation-verified.
 
 ---
 
@@ -237,6 +237,103 @@ The `knowledge.token_budget` seed in `init/prospec.yaml.hbs` switches to `l1_per
 
 #### REQ-TESTS-048: knowledge-size engine tests + single-source assertion
 `evaluateKnowledgeSize` (over-L1 / over-L2-tokens / over-L2-lines / boundary / skipped / config-override); `collectKnowledgeSize` (temp fixture: over-limit + compliant + missing knowledgePath skipped); `drift-report.test.ts` frozen count 10→11 + adds the id to the list; **single-source test**: reads the repo's `prospec/index.md`, extracts the L1/L2 budget numbers, and asserts == `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (a mismatch is a FAIL, mutation-verified).
+
+---
+
+## US-9: test-provenance gate check [P1]
+
+As a maintainer who guards the verify gate,
+I want a deterministic `test-provenance` check that decides whether an `implemented` change has a recorded test run that is current and green,
+so that verify's test dimension is a machine verdict instead of an agent's self-report.
+
+**Acceptance Scenarios:**
+- WHEN an `implemented` change has no recorded test run, THEN report FAIL naming `prospec check --record-tests` as the remediation
+- WHEN the recorded run predates the current code, THEN report FAIL "stale test run"
+- WHEN the recorded run's exit code is non-zero, THEN report FAIL naming the command and the code — **never** suppressed, including for a proven backfill
+- WHEN the project has no resolvable test command, THEN the check is `skipped` + reason, so a project that cannot satisfy it is never permanently barred from `verified`
+- WHEN the resolved command cannot be spawned on this platform — on Windows a `.cmd`/`.bat` shim, which Node refuses to spawn shell-free even by absolute path — THEN the check is `skipped` + reason naming the constraint and a shell-free alternative, for the same reason: a gate no configuration could clear is not a signal
+- WHEN the change's status is not `implemented`, THEN do not flag (exempt)
+
+#### REQ-TYPES-065: Drift Report test-provenance / constitution-severity check ids + constitution section
+`DRIFT_CHECK_IDS` appends `test-provenance` (12th, fail-class) and `constitution-severity` (13th, warn-class) — additive only, the pre-existing eleven keep their frozen order (report `checks[]` order and the CLI's status-line order both derive from it). `structural` gains an optional `constitution` section (`rules[]{name, severity: MUST|SHOULD|MAY|null, has_verify_hint, line}`), mirroring the `knowledge_health` optional-section precedent without touching that frozen contract.
+**Scenarios:**
+- WHEN a `runChecks` dispatch for either new id is missing, THEN compilation fails (`Record<DriftCheckId, CheckOutcome>` exhaustiveness guard)
+- WHEN a rule carries no RFC-2119 tag, THEN `severity` is `null` — accepted by the schema and never defaulted to a severity
+- WHEN the Constitution is unavailable, THEN the whole `constitution` object is absent (not empty-and-passing)
+
+#### REQ-LIB-033: Test command resolution, execution and the test-provenance evaluator
+`resolveTestCommand(config, cwd)` in `lib/config.ts` (the canonical resolver, alongside `resolveBasePaths`/`resolveKnowledgeTokenBudget`): `tech_stack.test_command` wins; otherwise `<package_manager> test` **only when package.json declares a test script**; neither → `null`. `lib/test-runner.ts`'s `runTestCommand` uses `spawnSync` with `shell: false` and `killSignal: 'SIGKILL'` — shell syntax (pipes, `&&`, redirection) is **deliberately unsupported**, and the kill bounds the direct child only (grandchildren are a documented exclusion, not a claim). `collectTestProvenance` (I/O, in `drift-sources`) reports the recorded command/exit code/digest plus whether `backfill-draft.md` exists; pure `evaluateTestProvenance` grades it.
+**Scenarios:**
+- WHEN the recorded exit code is non-zero, THEN fail — checked BEFORE staleness, so a stale+failing record can never take an exempt branch
+- WHEN a proven backfill (`backfill-draft.md` present) has no record, or a stale **green** record, THEN exempt (outcome unknown, the same state as no tests); an **unproven** backfill (`scale` alone, which is hand-editable) gets no relaxation at all
+- WHEN the run timed out or was killed, THEN no record is written and the timeout is distinguished from other signals (SIGSEGV / OOM / Ctrl-C reported as themselves)
+- WHEN no test command resolves, THEN `{available:false, reason}` → `skipped`, never a permanent FAIL
+- WHEN the resolved command cannot be spawned without a shell on this platform, THEN the same honest skip applies. `classifyExecutable(bin, probe)` decides it behind an injected `ExecutableProbe` (platform, PATH, file-existence), so the win32 branch is provable from a POSIX host; `describeUnspawnable` yields the single reason string both `collectTestProvenance` and `runTestCommand` report, and the runner refuses **before** spawning rather than letting EINVAL surface
+- WHEN resolving a bare name on Windows, THEN follow **libuv**, not PATHEXT: per PATH directory it tries the literal name (only when it contains a dot), `.com`, then `.exe`. The search is therefore two passes — any directory holding a startable file means `spawnable`, so an earlier `.cmd` never shadows a later real `.exe`; only when no directory holds one does a `.cmd`/`.bat` become the diagnosis. Ordering by PATHEXT would classify a working command as a shim and silently turn this fail-class gate into a skip
+- WHEN the verdict is `not-found`, THEN it does **not** block — this probe's view of PATH may differ from the spawn's, so the real spawn reports ENOENT instead of our model skipping a working command
+
+#### REQ-SERVICES-068: check.service collector injection + the --record-tests write path
+`check.service.execute` injects `collectTestProvenance` (with the resolved command and the run's single digest) and `collectConstitutionRules` (path from `resolveBasePaths`, never re-derived). The `--record-tests` branch checks every precondition — target change, metadata presence, test command, git-ness — **before** spawning the suite, then records the **post-run** digest so a suite that writes an untracked artifact still converges in one run, disclosing `treeChangedDuringRun` when the tree moved mid-run.
+**Scenarios:**
+- WHEN the same repo state is checked twice, THEN the report is byte-identical except `generated_at` (the pure path spawns nothing and writes nothing)
+- WHEN the suite fails, THEN the record IS written (a failing suite is the fact) and the evaluator turns it into the FAIL
+- WHEN a precondition is unmet, THEN `{recorded:false, reason}` and the suite never runs
+
+#### REQ-CLI-022: prospec check --record-tests / --escaped-defects flags
+`prospec check` adds `--record-tests` (run the test command, record the outcome, exit) and `--escaped-defects` (report per-gate miss rate, exit), reusing `--change <name>` for disambiguation. Both are non-check modes that never grade drift, so `--strict`'s exit code is unaffected. Every repo-sourced string in the new output paths passes `sanitizeTerminal()`.
+**Scenarios:**
+- WHEN either new check runs, THEN it prints its own status line, with the reason attached when `skipped`
+- WHEN no flag is passed, THEN behavior is identical to the previous version
+
+#### REQ-TESTS-056: Engine tests for the new collectors and evaluators
+`evaluateTestProvenance` (missing / stale / non-zero exit / stale+failing precedence / proven-backfill exemptions / unproven backfill / non-implemented / unavailable), `evaluateConstitutionSeverity`, `parseConstitutionRules` (fence-aware, untagged, unknown tag, level-1 heading closes the section), `aggregateEscapedDefects`, `resolveTestCommand`, `runTestCommand` (exit code / timeout, driven by `process.execPath` so it can never recurse into the project suite), and all three collectors against temp-git fixtures. Shim classification is tested through an **injected** probe so the win32 branch runs on any host: non-win32 always spawnable, a real `.exe` in any PATH directory beating an earlier `.cmd`, `.com` accepted, a shim reported only when no directory holds a startable file, a declared extension short-circuiting the search, a path never searched on PATH, a negative assertion that PATHEXT does not influence the verdict, and `defaultExecutableProbe.exists` across file / directory / missing. A `describe.runIf(process.platform === 'win32')` block additionally pins the real-host behaviour and runs once a Windows job exists — the injected tests prove the decision, that one proves the reality. The digest self-trip guard is **derived from the report filename constants**, not hand-listed, so a future report joins it by construction.
+
+---
+
+## US-10: Constitution rule inventory + severity check [P2]
+
+As a maintainer who wants verify's Constitution audit to be reproducible,
+I want check to parse the Constitution into a rule inventory with RFC-2119 severities,
+so that the audit cannot silently skip a principle or re-assign its severity.
+
+**Acceptance Scenarios:**
+- WHEN the report is produced, THEN it lists every principle with name, severity and whether it carries a `Verify` hint
+- WHEN a principle carries no RFC-2119 tag, THEN report WARN (it cannot be graded by weight) while still listing it with `severity: null`
+- WHEN a `### [MUST] …` line sits inside a fenced code block, THEN it is not inventoried
+- WHEN the Constitution is missing or declares no principles, THEN the check is `skipped` with the distinct reason (never a fake PASS)
+
+#### REQ-LIB-032: Constitution rule parser + constitution-severity evaluator
+`lib/constitution-parser.ts`'s `parseConstitutionRules(markdown)` scans only the `## Principles` section — closed by any heading at that depth **or shallower**, so a level-1 `# Appendix` does not leak later `###` headings into the inventory — extracting name, `[MUST]`/`[SHOULD]`/`[MAY]` severity (unknown or absent → `null`, never guessed) and whether a `**Verify**:` hint follows. Fence blanking is shared via `lib/markdown-fences.ts` (extracted from `drift-sources`, single source). `collectConstitutionRules` reads through the contained reader, so a `base_dir` escaping the repo cannot make the report an out-of-tree file oracle and an unreadable path degrades instead of throwing out of `runChecks`.
+**Scenarios:**
+- WHEN the section closes, THEN entry count equals the number of `###` headings inside it, each anchored at its own 1-based line
+- WHEN a `**Verify**:` hint precedes the first rule, THEN it attaches to no rule
+- WHEN the evaluator runs, THEN it stays I/O-free and findings codepoint-sort
+
+---
+
+## US-11: Per-gate escaped-defect aggregation [P2]
+
+As a maintainer who wants to know how accurate the gates themselves are,
+I want per-gate escaped-defect rate computed from the `introduced_by` registration,
+so that the only ground-truth accuracy signal the pipeline has is actually calculated.
+
+**Acceptance Scenarios:**
+- WHEN the report runs against existing archived changes, THEN it is produced with no data backfill
+- WHEN no change registers `introduced_by`, THEN say so — `gates` is empty rather than a table of fabricated 0% rates
+- WHEN a registration names no change, or more than one, THEN it lands in `unresolved_references` instead of being attributed to an arbitrary winner
+- WHEN neither ledger directory exists, THEN `ledger_available: false` — distinct from "records were read and none registered"
+
+#### REQ-TYPES-067: EscapedDefectReport schema
+`types/escaped-defect.ts` — `{version, generated_at, archive_available, ledger_available, sample_count, gates[]{gate, passed, escaped, escaped_rate}, samples[], unresolved_references[]}` plus `ESCAPED_DEFECT_REPORT_FILENAME`. A deliberately separate shape from `DriftReport`: this is a historical aggregate, not a drift check. `escaped` counts **distinct blamed changes**, matching `passed`'s unit, so `escaped_rate` is bounded to 0..1.
+
+#### REQ-LIB-034: Quality-ledger collector + pure aggregator
+`collectQualityLedger(cwd)` enumerates `.prospec/changes/*` **and** `.prospec/archive/*` (reporting whether the archive — gitignored by design — exists at all), carrying each change's canonical name and its ledger directory. Pure `aggregateEscapedDefects` resolves `introduced_by` against every alias a registration may use (canonical name, ledger directory, and the un-dated directory name, so a dated archive folder resolves) while treating an alias two changes both claim as ambiguous. Denominators are counted once per change, never once per alias.
+**Scenarios:**
+- WHEN two fixes blame the same change, THEN that gate records one escaped change (two samples), so the rate stays a rate
+- WHEN a malformed `quality_log` entry appears, THEN it is dropped rather than taking the whole report down
+
+#### REQ-SERVICES-069: check.service --escaped-defects aggregation mode
+A third non-check mode alongside `--init-ci`/`--record-review`: collector → pure aggregator → schema validation → (with `--json`) an `atomicWrite` of `escaped-defect-report.json`. It produces no findings and never affects `--strict`'s exit code; the written report is excluded from the change digest, so generating it cannot invalidate the provenance baselines it feeds.
 
 ---
 
@@ -283,3 +380,5 @@ _(None)_
 | 2026-07-06 | inject-resolved-knowledge-budgets | ADDED REQ-LIB-028 (`resolveKnowledgeTokenBudget` moved to the `lib/config` canonical single source, `KnowledgeSizeBudget` moved to `types/config`); MODIFIED REQ-TYPES-061 (the single source also feeds the budget rendering of generated skill templates), REQ-SERVICES-065 (the resolver now imports from `lib/config`) | REQ-LIB-028 (ADDED); REQ-TYPES-061, REQ-SERVICES-065 (MODIFIED) |
 | 2026-07-09 | support-file-module-paths | MODIFIED REQ-LIB-014: import-edge collection handles single-file entries via `classifyModulePath` (source file → scan that file, non-source file → no edge, fixes `<file>/**` ENOTDIR); the classifier itself, REQ-LIB-029, lives in the ai-knowledge feature | REQ-LIB-014 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-07-28 | split-verify-adjudication | ADDED US-9 (test-provenance gate check, the 12th check id) + US-10 (Constitution rule inventory + severity, the 13th) + US-11 (per-gate escaped-defect aggregation); ADDED REQ-TYPES-065/067, REQ-LIB-032/033/034, REQ-SERVICES-068/069, REQ-CLI-022, REQ-TESTS-056; MODIFIED REQ-TYPES-052 (11 → 13), REQ-TYPES-034 (defers the count), REQ-TESTS-045 (13 checks) (issue #96) | US-9, US-10, US-11, REQ-TYPES-065, REQ-TYPES-067, REQ-LIB-032, REQ-LIB-033, REQ-LIB-034, REQ-SERVICES-068, REQ-SERVICES-069, REQ-CLI-022, REQ-TESTS-056, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
+| 2026-07-29 | skip-unspawnable-test-command | MODIFIED US-9 (a second honest-skip trigger: a command that cannot be spawned on this platform), REQ-LIB-033 (shim classification behind an injected probe, libuv resolution rule rather than PATHEXT, pre-spawn refusal, `not-found` deliberately non-blocking) and REQ-TESTS-056 (platform-injected assertion classes) — closes the Windows `.cmd` gap escalated by split-verify-adjudication's review | US-9, REQ-LIB-033, REQ-TESTS-056 |

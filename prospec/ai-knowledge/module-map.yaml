@@ -4,8 +4,9 @@
 modules:
   - name: types
     description: Zod schemas, error hierarchy, skill definitions, Constitution rule
-      types, and the canonical index-table column + knowledge-token-budget
-      contracts. Leaf module — every other module imports its types.
+      types, and the canonical index-table column, knowledge-token-budget and
+      escaped-defect report contracts. Leaf module — every other module imports its
+      types.
     paths:
       - src/types
     keywords:
@@ -48,8 +49,9 @@ modules:
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, deterministic token accounting, the zero-LLM drift
-      engine (collectors + evaluators), knowledge readers, and multi-language
-      manifest parsers.
+      engine (collectors + evaluators), Constitution rule parsing, the flag-gated
+      test runner, escaped-defect aggregation, knowledge readers, and
+      multi-language manifest parsers.
     paths:
       - src/lib
     keywords:
@@ -96,8 +98,9 @@ modules:
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge generate + update, change story / plan /
-      tasks, archive + spec-sync, agent-sync, measure, drift check, and the
-      read-only MCP server.
+      tasks, archive + spec-sync, agent-sync, measure, drift check (with its
+      record-review / record-tests / escaped-defect modes), and the read-only MCP
+      server.
     paths:
       - src/services
     keywords:

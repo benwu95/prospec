@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2247%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2398%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -646,13 +646,25 @@ model provider, not the agent harness itself):
 
 | Command | Description |
 |---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / module READMEs vs their token & line budget, WARN-only), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / module READMEs vs their token & line budget, WARN-only), review provenance (an implemented change must carry a review that still matches the code), metadata completeness, test provenance (a recorded test run that is current and green), Constitution severity (every principle carries an RFC-2119 tag, WARN-only) plus the machine-parsed rule inventory, and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check --record-tests [--change <name>]` | Run the project's test command (`tech_stack.test_command`, else `<package_manager> test` when package.json declares a test script — a project with neither is reported honestly, never guessed at) and record `{command, exit_code, digest, date}` into the change's `metadata.yaml`. This is the fact `/prospec-verify`'s test dimension is graded on — the suite's outcome becomes a machine verdict instead of an agent's self-report. The command is run **without a shell** (argv-tokenized), and nothing is written when it cannot run honestly (no command, a Windows `.cmd`/`.bat` shim Node refuses to spawn shell-free, not a git repo, timeout) — each case reports the reason and the check `skipped`, never a FAIL no configuration could clear |
+| `prospec check --escaped-defects [--json]` | Per-gate escaped-defect rate from the `introduced_by` registration, aggregated across `.prospec/changes/` and `.prospec/archive/` — the only ground-truth accuracy signal for the gates themselves. A reporting mode, not a check: no findings, no effect on `--strict`. With no registered samples it says so rather than printing a 0% escape rate |
+| `prospec check --record-review [--change <name>]` | Record the change's review baseline (code digest) so `review-provenance` can prove review ran and is still current |
 | `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
 
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
 never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
 permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
 the developer and the CI gate always see the same facts, token-free.
+
+**Who decides what at verify** — the report is not advisory there. `/prospec-verify`'s task-completion,
+Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status
+verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The
+dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic
+and are graded in **fresh context** (an independent reviewer that did not write the code), while the
+Constitution audit is split: severities and the rule list come from the machine inventory, judging a
+violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported
+`not-adjudicated` (never PASS) and grade S becomes unreachable.
 
 **Tuning the `knowledge-size` budgets** — the token/line thresholds default to `l1_per_file: 1800`, `l2_per_module: 1000`, `readme_max_lines: 100` and are overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
@@ -749,7 +761,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2247 tests)
+# Run all tests (2398 tests)
 pnpm test
 
 # Watch mode
@@ -762,11 +774,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2247 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1479 tests
-- Contract tests (CLI output + Skill format): 680 tests
+**Test Coverage**: 2398 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 1614 tests
+- Contract tests (CLI output + Skill format): 693 tests
 - Integration tests: 43 tests
-- E2E tests: 45 tests
+- E2E tests: 48 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

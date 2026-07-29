@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-25
+last_updated: 2026-07-28
 story_count: 15
-req_count: 54
+req_count: 60
 ---
 
 # AI Knowledge
@@ -450,6 +450,11 @@ so that context overhead is reduced and the Token budget is precisely controlled
 
 ---
 
+#### REQ-TYPES-069: Per-project knowledge budget override, declared not silent
+A project MAY widen the layered token budget per field in `.prospec.yaml` `knowledge.token_budget`; the **shipped defaults are unaffected** (`DEFAULT_KNOWLEDGE_TOKEN_BUDGET` stays 1800 / 1000 / 100, and so does the `init` seed), so an override never leaks downstream. When a change's own documentation growth is what pushes a knowledge file over budget, widening the budget is legitimate **only if declared**: the `knowledge-size` check exists to stop *silent* regrowth, so the change must record the numbers, state that the resulting PASS came from widening rather than slimming, and say why slimming was rejected. `prospec/index.md` continues to declare the shipped defaults (pinned by a single-source test) and names the project's active override alongside them.
+- WHEN a project sets only some fields, THEN the rest fall back to the shipped defaults
+- WHEN an override turns `knowledge-size` from WARN to PASS, THEN the change artifact states that plainly — a green check bought by a wider budget is never presented as a smaller knowledge base
+
 ## US-360: Knowledge base Language Policy (English Exemption) [P2]
 
 As an agent auditing per the Constitution Language Policy,
@@ -555,3 +560,4 @@ _(None)_
 | 2026-07-09 | support-file-module-paths | ADDED US-361 + REQ-LIB-029 (module-map `paths` stat-based file/dir/glob classifier + `moduleScanPatterns`), REQ-TESTS-050 (cross-caller consistency tests); MODIFIED REQ-KNOW-004 (README scan interprets paths via `moduleScanPatterns`, fixing bare folders scanning 0 files) | US-361, REQ-LIB-029, REQ-TESTS-050 (ADDED); REQ-KNOW-004 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-25 | align-language-policy-scope | Trust-zone exemption now generated per project (not hand-written); `specs/_archived-history/` follows the artifact language while `specs/features/` stays English; four named in-zone exceptions | US-360, REQ-TEMPLATES-141 (MODIFIED) |
+| 2026-07-28 | split-verify-adjudication | ADDED REQ-TYPES-069 (per-project `knowledge.token_budget` override must be declared, with the shipped defaults untouched and the WARN→PASS cause disclosed) (issue #96) | US-354; REQ-TYPES-069 |

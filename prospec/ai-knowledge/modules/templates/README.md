@@ -45,8 +45,9 @@
 - Skill templates MUST end with exactly one trailing newline — a blank line propagates into every generated `SKILL.md`.
 - All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy — `entry.md.hbs` renders its scope from injected `language_*` keys that BOTH render sites must supply (missing key → empty, not an error). Never quote literal mustaches in prose.
 - Values reaching YAML frontmatter scalars must be pre-escaped by the caller (`escapeYamlScalar`).
+- The `test_command` comments in `init/prospec.yaml.hbs` and `references/config-example.yaml.hbs` carry a platform contract, not just prose: no shell (so no pipes/`&&`/redirection) and, on Windows, no `.cmd`/`.bat` shim. Both copies must state it — `lib/test-runner` enforces it and reports an honest skip when violated.
 - Editing a shipped `.hbs` takes two steps: `pnpm bundle`, then sync from source (`npx tsx src/cli/index.ts agent sync`) — `pnpm exec prospec` resolves to the globally installed binary and silently deploys the released templates.
-- Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
+- Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test counts it across both skills and requires exactly one); status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
 
 <!-- prospec:auto-end -->
 

@@ -28,7 +28,7 @@ back to the manual signal the consuming skill documents; never fabricate a repor
 {
   "version": 1,
   "generated_at": "<ISO timestamp>",
-  "structural": { "checks": [ … ], "findings": [ … ], "knowledge_health": { … } },
+  "structural": { "checks": [ … ], "findings": [ … ], "knowledge_health": { … }, "constitution": { … } },
   "semantic":   { "status": "not-checked", "note": "…" },
   "summary":    { "fail_count": 0, "warn_count": 0, "skipped_count": 0 }
 }
@@ -43,10 +43,17 @@ position. Each entry: `{ id, status, reason? }`.
   **never** treated as `pass` — skipped means unchecked.
 - `id` ∈ the frozen `DRIFT_CHECK_IDS` set: `req-references`, `file-paths`, `import-direction`,
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
-  `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`.
+  `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
+  `test-provenance`, `constitution-severity`.
 
 Gates skills read by id: `review-provenance` (review recorded and not stale),
-`task-completion` (code-task completion), `knowledge-health` (module staleness — see below).
+`task-completion` (code-task completion), `knowledge-health` (module staleness — see below),
+`test-provenance` (a test run recorded, current, and green — `skipped` when the project has no
+resolvable test command, so a project that cannot satisfy it is never permanently barred).
+
+**These are verdicts, not hints.** `/prospec-verify`'s machine dimensions (1/5 `task-completion`,
+4/5 `knowledge-health`, 5/5 `test-provenance`) take their result from the check's `status` verbatim;
+a `skipped` machine check makes its dimension `not-adjudicated`, never `pass`.
 
 ## `structural.findings[]` — problems only
 
@@ -72,6 +79,46 @@ code task — use these instead of recounting tasks.md by hand.
 - `coverage` is `{ documented, total }` module README counts.
 - The whole object is **optional** (absent when the module map is unavailable). Absent →
   treat as "no freshness facts", not as all-fresh.
+
+## `structural.constitution` (optional) — the rule inventory verify audits against
+
+```jsonc
+{
+  "rules": [
+    { "name": "Language Policy", "severity": "MUST", "has_verify_hint": true, "line": 10 },
+    { "name": "Legacy untagged rule", "severity": null, "has_verify_hint": false, "line": 42 }
+  ]
+}
+```
+
+- One entry per `###` heading in the Constitution's `## Principles` section, in file order.
+- `severity` ∈ `MUST` | `SHOULD` | `MAY` | `null`. `null` means the heading carries no RFC-2119 tag —
+  it is **never** defaulted to a severity, and `constitution-severity` warns on it.
+- `/prospec-verify` 3/5 audits **1:1 against this list** (statement count ≥ entry count) and takes
+  each severity from here rather than re-reading the file — so no rule is skipped and no severity is
+  reassigned. Judging whether the code violates a rule is not mechanizable and stays with the agent.
+- The whole object is **optional** (absent when the Constitution is missing or declares no
+  principles). Absent → audit from the file and record the missing-inventory WARN.
+
+## Sibling report — `escaped-defect-report.json`
+
+`prospec check --escaped-defects [--json]` writes a **separate** report (schema authority:
+`src/types/escaped-defect.ts`): `{ version, generated_at, archive_available, ledger_available, sample_count, gates[], samples[], unresolved_references[] }`,
+where each `gates[]` entry is `{ gate, passed, escaped, escaped_rate }`. It aggregates `introduced_by`
+across `.prospec/changes/` **and** `.prospec/archive/` to give per-gate escaped-defect rate. It is a
+historical aggregate, not a drift check: it produces no findings and never affects `--strict`'s exit
+code.
+
+Three honesty flags, each answering a different question — never collapse them:
+
+- `ledger_available: false` — **no records were read at all** (neither ledger directory exists).
+- `sample_count: 0` — records were read and **none registered** `introduced_by`; `gates` is then empty
+  rather than a table of 0% rates.
+- `archive_available: false` — the sample is **honestly partial** (the archive is gitignored by design).
+
+`escaped` counts DISTINCT blamed changes, matching `passed`, so `escaped_rate` stays within 0..1; a
+name that resolves to no change — or to more than one — lands in `unresolved_references` rather than
+being attributed to an arbitrary winner.
 
 ## `semantic` and `summary`
 

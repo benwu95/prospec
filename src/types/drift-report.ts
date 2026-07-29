@@ -49,6 +49,18 @@ export const DRIFT_CHECK_IDS = [
   // scope. Turns the long-declared-but-unenforced index.md layer budgets into a
   // machine check so the progressive-loading model cannot silently regrow.
   'knowledge-size',
+  // Test provenance — an implemented change whose test run was never recorded,
+  // whose recorded run predates the current code state (stale), or whose recorded
+  // exit code is non-zero, fails (fail). Makes verify's test dimension a machine
+  // verdict instead of an agent's self-report; the run itself happens in the
+  // flag-gated `check --record-tests` write path, never in the pure check path.
+  // scale: backfill and non-implemented changes are exempt (not flagged).
+  'test-provenance',
+  // Constitution severity — a Constitution principle whose heading carries no
+  // RFC-2119 tag cannot be graded by weight, so it warns (warn). Pairs with the
+  // `constitution` report section below: the rule inventory + severities are the
+  // machine half of verify's Constitution audit; judging a violation stays LLM work.
+  'constitution-severity',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
@@ -92,6 +104,29 @@ export const KnowledgeHealthSchema = z.object({
   }),
 });
 
+/** RFC-2119 severities a Constitution principle heading may carry. */
+export const CONSTITUTION_SEVERITIES = ['MUST', 'SHOULD', 'MAY'] as const;
+
+export const ConstitutionRuleEntrySchema = z.object({
+  name: z.string().min(1),
+  /** null when the heading carries no RFC-2119 tag — never defaulted to a
+   *  severity, so verify can see that this rule falls back to judgment grading. */
+  severity: z.enum(CONSTITUTION_SEVERITIES).nullable(),
+  has_verify_hint: z.boolean(),
+  line: z.number().int().positive(),
+});
+
+/**
+ * The machine-parsed Constitution rule inventory `/prospec-verify` grades against.
+ * Verify must account for every entry (its audit is 1:1 with this list) and takes
+ * each severity from here rather than re-reading the file, so no rule is skipped
+ * and no severity is reassigned. Judging whether the code violates a rule is NOT
+ * mechanizable and stays with the agent.
+ */
+export const ConstitutionInventorySchema = z.object({
+  rules: z.array(ConstitutionRuleEntrySchema),
+});
+
 export const DriftReportSchema = z.object({
   version: z.literal(DRIFT_REPORT_VERSION),
   generated_at: z.string().min(1),
@@ -99,6 +134,8 @@ export const DriftReportSchema = z.object({
     checks: z.array(DriftCheckResultSchema).min(1),
     findings: z.array(DriftFindingSchema),
     knowledge_health: KnowledgeHealthSchema.optional(),
+    /** Absent when the Constitution is unreadable — the check then skips. */
+    constitution: ConstitutionInventorySchema.optional(),
   }),
   semantic: z.object({
     /** Semantic consistency is /prospec-review's job — never graded here. */
@@ -118,4 +155,7 @@ export type DriftFinding = z.infer<typeof DriftFindingSchema>;
 export type DriftCheckResult = z.infer<typeof DriftCheckResultSchema>;
 export type KnowledgeHealthModule = z.infer<typeof KnowledgeHealthModuleSchema>;
 export type KnowledgeHealth = z.infer<typeof KnowledgeHealthSchema>;
+export type ConstitutionSeverity = (typeof CONSTITUTION_SEVERITIES)[number];
+export type ConstitutionRuleEntry = z.infer<typeof ConstitutionRuleEntrySchema>;
+export type ConstitutionInventory = z.infer<typeof ConstitutionInventorySchema>;
 export type DriftReport = z.infer<typeof DriftReportSchema>;

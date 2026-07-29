@@ -14,6 +14,13 @@ tech_stack:
 {{#if tech_stack.package_manager}}
   package_manager: {{tech_stack.package_manager}}
 {{/if}}
+  # Test command recorded by `prospec check --record-tests` — the fact /prospec-verify
+  # grades its test dimension on. Unset falls back to `<package_manager> test` only when
+  # package.json declares a test script, so a non-JS project must set this or that
+  # dimension stays unadjudicated. Run without a shell: no pipes, `&&` or redirection —
+  # and on Windows not a `.cmd`/`.bat` shim (Node rejects those without a shell), so
+  # prefer a direct invocation such as `node node_modules/vitest/vitest.mjs run`.
+  # test_command: {{#if tech_stack.package_manager}}{{tech_stack.package_manager}} test{{else}}<your test command>{{/if}}
 {{/if}}
 
 paths:

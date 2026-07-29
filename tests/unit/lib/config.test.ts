@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget } from '../../../src/lib/config.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../../../src/types/config.js';
 
@@ -166,6 +166,44 @@ describe('resolveKnowledgeTokenBudget', () => {
     expect(budget.l1_per_file).toBe(9999);
     expect(budget.l2_per_module).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module);
     expect(budget.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
+  });
+});
+
+describe('resolveTestCommand (REQ-LIB-033)', () => {
+  const cfg = (tech: Record<string, string> = {}): ProspecConfig =>
+    ({ project: { name: 't' }, tech_stack: tech }) as ProspecConfig;
+
+  it('prefers an explicit tech_stack.test_command', () => {
+    vol.fromJSON({ '/p/package.json': JSON.stringify({ scripts: { test: 'vitest run' } }) });
+    expect(resolveTestCommand(cfg({ test_command: 'pytest -q', package_manager: 'pnpm' }), '/p')).toBe('pytest -q');
+  });
+
+  it('falls back to `<package_manager> test` when package.json declares a test script', () => {
+    vol.fromJSON({ '/p/package.json': JSON.stringify({ scripts: { test: 'vitest run' } }) });
+    expect(resolveTestCommand(cfg({ package_manager: 'pnpm' }), '/p')).toBe('pnpm test');
+  });
+
+  it('defaults the package manager to npm when unset', () => {
+    vol.fromJSON({ '/p/package.json': JSON.stringify({ scripts: { test: 'vitest run' } }) });
+    expect(resolveTestCommand(cfg(), '/p')).toBe('npm test');
+  });
+
+  it('returns null when there is no command to run (no declaration, no test script)', () => {
+    vol.fromJSON({ '/p/package.json': JSON.stringify({ scripts: { build: 'tsc' } }) });
+    expect(resolveTestCommand(cfg({ package_manager: 'pnpm' }), '/p')).toBeNull();
+  });
+
+  it('returns null when package.json is absent or malformed', () => {
+    expect(resolveTestCommand(cfg({ package_manager: 'pnpm' }), '/p')).toBeNull();
+    vol.fromJSON({ '/q/package.json': '{ not json' });
+    expect(resolveTestCommand(cfg({ package_manager: 'pnpm' }), '/q')).toBeNull();
+  });
+
+  it('treats an empty/whitespace test_command as unset, never an empty argv', () => {
+    vol.fromJSON({ '/p/package.json': JSON.stringify({ scripts: { test: 'vitest run' } }) });
+    expect(resolveTestCommand(cfg({ test_command: '   ', package_manager: 'pnpm' }), '/p')).toBe('pnpm test');
+    vol.fromJSON({ '/r/package.json': JSON.stringify({ scripts: {} }) });
+    expect(resolveTestCommand(cfg({ test_command: '' }), '/r')).toBeNull();
   });
 });
 

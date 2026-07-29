@@ -202,9 +202,12 @@ describe('QualityDimensionSchema result vocabulary (REQ-TYPES-064)', () => {
   // /prospec-verify mandates `not-applicable` for a dimension its scale skips
   // (quick has no delta-spec, backfill no tasks.md) and forbids reporting it as
   // PASS. A three-state-only dimension schema would reject correct metadata.
-  it.each(['PASS', 'WARN', 'FAIL', 'not-applicable'])('accepts the dimension result %s', (r) => {
-    expect(ChangeMetadataSchema.safeParse(entry(r)).success).toBe(true);
-  });
+  it.each(['PASS', 'WARN', 'FAIL', 'not-applicable', 'not-adjudicated'])(
+    'accepts the dimension result %s',
+    (r) => {
+      expect(ChangeMetadataSchema.safeParse(entry(r)).success).toBe(true);
+    },
+  );
 
   it('still rejects a grade leaking into a dimension result', () => {
     expect(ChangeMetadataSchema.safeParse(entry('A')).success).toBe(false);
@@ -218,6 +221,73 @@ describe('QualityDimensionSchema result vocabulary (REQ-TYPES-064)', () => {
       ],
     });
     expect(r.success).toBe(false);
+  });
+
+  // `not-adjudicated` (engine could not run) must stay distinct from
+  // `not-applicable` (dimension is moot) — and neither may leak to the gate.
+  it('keeps not-adjudicated out of the gate result too', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      quality_log: [
+        { skill: 'prospec-verify', date: '2026-07-06', result: 'not-adjudicated', warnings: [] },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe('QualityDimensionSchema adjudicator', () => {
+  const dim = (adjudicator?: string) => ({
+    ...base,
+    quality_log: [
+      {
+        skill: 'prospec-verify',
+        date: '2026-07-28',
+        result: 'PASS',
+        warnings: [],
+        grade: 'A',
+        dimensions: [{ name: 'task-completion', result: 'PASS', ...(adjudicator === undefined ? {} : { adjudicator }) }],
+      },
+    ],
+  });
+
+  it.each(['machine', 'judgment'])('accepts adjudicator %s', (a) => {
+    const r = ChangeMetadataSchema.safeParse(dim(a));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.quality_log?.[0]?.dimensions?.[0]?.adjudicator).toBe(a);
+  });
+
+  it('accepts a dimension with no adjudicator (entries written before the field existed)', () => {
+    expect(ChangeMetadataSchema.safeParse(dim()).success).toBe(true);
+  });
+
+  it('rejects an invented adjudicator', () => {
+    expect(ChangeMetadataSchema.safeParse(dim('vibes')).success).toBe(false);
+  });
+});
+
+describe('TestProvenanceSchema (REQ-TYPES-066)', () => {
+  const withProvenance = (over: Record<string, unknown>) => ({
+    ...base,
+    test_provenance: { command: 'pnpm test', exit_code: 0, digest: 'abc', date: '2026-07-28', ...over },
+  });
+
+  it('accepts a recorded run and keeps a non-zero exit code (a failing suite IS the fact)', () => {
+    const r = ChangeMetadataSchema.safeParse(withProvenance({ exit_code: 1 }));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.test_provenance?.exit_code).toBe(1);
+  });
+
+  it('accepts metadata without test_provenance (every pre-existing change stays valid)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.test_provenance).toBeUndefined();
+  });
+
+  it('rejects a non-integer exit code or a missing digest', () => {
+    expect(ChangeMetadataSchema.safeParse(withProvenance({ exit_code: 1.5 })).success).toBe(false);
+    const noDigest = { ...base, test_provenance: { command: 'pnpm test', exit_code: 0, date: '2026-07-28' } };
+    expect(ChangeMetadataSchema.safeParse(noDigest).success).toBe(false);
   });
 });
 

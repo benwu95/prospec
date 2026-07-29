@@ -24,13 +24,23 @@ export const VERIFY_GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
  *  that does not apply to this change's scale is reported `not-applicable`, which
  *  `/prospec-verify` mandates over PASS (a quick change has no delta-spec to
  *  compare, a backfill change has no tasks.md — an unchecked dimension must not
- *  read as a passed one). The gate `result` stays the three-state. */
-export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable'] as const;
+ *  read as a passed one). `not-adjudicated` is the distinct case where a dimension
+ *  DOES apply but its machine adjudicator was unavailable (the drift engine could
+ *  not run): claiming PASS would fake a verdict, and `not-applicable` would claim
+ *  the dimension was moot. The gate `result` stays the three-state. */
+export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable', 'not-adjudicated'] as const;
+
+/** Who decided a verify dimension: the deterministic drift engine, or the agent.
+ *  Recorded per dimension so a later escaped-defect analysis can tell a machine
+ *  verdict from a judgment call instead of guessing. */
+export const DIMENSION_ADJUDICATORS = ['machine', 'judgment'] as const;
 
 /** One /prospec-verify dimension outcome, for machine-aggregatable quality trends. */
 export const QualityDimensionSchema = z.looseObject({
   name: z.string(),
   result: z.enum(DIMENSION_RESULTS),
+  /** Optional keeps every pre-existing entry valid. */
+  adjudicator: z.enum(DIMENSION_ADJUDICATORS).optional(),
 });
 
 /** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
@@ -59,6 +69,17 @@ export const QualityLogEntrySchema = z.looseObject({
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
  *  code state; `date` is the ISO 8601 record date. */
 export const ReviewProvenanceSchema = z.looseObject({
+  digest: z.string(),
+  date: z.string(), // ISO 8601 date
+});
+
+/** Machine-written test baseline (written by `prospec check --record-tests`).
+ *  `command` is the test command that ran, `exit_code` its result (kept even when
+ *  non-zero — a failing suite is the fact the check must see), `digest` fingerprints
+ *  the code state it ran against, `date` is the ISO 8601 record date. */
+export const TestProvenanceSchema = z.looseObject({
+  command: z.string(),
+  exit_code: z.number().int(),
   digest: z.string(),
   date: z.string(), // ISO 8601 date
 });
@@ -95,6 +116,13 @@ const ChangeMetadataShape = {
   // flags the change stale when it no longer matches. Optional keeps existing
   // metadata valid and marks a change that has not been reviewed yet.
   review_provenance: ReviewProvenanceSchema.optional(),
+  // Machine-written test baseline (written by `prospec check --record-tests` when
+  // `/prospec-verify` records the run). The test-provenance drift check recomputes
+  // the digest and flags the change stale when it no longer matches, or failed when
+  // `exit_code` is non-zero. Deliberately NOT part of the metadata-completeness
+  // required-field floor: adding it there would retroactively fail every change
+  // archived before this field existed.
+  test_provenance: TestProvenanceSchema.optional(),
   // Escaped-defect registration (issue #61): on a bug-fix change, names the change
   // that missed the defect (its change-name string), so per-gate escaped-defect rate
   // can be tracked. Optional keeps existing metadata valid; a convention + example
@@ -147,4 +175,6 @@ export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
 export type QualityDimension = z.infer<typeof QualityDimensionSchema>;
 export type VerifyGrade = (typeof VERIFY_GRADES)[number];
 export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;
+export type TestProvenance = z.infer<typeof TestProvenanceSchema>;
+export type DimensionAdjudicator = (typeof DIMENSION_ADJUDICATORS)[number];
 export type GateResult = (typeof GATE_RESULTS)[number];
