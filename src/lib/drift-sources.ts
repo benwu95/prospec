@@ -6,6 +6,7 @@ import { scanDirSync, classifyModulePath } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { parseConstitutionRules } from './constitution-parser.js';
+import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
   ARCHIVED_EXCLUDES,
@@ -993,6 +994,10 @@ export function collectTestProvenance(
   cwd: string,
   testCommand: string | null,
   digest: string | null,
+  /** Injection seam for the platform probe. Omitting it yields the real platform,
+   *  so production behaviour cannot be changed by forgetting it — it exists so the
+   *  win32 shim branch is provable from a POSIX host. */
+  probe: ExecutableProbe = defaultExecutableProbe(),
 ): TestProvenanceSource {
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,
@@ -1008,6 +1013,11 @@ export function collectTestProvenance(
       'source unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml',
     );
   }
+  // Same reasoning one step further: a command that exists but cannot be spawned on
+  // this platform (a Windows `.cmd`/`.bat` shim) is equally unsatisfiable, and
+  // failing it would bar every Windows project from `verified` with no config fix.
+  const unspawnable = unspawnableReason(testCommand, probe);
+  if (unspawnable !== null) return unavailable(`source unavailable: ${unspawnable}`);
   if (!isGitWorkTree(cwd)) return unavailable('source unavailable: not a git repository');
   const changesDir = path.resolve(cwd, '.prospec/changes');
   if (!existsSync(changesDir)) {

@@ -983,6 +983,38 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     expect(r.changes[0]).toMatchObject({ recorded_digest: null, recorded_exit_code: null, recorded_command: '' });
   });
 
+  // Wiring proof for the Windows shim path: the collector must report the SOURCE as
+  // unavailable (an honest skip), because failing it would bar every Windows project
+  // from `verified` with no configuration that could fix it.
+  it('skips honestly when the test command is a Windows shim (platform-injected)', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
+    const winProbe = {
+      platform: 'win32',
+      pathDirs: ['C:\\tools\\bin'],
+      exists: (c: string) => c === 'C:\\tools\\bin\\pnpm.cmd',
+    };
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), winProbe);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('source unavailable');
+    expect(r.reason).toContain('Windows shim');
+    expect(r.reason).toContain('tech_stack.test_command');
+    expect(r.changes).toHaveLength(0);
+  });
+
+  it('stays available when the same command is spawnable on this platform', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
+    const posixProbe = {
+      platform: 'linux',
+      pathDirs: ['/usr/bin'],
+      exists: () => false,
+    };
+    const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), posixProbe);
+    expect(r.available).toBe(true);
+    expect(r.changes).toHaveLength(1);
+  });
+
   it('skips a change whose metadata is unparseable rather than fabricating a record', () => {
     initRepo();
     write('.prospec/changes/bad/metadata.yaml', 'name: [unclosed\n');

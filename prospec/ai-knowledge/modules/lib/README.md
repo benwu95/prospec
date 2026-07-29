@@ -51,7 +51,7 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 
 - `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults.
 - noEscape YAML templates MUST run user text through `escapeYamlScalar()`.
-- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE place a project command runs — flag-gated, `shell: false`.
+- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE place a project command runs — flag-gated, `shell: false`, and it classifies argv[0] first: on Windows a `.cmd`/`.bat` shim is unspawnable (Node rejects it even by absolute path), so both the collector and the runner report an honest skip rather than a FAIL no config could clear. Resolution follows **libuv** (literal-with-dot, `.com`, `.exe` per PATH dir), NOT PATHEXT — ordering by PATHEXT would call a working command a shim.
 - knowledge-reader reads are realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null, invalid→throw. Same one-way rule for `constitution-parser`/`markdown-fences`.
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`.
 - `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it); compose paths with `path.posix.join`.

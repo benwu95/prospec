@@ -20,6 +20,11 @@ tech_stack:
   # dimension is graded on). Unset falls back to `<package_manager> test` when
   # package.json declares a test script. Run WITHOUT a shell — argv-tokenized, so
   # pipes / `&&` / redirection are not supported.
+  #
+  # ON WINDOWS this must not be a `.cmd`/`.bat` shim: Node refuses to spawn one
+  # without a shell (CVE-2024-27980), even via an absolute path. `pnpm test` is such
+  # a shim, so name a shell-free invocation instead — the check reports an honest
+  # skip (never a FAIL you cannot fix) and tells you this when it detects one.
   test_command: pnpm test
 
 paths:

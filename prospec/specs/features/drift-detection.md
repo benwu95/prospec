@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 story_count: 11
 req_count: 39
 ---
@@ -251,6 +251,7 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN the recorded run predates the current code, THEN report FAIL "stale test run"
 - WHEN the recorded run's exit code is non-zero, THEN report FAIL naming the command and the code — **never** suppressed, including for a proven backfill
 - WHEN the project has no resolvable test command, THEN the check is `skipped` + reason, so a project that cannot satisfy it is never permanently barred from `verified`
+- WHEN the resolved command cannot be spawned on this platform — on Windows a `.cmd`/`.bat` shim, which Node refuses to spawn shell-free even by absolute path — THEN the check is `skipped` + reason naming the constraint and a shell-free alternative, for the same reason: a gate no configuration could clear is not a signal
 - WHEN the change's status is not `implemented`, THEN do not flag (exempt)
 
 #### REQ-TYPES-065: Drift Report test-provenance / constitution-severity check ids + constitution section
@@ -267,6 +268,9 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN a proven backfill (`backfill-draft.md` present) has no record, or a stale **green** record, THEN exempt (outcome unknown, the same state as no tests); an **unproven** backfill (`scale` alone, which is hand-editable) gets no relaxation at all
 - WHEN the run timed out or was killed, THEN no record is written and the timeout is distinguished from other signals (SIGSEGV / OOM / Ctrl-C reported as themselves)
 - WHEN no test command resolves, THEN `{available:false, reason}` → `skipped`, never a permanent FAIL
+- WHEN the resolved command cannot be spawned without a shell on this platform, THEN the same honest skip applies. `classifyExecutable(bin, probe)` decides it behind an injected `ExecutableProbe` (platform, PATH, file-existence), so the win32 branch is provable from a POSIX host; `describeUnspawnable` yields the single reason string both `collectTestProvenance` and `runTestCommand` report, and the runner refuses **before** spawning rather than letting EINVAL surface
+- WHEN resolving a bare name on Windows, THEN follow **libuv**, not PATHEXT: per PATH directory it tries the literal name (only when it contains a dot), `.com`, then `.exe`. The search is therefore two passes — any directory holding a startable file means `spawnable`, so an earlier `.cmd` never shadows a later real `.exe`; only when no directory holds one does a `.cmd`/`.bat` become the diagnosis. Ordering by PATHEXT would classify a working command as a shim and silently turn this fail-class gate into a skip
+- WHEN the verdict is `not-found`, THEN it does **not** block — this probe's view of PATH may differ from the spawn's, so the real spawn reports ENOENT instead of our model skipping a working command
 
 #### REQ-SERVICES-068: check.service collector injection + the --record-tests write path
 `check.service.execute` injects `collectTestProvenance` (with the resolved command and the run's single digest) and `collectConstitutionRules` (path from `resolveBasePaths`, never re-derived). The `--record-tests` branch checks every precondition — target change, metadata presence, test command, git-ness — **before** spawning the suite, then records the **post-run** digest so a suite that writes an untracked artifact still converges in one run, disclosing `treeChangedDuringRun` when the tree moved mid-run.
@@ -282,7 +286,7 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN no flag is passed, THEN behavior is identical to the previous version
 
 #### REQ-TESTS-056: Engine tests for the new collectors and evaluators
-`evaluateTestProvenance` (missing / stale / non-zero exit / stale+failing precedence / proven-backfill exemptions / unproven backfill / non-implemented / unavailable), `evaluateConstitutionSeverity`, `parseConstitutionRules` (fence-aware, untagged, unknown tag, level-1 heading closes the section), `aggregateEscapedDefects`, `resolveTestCommand`, `runTestCommand` (exit code / timeout, driven by `process.execPath` so it can never recurse into the project suite), and all three collectors against temp-git fixtures. The digest self-trip guard is **derived from the report filename constants**, not hand-listed, so a future report joins it by construction.
+`evaluateTestProvenance` (missing / stale / non-zero exit / stale+failing precedence / proven-backfill exemptions / unproven backfill / non-implemented / unavailable), `evaluateConstitutionSeverity`, `parseConstitutionRules` (fence-aware, untagged, unknown tag, level-1 heading closes the section), `aggregateEscapedDefects`, `resolveTestCommand`, `runTestCommand` (exit code / timeout, driven by `process.execPath` so it can never recurse into the project suite), and all three collectors against temp-git fixtures. Shim classification is tested through an **injected** probe so the win32 branch runs on any host: non-win32 always spawnable, a real `.exe` in any PATH directory beating an earlier `.cmd`, `.com` accepted, a shim reported only when no directory holds a startable file, a declared extension short-circuiting the search, a path never searched on PATH, a negative assertion that PATHEXT does not influence the verdict, and `defaultExecutableProbe.exists` across file / directory / missing. A `describe.runIf(process.platform === 'win32')` block additionally pins the real-host behaviour and runs once a Windows job exists — the injected tests prove the decision, that one proves the reality. The digest self-trip guard is **derived from the report filename constants**, not hand-listed, so a future report joins it by construction.
 
 ---
 
@@ -377,3 +381,4 @@ _(None)_
 | 2026-07-09 | support-file-module-paths | MODIFIED REQ-LIB-014: import-edge collection handles single-file entries via `classifyModulePath` (source file → scan that file, non-source file → no edge, fixes `<file>/**` ENOTDIR); the classifier itself, REQ-LIB-029, lives in the ai-knowledge feature | REQ-LIB-014 (MODIFIED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-28 | split-verify-adjudication | ADDED US-9 (test-provenance gate check, the 12th check id) + US-10 (Constitution rule inventory + severity, the 13th) + US-11 (per-gate escaped-defect aggregation); ADDED REQ-TYPES-065/067, REQ-LIB-032/033/034, REQ-SERVICES-068/069, REQ-CLI-022, REQ-TESTS-056; MODIFIED REQ-TYPES-052 (11 → 13), REQ-TYPES-034 (defers the count), REQ-TESTS-045 (13 checks) (issue #96) | US-9, US-10, US-11, REQ-TYPES-065, REQ-TYPES-067, REQ-LIB-032, REQ-LIB-033, REQ-LIB-034, REQ-SERVICES-068, REQ-SERVICES-069, REQ-CLI-022, REQ-TESTS-056, REQ-TYPES-052, REQ-TYPES-034, REQ-TESTS-045 |
+| 2026-07-29 | skip-unspawnable-test-command | MODIFIED US-9 (a second honest-skip trigger: a command that cannot be spawned on this platform), REQ-LIB-033 (shim classification behind an injected probe, libuv resolution rule rather than PATHEXT, pre-spawn refusal, `not-found` deliberately non-blocking) and REQ-TESTS-056 (platform-injected assertion classes) — closes the Windows `.cmd` gap escalated by split-verify-adjudication's review | US-9, REQ-LIB-033, REQ-TESTS-056 |
