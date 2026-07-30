@@ -59,6 +59,22 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
     }
   }
 
+  if (result.droppedBehavior.length > 0) {
+    const verb = result.dryRun ? 'would drop' : 'dropped';
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.droppedBehavior.length} REQ body/bodies ${verb} authored behavior — confirm each is deliberate:\n`,
+    );
+    for (const d of result.droppedBehavior) {
+      process.stderr.write(
+        `  ${pc.yellow('·')} ${sanitizeTerminal(d.feature)} ${sanitizeTerminal(d.reqId)}:\n`,
+      );
+      // In full, one per line: a count cannot tell a reader what to restore.
+      for (const bullet of d.bullets) {
+        process.stderr.write(`      ${sanitizeTerminal(bullet)}\n`);
+      }
+    }
+  }
+
   for (const name of result.skipped) {
     const reason = result.skippedReasons[name] ?? 'archive failed';
     process.stderr.write(

@@ -1918,6 +1918,47 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
   });
 });
 
+describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
+  it('Phase 3.5 step 0 introduces BOTH worklists, and never leaves "already landed" unqualified', () => {
+    // The gate assertion below slices only the gate, so without this the whole
+    // step-0 rewrite can revert silently — including the exact sentence
+    // ("a REQ absent from the worklist already landed its authored spec text")
+    // whose false confidence this change exists to remove.
+    const phase = sectionOf(
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT),
+      '### Phase 3.5: Feature Spec Sync',
+    );
+    expect(phase).toMatch(/graduation worklist/i);
+    expect(phase).toMatch(/dropped behavior/i);
+    // the qualifier must travel with the claim, in the same sentence
+    expect(phase).toMatch(/landed.{0,80}does not mean.{0,20}lost nothing/is);
+    expect(phase).not.toMatch(/already landed its authored spec text\.\s*$/m);
+  });
+
+  it('Phase 3.5 gate requires each dropped bullet to be confirmed or restored', () => {
+    const gate = sectionOf(
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT),
+      '> **Phase 3.5 Gate** — proceed when:',
+    );
+    expect(gate).toMatch(/dropped behavior/i);
+    expect(gate).toMatch(/confirmed deliberate or restored/i);
+    // an empty report must not add ceremony — the item self-satisfies
+    expect(gate).toMatch(/empty report satisfies/i);
+  });
+
+  it('delta-spec-format tells the author to write the resulting requirement, not the delta', () => {
+    const ref = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(ref, '## The `**Spec:**` Block — What Lands in the Feature Spec');
+    expect(section).toContain('not the delta');
+    expect(section).toMatch(/replaces the\s+WHOLE body/i);
+    // the machine backstop is named, so the two defences stay linked
+    expect(section).toMatch(/archive CLI reports/i);
+    // …and its limit is stated rather than left to be discovered (PB-003)
+    expect(section).toMatch(/MODIFIED path only/i);
+    expect(section).toMatch(/reported by neither worklist/i);
+  });
+});
+
 describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167, REQ-TESTS-063)', () => {
   const skillsDir = path.join(__dirname, '../../src/templates/skills');
   const src = (name: string) => fs.readFileSync(path.join(skillsDir, `${name}.hbs`), 'utf-8');

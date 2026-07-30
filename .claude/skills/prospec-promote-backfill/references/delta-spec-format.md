@@ -200,6 +200,14 @@ behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Sp
 change-artifact language (a project whose change artifacts are non-English still lands English spec
 bodies when its Feature Specs are English).
 
+**Write the resulting requirement, not the delta.** For a **MODIFIED** REQ the block replaces the
+WHOLE body, so any existing behavior it does not restate leaves the trust zone — permanently, and
+without erroring. Start from the current body in `specs/features/` and fold the change into it; the
+archive CLI reports the `WHEN/THEN` bullets your block drops, and graduation must confirm each one.
+That report covers the MODIFIED path only: an **ADDED** entry appends, so reusing a REQ id that
+already exists lands a second section with the same heading and is reported by neither worklist —
+check the id is free before writing an ADDED entry.
+
 | Entry | `**Spec:**` | Without it |
 |-------|-------------|------------|
 | **MODIFIED** | REQUIRED | The existing body is **preserved unchanged** (only the title line is refreshed) and the REQ is reported as pending convergence — the archive skill's graduation phase must converge it by hand |

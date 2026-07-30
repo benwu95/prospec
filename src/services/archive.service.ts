@@ -54,6 +54,11 @@ export interface ArchiveResult {
    * the graduation phase's worklist. Populated under dry-run too.
    */
   pendingConvergence: PendingConvergence[];
+  /**
+   * REQs whose replacement body omitted authored behavior — the graduation
+   * phase confirms each dropped bullet was deliberate. Dry-run too.
+   */
+  droppedBehavior: DroppedBehavior[];
 }
 
 export interface PlannedMutation {
@@ -95,11 +100,27 @@ export interface PendingConvergence {
   reason: string;
 }
 
+/**
+ * A REQ whose body a landing block DID replace, and the authored behavior that
+ * replacement left behind. The opposite situation to `PendingConvergence`: there
+ * the body survived and needs converging; here it was superseded and what the
+ * new body omits needs confirming. Kept as its own list so neither meaning is
+ * overloaded onto the other.
+ */
+export interface DroppedBehavior {
+  feature: string;
+  reqId: string;
+  /** The existing `WHEN … THEN …` bullets absent from the replacement, as written. */
+  bullets: string[];
+}
+
 export interface SpecSyncResult {
   /** Feature Spec files created or updated. */
   files: string[];
   /** REQs left for the graduation phase; populated under dry-run too. */
   pendingConvergence: PendingConvergence[];
+  /** REQs whose replacement body omits authored behavior; dry-run too. */
+  droppedBehavior: DroppedBehavior[];
 }
 
 // --- Core functions ---
@@ -329,7 +350,7 @@ export async function syncToFeatureSpecs(
   dryRun = false,
 ): Promise<SpecSyncResult> {
   const routes = await readFeatureRoutes(archiveDir);
-  if (routes.length === 0) return { files: [], pendingConvergence: [] };
+  if (routes.length === 0) return { files: [], pendingConvergence: [], droppedBehavior: [] };
 
   if (!dryRun) await ensureDir(featuresPath);
 
@@ -343,6 +364,7 @@ export async function syncToFeatureSpecs(
 
   const updatedFiles: string[] = [];
   const pendingConvergence: PendingConvergence[] = [];
+  const droppedBehavior: DroppedBehavior[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   for (const [feature, featureRoutes] of byFeature) {
@@ -368,6 +390,7 @@ export async function syncToFeatureSpecs(
           const merged = mergeRequirementInPlace(content, route);
           content = merged.content;
           if (merged.pending) pendingConvergence.push(merged.pending);
+          if (merged.dropped) droppedBehavior.push(merged.dropped);
         }
       }
 
@@ -383,7 +406,7 @@ export async function syncToFeatureSpecs(
     updatedFiles.push(specFile);
   }
 
-  return { files: updatedFiles, pendingConvergence };
+  return { files: updatedFiles, pendingConvergence, droppedBehavior };
 }
 
 /**
@@ -547,6 +570,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const specFiles: string[] = [];
   const planned: PlannedMutation[] = [];
   const pendingConvergence: PendingConvergence[] = [];
+  const droppedBehavior: DroppedBehavior[] = [];
   let specSyncWouldTouchFeaturesDir = false;
 
   // Resolve specsPath from config (non-fatal if config is missing)
@@ -619,6 +643,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
           const syncedFiles = sync.files;
           specFiles.push(...syncedFiles);
           pendingConvergence.push(...sync.pendingConvergence);
+          droppedBehavior.push(...sync.droppedBehavior);
           if (dryRun) {
             for (const specFile of syncedFiles) {
               planned.push({
@@ -729,6 +754,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     refused,
     notFound,
     pendingConvergence,
+    droppedBehavior,
   };
 }
 
@@ -989,6 +1015,72 @@ function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConver
 }
 
 /**
+ * One `- WHEN … THEN …` bullet: `key` is whitespace-normalised for comparison,
+ * `text` is the source lines exactly as written. Comparing on the key means a
+ * re-indented or reflowed bullet is not a false drop; reporting the text means
+ * what the author is asked to restore is what their file actually said.
+ */
+interface Bullet {
+  key: string;
+  text: string;
+}
+
+/** Trim, then collapse whitespace runs — the comparison key, never the report. */
+function normalizeBullet(line: string): string {
+  return line.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * `- WHEN … THEN …` bullets of a REQ body, each joined with its indented
+ * continuation lines: a wrapped bullet whose first line is unchanged but whose
+ * `THEN` clause was rewritten is a total behavior swap, and comparing first
+ * lines alone would report nothing.
+ */
+function whenThenBullets(body: string): Bullet[] {
+  const bullets: Bullet[] = [];
+  let open = false;
+  for (const raw of body.split('\n')) {
+    const line = raw.trim();
+    if (/^-\s+WHEN\b/i.test(line)) {
+      bullets.push({ key: normalizeBullet(line), text: raw });
+      open = true;
+      continue;
+    }
+    // A continuation must be INDENTED relative to the bullet. Without that, a
+    // fenced code block, a table row or a trailing prose sentence sitting at
+    // column 0 gets absorbed and the bullet no longer matches its unchanged
+    // twin — a FALSE drop report, which costs the worklist its credibility
+    // faster than a missed one.
+    if (open && line !== '' && /^\s/.test(raw) && !line.startsWith('-') && !line.startsWith('#')) {
+      const last = bullets[bullets.length - 1]!;
+      last.key = normalizeBullet(`${last.key} ${line}`);
+      last.text += `\n${raw}`;
+      continue;
+    }
+    open = false;
+  }
+  return bullets;
+}
+
+/**
+ * Behavior the replacement body leaves behind — a SET difference, never a count.
+ * The failure this exists to catch replaced three authored bullets with three
+ * unrelated ones, so any count-based check would have passed it.
+ */
+function droppedFor(
+  route: FeatureRoute,
+  existingBody: string,
+  landing: string,
+): DroppedBehavior | undefined {
+  const kept = new Set(whenThenBullets(landing).map((b) => b.key));
+  const bullets = whenThenBullets(existingBody)
+    .filter((b) => !kept.has(b.key))
+    .map((b) => b.text);
+  if (bullets.length === 0) return undefined;
+  return { feature: route.feature, reqId: route.reqId, bullets };
+}
+
+/**
  * Merge a requirement into an existing Feature Spec (ADDED or MODIFIED).
  *
  * NEVER blanks an authored body. A `**Spec:**` block (or, for ADDED, the
@@ -1000,7 +1092,7 @@ function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConver
 function mergeRequirementInPlace(
   content: string,
   route: FeatureRoute,
-): { content: string; pending?: PendingConvergence } {
+): { content: string; pending?: PendingConvergence; dropped?: DroppedBehavior } {
   const reqHeader = `#### ${route.reqId}:`;
   const titleLine = `#### ${route.reqId}: ${route.description}`;
   const body = landingBody(route);
@@ -1009,6 +1101,9 @@ function mergeRequirementInPlace(
     // Replace existing REQ section (from header to next h4 or h3 or section end)
     const lines = content.split('\n');
     const result: string[] = [];
+    // The superseded body is collected, not just discarded: what the landing
+    // block omits is the behavior that would vanish from the trust zone.
+    const superseded: string[] = [];
     let skipping = false;
 
     for (const line of lines) {
@@ -1028,7 +1123,9 @@ function mergeRequirementInPlace(
       if (skipping && (/^#{2,4}\s/.test(line) || line.trim() === '---')) {
         skipping = false;
       }
-      if (!skipping) {
+      if (skipping) {
+        superseded.push(line);
+      } else {
         result.push(line);
       }
     }
@@ -1036,7 +1133,7 @@ function mergeRequirementInPlace(
     const merged = result.join('\n');
     return body === ''
       ? { content: merged, pending: pendingFor(route, NO_SPEC_BLOCK_REASON) }
-      : { content: merged };
+      : { content: merged, dropped: droppedFor(route, superseded.join('\n'), body) };
   }
 
   // ADDED: append before Edge Cases or at end of User Stories section

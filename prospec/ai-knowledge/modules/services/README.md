@@ -26,7 +26,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 - `executeFinalize` / `executeForChange` / `executeWrite` — archive post-judgment; change-driven knowledge update; trigger write-back
 - `resolveChange(...)` — change selector (zero/ambiguous → `PrerequisiteError`; traversal names refused pre-probe)
 - `computeUnlocalizedSkills(config)` — fill-missing skill set (agent-sync hint + agent-triggers)
-- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + `pendingConvergence` (stderr worklist, never fails)
+- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + `pendingConvergence`/`droppedBehavior` (stderr worklists, never fail)
 - `recountFeatureSpecCounters(content)` — frontmatter `story_count`/`req_count` from the final body (`## US-`+`### US-`; `#### REQ-` outside Deprecated)
 
 ## Dependencies
@@ -43,9 +43,9 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 ## Pitfalls
 
 - Use `atomicWrite()` (never `writeFileSync`) + `ContentMerger` for any file with user sections.
-- metadata.yaml is built + serialized, never templated; status advances forward-only via `isStatusBefore`; metadata I/O ONLY via `lib/change-metadata` (never re-cast `doc.toJS()`). `archive.service` skips that validation deliberately — the terminal station must absorb pre-schema records the earlier stations reject (floor: the archive skill's Entry Gate).
+- metadata.yaml is built + serialized, never templated; status advances forward-only via `isStatusBefore`; metadata I/O ONLY via `lib/change-metadata` (never re-cast `doc.toJS()`). `archive.service` skips that validation deliberately: the terminal station must absorb pre-schema records the earlier stations reject (floor: the archive skill's Entry Gate).
 - archive: FUNCTION replacers (verbatim `$`), path-contained `**Feature:**` slug, no-clobber `feature-map.yaml`; NO auto knowledge-update (skill + verify prompt own it). `executeFinalize` refuses while summary.md lacks `## Review & Verify` — else the history copy captures the scaffold and the counters predate graduation.
-- spec-sync NEVER blanks an authored REQ body — only a `**Spec:**` block replaces one (ADDED may fall back to Description+AC); everything else survives byte-identical and returns in `pendingConvergence` (incl. REMOVED REQs whose active section still stands).
+- spec-sync NEVER blanks an authored REQ body — only a `**Spec:**` block replaces one (ADDED may fall back to Description+AC); everything else survives byte-identical and returns in `pendingConvergence` (incl. REMOVED REQs whose active section still stands). Not blanking ≠ not losing: when a block DOES replace a body, the `WHEN/THEN` bullets it omits come back in `droppedBehavior` — a SET difference, never a count (an equal-count replacement can drop every bullet).
 - `updateModuleReadme` is CREATE-ONLY: module knowledge lives in the `prospec:auto` block, so re-rendering from the mechanical scan context guts authored content (why archive was decoupled). `updateModuleMap` merges through the yaml Document (comments + untouched descriptions survive) and no-ops when nothing changed — never reflows the curated file.
 - Refuse before writing, never after (the file stays byte-identical): `verify record` self-reads its machine dimensions from `prospec-report.json` and REFUSES a stale `change_digest`; `change status` refuses gate-owned targets (`GATE_OWNED_STATUSES`) and backward jumps (error lists the legal forward set); `agent triggers --write` inserts only MISSING keys, re-validating BEFORE any byte reaches disk.
 - `mcp.service` resources are per-request reads, never cached; diagnostics to stderr (stdout is the JSON-RPC channel).

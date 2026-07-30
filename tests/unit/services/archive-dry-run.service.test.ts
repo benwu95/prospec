@@ -133,6 +133,33 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
     expect(unpredicted).toEqual([]);
   });
 
+  it('carries droppedBehavior through execute() identically in both modes (REQ-SERVICES-073)', async () => {
+    // The detector is unit-tested at the syncToFeatureSpecs layer, but nothing
+    // covered execute()'s propagation — a regression there would surface as a
+    // silently empty worklist with the whole suite green.
+    verifiedChangeFixture();
+    write(
+      'prospec/specs/features/alpha.md',
+      '---\nfeature: alpha\nstatus: active\nlast_updated: 2026-01-01\n---\n\n# alpha\n\n## User Stories\n\n### US-1: existing\n\n#### REQ-LIB-002: Existing behavior\nStatement.\n- WHEN the original condition holds, THEN the original consequence follows\n\n## Edge Cases\n\n- edge\n',
+    );
+    write(
+      '.prospec/changes/feat-x/delta-spec.md',
+      '# Delta Spec\n\n## MODIFIED\n\n### REQ-LIB-002: Existing behavior\n\n**Feature:** alpha\n**Story:** US-1\n\n**Spec:**\nRestated.\n- WHEN a brand new condition holds, THEN a brand new consequence follows\n\n---\n',
+    );
+
+    const dry = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    const real = await execute({ cwd: tmp, names: ['feat-x'] });
+
+    expect(dry.droppedBehavior).toEqual([
+      {
+        feature: 'alpha',
+        reqId: 'REQ-LIB-002',
+        bullets: ['- WHEN the original condition holds, THEN the original consequence follows'],
+      },
+    ]);
+    expect(real.droppedBehavior).toEqual(dry.droppedBehavior);
+  });
+
   it('predicts the feature-map bootstrap even when every feature slug is unsafe (spec-sync writes no file but still creates the dir)', async () => {
     verifiedChangeFixture();
     write(
