@@ -4,6 +4,7 @@ import { atomicWrite } from '../../src/lib/fs-utils.js';
 import { COUNT_REGISTRY, REGISTRY_DOCS } from './registry.js';
 import { deriveInventory } from './derive.js';
 import { applyCounts, resolveOccurrences } from './rewrite.js';
+import { applyYamlFieldCounts } from './yaml-field.js';
 import type { CountReport, SkippedSource, TruthMap } from './types.js';
 
 /** Test-suite truth or an honest skip reason (real impl runs vitest). */
@@ -58,7 +59,12 @@ export async function syncCounts(opts: SyncOptions): Promise<CountReport> {
   for (const doc of REGISTRY_DOCS) {
     const abs = path.join(opts.repoRoot, doc);
     if (!existsSync(abs)) continue;
-    const { content, changes } = applyCounts(readFileSync(abs, 'utf-8'), resolved, doc);
+    // Two rewriters, one pass per doc: line-scoped for markdown, field-scoped for
+    // YAML values that fold across lines. Each ignores the other's occurrences.
+    const lineScoped = applyCounts(readFileSync(abs, 'utf-8'), resolved, doc);
+    const fieldScoped = applyYamlFieldCounts(lineScoped.content, resolved, doc);
+    const content = fieldScoped.content;
+    const changes = [...lineScoped.changes, ...fieldScoped.changes];
     if (changes.length === 0) continue;
     report.changes.push(...changes);
     if (!opts.check) {

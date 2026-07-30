@@ -18,11 +18,12 @@ export interface ResolvedOccurrence {
 }
 
 /**
- * Pure rewriter: given a doc's content and the occurrences (with truth) that
- * target it, replace ONLY each anchor's captured number span with the rendered
- * truth. Leaves everything else — surrounding prose, other numbers on the same
- * line, anything not matched by an anchor — untouched. Idempotent: re-applying
- * to already-correct content yields no changes.
+ * Pure LINE-scoped rewriter: given a doc's content and the occurrences (with
+ * truth) that target it, replace ONLY each anchor's captured number span with the
+ * rendered truth. Leaves everything else — surrounding prose, other numbers on
+ * the same line, anything not matched by an anchor — untouched. Idempotent:
+ * re-applying to already-correct content yields no changes.
+ * Field-scoped occurrences (YAML) are handled by `applyYamlFieldCounts`.
  */
 export function applyCounts(
   content: string,
@@ -34,7 +35,9 @@ export function applyCounts(
 
   for (let i = 0; i < lines.length; i++) {
     for (const { key, occ, truth } of resolved) {
-      if (occ.doc !== doc) continue;
+      // A field-scoped occurrence belongs to applyYamlFieldCounts — its anchor
+      // matches the unfolded YAML value, which no single line carries.
+      if (occ.doc !== doc || occ.field !== undefined) continue;
       // Rebuild the anchor with the `d` flag so we get the exact index range of
       // capture group 1, and without `g` so exec targets a single match.
       const flags = occ.anchor.flags.replace(/[dg]/g, '') + 'd';

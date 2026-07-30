@@ -1,4 +1,4 @@
-import type { CountEntry } from './types.js';
+import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
 
 /**
  * COUNT_REGISTRY — the single source of truth for every factual count and
@@ -9,11 +9,13 @@ import type { CountEntry } from './types.js';
  * `.prospec/changes/` deliberately appear NOWHERE below — their count numbers
  * are historical narrative (e.g. the ledger's "1840→1860→1865") and must stay
  * frozen. Each `anchor` has exactly one capture group around the number and
- * enough literal context to match its intended line only.
+ * enough literal context to match its intended line only (or, for a
+ * field-scoped occurrence, its intended YAML value only).
  *
  * SCOPE (v1): test counts (total + per-layer + file count) and the `.hbs`
  * template inventory (total + the 6 category sub-counts, at their canonical
- * index.md inventory sentence). Deliberately NOT covered — module per-file
+ * index.md inventory sentence — each paired with its `module-map.yaml` source via
+ * `moduleMapTwin`, since index.md is GENERATED from it). Deliberately NOT covered — module per-file
  * counts and CLI command/formatter counts (maintained by
  * `/prospec-knowledge-update`), and the templates-module-README per-directory
  * sub-count rows. These are registerable later; the completeness guard test
@@ -25,6 +27,22 @@ const README_ZH = 'README.zh-TW.md';
 const INDEX = 'prospec/index.md';
 const TESTS_README = 'prospec/ai-knowledge/modules/tests/README.md';
 const TEMPLATES_README = 'prospec/ai-knowledge/modules/templates/README.md';
+const MODULE_MAP = 'prospec/ai-knowledge/module-map.yaml';
+
+/**
+ * A count in `index.md`'s Modules table lives in TWO places: the generated cell
+ * and the `module-map.yaml` description it is generated FROM. Fixing only the
+ * generated file means the next `prospec knowledge update` reverts it, so every
+ * INDEX occurrence has a field-scoped module-map twin (same anchor — the cell is
+ * a verbatim copy of the description).
+ */
+function moduleMapTwin(
+  module: 'tests' | 'templates',
+  anchor: RegExp,
+  format: CountFormat = 'plain',
+): CountOccurrence {
+  return { doc: MODULE_MAP, anchor, format, field: { module, key: 'description' } };
+}
 
 export const COUNT_REGISTRY: CountEntry[] = [
   {
@@ -38,6 +56,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
       { doc: README_ZH, anchor: /執行所有測試（(\d+) 個測試）/, format: 'plain' },
       { doc: README_ZH, anchor: /\*\*測試覆蓋率\*\*：(\d+) 個測試橫跨/, format: 'plain' },
       { doc: INDEX, anchor: /files, ([\d,]+) tests \(unit /, format: 'comma' },
+      moduleMapTwin('tests', /files, ([\d,]+) tests \(unit /, 'comma'),
       { doc: TESTS_README, anchor: /test files, ([\d,]+) tests \(unit /, format: 'comma' },
     ],
   },
@@ -56,6 +75,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
         format: 'plain',
       },
       { doc: INDEX, anchor: /\(unit (\d+) \+ contract/, format: 'plain' },
+      moduleMapTwin('tests', /\(unit (\d+) \+ contract/),
       { doc: TESTS_README, anchor: /\(unit (\d+), contract/, format: 'plain' },
     ],
   },
@@ -74,6 +94,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
         format: 'plain',
       },
       { doc: INDEX, anchor: /\+ contract (\d+) \+ integration/, format: 'plain' },
+      moduleMapTwin('tests', /\+ contract (\d+) \+ integration/),
       { doc: TESTS_README, anchor: /, contract (\d+), integration/, format: 'plain' },
     ],
   },
@@ -84,6 +105,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
       { doc: README, anchor: /Integration tests: (\d+) tests/, format: 'plain' },
       { doc: README_ZH, anchor: /Integration tests：(\d+) tests/, format: 'plain' },
       { doc: INDEX, anchor: /\+ integration (\d+) \+ e2e/, format: 'plain' },
+      moduleMapTwin('tests', /\+ integration (\d+) \+ e2e/),
       { doc: TESTS_README, anchor: /, integration (\d+), e2e/, format: 'plain' },
     ],
   },
@@ -94,6 +116,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
       { doc: README, anchor: /E2E tests: (\d+) tests/, format: 'plain' },
       { doc: README_ZH, anchor: /E2E tests：(\d+) tests/, format: 'plain' },
       { doc: INDEX, anchor: /\+ e2e (\d+)\)/, format: 'plain' },
+      moduleMapTwin('tests', /\+ e2e (\d+)\)/),
       { doc: TESTS_README, anchor: /, e2e (\d+)\)/, format: 'plain' },
     ],
   },
@@ -102,6 +125,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'files' },
     occurrences: [
       { doc: INDEX, anchor: /test suite — (\d+) files,/, format: 'plain' },
+      moduleMapTwin('tests', /test suite — (\d+) files,/),
       { doc: TESTS_README, anchor: /memfs — (\d+) test files,/, format: 'plain' },
     ],
   },
@@ -112,38 +136,57 @@ export const COUNT_REGISTRY: CountEntry[] = [
       { doc: README, anchor: /Handlebars templates \((\d+) \.hbs files\)/, format: 'plain' },
       { doc: README_ZH, anchor: /Handlebars 範本（(\d+) 個 \.hbs 檔案）/, format: 'plain' },
       { doc: INDEX, anchor: /\((\d+) `\.hbs`/, format: 'plain' },
+      moduleMapTwin('templates', /\((\d+) `\.hbs`/),
       { doc: TEMPLATES_README, anchor: /library — (\d+) `\.hbs` files across/, format: 'plain' },
     ],
   },
   {
     key: 'templates.hbs.skills',
     source: { kind: 'fs-glob', describe: 'src/templates/skills/prospec-*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /template library — (\d+) skills \+/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /template library — (\d+) skills \+/, format: 'plain' },
+      moduleMapTwin('templates', /template library — (\d+) skills \+/),
+    ],
   },
   {
     key: 'templates.hbs.partials',
     source: { kind: 'fs-glob', describe: 'src/templates/skills/_*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /(\d+) shared partials/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /(\d+) shared partials/, format: 'plain' },
+      moduleMapTwin('templates', /(\d+) shared partials/),
+    ],
   },
   {
     key: 'templates.hbs.references',
     source: { kind: 'fs-glob', describe: 'src/templates/skills/references/**/*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /shared partials, (\d+) references/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /shared partials, (\d+) references/, format: 'plain' },
+      moduleMapTwin('templates', /shared partials, (\d+) references/),
+    ],
   },
   {
     key: 'templates.hbs.agentConfig',
     source: { kind: 'fs-glob', describe: 'src/templates/agent-configs/*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /references, (\d+) agent-config/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /references, (\d+) agent-config/, format: 'plain' },
+      moduleMapTwin('templates', /references, (\d+) agent-config/),
+    ],
   },
   {
     key: 'templates.hbs.change',
     source: { kind: 'fs-glob', describe: 'src/templates/change/*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /agent-config, (\d+) change,/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /agent-config, (\d+) change,/, format: 'plain' },
+      moduleMapTwin('templates', /agent-config, (\d+) change,/),
+    ],
   },
   {
     key: 'templates.hbs.initKnowledge',
     source: { kind: 'fs-glob', describe: 'src/templates/{init,knowledge}/**/*.hbs' },
-    occurrences: [{ doc: INDEX, anchor: /change, (\d+) init\/knowledge/, format: 'plain' }],
+    occurrences: [
+      { doc: INDEX, anchor: /change, (\d+) init\/knowledge/, format: 'plain' },
+      moduleMapTwin('templates', /change, (\d+) init\/knowledge/),
+    ],
   },
 ];
 
