@@ -38,7 +38,7 @@ vi.mock('../../../src/cli/commands/print-template.js', () => ({
   registerPrintTemplateCommand: (program: Command) =>
     program.command('print-template <path>').action(() => undefined),
 }));
-vi.mock('../../../src/cli/commands/knowledge-generate.js', () => ({
+vi.mock('../../../src/cli/commands/knowledge.js', () => ({
   registerKnowledgeCommand: (program: Command) => {
     const knowledge = program.command('knowledge');
     knowledge.action(() => undefined);

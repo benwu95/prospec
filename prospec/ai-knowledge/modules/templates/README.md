@@ -30,7 +30,7 @@
 1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step), register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
 2. **Add a reference** — create `skills/references/{name}.hbs`, map in `agent-sync.service.ts`, cite it in skill.
 3. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}`.
-4. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge.service.ts`.
+4. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`.
 5. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
 
 ## Ripple Effects

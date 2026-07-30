@@ -32,12 +32,12 @@ describe('Knowledge Format Contract', () => {
       key_files: [
         { path: 'src/services/auth.service.ts', description: 'Authentication service' },
         { path: 'src/services/user.service.ts', description: 'User management service' },
-        { path: 'src/services/knowledge.service.ts', description: 'Knowledge generation service' },
+        { path: 'src/services/knowledge-update.service.ts', description: 'Incremental knowledge update service' },
       ],
       key_exports: [
         { name: 'auth.execute()', description: 'Authentication service' },
         { name: 'user.execute()', description: 'User management service' },
-        { name: 'knowledge.execute()', description: 'Knowledge generation service' },
+        { name: 'knowledgeUpdate.execute()', description: 'Incremental knowledge update service' },
       ],
     };
 

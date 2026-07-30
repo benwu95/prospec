@@ -1,6 +1,6 @@
 # cli
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (57 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (56 files)
 
 <!-- prospec:auto-start -->
 
@@ -10,7 +10,7 @@
 |------|---------|
 | `index.ts` | `createProgram()` registers all 17 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
 | `commands/` | 25 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress), status, archive (+`finalize`), review merge, verify record, learn, validate, measure, check, mcp — parse flags → call service → format |
-| `formatters/` | 27 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `error-output.ts` also has `handleError()`; `archive-output.ts` routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`) |
+| `formatters/` | 26 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `error-output.ts` also has `handleError()`; `archive-output.ts` routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`) and the `pendingConvergence` graduation worklist to stderr as WARNING class (visible under `--quiet`, never exit 1) |
 | `formatters/sanitize.ts` | Shared `sanitizeTerminal()` — strips C0/C1/DEL; the single source every formatter routes free-form text through |
 | `log-level.ts` | `resolveLogLevel(opts)` — root-flag → LogLevel; imported by every command |
 | `parse-options.ts` | Shared Commander parsers — `parseDepth` (positive int), `parseDate` (bare ISO 8601), `collect` (repeatable option → array) |
@@ -19,7 +19,7 @@
 ## Public API
 
 - `createProgram()` — Commander program, all 17 top-level commands; `main()` runs on load (NOT exported)
-- `registerXxxCommand(program)` — 25 registrars; `formatXxxOutput(result, logLevel)` — 27 formatters; `handleError(err, verbose)` → stderr
+- `registerXxxCommand(program)` — 25 registrars; `formatXxxOutput(result, logLevel)` — 26 formatters; `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`

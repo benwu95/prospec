@@ -106,13 +106,13 @@ describe('keywordOverlapScore', () => {
 describe('rankByRelevance', () => {
   const candidates = [
     { id: 'src/lib/config.ts', text: 'src/lib/config.ts readConfig' },
-    { id: 'src/services/knowledge.service.ts', text: 'src/services/knowledge.service.ts knowledge' },
+    { id: 'src/services/knowledge-update.service.ts', text: 'src/services/knowledge-update.service.ts knowledge' },
     { id: 'src/lib/scanner.ts', text: 'src/lib/scanner.ts scanDir' },
   ];
 
   it('sorts by score descending', () => {
     const ranked = rankByRelevance('update knowledge service', candidates);
-    expect(ranked[0]?.id).toBe('src/services/knowledge.service.ts');
+    expect(ranked[0]?.id).toBe('src/services/knowledge-update.service.ts');
   });
 
   it('breaks ties by id ascending (deterministic)', () => {

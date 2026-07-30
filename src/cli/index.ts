@@ -12,7 +12,7 @@ import { registerInitCommand } from './commands/init.js';
 import { registerQuickstartCommand } from './commands/quickstart.js';
 import { registerUpgradeCommand } from './commands/upgrade.js';
 import { registerPrintTemplateCommand } from './commands/print-template.js';
-import { registerKnowledgeCommand } from './commands/knowledge-generate.js';
+import { registerKnowledgeCommand } from './commands/knowledge.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
 import { registerKnowledgeUpdateCommand } from './commands/knowledge-update.js';
 import { registerAgentCommand } from './commands/agent-sync.js';

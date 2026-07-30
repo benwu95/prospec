@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 
 /**
- * Register the `knowledge` command group.
+ * Register the `knowledge` command group (`knowledge init`, `knowledge update`).
  *
  * The group's subcommands live in their own files (`knowledge init`,
  * `knowledge update`). The old deprecated `knowledge generate` subcommand was

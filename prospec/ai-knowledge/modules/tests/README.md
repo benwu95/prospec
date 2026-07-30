@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 132 test files, 2,775 tests (unit 1958, contract 708, integration 43, e2e 66)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 134 test files, 2,808 tests (unit 1979, contract 720, integration 43, e2e 66)); tests every source module.
 
 <!-- prospec:auto-start -->
 
@@ -12,6 +12,7 @@
 | `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, 18 `references/*.hbs` render/format contracts, and the **CLI-first contract** block — `{{> cli-probe}}` exactly once per skill, the probe STOP sentence single-sourced, `{{minimum_cli_version}}` live (sentinel-injected, no version literal), and a repo-wide negative for forbidden CLI-fallback phrases. Column sets and closed enums rendered, section-scoped, mutation-verified. |
 | `tests/contract/change-artifact-format.test.ts` | Renders the real `change/proposal.md.hbs` (no mocks) — pins that a module name is bolded exactly once, with a `****` negative. |
 | `tests/contract/{knowledge,cli-output}-format.test.ts`, `init-doc-registry.test.ts`, `mcp-server.test.ts`, `language-policy-scope.test.ts`, `bundled-templates-sync.test.ts` | Output-format + registry + MCP-protocol pins via real `renderTemplate()` / InMemoryTransport; cross-document language-scope agreement; bundle ≡ `src/templates`. |
+| `tests/contract/own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell that lives only in the generated file is a pending revert); and a set-equality ledger of the legacy body-less REQs — shrink-only, so repairing one requires deleting its `LEGACY_BODYLESS` entry. |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
 | `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |
 | `tests/fixtures/` | `startup-loading-baseline.json` (71 loading items), `token-corpus/` (12 task descriptions), `lessons-harvest/` (synthetic archived corpus). |

@@ -263,8 +263,8 @@ export async function updateIndex(
   const modulesTable = buildIndexTable(modules);
 
   // One context feeds both branches below AND the other index emitters
-  // (init / knowledge init / knowledge generate) via the shared partial, so
-  // the auto block can never drift from knowledge/index.md.hbs.
+  // (init / knowledge init) via the shared partial, so the auto block can never
+  // drift from knowledge/index.md.hbs.
   const templateContext = buildIndexTemplateContext({
     projectName: options.projectName,
     techStack: options.techStack,
