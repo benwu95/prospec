@@ -86,15 +86,11 @@ so that an AI Agent can quickly understand the module's responsibilities, API, a
 - WHEN README.md already exists THEN use ContentMerger to preserve user-customized sections
 
 #### REQ-KNOW-004: Generate Module README (Recipe-First)
-- WHEN module detected, THEN create `{base_dir}/ai-knowledge/modules/{name}/README.md`
-- WHEN generating README, THEN follow Recipe-First order: Overview → Key Files → Public API → Dependencies → Modification Guide → Ripple Effects → Pitfalls
-- WHEN module directory written, THEN contain only README.md (no api-surface.md or redundant files)
-- WHEN README.md already exists, THEN use ContentMerger to preserve user sections
-- WHEN scanning a module's files for key files (`getModuleInfos` / `updateModuleReadme`), THEN interpret each `module-map.yaml` `paths` entry through `moduleScanPatterns` (REQ-LIB-029): a directory expands to its subtree, a single file scans only itself, a glob passes through verbatim — a bare directory entry no longer matches zero files
-
-#### REQ-KNOW-006: Dry-run Preview Mode
-- WHEN executing `prospec knowledge generate --dry-run`, THEN display file list without creating
-- WHEN `--dry-run` specified, THEN show estimated line count per file and L1/L2 token totals
+Module README **content** is produced by `/prospec-knowledge-generate` (judgment); `prospec knowledge update` creates a skeleton only for a module that has none (create-only — REQ-SERVICES-021), never re-rendering an authored one.
+- WHEN the skill generates a module README, THEN it writes `{base_dir}/ai-knowledge/modules/{name}/README.md` in Recipe-First order: Overview → Key Files → Public API → Dependencies → Modification Guide → Ripple Effects → Pitfalls
+- WHEN a module directory is written, THEN it contains only README.md (no api-surface.md or redundant files)
+- WHEN README.md already exists, THEN authored content inside the `prospec:auto` block is preserved — the update service flags it as `readmePending` instead of re-rendering it
+- WHEN scanning a module's files for key files (`updateModuleReadme`), THEN each `module-map.yaml` `paths` entry is interpreted through `moduleScanPatterns` (REQ-LIB-029): a directory expands to its subtree, a single file scans only itself, a glob passes through verbatim
 
 #### REQ-KNOW-010: Recipe-First README Sections
 - WHEN generating module README, THEN include `## Modification Guide` listing 2-5 modification scenarios
@@ -126,8 +122,9 @@ so that an AI Agent can quickly locate relevant modules from the index.
 - WHEN re-executing knowledge generate THEN update the index rather than rebuild it
 
 #### REQ-KNOW-005: Update Module Index
-- WHEN module generation complete, THEN `{base_dir}/index.md` reflects all modules with dependencies
-- WHEN re-executing knowledge generate, THEN update index rather than recreate
+The root `{base_dir}/index.md` reflects every module with its dependencies, rendered from `module-map.yaml` as the single source.
+- WHEN module generation completes, THEN `{base_dir}/index.md` reflects all modules with dependencies
+- WHEN `prospec knowledge update` re-runs, THEN it replaces the `prospec:auto` block in place rather than recreating the file
 - WHEN rendering the index table, THEN use columns Module | Keywords | Aliases | Status | Description | Rationale | Depends On — the header derives from the single canonical column constant (REQ-KNOW-020), never hardcoded per emitter
 - WHEN writing `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section
 - WHEN modules fall into ≥2 domain categories, THEN MAY group the table into `### {Category}` sub-tables (same columns; module listed under its primary category only); pure architectural-layer projects keep one flat table (see US-340)
@@ -143,8 +140,9 @@ so that an AI Agent can quickly locate relevant modules from the index.
 - WHEN module directory already exists, THEN update README.md rather than rebuild
 
 #### REQ-KNOW-012: Module Split Rationale Transparency
+Every module carries a Rationale explaining its split decision, curated in `module-map.yaml` as the single source.
 - WHEN rendering `{base_dir}/index.md`, THEN each module has a Rationale cell explaining the split decision
-- WHEN knowledge.service generates `{base_dir}/index.md`, THEN auto-infer and fill the Rationale
+- WHEN `/prospec-knowledge-generate` decides a module boundary, THEN it writes the inferred rationale into `module-map.yaml`; `updateIndex` renders that value and never blanks it to `—`
 
 #### REQ-TYPES-056: ModuleEntry Curated Index Columns
 `ModuleEntrySchema` carries the curated index columns as optional fields — `aliases` (`string[]`) and `rationale` (`string`), alongside the existing `keywords`/`description`/`relationships.depends_on` — so `module-map.yaml` is the single source every index.md column is generated from.
@@ -172,6 +170,12 @@ The `index.md` Modules-table `Description` column carries only routing-level pos
 - WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤1,000 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
 - WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0-L3 definitions
 - WHEN the Loading Strategy note names its budget source (skill templates + generated `index.md`), THEN it points to `.prospec.yaml` `knowledge.token_budget` and `prospec check knowledge-size` (downstream-visible / runnable), never the internal `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol
+
+#### REQ-TESTS-061: index-vs-module-map regeneration guard
+A repo-internal test rebuilds each index module row through the production path (`collectAllModules` + `buildIndexRow` — the row builder `buildIndexTable` itself composes, never a second projection of the same mapping) and asserts each equals its row inside `prospec/index.md`'s `prospec:auto` block — so any divergence between the generated file and its source (a count, a curated keyword, a description) fails before `prospec knowledge update` silently reverts it. `pnpm counts` maintains the counted `module-map.yaml` descriptions alongside the derived docs through a YAML-field-scoped occurrence that locates the value by node range, survives YAML re-wrapping, and rewrites only the number spans.
+- WHEN `module-map.yaml` and `index.md` agree, THEN the guard passes
+- WHEN any count or curated cell diverges, THEN the guard fails naming the module and the column
+- WHEN `pnpm counts` writes `module-map.yaml`, THEN only the number spans change — every other byte, including the existing line wrapping, is identical
 
 ---
 
@@ -302,8 +306,11 @@ knowledge-generate/update groups the auto section into `### {Category}` sub-tabl
 - WHEN re-run THEN grouping is stable and the `prospec:user` section is preserved
 - WHEN `parseIndexModules` parses the grouped output THEN the returned module count = the actual count (duplicate header/separator rows are skipped)
 
-#### REQ-KNOW-019: generate Auto-Infers category and Persists It
-generate infers a suggested category from path/keywords/domain semantics, writes it to `module-map.yaml` after user confirmation (bootstrap), and thereafter treats the file as authoritative (an existing category is not re-guessed); the user may manually override it — rendering and the source of truth share the same category value.
+#### REQ-KNOW-019: Auto-Infer category and Persist It
+`/prospec-knowledge-generate` infers a suggested category from path/keywords/domain semantics, writes it to `module-map.yaml` after user confirmation (bootstrap), and thereafter treats the file as authoritative (an existing category is not re-guessed); the user may manually override it — rendering and the source of truth share the same category value.
+- WHEN a module has no category yet, THEN the skill proposes one and persists it after confirmation
+- WHEN `module-map.yaml` already carries a category, THEN it is not re-guessed
+- WHEN the index groups by category, THEN it reads the same persisted value
 
 ---
 
@@ -413,26 +420,21 @@ so that the Knowledge format can keep up with template evolution while my existi
 
 ---
 
-
 #### REQ-TYPES-031: feature-map.yaml Schema (feature→module index)
 
 ---
-
 
 #### REQ-TEMPLATES-113: feature-map.yaml.hbs Knowledge Template (single format authority)
 
 ---
 
-
 #### REQ-SERVICES-029: archive Sole writer `syncFeatureMap` (bootstrap-once + no-clobber)
 
 ---
 
-
 #### REQ-TEMPLATES-114: prospec-archive skill feature-map Regeneration Guidance
 
 ---
-
 
 #### REQ-TESTS-032: feature-map schema/format/archive writer Tests
 
@@ -450,8 +452,9 @@ so that context overhead is reduced and the Token budget is precisely controlled
 - WHEN scanning `_*.md` files under `ai-knowledge/`, THEN it can filter out core versus load-on-demand files based on the core list.
 
 #### REQ-KNOW-034: Root Level Index File
-- WHEN `prospec knowledge generate` or `update` executes, THEN create or update `prospec/index.md`.
-- WHEN generated, THEN the legacy `ai-knowledge/_index.md` is no longer generated.
+The root-level `{base_dir}/index.md` is the single L1 entry point.
+- WHEN `/prospec-knowledge-generate` or `prospec knowledge update` executes, THEN create or update `prospec/index.md`
+- WHEN generated, THEN the legacy `ai-knowledge/_index.md` is no longer generated
 
 #### REQ-KNOW-035: Conventions Loading Filtering
 - WHEN index file is generated, THEN core files (`_conventions.md`, `_diagram-conventions.md`, `_glossary.md`, `_status-lifecycle.md`) are listed in the Core Conventions (L1) section (actively read at task start, NOT auto-loaded).
@@ -479,7 +482,10 @@ so that the English knowledge base no longer constitutes a Language Policy `[MUS
 - WHEN the trust zone legitimately holds native-language content (alias/keyword data, the ledger's description+status columns, `_playbook.md` correction evidence, the user-managed `_glossary.md`), THEN the rule names it as an exception rather than flagging it
 
 #### REQ-TEMPLATES-141: Language Policy Exempts the Trust Zone
-The trust-zone exemption is **generated**, not hand-written per project: `languagePolicyRule` (REQ-LIB-013) renders it from the resolved scope, so every `prospec init` project gets the same adjudication its entry config states. Scope: change artifacts and their archived summaries (`.prospec/changes/**`, `.prospec/archive/**`, `<base_dir>/specs/_archived-history/**`) follow the artifact language — archive summaries are the change narrative's committed copy, so they follow it rather than the English Feature Specs; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, terms and commit messages stay English. Four named in-zone exceptions may use the artifact language: alias/keyword data (`module-map.yaml` `aliases`, the index Aliases column), the `_lessons-ledger.md` `description` column (provenance included, as a suffix — `status` stays a bare enum token), correction evidence in `_playbook.md`, and the user-managed `_glossary.md` as a whole. The shared skill partial assigns language by document path (REQ-SKILL-012), and the ledger header declares the same exception.
+The trust-zone exemption is **generated**, not hand-written per project: `languagePolicyRule` (REQ-LIB-013) renders it from the resolved scope, so every `prospec init` project gets the same adjudication its entry config states. Scope: change artifacts and their archived summaries (`.prospec/changes/**`, `.prospec/archive/**`, `<base_dir>/specs/_archived-history/**`) follow the artifact language — archive summaries are the change narrative's committed copy, so they follow it rather than the English Feature Specs; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, terms and commit messages stay English. Four named in-zone exceptions may use the artifact language: alias/keyword data (`module-map.yaml` `aliases`, the index Aliases column), the `_lessons-ledger.md` `description` column (provenance included, as a suffix — `status` stays a bare enum token), correction evidence in `_playbook.md`, and the user-managed `_glossary.md` as a whole. One reverse exception runs the other way: the `**Spec:**` block of `.prospec/changes/**/delta-spec.md` stays English because `prospec archive` copies it verbatim into `specs/features/**`. The shared skill partial assigns language by document path (REQ-SKILL-012), and the ledger header declares the same exception.
+- WHEN reviewing the parties that state the scope (Constitution / entry config / `_lessons-ledger` header / the shared skill partial), THEN the scope is consistent, with no place requiring the trust zone in the artifact language
+- WHEN the trust zone legitimately holds native-language content (alias/keyword data, the ledger's description+status columns, `_playbook.md` correction evidence, the user-managed `_glossary.md`), THEN it is not a violation
+- WHEN a change artifact holds trust-zone-bound English (the `**Spec:**` block), THEN it is not a violation either
 
 ### US-361: module-map `paths` Consistently Supports Files and Folders [P1]
 
@@ -535,6 +541,9 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 4. **Deprecation over Deletion**: A removed requirement is moved to the Deprecated section
 
 ## Deprecated Requirements
+#### ~~REQ-KNOW-006: Dry-run Preview Mode~~
+**Removed**: 2026-07-30 | **Change**: fix-cli-first-regressions
+**Reason**: Both scenarios were bound to `prospec knowledge generate --dry-run`, a subcommand removed by restore-cli-first (issue #107). `prospec knowledge update` has no `--dry-run` and `/prospec-knowledge-generate` offers no file-list preview, so the behavior has no host; L1/L2 token estimation is served by `prospec check knowledge-size` instead. Re-proposing a preview for `knowledge update` needs a new REQ, not this one.
 
 #### ~~REQ-KNOW-026: Persona-Aware CLI Fallback~~
 **Removed**: 2026-07-30 | **Change**: restore-cli-first
@@ -544,6 +553,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | archive-sync | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-360 (Knowledge base language policy English exemption) + REQ-TEMPLATES-141 (Constitution Language Policy restores the AI Knowledge exemption; three-way alignment of entry.md.hbs/ledger) (issue #67) | US-360, REQ-TEMPLATES-141 |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-KNOW-034, REQ-KNOW-035 | US-354, REQ-KNOW-034~035 |

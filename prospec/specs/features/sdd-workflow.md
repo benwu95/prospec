@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-30
 story_count: 29
-req_count: 144
+req_count: 147
 ---
 
 # SDD Workflow
@@ -323,6 +323,7 @@ The CLI registers `prospec archive <name...>` — a thin command (parse → `arc
 - WHEN running either command with `--dry-run`, THEN every planned mutation is printed and nothing is written
 - WHEN `archive finalize` finds a `summary.md` still lacking its `## Review & Verify` section, THEN it refuses — that section is the deterministic marker that the prose overwrite happened, and finalizing earlier would commit the scaffold and count pre-graduation text
 - WHEN no name is given, THEN the command exits with an error; an unknown name reports `not found` with a pointer to `prospec status`
+- WHEN spec-sync preserved a REQ body instead of replacing it (REQ-SERVICES-072), THEN the command lists those REQs as the graduation worklist — under `--dry-run` too
 - WHEN formatting output, THEN repo-derived strings pass `sanitizeTerminal()`; skipped/refused/not-found are failure-class output on stderr, each driving exit 1 and visible under `--quiet`
 
 #### REQ-SERVICES-071: archive.service dry-run mode and refusal reporting
@@ -336,6 +337,33 @@ The `prospec-archive` skill's deterministic phases delegate to `prospec archive`
 - WHEN reading the generated SKILL.md, THEN no step hand-runs the move, hand-writes feature-map.yaml, hand-copies the summary into `_archived-history`, or hand-recounts frontmatter; `prospec archive` appears in the deterministic steps with a `--dry-run` preview and `prospec archive finalize` appears after the graduation phase
 - WHEN comparing the Entry Gate against the pre-change template, THEN its items (only-verified, metadata-completeness, knowledge-sync backstop) are semantically unchanged
 - WHEN `prospec archive finalize` refuses, THEN the skill reads it as "the summary overwrite is missing" and fixes that, never hand-running the two mutations instead
+
+#### REQ-SERVICES-072: Non-destructive Feature-Spec REQ merge
+`archive.service`'s delta-spec parser carries each REQ's body into `FeatureRoute` — the optional `**Spec:**` landing block plus the `**Description:**` / `**Acceptance Criteria:**` blocks — and `mergeRequirementInPlace` never blanks an authored body. A `**Spec:**` block lands verbatim (function replacer, so `$`-sequences stay literal); without one, a MODIFIED REQ keeps its existing body byte-identical and is reported in `ArchiveResult.pendingConvergence` with its reason. The Description/Acceptance-Criteria fallback is ADDED-only — for MODIFIED those blocks are change narrative, and landing them would overwrite an authored behavior statement with planning prose. A block ends at the next `**Label:**` line, ANY Markdown heading, a `---` rule, or the end of the entry: a heading must never be absorbed, because a landed foreign heading becomes the in-place replacement's own stop boundary and no later sync can remove it. A REMOVED REQ whose active section still stands after deprecation is reported too — `moveReqToDeprecated` only appends a bullet, so the stale body needs a human.
+- WHEN a MODIFIED route carries a `**Spec:**` block, THEN the REQ's body in the feature spec is replaced by that block verbatim
+- WHEN a MODIFIED route carries no `**Spec:**` block — including one that carries `**Description:**`/`**Acceptance Criteria:**` — THEN the existing body survives byte-identical (only the title line is refreshed) and the REQ appears in `pendingConvergence`
+- WHEN an ADDED route carries a `**Spec:**` block or `**Description:**`/`**Acceptance Criteria:**`, THEN the landed REQ has a body — never title-only
+- WHEN a `**Spec:**` block is followed by a Markdown heading, THEN nothing from that heading onward is landed
+- WHEN a REMOVED route's `#### {reqId}:` section still exists after deprecation, THEN the REQ appears in `pendingConvergence`
+- WHEN a landed body contains `$&` or `$1`, THEN those characters land literally
+- WHEN running with `dryRun`, THEN `pendingConvergence` is reported and no file is written
+
+---
+
+#### REQ-TEMPLATES-166: delta-spec `**Spec:**` landing-block contract
+`references/delta-spec-format` defines the `**Spec:**` block as the REQ body that lands verbatim in the Feature Spec — spec form (a 1-2 sentence statement plus `- WHEN …, THEN …` bullets), written in the target Feature Spec's language, not the change-artifact language. It is REQUIRED for a MODIFIED entry (its absence means the CLI preserves the old body and reports the REQ instead of replacing it) and optional for ADDED (which falls back to Description + Acceptance Criteria). The reference also states where the block ENDS — next `**Label:**`, any Markdown heading, a `---`, or the entry's end — so "verbatim" carries its own exclusion rather than truncating silently. Because the block's content crosses into the trust zone verbatim, the generated Language Policy rule (`lib/language-policy`) carries it as a named reverse exception: English inside the change-artifact zone. The `prospec-archive` skill's graduation phase reads `pendingConvergence` as its worklist rather than re-reading every touched spec.
+- WHEN reading the generated delta-spec-format reference, THEN the `**Spec:**` block is defined for ADDED and MODIFIED, with the preserve-and-report fallback, the language rule, and the block's end boundary stated
+- WHEN reading the generated `prospec-archive` SKILL.md, THEN the graduation phase names `pendingConvergence` as its convergence worklist
+- WHEN the Constitution's Language Policy rule is generated, THEN it names the `**Spec:**` block as a change-artifact spot that stays English (`englishExceptions`), so a MUST audit cannot read the required English as a violation
+- WHEN the block definition or the fallback sentence is deleted, THEN a section-scoped contract assertion turns red
+
+---
+
+#### REQ-TESTS-060: spec-sync body preservation and the body-less REQ debt ledger
+Tests pin both the fix and the damage it already did. Fixture-driven unit tests assert that spec-sync preserves every pre-existing REQ body — including the boundary cases (a REQ that is the last h4 before an h2, before a `---`, and at EOF) and a body containing `$&`. A repo-internal debt-ledger test asserts the set of body-less REQs across `prospec/specs/features/**` is EXACTLY the documented legacy list, so a newly introduced hole and a repaired-but-still-listed hole both fail — the list can only shrink, and never silently.
+- WHEN spec-sync runs over the fixture, THEN every pre-existing REQ body's line count is ≥ its pre-merge value
+- WHEN a new body-less REQ appears in any feature spec, THEN the debt-ledger test fails naming it
+- WHEN a listed legacy hole is repaired without being removed from the list, THEN the test fails
 
 ---
 
@@ -611,7 +639,6 @@ The plan/implement Context7 step degrades gracefully: unavailable/no-result mean
 - WHEN any step is removed, THEN the corresponding assertion turns red; Startup Loading does not include Context7 (negative)
 
 ---
-
 
 #### REQ-TESTS-033: archive spec-history destination contract pin
 
@@ -1217,6 +1244,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-30 | archive-sync | ADDED REQ-SERVICES-072; ADDED REQ-TEMPLATES-166; ADDED REQ-TESTS-060; MODIFIED REQ-CLI-024 | REQ-SERVICES-072, REQ-TEMPLATES-166, REQ-TESTS-060, REQ-CLI-024 |
 | 2026-07-30 | archive-sync | ADDED REQ-CLI-025; ADDED REQ-CLI-028; ADDED REQ-CLI-029; ADDED REQ-CLI-031; ADDED REQ-TEMPLATES-161; ADDED REQ-TEMPLATES-163; ADDED REQ-TEMPLATES-165; ADDED REQ-TESTS-059; MODIFIED REQ-CLI-024; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-153; MODIFIED REQ-TEMPLATES-145; MODIFIED REQ-TEMPLATES-159 | REQ-CLI-025, REQ-CLI-028, REQ-CLI-029, REQ-CLI-031, REQ-TEMPLATES-161, REQ-TEMPLATES-163, REQ-TEMPLATES-165, REQ-TESTS-059, REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-153, REQ-TEMPLATES-145, REQ-TEMPLATES-159 |
 | 2026-07-29 | archive-cli-entry | ADDED REQ-CLI-024; ADDED REQ-SERVICES-071; ADDED REQ-TEMPLATES-159; REQ-SERVICES-064 rationale updated (CLI entry now exists, still no auto knowledge-update) | REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-SERVICES-064 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-TEMPLATES-150 (the single authority reference for the metadata.yaml serialization format: loaded by new-story/ff, pointed to when downstream skills append fields, semantics defer to schema/`_status-lifecycle.md`) | US-1; REQ-TEMPLATES-150 (ADDED) |

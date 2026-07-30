@@ -1,7 +1,7 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 story_count: 19
 req_count: 47
 ---
@@ -241,12 +241,11 @@ so that all AI-generated documents use my language without manually editing the 
 - WHEN `skill_triggers` values are not string arrays, THEN validation fails (ConfigInvalid)
 
 #### REQ-LIB-013: Language Policy Constitution Rule
-`languagePolicyRule(scope)` returns a [MUST] rule rendered from a resolved `LanguageScope` (REQ-LIB-030), stated **by path** so an audit decides by file location: change artifacts and their archived summaries use the artifact language; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, technical terms and commit messages stay English, with the scope's named exceptions listed as non-violations. An English project gets a condensed single sentence (one zone, no exemption clause). init places it first in `example_rules`.
-
-**Scenarios:**
+`languagePolicyRule(scope)` returns a [MUST] rule rendered from a resolved `LanguageScope` (REQ-LIB-030), stated **by path** so an audit decides by file location: change artifacts and their archived summaries use the artifact language; the trust zone (Constitution / README / index / `specs/product.md` / `specs/features/**` / knowledge base) plus code, identifiers, technical terms and commit messages stay English, with the scope's named exceptions listed as non-violations — in BOTH directions: trust-zone spots that may use the artifact language, and change-artifact spots that stay English because their content is copied into the trust zone verbatim. An English project gets a condensed single sentence (one zone, no exemption clause). init places it first in `example_rules`.
 - WHEN `init --language X`, THEN CONSTITUTION.md contains a [MUST] Language Policy rule rendering X and both path sets
 - WHEN no language chosen, THEN the rule renders the condensed English form
 - WHEN the rule and the entry config are compared, THEN both state the same path sets (they render from one scope)
+- WHEN the scope carries reverse exceptions, THEN the rule renders them as a separate clause and its check states they are not violations; with none, the clause is absent
 
 ### US-009: English CLI Output [P2]
 
@@ -596,18 +595,16 @@ so that no project is set against itself — the file my agent obeys and the fil
 - WHEN the language is English, THEN both documents state one English zone with no exemption clause
 
 #### REQ-TYPES-063: LanguageScope Contract
-`types/constitution.ts` exports `LanguageScope` — `language` plus `nativePaths` / `englishPaths` / `namedExceptions`, all repo-relative POSIX values filled by the lib resolver. Pure type addition; `ConstitutionRule` is unchanged.
-
-**Scenarios:**
+`types/constitution.ts` exports `LanguageScope` — `language` plus `nativePaths` / `englishPaths` / `namedExceptions` / `englishExceptions`, all repo-relative POSIX values filled by the lib resolver. `englishExceptions` carries the reverse direction: spots inside the native paths whose content is copied into the trust zone verbatim, so they stay English. Pure type addition; `ConstitutionRule` is unchanged.
 - WHEN lib or services import it, THEN the dependency direction stays `cli → services → lib → types`
 - WHEN the type is inspected, THEN it hardcodes no path strings
+- WHEN a scope has no reverse exception, THEN `englishExceptions` is an empty list, never absent
 
 #### REQ-LIB-030: Language Scope Single Source + Stale-Seed Detector
-`lib/language-policy.ts` is the one source of the language scope: `resolveLanguageScope(config, cwd)` derives the three sets from `resolveBasePaths` + `resolveArtifactLanguage` (composing with `path.posix.join`, so a `base_dir` resolving to cwd yields repo-relative, not root-anchored, paths); `formatPathList` renders a set; `entryLanguageContext(scope)` returns the entry config's three template keys for **both** render sites; `isSeededLanguagePolicyStale(content, language)` is a pure, section-scoped predicate over the pre-fix seed wording.
-
-**Scenarios:**
+`lib/language-policy.ts` is the one source of the language scope: `resolveLanguageScope(config, cwd)` derives the path sets and both exception lists from `resolveBasePaths` + `resolveArtifactLanguage` (composing with `path.posix.join`, so a `base_dir` resolving to cwd yields repo-relative, not root-anchored, paths); `formatPathList` renders a set; `entryLanguageContext(scope)` returns the entry config's three template keys for **both** render sites; `isSeededLanguagePolicyStale(content, language)` is a pure, section-scoped predicate over the pre-fix seed wording.
 - WHEN `base_dir`/`knowledge.base_path` are relocated, THEN every emitted path is resolved from config (no `prospec/ai-knowledge` literal)
 - WHEN the native and English sets are compared, THEN no path appears in both
+- WHEN the reverse exception is emitted, THEN it names the destination zone it inherits its language from, resolved from config
 - WHEN the seed is untouched and the language is non-English, THEN the predicate is true; when the owner reworded it, or the seed and the project are both English, THEN false
 - WHEN an English project's seed still names another language, THEN the predicate stays true (the owner switched language after init)
 
@@ -664,6 +661,7 @@ Contract tests drive the real `init` + `agent sync` services and compare the two
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | archive-sync | MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-030; MODIFIED REQ-LIB-013 | REQ-TYPES-063, REQ-LIB-030, REQ-LIB-013 |
 | 2026-02-04 | mvp-initial | CLI base framework, project initialization, architecture analysis | US-001~004, REQ-SETUP-001~010 |
 | 2026-02-09 | configure-base-dir | Configurable Base Directory | US-005, REQ-SETUP-011~012 |
 | 2026-03-02 | v2-product-first | Merged into a Feature Spec, added a first-time-use Story | US-006, REQ-SETUP-013 |
