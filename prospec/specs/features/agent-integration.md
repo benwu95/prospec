@@ -2,8 +2,8 @@
 feature: agent-integration
 status: active
 last_updated: 2026-07-30
-story_count: 20
-req_count: 78
+story_count: 21
+req_count: 82
 ---
 
 # Agent Integration
@@ -634,6 +634,54 @@ mutation-verified contract: baseline verbatim == `SKILL_DEFINITIONS`; fill-missi
 
 ---
 
+
+### US-443: Declarative Harness Capability Matrix [P1]
+
+As a prospec skill-template maintainer,
+I want each harness's capabilities declared as per-agent registry flags and injected into the generated Skills,
+so that a station's prose describes only what to do when degrading, and never re-derives what the harness can do — a question that otherwise gets answered again, differently, at every new station.
+
+**Acceptance Scenarios:**
+- WHEN `prospec agent sync` generates a Skill, THEN the capability values come from `AGENT_CONFIGS`, and agents with different capabilities produce different SKILL.md content
+- WHEN a harness declares no sub-agents, THEN the generated Skill states the degraded path as fact and carries no spawn instruction anywhere
+- WHEN a harness declares sub-agents, THEN the Skill still names the fallback for a spawn that fails at runtime — a platform capability is not runtime availability
+- WHEN several agents share one output signature (`.agents/skills` + `AGENTS.md` serves codex/copilot/antigravity), THEN the shared file states the intersection of their capabilities, never one member's view
+
+#### REQ-TYPES-071: AgentConfig Harness Capability Flags
+`AgentConfig` carries a required `capabilities: HarnessCapabilities` (`canSpawnSubagent` / `canWorktree` / `canBackground`) — the single source for what a target harness can do — plus `intersectCapabilities()`, which reduces several agents' capabilities to their conservative AND. Values are a dated capability survey recorded inline, never inferred at runtime.
+- WHEN reading `AGENT_CONFIGS`, THEN every agent declares all three flags, and `canWorktree` is true for claude only
+- WHEN a new agent is added to `VALID_AGENTS`, THEN the typed map forces a `capabilities` entry — it cannot be omitted
+- WHEN `intersectCapabilities` receives agents that disagree on a flag, THEN the result is `false` for that flag
+
+---
+
+
+#### REQ-AGNT-038: Per-agent Capability Injection into the Skill Render Context
+`agent-sync.service` resolves each output group's harness capabilities and injects them into the skill render context as `can_spawn_subagent` / `can_worktree` / `can_background`. A group serving several agents (one `skillPath`+`configPath` signature) resolves through `intersectCapabilities`, so a shared file never claims a capability one of its agents lacks.
+- WHEN rendering skills for a single-agent group, THEN the context carries that agent's declared capabilities
+- WHEN a group serves several agents that disagree on a flag, THEN the injected value is the intersection, not the last member's
+- WHEN two agents' capabilities differ, THEN their generated SKILL.md content differs
+
+---
+
+
+#### REQ-TEMPLATES-167: Shared Harness-degradation Partial
+`skills/_harness-capabilities.hbs` is the single source for harness-degradation wording across skills: it states the sync-resolved capabilities as fact, branches on `can_spawn_subagent`, and carries the floor that a degraded path is always disclosed and never a silent skip. Consuming skills pass only their own degraded action via the `degraded_action` partial parameter.
+- WHEN a skill includes the partial, THEN the rendered SKILL.md states `can_spawn_subagent` / `can_worktree` / `can_background` as resolved values
+- WHEN `can_spawn_subagent` is true, THEN the output still names the fallback to take if a spawn fails at runtime
+- WHEN the partial's floor sentence changes, THEN every consuming skill's rendered copy of that sentence changes with it, without a per-skill edit (a station's own NEVER rule is separate wording and is not governed by this)
+
+---
+
+
+#### REQ-TESTS-063: Capability Injection and Degradation Contract Coverage
+The capability mechanism is pinned by tests at both layers: `intersectCapabilities` by a unit test over disagreeing inputs, and the generated skills by section-scoped contract assertions covering both `can_spawn_subagent` branches plus a repo-wide negative for prose that judges harness capability.
+- WHEN agents disagree on a flag, THEN the unit test asserts the intersection is `false` for it
+- WHEN a consuming skill is rendered under either branch, THEN the contract test asserts that branch's distinctive content, section-scoped
+- WHEN a skill template reintroduces prose that judges harness capability, THEN the repo-wide negative fails
+
+---
+
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -738,6 +786,7 @@ so that a skill either performs its deterministic steps through the CLI or does 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | archive-sync | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
 | 2026-07-30 | archive-sync | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-AGNT-037 (`getSkillReferences` registers `metadata-format` for new-story/ff, agent sync deploys self-contained, references dir count derived from the map) | US-401; REQ-AGNT-037 (ADDED) |
 | 2026-07-03 | migrate-skill-contract-to-vitest | verify-skills.sh's 28 generation contracts moved into a vitest real-temp-dir; counts derived from `getSkillReferences`/`SKILL_DEFINITIONS`, status-lifecycle changed to a named-set contract; removed the bash script + `verify:skills` + README references | US-437; REQ-TESTS-038/039/040, REQ-AGNT-030 (ADDED) |
@@ -770,3 +819,4 @@ so that a skill either performs its deterministic steps through the CLI or does 
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
 | 2026-07-25 | align-language-policy-scope | Entry config renders the shared LanguageScope (both render sites); prospec-upgrade gains the consent-gated seeded-wording migration; the language-policy partial goes path-scoped | US-440 (ADDED); REQ-TEMPLATES-151/152 (ADDED); REQ-AGNT-020, REQ-TEMPLATES-121, REQ-SKILL-012 (MODIFIED) |
 | 2026-07-29 | add-status-router | Session Start routes as code: the entry config points at read-only `prospec status` (net L0 reduction, CLI-unavailable fallback); both status-lifecycle copies carry the executable-copy pointer; the prose derivation's REQ-TEMPLATES-099 is MODIFIED in sdd-workflow (issue #97) | US-441; REQ-TEMPLATES-158 (ADDED) |
+| 2026-07-30 | add-harness-capability-flags | Harness capabilities become declarative per-agent registry flags (`canSpawnSubagent`/`canWorktree`/`canBackground`) injected into the skill render context, with shared-output groups resolved to the conservative intersection; `_harness-capabilities.hbs` becomes the single source for degradation wording (issue #95) | US-443; REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 (ADDED) |
