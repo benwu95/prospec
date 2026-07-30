@@ -49,6 +49,11 @@ export interface ArchiveResult {
   refused: RefusedChange[];
   /** Named targets with no matching change directory */
   notFound: string[];
+  /**
+   * REQs whose Feature-Spec body the sync did NOT replace (REQ-SERVICES-072) —
+   * the graduation phase's worklist. Populated under dry-run too.
+   */
+  pendingConvergence: PendingConvergence[];
 }
 
 export interface PlannedMutation {
@@ -77,6 +82,24 @@ export interface FeatureRoute {
   story: string;
   status: 'ADDED' | 'MODIFIED' | 'REMOVED';
   description: string;
+  /** The `**Spec:**` block — the body that lands verbatim in the Feature Spec. */
+  specBody?: string;
+  /** Fallback body for ADDED: `**Description:**` prose + `**Acceptance Criteria:**` as bullets. */
+  descriptionBody?: string;
+}
+
+/** A REQ whose Feature-Spec body the sync did NOT replace — a human must converge it. */
+export interface PendingConvergence {
+  feature: string;
+  reqId: string;
+  reason: string;
+}
+
+export interface SpecSyncResult {
+  /** Feature Spec files created or updated. */
+  files: string[];
+  /** REQs left for the graduation phase; populated under dry-run too. */
+  pendingConvergence: PendingConvergence[];
 }
 
 // --- Core functions ---
@@ -304,9 +327,9 @@ export async function syncToFeatureSpecs(
   archiveDir: string,
   featuresPath: string,
   dryRun = false,
-): Promise<string[]> {
+): Promise<SpecSyncResult> {
   const routes = await readFeatureRoutes(archiveDir);
-  if (routes.length === 0) return [];
+  if (routes.length === 0) return { files: [], pendingConvergence: [] };
 
   if (!dryRun) await ensureDir(featuresPath);
 
@@ -319,6 +342,7 @@ export async function syncToFeatureSpecs(
   }
 
   const updatedFiles: string[] = [];
+  const pendingConvergence: PendingConvergence[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   for (const [feature, featureRoutes] of byFeature) {
@@ -334,8 +358,16 @@ export async function syncToFeatureSpecs(
       for (const route of featureRoutes) {
         if (route.status === 'REMOVED') {
           content = moveReqToDeprecated(content, route);
+          // Deprecation only APPENDS a bullet — the REQ's active section (and its
+          // pre-removal body, now describing behavior that no longer exists) stays
+          // put. Report it, or the graduation gate passes over dead spec text.
+          if (content.includes(`#### ${route.reqId}:`)) {
+            pendingConvergence.push(pendingFor(route, STALE_DEPRECATED_REASON));
+          }
         } else {
-          content = mergeRequirementInPlace(content, route);
+          const merged = mergeRequirementInPlace(content, route);
+          content = merged.content;
+          if (merged.pending) pendingConvergence.push(merged.pending);
         }
       }
 
@@ -344,13 +376,14 @@ export async function syncToFeatureSpecs(
       if (!dryRun) await atomicWrite(specFile, content);
     } else {
       const content = createNewFeatureSpec(feature, featureRoutes, today);
+      pendingConvergence.push(...featureRoutes.filter(bodyless).map((r) => pendingFor(r)));
       if (!dryRun) await atomicWrite(specFile, content);
     }
 
     updatedFiles.push(specFile);
   }
 
-  return updatedFiles;
+  return { files: updatedFiles, pendingConvergence };
 }
 
 /**
@@ -513,6 +546,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const allAffectedModules = new Set<string>();
   const specFiles: string[] = [];
   const planned: PlannedMutation[] = [];
+  const pendingConvergence: PendingConvergence[] = [];
   let specSyncWouldTouchFeaturesDir = false;
 
   // Resolve specsPath from config (non-fatal if config is missing)
@@ -581,8 +615,10 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       // Sync requirements to Feature Specs (non-fatal)
       if (featuresPath) {
         try {
-          const syncedFiles = await syncToFeatureSpecs(artifactsDir, featuresPath, dryRun);
+          const sync = await syncToFeatureSpecs(artifactsDir, featuresPath, dryRun);
+          const syncedFiles = sync.files;
           specFiles.push(...syncedFiles);
+          pendingConvergence.push(...sync.pendingConvergence);
           if (dryRun) {
             for (const specFile of syncedFiles) {
               planned.push({
@@ -692,6 +728,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     planned,
     refused,
     notFound,
+    pendingConvergence,
   };
 }
 
@@ -809,15 +846,21 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
   let currentDescription = '';
   let currentFeature = '';
   let currentStory = '';
+  let currentBody: string[] = [];
 
   const pushCurrent = () => {
     if (currentReqId && currentFeature) {
+      const specBody = extractDeltaBlock(currentBody, 'Spec');
       routes.push({
         reqId: currentReqId,
         feature: currentFeature,
         story: currentStory,
         status: currentSection as FeatureRoute['status'],
         description: currentDescription,
+        ...(specBody === '' ? {} : { specBody }),
+        ...(buildDescriptionBody(currentBody) === ''
+          ? {}
+          : { descriptionBody: buildDescriptionBody(currentBody) }),
       });
     }
   };
@@ -830,6 +873,7 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
       currentReqId = '';
       currentFeature = '';
       currentStory = '';
+      currentBody = [];
       continue;
     }
 
@@ -840,6 +884,7 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
       currentDescription = reqMatch[2]!.trim();
       currentFeature = '';
       currentStory = '';
+      currentBody = [];
       continue;
     }
 
@@ -854,19 +899,111 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
       currentStory = storyMatch[1]!.trim();
       continue;
     }
+
+    currentBody.push(line);
   }
 
   pushCurrent();
   return routes;
 }
 
+/** A `**Label:**` line — the boundary between delta-spec blocks. */
+const DELTA_BLOCK_LABEL = /^\*\*[A-Za-z][\w \-/]*:\*\*/;
+
+/** Any ATX heading — a block never swallows one (see extractDeltaBlock). */
+const ATX_HEADING = /^#{1,6}\s/;
+
+/**
+ * Content of one `**Label:**` block: the remainder of the label line plus every
+ * following line up to the next label, a heading, an entry-separating `---`, or
+ * the end. Returns `''` when the block is absent — the caller decides what that
+ * means.
+ *
+ * The heading boundary matters because this text lands in the trust zone: a
+ * delta-spec whose last block is `**Spec:**` followed by any heading (a
+ * traceability table, a closing note, an unfilled `### REQ-[MODULE]-001`
+ * template line) would otherwise land that foreign section inside the REQ body —
+ * where a later sync can no longer remove it, since the injected heading becomes
+ * the in-place replacement's own stop boundary.
+ */
+function extractDeltaBlock(bodyLines: string[], label: string): string {
+  const labelRe = new RegExp(`^\\*\\*${label}:\\*\\*\\s*(.*)$`);
+  const start = bodyLines.findIndex((l) => labelRe.test(l.trim()));
+  if (start === -1) return '';
+
+  const first = bodyLines[start]!.trim().match(labelRe)![1]!.trim();
+  const collected = first === '' ? [] : [first];
+  for (let i = start + 1; i < bodyLines.length; i++) {
+    const line = bodyLines[i]!;
+    if (DELTA_BLOCK_LABEL.test(line.trim()) || line.trim() === '---' || ATX_HEADING.test(line)) {
+      break;
+    }
+    collected.push(line);
+  }
+  return collected.join('\n').trim();
+}
+
+/**
+ * The ADDED fallback body: `**Description:**` prose followed by
+ * `**Acceptance Criteria:**` rendered as bullets (a numbered delta-spec list
+ * becomes the `-` bullets Feature Specs use). Empty when neither block exists.
+ */
+function buildDescriptionBody(bodyLines: string[]): string {
+  const description = extractDeltaBlock(bodyLines, 'Description');
+  const criteria = extractDeltaBlock(bodyLines, 'Acceptance Criteria');
+  const bullets = criteria
+    .split('\n')
+    .map((l) => l.replace(/^\s*\d+\.\s+/, '- '))
+    .filter((l) => l.trim() !== '')
+    .join('\n');
+
+  return [description, bullets].filter((part) => part !== '').join('\n');
+}
+
+const NO_SPEC_BLOCK_REASON =
+  'delta-spec carries no **Spec:** block — the existing body was preserved, converge it by hand';
+const NO_BODY_REASON =
+  'delta-spec carries neither a **Spec:** block nor Description/Acceptance Criteria — landed as a title only';
+const STALE_DEPRECATED_REASON =
+  'REQ deprecated, but its active section still carries the pre-removal body — strike or delete it by hand';
+
+/**
+ * The body this route lands in the Feature Spec; `''` means "nothing to land".
+ *
+ * The Description/Acceptance-Criteria fallback is ADDED-only ON PURPOSE: those
+ * blocks are change narrative, and letting them land for MODIFIED would overwrite
+ * an authored behavior statement with planning prose — the very loss this
+ * contract forbids. For MODIFIED, only a `**Spec:**` block replaces a body.
+ */
+function landingBody(route: FeatureRoute): string {
+  const fallback = route.status === 'ADDED' ? route.descriptionBody : undefined;
+  return (route.specBody ?? fallback ?? '').trim();
+}
+
+function bodyless(route: FeatureRoute): boolean {
+  return route.status !== 'REMOVED' && landingBody(route) === '';
+}
+
+function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConvergence {
+  return { feature: route.feature, reqId: route.reqId, reason };
+}
+
 /**
  * Merge a requirement into an existing Feature Spec (ADDED or MODIFIED).
- * For MODIFIED: replaces the existing REQ section in-place.
- * For ADDED: appends under the User Stories section.
+ *
+ * NEVER blanks an authored body. A `**Spec:**` block (or, for ADDED, the
+ * Description + Acceptance Criteria fallback) is the ONLY thing that replaces
+ * one; with nothing to land, a MODIFIED REQ keeps its existing body and only its
+ * title line is refreshed — the REQ is reported back as pending convergence
+ * instead of silently losing its WHEN/THEN text.
  */
-function mergeRequirementInPlace(content: string, route: FeatureRoute): string {
+function mergeRequirementInPlace(
+  content: string,
+  route: FeatureRoute,
+): { content: string; pending?: PendingConvergence } {
   const reqHeader = `#### ${route.reqId}:`;
+  const titleLine = `#### ${route.reqId}: ${route.description}`;
+  const body = landingBody(route);
 
   if (route.status === 'MODIFIED' && content.includes(reqHeader)) {
     // Replace existing REQ section (from header to next h4 or h3 or section end)
@@ -876,10 +1013,13 @@ function mergeRequirementInPlace(content: string, route: FeatureRoute): string {
 
     for (const line of lines) {
       if (line.startsWith(reqHeader)) {
-        // Replace with updated content
-        result.push(`#### ${route.reqId}: ${route.description}`);
-        result.push('');
-        skipping = true;
+        result.push(titleLine);
+        // With a landing body the old one is superseded; without, keep it.
+        if (body !== '') {
+          result.push(...body.split('\n'));
+          result.push('');
+          skipping = true;
+        }
         continue;
       }
       // Stop skipping at the next section boundary — ANY heading (h2 included,
@@ -893,22 +1033,28 @@ function mergeRequirementInPlace(content: string, route: FeatureRoute): string {
       }
     }
 
-    return result.join('\n');
+    const merged = result.join('\n');
+    return body === ''
+      ? { content: merged, pending: pendingFor(route, NO_SPEC_BLOCK_REASON) }
+      : { content: merged };
   }
 
   // ADDED: append before Edge Cases or at end of User Stories section
   const insertBefore = '## Edge Cases';
-  const newReq = `\n#### ${route.reqId}: ${route.description}\n\n---\n`;
+  const newReq = body === ''
+    ? `\n${titleLine}\n\n---\n`
+    : `\n${titleLine}\n${body}\n\n---\n`;
+  const pending = body === '' ? pendingFor(route) : undefined;
 
   if (content.includes(insertBefore)) {
-    // Function replacer: route.description is untrusted text and may contain
+    // Function replacer: the title and body are untrusted text and may contain
     // `$&`/`$1`/`$$` etc., which a string replacement would expand as special
     // patterns and corrupt the spec. A function returns the literal verbatim.
-    return content.replace(insertBefore, () => newReq + '\n' + insertBefore);
+    return { content: content.replace(insertBefore, () => newReq + '\n' + insertBefore), pending };
   }
 
   // Fallback: append at end
-  return content + newReq;
+  return { content: content + newReq, pending };
 }
 
 /**
@@ -1004,7 +1150,11 @@ function createNewFeatureSpec(
   const stories = [...new Set(routes.map((r) => r.story).filter(Boolean))];
   const reqSections = routes
     .filter((r) => r.status !== 'REMOVED')
-    .map((r) => `#### ${r.reqId}: ${r.description}\n\n---`)
+    .map((r) => {
+      const body = landingBody(r);
+      const head = `#### ${r.reqId}: ${r.description}`;
+      return body === '' ? `${head}\n\n---` : `${head}\n${body}\n\n---`;
+    })
     .join('\n\n');
 
   const deprecatedSection = routes

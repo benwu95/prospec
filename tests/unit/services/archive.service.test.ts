@@ -489,7 +489,7 @@ Define types for Feature Spec frontmatter.
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
 
     expect(files).toHaveLength(1);
     expect(files[0]).toBe('/specs/features/sdd-workflow.md');
@@ -607,7 +607,7 @@ Stays put.
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
 
     // the traversal slug is skipped entirely — nothing escapes the features dir
     expect(fs.existsSync('/evil.md')).toBe(false);
@@ -620,7 +620,7 @@ Stays put.
     vol.fromJSON({});
     vol.mkdirSync('/archive', { recursive: true });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
     expect(files).toHaveLength(0);
   });
 
@@ -776,7 +776,7 @@ Details.
 `,
     });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
 
     expect(files).toHaveLength(2);
     expect(fs.existsSync('/specs/features/sdd-workflow.md')).toBe(true);
@@ -1066,7 +1066,7 @@ describe('syncToFeatureSpecs additional branches', () => {
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
     expect(files).toEqual([]);
     // nothing written
     expect(fs.readdirSync('/specs/features')).toEqual([]);
@@ -1248,7 +1248,7 @@ new body
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const files = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
     expect(files).toEqual(['/specs/features/brand-new.md']);
     const content = fs.readFileSync('/specs/features/brand-new.md', 'utf-8');
     // REMOVED route lands in Deprecated, not the active req list

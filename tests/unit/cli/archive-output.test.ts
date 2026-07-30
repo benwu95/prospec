@@ -33,6 +33,7 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
     planned: [],
     refused: [],
     notFound: [],
+    pendingConvergence: [],
     ...overrides,
   };
 }
@@ -123,6 +124,41 @@ describe('archive-output', () => {
     expect(err).toContain('skipped feat-a — archive move failed and was rolled back: EACCES');
     expect(err).toContain('skipped feat-b — archive failed');
     expect(stdout()).not.toContain('skipped');
+  });
+
+  it('lists the pending-convergence worklist on stderr, even in quiet mode', () => {
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+        pendingConvergence: [
+          {
+            feature: 'sdd-workflow',
+            reqId: 'REQ-SERVICES-010',
+            reason: 'delta-spec carries no **Spec:** block — the existing body was preserved, converge it by hand',
+          },
+        ],
+      }),
+      'quiet',
+    );
+    expect(logSpy).not.toHaveBeenCalled();
+    const err = stderr();
+    expect(err).toContain('1 REQ body/bodies kept their existing text');
+    expect(err).toContain('sdd-workflow REQ-SERVICES-010');
+    expect(err).toContain('no **Spec:** block');
+  });
+
+  it('says "would keep" for the dry-run worklist', () => {
+    formatArchiveOutput(
+      emptyResult({
+        dryRun: true,
+        pendingConvergence: [
+          { feature: 'ai-knowledge', reqId: 'REQ-KNOW-012', reason: 'no body' },
+        ],
+      }),
+      'normal',
+    );
+    expect(stderr()).toContain('would keep');
+    expect(stderr()).toContain('ai-knowledge REQ-KNOW-012');
   });
 
   it('prints nothing to stdout in quiet mode', () => {

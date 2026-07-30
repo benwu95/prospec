@@ -11,6 +11,9 @@ import { sanitizeTerminal } from './sanitize.js';
  * Skipped / refused / not-found targets are failure-class output: they go to
  * stderr (each sets exit code 1 in the command) and stay visible under
  * --quiet, like handleError output.
+ * Pending convergence (REQ-SERVICES-072) is warning-class: the spec body the
+ * sync deliberately did NOT replace is work a human still owes, so it goes to
+ * stderr too — unswallowable under --quiet — but it never fails the command.
  */
 export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): void {
   if (logLevel !== 'quiet') {
@@ -42,6 +45,18 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
       }
     }
 
+  }
+
+  if (result.pendingConvergence.length > 0) {
+    const verb = result.dryRun ? 'would keep' : 'kept';
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.pendingConvergence.length} REQ body/bodies ${verb} their existing text — graduation worklist:\n`,
+    );
+    for (const p of result.pendingConvergence) {
+      process.stderr.write(
+        `  ${pc.yellow('·')} ${sanitizeTerminal(p.feature)} ${sanitizeTerminal(p.reqId)} — ${sanitizeTerminal(p.reason)}\n`,
+      );
+    }
   }
 
   for (const name of result.skipped) {

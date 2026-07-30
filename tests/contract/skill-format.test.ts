@@ -2468,6 +2468,23 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     expect(p35).toContain('`backfill` → delta-spec');
   });
 
+  // REQ-TEMPLATES-166: graduation starts from the CLI's preserved-body worklist
+  // instead of re-reading every synced spec (REQ-SERVICES-072).
+  it('Phase 3.5 starts graduation from the CLI graduation worklist and gates on it', () => {
+    // Bound the slice at the next h3: the file's `sectionOf` stops only at the next
+    // h2, which would span Phases 3.6/3.7/4/4.5 and let these assertions pass even
+    // if the worklist step migrated to another station.
+    const p35 = sectionOf(renderArchive(), '### Phase 3.5: Feature Spec Sync').split('\n### ')[0]!;
+    expect(p35.trim().length, 'Phase 3.5 slice is non-empty').toBeGreaterThan(0);
+    expect(p35).toContain('graduation worklist');
+    expect(p35).toContain('did NOT replace');
+    expect(p35).toContain('`**Spec:**` block');
+    // the mechanical MODIFIED claim is now conditional, not unconditional
+    expect(p35).toContain('only where the delta-spec carried a `**Spec:**` block');
+    // and the gate names the convergence obligation
+    expect(p35).toContain('no REQ left with only a title');
+  });
+
   it('documents that the archive service does not auto-trigger knowledge-update or raw-scan', () => {
     const c = renderArchive();
     expect(c).toContain('does **not** auto-trigger a knowledge update or a raw-scan refresh');
@@ -2587,6 +2604,42 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
     expect(naming).toContain('Backfill (`scale: backfill`)');
     expect(naming).toContain('REQ-{FEATURE-SLUG}-{NUMBER}');
     expect(naming).toContain('need not be module-based');
+  });
+
+  // REQ-TEMPLATES-166: the landing-block contract — what the mechanical sync
+  // copies, and what happens when it is missing (REQ-SERVICES-072).
+  it('delta-spec-format defines the **Spec:** landing block with its preserve-and-report fallback', () => {
+    const ref = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+    const block = sectionOf(ref, '## The `**Spec:**` Block — What Lands in the Feature Spec');
+    expect(block.length).toBeGreaterThan(0);
+
+    // lands verbatim, in spec form, in the TARGET spec's language
+    expect(block).toContain('verbatim');
+    expect(block).toContain('- WHEN …, THEN …');
+    expect(block).toContain("target Feature Spec's language");
+
+    // the per-entry contract: MODIFIED required, ADDED optional
+    expect(block).toContain('**MODIFIED**');
+    expect(block).toContain('REQUIRED');
+    expect(block).toContain('preserved unchanged');
+    expect(block).toContain('pending convergence');
+    expect(block).toContain('**ADDED**');
+    expect(block).toContain('Optional');
+    expect(block).toContain('title only');
+
+    // negative: Before/After/Reason must NOT be described as landing content
+    expect(block).toContain('never copied into the Feature');
+
+    // "verbatim" has an edge — the reference must state it (PB-003)
+    expect(block).toContain('Where the block ends');
+    expect(block).toContain('at any Markdown\nheading');
+    expect(block).toContain('is NOT landed');
+
+    // both entry templates advertise the block (asserted on the whole reference:
+    // the ADDED/MODIFIED sections embed fenced `### REQ-…` lines, which a
+    // heading-scoped slice would truncate at)
+    expect(ref).toContain('**Spec:** (optional for ADDED');
+    expect(ref).toContain('**Spec:** (REQUIRED for MODIFIED');
   });
 });
 

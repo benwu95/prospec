@@ -115,7 +115,7 @@ const GENERIC_RULES: ConstitutionRule[] = [
  * instead of re-interpreting what "AI-generated documents" covers.
  */
 export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
-  const { language, nativePaths, englishPaths, namedExceptions } = scope;
+  const { language, nativePaths, englishPaths, namedExceptions, englishExceptions } = scope;
 
   // An English project has one zone, so the exemption clauses would only add
   // noise to a MUST rule the owner has to read.
@@ -133,13 +133,19 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
   }
 
   const exceptions = namedExceptions.map((e) => `  - ${e}`).join('\n');
+  // The reverse direction, stated in the same rule: a change artifact may carry
+  // text destined for the trust zone verbatim, and a MUST audit that has not been
+  // told so reads that text as a violation of this very rule.
+  const englishInNative = englishExceptions.length === 0
+    ? ''
+    : `\n\nNamed exceptions inside the change-artifact zone, which stay **English** because their content is copied into the trust zone verbatim:\n${englishExceptions.map((e) => `  - ${e}`).join('\n')}`;
 
   return {
     severity: 'MUST',
     name: 'Language Policy',
-    description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(englishPaths)} — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the ${language} requirement. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}`,
+    description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(englishPaths)} — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the ${language} requirement. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}${englishInNative}`,
     rationale: `The project owner reviews their own change narrative in ${language}, while the trust zone stays English so it reads like the code it documents and travels beyond this project. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
-    check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${formatPathList(englishPaths)}, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations, and an audit does NOT flag the English trust zone as a Language-Policy violation.`,
+    check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${formatPathList(englishPaths)}, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation.`,
   };
 }
 

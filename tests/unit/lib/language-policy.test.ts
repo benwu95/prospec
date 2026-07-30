@@ -65,6 +65,16 @@ describe('resolveLanguageScope', () => {
     expect(joined).toContain('prospec/ai-knowledge/_glossary.md');
   });
 
+  it('names the change-artifact spots that stay English (trust-zone-bound content)', () => {
+    const { englishExceptions } = resolveLanguageScope(config(), '/p');
+    const joined = englishExceptions.join('\n');
+
+    expect(joined).toContain('`**Spec:**` block');
+    expect(joined).toContain('.prospec/changes/**/delta-spec.md');
+    // it must name the destination zone it inherits its language from
+    expect(joined).toContain('prospec/specs/features/**');
+  });
+
   it('resolves a relocated base_dir and knowledge.base_path, not the defaults', () => {
     const scope = resolveLanguageScope(
       config({ paths: { base_dir: 'docs/spec' }, knowledge: { base_path: 'docs/kb' } }),

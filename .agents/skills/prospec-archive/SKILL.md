@@ -106,8 +106,9 @@ count the pre-graduation spec text.
 
 > `/prospec-archive` is the **sole writer** of Feature Specs — requirements graduate into the permanent capability record here (the archive service is this station's mechanical writer; it writes nowhere else). `/prospec-verify` deliberately does not gate on Feature Spec freshness (see `_status-lifecycle.md`), so this graduation step is where `specs/features/` catches up to the change.
 
-`prospec archive` (Phase 3) already performed the **mechanical** Feature Spec Sync — each delta-spec REQ routed by its `**Feature**` field: ADDED appended (new spec created per `references/feature-spec-format.md` scaffold), MODIFIED replaced in place, REMOVED moved to Deprecated Requirements, Change History rows and `last_updated` written. What remains is the **judgment** work — REQ semantic graduation:
+`prospec archive` (Phase 3) already performed the **mechanical** Feature Spec Sync — each delta-spec REQ routed by its `**Feature**` field: ADDED appended (new spec created per `references/feature-spec-format.md` scaffold), MODIFIED replaced in place **only where the delta-spec carried a `**Spec:**` block**, REMOVED moved to Deprecated Requirements, Change History rows and `last_updated` written. What remains is the **judgment** work — REQ semantic graduation:
 
+0. **Start from the CLI's graduation worklist**: `prospec archive` reports every REQ whose body it deliberately did NOT replace (no `**Spec:**` block, or no body at all — that block is defined in the delta-spec-format reference `/prospec-plan` reads, not vendored here). Those REQs still carry their pre-change body (or a bare title) and are the convergence work; a REQ absent from the worklist already landed its authored spec text.
 1. Read each Feature Spec the CLI reported as synced. **Graduation key by scale**: `standard`/`full` → delta-spec; `backfill` → delta-spec (same path — REQ + Story; feature-slug REQ ids route by `**Feature**` as usual); `quick` → the proposal's **Spec Impact** section, applied manually (no delta-spec for the CLI to route; when the Entry Gate diagnosed no spec impact, skip graduation entirely — the summary.md diagnostic is the record)
 2. Converge wording: the merged REQ text arrived verbatim from the change artifacts — rewrite it into the spec's English, behavior-first voice; trim narrative that only made sense inside the change
 3. Place each ADDED REQ under the appropriate User Story section (the mechanical merge appends before Edge Cases) and insert the User Story context (As a / I want / So that from proposal.md) where the feature spec lacks it; fill a new spec's `Who & Why` TBDs
@@ -116,6 +117,7 @@ count the pre-graduation spec text.
 **Feature Spec Sync is non-fatal** — if it fails, archiving still succeeds. Warn the user to manually update Feature Specs.
 
 > **Phase 3.5 Gate** — proceed when:
+> - [ ] Every REQ on the CLI's graduation worklist has a converged body (no REQ left with only a title, and no pre-change body left describing post-change behavior)
 > - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `prospec/specs/features/` (CLI-reported, spot-checked; or graduation skipped for a quick change diagnosed as no-impact)
 > - [ ] Merged REQ wording converged and placed under the right Story section
 > - [ ] Any sync failure logged and surfaced to the user (non-fatal)
