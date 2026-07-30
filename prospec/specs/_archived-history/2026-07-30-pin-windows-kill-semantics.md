@@ -25,13 +25,13 @@ So that windows-smoke 的 vitest 步驟全綠、觀測期只剩真正未知的�
 
 ## Completion
 
-- **Tasks**: 3/3 code tasks (100%)；`[V]` 3/3；`[M]` T7（推 PR 觀測）／T8（指定 `continue-on-error` 移除的下一步）
-- **Acceptance Criteria**: 3/4 —— SC-002（windows-smoke vitest 步驟零失敗）待本 change 推上 #110 後的 CI 執行證實
+- **Tasks**: 3/3 code tasks (100%)；archive 當時 `[V]` 2/3（T6 待最終閘門）、`[M]` 0/2；**archive 後補齊**：T6 全閘門綠、T7 已推 #110 觀測、T8 已於 issue #101 指定 `continue-on-error` 移除歸屬
+- **Acceptance Criteria**: 4/4 —— SC-002 由 archive 後的 CI 執行證實（run 30556476452／job 90918113851）：`windows-smoke` **pass**、該檔 84 passed / 1 skipped（唯一 skip 即刻意 POSIX-only 的斷言）、`reports a killed run as the platform actually ends it` 在 Windows 通過、fixture step 仍為 `test-provenance: skipped`；PR #110 狀態自 UNSTABLE 轉 CLEAN
 
 ## Review & Verify
 
 - **Review**: 2 round(s)，1 critical / 5 major。Critical 與其後續是本 change 最重要的產出：新寫的規格措辭把 Windows kill/timeout 機制**連續講錯兩次**——第一版「Windows 沒有訊號、timeout 靠 ETIMEDOUT 而非訊號」（錯：`spawnSync` 自己下的 timeout kill 在 Windows 仍回報 `SIGKILL`，因為 `uv_process_kill` 會登記 `exit_signal`）；第二版過度修正為「取決於誰下的 kill、與平台無關」（錯：`exit_signal` 是 Windows 專屬欄位，POSIX 由 wait status 的 `WIFSIGNALED`／`WTERMSIG` 給出、與發送者無關）。第三版才同時對齊 libuv `unix/process.c`＋`win/process.c` 與 Node `spawn_sync.cc`。另有 major：POSIX 上「接住訊號後正常結束仍會被記錄」原本被寫成「任何 kill 都不記錄」；status 未推進 `implemented` 導致 `test-provenance` 是豁免而非證據；三條 win32 斷言的唯一執行地點仍帶 `continue-on-error`，無人擁有其移除。
-- **Verify**: Grade A；machine ledger task-completion／knowledge／tests 全 PASS（recorded `pnpm test` exit 0），judgment ledger delta-spec-compliance=PASS（fresh context，12 條 bullet 逐條對照 libuv／Node 原碼）、constitution=PASS（6/6 規則）、design=not-applicable；1 WARN：SC-002 待 CI 證實
+- **Verify**: Grade A；machine ledger task-completion／knowledge／tests 全 PASS（recorded `pnpm test` exit 0），judgment ledger delta-spec-compliance=PASS（fresh context，12 條 bullet 逐條對照 libuv／Node 原碼）、constitution=PASS（6/6 規則）、design=not-applicable；1 WARN：SC-002 當時待 CI 證實，**其成因已於 archive 後關閉**（見 Completion）
 - **Quality Log**: 見 metadata.yaml（兩輪 review 皆記錄）
 
 ## Knowledge Update
