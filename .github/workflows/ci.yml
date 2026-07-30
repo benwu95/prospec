@@ -65,6 +65,48 @@ jobs:
             coverage/coverage-summary.json
           if-no-files-found: ignore
 
+  # The Windows binary release.yml ships had never had a single test run on Windows.
+  # Deliberately a separate job rather than an `os` matrix on `test`: that job's coverage
+  # step is bound to `shell: bash` + `jq` and feeds `comment` through a named artifact,
+  # so a matrix would entangle wiring this job has no need for.
+  windows-smoke:
+    runs-on: windows-latest
+    # Observation window only — the suite has never run on Windows, so the first runs are
+    # expected to surface failures unrelated to the shim. Removed, and the job listed as a
+    # required check, once those are enumerated and each has a conclusion.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run build
+
+      # Narrow on purpose: the two files that carry the shim classification and the
+      # record path. `describe.runIf(process.platform === 'win32')` runs here for the
+      # first time — the injected tests prove the decision, these prove the reality.
+      - run: pnpm exec vitest run tests/unit/lib/test-runner.test.ts tests/unit/services/check.service.test.ts
+
+      # The claim skip-unspawnable-test-command shipped without ever executing: on a host
+      # where the resolved test command is a `.cmd` shim, test-provenance must be an
+      # honest skip, never a FAIL no configuration could clear.
+      #
+      # Must not inherit the implicit `success()`: the step above is EXPECTED to go red
+      # during the observation window, and the job-level continue-on-error above governs
+      # the workflow conclusion, not step sequencing — without this guard the one piece of
+      # evidence this job exists to produce is skipped exactly when it matters. GitHub's
+      # own docs prefer `!cancelled()` over `always()` (which would also run after a
+      # cancelled checkout).
+      - if: ${{ !cancelled() }}
+        run: pnpm exec tsx scripts/windows-smoke-record-tests.ts
+
   comment:
     if: always() && github.event_name == 'pull_request'
     needs: test
