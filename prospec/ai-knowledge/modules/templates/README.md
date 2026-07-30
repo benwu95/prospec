@@ -48,6 +48,7 @@
 - Values reaching YAML frontmatter scalars must be pre-escaped by the caller (`escapeYamlScalar`).
 - The `test_command` comments in `init/prospec.yaml.hbs` and `references/config-example.yaml.hbs` carry a platform contract: no shell (so no pipes/`&&`/redirection) and, on Windows, no `.cmd`/`.bat` shim. Both copies must state it — `lib/test-runner` enforces it and reports an honest skip when violated — and the config-example's example VALUE must itself satisfy it (`node --test`, shim-free), never contradict its own comment.
 - Editing a shipped `.hbs` takes two steps: `pnpm bundle`, then sync from source (`npx tsx src/cli/index.ts agent sync`) — `pnpm exec prospec` resolves to the globally installed binary and silently deploys the released templates.
+- A `**Spec:**` block replaces a MODIFIED REQ's WHOLE body, so `references/delta-spec-format.hbs` tells authors to write the RESULTING requirement, not the delta — the archive CLI reports the `WHEN/THEN` bullets a block drops (`droppedBehavior`) and Phase 3.5 gates on them, but an ADDED entry reusing an existing REQ id is reported by neither worklist.
 - Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test requires exactly one across both skills); status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
 
 <!-- prospec:auto-end -->
