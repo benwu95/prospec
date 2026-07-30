@@ -275,6 +275,15 @@ export function runTestCommand(
   // A timeout is identified by ETIMEDOUT or by the kill signal WE sent — any other
   // terminating signal (SIGSEGV, an OOM SIGKILL from the kernel is indistinguishable
   // and accepted, SIGINT from Ctrl-C) is reported as itself, not relabelled.
+  //
+  // Whether a killed run leaves a signal at all is platform-shaped. POSIX reads it out of
+  // the wait status whoever sent it (`WIFSIGNALED`/`WTERMSIG`), so a signal-terminated
+  // child yields no exit code — while one that CATCHES the signal and exits normally does,
+  // and is recorded like any run. Windows has no signal in the wait status: libuv
+  // synthesizes one from an `exit_signal` it sets ONLY for a kill issued through
+  // `uv_process_kill` on this handle, so our own timeout kill still reports SIGKILL there,
+  // whereas a self-kill or third-party kill reports none and surfaces as
+  // `TerminateProcess`'s exit code — recorded, which is fail-closed, not a silent gap.
   const isTimeout = (signal: string | null, message?: string): boolean =>
     signal === TIMEOUT_KILL_SIGNAL || (message !== undefined && /ETIMEDOUT/.test(message));
   if (res.error !== undefined) {
