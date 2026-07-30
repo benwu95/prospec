@@ -4,9 +4,10 @@
 modules:
   - name: types
     description: Zod schemas, error hierarchy, skill definitions, Constitution rule
-      types, and the canonical index-table column, knowledge-token-budget and
-      escaped-defect report contracts. Leaf module — every other module imports its
-      types.
+      types, the station I/O contracts the cli-first skills speak (review findings,
+      verify dimension registry, lesson upsert, validate kinds), and the canonical
+      index-table column, knowledge-token-budget and escaped-defect report
+      contracts.
     paths:
       - src/types
     keywords:
@@ -26,6 +27,9 @@ modules:
       - mcp
       - category
       - conventions
+      - language-scope
+      - station
+      - verify-dimensions
     relationships:
       depends_on: []
       used_by:
@@ -48,10 +52,11 @@ modules:
 
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
-      rendering, scanning, deterministic token accounting, the zero-LLM drift
-      engine (collectors + evaluators), Constitution rule parsing, the flag-gated
-      test runner, escaped-defect aggregation, knowledge readers, and
-      multi-language manifest parsers.
+      rendering, scanning, token accounting, the zero-LLM drift engine
+      (collectors + evaluators), Constitution rule parsing, the flag-gated test
+      runner, escaped-defect aggregation, knowledge readers, multi-language
+      manifest parsers, and the I/O-free station engines (markdown-table, verify
+      grade, review-merge, lessons-ledger, artifact validators).
     paths:
       - src/lib
     keywords:
@@ -75,7 +80,14 @@ modules:
       - feature-map
       - manifest-parsers
       - category
+      - language-policy
       - status-router
+      - markdown-table
+      - verify-grade
+      - review-merge
+      - lessons-ledger
+      - artifact-validators
+      - date-utils
     relationships:
       depends_on:
         - types
@@ -99,8 +111,9 @@ modules:
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge generate + update, change story / plan /
-      tasks, archive + spec-sync, agent-sync, measure, drift check (with its
-      record-review / record-tests / escaped-defect modes), and the read-only MCP
+      tasks / log / status / scale / progress, review merge, verify record, learn,
+      validate, archive + spec-sync + finalize, agent-sync, measure, drift check
+      (record-review / record-tests / escaped-defect modes), and the read-only MCP
       server.
     paths:
       - src/services
@@ -120,6 +133,14 @@ modules:
       - mcp
       - serve
       - status
+      - change-log
+      - change-status
+      - change-scale
+      - change-progress
+      - review-merge
+      - verify-record
+      - learn
+      - validate
     relationships:
       depends_on:
         - types
@@ -139,9 +160,9 @@ modules:
     rationale: Isolates business logic from I/O layer, enables testability
 
   - name: cli
-    description: Thin CLI entry — Commander commands + formatters that parse → call
-      one service → format output. No business logic (delegates everything to
-      services).
+    description: Thin CLI entry — 17 top-level Commander commands + 28 formatters
+      that parse → call one service → format output; the cli-first station
+      commands each add one command/formatter pair, never logic.
     paths:
       - src/cli
     keywords:
@@ -157,6 +178,9 @@ modules:
       - stdio
       - archive
       - dry-run
+      - station-commands
+      - finalize
+      - sanitize
     relationships:
       depends_on:
         - types
@@ -173,10 +197,11 @@ modules:
     rationale: "Thin I/O layer: no business logic, delegates to services"
 
   - name: templates
-    description: "Handlebars template library — 17 skills + 5 shared partials, 19
-      references, 1 agent-config, 4 change, 15 init/knowledge (62 `.hbs`
-      templates). Pure resources consumed by lib/template — the source of every
-      generated skill, README, and index."
+    description: "Handlebars template library — 17 skills + 6 shared partials, 21
+      references, 1 agent-config, 4 change, 15 init/knowledge (65 `.hbs`
+      templates) — the source of every generated skill, README, and index; every
+      skill delegates its deterministic steps to the CLI behind the shared
+      `_cli-probe` partial."
     paths:
       - src/templates
     keywords:
@@ -198,6 +223,8 @@ modules:
       - feature-map
       - category
       - grouping
+      - cli-probe
+      - cli-first
     relationships:
       depends_on: []
       used_by:
@@ -216,10 +243,10 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
 
   - name: tests
-    description: 4-layer test suite — 91 files, 2,129 tests (unit 1392 + contract
-      654 + integration 38 + e2e 45) across unit / contract / integration / e2e.
-      Validates every module — format contracts, the drift engine, token corpus,
-      and the MCP protocol over in-memory transport.
+    description: 4-layer test suite — 132 files, 2,773 tests (unit 1956 + contract
+      708 + integration 43 + e2e 66). Validates every module — format contracts,
+      the cli-first probe + station-command contracts, the drift engine, token
+      corpus, and the MCP protocol over in-memory transport.
     paths:
       - tests
     keywords:
@@ -236,6 +263,8 @@ modules:
       - lessons-harvest
       - mcp-server
       - in-memory-transport
+      - cli-first
+      - station-commands
     relationships:
       depends_on:
         - types

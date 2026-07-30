@@ -16,6 +16,8 @@ When triggered, briefly describe:
 
 {{> language-policy}}
 
+{{> cli-probe}}
+
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
@@ -116,18 +118,17 @@ Skip this phase if:
 
 Validate the design output:
 
-1. **Structure check** — Verify design-spec.md has all required sections (Visual Identity, Components, Responsive Strategy)
-2. **Completeness check** — Verify every component in proposal's UI scope has a corresponding entry
+1. **Structure check (CLI)** — Run `prospec validate design-spec --change [name]` (Bash): it machine-verifies the required sections (Visual Identity, Components, Responsive Strategy) AND that zero `[NEEDS CLARIFICATION]` markers remain (with line locations when any do)
+2. **Completeness check (judgment)** — Extract the component list from the proposal's UI scope yourself (prose extraction is your call, never the CLI's), then verify every component has a corresponding spec entry
 3. **Visual check** (if design tool used) — Use adapter's Verify Phase guidelines:
    - pencil: `get_screenshot()` to capture and review
    - figma: Compare Figma nodes with spec
    - html: Open prototype in browser
-4. **No `[NEEDS CLARIFICATION]` remaining** — All items must be resolved
 
 > **Phase 4 Gate** — proceed when:
-> - [ ] design-spec.md structure check passes (Visual Identity / Components / Responsive Strategy present)
-> - [ ] Every component in the proposal's UI scope has a corresponding spec entry
-> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs
+> - [ ] `prospec validate design-spec` reports PASS (required sections present, zero `[NEEDS CLARIFICATION]`)
+> - [ ] Every component in the proposal's UI scope has a corresponding spec entry (your extraction + comparison)
+> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs (interaction-spec checked by you)
 
 ### Phase 5: Summary + Next Steps
 

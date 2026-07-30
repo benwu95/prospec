@@ -16,6 +16,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Read [`references/promotion-format.md`](references/promotion-format.md) for the explicit promotion rule, lessons-ledger format, playbook entry format, approval record, and TTL/conflict fields
@@ -38,16 +54,16 @@ Write each generated document in the language the Constitution's Language Policy
 
 Build/refresh the version-controlled lessons ledger (`prospec/ai-knowledge/_lessons-ledger.md`):
 - Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in session corrections the user raised.
-- Assign each finding a **deterministic key** (a normalized signature — e.g. the rule/REQ it relates to, or a file/pattern), so the same lesson maps to the same key every run.
-- For each key, maintain a ledger entry: `description`, `frequency` (counter, incremented — never recomputed by re-scanning), `impact_modules[]` (looked up from `module-map.yaml`), `kind` (`convention` | `playbook` | `constitution` — the promotion-routing label), `source_changes[]`.
-- Semantic matching ("are these the same lesson?") is the only LLM step; counting/scoring downstream operates on the keyed structured fields.
+- Assign each finding a **deterministic key** (a normalized signature — e.g. the rule/REQ it relates to, or a file/pattern), so the same lesson maps to the same key every run. Semantic matching ("are these the same lesson?" → reuse the existing key) is the **only LLM step**.
+- For each keyed finding, emit a lesson JSON (`{key, description, kind, source_change, impact_modules}` — `impact_modules` looked up from `module-map.yaml`) to a temp file and run `prospec learn upsert --lesson <file>` (Bash). The CLI owns the mechanics: keyed idempotent upsert, `frequency` incremented only for a DISTINCT source change (never recomputed by re-scanning), `source_changes[]`/`impact_modules[]` union, and the canonical table render.
 
 ### Score
 
-Apply the **explicit numeric rule** from `references/promotion-format.md` to each ledger entry — defaults (overridable in `.prospec.yaml`):
+The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule from
+`references/promotion-format.md`, defaults overridable in `.prospec.yaml` `learn.thresholds`:
 - **suggest promote** WHEN `frequency ≥ 3` AND `|impact_modules| ≥ 2` (a `kind: constitution` lesson routes to the Constitution tier; otherwise to `_playbook.md`).
 - Below either threshold → stays personal, not suggested (avoids early noise when samples are few).
-- Emit an **auditable score detail** per suggestion: `frequency=N, impact_modules=M, kind=…, rule=freq≥3 ∧ modules≥2 → suggest`. Same ledger input ⇒ same output (the rule is fixed and the data is stored, not re-derived) — this is the SC-002 reproducibility guarantee, by construction (given a stable ledger key).
+- The command emits the **auditable score detail** per suggestion (`frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`) — quote it verbatim when presenting; never re-derive the score by hand. Same ledger input ⇒ same output — the SC-002 reproducibility guarantee, by construction.
 - **Prioritize the review queue by knowledge freshness** (see promotion-format "Review-Queue Prioritization"): read the `prospec-report.json` file (`prospec check`) — its stale modules are `structural.knowledge_health.modules[]` filtered by `.stale` (there is no top-level `stale[]` array; shape: [`references/drift-report-format.md`](references/drift-report-format.md)); raise a `convention`-kind suggestion whose `impact_modules` intersect a stale module and annotate "this module's knowledge is also stale — refresh on hand-move". No report present → default order (non-blocking). Prioritization only — never auto-writes `_conventions.md`.
 
 ### Promote
@@ -64,7 +80,7 @@ Apply the **explicit numeric rule** from `references/promotion-format.md` to eac
 ### Govern
 
 - Every shared rule (playbook/Constitution) carries a **TTL** and a source reference.
-- A rule past its TTL, or in **conflict** with another rule (including cross-author contradictory feedback), goes onto a **needs-review list** for human retirement/arbitration — never auto-resolved, never silently dropped.
+- `prospec learn upsert` also reports playbook entries past their TTL review-by date — carry them onto the **needs-review list**. Rule **conflict** detection (including cross-author contradictory feedback) stays your judgment; both go to human retirement/arbitration — never auto-resolved, never silently dropped.
 - Retiring a shared rule is version controlled with the reason and date.
 
 ## Output Contract

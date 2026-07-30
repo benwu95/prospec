@@ -403,10 +403,193 @@ describe('CLI E2E', () => {
     });
   });
 
-  describe('prospec knowledge generate', () => {
-    it('should fail without .prospec.yaml', async () => {
-      const { exitCode } = await runCli(['knowledge', 'generate']);
+  describe('prospec knowledge generate (removed, issue #107)', () => {
+    it('is no longer a command — content generation is /prospec-knowledge-generate judgment work', async () => {
+      await fs.promises.writeFile(path.join(tmpDir, '.prospec.yaml'), 'project:\n  name: t\n');
+      const { exitCode, stderr } = await runCli(['knowledge', 'generate']);
       expect(exitCode).not.toBe(0);
+      expect(stderr).toContain("unknown command 'generate'");
+    });
+  });
+
+  describe('cli-first station commands (issue #107)', () => {
+    async function initChange(name = 'my-change'): Promise<string> {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'station-test' }),
+      );
+      await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
+      await runCli(['change', 'story', name, '--description', 'station test change']);
+      return path.join(tmpDir, '.prospec', 'changes', name);
+    }
+
+    it('change scale + change status advance forward and refuse a backward jump', async () => {
+      const changeDir = await initChange();
+      expect((await runCli(['change', 'scale', 'quick'])).exitCode).toBe(0);
+      expect((await runCli(['change', 'status', 'tasks'])).exitCode).toBe(0);
+      const back = await runCli(['change', 'status', 'story']);
+      expect(back.exitCode).not.toBe(0);
+      expect(back.stderr).toContain('forward-only');
+      const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+      expect(metadata).toContain('scale: quick');
+      expect(metadata).toContain('status: tasks');
+    });
+
+    it('change log appends a structured quality_log entry with escaped user text', async () => {
+      const changeDir = await initChange();
+      const { exitCode } = await runCli([
+        'change', 'log',
+        '--skill', 'prospec-review',
+        '--result', 'WARN',
+        '--warning', 'tricky: [value] with #comment',
+        '--criticals-found', '1',
+        '--criticals-fixed', '1',
+        '--majors', '0',
+      ]);
+      expect(exitCode).toBe(0);
+      const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+      expect(metadata).toContain('skill: prospec-review');
+      expect(metadata).toContain('criticals_found: 1');
+      // a malformed result is refused by commander's choices
+      const bad = await runCli(['change', 'log', '--skill', 's', '--result', 'A']);
+      expect(bad.exitCode).not.toBe(0);
+    });
+
+    it('change progress reports code-task X/Y and flips exactly one checkbox', async () => {
+      const changeDir = await initChange();
+      await fs.promises.writeFile(
+        path.join(changeDir, 'tasks.md'),
+        '# Tasks\n\n- [ ] T1 first ~10 lines\n- [ ] T2 [M] manual step\n- [ ] T3 second ~10 lines\n',
+      );
+      const report = await runCli(['change', 'progress']);
+      expect(report.exitCode).toBe(0);
+      expect(report.stdout).toContain('Progress 0/2');
+      const complete = await runCli(['change', 'progress', '--complete', 'T1']);
+      expect(complete.exitCode).toBe(0);
+      expect(complete.stdout).toContain('Progress 1/2');
+      const tasks = await fs.promises.readFile(path.join(changeDir, 'tasks.md'), 'utf-8');
+      expect(tasks).toContain('- [x] T1 first');
+      expect(tasks).toContain('- [ ] T3 second');
+    });
+
+    it('knowledge update refuses change mode without a delta-spec, pointing at --module', async () => {
+      await initChange();
+      const { exitCode, stderr } = await runCli(['knowledge', 'update', '--change', 'my-change']);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('delta-spec.md not found');
+    });
+
+    it('review merge builds the cumulative table and reports round counts', async () => {
+      const changeDir = await initChange();
+      const findings = path.join(tmpDir, 'round.json');
+      await fs.promises.writeFile(
+        findings,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug' },
+        ]),
+      );
+      const { exitCode, stdout } = await runCli(['review', 'merge', '--findings', findings]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('criticals_found=1');
+      const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
+      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | bug |');
+      const bad = await runCli(['review', 'merge', '--findings', path.join(tmpDir, 'missing.json')]);
+      expect(bad.exitCode).not.toBe(0);
+    });
+
+    it('verify record refuses without the drift report, naming the prerequisite', async () => {
+      await initChange();
+      const { exitCode, stderr } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
+      ]);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('prospec-report.json not found');
+    });
+
+    it('learn upsert creates the ledger and emits the audit rule string at threshold', async () => {
+      await initChange();
+      const lesson = path.join(tmpDir, 'lesson.json');
+      await fs.promises.writeFile(
+        lesson,
+        JSON.stringify({
+          key: 'test/lesson',
+          description: 'a lesson',
+          kind: 'playbook',
+          source_change: 'my-change',
+          impact_modules: ['lib', 'services'],
+        }),
+      );
+      const first = await runCli(['learn', 'upsert', '--lesson', lesson]);
+      expect(first.exitCode).toBe(0);
+      expect(first.stdout).toContain('Ledger created');
+      const ledger = await fs.promises.readFile(
+        path.join(tmpDir, 'prospec', 'ai-knowledge', '_lessons-ledger.md'),
+        'utf-8',
+      );
+      expect(ledger).toContain('| test/lesson |');
+      // idempotent for the same source change
+      const second = await runCli(['learn', 'upsert', '--lesson', lesson]);
+      expect(second.stdout).toContain('Ledger unchanged');
+    });
+
+    it('validate slug exits 0 on PASS and 1 on FAIL (machine gate)', async () => {
+      await initChange();
+      expect((await runCli(['validate', 'slug', 'user-profile'])).exitCode).toBe(0);
+      const bad = await runCli(['validate', 'slug', 'a/../b']);
+      expect(bad.exitCode).toBe(1);
+      expect(bad.stdout).toContain('FAIL');
+    });
+
+    it('archive finalize --dry-run writes NOTHING (parent/child flag shadowing)', async () => {
+      // `--dry-run` is declared on both `archive` and `archive finalize`;
+      // commander binds it to the parent, so reading the subcommand's own opts
+      // silently wrote on a dry run. Reverting to `opts.dryRun` turns this red.
+      await initChange();
+      const bundle = path.join(tmpDir, '.prospec', 'archive', '2026-07-30-my-change');
+      await fs.promises.mkdir(bundle, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(bundle, 'summary.md'),
+        '# my-change\n\n## Review & Verify\n\n- grade: S\n',
+      );
+      const specsDir = path.join(tmpDir, 'prospec', 'specs', 'features');
+      await fs.promises.mkdir(specsDir, { recursive: true });
+      const specPath = path.join(specsDir, 'f.md');
+      const specBefore = '---\nfeature: f\nstory_count: 0\nreq_count: 0\n---\n\n## US-1: s\n';
+      await fs.promises.writeFile(specPath, specBefore);
+
+      const { exitCode, stdout } = await runCli(['archive', 'finalize', 'my-change', '--dry-run']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('dry-run');
+      expect(fs.existsSync(path.join(tmpDir, 'prospec', 'specs', '_archived-history'))).toBe(false);
+      expect(await fs.promises.readFile(specPath, 'utf-8')).toBe(specBefore);
+    });
+
+    it('archive finalize refuses without an archived bundle', async () => {
+      await initChange();
+      const { exitCode, stderr } = await runCli(['archive', 'finalize', 'my-change']);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('No archived bundle');
+    });
+
+    it('agent triggers --write inserts only missing keys, preserving the config', async () => {
+      await initChange();
+      const configPath = path.join(tmpDir, '.prospec.yaml');
+      const before = await fs.promises.readFile(configPath, 'utf-8');
+      const scaffold = path.join(tmpDir, 'triggers.yaml');
+      await fs.promises.writeFile(scaffold, 'skill_triggers:\n  prospec-verify:\n    - 驗證\n');
+      const { exitCode } = await runCli(['agent', 'triggers', '--write', scaffold]);
+      expect(exitCode).toBe(0);
+      const after = await fs.promises.readFile(configPath, 'utf-8');
+      expect(after).toContain('prospec-verify:');
+      expect(after).toContain('- 驗證');
+      expect(after).toContain(before.split('\n')[0]!);
+      // unknown skill name is refused before touching the config
+      await fs.promises.writeFile(scaffold, 'skill_triggers:\n  prospec-nope:\n    - x\n');
+      const bad = await runCli(['agent', 'triggers', '--write', scaffold]);
+      expect(bad.exitCode).not.toBe(0);
     });
   });
 

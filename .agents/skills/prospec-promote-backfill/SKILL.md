@@ -17,6 +17,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Load the format references this scaffold must match: `references/proposal-format.md`, `references/delta-spec-format.md`
@@ -30,7 +46,7 @@ Write each generated document in the language the Constitution's Language Policy
 
 - `.prospec/changes/[name]/backfill-draft.md` exists and is route-compatible (`**Feature:**`/`**Story:**` headers + User Story + Acceptance Criteria candidates).
 - The draft has **no unresolved `[NEEDS CLARIFICATION]`** — promotion is a record of *confirmed* behavior; an unresolved marker means the user-review gate (`/prospec-backfill-spec` Phase 5) is incomplete. FAIL → send the user back to resolve it; never carry it into the scaffold.
-- The candidate feature slug is confirmed and passes `isSafeResourceName` (reject separators / `..`).
+- The candidate feature slug is confirmed and `prospec validate slug <candidate>` (Bash) PASSes.
 
 ## Core Workflow
 
@@ -41,26 +57,35 @@ Write each generated document in the language the Constitution's Language Policy
 Confirm the Entry Gate held. Cluster the draft's stories under the confirmed feature slug; align to an existing `prospec/specs/features/{slug}.md` when one fits. Map each story's traced `file:line` to module names via `prospec/ai-knowledge/module-map.yaml` — this set becomes `related_modules` (archive's backfill module-derivation source; it must be non-empty).
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] Entry Gate satisfied; feature slug confirmed + `isSafeResourceName`-valid
+> - [ ] Entry Gate satisfied; feature slug confirmed + `prospec validate slug` PASSes
 > - [ ] every story's traced `file:line` mapped to ≥1 module → `related_modules` set (non-empty)
 
-### Phase 2: proposal.md
+### Phase 2: Scaffold + proposal.md
 
-Write `proposal.md` per `references/proposal-format.md`: each draft story → an INVEST User Story (As a / I want / So that + WHEN/THEN Acceptance Scenarios from the draft's AC). Carry the draft's *So that* / role verbatim — they were confirmed at review. Edge Cases and FR/SC trace to the draft's behaviors. (`/prospec-archive` Phase 3.5 graduates the Feature Spec from this proposal + the delta-spec below.)
+Run `prospec change story [slug] --description "<one-liner>" --related-module <m>` (Bash; repeat
+`--related-module` per traced module from Phase 1 — explicit modules override the name-keyword
+auto-match, which knows nothing about the traced code). The CLI scaffolds the change directory,
+metadata.yaml (status: story), and a proposal.md skeleton.
+
+Then overwrite `proposal.md` per `references/proposal-format.md`: each draft story → an INVEST User Story (As a / I want / So that + WHEN/THEN Acceptance Scenarios from the draft's AC). Carry the draft's *So that* / role verbatim — they were confirmed at review. Edge Cases and FR/SC trace to the draft's behaviors. (`/prospec-archive` Phase 3.5 graduates the Feature Spec from this proposal + the delta-spec below.)
 
 ### Phase 3: delta-spec.md
 
 Write `delta-spec.md` per `references/delta-spec-format.md`: each draft AC candidate → a REQ under `## ADDED` with `**Feature:**` (the confirmed slug) and `**Story:**` routing. Keep the feature-first REQ-id (`REQ-{FEATURE-SLUG}-NNN`) — archive routes by `**Feature:**` and derives modules from `related_modules`/feature-map, so the REQ-id need not be module-based. Every AC keeps its `file:line` citation so `/prospec-verify` can re-confirm fidelity.
 
-### Phase 4: metadata.yaml
+### Phase 4: metadata.yaml (CLI-written)
 
-Write `.prospec/changes/[name]/metadata.yaml` with: `name`, `scale: backfill`, `status: implemented` (brownfield code pre-exists — this is backfill's lifecycle entry point; no earlier transition runs), `related_modules` (from Phase 1), and the change `description`. Serialize as data (the same path the change services use) so user-provided text is escaped by construction.
+Run `prospec change scale backfill` then `prospec change status implemented` (Bash) — brownfield
+code pre-exists, so `implemented` is backfill's lifecycle entry point (a legal forward jump; no
+earlier transition runs). `name`/`related_modules`/`description` were already CLI-written at Phase 2.
+Never hand-serialize metadata.yaml. Finally run `prospec validate promote-scaffold --change [name]`
+(Bash) — the complete machine verdict for this scaffold: draft + proposal present, **no
+plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitted trust-zone writes.
 
 > **No `plan.md` and no `tasks.md`.** Backfill records existing code: there is no forward implementation to plan and no work to schedule, so producing them would be hollow make-work that exists only to satisfy a forward-path gate. `verify`/`review`/`archive` are scale-aware for `backfill` (Entry Gate requires only proposal + delta-spec; verify 1/5 task-completion is `not-applicable`). The draft's traced architecture/call-chain already lives in `backfill-draft.md` and the delta-spec AC `file:line` citations — it is not re-presented here.
 
 > **Phase 4 Gate** — proceed when:
-> - [ ] `metadata.yaml` written with `scale: backfill` + `status: implemented` + non-empty `related_modules`
-> - [ ] only `proposal.md` + `delta-spec.md` (+ `metadata.yaml`) staged — no `plan.md`/`tasks.md`
+> - [ ] `prospec validate promote-scaffold` reports PASS (scale/status/artifact set/trust-zone all machine-verified)
 > - [ ] nothing written under `prospec/specs/features/`
 
 ### Phase 5: Handoff
@@ -72,8 +97,7 @@ Present the produced scaffold and route the user to `/prospec-verify` — under 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / count) — no subjective adjectives.
 
 ### Success Criteria
-- [ ] `proposal.md` + `delta-spec.md` written under `.prospec/changes/[name]/` (grep); **no `plan.md`/`tasks.md`** (backfill is a light scale)
-- [ ] `metadata.yaml` has `scale: backfill`, `status: implemented`, and non-empty `related_modules` (grep)
+- [ ] `proposal.md` + `delta-spec.md` written under `.prospec/changes/[name]/`; `prospec validate promote-scaffold` PASSes (no `plan.md`/`tasks.md`, `scale: backfill`, `status: implemented`, non-empty `related_modules`)
 - [ ] no `[NEEDS CLARIFICATION]` in any produced artifact (grep)
 - [ ] nothing written under `prospec/specs/features/` (trust zone untouched)
 
@@ -100,7 +124,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | `backfill-draft.md` missing | Guide user to run `/prospec-backfill-spec` first (it stages the draft) |
 | Unresolved `[NEEDS CLARIFICATION]` in the draft | STOP; send the user back to `/prospec-backfill-spec` Phase 5 to resolve before promoting |
-| Candidate feature slug fails `isSafeResourceName` | Reject; ask the user to confirm a safe slug |
+| Candidate feature slug fails `prospec validate slug` | Reject; ask the user to confirm a safe slug |
 | No module resolves from the draft's `file:line` | STOP; `related_modules` cannot be empty — the draft's tracing is incomplete |
 
 ## Next-Step Handoff

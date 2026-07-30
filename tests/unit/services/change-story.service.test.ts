@@ -496,3 +496,23 @@ describe('change-story branch coverage', () => {
     expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
   });
 });
+
+describe('explicit related modules (--related-module)', () => {
+  it('overrides keyword auto-matching with the caller-named modules', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+    });
+    const result = await execute({
+      name: 'promote-widget',
+      cwd: '/project',
+      relatedModules: ['services', 'cli'],
+    });
+    expect(result.relatedModules.map((m) => m.name)).toEqual(['services', 'cli']);
+    const metadata = vol.readFileSync(
+      '/project/.prospec/changes/promote-widget/metadata.yaml',
+      'utf-8',
+    ) as string;
+    expect(metadata).toContain('- services');
+    expect(metadata).toContain('- cli');
+  });
+});

@@ -1,37 +1,35 @@
 # Metadata (metadata.yaml) Format Reference
 
-This document defines the **serialization format** for a change's `metadata.yaml`
-(`.prospec/changes/{name}/metadata.yaml`). It exists so every skill that creates or
-appends to `metadata.yaml` emits byte-consistent YAML instead of inventing field order,
-quoting, or date format per invocation.
+This document is a **reader's guide** to a change's `metadata.yaml`
+(`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read** (issue
+#107): every mutation goes through a `prospec` command — `change story` (create),
+`change scale`, `change status`, `change log` (quality_log append), `verify record`,
+`check --record-review` / `--record-tests`, `archive` — so skills never hand-serialize it.
+What follows documents the shape those commands emit, so a skill reading the file (or
+composing structured CLI input) knows what each field means.
 
 > **Scope: format only.** Field *semantics*, types, and optionality are defined by the
 > `ChangeMetadataSchema` in `src/types/change.ts`; `status` values and their transitions
 > by `{{knowledge_base_path}}/_status-lifecycle.md`; the required-field floor is enforced by
 > the `metadata-completeness` drift check (`prospec check`). This reference does **not**
-> restate any of them — it governs how the data is written to disk. When in doubt about a
-> value's meaning, read those sources; when in doubt about how to lay it out, read this.
+> restate any of them. When in doubt about a value's meaning, read those sources.
 
 ---
 
-## Serialization conventions
+## Serialization conventions (what the CLI emits)
 
-- **Block style**, 2-space indent — never flow/inline maps or sequences for the top-level
-  fields. Arrays are block sequences (`- item` on their own lines).
-- **Key order is canonical and fixed** (see below) — write keys in this order; do not reorder
-  to match how you happened to gather the data.
-- **Minimal quoting** — quote a scalar only when YAML requires it (leading special char,
-  a value that would otherwise parse as a non-string, an embedded `:` + space). Do not
-  wrap plain prose or dates in quotes by habit; do not use `>-`/`|` block scalars for a
-  one-line `description`.
+- **Block style**, 2-space indent; arrays are block sequences (`- item` on their own lines).
+- **Key order is canonical and fixed** (see below).
+- **Minimal quoting** — a scalar is quoted only when YAML requires it; user text is
+  serialized as data, so escaping is by construction.
 - **No Markdown inside values** — `related_modules` entries are bare module names
   (`- lib`), never `- "**lib**"`; descriptions are plain text.
-- **`created_at` is a full ISO 8601 timestamp** (`2026-07-13T09:51:00.000Z`), matching the
-  CLI path's `new Date().toISOString()` in `change-story.service.ts` — not a bare `YYYY-MM-DD`.
+- **`created_at` is a full ISO 8601 timestamp** (`2026-07-13T09:51:00.000Z`) — not a bare `YYYY-MM-DD`.
 - **No document markers** (`---`/`...`) and exactly one trailing newline.
 
-This is exactly what `stringifyYaml` (the `yaml` library, default options) emits, so the
-skill-authored file and the CLI-authored file (`prospec change story`) converge.
+This is what `stringifyYaml` (the `yaml` library, default options) emits. A skill that
+finds itself about to WRITE this shape by hand has taken a wrong turn — run the owning
+`prospec` command instead.
 
 ## Canonical field order
 
@@ -40,16 +38,16 @@ skill-authored file and the CLI-authored file (`prospec change story`) converge.
 
 | Field | Required | Written by | Notes |
 |-------|----------|-----------|-------|
-| `name` | yes | new-story / ff (create) | change dir name (kebab-case) |
-| `created_at` | yes | new-story / ff (create) | full ISO 8601 |
-| `status` | yes | every stage that owns a transition | one of the lifecycle values (`_status-lifecycle.md`) |
-| `scale` | no (defaults `standard`) | new-story / ff, after user-confirmed assessment | one of the schema's `CHANGE_SCALES` values |
-| `related_modules` | no | new-story / ff | bare module names |
-| `description` | no | new-story / ff | one line, plain text |
-| `quality_log` | no | new-story, ff, plan, tasks, review, verify, learn (append) | gate trail — see below |
+| `name` | yes | `prospec change story` (create) | change dir name (kebab-case) |
+| `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
+| `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
+| `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment | one of the schema's `CHANGE_SCALES` values |
+| `related_modules` | no | `prospec change story` (auto-match or `--related-module`) | bare module names |
+| `description` | no | `prospec change story --description` | one line, plain text |
+| `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
-| `introduced_by` | no | new-story (bug-fix changes only) | escaped-defect registration |
+| `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
 
 ### `test_provenance` — the recorded test run
 

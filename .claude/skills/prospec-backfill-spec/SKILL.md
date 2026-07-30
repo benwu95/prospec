@@ -17,6 +17,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [DYNAMIC] Read `prospec/index.md` — module routing only
@@ -62,18 +78,18 @@ Write the draft to `.prospec/changes/[name]/backfill-draft.md`, route-compatible
 
 **Mark un-inferable story-level intent** with `[NEEDS CLARIFICATION]` — the *So that* value, the target role, or an ambiguous AC — and never fabricate. The target role may be inferred from a product/consumer name in git/docs/README (e.g. a named downstream product); mark `[NEEDS CLARIFICATION]` only when no such signal exists. When translating an English source into the document language, widen marking on low-confidence intent.
 
-**>50% guardrail** — if the `[NEEDS CLARIFICATION]` ratio exceeds 50%, abort and suggest the forward path instead (sources too thin to reverse intent). The denominator counts **story-level intent fields only** (So that / role / AC meaning). A heuristic's calibration rationale (why a magic number is that value) is recorded as a behavior AC with its value; its missing WHY may be marked `[NEEDS CLARIFICATION]` but is **not counted toward the >50%** — otherwise a well-documented module would falsely abort. A vertical slice spans more modules and draws intent from more sources (multiple commits / READMEs), so a wide slice with a few un-inferable intents must not falsely trip the abort — apply the same heuristic-WHY exemption.
+**>50% guardrail** — run `prospec validate backfill-draft --change [name]` (Bash) for the structural facts: route-header presence and every `[NEEDS CLARIFICATION]` marker with its line location. The RATIO stays your judgment over those facts: if the ratio exceeds 50%, abort and suggest the forward path instead (sources too thin to reverse intent). The denominator counts **story-level intent fields only** (So that / role / AC meaning) — classifying which reported markers are story-level is semantic work the CLI deliberately leaves to you. A heuristic's calibration rationale (why a magic number is that value) is recorded as a behavior AC with its value; its missing WHY may be marked `[NEEDS CLARIFICATION]` but is **not counted toward the >50%** — otherwise a well-documented module would falsely abort. A vertical slice spans more modules and draws intent from more sources (multiple commits / READMEs), so a wide slice with a few un-inferable intents must not falsely trip the abort — apply the same heuristic-WHY exemption.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `.prospec/changes/[name]/backfill-draft.md` written, route-compatible (`**Feature:**`/`**Story:**` + US/AC candidates)
-> - [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]`; if >50% (story-level denominator) → aborted to the forward path
+> - [ ] `prospec validate backfill-draft` PASSes (route-compatible headers) and its NC facts were classified; if >50% (story-level denominator, your classification) → aborted to the forward path
 
 ### Phase 3: Trust-zone invariant & candidate slug
 
-Backfill extraction **never writes** to `prospec/specs/features/` (`archive.service.ts` stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `prospec/specs/features/` slug when one fits. The proposed slug must satisfy `isSafeResourceName` (reject separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
+Backfill extraction **never writes** to `prospec/specs/features/` (`archive.service.ts` stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `prospec/specs/features/` slug when one fits. Check the proposed slug with `prospec validate slug <candidate>` (Bash) — the executable `isSafeResourceName` guard (rejects separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] nothing written under `prospec/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `isSafeResourceName`-valid
+> - [ ] nothing written under `prospec/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `prospec validate slug` PASSes
 
 ### Phase 4: WHAT-layer coverage scoping (optional)
 
@@ -89,7 +105,7 @@ Present the draft, resolve `[NEEDS CLARIFICATION]`, and confirm the candidate fe
 
 ### Success Criteria
 - [ ] `.prospec/changes/[name]/backfill-draft.md` written, route-compatible (grep `**Feature:**`/`**Story:**`)
-- [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]` (grep); >50% story-level → aborted
+- [ ] every un-inferable story-level intent field marked `[NEEDS CLARIFICATION]` (`prospec validate backfill-draft` reports the markers); >50% story-level → aborted
 - [ ] nothing written under `prospec/specs/features/` (the trust zone stays untouched)
 
 ### Failure Conditions

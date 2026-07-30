@@ -64,3 +64,25 @@ describe('INIT_DOC_REGISTRY templates render (issue #48)', () => {
     expect(rendered).toContain('prospec/ai-knowledge');
   });
 });
+
+describe('init entry config carries the cli-first probe floor (review C4, issue #107)', () => {
+  it('buildInitDocContexts.standard renders entry.md.hbs with a real minimum_cli_version', async () => {
+    const { buildInitDocContexts } = await import('../../src/lib/init-docs.js');
+    const { MINIMUM_CLI_VERSION } = await import('../../src/types/version.js');
+    const config = {
+      version: '0.0.0',
+      project: { name: 'contract-test', language: 'English' },
+      agents: ['claude'],
+    } as never;
+    const contexts = buildInitDocContexts(config, process.cwd());
+    const rendered = renderTemplate('agent-configs/entry.md.hbs', {
+      ...contexts.standard,
+      skills: [],
+      constitution_path: 'prospec/CONSTITUTION.md',
+      knowledge_base_path: 'prospec/ai-knowledge',
+    });
+    // The exact regression: a missing key renders an empty hole `version ≥ )`.
+    expect(rendered).toContain(`version ≥ ${MINIMUM_CLI_VERSION}`);
+    expect(rendered).not.toContain('version ≥ )');
+  });
+});

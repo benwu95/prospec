@@ -17,6 +17,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
@@ -117,18 +133,17 @@ Skip this phase if:
 
 Validate the design output:
 
-1. **Structure check** — Verify design-spec.md has all required sections (Visual Identity, Components, Responsive Strategy)
-2. **Completeness check** — Verify every component in proposal's UI scope has a corresponding entry
+1. **Structure check (CLI)** — Run `prospec validate design-spec --change [name]` (Bash): it machine-verifies the required sections (Visual Identity, Components, Responsive Strategy) AND that zero `[NEEDS CLARIFICATION]` markers remain (with line locations when any do)
+2. **Completeness check (judgment)** — Extract the component list from the proposal's UI scope yourself (prose extraction is your call, never the CLI's), then verify every component has a corresponding spec entry
 3. **Visual check** (if design tool used) — Use adapter's Verify Phase guidelines:
    - pencil: `get_screenshot()` to capture and review
    - figma: Compare Figma nodes with spec
    - html: Open prototype in browser
-4. **No `[NEEDS CLARIFICATION]` remaining** — All items must be resolved
 
 > **Phase 4 Gate** — proceed when:
-> - [ ] design-spec.md structure check passes (Visual Identity / Components / Responsive Strategy present)
-> - [ ] Every component in the proposal's UI scope has a corresponding spec entry
-> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs
+> - [ ] `prospec validate design-spec` reports PASS (required sections present, zero `[NEEDS CLARIFICATION]`)
+> - [ ] Every component in the proposal's UI scope has a corresponding spec entry (your extraction + comparison)
+> - [ ] Zero `[NEEDS CLARIFICATION]` markers remain across both specs (interaction-spec checked by you)
 
 ### Phase 5: Summary + Next Steps
 

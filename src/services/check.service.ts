@@ -199,6 +199,9 @@ export async function execute(
     constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
     generatedAt: new Date().toISOString(),
   });
+  // Stamp the code state the verdicts describe — `verify record` refuses a
+  // report whose digest no longer matches the tree (freshness guard).
+  report.change_digest = currentDigest;
 
   const result: CheckResult = {
     kind: 'report',

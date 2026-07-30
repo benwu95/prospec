@@ -16,11 +16,27 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
 2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
-3. [STABLE] **MANDATORY** — Read [`references/metadata-format.md`](references/metadata-format.md) for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape) — the scaffolded metadata.yaml MUST follow it
+3. [DYNAMIC] Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized
 4. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field
 5. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
 
@@ -55,12 +71,12 @@ Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm
 
 | Scenario | Action |
 |----------|--------|
-| Directory doesn't exist | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story, serialized per [`references/metadata-format.md`](references/metadata-format.md)) + empty `proposal.md` |
+| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>"` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md` |
 | Already exists | Read existing files, proceed to populate |
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] `.prospec/changes/[name]/` exists with `metadata.yaml` and `proposal.md`
-> - [ ] `metadata.yaml` `status` is set to `story`
+> - [ ] `prospec change story` ran (or the directory pre-existed) — `.prospec/changes/[name]/` has `metadata.yaml` + `proposal.md`
+> - [ ] `metadata.yaml` `status` is `story` (CLI-written — never edit it by hand)
 
 ### Phase 3.5: Complexity Assessment (Scale)
 
@@ -84,7 +100,7 @@ against the actual diff.)
 1. Read `prospec/specs/features/` on demand to check whether existing REQs cover the affected behavior
 2. Present the proposed scale WITH reasoning against the criteria table
 3. Ask the user to confirm or override — **never write `scale` without user confirmation**
-4. Write the confirmed value to `metadata.yaml` `scale: quick|standard|full`
+4. Write the confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand
 
 > **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
 > `/prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
@@ -131,7 +147,7 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
-Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it to `metadata.yaml` `quality_log`; **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
+Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
 - **PASS**: the Story satisfies INVEST
 - **WARN**: partially satisfies — record suggestions, proceed
 
@@ -171,7 +187,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**INVEST**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**INVEST**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -180,10 +196,10 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md
-- **NEVER** forget to update metadata.yaml status to `story` (see `prospec/ai-knowledge/_status-lifecycle.md`)
+- **NEVER** hand-edit metadata.yaml — scaffold, `scale`, and `quality_log` writes go through `prospec change story` / `change scale` / `change log` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** ask more than 4 questions at once
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
-- **NEVER** write `scale` to metadata.yaml without explicit user confirmation — a misjudged `quick` skips plan entirely
+- **NEVER** run `prospec change scale` without explicit user confirmation — a misjudged `quick` skips plan entirely
 - **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
 
 ## Error Handling

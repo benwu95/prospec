@@ -17,29 +17,37 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — if exists
 2. [STABLE] Read `prospec/ai-knowledge/_module-readme-conventions.md` and `prospec/ai-knowledge/_diagram-conventions.md` — the canonical module-README structure and diagram rules to generate against (Step 4 generates directly against this canonical file — it is not restated here)
 3. [STABLE] Read `prospec/CONSTITUTION.md` — if exists
-4. [DYNAMIC] Ensure `prospec/ai-knowledge/raw-scan.md` is current, then read it — first run `prospec knowledge init --raw-scan-only` (deterministic, no LLM; creates it if absent) so READMEs generate against the real current structure; if `prospec` is unavailable, see Prerequisite for the fallback ladder. `module-map.yaml` must already exist (init bootstrap)
+4. [DYNAMIC] Ensure `prospec/ai-knowledge/raw-scan.md` is current, then read it — first run `prospec knowledge init --raw-scan-only` (deterministic, no LLM; creates it if absent) so READMEs generate against the real current structure. `module-map.yaml` must already exist (init bootstrap)
 5. [DYNAMIC] Read `prospec/index.md` — if exists
 6. [DYNAMIC] Read `.prospec.yaml` → check `knowledge.strategy` (auto|architecture|domain|package) and `knowledge.token_budget`
 
 ## Prerequisite
 
 Run `prospec knowledge init` first to generate `raw-scan.md`, `module-map.yaml`, and empty
-scaffolding. On re-runs, Startup Loading keeps `raw-scan.md` current with the code via this
-deterministic fallback ladder (no Python/bash, Windows-safe):
-
-1. `prospec knowledge init --raw-scan-only` — global install on PATH.
-2. `pnpm exec prospec knowledge init --raw-scan-only` / `npx -y prospec knowledge init --raw-scan-only` — when prospec is a
-   project devDependency or fetchable via npx (the common "cloned the repo, no global install" case).
-3. No Node toolchain at all → skip the refresh and proceed with the existing `raw-scan.md`, stating
-   it may be stale and recommending the user install prospec for an exact scan (Node.js projects: add
-   `prospec` to `devDependencies`; other ecosystems: `npm i -g prospec`, which still needs Node on the
-   machine). As a last resort the agent MAY derive structure directly from the working tree — mark it
-   **approximate, not deterministic**.
+scaffolding. On re-runs, Startup Loading keeps `raw-scan.md` current via
+`prospec knowledge init --raw-scan-only` (deterministic, no LLM). The CLI is a required file
+(see CLI Prerequisite) — there is no fallback ladder and no approximate working-tree scan.
 
 `module-map.yaml` is only produced by a full `prospec knowledge init` (bootstrap), never by `--raw-scan-only` — so a
 first-ever run still needs the full init.
@@ -210,7 +218,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** overwrite content between `prospec:user-start/end` markers — these are user notes, always preserve
-- **NEVER** start without raw-scan.md — Startup Loading runs `prospec knowledge init --raw-scan-only` to (re)generate it (CLI fallback ladder in Prerequisite); only if no `raw-scan.md` exists AND no runtime can produce one, stop and prompt `prospec knowledge init`
+- **NEVER** start without raw-scan.md — Startup Loading runs `prospec knowledge init --raw-scan-only` to (re)generate it; a first-ever run needs the full `prospec knowledge init` (bootstrap) first
 - **NEVER** create circular module dependencies — module dependency graph must be a DAG
 - **NEVER** put all files in a single module — even small projects need 2-3 responsibility modules minimum
 - **NEVER** ignore Tech Stack info from raw-scan.md — it affects module splitting strategy
@@ -224,8 +232,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| raw-scan.md stale or missing | Refresh via the Prerequisite CLI ladder (`prospec knowledge init --raw-scan-only` → `pnpm exec`/`npx` → degrade); `module-map.yaml` absent → `prospec knowledge init` |
-| No runtime can run prospec (no Node) | Proceed with existing `raw-scan.md` (state it may be stale) or an approximate working-tree scan; recommend installing prospec — never proceed silently |
+| raw-scan.md stale or missing | Refresh via `prospec knowledge init --raw-scan-only`; `module-map.yaml` absent → full `prospec knowledge init` |
 | raw-scan.md incomplete | List missing sections, suggest re-running `prospec knowledge init --raw-scan-only` (or full init) or manual completion |
 | Module README already exists | Only overwrite auto sections, preserve user sections |
 | Strategy produces <2 modules | Fall back to `architecture` strategy |

@@ -9,6 +9,7 @@ import { ACTIVE_REQ_HEADING, reqIdToPrefix } from '../lib/drift-sources.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import type { ChangeStatus } from '../types/change.js';
+import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
 import { ScanError, WriteError } from '../types/errors.js';
@@ -1078,5 +1079,205 @@ function parseFeatureSpecFrontmatter(
   return {
     feature: featureMatch[1]!.trim(),
     status: statusMatch?.[1]?.trim() ?? 'active',
+  };
+}
+
+// --- Finalize (`prospec archive finalize <name>`, issue #107) ---
+
+export interface ArchiveFinalizeOptions {
+  name: string;
+  cwd?: string;
+  dryRun?: boolean;
+}
+
+export interface CounterReconciliation {
+  file: string;
+  from: { story_count: number | null; req_count: number | null };
+  to: { story_count: number; req_count: number };
+}
+
+export interface ArchiveFinalizeResult {
+  changeName: string;
+  archiveDir: string;
+  /** The committed spec-history copy destination. */
+  historyPath: string;
+  /** Feature specs whose frontmatter counters were corrected. */
+  reconciled: CounterReconciliation[];
+  planned: PlannedMutation[];
+  dryRun: boolean;
+}
+
+/**
+ * The POST-JUDGMENT archive write points. `prospec archive` runs BEFORE the
+ * skill's judgment work (the Phase 2 summary overwrite and the Phase 3.5 REQ
+ * graduation); these two mutations must run AFTER it, or the history copy
+ * captures the scaffold and the counters count the pre-graduation text:
+ *
+ * 1. copy the (overwritten) summary.md to `specs/_archived-history/{dir}.md`
+ *    — the committed audit trail (.prospec/archive/ is gitignored);
+ * 2. recount every feature spec's frontmatter `story_count` / `req_count`
+ *    from its FINAL body (`### US-` headings; `#### REQ-` outside Deprecated).
+ *
+ * Refuses while summary.md still lacks the `## Review & Verify` section — the
+ * deterministic marker that the scaffold has not been overwritten yet.
+ */
+export async function executeFinalize(
+  options: ArchiveFinalizeOptions,
+): Promise<ArchiveFinalizeResult> {
+  const cwd = options.cwd ?? process.cwd();
+  const dryRun = options.dryRun ?? false;
+
+  const archiveRoot = path.join(cwd, '.prospec', 'archive');
+  const archiveDirName = findArchiveDirName(archiveRoot, options.name);
+  if (!archiveDirName) {
+    throw new PrerequisiteError(
+      `No archived bundle found for '${options.name}' under .prospec/archive/`,
+      'Run `prospec archive <name>` first — finalize is the post-judgment step',
+    );
+  }
+  const archiveDir = path.join(archiveRoot, archiveDirName);
+  const summaryPath = path.join(archiveDir, 'summary.md');
+  if (!fs.existsSync(summaryPath)) {
+    throw new PrerequisiteError(
+      `summary.md missing in ${archiveDirName}`,
+      'Re-run `prospec archive <name>` to scaffold it, then overwrite it with the Phase 2 summary',
+    );
+  }
+  const summaryContent = fs.readFileSync(summaryPath, 'utf-8');
+  if (!/^##\s+Review\s*&\s*Verify/m.test(summaryContent)) {
+    throw new PrerequisiteError(
+      `summary.md in ${archiveDirName} has no \`## Review & Verify\` section — it still looks like the scaffold`,
+      'Finalize runs AFTER the summary is overwritten with the Review & Verify record and REQ graduation is done',
+    );
+  }
+
+  const config = await readConfig(cwd);
+  const { specsPath } = resolveBasePaths(config, cwd);
+  const historyDir = path.join(specsPath, '_archived-history');
+  const historyPath = path.join(historyDir, `${archiveDirName}.md`);
+  const relHistoryPath = path.relative(cwd, historyPath).replace(/\\/g, '/');
+
+  const planned: PlannedMutation[] = [
+    {
+      action: 'write',
+      target: relHistoryPath,
+      detail: 'copy the finalized summary.md into the committed spec history',
+    },
+  ];
+
+  // Counter reconciliation across every active feature spec — recounting from
+  // the body is idempotent and also corrects pre-existing drift (PB-004).
+  const featuresDir = path.join(specsPath, 'features');
+  const reconciled: CounterReconciliation[] = [];
+  const rewrites: Array<{ absolute: string; content: string }> = [];
+  if (fs.existsSync(featuresDir)) {
+    for (const entry of fs.readdirSync(featuresDir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const absolute = path.join(featuresDir, entry.name);
+      const content = fs.readFileSync(absolute, 'utf-8');
+      const recount = recountFeatureSpecCounters(content);
+      if (!recount || !recount.changed) continue;
+      const relFile = path.relative(cwd, absolute).replace(/\\/g, '/');
+      reconciled.push({ file: relFile, from: recount.from, to: recount.to });
+      planned.push({
+        action: 'update',
+        target: relFile,
+        detail: `reconcile frontmatter counters (story_count ${recount.from.story_count ?? '—'} → ${recount.to.story_count}, req_count ${recount.from.req_count ?? '—'} → ${recount.to.req_count})`,
+      });
+      rewrites.push({ absolute, content: recount.content });
+    }
+  }
+
+  if (!dryRun) {
+    await ensureDir(historyDir);
+    await atomicWrite(historyPath, summaryContent);
+    for (const rewrite of rewrites) {
+      await atomicWrite(rewrite.absolute, rewrite.content);
+    }
+  }
+
+  return {
+    changeName: options.name,
+    archiveDir: path.relative(cwd, archiveDir).replace(/\\/g, '/'),
+    historyPath: relHistoryPath,
+    reconciled,
+    planned,
+    dryRun,
+  };
+}
+
+/** Latest `{YYYY-MM-DD}-{name}` directory for the change (null when none). */
+function findArchiveDirName(archiveRoot: string, name: string): string | null {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(archiveRoot, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const matches = entries
+    .filter((e) => e.isDirectory() && new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegExp(name)}$`).test(e.name))
+    .map((e) => e.name)
+    .sort();
+  return matches.at(-1) ?? null;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Recount `story_count` (`### US-` headings) and `req_count` (`#### REQ-`
+ * headings outside the `## Deprecated Requirements` section) from the spec
+ * body and rewrite the frontmatter values. Returns null when the file has no
+ * frontmatter counters to reconcile.
+ */
+export function recountFeatureSpecCounters(content: string): {
+  content: string;
+  changed: boolean;
+  from: { story_count: number | null; req_count: number | null };
+  to: { story_count: number; req_count: number };
+} | null {
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+
+  let storyCount = 0;
+  let reqCount = 0;
+  let inDeprecated = false;
+  for (const line of content.slice(fmMatch[0].length).split('\n')) {
+    const h2 = /^##\s+(.+)$/.exec(line);
+    if (h2) {
+      const title = h2[1]!.trim();
+      inDeprecated = /^deprecated requirements/i.test(title);
+      // Real feature specs carry stories at BOTH heading levels — sdd-workflow
+      // is all `## US-`, mcp-server all `### US-`, drift-detection mixed. Every
+      // current frontmatter counter equals the h2+h3 union.
+      if (/^US-/.test(title)) storyCount++;
+      continue;
+    }
+    if (/^###\s+US-/.test(line)) storyCount++;
+    if (!inDeprecated && /^####\s+REQ-/.test(line)) reqCount++;
+  }
+
+  const fromStory = /^story_count:\s*(\d+)\s*$/m.exec(fmMatch[1]!);
+  const fromReq = /^req_count:\s*(\d+)\s*$/m.exec(fmMatch[1]!);
+  const from = {
+    story_count: fromStory ? Number.parseInt(fromStory[1]!, 10) : null,
+    req_count: fromReq ? Number.parseInt(fromReq[1]!, 10) : null,
+  };
+
+  let newFrontmatter = fmMatch[1]!;
+  newFrontmatter = fromStory
+    ? newFrontmatter.replace(/^story_count:\s*\d+\s*$/m, `story_count: ${storyCount}`)
+    : `${newFrontmatter}\nstory_count: ${storyCount}`;
+  newFrontmatter = fromReq
+    ? newFrontmatter.replace(/^req_count:\s*\d+\s*$/m, `req_count: ${reqCount}`)
+    : `${newFrontmatter}\nreq_count: ${reqCount}`;
+
+  const changed = from.story_count !== storyCount || from.req_count !== reqCount;
+  return {
+    content: `---\n${newFrontmatter}\n---${content.slice(fmMatch[0].length)}`,
+    changed,
+    from,
+    to: { story_count: storyCount, req_count: reqCount },
   };
 }

@@ -43,11 +43,8 @@ export const QualityDimensionSchema = z.looseObject({
   adjudicator: z.enum(DIMENSION_ADJUDICATORS).optional(),
 });
 
-/** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
- *  `result` is the gate three-state (PASS/WARN/FAIL). The structured fields below are
- *  optional and machine-aggregatable (BL — issue #61): verify writes `grade`+`dimensions`,
- *  review writes the critical/major counts. Absent keeps every existing entry valid. */
-export const QualityLogEntrySchema = z.looseObject({
+/** Field shape shared by the strict (build) and loose (read) entry views below. */
+const QualityLogEntryShape = {
   skill: z.string(),
   date: z.string(), // ISO 8601 date
   result: z.enum(GATE_RESULTS),
@@ -64,7 +61,20 @@ export const QualityLogEntrySchema = z.looseObject({
   criticals_fixed: z.number().int().nonnegative().optional(),
   /** /prospec-review majors surfaced this round (advisory, never counted in grade). */
   majors: z.number().int().nonnegative().optional(),
-});
+} as const;
+
+/** Strict view — no index signature, so tsc's excess-property check still catches
+ *  a typo'd key when a station BUILDS an entry (`prospec change log` / `verify record`
+ *  construct entries from CLI input; a misspelled optional key must not silently
+ *  become an unmodeled extra). Mirrors the NewChangeMetadataSchema precedent. */
+export const NewQualityLogEntrySchema = z.object(QualityLogEntryShape);
+
+/** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
+ *  `result` is the gate three-state (PASS/WARN/FAIL). The structured fields below are
+ *  optional and machine-aggregatable (BL — issue #61): verify writes `grade`+`dimensions`,
+ *  review writes the critical/major counts. Absent keeps every existing entry valid.
+ *  Loose: reads never strip unmodeled keys (see ChangeMetadataSchema). */
+export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
  *  code state; `date` is the ISO 8601 record date. */
@@ -172,6 +182,8 @@ export function isStatusBefore(
 }
 export type ChangeScale = (typeof CHANGE_SCALES)[number];
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
+/** The shape a station constructs from scratch — see NewQualityLogEntrySchema. */
+export type NewQualityLogEntry = z.infer<typeof NewQualityLogEntrySchema>;
 export type QualityDimension = z.infer<typeof QualityDimensionSchema>;
 export type VerifyGrade = (typeof VERIFY_GRADES)[number];
 export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;

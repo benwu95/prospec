@@ -33,8 +33,9 @@ Prospec Skills are invoked via `/prospec-*` slash commands — each skill's desc
 
 At the start of a session, run `prospec status` — it deterministically reports each in-progress
 change's name, current node, suggested next step, and blocking gates (the executable copy of
-`prospec/ai-knowledge/_status-lifecycle.md`). If the CLI is unavailable, fall back to scanning
-`.prospec/changes/` manually per that file.
+`prospec/ai-knowledge/_status-lifecycle.md`). The prospec CLI (version ≥ 1.0.0)
+is a required file for the prospec skills: when it is missing or too old, STOP and install/upgrade
+the standalone executable before running any skill — never substitute manual steps.
 
 ## Working with This Project
 

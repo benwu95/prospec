@@ -1,6 +1,11 @@
 import * as fs from 'node:fs';
 import type { Document } from 'yaml';
-import { ChangeMetadataSchema, type ChangeMetadata } from '../types/change.js';
+import {
+  ChangeMetadataSchema,
+  NewQualityLogEntrySchema,
+  type ChangeMetadata,
+  type NewQualityLogEntry,
+} from '../types/change.js';
 import { MetadataValidationError } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
@@ -82,4 +87,33 @@ export async function writeChangeMetadataObject(
 ): Promise<void> {
   assertValidChangeMetadata(metadata, metadata.name);
   await atomicWrite(metadataPath, stringifyYaml(metadata));
+}
+
+/**
+ * Append one quality_log entry to a read Document, in the canonical key order
+ * the metadata-format reference fixes (skill → date → result → warnings →
+ * station-specific optional keys). The entry is validated against the strict
+ * build schema first — user text is serialized as DATA by the yaml library, so
+ * escaping is by construction, and optional keys are emitted only when present.
+ * The caller still writes the document via `writeChangeMetadataDoc`.
+ */
+export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry): void {
+  const parsed = NewQualityLogEntrySchema.parse(entry);
+  const ordered: Record<string, unknown> = {
+    skill: parsed.skill,
+    date: parsed.date,
+    result: parsed.result,
+    warnings: parsed.warnings,
+  };
+  if (parsed.grade !== undefined) ordered.grade = parsed.grade;
+  if (parsed.dimensions !== undefined) ordered.dimensions = parsed.dimensions;
+  if (parsed.criticals_found !== undefined) ordered.criticals_found = parsed.criticals_found;
+  if (parsed.criticals_fixed !== undefined) ordered.criticals_fixed = parsed.criticals_fixed;
+  if (parsed.majors !== undefined) ordered.majors = parsed.majors;
+
+  if (doc.has('quality_log')) {
+    doc.addIn(['quality_log'], doc.createNode(ordered));
+  } else {
+    doc.set('quality_log', doc.createNode([ordered]));
+  }
 }

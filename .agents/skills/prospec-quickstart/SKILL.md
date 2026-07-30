@@ -13,25 +13,30 @@ When triggered, briefly describe:
 - You'll localize skill triggers to the configured language (when non-English), re-sync agent config, prepare the knowledge scan, then hand off to knowledge generation
 - This is a one-time onboarding flow — it is re-runnable and self-terminating
 
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [DYNAMIC] Read `.prospec.yaml` — `artifact_language` and `skill_triggers` decide whether native-language trigger localization runs
 
 ## Core Workflow
 
-> This skill shells out to the `prospec` CLI (Bash), mirroring how `prospec-verify`
-> runs `prospec check --json`. When the CLI is unavailable, degrade gracefully —
-> never fail silently.
-
-### Step 0: Probe the CLI
-
-Run `prospec --version` (Bash). When it is unavailable (not built / installed / linked),
-STOP and tell the user to **install prospec** — you are adopting prospec for this project and
-quickstart is entirely CLI-driven, so it must be available: `npm i -g prospec`. For a **Node.js
-project**, also declare `prospec` in `devDependencies` so contributors share it without a global
-install (this is what later lets `/prospec-knowledge-generate` and `/prospec-archive` refresh
-`raw-scan.md` via `pnpm exec` / `npx` with no per-developer install). Non-Node projects: a global
-install is the path. Re-run quickstart after installing; never proceed silently.
+> This skill shells out to the `prospec` CLI (Bash) throughout. The CLI probe is the shared
+> CLI Prerequisite above — quickstart pioneered that required-CLI posture and now simply uses it.
 
 ### Step 1: Localize Skill Triggers (non-English only, fill-missing)
 
@@ -41,11 +46,9 @@ both a fresh project (all skills missing) and a project that just gained new ski
 missing) — so you never delete `.prospec.yaml` to re-localize:
 
 1. Run `prospec agent triggers` (Bash) to get a ready-to-translate `skill_triggers` scaffold — the skills still missing an entry, each with its English baseline sourced from the CLI (authoritative; never grep a deployed SKILL.md, whose frontmatter already merges custom words)
-2. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from if the write goes wrong
-3. Translate each scaffold value into the `artifact_language` — leave skills that already have an entry untouched
-4. **Show the proposed translations to the user and wait for confirmation** before writing anything
-5. On confirmation, add the missing `skill_triggers` keys by a **minimal in-place edit** — insert only the new keys, leaving every existing key, its ordering, and all comments untouched (do not re-serialize the whole file)
-6. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if it does not, restore the captured snapshot verbatim and report the malformed translation
+2. Translate each scaffold value into the `artifact_language` — leave skills that already have an entry untouched (translation is this skill's judgment step)
+3. **Show the proposed translations to the user and wait for confirmation** before writing anything
+4. On confirmation, save the translated scaffold to a temp file and run `prospec agent triggers --write <file>` (Bash) — the CLI inserts only the missing keys (comment- and order-preserving), validates the result BEFORE writing, and never overwrites an existing entry
 
 Skip this step entirely when the language is English or every skill already has a `skill_triggers`
 entry — never overwrite curated triggers.
@@ -89,7 +92,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 - **NEVER** proceed silently when the `prospec` CLI is unavailable — stop and tell the user to install prospec (they are adopting it for this project), then re-run
 - **NEVER** overwrite an existing `skill_triggers` entry — localize only the skills missing an entry (fill-missing)
-- **NEVER** write `skill_triggers` without reading `.prospec.yaml` back to confirm it still parses
+- **NEVER** hand-edit `.prospec.yaml` for triggers — `prospec agent triggers --write` owns the fill-missing insertion and validates before writing
 - **NEVER** inline the `/prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
 - **NEVER** translate triggers without showing the user the proposed words first
 
@@ -97,7 +100,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| `prospec` CLI unavailable | Stop; tell the user to install prospec (`npm i -g prospec`; Node.js projects can also add it to `devDependencies`), then re-run quickstart — do not proceed silently |
+| `prospec` CLI unavailable | Stop; point the user at the CLI Prerequisite's install guidance (installer script or GitHub Releases binary — prospec is not on npm), then re-run quickstart — do not proceed silently |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
-| `.prospec.yaml` fails to parse after writing triggers | Restore the captured pre-write `.prospec.yaml` snapshot verbatim, then report the malformed translation |
+| `prospec agent triggers --write` rejects the scaffold | Nothing was written (the CLI validates first) — fix the reported entry (unknown skill / empty words) and re-run |
 | `raw-scan.md` still missing after `knowledge init` | Report the failure; do not fabricate knowledge |

@@ -19,3 +19,18 @@ try {
 }
 
 export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion;
+
+/**
+ * The oldest CLI version the deployed skills' cli-first delegation works against.
+ *
+ * Injected into skill templates as the probe floor (`{{minimum_cli_version}}`):
+ * every skill's startup probe STOPs when the installed `prospec --version` is
+ * older, because the skill's deterministic steps call commands this version
+ * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
+ * newer version — never as a routine release chore. It names the version that
+ * SHIPS those commands, so during development it runs ahead of `package.json`
+ * until the release bumps to match: `1.0.0` is the release that makes the CLI a
+ * required file, and a floor below it would let an older binary — one without
+ * these commands — pass the probe.
+ */
+export const MINIMUM_CLI_VERSION = '1.0.0';

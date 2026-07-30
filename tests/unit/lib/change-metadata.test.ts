@@ -5,6 +5,7 @@ import {
   readChangeMetadata,
   writeChangeMetadataDoc,
   writeChangeMetadataObject,
+  appendQualityLogEntry,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
 
@@ -267,5 +268,79 @@ describe('writeChangeMetadataObject (fresh-create path)', () => {
       }),
     ).rejects.toThrow(MetadataValidationError);
     expect(vol.existsSync(PATH)).toBe(false);
+  });
+});
+
+describe('appendQualityLogEntry', () => {
+  const WITH_COMMENT = `name: add-widget
+created_at: 2026-07-13T09:51:00.000Z
+status: implemented
+# hand-written note that must survive
+scale: standard
+`;
+
+  it('creates quality_log when absent, in canonical key order with the warnings default', async () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    appendQualityLogEntry(doc, { skill: 'prospec-review', date: '2026-07-30', result: 'PASS', warnings: [] });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toContain('# hand-written note that must survive');
+    expect(written).toMatch(/quality_log:\n {2}- skill: prospec-review\n {4}date: 2026-07-30\n {4}result: PASS\n {4}warnings: \[\]/);
+  });
+
+  it('appends to an existing quality_log without disturbing prior entries', async () => {
+    vol.fromJSON({
+      [PATH]: `${WITH_COMMENT}quality_log:
+  - skill: prospec-ff
+    date: 2026-07-29
+    result: WARN
+    warnings:
+      - earlier warning
+`,
+    });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    appendQualityLogEntry(doc, {
+      skill: 'prospec-verify',
+      date: '2026-07-30',
+      result: 'PASS',
+      warnings: [],
+      grade: 'A',
+      dimensions: [{ name: 'tests', result: 'PASS', adjudicator: 'machine' }],
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toContain('- earlier warning');
+    expect(written).toMatch(/grade: A\n {4}dimensions:\n {6}- name: tests\n {8}result: PASS\n {8}adjudicator: machine/);
+  });
+
+  it('serializes user text as data — YAML-special characters cannot break the file', async () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    appendQualityLogEntry(doc, {
+      skill: 'prospec-review',
+      date: '2026-07-30',
+      result: 'WARN',
+      warnings: ['tricky: [value] with #comment & "quotes"'],
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const reread = readChangeMetadata(PATH, 'add-widget');
+    expect(reread.metadata.quality_log?.at(-1)?.warnings).toEqual([
+      'tricky: [value] with #comment & "quotes"',
+    ]);
+  });
+
+  it('rejects a malformed entry before it reaches the document', () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    expect(() =>
+      appendQualityLogEntry(doc, {
+        skill: 'prospec-verify',
+        date: '2026-07-30',
+        // @ts-expect-error — a grade in `result` is the canonical malformation.
+        result: 'A',
+        warnings: [],
+      }),
+    ).toThrow();
   });
 });

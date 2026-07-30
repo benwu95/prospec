@@ -17,6 +17,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — team conventions (incl. the Module READMEs pointer)
@@ -46,23 +62,24 @@ Write each generated document in the language the Constitution's Language Policy
 
 ## Core Workflow
 
-### Phase 1: Parse Delta Spec
+### Phase 1: Run the Mechanical Update (CLI)
 
-Parse delta-spec.md to extract affected modules:
+Run `prospec knowledge update --change [name]` (Bash) — or `--module <name>` (repeatable) when there
+is no delta-spec (quick changes, manual refresh). The CLI owns every deterministic step: parsing
+delta-spec REQ ids (`REQ-{MODULE}-{NNN}` → lowercased module; feature-prefix ids resolved via
+feature-map + `metadata.related_modules`, never minting a phantom module), creating a skeleton
+README for a genuinely NEW module, banner-deprecating REMOVED modules (the README gets the banner
+and stays; the `module-map.yaml` entry is removed, so the module drops out of the regenerated
+index table), adding new `module-map.yaml` entries, and regenerating the `prospec/index.md`
+auto block from module-map.
 
-| Section | Action | Example |
-|---------|--------|---------|
-| ADDED | Create new module README.md + add to prospec/index.md + add to module-map.yaml | REQ-AUTH-001 → new `auth` module |
-| MODIFIED | Update existing module README.md with current implementation | REQ-SERVICES-010 → update `services` README |
-| REMOVED | Mark module as deprecated in README.md (do NOT delete) | REQ-LEGACY-001 → deprecate `legacy` module |
-
-Extract module names from REQ IDs: `REQ-{MODULE}-{NNN}` → module name is `{MODULE}` (lowercased).
-
-**Fallback (no delta-spec):** Ask user to specify module names manually.
+Read its report: `created` (skeletons to fill), `deprecated`, and **`README content pending`** — the
+judgment worklist this skill exists for. The CLI never rewrites an existing README: its
+`prospec:auto` block carries authored knowledge that a mechanical re-render would gut.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] affected module names extracted from delta-spec.md REQ IDs (or specified manually via fallback)
-> - [ ] each module classified as ADDED / MODIFIED / REMOVED
+> - [ ] `prospec knowledge update` ran (change mode or `--module` mode)
+> - [ ] the created / deprecated / readme-pending worklist captured from its report
 
 ### Phase 2: Scan Affected Modules
 
@@ -95,13 +112,15 @@ silently — do not prompt.
 > - [ ] existing Knowledge format compared against current conventions/templates
 > - [ ] any drift listed and a format update applied only on user consent (or declined and noted)
 
-### Phase 3: Update Knowledge Files
+### Phase 3: Update README Content (judgment)
 
-#### 3a: Module README.md (ADDED/MODIFIED) — Recipe-First Format
+> The mechanical writes already happened in Phase 1. What remains is the CONTENT — reading the code
+> and writing knowledge prose — which is exactly what the CLI does not do.
 
-For ADDED modules:
-- Create `prospec/ai-knowledge/modules/{module}/README.md`
-- Generate full README in Recipe-First format:
+#### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format
+
+For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
+- Fill `prospec/ai-knowledge/modules/{module}/README.md` with real content in Recipe-First format:
 
 ```
 # {module_name}
@@ -119,10 +138,11 @@ For ADDED modules:
 <!-- prospec:user-end -->
 ```
 
-For MODIFIED modules:
-- Read existing README.md
-- Regenerate `prospec:auto-start/end` sections with updated information
-- **Preserve** all content within `prospec:user-start/end` markers via ContentMerger
+For README-PENDING modules (the CLI's judgment worklist):
+- Read the existing README.md
+- Update the `prospec:auto-start/end` section CONTENT by hand from what you scanned in Phase 2 —
+  this is deliberate judgment work, never a mechanical re-render
+- **Preserve** all content within `prospec:user-start/end` markers
 - Update Key Files table, Public API list, dependency info
 - **Refresh Modification Guide** — if implementation patterns changed, update guidance
 - **Refresh Ripple Effects** — if new dependencies were added, update impact list
@@ -130,9 +150,9 @@ For MODIFIED modules:
 
 #### 3b: Module README.md (REMOVED)
 
-- Add deprecated banner at top of README.md
-- Do NOT delete the file or directory
-- Update status in prospec/index.md to "Deprecated"
+Already done by the CLI in Phase 1: the README got the deprecation banner (file kept), the
+module-map entry was removed, and the module dropped out of the regenerated index table. Review the
+banner's reason wording; refine it in place if the delta-spec description reads poorly as prose.
 
 #### 3c: module-map.yaml (curated single source)
 
@@ -141,35 +161,29 @@ The module table's curated columns — Keywords, Aliases, Rationale, Description
 `prospec/index.md`'s `prospec:auto` block is **generated** from it (`updateIndex`). Curate here,
 NOT by hand-editing the index table (it gets regenerated).
 
-- Add new module entries (ADDED) with `keywords`, `aliases`, `rationale`, `description` and `relationships`
-- Update `keywords`/`aliases`/`rationale`/`description`/`relationships` (MODIFIED)
-- Remove module entries (REMOVED)
+The CLI added/removed the entries in Phase 1 — an ADDED entry is a SKELETON (`"<name> module"`
+description, guessed paths). What remains is curation (judgment):
+
+- Curate the ADDED entries: real `description`, `keywords`, `aliases`, `rationale`, `paths`, `relationships`
+- Update `keywords`/`aliases`/`rationale`/`description`/`relationships` for MODIFIED modules
 - Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
+- After curating, re-run `prospec knowledge update --module <curated-modules>` so the index auto block regenerates from the curated map
 - Skip if module-map.yaml doesn't exist
 
-#### 3d: prospec/index.md (generated from module-map and conventions)
+#### 3d: prospec/index.md (CLI-generated — never hand-edit the auto block)
 
-The `prospec:auto` block contains two auto-generated sections:
-1. **Conventions**: Core Conventions (L1) and Load-on-Demand Conventions (L2) lists.
-2. **Modules**: The module table regenerated from `module-map.yaml` using the canonical column format.
+The `prospec:auto` block (Conventions lists + the module table) is regenerated by
+`prospec knowledge update` from `module-map.yaml` and the conventions directory — curate in
+module-map (3c), then re-run the command; hand-editing the auto block gets overwritten on the next
+run. On a project that curated in index.md, the first run **backfills** the curated content columns
+(Keywords/Aliases/Rationale/Description) into `module-map.yaml` (no-clobber) before regenerating.
+**Depends On** derives from `relationships.depends_on`; a module-map lacking it renders `—` until
+populated (re-run `/prospec-knowledge-generate`).
 
-When updating the auto block manually, **you must preserve and update both sections**.
-- **Conventions**: Scan the `prospec/ai-knowledge/` directory for `.md` files (excluding `_index.md`). List them under Core Conventions if they are built-in core files (e.g. `_conventions.md`) or defined in `.prospec.yaml`'s `additional_core_conventions`. Otherwise, list them under Load-on-Demand Conventions.
-- **Modules**: Regenerate the table from `module-map.yaml` using the canonical columns. You do not hand-fill curated cells:
-
-```
-| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
-```
-
-On a project that curated in index.md, the first run **backfills** the curated **content**
-columns (Keywords/Aliases/Rationale/Description) into `module-map.yaml` (no-clobber) before
-regenerating, so those are not lost. **Depends On** is NOT backfilled — it derives from
-`relationships.depends_on` (the drift-enforced dependency set); if a module-map lacks it, that
-cell renders `—` until `relationships.depends_on` is populated (re-run `/prospec-knowledge-generate`).
-
-- Confirm Status reflects ADDED (Active) / REMOVED (Deprecated)
-- Ensure the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
-- If the prospec/index.md uses `### {Category}` grouped sub-tables, keep the grouping — place each module under its primary category (`module-map.yaml` `category[0]`); an ADDED module goes under a derived category consistent with existing groups, listed under its primary heading only
+After the re-run, verify (read, don't write):
+- ADDED modules appear as Active; REMOVED modules are GONE from the table (their README keeps the deprecation banner)
+- the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
+- `### {Category}` grouped sub-tables kept their grouping (primary category = `category[0]`)
 
 ## Output Contract
 
@@ -194,7 +208,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** delete module directories for REMOVED requirements — mark as deprecated only
 - **NEVER** scan the entire codebase — only scan modules identified from delta-spec
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required
-- **NEVER** skip prospec/index.md update — the index must always reflect current module state
+- **NEVER** hand-edit the prospec/index.md auto block — it is CLI-generated from module-map; curate in module-map and re-run `prospec knowledge update`
 - **NEVER** ignore module-map.yaml when it exists — dependency graph must stay in sync
 - **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md (or its sub-module files) only
 - **NEVER** exceed 100 lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
@@ -204,9 +218,9 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| delta-spec.md not found | Ask user to specify modules manually or point to delta-spec path |
+| delta-spec.md not found | Re-run with `--module <name>` (repeatable) — the CLI refuses change mode without a delta-spec |
 | module-map.yaml not found | Skip module-map update, proceed with README and prospec/index.md only |
-| Module directory doesn't exist (MODIFIED) | Treat as ADDED — create new module directory and README |
-| ContentMerger conflict | Prefer new auto content, always preserve user sections |
+| Module directory doesn't exist (MODIFIED) | Run `prospec knowledge update --module <name>` — manual mode scaffolds the skeleton; then fill it |
+| Auto/user marker conflict while editing | Prefer your new auto content, always preserve user sections |
 | Source scan returns 0 files | Generate minimal README with module name only, warn user |
 | README exceeds 100 lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls |

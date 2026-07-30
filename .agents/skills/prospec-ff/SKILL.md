@@ -16,6 +16,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
@@ -56,8 +72,8 @@ Derive kebab-case change name, confirm before proceeding.
 
 | Step | Action |
 |------|--------|
-| Scaffold | Create `.prospec/changes/[name]/` + `metadata.yaml`(status: story, serialized per [`references/metadata-format.md`](references/metadata-format.md)) + `proposal.md` |
-| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write `metadata.scale`. Quick → slim proposal form |
+| Scaffold | Run `prospec change story [name] --description "<one-liner>"` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
+| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |
 
@@ -77,7 +93,7 @@ Loading is still read). Status advances `story → tasks` directly
 | Step | Action |
 |------|--------|
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
-| Scaffold | Create `plan.md` + `delta-spec.md`, update status → `plan` |
+| Scaffold | Run `prospec change plan` (Bash) — CLI scaffolds `plan.md` + `delta-spec.md` and advances status → `plan` |
 | Populate | Read [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) on demand, then write to those formats |
 | Check | Site-specific Constitution check (this phase's rule: dependency-direction/layering) → PASS continue / FAIL pause |
 
@@ -89,7 +105,7 @@ Loading is still read). Status advances `story → tasks` directly
 
 | Step | Action |
 |------|--------|
-| Scaffold | Create `tasks.md`, update status → `tasks` |
+| Scaffold | Run `prospec change tasks` (Bash) — CLI scaffolds `tasks.md` and advances status → `tasks` (including the quick `story → tasks` transition) |
 | Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
 | Check | Test coverage check → PASS complete / WARN supplement |
 
@@ -131,7 +147,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -139,7 +155,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** run a generic multi-principle Constitution scan per phase — each phase checks only its site-specific rule (INVEST / dependency-direction / TDD); the full every-principle audit is `/prospec-verify`'s job (single-full-audit convergence)
 - **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `/prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files (proposal / plan / delta-spec / tasks formats) directly
-- **NEVER** skip metadata.yaml status progression — story → plan → tasks, or story → tasks only when `scale: quick`
+- **NEVER** skip metadata.yaml status progression — story → plan → tasks (or story → tasks under `scale: quick`); the `prospec change` commands own every transition — never hand-edit metadata.yaml
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut

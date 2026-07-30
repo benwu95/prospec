@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2526%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2775%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -22,7 +22,7 @@
 
 ## 什麼是 Prospec？
 
-Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 slash-command **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex）；輕量 **CLI** 只負責 bootstrap 專案並重新生成 Skills／Knowledge。成效：你的 Agent 遵循一致的 `story → plan → tasks → implement → review → verify → archive` 工作流，並立基於結構化、版控的專案知識。
+Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 slash-command **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex），而 Skills 執行的每一項**確定性操作** —— scaffold、狀態轉換、quality-log 寫入、spec sync、評分 —— 都交由 **`prospec` CLI**（必裝的單一執行檔）執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。成效：你的 Agent 遵循一致的 `story → plan → tasks → implement → review → verify → archive` 工作流，立基於結構化、版控的專案知識，且 LLM 的不確定性被隔絕在簿記之外。
 
 三個元件協同運作：
 
@@ -36,12 +36,13 @@ Prospec 是一套**以 Skills 為核心的規格驅動開發（SDD）工具組**
      ├─ AI Knowledge .... 結構化的專案記憶（模組、規格、教訓）
      │                        ▲
      │                        │ 由此生成／重新生成
-     └─ CLI (prospec) ... 僅負責 bootstrap：init、agent sync、knowledge init / re-scan structure
+     └─ CLI (prospec) ... 執行所有確定性步驟：scaffold、狀態轉換、quality-log 寫入、
+                          drift 檢查、評分、spec sync
 ```
 
-- **Skills** 在 Agent 內執行工作流 —— 日常操作面。
+- **Skills** 在 Agent 內執行工作流的**判斷面** —— 訪談、prose、審查、裁決 —— 日常操作面。
 - **AI Knowledge** 是漸進式的專案記憶，Skills 讀取它、並隨每次變更擴充它。
-- **CLI** 是一次性／偶爾使用的工具：建立專案骨架、重新生成 Skills + Knowledge —— **不在** runtime 迴圈內。
+- **CLI** 是必裝的單一執行檔，**就在** runtime 迴圈內：Skills 需要的每個確定性操作 —— bootstrap、scaffold、生命週期轉換、結構化記錄、drift 檢查、評分、封存同步 —— 都以程式執行、位元可重現。
 
 **適合誰？** 使用 AI coding agent、希望在新專案（Greenfield）或既有程式碼庫（Brownfield）上獲得可重複、可審查工作流的開發者。
 
@@ -466,8 +467,9 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | `prospec upgrade [--cwd <dir>]` | prospec 版本升級後：在 `.prospec.yaml` 記錄 prospec `version`（就地合併、保留註解與格式）、重跑 `agent sync`、**建立任何缺少的 init 檔案**（以其範本 render、skip-if-exists），並印出含 docs inventory + 本次建立清單的 migration report，接著交棒給 `/prospec-upgrade`。絕不覆寫既有檔案 —— 格式遷移與補齊已建檔案由需同意的 skill 處理 |
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + 精選骨架（module-map.yaml / prospec/index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
+| `prospec knowledge update [--change <name>] [--module <m>...]` | 依變更 delta-spec（或指定模組）做增量機械知識同步：從 module-map 重生 index auto block、增刪 module-map 條目、為真正的新模組建 skeleton README、為 REMOVED 加棄用標記 —— 並回報 `README content pending` 清單；既有 README **絕不重寫**（auto block 承載人工撰寫的知識；內容更新是 `/prospec-knowledge-update` 的判斷工作） |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
-| `prospec agent triggers` | 輸出可直接翻譯的 `skill_triggers` scaffold —— 尚未在地化的 skill，每筆帶英文 baseline（來自 `SKILL_DEFINITIONS`）。把值翻成你的 `artifact_language` 後加進 `skill_triggers`；英文或已全在地化的專案改印 informational 提示 |
+| `prospec agent triggers [--write <file>]` | 輸出可直接翻譯的 `skill_triggers` scaffold —— 尚未在地化的 skill，每筆帶英文 baseline（來自 `SKILL_DEFINITIONS`）。翻譯後以 `--write <file>` 只插入缺少的鍵回 `.prospec.yaml`（保留註解與順序、寫入前驗證、絕不覆蓋既有條目） |
 | `prospec config example` | 輸出完整、逐欄註解的 `.prospec.yaml` 參考範例 —— 涵蓋 prospec 讀取的每個欄位，附範例值與說明。未初始化專案亦可執行 |
 | `prospec print-template <path>` | 輸出內置樣板的原始內容（離線、免 Node.js 讀取樣板） |
 
@@ -514,13 +516,23 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 | 命令 | 說明 |
 |------|------|
-| `prospec change story <name>` | 建立變更需求（骨架） |
+| `prospec change story <name> [--description <d>] [--related-module <m>...] [--introduced-by <c>]` | 建立變更需求（骨架＋metadata.yaml；明確指定模組覆蓋關鍵字自動比對） |
 | `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec |
 | `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md |
 | `prospec status` | **唯讀**的決定論 SDD 路由 —— 回報每個進行中變更的 current node、建議下一站、blocking gates 與理由。即 `_status-lifecycle.md` 的可執行版本（含 quick 的 story→tasks 跳站、backfill 的 `implemented` 入口、以及無狀態轉換的 design/review 站）；metadata 格式錯誤會逐變更回報，絕不中斷 |
 | `prospec archive <name...> [--dry-run]` | 對 **verified** 變更執行決定論封存 mutation：搬移至 `.prospec/archive/{date}-{name}/`、產生 summary scaffold、執行機械式 Feature Spec sync、寫入 `status: archived`，並重建 `product.md` + `feature-map.yaml`（no-clobber／non-fatal 語義不變）。`--dry-run` 列出全部預定 mutation 而不寫入；具名目標不可封存時回報 `refused`/`not found`（exit 1），絕不靜默略過。由 `/prospec-archive` 驅動，skill 保留判斷面工作（Entry Gate、Review & Verify summary、REQ 語意畢業） |
+| `prospec archive finalize <name> [--dry-run]` | 封存的**後置**步驟（在 summary 覆寫＋REQ 畢業之後執行）：把最終 summary.md 複製到 `specs/_archived-history/`（入版控的稽核軌跡），並依最終文本對帳每份 feature spec 的 frontmatter `story_count`/`req_count`；summary.md 仍是 scaffold 樣板時拒絕執行 |
 
-> **注意**：這些命令建立空的變更骨架。Skills（`/prospec-new-story`、`/prospec-ff` 等）現在會直接建立 `.prospec/changes/<name>/` 及其檔案，因此工作流程不會呼叫它們 —— 但它們仍保留供手動或腳本化建立骨架使用。
+| `prospec change scale <quick\|standard\|full\|backfill> [--change <name>]` | 寫入使用者確認的複雜度 scale（保留註解的就地編輯） |
+| `prospec change status <to> [--change <name>]` | forward-only 生命週期轉換；逆向／非法跳躍會被拒絕並列出合法目標 |
+| `prospec change log --skill <station> --result <PASS\|WARN\|FAIL> [--warning <w>...] [--grade <g>] [--dimension n=r...] [--criticals-found <n>] ...` | 附加一筆結構化 `quality_log`（固定鍵序，逸出由程式保證） |
+| `prospec change progress [--complete <task>] [--change <name>]` | code-task 進度（X/Y，`[M]`/`[V]` 不計分母）＋下一個任務；`--complete` 只勾選指定的一項 |
+| `prospec review merge --findings <file> [--change <name>]` | 把一輪 review findings JSON 合併進累積 review.md 表（identity 鍵、severity 取最大、跨輪保留）並回報該輪結構化計數 |
+| `prospec verify record --dimension <name>=<result>... [--warning <w>...]` | 計算 S/A/B/C/D 評分 —— machine 維度自讀 `prospec-report.json` drift 報告（其 `test-provenance` check 承載已記錄的測試執行）、judgment 維度來自旗標 —— 寫入結構化 quality_log，S/A 時前進 `status: verified` |
+| `prospec learn upsert --lesson <file> [--today <date>]` | lessons-ledger 的 keyed 冪等 upsert＋明文 `freq≥3 ∧ modules≥2` 計分規則（可稽核 detail）＋playbook TTL 掃描 |
+| `prospec validate <kind> [target] [--change <name>]` | artifact 結構的機器判定：`slug`／`promote-scaffold`（完整）與 `backfill-draft`／`design-spec`（結構子集 —— 章節、標頭、NC 位置）；FAIL 時 exit 1 |
+
+> **注意**：這些命令**就是**工作流的確定性層（issue #107 恢復了 cli-first 姿態）：Skills（`/prospec-new-story`、`/prospec-ff` 等）的每一次 scaffold、轉換與記錄都改為呼叫它們，不再手寫產物；CLI 缺失或版本低於探針門檻時，每個 Skill 都會 STOP。它們同樣可供手動或腳本化使用。
 
 ### MCP Server
 
@@ -711,7 +723,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（64 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（65 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 19 個 reference 範本
 ```
 
@@ -730,7 +742,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2526 個測試）
+# 執行所有測試（2775 個測試）
 pnpm test
 
 # Watch 模式
@@ -743,11 +755,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2526 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1728 tests
-- Contract tests（CLI 輸出 + Skill 格式）：700 tests
+**測試覆蓋率**：2775 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：1958 tests
+- Contract tests（CLI 輸出 + Skill 格式）：708 tests
 - Integration tests：43 tests
-- E2E tests：55 tests
+- E2E tests：66 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
@@ -823,7 +835,7 @@ Prospec fork 自 Ci Yang 的 [ci-yang/prospec](https://github.com/ci-yang/prospe
 - [cc-sdd](https://github.com/kiro-ai/cc-sdd) — Steering 分析、範本自訂
 - [BMAD](https://github.com/bmad-ai/bmad) — Analyst 角色（prospec-explore）
 
-Prospec 的獨特貢獻：**以 Skills 驅動 SDD、CLI 僅為薄層** — Skills 在 AI Agent 中執行工作流程，CLI 只負責 bootstrap 與重新生成。加上 **AI Knowledge 即 Context Engineering** — 為 AI Agent 設計的結構化、版控、漸進式專案記憶系統。
+Prospec 的獨特貢獻：**cli-first SDD、Skills 只留判斷** — CLI 執行所有確定性操作（scaffold、轉換、評分、spec sync），可重現且零 token；Skills 在 AI Agent 中執行判斷面工作。加上 **AI Knowledge 即 Context Engineering** — 為 AI Agent 設計的結構化、版控、漸進式專案記憶系統。
 
 ### See Also（延伸閱讀）
 

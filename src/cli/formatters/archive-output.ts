@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { ArchiveResult } from '../../services/archive.service.js';
+import type { ArchiveResult, ArchiveFinalizeResult } from '../../services/archive.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /**
@@ -60,4 +60,35 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
       `${pc.red('✗')} not found ${sanitizeTerminal(name)} — no such change under .prospec/changes/; run \`prospec status\` to list in-progress changes\n`,
     );
   }
+}
+
+/** Format the ArchiveFinalizeResult: the history copy + counter reconciliations. */
+export function formatArchiveFinalizeOutput(
+  result: ArchiveFinalizeResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const lines: string[] = [];
+  if (result.dryRun) {
+    lines.push(`${pc.yellow('●')} dry-run — planned mutations for finalize ${sanitizeTerminal(result.changeName)}:`);
+    for (const m of result.planned) {
+      lines.push(`  ${pc.dim('→')} ${sanitizeTerminal(m.target)}: ${sanitizeTerminal(m.detail)}`);
+    }
+  } else {
+    lines.push(
+      `${pc.green('✓')} Copied finalized summary to ${pc.cyan(sanitizeTerminal(result.historyPath))} (committed spec history)`,
+    );
+    if (result.reconciled.length > 0) {
+      lines.push('Reconciled feature-spec counters:');
+      for (const r of result.reconciled) {
+        lines.push(
+          `  ${pc.green('✓')} ${sanitizeTerminal(r.file)}: story_count ${r.from.story_count ?? '—'} → ${r.to.story_count}, req_count ${r.from.req_count ?? '—'} → ${r.to.req_count}`,
+        );
+      }
+    } else {
+      lines.push(pc.dim('Feature-spec counters already consistent — nothing to reconcile'));
+    }
+  }
+  process.stdout.write(lines.join('\n') + '\n');
 }

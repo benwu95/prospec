@@ -235,11 +235,22 @@ describe('Knowledge Format Contract', () => {
       );
     });
 
-    it('knowledge-generate and knowledge-update skill docs use the canonical header verbatim', () => {
-      for (const skill of ['prospec-knowledge-generate', 'prospec-knowledge-update']) {
-        const raw = fs.readFileSync(path.join(TEMPLATES, 'skills', `${skill}.hbs`), 'utf-8');
-        expect(raw).toContain(INDEX_TABLE_HEADER);
-      }
+    it('knowledge-generate uses the canonical header verbatim; knowledge-update delegates the table to the CLI', () => {
+      // knowledge-generate still authors the table (judgment work) and must
+      // quote the canonical header; knowledge-update stopped hand-filling it
+      // (issue #107 — the CLI regenerates the auto block from module-map), so
+      // a verbatim header there would invite exactly the hand edit it forbids.
+      const generate = fs.readFileSync(
+        path.join(TEMPLATES, 'skills', 'prospec-knowledge-generate.hbs'),
+        'utf-8',
+      );
+      expect(generate).toContain(INDEX_TABLE_HEADER);
+      const update = fs.readFileSync(
+        path.join(TEMPLATES, 'skills', 'prospec-knowledge-update.hbs'),
+        'utf-8',
+      );
+      expect(update).not.toContain(INDEX_TABLE_HEADER);
+      expect(update).toContain('never hand-edit the auto block');
     });
   });
 

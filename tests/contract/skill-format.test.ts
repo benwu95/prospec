@@ -787,6 +787,23 @@ describe('Skill Format Contract', () => {
       expect(never).toContain('**NEVER** skip user confirmation on detected mode');
     });
 
+    // REQ-TEMPLATES-164: the structural half of the Phase 4 check delegates to
+    // the CLI; component-coverage extraction stays the skill's judgment. The
+    // two must not swap places — that is the whole point of the split.
+    it('delegates the design-spec structure check to the CLI and keeps component extraction as judgment', () => {
+      const content = renderTemplate('skills/prospec-design.hbs', TEMPLATE_CONTEXT);
+      const phase4 = sectionOf(content, '### Phase 4: Design Verification');
+      expect(phase4.length).toBeGreaterThan(200);
+      expect(phase4).toContain('prospec validate design-spec');
+      expect(phase4).toMatch(/Structure check \(CLI\)/);
+      expect(phase4).toMatch(/Completeness check \(judgment\)/);
+      // the judgment half must say the extraction is the skill's, not the CLI's
+      expect(phase4).toMatch(/prose extraction is your call, never the CLI's/);
+      // and the gate must cite the command's verdict, not a hand-run check
+      const gate = phase4.slice(phase4.indexOf('Phase 4 Gate'));
+      expect(gate).toContain('prospec validate design-spec');
+    });
+
     it('should contain YAML frontmatter with design triggers', () => {
       const designDesc = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-design')!.description;
       const content = renderTemplate('skills/prospec-design.hbs', {
@@ -1028,7 +1045,7 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('adapter MCP');
     });
 
-    it('prospec-knowledge-generate refreshes raw-scan in Startup Loading with a CLI fallback ladder', () => {
+    it('prospec-knowledge-generate refreshes raw-scan in Startup Loading via the required CLI — no fallback ladder (issue #107)', () => {
       const content = renderTemplate(
         'skills/prospec-knowledge-generate.hbs',
         TEMPLATE_CONTEXT,
@@ -1039,9 +1056,10 @@ describe('Skill Format Contract', () => {
       expect(section).toContain('raw-scan.md');
       // …refreshed deterministically before reading, via `knowledge init --raw-scan-only`
       expect(section).toContain('prospec knowledge init --raw-scan-only');
-      // CLI fallback ladder (Prerequisite): pnpm exec / npx — Windows-safe, no Python
-      expect(content).toContain('pnpm exec prospec knowledge init --raw-scan-only');
-      expect(content).toContain('npx -y prospec knowledge init --raw-scan-only');
+      // the CLI is required (shared probe) — the pnpm exec / npx resolution ladder is gone
+      expect(content).toContain('there is no fallback ladder and no approximate working-tree scan');
+      expect(content).not.toContain('pnpm exec prospec knowledge init');
+      expect(content).not.toContain('npx -y prospec knowledge init');
     });
 
     it('proposal-format should contain UI Scope section', () => {
@@ -1106,12 +1124,16 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('layering violations');
     });
 
-    it('prospec-verify should contain a Status Update gate (S/A only)', () => {
+    it('prospec-verify should contain a Record & Status Update gate (S/A only, CLI-executed — issue #107)', () => {
       const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-      expect(content).toContain('## Status Update');
+      expect(content).toContain('## Record & Status Update (CLI-executed)');
       expect(content).toContain('status: verified');
-      expect(content).toContain('Grade B / C / D');
+      // the S/A advance and the B/C/D hold are `prospec verify record`'s, never hand-written
+      expect(content).toContain('prospec verify record');
+      expect(content).toMatch(/on\s+\*\*B\/C\/D\*\* leaves `status` unchanged/);
       expect(content).toContain('Call Chain ↔ layering');
+      // the old hand-updated section name must not reappear
+      expect(content).not.toMatch(/^## Status Update/m);
     });
 
     it('prospec-archive should gate on verified status only', () => {
@@ -1135,12 +1157,14 @@ describe('Skill Format Contract', () => {
       expect(skill).not.toContain('specs/{change-name}.md'); // never flat root in the skill either
     });
 
-    it('prospec-implement should set status: implemented when tasks complete', () => {
+    it('prospec-implement advances to implemented via `prospec change status` when tasks complete (issue #107)', () => {
       const content = renderTemplate(
         'skills/prospec-implement.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('status: implemented');
+      // the transition is CLI-owned — the skill never hand-edits metadata.yaml
+      expect(content).toContain('prospec change status implemented');
+      expect(content).toContain('never edit metadata.yaml by hand');
     });
 
     it('lifecycle-owning skills should point to _status-lifecycle.md', () => {
@@ -1549,7 +1573,7 @@ describe('Skill Format Contract', () => {
       expect(flow).toMatch(/escalat/i);
     });
 
-    it('persists findings to review.md; only criticals block, major → quality_log', () => {
+    it('persists findings to review.md via `prospec review merge`; only criticals block, major → quality_log (issue #107)', () => {
       const c = render();
       // Scope to the Persistence section — the MANDATORY-read and
       // Success-Criteria mentions of review.md must not satisfy this.
@@ -1559,7 +1583,11 @@ describe('Skill Format Contract', () => {
       );
       expect(persist.length).toBeGreaterThan(0);
       expect(persist).toContain('review.md');
-      expect(persist).toMatch(/dedup|deduplicat/i);
+      // the cumulative review.md bookkeeping is CLI-owned (issue #107)
+      expect(persist).toContain('prospec review merge --findings');
+      expect(persist).toContain('merge by finding identity');
+      // identity across rounds rides the reused `id` — the CLI never infers it from location
+      expect(persist).toContain("reuse the prior round's `id`");
       expect(persist).toMatch(/carr(y|ied) forward/i);
       // major findings hand off to verify via quality_log (Exit Gate), not graded
       const exit = c.slice(c.indexOf('### Exit Gate'));
@@ -1582,7 +1610,7 @@ describe('Skill Format Contract', () => {
 
     it('prospec-verify prompts the user to commit after S/A and never auto-commits', () => {
       const c = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-      const tail = c.slice(c.indexOf('## Status Update'));
+      const tail = c.slice(c.indexOf('## Record & Status Update'));
       expect(tail).toMatch(/commit/i);
       expect(tail).toMatch(/prompt|remind/i);
       expect(tail).toMatch(/not auto-commit|do not commit automatically|never commit on/i);
@@ -2230,10 +2258,12 @@ describe('scale adapter — new-story complexity assessment (BL-004)', () => {
     expect(phase).toContain('`/prospec-archive` Entry Gate re-checks');
   });
 
-  it('Phase 3.5 requires user confirmation before writing scale', () => {
+  it('Phase 3.5 requires user confirmation, then writes scale via `prospec change scale` (issue #107)', () => {
     const phase = sectionOf(render(), '### Phase 3.5: Complexity Assessment (Scale)');
     expect(phase).toContain('**never write `scale` without user confirmation**');
-    expect(phase).toContain('scale: quick|standard|full');
+    // the confirmed value is CLI-written — the skill never hand-serializes metadata.yaml
+    expect(phase).toContain('prospec change scale quick|standard|full');
+    expect(phase).toContain('never edit metadata.yaml by hand');
   });
 
   it('quick produces a slim proposal: single story, no FR/SC enumeration', () => {
@@ -2270,9 +2300,12 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     expect(content).toContain('`story → tasks` directly');
   });
 
-  it('ff NEVER guards: quick is the only legal plan skip and needs user-confirmed scale', () => {
+  it('ff NEVER guards: quick is the only legal plan skip, transitions are CLI-owned (issue #107)', () => {
     const never = sectionOf(renderFf(), '## NEVER');
-    expect(never).toContain('story → tasks only when `scale: quick`');
+    expect(never).toContain('story → tasks under `scale: quick`');
+    // every status transition goes through the prospec change commands, never a hand edit
+    expect(never).toContain('the `prospec change` commands own every transition');
+    expect(never).toContain('never hand-edit metadata.yaml');
     expect(never).toContain('without a user-confirmed `scale: quick`');
     expect(never).toContain('quick skips Plan and loads none');
   });
@@ -2367,8 +2400,8 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(v5).toContain('never exempt a genuinely failing test');
   });
 
-  it('Status Update notes backfill S/A means fidelity, not code quality', () => {
-    const status = sectionOf(renderVerify(), '## Status Update');
+  it('Record & Status Update notes backfill S/A means fidelity, not code quality', () => {
+    const status = sectionOf(renderVerify(), '## Record & Status Update');
     expect(status).toContain('`metadata.scale: backfill`');
     expect(status).toContain('faithful to the code');
   });
@@ -2476,11 +2509,20 @@ describe('backfill graduation — promote-backfill skill (scale: backfill entry 
     expect(p).toContain('related_modules');
   });
 
-  it('produces the light scaffold (proposal + delta-spec + metadata) — no hollow plan.md/tasks.md', () => {
+  it('produces the light scaffold via the CLI (story/scale/status/validate) — no hollow plan.md/tasks.md (issue #107)', () => {
     const c = render();
     // the two staged spec artifacts have their own workflow phases
-    expect(c).toContain('### Phase 2: proposal.md');
+    expect(c).toContain('### Phase 2: Scaffold + proposal.md');
     expect(c).toContain('### Phase 3: delta-spec.md');
+    // metadata is CLI-written end-to-end: scaffold, scale, status, machine verdict
+    expect(c).toContain('prospec change story');
+    expect(c).toContain('--related-module');
+    expect(c).toContain('prospec change scale backfill');
+    expect(c).toContain('prospec change status implemented');
+    expect(c).toContain('prospec validate promote-scaffold');
+    // the hand-serialization instruction is gone (issue #107)
+    expect(c).toContain('Never hand-serialize metadata.yaml');
+    expect(c).not.toContain('Serialize as data');
     // backfill is a light scale: no plan/tasks phases (would be hollow make-work)
     expect(c).not.toContain('### Phase 3: plan.md');
     expect(c).not.toContain('### Phase 5: tasks.md');
@@ -2532,8 +2574,8 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
     );
     expect(phase).toContain('`scale: backfill` is not a new-story-time option');
     expect(phase).toContain('promotion-time');
-    // the new-story-time options string stays exactly the three sizes
-    expect(phase).toContain('scale: quick|standard|full');
+    // the new-story-time CLI write enumerates exactly the three sizes (issue #107)
+    expect(phase).toContain('prospec change scale quick|standard|full');
   });
 
   it('delta-spec-format reference allows a feature-slug REQ-id for backfill', () => {
@@ -2675,15 +2717,18 @@ describe('scale adapter — implement quick awareness (round-2 fix)', () => {
 describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
   const render = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
 
-  it('Startup Loading runs the engine as a [DYNAMIC] step with an explicit fallback', () => {
+  it('Startup Loading runs the engine as a [DYNAMIC] step — a missing engine is a probe STOP, never a fallback (issue #107)', () => {
     const loading = sectionOf(render(), '## Startup Loading');
     const engineItem = loading
       .split('\n')
       .find((l) => /^\d+\.\s+/.test(l) && l.includes('`prospec check --json`'));
     expect(engineItem, 'engine loading item missing').toBeTruthy();
     expect(engineItem).toContain('[DYNAMIC]');
-    expect(engineItem).toContain('drift engine unavailable');
-    expect(engineItem).toContain('never fall back silently');
+    // the CLI is required: unavailability STOPs at the shared probe, it is not gradable
+    expect(engineItem).toContain('a missing engine is a STOP at the probe, never a gradable state');
+    expect(engineItem).toContain('never adjudicate a machine dimension yourself');
+    expect(engineItem).not.toContain('drift engine unavailable');
+    expect(engineItem).not.toMatch(/fall back/);
   });
 
   it('Verification 1/5 sources completion facts from the task-completion check', () => {
@@ -2708,18 +2753,25 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
     expect(v4).toContain('never overturn');
   });
 
-  it('NEVER section forbids skipped-as-PASS and silent fallback', () => {
+  it('NEVER section forbids skipped-as-PASS and hand-adjudicating/relaying machine dimensions (issue #107)', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('skipped means unchecked');
-    expect(never).toContain('fall back from the drift engine silently');
+    // machine dimensions are self-sourced by `prospec verify record` — never hand-fed
+    expect(never).toContain('adjudicate a machine dimension yourself or relay one into `prospec verify record`');
+    expect(never).not.toMatch(/fall back/);
   });
 
-  it('Error Handling covers engine unavailability with the explicit fallback wording', () => {
+  it('Error Handling covers verify-record refusal and honest skips — the engine-unavailable fallback row is gone (issue #107)', () => {
     const errors = sectionOf(render(), '## Error Handling');
-    expect(errors).toContain('`prospec check` unavailable or fails');
-    expect(errors).toContain('drift engine unavailable — machine dimensions not adjudicated');
-    // the fallback is honest disclosure, never a hand-made verdict
-    expect(errors).toContain('never adjudicate them by hand');
+    // refusal path: rebuild the report, pass exactly the judgment set
+    expect(errors).toContain('`prospec verify record` refuses');
+    expect(errors).toContain('machine dimensions are self-sourced, never relayed');
+    // an honest per-check skip carries into 5/5 as not-adjudicated
+    expect(errors).toContain('`--record-tests` skips');
+    expect(errors).toContain('not-adjudicated');
+    // the old CLI-unavailable fallback wording must not reappear
+    expect(errors).not.toContain('`prospec check` unavailable');
+    expect(errors).not.toContain('drift engine unavailable');
   });
 });
 
@@ -2819,8 +2871,10 @@ describe('US-19: status-aware handoff + session detection', () => {
     expect(section.length).toBeGreaterThan(0);
     expect(section).toContain('prospec status');
     expect(section).toContain('_status-lifecycle.md');
-    // CLI-unavailable fallback keeps the manual scan pointer.
-    expect(section).toContain('.prospec/changes/');
+    // required-CLI posture (issue #107): install/upgrade and STOP, no manual-scan fallback
+    expect(section).toContain('never substitute manual steps');
+    expect(section).not.toContain('fall back to scanning');
+    expect(section).not.toContain('.prospec/changes/');
     // The prose station-order derivation is gone — the router owns it now.
     expect(section).not.toContain('suggested next step in the SDD workflow order');
     expect(section).not.toContain('own no status transition');
@@ -2984,14 +3038,16 @@ describe('prospec-upgrade: legacy index migration step', () => {
     expect(content).toContain('/index.md');
   });
 
-  it('instructs copying curated table rows and forbids rebuilding via knowledge update', () => {
+  it('instructs copying curated table rows verbatim; `prospec knowledge update` is now safe (no-clobber backfill, issue #107)', () => {
     const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
-    // the curated Keywords/Aliases/Rationale/Depends On cells exist nowhere else —
-    // `prospec knowledge update` rebuilds only Module/Status/Description and guts them
+    // the curated Keywords/Aliases/Rationale/Depends On cells exist nowhere else
     expect(content).toContain(
       'copy both the Core/Demand Conventions lists and the\n   curated `Modules` table rows verbatim'
     );
-    expect(content).toMatch(/Do NOT run\s+`prospec knowledge update`/);
+    // the rebuild prohibition flipped: knowledge update backfills curated columns no-clobber
+    expect(content).toMatch(/A later\s+`prospec knowledge update` run is safe/);
+    expect(content).toContain('no-clobber');
+    expect(content).not.toMatch(/Do NOT run\s+`prospec knowledge update`/);
   });
 });
 
@@ -3163,7 +3219,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
   const archive = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
 
   it('verify commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
-    const status = sectionOf(verify(), '## Status Update');
+    const status = sectionOf(verify(), '## Record & Status Update');
     expect(status).toMatch(/Sync affected-module Knowledge/);
     expect(status).toContain('/prospec-knowledge-update');
     expect(status).toMatch(/Re-derive factual counts/);
@@ -3178,7 +3234,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
   });
 
   it('verify commit-prep avoids citing not-yet-graduated REQ ids (no req-references trip)', () => {
-    expect(sectionOf(verify(), '## Status Update')).toContain('not-yet-graduated REQ ids');
+    expect(sectionOf(verify(), '## Record & Status Update')).toContain('not-yet-graduated REQ ids');
   });
 
   it('archive Entry Gate is a backstop that still FAILs on unsynced Knowledge (defense in depth)', () => {
@@ -3213,10 +3269,11 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
   const renderImplement = () => renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
   const renderLenses = () => renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
 
-  it('prospec-review records a quality_log entry every round (incl. review-clean) and stamps the baseline', () => {
+  it('prospec-review records every round via `prospec change log` (incl. review-clean) and stamps the baseline (issue #107)', () => {
     const prov = sectionOf(renderReview(), '### Review Provenance (machine gate)');
     expect(prov).toContain('review-clean');
-    expect(prov).toContain('quality_log');
+    // the round record is CLI-written, never a hand-serialized quality_log entry
+    expect(prov).toContain('prospec change log --skill prospec-review');
     expect(prov).toContain('prospec check --record-review');
     // negative: a clean review that records nothing is called out as indistinguishable from no review
     expect(prov).toContain('indistinguishable from a review that never ran');
@@ -3390,23 +3447,26 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
 });
 
 describe('Structured quality_log + escaped-defect registration (issue #61)', () => {
-  it('prospec-verify Status Update instructs a structured grade + dimensions quality_log entry', () => {
+  it('prospec-verify Record & Status Update has the CLI append the structured grade + dimensions quality_log entry (issue #107)', () => {
     const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-    const section = sectionOf(verify, '## Status Update');
+    const section = sectionOf(verify, '## Record & Status Update');
     expect(section).toContain('quality_log');
     expect(section).toContain('`grade`');
     expect(section).toContain('`dimensions`');
-    // result must NOT be overwritten by the grade — the reconciliation contract
-    expect(section).toMatch(/never overwrite `result`/i);
+    // the entry is serialized by `prospec verify record`, never hand-written
+    expect(section).toContain('prospec verify record');
+    expect(section).toContain('never hand-write this entry');
     expect(section).toContain('hasVerifyGrade');
   });
 
-  it('prospec-review records structured criticals/majors counts every round', () => {
+  it('prospec-review records structured criticals/majors counts every round via `prospec change log` flags (issue #107)', () => {
     const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(review, '### Review Provenance (machine gate)');
-    expect(section).toContain('criticals_found');
-    expect(section).toContain('criticals_fixed');
-    expect(section).toContain('majors');
+    expect(section).toContain('--criticals-found');
+    expect(section).toContain('--criticals-fixed');
+    expect(section).toContain('--majors');
+    // the counts come from the CLI's own round report, not a hand tally
+    expect(section).toContain("`prospec review merge`'s round report");
   });
 
   it('the shipped status-lifecycle template documents the introduced_by convention + example', () => {
@@ -3459,41 +3519,47 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     });
 
     it('defines not-adjudicated as distinct from not-applicable, with S unreachable', () => {
-      const section = sectionOf(verify(), '### When the machine adjudicator is unavailable');
+      const section = sectionOf(verify(), '### When a machine check skips');
       expect(section).toContain('not-adjudicated');
       expect(section).toContain('WARN');
       expect(section).toContain('Grade S becomes unreachable');
       expect(section).toContain('not-applicable');
+      // the WARN is recorded by the CLI from the report, not hand-derived
+      expect(section).toContain('prospec verify record');
     });
 
-    // #103 must-fix 3: the A-budget carve-out was an open "substantive WARNs"
-    // judgment call — two defensible readings gave session-dependent grades in
-    // the one place this template mechanizes. Now a closed enumeration.
-    it('defines the A-budget exclusion as a CLOSED class naming all three engine-outage WARN shapes', () => {
-      const section = flat(sectionOf(verify(), '### When the machine adjudicator is unavailable'));
-      expect(section).toContain('closed class of exactly three shapes');
-      expect(section).toContain('not-adjudicated');
-      expect(section).toContain('missing-inventory');
-      expect(section).toContain('review-staleness');
-      // the complement rule is total — no residual judgment vocabulary
-      expect(section).toContain('Every WARN outside these three shapes counts');
+    // Issue #107 flip: the old #103 closed three-shape carve-out existed for
+    // CLI-less projects; with the CLI required that population is empty, so the
+    // A-budget is now total — every WARN counts, no exemption class.
+    it('the engine-outage A-budget exclusion class is REMOVED — every WARN counts (issue #107)', () => {
+      const section = flat(sectionOf(verify(), '### When a machine check skips'));
+      expect(section).toMatch(/Every WARN counts against grade A's ≤ 2 budget/);
+      expect(section).toContain('there is no exemption class');
+      // the removal is explained, not silent: the CLI-required posture emptied the class
+      expect(section).toContain('the carve-out is gone');
+      // the closed-class enumeration must not reappear
+      expect(section).not.toContain('closed class of exactly three shapes');
+      expect(section).not.toContain('review-staleness');
       expect(section).not.toContain('Count only');
     });
 
-    // Structure-aware (PB-001): EVERY restatement of the ≤ 2 WARN budget must
-    // carry the exclusion or a pointer to it — an unannotated copy is exactly
-    // how the contradiction shipped in #102 (two bare restatements).
-    it('annotates every mention of the ≤ 2 WARN budget with the exclusion', () => {
+    // Structure-aware (PB-001): with the exemption class gone (issue #107), no
+    // restatement of the ≤ 2 WARN budget may reintroduce a carve-out — a scoped
+    // copy is exactly how the #102 contradiction shipped in the other direction.
+    it('no mention of the ≤ 2 WARN budget reintroduces an exclusion class (issue #107)', () => {
       const doc = flat(verify());
       const hits = [...doc.matchAll(/(?:≤|<=)\s*2\s+(?:budget-counted\s+)?WARN/g)];
-      // definition + rubric + merge rule + status gate
-      expect(hits.length).toBeGreaterThanOrEqual(4);
+      // definition + rubric/merge-rule restatements
+      expect(hits.length).toBeGreaterThanOrEqual(2);
       for (const m of hits) {
         const window = doc.slice(Math.max(0, (m.index ?? 0) - 200), (m.index ?? 0) + 200);
-        expect(window, `budget mention lacks the exclusion near: …${window.slice(150, 250)}…`).toMatch(
-          /[Ee]ngine-unavailability|closed class|budget-counted/,
+        expect(window, `budget mention reintroduces a carve-out near: …${window.slice(150, 250)}…`).not.toMatch(
+          /closed class|exactly three shapes|engine-unavailability exclusion|Count only/,
         );
       }
+      // the total-budget rule is stated, and the old complement wording is gone
+      expect(doc).toContain('there is no exemption class');
+      expect(doc).not.toContain('Every WARN outside these three shapes counts');
     });
 
     it('forbids overturning a machine verdict and reporting not-adjudicated as PASS', () => {
@@ -3554,11 +3620,16 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(section).toContain('makes S unreachable');
     });
 
-    it('writes the adjudicator into each quality_log dimension entry', () => {
-      const section = sectionOf(verify(), '## Status Update');
+    it('records dimensions with adjudicators via `prospec verify record` — judgment passed, machine self-sourced (issue #107)', () => {
+      const section = sectionOf(verify(), '## Record & Status Update');
+      // each quality_log dimension entry carries its adjudicator
       expect(section).toContain('adjudicator');
-      expect(section).toContain('not-adjudicated');
-      expect(section).toContain('never omitted and never PASS');
+      // only the judgment dimensions are passed; none may be omitted
+      expect(section).toContain('--dimension <name>=<result>');
+      expect(section).toContain('`=not-applicable`, never omitted');
+      // machine dimensions come from the report — an LLM relay is refused
+      expect(section).toContain('self-sources the machine dimensions');
+      expect(section).toContain('refuses an LLM relay of an engine verdict');
     });
 
     it('documents the new checks and the constitution section in the drift-report reference', () => {
@@ -3608,18 +3679,37 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
     expect(phase3).toContain('prospec archive');
     expect(phase3).toContain('--dry-run');
-    // resolution ladder for the CLI binary
-    expect(phase3).toContain('pnpm exec prospec archive');
+    // the CLI is required (shared probe) — the binary resolution ladder is gone (issue #107)
+    expect(phase3).toContain('code-executed by the CLI — do not hand-run them');
+    expect(phase3).not.toContain('pnpm exec');
+    expect(phase3).not.toContain('npx');
     // the old hand-run move instruction is gone
     expect(phase3).not.toContain('Move all artifacts');
     // the judgment summary still replaces the scaffold
     expect(phase3).toContain('Review & Verify');
   });
 
-  it('Phase 3 keeps an explicit CLI-unavailable manual fallback', () => {
+  it('Phase 3 has NO CLI-unavailable manual fallback — finalize is deferred to Phase 3.7, never hand-run (issue #107)', () => {
     const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
-    expect(phase3).toContain('CLI unavailable');
-    expect(flat(phase3)).toContain('never silently skip the mutations');
+    // the manual fallback was removed with the required-CLI probe (STOP posture)
+    expect(phase3).not.toContain('CLI unavailable');
+    expect(flat(phase3)).not.toMatch(/fall back manually/);
+    expect(flat(phase3)).not.toContain('never silently skip the mutations');
+    // its replacement: the _archived-history copy + counter reconciliation move to 3.7
+    expect(flat(phase3)).toContain('via `prospec archive finalize` in Phase 3.7');
+  });
+
+  it('Phase 3.7 Finalize owns the _archived-history copy + counter reconciliation, post-judgment (issue #107)', () => {
+    const phase37 = sectionOf(render(), '### Phase 3.7: Finalize');
+    expect(phase37).toContain('prospec archive finalize');
+    expect(phase37).toContain('specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+    // refuses a scaffold summary — the Phase 2 record must be in place first
+    expect(flat(phase37)).toContain('refuses while the file still lacks `## Review & Verify`');
+    expect(flat(phase37)).toContain('story_count');
+    expect(flat(phase37)).toContain('req_count');
+    // rerun-safe and never un-archives
+    expect(flat(phase37)).toMatch(/idempotent/i);
+    expect(flat(phase37)).toContain('never un-archives');
   });
 
   it('Phase 3.5 reviews the mechanical sync instead of re-running it', () => {
@@ -3627,7 +3717,11 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     expect(flat(phase35)).toContain('already performed the **mechanical** Feature Spec Sync');
     // the judgment work that stays with the skill
     expect(phase35).toContain('Converge wording');
-    expect(flat(phase35)).toContain('frontmatter counters');
+    // counters moved out of the hand-reconciliation path (issue #107)
+    expect(flat(phase35)).toContain(
+      'Frontmatter counters are reconciled mechanically by `prospec archive finalize` in Phase 3.7',
+    );
+    expect(flat(phase35)).toContain('do not recount them by hand');
   });
 
   it('Phase 3.6 confirms the CLI outputs instead of regenerating them', () => {
@@ -3642,5 +3736,95 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('hand-execute the deterministic mutations');
     expect(never).toContain('--dry-run');
+  });
+});
+
+// Issue #107 (restore-cli-first): the CLI is REQUIRED. Every skill probes it via
+// one shared partial and STOPs when it is missing/too old — no template may carry
+// a manual fallback for a CLI-owned mutation. Negatives mutation-verified.
+describe('CLI-first contract — shared required probe, no manual fallbacks (issue #107)', () => {
+  const TEMPLATES_DIR = path.join(__dirname, '../../src/templates');
+  const PROBE_SENTENCE = 'Hand-executing a CLI-owned mutation is NEVER the fallback';
+
+  const walk = (dir: string): string[] =>
+    fs
+      .readdirSync(dir, { withFileTypes: true })
+      .flatMap((entry) =>
+        entry.isDirectory()
+          ? walk(path.join(dir, entry.name))
+          : [path.join(dir, entry.name)],
+      );
+
+  it('every one of the 17 skill templates includes {{> cli-probe}} exactly once', () => {
+    expect(SKILL_DEFINITIONS).toHaveLength(17);
+    for (const skill of SKILL_DEFINITIONS) {
+      const src = fs.readFileSync(
+        path.join(TEMPLATES_DIR, 'skills', `${skill.name}.hbs`),
+        'utf-8',
+      );
+      expect(
+        src.split('{{> cli-probe}}').length - 1,
+        `${skill.name}.hbs must include {{> cli-probe}} exactly once`,
+      ).toBe(1);
+      // and the partial actually renders into the skill body
+      const rendered = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+      expect(rendered).toContain('## CLI Prerequisite (required)');
+      expect(rendered.split(PROBE_SENTENCE).length - 1).toBe(1);
+    }
+  });
+
+  it('the probe STOP sentence lives ONLY in _cli-probe.hbs (single source across src/templates)', () => {
+    const carriers = walk(TEMPLATES_DIR)
+      .filter((file) => fs.readFileSync(file, 'utf-8').includes(PROBE_SENTENCE))
+      .map((file) => path.relative(TEMPLATES_DIR, file).replace(/\\/g, '/'));
+    expect(carriers).toEqual(['skills/_cli-probe.hbs']);
+  });
+
+  it('_cli-probe.hbs takes the version floor from {{minimum_cli_version}} — never a hardcoded version literal', () => {
+    const src = fs.readFileSync(
+      path.join(TEMPLATES_DIR, 'skills', '_cli-probe.hbs'),
+      'utf-8',
+    );
+    expect(src).toContain('{{minimum_cli_version}}');
+    expect(src).not.toMatch(/\b\d+\.\d+\.\d+\b/);
+    // the variable is live: an injected sentinel reaches the rendered skill body
+    const rendered = renderTemplate('skills/prospec-verify.hbs', {
+      ...TEMPLATE_CONTEXT,
+      minimum_cli_version: '9.9.9-sentinel',
+    });
+    expect(rendered).toContain('9.9.9-sentinel');
+  });
+
+  it('no template under skills/ or agent-configs/ carries a CLI-unavailable fallback phrase', () => {
+    const FORBIDDEN = [
+      'If the CLI is unavailable',
+      'fall back manually',
+      'degrade gracefully',
+      'CLI resolution ladder',
+    ];
+    for (const dir of ['skills', 'agent-configs']) {
+      for (const file of walk(path.join(TEMPLATES_DIR, dir))) {
+        const src = fs.readFileSync(file, 'utf-8');
+        const rel = path.relative(TEMPLATES_DIR, file).replace(/\\/g, '/');
+        for (const phrase of FORBIDDEN) {
+          expect(src, `${rel} must not contain "${phrase}"`).not.toContain(phrase);
+        }
+      }
+    }
+  });
+
+  it('entry config Session Start requires the CLI (prospec status + version floor) — the scan fallback is gone', () => {
+    const src = fs.readFileSync(
+      path.join(TEMPLATES_DIR, 'agent-configs', 'entry.md.hbs'),
+      'utf-8',
+    );
+    const start = src.indexOf('## Session Start');
+    expect(start).toBeGreaterThan(-1);
+    const next = src.indexOf('\n## ', start + 1);
+    const section = next === -1 ? src.slice(start) : src.slice(start, next);
+    expect(section).toContain('prospec status');
+    expect(section).toContain('{{minimum_cli_version}}');
+    expect(section).toContain('never substitute manual steps');
+    expect(section).not.toContain('fall back to scanning');
   });
 });

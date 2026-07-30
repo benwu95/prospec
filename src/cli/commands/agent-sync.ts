@@ -1,8 +1,14 @@
 import type { Command } from 'commander';
 import { execute } from '../../services/agent-sync.service.js';
-import { execute as agentTriggersExecute } from '../../services/agent-triggers.service.js';
+import {
+  execute as agentTriggersExecute,
+  executeWrite as agentTriggersWrite,
+} from '../../services/agent-triggers.service.js';
 import { formatAgentSyncOutput } from '../formatters/agent-sync-output.js';
-import { formatAgentTriggersOutput } from '../formatters/agent-triggers-output.js';
+import {
+  formatAgentTriggersOutput,
+  formatAgentTriggersWriteOutput,
+} from '../formatters/agent-triggers-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { VALID_AGENTS } from '../../types/config.js';
@@ -49,13 +55,22 @@ export function registerAgentCommand(program: Command): void {
     .description(
       'Emit a fill-missing skill_triggers localization scaffold (English baselines from SKILL_DEFINITIONS)',
     )
-    .action(async () => {
+    .option(
+      '--write <file>',
+      'Write a translated scaffold back into .prospec.yaml (fill-missing, comment-preserving)',
+    )
+    .action(async (options: { write?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
-        const result = await agentTriggersExecute({});
-        formatAgentTriggersOutput(result, logLevel);
+        if (options.write) {
+          const result = await agentTriggersWrite({ from: options.write });
+          formatAgentTriggersWriteOutput(result, logLevel);
+        } else {
+          const result = await agentTriggersExecute({});
+          formatAgentTriggersOutput(result, logLevel);
+        }
       } catch (err) {
         handleError(err, globalOpts.verbose ?? false);
       }
