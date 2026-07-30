@@ -20,8 +20,8 @@ agents:
 knowledge:
   base_path: prospec/ai-knowledge
   token_budget:
-    l1_per_file: 2000
-    l2_per_module: 1500
+    l1_per_file: 2500
+    l2_per_module: 1800
 artifact_language: Traditional Chinese (Taiwan)
 skill_triggers:
   prospec-explore:

@@ -54,7 +54,7 @@ _Optional grouping: when modules fall into ≥2 domain categories, group rows un
 | **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1,000 tokens per module README; also ≤ 100 lines |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> **L1/L2 budgets are machine-enforced** by the `knowledge-size` drift check (`prospec check`). The numbers above are the **shipped defaults**; the operative thresholds come from `.prospec.yaml` `knowledge.token_budget`, which **this project currently overrides to `l1_per_file: 2000` / `l2_per_module: 1500`** (`readme_max_lines` unchanged). Over-budget files WARN (a pressure signal against silent regrowth, never a build breaker). L0 is agent-injected config, out of the check's scope.
+> **L1/L2 budgets are machine-enforced** by the `knowledge-size` drift check (`prospec check`). The numbers above are the **shipped defaults**; the operative thresholds come from `.prospec.yaml` `knowledge.token_budget`, which **this project currently overrides to `l1_per_file: 2500` / `l2_per_module: 1800`** (`readme_max_lines` unchanged). Over-budget files WARN (a pressure signal against silent regrowth, never a build breaker). L0 is agent-injected config, out of the check's scope.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
