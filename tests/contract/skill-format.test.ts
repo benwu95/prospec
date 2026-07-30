@@ -11,7 +11,11 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
-import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
+import {
+  AGENT_CONFIGS,
+  SKILL_DEFINITIONS,
+  intersectCapabilities,
+} from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS } from '../../src/types/drift-report.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
@@ -33,6 +37,12 @@ const TEMPLATE_CONTEXT = {
   l1_per_file: 1800,
   l2_per_module: 1000,
   readme_max_lines: 100,
+  // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
+  // fixture models a fully-capable harness so the default renders exercise the
+  // primary path; the degraded branch is rendered explicitly where it is asserted.
+  can_spawn_subagent: true,
+  can_worktree: true,
+  can_background: true,
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
   skills: SKILL_DEFINITIONS.map((s) => ({
     name: s.name,
@@ -42,6 +52,15 @@ const TEMPLATE_CONTEXT = {
     hasReferences: s.hasReferences,
   })),
 };
+
+// Sentinels owned by skills/_harness-capabilities.hbs — the single source for
+// harness-degradation wording. Each lives in exactly one branch of that partial,
+// so a consuming skill that re-inlines the prose (or a branch that leaks into the
+// other) turns the assertions below red.
+const CAPABILITY_LINE_LABEL = '**Harness capabilities**';
+const DEGRADE_FLOOR = 'A degraded path is never a silent skip';
+const RUNTIME_FALLBACK_SENTINEL = 'Should a spawn fail at runtime';
+const NO_SPAWN_SENTINEL = 'no sub-agent primitive';
 
 // slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
 const sectionOf = (content: string, heading: string): string => {
@@ -1594,10 +1613,31 @@ describe('Skill Format Contract', () => {
       expect(exit).toContain('quality_log');
     });
 
-    it('degrades on harnesses without sub-agents instead of silently skipping', () => {
-      const c = render();
-      expect(c).toMatch(/sub-?agent/i);
-      expect(c).toMatch(/never.*silent|not.*skip|offer.*choice/i);
+    it('states the resolved harness capabilities and review-specific degraded action (REQ-TEMPLATES-066)', () => {
+      const capable = sectionOf(render(), '### Harness Degradation');
+      // the capability line is rendered from the injected flags, not asked at runtime
+      expect(capable).toContain(CAPABILITY_LINE_LABEL);
+      expect(capable).toContain('`can_spawn_subagent`: yes');
+      // review's own degraded action stays in review's prose, the judgment does not
+      expect(capable).toMatch(/harness'?s own reviewer/i);
+      expect(capable).toContain(DEGRADE_FLOOR);
+    });
+
+    it('renders a different, spawn-free instruction when the harness declares no sub-agents', () => {
+      const degraded = sectionOf(
+        renderTemplate('skills/prospec-review.hbs', {
+          ...TEMPLATE_CONTEXT,
+          can_spawn_subagent: false,
+        }),
+        '### Harness Degradation',
+      );
+      expect(degraded).toContain('`can_spawn_subagent`: no');
+      expect(degraded).toContain(NO_SPAWN_SENTINEL);
+      // the capable branch's runtime-fallback wording must NOT survive here
+      expect(degraded).not.toContain(RUNTIME_FALLBACK_SENTINEL);
+      // …and review's degraded action is still named, so the path is actionable
+      expect(degraded).toMatch(/harness'?s own reviewer/i);
+      expect(degraded).toContain(DEGRADE_FLOOR);
     });
   });
 
@@ -1875,6 +1915,147 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
         }
       }
     }
+  });
+});
+
+describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167, REQ-TESTS-063)', () => {
+  const skillsDir = path.join(__dirname, '../../src/templates/skills');
+  const src = (name: string) => fs.readFileSync(path.join(skillsDir, `${name}.hbs`), 'utf-8');
+  const partial = fs.readFileSync(
+    path.join(skillsDir, '_harness-capabilities.hbs'),
+    'utf-8',
+  );
+  const consumers = SKILL_DEFINITIONS.map((s) => s.name).filter((n) =>
+    src(n).includes('{{> harness-capabilities'),
+  );
+
+  it('is consumed by at least two stations — the mechanism is reusable, not a one-off', () => {
+    expect(consumers).toEqual(expect.arrayContaining(['prospec-review', 'prospec-verify']));
+    expect(consumers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('is a partial single source: the floor and both branches live only in the partial (PB-006)', () => {
+    for (const sentinel of [DEGRADE_FLOOR, RUNTIME_FALLBACK_SENTINEL, NO_SPAWN_SENTINEL]) {
+      expect(partial, `partial must own: ${sentinel}`).toContain(sentinel);
+    }
+    for (const name of SKILL_DEFINITIONS.map((s) => s.name)) {
+      for (const sentinel of [DEGRADE_FLOOR, RUNTIME_FALLBACK_SENTINEL, NO_SPAWN_SENTINEL]) {
+        expect(src(name), `${name} re-inlined: ${sentinel}`).not.toContain(sentinel);
+      }
+    }
+  });
+
+  it('no skill template judges harness capability in prose (repo-wide negative)', () => {
+    // The whole point of the flags: the SHIPPED skill states a fact. A template
+    // that asks the executing agent "can you spawn a sub-agent?" reintroduces the
+    // per-station judgment this change removed. Each pattern is one of the prose
+    // forms actually deleted here — a narrower regex let three of them back in.
+    const SELF_JUDGMENT = [
+      // A capability NOUN followed by a negation, under a conditional.
+      /\b(if|when|where|whether|unless)\b[^.\n]{0,80}\b(sub-?agents?|harness|execution environment|spawn(ing)?)\b[^.\n]{0,60}\b(can'?t|cannot|not supported|unsupported|not possible|lacks?|does not support|doesn'?t support|are not available|is not available|unavailable)\b/i,
+      // The same shape with the negation FIRST ("no sub-agent primitive exists").
+      /\b(if|when|where|whether|unless)\b[^.\n]{0,80}\b(no|without)\s+sub-?agents?\b/i,
+      // Asking the agent to work it out itself.
+      /\b(decide|determine|check)\s+(whether|if)\b[^.\n]{0,60}\b(harness|sub-?agents?|execution environment)\b/i,
+      // "if you cannot spawn …" — the judgment relocated onto the reader.
+      /\b(if|when|unless)\b[^.\n]{0,60}\b(can'?t|cannot|unable to)\s+spawn\b/i,
+    ];
+    // Recursive: references/*.hbs render into the same shipped skill bundle, so
+    // a non-recursive readdir would leave 21 files unguarded.
+    const hbsFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return hbsFiles(full);
+        return e.name.endsWith('.hbs') ? [full] : [];
+      });
+    const scanned = hbsFiles(skillsDir);
+    expect(scanned.length).toBeGreaterThan(SKILL_DEFINITIONS.length); // partials + references included
+    // A sentence that names the RESOLVED value is legitimate — that is the
+    // mechanism, not a judgment. Only sentences that ask about the environment
+    // without referencing what sync resolved are offenders.
+    const REFERENCES_RESOLVED = /capability line|can_spawn_subagent|can_worktree|can_background/i;
+    const offenders = scanned
+      .filter((f) =>
+        fs
+          .readFileSync(f, 'utf-8')
+          .split(/(?<=[.:;])\s|\n/)
+          .some((s) => !REFERENCES_RESOLVED.test(s) && SELF_JUDGMENT.some((re) => re.test(s))),
+      )
+      .map((f) => path.relative(skillsDir, f));
+    expect(offenders).toEqual([]);
+  });
+
+  it('agent-sync is the ONLY src render site for skill templates (capability keys cannot be skipped)', () => {
+    // Handlebars is non-strict: a render site that omits `can_spawn_subagent`
+    // silently emits the degraded branch as confident prose. Nothing in the
+    // type system prevents that, so pin the render sites instead — a new one
+    // has to be added here, which is where it gets told to pass the flags.
+    const srcDir = path.join(__dirname, '../../src');
+    const tsFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return tsFiles(full);
+        return e.name.endsWith('.ts') ? [full] : [];
+      });
+    const sites = tsFiles(srcDir)
+      .filter((f) => /renderTemplate\(\s*[`'"]skills\//.test(fs.readFileSync(f, 'utf-8')))
+      .map((f) => path.relative(srcDir, f))
+      .sort();
+    expect(sites).toEqual(['services/agent-sync.service.ts']);
+  });
+
+  it('never instructs a spawn outside the partial — the degraded render cannot contradict itself', () => {
+    // A spawn imperative in the station prose is emitted unconditionally, so a
+    // `can_spawn_subagent: false` render would say both "spawn the reviewer" and
+    // "this harness has no sub-agent primitive". The mechanism is named ONLY in
+    // the partial, which is the only capability-aware text.
+    const SPAWN_IMPERATIVE = /\bspawn\s+(the|an|a)\s+/i;
+    for (const name of consumers) {
+      for (const capable of [true, false]) {
+        const rendered = renderTemplate(`skills/${name}.hbs`, {
+          ...TEMPLATE_CONTEXT,
+          can_spawn_subagent: capable,
+        });
+        const outsidePartial = rendered
+          .split('\n')
+          .filter((l) => !l.includes(CAPABILITY_LINE_LABEL) && !l.includes(DEGRADE_FLOOR))
+          .join('\n');
+        expect(
+          SPAWN_IMPERATIVE.test(outsidePartial),
+          `${name} (can_spawn_subagent: ${capable}) instructs a spawn outside the partial`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('deployed SKILL.md files differ per agent, each matching its resolved capabilities', () => {
+    // .claude/skills serves claude alone; .agents/skills is one file shared by
+    // codex+copilot+antigravity, so its flags are the intersection of the three.
+    const repoRoot = path.join(__dirname, '../..');
+    const read = (dir: string) =>
+      fs.readFileSync(path.join(repoRoot, dir, 'prospec-review', 'SKILL.md'), 'utf-8');
+    const claudeDoc = read('.claude/skills');
+    const agentsDoc = read('.agents/skills');
+
+    const line = (doc: string) => {
+      const found = doc.split('\n').find((l) => l.includes(CAPABILITY_LINE_LABEL));
+      expect(found, 'capability line missing from deployed SKILL.md').toBeDefined();
+      return found!;
+    };
+    const claudeCaps = AGENT_CONFIGS.claude.capabilities;
+    const sharedCaps = intersectCapabilities(
+      (['codex', 'copilot', 'antigravity'] as const).map((a) => AGENT_CONFIGS[a].capabilities),
+    );
+    // the registry currently differs on exactly this flag — if that ever stops
+    // being true, this guard says so rather than silently testing nothing
+    expect(claudeCaps.canWorktree).not.toBe(sharedCaps.canWorktree);
+    expect(line(claudeDoc)).not.toBe(line(agentsDoc));
+    expect(line(claudeDoc)).toContain(
+      `\`can_worktree\`: ${claudeCaps.canWorktree ? 'yes' : 'no'}`,
+    );
+    expect(line(agentsDoc)).toContain(
+      `\`can_worktree\`: ${sharedCaps.canWorktree ? 'yes' : 'no'}`,
+    );
   });
 });
 
@@ -3657,12 +3838,20 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       const spec = sectionOf(content, '### Verification 2/5: Delta Spec Compliance — `[judgment]`');
       expect(spec).toContain('No mechanical oracle exists here');
       expect(flat(spec)).toContain("does not share the implementation's context");
-      expect(spec).toContain('spawn a sub-agent');
-      expect(spec).toContain('Harness degradation');
+      // the reviewer's inputs stay pinned; the MECHANISM is the partial's job,
+      // so this prose must not name it (else the degraded render contradicts it)
+      expect(flat(spec)).toContain('only the delta-spec, the code, and this contract as its inputs');
+      // the harness question is answered by the shared partial's injected flags…
+      expect(spec).toContain(CAPABILITY_LINE_LABEL);
+      expect(spec).toContain(DEGRADE_FLOOR);
+      // …while verify's own degraded action (the disclosure WARN) stays verify's
+      expect(spec).toContain('2/5 graded in-session');
       expect(spec).toContain('WARN');
       const design = sectionOf(content, '### Verification 6 (Conditional): Design Consistency — `[judgment]`');
       expect(design).toContain('fresh context');
-      expect(design).toContain('degradation');
+      // dimension 6 cross-references 2/5 rather than carrying a third copy
+      expect(design).toContain('2/5');
+      expect(design).not.toContain(CAPABILITY_LINE_LABEL);
     });
 
     it('reports two ledgers and caps the grade on a machine FAIL', () => {

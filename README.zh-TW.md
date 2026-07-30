@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2822%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2837%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -477,6 +477,8 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 >
+> 工作流程取決於 harness 的 Skills——目前是 `/prospec-review` 與 `/prospec-verify`——會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+>
 > 你的編輯是安全的：entry 配置帶有 `prospec:auto` / `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只更新 auto 區塊，並保留你寫在 user 區塊的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時遷入 user 區塊，而非被覆蓋。
 >
 > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
@@ -723,7 +725,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（65 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（66 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 19 個 reference 範本
 ```
 
@@ -742,7 +744,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2822 個測試）
+# 執行所有測試（2837 個測試）
 pnpm test
 
 # Watch 模式
@@ -755,9 +757,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2822 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1993 tests
-- Contract tests（CLI 輸出 + Skill 格式）：720 tests
+**測試覆蓋率**：2837 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2001 tests
+- Contract tests（CLI 輸出 + Skill 格式）：727 tests
 - Integration tests：43 tests
 - E2E tests：66 tests
 

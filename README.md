@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2822%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2837%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -494,6 +494,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
 >
+> Skills whose workflow depends on the harness — today `/prospec-review` and `/prospec-verify` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it states the **intersection** of their capabilities, never promising something one of them lacks.
+>
 > Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
@@ -756,7 +758,7 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (65 .hbs files)
+└── templates/    — Handlebars templates (66 .hbs files)
     └── skills/   — 17 Skill templates + 19 reference templates
 ```
 
@@ -775,7 +777,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2822 tests)
+# Run all tests (2837 tests)
 pnpm test
 
 # Watch mode
@@ -788,9 +790,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2822 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1993 tests
-- Contract tests (CLI output + Skill format): 720 tests
+**Test Coverage**: 2837 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2001 tests
+- Contract tests (CLI output + Skill format): 727 tests
 - Integration tests: 43 tests
 - E2E tests: 66 tests
 

@@ -16,16 +16,16 @@
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
-| `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents) |
+| `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents, each declaring `HarnessCapabilities`), `intersectCapabilities` |
 | `station.ts` | Station I/O contracts — `ReviewFindingSchema`, `VERIFY_DIMENSIONS` (+ machine/judgment split), `LessonInputSchema`, `VALIDATE_KINDS` |
 
-Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` workflow order incl. the no-status design/review stations, `STATION_SKILLS`, `ChangeRouteFacts`/`ChangeRoute`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`, the skills' CLI probe floor).
+Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` order incl. the no-status design/review stations, `STATION_SKILLS`, `ChangeRoute*`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`, the skills' CLI probe floor).
 
 ## Public API
 
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
-- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`)
+- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `intersectCapabilities` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`); harness capability flags + their conservative AND
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 13 frozen check ids
 - `ReviewFindingSchema` / `VERIFY_DIMENSIONS` / `LessonInputSchema` / `VALIDATE_KINDS` — station I/O: reviewer findings, the 5+1 dimension registry, lesson upsert, validate kinds
 - `MeasurementReportSchema` / `MCP_RESOURCE_URIS` — offline size/measure reports; 8 frozen URIs + tool I/O shapes
@@ -43,7 +43,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 2. **Add an error class** — extend `ProspecError` with `code` (UPPER_SNAKE) + `suggestion`.
 3. **Add a skill** — append to `SKILL_DEFINITIONS`, then bump the count in `skill-format.test.ts`.
 4. **Add a drift check id** — append to `DRIFT_CHECK_IDS` (frozen, additive) → wire it in drift services.
-5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces a matching entry.
+5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces a matching entry, `capabilities` included (survey the vendor docs and record the source inline).
 6. **Add a verify dimension** — extend `VERIFY_DIMENSIONS` (`station.ts`) with its `adjudicator`; `MACHINE_/JUDGMENT_DIMENSION_NAMES` derive from it, so never hand-list either set.
 
 ## Ripple Effects
@@ -53,8 +53,8 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 ## Pitfalls
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`.
-- `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of a loose schema gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` and `not-adjudicated` are dimension-only).
-- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove. The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (both provenance checks' backfill exemptions are draft-gated, and a recorded non-zero exit is never exempt); a stale claim here has twice invited reopening a closed bypass.
+- `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of it gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` and `not-adjudicated` are dimension-only).
+- `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove. The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (both provenance checks' backfill exemptions are draft-gated; a recorded non-zero exit is never exempt); a stale claim here has twice reopened a closed bypass.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.
 - `station.ts` is the judgment↔mechanics boundary: everything it models is LLM input, everything downstream of a successful parse is deterministic. `machine` dimensions are self-sourced by the CLI from `prospec-report.json` — never an agent's relayed verdict; 3/5 is registered `judgment` (machine rule inventory, judged violations).
 - `MINIMUM_CLI_VERSION` (`version.ts`) is the skills' probe floor, NOT the package version — bump it only when a skill starts calling a CLI surface a newer version added, never as a release chore.

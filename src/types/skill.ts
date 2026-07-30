@@ -41,6 +41,68 @@ export interface SkillConfig {
 }
 
 /**
+ * What an execution harness can do, declared per agent so a generated skill
+ * states a fact instead of asking the running agent to judge its own harness.
+ *
+ * These describe the PLATFORM's capability, never runtime availability — a
+ * capable harness can still have the primitive disabled for a given session,
+ * which is why the consuming templates keep a runtime fallback on the capable
+ * branch.
+ */
+export interface HarnessCapabilities {
+  /** Spawn an independent sub-agent that does not share the caller's context. */
+  canSpawnSubagent: boolean;
+  /** Run agent work inside an isolated git worktree. */
+  canWorktree: boolean;
+  /** Run a task detached, so the session is not blocked while it runs. */
+  canBackground: boolean;
+}
+
+/**
+ * Canonical enumeration of the capability flags — every consumer derives from
+ * it (the intersection reducer, the render-context builder) so a new flag
+ * cannot reach some consumers and silently miss others.
+ */
+export const HARNESS_CAPABILITY_KEYS = [
+  'canSpawnSubagent',
+  'canWorktree',
+  'canBackground',
+] as const satisfies readonly (keyof HarnessCapabilities)[];
+
+/**
+ * Compile-time exhaustiveness: `satisfies` only checks each listed key is
+ * valid, so a flag added to `HarnessCapabilities` but not listed above would
+ * pass silently — and then never be visited by any loop over the list. This
+ * makes that omission a type error instead.
+ */
+type AssertNever<T extends never> = T;
+export type _CapabilityKeysAreExhaustive = AssertNever<
+  Exclude<keyof HarnessCapabilities, (typeof HARNESS_CAPABILITY_KEYS)[number]>
+>;
+
+/**
+ * Reduce several agents' capabilities to what ALL of them support.
+ *
+ * Agents that share one output signature (codex/copilot/antigravity all write
+ * `.agents/skills` + `AGENTS.md`) read the same bytes, so the shared file must
+ * not claim a capability any one of them lacks.
+ */
+export function intersectCapabilities(
+  declared: readonly HarnessCapabilities[],
+): HarnessCapabilities {
+  // Built by looping the canonical key list (exhaustive per the type check
+  // above), so the cast is filled before it is returned and a newly-added flag
+  // cannot be left silently false.
+  const result = {} as HarnessCapabilities;
+  for (const key of HARNESS_CAPABILITY_KEYS) {
+    // Empty declares nothing. The AND-identity would be all-true, which would
+    // let a caller claim capabilities no agent backs.
+    result[key] = declared.length > 0 && declared.every((c) => c[key]);
+  }
+  return result;
+}
+
+/**
  * Agent configuration describing a target AI CLI platform.
  */
 export interface AgentConfig {
@@ -58,6 +120,12 @@ export interface AgentConfig {
    * the entry config keeps the full table (the only place the agent sees skills).
    */
   surfacesSkillFrontmatter: boolean;
+  /**
+   * What this harness can do. Injected into every skill render context by
+   * `agent-sync`, so the generated SKILL.md states the capability rather than
+   * asking the agent to determine it at runtime.
+   */
+  capabilities: HarnessCapabilities;
 }
 
 /**
@@ -197,6 +265,11 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
 
 /**
  * Agent configuration definitions for all supported AI CLI platforms.
+ *
+ * `capabilities` is a dated vendor-documentation survey (2026-07-30), not a
+ * runtime probe. Each agent names the document it was read from and each flag
+ * names the surface that backs it, so a re-surveyor can re-check the same place
+ * instead of trusting folklore. Re-survey before relying on an old value.
  */
 export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
   claude: {
@@ -206,24 +279,64 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     // Claude Code auto-injects each .claude/skills/*/SKILL.md frontmatter into
     // the session's available-skills reminder → the entry registry is redundant.
     surfacesSkillFrontmatter: true,
+    // Source: Claude Code tool reference (Agent + Bash tool schemas).
+    capabilities: {
+      // Agent tool spawns an independent sub-agent with its own context.
+      canSpawnSubagent: true,
+      // Agent tool parameter `isolation: "worktree"` — the only surveyed
+      // harness with first-class git-worktree isolation.
+      canWorktree: true,
+      // Bash tool parameter `run_in_background`, plus tracked background tasks.
+      canBackground: true,
+    },
   },
   codex: {
     name: 'codex',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: learn.chatgpt.com/docs/agent-configuration/subagents + Codex CLI docs.
+    capabilities: {
+      // `/spawn` subagents (default/worker/explorer), GA March 2026.
+      canSpawnSubagent: true,
+      // No native worktree support — openai/codex#12862 is still open.
+      canWorktree: false,
+      // `/background` detaches the session; `codex exec` runs unattended.
+      canBackground: true,
+    },
   },
   copilot: {
     name: 'copilot',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: docs.github.com/en/copilot/how-tos/copilot-cli (custom agents,
+    // sub-agent orchestration) + code.visualstudio.com/docs/agents/agent-types/copilot-cli.
+    capabilities: {
+      // Custom `.agent.md` agents run as subagents; `/fleet` runs them in parallel.
+      canSpawnSubagent: true,
+      // Worktree isolation for a Copilot CLI session is created by VS Code, not
+      // by the CLI — nothing the CLI harness can request for itself.
+      canWorktree: false,
+      // Background agents / parallel autonomous local sessions.
+      canBackground: true,
+    },
   },
   antigravity: {
     name: 'antigravity',
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: antigravity.google/docs/cli/subagents.
+    capabilities: {
+      // `invoke_subagent` for custom agents declaring `subagent: true`.
+      canSpawnSubagent: true,
+      // Subagents get workspace isolation; git worktrees are not documented
+      // there — absence of evidence, so the conservative value.
+      canWorktree: false,
+      // Asynchronous background Tasks, surfaced by `/tasks` and `/agents`.
+      canBackground: true,
+    },
   },
 };
 
