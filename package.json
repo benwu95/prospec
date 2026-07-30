@@ -25,7 +25,8 @@
     "measure:tokens": "npx tsx scripts/measure-tokens.ts",
     "counts": "npx tsx scripts/sync-counts.ts",
     "counts:check": "npx tsx scripts/sync-counts.ts --check",
-    "bundle": "npx tsx scripts/bundle.ts"
+    "bundle": "npx tsx scripts/bundle.ts",
+    "cli": "npx tsx src/cli/index.ts"
   },
   "keywords": [
     "progressive-disclosure",

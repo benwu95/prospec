@@ -29,6 +29,31 @@ pnpm uninstall -g prospec
 
 > First-time global install needs `pnpm setup` run once to configure the global bin directory.
 
+### Running the working-tree CLI
+
+`pnpm cli <args>` runs the CLI straight from `src/` — no build, no install, always exactly HEAD:
+
+```bash
+pnpm cli status
+pnpm cli check
+```
+
+Use this for quick checks and in scripts. It is not what the **skills** read, though: every skill's
+startup probe runs `prospec --version` from `PATH` and STOPs when that binary is older than
+`MINIMUM_CLI_VERSION`, because its deterministic steps call commands only that version ships. So to
+dogfood the skills on prospec itself, put a build of the working tree on `PATH` — either the global
+bin above, or the release-shaped standalone binary:
+
+```bash
+pnpm bundle                                                    # bakes package.json's version in
+bun build ./dist/cli-bundle.js --compile --minify --outfile ~/.prospec/bin/prospec
+prospec --version                                              # must be >= MINIMUM_CLI_VERSION
+```
+
+`MINIMUM_CLI_VERSION` (`src/types/version.ts`) names the version that **ships** the commands the
+skills call, so during development it runs ahead of `package.json` until the release bumps to match.
+Never lower it to make a probe pass — that lets an older binary without those commands through.
+
 ## Development Workflow
 
 ```bash
