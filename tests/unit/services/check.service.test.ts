@@ -492,16 +492,32 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     expect(rec.reason).not.toContain('not a git repository');
   });
 
-  it('writes no record when the run is killed, and reports the signal honestly', async () => {
+  // A killed run is reported as whatever the platform can actually observe — asserted
+  // per platform rather than as one cross-platform rule, because a single assertion here
+  // encoded a POSIX premise and stayed green until CI first ran on Windows.
+  it('reports a killed run as the platform actually ends it', async () => {
     initGitChange();
     setTestCommandArgv(`${NODE} -e process.kill(process.pid,'SIGTERM')`);
     const rec = await execute({ cwd: tmpDir, recordTests: true });
     if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
+    const metadata = (): string =>
+      readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    if (process.platform === 'win32') {
+      // Windows carries no signal in the wait status: libuv synthesizes one from an
+      // `exit_signal` it sets only for a kill issued through `uv_process_kill`, and this
+      // fixture kills ITSELF, so none is reported. `TerminateProcess` ends the child with
+      // exit code 1 — indistinguishable from a suite that failed on its own, so recording
+      // it is the honest outcome: fail-closed, never silently absent. Asserted as non-zero
+      // rather than as 1, which is libuv's own choice of exit code.
+      expect(rec.recorded).toBe(true);
+      expect(rec.exitCode).not.toBe(0);
+      expect(metadata()).toContain('test_provenance');
+      return;
+    }
+    // POSIX: the terminating signal leaves no exit code, so nothing is recorded.
     expect(rec.recorded).toBe(false);
     expect(rec.reason).toContain('SIGTERM');
-    expect(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8')).not.toContain(
-      'test_provenance',
-    );
+    expect(metadata()).not.toContain('test_provenance');
   });
 
   it('never spawns the suite on the pure check path (read-only)', async () => {

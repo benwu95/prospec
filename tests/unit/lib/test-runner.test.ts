@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import {
   classifyExecutable,
   defaultExecutableProbe,
@@ -18,8 +18,11 @@ import {
  * so running them can never recurse into vitest.
  */
 
-// Spawns a real node child per test — see the note in check.service.test.ts.
-vi.setConfig({ testTimeout: 30_000 });
+// Spawns a real node child per test — see the note in check.service.test.ts. The hook
+// timeout is raised with it: the real-host block copies `node.exe` (~110 MB, freshly
+// written and therefore Defender-scanned on a Windows runner) in `beforeAll`, and the 10 s
+// hook default would kill all three real-host cases at once (PB-010).
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 const NODE = process.execPath;
 
@@ -92,10 +95,13 @@ describe('runTestCommand', () => {
  * `test-provenance` FAIL for every Windows project) would stay unpinned.
  */
 describe('classifyExecutable (platform-injected)', () => {
-  /** A fake Windows install: `pnpm` ships only a .cmd shim, `node` a real .exe. */
-  const winProbe = (files: string[]): ExecutableProbe => ({
+  /** A fake Windows install: `pnpm` ships only a .cmd shim, `node` a real .exe.
+   *  `cwd` defaults to none so a case that does not exercise the current-directory
+   *  search reads the same as it did before that search existed. */
+  const winProbe = (files: string[], cwd: string | null = null): ExecutableProbe => ({
     platform: 'win32',
     pathDirs: ['C:\\tools\\bin', 'C:\\Program Files\\nodejs'],
+    cwd,
     exists: (candidate) => files.includes(candidate),
   });
 
@@ -106,6 +112,7 @@ describe('classifyExecutable (platform-injected)', () => {
       const probe: ExecutableProbe = {
         platform,
         pathDirs: ['/usr/bin'],
+        cwd: '/proj',
         exists: () => false,
       };
       expect(classifyExecutable('pnpm', probe), platform).toEqual({ kind: 'spawnable' });
@@ -183,6 +190,45 @@ describe('classifyExecutable (platform-injected)', () => {
     expect(classifyExecutable('nope', winProbe([]))).toEqual({ kind: 'not-found' });
   });
 
+  // libuv resolves a bare name against the SPAWN's current directory BEFORE it walks
+  // PATH (`NeedCurrentDirectoryForExePathW` is true unless the caller opts out). The
+  // vendored/portable layout — a real `.exe` beside the project, only a `.cmd` on PATH
+  // — is therefore startable, and calling it a shim false-blocks a working command
+  // (and, being `shim` rather than `not-found`, escapes the non-blocking safety net).
+  it('searches the spawn cwd before PATH — a cwd .exe beats a PATH .cmd', () => {
+    const probe = winProbe(['C:\\tools\\bin\\mytool.cmd', 'C:\\proj\\mytool.exe'], 'C:\\proj');
+    expect(classifyExecutable('mytool', probe)).toEqual({ kind: 'spawnable' });
+  });
+
+  it('still reports a shim when the cwd is the only place holding one', () => {
+    const probe = winProbe(['C:\\proj\\mytool.cmd'], 'C:\\proj');
+    expect(classifyExecutable('mytool', probe)).toEqual({
+      kind: 'shim',
+      resolved: 'C:\\proj\\mytool.cmd',
+    });
+  });
+
+  // The opt-out half of the same rule: with no cwd on the probe the current directory
+  // is invisible, so the verdict must not silently fall back to searching it.
+  it('does NOT search the current directory when the probe carries no cwd', () => {
+    expect(classifyExecutable('mytool', winProbe(['C:\\proj\\mytool.exe'], null))).toEqual({
+      kind: 'not-found',
+    });
+  });
+
+  // libuv resolves a relative PATH entry against the spawn's cwd (`search_path_join_test`
+  // prepends it to any dir that is not drive-absolute or UNC). Probing the entry as
+  // written would ask about a directory relative to OUR process cwd instead.
+  it('resolves a relative PATH entry against the spawn cwd', () => {
+    const probe: ExecutableProbe = {
+      platform: 'win32',
+      pathDirs: ['vendor\\bin'],
+      cwd: 'C:\\proj',
+      exists: (c) => c === 'C:\\proj\\vendor\\bin\\mytool.exe',
+    };
+    expect(classifyExecutable('mytool', probe)).toEqual({ kind: 'spawnable' });
+  });
+
   // Negative assertion for the model that was wrong: PATHEXT must not influence the
   // verdict at all, because libuv does not read it.
   it('ignores PATHEXT entirely — a PATHEXT that prefers .cmd changes nothing', () => {
@@ -222,6 +268,7 @@ describe('unspawnableReason', () => {
     const probe: ExecutableProbe = {
       platform: 'win32',
       pathDirs: ['C:\\tools\\bin'],
+      cwd: null,
       exists: (c) => c === 'C:\\tools\\bin\\pnpm.cmd',
     };
     expect(unspawnableReason('pnpm test --run', probe)).toContain('Windows shim');
@@ -232,10 +279,16 @@ describe('unspawnableReason', () => {
     expect(unspawnableReason('   ', probe)).toContain('empty');
   });
 
-  it('returns null on this host for the project\'s own test command', () => {
-    // guards the wiring: on the CI/dev platform `pnpm test` must not be blocked
-    expect(unspawnableReason('pnpm test', defaultExecutableProbe())).toBeNull();
-  });
+  // Windows is deliberately excluded rather than asserted: `pnpm` there is normally a
+  // `.cmd` shim (pnpm/action-setup installs the npm package, which ships no `pnpm.exe`),
+  // so a block is the CORRECT verdict — a cross-platform "never blocked" would encode the
+  // inverse of the model this gate ships. The real-host block below asserts that side.
+  it.runIf(process.platform !== 'win32')(
+    'returns null on this POSIX host for the project\'s own test command',
+    () => {
+      expect(unspawnableReason('pnpm test', defaultExecutableProbe())).toBeNull();
+    },
+  );
 });
 
 describe('defaultExecutableProbe', () => {
@@ -245,6 +298,59 @@ describe('defaultExecutableProbe', () => {
     const posix = defaultExecutableProbe({ PATH: '/usr/bin:/bin' }, 'linux');
     expect(posix.pathDirs).toEqual(['/usr/bin', '/bin']);
     expect(defaultExecutableProbe({}, 'linux').pathDirs).toEqual([]);
+  });
+
+  // libuv strips the quotes around a PATH entry and treats a quoted entry as ONE
+  // segment; splitting on every `;` leaves the quotes glued to the directory, so a
+  // real `.exe` behind a quoted entry is invisible to the search.
+  it('strips the quotes around a Windows PATH entry', () => {
+    const win = defaultExecutableProbe({ Path: '"C:\\Program Files\\tool";C:\\b' }, 'win32');
+    expect(win.pathDirs).toEqual(['C:\\Program Files\\tool', 'C:\\b']);
+    expect(defaultExecutableProbe({ Path: "'C:\\a';C:\\b" }, 'win32').pathDirs).toEqual([
+      'C:\\a',
+      'C:\\b',
+    ]);
+  });
+
+  it('does not split a quoted Windows PATH entry on a semicolon inside the quotes', () => {
+    const win = defaultExecutableProbe({ Path: '"C:\\a;b";C:\\c' }, 'win32');
+    expect(win.pathDirs).toEqual(['C:\\a;b', 'C:\\c']);
+  });
+
+  // POSIX has no quoting rule in PATH — a quote there is a literal directory
+  // character, so stripping it would invent a directory that does not exist.
+  it('leaves quotes alone on POSIX', () => {
+    expect(defaultExecutableProbe({ PATH: '"/usr/bin":/bin' }, 'linux').pathDirs).toEqual([
+      '"/usr/bin"',
+      '/bin',
+    ]);
+  });
+
+  // Why the two rules above are load-bearing rather than cosmetic: with the quotes
+  // kept, pass 1 misses the real .exe and pass 2 finds the .cmd — a working command
+  // reported as a shim, which turns the fail-class gate into a skip.
+  it('keeps a real .exe behind a quoted entry winning over a .cmd elsewhere', () => {
+    const base = defaultExecutableProbe({ Path: 'C:\\shims;"C:\\Program Files\\tool"' }, 'win32');
+    const files = new Set(['C:\\shims\\mytool.cmd', 'C:\\Program Files\\tool\\mytool.exe']);
+    const probe: ExecutableProbe = { ...base, cwd: null, exists: (c) => files.has(c) };
+    expect(classifyExecutable('mytool', probe)).toEqual({ kind: 'spawnable' });
+  });
+
+  // `NeedCurrentDirectoryForExePathW` reports false once
+  // `NoDefaultCurrentDirectoryInExePath` is DEFINED — its value is irrelevant — so the
+  // guard belongs here, at probe construction, leaving classifyExecutable pure.
+  it('carries the given cwd, and none when NoDefaultCurrentDirectoryInExePath is defined', () => {
+    expect(defaultExecutableProbe({ Path: '' }, 'win32', 'C:\\proj').cwd).toBe('C:\\proj');
+    expect(
+      defaultExecutableProbe({ NoDefaultCurrentDirectoryInExePath: '1' }, 'win32', 'C:\\proj').cwd,
+    ).toBeNull();
+    expect(
+      defaultExecutableProbe({ NoDefaultCurrentDirectoryInExePath: '' }, 'win32', 'C:\\proj').cwd,
+    ).toBeNull();
+  });
+
+  it('defaults the cwd to this process cwd', () => {
+    expect(defaultExecutableProbe({}, 'linux').cwd).toBe(process.cwd());
   });
 
   // `exists` is production code with a stated contract ("exists as a FILE"): a
@@ -268,6 +374,7 @@ describe('runTestCommand pre-spawn refusal (platform-injected)', () => {
   const winShim: ExecutableProbe = {
     platform: 'win32',
     pathDirs: ['C:\\tools\\bin'],
+    cwd: null,
     exists: (c) => c === 'C:\\tools\\bin\\pnpm.cmd',
   };
 
@@ -293,21 +400,95 @@ describe('runTestCommand pre-spawn refusal (platform-injected)', () => {
   });
 
   it('still spawns normally when the probe says the command is fine', () => {
-    const posix: ExecutableProbe = { platform: 'linux', pathDirs: [], exists: () => false };
+    const posix: ExecutableProbe = {
+      platform: 'linux',
+      pathDirs: [],
+      cwd: null,
+      exists: () => false,
+    };
     const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(4)`, 5_000, posix);
     expect(r).toMatchObject({ exit_code: 4, timed_out: false });
     expect(r.error).toBeUndefined();
   });
 });
 
-// Runs only on a real Windows host (e.g. once a windows-latest CI job exists) — the
-// platform-injected blocks above prove the decision and DO run everywhere; this one
-// proves the reality.
+// Runs only on a real Windows host (the windows-smoke CI job) — the platform-injected
+// blocks above prove the decision and DO run everywhere; this one proves the reality.
 describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows host', () => {
   it('refuses a package-manager shim with the actionable reason instead of EINVAL', () => {
     const r = runTestCommand(os.tmpdir(), 'pnpm test');
     expect(r.exit_code).toBeNull();
     expect(r.error).toContain('tech_stack.test_command');
     expect(r.error).not.toContain('EINVAL');
+  });
+
+  // The two layouts an injected probe can only MODEL: libuv's cwd-first search and its
+  // quoted-PATH parsing. Both need a REAL executable under a name nothing else on the
+  // machine provides — a copy of node.exe — so the layout, not an ambient install, is
+  // what resolves. Each case asserts the verdict AND a real spawn: agreement between
+  // the two is the whole point, since a verdict that matches our model but not the
+  // spawn is exactly how the PATHEXT model shipped wrong.
+  describe('libuv resolution layouts', () => {
+    const BIN = 'prospec-probe-node';
+    let dir = '';
+
+    beforeAll(() => {
+      dir = mkdtempSync(path.join(os.tmpdir(), 'prospec-probe-bin-'));
+      copyFileSync(process.execPath, path.join(dir, `${BIN}.exe`));
+    });
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('resolves a bare name through the spawn cwd, not only through PATH', () => {
+      // `dir` is on nobody's PATH; only the cwd-first search can find the .exe.
+      expect(classifyExecutable(BIN, defaultExecutableProbe(process.env, 'win32', dir))).toEqual({
+        kind: 'spawnable',
+      });
+      const r = runTestCommand(dir, `${BIN} -e process.exit(7)`);
+      expect(r).toMatchObject({ exit_code: 7, timed_out: false });
+      expect(r.error).toBeUndefined();
+    });
+
+    // The DEFAULT probe's cwd threading, which no POSIX test can discriminate: with a
+    // `.cmd` shim first on PATH and the real .exe only in the spawn cwd, a probe built
+    // against `process.cwd()` finds nothing in pass 1, finds the shim in pass 2, and the
+    // runner refuses WITHOUT spawning. So a real exit code here can only mean this call's
+    // `cwd` reached the classifier.
+    it('threads the spawn cwd into the default probe — a PATH shim must not win', () => {
+      const shimDir = mkdtempSync(path.join(os.tmpdir(), 'prospec-probe-shim-'));
+      writeFileSync(path.join(shimDir, `${BIN}.cmd`), '@echo off\r\nexit /b 3\r\n');
+      const original = process.env.PATH;
+      process.env.PATH = `${shimDir};${original ?? ''}`;
+      try {
+        const r = runTestCommand(dir, `${BIN} -e process.exit(7)`);
+        expect(r.error).toBeUndefined();
+        expect(r.exit_code).toBe(7);
+      } finally {
+        if (original === undefined) delete process.env.PATH;
+        else process.env.PATH = original;
+        rmSync(shimDir, { recursive: true, force: true });
+      }
+    });
+
+    it('resolves a bare name through a quoted PATH entry', () => {
+      const original = process.env.PATH;
+      process.env.PATH = `"${dir}";${original ?? ''}`;
+      try {
+        // cwd is deliberately the parent tmpdir, which does NOT hold the .exe — so the
+        // quoted entry is the only thing that can resolve it.
+        const probe = defaultExecutableProbe(process.env, 'win32', os.tmpdir());
+        expect(probe.pathDirs).toContain(dir);
+        expect(classifyExecutable(BIN, probe)).toEqual({ kind: 'spawnable' });
+        const r = runTestCommand(os.tmpdir(), `${BIN} -e process.exit(9)`);
+        expect(r).toMatchObject({ exit_code: 9, timed_out: false });
+        expect(r.error).toBeUndefined();
+      } finally {
+        // Assigning undefined would set the literal string "undefined".
+        if (original === undefined) delete process.env.PATH;
+        else process.env.PATH = original;
+      }
+    });
   });
 });
