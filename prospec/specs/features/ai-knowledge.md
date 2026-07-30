@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-30
 story_count: 15
-req_count: 60
+req_count: 61
 ---
 
 # AI Knowledge
@@ -191,9 +191,10 @@ so that module documentation stays in sync with the code without a full regenera
 - WHEN delta-spec is empty or malformed, THEN return empty structure without error
 
 #### REQ-SERVICES-021: Incremental Module Update
-- WHEN module affected by ADDED, THEN create or update module README.md
-- WHEN module affected by REMOVED, THEN mark as deprecated (don't delete)
-- WHEN updating README.md, THEN use ContentMerger to preserve user sections
+`updateModuleReadme` is create-only: it renders a skeleton README for a module that has none, and does nothing for a module whose README already exists. It never merges into or re-renders an existing README, because this project's module knowledge (Key Files purposes, Pitfalls, Modification Guide) lives **inside** the `prospec:auto` block — re-rendering that block from the mechanical scan context (a `"<name> module"` description, heuristic file descriptions) would gut the authored content, which is exactly why archive.service was decoupled from this service. README content updates are judgment and belong to the skill.
+- WHEN the target README already exists, THEN the file is byte-identical afterwards (unit-pinned) and the caller is told its content update is pending
+- WHEN the module is genuinely new, THEN its directory and a skeleton README are created for the skill to fill
+- WHEN a module is affected by REMOVED, THEN it is marked deprecated, never deleted
 
 #### REQ-SERVICES-022: Index and Module Map Update
 - WHEN module updated, THEN `{base_dir}/index.md` reflects latest state
@@ -202,14 +203,29 @@ so that module documentation stays in sync with the code without a full regenera
 - WHEN updating, THEN preserve each existing module's `category` (do not re-guess); an ADDED module gets an ordered `category` consistent with existing grouping
 
 #### REQ-SERVICES-023: Knowledge Update Coordinator
-- WHEN deltaSpecPath provided, THEN auto-parse and identify affected modules
-- WHEN manualModules provided, THEN only update specified module READMEs
-- WHEN triggered from archive, THEN failure is non-fatal error
+`execute()` resolves the affected modules from the delta-spec (or from explicit module names), creates skeletons for genuinely new modules, marks REMOVED ones deprecated, and refreshes `{base_dir}/index.md` + `module-map.yaml` — but it **skips README regeneration for a MODIFIED module**, only acknowledging it so its index/module-map rows refresh. The result carries an explicit `readmePending` list: the coordinator's hand-off of the remaining judgment work to `/prospec-knowledge-update`.
+- WHEN `deltaSpecPath` is provided, THEN affected modules are parsed and resolved automatically; WHEN manual module names are provided, THEN only those are processed (and an unsafe name is refused before any write)
+- WHEN a MODIFIED module is processed, THEN its index/module-map rows refresh, its name lands in `readmePending`, and no README byte is written
+- WHEN `module-map.yaml` needs no change, THEN it is not rewritten at all; when it does, the merge goes through the yaml Document so header comments and untouched descriptions survive
+- WHEN the update is triggered as part of a larger flow, THEN a failure stays a non-fatal reported error
 
 #### REQ-SERVICES-032: Feature-Prefix-Aware Module Resolution (Mint Guard)
 When knowledge-update parses a delta-spec entry, an entry whose prefix hits the feature-map `req_prefixes` (a feature-prefix, not a module — the real source of phantom minting) resolves to `feature.modules ∪ relatedModules ∩ known`, and never treats the prefix as a module name to mint a phantom `modules/<prefix>/`; if resolution yields the empty set, skip + push a warning. A module-prefix REQ keeps its original resolution (including the new-module `src/<name>/**` fallback). Adds a `relatedModules` option and loads the feature-map.
 - WHEN an entry prefix is a feature-map req_prefix and resolves to no known module, THEN skip that entry + warning, with zero filesystem writes (do not mint modules/&lt;prefix&gt;/)
 - WHEN an entry is a module-prefix REQ, THEN keep the original resolution behavior unchanged
+
+#### REQ-CLI-026: `prospec knowledge update` Wires the Service, Scoped to What Is Safe
+`prospec knowledge update [--change <name>] [--module <name>…]` gives the incremental knowledge-update service its first executable entry point (change selection through `change-resolver`), scoped to the operations that cannot destroy authored knowledge: delta-spec parsing, `updateIndex` (no-clobber), module-map add/remove, and deprecation marking. README **content** is out of scope — a skeleton is created only for a module that has none (REQ-SERVICES-021). The deprecated `prospec knowledge generate` subcommand is removed alongside it: generating README/index content is judgment and belongs to `/prospec-knowledge-generate`.
+- WHEN the command runs over a module whose README already exists, THEN that file is byte-identical afterwards; a genuinely new module receives a skeleton README
+- WHEN the run finishes, THEN index / module-map / deprecation-banner behavior matches the service's unit contract and the report names the modules whose README content is still pending the skill's judgment
+- WHEN `--change` names a change with no `delta-spec.md` (a `scale: quick` change, by contract), THEN it refuses and points at `--module`; a `--module` value that is not a safe resource name is refused before anything is written
+- WHEN `prospec knowledge generate` is invoked, THEN it is no longer a registered command — and `/prospec-upgrade`'s previously stale `prospec knowledge update` reference now names a real one
+
+#### REQ-TEMPLATES-162: knowledge-update Skill Delegates the Mechanical Half
+`/prospec-knowledge-update`'s mechanical work collapses into a single `prospec knowledge update` call plus a review of its report, run as Phase 1. Phase 2's source scan and description inference, Phase 2.5's format-drift consent dialogue, and Phase 3's README content authoring stay the skill's — Phase 3 is explicitly labelled judgment rather than claimed as delegated, because the CLI never touches an existing README.
+- WHEN reading the generated SKILL.md, THEN the mechanical steps are one `prospec knowledge update` invocation plus a result review, and the README-content step is marked as judgment
+- WHEN a MODIFIED module has no module directory yet, THEN the skill runs `prospec knowledge update --module <name>` for the skeleton and then fills it
+- WHEN the `index.md` auto block needs regenerating after curating `module-map.yaml`, THEN the skill re-runs the command instead of hand-editing the block
 
 ---
 
@@ -319,13 +335,13 @@ so that after code changes I can obtain the latest structure snapshot without re
 ### US-351: Lifecycle Integration of raw-scan Refresh [P2]
 
 As a prospec user,
-I want raw-scan.md to stay automatically up to date at key points in the flow, and to degrade gracefully when the prospec CLI is unavailable,
-so that the structure snapshot does not rely on human memory and downstream developers without prospec installed are not blocked.
+I want raw-scan.md to stay automatically up to date at key points in the flow,
+so that the structure snapshot does not rely on human memory.
 
 **Acceptance Scenarios:**
 - WHEN the `/prospec-archive` flow finishes THEN raw-scan.md is refreshed (archive.service non-fatal trigger)
 - WHEN `/prospec-knowledge-generate` starts up THEN refresh raw-scan before reading it
-- WHEN the prospec CLI is unavailable THEN degrade per persona (developer skills take the fallback ladder; quickstart prompts to install)
+- WHEN the prospec CLI is unavailable or too old THEN the skill STOPs at the shared required-CLI probe (agent-integration REQ-TEMPLATES-160) — there is no degraded scan path
 
 #### REQ-KNOW-024: Archive Auto-Refresh (Non-Fatal)
 - WHEN archive succeeds and the knowledge-update loop completes, THEN archive.service triggers `generateRawScan` and reports `rawScanRefreshed`
@@ -336,11 +352,6 @@ so that the structure snapshot does not rely on human memory and downstream deve
 - WHEN `/prospec-knowledge-generate` Startup Loading runs, THEN it refreshes raw-scan (creating it if absent) before reading it, so READMEs generate against the real current structure
 - WHEN rewording the precondition, THEN raw-scan.md stays the read input and the first backtick token of the loading item, so the startup-loading baseline needs no regeneration
 - WHEN module-map.yaml is absent, THEN init bootstrap is still required
-
-#### REQ-KNOW-026: Persona-Aware CLI Fallback
-- WHEN a developer skill (knowledge-generate / archive) cannot reach `prospec` on PATH, THEN fall back `pnpm exec` / `npx` → degrade to the existing raw-scan (or an approximate working-tree scan), never silently
-- WHEN the adopter skill (quickstart) cannot reach the CLI, THEN stop and prompt to install prospec (no npx fallback)
-- WHEN recommending a devDependency install, THEN condition it on Node.js projects (other ecosystems get a global-install recommendation)
 
 ---
 
@@ -525,12 +536,15 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 ## Deprecated Requirements
 
-_(None)_
+#### ~~REQ-KNOW-026: Persona-Aware CLI Fallback~~
+**Removed**: 2026-07-30 | **Change**: restore-cli-first
+**Reason**: The persona-aware CLI fallback ladder retired: the CLI became a required file for the skills, so a probe STOP (REQ-TEMPLATES-160) replaced every degraded path. The `pnpm exec`/`npx` resolution ladder and the approximate working-tree scan were precisely the "approximate, not deterministic" behavior the cli-first turn set out to remove, leaving a single posture with no residual rule to keep.
 
 ## Change History
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-360 (Knowledge base language policy English exemption) + REQ-TEMPLATES-141 (Constitution Language Policy restores the AI Knowledge exemption; three-way alignment of entry.md.hbs/ledger) (issue #67) | US-360, REQ-TEMPLATES-141 |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-KNOW-034, REQ-KNOW-035 | US-354, REQ-KNOW-034~035 |
 | 2026-06-19 | archive-sync | ADDED REQ-TYPES-031; ADDED REQ-TEMPLATES-113; ADDED REQ-SERVICES-029; ADDED REQ-TEMPLATES-114; ADDED REQ-TESTS-032 | REQ-TYPES-031, REQ-TEMPLATES-113, REQ-SERVICES-029, REQ-TEMPLATES-114, REQ-TESTS-032 |

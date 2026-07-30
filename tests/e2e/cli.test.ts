@@ -524,7 +524,7 @@ describe('CLI E2E', () => {
       );
       const first = await runCli(['learn', 'upsert', '--lesson', lesson]);
       expect(first.exitCode).toBe(0);
-      expect(first.stdout).toContain('Ledger created');
+      expect(first.stdout).toContain('Ledger entry created');
       const ledger = await fs.promises.readFile(
         path.join(tmpDir, 'prospec', 'ai-knowledge', '_lessons-ledger.md'),
         'utf-8',
@@ -532,7 +532,7 @@ describe('CLI E2E', () => {
       expect(ledger).toContain('| test/lesson |');
       // idempotent for the same source change
       const second = await runCli(['learn', 'upsert', '--lesson', lesson]);
-      expect(second.stdout).toContain('Ledger unchanged');
+      expect(second.stdout).toContain('Ledger entry unchanged');
     });
 
     it('validate slug exits 0 on PASS and 1 on FAIL (machine gate)', async () => {

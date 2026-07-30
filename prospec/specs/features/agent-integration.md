@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-07-29
-story_count: 19
-req_count: 76
+last_updated: 2026-07-30
+story_count: 20
+req_count: 78
 ---
 
 # Agent Integration
@@ -94,9 +94,11 @@ so that AI Agents can trigger the structured SDD workflow via slash commands.
 - WHEN agent sync executes, THEN render final Skill files from .hbs templates
 - WHEN template updated and re-synced, THEN deployed Skills reflect latest template
 
-#### REQ-AGNT-012: Planning Skills Create Scaffolding
-- WHEN `/prospec-new-story` triggered, THEN AI self-creates change directory and skeleton files
-- WHEN `/prospec-ff` triggered, THEN AI sequentially completes story -> plan -> tasks
+#### REQ-AGNT-012: Planning Skills Scaffold Through the CLI
+Planning skills never create change artifacts themselves: every scaffold and every lifecycle transition goes through a `prospec change` command, so artifact serialization and the status machine belong to tested code rather than to hand-written YAML. The CLI is a required file for these skills.
+- WHEN `/prospec-new-story` is triggered, THEN `prospec change story` creates `.prospec/changes/{name}/` with metadata.yaml (status: story) and proposal.md
+- WHEN `/prospec-ff` is triggered, THEN it walks story → plan → tasks through `prospec change story|plan|tasks`, and the `scale: quick` `story → tasks` skip is that command's transition, not a hand edit
+- WHEN a skill would otherwise create a change file or edit metadata.yaml directly, THEN a NEVER forbids it
 
 #### REQ-AGNT-013: Skill Reference Mapping
 - WHEN agent sync executes prospec-design, THEN generates 6 reference files
@@ -369,10 +371,10 @@ When agent-sync renders the skill list of the entry config (CLAUDE.md/AGENTS.md,
 - WHEN the exclusion filter is removed, THEN the contract test goes red (mutation-verified)
 
 #### REQ-TEMPLATES-108: prospec-quickstart Onboarding Skill Template
-`skills/prospec-quickstart.hbs`: probes `prospec --version`; Step 1 "fill only the missing" — first run `prospec agent triggers` to obtain the fill-missing scaffold (baseline from `SKILL_DEFINITIONS`, not by grepping the deployed SKILL.md), translate the scaffold values and add them, without overwriting existing entries (snapshot → show-and-confirm → minimal in-place edit → read back to validate YAML); Bash `agent sync`; Bash `knowledge init`; chain (not inline) into `/prospec-knowledge-generate`; graceful fallback when the CLI is unavailable. Includes an Output Contract + NEVER, English-only.
+`skills/prospec-quickstart.hbs` opens with the shared required-CLI probe (version floor included) and carries no graceful-degradation path. Step 1 "fill only the missing": run `prospec agent triggers` for the fill-missing scaffold (baselines from `SKILL_DEFINITIONS`, never grepped from a deployed SKILL.md), translate the values, show and confirm, then write them back with `prospec agent triggers --write <file>` — which inserts only missing keys and validates before writing. Then Bash `agent sync`, Bash `knowledge init`, and a chain (not an inline copy) into `/prospec-knowledge-generate`. Includes an Output Contract + NEVER, English-only.
 - WHEN rendered, THEN it carries an Output Contract (objectively-checkable Success Criteria) and a NEVER section
-- WHEN non-English and some skills lack a `skill_triggers` entry, THEN run `prospec agent triggers` for the scaffold, translate only the missing ones (existing entries untouched), confirm with the user, write via a minimal in-place edit, and read back to validate YAML
-- WHEN the prospec CLI is unavailable, THEN state it and fall back to manual steps, never proceed silently
+- WHEN non-English and some skills lack a `skill_triggers` entry, THEN run `prospec agent triggers` for the scaffold, translate only the missing ones, confirm with the user, and write via `prospec agent triggers --write` (existing entries never overwritten)
+- WHEN the prospec CLI is unavailable or below the floor, THEN the shared probe STOPs the skill with install guidance — no manual substitute is offered
 - WHEN finishing, THEN chain into `/prospec-knowledge-generate` rather than inlining its workflow
 
 #### REQ-TESTS-029: Entry-Config Exclusion Contract Test (mutation-verified)
@@ -436,11 +438,11 @@ so that the parts of the upgrade requiring judgment are AI-assisted but human-ga
 - WHEN agent sync runs, THEN each agent skill dir deploys `prospec-upgrade/SKILL.md`
 
 #### REQ-TEMPLATES-121: prospec-upgrade Skill Template
-`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline): (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, detect format drift against the latest templates of the installed prospec package, show a per-file diff, and update only after asking the user's consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and the curated Modules table, and deleting the old file after a successful migration); (2.5) when the report carries a `stale Language Policy wording:` line, migrate that one seeded principle — the sole authored-wording change this skill may propose — taking the replacement from the report's `Current Language Policy rule:` block (never from `print-template`, which returns an unrendered template carrying no rule text), showing a diff of that section only and rewriting just its Description/Rationale/Verify after consent; (3) per `artifact_language`, first run `prospec agent triggers` to get the fill-missing scaffold, translate `skill_triggers` for the skills lacking trigger words (fill only the missing ones, snapshot/confirm/minimal in-place/read back to validate YAML) → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
+`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline) opens with the shared required-CLI probe — a missing or too-old binary STOPs the skill, with no degrade-gracefully path — then: (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, detect format drift against the latest templates of the installed prospec package, show a per-file diff, and update only after asking the user's consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and copying the curated `Modules` table rows verbatim, then deleting the old file after a successful migration) — a later `prospec knowledge update` run is safe and now names a real command, since it backfills the curated columns into `module-map.yaml` no-clobber before regenerating the auto block; (2.5) when the report carries a `stale Language Policy wording:` line, migrate that one seeded principle — the sole authored-wording change this skill may propose — taking the replacement from the report's `Current Language Policy rule:` block (never from `print-template`, which returns an unrendered template carrying no rule text), showing a diff of that section only and rewriting just its Description/Rationale/Verify after consent; (3) per `artifact_language`, run `prospec agent triggers` for the fill-missing scaffold, translate the missing `skill_triggers` entries, and after show-and-confirm write them back with `prospec agent triggers --write <file>` → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
 - WHEN rendered, THEN it carries an Output Contract and a NEVER section, has no hardcoded language directives (English baseline), and Step 2 has no hardcoded convention-doc list (pinned by a negative contract assertion)
 - WHEN the report marks a file MISSING and the user consents to create it, THEN create it from the latest template; if not consented, leave it untouched
 - WHEN a present file's format does not match the latest template, THEN show a per-file diff and change it only after asking consent; if not consented, leave the file untouched
-- WHEN `artifact_language` is non-English and there are skills lacking trigger words, THEN first run `prospec agent triggers` to get the scaffold, translate only the missing ones, and after confirmation write `skill_triggers` via a minimal in-place edit and read back to validate YAML
+- WHEN `artifact_language` is non-English and there are skills lacking trigger words, THEN run `prospec agent triggers` for the scaffold, translate only the missing ones, and after confirmation write them via `prospec agent triggers --write` (which validates before writing)
 - WHEN finishing (if there were any changes), THEN run `prospec agent sync` again so the deployment reflects the latest trigger words
 - WHEN the report flags stale Language Policy wording, THEN show a diff of that section alone and rewrite it only on consent; when the report carries no rendered-rule block, skip with a note
 - WHEN the report does not flag it, THEN the step never runs (a rule the owner already reworded is never touched)
@@ -623,6 +625,13 @@ mutation-verified contract: baseline verbatim == `SKILL_DEFINITIONS`; fill-missi
 - WHEN the baseline / fill-missing / English no-op logic is broken, THEN the corresponding assertion turns red
 - WHEN a future baseline contains YAML-special characters that break the scaffold, THEN the round-trip contract turns red
 
+#### REQ-CLI-027: `prospec agent triggers --write` Writes the Translated Scaffold Back
+`agent triggers` gains `--write <file>`: given the translated scaffold it merges the **missing** `skill_triggers` keys into `.prospec.yaml` as a minimal in-place edit (yaml Document surgery), so quickstart and upgrade stop performing YAML surgery by hand. Translation itself stays the skill's judgment, carried in the input file.
+- WHEN `--write` runs, THEN only keys with no non-empty existing entry are inserted; existing values, comments and field order are untouched, and the skipped skills are reported
+- WHEN the mutated document would fail `ProspecConfigSchema`, THEN validation happens **before** any byte reaches disk: it exits 1 naming the failing path and the file is completely unchanged — there is no corrupt-then-restore window
+- WHEN the scaffold names an unknown skill, or carries an empty/placeholder entry, THEN it is refused before the merge
+- WHEN `--write` is absent, THEN behavior is exactly as before (scaffold output only)
+
 ---
 
 ## Edge Cases
@@ -687,15 +696,35 @@ I want the entry config's Session Start section to point at `prospec status` ins
 so that resident L0 tokens shrink and station-order derivation happens in tested, deterministic code.
 
 **Acceptance Scenarios:**
-- WHEN agent sync regenerates the entry config THEN Session Start instructs running `prospec status`, keeps a one-line CLI-unavailable fallback (manual scan per `_status-lifecycle.md`), and carries no station-order derivation prose
+- WHEN agent sync regenerates the entry config THEN Session Start instructs running `prospec status`, states the required-CLI version floor in one line, and carries no station-order derivation prose and no fallback wording
 - WHEN the section is compared before/after THEN it is a net token reduction (measured 545→330 chars)
 - WHEN the agent runs the command THEN the output covers everything the old prose asked for (change name, current node, suggested next step, reasons)
 
 #### REQ-TEMPLATES-158: Entry Config Session Start Points at prospec status
-`agent-configs/entry.md.hbs`'s Session Start instructs running `prospec status` (with a one-line `_status-lifecycle.md` fallback for CLI-less environments) and drops the scanning/derivation prose; both status-lifecycle copies (`init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md`) carry an identical executable-copy pointer line.
-- WHEN CLAUDE.md/AGENTS.md are generated, THEN Session Start contains the `prospec status` pointer and no derivation prose (contract-pinned positively and negatively, mutation-verified against the bundle)
+`agent-configs/entry.md.hbs`'s Session Start instructs running `prospec status` and drops the scanning/derivation prose. In place of the old CLI-unavailable fallback line it carries the required-CLI floor: a `prospec` binary that is missing or older than the injected minimum is a STOP with install/upgrade guidance, never a manual substitute. Both status-lifecycle copies (`init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md`) carry an identical executable-copy pointer line.
+- WHEN CLAUDE.md/AGENTS.md are generated, THEN Session Start contains the `prospec status` pointer plus the version floor, and no derivation prose and no fallback wording (contract-pinned positively and negatively, mutation-verified against the bundle)
 - WHEN the section is measured against the prose version, THEN net token reduction
 - WHEN either lifecycle copy is edited, THEN both carry the same pointer wording (dual-copy sync marker, contract-asserted)
+
+---
+
+### US-442: The prospec CLI Is a Required File for Every Skill [P1]
+
+As an AI agent running any prospec skill,
+I want one shared startup probe that stops the skill when the `prospec` binary is missing or too old,
+so that a skill either performs its deterministic steps through the CLI or does not run at all — never through an approximate manual substitute.
+
+**Acceptance Scenarios:**
+- WHEN a skill starts and `prospec --version` cannot run, or reports a version below the required floor, THEN the skill STOPs, reporting installed vs required version plus install guidance, and performs no work
+- WHEN any generated SKILL.md or entry config is inspected, THEN it carries the probe and no "if the CLI is unavailable / fall back" wording
+- WHEN the probe's wording or its version floor changes, THEN exactly one partial is edited and all skills inherit it
+
+#### REQ-TEMPLATES-160: Shared Required-CLI Probe Partial
+`skills/_cli-probe.hbs` is the single source of the required-CLI posture: probe `prospec --version` before any other step, and STOP when the binary is missing or older than the injected version floor, directing the user to the standalone executable (installer script or release binary — prospec is not published to npm). All 17 skill templates include the partial exactly once; `entry.md.hbs` carries the same floor in one condensed Layer 0 sentence rather than restating the partial, and its "scan `.prospec/changes/` manually" fallback is gone. Hand-executing a CLI-owned mutation is stated to be never the fallback.
+- WHEN the 17 SKILL.md files and the entry config are generated, THEN each carries the probe and none carries a CLI-unavailable fallback phrase (asserted negatively, mutation-verified)
+- WHEN the probe's STOP sentence is searched across `src/templates`, THEN `skills/_cli-probe.hbs` is its only carrier
+- WHEN the floor is read, THEN it comes from the injected `MINIMUM_CLI_VERSION` — the version that ships the commands the skills call — never a version literal in the template, so raising the floor cannot leave a stale number behind
+- WHEN the probe STOPs, THEN the message names the installed version, the required version, and how to install or upgrade
 
 ---
 
@@ -709,6 +738,7 @@ so that resident L0 tokens shrink and station-order derivation happens in tested
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | archive-sync | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-AGNT-037 (`getSkillReferences` registers `metadata-format` for new-story/ff, agent sync deploys self-contained, references dir count derived from the map) | US-401; REQ-AGNT-037 (ADDED) |
 | 2026-07-03 | migrate-skill-contract-to-vitest | verify-skills.sh's 28 generation contracts moved into a vitest real-temp-dir; counts derived from `getSkillReferences`/`SKILL_DEFINITIONS`, status-lifecycle changed to a named-set contract; removed the bash script + `verify:skills` + README references | US-437; REQ-TESTS-038/039/040, REQ-AGNT-030 (ADDED) |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-AGNT-029 | US-436, REQ-AGNT-029 |

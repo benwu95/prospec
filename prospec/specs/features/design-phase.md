@@ -1,9 +1,9 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-07-05
+last_updated: 2026-07-30
 story_count: 4
-req_count: 10
+req_count: 11
 ---
 
 # Design Integration
@@ -53,6 +53,12 @@ so that when the AI implements the UI it has precise design references instead o
 - WHEN Extract Mode encounters ambiguous intent, THEN mark [NEEDS CLARIFICATION]
 - WHEN Phase 3 executes, THEN use platform adapter from .prospec.yaml
 - WHEN Phase 4 verification, THEN verify via screenshot or structural comparison
+
+#### REQ-TEMPLATES-164: Design Skill Delegates the Structure Check
+`/prospec-design`'s Phase 4 check splits into a machine half and a judgment half. The **structural verdict** — the required sections (Visual Identity, Components, Responsive Strategy) present, and zero `[NEEDS CLARIFICATION]` markers remaining, with line locations when any do — comes from `prospec validate design-spec`. The **component-coverage** check stays the skill's: extracting the component list from the proposal's UI-scope prose is semantic work, so the skill derives that list itself and compares it against the spec's component entries. Visual and interaction design judgment is unchanged.
+- WHEN Phase 4 runs, THEN it invokes `prospec validate design-spec` for the structural verdict and no longer judges the section thresholds itself (its prose only describes what the CLI checks)
+- WHEN the component-coverage step runs, THEN it is explicitly labelled judgment: the skill extracts the component list from proposal prose and compares it with the reported spec entries
+- WHEN the structural findings are compared against the pre-delegation wording, THEN the finding categories are equivalent (contract-asserted)
 
 #### REQ-DSGN-005: Proposal UI Scope Field
 `proposal-format.hbs` includes an optional UI Scope section (full/partial/none).
@@ -165,6 +171,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-30 | archive-sync | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
 | 2026-02-16 | add-design-phase | Design Phase Generate/Extract dual modes and 4 platform adapters | US-001~003, REQ-DSGN-001~009 |
 | 2026-03-02 | v2-product-first | Migrated to Feature Spec; REQ IDs changed from REQ-TEMPLATES-050~058 to REQ-DSGN-001~009 | All |
 | 2026-06-16 | add-reverse-spec-extraction | REQ-DSGN-003 added an input=code reverse-spec variant cross-reference (behavior substantively belongs to sdd-workflow US-22, avoiding semantic pollution of the UI feature) | REQ-DSGN-003 (MODIFIED) |

@@ -44,7 +44,7 @@ describe('learn-output', () => {
         'normal',
       ),
     );
-    expect(out).toContain('Ledger created: prospec/ai-knowledge/_lessons-ledger.md');
+    expect(out).toContain('Ledger entry created: prospec/ai-knowledge/_lessons-ledger.md');
     expect(out).toContain('kind mismatch for existing key');
     expect(out).toContain('lesson-a: freq=3 modules=2');
     expect(out).toContain('PB-001 (review by 2026-01-01)');

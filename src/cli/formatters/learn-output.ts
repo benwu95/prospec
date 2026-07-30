@@ -11,7 +11,9 @@ export function formatLearnUpsertOutput(
   if (logLevel === 'quiet') return;
 
   const lines: string[] = [
-    `${pc.green('✓')} Ledger ${result.action}: ${pc.cyan(sanitizeTerminal(result.ledgerPath))}`,
+    // `action` describes the ENTRY, not the file — "Ledger created" would read
+    // as if the whole ledger had just been written.
+    `${pc.green('✓')} Ledger entry ${result.action}: ${pc.cyan(sanitizeTerminal(result.ledgerPath))}`,
   ];
   for (const w of result.warnings) {
     lines.push(`${pc.yellow('⚠')} ${sanitizeTerminal(w)}`);
