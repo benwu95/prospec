@@ -1,6 +1,7 @@
 features:
   - feature: agent-integration
     modules:
+      - cli
       - lib
       - services
       - templates
@@ -12,6 +13,7 @@ features:
     status: active
   - feature: ai-knowledge
     modules:
+      - cli
       - lib
       - services
       - templates
@@ -37,6 +39,7 @@ features:
     status: active
   - feature: feedback-promotion
     modules:
+      - cli
       - templates
       - tests
       - types

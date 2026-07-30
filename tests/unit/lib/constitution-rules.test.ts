@@ -71,6 +71,7 @@ describe('languagePolicyRule', () => {
     nativePaths: ['.prospec/changes/**', 'prospec/specs/_archived-history/**'],
     englishPaths: ['prospec/CONSTITUTION.md', 'prospec/ai-knowledge/**'],
     namedExceptions: ['the `description` column of `prospec/ai-knowledge/_lessons-ledger.md`'],
+    englishExceptions: ['the `**Spec:**` block of `.prospec/changes/**/delta-spec.md`'],
     ...over,
   });
 
@@ -122,6 +123,20 @@ describe('languagePolicyRule', () => {
       'the `description` column of `prospec/ai-knowledge/_lessons-ledger.md`',
     );
     expect(rule.check).toMatch(/named exception/i);
+  });
+
+  // The reverse direction: trust-zone-bound text inside a change artifact. Without
+  // it, the MUST rule reads its own required English content as a violation.
+  it('lists the reverse exceptions — change-artifact spots that stay English', () => {
+    const rule = languagePolicyRule(scope());
+    expect(rule.description).toContain('stay **English**');
+    expect(rule.description).toContain('the `**Spec:**` block of `.prospec/changes/**/delta-spec.md`');
+    expect(rule.check).toContain('in either direction');
+  });
+
+  it('omits the reverse-exception clause entirely when there are none', () => {
+    const rule = languagePolicyRule(scope({ englishExceptions: [] }));
+    expect(rule.description).not.toContain('stay **English**');
   });
 
   it('renders no trust-zone exemption for an English project (both zones English)', () => {

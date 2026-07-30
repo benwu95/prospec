@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-29
-story_count: 28
-req_count: 136
+last_updated: 2026-07-30
+story_count: 29
+req_count: 147
 ---
 
 # SDD Workflow
@@ -216,7 +216,7 @@ so that quality is assured before archiving.
 - WHEN `ui_scope != none` and design-spec.md exists THEN additionally run design consistency verification
 - WHEN a dimension has a mechanical oracle (task completion, Knowledge, tests) THEN its verdict is the `prospec check` engine's, adopted verbatim — the agent interprets and narrates it but never re-grades it
 - WHEN a dimension has no mechanical oracle (delta-spec compliance, design consistency) THEN it is graded in fresh context by a reviewer that does not share the implementation's context, and a harness that cannot spawn one must disclose the degradation as a WARN
-- WHEN the engine cannot run THEN the machine dimensions are reported `not-adjudicated` (never PASS), grade S becomes unreachable, and grade A stays reachable so a project without the CLI can still ship
+- WHEN a machine check cannot run THEN its dimension is reported `not-adjudicated` (never PASS), grade S becomes unreachable, and that WARN counts against grade A's budget like any other
 
 ### Behavior Specifications
 
@@ -238,9 +238,9 @@ verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade
 - WHEN the Constitution is free-text without severity tags, THEN fall back to judgment-based PASS/WARN/FAIL (backward-compatible)
 
 #### REQ-TEMPLATES-153: Verify dimension adjudication split + two-ledger grade
-`prospec-verify` labels every dimension with its adjudicator — `[machine]` for 1/5, 4/5, 5/5, `[judgment]` for 2/5 and 6, `[mixed]` for 3/5 — and states the division once in `## Key Difference from Other Skills`. A machine dimension's verdict is the engine's, adopted verbatim; the NEVER list forbids overturning it and forbids reporting `not-adjudicated` as PASS. The report presents the two ledgers separately before the merged grade.
+`prospec-verify` labels every dimension with its adjudicator — `[machine]` for 1/5, 4/5, 5/5, `[judgment]` for 2/5 and 6, `[mixed]` for 3/5 — and states the division once in `## Key Difference from Other Skills`. A machine dimension's verdict is the engine's, adopted verbatim; the NEVER list forbids overturning it and forbids reporting `not-adjudicated` as PASS. The report presents the two ledgers separately before the merged grade, and the grade itself is computed by `prospec verify record` from the same decision table rather than by hand.
 - WHEN a machine dimension FAILs, THEN the grade is capped below S/A no matter how the narrative reads, and no number of judgment PASSes offsets it
-- WHEN the engine is unavailable, THEN the dimension is `not-adjudicated` + WARN and grade S is unreachable — but **engine-unavailability WARNs are a closed class of exactly three shapes** (a `not-adjudicated` machine dimension; the 3/5 missing-inventory WARN; the Entry Gate's degraded review-staleness WARN) and none of them consumes grade A's ≤ 2 WARN budget, so one engine outage cannot strand a CLI-less project below the `verified` gate. Every WARN outside the class counts — there is no residual "substantive or not" judgment call, and every restatement of the budget in the template carries the exclusion (contract-asserted)
+- WHEN a machine check honestly skips, THEN the dimension is `not-adjudicated`, grade S is unreachable, and that WARN consumes grade A's ≤ 2 budget like any other — every WARN counts, because the CLI is a required file: an unreachable engine is a probe STOP, not a gradable state
 - WHEN `quality_log` is written, THEN each `dimensions[]` entry carries its `adjudicator`
 
 #### REQ-TEMPLATES-154: Verify 5/5 and 3/5 consume the new engine facts
@@ -317,24 +317,53 @@ prospec-archive Phase 2 aggregates from metadata.yaml `quality_log` / `review.md
 - WHEN inspecting `ArchiveResult`, THEN it does not include knowledgeUpdated/knowledgeWarnings/rawScanRefreshed fields
 - WHEN inspecting the prospec-archive skill template, THEN there is no reverse claim of a "service auto-triggers knowledge-update/raw-scan safety net"
 
-#### REQ-CLI-024: `prospec archive` command with dry-run preview
-The CLI registers `prospec archive <name...>` — a thin command (parse → `archive.service.execute()` → format) executing the deterministic archive mutations. Names are required: the explicit target carries the caller's confirmation. `--dry-run` prints every planned mutation without writing.
+#### REQ-CLI-024: `prospec archive` command with dry-run preview and post-judgment `finalize`
+The CLI registers `prospec archive <name...>` — a thin command (parse → `archive.service.execute()` → format) executing the deterministic archive mutations. Names are required: the explicit target carries the caller's confirmation. `prospec archive finalize <name>` is its **post-judgment** sibling, carrying the two write points that can only run after the skill's work: copying the finalized `summary.md` into `specs/_archived-history/{YYYY-MM-DD}-{name}.md`, and reconciling every feature spec's frontmatter `story_count`/`req_count` against its final body. Both support `--dry-run`. Module derivation stays read-only — the archive report lists the REQ-prefix-derived affected modules, while the skill's Entry Gate derivation reads the working-tree diff and therefore has no archive-bundle equivalent.
 - WHEN running `prospec archive <name>` on a verified change, THEN the bundle moves to `.prospec/archive/{date}-{name}/` with summary scaffold, mechanical Feature Spec sync, `status: archived` + `archived_at`, product.md regeneration, and feature-map bootstrap (no-clobber)
-- WHEN running with `--dry-run`, THEN every planned mutation (move destination, summary, spec-sync targets, metadata update, product.md/feature-map actions) is printed and nothing is written
+- WHEN running either command with `--dry-run`, THEN every planned mutation is printed and nothing is written
+- WHEN `archive finalize` finds a `summary.md` still lacking its `## Review & Verify` section, THEN it refuses — that section is the deterministic marker that the prose overwrite happened, and finalizing earlier would commit the scaffold and count pre-graduation text
 - WHEN no name is given, THEN the command exits with an error; an unknown name reports `not found` with a pointer to `prospec status`
+- WHEN spec-sync preserved a REQ body instead of replacing it (REQ-SERVICES-072), THEN the command lists those REQs as the graduation worklist — under `--dry-run` too
 - WHEN formatting output, THEN repo-derived strings pass `sanitizeTerminal()`; skipped/refused/not-found are failure-class output on stderr, each driving exit 1 and visible under `--quiet`
 
 #### REQ-SERVICES-071: archive.service dry-run mode and refusal reporting
-`ArchiveOptions.dryRun` short-circuits every write point of the one `execute()` flow (no parallel implementation) and returns the `planned` mutations; predictions mirror the real run's triggers (`readFeatureRoutes` — routes existing, not files written — drives the feature-map probe). Named targets are never silently filtered: a non-target-status change reports `refused {name, status, reason}` (including existing-but-unparseable metadata, `status: unknown`), a missing one reports `notFound`; `skippedReasons` carries each skip's real cause. Pre-existing no-clobber, non-fatal, and terminal-station no-schema-validation semantics are unchanged.
-- WHEN running with `dryRun`, THEN the filesystem is byte-identical before and after (directories included), and a subsequent real run performs exactly the predicted mutations (both directions, replay equivalence)
+`ArchiveOptions.dryRun` short-circuits every write point of the one `execute()` flow (no parallel implementation) and returns the `planned` mutations; predictions mirror the real run's triggers (`readFeatureRoutes` — routes existing, not files written — drives the feature-map probe). The same honesty covers `executeFinalize`, whose two write points (the `_archived-history` copy and the counter reconciliation) are equally previewable and equally write-free under dry-run. Named targets are never silently filtered: a non-target-status change reports `refused {name, status, reason}` (including existing-but-unparseable metadata, `status: unknown`), a missing one reports `notFound`; `skippedReasons` carries each skip's real cause. Pre-existing no-clobber, non-fatal, and terminal-station no-schema-validation semantics are unchanged.
+- WHEN running either flow with `dryRun`, THEN the filesystem is byte-identical before and after (directories included), and a subsequent real run performs exactly the predicted mutations (both directions, replay equivalence)
 - WHEN a named change exists but is not `verified`, THEN the result carries `refused` with its status and reason; a nonexistent name lands in `notFound`
 - WHEN a change's archive move fails mid-loop, THEN the move rolls back and `skippedReasons` carries the error message
 
 #### REQ-TEMPLATES-159: archive skill delegates deterministic mutations to the CLI
-The `prospec-archive` skill's deterministic phases delegate to `prospec archive` (dry-run preview first, CLI resolution ladder, explicit CLI-unavailable manual fallback); the skill retains the judgment work — the Entry Gate verbatim, the Review & Verify summary, REQ semantic graduation (wording convergence, Story placement, frontmatter counter reconciliation), lessons harvest, the `_archived-history` copy, and the raw-scan refresh.
-- WHEN reading the generated SKILL.md, THEN no step hand-runs the move or hand-writes feature-map.yaml; `prospec archive` appears in the deterministic steps with a `--dry-run` preview
+The `prospec-archive` skill's deterministic phases delegate to `prospec archive` (dry-run preview first) and its post-judgment phase to `prospec archive finalize`; there is no CLI resolution ladder and no manual fallback — an unreachable or too-old CLI is a STOP at the shared probe. The skill's retained work is pure judgment: the Entry Gate, the Review & Verify summary, REQ semantic graduation (wording convergence, Story placement), and the semantic half of the lessons harvest.
+- WHEN reading the generated SKILL.md, THEN no step hand-runs the move, hand-writes feature-map.yaml, hand-copies the summary into `_archived-history`, or hand-recounts frontmatter; `prospec archive` appears in the deterministic steps with a `--dry-run` preview and `prospec archive finalize` appears after the graduation phase
 - WHEN comparing the Entry Gate against the pre-change template, THEN its items (only-verified, metadata-completeness, knowledge-sync backstop) are semantically unchanged
-- WHEN the CLI is unavailable, THEN the skill states so and performs the manual fallback — never silently skips the mutations
+- WHEN `prospec archive finalize` refuses, THEN the skill reads it as "the summary overwrite is missing" and fixes that, never hand-running the two mutations instead
+
+#### REQ-SERVICES-072: Non-destructive Feature-Spec REQ merge
+`archive.service`'s delta-spec parser carries each REQ's body into `FeatureRoute` — the optional `**Spec:**` landing block plus the `**Description:**` / `**Acceptance Criteria:**` blocks — and `mergeRequirementInPlace` never blanks an authored body. A `**Spec:**` block lands verbatim (function replacer, so `$`-sequences stay literal); without one, a MODIFIED REQ keeps its existing body byte-identical and is reported in `ArchiveResult.pendingConvergence` with its reason. The Description/Acceptance-Criteria fallback is ADDED-only — for MODIFIED those blocks are change narrative, and landing them would overwrite an authored behavior statement with planning prose. A block ends at the next `**Label:**` line, ANY Markdown heading, a `---` rule, or the end of the entry: a heading must never be absorbed, because a landed foreign heading becomes the in-place replacement's own stop boundary and no later sync can remove it. A REMOVED REQ whose active section still stands after deprecation is reported too — `moveReqToDeprecated` only appends a bullet, so the stale body needs a human.
+- WHEN a MODIFIED route carries a `**Spec:**` block, THEN the REQ's body in the feature spec is replaced by that block verbatim
+- WHEN a MODIFIED route carries no `**Spec:**` block — including one that carries `**Description:**`/`**Acceptance Criteria:**` — THEN the existing body survives byte-identical (only the title line is refreshed) and the REQ appears in `pendingConvergence`
+- WHEN an ADDED route carries a `**Spec:**` block or `**Description:**`/`**Acceptance Criteria:**`, THEN the landed REQ has a body — never title-only
+- WHEN a `**Spec:**` block is followed by a Markdown heading, THEN nothing from that heading onward is landed
+- WHEN a REMOVED route's `#### {reqId}:` section still exists after deprecation, THEN the REQ appears in `pendingConvergence`
+- WHEN a landed body contains `$&` or `$1`, THEN those characters land literally
+- WHEN running with `dryRun`, THEN `pendingConvergence` is reported and no file is written
+
+---
+
+#### REQ-TEMPLATES-166: delta-spec `**Spec:**` landing-block contract
+`references/delta-spec-format` defines the `**Spec:**` block as the REQ body that lands verbatim in the Feature Spec — spec form (a 1-2 sentence statement plus `- WHEN …, THEN …` bullets), written in the target Feature Spec's language, not the change-artifact language. It is REQUIRED for a MODIFIED entry (its absence means the CLI preserves the old body and reports the REQ instead of replacing it) and optional for ADDED (which falls back to Description + Acceptance Criteria). The reference also states where the block ENDS — next `**Label:**`, any Markdown heading, a `---`, or the entry's end — so "verbatim" carries its own exclusion rather than truncating silently. Because the block's content crosses into the trust zone verbatim, the generated Language Policy rule (`lib/language-policy`) carries it as a named reverse exception: English inside the change-artifact zone. The `prospec-archive` skill's graduation phase reads `pendingConvergence` as its worklist rather than re-reading every touched spec.
+- WHEN reading the generated delta-spec-format reference, THEN the `**Spec:**` block is defined for ADDED and MODIFIED, with the preserve-and-report fallback, the language rule, and the block's end boundary stated
+- WHEN reading the generated `prospec-archive` SKILL.md, THEN the graduation phase names `pendingConvergence` as its convergence worklist
+- WHEN the Constitution's Language Policy rule is generated, THEN it names the `**Spec:**` block as a change-artifact spot that stays English (`englishExceptions`), so a MUST audit cannot read the required English as a violation
+- WHEN the block definition or the fallback sentence is deleted, THEN a section-scoped contract assertion turns red
+
+---
+
+#### REQ-TESTS-060: spec-sync body preservation and the body-less REQ debt ledger
+Tests pin both the fix and the damage it already did. Fixture-driven unit tests assert that spec-sync preserves every pre-existing REQ body — including the boundary cases (a REQ that is the last h4 before an h2, before a `---`, and at EOF) and a body containing `$&`. A repo-internal debt-ledger test asserts the set of body-less REQs across `prospec/specs/features/**` is EXACTLY the documented legacy list, so a newly introduced hole and a repaired-but-still-listed hole both fail — the list can only shrink, and never silently.
+- WHEN spec-sync runs over the fixture, THEN every pre-existing REQ body's line count is ≥ its pre-merge value
+- WHEN a new body-less REQ appears in any feature spec, THEN the debt-ledger test fails naming it
+- WHEN a listed legacy hole is repaired without being removed from the list, THEN the test fails
 
 ---
 
@@ -524,8 +553,9 @@ The contract test verifies that 5 skills contain `## Entry Gate` and a folded-in
 - WHEN consulting the convention doc, THEN hit the introduced_by definition + example (the shipped template uses a consumer-agnostic example; the project doc uses issue #48 → fix-init-clobber-add-upgrade)
 
 #### REQ-TEMPLATES-145: verify/review write structured quality_log fields
-`prospec-verify` writes the structured `grade` (S/A/B/C/D) and `dimensions` (5+1 per-dimension result plus its `adjudicator` — `machine` for task completion/Knowledge/tests, `judgment` for delta-spec/Constitution/design) in the Exit/Status section; `result` still records the gate three-state; `prospec-review` writes `criticals_found`/`criticals_fixed`/`majors` in each round's quality_log entry. `metadata-completeness` reads only `grade` (`dimensions`/counts are for aggregation, read by no check).
-- WHEN the contract test runs, THEN the verify section contains the `grade`+`dimensions` write instructions, and the review section contains the criticals/majors write instructions
+The structured fields' semantics are unchanged — `grade` (S/A/B/C/D) plus `dimensions` (5+1 per-dimension result with its `adjudicator` — `machine` for task completion/Knowledge/tests, `judgment` for delta-spec/Constitution/design) for verify, and `criticals_found`/`criticals_fixed`/`majors` per review round — but the **writer** is the CLI: `prospec verify record` for the verify entry, `prospec change log` flags for each review round. The skill supplies structured input only. `result` still records the gate three-state, and `metadata-completeness` still reads only `grade` (`dimensions`/counts are for aggregation, read by no check).
+- WHEN verify records its verdict, THEN `prospec verify record` writes `grade` + `dimensions` and no YAML is hand-serialized by the skill
+- WHEN a review round closes — a clean round included — THEN the skill passes `--criticals-found`/`--criticals-fixed`/`--majors` to `prospec change log`
 - WHEN verify writes, THEN `result` is still PASS/WARN/FAIL (grade does not override result)
 
 #### REQ-TYPES-066: metadata test_provenance + dimension adjudicator vocabulary
@@ -609,7 +639,6 @@ The plan/implement Context7 step degrades gracefully: unavailable/no-result mean
 - WHEN any step is removed, THEN the corresponding assertion turns red; Startup Loading does not include Context7 (negative)
 
 ---
-
 
 #### REQ-TESTS-033: archive spec-history destination contract pin
 
@@ -1127,6 +1156,74 @@ Unit (router full status × scale matrix, service memfs tolerance, formatter), c
 
 ---
 
+## US-29: Deterministic Station Work Belongs to the CLI [P1]
+
+As an AI agent running the prospec skills,
+I want every deterministic station operation — scaffolding, lifecycle transitions, `quality_log` entries, task bookkeeping, review merging, verify grading, artifact structure checks — executed by a `prospec` command instead of hand-simulated,
+So that the same repo state always produces the same bytes, a lifecycle transition cannot regress on a misread, and the skill spends its tokens on judgment only.
+
+**Acceptance Scenarios:**
+- WHEN a workflow skill needs a scaffold, a status advance, a `quality_log` entry or a task checkbox THEN it runs the matching `prospec change` subcommand and hand-writes no YAML
+- WHEN a station owns a heavy deterministic engine (review merge, verify grading, artifact structure checks) THEN the engine runs inside the CLI and the skill supplies only its judgment input
+- WHEN a transition would move backward, or reach a gate-owned status THEN the command refuses, lists the legal forward targets, and leaves the file untouched
+- WHEN a command is replayed against the same inputs THEN its output and its writes are byte-identical
+- WHEN a check is only partly mechanizable THEN the command reports the structural facts and the skill's judgment step is labelled as such — never presented as delegated
+
+### Behavior Specifications
+
+#### REQ-CLI-025: Change Lifecycle Write Commands (log / status / scale / progress)
+Four `prospec change` subcommands take over the `metadata.yaml` and `tasks.md` mutations the skills used to hand-write. `change log` appends one structured `quality_log` entry (fixed `skill`/`date`/`result`/`warnings` plus the station's optional `grade`/`dimensions`/review counts) through `lib/change-metadata`. `change status <to>` is a forward-only lifecycle transition over `isStatusBefore`. `change scale <scale>` records the user-confirmed complexity. `change progress` does task-checkbox bookkeeping over the frozen task-kind grammar in `lib/task-markers` — the same parser verify's task-completion check reads.
+- WHEN `change log` appends an entry, THEN the values are serialized as data (canonical key order, comments preserved, escaping owned by the serializer), so user text containing YAML metacharacters cannot corrupt the file
+- WHEN `change status` is given a backward target, or a gate-owned one (`verified` is minted only by `prospec verify record` at grade S/A, `archived` only by `prospec archive`), THEN it exits 1 naming the legal forward targets with the file unchanged; a legal forward skip (`scale: quick`'s `story → tasks`) is deliberately allowed, and a target already reached is a no-op
+- WHEN `change progress --complete <id|ordinal>` runs, THEN exactly one checkbox flips (an already-checked task is a no-op) and the reported X/Y denominator counts code tasks only — unchecked `[M]`/`[V]` tasks are surfaced as reminders, never counted or blocking
+
+#### REQ-CLI-028: `prospec review merge` Merges the Cumulative Findings Table
+The `review.md` findings table is merged by the CLI. The reviewer supplies one round's findings as JSON, **including each finding's identity** — code edits shift line numbers, so "is this the same finding as last round" is judgment, expressed by reusing the prior round's `id`; the CLI never infers identity from a location string. Given that input the bookkeeping is mechanical: merge by identity, escalate severity to the maximum, carry existing rows forward so a resolved finding is never re-raised, and render one canonical table through the shared `lib/markdown-table`. The round's `criticals_found`/`criticals_fixed`/`majors` counts are derived from the round's findings and feed `change log`.
+- WHEN a finding reuses a prior round's `id`, THEN it updates that row; a finding with no id keys on (location, lens) instead of creating a duplicate
+- WHEN a merged row already carries a higher severity than the incoming finding, THEN the higher one is kept (severity only ever escalates)
+- WHEN a pre-existing hand-written review.md is read, THEN its legacy shape parses (column aliases, missing ID/Summary tolerated) and the prose around the table is preserved
+- WHEN the same round is merged twice, THEN the rendered table is byte-identical
+
+#### REQ-CLI-029: `prospec verify record` Grades and Records the Verify Verdict
+The verify decision table runs as code and the machine ledger self-sources. `verify record` accepts only the three judgment verdicts (`delta-spec-compliance`, `constitution`, `design`) plus the budget-counted WARN strings; the machine dimensions (`task-completion`, `knowledge`, `tests`) are read by the CLI from `prospec-report.json` — 5/5 from its `test-provenance` check, which is itself the reader of metadata `test_provenance` — and an LLM's relay of an engine verdict is refused outright. It computes the S/A/B/C/D grade, derives the gate three-state `result`, serializes the `dimensions`/`quality_log` entry, and on S/A advances `status: verified`. There is no engine-unavailability exemption class: every WARN counts against grade A's budget.
+- WHEN `prospec-report.json` is absent, or its `change_digest` does not match the current code state, THEN the command refuses and names `prospec check --record-tests` then `prospec check --json` as the fix — a report older than the last edit never grades the current code; when the digest is not computable at all (no git repository) the freshness guard skips honestly rather than blocking
+- WHEN the judgment input is not exactly the three judgment dimensions, THEN it refuses: a dimension that does not apply is passed as `not-applicable`, never omitted, and a machine dimension may not be passed at all
+- WHEN the grade is B/C/D, THEN `status` is unchanged; WHEN S/A, THEN the `quality_log` entry and the status advance land in one atomic write
+- WHEN a machine check honestly skipped, THEN its dimension is recorded `not-adjudicated` and the emitted WARN embeds that check's own skip reason, so the recorded warnings are the complete budget ledger
+
+#### REQ-CLI-031: `prospec validate <kind>` Reports Artifact Structure Verdicts
+One command carries the artifact checks the backfill / promote / design skills used to narrate, with the machine/judgment boundary drawn explicitly per kind: `slug` and `promote-scaffold` are **complete** verdicts; `backfill-draft` and `design-spec` report the **structural subset** and the skill applies the semantic rules over those facts. A failing verdict exits 1, like `check --strict`.
+- WHEN `validate slug` runs, THEN the verdict is the executable `isSafeResourceName` guard (no path separators, no `..`, no empty segments)
+- WHEN `validate promote-scaffold` runs, THEN it checks the artifact set (reviewed draft + proposal present, no `plan.md`/`tasks.md`), `scale: backfill`, `status: implemented`, non-empty `related_modules`, and trust-zone cleanliness; a probe that cannot run (git failure, unreadable config) is reported as an explicit "could not verify" finding, never as clean
+- WHEN `validate backfill-draft` runs, THEN it reports route-header presence (`**Feature:**` / `**Story:**`), every `[NEEDS CLARIFICATION]` marker with its line, and the feature-map coverage gap as INFO — the >50% ratio classification (story-level denominator, heuristic-WHY exemption) is stated to be the skill's
+- WHEN `validate design-spec` runs, THEN a missing required section or a remaining `[NEEDS CLARIFICATION]` FAILs, and component coverage is out of scope — extracting the component list from proposal prose is judgment
+
+#### REQ-TEMPLATES-161: Workflow Skills Delegate Scaffold, Status and quality_log
+new-story, plan, tasks, ff and implement call the commands instead of writing files: `prospec change story|plan|tasks` for the scaffold and its status advance, `change scale` for the confirmed complexity, `change status` for a later transition, `change log` for a `quality_log` entry, `change progress` for task bookkeeping. `references/metadata-format` is rewritten from the reader's side — field semantics for a CLI-written file — with its hand-serialization guidance removed.
+- WHEN reading any of the five generated SKILL.md files, THEN no step creates a change file or hand-writes metadata.yaml, and each carries a NEVER forbidding it
+- WHEN ff runs its three scaffold segments, including the quick `story → tasks` path, THEN every one goes through a `prospec change` command
+- WHEN implement completes the last code task, THEN the checkbox came from `change progress --complete` and `status: implemented` from `change status`
+
+#### REQ-TEMPLATES-163: review / verify / learn Skills Delegate Their Station Engines
+The review skill emits its round as findings JSON to `review merge` and records every round via `change log` — including a review-clean round, whose counts are recorded as zeros. The verify skill passes only the three judgment verdicts to `verify record`, which owns the grade, the entry serialization and the S/A status advance. The learn skill hands each keyed lesson to `learn upsert`. Each skill keeps its judgment body: defect discovery and finding identity, dimension adjudication, semantic lesson matching, and the prose.
+- WHEN reading the generated prospec-verify SKILL.md, THEN it contains no hand-computed decision table and no WARN-exemption narrative, and its NEVER list forbids adjudicating or relaying a machine dimension and forbids hand-writing the verify `quality_log` entry
+- WHEN reading prospec-review / prospec-learn, THEN neither embeds the merge, upsert or scoring algorithm
+- WHEN both templates render, THEN the review/verify division-of-labour statement still occurs exactly once across them (the pre-existing contract stays green)
+
+#### REQ-TEMPLATES-165: backfill / promote Skills Delegate Validation and Scaffold
+`prospec-backfill-spec` takes its structural facts from `validate backfill-draft` and checks its candidate feature slug with `validate slug`; the >50% guardrail stays in the skill, applied over the reported marker locations, because classifying which markers are story-level intent (and which are exempt heuristic-WHY notes) is semantic. `prospec-promote-backfill` builds the light scaffold with `change story` + `change scale backfill` + `change status implemented`, then gates on `validate promote-scaffold`.
+- WHEN reading the generated prospec-promote-backfill SKILL.md, THEN no step hand-serializes metadata.yaml and the scaffold gate is `validate promote-scaffold`
+- WHEN reading prospec-backfill-spec, THEN the ratio step is explicitly labelled judgment over the CLI's marker facts, not delegated
+- WHEN either skill weighs a candidate feature slug, THEN it runs `validate slug` rather than restating the safe-name rule
+
+#### REQ-TESTS-059: Four-Layer Coverage of the cli-first Delegation
+The new engines and commands are covered at four layers: pure-engine unit tests in lib (`verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `markdown-table`, including a bit-identical recomputation assertion), service and formatter unit tests, per-command e2e against a real temp project, and contract updates (probe single source, `bundled-templates-sync`, the startup-loading baseline, and the delegation wording pins). The negative assertions are mutation-verified.
+- WHEN the suite runs, THEN `pnpm test` is green at ≥ 80% coverage and `pnpm counts:check` passes
+- WHEN a CLI-unavailable fallback phrase reappears under `skills/`/`agent-configs/`, or the shared probe stops being the single source, THEN a negative contract assertion turns red
+- WHEN e2e runs, THEN each new command's success and refusal paths are exercised — the forward-only rejection, the validate-before-write refusal that leaves the file untouched, and `archive finalize --dry-run` writing nothing
+
+---
+
 ## Deprecated Requirements
 
 #### ~~REQ-TEMPLATES-031: Capability Spec Format Reference~~
@@ -1147,6 +1244,8 @@ Unit (router full status × scale matrix, service memfs tolerance, formatter), c
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-30 | archive-sync | ADDED REQ-SERVICES-072; ADDED REQ-TEMPLATES-166; ADDED REQ-TESTS-060; MODIFIED REQ-CLI-024 | REQ-SERVICES-072, REQ-TEMPLATES-166, REQ-TESTS-060, REQ-CLI-024 |
+| 2026-07-30 | archive-sync | ADDED REQ-CLI-025; ADDED REQ-CLI-028; ADDED REQ-CLI-029; ADDED REQ-CLI-031; ADDED REQ-TEMPLATES-161; ADDED REQ-TEMPLATES-163; ADDED REQ-TEMPLATES-165; ADDED REQ-TESTS-059; MODIFIED REQ-CLI-024; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-153; MODIFIED REQ-TEMPLATES-145; MODIFIED REQ-TEMPLATES-159 | REQ-CLI-025, REQ-CLI-028, REQ-CLI-029, REQ-CLI-031, REQ-TEMPLATES-161, REQ-TEMPLATES-163, REQ-TEMPLATES-165, REQ-TESTS-059, REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-153, REQ-TEMPLATES-145, REQ-TEMPLATES-159 |
 | 2026-07-29 | archive-cli-entry | ADDED REQ-CLI-024; ADDED REQ-SERVICES-071; ADDED REQ-TEMPLATES-159; REQ-SERVICES-064 rationale updated (CLI entry now exists, still no auto knowledge-update) | REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-SERVICES-064 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-TEMPLATES-150 (the single authority reference for the metadata.yaml serialization format: loaded by new-story/ff, pointed to when downstream skills append fields, semantics defer to schema/`_status-lifecycle.md`) | US-1; REQ-TEMPLATES-150 (ADDED) |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-26 (scale honesty and ceremony pruning) + REQ-TEMPLATES-134/135/136/137/139/140 (verify quick reduction, archive quick parity, [P]/~lines optional, INVEST advisory, Quality-Gate dedup, commit semantics unified) (issue #67) | US-26, REQ-TEMPLATES-134, REQ-TEMPLATES-135, REQ-TEMPLATES-136, REQ-TEMPLATES-137, REQ-TEMPLATES-139, REQ-TEMPLATES-140 |

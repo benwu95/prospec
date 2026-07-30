@@ -38,7 +38,7 @@ vi.mock('../../../src/cli/commands/print-template.js', () => ({
   registerPrintTemplateCommand: (program: Command) =>
     program.command('print-template <path>').action(() => undefined),
 }));
-vi.mock('../../../src/cli/commands/knowledge-generate.js', () => ({
+vi.mock('../../../src/cli/commands/knowledge.js', () => ({
   registerKnowledgeCommand: (program: Command) => {
     const knowledge = program.command('knowledge');
     knowledge.action(() => undefined);
@@ -57,13 +57,24 @@ vi.mock('../../../src/cli/commands/change-story.js', () => ({
   registerChangeCommand: (program: Command) =>
     program.command('change').action(() => undefined),
 }));
+// Mirror the REAL registrars' shape: they look up the existing `change`
+// group and attach a subcommand. A mock registering a TOP-LEVEL `plan`/`tasks`
+// would make this file assert a command surface the CLI does not have.
 vi.mock('../../../src/cli/commands/change-plan.js', () => ({
-  registerChangePlanCommand: (program: Command) =>
-    program.command('plan').action(() => undefined),
+  registerChangePlanCommand: (program: Command) => {
+    program.commands
+      .find((c) => c.name() === 'change')
+      ?.command('plan')
+      .action(() => undefined);
+  },
 }));
 vi.mock('../../../src/cli/commands/change-tasks.js', () => ({
-  registerChangeTasksCommand: (program: Command) =>
-    program.command('tasks').action(() => undefined),
+  registerChangeTasksCommand: (program: Command) => {
+    program.commands
+      .find((c) => c.name() === 'change')
+      ?.command('tasks')
+      .action(() => undefined);
+  },
 }));
 vi.mock('../../../src/cli/commands/status.js', () => ({
   registerStatusCommand: (program: Command) =>
@@ -139,16 +150,21 @@ describe('createProgram', () => {
         'config',
         'init',
         'knowledge',
+        'learn',
         'mcp',
         'measure',
-        'plan',
         'print-template',
         'quickstart',
+        'review',
         'status',
-        'tasks',
         'upgrade',
+        'validate',
+        'verify',
       ].sort(),
     );
+    // Nothing is registered top-level that really belongs under `change`.
+    expect(names).not.toContain('plan');
+    expect(names).not.toContain('tasks');
   });
 });
 

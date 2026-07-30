@@ -9,6 +9,7 @@ import {
   collectAllModules,
   execute,
 } from '../../../src/services/knowledge-update.service.js';
+import { PrerequisiteError } from '../../../src/types/errors.js';
 import {
   INDEX_TABLE_HEADER,
   INDEX_TABLE_SEPARATOR,
@@ -197,16 +198,20 @@ describe('updateModuleReadme', () => {
       knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
-    expect(result.action).toBe('created');
-    expect(result.path).toBe('prospec/ai-knowledge/modules/auth/README.md');
+    expect(result).not.toBeNull();
+    expect(result!.action).toBe('created');
+    expect(result!.path).toBe('prospec/ai-knowledge/modules/auth/README.md');
 
     const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/auth/README.md', 'utf-8');
     expect(content).toContain('prospec:auto-start');
   });
 
-  it('should update existing module README.md preserving user sections', async () => {
+  it('never rewrites an existing README — returns null, file stays bit-identical (issue #107)', async () => {
+    // The knowledge lives INSIDE the auto block; a skeleton re-render through
+    // mergeContent would replace it with mechanical scaffold text. Reverting
+    // the create-only guard makes this go red on the byte comparison.
     const existingContent =
-      '# Auth\n\n<!-- prospec:auto-start -->\nOld auto content\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nMy custom notes\n<!-- prospec:user-end -->\n';
+      '# Auth\n\n<!-- prospec:auto-start -->\nLLM-authored knowledge that must survive\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nMy custom notes\n<!-- prospec:user-end -->\n';
 
     vol.fromJSON({
       '/project/prospec/ai-knowledge/modules/auth/README.md': existingContent,
@@ -217,10 +222,10 @@ describe('updateModuleReadme', () => {
       knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
-    expect(result.action).toBe('updated');
-
-    const content = vol.readFileSync('/project/prospec/ai-knowledge/modules/auth/README.md', 'utf-8') as string;
-    expect(content).toContain('My custom notes');
+    expect(result).toBeNull();
+    expect(
+      vol.readFileSync('/project/prospec/ai-knowledge/modules/auth/README.md', 'utf-8'),
+    ).toBe(existingContent);
   });
 
   it('should call renderTemplate with key_exports in context', async () => {
@@ -372,7 +377,8 @@ describe('updateModuleReadme', () => {
     // unknown extension -> default fallback (L565 right side)
     expect(descOf('src/mod/weird.xyz')).toBe('Source file');
 
-    // Batch 2: extension-table branches
+    // Batch 2: extension-table branches — a fresh module name, because the
+    // create-only guard makes a second call on 'mod' a no-op (README exists).
     vi.mocked(scanDir).mockResolvedValueOnce({
       files: [
         'src/mod/plain.js',
@@ -383,7 +389,7 @@ describe('updateModuleReadme', () => {
       ],
       count: 5,
     });
-    await updateModuleReadme('mod', ['src/mod/**'], {
+    await updateModuleReadme('mod2', ['src/mod/**'], {
       cwd: '/project',
       knowledgeBasePath: 'prospec/ai-knowledge',
     });
@@ -623,28 +629,60 @@ describe('updateModuleMap', () => {
     expect(result).toBeNull();
   });
 
-  it('does not duplicate an already-present module (case-insensitive) on add (L336 else)', async () => {
+  it('is a byte-preserving no-op when an add changes nothing (case-insensitive match)', async () => {
     vol.fromJSON({
       '/project/module-map.yaml':
         'modules:\n  - name: Services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n',
     });
 
+    const before = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
     const result = await updateModuleMap(
       { added: ['services'], removed: [] },
       '/project/module-map.yaml',
     );
 
+    // Nothing to change → no write at all: a curated file must not be
+    // rewritten (and reflowed) just because the coordinator called through.
+    expect(result).toBeNull();
+    expect(vol.readFileSync('/project/module-map.yaml', 'utf-8')).toBe(before);
+  });
+
+  it('preserves header comments and untouched entries when it does change the map', async () => {
+    // A full stringifyYaml round-trip drops every comment and reflows wrapped
+    // descriptions — reverting to it turns the comment assertions red.
+    const original = [
+      '# Module dependency map — source of truth for module boundaries.',
+      '# Dependency direction: cli → services → lib → types.',
+      'modules:',
+      '  - name: services',
+      '    description: business logic',
+      '    paths: ["src/services/**"]',
+      '    keywords: ["services"]',
+      '',
+    ].join('\n');
+    vol.fromJSON({ '/project/module-map.yaml': original });
+
+    const result = await updateModuleMap(
+      { added: ['payments'], removed: [] },
+      '/project/module-map.yaml',
+    );
+
     expect(result).not.toBeNull();
     const content = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
-    // only the original entry survives; no second `services` entry is appended
-    const nameLines = content.split('\n').filter((l) => /name:\s*Services/i.test(l));
-    expect(nameLines).toHaveLength(1);
+    expect(content).toContain('# Module dependency map — source of truth for module boundaries.');
+    expect(content).toContain('# Dependency direction: cli → services → lib → types.');
+    expect(content).toContain('description: business logic');
+    expect(content).toContain('name: payments');
   });
 });
 
 // --- collectAllModules ---
 
 describe('collectAllModules', () => {
+  // Isolated unit contract only: execute() deletes the module-map entry BEFORE
+  // calling collectAllModules, so a map still containing the removed module is
+  // a state the live flow never produces — the real REMOVED flow (entry gone,
+  // module absent from the index) is pinned by the execute()-level test below.
   it('marks a deprecated module even when module-map name is mixed-case', () => {
     vol.fromJSON({
       '/project/module-map.yaml':
@@ -653,7 +691,7 @@ describe('collectAllModules', () => {
 
     // result.deprecated holds the lowercased delta-spec name
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: ['api'], generatedFiles: [], warnings: [] },
+      { created: [], updated: [], deprecated: ['api'], readmePending: [], generatedFiles: [], warnings: [] },
       '/project/module-map.yaml',
     );
 
@@ -668,7 +706,7 @@ describe('collectAllModules', () => {
     });
 
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: [], generatedFiles: [], warnings: [] },
+      { created: [], updated: [], deprecated: [], readmePending: [], generatedFiles: [], warnings: [] },
       '/project/module-map.yaml',
     );
 
@@ -683,6 +721,7 @@ describe('collectAllModules', () => {
         created: ['newmod'],
         updated: ['changedmod'],
         deprecated: ['goneMod'],
+        readmePending: [],
         generatedFiles: [],
         warnings: [],
       },
@@ -887,7 +926,7 @@ describe('execute', () => {
     expect(result.updated).not.toContain('auth');
   });
 
-  it('skips an ADDED module that is also REMOVED, reuses module-map paths, and reports an existing README as updated (L415/L421/L500/L458)', async () => {
+  it('skips an ADDED module that is also REMOVED, and reports an existing README as readme-pending (never rewritten)', async () => {
     const { scanDir } = await import('../../../src/lib/scanner.js');
     const deltaContent = `## ADDED
 
@@ -928,23 +967,28 @@ describe('execute', () => {
     expect(result.updated).not.toContain('auth');
     expect(result.deprecated).toContain('auth');
 
-    // billing README pre-existed -> reported as updated, not created
-    expect(result.updated).toContain('billing');
+    // billing README pre-existed -> readme-pending judgment work, not created,
+    // and the file is never scanned or rewritten (create-only guard fires first)
+    expect(result.readmePending).toContain('billing');
     expect(result.created).not.toContain('billing');
-
-    // billing used its module-map path glob (L500 populated the map)
-    const scanCall = vi
+    const billingScan = vi
       .mocked(scanDir)
       .mock.calls.find((c) => Array.isArray(c[0]) && (c[0] as string[]).includes('pkg/billing/**'));
-    expect(scanCall).toBeDefined();
+    expect(billingScan).toBeUndefined();
+    expect(
+      vol.readFileSync('/test/prospec/ai-knowledge/modules/billing/README.md', 'utf-8'),
+    ).toContain('keep me');
 
-    // module-map.yaml existed -> updateModuleMap returned a file that was pushed (L458/L459)
+    // billing already exists and auth is not in the map, so the map needs no
+    // edit — and an unchanged curated file is never rewritten (no file entry).
     const mapFile = result.generatedFiles.find((f) => f.path.endsWith('module-map.yaml'));
-    expect(mapFile).toBeDefined();
-    expect(mapFile!.action).toBe('updated');
+    expect(mapFile).toBeUndefined();
+    expect(vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8')).toContain(
+      'name: billing',
+    );
   });
 
-  it('processes a fresh MODIFIED module via the src/<name>/** fallback when not in module-map (L428/L429-else/L432-then)', async () => {
+  it('acknowledges a MODIFIED module as readme-pending without touching any README (issue #107)', async () => {
     const { scanDir } = await import('../../../src/lib/scanner.js');
     const deltaContent = `## MODIFIED
 
@@ -958,16 +1002,18 @@ describe('execute', () => {
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    // first time seen -> pushed to updated (L432 both conditions true)
+    // acknowledged for the index/module-map refresh…
     expect(result.updated).toEqual(['payments']);
-
-    // no module-map entry -> fallback glob src/payments/** (L429 right side)
+    // …but README content is the skill's judgment work: nothing scanned,
+    // nothing generated for the module.
+    expect(result.readmePending).toEqual(['payments']);
     const scanCall = vi
       .mocked(scanDir)
       .mock.calls.find(
         (c) => Array.isArray(c[0]) && (c[0] as string[]).includes('src/payments/**'),
       );
-    expect(scanCall).toBeDefined();
+    expect(scanCall).toBeUndefined();
+    expect(vol.existsSync('/project/prospec/ai-knowledge/modules/payments/README.md')).toBe(false);
   });
 
   it('does not double-list a module that is both ADDED and MODIFIED (L432 created-includes short-circuit)', async () => {
@@ -1017,6 +1063,34 @@ describe('execute', () => {
 
     // listed exactly once despite two MODIFIED REQ ids
     expect(result.updated).toEqual(['orders']);
+  });
+
+  it('REMOVED flow end-to-end: map entry deleted, module absent from the regenerated index, README keeps its banner', async () => {
+    vol.fromJSON({
+      '/test/prospec/index.md':
+        '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: legacy\n    paths: ["src/legacy/**"]\n    keywords: ["legacy"]\n  - name: services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n',
+      '/test/prospec/ai-knowledge/modules/legacy/README.md': '# legacy\n\ncontent\n',
+      '/project/delta-spec.md': '## REMOVED\n\n### REQ-LEGACY-001: remove legacy\n\n**Description:** gone\n',
+    });
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+
+    expect(result.deprecated).toEqual(['legacy']);
+    // the module-map entry is gone, not marked
+    const mapAfter = vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8') as string;
+    expect(mapAfter).not.toContain('legacy');
+    // the regenerated index has NO row for the removed module (there is no
+    // "Deprecated" row in the live flow — the entry was deleted before the
+    // index rebuild); surviving modules still render
+    const indexAfter = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+    expect(indexAfter).not.toContain('**legacy**');
+    expect(indexAfter).toContain('**services**');
+    // the README is kept, banner-marked — never deleted
+    const readme = vol.readFileSync('/test/prospec/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
+    expect(readme).toContain('> **DEPRECATED**');
+    expect(readme).toContain('content');
   });
 
   it('skips deprecation reporting when the REMOVED module README is absent (L444 else, L453 else)', async () => {
@@ -1162,5 +1236,71 @@ describe('execute', () => {
 
     // PAYMENTS is not a feature prefix → treated as a module name (fallback), as before
     expect(result.updated).toEqual(['payments']);
+  });
+});
+
+// --- executeForChange (`prospec knowledge update`) ---
+
+describe('executeForChange', () => {
+  it('drives the update from the named change delta-spec + related_modules', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/my-change/delta-spec.md': `## MODIFIED
+
+### REQ-PAYMENTS-001: tweak payments
+
+**Description:** change
+`,
+      '/project/.prospec/changes/my-change/metadata.yaml': `name: my-change
+created_at: 2026-07-30T00:00:00.000Z
+status: implemented
+related_modules:
+  - payments
+`,
+    });
+
+    const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
+    const result = await executeForChange({ change: 'my-change', cwd: '/project' });
+    expect(result.changeName).toBe('my-change');
+    expect(result.readmePending).toEqual(['payments']);
+  });
+
+  it('refuses a change with no delta-spec, pointing at --module (quick contract)', async () => {
+    vol.fromJSON({
+      '/project/.prospec/changes/quick-change/metadata.yaml': `name: quick-change
+created_at: 2026-07-30T00:00:00.000Z
+status: implemented
+scale: quick
+`,
+    });
+    const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
+    await expect(
+      executeForChange({ change: 'quick-change', cwd: '/project' }),
+    ).rejects.toThrow(/delta-spec\.md not found/);
+  });
+
+  it('bypasses change resolution entirely in --module manual mode', async () => {
+    vol.fromJSON({ '/project/src/newmod/index.ts': 'export {}\n' });
+    const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
+    const result = await executeForChange({ modules: ['newmod'], cwd: '/project' });
+    expect(result.changeName).toBeUndefined();
+    expect(result.created).toEqual(['newmod']);
+  });
+
+  it('refuses a traversal --module name before anything is written', async () => {
+    vol.fromJSON({ '/project/src/ok/index.ts': 'export {}\n' });
+    const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
+    let caught: unknown;
+    try {
+      await executeForChange({ modules: ['ok', '../../../../evil'], cwd: '/project' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    expect((caught as PrerequisiteError).message).toContain('../../../../evil');
+    // no directory or README escaped the knowledge base — and the safe sibling
+    // was not partially processed either (refusal precedes every write)
+    const written = Object.keys(vol.toJSON());
+    expect(written.some((p) => p.includes('evil'))).toBe(false);
+    expect(written.some((p) => p.endsWith('README.md'))).toBe(false);
   });
 });

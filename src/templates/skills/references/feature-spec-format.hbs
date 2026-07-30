@@ -81,6 +81,12 @@ User Stories are the **primary organizational unit**. REQ IDs appear as sub-item
 ---
 ```
 
+> The `**Scenarios:**` label is **optional** — a REQ whose body is a description plus bare
+> `- WHEN …, THEN …` bullets is equally valid, and that is the shape a body landed from a delta-spec
+> `**Spec:**` block takes (a `**Label:**` line ends that block, so the label cannot be carried
+> through). Both shapes read the same; do not add the label to a landed body just to match the
+> scaffold above.
+
 ### 4. Edge Cases
 
 ```markdown

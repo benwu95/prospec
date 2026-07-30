@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_BASE_DIR } from '../types/config.js';
+import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import type { InitDoc } from '../types/conventions.js';
 import { ALL_INITIAL_CONVENTION_DOCS } from '../types/conventions.js';
 import type { TechStackResult } from './detector.js';
@@ -64,6 +65,10 @@ export function buildInitDocContexts(
     // init renders the entry config from this same context, so the entry keys
     // must travel with it — a missing key renders an empty path list, not an error.
     ...entryLanguageContext(languageScope),
+    // Same travel rule for the cli-first probe floor: entry.md.hbs renders
+    // `version ≥ {{minimum_cli_version}}` — without this key a fresh init
+    // ships an AGENTS.md with an empty hole where the floor should be.
+    minimum_cli_version: MINIMUM_CLI_VERSION,
     example_rules: [languagePolicyRule(languageScope), ...exampleRulesFor(techStack)],
   };
 

@@ -115,6 +115,10 @@ function ensureBuiltinPartials(): void {
     readTemplateSource('skills/_generated-notice.hbs'),
   );
   Handlebars.registerPartial(
+    'cli-probe',
+    readTemplateSource('skills/_cli-probe.hbs'),
+  );
+  Handlebars.registerPartial(
     'index-auto-block',
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );

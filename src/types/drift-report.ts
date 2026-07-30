@@ -134,6 +134,15 @@ export const ConstitutionInventorySchema = z.object({
 export const DriftReportSchema = z.object({
   version: z.literal(DRIFT_REPORT_VERSION),
   generated_at: z.string().min(1),
+  /**
+   * Working-tree change digest (drift-sources computeChangeDigest) at
+   * generation time; null when it could not be computed (not a git repo, a
+   * capture failed). Consumers that trust the machine verdicts (verify record)
+   * compare it against the current digest so a report generated before later
+   * edits can never certify them. Optional so reports from older engines still
+   * parse — freshness then reads as unprovable, not as fresh.
+   */
+  change_digest: z.string().nullable().optional(),
   structural: z.object({
     checks: z.array(DriftCheckResultSchema).min(1),
     findings: z.array(DriftFindingSchema),

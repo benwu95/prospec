@@ -42,22 +42,32 @@ Only a critical that is **confirmed to exist** (by an independent verifier citin
 
 ## review.md Format
 
-Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds:
+Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The table is
+**CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file>`
+— never hand-edit the table (issue #107). Canonical shape the CLI renders:
 
 ```markdown
-# Review: {change-name}
+# Review Findings: {change-name}
 
-**Rounds:** {n} / cap {max}   **Status:** review-clean | escalated
-
-| Location | Severity | Lens | Status |
-|----------|----------|------|--------|
-| src/lib/foo.ts:42 | critical | spec-architecture | fixed |
-| src/services/bar.ts:88 | major | maintainability | proposed → verify WARN |
+| ID | Location | Severity | Lens | Status | Summary |
+|---|---|---|---|---|---|
+| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | off-by-one in loop bound |
+| F-2 | src/services/bar.ts:88 | major | maintainability | proposed | duplicated matcher |
 ```
 
-- **Dedup by Location**; when multiple lenses report the same Location, keep the **maximum** severity.
-- **Carry forward** across rounds as the anchor: resolved items are not re-raised; a verdict that flips between rounds is reconciled against the prior record (consistency anchor).
-- Deterministic bookkeeping (dedup, severity-max, round counting, convergence) is done over this table at per-change scale.
+- **Summary prose follows the artifact language** the Constitution's Language Policy assigns to
+  `.prospec/changes/**` — the same rule the change's other artifacts obey. Keep file paths,
+  identifiers, API names, and the Severity/Lens/Status enums in English; write the Summary sentence
+  in the artifact language. (The CLI is language-agnostic: whatever the findings JSON carries is what
+  lands in the table.)
+- **Identity is the reviewer-supplied `id`** — reuse the prior round's id for a finding you judge to
+  be the same one (line numbers drift as fixes land, so the CLI never infers identity from the
+  Location string; a finding without an id keys by location+lens).
+- The CLI's deterministic bookkeeping: merge by identity, **severity taken as the maximum**, rows
+  **carried forward** across rounds as the anchor (resolved items are not re-raised), prose around
+  the table preserved.
+- Round counting and convergence stay the skill's narration; the structured round counts come from
+  the merge command's report (`criticals_found` / `criticals_fixed` / `majors`).
 
 ---
 

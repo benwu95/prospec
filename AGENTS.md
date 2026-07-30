@@ -10,7 +10,7 @@
 
 ## Language Policy
 
-The user's primary language for **change artifacts** (`.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**`) is **Traditional Chinese (Taiwan)**, and requests may be phrased in it. The trust zone (`prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the Traditional Chinese (Taiwan) requirement. The Constitution's Language Policy rule is generated from this same path set and names the few spots inside the trust zone that may use Traditional Chinese (Taiwan).
+The user's primary language for **change artifacts** (`.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**`) is **Traditional Chinese (Taiwan)**, and requests may be phrased in it. The trust zone (`prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the Traditional Chinese (Taiwan) requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use Traditional Chinese (Taiwan), and change-artifact spots that stay English because their content is copied into the trust zone verbatim.
 
 ## Core Resources
 
@@ -151,8 +151,9 @@ Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs
 
 At the start of a session, run `prospec status` — it deterministically reports each in-progress
 change's name, current node, suggested next step, and blocking gates (the executable copy of
-`prospec/ai-knowledge/_status-lifecycle.md`). If the CLI is unavailable, fall back to scanning
-`.prospec/changes/` manually per that file.
+`prospec/ai-knowledge/_status-lifecycle.md`). The prospec CLI (version ≥ 1.0.0)
+is a required file for the prospec skills: when it is missing or too old, STOP and install/upgrade
+the standalone executable before running any skill — never substitute manual steps.
 
 ## Working with This Project
 

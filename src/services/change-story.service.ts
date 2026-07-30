@@ -12,6 +12,13 @@ import { INDEX_COLUMN, INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 export interface ChangeStoryOptions {
   name: string;
   description?: string;
+  /** Explicit related modules — overrides keyword auto-matching (e.g. the
+   *  promote-backfill path, whose modules come from traced file:line, not the
+   *  change name). */
+  relatedModules?: string[];
+  /** Escaped-defect registration for bug-fix changes: the change that missed
+   *  the defect (see _status-lifecycle.md). */
+  introducedBy?: string;
   cwd?: string;
 }
 
@@ -50,8 +57,16 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     throw new AlreadyExistsError(`.prospec/changes/${changeName}`);
   }
 
-  // 3. Match related modules from index.md
-  const relatedModules = matchRelatedModules(changeName, resolveBasePaths(config, cwd).baseDir);
+  // 3. Explicit modules win over keyword auto-matching from index.md
+  const baseDir = resolveBasePaths(config, cwd).baseDir;
+  const relatedModules =
+    options.relatedModules && options.relatedModules.length > 0
+      ? options.relatedModules.map((name) => ({
+          name,
+          description:
+            matchRelatedModules(name, baseDir).find((m) => m.name === name)?.description ?? '',
+        }))
+      : matchRelatedModules(changeName, baseDir);
 
   // 4. Create change directory
   await ensureDir(changeDir);
@@ -89,6 +104,9 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
       : {}),
     ...(options.description
       ? ({ description: options.description } satisfies Partial<NewChangeMetadata>)
+      : {}),
+    ...(options.introducedBy
+      ? ({ introduced_by: options.introducedBy } satisfies Partial<NewChangeMetadata>)
       : {}),
   };
   const metadataPath = path.join(changeDir, 'metadata.yaml');

@@ -62,6 +62,9 @@ export function resolveLanguageScope(config: ProspecConfig, cwd: string): Langua
       `correction evidence recorded in the original language in \`${underKnowledge('_playbook.md')}\` (its \`Re-evidence\` bullets)`,
       `\`${underKnowledge('_glossary.md')}\` as a whole (user-managed — the project owner picks its language)`,
     ],
+    englishExceptions: [
+      `the \`**Spec:**\` block of \`.prospec/changes/**/delta-spec.md\` — it lands verbatim as the REQ body in \`${underBase('specs/features/**')}\`, so it is authored in THAT zone's language; the surrounding Before/After/Reason narrative stays in ${resolveArtifactLanguage(config)}`,
+    ],
   };
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@benwu95/prospec",
-  "version": "0.5.6",
+  "version": "1.0.0",
   "description": "Progressive Spec-Driven Development CLI tool",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
@@ -25,7 +25,8 @@
     "measure:tokens": "npx tsx scripts/measure-tokens.ts",
     "counts": "npx tsx scripts/sync-counts.ts",
     "counts:check": "npx tsx scripts/sync-counts.ts --check",
-    "bundle": "npx tsx scripts/bundle.ts"
+    "bundle": "npx tsx scripts/bundle.ts",
+    "cli": "npx tsx src/cli/index.ts"
   },
   "keywords": [
     "progressive-disclosure",

@@ -27,6 +27,13 @@ export interface LanguageScope {
   englishPaths: string[];
   /** Trust-zone spots where `language` is allowed, each with its reason. */
   namedExceptions: string[];
+  /**
+   * The reverse exceptions: spots inside `nativePaths` that stay English, each
+   * with its reason. A change artifact may carry text destined for the trust zone
+   * verbatim, and the rule must say so — otherwise a MUST audit reads that text as
+   * a violation of the very rule that requires it.
+   */
+  englishExceptions: string[];
 }
 
 /** A single guided Constitution rule. */

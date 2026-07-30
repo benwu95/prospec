@@ -15,6 +15,7 @@ import {
   McpResourceNotFound,
   AlreadyExistsError,
   PrerequisiteError,
+  InvalidTransitionError,
 } from '../../../src/types/errors.js';
 
 describe('ProspecError', () => {
@@ -249,5 +250,25 @@ describe('PrerequisiteError', () => {
     const err = new PrerequisiteError('config file');
     expect(err.message).toBe('Prerequisite not met: config file');
     expect(err.suggestion).toBe('Complete the required prerequisite steps first');
+  });
+});
+
+describe('InvalidTransitionError', () => {
+  it('names the change, the refused transition, and lists valid targets', () => {
+    const err = new InvalidTransitionError('my-change', 'verified', 'plan', ['archived']);
+    expect(err.name).toBe('InvalidTransitionError');
+    expect(err.code).toBe('INVALID_TRANSITION');
+    expect(err.message).toBe(
+      'Invalid status transition for my-change: verified → plan (forward-only)',
+    );
+    expect(err.suggestion).toBe('Valid transitions from verified: archived');
+    expect(err).toBeInstanceOf(ProspecError);
+  });
+
+  it('points at gate ownership when there is no valid forward target', () => {
+    const err = new InvalidTransitionError('my-change', 'archived', 'story', []);
+    expect(err.suggestion).toBe(
+      'archived has no further `change status` target — later statuses (if any) are minted by their own gates',
+    );
   });
 });

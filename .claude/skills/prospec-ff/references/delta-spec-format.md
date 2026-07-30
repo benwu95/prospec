@@ -53,6 +53,9 @@ New requirements with full details:
 2. [Specific verifiable condition 2]
 3. [Specific verifiable condition 3]
 
+**Spec:** (optional for ADDED — see "The `**Spec:**` Block" below)
+[The REQ body to land verbatim in the Feature Spec; omitted, Description + Acceptance Criteria land instead]
+
 **Priority:** [High/Medium/Low]
 
 ---
@@ -124,6 +127,9 @@ Modified requirements showing before/after comparison:
 **Reason:**
 [Why this modification was needed]
 
+**Spec:** (REQUIRED for MODIFIED — see "The `**Spec:**` Block" below)
+[The REQ body to land verbatim in the Feature Spec: a 1-2 sentence statement plus `- WHEN …, THEN …` bullets]
+
 **Priority:** [High/Medium/Low]
 
 ---
@@ -182,6 +188,35 @@ Out of scope for this story. Email notification will be handled by a separate mo
 
 ---
 ```
+
+---
+
+## The `**Spec:**` Block — What Lands in the Feature Spec
+
+`prospec archive`'s Feature-Spec sync is mechanical: it can copy text, never author it. The
+`**Spec:**` block is the ONE part of a delta-spec entry that lands **verbatim** as the REQ's body in
+`specs/features/{feature-slug}.md`. Write it in spec form — a 1-2 sentence statement of the resulting
+behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Spec's language**, not the
+change-artifact language (a project whose change artifacts are non-English still lands English spec
+bodies when its Feature Specs are English).
+
+| Entry | `**Spec:**` | Without it |
+|-------|-------------|------------|
+| **MODIFIED** | REQUIRED | The existing body is **preserved unchanged** (only the title line is refreshed) and the REQ is reported as pending convergence — the archive skill's graduation phase must converge it by hand |
+| **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as the body (numbered criteria become `-` bullets); with neither, the REQ lands as a title only and is reported |
+
+Before/After/Reason stay **narrative for the reviewer** — they are never copied into the Feature
+Spec. So a MODIFIED entry writes the change twice on purpose: Before/After explains *why* it changed,
+`**Spec:**` is the text that *becomes* the spec.
+
+**Where the block ends** (so "verbatim" has an edge): at the next `**Label:**` line, at any Markdown
+heading, at an entry-separating `---`, or at the end of the entry — whichever comes first. Anything
+after such a line is NOT landed, silently. So a `**Spec:**` body must not contain a line starting with
+`**Something:**` or a `#` heading — use `- ` bullets or inline emphasis instead.
+
+> Why the fallback preserves instead of replacing: a mechanical sync that rewrote a REQ from its
+> title alone silently deleted authored WHEN/THEN behavior from the trust zone. Preserving and
+> reporting makes the gap auditable; blanking made it invisible.
 
 ---
 

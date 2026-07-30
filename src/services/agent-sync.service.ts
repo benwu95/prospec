@@ -15,6 +15,7 @@ import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { computeUnlocalizedSkills } from './trigger-localization.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
+import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
@@ -138,6 +139,9 @@ export async function execute(
     constitution_path: constitutionPath,
     tech_stack: config.tech_stack ?? {},
     artifact_language: artifactLanguage,
+    // The cli-first probe floor (issue #107): skills STOP when the installed
+    // CLI is older — always a variable, never a hardcoded version literal.
+    minimum_cli_version: MINIMUM_CLI_VERSION,
     // Language scope rendered into the entry config's Language Policy — the SAME
     // resolved path sets the seeded Constitution rule is generated from
     // (lib/language-policy), so L0 and the audited Constitution cannot declare

@@ -34,6 +34,21 @@ export interface CountOccurrence {
   anchor: RegExp;
   /** Rendering for the replacement number at this spot. */
   format: CountFormat;
+  /**
+   * Scope the anchor to one YAML field instead of a doc line. YAML folds a long
+   * value across lines at arbitrary spaces, so a line-scoped anchor misses a
+   * phrase that straddles a fold; a field-scoped anchor matches the logical
+   * (unfolded) value and only the number span is rewritten in place.
+   */
+  field?: YamlFieldScope;
+}
+
+/** `modules[name=<module>].<key>` — the only shape module-map.yaml needs. */
+export interface YamlFieldScope {
+  /** `modules[].name` of the entry that owns the value. */
+  module: string;
+  /** The entry's scalar field carrying the count. */
+  key: 'description';
 }
 
 /** A factual count: its key, how truth is derived, and every spot it appears. */

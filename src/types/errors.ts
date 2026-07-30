@@ -207,3 +207,16 @@ export class PrerequisiteError extends ProspecError {
     this.name = 'PrerequisiteError';
   }
 }
+
+export class InvalidTransitionError extends ProspecError {
+  constructor(changeName: string, current: string, target: string, validTargets: string[]) {
+    super(
+      `Invalid status transition for ${changeName}: ${current} → ${target} (forward-only)`,
+      'INVALID_TRANSITION',
+      validTargets.length > 0
+        ? `Valid transitions from ${current}: ${validTargets.join(', ')}`
+        : `${current} has no further \`change status\` target — later statuses (if any) are minted by their own gates`,
+    );
+    this.name = 'InvalidTransitionError';
+  }
+}

@@ -52,34 +52,40 @@
 
 ## 設計原則轉變
 
-### 從 CLI-First 到 Skills-First
+### 從 CLI-First 到 Skills-First，再回到 CLI-First（issue #107）
 
 ```
 原始設計（v1.0-v1.6）：
   CLI 做管理 → Skills 做開發
   CLI 是主角，Skills 填充內容
 
-新設計（v2.0+）：
+v2.0-v0.5.x（skill-first，已廢棄）：
   Skills 驅動一切 → CLI 僅做 scaffolding
   Skills 是主角，CLI 是可選的基礎設施
+
+現行設計（issue #107 起，cli-first）：
+  判斷歸 Skills，確定性歸 CLI → CLI 是 Skills 的必須檔案
+  Skills 供判斷輸入（訪談/prose/審查/裁決），CLI 執行全部變換與落盤
 ```
 
-**理由**：
-1. 使用者的實際操作都在 AI Agent 內，透過 `/slash-command` 觸發
-2. CLI 指令需要切換終端機，打斷對話流
-3. Skills 可以直接操作檔案系統（mkdir, write），不一定需要 CLI scaffolding
-4. 減少 CLI 維護成本，專注在 Skill 品質
+**skill-first 廢棄理由**（實測結論，2026-07）：
+1. LLM 手工模擬 `change story/plan/tasks`、status 轉換、quality_log 序列化 → 序列化漂移、逆向轉換等不確定性
+2. 每次手寫 YAML/表格重複消耗 token；CLI 一次寫對、零 token
+3. CLI 已是 bun compile 單一執行檔，「必裝成本」消失（v2.0 時的前提不再成立）
+4. `prospec archive`（issue #98）驗證了「判斷留 skill、機械交 CLI」分工可行
 
-### Skill 職責矩陣
+### Skill 職責矩陣（issue #107 反轉後）
 
 | 操作類型 | 由 Skill 處理 | 由 CLI 處理 | 說明 |
 |---------|:---:|:---:|------|
-| 建立目錄結構 | ✅ | ⚠️ 可選 | Skill 可直接 mkdir |
-| 生成 artifact 內容 | ✅ | ❌ | AI 填充 |
+| 建立目錄結構／scaffold | ❌ | ✅ | `prospec change story/plan/tasks` |
+| 生成 artifact 內容（prose） | ✅ | ❌ | AI 填充（判斷） |
+| metadata 寫入（status/scale/quality_log） | ❌ | ✅ | `change status/scale/log`、`verify record` |
 | 大量檔案掃描 | ❌ | ✅ | CLI 效能好 |
-| Agent 配置同步 | ❌ | ✅ | 批次操作 |
+| Agent 配置同步／triggers 寫回 | ❌ | ✅ | `agent sync`／`agent triggers --write` |
 | 互動式流程 | ✅ | ❌ | 自然語言對話 |
-| 驗證/審計 | ✅ | ❌ | 需要 AI 理解力 |
+| 驗證/審計 — 裁決 | ✅ | ❌ | 需要 AI 理解力（review 發現、verify judgment 維度） |
+| 驗證/審計 — 決策表與簿記 | ❌ | ✅ | `verify record` 評分、`review merge` 合併、`learn upsert` 計分、`validate` 結構判定 |
 
 ---
 
@@ -3501,10 +3507,12 @@ SDD workflow 的骨架（story → plan → tasks → implement → archive）�
 |----|--------|------|------|
 | BUG-001 | High | `knowledge init` tech stack detection 忽略 .prospec.yaml config | ✅ Fixed（commit `dc212b2`） |
 
+> **【2026-07-30 凍結後補記】** 本表隨全檔凍結而停止維護——新缺陷不再記在這裡。缺陷紀錄的歸宿是變更工件（`.prospec/changes/{name}/proposal.md` → 歸檔後 `prospec/specs/_archived-history/`）或 GitHub issue；曾短暫記在此表的三筆 restore-cli-first 衍生缺陷已移交 change `fix-cli-first-regressions` 承接。上列 BUG-001 原封保留為歷史記錄。
+
 ---
 
 *文件建立日期：2026-02-09*
 *最後更新：2026-06-06（Phase 4 新增 — 2026 H2 並行與互通方向 BL-027~035，共 9 項；來源 `planning/future-directions-2026-h2.md` + `planning/design-parallel-orchestration.md`）*
 *適用版本：Prospec v0.1.7+*
-*設計原則：Skills-First, Progressive Disclosure, Constitution-Driven*
+*設計原則：CLI-First（issue #107 起；判斷歸 Skills、確定性歸 CLI）, Progressive Disclosure, Constitution-Driven*
 *分析來源：`docs/prospec-agent-team-analysis-2026-02.md`（6 SDD 專家 + Context + Prompt 專家）*

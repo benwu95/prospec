@@ -16,6 +16,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare test coverage check
@@ -46,12 +62,12 @@ Auto-identify current change, read plan.md and delta-spec.md, summarize implemen
 
 | Scenario | Action |
 |----------|--------|
-| tasks.md doesn't exist | Create empty `tasks.md`, update `metadata.yaml` status → `tasks` |
+| tasks.md doesn't exist | Run `prospec change tasks [--change <name>]` (Bash) — the CLI scaffolds `tasks.md` and advances `metadata.yaml` status → `tasks` (including the legal quick `story → tasks` transition) |
 | Already exists | Read and populate |
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `tasks.md` exists (created or read)
-> - [ ] `metadata.yaml` status updated to `tasks`
+> - [ ] `metadata.yaml` status is `tasks` (CLI-written — never edit it by hand)
 
 ### Phase 3: Decompose by Architecture Layer
 
@@ -133,14 +149,14 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL to `metadata.yaml` `quality_log` (`skill` / `date` / `result` / `warnings`) — entry shape per the `metadata-format` reference (bundled with `/prospec-new-story` · `/prospec-ff`); `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
 - **NEVER** produce more than 30 tasks — indicates Story scope creep; large task lists overwhelm AI context and lose coherence
 - **NEVER** create overly fine-grained tasks (<10 lines) — micro-tasks inflate task count and add checkbox overhead without meaningful progress tracking
 - **NEVER** create overly coarse tasks (>200 lines) — unverifiable; if a 200-line task fails, the entire block must be debugged and reworked
-- **NEVER** forget to update metadata.yaml status to `tasks` — downstream Skills check status to determine workflow stage (full lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
+- **NEVER** hand-edit metadata.yaml — scaffolding and the status advance go through `prospec change tasks`; `quality_log` through `prospec change log` (full lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** start decomposition without plan.md — tasks without architecture context produce random file edits instead of layered implementation (`scale: quick` is the exception: decompose from proposal.md, there is no plan by contract)
 - **NEVER** skip test tasks — Constitution requires test coverage; untested modules are deployment blockers in Verify phase
 - **NEVER** gate on `[P]` or `~lines` — both are optional reader aids that no skill gates on (nothing reads `~lines`; implement's `[P]` reminder is best-effort and executes sequentially anyway); if you do add an estimate, use `~{lines} lines`, not S/M/L

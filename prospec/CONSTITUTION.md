@@ -16,9 +16,13 @@
 - correction evidence recorded in the original language in `prospec/ai-knowledge/_playbook.md` (its `Re-evidence` bullets)
 - `prospec/ai-knowledge/_glossary.md` as a whole (user-managed — the project owner picks its language)
 
+Named exceptions inside the change-artifact zone, which stay **English** because their content is copied into the trust zone verbatim:
+
+- the `**Spec:**` block of `.prospec/changes/**/delta-spec.md` — it lands verbatim as the REQ body in `prospec/specs/features/**`, so it is authored in THAT zone's language; the surrounding Before/After/Reason narrative stays in Traditional Chinese (Taiwan)
+
 **Rationale**: The project owner reviews their own change narrative in Traditional Chinese (Taiwan), reducing communication barriers; archive summaries are that narrative's committed copy, so they follow it rather than the English Feature Specs. The trust zone sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches its actual, review-endorsed state. This rule and the entry config are generated from one resolved path set (`lib/language-policy.ts`), so the two cannot drift into contradicting each other.
 
-**Verify**: Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations, and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
+**Verify**: Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
 
 ---
 ### [MUST] Atomic Commits by Feature

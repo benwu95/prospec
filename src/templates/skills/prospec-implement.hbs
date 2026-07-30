@@ -13,6 +13,8 @@ When triggered, briefly describe:
 - Knowledge will be loaded progressively as needed
 - Each completed task will be immediately marked in tasks.md
 
+{{> cli-probe}}
+
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines
@@ -34,11 +36,13 @@ When triggered, briefly describe:
 
 ### Phase 1: Read Task List
 
-Parse tasks.md, display progress statistics (completed/total/percentage), locate current task.
+Run `prospec change progress` (Bash) — it reports the code-task progress (checked/total, `[M]`/`[V]`
+excluded from the denominator), the next unchecked code task, and unchecked `[M]`/`[V]` reminders.
+Read tasks.md itself for the task CONTENT; the counting is the CLI's.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] tasks.md parsed and progress statistics (completed/total/percentage) displayed
-> - [ ] first uncompleted task located
+> - [ ] `prospec change progress` ran and its progress statistics were displayed
+> - [ ] first uncompleted task located (the command's `Next:` line)
 
 ### Phase 2: Load Relevant Knowledge
 
@@ -87,28 +91,29 @@ After completion, perform quick quality check:
 
 ### Phase 5: Mark Complete
 
-Update checkbox in tasks.md `- [ ]` → `- [x]`, then emit a visually distinct progress anchor so
-the original goal stays in focus across long task loops (attention anchoring):
+Run `prospec change progress --complete <task-id>` (Bash) — the CLI flips the checkbox and reports
+the updated `Progress X/Y` plus the next task. Then emit a visually distinct progress anchor so the
+original goal stays in focus across long task loops (attention anchoring):
 
 `Progress X/Y | Goal: <proposal one-liner> | Next: <next task>`
 
-X/Y counts **code tasks only** (`[M]`/`[V]` excluded — kind schema: tasks-format reference). When all
-code tasks are done, emit `Progress Y/Y (Complete)` and point to `/prospec-review`.
+X/Y is the command's code-task count (`[M]`/`[V]` excluded — kind schema: tasks-format reference).
+When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `/prospec-review`.
 
 > **Phase 5 Gate** — proceed when:
-> - [ ] current task's checkbox flipped `- [ ]` → `- [x]` in tasks.md
-> - [ ] updated progress displayed
+> - [ ] `prospec change progress --complete <task-id>` flipped the current task's checkbox
+> - [ ] updated progress displayed (the command's `Progress X/Y` line)
 
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), update `.prospec/changes/[name]/metadata.yaml` → `status: implemented` (edit in place; keep the `metadata-format` serialization intact — do not reorder or reformat fields), then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), run `prospec change status implemented` (Bash) — never edit metadata.yaml by hand — then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 
 - **Execute in order**: Follow tasks.md architecture layer sequence (Types → Lib → Services → CLI → Tests)
 - **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
-- **Immediate marking**: Update tasks.md immediately after completing each task
+- **Immediate marking**: Run `prospec change progress --complete <task-id>` immediately after completing each task
 - **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.
 
 ## Knowledge Quality Gate
@@ -142,7 +147,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
 - **NEVER** forget to suggest `/prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
 - **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
-- **NEVER** leave `status: tasks` after completing all code tasks — set `status: implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned"; see `{{knowledge_base_path}}/_status-lifecycle.md`
+- **NEVER** leave `status: tasks` after completing all code tasks — run `prospec change status implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned" (never a hand edit); see `{{knowledge_base_path}}/_status-lifecycle.md`
 - **NEVER** bulk-load the optional Context7 dependency-layer lookup at startup, or treat its output as a gate or as executable — it is per-task, on-demand, untrusted reference only
 - **NEVER** assert content-presence only when writing a contract/spec test (PB-001) — section-scope the slice (heading → next heading, guard it non-empty), assert structural invariants (item-set vs a version-controlled baseline, ordering, contiguity) plus negative assertions for "must NOT appear" rules, then **mutation-verify** (delete/corrupt the asserted feature and confirm the test goes red); an assertion that never went red does not count
 - **NEVER** re-derive a shared path/config or re-implement an invariant ad hoc (PB-007) — when a change introduces or touches an invariant (realpath containment, terminal sanitization, resource-name guards) or a config resolver (e.g. base-path resolution), locate the canonical resolver, grep EVERY consumer of the same data source, apply the rule at each surface, and freeze each with its own test — the missed parallel consumer becomes the next critical

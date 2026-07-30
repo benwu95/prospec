@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { CHANGE_SCALES, ChangeMetadataSchema, VERIFY_GRADES } from '../../../src/types/change.js';
-import type { ChangeMetadata, NewChangeMetadata } from '../../../src/types/change.js';
+import {
+  CHANGE_SCALES,
+  ChangeMetadataSchema,
+  VERIFY_GRADES,
+  NewQualityLogEntrySchema,
+  QualityLogEntrySchema,
+} from '../../../src/types/change.js';
+import type {
+  ChangeMetadata,
+  NewChangeMetadata,
+  NewQualityLogEntry,
+} from '../../../src/types/change.js';
 
 const base = {
   name: 'x',
@@ -397,5 +407,42 @@ describe('unmodeled keys survive validation at every level (REQ-TYPES-064)', () 
     // The loose read view intentionally accepts it, so the two views differ.
     const loose: ChangeMetadata = { ...base, scal: 'quick' };
     expect(typo.name).toBe(loose.name);
+  });
+});
+
+describe('NewQualityLogEntrySchema (strict build view)', () => {
+  it('parses a station-built entry and injects the warnings default', () => {
+    const r = NewQualityLogEntrySchema.safeParse({
+      skill: 'prospec-review',
+      date: '2026-07-30',
+      result: 'PASS',
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.warnings).toEqual([]);
+  });
+
+  it('keeps the loose read view accepting unmodeled keys the strict type rejects', () => {
+    const withExtra = {
+      skill: 'prospec-verify',
+      date: '2026-07-30',
+      result: 'PASS',
+      warnings: [],
+      legacy_field: 'kept',
+    };
+    const loose = QualityLogEntrySchema.safeParse(withExtra);
+    expect(loose.success).toBe(true);
+    if (loose.success) expect((loose.data as Record<string, unknown>).legacy_field).toBe('kept');
+    // @ts-expect-error — NewQualityLogEntry must still reject a typo'd key.
+    const typo: NewQualityLogEntry = { ...withExtra };
+    expect(typo.skill).toBe('prospec-verify');
+  });
+
+  it('rejects a grade in result — the gate three-state is not the grade slot', () => {
+    const r = NewQualityLogEntrySchema.safeParse({
+      skill: 'prospec-verify',
+      date: '2026-07-30',
+      result: 'A',
+    });
+    expect(r.success).toBe(false);
   });
 });

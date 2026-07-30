@@ -28,6 +28,34 @@ describe('resolveChange', () => {
     await expect(resolveChange('/p', 'nope', false, 'pick')).rejects.toThrow(PrerequisiteError);
   });
 
+  it('refuses a traversal name even when the joined path exists (guard precedes resolution)', async () => {
+    // /p/.prospec/changes/../../elsewhere resolves to /p/elsewhere — it EXISTS,
+    // so only the name guard (not the existence check) can be what refuses it.
+    vol.fromJSON({
+      '/p/elsewhere/metadata.yaml': 'name: elsewhere\n',
+      '/p/.prospec/changes/real/proposal.md': '',
+    });
+    let caught: unknown;
+    try {
+      await resolveChange('/p', '../../elsewhere', false, 'pick');
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    expect((caught as PrerequisiteError).message).toContain('not a valid change name');
+    expect((caught as PrerequisiteError).suggestion).toContain('[A-Za-z0-9][A-Za-z0-9._-]*');
+  });
+
+  it('drops traversal-shaped directory names from the scanned candidates', async () => {
+    vol.fromJSON({
+      '/p/.prospec/changes/real-change/proposal.md': '',
+      '/p/.prospec/changes/evil..name/proposal.md': '',
+    });
+    // the unsafe name is filtered out, so the single safe change auto-selects
+    await expect(resolveChange('/p', undefined, false, 'pick')).resolves.toBe('real-change');
+    expect(vi.mocked(select)).not.toHaveBeenCalled();
+  });
+
   it('throws when the changes directory does not exist', async () => {
     vol.fromJSON({ '/p/.prospec.yaml': 'x: 1\n' });
     await expect(resolveChange('/p', undefined, false, 'pick')).rejects.toThrow(PrerequisiteError);

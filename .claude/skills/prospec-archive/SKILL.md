@@ -16,6 +16,22 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [DYNAMIC] Read `.prospec/changes/` — scan all change directories and their `metadata.yaml`
@@ -27,7 +43,7 @@ Write each generated document in the language the Constitution's Language Policy
 > Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the knowledge sync folded into the verify S/A commit prompt (the prevention point); it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
 
 - Archive target is `status: verified` — only `/prospec-verify` at grade S/A produces `verified` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`).
-- **Metadata completeness (machine-checked)**: run `prospec check --json` and read the `metadata-completeness` check for this change. **FAIL → do not archive** — the metadata.yaml is missing a required field (`name`/`created_at`/`status`/`scale`) or, being `verified`, records no `/prospec-verify` S/A grade in `quality_log`. Fix the metadata, re-run `/prospec-verify` if the grade is genuinely absent, then re-archive. This keeps a stub or grade-less metadata.yaml out of the permanent record (same defense level as "only archive `verified`"). **Drift engine unavailable** (CLI not installed/built): state so, then fall back — read this change's `metadata.yaml` directly and block when a required field is absent or (for a `verified`/`archived` change) no `prospec-verify` S/A entry exists in `quality_log`; never silently pass.
+- **Metadata completeness (machine-checked)**: run `prospec check --json` and read the `metadata-completeness` check for this change. **FAIL → do not archive** — the metadata.yaml is missing a required field (`name`/`created_at`/`status`/`scale`) or, being `verified`, records no `/prospec-verify` S/A grade in `quality_log`. Fix the metadata, re-run `/prospec-verify` if the grade is genuinely absent, then re-archive. This keeps a stub or grade-less metadata.yaml out of the permanent record (same defense level as "only archive `verified`"). (The CLI is required — the probe STOPs before this gate when the engine is missing.)
 - Knowledge is synced for this change: every affected module README (modules from delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes) reflects the change's final state — REMOVED behavior must no longer appear in the README. Not synced → FAIL: run `/prospec-knowledge-update` for the affected modules, then re-run `/prospec-archive`. A change that touches no modules (planning/docs-only) passes this item.
   - **`metadata.scale: quick`** has no delta-spec — derive affected modules from the **actual diff file paths** mapped through `prospec/ai-knowledge/module-map.yaml` instead (REQ-prefix extraction over an absent delta-spec is an empty set and would silently pass). This is the **same** knowledge-sync step standard runs, sourced differently (diff paths, not REQ prefixes) — not an extra step. The path mapping is deterministic; the same FAIL rule applies.
   - **`metadata.scale: backfill`** uses feature-first, feature-slug REQ IDs (e.g. `REQ-USER-PROFILE-001`), so REQ-prefix extraction does **not** map to modules — derive affected modules from `metadata.related_modules` plus (`**Feature:**` → `prospec/ai-knowledge/feature-map.yaml` `modules`) instead. `related_modules` is always written by `/prospec-promote-backfill`, so the set is **never silently empty**; the feature may not yet be in feature-map (brand-new feature) — then `related_modules` is the source. The same FAIL rule applies.
@@ -74,35 +90,36 @@ For each change to archive:
 ### Phase 3: Execute Archive
 
 The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
-1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations (move destination, summary scaffold, Feature Spec targets, metadata update, product.md/feature-map actions). CLI resolution ladder: `prospec archive` (PATH) → `pnpm exec prospec archive` / `npx -y prospec archive` (project devDep).
+1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations (move destination, summary scaffold, Feature Spec targets, metadata update, product.md/feature-map actions).
 2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, writes the scaffold summary.md, runs the mechanical Feature Spec sync, sets `status: archived` + `archived_at`, regenerates product.md, and bootstraps feature-map.yaml (no-clobber). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
 3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record.
-4. Copy `summary.md` → `prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date prefix = the archive date, same as the `.prospec/archive/{YYYY-MM-DD}-{change-name}/` folder) — the **committed** spec-history audit trail (`.prospec/archive/` is gitignored, so this copy is the only per-change record in version control). It lands in `_archived-history/` (drift-excluded via `ARCHIVED_EXCLUDES`), never flat under `prospec/specs/`. Non-fatal — a copy failure never blocks archiving. Format: `references/archive-format.md` §Spec Archiving.
-
-**CLI unavailable** (no Node toolchain): state so, then fall back manually — move the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, set `status: archived` + `archived_at` (edit in place; keep the `metadata-format` serialization intact), place the Phase 2 summary.md, and treat Phase 3.5/3.6 as fully manual; never silently skip the mutations.
+The `_archived-history` copy and the feature-spec counter reconciliation happen AFTER the judgment
+work, via `prospec archive finalize` in Phase 3.7 — running them here would copy the scaffold and
+count the pre-graduation spec text.
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] `prospec archive` executed (dry-run previewed first) — bundle moved to `.prospec/archive/{YYYY-MM-DD}-{change-name}/` with all artifacts (originals not deleted), or the manual fallback performed with the CLI-unavailable note
+> - [ ] `prospec archive` executed (dry-run previewed first) — bundle moved to `.prospec/archive/{YYYY-MM-DD}-{change-name}/` with all artifacts (originals not deleted)
 > - [ ] Phase 2 `summary.md` (with `## Review & Verify`) placed in the archive directory, replacing the scaffold
 > - [ ] `metadata.yaml` `status` set to `archived`
-> - [ ] `summary.md` copied to `prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` (date-prefixed, committed spec history, non-fatal)
 
 ### Phase 3.5: Feature Spec Sync
 
 > `/prospec-archive` is the **sole writer** of Feature Specs — requirements graduate into the permanent capability record here (the archive service is this station's mechanical writer; it writes nowhere else). `/prospec-verify` deliberately does not gate on Feature Spec freshness (see `_status-lifecycle.md`), so this graduation step is where `specs/features/` catches up to the change.
 
-`prospec archive` (Phase 3) already performed the **mechanical** Feature Spec Sync — each delta-spec REQ routed by its `**Feature**` field: ADDED appended (new spec created per `references/feature-spec-format.md` scaffold), MODIFIED replaced in place, REMOVED moved to Deprecated Requirements, Change History rows and `last_updated` written. What remains is the **judgment** work — REQ semantic graduation:
+`prospec archive` (Phase 3) already performed the **mechanical** Feature Spec Sync — each delta-spec REQ routed by its `**Feature**` field: ADDED appended (new spec created per `references/feature-spec-format.md` scaffold), MODIFIED replaced in place **only where the delta-spec carried a `**Spec:**` block**, REMOVED moved to Deprecated Requirements, Change History rows and `last_updated` written. What remains is the **judgment** work — REQ semantic graduation:
 
+0. **Start from the CLI's graduation worklist**: `prospec archive` reports every REQ whose body it deliberately did NOT replace (no `**Spec:**` block, or no body at all — that block is defined in the delta-spec-format reference `/prospec-plan` reads, not vendored here). Those REQs still carry their pre-change body (or a bare title) and are the convergence work; a REQ absent from the worklist already landed its authored spec text.
 1. Read each Feature Spec the CLI reported as synced. **Graduation key by scale**: `standard`/`full` → delta-spec; `backfill` → delta-spec (same path — REQ + Story; feature-slug REQ ids route by `**Feature**` as usual); `quick` → the proposal's **Spec Impact** section, applied manually (no delta-spec for the CLI to route; when the Entry Gate diagnosed no spec impact, skip graduation entirely — the summary.md diagnostic is the record)
 2. Converge wording: the merged REQ text arrived verbatim from the change artifacts — rewrite it into the spec's English, behavior-first voice; trim narrative that only made sense inside the change
 3. Place each ADDED REQ under the appropriate User Story section (the mechanical merge appends before Edge Cases) and insert the User Story context (As a / I want / So that from proposal.md) where the feature spec lacks it; fill a new spec's `Who & Why` TBDs
-4. Reconcile frontmatter counters (`story_count`, `req_count`) against the spec body — the mechanical merge does not recount them on existing specs
+4. (Frontmatter counters are reconciled mechanically by `prospec archive finalize` in Phase 3.7 — do not recount them by hand)
 
 **Feature Spec Sync is non-fatal** — if it fails, archiving still succeeds. Warn the user to manually update Feature Specs.
 
 > **Phase 3.5 Gate** — proceed when:
+> - [ ] Every REQ on the CLI's graduation worklist has a converged body (no REQ left with only a title, and no pre-change body left describing post-change behavior)
 > - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `prospec/specs/features/` (CLI-reported, spot-checked; or graduation skipped for a quick change diagnosed as no-impact)
-> - [ ] Merged REQ wording converged and placed under the right Story section; frontmatter counters reconciled
+> - [ ] Merged REQ wording converged and placed under the right Story section
 > - [ ] Any sync failure logged and surfaced to the user (non-fatal)
 
 ### Phase 3.6: Product Spec Regeneration
@@ -119,6 +136,25 @@ The deterministic mutations are code-executed by the CLI — do not hand-run the
 > - [ ] Core Stories reflect P0 User Stories from all active Feature Specs
 > - [ ] `prospec/ai-knowledge/feature-map.yaml` present (bootstrapped on first archive; existing curated index left untouched)
 
+### Phase 3.7: Finalize (post-judgment CLI step)
+
+Run `prospec archive finalize <change-name>` (Bash; `--dry-run` first to preview). It executes the
+two writes that MUST come after the judgment work above:
+
+1. Copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
+   while the file still lacks `## Review & Verify`) to
+   `prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` — the **committed**
+   spec-history audit trail (`.prospec/archive/` is gitignored, so this copy is the only per-change
+   record in version control). It lands in `_archived-history/` (drift-excluded via
+   `ARCHIVED_EXCLUDES`), never flat under `prospec/specs/`.
+2. Reconciles every feature spec's frontmatter `story_count`/`req_count` against its FINAL
+   (post-graduation) body.
+
+Non-fatal — a finalize failure never un-archives; fix and re-run (idempotent).
+
+> **Phase 3.7 Gate** — proceed when:
+> - [ ] `prospec archive finalize` ran after Phase 3.5's graduation (refusal = the summary overwrite from Phase 3 is missing — fix that first)
+
 ### Phase 4: Knowledge Sync Re-check
 
 The Entry Gate already required Knowledge to be synced — this phase re-confirms the gate held through archiving (no prompt, no question):
@@ -131,14 +167,14 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
    - [module-2]: [N] requirements reflected
    ```
 3. If a gap is found (gate state regressed since the Entry Gate), STOP: run `/prospec-knowledge-update` for the gap, then continue — do not fall back to an optional prompt
-4. Refresh the deterministic project-structure snapshot so `prospec/ai-knowledge/raw-scan.md` reflects the just-archived code for the next `/prospec-knowledge-generate`. CLI fallback ladder (no LLM, Windows-safe, no Python/bash): `prospec knowledge init --raw-scan-only` (PATH) → `pnpm exec prospec knowledge init --raw-scan-only` / `npx -y prospec knowledge init --raw-scan-only` (project devDep). Non-fatal — if no Node toolchain is available, note it and continue.
+4. Refresh the deterministic project-structure snapshot so `prospec/ai-knowledge/raw-scan.md` reflects the just-archived code for the next `/prospec-knowledge-generate`: run `prospec knowledge init --raw-scan-only` (Bash). Non-fatal — a refresh failure is noted, never blocks the archive.
 
 > The archive service does **not** auto-trigger a knowledge update or a raw-scan refresh. Steps 3–4 above (and the Entry Gate) are the only knowledge-sync path — perform them manually; there is no service-side fallback.
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] Every affected module README re-confirmed to reflect the archived change (no regression since the Entry Gate)
 > - [ ] Confirmed modules listed with their reflected requirement counts; any gap resolved via `/prospec-knowledge-update`
-> - [ ] `raw-scan.md` refreshed via `prospec knowledge init --raw-scan-only` (or CLI-unavailable noted)
+> - [ ] `raw-scan.md` refreshed via `prospec knowledge init --raw-scan-only` (or the failure noted, non-fatal)
 
 ### Phase 4.5: Auto-Harvest Recurring Lessons
 
@@ -172,7 +208,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves. The explicit change name passed to `prospec archive <name>` is that confirmation's carrier — never archive unnamed
-- **NEVER** hand-execute the deterministic mutations when the CLI is available — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and product/feature-map regeneration; hand-running them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
+- **NEVER** hand-execute the deterministic mutations — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and product/feature-map regeneration; `prospec archive finalize` owns the `_archived-history` copy and the counter reconciliation; hand-running any of them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
 - **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; archiving `story` / `plan` / `tasks` / `implemented` bypasses the verification gate and risks meaningless summaries, broken Spec Sync, or unverified work entering the permanent record. Tell the user to verify to S/A first (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
 - **NEVER** emit a summary.md that lacks the `## Review & Verify` section — the review/verify evidence (grade, criticals/majors, `quality_log`) lives only in the gitignored bundle otherwise, and the `_archived-history` copy is the sole durable record; when a source is absent record `Unverified`/`no review round`, never fabricate

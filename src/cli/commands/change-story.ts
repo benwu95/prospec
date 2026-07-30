@@ -24,8 +24,21 @@ export function registerChangeCommand(program: Command): void {
     .description('Create a change request')
     .argument('<name>', 'Change name (kebab-case)')
     .option('--description <desc>', 'Change description')
+    .option(
+      '--related-module <name>',
+      'Explicit related module (repeatable; overrides keyword auto-matching)',
+      (value: string, previous: string[]) => [...previous, value],
+      [] as string[],
+    )
+    .option(
+      '--introduced-by <change>',
+      'Bug-fix changes: the change that missed the defect (escaped-defect registration)',
+    )
     .action(
-      async (name: string, options: { description?: string }) => {
+      async (
+        name: string,
+        options: { description?: string; relatedModule: string[]; introducedBy?: string },
+      ) => {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
 
@@ -33,6 +46,10 @@ export function registerChangeCommand(program: Command): void {
           const result = await execute({
             name,
             description: options.description,
+            ...(options.relatedModule.length > 0
+              ? { relatedModules: options.relatedModule }
+              : {}),
+            ...(options.introducedBy ? { introducedBy: options.introducedBy } : {}),
           });
           formatChangeStoryOutput(result, logLevel);
         } catch (err) {

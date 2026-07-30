@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config, file I/O, templates, scanning, detection, manifest parsing, drift engine, status routing, knowledge reads (29 files)
+> Foundational utilities — config, file I/O, templates, scanning, detection, manifests, drift engine, status routing, knowledge reads, station engines (35 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,27 +9,25 @@
 | File | Purpose |
 |------|---------|
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language |
-| `fs-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→'') |
+| `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; generated `bundled-templates.ts` |
-| `yaml-utils.ts` | parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
-| `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml`; returns `{doc, metadata}` |
+| `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml`; returns `{doc, metadata}`; `appendQualityLogEntry` (canonical key order) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath |
 | `module-detector.ts` | detectModules (auto/architecture/domain/package), buildModuleMap |
-| `drift-sources.ts` | Drift collectors (ALL I/O); unavailable → `{available:false, reason}` |
-| `drift-checker.ts` | Pure evaluators + runChecks (13 checks) |
+| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (13 checks) |
 | `knowledge-reader.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis |
-| `status-router.ts` | Pure I/O-free SDD station router (`routeChange`) — the executable copy of `_status-lifecycle.md` (quick skip, backfill entry, no-status design/review placement) |
+| `status-router.ts` | I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
+| `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
+| `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | I/O-free station engines — S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); keyed ledger upsert + scoring + playbook TTL; artifact structural verdicts |
 
-Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-policy.ts`, `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`/`constitution-parser.ts`, `markdown-fences.ts`, `test-runner.ts`, `escaped-defects.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`.
+Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-policy.ts`, `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`/`constitution-parser.ts`, `markdown-fences.ts`, `test-runner.ts`, `escaped-defects.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`, `date-utils.ts`.
 
 ## Public API
 
-- `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists` — validated read; atomic/comment-preserving writes
-- `renderTemplate`/`mergeContent`/`mergeManagedDoc` — render + user-block-preserving merges
-- `scanDir`/`classifyModulePath`/`detectModules`/`detectTechStack` — scan + module/stack detection
-- `parse*Dependencies()` — pure, malformed-safe parsers
-- `runChecks(inputs)` + `collect*` — 13 evaluators → DriftReport; `loadModuleMap`/`loadFeatureMap`/`searchModules`
-- `readChangeMetadata`/`writeChangeMetadata*` — schema-enforced metadata I/O
+- Config/IO/render — `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
+- Scan/detect/parse — `scanDir`/`classifyModulePath`/`detectModules`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
+- Drift/knowledge/metadata — `runChecks(inputs)` + `collect*`, `loadModuleMap`/`loadFeatureMap`/`searchModules`, `readChangeMetadata`/`writeChangeMetadata*`/`appendQualityLogEntry`
+- Station mechanics — `findTable`/`renderMarkdownTable`/`replaceTableInDocument`, `computeGrade`/`mergeFindings`/`upsertLesson`/`scoreLessons`/`validate*`
 
 ## Dependencies
 
@@ -43,20 +41,21 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 3. **Change module detection** — edit its strategy in `module-detector.ts`.
 4. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts` (also sync the root-README check list).
 5. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers.
+6. **Add a table-bearing doc** — reuse `markdown-table.ts`; own only the header predicate + columns.
 
 ## Ripple Effects
 
-- `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` ripples to mcp.service, drift-sources, check.service.
+- `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` ripples to mcp.service, drift-sources, check.service; `markdown-table.ts` to `review.md` + the lessons ledger.
 
 ## Pitfalls
 
-- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults.
-- noEscape YAML templates MUST run user text through `escapeYamlScalar()`.
-- Drift evaluators stay I/O-free; findings codepoint-sorted (`localeCompare` breaks byte-identity); unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE place a project command runs — flag-gated, `shell: false`, and it classifies argv[0] first: on Windows a `.cmd`/`.bat` shim is unspawnable (Node rejects it even by absolute path), so the runner refuses pre-spawn and the collector records the reason in `command_unavailable_reason` while STILL enumerating recorded runs — only the missing/stale branches skip honestly; a recorded non-zero exit FAILs even under an unresolvable command. Resolution follows **libuv** (literal-with-dot, `.com`, `.exe` per PATH dir), NOT PATHEXT — ordering by PATHEXT would call a working command a shim.
+- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; noEscape YAML templates MUST run user text through `escapeYamlScalar()`.
+- Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity); an unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE place a project command runs — flag-gated, `shell: false`, argv[0] classified first via **libuv** resolution (NOT PATHEXT): an unspawnable Windows `.cmd`/`.bat` shim is refused pre-spawn and recorded as `command_unavailable_reason`, yet recorded runs are STILL enumerated — only missing/stale skip honestly, and a recorded non-zero exit FAILs even under an unresolvable command.
 - knowledge-reader reads are realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null, invalid→throw. Same one-way rule for `constitution-parser`/`markdown-fences`.
-- `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`.
-- `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it); compose paths with `path.posix.join`.
-- `change-metadata.ts` validates but never rewrites (writes serialize the caller's value); `archive.service`/`drift-sources` bypass it deliberately — a scanner must report a bad record, not throw.
+- `markdown-table.ts` is the SINGLE source for every pipe table prospec owns (review.md, the lessons ledger) and is I/O-free: review-merge and lessons-ledger each hand-copied it and drifted — a row split that ignored the `\|` its own renderer wrote was a confirmed critical (PB-006).
+- `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both exception directions) — compose paths with `path.posix.join`.
+- `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it deliberately — a scanner must report a bad record, not throw.
+- Station engines decide, never re-derive policy: `verify-grade` has NO engine-unavailability WARN exemption — every WARN (`not-adjudicated` included) spends grade A's budget — and never re-applies scale rules; `lessons-ledger` frequency counts DISTINCT source changes; `review-merge` never infers finding identity from a location string.
 
 <!-- prospec:auto-end -->
 

@@ -36,6 +36,32 @@ const README_STALE = [
   '└── templates/    — Handlebars templates (50 .hbs files)',
 ].join('\n');
 
+// The SOURCE `prospec/index.md` is generated from. YAML folds the long
+// description, so each counted phrase straddles a line break — a line-scoped
+// anchor cannot see it, which is why the field-scoped rewriter exists.
+// A frozen historical comment carrying counted phrases ON ONE LINE — the
+// line-scoped rewriter would happily rewrite it, so it proves the field-scoped
+// occurrences never fall through to `applyCounts`.
+const MAP_DECOY = '  # historical: was 15 skills + 1 shared partials, 17 references at 0.5.0';
+
+const MODULE_MAP_STALE = [
+  'version: "1.0"',
+  MAP_DECOY,
+  'modules:',
+  '  - name: tests',
+  '    description: 4-layer test suite — 70 files, 1,800 tests (unit 1200 + contract',
+  '      500 + integration 30 + e2e 40), incl. x',
+  '    paths:',
+  '      - tests',
+  '  - name: templates',
+  '    description: Handlebars template library — 15 skills + 1 shared partials, 17',
+  '      references, 0 agent-config, 3 change, 12 init/knowledge (50 `.hbs`,',
+  '      English-only)',
+  '    paths:',
+  '      - src/templates',
+  '',
+].join('\n');
+
 const INDEX_STALE = [
   '| **tests** | kw | al | Active | 4-layer test suite — 70 files, 1,800 tests (unit 1200 + contract 500 + integration 30 + e2e 40), incl. x | q | all |',
   '| **templates** | kw | al | Active | Handlebars template library — 15 skills + 1 shared partials, 17 references, 0 agent-config, 3 change, 12 init/knowledge (50 `.hbs`, English-only) | pure | — |',
@@ -51,6 +77,7 @@ function setup(): string {
   };
   write('README.md', README_STALE);
   write('prospec/index.md', INDEX_STALE);
+  write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_STALE);
   return root;
 }
 afterEach(() => {
@@ -76,6 +103,57 @@ describe('syncCounts write mode', () => {
     expect(index).toContain('17 skills + 2 shared partials, 19 references, 1 agent-config, 4 change, 15 init/knowledge (58 `.hbs`');
   });
 
+  // Without this, `pnpm counts` could silently stop maintaining module-map.yaml —
+  // and the next `prospec knowledge update` would revert every count it just fixed
+  // in the generated index.md.
+  it('rewrites the module-map source too, across YAML line folds', async () => {
+    setup();
+    const report = await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
+    const map = read('prospec/ai-knowledge/module-map.yaml');
+
+    // the phrases straddle folds: `(unit 1204 + contract` / `580 + integration 38`
+    expect(map).toContain('78 files, 1,865 tests (unit 1204 + contract');
+    expect(map).toContain('580 + integration 38 + e2e 43)');
+    expect(map).toContain('17 skills + 2 shared partials, 19');
+    expect(map).toContain('      references, 1 agent-config, 4 change, 15 init/knowledge (58 `.hbs`,');
+    // wrapping preserved — only number spans changed, never a re-serialization
+    expect(map.split('\n').length).toBe(MODULE_MAP_STALE.split('\n').length);
+    expect(report.written).toContain('prospec/ai-knowledge/module-map.yaml');
+  });
+
+  // Pins the `occ.field !== undefined` skip in applyCounts: without it the
+  // line-scoped rewriter also matches YAML lines, rewriting comments and other
+  // modules' text in a curated file while `--check` still reports "in sync".
+  it('never lets a field-scoped anchor rewrite a plain line of the YAML file', async () => {
+    setup();
+    await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
+
+    expect(read('prospec/ai-knowledge/module-map.yaml')).toContain(MAP_DECOY);
+  });
+
+  it('reports each count key once per doc — the two rewriters never double-apply', async () => {
+    setup();
+    const report = await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
+
+    const perDoc = new Map<string, string[]>();
+    for (const c of report.changes) {
+      perDoc.set(c.doc, [...(perDoc.get(c.doc) ?? []), c.key]);
+    }
+    const mapKeys = perDoc.get('prospec/ai-knowledge/module-map.yaml') ?? [];
+    expect(mapKeys.length).toBeGreaterThan(0);
+    expect(new Set(mapKeys).size, `duplicate keys: ${mapKeys.join(', ')}`).toBe(mapKeys.length);
+  });
+
+  it('is idempotent on the module-map source (second run is a no-op)', async () => {
+    setup();
+    await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
+    const after = read('prospec/ai-knowledge/module-map.yaml');
+    const second = await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
+
+    expect(second.changes.filter((c) => c.doc.endsWith('module-map.yaml'))).toEqual([]);
+    expect(read('prospec/ai-knowledge/module-map.yaml')).toBe(after);
+  });
+
   it('never rewrites a non-anchored historical line', async () => {
     setup();
     await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
@@ -85,7 +163,11 @@ describe('syncCounts write mode', () => {
   it('reports written docs and per-number changes', async () => {
     setup();
     const report = await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
-    expect(report.written.sort()).toEqual(['README.md', 'prospec/index.md']);
+    expect(report.written.sort()).toEqual([
+      'README.md',
+      'prospec/ai-knowledge/module-map.yaml',
+      'prospec/index.md',
+    ]);
     expect(report.changes.length).toBeGreaterThan(0);
     for (const c of report.changes) {
       expect(c.from).not.toBe(c.to);

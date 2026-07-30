@@ -28,3 +28,19 @@ describe('PROSPEC_VERSION', () => {
     expect(PROSPEC_VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
+
+describe('MINIMUM_CLI_VERSION', () => {
+  it('is a plain three-part semver literal (the probe floor skills render)', async () => {
+    vi.resetModules();
+    const { MINIMUM_CLI_VERSION } = await import('../../../src/types/version.js');
+    expect(MINIMUM_CLI_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('is not influenced by the PROSPEC_VERSION env override', async () => {
+    vi.stubEnv('PROSPEC_VERSION', '9.9.9-test');
+    vi.resetModules();
+    const { MINIMUM_CLI_VERSION } = await import('../../../src/types/version.js');
+    expect(MINIMUM_CLI_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(MINIMUM_CLI_VERSION).not.toBe('9.9.9-test');
+  });
+});

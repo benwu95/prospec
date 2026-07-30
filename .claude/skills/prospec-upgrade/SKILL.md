@@ -16,19 +16,30 @@ When triggered, briefly describe:
 ## Language Policy
 
 Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [DYNAMIC] Read `.prospec.yaml` — `version`, `artifact_language`, and `skill_triggers` drive the steps below
 
 ## Core Workflow
 
-> This skill shells out to the `prospec` CLI (Bash), mirroring `prospec-quickstart`.
-> When the CLI is unavailable, degrade gracefully — never fail silently.
-
-### Step 0: Probe the CLI
-
-Run `prospec --version` (Bash). When it is unavailable (not built / installed / linked),
-STOP and tell the user to install or rebuild prospec, then re-run — never proceed silently.
+> This skill shells out to the `prospec` CLI (Bash) throughout. The CLI probe is the shared
+> CLI Prerequisite above — a missing or outdated CLI is a STOP, never a graceful degrade.
 
 ### Step 1: Run the deterministic upgrade
 
@@ -83,9 +94,9 @@ baseline, requires consent. Do that here:
    move), migrate its curated content into that baseline: preserve any user notes in the
    `<!-- prospec:user-start -->` block, and **copy both the Core/Demand Conventions lists and the
    curated `Modules` table rows verbatim** into the `prospec:auto` block — the Keywords / Aliases /
-   Rationale / Depends On columns are human-curated and exist nowhere else. Do NOT run
-   `prospec knowledge update` to rebuild the table: it fills only Module / Status / Description from
-   `module-map.yaml` and blanks every curated column to `—`. Delete the old
+   Rationale / Depends On columns are human-curated and exist nowhere else. (A later
+   `prospec knowledge update` run is safe: it backfills the curated content columns from index.md
+   into `module-map.yaml` no-clobber before regenerating the auto block.) Delete the old
    `prospec/ai-knowledge/_index.md` after a successful migration.
 4. **Back-fill safety net** — `prospec upgrade` already created every doc it could (the report's
    `created …` line), so the inventory should show them present. For any doc the inventory **still
@@ -145,13 +156,12 @@ English or every skill already has an entry.
 1. Run `prospec agent triggers` (Bash) to get a ready-to-translate `skill_triggers` scaffold — the skills
    still missing an entry, each with its English baseline sourced from the CLI (authoritative; never grep
    a deployed SKILL.md, whose frontmatter already merges custom words)
-2. **Capture the current `.prospec.yaml` content verbatim** as a snapshot to restore from
-3. Translate each scaffold value into `artifact_language`
-4. **Show the proposed translations and wait for confirmation** before writing anything
-5. On confirmation, add the new `skill_triggers` keys by a **minimal in-place edit** — insert only the
-   missing keys; never re-serialize the file or touch existing keys, their order, or comments
-6. Read `.prospec.yaml` back and confirm it still parses as valid YAML; if not, restore the snapshot
-7. If anything changed in Step 2, Step 3, or Step 4, run `prospec agent sync` (Bash) so the language,
+2. Translate each scaffold value into `artifact_language` (this skill's judgment step)
+3. **Show the proposed translations and wait for confirmation** before writing anything
+4. On confirmation, save the translated scaffold to a temp file and run
+   `prospec agent triggers --write <file>` (Bash) — the CLI inserts only the missing keys
+   (comment- and order-preserving), validates BEFORE writing, and never overwrites an existing entry
+5. If anything changed in Step 2, Step 3, or Step 4, run `prospec agent sync` (Bash) so the language,
    localized triggers, and refreshed docs land in each SKILL.md frontmatter and the entry config
 
 ## Output Contract
@@ -201,7 +211,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | report has no `Docs inventory:` section | CLI/skill version mismatch — skip Step 2 with a note telling the user to re-run `prospec upgrade` (it re-syncs this skill), then re-run `/prospec-upgrade` |
 | User declines creating a still-MISSING doc | Leave it uncreated; the next `prospec upgrade` will attempt to back-fill it again |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
-| `.prospec.yaml` fails to parse after writing `artifact_language` or triggers | Restore the captured pre-write snapshot verbatim, then report the malformed write |
+| `.prospec.yaml` fails to parse after writing `artifact_language` | Restore the captured pre-write snapshot verbatim, then report the malformed write (triggers go through `prospec agent triggers --write`, which validates before writing) |
 | User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
 | User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |
 | User declines the Language Policy rewrite | Leave `prospec/CONSTITUTION.md` unchanged and record it as declined; the next upgrade offers again |

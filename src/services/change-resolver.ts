@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { select } from '@inquirer/prompts';
+import { isSafeResourceName } from '../lib/knowledge-reader.js';
 import { PrerequisiteError } from '../types/errors.js';
 
 /**
@@ -20,6 +21,14 @@ export async function resolveChange(
   promptMessage: string,
 ): Promise<string> {
   if (explicitChange) {
+    // Every mutating service path.joins the resolved name, so a traversal name
+    // must be refused here — before any existence probe or downstream write.
+    if (!isSafeResourceName(explicitChange)) {
+      throw new PrerequisiteError(
+        `'${explicitChange}' is not a valid change name`,
+        'A change name must match [A-Za-z0-9][A-Za-z0-9._-]* with no path separators or ".." — pass the directory name under .prospec/changes/',
+      );
+    }
     const changeDir = path.join(cwd, '.prospec', 'changes', explicitChange);
     if (!fs.existsSync(changeDir)) {
       throw new PrerequisiteError(
@@ -40,7 +49,7 @@ export async function resolveChange(
 
   const changeNames = fs
     .readdirSync(changesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => e.isDirectory() && isSafeResourceName(e.name))
     .map((e) => e.name);
 
   if (changeNames.length === 0) {

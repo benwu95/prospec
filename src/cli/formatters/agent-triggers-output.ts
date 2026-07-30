@@ -1,6 +1,10 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { AgentTriggersResult } from '../../services/agent-triggers.service.js';
+import type {
+  AgentTriggersResult,
+  AgentTriggersWriteResult,
+} from '../../services/agent-triggers.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the trigger-localization scaffold for `prospec agent triggers`.
@@ -15,7 +19,8 @@ export function formatAgentTriggersOutput(
   result: AgentTriggersResult,
   logLevel: LogLevel = 'normal',
 ): void {
-  const { artifactLanguage, isEnglish, missing } = result;
+  const { isEnglish, missing } = result;
+  const artifactLanguage = sanitizeTerminal(result.artifactLanguage);
 
   if (isEnglish) {
     if (logLevel !== 'quiet') {
@@ -47,5 +52,31 @@ export function formatAgentTriggersOutput(
       lines.push(`    - ${word}`);
     }
   }
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+/** Format the write-back result: what was inserted, what was left untouched. */
+export function formatAgentTriggersWriteOutput(
+  result: AgentTriggersWriteResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const lines: string[] = [];
+  if (result.written.length > 0) {
+    lines.push(
+      `${pc.green('✓')} Inserted skill_triggers for ${result.written.length} skill(s) into ${pc.cyan(result.configPath)}:`,
+    );
+    for (const skill of result.written) lines.push(`  - ${sanitizeTerminal(skill)}`);
+  } else {
+    lines.push(`${pc.yellow('●')} Nothing written — no missing skill_triggers entries in the scaffold`);
+  }
+  if (result.skippedExisting.length > 0) {
+    const skipped = result.skippedExisting.map((s) => sanitizeTerminal(s)).join(', ');
+    lines.push(
+      pc.dim(`Skipped (existing entries are never overwritten): ${skipped}`),
+    );
+  }
+  lines.push(`${pc.dim('→')} Run ${pc.cyan('`prospec agent sync`')} to redeploy skills with the new triggers`);
   process.stdout.write(lines.join('\n') + '\n');
 }

@@ -95,7 +95,7 @@
       "{{base_dir}}/specs/features/",
       "{{constitution_path}}"
     ],
-    "mandatory": 2
+    "mandatory": 1
   },
   "prospec-quickstart": {
     "items": [

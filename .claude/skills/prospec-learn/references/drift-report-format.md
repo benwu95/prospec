@@ -19,8 +19,9 @@ field paths that drift from the schema.
 `--json` flag does **not** print JSON to stdout — stdout shows the human-readable formatted
 summary (per-check `PASS`/`WARN`/`FAIL`/`SKIP` lines, a `Findings:` block when any exist, a
 coverage line when `knowledge_health` is present, and a one-line summary), never JSON. **To read
-structured facts, open the `prospec-report.json` file**, not stdout. When `prospec check` is unavailable (not built/installed), there is no file — fall
-back to the manual signal the consuming skill documents; never fabricate a report.
+structured facts, open the `prospec-report.json` file**, not stdout. The CLI is a required file (every skill probes it and STOPs when it is
+missing or older than the floor), so "no report" is never a state to work around: run
+`prospec check --json` and never fabricate a report.
 
 ## Top-level shape
 
@@ -28,11 +29,17 @@ back to the manual signal the consuming skill documents; never fabricate a repor
 {
   "version": 1,
   "generated_at": "<ISO timestamp>",
+  "change_digest": "<code fingerprint, or null outside a git worktree>",
   "structural": { "checks": [ … ], "findings": [ … ], "knowledge_health": { … }, "constitution": { … } },
   "semantic":   { "status": "not-checked", "note": "…" },
   "summary":    { "fail_count": 0, "warn_count": 0, "skipped_count": 0 }
 }
 ```
+
+`change_digest` is the code fingerprint the report was generated against (the same digest the
+review/test-provenance checks compare). `prospec verify record` recomputes it and **refuses a stale
+report** rather than grading yesterday's verdicts — so regenerate the report (`prospec check --json`)
+after any code edit. It is `null` outside a git worktree, where the freshness guard skips honestly.
 
 ## `structural.checks[]` — one entry per check, keyed by `id`
 

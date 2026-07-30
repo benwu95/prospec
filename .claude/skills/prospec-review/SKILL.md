@@ -13,6 +13,22 @@ When triggered, briefly describe:
 - That only verifier-confirmed criticals are auto-fixed; majors are proposed and passed to verify as WARN
 - That the loop converges to zero unresolved critical or escalates to you at a hard cap — review never silently passes
 
+## CLI Prerequisite (required)
+
+> The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
+> commands. Probe BEFORE any other step; there is no manual fallback.
+
+1. Run `prospec --version` (Bash).
+2. **Command not found / not executable** → STOP. Ask the user to install the prospec standalone
+   executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
+   Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
+   npm. Then re-run this skill.
+3. **Version older than 1.0.0** → STOP. Report the installed vs required version
+   and ask the user to upgrade, then re-run this skill.
+
+Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
+nondeterministic serialization this contract exists to remove.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — principles and dependency/layering rule
@@ -65,14 +81,14 @@ If the execution harness cannot spawn an independent sub-agent, **offer a choice
 
 ### Persistence
 
-Write findings to `.prospec/changes/[name]/review.md`: a cumulative table (`location | severity | lens | status`), deduplicated by Location with severity taken as the maximum, carried forward across rounds as the anchor so resolved items are not re-raised and verdicts stay consistent. Confirmed cross-change recurring criticals may be flagged for promotion (feeds the feedback-promotion pipeline).
+Emit this round's findings as a JSON array — `{id?, location, severity (minor|major|critical), lens, status, summary}` per finding — to a temp file, then run `prospec review merge --findings <file>` (Bash). The CLI owns the cumulative `review.md` bookkeeping: merge by finding identity, severity taken as the maximum, rows carried forward across rounds so resolved items are not re-raised. **Finding IDENTITY is your judgment**: code edits shift line numbers, so reuse the prior round's `id` for a finding you consider the same one — the CLI never infers identity from the location string (a finding without an id keys by location+lens). Confirmed cross-change recurring criticals may be flagged for promotion (feeds the feedback-promotion pipeline).
 
 ### Review Provenance (machine gate)
 
 Review must leave a machine-queryable record so `/prospec-verify`'s Entry Gate can prove it ran and is still current:
 
-1. **Every round** — including a **review-clean** round (0 critical / 0 major) — append a `skill: prospec-review` entry to `metadata.yaml` `quality_log` (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward). A clean review that records nothing is indistinguishable from a review that never ran. Carry the round's counts as structured fields so quality trends are machine-aggregatable (not buried in `review.md` prose): `criticals_found`, `criticals_fixed`, and `majors` (integers ≥ 0). These are additive — `result`/`warnings` are unchanged; a round that finds nothing records the counts as `0`. Entry shape (these optional keys, and `result` staying the gate three-state) is defined by the `metadata-format` reference (bundled with `/prospec-new-story` · `/prospec-ff`).
-2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review` — it code-computes the reviewed change's digest and writes `review_provenance` to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against. **Graceful**: if the CLI is unavailable, state so explicitly and record the review entry anyway — never silently skip.
+1. **Every round** — including a **review-clean** round (0 critical / 0 major) — record the round via `prospec change log --skill prospec-review --result PASS|WARN --criticals-found <n> --criticals-fixed <n> --majors <n> [--warning "<unresolved item>"]` (Bash; result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward). The counts come straight from `prospec review merge`'s round report. A clean review that records nothing is indistinguishable from a review that never ran — a round that finds nothing records the counts as `0`.
+2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review` — it code-computes the reviewed change's digest and writes `review_provenance` to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
 
 Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `/prospec-verify` will then require a fresh review round before it runs.
 
