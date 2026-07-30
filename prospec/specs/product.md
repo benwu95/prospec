@@ -7,8 +7,26 @@ last_updated: 2026-07-30
 
 ## Feature Map
 
+### drift-detection
+→ [features/drift-detection.md](features/drift-detection.md)
+
+### project-setup
+→ [features/project-setup.md](features/project-setup.md)
+
+### mcp-server
+→ [features/mcp-server.md](features/mcp-server.md)
+
 ### agent-integration
 → [features/agent-integration.md](features/agent-integration.md)
+
+### standalone-binary
+→ [features/standalone-binary.md](features/standalone-binary.md)
+
+### sdd-workflow
+→ [features/sdd-workflow.md](features/sdd-workflow.md)
+
+### token-measurement
+→ [features/token-measurement.md](features/token-measurement.md)
 
 ### ai-knowledge
 → [features/ai-knowledge.md](features/ai-knowledge.md)
@@ -16,23 +34,5 @@ last_updated: 2026-07-30
 ### design-phase
 → [features/design-phase.md](features/design-phase.md)
 
-### drift-detection
-→ [features/drift-detection.md](features/drift-detection.md)
-
 ### feedback-promotion
 → [features/feedback-promotion.md](features/feedback-promotion.md)
-
-### mcp-server
-→ [features/mcp-server.md](features/mcp-server.md)
-
-### project-setup
-→ [features/project-setup.md](features/project-setup.md)
-
-### sdd-workflow
-→ [features/sdd-workflow.md](features/sdd-workflow.md)
-
-### standalone-binary
-→ [features/standalone-binary.md](features/standalone-binary.md)
-
-### token-measurement
-→ [features/token-measurement.md](features/token-measurement.md)
