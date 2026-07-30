@@ -71,8 +71,14 @@ const SPAWNABLE_EXTENSIONS = ['.com', '.exe'] as const;
  */
 export interface ExecutableProbe {
   platform: string;
-  /** PATH entries, already split on the platform separator. */
+  /** PATH entries, already split on the platform separator — and, on Windows, unquoted. */
   pathDirs: readonly string[];
+  /** The cwd the spawn will run in: libuv resolves a bare name against it BEFORE
+   *  walking PATH. `null` means the current directory must not be searched at all,
+   *  which is what `NeedCurrentDirectoryForExePathW` reports once
+   *  `NoDefaultCurrentDirectoryInExePath` is defined. Required rather than optional —
+   *  an omitted field would silently reinstate the PATH-only model it exists to fix. */
+  cwd: string | null;
   /** True when the candidate exists as a file (a directory is not executable). */
   exists: (candidate: string) => boolean;
 }
@@ -83,15 +89,55 @@ export type ExecutableVerdict =
   | { kind: 'shim'; resolved: string }
   | { kind: 'not-found' };
 
+/** Strip the quote characters libuv strips from a PATH entry — one leading and one
+ *  trailing, each independently, matching its "Adjust if the path is quoted" step. */
+function unquotePathEntry(entry: string): string {
+  const head = entry.startsWith('"') || entry.startsWith("'") ? entry.slice(1) : entry;
+  return head.endsWith('"') || head.endsWith("'") ? head.slice(0, -1) : head;
+}
+
+/**
+ * Split a Windows PATH the way libuv does: a quoted entry runs to its MATCHING quote,
+ * so a `;` inside the quotes does not split it, and the quotes are stripped before the
+ * directory is used. Splitting on every `;` and keeping the quotes leaves a directory
+ * name no `exists` check can match — the real `.exe` behind a quoted entry goes
+ * invisible and a `.cmd` anywhere else degrades the verdict to a false `shim`.
+ */
+function splitWindowsPathDirs(raw: string): string[] {
+  const dirs: string[] = [];
+  let start = 0;
+  while (start < raw.length) {
+    const quote = raw[start];
+    let scanFrom = start;
+    if (quote === '"' || quote === "'") {
+      const close = raw.indexOf(quote, start + 1);
+      scanFrom = close === -1 ? raw.length : close + 1;
+    }
+    const semicolon = raw.indexOf(';', scanFrom);
+    const end = semicolon === -1 ? raw.length : semicolon;
+    dirs.push(unquotePathEntry(raw.slice(start, end)));
+    start = end + 1;
+  }
+  return dirs.filter((d) => d.length > 0);
+}
+
 export function defaultExecutableProbe(
   env: NodeJS.ProcessEnv = process.env,
   platform: string = process.platform,
+  /** The cwd the spawn this probe describes will use — passed in, never re-derived
+   *  downstream, because libuv resolves against the cwd the spawn actually gets. */
+  cwd: string = process.cwd(),
 ): ExecutableProbe {
-  const sep = platform === 'win32' ? ';' : ':';
   const rawPath = env.PATH ?? env.Path ?? '';
   return {
     platform,
-    pathDirs: rawPath.split(sep).filter((d) => d.length > 0),
+    pathDirs:
+      platform === 'win32'
+        ? splitWindowsPathDirs(rawPath)
+        : rawPath.split(':').filter((d) => d.length > 0),
+    // Windows stops searching the current directory as soon as the variable is
+    // DEFINED — its value is irrelevant, so presence is the whole test.
+    cwd: env.NoDefaultCurrentDirectoryInExePath !== undefined ? null : cwd,
     exists: (candidate) => {
       try {
         return statSync(candidate).isFile();
@@ -111,12 +157,14 @@ export function defaultExecutableProbe(
  * the win32 branch behaves identically when exercised from a POSIX host.
  *
  * **Two passes, because "spawnable" must win globally.** libuv resolves a bare name
- * by trying only the literal name (when it contains a dot), `.com` and `.exe` in
- * every PATH directory. So pass 1 asks "does any directory hold something libuv can
- * actually start?" across the WHOLE path — a `.cmd` in an earlier directory does not
- * shadow a real `.exe` in a later one, because libuv never looks at the `.cmd`.
- * Only when pass 1 finds nothing anywhere does pass 2 look for a `.cmd`/`.bat`, and
- * then purely to diagnose *why* the spawn will fail.
+ * by trying only the literal name (when it contains a dot), `.com` and `.exe` — first
+ * in the spawn's current directory, then in every PATH directory. So pass 1 asks "does
+ * any of those directories hold something libuv can actually start?" across the WHOLE
+ * search — a `.cmd` in an earlier directory does not shadow a real `.exe` in a later
+ * one, because libuv never looks at the `.cmd`. Only when pass 1 finds nothing anywhere
+ * does pass 2 look for a `.cmd`/`.bat`, and then purely to diagnose *why* the spawn will
+ * fail — over the same directories, since a shim the shell would have run is the honest
+ * explanation for a command that works interactively but not shell-free.
  */
 export function classifyExecutable(bin: string, probe: ExecutableProbe): ExecutableVerdict {
   if (probe.platform !== 'win32') return { kind: 'spawnable' };
@@ -128,10 +176,21 @@ export function classifyExecutable(bin: string, probe: ExecutableProbe): Executa
     if (SHIM_EXTENSION_SET.has(declared)) return { kind: 'shim', resolved: bin };
     return { kind: 'spawnable' };
   }
-  // A path (not a bare name) is never searched on PATH.
-  const dirs = bin.includes('/') || bin.includes('\\') ? [null] : probe.pathDirs;
-  const candidate = (dir: string | null, name: string): string =>
-    dir === null ? name : w.join(dir, name);
+  const searchDirs: readonly (string | null)[] = probe.cwd === null
+    ? probe.pathDirs
+    : [probe.cwd, ...probe.pathDirs];
+  // A path (not a bare name) is never searched on PATH — it is probed as written.
+  const dirs = bin.includes('/') || bin.includes('\\') ? [null] : searchDirs;
+  // Every candidate resolves against the SPAWN's cwd: libuv's `search_path_join_test`
+  // prepends it to any directory that is not drive-absolute or UNC, and a bin that is
+  // itself a relative path resolves the same way. Probing the raw string instead would
+  // ask about a path relative to OUR process cwd — a different machine state.
+  // Deliberate exclusion: with no cwd on the probe there is no base to resolve against,
+  // so a relative entry falls back to the ambient process cwd.
+  const candidate = (dir: string | null, name: string): string => {
+    const joined = dir === null ? name : w.join(dir, name);
+    return probe.cwd === null ? joined : w.resolve(probe.cwd, joined);
+  };
 
   for (const dir of dirs) {
     for (const ext of SPAWNABLE_EXTENSIONS) {
@@ -165,11 +224,13 @@ export function describeUnspawnable(bin: string, verdict: ExecutableVerdict): st
 }
 
 /** Why this command cannot run here, or null when it can — the single source both
- *  the pure check path and the record path report from. */
-export function unspawnableReason(
-  command: string,
-  probe: ExecutableProbe = defaultExecutableProbe(),
-): string | null {
+ *  the pure check path and the record path report from.
+ *
+ *  The probe is REQUIRED, unlike its sibling entry points: this function has no `cwd` of
+ *  its own to thread in, so a default here could only re-derive `process.cwd()` — the one
+ *  thing the caller's cwd must never be replaced by. Making it explicit puts the choice
+ *  where the knowledge is. */
+export function unspawnableReason(command: string, probe: ExecutableProbe): string | null {
   const bin = tokenizeCommand(command)[0];
   if (bin === undefined) return 'the configured test command is empty';
   return describeUnspawnable(bin, classifyExecutable(bin, probe));
@@ -186,8 +247,11 @@ export function runTestCommand(
   timeoutMs: number = DEFAULT_TEST_TIMEOUT_MS,
   /** Injection seam for the platform probe — omitting it yields the real platform,
    *  so the pre-spawn refusal is provable from a POSIX host rather than only on
-   *  Windows (an unpinned guard is indistinguishable from no guard). */
-  probe: ExecutableProbe = defaultExecutableProbe(),
+   *  Windows (an unpinned guard is indistinguishable from no guard). The default
+   *  carries THIS call's `cwd`: libuv resolves a bare name against the cwd the spawn
+   *  below will actually get, so classifying against `process.cwd()` would model a
+   *  different machine state than the one being run. */
+  probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
 ): TestRunResult {
   const argv = tokenizeCommand(command);
   const [bin, ...args] = argv;

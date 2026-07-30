@@ -1015,8 +1015,10 @@ export function collectTestProvenance(
   digest: string | null,
   /** Injection seam for the platform probe. Omitting it yields the real platform,
    *  so production behaviour cannot be changed by forgetting it — it exists so the
-   *  win32 shim branch is provable from a POSIX host. */
-  probe: ExecutableProbe = defaultExecutableProbe(),
+   *  win32 shim branch is provable from a POSIX host. The default carries this
+   *  collector's `cwd`, which is the cwd `--record-tests` would spawn the suite in —
+   *  the same directory libuv resolves a bare argv[0] against. */
+  probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
 ): TestProvenanceSource {
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,

@@ -1027,6 +1027,7 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     const winProbe = {
       platform: 'win32',
       pathDirs: ['C:\\tools\\bin'],
+      cwd: null,
       exists: (c: string) => c === 'C:\\tools\\bin\\pnpm.cmd',
     };
     const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), winProbe);
@@ -1056,6 +1057,7 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     const posixProbe = {
       platform: 'linux',
       pathDirs: ['/usr/bin'],
+      cwd: null,
       exists: () => false,
     };
     const r = collectTestProvenance(tmpDir, 'pnpm test', computeChangeDigest(tmpDir), posixProbe);
