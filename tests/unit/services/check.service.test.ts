@@ -721,7 +721,13 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
     expect(check?.reason).toContain('outside the repository');
   });
 
-  it('reports UNCHECKED when an in-scope file cannot be read', async () => {
+  // chmod(0o000) does not remove read access on Windows, so this fixture cannot
+  // be constructed there — the file stays readable, the scan succeeds, and the
+  // check honestly reports `warn` for the English-only prose it did read. The
+  // collector's other three unread paths (escaping root, symlink out of tree,
+  // scanner throw) are exercised cross-platform by the siblings above; only the
+  // unreadable-file condition is POSIX-only to set up.
+  it.skipIf(process.platform === 'win32')('reports UNCHECKED when an in-scope file cannot be read', async () => {
     write(
       '.prospec.yaml',
       [
@@ -766,7 +772,9 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
 });
 
 describe('check.service artifact-language honesty (REQ-LIB-037)', () => {
-  it('reports UNCHECKED, not clean, when a scope root cannot be scanned', async () => {
+  // Same POSIX-only precondition as the unreadable-file case above: on Windows
+  // chmod cannot revoke read access on a directory, so the scan succeeds.
+  it.skipIf(process.platform === 'win32')('reports UNCHECKED, not clean, when a scope root cannot be scanned', async () => {
     // Three rounds of this defect: throw an fs error, throw a ScanError, then
     // silently report clean. A vacuous pass is the worst of the three — it says
     // "verified" about a file nothing opened.
