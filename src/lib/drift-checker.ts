@@ -13,6 +13,7 @@ import {
 import { DriftReportInvalid } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type {
+  ArtifactLanguageSource,
   ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
@@ -60,6 +61,7 @@ export interface DriftCheckInputs {
   knowledgeSize: KnowledgeSizeSource;
   testProvenance: TestProvenanceSource;
   constitutionRules: ConstitutionRuleSource;
+  artifactLanguage: ArtifactLanguageSource;
   generatedAt: string;
 }
 
@@ -576,6 +578,29 @@ export function evaluateConstitutionSeverity(src: ConstitutionRuleSource): Check
   };
 }
 
+/**
+ * Report change artifacts whose PROSE carries no character in the project's
+ * artifact language (the collector strips fenced code before the test). Every finding is WARN-class: a fail tier for the committed record
+ * needs a shrink-only legacy exemption first (see the collector), and a check
+ * that reds a repo's pre-existing artifacts on day one gets switched off.
+ */
+export function evaluateArtifactLanguage(src: ArtifactLanguageSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('artifact-language', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = src.files
+    .filter((f) => !f.hasScript)
+    .map((f) => ({
+      check: 'artifact-language' as const,
+      severity: 'warn' as const,
+      source_path: f.path,
+      detail:
+        `no ${src.language} prose found — change artifacts are written in ` +
+        `${src.language} (Constitution Language Policy)`,
+    }));
+  return outcome('artifact-language', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -592,6 +617,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'knowledge-size': evaluateKnowledgeSize(inputs.knowledgeSize),
     'test-provenance': evaluateTestProvenance(inputs.testProvenance),
     'constitution-severity': evaluateConstitutionSeverity(inputs.constitutionRules),
+    'artifact-language': evaluateArtifactLanguage(inputs.artifactLanguage),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

@@ -11,7 +11,7 @@
 | `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, GATE/DIMENSION_RESULTS, VERIFY_GRADES |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (path sets plus BOTH exception directions — `namedExceptions` / `englishExceptions`) |
-| `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (13 frozen), Constitution rule inventory |
+| `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (14 frozen), Constitution rule inventory |
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8, frozen), MCP_TOOL_NAMES, tool I/O zod shapes |
@@ -26,7 +26,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `intersectCapabilities` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`); harness capability flags + their conservative AND
-- `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 13 frozen check ids
+- `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 14 frozen check ids
 - `ReviewFindingSchema` / `VERIFY_DIMENSIONS` / `LessonInputSchema` / `VALIDATE_KINDS` — station I/O: reviewer findings, the 5+1 dimension registry, lesson upsert, validate kinds
 - `MeasurementReportSchema` / `MCP_RESOURCE_URIS` — offline size/measure reports; 8 frozen URIs + tool I/O shapes
 - `INIT_DOC_REGISTRY` / `CORE_CONVENTIONS` / `INDEX_TABLE_COLUMNS` — init docs, L0 conventions, index columns
