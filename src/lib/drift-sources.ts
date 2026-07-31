@@ -97,6 +97,8 @@ export interface ModuleTimestamps {
   readme_exists: boolean;
   last_src_commit: string | null;
   last_readme_commit: string | null;
+  /** Newest commit across the module's sub-module `.md` siblings; null when it has none. */
+  last_sub_module_commit: string | null;
 }
 
 export interface GitTimestampSource {
@@ -476,12 +478,19 @@ export function collectGitTimestamps(
       'README.md',
     );
     const readmeExists = existsSync(path.resolve(cwd, readmeRel));
+    const subModuleRels = moduleKnowledgeFiles(
+      path.resolve(cwd, knowledgePath, 'modules'),
+      entry.name,
+    )
+      .filter((file) => file !== 'README.md')
+      .map((file) => path.join(path.dirname(readmeRel), file));
     modules.push({
       name: entry.name,
       readme_path: readmeRel.replace(/\\/g, '/'),
       readme_exists: readmeExists,
       last_src_commit: gitLastCommit(cwd, entry.paths),
       last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
+      last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
     });
   }
   return { available: true, modules };
@@ -595,16 +604,22 @@ export function collectKnowledgeSize(
     measure(rel, 'l1', readContainedFile(cwd, rel));
   }
 
-  // L2 — every module README under modules/.
+  // L2 — every module README under modules/, plus each extracted sub-module
+  // sibling: the conventions give a sub-module the SAME budget as a README, so
+  // measuring only the README would let an extraction move knowledge out of the
+  // budget's sight instead of making it smaller.
   const modulesDir = path.resolve(cwd, knowledgePath, 'modules');
   if (existsSync(modulesDir)) {
     for (const name of readdirSync(modulesDir).sort()) {
       if (!isSafeResourceName(name)) continue;
-      measure(
-        path.join(knowledgeRel, 'modules', name, 'README.md'),
-        'l2',
-        readModuleReadme(knowledgePath, name),
-      );
+      for (const file of moduleKnowledgeFiles(modulesDir, name)) {
+        const rel = path.join(knowledgeRel, 'modules', name, file);
+        measure(
+          rel,
+          'l2',
+          file === 'README.md' ? readModuleReadme(knowledgePath, name) : readContainedFile(cwd, rel),
+        );
+      }
     }
   }
 
@@ -827,6 +842,37 @@ function readContainedFile(cwd: string, relPath: string): string | null {
     // reported as absent: every caller already degrades a null to an honest
     // `{available:false}` skip, whereas a throw here kills the whole check run.
     return null;
+  }
+}
+
+/**
+ * A module's knowledge files — its `README.md` plus every extracted sub-module
+ * sibling — as sorted entry names.
+ *
+ * ONE source for both collectors that walk a module directory (size budget and
+ * staleness): a hand-copied walk in each would drift the moment a skip rule
+ * changes (PB-006). Subdirectories, non-`.md` entries and names rejected by
+ * `isSafeResourceName` are skipped rather than measured — a module directory may
+ * hold diagrams or an editor's dotfile, and neither is knowledge the budget
+ * governs.
+ *
+ * A symlink is a CANDIDATE, not a skip: containment is the readers' job
+ * (`readModuleReadme`/`readContainedFile` both resolve realpath and reject a
+ * target outside the tree), so filtering symlinks here buys no safety and
+ * silently drops a real measurement — a symlinked README used to be measured
+ * through `readModuleReadme` and would have gone unmeasured, i.e. the budget
+ * gate failing OPEN. Sorted so the emitted item order is reproducible across
+ * machines rather than inheriting readdir order.
+ */
+function moduleKnowledgeFiles(modulesDir: string, moduleName: string): string[] {
+  try {
+    return readdirSync(path.join(modulesDir, moduleName), { withFileTypes: true })
+      .filter((e) => !e.isDirectory() && e.name.endsWith('.md') && isSafeResourceName(e.name))
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    // not a directory / unreadable — the module simply contributes no knowledge file
+    return [];
   }
 }
 

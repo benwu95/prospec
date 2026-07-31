@@ -16,7 +16,7 @@ import {
   SKILL_DEFINITIONS,
   intersectCapabilities,
 } from '../../src/types/skill.js';
-import { DRIFT_CHECK_IDS } from '../../src/types/drift-report.js';
+import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
 const TEMPLATE_CONTEXT = {
@@ -306,6 +306,29 @@ describe('Skill Format Contract', () => {
       const ref = render('skills/references/drift-report-format.hbs');
       expect(ref).toContain('knowledge_health.modules');
       expect(ref).toContain('m.stale');
+    });
+
+    it('drift-report-format enumerates every knowledge_health module key the schema defines', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      // Section-scope to the knowledge_health block so a key named elsewhere in
+      // the document cannot stand in for one missing from THIS shape.
+      const start = ref.indexOf('## `structural.knowledge_health`');
+      expect(start, 'knowledge_health section not found').toBeGreaterThan(-1);
+      const nextHeading = ref.indexOf('\n## ', start + 1);
+      const section = ref.slice(start, nextHeading === -1 ? undefined : nextHeading);
+      // The claim is about the documented JSON SHAPE, so scope to the fenced block:
+      // prose mentioning a key elsewhere in the section must not stand in for the
+      // shape listing it (deleting the key from the jsonc while keeping the prose
+      // is exactly the omission this guard exists to catch).
+      const fence = /```jsonc\n([\s\S]*?)```/.exec(section);
+      expect(fence, 'knowledge_health section must carry a jsonc shape block').not.toBeNull();
+      const shape = fence![1]!;
+      expect(shape, 'jsonc shape block sliced empty').toContain('"modules"');
+      // Derived from the Zod schema, never a hand-written list: a field added to
+      // the frozen contract without documenting it here fails immediately.
+      for (const key of Object.keys(KnowledgeHealthModuleSchema.shape)) {
+        expect(shape, `knowledge_health shape must document the "${key}" key`).toContain(key);
+      }
     });
 
     it('no report-consuming skill/reference reads the phantom knowledge_health.stale field', () => {

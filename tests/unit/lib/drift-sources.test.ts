@@ -95,6 +95,96 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     expect(src.reason).toContain('source unavailable');
     expect(src.items).toHaveLength(0);
   });
+
+  it('measures each extracted sub-module sibling as L2, on the same budget as the README', () => {
+    write('prospec/index.md', 'A'.repeat(40));
+    write('prospec/ai-knowledge/modules/templates/README.md', 'B'.repeat(40)); // 10 tokens
+    write('prospec/ai-knowledge/modules/templates/skill-authoring.md', 'C'.repeat(2000)); // 500 tokens > 400
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const byPath = new Map(src.items.map((i) => [i.source_path, i]));
+    expect(byPath.get('prospec/ai-knowledge/modules/templates/README.md')).toMatchObject({
+      kind: 'l2',
+      tokens: 10,
+    });
+    expect(byPath.get('prospec/ai-knowledge/modules/templates/skill-authoring.md')).toMatchObject({
+      kind: 'l2',
+      tokens: 500,
+    });
+  });
+
+  it('emits nothing extra for a module directory holding only a README', () => {
+    write('prospec/ai-knowledge/modules/lib/README.md', 'line1\nline2\n');
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.items.filter((i) => i.kind === 'l2')).toEqual([
+      {
+        source_path: 'prospec/ai-knowledge/modules/lib/README.md',
+        kind: 'l2',
+        tokens: 3,
+        lines: 2,
+      },
+    ]);
+  });
+
+  it('still measures a README that is a symlink inside the knowledge base (containment is the reader\'s job)', () => {
+    write('prospec/ai-knowledge/_shared-readme.md', 'D'.repeat(2000)); // 500 tokens > 400
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib'), { recursive: true });
+    symlinkSync(
+      path.join('..', '..', '_shared-readme.md'),
+      path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
+    );
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.items.filter((i) => i.kind === 'l2')).toEqual([
+      {
+        source_path: 'prospec/ai-knowledge/modules/lib/README.md',
+        kind: 'l2',
+        tokens: 500,
+        lines: 1,
+      },
+    ]);
+  });
+
+  // Honest scope: on APFS/NTFS `readdirSync` already returns these names in order,
+  // so this catches an ACTIVE reordering (a `.reverse()`, a different comparator) —
+  // not the bare removal of `.sort()`, which only a hash-ordered filesystem would expose.
+  it('emits a module\'s files in lexicographic order (README before its sub-modules)', () => {
+    write('prospec/ai-knowledge/modules/templates/skill-authoring.md', 'A'.repeat(8));
+    write('prospec/ai-knowledge/modules/templates/zz-last.md', 'B'.repeat(8));
+    write('prospec/ai-knowledge/modules/templates/README.md', 'C'.repeat(8));
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
+      'prospec/ai-knowledge/modules/templates/README.md',
+      'prospec/ai-knowledge/modules/templates/skill-authoring.md',
+      'prospec/ai-knowledge/modules/templates/zz-last.md',
+    ]);
+  });
+
+  it('skips subdirectories, non-markdown entries and unsafe names without erroring', () => {
+    write('prospec/ai-knowledge/modules/lib/README.md', 'X'.repeat(8));
+    write('prospec/ai-knowledge/modules/lib/diagrams/flow.md', 'Y'.repeat(8)); // nested dir
+    write('prospec/ai-knowledge/modules/lib/notes.txt', 'Z'.repeat(8)); // not markdown
+    write('prospec/ai-knowledge/modules/lib/.draft.md', 'W'.repeat(8)); // rejected by isSafeResourceName
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const l2Paths = src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path);
+    expect(l2Paths).toEqual(['prospec/ai-knowledge/modules/lib/README.md']);
+  });
+
+  it('skips a DIRECTORY named like a knowledge file instead of dying on it', () => {
+    // The directory guard is what stops this reaching a reader: `README.md` goes to
+    // readTextIfExists, whose readFileSync is NOT wrapped, so an EISDIR would escape
+    // and abort the whole check run rather than costing one measurement.
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'), { recursive: true });
+    write('prospec/ai-knowledge/modules/lib/api-surface.md', 'Y'.repeat(8));
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
+      'prospec/ai-knowledge/modules/lib/api-surface.md',
+    ]);
+  });
 });
 
 describe('collectReqDefinitions', () => {
@@ -418,6 +508,52 @@ describe('collectGitTimestamps', () => {
     expect(services?.readme_exists).toBe(false);
     expect(services?.last_readme_commit).toBeNull();
     expect(services?.last_src_commit).toBeNull();
+  });
+
+  it('carries the newest sub-module commit beside the README commit (REQ-LIB-015)', () => {
+    const git = (args: string[], date?: string) =>
+      execFileSync('git', args, {
+        cwd: tmpDir,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+        env: date ? { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } : process.env,
+      });
+    git(['init', '-q']);
+    git(['config', 'user.email', 'test@test.dev']);
+    git(['config', 'user.name', 'test']);
+
+    write('src/types/x.ts', 'export const a = 1;\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'src'], '2026-06-10T00:00:00+00:00');
+
+    write('knowledge/modules/types/README.md', '# types\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'readme'], '2026-06-11T00:00:00+00:00');
+
+    // only the sub-module moves — the module's knowledge IS newer than its source
+    write('knowledge/modules/types/schemas.md', '# schemas\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'sub-module'], '2026-06-12T00:00:00+00:00');
+
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    const types = r.modules.find((m) => m.name === 'types');
+    expect(types?.last_readme_commit).toContain('2026-06-11');
+    expect(types?.last_sub_module_commit).toContain('2026-06-12');
+  });
+
+  it('leaves the sub-module commit null when the module has none', () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/types/x.ts', 'export const a = 1;\n');
+    write('knowledge/modules/types/README.md', '# types\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    expect(r.modules.find((m) => m.name === 'types')?.last_sub_module_commit).toBeNull();
   });
 
   it('degrades a shallow clone to unavailable instead of fabricating staleness (REQ-LIB-015)', () => {

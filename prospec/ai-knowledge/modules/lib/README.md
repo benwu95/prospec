@@ -14,7 +14,7 @@
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml`; returns `{doc, metadata}`; `appendQualityLogEntry` (canonical key order) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath |
 | `module-detector.ts` | detectModules (auto/architecture/domain/package), buildModuleMap |
-| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (14 checks; `artifact-language` samples the resolved language scope (prose only — fences stripped), WARN-only, and skips when the language is absent from its name→script table or one of four recorded unread conditions holds) |
+| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (14 checks; `artifact-language` samples the resolved language scope (prose only — fences stripped), WARN-only, and skips when the language is absent from its name→script table or one of four recorded unread conditions holds). L2 sizing and staleness both walk a module dir through the ONE `moduleKnowledgeFiles` helper — README **and** each sub-module `.md`, symlinks kept as candidates (containment stays with the readers) |
 | `knowledge-reader.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis |
 | `status-router.ts` | I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |

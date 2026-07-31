@@ -162,11 +162,18 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
   const findings: DriftFinding[] = [];
   const healthModules: KnowledgeHealth['modules'] = [];
   for (const m of timestamps.modules) {
-    const stale = m.readme_exists ? isStale(m.last_src_commit, m.last_readme_commit) : true;
+    // A module's knowledge is its README plus every extracted sub-module sibling,
+    // so the source is compared against the NEWEST of them — otherwise a change
+    // that updates only a sub-module leaves the module permanently stale.
+    const newestKnowledge = newerOf(m.last_readme_commit, m.last_sub_module_commit);
+    const stale = m.readme_exists ? isStale(m.last_src_commit, newestKnowledge) : true;
     healthModules.push({
       name: m.name,
       last_src_commit: m.last_src_commit,
       last_readme_commit: m.last_readme_commit,
+      ...(m.last_sub_module_commit === null
+        ? {}
+        : { last_sub_module_commit: m.last_sub_module_commit }),
       stale,
     });
     if (!m.readme_exists) {
@@ -183,7 +190,7 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
         source_path: m.readme_path,
         detail:
           `stale knowledge: module "${m.name}" source last commit ${m.last_src_commit} ` +
-          `is newer than README last commit ${m.last_readme_commit}`,
+          `is newer than its newest knowledge commit ${newestKnowledge}`,
       });
     }
   }
@@ -442,7 +449,7 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
         severity: 'warn',
         source_path: item.source_path,
         detail:
-          `L2 README over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
+          `L2 file over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
           `> ${src.budget.l2_per_module} per-module budget`,
       });
     }
@@ -451,7 +458,7 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
         check: 'knowledge-size',
         severity: 'warn',
         source_path: item.source_path,
-        detail: `L2 README over line budget: ${item.lines} lines > ${src.budget.readme_max_lines} budget`,
+        detail: `L2 file over line budget: ${item.lines} lines > ${src.budget.readme_max_lines} budget`,
       });
     }
   }
@@ -660,10 +667,17 @@ function skipped(id: DriftCheckId, reason: string): CheckOutcome {
   return { result: { id, status: 'skipped', reason }, findings: [] };
 }
 
-function isStale(srcCommit: string | null, readmeCommit: string | null): boolean {
-  if (srcCommit === null || readmeCommit === null) return false;
+function isStale(srcCommit: string | null, knowledgeCommit: string | null): boolean {
+  if (srcCommit === null || knowledgeCommit === null) return false;
   // %cI carries each committer's own UTC offset — epoch comparison, not string order.
-  return Date.parse(srcCommit) > Date.parse(readmeCommit);
+  return Date.parse(srcCommit) > Date.parse(knowledgeCommit);
+}
+
+/** The later of two commit stamps by instant; null only when both are null. */
+function newerOf(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Date.parse(b) > Date.parse(a) ? b : a;
 }
 
 // codepoint order, NOT localeCompare — ICU collation varies per environment

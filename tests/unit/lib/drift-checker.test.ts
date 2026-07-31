@@ -102,6 +102,19 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
     expect(r.findings[0]!.detail).toContain('1500');
   });
 
+  it('warns on an over-budget sub-module with the same L2 budget as a README', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/templates/README.md', kind: 'l2', tokens: 300, lines: 40 },
+      { source_path: 'prospec/ai-knowledge/modules/templates/skill-authoring.md', kind: 'l2', tokens: 500, lines: 40 },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({
+      source_path: 'prospec/ai-knowledge/modules/templates/skill-authoring.md',
+    });
+    expect(r.findings[0]!.detail).not.toContain('README');
+  });
+
   it('warns on an L2 README over the per-module token budget', () => {
     const r = evaluateKnowledgeSize(sizeSrc([
       { source_path: 'prospec/ai-knowledge/modules/lib/README.md', kind: 'l2', tokens: 4683, lines: 100 },
@@ -256,6 +269,7 @@ describe('evaluateKnowledgeHealth', () => {
         readme_exists: true,
         last_src_commit: '2026-06-10T00:00:00+00:00',
         last_readme_commit: '2026-06-11T00:00:00+00:00',
+        last_sub_module_commit: null,
         ...over,
       },
     ],
@@ -282,6 +296,70 @@ describe('evaluateKnowledgeHealth', () => {
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
   });
 
+  it('is not stale when only a sub-module is newer than the source', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
+        last_src_commit: '2026-06-12T00:00:00+00:00',
+        last_readme_commit: '2026-06-11T00:00:00+00:00',
+        last_sub_module_commit: '2026-06-13T00:00:00+00:00',
+      }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.knowledgeHealth?.modules[0]).toMatchObject({
+      stale: false,
+      last_readme_commit: '2026-06-11T00:00:00+00:00',
+      last_sub_module_commit: '2026-06-13T00:00:00+00:00',
+    });
+  });
+
+  it('compares against the README when the README is the newer knowledge file', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
+        last_src_commit: '2026-06-12T00:00:00+00:00',
+        last_readme_commit: '2026-06-13T00:00:00+00:00',
+        last_sub_module_commit: '2026-06-11T00:00:00+00:00',
+      }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  });
+
+  it('reports a module with sub-modules but no README as a coverage gap, not a timestamp verdict', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
+        readme_exists: false,
+        last_readme_commit: null,
+        last_src_commit: '2026-06-10T00:00:00+00:00',
+        last_sub_module_commit: '2026-06-20T00:00:00+00:00',
+      }),
+    );
+    // the coverage rule decides here — the timestamps alone would say "not stale"
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
+    expect(r.findings[0]?.detail).toContain('coverage gap');
+  });
+
+  it('stays stale when the source outruns every knowledge file, naming the newest one compared', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
+        last_src_commit: '2026-06-14T00:00:00+00:00',
+        last_readme_commit: '2026-06-11T00:00:00+00:00',
+        last_sub_module_commit: '2026-06-13T00:00:00+00:00',
+      }),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings[0]?.detail).toContain('2026-06-13T00:00:00+00:00');
+  });
+
+  it('omits the sub-module key entirely when the module has no sub-module', () => {
+    const r = evaluateKnowledgeHealth(stamps({}));
+    expect(Object.keys(r.knowledgeHealth!.modules[0]!)).toEqual([
+      'name',
+      'last_src_commit',
+      'last_readme_commit',
+      'stale',
+    ]);
+  });
+
   it('treats a missing README as a coverage gap warning', () => {
     const r = evaluateKnowledgeHealth(
       stamps({ readme_exists: false, last_readme_commit: null }),
@@ -306,6 +384,7 @@ describe('evaluateKnowledgeHealth', () => {
         readme_exists: false,
         last_src_commit: '2026-06-12T00:00:00Z',
         last_readme_commit: null,
+        last_sub_module_commit: null,
       })),
     });
     expect(r.result.status).toBe('warn');
@@ -477,6 +556,7 @@ describe('runChecks', () => {
             readme_exists: false,
             last_src_commit: '2026-06-12T00:00:00Z',
             last_readme_commit: null,
+            last_sub_module_commit: null,
           },
         ],
       },
@@ -591,6 +671,7 @@ describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => 
           readme_exists: true,
           last_src_commit: null,
           last_readme_commit: '2026-06-11T00:00:00+00:00',
+          last_sub_module_commit: null,
         },
       ],
     });
@@ -609,6 +690,7 @@ describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => 
           readme_exists: true,
           last_src_commit: '2026-06-12T00:00:00+00:00',
           last_readme_commit: null,
+          last_sub_module_commit: null,
         },
       ],
     });

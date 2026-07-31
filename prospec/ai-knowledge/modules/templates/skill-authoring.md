@@ -1,0 +1,39 @@
+# Skill Authoring
+
+> Sub-module of [templates](./README.md) — the skill-template contract (17 skills, 7 partials, 21 references) and what `agent sync` deploys from it.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; every skill carries `{{> cli-probe}}` and delegates its deterministic steps to `prospec` commands (phase wording pinned by skill-format contract tests) |
+| `skills/_*.hbs` (7) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
+| `skills/references/*.hbs` (21) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` is a reader's guide to the **CLI-written** metadata.yaml, `review-format` pins the 6-column CLI-written findings table **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
+
+## Public API
+
+- No code API — rendered via `renderTemplate(name, ctx)` / `registerPartial()` from `lib/template.ts`, deployed as `SKILL.md` + on-demand `references/*.md` by `services/agent-sync`.
+
+## Dependencies
+
+**Depends on:** none — `.hbs` files import nothing (the module's `depends_on` is `[]`); the values they render (`SKILL_DEFINITIONS`, `AGENT_CONFIGS`/`HarnessCapabilities` from `types/skill.ts`, `MINIMUM_CLI_VERSION` from `types/version.ts`) are injected into the render context by `agent-sync`, so the real edge is `services/agent-sync → {templates, types}`.
+**Used by:** `services/agent-sync.service.ts` → `.claude/skills/` + `.agents/skills/`; `tests/contract/skill-format.test.ts`
+
+## Modification Guide
+
+1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step), register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
+2. **Add a reference** — create `skills/references/{name}.hbs`, map it in `agent-sync.service.ts`, cite it from the skill.
+3. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
+
+## Ripple Effects
+
+- Any `skills/**.hbs` edit needs `prospec agent sync` to regenerate `.claude/skills/` (and the other agent dirs); references render `.hbs`→`.md`, never verbatim. `_cli-probe.hbs` ripples into all 17 skills at once.
+
+## Pitfalls
+
+- `_cli-probe.hbs` is the SINGLE source of the CLI prerequisite: its STOP sentence may appear in no other template (contract-asserted), and its floor must stay `{{minimum_cli_version}}` — a hardcoded version literal is rejected. No template under `skills/` or `agent-configs/` may carry a CLI-unavailable fallback phrase ("If the CLI is unavailable", "fall back manually", …): hand-executing a CLI-owned mutation re-introduces the nondeterministic serialization cli-first removes.
+- Budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) and `{{minimum_cli_version}}` are injected by `agent-sync` (and `lib/init-docs` for init) — always variables; never hardcode one or name `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` in a skill `.hbs`. Same for the `can_*` capability flags — absent renders the degraded branch, silently and confidently.
+- Skill templates MUST end with exactly one trailing newline — a blank line propagates into every generated `SKILL.md`.
+- A `**Spec:**` block replaces a MODIFIED REQ's WHOLE body, so `references/delta-spec-format.hbs` tells authors to write the RESULTING requirement, not the delta — the archive CLI reports the `WHEN/THEN` bullets a block drops (`droppedBehavior`) and Phase 3.5 gates on them, but an ADDED entry reusing an existing REQ id is reported by neither worklist.
+- Rule placement follows the rule's SUBJECT: a criterion in `review-lenses-content`'s tables states a property of the change under review and carries a severity the reviewer files against it; a rule about the reviewer's own output belongs in `review-format` § review.md Format instead — a row there would carry a severity with nothing to file it on. The test-quality criteria row set is frozen against a version-controlled baseline in `tests/contract/skill-format.test.ts`, so adding ANY row fails until the baseline is updated deliberately; cross-references between the two files must name their referent ("the **mutation-verified** criterion"), never a position ("the row above"), which drifts as rows are added.
+- Single-source contracts: the task-kind table ONLY in `references/tasks-format.hbs`, the lessons-ledger format ONLY in `references/promotion-format.hbs`, the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test requires exactly one across both skills). Contract tests flag restatement.

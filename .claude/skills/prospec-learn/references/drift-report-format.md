@@ -88,7 +88,7 @@ code task — use these instead of recounting tasks.md by hand.
 ```jsonc
 {
   "modules": [
-    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "stale": true }
+    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "last_sub_module_commit": "<ISO>", "stale": true }
   ],
   "coverage": { "documented": 23, "total": 23 }
 }
@@ -97,6 +97,12 @@ code task — use these instead of recounting tasks.md by hand.
 - Per-module staleness lives on **each element of `modules[]`** as the boolean `stale`.
   `knowledge_health` has **no** top-level `stale[]` array — to get the stale modules, filter
   `knowledge_health.modules` by `.stale`: `knowledge_health.modules.filter(m => m.stale)`.
+- `last_sub_module_commit` is the newest commit across the module's extracted sub-module `.md`
+  siblings and is **absent** when the module has none (never null-filled). A module's knowledge is
+  its README plus those siblings, so for a **documented** module `stale` recomputes as
+  `last_src_commit` vs the newer of `last_readme_commit` / `last_sub_module_commit`. A module with
+  no README is stale by the coverage rule — that verdict rides its `coverage gap` finding and is
+  deliberately not recomputable from these timestamps.
 - `coverage` is `{ documented, total }` module README counts.
 - The whole object is **optional** (absent when the module map is unavailable). Absent →
   treat as "no freshness facts", not as all-fresh.
