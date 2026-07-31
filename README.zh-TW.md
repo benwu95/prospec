@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2901%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2904%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -664,6 +664,16 @@ knowledge:
 
 </details>
 
+<details>
+<summary>Mutation testing（隨選稽核——非閘門）</summary>
+
+| 指令 | 說明 |
+|------|------|
+| `pnpm mutate <path>` | **隨選深度稽核，刻意不做閘門、不進 CI。** 以 Stryker 對該路徑執行 mutation testing（路徑為必填），回報 mutation score 與存活 mutant——這是測試套件無法自我提供的訊號，因為驗證所用的變異平時由寫斷言的同一個人挑選。本 repo 實測：`src/lib/date-utils.ts` ＝ 2 個 mutant、依賴套件 57 個測試（net 0.08 秒）→ **4 秒**；`src/lib/task-markers.ts` ＝ 57 個 mutant、依賴套件 416 個測試（net 54.2 秒）→ **9 分 09 秒**，score 89.47。成本是兩者的**乘積**，任一項單獨都無法預測：有多少 mutant 是 **static**（此處 57 個中 26 個——它們位於模組層級程式碼，故模組必須重載，`coverageAnalysis` 無法收斂），乘以**該模組依賴套件有多大**（一次未收斂的執行要多久）。`--ignoreStatic` 可把同一次執行壓到 **63.8 秒、快 8.6 倍**——但不是免費的：那 26 個 mutant 隨即未被測試且回報為存活，score 掉到 45.61，故它適合用來迭代，不適合用來引用數字。11 個逾時**不是**餘裕不足：Stryker 的上限為 `timeoutFactor`(1.5) × netTime ＋ `timeoutMS` ＋ overhead，而 static mutant 的 netTime 是整個未收斂套件，故此處上限約 144 秒，正常執行約 54 秒遠低於它。11 個全是**放寬**匹配範圍的 regex mutant（去掉錨點、`\s+`→`\s`、`{0,3}`→`{}`），使 `parseTaskLine` 開始接受本該拒絕的行，下游以真實 fixture 驅動的消費者因而多做到超過上限。而 Stryker 將逾時計為 *killed*，故負載較重的機器回報的 score 反而**較高**——切勿跨機器比較 score。估算請以「模組層級常數 × 有多少套件觸及該模組」為準。存活 mutant 是待讀的訊號而非缺陷清單——等價性是工具做不到的人工判斷 |
+
+</details>
+
+
 ---
 
 ## 設定 (Configuration)
@@ -744,7 +754,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2901 個測試）
+# 執行所有測試（2904 個測試）
 pnpm test
 
 # Watch 模式
@@ -757,9 +767,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2901 個測試橫跨 4 大類：
+**測試覆蓋率**：2904 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：2062 tests
-- Contract tests（CLI 輸出 + Skill 格式）：730 tests
+- Contract tests（CLI 輸出 + Skill 格式）：733 tests
 - Integration tests：43 tests
 - E2E tests：66 tests
 

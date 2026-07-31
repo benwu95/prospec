@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2901%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2904%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -697,6 +697,16 @@ knowledge:
 
 </details>
 
+<details>
+<summary>Mutation testing (on-demand audit — NOT a gate)</summary>
+
+| Command | Description |
+|---------|-------------|
+| `pnpm mutate <path>` | **On-demand deep audit, deliberately not a gate and not in CI.** Runs Stryker mutation testing over that path (a path is required) and reports its mutation score plus the surviving mutants — the one signal a test suite cannot give itself, since the mutations a suite is verified against are otherwise chosen by whoever wrote the assertions. Measured here: `src/lib/date-utils.ts` = 2 mutants over a 57-test dependent suite (net 0.08s) → **4s**; `src/lib/task-markers.ts` = 57 mutants over a 416-test dependent suite (net 54.2s) → **9m09s**, score 89.47. Cost is the **product** of two things, and neither alone predicts it: how many mutants are **static** (26 of 57 here — they sit in module-level code, so the module reloads and `coverageAnalysis` cannot narrow them), times **how big the module's dependent suite is** (what one un-narrowed run costs). `--ignoreStatic` takes that same run to **63.8s, 8.6× faster** — but it is not a free win: those 26 mutants then go untested and report as survived, dropping the score to 45.61, so use it to iterate, not to quote a number. The 11 timeouts are not margin: Stryker's ceiling is `timeoutFactor`(1.5) × netTime + `timeoutMS` + overhead, and a static mutant's netTime is the whole suite, so the ceiling here is ~144s against a ~54s normal run. All 11 are regex mutants that **widen** what the pattern accepts, so `parseTaskLine` starts accepting lines it should reject and the fixture-driven consumers do enough extra work to exceed it. Stryker scores a timeout as *killed*, so a loaded machine reports a **higher** score — never compare scores across machines. Budget by *module-level constants × how much of the suite reaches the module*. Surviving mutants are a signal to read, not a defect list — equivalence is a human judgment the tool cannot make |
+
+</details>
+
+
 ---
 
 ## Configuration
@@ -777,7 +787,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2901 tests)
+# Run all tests (2904 tests)
 pnpm test
 
 # Watch mode
@@ -790,9 +800,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2901 tests across 4 categories:
+**Test Coverage**: 2904 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 2062 tests
-- Contract tests (CLI output + Skill format): 730 tests
+- Contract tests (CLI output + Skill format): 733 tests
 - Integration tests: 43 tests
 - E2E tests: 66 tests
 

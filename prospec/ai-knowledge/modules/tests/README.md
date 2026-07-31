@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 137 test files, 2,901 tests (unit 2062, contract 730, integration 43, e2e 66)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 137 test files, 2,904 tests (unit 2062, contract 733, integration 43, e2e 66)); tests every source module.
 
 <!-- prospec:auto-start -->
 
@@ -46,6 +46,7 @@
 - Contract assertions must be section-scoped AND structure-aware (PB-001) — bare `toContain` over a whole doc yields false-greens; mutation-verify new assertions.
 - A `--dry-run` command needs a "writes NOTHING" pin, not just an output assertion: snapshot the tree before and after, since a flag bound to the wrong Commander scope still prints the preview while writing.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
+- `pnpm mutate <path>` runs Stryker as an on-demand audit — never a gate, never in CI (a contract test pins that by enumerating every workflow file). A path is required. Cost = (static mutants) × (dependent-suite runtime), and neither factor alone predicts it: `date-utils` 2 mutants over 57 tests (net 0.08s) → 4s; `task-markers` 57 mutants (26 static — module-level regex constants defeat `coverageAnalysis`) over 416 tests (net 54.2s) → 9m09s. `--ignoreStatic` gives 63.8s (8.6×) at the cost of leaving those 26 untested and scored as survived (89.47 → 45.61). Timeouts score as killed, so a loaded machine reports a higher score. `tests per mutant` is bistable here (5.00 vs 1.00 on identical runs) — do not build an argument on it. Surviving mutants need human equivalence judgment.
 - v8 instrumentation slows the real-temp-dir git suites past vitest's 5s default: bare `pnpm test:coverage` times out ~7 passing tests. Raise `--testTimeout`; a plain `pnpm test` is the authority on pass/fail.
 - `vi.mock()` is hoisted — dynamic import paths don't resolve inside the mock factory.
 - Tests ARE type-checked: `pnpm typecheck` runs `tsc -p tsconfig.typecheck.json` (includes `tests/` + `scripts/`, `rootDir:"."`+`noEmit`) — a test-file type error fails the gate. Never re-add `tests` to that config's `exclude` (guarded by `tests/contract/typecheck-config.test.ts`); the build `tsc` stays on the base config and emits `src` only.

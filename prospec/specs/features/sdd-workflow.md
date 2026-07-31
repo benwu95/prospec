@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 story_count: 30
-req_count: 151
+req_count: 153
 ---
 
 # SDD Workflow
@@ -735,6 +735,25 @@ The dropped-behavior detection is pinned by set-difference fixtures rather than 
 
 ---
 
+
+#### REQ-TEMPLATES-169: mutation claims are named in the finding; vacuous passes are a lens criterion
+A review finding that claims mutation verification NAMES the mutations actually applied and whether each turned the test red. This is a finding-content rule in the review.md format, not a criterion applied to the change: an unnamed mutation set is indistinguishable from none, and the recurring false-green failure is not that verification is skipped but that the mutations are chosen by whoever wrote the assertion, so making the choice visible is what changes the default. Separately, the test-quality lens rates a **vacuous pass** — an assertion whose slice, glob, or collection can be empty while the expectation still holds — as `major`, the same weight as an unmutated assertion class, because a mutation that makes extraction return nothing satisfies such a test.
+- WHEN a finding reports mutation verification, THEN it names the mutations applied and whether each turned the test red
+- WHEN an assertion holds over an empty slice or collection, THEN the test-quality lens rates it `major`
+- WHEN the mutation-naming rule is stated, THEN it sits in the finding format rather than the criteria table, and the table points to it
+
+---
+
+
+#### REQ-TESTS-066: Mutation testing ships as an on-demand audit, pinned as a non-gate
+Mutation testing ships as an on-demand deep audit, never as a gate. `pnpm mutate <path>` runs Stryker over that path — a path is required — and reports the mutation score with its surviving mutants; the config declares its runner plugin explicitly, which pnpm's strict layout requires, and defaults `mutate` to the measured reference module so a bare run stays bounded. Its cost is documented as measured figures with the driver named as a PRODUCT of two factors, neither of which predicts it alone: the number of STATIC mutants (those in module-level code, which force a module reload so per-test coverage analysis cannot narrow them) times the runtime of the module's DEPENDENT SUITE (what one un-narrowed run costs). The documented figures name the machine they were taken on and are cited as ratios, never as portable absolutes — a 2-mutant module over a 57-test suite finishes in seconds while a 57-mutant module, 26 of them static, over a 416-test suite runs into minutes; disabling static mutants makes that second case roughly 8x faster at the cost of leaving those 26 untested and reported as survived, which drops the score by about half. Timeouts arise from the same product, and Stryker scores a timeout as killed, so scores are not comparable across machines. A contract assertion enumerates every file under `.github/workflows/` and fails if any carries a mutation step. Surviving mutants are a signal to read, not a defect list: equivalence is a human judgment the tool cannot make.
+- WHEN `pnpm mutate` is run against a path, THEN it reports that path's mutation score and surviving mutants
+- WHEN the cost is described anywhere, THEN it is measured figures naming the driver as static-mutant count times dependent-suite runtime — cited as ratios with the measuring machine named, never as portable absolutes, never a vague warning, and never resting on the unstable tests-per-mutant figure
+- WHEN any file under the CI workflow directory is generated or present, THEN it carries no mutation step, and a contract assertion enumerating that directory fails if one appears
+- WHEN surviving mutants are reported, THEN the documentation states that equivalence is a human judgment
+
+---
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -1301,6 +1320,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-31 | archive-sync | ADDED REQ-TEMPLATES-169; ADDED REQ-TESTS-066 | REQ-TEMPLATES-169, REQ-TESTS-066 |
 | 2026-07-30 | archive-sync | ADDED REQ-SERVICES-073; ADDED REQ-CLI-032; ADDED REQ-TEMPLATES-168; ADDED REQ-TESTS-064; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-SERVICES-072 | REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064, REQ-TEMPLATES-166, REQ-SERVICES-072 |
 | 2026-07-30 | archive-sync | MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-155 | REQ-TEMPLATES-066, REQ-TEMPLATES-155 |
 | 2026-07-30 | archive-sync | ADDED REQ-SERVICES-072; ADDED REQ-TEMPLATES-166; ADDED REQ-TESTS-060; MODIFIED REQ-CLI-024 | REQ-SERVICES-072, REQ-TEMPLATES-166, REQ-TESTS-060, REQ-CLI-024 |

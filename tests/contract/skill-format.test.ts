@@ -1918,6 +1918,93 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
   });
 });
 
+// Version-controlled baseline of the test-quality criteria table. Changing this
+// list is the deliberate act of changing what the lens grades; adding a row
+// without touching it fails, which is the point — the mutation-naming rule was
+// once a row here and belongs in review-format.md instead.
+const TEST_QUALITY_CRITERIA = [
+  'A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard)',
+  'Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing',
+  'A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red)',
+  'An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`)',
+];
+
+describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-169, REQ-TESTS-066)', () => {
+  it('the mutation-naming rule governs the reviewer\'s output, not the change', () => {
+    // A criteria row states a property of the diff and carries a severity the
+    // reviewer files against it. "Name your mutations" is a property of the
+    // reviewer's own finding, so it lives in the finding format instead — a row
+    // in the criteria table would carry a severity with nothing to file it on.
+    const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+    const findingFormat = sectionOf(format, '## review.md Format');
+    expect(findingFormat).toMatch(/name the mutations/i);
+    expect(findingFormat).toMatch(/indistinguishable from none/i);
+
+    const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+
+    // Freeze the ROW SET, not one phrasing. A negative grep for "name the
+    // mutations" is escaped by rewording it to "list the mutations" — the
+    // defect returns and nothing fails. The criteria table is a closed set:
+    // adding any row at all, however worded, breaks this baseline.
+    const criteria = section
+      .split('\n')
+      .filter((l) => /^\|/.test(l) && !/^\|\s*-+/.test(l) && !/\|\s*Criterion\s*\|/i.test(l))
+      .map((l) => l.split('|')[1]?.trim());
+    expect(criteria, 'criteria table not found — an empty set satisfies any baseline').toHaveLength(
+      TEST_QUALITY_CRITERIA.length,
+    );
+    expect(criteria).toEqual(TEST_QUALITY_CRITERIA);
+
+    expect(section, 'the pointer to where the rule does live is the reader\'s only path').toMatch(
+      /review-format\.md/,
+    );
+    // The pointer must name the criterion it belongs to. "the row above" drifts
+    // as rows are added, and lands the reader on whichever row happens to sit
+    // last — a rule about mutation verification attached to a different row.
+    expect(section, 'the pointer must name its referent, not point positionally').toMatch(
+      /mutation-verified\*\* criterion/,
+    );
+    expect(section).not.toMatch(/the row above/i);
+  });
+
+  it('the test-quality lens names the vacuous-pass shape at major', () => {
+    const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+    const row = section.split('\n').find((l) => /vacuously/i.test(l));
+    expect(row, 'vacuous-pass row not found in the criteria table').toBeDefined();
+    expect(row).toMatch(/\|\s*major/i);
+    // The row must state the mechanism, not just the label — "can be empty and
+    // the expectation still holds" is what makes it checkable.
+    expect(row).toMatch(/empty/i);
+  });
+
+  it('no CI workflow carries a mutation step — the non-gate decision, pinned', () => {
+    // Measured cost: 9m09s for one module (26 static mutants x a 416-test
+    // dependent suite). A gate at that price gets switched off rather than
+    // satisfied, so "not in CI" is a design decision — and a decision nothing
+    // pins is a sentence in a document that anyone can quietly reverse.
+    const workflow = renderTemplate('init/prospec-check.yml.hbs', TEMPLATE_CONTEXT);
+    expect(workflow).not.toMatch(/stryker|mutation|mutate/i);
+
+    // Enumerate the directory rather than naming one file: ci.yml is the actual
+    // gate (lint/typecheck/build/test:coverage) and so is where a mutation step
+    // would most plausibly be added. A future workflow is covered on arrival.
+    const workflowDir = path.join(__dirname, '../../.github/workflows');
+    const shipped = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+    // The vacuity guard is naming the file that must be there, not counting to
+    // a magic number: a count pinned at today's total fires on a legitimate
+    // workflow merge while reporting "none found".
+    expect(shipped, 'ci.yml missing — an empty or filtered-out set passes vacuously').toContain(
+      'ci.yml',
+    );
+    for (const file of shipped) {
+      const body = fs.readFileSync(path.join(workflowDir, file), 'utf-8');
+      expect(body, `${file} carries a mutation step`).not.toMatch(/stryker|mutation|mutate/i);
+    }
+  });
+});
+
 describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
   it('Phase 3.5 step 0 introduces BOTH worklists, and never leaves "already landed" unqualified', () => {
     // The gate assertion below slices only the gate, so without this the whole
