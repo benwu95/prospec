@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -178,6 +178,52 @@ describe('feature specs listing and reads', () => {
   });
 });
 
+describe('contained read is single-sourced (REQ-MCP-006 / REQ-LIB-014)', () => {
+  // Behaviour cannot pin this: a second copy that happens to agree today is
+  // invisible until it drifts — which is exactly what happened (drift-sources
+  // forgave read failures, knowledge-reader threw). So the guard is structural,
+  // scoped to the delegating function's own body.
+  const readSource = (rel: string): string =>
+    readFileSync(path.resolve(process.cwd(), rel), 'utf-8');
+
+  it('wraps the contained read itself, not merely the realpath resolution', () => {
+    const reader = readSource('src/lib/knowledge-reader.ts');
+    const helper = /export function readContained\(([\s\S]*?)\n}/.exec(reader);
+    expect(helper, 'readContained not found in knowledge-reader').not.toBeNull();
+    // the read must sit INSIDE a try — asserting a bare `catch` anywhere in the
+    // function passes on the realpath guard alone and says nothing about the read
+    expect(helper![0]).toMatch(/try \{\s*return \{ ok: true, text: readFileSync\(/);
+  });
+
+  it('keeps every drift-sources file read behind a non-throwing wrapper', () => {
+    const sources = readSource('src/lib/drift-sources.ts');
+    // A frozen budget, not a per-function scan: a NEW second read implementation
+    // anywhere in the file bumps this count, which is precisely the drift the
+    // per-function guard let through. Each surviving site is enumerated below.
+    const reads = [...sources.matchAll(/readFileSync\(/g)].length;
+    expect(
+      reads,
+      'a new readFileSync in drift-sources must go through readTextOrSkip / readContainedText — ' +
+        'update this baseline only when you have re-argued the failure mode',
+    ).toBe(3);
+    // the three: readTextOrSkip's own wrapped read, computeChangeDigest's hash
+    // read (already try-wrapped), and the metadata read (already try-wrapped)
+    for (const fn of ['function readTextOrSkip', 'function computeChangeDigest']) {
+      expect(sources, `${fn} is expected to own one of the enumerated reads`).toContain(fn);
+    }
+  });
+
+  it('has drift-sources delegate the contained read instead of re-implementing it', () => {
+    const sources = readSource('src/lib/drift-sources.ts');
+    const fn = /function readContainedFile\([\s\S]*?\n}/.exec(sources);
+    expect(fn, 'readContainedFile not found in drift-sources').not.toBeNull();
+    expect(fn![0]).toContain('readContainedText(');
+    expect(fn![0], 'a second read implementation reopens the drift').not.toContain('readFileSync');
+    // the containment predicate is shared too — the third copy PB-006 named
+    expect(sources).toContain('isContainedPath(abs, cwd)');
+  });
+});
+
 describe('loadModuleMap (moved from check.service, REQ-MCP-006)', () => {
   it('returns null when module-map.yaml is missing', () => {
     expect(loadModuleMap(kp(), tmpDir)).toBeNull();
@@ -194,6 +240,23 @@ describe('loadModuleMap (moved from check.service, REQ-MCP-006)', () => {
   it('throws loudly on an invalid map (never silent fallback)', () => {
     write('knowledge/module-map.yaml', 'modules:\n  - paths: [src/lib]\n');
     expect(() => loadModuleMap(kp(), tmpDir)).toThrow(ModuleDetectionError);
+  });
+
+  it('is LOUD when the map passes containment but cannot be READ (never a silent ruleset swap)', () => {
+    // A directory wearing the map's name: containment passes (it is inside the
+    // tree), so the READ is what fails. For the GOVERNANCE loader that must stay
+    // loud — reading it as "no map" hands dependency-direction to the Constitution
+    // fallback ruleset while the file sits right there. The raw content surface
+    // stays graceful: it serves text, it does not pick rulesets.
+    mkdirSync(path.join(kp(), 'module-map.yaml'), { recursive: true });
+    expect(() => loadModuleMap(kp(), tmpDir)).toThrow(ModuleDetectionError);
+    expect(readModuleMapRaw(kp())).toBeNull();
+  });
+
+  it('is LOUD for an unreadable feature-map too (same governance rule)', () => {
+    mkdirSync(path.join(kp(), 'feature-map.yaml'), { recursive: true });
+    expect(() => loadFeatureMap(kp())).toThrow(ModuleDetectionError);
+    expect(readFeatureMapRaw(kp())).toBeNull();
   });
 
   it('treats a module-map symlinked outside the root as missing on every surface', () => {

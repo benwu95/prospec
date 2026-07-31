@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -173,10 +173,51 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     expect(l2Paths).toEqual(['prospec/ai-knowledge/modules/lib/README.md']);
   });
 
+  it('reads a knowledge file that passes containment but cannot be read as absent, and keeps going', () => {
+    write('prospec/ai-knowledge/modules/types/README.md', 'B'.repeat(8));
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/_shared'), { recursive: true });
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib'), { recursive: true });
+    // realpath stays INSIDE the tree, so containment passes and the read itself
+    // fails (EISDIR) — the one shape that used to abort the whole check run
+    symlinkSync(
+      path.join('..', '..', '_shared'),
+      path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
+    );
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.available).toBe(true);
+    expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
+      'prospec/ai-knowledge/modules/types/README.md',
+    ]);
+  });
+
+  it('reads an L1 convention that cannot be read as absent (the readContainedFile path)', () => {
+    // L1 goes through drift-sources' own readContainedFile, not readModuleReadme —
+    // the delegating path needs its own behavioural case, not just a source-text guard.
+    write('prospec/index.md', 'A'.repeat(40));
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/_conventions.md'), { recursive: true });
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.available).toBe(true);
+    expect(src.items.map((i) => i.source_path)).toEqual(['prospec/index.md']);
+  });
+
+  it('still refuses a knowledge file whose realpath escapes the tree', () => {
+    write('outside/secret.md', 'S'.repeat(40));
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib'), { recursive: true });
+    symlinkSync(
+      path.join('..', '..', '..', '..', 'outside', 'secret.md'),
+      path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
+    );
+
+    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    expect(src.items.filter((i) => i.kind === 'l2')).toEqual([]);
+  });
+
   it('skips a DIRECTORY named like a knowledge file instead of dying on it', () => {
-    // The directory guard is what stops this reaching a reader: `README.md` goes to
-    // readTextIfExists, whose readFileSync is NOT wrapped, so an EISDIR would escape
-    // and abort the whole check run rather than costing one measurement.
+    // The directory guard stops this before any reader is consulted; the reader's
+    // own "unreadable → absent" rule is the second line of defence, pinned by the
+    // contained-read cases above.
     mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'), { recursive: true });
     write('prospec/ai-knowledge/modules/lib/api-surface.md', 'Y'.repeat(8));
 
@@ -185,6 +226,46 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
       'prospec/ai-knowledge/modules/lib/api-surface.md',
     ]);
   });
+});
+
+describe('enumerated reads survive a pathological entry (never abort the run)', () => {
+  // Each of these collectors is evaluated as an argument to runChecks(...), so a
+  // throw here took all thirteen other verdicts with it. A directory wearing a
+  // `.md` name is the cheapest way to make the read — not the walk — fail.
+  it('collectReqDefinitions skips a directory wearing a spec filename', () => {
+    write('specs/features/real.md', '#### REQ-LIB-001: Real\n');
+    mkdirSync(path.join(tmpDir, 'specs/features/oops.md'), { recursive: true });
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual(['REQ-LIB-001']);
+  });
+
+  it('collectTaskStates skips a change whose tasks.md is a directory', () => {
+    write('.prospec/changes/good/tasks.md', '- [x] T1 done\n');
+    mkdirSync(path.join(tmpDir, '.prospec/changes/bad/tasks.md'), { recursive: true });
+    const r = collectTaskStates(tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.changes.map((c) => c.name)).toEqual(['good']);
+  });
+
+  // These two walk their roots through the glob scanner, which sets `onlyFiles`
+  // — a directory never reaches their read, so the fixture must be a real FILE
+  // whose read fails. chmod(0o000) does not revoke read access on Windows, so the
+  // fixture is unbuildable there and the case is POSIX-gated (its siblings above
+  // cover the same skip on every platform).
+  it.skipIf(process.platform === 'win32')(
+    'collectMarkdownLinks and collectReqReferences skip a file they cannot read',
+    () => {
+      write('specs/features/real.md', '[ok](./real.md) REQ-LIB-001\n');
+      write('specs/features/locked.md', '[bad](./missing.md) REQ-LIB-999\n');
+      chmodSync(path.join(tmpDir, 'specs/features/locked.md'), 0o000);
+      const roots = ['specs'];
+
+      const links = collectMarkdownLinks(roots, tmpDir);
+      expect(links.available).toBe(true);
+      // the unreadable file's broken link is never reported — it was never read
+      expect(links.links.map((l) => l.raw_target)).toEqual(['./real.md']);
+      expect(collectReqReferences(roots, tmpDir).map((r) => r.id)).toEqual(['REQ-LIB-001']);
+    },
+  );
 });
 
 describe('collectReqDefinitions', () => {
