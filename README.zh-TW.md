@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2822%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2904%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -477,6 +477,8 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 >
+> 工作流程取決於 harness 的 Skills——目前是 `/prospec-review` 與 `/prospec-verify`——會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+>
 > 你的編輯是安全的：entry 配置帶有 `prospec:auto` / `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只更新 auto 區塊，並保留你寫在 user 區塊的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時遷入 user 區塊，而非被覆蓋。
 >
 > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
@@ -520,7 +522,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec |
 | `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md |
 | `prospec status` | **唯讀**的決定論 SDD 路由 —— 回報每個進行中變更的 current node、建議下一站、blocking gates 與理由。即 `_status-lifecycle.md` 的可執行版本（含 quick 的 story→tasks 跳站、backfill 的 `implemented` 入口、以及無狀態轉換的 design/review 站）；metadata 格式錯誤會逐變更回報，絕不中斷 |
-| `prospec archive <name...> [--dry-run]` | 對 **verified** 變更執行決定論封存 mutation：搬移至 `.prospec/archive/{date}-{name}/`、產生 summary scaffold、執行機械式 Feature Spec sync、寫入 `status: archived`，並重建 `product.md` + `feature-map.yaml`（no-clobber／non-fatal 語義不變）。`--dry-run` 列出全部預定 mutation 而不寫入；具名目標不可封存時回報 `refused`/`not found`（exit 1），絕不靜默略過。spec sync 永不清空既有 REQ body——只有 delta-spec 的 `**Spec:**` 區塊會取代它——被刻意保留的 REQ 一律列在 stderr 成為畢業工作清單（`--quiet` 下仍可見，且不影響 exit code）。由 `/prospec-archive` 驅動，skill 保留判斷面工作（Entry Gate、Review & Verify summary、REQ 語意畢業） |
+| `prospec archive <name...> [--dry-run]` | 對 **verified** 變更執行決定論封存 mutation：搬移至 `.prospec/archive/{date}-{name}/`、產生 summary scaffold、執行機械式 Feature Spec sync、寫入 `status: archived`，並重建 `product.md` + `feature-map.yaml`（no-clobber／non-fatal 語義不變）。`--dry-run` 列出全部預定 mutation 而不寫入；具名目標不可封存時回報 `refused`/`not found`（exit 1），絕不靜默略過。spec sync 永不清空既有 REQ body——只有 delta-spec 的 `**Spec:**` 區塊會取代它——並在 stderr 列出**兩份**工作清單（`--quiet` 下仍可見，且不影響 exit code）：被刻意保留 body 的 REQ（待人工收斂），以及 body 被 `**Spec:**` 區塊取代的 REQ 及該區塊漏掉的既有 `WHEN/THEN` bullet——因為取代 body 會靜默丟掉新 body 沒有重述的部分。由 `/prospec-archive` 驅動，skill 保留判斷面工作（Entry Gate、Review & Verify summary、REQ 語意畢業） |
 | `prospec archive finalize <name> [--dry-run]` | 封存的**後置**步驟（在 summary 覆寫＋REQ 畢業之後執行）：把最終 summary.md 複製到 `specs/_archived-history/`（入版控的稽核軌跡），並依最終文本對帳每份 feature spec 的 frontmatter `story_count`/`req_count`；summary.md 仍是 scaffold 樣板時拒絕執行 |
 
 | `prospec change scale <quick\|standard\|full\|backfill> [--change <name>]` | 寫入使用者確認的複雜度 scale（保留註解的就地編輯） |
@@ -631,7 +633,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／module README 對照其 token 與行數預算，恆 WARN 級）、review provenance（implemented 變更須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊，以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／module README 對照其 token 與行數預算，恆 WARN 級）、review provenance（implemented 變更須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊、artifact language（變更工件的**散文**通篇不帶專案 artifact language 的字跡——判定前先剝除 fenced code——恆 WARN 級；該語言不在名稱→書寫系統對照表中、或 scope root 不可讀／位於 repo 外時，帶原因 skip），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
 | `prospec check --record-tests [--change <name>]` | 執行專案測試指令（`tech_stack.test_command`；未設時，僅當 package.json 宣告 test script 才回退 `<package_manager> test`，兩者皆無則誠實回報、絕不猜測）並把 `{command, exit_code, digest, date}` 寫進該變更的 `metadata.yaml`。這是 `/prospec-verify` 測試維度的裁決依據——測試結果成為機器事實，而非 agent 自陳。指令以 argv 切分、**不經 shell** 執行；無法誠實執行時（無指令、Windows 上的 `.cmd`／`.bat` shim —— Node 拒絕無 shell 執行之、非 git repo、逾時）不寫入任何紀錄，並各自回報原因且該 check 為 `skipped`，絕不留下任何設定都清不掉的 FAIL。唯一例外：先前**已記錄的非零退出碼即使指令事後變得不可解析仍判 FAIL** —— 已知紅燈是事實，缺指令抑制不了它 |
 | `prospec check --escaped-defects [--json]` | 依 `introduced_by` 登記聚合各 gate 的 escaped-defect 率，橫跨 `.prospec/changes/` 與 `.prospec/archive/`——目前唯一針對 gate 本身的 ground-truth 準確度訊號。屬報表模式而非檢項：不產 finding、不影響 `--strict`。無登記樣本時明說無樣本，而不是輸出 0% 漏失率 |
 | `prospec check --record-review [--change <name>]` | 記錄該變更的 review 基線（程式 digest），供 `review-provenance` 證明 review 跑過且仍對應現行程式 |
@@ -661,6 +663,16 @@ knowledge:
 `prospec init` 會把這三欄 seed 進新專案的 `.prospec.yaml`，一開始就顯式可調；刪掉的欄位回退預設。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code）。
 
 </details>
+
+<details>
+<summary>Mutation testing（隨選稽核——非閘門）</summary>
+
+| 指令 | 說明 |
+|------|------|
+| `pnpm mutate <path>` | **隨選深度稽核，刻意不做閘門、不進 CI。** 以 Stryker 對該路徑執行 mutation testing（路徑為必填），回報 mutation score 與存活 mutant——這是測試套件無法自我提供的訊號，因為驗證所用的變異平時由寫斷言的同一個人挑選。本 repo 實測：`src/lib/date-utils.ts` ＝ 2 個 mutant、依賴套件 57 個測試（net 0.08 秒）→ **4 秒**；`src/lib/task-markers.ts` ＝ 57 個 mutant、依賴套件 416 個測試（net 54.2 秒）→ **9 分 09 秒**，score 89.47。成本是兩者的**乘積**，任一項單獨都無法預測：有多少 mutant 是 **static**（此處 57 個中 26 個——它們位於模組層級程式碼，故模組必須重載，`coverageAnalysis` 無法收斂），乘以**該模組依賴套件有多大**（一次未收斂的執行要多久）。`--ignoreStatic` 可把同一次執行壓到 **63.8 秒、快 8.6 倍**——但不是免費的：那 26 個 mutant 隨即未被測試且回報為存活，score 掉到 45.61，故它適合用來迭代，不適合用來引用數字。11 個逾時**不是**餘裕不足：Stryker 的上限為 `timeoutFactor`(1.5) × netTime ＋ `timeoutMS` ＋ overhead，而 static mutant 的 netTime 是整個未收斂套件，故此處上限約 144 秒，正常執行約 54 秒遠低於它。11 個全是**放寬**匹配範圍的 regex mutant（去掉錨點、`\s+`→`\s`、`{0,3}`→`{}`），使 `parseTaskLine` 開始接受本該拒絕的行，下游以真實 fixture 驅動的消費者因而多做到超過上限。而 Stryker 將逾時計為 *killed*，故負載較重的機器回報的 score 反而**較高**——切勿跨機器比較 score。估算請以「模組層級常數 × 有多少套件觸及該模組」為準。存活 mutant 是待讀的訊號而非缺陷清單——等價性是工具做不到的人工判斷 |
+
+</details>
+
 
 ---
 
@@ -723,7 +735,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（65 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（66 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 19 個 reference 範本
 ```
 
@@ -742,7 +754,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2822 個測試）
+# 執行所有測試（2904 個測試）
 pnpm test
 
 # Watch 模式
@@ -755,9 +767,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2822 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：1993 tests
-- Contract tests（CLI 輸出 + Skill 格式）：720 tests
+**測試覆蓋率**：2904 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2062 tests
+- Contract tests（CLI 輸出 + Skill 格式）：733 tests
 - Integration tests：43 tests
 - E2E tests：66 tests
 

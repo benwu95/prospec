@@ -131,6 +131,15 @@ Applies when the change adds or edits tests (esp. contract/structural assertions
 | A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard) | major (false-green risk) |
 | Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing | major |
 | A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red) | major (an unmutated assertion may be a tautology) |
+| An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`) | major (the recurring shape: a mutation that makes extraction return nothing satisfies the test) |
+
+> Applying the mutations that the **mutation-verified** criterion demands is the
+> reviewer's own work, so what the reviewer must write down about it — naming
+> each mutation and whether it turned the test red — is a **finding-content**
+> rule, not a criterion applied to the change. It lives in `review-format.md`
+> § review.md Format, and it is deliberately not a row here: a row carries a
+> severity, and severity is the weight of a finding raised **against the
+> change**, which leaves nothing to file it on.
 
 ---
 

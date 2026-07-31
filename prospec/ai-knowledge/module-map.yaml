@@ -197,8 +197,8 @@ modules:
     rationale: "Thin I/O layer: no business logic, delegates to services"
 
   - name: templates
-    description: "Handlebars template library — 17 skills + 6 shared partials, 21
-      references, 1 agent-config, 4 change, 15 init/knowledge (65 `.hbs`
+    description: "Handlebars template library — 17 skills + 7 shared partials, 21
+      references, 1 agent-config, 4 change, 15 init/knowledge (66 `.hbs`
       templates) — the source of every generated skill, README, and index; every
       skill delegates its deterministic steps to the CLI behind the shared
       `_cli-probe` partial."
@@ -243,8 +243,8 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
 
   - name: tests
-    description: 4-layer test suite — 135 files, 2,822 tests (unit 1993 + contract
-      720 + integration 43 + e2e 66). Validates every module — format contracts,
+    description: 4-layer test suite — 137 files, 2,904 tests (unit 2062 + contract
+      733 + integration 43 + e2e 66). Validates every module — format contracts,
       the cli-first probe + station-command contracts, the drift engine, token
       corpus, and the MCP protocol over in-memory transport.
     paths:

@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-30
-story_count: 29
-req_count: 147
+last_updated: 2026-07-31
+story_count: 30
+req_count: 153
 ---
 
 # SDD Workflow
@@ -250,8 +250,11 @@ Core Workflow **Step 0** runs `prospec check --record-tests` — after the Entry
 - WHEN a principle's inventory severity is `null`, THEN grade it by judgment (backward-compatible with a free-text Constitution)
 
 #### REQ-TEMPLATES-155: Verify 2/5 and 6 require fresh context, with degradation disclosed
-Both judgment dimensions are graded by an independent reviewer that does not share the implementation's context — a grader that just implemented the change validates its own reasoning, not the change against the spec. When the harness cannot spawn one, the skill offers the degraded path and records the disclosure WARN; the NEVER list forbids grading them silently in-session.
+Both judgment dimensions are graded by an independent reviewer that does not share the implementation's context — a grader that just implemented the change validates its own reasoning, not the change against the spec. The degraded path offers a fresh single-pass review or the harness's own reviewer command, and only when neither is available does 2/5 grade in-session and record the disclosure WARN; the NEVER list forbids grading them silently in-session. Whether the harness can provide fresh context is not the skill's judgment: 2/5's harness section renders from the shared `harness-capabilities` partial against the sync-resolved capability flags, with verify supplying only its own degraded action, and dimension 6 cross-references 2/5 instead of restating it.
 - WHEN `scale: quick`, THEN 2/5 stays `not-applicable` — neither the mechanization nor the fresh-context requirement turns it into a FAIL
+- WHEN 2/5 is rendered, THEN its harness wording comes from the shared partial, not from verify-specific capability prose
+- WHEN no fresh context is available, THEN 2/5 is graded in-session and the disclosure WARN is recorded on that branch
+- WHEN dimension 6 degrades, THEN it points at 2/5's disclosure rather than carrying a second copy
 
 #### REQ-TEMPLATES-156: review / verify division of labour stated once
 `/prospec-review` is open-ended defect discovery (unbounded search, necessarily probabilistic); `/prospec-verify` is closed-ended contract checking (bounded comparison, mechanical wherever an oracle exists). The statement lives **only** in `prospec-verify`; `prospec-review` keeps a one-line pointer and its own major→WARN contract, and its spec-architecture lens covers REQ *contradiction* while completeness stays verify's 2/5.
@@ -339,23 +342,23 @@ The `prospec-archive` skill's deterministic phases delegate to `prospec archive`
 - WHEN `prospec archive finalize` refuses, THEN the skill reads it as "the summary overwrite is missing" and fixes that, never hand-running the two mutations instead
 
 #### REQ-SERVICES-072: Non-destructive Feature-Spec REQ merge
-`archive.service`'s delta-spec parser carries each REQ's body into `FeatureRoute` — the optional `**Spec:**` landing block plus the `**Description:**` / `**Acceptance Criteria:**` blocks — and `mergeRequirementInPlace` never blanks an authored body. A `**Spec:**` block lands verbatim (function replacer, so `$`-sequences stay literal); without one, a MODIFIED REQ keeps its existing body byte-identical and is reported in `ArchiveResult.pendingConvergence` with its reason. The Description/Acceptance-Criteria fallback is ADDED-only — for MODIFIED those blocks are change narrative, and landing them would overwrite an authored behavior statement with planning prose. A block ends at the next `**Label:**` line, ANY Markdown heading, a `---` rule, or the end of the entry: a heading must never be absorbed, because a landed foreign heading becomes the in-place replacement's own stop boundary and no later sync can remove it. A REMOVED REQ whose active section still stands after deprecation is reported too — `moveReqToDeprecated` only appends a bullet, so the stale body needs a human.
-- WHEN a MODIFIED route carries a `**Spec:**` block, THEN the REQ's body in the feature spec is replaced by that block verbatim
+`archive.service`'s delta-spec parser carries each REQ's body into `FeatureRoute` — the optional `**Spec:**` landing block plus the `**Description:**` / `**Acceptance Criteria:**` blocks — and `mergeRequirementInPlace` never blanks an authored body. A `**Spec:**` block lands verbatim (function replacer, so `$`-sequences stay literal); without one, a MODIFIED REQ keeps its existing body byte-identical and is reported in `ArchiveResult.pendingConvergence` with its reason. When a landing block DOES replace a body, the bullets it discards are reported separately in `droppedBehavior` — not blanking a body is not the same as not losing behavior. The Description/Acceptance-Criteria fallback is ADDED-only — for MODIFIED those blocks are change narrative, and landing them would overwrite an authored behavior statement with planning prose. A block ends at the next `**Label:**` line, ANY Markdown heading, a `---` rule, or the end of the entry: a heading must never be absorbed, because a landed foreign heading becomes the in-place replacement's own stop boundary and no later sync can remove it. A REMOVED REQ whose active section still stands after deprecation is reported too — `moveReqToDeprecated` only appends a bullet, so the stale body needs a human.
+- WHEN a MODIFIED route carries a `**Spec:**` block, THEN the REQ's body in the feature spec is replaced by that block verbatim, and any existing `WHEN/THEN` bullet the block does not carry is reported in `droppedBehavior`
 - WHEN a MODIFIED route carries no `**Spec:**` block — including one that carries `**Description:**`/`**Acceptance Criteria:**` — THEN the existing body survives byte-identical (only the title line is refreshed) and the REQ appears in `pendingConvergence`
 - WHEN an ADDED route carries a `**Spec:**` block or `**Description:**`/`**Acceptance Criteria:**`, THEN the landed REQ has a body — never title-only
 - WHEN a `**Spec:**` block is followed by a Markdown heading, THEN nothing from that heading onward is landed
 - WHEN a REMOVED route's `#### {reqId}:` section still exists after deprecation, THEN the REQ appears in `pendingConvergence`
 - WHEN a landed body contains `$&` or `$1`, THEN those characters land literally
-- WHEN running with `dryRun`, THEN `pendingConvergence` is reported and no file is written
+- WHEN running with `dryRun`, THEN `pendingConvergence` and `droppedBehavior` are reported and no file is written
 
 ---
 
 #### REQ-TEMPLATES-166: delta-spec `**Spec:**` landing-block contract
-`references/delta-spec-format` defines the `**Spec:**` block as the REQ body that lands verbatim in the Feature Spec — spec form (a 1-2 sentence statement plus `- WHEN …, THEN …` bullets), written in the target Feature Spec's language, not the change-artifact language. It is REQUIRED for a MODIFIED entry (its absence means the CLI preserves the old body and reports the REQ instead of replacing it) and optional for ADDED (which falls back to Description + Acceptance Criteria). The reference also states where the block ENDS — next `**Label:**`, any Markdown heading, a `---`, or the entry's end — so "verbatim" carries its own exclusion rather than truncating silently. Because the block's content crosses into the trust zone verbatim, the generated Language Policy rule (`lib/language-policy`) carries it as a named reverse exception: English inside the change-artifact zone. The `prospec-archive` skill's graduation phase reads `pendingConvergence` as its worklist rather than re-reading every touched spec.
-- WHEN reading the generated delta-spec-format reference, THEN the `**Spec:**` block is defined for ADDED and MODIFIED, with the preserve-and-report fallback, the language rule, and the block's end boundary stated
-- WHEN reading the generated `prospec-archive` SKILL.md, THEN the graduation phase names `pendingConvergence` as its convergence worklist
+`references/delta-spec-format` defines the `**Spec:**` block as the REQ body that lands verbatim in the Feature Spec — spec form (a 1-2 sentence statement plus `- WHEN …, THEN …` bullets), written in the target Feature Spec's language, not the change-artifact language. It is REQUIRED for a MODIFIED entry (its absence means the CLI preserves the old body and reports the REQ instead of replacing it) and optional for ADDED (which falls back to Description + Acceptance Criteria). The reference also states where the block ENDS — next `**Label:**`, any Markdown heading, a `---`, or the entry's end — so "verbatim" carries its own exclusion rather than truncating silently, and it tells the author to write the RESULTING requirement rather than the delta, because for MODIFIED the block replaces the whole body and an ADDED entry reusing an existing REQ id is reported by neither worklist. Because the block's content crosses into the trust zone verbatim, the generated Language Policy rule (`lib/language-policy`) carries it as a named reverse exception: English inside the change-artifact zone. The `prospec-archive` skill's graduation phase reads BOTH CLI worklists — `pendingConvergence` (body kept, converge it) and `droppedBehavior` (body replaced, confirm what the block omitted) — rather than re-reading every touched spec.
+- WHEN reading the generated delta-spec-format reference, THEN the `**Spec:**` block is defined for ADDED and MODIFIED, with the preserve-and-report fallback, the language rule, the block's end boundary, and the write-the-result-not-the-delta instruction stated
+- WHEN reading the generated `prospec-archive` SKILL.md, THEN the graduation phase names both worklists — the graduation worklist and the dropped-behavior report — rather than a single one
 - WHEN the Constitution's Language Policy rule is generated, THEN it names the `**Spec:**` block as a change-artifact spot that stays English (`englishExceptions`), so a MUST audit cannot read the required English as a violation
-- WHEN the block definition or the fallback sentence is deleted, THEN a section-scoped contract assertion turns red
+- WHEN the block definition, the fallback sentence, or the write-the-result instruction is deleted, THEN a section-scoped contract assertion turns red
 
 ---
 
@@ -586,10 +589,13 @@ so that critical issues are caught before being graded "deployable", without man
 - WHEN registered, THEN `SKILL_DEFINITIONS` is 12 skills
 
 #### REQ-TEMPLATES-066: Adversarial Review→Fix Loop Skill
-`prospec-review` uses a fresh-context reviewer to review the change diff between implement→verify; reviewer mode B by default / A opt-in; the **spec-architecture lens** (delta-spec REQ / dependency direction / conventions / ripple) is always layered on; a critical is drop-in auto-fixed after an independent verifier confirms it, escalating to a human after the hard cap.
+`prospec-review` uses a fresh-context reviewer to review the change diff between implement→verify; reviewer mode B by default / A opt-in; the **spec-architecture lens** (delta-spec REQ / dependency direction / conventions / ripple) is always layered on; a critical is drop-in auto-fixed after an independent verifier confirms it, escalating to a human after the hard cap. What the harness can do is not the skill's judgment: the harness-degradation section renders from the shared `harness-capabilities` partial against the agent's sync-resolved capability flags, and the skill's own prose supplies only review's degraded action.
 - WHEN rendered, THEN it includes Entry Gate / Reviewer Modes / spec-architecture lens / verifier-confirmed critical / hard cap / escalation / Output Contract + Exit Gate
 - WHEN a critical is reported, THEN auto-fix only when existence-verified; architectural/ambiguous → escalate to a human
 - WHEN findings persist, THEN land them in `review.md` (dedup by Location, take the highest severity, carry forward across rounds)
+- WHEN the skill is rendered, THEN its harness section states the resolved capabilities rather than asking the agent to determine them
+- WHEN `can_spawn_subagent` is false, THEN the rendered skill names the degraded path directly, instructs no spawn anywhere, and offers reviewer mode A only where the flag resolves to yes
+- WHEN review degrades for any reason, THEN the choice is disclosed to the developer — never a silent skip
 
 #### REQ-TEMPLATES-067: Review Severity Contract + review.md Format
 `references/review-format.md` defines the severity criteria and review.md structure. critical = real defect/security + dependency-direction violation + logical contradiction with a delta-spec REQ (completeness left to verify); major = perf/maintainability (does not block, downgraded to WARN, not counted toward grade); nit dropped.
@@ -675,6 +681,76 @@ The Knowledge Quality-Gate table for new-story/plan/tasks/implement converges to
 
 #### REQ-TEMPLATES-140: implement/verify commit semantics unified
 Remove the checkpoint-commit concession parenthetical from `/prospec-verify`, aligning with implement's "commit boundary = single verify S/A commit point"; no commit during implement.
+
+---
+
+
+## US-30: A Landing Block Never Drops Behavior Silently [P1]
+
+As a developer graduating a change into the permanent capability record,
+I want the archive to report the authored `WHEN/THEN` bullets a `**Spec:**` block replaced without restating,
+so that behavior leaving the trust zone is visible at the moment it happens instead of being discovered — or never discovered — much later.
+
+**Acceptance Scenarios:**
+- WHEN a `**Spec:**` block replaces a MODIFIED REQ's body and omits an existing bullet, THEN that bullet is reported under its REQ and the Phase 3.5 gate holds until it is confirmed deliberate or restored
+- WHEN the replacement restates every existing bullet, THEN nothing is reported and no ceremony is added
+- WHEN the replacement carries the same number of bullets as the original but different content, THEN the full set difference is still reported — the detection is a set difference, never a count
+- WHEN a bullet differs only by indentation or reflow, THEN it is not reported as dropped; when one is reported, its text is the source text, so what the author restores is what their file said
+
+### Behavior Specifications
+
+#### REQ-SERVICES-073: Report behavior dropped by a landing block
+`archive.service`'s in-place REQ merge reports the behavior a landing block discards. When a `**Spec:**` block replaces a MODIFIED REQ's body, the skipped body's `WHEN … THEN …` bullets are diffed as a SET against the replacement's bullets — never by count, since an equal-count replacement can still drop every original bullet — and any bullet absent from the replacement is reported per REQ in `SpecSyncResult.droppedBehavior`. This is a non-fatal worklist alongside `pendingConvergence`, whose meaning (body preserved, converge by hand) is deliberately not overloaded. Paragraph-level prose outside bullets is out of scope and is not reported.
+- WHEN a landing block replaces a body and an existing `WHEN/THEN` bullet is absent from it, THEN that bullet is reported under its REQ in `droppedBehavior`
+- WHEN the replacement covers every existing bullet, THEN `droppedBehavior` is empty for that REQ
+- WHEN the replacement has the same number of bullets but different content, THEN the full set difference is still reported
+- WHEN running with `dryRun`, THEN `droppedBehavior` matches a real run and nothing is written
+- WHEN a REQ's existing body carries no bullets, THEN nothing is reported for it
+
+---
+
+
+#### REQ-CLI-032: Archive output lists dropped behavior in full
+`archive-output` renders `droppedBehavior` after the `pendingConvergence` worklist, listing each dropped bullet under its REQ as written in the source (terminal-sanitised, like every other rendered path) — a count alone cannot tell a reader whether the behavior needs restoring. An empty result renders nothing.
+- WHEN `droppedBehavior` is non-empty, THEN each REQ and each dropped bullet's original text is printed
+- WHEN it is empty, THEN no dropped-behavior section is printed
+- WHEN running with `dryRun`, THEN the same REQs and bullets are listed — under `--dry-run` too, phrased as a preview
+
+---
+
+
+#### REQ-TEMPLATES-168: Phase 3.5 gate confirms each dropped bullet
+`/prospec-archive`'s Phase 3.5 gate carries one item for dropped behavior: every bullet the CLI reported as discarded is either confirmed deliberate or restored into the new body before graduation passes. An empty report satisfies the item with no added ceremony.
+- WHEN the CLI reports dropped bullets, THEN graduation does not pass until each one is confirmed or restored
+- WHEN nothing was dropped, THEN the gate item is satisfied automatically
+
+---
+
+
+#### REQ-TESTS-064: Dropped-behavior detection is pinned by set-difference fixtures
+The dropped-behavior detection is pinned by set-difference fixtures rather than counts: a real before/after body from the change that motivated it, an equal-count-different-content case that a count-based check would pass, and a superset case that must report nothing.
+- WHEN the equal-count fixture runs against a count-based implementation, THEN the test fails
+- WHEN the replacement is a superset of the existing bullets, THEN the test asserts an empty report
+- WHEN each new assertion class is mutated, THEN it turns red
+
+---
+
+
+#### REQ-TEMPLATES-169: mutation claims are named in the finding; vacuous passes are a lens criterion
+A review finding that claims mutation verification NAMES the mutations actually applied and whether each turned the test red. This is a finding-content rule in the review.md format, not a criterion applied to the change: an unnamed mutation set is indistinguishable from none, and the recurring false-green failure is not that verification is skipped but that the mutations are chosen by whoever wrote the assertion, so making the choice visible is what changes the default. Separately, the test-quality lens rates a **vacuous pass** — an assertion whose slice, glob, or collection can be empty while the expectation still holds — as `major`, the same weight as an unmutated assertion class, because a mutation that makes extraction return nothing satisfies such a test.
+- WHEN a finding reports mutation verification, THEN it names the mutations applied and whether each turned the test red
+- WHEN an assertion holds over an empty slice or collection, THEN the test-quality lens rates it `major`
+- WHEN the mutation-naming rule is stated, THEN it sits in the finding format rather than the criteria table, and the table points to it
+
+---
+
+
+#### REQ-TESTS-066: Mutation testing ships as an on-demand audit, pinned as a non-gate
+Mutation testing ships as an on-demand deep audit, never as a gate. `pnpm mutate <path>` runs Stryker over that path — a path is required — and reports the mutation score with its surviving mutants; the config declares its runner plugin explicitly, which pnpm's strict layout requires, and defaults `mutate` to the measured reference module so a bare run stays bounded. Its cost is documented as measured figures with the driver named as a PRODUCT of two factors, neither of which predicts it alone: the number of STATIC mutants (those in module-level code, which force a module reload so per-test coverage analysis cannot narrow them) times the runtime of the module's DEPENDENT SUITE (what one un-narrowed run costs). The documented figures name the machine they were taken on and are cited as ratios, never as portable absolutes — a 2-mutant module over a 57-test suite finishes in seconds while a 57-mutant module, 26 of them static, over a 416-test suite runs into minutes; disabling static mutants makes that second case roughly 8x faster at the cost of leaving those 26 untested and reported as survived, which drops the score by about half. Timeouts arise from the same product, and Stryker scores a timeout as killed, so scores are not comparable across machines. A contract assertion enumerates every file under `.github/workflows/` and fails if any carries a mutation step. Surviving mutants are a signal to read, not a defect list: equivalence is a human judgment the tool cannot make.
+- WHEN `pnpm mutate` is run against a path, THEN it reports that path's mutation score and surviving mutants
+- WHEN the cost is described anywhere, THEN it is measured figures naming the driver as static-mutant count times dependent-suite runtime — cited as ratios with the measuring machine named, never as portable absolutes, never a vague warning, and never resting on the unstable tests-per-mutant figure
+- WHEN any file under the CI workflow directory is generated or present, THEN it carries no mutation step, and a contract assertion enumerating that directory fails if one appears
+- WHEN surviving mutants are reported, THEN the documentation states that equivalence is a human judgment
 
 ---
 
@@ -1244,6 +1320,9 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-31 | archive-sync | ADDED REQ-TEMPLATES-169; ADDED REQ-TESTS-066 | REQ-TEMPLATES-169, REQ-TESTS-066 |
+| 2026-07-30 | archive-sync | ADDED REQ-SERVICES-073; ADDED REQ-CLI-032; ADDED REQ-TEMPLATES-168; ADDED REQ-TESTS-064; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-SERVICES-072 | REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064, REQ-TEMPLATES-166, REQ-SERVICES-072 |
+| 2026-07-30 | archive-sync | MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-155 | REQ-TEMPLATES-066, REQ-TEMPLATES-155 |
 | 2026-07-30 | archive-sync | ADDED REQ-SERVICES-072; ADDED REQ-TEMPLATES-166; ADDED REQ-TESTS-060; MODIFIED REQ-CLI-024 | REQ-SERVICES-072, REQ-TEMPLATES-166, REQ-TESTS-060, REQ-CLI-024 |
 | 2026-07-30 | archive-sync | ADDED REQ-CLI-025; ADDED REQ-CLI-028; ADDED REQ-CLI-029; ADDED REQ-CLI-031; ADDED REQ-TEMPLATES-161; ADDED REQ-TEMPLATES-163; ADDED REQ-TEMPLATES-165; ADDED REQ-TESTS-059; MODIFIED REQ-CLI-024; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-153; MODIFIED REQ-TEMPLATES-145; MODIFIED REQ-TEMPLATES-159 | REQ-CLI-025, REQ-CLI-028, REQ-CLI-029, REQ-CLI-031, REQ-TEMPLATES-161, REQ-TEMPLATES-163, REQ-TEMPLATES-165, REQ-TESTS-059, REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-153, REQ-TEMPLATES-145, REQ-TEMPLATES-159 |
 | 2026-07-29 | archive-cli-entry | ADDED REQ-CLI-024; ADDED REQ-SERVICES-071; ADDED REQ-TEMPLATES-159; REQ-SERVICES-064 rationale updated (CLI entry now exists, still no auto knowledge-update) | REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-SERVICES-064 |
@@ -1287,3 +1366,5 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 | 2026-07-28 | enforce-metadata-schema | metadata.yaml enforced as a runtime contract at the four stations that cast it unchecked; single validated read/write helper; bare module names with one shared stripper; dimension vocabulary widened to `not-applicable`; loose-at-every-level schema plus a strict build view | US-27; REQ-TYPES-064, REQ-LIB-031, REQ-SERVICES-067, REQ-TESTS-055 (ADDED); REQ-CHNG-003 (MODIFIED) |
 | 2026-07-28 | split-verify-adjudication | ADDED REQ-TYPES-066, REQ-TEMPLATES-153/154/155/156/157, REQ-TESTS-057 (verify dimensions split between engine adjudication and fresh-context judgment); MODIFIED US-5 acceptance scenarios, REQ-TEMPLATES-034/045/063/145 (machine verdicts adopted verbatim, severities from the machine inventory, adjudicator recorded), REQ-TYPES-022 + REQ-TESTS-022 (dimension vocabulary) (issue #96) | US-5, US-12, REQ-TYPES-066, REQ-TEMPLATES-153, REQ-TEMPLATES-154, REQ-TEMPLATES-155, REQ-TEMPLATES-156, REQ-TEMPLATES-157, REQ-TESTS-057, REQ-TYPES-022, REQ-TEMPLATES-034, REQ-TEMPLATES-045, REQ-TEMPLATES-063, REQ-TEMPLATES-145, REQ-TESTS-022 |
 | 2026-07-29 | add-status-router | Routing as code: read-only `prospec status` computes each in-flight change's current node / next station / blocking gates / reasons — the executable copy of `_status-lifecycle.md` (quick skip, backfill entry, no-status design/review placement, B/C/D stays); entry-config Session Start points at the command (net L0 reduction); MODIFIED REQ-TEMPLATES-099 + US-19 scenario (prose derivation → command); REQ-TEMPLATES-158 graduates in agent-integration (issue #97) | US-28; REQ-TYPES-070, REQ-LIB-035, REQ-SERVICES-070, REQ-CLI-023, REQ-TESTS-058 (ADDED); REQ-TEMPLATES-099 (MODIFIED) |
+| 2026-07-30 | add-harness-capability-flags | prospec-review and prospec-verify stop judging harness capability in prose and render the shared `harness-capabilities` partial against the sync-resolved flags, each supplying only its own degraded action (issue #95) | REQ-TEMPLATES-066, REQ-TEMPLATES-155 (MODIFIED) |
+| 2026-07-30 | report-dropped-req-bullets | archive spec-sync reports the authored `WHEN/THEN` bullets a `**Spec:**` block replaced without restating — a SET difference, never a count — in a `droppedBehavior` worklist distinct from `pendingConvergence`, rendered by the CLI and gated at Phase 3.5; delta-spec-format tells authors to write the resulting requirement, not the delta | US-30; REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064 (ADDED); REQ-SERVICES-072, REQ-TEMPLATES-166 (MODIFIED) |

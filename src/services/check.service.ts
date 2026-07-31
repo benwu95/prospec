@@ -10,6 +10,7 @@ import {
 import { atomicWrite } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
+import { resolveLanguageScope } from '../lib/language-policy.js';
 import type { ProspecConfig } from '../types/config.js';
 import {
   buildDependencyRules,
@@ -18,6 +19,7 @@ import {
   runChecks,
 } from '../lib/drift-checker.js';
 import {
+  collectArtifactLanguage,
   collectConstitutionRules,
   collectFeatureMapGovernance,
   collectGitTimestamps,
@@ -197,6 +199,10 @@ export async function execute(
     testProvenance: collectTestProvenance(cwd, resolveTestCommand(config, cwd), currentDigest),
     // The Constitution path comes from the canonical resolver, never re-derived here.
     constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
+    // Scan set comes from the SAME resolver the Constitution rule is generated
+    // from, and is a deliberate subset of it — it enforces less than the rule
+    // states but can never contradict it.
+    artifactLanguage: collectArtifactLanguage(cwd, resolveLanguageScope(config, cwd)),
     generatedAt: new Date().toISOString(),
   });
   // Stamp the code state the verdicts describe — `verify record` refuses a

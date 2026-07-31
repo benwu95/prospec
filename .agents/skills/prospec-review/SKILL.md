@@ -50,7 +50,7 @@ nondeterministic serialization this contract exists to remove.
 ### Reviewer Modes
 
 - **B — single reviewer, multi-lens (default)**: one fresh-context reviewer covers every must-run lens in a single pass. Token-friendly; independence from the implementer is already satisfied.
-- **A — parallel lenses (opt-in)**: N independent lens agents run concurrently. Use for large or high-risk diffs, or Scale=Full. Higher first-round cost buys maximum inter-lens independence.
+- **A — parallel lenses (opt-in)**: N independent lens agents run concurrently — available only when the capability line below resolves `can_spawn_subagent` to yes; it has no single-context equivalent. Use for large or high-risk diffs, or Scale=Full. Higher first-round cost buys maximum inter-lens independence.
 
 ### Review Lenses
 
@@ -68,8 +68,8 @@ Apply `references/review-format.md`. In short: **critical** blocks the loop and 
 
 ### The Loop
 
-1. Spawn the reviewer (mode B or A) over the change diff. The reviewer reads whole functions/classes and greps ripple, not just diff hunks.
-2. For each reported **critical**, spawn an **independent verifier** to confirm the issue's **existence** — it Reads the code and cites Evidence, marking `[confirmed]` / `[not-found]`. Only confirmed criticals with a concrete, local, drop-in fix are auto-fixed; architectural, large-refactor, or ambiguous fixes are **escalated to the human**, not auto-applied.
+1. Run the reviewer (mode B or A) over the change diff, by the mechanism **Harness Degradation** resolves below. The reviewer reads whole functions/classes and greps ripple, not just diff hunks.
+2. For each reported **critical**, run an **independent verifier** to confirm the issue's **existence** — it Reads the code and cites Evidence, marking `[confirmed]` / `[not-found]`. Only confirmed criticals with a concrete, local, drop-in fix are auto-fixed; architectural, large-refactor, or ambiguous fixes are **escalated to the human**, not auto-applied.
 3. Apply each fix to the **working tree** (no commit), then **re-run `pnpm test`**; the suite must stay green — if a fix turns a test red, roll that fix back and re-decide, never proceed on red.
 4. Re-review (mode B narrow pass) to confirm criticals are resolved with no regression, until **0 unresolved critical** (review-clean).
 5. **Hard cap**: 3 rounds (maximum 5). **Early-stop** if a round resolves 0 new criticals or reverts a previously-applied fix.
@@ -77,7 +77,9 @@ Apply `references/review-format.md`. In short: **critical** blocks the loop and 
 
 ### Harness Degradation
 
-If the execution harness cannot spawn an independent sub-agent, **offer a choice** — use the harness's own reviewer command, or fall back to a single-pass fresh-context review — and say so explicitly. Never silently skip review.
+**Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
+
+Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — offer a choice between the harness's own reviewer command and a single-pass fresh-context review, and let the developer decide — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
 ### Persistence
 
@@ -121,7 +123,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** loop without a hard cap or silently pass unresolved criticals — unbounded retries waste tokens; unresolved criticals must escalate to the human
 - **NEVER** auto-apply an architectural or large-refactor fix — only concrete, local, drop-in fixes are safe to apply unattended; the rest are proposed
 - **NEVER** count major findings in verify's grade — review and verify are separate axes; majors pass as advisory WARN, not as a grade penalty
-- **NEVER** silently skip review when sub-agents are unavailable — offer a degraded path so the developer decides knowingly
+- **NEVER** silently skip review when the capability line says no sub-agents, or when a spawn fails — offer the degraded path so the developer decides knowingly
 - **NEVER** commit during review — the commit boundary is after `/prospec-verify` reaches S/A; review only edits the working tree
 
 ## Error Handling
@@ -130,7 +132,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 |----------|--------|
 | metadata status not `implemented` | Stop; point to `/prospec-implement` to finish tasks first |
 | No change diff vs branch base | Report nothing to review; suggest proceeding to `/prospec-verify` |
-| Sub-agent spawn unavailable | Offer the harness reviewer or single-pass fallback; do not skip |
+| Sub-agent spawn fails at runtime | Offer the harness reviewer or single-pass fallback; do not skip |
 | Fix repeatedly turns tests red | Roll back, mark the critical unresolved, escalate to the human |
 | Reviewer and verify disagree on layering | Keep both — review catches it first, verify re-checks independently; no mutual exemption |
 

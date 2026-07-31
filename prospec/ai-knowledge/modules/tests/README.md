@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 135 test files, 2,822 tests (unit 1993, contract 720, integration 43, e2e 66)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 137 test files, 2,904 tests (unit 2062, contract 733, integration 43, e2e 66)); tests every source module.
 
 <!-- prospec:auto-start -->
 
@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`), service and formatter; heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
-| `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, 18 `references/*.hbs` render/format contracts, and the **CLI-first contract** block — `{{> cli-probe}}` exactly once per skill, the probe STOP sentence single-sourced, `{{minimum_cli_version}}` live (sentinel-injected, no version literal), and a repo-wide negative for forbidden CLI-fallback phrases. Column sets and closed enums rendered, section-scoped, mutation-verified. |
+| `tests/contract/skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, 18 `references/*.hbs` render/format contracts, and the **CLI-first contract** block — `{{> cli-probe}}` exactly once per skill, the probe STOP sentence single-sourced, `{{minimum_cli_version}}` live (sentinel-injected, no version literal), and a repo-wide negative for forbidden CLI-fallback phrases. Also the **harness-capability** block — both `can_spawn_subagent` branches, the partial as single source, a negative for prose that judges harness capability, and deployed `.claude` vs `.agents` SKILL.md divergence. Column sets and closed enums rendered, section-scoped, mutation-verified. |
 | `tests/contract/change-artifact-format.test.ts` | Renders the real `change/proposal.md.hbs` (no mocks) — pins that a module name is bolded exactly once, with a `****` negative. |
 | `tests/contract/{knowledge,cli-output}-format.test.ts`, `init-doc-registry.test.ts`, `mcp-server.test.ts`, `language-policy-scope.test.ts`, `bundled-templates-sync.test.ts` | Output-format + registry + MCP-protocol pins via real `renderTemplate()` / InMemoryTransport; cross-document language-scope agreement; bundle ≡ `src/templates`. |
 | `tests/contract/own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell that lives only in the generated file is a pending revert); and a set-equality ledger of the legacy body-less REQs — shrink-only, so repairing one requires deleting its `LEGACY_BODYLESS` entry. |
@@ -46,6 +46,7 @@
 - Contract assertions must be section-scoped AND structure-aware (PB-001) — bare `toContain` over a whole doc yields false-greens; mutation-verify new assertions.
 - A `--dry-run` command needs a "writes NOTHING" pin, not just an output assertion: snapshot the tree before and after, since a flag bound to the wrong Commander scope still prints the preview while writing.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
+- `pnpm mutate <path>` runs Stryker as an on-demand audit — never a gate, never in CI (a contract test pins that by enumerating every workflow file). A path is required. Cost = (static mutants) × (dependent-suite runtime), and neither factor alone predicts it: `date-utils` 2 mutants over 57 tests (net 0.08s) → 4s; `task-markers` 57 mutants (26 static — module-level regex constants defeat `coverageAnalysis`) over 416 tests (net 54.2s) → 9m09s. `--ignoreStatic` gives 63.8s (8.6×) at the cost of leaving those 26 untested and scored as survived (89.47 → 45.61). Timeouts score as killed, so a loaded machine reports a higher score. `tests per mutant` is bistable here (5.00 vs 1.00 on identical runs) — do not build an argument on it. Surviving mutants need human equivalence judgment.
 - v8 instrumentation slows the real-temp-dir git suites past vitest's 5s default: bare `pnpm test:coverage` times out ~7 passing tests. Raise `--testTimeout`; a plain `pnpm test` is the authority on pass/fail.
 - `vi.mock()` is hoisted — dynamic import paths don't resolve inside the mock factory.
 - Tests ARE type-checked: `pnpm typecheck` runs `tsc -p tsconfig.typecheck.json` (includes `tests/` + `scripts/`, `rootDir:"."`+`noEmit`) — a test-file type error fails the gate. Never re-add `tests` to that config's `exclude` (guarded by `tests/contract/typecheck-config.test.ts`); the build `tsc` stays on the base config and emits `src` only.

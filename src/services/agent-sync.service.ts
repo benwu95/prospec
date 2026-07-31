@@ -19,8 +19,11 @@ import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
+  HARNESS_CAPABILITY_KEYS,
+  intersectCapabilities,
   type AgentConfig,
   type AgentSyncResult,
+  type HarnessCapabilities,
   type SkillConfig,
 } from '../types/skill.js';
 
@@ -168,7 +171,7 @@ export async function execute(
 
   // 6. Group agents by output signature so agents sharing the same
   //    (skillPath, configPath) write the same files only once.
-  const groups = new Map<string, { config: AgentConfig; names: string[] }>();
+  const groups = new Map<string, { configs: AgentConfig[]; names: string[] }>();
   for (const agentName of agentsToSync) {
     // agentsToSync may include an unvalidated --cli value, so index through a
     // string view and keep the runtime guard (AGENT_CONFIGS' literal keys are
@@ -180,15 +183,24 @@ export async function execute(
     const group = groups.get(signature);
     if (group) {
       group.names.push(agentName);
+      group.configs.push(agentConfig);
     } else {
-      groups.set(signature, { config: agentConfig, names: [agentName] });
+      groups.set(signature, { configs: [agentConfig], names: [agentName] });
     }
   }
 
   // 7. Generate once per unique output; report the agents it serves.
   const results: AgentSyncResult[] = [];
-  for (const { config: agentConfig, names } of groups.values()) {
-    const result = await syncAgent(agentConfig, templateContext, triggerWordsBySkill, cwd);
+  for (const { configs, names } of groups.values()) {
+    // One file serves the whole group, so its capability claims must hold for
+    // EVERY member — the intersection, never the first or last member's view.
+    const capabilities = intersectCapabilities(configs.map((c) => c.capabilities));
+    const result = await syncAgent(
+      configs[0]!,
+      { ...templateContext, ...harnessCapabilityContext(capabilities) },
+      triggerWordsBySkill,
+      cwd,
+    );
     result.agent = names.join(', ');
     results.push(result);
   }
@@ -226,6 +238,24 @@ export function synthesizeTriggers(
     return `${baseline} — or equivalent terms in ${artifactLanguage}`;
   }
   return baseline;
+}
+
+/**
+ * Expand resolved capabilities into the `snake_case` render keys the skill
+ * templates branch on (`{{#if can_spawn_subagent}}`).
+ */
+function harnessCapabilityContext(
+  capabilities: HarnessCapabilities,
+): Record<string, boolean> {
+  // Derived from the canonical key list, not hand-mapped: a flag added to
+  // `HarnessCapabilities` reaches the templates instead of stopping at a
+  // forgotten literal. `canSpawnSubagent` → `can_spawn_subagent`.
+  return Object.fromEntries(
+    HARNESS_CAPABILITY_KEYS.map((key) => [
+      key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
+      capabilities[key],
+    ]),
+  );
 }
 
 /**

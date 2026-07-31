@@ -1,6 +1,6 @@
 # templates
 
-> Handlebars template library — 65 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 66 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 
 <!-- prospec:auto-start -->
 
@@ -9,8 +9,8 @@
 | File | Purpose |
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; every skill carries `{{> cli-probe}}` and delegates its deterministic steps to `prospec` commands (phase wording pinned by skill-format contract tests) |
-| `skills/_*.hbs` (6) | Shared partials: `cli-probe` (the required-CLI probe), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
-| `skills/references/*.hbs` (21) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` is a reader's guide to the **CLI-written** metadata.yaml, `review-format` pins the 6-column CLI-written findings table; plus top-level `references/config-example.yaml.hbs` |
+| `skills/_*.hbs` (7) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
+| `skills/references/*.hbs` (21) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` is a reader's guide to the **CLI-written** metadata.yaml, `review-format` pins the 6-column CLI-written findings table **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome); plus top-level `references/config-example.yaml.hbs` |
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md`, `module-map.yaml`, `feature-map.yaml` |
 | `change/*.hbs` (4) | proposal / plan / delta-spec / tasks scaffolds (metadata.yaml is serialized in `change-story.service`, not templated) |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
@@ -41,14 +41,16 @@
 ## Pitfalls
 
 - Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output.
-- `_cli-probe.hbs` is the SINGLE source of the CLI prerequisite: its STOP sentence may appear in no other template (contract-asserted), and its floor must stay `{{minimum_cli_version}}` — a hardcoded version literal is rejected. No template under `skills/` or `agent-configs/` may carry a CLI-unavailable fallback phrase ("If the CLI is unavailable", "fall back manually", …): hand-executing a CLI-owned mutation re-introduces the nondeterministic serialization the cli-first contract removes.
-- Budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) and `{{minimum_cli_version}}` are injected by `agent-sync` (and `lib/init-docs` for init) — always variables; never hardcode one or name `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` in a skill `.hbs`.
+- `_cli-probe.hbs` is the SINGLE source of the CLI prerequisite: its STOP sentence may appear in no other template (contract-asserted), and its floor must stay `{{minimum_cli_version}}` — a hardcoded version literal is rejected. No template under `skills/` or `agent-configs/` may carry a CLI-unavailable fallback phrase ("If the CLI is unavailable", "fall back manually", …): hand-executing a CLI-owned mutation re-introduces the nondeterministic serialization cli-first removes.
+- Budget numbers (`{{l1_per_file}}`/`{{l2_per_module}}`/`{{readme_max_lines}}`) and `{{minimum_cli_version}}` are injected by `agent-sync` (and `lib/init-docs` for init) — always variables; never hardcode one or name `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` in a skill `.hbs`. Same for the `can_*` capability flags — absent renders the degraded branch, silently and confidently.
 - Skill templates MUST end with exactly one trailing newline — a blank line propagates into every generated `SKILL.md`.
 - All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy — `entry.md.hbs` renders its scope from injected `language_*` keys that BOTH render sites must supply (missing key → empty, not an error), and `review-format`'s Summary prose follows the artifact language while enums/paths stay English. Never quote literal mustaches in prose.
 - Values reaching YAML frontmatter scalars must be pre-escaped by the caller (`escapeYamlScalar`).
-- The `test_command` comments in `init/prospec.yaml.hbs` and `references/config-example.yaml.hbs` carry a platform contract, not just prose: no shell (so no pipes/`&&`/redirection) and, on Windows, no `.cmd`/`.bat` shim. Both copies must state it — `lib/test-runner` enforces it and reports an honest skip when violated — and the config-example's example VALUE must itself satisfy it (`node --test`, shim-free), never contradict its own comment.
+- The `test_command` comments in `init/prospec.yaml.hbs` and `references/config-example.yaml.hbs` carry a platform contract: no shell (so no pipes/`&&`/redirection) and, on Windows, no `.cmd`/`.bat` shim. Both copies must state it — `lib/test-runner` enforces it and reports an honest skip when violated — and the config-example's example VALUE must itself satisfy it (`node --test`, shim-free), never contradict its own comment.
 - Editing a shipped `.hbs` takes two steps: `pnpm bundle`, then sync from source (`npx tsx src/cli/index.ts agent sync`) — `pnpm exec prospec` resolves to the globally installed binary and silently deploys the released templates.
-- Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test counts it across both skills and requires exactly one); status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
+- A `**Spec:**` block replaces a MODIFIED REQ's WHOLE body, so `references/delta-spec-format.hbs` tells authors to write the RESULTING requirement, not the delta — the archive CLI reports the `WHEN/THEN` bullets a block drops (`droppedBehavior`) and Phase 3.5 gates on them, but an ADDED entry reusing an existing REQ id is reported by neither worklist.
+- Rule placement follows the rule's SUBJECT: a criterion in `review-lenses-content`'s tables states a property of the change under review and carries a severity the reviewer files against it; a rule about the reviewer's own output belongs in `review-format` § review.md Format instead — a row there would carry a severity with nothing to file it on. The test-quality criteria row set is frozen against a version-controlled baseline in `tests/contract/skill-format.test.ts`, so adding ANY row fails until the baseline is updated deliberately; cross-references between the two files must name their referent ("the **mutation-verified** criterion"), never a position ("the row above"), which drifts as rows are added.
+- Single-source contracts: task-kind table ONLY in `references/tasks-format.hbs`, lessons-ledger format ONLY in `references/promotion-format.hbs`; the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test requires exactly one across both skills); status-lifecycle lives in BOTH `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` — edit both. Contract tests flag restatement.
 
 <!-- prospec:auto-end -->
 

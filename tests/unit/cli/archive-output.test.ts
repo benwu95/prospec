@@ -34,6 +34,7 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
     refused: [],
     notFound: [],
     pendingConvergence: [],
+    droppedBehavior: [],
     ...overrides,
   };
 }
@@ -145,6 +146,84 @@ describe('archive-output', () => {
     expect(err).toContain('1 REQ body/bodies kept their existing text');
     expect(err).toContain('sdd-workflow REQ-SERVICES-010');
     expect(err).toContain('no **Spec:** block');
+  });
+
+  it('lists dropped behavior verbatim, one bullet per line', () => {
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+        droppedBehavior: [
+          {
+            feature: 'sdd-workflow',
+            reqId: 'REQ-TEMPLATES-066',
+            bullets: [
+              '- WHEN rendered, THEN it includes Entry Gate / Reviewer Modes',
+              '- WHEN a critical is reported, THEN auto-fix only when existence-verified',
+            ],
+          },
+        ],
+      }),
+      'quiet',
+    );
+    const err = stderr();
+    expect(err).toContain('1 REQ body/bodies dropped authored behavior');
+    expect(err).toContain('sdd-workflow REQ-TEMPLATES-066');
+    // verbatim text, not a count — the reader must be able to restore it
+    expect(err).toContain('- WHEN rendered, THEN it includes Entry Gate / Reviewer Modes');
+    expect(err).toContain('- WHEN a critical is reported, THEN auto-fix only when existence-verified');
+  });
+
+  it('prints dropped behavior AFTER the pending-convergence worklist', () => {
+    // Ordering is part of the requirement (the reader converges kept bodies
+    // first, then confirms what replacements omitted) and was code-position
+    // evidence only.
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+        pendingConvergence: [
+          { feature: 'sdd-workflow', reqId: 'REQ-A-001', reason: 'no **Spec:** block' },
+        ],
+        droppedBehavior: [
+          { feature: 'sdd-workflow', reqId: 'REQ-B-002', bullets: ['- WHEN x, THEN y'] },
+        ],
+      }),
+      'quiet',
+    );
+    const err = stderr();
+    expect(err.indexOf('kept their existing text')).toBeGreaterThanOrEqual(0);
+    expect(err.indexOf('dropped authored behavior')).toBeGreaterThan(
+      err.indexOf('kept their existing text'),
+    );
+  });
+
+  it('prints no dropped-behavior section when nothing was dropped', () => {
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+      }),
+      'quiet',
+    );
+    expect(stderr()).not.toContain('dropped authored behavior');
+  });
+
+  it('lists the same REQs and bullets under dry-run, phrased as a preview', () => {
+    formatArchiveOutput(
+      emptyResult({
+        dryRun: true,
+        droppedBehavior: [
+          { feature: 'sdd-workflow', reqId: 'REQ-CLI-001', bullets: ['- WHEN x, THEN y'] },
+        ],
+      }),
+      'normal',
+    );
+    const err = stderr();
+    expect(err).toContain('would drop');
+    // Asserting the verb alone is a false green: the header prints
+    // unconditionally, so a dry run could degrade to a bare count while this
+    // passed — the exact "a count cannot tell a reader what to restore" failure
+    // the requirement exists to prevent. Pin the payload too.
+    expect(err).toContain('sdd-workflow REQ-CLI-001');
+    expect(err).toContain('- WHEN x, THEN y');
   });
 
   it('says "would keep" for the dry-run worklist', () => {

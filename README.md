@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2822%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2904%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -494,6 +494,8 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 > - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
 >
+> Skills whose workflow depends on the harness — today `/prospec-review` and `/prospec-verify` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it states the **intersection** of their capabilities, never promising something one of them lacks.
+>
 > Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
 >
 > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
@@ -537,7 +539,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change plan [--change <name>] [--force]` | Generate implementation plan (scaffold); refuses to overwrite an existing plan/delta-spec unless `--force` |
 | `prospec change tasks [--change <name>] [--force]` | Break down tasks (scaffold); refuses to overwrite an existing tasks.md unless `--force` |
 | `prospec status` | **Read-only** deterministic SDD routing — reports each in-flight change's current node, suggested next station, blocking gates, and reasons. The executable copy of `_status-lifecycle.md` (quick's story→tasks skip, backfill's `implemented` entry, and the no-status-transition design/review stations included); malformed metadata is reported per change, never fatal |
-| `prospec archive <name...> [--dry-run]` | Execute the deterministic archive mutations for a **verified** change: move the bundle to `.prospec/archive/{date}-{name}/`, generate the summary scaffold, run the mechanical Feature Spec sync, set `status: archived`, and regenerate `product.md` + `feature-map.yaml` (no-clobber / non-fatal semantics unchanged). `--dry-run` prints every planned mutation without writing; a named target that is not archivable is reported `refused`/`not found` (exit 1), never silently skipped. The spec sync never blanks an authored REQ body — only a delta-spec `**Spec:**` block replaces one — and every REQ whose body it deliberately kept is listed on stderr as the graduation worklist (visible under `--quiet`, never exit 1). `/prospec-archive` drives it and keeps the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation) |
+| `prospec archive <name...> [--dry-run]` | Execute the deterministic archive mutations for a **verified** change: move the bundle to `.prospec/archive/{date}-{name}/`, generate the summary scaffold, run the mechanical Feature Spec sync, set `status: archived`, and regenerate `product.md` + `feature-map.yaml` (no-clobber / non-fatal semantics unchanged). `--dry-run` prints every planned mutation without writing; a named target that is not archivable is reported `refused`/`not found` (exit 1), never silently skipped. The spec sync never blanks an authored REQ body — only a delta-spec `**Spec:**` block replaces one — and it lists TWO worklists on stderr (visible under `--quiet`, never exit 1): every REQ whose body it deliberately kept (converge it by hand), and every REQ whose body a `**Spec:**` block replaced along with the existing `WHEN/THEN` bullets that block omits — because replacing a body silently drops whatever the new one fails to restate. `/prospec-archive` drives it and keeps the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation) |
 | `prospec archive finalize <name> [--dry-run]` | The POST-judgment archive step (runs after the summary overwrite + REQ graduation): copies the finalized summary.md into `specs/_archived-history/` (the committed audit trail) and reconciles every feature spec's frontmatter `story_count`/`req_count` against its final body; refuses while summary.md still looks like the scaffold |
 
 | `prospec change scale <quick\|standard\|full\|backfill> [--change <name>]` | Write the user-confirmed complexity scale (comment-preserving in-place edit) |
@@ -660,7 +662,7 @@ model provider, not the agent harness itself):
 
 | Command | Description |
 |---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / module READMEs vs their token & line budget, WARN-only), review provenance (an implemented change must carry a review that still matches the code), metadata completeness, test provenance (a recorded test run that is current and green), Constitution severity (every principle carries an RFC-2119 tag, WARN-only) plus the machine-parsed rule inventory, and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
+| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (git commit timestamps, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / module READMEs vs their token & line budget, WARN-only), review provenance (an implemented change must carry a review that still matches the code), metadata completeness, test provenance (a recorded test run that is current and green), Constitution severity (every principle carries an RFC-2119 tag, WARN-only) plus the machine-parsed rule inventory, artifact language (a change artifact whose prose carries no character of the project's artifact language — fenced code is stripped first — WARN-only; skips, with the reason, when the language is absent from its name→script table or a scope root is unreadable/outside the repo), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
 | `prospec check --record-tests [--change <name>]` | Run the project's test command (`tech_stack.test_command`, else `<package_manager> test` when package.json declares a test script — a project with neither is reported honestly, never guessed at) and record `{command, exit_code, digest, date}` into the change's `metadata.yaml`. This is the fact `/prospec-verify`'s test dimension is graded on — the suite's outcome becomes a machine verdict instead of an agent's self-report. The command is run **without a shell** (argv-tokenized), and nothing is written when it cannot run honestly (no command, a Windows `.cmd`/`.bat` shim Node refuses to spawn shell-free, not a git repo, timeout) — each case reports the reason and the check `skipped`, never a FAIL no configuration could clear. One exception: a previously **recorded non-zero exit still FAILs** even when the command has since become unresolvable — a known-red run is a fact no missing command can suppress |
 | `prospec check --escaped-defects [--json]` | Per-gate escaped-defect rate from the `introduced_by` registration, aggregated across `.prospec/changes/` and `.prospec/archive/` — the only ground-truth accuracy signal for the gates themselves. A reporting mode, not a check: no findings, no effect on `--strict`. With no registered samples it says so rather than printing a 0% escape rate |
 | `prospec check --record-review [--change <name>]` | Record the change's review baseline (code digest) so `review-provenance` can prove review ran and is still current |
@@ -694,6 +696,16 @@ knowledge:
 `prospec init` seeds these three fields into a new project's `.prospec.yaml` so they are explicit and adjustable from day one; anything you delete falls back to the default. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code).
 
 </details>
+
+<details>
+<summary>Mutation testing (on-demand audit — NOT a gate)</summary>
+
+| Command | Description |
+|---------|-------------|
+| `pnpm mutate <path>` | **On-demand deep audit, deliberately not a gate and not in CI.** Runs Stryker mutation testing over that path (a path is required) and reports its mutation score plus the surviving mutants — the one signal a test suite cannot give itself, since the mutations a suite is verified against are otherwise chosen by whoever wrote the assertions. Measured here: `src/lib/date-utils.ts` = 2 mutants over a 57-test dependent suite (net 0.08s) → **4s**; `src/lib/task-markers.ts` = 57 mutants over a 416-test dependent suite (net 54.2s) → **9m09s**, score 89.47. Cost is the **product** of two things, and neither alone predicts it: how many mutants are **static** (26 of 57 here — they sit in module-level code, so the module reloads and `coverageAnalysis` cannot narrow them), times **how big the module's dependent suite is** (what one un-narrowed run costs). `--ignoreStatic` takes that same run to **63.8s, 8.6× faster** — but it is not a free win: those 26 mutants then go untested and report as survived, dropping the score to 45.61, so use it to iterate, not to quote a number. The 11 timeouts are not margin: Stryker's ceiling is `timeoutFactor`(1.5) × netTime + `timeoutMS` + overhead, and a static mutant's netTime is the whole suite, so the ceiling here is ~144s against a ~54s normal run. All 11 are regex mutants that **widen** what the pattern accepts, so `parseTaskLine` starts accepting lines it should reject and the fixture-driven consumers do enough extra work to exceed it. Stryker scores a timeout as *killed*, so a loaded machine reports a **higher** score — never compare scores across machines. Budget by *module-level constants × how much of the suite reaches the module*. Surviving mutants are a signal to read, not a defect list — equivalence is a human judgment the tool cannot make |
+
+</details>
+
 
 ---
 
@@ -756,7 +768,7 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (65 .hbs files)
+└── templates/    — Handlebars templates (66 .hbs files)
     └── skills/   — 17 Skill templates + 19 reference templates
 ```
 
@@ -775,7 +787,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2822 tests)
+# Run all tests (2904 tests)
 pnpm test
 
 # Watch mode
@@ -788,9 +800,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2822 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 1993 tests
-- Contract tests (CLI output + Skill format): 720 tests
+**Test Coverage**: 2904 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2062 tests
+- Contract tests (CLI output + Skill format): 733 tests
 - Integration tests: 43 tests
 - E2E tests: 66 tests
 

@@ -65,6 +65,29 @@ export const DRIFT_CHECK_IDS = [
   // `constitution` report section below: the rule inventory + severities are the
   // machine half of verify's Constitution audit; judging a violation stays LLM work.
   'constitution-severity',
+  // Artifact language — a change artifact whose PROSE carries no character in
+  // the project's artifact language (fenced code blocks are stripped before the
+  // test). Scope is the resolved language scope's nativePaths, lowercase `.md` only
+  // (the collector's own glob), minus
+  // the gitignored `.prospec/archive/**` copy and whatever the canonical scanner
+  // filters (security patterns, build-artifact names, symlinked entries,
+  // dotfiles, depth over 10) — a deliberate subset, enumerated in the collector.
+  // Every finding is WARN-class: the fail tier for the committed record waits on
+  // a shrink-only legacy exemption, because a gate that reds a project's
+  // pre-existing artifacts on adoption day gets switched off, not satisfied.
+  // Turns the Constitution's [MUST] Language Policy from a purely human audit
+  // into a signal at every check. Detection is by Unicode script range keyed off
+  // the language NAME, so a language absent from that table — every Latin-script
+  // language, English included — makes this SKIP, with a reason naming the real
+  // gap (a missing NAME→script mapping, or a declared Latin orthography).
+  // FOUR recorded conditions likewise degrade the whole source to a skip rather
+  // than reporting clean: a scope root outside the repository lexically or via
+  // symlink, a scan that raises, and a file that cannot be read. Beyond those
+  // four the sample is whatever the scanner returns, and a root that does not
+  // resolve to an existing path is passed over as absent — the scanner's filters,
+  // a non-resolving scope shape, and a root whose own PARENT is unreadable are
+  // all indistinguishable from genuine absence.
+  'artifact-language',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

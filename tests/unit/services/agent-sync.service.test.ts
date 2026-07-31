@@ -4,7 +4,7 @@ import { vol } from 'memfs';
 import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
-import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
+import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../../../src/types/skill.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { parse as parseYamlDoc } from 'yaml';
 
@@ -71,6 +71,63 @@ knowledge:
     expect(ctx.l2_per_module).toBe(1234);
     expect(ctx.l1_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file);
     expect(ctx.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
+  });
+
+  it('injects the agent-declared harness capabilities into the skill template context', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+
+    await execute({ cwd: '/project' });
+
+    const skillCall = rt.mock.calls.find(([name]) => String(name).startsWith('skills/'));
+    expect(skillCall, 'expected at least one skills/*.hbs render').toBeDefined();
+    const ctx = skillCall![1] as Record<string, unknown>;
+    expect(ctx.can_spawn_subagent).toBe(AGENT_CONFIGS.claude.capabilities.canSpawnSubagent);
+    expect(ctx.can_worktree).toBe(AGENT_CONFIGS.claude.capabilities.canWorktree);
+    expect(ctx.can_background).toBe(AGENT_CONFIGS.claude.capabilities.canBackground);
+  });
+
+  it('resolves a shared-output group to the INTERSECTION, not to any single member', async () => {
+    // codex/copilot/antigravity all write .agents/skills + AGENTS.md, so one file
+    // serves three agents. Degrade the MIDDLE member: first-member-wins and
+    // last-member-wins both read `true` here, so only a real intersection passes.
+    // (Degrading the last member would let `configs.at(-1)` masquerade as one.)
+    const original = AGENT_CONFIGS.copilot.capabilities;
+    AGENT_CONFIGS.copilot.capabilities = { ...original, canBackground: false };
+    try {
+      vol.fromJSON({
+        '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - codex
+  - copilot
+  - antigravity
+`,
+      });
+      const rt = vi.mocked(renderTemplate);
+      rt.mockClear();
+
+      await execute({ cwd: '/project' });
+
+      const skillCall = rt.mock.calls.find(([name]) => String(name).startsWith('skills/'));
+      expect(skillCall, 'expected at least one skills/*.hbs render').toBeDefined();
+      const ctx = skillCall![1] as Record<string, unknown>;
+      // Both the first and the last member of the group declare true — the
+      // shared file must still degrade, because copilot reads the same bytes.
+      expect(AGENT_CONFIGS.codex.capabilities.canBackground).toBe(true);
+      expect(AGENT_CONFIGS.antigravity.capabilities.canBackground).toBe(true);
+      expect(ctx.can_background).toBe(false);
+      expect(ctx.can_spawn_subagent).toBe(true);
+    } finally {
+      AGENT_CONFIGS.copilot.capabilities = original;
+    }
   });
 
   it('should generate skill files for configured agent', async () => {

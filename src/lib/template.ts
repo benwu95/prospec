@@ -119,6 +119,10 @@ function ensureBuiltinPartials(): void {
     readTemplateSource('skills/_cli-probe.hbs'),
   );
   Handlebars.registerPartial(
+    'harness-capabilities',
+    readTemplateSource('skills/_harness-capabilities.hbs'),
+  );
+  Handlebars.registerPartial(
     'index-auto-block',
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );

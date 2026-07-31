@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  chmodSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -59,17 +68,25 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all thirteen checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (all fourteen checks, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo,
     // no feature-map.yaml, no CONSTITUTION.md
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     for (const check of result.report.structural.checks) {
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
-      expect(check.reason ?? '').toContain('source unavailable');
+      // Every skip explains itself; most say the source is unavailable, but
+      // artifact-language skips for a different reason (its language name is
+      // absent from the script table), and a blanket phrase assertion would
+      // force it to lie about why.
+      expect(check.reason ?? '', `check ${check.id} must state why it skipped`).not.toBe('');
     }
-    expect(result.report.summary.skipped_count).toBe(13);
-    expect(result.report.structural.checks).toHaveLength(13);
+    const artifactLanguage = result.report.structural.checks.find(
+      (c) => c.id === 'artifact-language',
+    );
+    expect(artifactLanguage?.reason).toContain('not in the script table');
+    expect(result.report.summary.skipped_count).toBe(14);
+    expect(result.report.structural.checks).toHaveLength(14);
     expect(result.hasFail).toBe(false);
     // no facts → no inventory section at all (absent, not empty-and-passing)
     expect(result.report.structural.constitution).toBeUndefined();
@@ -584,5 +601,207 @@ describe('--escaped-defects aggregation (REQ-SERVICES-069)', () => {
     expect(r.report.unresolved_references).toHaveLength(1);
     expect(r.report.archive_available).toBe(false);
     expect(r.report.sample_count).toBe(0);
+  });
+});
+
+describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
+  const withLanguage = (language: string): void => {
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: prospec',
+        'knowledge:',
+        '  base_path: prospec/ai-knowledge',
+        `artifact_language: ${language}`,
+      ].join('\n'),
+    );
+  };
+
+  it('composes the REAL resolved language scope with the collector', async () => {
+    // The only test that proves the scan set comes from resolveLanguageScope.
+    // Without it, replacing the resolver call with a literal `{nativePaths: []}`
+    // reduces the check to a permanent no-op with every other test still green.
+    withLanguage('Traditional Chinese (Taiwan)');
+    write('.prospec/changes/demo/proposal.md', 'English only prose, no native script.\n');
+    write('prospec/specs/_archived-history/2026-01-01-demo.md', '這份帶有中文。\n');
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+    expect(check?.status).toBe('warn');
+    const findings = result.report.structural.findings.filter(
+      (f) => f.check === 'artifact-language',
+    );
+    // Both scope entries were walked: the English one is reported, the file
+    // carrying the script is not — a hardcoded empty scope reports neither.
+    expect(findings.map((f) => f.source_path)).toEqual(['.prospec/changes/demo/proposal.md']);
+    expect(findings[0]!.severity).toBe('warn');
+  });
+
+  it('never scans the gitignored archive copy, though the resolved scope names it', async () => {
+    withLanguage('Traditional Chinese (Taiwan)');
+    write('.prospec/archive/2026-01-01-old/summary.md', 'English only prose.\n');
+    write('.prospec/changes/demo/plan.md', '中文計畫。\n');
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(
+      result.report.structural.findings.filter((f) => f.check === 'artifact-language'),
+    ).toEqual([]);
+  });
+
+  it('skips honestly for a Latin-script artifact language, never a vacuous pass', async () => {
+    withLanguage('Spanish');
+    write('.prospec/changes/demo/proposal.md', 'Prosa en espanol sin escritura detectable.\n');
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+    expect(check?.status).toBe('skipped');
+    expect(check?.reason).toContain('not in the script table');
+  });
+
+  it('survives a dangling symlink instead of taking every other check down', async () => {
+    // A dangling symlink used to throw ENOENT straight out of the collector,
+    // killing the whole run — 13 unrelated verdicts lost to one bad link.
+    withLanguage('Traditional Chinese (Taiwan)');
+    write('.prospec/changes/demo/proposal.md', '中文提案。\n');
+    symlinkSync(
+      path.join(tmpDir, '.prospec/changes/demo/missing-target.md'),
+      path.join(tmpDir, '.prospec/changes/demo/dangling.md'),
+    );
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.report.structural.checks).toHaveLength(14);
+  });
+
+  it('survives an UNREADABLE directory — the scanner raises, the collector must not', async () => {
+    // Distinct from the dangling link above, which is readable-as-absent. This
+    // is the case the first fix missed: `scanDirSync` re-raises EACCES as
+    // ScanError, so swapping the raw walk for it only changed which exception
+    // killed the run.
+    withLanguage('Traditional Chinese (Taiwan)');
+    write('.prospec/changes/demo/proposal.md', '中文提案。\n');
+    const locked = path.join(tmpDir, '.prospec/changes/demo/locked');
+    mkdirSync(locked, { recursive: true });
+    writeFileSync(path.join(locked, 'x.md'), 'English only.\n');
+    chmodSync(locked, 0o000);
+    try {
+      const result = await execute({ cwd: tmpDir });
+      if (result.kind !== 'report') throw new Error('expected report');
+      expect(result.report.structural.checks).toHaveLength(14);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
+  it('reports UNCHECKED for a scope that escapes the repo, not clean', async () => {
+    // Containment refusal is a design exclusion, but refusing is not the same
+    // as finding it clean — this path used to `continue` and report `pass`.
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: ../outside',
+        'artifact_language: Traditional Chinese (Taiwan)',
+      ].join('\n'),
+    );
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+    expect(check?.status).toBe('skipped');
+    expect(check?.reason).toContain('outside the repository');
+  });
+
+  // chmod(0o000) does not remove read access on Windows, so this fixture cannot
+  // be constructed there — the file stays readable, the scan succeeds, and the
+  // check honestly reports `warn` for the English-only prose it did read. The
+  // collector's other three unread paths (escaping root, symlink out of tree,
+  // scanner throw) are exercised cross-platform by the siblings above; only the
+  // unreadable-file condition is POSIX-only to set up.
+  it.skipIf(process.platform === 'win32')('reports UNCHECKED when an in-scope file cannot be read', async () => {
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: prospec',
+        'artifact_language: Traditional Chinese (Taiwan)',
+      ].join('\n'),
+    );
+    write('.prospec/changes/demo/proposal.md', '中文提案。\n');
+    const locked = path.join(tmpDir, '.prospec/changes/demo/locked.md');
+    writeFileSync(locked, 'English only.\n');
+    chmodSync(locked, 0o000);
+    try {
+      const result = await execute({ cwd: tmpDir });
+      if (result.kind !== 'report') throw new Error('expected report');
+      const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+      expect(check?.status).toBe('skipped');
+      expect(check?.reason).toContain('locked.md');
+    } finally {
+      chmodSync(locked, 0o644);
+    }
+  });
+
+  it('survives a scope prefix that resolves to a FILE, not a directory', async () => {
+    // `existsContained` returns true for a file, so the root guard does not stop
+    // this one — only the try/catch does.
+    withLanguage('Traditional Chinese (Taiwan)');
+    mkdirSync(path.join(tmpDir, 'prospec/specs'), { recursive: true });
+    writeFileSync(path.join(tmpDir, 'prospec/specs/_archived-history'), 'not a directory\n');
+    write('.prospec/changes/demo/proposal.md', '中文提案。\n');
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.report.structural.checks).toHaveLength(14);
+    // …and the not-a-directory root is reported unchecked, not clean
+    const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+    expect(check?.status).toBe('skipped');
+  });
+});
+
+describe('check.service artifact-language honesty (REQ-LIB-037)', () => {
+  // Same POSIX-only precondition as the unreadable-file case above: on Windows
+  // chmod cannot revoke read access on a directory, so the scan succeeds.
+  it.skipIf(process.platform === 'win32')('reports UNCHECKED, not clean, when a scope root cannot be scanned', async () => {
+    // Three rounds of this defect: throw an fs error, throw a ScanError, then
+    // silently report clean. A vacuous pass is the worst of the three — it says
+    // "verified" about a file nothing opened.
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: prospec',
+        'artifact_language: Traditional Chinese (Taiwan)',
+      ].join('\n'),
+    );
+    const locked = path.join(tmpDir, '.prospec/changes/demo/locked');
+    mkdirSync(locked, { recursive: true });
+    writeFileSync(path.join(locked, 'violating.md'), 'English only prose.\n');
+    chmodSync(locked, 0o000);
+    try {
+      const result = await execute({ cwd: tmpDir });
+      if (result.kind !== 'report') throw new Error('expected report');
+      const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
+      expect(check?.status).toBe('skipped');
+      expect(check?.reason).toContain('could not read');
+      expect(check?.reason).toContain('rather than clean');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 });

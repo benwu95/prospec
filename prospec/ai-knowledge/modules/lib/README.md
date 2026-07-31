@@ -14,7 +14,7 @@
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml`; returns `{doc, metadata}`; `appendQualityLogEntry` (canonical key order) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath |
 | `module-detector.ts` | detectModules (auto/architecture/domain/package), buildModuleMap |
-| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (13 checks) |
+| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (14 checks; `artifact-language` samples the resolved language scope (prose only — fences stripped), WARN-only, and skips when the language is absent from its name→script table or one of four recorded unread conditions holds) |
 | `knowledge-reader.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis |
 | `status-router.ts` | I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
@@ -37,7 +37,7 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 ## Modification Guide
 
 1. **Add a utility** — new `src/lib/{name}.ts`, pure stateless.
-2. **Add a Handlebars helper/partial** — register in `template.ts`.
+2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it.
 3. **Change module detection** — edit its strategy in `module-detector.ts`.
 4. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts` (also sync the root-README check list).
 5. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers.
@@ -52,7 +52,7 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 - `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; noEscape YAML templates MUST run user text through `escapeYamlScalar()`.
 - Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity); an unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE flag-gated, `shell: false` project-command runner; argv[0] follows **libuv**, never PATHEXT: spawn cwd before PATH, entries unquoted, candidates resolved against it. An unspawnable Windows shim is refused pre-spawn as `command_unavailable_reason`, yet recorded runs STILL enumerate — only missing/stale skip, and a recorded non-zero exit FAILs under an unresolvable command.
 - knowledge-reader reads are realpath-contained + `isSafeResourceName()`-guarded; drift-sources imports FROM it, never the reverse (lib→lib cycle); `loadModuleMap`: missing→null, invalid→throw. Same one-way rule for `constitution-parser`/`markdown-fences`.
-- `markdown-table.ts` is the SINGLE source for every pipe table prospec owns (review.md, the lessons ledger) and is I/O-free: review-merge and lessons-ledger each hand-copied it and drifted — a row split that ignored the `\|` its own renderer wrote was a confirmed critical (PB-006).
+- `markdown-table.ts` is the SINGLE source for every pipe table prospec owns (review.md, the lessons ledger) and is I/O-free: both consumers hand-copied it and drifted — a row split ignoring the `\|` its own renderer wrote was a confirmed critical (PB-006).
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both exception directions) — compose paths with `path.posix.join`.
 - `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it deliberately — a scanner must report a bad record, not throw.
 - Station engines decide, never re-derive policy: `verify-grade` has NO engine-unavailability WARN exemption — every WARN (`not-adjudicated` included) spends grade A's budget — and never re-applies scale rules; `lessons-ledger` frequency counts DISTINCT source changes; `review-merge` never infers finding identity from a location string.

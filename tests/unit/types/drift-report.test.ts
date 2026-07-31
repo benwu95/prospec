@@ -132,9 +132,10 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the thirteen frozen check ids', () => {
+  it('exposes exactly the fourteen frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual(
       [
+        'artifact-language',
         'constitution-severity',
         'dangling-prefix',
         'feature-modules',
@@ -150,7 +151,7 @@ describe('DriftReportSchema', () => {
         'test-provenance',
       ].sort(),
     );
-    expect(DRIFT_CHECK_IDS).toHaveLength(13);
+    expect(DRIFT_CHECK_IDS).toHaveLength(14);
   });
 
   // The registry is FROZEN: report `checks[]` order and the CLI's status-line order
@@ -170,7 +171,11 @@ describe('DriftReportSchema', () => {
       'metadata-completeness',
       'knowledge-size',
     ]);
-    expect([...DRIFT_CHECK_IDS].slice(11)).toEqual(['test-provenance', 'constitution-severity']);
+    expect([...DRIFT_CHECK_IDS].slice(11)).toEqual([
+      'test-provenance',
+      'constitution-severity',
+      'artifact-language',
+    ]);
   });
 
   it('accepts the optional constitution inventory, including an untagged rule', () => {

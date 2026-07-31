@@ -32,15 +32,17 @@
 - `yaml` @ ^2.8.2
 - `zod` @ ^4.3.6
 - `@eslint/js` @ ^9.39.2
+- `@stryker-mutator/core` @ ^9.6.1
+- `@stryker-mutator/vitest-runner` @ ^9.6.1
 - `@types/node` @ ^25.2.0
 - `@vitest/coverage-v8` @ ^4.0.18
+- `esbuild` @ ^0.28.1
 - `eslint` @ ^9.39.2
 - `memfs` @ ^4.56.10
 - `tsx` @ ^4.22.4
 - `typescript` @ 5.9
 - `typescript-eslint` @ ^8.54.0
 - `vitest` @ ^4.0.18
-- `esbuild` @ ^0.28.1
 
 ## Config Files
 
@@ -107,5 +109,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 520 |
+| Total files | 527 |
 | Scan depth | 10 |

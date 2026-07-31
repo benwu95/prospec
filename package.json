@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "mutate": "stryker run stryker.config.json --mutate",
     "lint": "eslint src/ tests/",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "prepare": "tsc",
@@ -68,14 +69,16 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^25.2.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.28.1",
     "eslint": "^9.39.2",
     "memfs": "^4.56.10",
     "tsx": "^4.22.4",
     "typescript": "5.9",
     "typescript-eslint": "^8.54.0",
-    "vitest": "^4.0.18",
-    "esbuild": "^0.28.1"
+    "vitest": "^4.0.18"
   }
 }

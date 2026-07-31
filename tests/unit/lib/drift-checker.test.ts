@@ -12,6 +12,7 @@ import {
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
+  evaluateArtifactLanguage,
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
   evaluateTaskCompletion,
@@ -21,6 +22,7 @@ import {
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import type {
+  ArtifactLanguageSource,
   ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
@@ -56,6 +58,7 @@ const emptyInputs: DriftCheckInputs = {
     current_digest: 'CUR',
     changes: [],
   },
+  artifactLanguage: { available: true, language: 'Traditional Chinese (Taiwan)', files: [] },
   constitutionRules: {
     available: true,
     source_path: 'prospec/CONSTITUTION.md',
@@ -1190,5 +1193,83 @@ describe('evaluateConstitutionSeverity (REQ-LIB-032)', () => {
     ];
     const r = evaluateConstitutionSeverity(src(rules));
     expect(r.constitution?.rules).toEqual(rules);
+  });
+});
+
+describe('evaluateArtifactLanguage (REQ-LIB-037)', () => {
+  const src = (
+    files: ArtifactLanguageSource['files'],
+    over: Partial<ArtifactLanguageSource> = {},
+  ): ArtifactLanguageSource => ({
+    available: true,
+    language: 'Traditional Chinese (Taiwan)',
+    files,
+    ...over,
+  });
+
+  it('skips (never PASS) when the artifact language has no detectable script', () => {
+    // A vacuous pass here is worse than no check: it would report "language
+    // verified" for every Latin-script project while looking at nothing.
+    const r = evaluateArtifactLanguage({
+      available: false,
+      reason: 'artifact language "Spanish" is not in the script table — nothing to match on',
+      language: 'Spanish',
+      files: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('Spanish');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes with an empty sample — the scan ran, there was nothing to scan', () => {
+    // Distinct from skipped on purpose: "no change artifacts yet" is a real
+    // pass, not an inability to check.
+    const r = evaluateArtifactLanguage(src([]));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('reports nothing for a file that carries the artifact language', () => {
+    const r = evaluateArtifactLanguage(
+      src([
+        { path: '.prospec/changes/x/proposal.md', hasScript: true },
+        { path: 'prospec/specs/_archived-history/2026-01-01-x.md', hasScript: true },
+      ]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns — never fails — so a legacy artifact cannot red a repo on adoption day', () => {
+    // The fail tier for the committed record waits on a shrink-only legacy
+    // exemption; until then every finding is advisory, and this pins it.
+    const r = evaluateArtifactLanguage(
+      src([
+        { path: '.prospec/changes/x/review.md', hasScript: false },
+        { path: 'prospec/specs/_archived-history/2026-01-01-x.md', hasScript: false },
+      ]),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings.map((f: { severity: string }) => f.severity)).toEqual(['warn', 'warn']);
+    expect(r.findings[0]).toEqual({
+      check: 'artifact-language',
+      severity: 'warn',
+      source_path: '.prospec/changes/x/review.md',
+      detail: expect.stringContaining('Traditional Chinese (Taiwan)'),
+    });
+  });
+
+  it('reports one finding per offending file, and none for the clean ones beside them', () => {
+    const r = evaluateArtifactLanguage(
+      src([
+        { path: '.prospec/changes/x/proposal.md', hasScript: true },
+        { path: '.prospec/changes/x/plan.md', hasScript: false },
+        { path: '.prospec/changes/x/tasks.md', hasScript: false },
+      ]),
+    );
+    expect(r.findings.map((f: { source_path: string }) => f.source_path)).toEqual([
+      '.prospec/changes/x/plan.md',
+      '.prospec/changes/x/tasks.md',
+    ]);
   });
 });

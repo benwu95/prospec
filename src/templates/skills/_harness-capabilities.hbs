@@ -1,0 +1,3 @@
+**Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: {{#if can_spawn_subagent}}yes{{else}}no{{/if}} · `can_worktree`: {{#if can_worktree}}yes{{else}}no{{/if}} · `can_background`: {{#if can_background}}yes{{else}}no{{/if}}
+
+{{#if can_spawn_subagent}}Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — {{degraded_action}} — and name the path you took.{{else}}This harness has no sub-agent primitive, so do not attempt to spawn one. Degrade — {{degraded_action}} — and name the path you took.{{/if}} A degraded path is never a silent skip: the developer is told which path ran, every time.

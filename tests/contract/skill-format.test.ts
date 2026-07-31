@@ -11,7 +11,11 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
-import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
+import {
+  AGENT_CONFIGS,
+  SKILL_DEFINITIONS,
+  intersectCapabilities,
+} from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS } from '../../src/types/drift-report.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
@@ -33,6 +37,12 @@ const TEMPLATE_CONTEXT = {
   l1_per_file: 1800,
   l2_per_module: 1000,
   readme_max_lines: 100,
+  // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
+  // fixture models a fully-capable harness so the default renders exercise the
+  // primary path; the degraded branch is rendered explicitly where it is asserted.
+  can_spawn_subagent: true,
+  can_worktree: true,
+  can_background: true,
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
   skills: SKILL_DEFINITIONS.map((s) => ({
     name: s.name,
@@ -42,6 +52,15 @@ const TEMPLATE_CONTEXT = {
     hasReferences: s.hasReferences,
   })),
 };
+
+// Sentinels owned by skills/_harness-capabilities.hbs — the single source for
+// harness-degradation wording. Each lives in exactly one branch of that partial,
+// so a consuming skill that re-inlines the prose (or a branch that leaks into the
+// other) turns the assertions below red.
+const CAPABILITY_LINE_LABEL = '**Harness capabilities**';
+const DEGRADE_FLOOR = 'A degraded path is never a silent skip';
+const RUNTIME_FALLBACK_SENTINEL = 'Should a spawn fail at runtime';
+const NO_SPAWN_SENTINEL = 'no sub-agent primitive';
 
 // slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
 const sectionOf = (content: string, heading: string): string => {
@@ -1594,10 +1613,31 @@ describe('Skill Format Contract', () => {
       expect(exit).toContain('quality_log');
     });
 
-    it('degrades on harnesses without sub-agents instead of silently skipping', () => {
-      const c = render();
-      expect(c).toMatch(/sub-?agent/i);
-      expect(c).toMatch(/never.*silent|not.*skip|offer.*choice/i);
+    it('states the resolved harness capabilities and review-specific degraded action (REQ-TEMPLATES-066)', () => {
+      const capable = sectionOf(render(), '### Harness Degradation');
+      // the capability line is rendered from the injected flags, not asked at runtime
+      expect(capable).toContain(CAPABILITY_LINE_LABEL);
+      expect(capable).toContain('`can_spawn_subagent`: yes');
+      // review's own degraded action stays in review's prose, the judgment does not
+      expect(capable).toMatch(/harness'?s own reviewer/i);
+      expect(capable).toContain(DEGRADE_FLOOR);
+    });
+
+    it('renders a different, spawn-free instruction when the harness declares no sub-agents', () => {
+      const degraded = sectionOf(
+        renderTemplate('skills/prospec-review.hbs', {
+          ...TEMPLATE_CONTEXT,
+          can_spawn_subagent: false,
+        }),
+        '### Harness Degradation',
+      );
+      expect(degraded).toContain('`can_spawn_subagent`: no');
+      expect(degraded).toContain(NO_SPAWN_SENTINEL);
+      // the capable branch's runtime-fallback wording must NOT survive here
+      expect(degraded).not.toContain(RUNTIME_FALLBACK_SENTINEL);
+      // …and review's degraded action is still named, so the path is actionable
+      expect(degraded).toMatch(/harness'?s own reviewer/i);
+      expect(degraded).toContain(DEGRADE_FLOOR);
     });
   });
 
@@ -1875,6 +1915,275 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
         }
       }
     }
+  });
+});
+
+// Version-controlled baseline of the test-quality criteria table. Changing this
+// list is the deliberate act of changing what the lens grades; adding a row
+// without touching it fails, which is the point — the mutation-naming rule was
+// once a row here and belongs in review-format.md instead.
+const TEST_QUALITY_CRITERIA = [
+  'A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard)',
+  'Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing',
+  'A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red)',
+  'An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`)',
+];
+
+describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-169, REQ-TESTS-066)', () => {
+  it('the mutation-naming rule governs the reviewer\'s output, not the change', () => {
+    // A criteria row states a property of the diff and carries a severity the
+    // reviewer files against it. "Name your mutations" is a property of the
+    // reviewer's own finding, so it lives in the finding format instead — a row
+    // in the criteria table would carry a severity with nothing to file it on.
+    const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+    const findingFormat = sectionOf(format, '## review.md Format');
+    expect(findingFormat).toMatch(/name the mutations/i);
+    expect(findingFormat).toMatch(/indistinguishable from none/i);
+
+    const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+
+    // Freeze the ROW SET, not one phrasing. A negative grep for "name the
+    // mutations" is escaped by rewording it to "list the mutations" — the
+    // defect returns and nothing fails. The criteria table is a closed set:
+    // adding any row at all, however worded, breaks this baseline.
+    const criteria = section
+      .split('\n')
+      .filter((l) => /^\|/.test(l) && !/^\|\s*-+/.test(l) && !/\|\s*Criterion\s*\|/i.test(l))
+      .map((l) => l.split('|')[1]?.trim());
+    expect(criteria, 'criteria table not found — an empty set satisfies any baseline').toHaveLength(
+      TEST_QUALITY_CRITERIA.length,
+    );
+    expect(criteria).toEqual(TEST_QUALITY_CRITERIA);
+
+    expect(section, 'the pointer to where the rule does live is the reader\'s only path').toMatch(
+      /review-format\.md/,
+    );
+    // The pointer must name the criterion it belongs to. "the row above" drifts
+    // as rows are added, and lands the reader on whichever row happens to sit
+    // last — a rule about mutation verification attached to a different row.
+    expect(section, 'the pointer must name its referent, not point positionally').toMatch(
+      /mutation-verified\*\* criterion/,
+    );
+    expect(section).not.toMatch(/the row above/i);
+  });
+
+  it('the test-quality lens names the vacuous-pass shape at major', () => {
+    const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+    const row = section.split('\n').find((l) => /vacuously/i.test(l));
+    expect(row, 'vacuous-pass row not found in the criteria table').toBeDefined();
+    expect(row).toMatch(/\|\s*major/i);
+    // The row must state the mechanism, not just the label — "can be empty and
+    // the expectation still holds" is what makes it checkable.
+    expect(row).toMatch(/empty/i);
+  });
+
+  it('no CI workflow carries a mutation step — the non-gate decision, pinned', () => {
+    // Measured cost: 9m09s for one module (26 static mutants x a 416-test
+    // dependent suite). A gate at that price gets switched off rather than
+    // satisfied, so "not in CI" is a design decision — and a decision nothing
+    // pins is a sentence in a document that anyone can quietly reverse.
+    const workflow = renderTemplate('init/prospec-check.yml.hbs', TEMPLATE_CONTEXT);
+    expect(workflow).not.toMatch(/stryker|mutation|mutate/i);
+
+    // Enumerate the directory rather than naming one file: ci.yml is the actual
+    // gate (lint/typecheck/build/test:coverage) and so is where a mutation step
+    // would most plausibly be added. A future workflow is covered on arrival.
+    const workflowDir = path.join(__dirname, '../../.github/workflows');
+    const shipped = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+    // The vacuity guard is naming the file that must be there, not counting to
+    // a magic number: a count pinned at today's total fires on a legitimate
+    // workflow merge while reporting "none found".
+    expect(shipped, 'ci.yml missing — an empty or filtered-out set passes vacuously').toContain(
+      'ci.yml',
+    );
+    for (const file of shipped) {
+      const body = fs.readFileSync(path.join(workflowDir, file), 'utf-8');
+      expect(body, `${file} carries a mutation step`).not.toMatch(/stryker|mutation|mutate/i);
+    }
+  });
+});
+
+describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
+  it('Phase 3.5 step 0 introduces BOTH worklists, and never leaves "already landed" unqualified', () => {
+    // The gate assertion below slices only the gate, so without this the whole
+    // step-0 rewrite can revert silently — including the exact sentence
+    // ("a REQ absent from the worklist already landed its authored spec text")
+    // whose false confidence this change exists to remove.
+    const phase = sectionOf(
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT),
+      '### Phase 3.5: Feature Spec Sync',
+    );
+    expect(phase).toMatch(/graduation worklist/i);
+    expect(phase).toMatch(/dropped behavior/i);
+    // the qualifier must travel with the claim, in the same sentence
+    expect(phase).toMatch(/landed.{0,80}does not mean.{0,20}lost nothing/is);
+    expect(phase).not.toMatch(/already landed its authored spec text\.\s*$/m);
+  });
+
+  it('Phase 3.5 gate requires each dropped bullet to be confirmed or restored', () => {
+    const gate = sectionOf(
+      renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT),
+      '> **Phase 3.5 Gate** — proceed when:',
+    );
+    expect(gate).toMatch(/dropped behavior/i);
+    expect(gate).toMatch(/confirmed deliberate or restored/i);
+    // an empty report must not add ceremony — the item self-satisfies
+    expect(gate).toMatch(/empty report satisfies/i);
+  });
+
+  it('delta-spec-format tells the author to write the resulting requirement, not the delta', () => {
+    const ref = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(ref, '## The `**Spec:**` Block — What Lands in the Feature Spec');
+    expect(section).toContain('not the delta');
+    expect(section).toMatch(/replaces the\s+WHOLE body/i);
+    // the machine backstop is named, so the two defences stay linked
+    expect(section).toMatch(/archive CLI reports/i);
+    // …and its limit is stated rather than left to be discovered (PB-003)
+    expect(section).toMatch(/MODIFIED path only/i);
+    expect(section).toMatch(/reported by neither worklist/i);
+  });
+});
+
+describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167, REQ-TESTS-063)', () => {
+  const skillsDir = path.join(__dirname, '../../src/templates/skills');
+  const src = (name: string) => fs.readFileSync(path.join(skillsDir, `${name}.hbs`), 'utf-8');
+  const partial = fs.readFileSync(
+    path.join(skillsDir, '_harness-capabilities.hbs'),
+    'utf-8',
+  );
+  const consumers = SKILL_DEFINITIONS.map((s) => s.name).filter((n) =>
+    src(n).includes('{{> harness-capabilities'),
+  );
+
+  it('is consumed by at least two stations — the mechanism is reusable, not a one-off', () => {
+    expect(consumers).toEqual(expect.arrayContaining(['prospec-review', 'prospec-verify']));
+    expect(consumers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('is a partial single source: the floor and both branches live only in the partial (PB-006)', () => {
+    for (const sentinel of [DEGRADE_FLOOR, RUNTIME_FALLBACK_SENTINEL, NO_SPAWN_SENTINEL]) {
+      expect(partial, `partial must own: ${sentinel}`).toContain(sentinel);
+    }
+    for (const name of SKILL_DEFINITIONS.map((s) => s.name)) {
+      for (const sentinel of [DEGRADE_FLOOR, RUNTIME_FALLBACK_SENTINEL, NO_SPAWN_SENTINEL]) {
+        expect(src(name), `${name} re-inlined: ${sentinel}`).not.toContain(sentinel);
+      }
+    }
+  });
+
+  it('no skill template judges harness capability in prose (repo-wide negative)', () => {
+    // The whole point of the flags: the SHIPPED skill states a fact. A template
+    // that asks the executing agent "can you spawn a sub-agent?" reintroduces the
+    // per-station judgment this change removed. Each pattern is one of the prose
+    // forms actually deleted here — a narrower regex let three of them back in.
+    const SELF_JUDGMENT = [
+      // A capability NOUN followed by a negation, under a conditional.
+      /\b(if|when|where|whether|unless)\b[^.\n]{0,80}\b(sub-?agents?|harness|execution environment|spawn(ing)?)\b[^.\n]{0,60}\b(can'?t|cannot|not supported|unsupported|not possible|lacks?|does not support|doesn'?t support|are not available|is not available|unavailable)\b/i,
+      // The same shape with the negation FIRST ("no sub-agent primitive exists").
+      /\b(if|when|where|whether|unless)\b[^.\n]{0,80}\b(no|without)\s+sub-?agents?\b/i,
+      // Asking the agent to work it out itself.
+      /\b(decide|determine|check)\s+(whether|if)\b[^.\n]{0,60}\b(harness|sub-?agents?|execution environment)\b/i,
+      // "if you cannot spawn …" — the judgment relocated onto the reader.
+      /\b(if|when|unless)\b[^.\n]{0,60}\b(can'?t|cannot|unable to)\s+spawn\b/i,
+    ];
+    // Recursive: references/*.hbs render into the same shipped skill bundle, so
+    // a non-recursive readdir would leave 21 files unguarded.
+    const hbsFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return hbsFiles(full);
+        return e.name.endsWith('.hbs') ? [full] : [];
+      });
+    const scanned = hbsFiles(skillsDir);
+    expect(scanned.length).toBeGreaterThan(SKILL_DEFINITIONS.length); // partials + references included
+    // A sentence that names the RESOLVED value is legitimate — that is the
+    // mechanism, not a judgment. Only sentences that ask about the environment
+    // without referencing what sync resolved are offenders.
+    const REFERENCES_RESOLVED = /capability line|can_spawn_subagent|can_worktree|can_background/i;
+    const offenders = scanned
+      .filter((f) =>
+        fs
+          .readFileSync(f, 'utf-8')
+          .split(/(?<=[.:;])\s|\n/)
+          .some((s) => !REFERENCES_RESOLVED.test(s) && SELF_JUDGMENT.some((re) => re.test(s))),
+      )
+      .map((f) => path.relative(skillsDir, f));
+    expect(offenders).toEqual([]);
+  });
+
+  it('agent-sync is the ONLY src render site for skill templates (capability keys cannot be skipped)', () => {
+    // Handlebars is non-strict: a render site that omits `can_spawn_subagent`
+    // silently emits the degraded branch as confident prose. Nothing in the
+    // type system prevents that, so pin the render sites instead — a new one
+    // has to be added here, which is where it gets told to pass the flags.
+    const srcDir = path.join(__dirname, '../../src');
+    const tsFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return tsFiles(full);
+        return e.name.endsWith('.ts') ? [full] : [];
+      });
+    const sites = tsFiles(srcDir)
+      .filter((f) => /renderTemplate\(\s*[`'"]skills\//.test(fs.readFileSync(f, 'utf-8')))
+      .map((f) => path.relative(srcDir, f))
+      .sort();
+    expect(sites).toEqual(['services/agent-sync.service.ts']);
+  });
+
+  it('never instructs a spawn outside the partial — the degraded render cannot contradict itself', () => {
+    // A spawn imperative in the station prose is emitted unconditionally, so a
+    // `can_spawn_subagent: false` render would say both "spawn the reviewer" and
+    // "this harness has no sub-agent primitive". The mechanism is named ONLY in
+    // the partial, which is the only capability-aware text.
+    const SPAWN_IMPERATIVE = /\bspawn\s+(the|an|a)\s+/i;
+    for (const name of consumers) {
+      for (const capable of [true, false]) {
+        const rendered = renderTemplate(`skills/${name}.hbs`, {
+          ...TEMPLATE_CONTEXT,
+          can_spawn_subagent: capable,
+        });
+        const outsidePartial = rendered
+          .split('\n')
+          .filter((l) => !l.includes(CAPABILITY_LINE_LABEL) && !l.includes(DEGRADE_FLOOR))
+          .join('\n');
+        expect(
+          SPAWN_IMPERATIVE.test(outsidePartial),
+          `${name} (can_spawn_subagent: ${capable}) instructs a spawn outside the partial`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('deployed SKILL.md files differ per agent, each matching its resolved capabilities', () => {
+    // .claude/skills serves claude alone; .agents/skills is one file shared by
+    // codex+copilot+antigravity, so its flags are the intersection of the three.
+    const repoRoot = path.join(__dirname, '../..');
+    const read = (dir: string) =>
+      fs.readFileSync(path.join(repoRoot, dir, 'prospec-review', 'SKILL.md'), 'utf-8');
+    const claudeDoc = read('.claude/skills');
+    const agentsDoc = read('.agents/skills');
+
+    const line = (doc: string) => {
+      const found = doc.split('\n').find((l) => l.includes(CAPABILITY_LINE_LABEL));
+      expect(found, 'capability line missing from deployed SKILL.md').toBeDefined();
+      return found!;
+    };
+    const claudeCaps = AGENT_CONFIGS.claude.capabilities;
+    const sharedCaps = intersectCapabilities(
+      (['codex', 'copilot', 'antigravity'] as const).map((a) => AGENT_CONFIGS[a].capabilities),
+    );
+    // the registry currently differs on exactly this flag — if that ever stops
+    // being true, this guard says so rather than silently testing nothing
+    expect(claudeCaps.canWorktree).not.toBe(sharedCaps.canWorktree);
+    expect(line(claudeDoc)).not.toBe(line(agentsDoc));
+    expect(line(claudeDoc)).toContain(
+      `\`can_worktree\`: ${claudeCaps.canWorktree ? 'yes' : 'no'}`,
+    );
+    expect(line(agentsDoc)).toContain(
+      `\`can_worktree\`: ${sharedCaps.canWorktree ? 'yes' : 'no'}`,
+    );
   });
 });
 
@@ -3657,12 +3966,20 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       const spec = sectionOf(content, '### Verification 2/5: Delta Spec Compliance — `[judgment]`');
       expect(spec).toContain('No mechanical oracle exists here');
       expect(flat(spec)).toContain("does not share the implementation's context");
-      expect(spec).toContain('spawn a sub-agent');
-      expect(spec).toContain('Harness degradation');
+      // the reviewer's inputs stay pinned; the MECHANISM is the partial's job,
+      // so this prose must not name it (else the degraded render contradicts it)
+      expect(flat(spec)).toContain('only the delta-spec, the code, and this contract as its inputs');
+      // the harness question is answered by the shared partial's injected flags…
+      expect(spec).toContain(CAPABILITY_LINE_LABEL);
+      expect(spec).toContain(DEGRADE_FLOOR);
+      // …while verify's own degraded action (the disclosure WARN) stays verify's
+      expect(spec).toContain('2/5 graded in-session');
       expect(spec).toContain('WARN');
       const design = sectionOf(content, '### Verification 6 (Conditional): Design Consistency — `[judgment]`');
       expect(design).toContain('fresh context');
-      expect(design).toContain('degradation');
+      // dimension 6 cross-references 2/5 rather than carrying a third copy
+      expect(design).toContain('2/5');
+      expect(design).not.toContain(CAPABILITY_LINE_LABEL);
     });
 
     it('reports two ledgers and caps the grade on a machine FAIL', () => {

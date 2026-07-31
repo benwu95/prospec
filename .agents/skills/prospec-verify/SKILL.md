@@ -49,8 +49,8 @@ nondeterministic serialization this contract exists to remove.
 | Layer | Files | When to Load | Token Budget |
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
-| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2000 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1500 tokens per module/feature |
+| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` + Demand Conventions + `prospec/specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 1800 tokens per module/feature |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
 > L1/L2 token/line budgets come from `.prospec.yaml` `knowledge.token_budget` (the numbers above reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` — a pressure signal, never a build breaker.
@@ -158,14 +158,13 @@ never counted in the rate.
 
 **No mechanical oracle exists here** — deciding whether the code satisfies a REQ's *intent* needs
 understanding, not comparison. So this dimension is graded by an **independent reviewer that does not
-share the implementation's context**: spawn a sub-agent whose only inputs are the delta-spec, the
-code, and this contract. A grader that just implemented the change is validating its own reasoning,
-not the change against the spec.
+share the implementation's context**: run it by the mechanism the capability block below resolves,
+with only the delta-spec, the code, and this contract as its inputs. A grader that just implemented
+the change is validating its own reasoning, not the change against the spec.
 
-**Harness degradation**: if the harness cannot spawn an independent sub-agent, say so explicitly,
-offer the degraded path (a fresh single-pass review, or the harness's own reviewer command), and
-record a **WARN**: "2/5 graded in-session — fresh context unavailable". Never grade it silently in
-the implementation's own context.
+**Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
+
+Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record the WARN "2/5 graded in-session — fresh context unavailable" (that WARN states in-session grading, so it belongs to that branch alone) — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
 **`metadata.scale: quick`**: this dimension is `not-applicable` — there is no delta-spec to
 compare against. Report it as `not-applicable` (NEVER as PASS — an unchecked dimension must not
@@ -288,8 +287,9 @@ When a test FAILs, load [`references/debug-recovery-format.md`](references/debug
 
 Like 2/5, no mechanical oracle decides whether an implementation honors a design intent, so this
 dimension is graded in **fresh context** — an independent reviewer that does not share the
-implementation's context — and the same harness-degradation disclosure as 2/5 applies (offer the
-degraded path, record the WARN, never grade it silently in-session).
+implementation's context — and 2/5's harness-degradation contract applies unchanged (take its
+degraded path, record its disclosure WARN on the same branch 2/5 does, never grade it silently
+in-session).
 
 When applicable, verify implementation matches design specifications:
 
@@ -437,7 +437,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** report a `not-applicable` dimension as PASS — quick's missing delta-spec dimension stays visibly unchecked
 - **NEVER** overturn a machine dimension's verdict (1/5, 4/5, 5/5) — the engine adjudicates, you interpret; re-grading its FAIL as WARN/PASS (or its PASS as FAIL) puts the judgment noise back into the one place that was free of it
 - **NEVER** adjudicate a machine dimension yourself or relay one into `prospec verify record` — the CLI reads them from the report; and NEVER report `not-adjudicated` as PASS (reading tasks.md or re-running tests by hand and calling it PASS re-creates the generator-is-its-own-validator problem this split removes)
-- **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; when the harness cannot spawn one, say so and record the WARN
+- **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; on 2/5's degraded path, say so and record the WARN
 - **NEVER** treat a drift-report `skipped` check as PASS — skipped means unchecked; present the skip reason instead
 - **NEVER** compute the grade or hand-write the verify `quality_log` entry yourself — `prospec verify record` owns the decision table, the entry serialization, and the S/A status advance
 - **NEVER** make subjective assessments — subjective grades vary between sessions; evidence-based scoring ensures consistency across verifications
@@ -454,7 +454,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | Planning documents missing | Confirm change has gone through Story → Plan → Tasks → Implement workflow |
 | `prospec verify record` refuses (report missing / wrong judgment set) | Run `prospec check --record-tests` then `prospec check --json` first; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
 | `--record-tests` skips (no test command / not a git repo / timeout) | Carry its reason into 5/5 as `not-adjudicated`; point at `tech_stack.test_command` in `.prospec.yaml` when the command is what is missing |
-| Harness cannot spawn a fresh-context sub-agent | Offer the degraded path for 2/5 and 6, record the disclosure WARN, and continue — never grade them silently in-session |
+| No fresh context available (capability line says no sub-agents, or a spawn fails) | Take 2/5's degraded path for both 2/5 and 6, record the disclosure WARN, and continue — never grade them silently in-session |
 | Constitution file read fails | Skip Constitution audit, but clearly mark in report |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 

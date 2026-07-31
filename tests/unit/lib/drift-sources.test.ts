@@ -13,7 +13,10 @@ import {
   collectMetadataCompleteness,
   collectReqDefinitions,
   collectReqReferences,
+  collectArtifactLanguage,
   collectConstitutionRules,
+  scriptGapReason,
+  scriptPatternFor,
   collectQualityLedger,
   collectReviewProvenance,
   collectTaskStates,
@@ -1176,5 +1179,198 @@ describe('collectQualityLedger (REQ-LIB-034)', () => {
     );
     const r = collectQualityLedger(tmpDir);
     expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);
+  });
+});
+
+describe('scriptPatternFor (REQ-LIB-037)', () => {
+  it('does NOT guess a script for a digraphic language — Serbian is written both ways', () => {
+    // Guessing Cyrillic from the name would flag 100% of a Latin-writing
+    // Serbian project's artifacts: the mass false positive this check exists
+    // to avoid (ledger `scan/false-positive-kills-trust`).
+    expect(scriptPatternFor('Serbian')).toBeUndefined();
+    expect(scriptPatternFor('Kazakh')).toBeUndefined();
+    expect(scriptPatternFor('Uzbek')).toBeUndefined();
+  });
+
+  it('matches a language written in its own name, not only its English name', () => {
+    expect(scriptPatternFor('Русский')!.test('Привет')).toBe(true);
+    expect(scriptPatternFor('ไทย')!.test('สวัสดี')).toBe(true);
+  });
+
+  it('resolves a script for each covered writing system', () => {
+    expect(scriptPatternFor('Traditional Chinese (Taiwan)')!.test('繁體')).toBe(true);
+    expect(scriptPatternFor('Japanese')!.test('日本語')).toBe(true);
+    expect(scriptPatternFor('Russian')!.test('Привет')).toBe(true);
+    expect(scriptPatternFor('Greek')!.test('Γειά')).toBe(true);
+  });
+
+  it('does NOT match plain ASCII for a covered language', () => {
+    // Without this the check would pass every English file in a zh-TW project.
+    expect(scriptPatternFor('Traditional Chinese (Taiwan)')!.test('plain english prose')).toBe(false);
+  });
+
+  it('returns undefined for a Latin-script language — the declared blind spot', () => {
+    expect(scriptPatternFor('Spanish')).toBeUndefined();
+    expect(scriptPatternFor('English')).toBeUndefined();
+  });
+
+  it('names the RIGHT gap: a missing mapping vs a declared Latin orthography', () => {
+    // The two causes are different gaps and the reason must say which. Claiming
+    // "not in the table" for `Serbian (Latin)` contradicts a pinned behaviour —
+    // `Serbian (Cyrillic)` IS in the table — and misleads the one project owner
+    // who declared their orthography correctly.
+    expect(scriptGapReason('Spanish')).toContain('not in the script table');
+    expect(scriptGapReason('Serbian (Latin)')).toContain('declares a Latin orthography');
+    expect(scriptGapReason('Serbian (Latin)')).not.toContain('not in the script table');
+  });
+});
+
+describe('collectArtifactLanguage (REQ-LIB-037)', () => {
+  const scope = (nativePaths: string[], language = 'Traditional Chinese (Taiwan)') => ({
+    language,
+    nativePaths,
+  });
+  const NATIVE = ['.prospec/changes/**', '.prospec/archive/**', 'prospec/specs/_archived-history/**'];
+
+  it('reports the source unavailable when the language has no detectable script', () => {
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE, 'Spanish'));
+    expect(src.available).toBe(false);
+    expect(src.reason).toContain('Spanish');
+    expect(src.files).toHaveLength(0);
+  });
+
+  it('is available with an empty sample when the project has no change artifacts', () => {
+    // PASS, not skipped: the scan ran and found nothing to judge.
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.available).toBe(true);
+    expect(src.files).toHaveLength(0);
+  });
+
+  it('samples every native path set, deterministically ordered', () => {
+    write('.prospec/changes/x/proposal.md', 'English only prose.\n');
+    write('prospec/specs/_archived-history/2026-01-01-x.md', 'English only prose.\n');
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files).toEqual([
+      { path: '.prospec/changes/x/proposal.md', hasScript: false },
+      { path: 'prospec/specs/_archived-history/2026-01-01-x.md', hasScript: false },
+    ]);
+  });
+
+  it('marks a file carrying the artifact language as clean', () => {
+    write('.prospec/changes/x/proposal.md', '# 標題\n\n這份文件帶有中文字跡。\n');
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files).toEqual([{ path: '.prospec/changes/x/proposal.md', hasScript: true }]);
+  });
+
+  it('never scans the gitignored archive copy, even though the scope names it', () => {
+    // The scope IS passed `.prospec/archive/**` — exclusion is the collector's
+    // decision, so a mutation that stops excluding it turns this red.
+    write('.prospec/archive/2026-01-01-x/summary.md', 'English only prose.\n');
+    write('.prospec/changes/y/plan.md', '中文計畫。\n');
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files.map((f) => f.path)).toEqual(['.prospec/changes/y/plan.md']);
+  });
+
+  it('refuses a scope path that escapes the repo — never an out-of-tree file oracle', () => {
+    // A `paths.base_dir` of `../outside` makes resolveLanguageScope emit an
+    // escaping glob. Without containment the collector reads that tree and
+    // writes `../` source_paths into the committed report.
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'drift-outside-'));
+    try {
+      mkdirSync(path.join(outside, 'specs/_archived-history'), { recursive: true });
+      writeFileSync(path.join(outside, 'specs/_archived-history/SECRET.md'), 'English only.\n');
+      const escaping = path.join(path.relative(tmpDir, outside), 'specs/_archived-history/**');
+      const src = collectArtifactLanguage(tmpDir, scope([escaping]));
+      expect(src.files).toHaveLength(0);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('records a SYMLINKED root that resolves outside the repo — the realpath guard', () => {
+    // The lexical `..` guard catches a plain escaping path; only the realpath
+    // guard catches a root that looks contained but symlinks out. Both must
+    // record, not skip over — same family, different member.
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'drift-linked-'));
+    try {
+      mkdirSync(path.join(outside, 'specs/_archived-history'), { recursive: true });
+      writeFileSync(path.join(outside, 'specs/_archived-history/x.md'), 'English only.\n');
+      mkdirSync(path.join(tmpDir, 'linked'), { recursive: true });
+      symlinkSync(path.join(outside, 'specs'), path.join(tmpDir, 'linked/specs'));
+      const src = collectArtifactLanguage(
+        tmpDir,
+        scope(['linked/specs/_archived-history/**']),
+      );
+      expect(src.available).toBe(false);
+      expect(src.reason).toContain('outside the repository');
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('survives a dangling symlink instead of throwing out of the whole check run', () => {
+    // One bad link used to take all thirteen sibling checks down with it.
+    write('.prospec/changes/x/proposal.md', '中文提案。\n');
+    symlinkSync(
+      path.join(tmpDir, '.prospec/changes/x/missing.md'),
+      path.join(tmpDir, '.prospec/changes/x/dangling.md'),
+    );
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.available).toBe(true);
+    expect(src.files.map((f) => f.path)).toEqual(['.prospec/changes/x/proposal.md']);
+  });
+
+  it('judges prose, not fenced code — a quoted native string does not make a file compliant', () => {
+    write(
+      '.prospec/changes/x/plan.md',
+      'All prose here is English.\n\n```ts\nconst label = "中文";\n```\n',
+    );
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files).toEqual([{ path: '.prospec/changes/x/plan.md', hasScript: false }]);
+  });
+
+  it('ignores non-markdown files such as the CLI-serialised metadata.yaml', () => {
+    write('.prospec/changes/x/metadata.yaml', 'name: x\nstatus: story\n');
+    write('.prospec/changes/x/proposal.md', '中文提案。\n');
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files.map((f) => f.path)).toEqual(['.prospec/changes/x/proposal.md']);
+  });
+
+  it('reports the real-world regression that motivated the check', () => {
+    // The English review.md from add-harness-capability-flags: 12 rows whose
+    // Summary column was authored in English under a zh-TW artifact language.
+    write(
+      '.prospec/changes/z/review.md',
+      '# Review Findings: z\n\n| ID | Location | Severity | Lens | Status | Summary |\n|---|---|---|---|---|---|\n| HC-01 | src/x.ts:1 | critical | correctness | resolved | The loop spawn imperatives sit outside the conditional branch. |\n',
+    );
+    const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
+    expect(src.files).toEqual([{ path: '.prospec/changes/z/review.md', hasScript: false }]);
+  });
+});
+
+describe('scriptPatternFor — Latin orthography rule (REQ-LIB-037)', () => {
+  it.each([
+    'Serbian (Latin)',
+    'Hindi (Romanized)',
+    'Persian (Latin)',
+    'Urdu (Roman)',
+    'Hebrew (transliterated)',
+    'Japanese (Romaji)',
+    'Greeklish',
+    // Declared in the language's OWN script — the ASCII-only rule leaked these,
+    // and this direction produces false positives, not honest skips.
+    '日本語（ローマ字）',
+    '中文拼音',
+    'Русский (латиница)',
+  ])('skips %s — a declared Latin orthography overrides the base-language name', (name) => {
+    // Rule, not per-name special cases: the Serbian fix alone left every
+    // sibling flagging 100% of a Latin-writing project's artifacts.
+    expect(scriptPatternFor(name)).toBeUndefined();
+  });
+
+  it('still resolves the base language when no Latin orthography is declared', () => {
+    expect(scriptPatternFor('Hindi')).toBeDefined();
+    expect(scriptPatternFor('Persian')).toBeDefined();
+    expect(scriptPatternFor('Serbian (Cyrillic)')).toBeDefined();
   });
 });

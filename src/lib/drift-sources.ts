@@ -5,6 +5,7 @@ import path from 'node:path';
 import { scanDirSync, classifyModulePath } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
@@ -1293,4 +1294,188 @@ function hasVerifyGrade(quality_log: unknown): boolean {
     const result = str(e.result);
     return grade === 'S' || grade === 'A' || result === 'S' || result === 'A';
   });
+}
+
+// --- Artifact language (REQ-LIB-037) ---
+
+/**
+ * Unicode ranges that identify an artifact language's writing system.
+ *
+ * Deliberately a small allowlist rather than a language detector: presence of a
+ * script is a fact a regex can settle, whereas "is this prose Spanish?" is not.
+ * A language absent from this table makes the check SKIP with that reason — the
+ * honest outcome, since a vacuous pass would report "language verified" for
+ * every Latin-script project while inspecting nothing.
+ */
+const SCRIPT_PATTERNS: ReadonlyArray<{ match: RegExp; script: RegExp }> = [
+  { match: /chinese|中文|japanese|日本語|korean|한국어/i, script: /[぀-ヿ㐀-䶿一-鿿가-힯]/ },
+  // Digraphic languages (Serbian, Kazakh, Uzbek…) stay OUT of the alternation:
+  // their name cannot decide the script. `LATIN_ORTHOGRAPHY` above handles the
+  // explicitly-Latin spellings of every entry here; a project writing one of
+  // these in Cyrillic opts in by naming the script.
+  { match: /russian|русский|ukrainian|українська|bulgarian|български|cyrillic/i, script: /[Ѐ-ӿ]/ },
+  { match: /arabic|العربية|persian|فارسی|farsi|urdu|اردو/i, script: /[؀-ۿ]/ },
+  { match: /hebrew|עברית/i, script: /[֐-׿]/ },
+  { match: /thai|ไทย/i, script: /[฀-๿]/ },
+  { match: /hindi|हिन्दी|marathi|nepali|sanskrit|devanagari/i, script: /[ऀ-ॿ]/ },
+  { match: /greek|ελληνικά/i, script: /[Ͱ-Ͽἀ-῿]/ },
+];
+
+/**
+ * A name that declares a Latin/romanised orthography for a language whose base
+ * name would otherwise resolve to a non-Latin script.
+ *
+ * Rule, not a list of exceptions: `Serbian (Latin)`, `Hindi (Romanized)`,
+ * `Persian (Latin)` and `Urdu (Roman)` all name a language written in Latin
+ * letters, and guessing the base script would flag 100% of such a project's
+ * artifacts — the mass false positive this check exists to avoid. `Greeklish`
+ * (Latin transliteration of Greek) is the same shape without parentheses.
+ */
+const LATIN_ORTHOGRAPHY =
+  /\b(latin|roman|romanized|romanised|romaji|transliterat\w*|pinyin)\b|greeklish|ローマ字|拼音|латиница|latinica/i;
+
+/** The script test for an artifact language, or undefined when undetectable. */
+export function scriptPatternFor(language: string): RegExp | undefined {
+  if (LATIN_ORTHOGRAPHY.test(language)) return undefined;
+  return SCRIPT_PATTERNS.find((entry) => entry.match.test(language))?.script;
+}
+
+/** Why `scriptPatternFor` returned nothing — the two causes are not the same gap. */
+export function scriptGapReason(language: string): string {
+  return LATIN_ORTHOGRAPHY.test(language)
+    ? `artifact language "${language}" declares a Latin orthography, which overrides ` +
+      'its base-language script — presence cannot be settled by character range'
+    : `artifact language "${language}" is not in the script table — its writing ` +
+      'system may well be settleable by character range; what is missing is a ' +
+      'mapping from this NAME to a script, so nothing is claimed';
+}
+
+export interface ArtifactLanguageFile {
+  /** repo-relative, posix-separated (finding anchor). */
+  path: string;
+  hasScript: boolean;
+}
+
+export interface ArtifactLanguageSource {
+  available: boolean;
+  reason?: string;
+  language: string;
+  files: ArtifactLanguageFile[];
+}
+
+/**
+ * Collect the artifact-language sample.
+ *
+ * The scan set is derived from the resolved language scope's `nativePaths` — the
+ * same resolver the Constitution's Language Policy rule is generated from — and
+ * is a deliberate SUBSET of it, so it enforces less than the rule states but can
+ * never contradict it.
+ * `.prospec/archive/**` is excluded: it is gitignored, its content is a copy of
+ * what already shipped, and flagging it would be unactionable noise.
+ *
+ * The sample is NARROWER than "every `.md` under nativePaths", and the honest
+ * framing is definitional, not a list: whatever the canonical scanner filters is
+ * simply not in the sample, and this collector cannot tell those files from files
+ * that were never there. Reusing the scanner is the right trade — a compliance
+ * check should not be the one reader that opens a credential-shaped file — but it
+ * inherits every one of its filters: hardcoded security patterns (`*secret*`,
+ * `*credential*`, `*.env*`, `*.key`, `*.pem` — prospec's own defaults, NOT the
+ * project's `.prospec.yaml` `exclude:` list, which is deliberately not consulted),
+ * `DEFAULT_IGNORE` build-artifact directory names, symlinked entries
+ * (`followSymbolicLinks: false`), dotfiles, and depth over 10.
+ *
+ * What this collector DOES guarantee is narrower and exact: the four classes
+ * recorded in `unread[]` below never report as clean. Everything else the scanner
+ * removes is indistinguishable from absence — stated here rather than papered
+ * over, because four rounds of this defect each came from claiming more.
+ *
+ * Every finding is WARN-class. A fail tier for the committed record is the right
+ * end state, but it needs a shrink-only legacy exemption first: this repo alone
+ * carries 9 pre-existing English archive summaries, and any project adopting
+ * prospec mid-life has its own — a gate that reds them on day one gets switched
+ * off rather than satisfied.
+ */
+export function collectArtifactLanguage(
+  cwd: string,
+  scope: { language: string; nativePaths: string[] },
+): ArtifactLanguageSource {
+  const script = scriptPatternFor(scope.language);
+  if (!script) {
+    return {
+      available: false,
+      reason: scriptGapReason(scope.language),
+      language: scope.language,
+      files: [],
+    };
+  }
+
+  const files: ArtifactLanguageFile[] = [];
+  // The four classes below degrade the whole source rather than reporting clean:
+  // a lexically escaping root, a root resolving outside via symlink, a scanner
+  // throw, and a file that could not be read. This is the exact guarantee — not
+  // "anything unread", which four rounds of this defect proved unattainable
+  // while the scanner keeps filters this collector cannot enumerate.
+  const unread: string[] = [];
+  for (const glob of scope.nativePaths) {
+    // Keyed on the exported constant, never a twin literal: relocating the
+    // archive glob must not silently pull 300+ gitignored copies into scope.
+    if (glob === ARCHIVE_NATIVE_GLOB) continue;
+    const absRoot = path.resolve(cwd, glob.replace(/\/\*\*$/, ''));
+    // A scope that escapes the repo is refused — but refusing is not the same
+    // as finding it clean, so it is recorded rather than skipped over.
+    if (path.relative(cwd, absRoot).startsWith('..')) {
+      unread.push(`${glob} (outside the repository)`);
+      continue;
+    }
+    // A root that simply does not exist is nothing to scan — a legitimate
+    // absence, not an unread file. (Limitation, stated rather than papered
+    // over: an existing root whose PARENT is unreadable is indistinguishable
+    // from an absent one here, because existsSync reports false for both.)
+    if (!existsSync(absRoot)) continue;
+    if (!existsContained(absRoot, cwd)) {
+      unread.push(`${glob} (resolves outside the repository)`);
+      continue;
+    }
+    // The canonical scanner ignores symlinks and bounds depth, but it does NOT
+    // swallow scan errors — it re-raises EACCES/ENOTDIR as ScanError. Catching
+    // is what stops one unreadable directory from taking the other thirteen
+    // verdicts down with it; recording is what stops it reporting as clean.
+    let found: string[];
+    try {
+      ({ files: found } = scanDirSync('**/*.md', { cwd: absRoot }));
+    } catch (err) {
+      unread.push(`${glob} (${err instanceof Error ? err.message : String(err)})`);
+      continue;
+    }
+    for (const rel of found) {
+      const relPath = path
+        .join(path.relative(cwd, absRoot), rel)
+        .replace(/\\/g, '/');
+      const body = readContainedFile(cwd, relPath);
+      if (body === null) {
+        unread.push(relPath);
+        continue;
+      }
+      // The predicate is the file's PROSE, not its raw bytes: fenced blocks are
+      // stripped first, like every sibling markdown collector, so an English
+      // artifact quoting one native string in a code sample does not score as
+      // written in that language.
+      const prose = withoutFencedBlocks(body.split('\n')).join('\n');
+      files.push({ path: relPath, hasScript: script.test(prose) });
+    }
+  }
+  if (unread.length > 0) {
+    return {
+      available: false,
+      reason:
+        `could not read ${unread.length} path(s) in scope (${unread.slice(0, 3).join('; ')}` +
+        `${unread.length > 3 ? ', …' : ''}) — reporting unchecked rather than clean`,
+      language: scope.language,
+      files: [],
+    };
+  }
+  // Codepoint order, NOT localeCompare — ICU collation varies per environment
+  // and would break cross-machine report byte-identity.
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return { available: true, language: scope.language, files };
 }

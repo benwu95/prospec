@@ -51,7 +51,19 @@ position. Each entry: `{ id, status, reason? }`.
 - `id` ∈ the frozen `DRIFT_CHECK_IDS` set: `req-references`, `file-paths`, `import-direction`,
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
-  `test-provenance`, `constitution-severity`.
+  `test-provenance`, `constitution-severity`, `artifact-language`.
+
+`artifact-language` reports change artifacts whose PROSE carries no character in the project's
+artifact language (fenced code blocks are stripped before the test, so a quoted sample does not
+make a file count as compliant). Every finding is `warn`-class — the fail tier for the committed record waits on a
+shrink-only legacy exemption — and it skips, with that reason, whenever the artifact language's NAME
+is absent from its name→script table (every Latin-script language, English included, and any name
+declaring a Latin orthography) or one of four recorded conditions holds: a scope root outside the
+repository lexically or via symlink, a scan that raises, or a file that cannot be read. Those four
+degrade the whole check to a skip rather than reporting clean. It is not vacuity-proof beyond them:
+whatever the canonical scanner filters — build-artifact directory names, symlinked entries,
+dotfiles, secret-shaped names, depth over 10 — and a root whose own PARENT is unreadable are all
+indistinguishable from genuine absence and pass.
 
 Gates skills read by id: `review-provenance` (review recorded and not stale),
 `task-completion` (code-task completion), `knowledge-health` (module staleness — see below),

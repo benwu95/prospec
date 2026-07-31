@@ -25,6 +25,16 @@ const STALE_SEED_ENGLISH = `${STALE_SEED_MARKER} are written in English`;
 
 const toPosix = (p: string): string => p.replace(/\\/g, '/');
 
+/**
+ * The gitignored archive copy's glob, named once.
+ *
+ * It is part of the native-language scope (its summaries follow the change
+ * narrative), but consumers that SCAN the scope must subtract it — it is not in
+ * version control and its content is a copy of what already shipped. Exported so
+ * the subtraction is keyed on this constant instead of a hand-written twin.
+ */
+export const ARCHIVE_NATIVE_GLOB = '.prospec/archive/**';
+
 const relative = (cwd: string, absolute: string): string =>
   toPosix(path.relative(cwd, absolute)) || '.';
 
@@ -47,7 +57,7 @@ export function resolveLanguageScope(config: ProspecConfig, cwd: string): Langua
     // Change artifacts and their archived summaries: the owner's own change
     // narrative. `specs/_archived-history/` holds archive summaries derived from
     // those artifacts, so it follows them rather than the English `specs/features/`.
-    nativePaths: ['.prospec/changes/**', '.prospec/archive/**', underBase('specs/_archived-history/**')],
+    nativePaths: ['.prospec/changes/**', ARCHIVE_NATIVE_GLOB, underBase('specs/_archived-history/**')],
     englishPaths: [
       underBase('CONSTITUTION.md'),
       underBase('README.md'),

@@ -60,6 +60,12 @@ Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The 
   identifiers, API names, and the Severity/Lens/Status enums in English; write the Summary sentence
   in the artifact language. (The CLI is language-agnostic: whatever the findings JSON carries is what
   lands in the table.)
+- **A claim of mutation verification must name the mutations.** When a finding's Summary asserts
+  that an assertion was (or was not) mutation-verified, it states each mutation applied and whether
+  that mutation turned the test red. This governs the reviewer's own output, not the change: an
+  unnamed mutation set is indistinguishable from none, and the recurring failure is not skipped
+  verification but mutations chosen by whoever wrote the assertion — naming them is what makes the
+  choice auditable by the next reader.
 - **Identity is the reviewer-supplied `id`** — reuse the prior round's id for a finding you judge to
   be the same one (line numbers drift as fixes land, so the CLI never infers identity from the
   Location string; a finding without an id keys by location+lens).
