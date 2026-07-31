@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-30
-story_count: 12
-req_count: 41
+last_updated: 2026-07-31
+story_count: 13
+req_count: 45
 ---
 
 # Deterministic Drift Check
@@ -376,6 +376,57 @@ so that an indented or inline ``` literal can no longer flip fence state and bli
 
 ---
 
+
+## US-13: Artifact language as a machine signal [P1]
+
+As a developer on a project whose artifact language is not English,
+I want `prospec check` to report change artifacts written without a trace of that language,
+so that a Language Policy violation surfaces at every check instead of waiting for a human audit — or graduating unnoticed into the permanent record.
+
+**Acceptance Scenarios:**
+- WHEN a change artifact's prose carries no character of the artifact language, THEN the check reports it as `warn`, one finding per file
+- WHEN the artifact language is absent from the name→script table — every Latin-script language, English included, and any name declaring a Latin orthography — THEN the check skips with a reason naming that gap, never a pass
+- WHEN a scope root is outside the repository, raises on scan, or holds a file that cannot be read, THEN the whole source degrades to a skip naming those paths rather than reporting clean
+- WHEN the project has no change artifacts, THEN the check passes with an empty sample — the scan ran and found nothing to judge
+
+### Behavior Specifications
+
+#### REQ-TYPES-072: `artifact-language` drift check id
+`DRIFT_CHECK_IDS` carries `artifact-language` as its fourteenth frozen id — appended, never reordered. Its per-id comment states the check's scope (change artifacts, `.md` only), its WARN-only severity, and when it skips, because those comments are read as the registry's source of truth.
+- WHEN reading `DRIFT_CHECK_IDS`, THEN `artifact-language` is present and the preceding ids keep their order
+- WHEN the evaluator's behavior changes, THEN the per-id comment is updated with it
+
+---
+
+
+#### REQ-LIB-037: Artifact-language detection with a declared capability boundary
+`artifact-language` reports change artifacts whose prose carries no trace of the project's artifact language (fenced code blocks are stripped first, so a quoted sample cannot make a file count as compliant). Its scan set comes from `resolveLanguageScope().nativePaths` — never a hand-written path list — minus the gitignored `.prospec/archive/**`, and covers `.md` files only. Every finding is WARN-class: a fail tier for the committed record is the right end state but needs a shrink-only legacy exemption first, since any project adopting prospec mid-life carries pre-existing artifacts and a gate that reds them on day one gets switched off rather than satisfied. Detection is by Unicode script range keyed off the language NAME, so the check is honest about what it cannot see: a language absent from that table — every Latin-script language, English included, and any name declaring a Latin orthography — makes the check `skip`, with a reason naming the missing mapping rather than claiming the script is undetectable. The vacuity guarantee is exactly four conditions — a scope root outside the repository lexically or via symlink, a scan that raises, a file that cannot be read — plus the unknown-language branch; whatever the scanner filters — build-artifact names, symlinked entries, dotfiles, secret-shaped names, depth over 10 — and a root whose own parent is unreadable are NOT distinguished from genuine absence and pass.
+- WHEN a file's prose carries no character in the artifact language's script — fenced code blocks are stripped before the test — THEN it is reported as `warn`, one finding per file
+- WHEN a file carries the script, THEN nothing is reported for it
+- WHEN the artifact language is English, or its NAME is absent from the detection table, THEN the check skips and the reason names that gap — the missing NAME→script mapping, not a claim that the writing system is undetectable
+- WHEN one of four recorded conditions holds — a scope root outside the repository lexically, a scope root resolving outside via symlink, a scan that raises, or a file that cannot be read — THEN the whole source degrades to a skip naming those paths rather than reporting clean; a root that does not exist is a legitimate absence and is passed over
+- WHEN the project has no change artifacts at all, THEN the check passes with an empty sample rather than skipping
+- WHEN the scan set is computed, THEN it comes from the same resolver the Constitution's Language Policy rule is generated from, and is a deliberate SUBSET of it (archive subtracted, `.md` only, scanner defaults) — so it enforces less than the rule states but can never contradict it
+
+---
+
+
+#### REQ-SERVICES-074: check.service wires the artifact-language collector
+`check.service` collects the artifact-language source through the canonical language-scope resolver and hands it to `runChecks`; the decision stays in `lib`, as with every other check.
+- WHEN `prospec check` runs, THEN the artifact-language source is collected from the resolved language scope
+- WHEN reading `check.service`, THEN it carries no script or language judgment of its own
+
+---
+
+
+#### REQ-TESTS-065: Artifact-language check coverage including its skip path
+The artifact-language check is pinned across all three outcomes — clean, `warn`, `skipped` — with the skip path asserting a non-empty reason, because a `skipped` check read as a pass is worse than no check, and with the WARN-only severity itself asserted so the tier cannot be raised silently. Scope rules are pinned by their own negatives: the gitignored archive directory and non-`.md` files produce no finding, and a project with no change artifacts passes rather than skips.
+- WHEN the artifact language is absent from the name→script table, THEN the test asserts `skipped` with a reason naming that gap, never a pass
+- WHEN a file lives under the gitignored archive copy or is not `.md`, THEN the test asserts no finding
+- WHEN each new assertion class is mutated, THEN it turns red
+
+---
+
 ## Edge Cases
 
 - `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
@@ -408,6 +459,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-31 | archive-sync | ADDED REQ-TYPES-072; ADDED REQ-LIB-037; ADDED REQ-SERVICES-074; ADDED REQ-TESTS-065 | REQ-TYPES-072, REQ-LIB-037, REQ-SERVICES-074, REQ-TESTS-065 |
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5; ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034 (README factual-count drift check, BL-043) | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
 | 2026-07-04 | mechanize-review-gate | ADDED US-6 (review-provenance gate check, the 9th check id); ADDED REQ-TYPES-052/REQ-LIB-024/REQ-SERVICES-062/REQ-CLI-012/REQ-TESTS-042; MODIFIED REQ-TYPES-034 (total → 9) (issue #66 scope 1+2) | US-6, REQ-TYPES-052, REQ-LIB-024, REQ-SERVICES-062, REQ-CLI-012, REQ-TESTS-042, REQ-TYPES-034 |
@@ -424,3 +476,4 @@ _(None)_
 | 2026-07-29 | harden-verify-adjudication | ADDED US-12 + REQ-LIB-036 (markdown-fences CommonMark contract — planned as REQ-LIB-035, renumbered at graduation: that id was claimed by add-status-router, merged mid-flight); MODIFIED REQ-LIB-033 (recorded failure outranks an unresolvable command — `command_unavailable_reason` replaces the source-level early return), REQ-LIB-034 (escaped numerator keys on the resolved gate-set object; `result` trimmed), REQ-LIB-024 (both digest captures fail closed with revert-red pins; review backfill exemption draft-gated), REQ-LIB-025 (`hasVerifyGrade` trims like every quality_log consumer — review-round parallel-site sweep), REQ-SERVICES-068 (post-run metadata re-read/merge; honest digest-failure reason), REQ-CLI-022 (per-mode `--json` help), REQ-TESTS-056 (revert-red mutation pins for every headline hardening) — closes the #102 re-review gaps (issue #103) | US-12, REQ-LIB-036, REQ-LIB-033, REQ-LIB-034, REQ-LIB-024, REQ-LIB-025, REQ-SERVICES-068, REQ-CLI-022, REQ-TESTS-056 |
 | 2026-07-30 | add-windows-smoke-ci | ADDED REQ-TESTS-062 (a `windows-smoke` job on `windows-latest` plus the fixture script that gates on `test-provenance`, and real-host coverage of the cwd and quoted-PATH layouts — the runIf block stops being a silent skip); MODIFIED REQ-LIB-033 (libuv resolution completed: the spawn cwd is searched before PATH under the `NoDefaultCurrentDirectoryInExePath` guard, quoted PATH entries are unquoted and an inner `;` no longer splits them, candidates resolve against that cwd, and each caller threads its own cwd into the default probe — `unspawnableReason` therefore requires one) — two further deviations of the same inverted-gate class as the PATHEXT one (issue #101) | REQ-TESTS-062, REQ-LIB-033 |
 | 2026-07-30 | pin-windows-kill-semantics | MODIFIED REQ-LIB-033: the "timed out or was killed" scenario splits in two, and the killed half narrows to "only a signal-terminated run goes unrecorded" — POSIX reads the signal from the wait status whoever sent it (a child that CATCHES it and exits normally is recorded), while Windows carries none there and libuv synthesizes one from an `exit_signal` set only by `uv_process_kill`, so a self-kill surfaces as `TerminateProcess`'s exit code and is recorded fail-closed. Closes the one non-shim failure windows-smoke's first run surfaced (issue #101) | REQ-LIB-033 |
+| 2026-07-31 | add-artifact-language-check | 14th drift check: change artifacts whose prose carries no character of the project's artifact language are reported WARN-only, scan set derived from the resolved language scope minus the gitignored archive; detectability decided by a rule (a declared Latin orthography overrides the base language) and four recorded unread conditions degrade the source to a skip rather than reporting clean | US-13; REQ-TYPES-072, REQ-LIB-037, REQ-SERVICES-074, REQ-TESTS-065 (ADDED) |

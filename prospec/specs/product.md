@@ -1,6 +1,6 @@
 ---
 product: prospec
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # prospec
