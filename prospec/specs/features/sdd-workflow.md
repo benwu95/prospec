@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-07-31
 story_count: 30
-req_count: 153
+req_count: 155
 ---
 
 # SDD Workflow
@@ -280,6 +280,7 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 - WHEN running `/prospec-archive` THEN the Entry Gate checks verified status and knowledge sync, and upon passing scans and moves to `.prospec/archive/{date}-{name}/`
 - WHEN archiving completes THEN generate summary.md (knowledge sync is enforced by the Entry Gate; the service layer does not auto-trigger knowledge-update/raw-scan)
 - WHEN Feature Spec Sync THEN read delta-spec ADDED/MODIFIED/REMOVED and merge into `specs/features/` (Replace-in-Place)
+- WHEN Feature Spec Sync writes a Change History row THEN its Change column is the archived change's name, never a fixed placeholder
 - WHEN Feature Spec Sync completes THEN auto-regenerate `specs/product.md`
 - WHEN archiving completes THEN summary.md (and its committed `_archived-history` copy) carries a `## Review & Verify` section, so the audit trail carries review/verify evidence and does not evaporate with the gitignored bundle
 - WHEN executing the deterministic mutations THEN `prospec archive <name...>` performs them (previewable with `--dry-run`), and the skill keeps only the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation)
@@ -367,6 +368,25 @@ Tests pin both the fix and the damage it already did. Fixture-driven unit tests 
 - WHEN spec-sync runs over the fixture, THEN every pre-existing REQ body's line count is ≥ its pre-merge value
 - WHEN a new body-less REQ appears in any feature spec, THEN the debt-ledger test fails naming it
 - WHEN a listed legacy hole is repaired without being removed from the list, THEN the test fails
+
+---
+
+#### REQ-SERVICES-075: Change History rows identify the change
+`archive.service`'s spec sync writes each Change History row as `| {date} | {change name} | {impact} | {req refs} |` — the change being archived names its own row, so the column can be traced. The name is a required argument threaded from the caller that already holds it; the writer never derives it from a path nor re-reads metadata, and it is never a fixed placeholder. Both writers escape it through the pipe-table engine's `escapeTableCell`: the name comes from a directory entry, so it is the one cell in the row the service does not generate.
+- WHEN spec sync appends a Change History row to an existing table, THEN its Change column is the archived change's name
+- WHEN spec sync creates a new Feature Spec, THEN that spec's first Change History row names the change too
+- WHEN several changes are archived on the same date, THEN their rows are distinguished by name rather than by date alone
+- WHEN the name contains a `|` or a newline, THEN it is escaped so the row keeps its four columns
+- WHEN the row is written under `--dry-run`, THEN nothing reaches disk (unchanged)
+
+---
+
+#### REQ-TESTS-069: Change History naming contract
+`archive.service`'s test suite pins the naming from both directions on BOTH write paths — appending into an existing table and creating a new spec — plus the `execute()` wiring that supplies the name. The negative half is what catches a regression: a positive assertion only proves today's value is right, and the constant this replaces had passed every positive check since it was introduced while a fixture that only exercised one path left the other free to keep it.
+- WHEN a sync is exercised against a spec that already has a Change History table, THEN the appended row's Change column equals the change name and the pre-existing rows are unchanged
+- WHEN a sync creates a new spec, THEN its first row names the change
+- WHEN `execute()` supplies the name, THEN an empty or absent name fails the suite
+- WHEN either escape is removed, THEN the column-count assertion fails
 
 ---
 
@@ -754,6 +774,7 @@ Mutation testing ships as an on-demand deep audit, never as a gate. `pnpm mutate
 
 ---
 
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -772,7 +793,7 @@ Mutation testing ships as an on-demand deep audit, never as a gate. `pnpm mutate
 ## Success Criteria
 
 - **SC-001**: All SDD phases (story → design → plan → tasks → implement → verify → archive) produce correctly formatted artifacts
-- **SC-002**: The Feature Spec Change History accumulates an audit trail, and product.md automatically reflects the latest feature map
+- **SC-002**: The Feature Spec Change History accumulates an audit trail in which every row names the change that produced it, and product.md automatically reflects the latest feature map
 - **SC-003**: Supports 5+ concurrent change stories without confusion
 - **SC-004**: Prospec can be used for its own development (self-host), validating the tool's practicality
 
@@ -1320,6 +1341,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-31 | name-change-history-rows | ADDED REQ-SERVICES-075; ADDED REQ-TESTS-069 | REQ-SERVICES-075, REQ-TESTS-069 |
 | 2026-07-31 | pilot-mutation-testing | ADDED REQ-TEMPLATES-169; ADDED REQ-TESTS-066 | REQ-TEMPLATES-169, REQ-TESTS-066 |
 | 2026-07-30 | report-dropped-req-bullets | ADDED REQ-SERVICES-073; ADDED REQ-CLI-032; ADDED REQ-TEMPLATES-168; ADDED REQ-TESTS-064; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-SERVICES-072 | REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064, REQ-TEMPLATES-166, REQ-SERVICES-072 |
 | 2026-07-30 | add-harness-capability-flags | MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-155 | REQ-TEMPLATES-066, REQ-TEMPLATES-155 |
