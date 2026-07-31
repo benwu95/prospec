@@ -1,9 +1,9 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-06-20
+last_updated: 2026-07-31
 story_count: 4
-req_count: 10
+req_count: 11
 ---
 
 # MCP Truth Layer (Project Truth Server)
@@ -49,13 +49,15 @@ Five kinds of read-only resources: `knowledge://index`, `knowledge://module/{nam
 - WHEN a resource parameter contains a path separator or `..`, THEN it is always rejected
 - WHEN the realpath of any resource file (including module-map.yaml and its derived surfaces: listing, health, dependency queries) escapes the served root, THEN it is always treated as not found—a committed symlink must not become an oracle for reading files outside the repo or for existence probing; symlinks within root are served as usual
 
-#### REQ-MCP-006: Knowledge read layer (missing→graceful / invalid→loud)
-`lib/knowledge-reader` is the content read layer; module-map loading and path clamp are the shared implementation for check and MCP.
-
-**Scenarios:**
+#### REQ-MCP-006: Knowledge read layer (missing→graceful / unreadable→graceful for content, loud for a governance map / invalid→loud)
+`lib/knowledge-reader` is the content read layer; module-map loading and path clamp are the shared implementation for check and MCP. Its contained read is the ONE implementation of that invariant — `drift-sources` delegates to it rather than carrying a second copy, which is how the two drifted into disagreeing about read failures in the first place.
 - WHEN module-map.yaml is missing, THEN resources/tools that depend on it return unavailable with a "run `prospec knowledge init` first" hint; index/playbook/spec resources are unaffected
 - WHEN module-map.yaml exists but the schema is invalid, THEN a loud error (consistent with `prospec check`), never silently degrading to an empty list
 - WHEN the map drives file reading, THEN protected by `clampModulePaths`, paths outside the repo are discarded
+- WHEN a path's realpath resolves outside the served tree, THEN it reads as not-found, never as content
+- WHEN a CONTENT read's path passes containment but cannot be READ (a symlink to a directory, revoked permissions, too large), THEN it reads as absent — the same graceful path as a missing file — because a throw here aborts the whole caller (a single pathological file would fail an entire `prospec check` instead of costing one measurement)
+- WHEN the unreadable file is a GOVERNANCE document (`module-map.yaml`, `feature-map.yaml`), THEN the loader is LOUD instead: absence there is not neutral — it hands dependency-direction to the Constitution fallback ruleset, so "cannot read the map that is sitting right there" must not present as "no map". The raw content surface for the same file stays graceful; it serves text, it does not pick rulesets
+- WHEN the reason must be distinguished, THEN the read reports `absent` / `escaped` / `unreadable` rather than one undifferentiated null, and the containment predicate itself is shared with the drift collectors' existence probe (no second copy)
 
 #### REQ-MCP-007: Graceful absence—the server is a pure value-add surface
 **Scenarios:**
@@ -142,6 +144,15 @@ so that questions like "which module does this concept belong to" and "can A imp
 - WHEN moduleMap has that module's category, THEN it returns its ordered list (primary first)
 - WHEN the join runs, THEN it does not affect `searchModules`'s sort results
 
+
+#### REQ-TESTS-068: contained-read failure coverage
+`collectKnowledgeSize` gains real-temp-dir cases for a `README.md` symlinked to a directory INSIDE the knowledge tree (containment passes, the read fails), for the same path symlinked OUTSIDE the tree (containment rejects it first), and for an ordinary readable file whose emitted item is unchanged; `loadModuleMap` keeps a case proving a schema-invalid map still throws. A grep-level assertion pins that the contained-read `readFileSync` lives in exactly one place. New assertions are mutation-verified.
+- WHEN a knowledge file's realpath stays inside the tree but the read fails, THEN the collector emits no item for it and does not throw
+- WHEN the same path resolves outside the tree, THEN it reads as absent for the pre-existing containment reason, never as content
+- WHEN the file is readable, THEN the emitted item is identical to the pre-change output
+
+---
+
 ## Edge Cases
 
 - module-map missing: map-dependent surfaces are gracefully unavailable + `prospec knowledge init` hint; the remaining resources behave as usual
@@ -173,6 +184,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-31 | harden-contained-reads | ADDED REQ-TESTS-068 (contained-read failure coverage + single-source guards); MODIFIED REQ-MCP-006 (a content read past containment but unreadable is absent; a governance map is LOUD; the read reports absent/escaped/unreadable) | REQ-TESTS-068, REQ-MCP-006 |
 | 2026-06-13 | add-mcp-server | Read-only MCP server (BL-033 + read layer + OPT-A2 health consumption; converged after two rounds of adversarial review and fixing 4 criticals) | US-1~4; REQ-MCP-001~008 |
 | 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` pins the project root directory; config resolution and the preAction guard both respect `--cwd`, supporting a single agent registering multi-project servers across directories | REQ-MCP-001 (MODIFIED) |
 | 2026-06-13 | group-index-by-category | search_modules results carry the module-map-joined ordered category list (additive, protocol-frozen compatible) | REQ-TYPES-029, REQ-LIB-017 (ADDED); REQ-MCP-005 (MODIFIED) |

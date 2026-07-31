@@ -37,8 +37,8 @@ export type KnowledgeStrategy = typeof KNOWLEDGE_STRATEGIES[number];
 // Field names align with the index.md progressive-loading layers (L1/L2), the
 // single taxonomy the knowledge-size drift check enforces:
 //   l1_per_file     — max tokens for each L1 file (index.md and each core convention)
-//   l2_per_module   — max tokens for each L2 module README
-//   readme_max_lines — max lines for each module README
+//   l2_per_module   — max tokens for each L2 module file (README and each sub-module)
+//   readme_max_lines — max lines for each L2 module file
 const TokenBudgetSchema = z.object({
   l1_per_file: z.number().optional(),
   l2_per_module: z.number().optional(),
@@ -62,9 +62,9 @@ export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
 export interface KnowledgeSizeBudget {
   /** max tokens per L1 file (index.md + each core convention) */
   l1_per_file: number;
-  /** max tokens per L2 module README */
+  /** max tokens per L2 module file — the README and each extracted sub-module alike */
   l2_per_module: number;
-  /** max lines per module README */
+  /** max lines per L2 module file */
   readme_max_lines: number;
 }
 

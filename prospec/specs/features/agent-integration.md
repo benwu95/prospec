@@ -786,8 +786,8 @@ so that a skill either performs its deterministic steps through the CLI or does 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-07-30 | archive-sync | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
-| 2026-07-30 | archive-sync | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
+| 2026-07-30 | add-harness-capability-flags | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
+| 2026-07-30 | restore-cli-first | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-AGNT-037 (`getSkillReferences` registers `metadata-format` for new-story/ff, agent sync deploys self-contained, references dir count derived from the map) | US-401; REQ-AGNT-037 (ADDED) |
 | 2026-07-03 | migrate-skill-contract-to-vitest | verify-skills.sh's 28 generation contracts moved into a vitest real-temp-dir; counts derived from `getSkillReferences`/`SKILL_DEFINITIONS`, status-lifecycle changed to a named-set contract; removed the bash script + `verify:skills` + README references | US-437; REQ-TESTS-038/039/040, REQ-AGNT-030 (ADDED) |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-AGNT-029 | US-436, REQ-AGNT-029 |

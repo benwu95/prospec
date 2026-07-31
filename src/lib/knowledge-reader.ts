@@ -18,6 +18,11 @@ import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
  * drift apart (REQ-MCP-003).
  */
 
+/** A contained read's outcome — the reason is what separates the three nulls. */
+export type ContainedRead =
+  | { ok: true; text: string }
+  | { ok: false; reason: 'absent' | 'escaped' | 'unreadable' };
+
 /** Archived spec material is historical — excluded from listings and checks. */
 export const ARCHIVED_PREFIX = '_archived';
 
@@ -60,26 +65,26 @@ export function stripCellEmphasis(cell: string): string {
  * is not a direct child of `paths.base_dir`.
  */
 export function readIndex(baseDir: string): string | null {
-  return readTextIfExists(path.join(baseDir, 'index.md'), baseDir);
+  return readContainedText(path.join(baseDir, 'index.md'), baseDir);
 }
 
 export function readPlaybook(knowledgePath: string): string | null {
-  return readTextIfExists(path.join(knowledgePath, '_playbook.md'), knowledgePath);
+  return readContainedText(path.join(knowledgePath, '_playbook.md'), knowledgePath);
 }
 
 export function readModuleMapRaw(knowledgePath: string): string | null {
-  return readTextIfExists(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
+  return readContainedText(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
 }
 
 // Raw text, like readModuleMapRaw — the MCP feature-map resource serves the file
 // verbatim; parsing/validation lives in loadFeatureMap (the governance path), not here.
 export function readFeatureMapRaw(knowledgePath: string): string | null {
-  return readTextIfExists(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
+  return readContainedText(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
 }
 
 export function readModuleReadme(knowledgePath: string, moduleName: string): string | null {
   if (!isSafeResourceName(moduleName)) return null;
-  return readTextIfExists(path.join(knowledgePath, 'modules', moduleName, 'README.md'), knowledgePath);
+  return readContainedText(path.join(knowledgePath, 'modules', moduleName, 'README.md'), knowledgePath);
 }
 
 /** List active (non-archived) feature spec names, without the .md extension. */
@@ -95,13 +100,13 @@ export function readFeatureSpec(featuresDir: string, name: string): string | nul
   if (!isSafeResourceName(name)) return null;
   const filename = `${name}.md`;
   if (isArchivedSpec(filename)) return null;
-  return readTextIfExists(path.join(featuresDir, filename), featuresDir);
+  return readContainedText(path.join(featuresDir, filename), featuresDir);
 }
 
 // Product spec — the PRD entry point at specs/product.md (root is specsPath, the
 // parent of featuresDir). Whole-document read like readPlaybook; realpath-contained.
 export function readProduct(specsPath: string): string | null {
-  return readTextIfExists(path.join(specsPath, 'product.md'), specsPath);
+  return readContainedText(path.join(specsPath, 'product.md'), specsPath);
 }
 
 // --- module-map load + clamp (moved verbatim from check.service.ts) ---
@@ -110,9 +115,17 @@ export function loadModuleMap(knowledgePath: string, cwd: string): ModuleMap | n
   // same containment as readModuleMapRaw — a map symlinked outside the root
   // degrades to "missing" on EVERY surface (raw read, listing, health,
   // dependency answers); split paths here once served contradicting truths
-  const raw = readTextIfExists(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
-  if (raw === null) return null;
-  const parsed = ModuleMapSchema.safeParse(parseYaml(raw));
+  const read = readContained(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
+  // A map that is THERE but unreadable must not read as "no map": the fallback
+  // ruleset would silently take over and dependency-direction would be judged
+  // against the wrong rules — the same failure the schema check fails loudly on.
+  if (!read.ok && read.reason === 'unreadable') {
+    throw new ModuleDetectionError(
+      'module-map.yaml exists but cannot be read (a directory in its place, revoked permissions, or too large) — fix the file rather than letting the Constitution fallback ruleset take over',
+    );
+  }
+  if (!read.ok) return null;
+  const parsed = ModuleMapSchema.safeParse(parseYaml(read.text));
   if (!parsed.success) {
     // fail loudly — silently swapping a present-but-broken map for the
     // constitution fallback would check against the wrong ruleset
@@ -147,9 +160,16 @@ export function clampModulePaths(moduleMap: ModuleMap, cwd: string): ModuleMap {
  * feature specs, so a traversal-shaped name must never reach that comparison.
  */
 export function loadFeatureMap(knowledgePath: string): FeatureMap | null {
-  const raw = readTextIfExists(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
-  if (raw === null) return null;
-  const parsed = FeatureMapSchema.safeParse(parseYaml(raw));
+  const read = readContained(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath);
+  // Same rule as loadModuleMap: absent → the governance checks skip; present but
+  // unreadable → loud, so a broken index never reads as "no index".
+  if (!read.ok && read.reason === 'unreadable') {
+    throw new ModuleDetectionError(
+      'feature-map.yaml exists but cannot be read (a directory in its place, revoked permissions, or too large) — fix the file rather than letting the governance checks skip',
+    );
+  }
+  if (!read.ok) return null;
+  const parsed = FeatureMapSchema.safeParse(parseYaml(read.text));
   if (!parsed.success) {
     throw new ModuleDetectionError(
       `feature-map.yaml is invalid: ${parsed.error.issues
@@ -340,11 +360,59 @@ function splitList(cell: string | undefined): string[] {
  * symlink pointing outside the served tree must read as not-found, never as
  * content (same threat model as clampModulePaths: nothing in the knowledge
  * or spec tree may become an oracle for files outside it).
+ *
+ * A path that passes containment but cannot be READ (a symlink to a directory,
+ * revoked permissions, a file too large) also reads as absent: every caller
+ * already degrades a null into a graceful missing, whereas a throw here aborts
+ * the caller — one pathological file would fail an entire `prospec check`
+ * instead of costing a single measurement. Only the READ is forgiven; a
+ * schema-invalid document still throws from its parser (`invalid → loud`).
+ *
+ * THE single implementation of this invariant: `lib/drift-sources` delegates
+ * here with its own root instead of keeping a second copy, which is how the two
+ * drifted into disagreeing about read failures in the first place (PB-006).
  */
-function readTextIfExists(filePath: string, root: string): string | null {
-  if (!existsSync(filePath)) return null;
-  const real = realpathSync(filePath);
-  const rel = path.relative(realpathSync(root), real);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
-  return readFileSync(real, 'utf-8');
+export function readContainedText(filePath: string, root: string): string | null {
+  const read = readContained(filePath, root);
+  return read.ok ? read.text : null;
+}
+
+/**
+ * `readContainedText` with the reason kept — for the few callers that must tell
+ * the three nulls apart. Absence is not always neutral: a MISSING
+ * `module-map.yaml` legitimately means "no map, use the fallback ruleset", while
+ * a present-but-unreadable one must stay LOUD, or a broken file silently swaps
+ * the ruleset that dependency-direction is judged against (`invalid → loud`
+ * covers the schema; this covers the read).
+ */
+export function readContained(filePath: string, root: string): ContainedRead {
+  if (!existsSync(filePath)) return { ok: false, reason: 'absent' };
+  let real: string;
+  try {
+    real = realpathSync(filePath);
+    if (!isContainedPath(real, root)) return { ok: false, reason: 'escaped' };
+  } catch {
+    return { ok: false, reason: 'absent' };
+  }
+  try {
+    return { ok: true, text: readFileSync(real, 'utf-8') };
+  } catch {
+    return { ok: false, reason: 'unreadable' };
+  }
+}
+
+/**
+ * Whether `target` stays under `root` once both are resolved — THE containment
+ * predicate. `drift-sources`'s existence probe shares it rather than keeping a
+ * third copy of the same three lines (PB-006 names that copy explicitly); it
+ * cannot share the whole read, because a markdown link pointing at a real
+ * directory must count as EXISTING while being unreadable.
+ */
+export function isContainedPath(target: string, root: string): boolean {
+  try {
+    const rel = path.relative(realpathSync(root), realpathSync(target));
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  } catch {
+    return false;
+  }
 }

@@ -419,6 +419,104 @@ Details.
     expect(specContent).toContain('REQ-TYPES-001');
   });
 
+  it('names the archived change in the Change History row it appends to an EXISTING table', async () => {
+    // The production path: every real feature spec already has a Change History
+    // table, so the in-table insertion branch — not the EOF fallback — is what
+    // ships. Pinning only the fallback left this branch free to re-hardcode.
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n',
+      '/project/prospec/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# SDD Workflow
+
+## Change History
+
+| Date | Change | Impact | Stories/REQs |
+|------|--------|--------|-------------|
+| 2026-01-01 | earlier-change | ADDED REQ-TYPES-000 | REQ-TYPES-000 |
+`,
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/delta-spec.md':
+        '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** sdd-workflow\n**Story:** US-1\n\n**Description:**\nDetails.\n',
+    });
+
+    await execute({ cwd: '/project' });
+    const spec = fs.readFileSync('/project/prospec/specs/features/sdd-workflow.md', 'utf-8');
+
+    // section-scope to the Change History table, then read the row this run added
+    const table = spec.slice(spec.indexOf('## Change History'));
+    expect(table).toContain('| Date | Change |');
+    const added = table.split('\n').find((l) => l.includes('REQ-TYPES-001'));
+    expect(added, 'the run appended no Change History row').toBeDefined();
+    expect(added).toContain('| feat-a |');
+    expect(table, 'no row may carry a fixed placeholder').not.toContain('archive-sync');
+    // the pre-existing row survives untouched
+    expect(table).toContain('| 2026-01-01 | earlier-change | ADDED REQ-TYPES-000 | REQ-TYPES-000 |');
+  });
+
+  it('names the change in a NEWLY created feature spec too', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/delta-spec.md':
+        '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** brand-new-feature\n**Story:** US-1\n\n**Description:**\nDetails.\n',
+    });
+
+    await execute({ cwd: '/project' });
+    const spec = fs.readFileSync(
+      '/project/prospec/specs/features/brand-new-feature.md',
+      'utf-8',
+    );
+    expect(spec).toContain('| feat-a | Created from archive |');
+    expect(spec, 'the new-spec branch had its own hardcoded placeholder').not.toContain(
+      'initial-sync',
+    );
+  });
+
+  it('escapes a change name that would otherwise shift the table columns — in BOTH write paths', async () => {
+    // `change.name` is a directory entry, so it is the one cell we do not generate.
+    // One REQ routes to an EXISTING spec (in-table insertion) and one to a new
+    // slug (spec creation): a single-branch fixture let the other keep a raw pipe.
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n',
+      '/project/prospec/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# SDD Workflow
+
+## Change History
+
+| Date | Change | Impact | Stories/REQs |
+|------|--------|--------|-------------|
+| 2026-01-01 | earlier-change | ADDED REQ-TYPES-000 | REQ-TYPES-000 |
+`,
+      '/project/.prospec/changes/odd|name/metadata.yaml': 'name: "odd|name"\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/odd|name/delta-spec.md':
+        '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** sdd-workflow\n**Story:** US-1\n\n**Description:**\nDetails.\n\n---\n\n### REQ-TYPES-002: Another\n\n**Feature:** fresh-slug\n**Story:** US-1\n\n**Description:**\nDetails.\n',
+    });
+
+    await execute({ cwd: '/project' });
+
+    for (const [file, reqId] of [
+      ['sdd-workflow', 'REQ-TYPES-001'],
+      ['fresh-slug', 'REQ-TYPES-002'],
+    ] as const) {
+      const spec = fs.readFileSync(`/project/prospec/specs/features/${file}.md`, 'utf-8');
+      const row = spec.split('\n').find((l) => l.startsWith('|') && l.includes(reqId));
+      expect(row, `${file} has no Change History row for ${reqId}`).toBeDefined();
+      expect(row, `${file} left the pipe unescaped`).toContain('odd\\|name');
+      // four columns — an unescaped pipe would split into five
+      expect(row!.split(/(?<!\\)\|/).length, `${file} row gained a column`).toBe(6);
+    }
+  });
+
   it('should not fail archive when config is missing (no spec files)', async () => {
     vol.fromJSON({
       '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
@@ -489,7 +587,7 @@ Define types for Feature Spec frontmatter.
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
 
     expect(files).toHaveLength(1);
     expect(files[0]).toBe('/specs/features/sdd-workflow.md');
@@ -537,7 +635,7 @@ Adds a literal token.
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
     // the description survives byte-for-byte; a string replacement would expand
     // $& to the matched '## Edge Cases' heading and corrupt the spec
@@ -574,7 +672,7 @@ Gone.
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
     expect(content).toContain('REQ-TYPES-030**: dropped $& token');
     expect(content).not.toContain('dropped ## Deprecated Requirements');
@@ -607,7 +705,7 @@ Stays put.
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
 
     // the traversal slug is skipped entirely — nothing escapes the features dir
     expect(fs.existsSync('/evil.md')).toBe(false);
@@ -620,7 +718,7 @@ Stays put.
     vol.fromJSON({});
     vol.mkdirSync('/archive', { recursive: true });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     expect(files).toHaveLength(0);
   });
 
@@ -677,7 +775,7 @@ Updated body.
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('REQ-TYPES-010: new description');
@@ -738,7 +836,7 @@ Updated body.
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('REQ-TYPES-010: new description');
@@ -776,7 +874,7 @@ Details.
 `,
     });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
 
     expect(files).toHaveLength(2);
     expect(fs.existsSync('/specs/features/sdd-workflow.md')).toBe(true);
@@ -1066,7 +1164,7 @@ describe('syncToFeatureSpecs additional branches', () => {
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     expect(files).toEqual([]);
     // nothing written
     expect(fs.readdirSync('/specs/features')).toEqual([]);
@@ -1101,7 +1199,7 @@ body
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
     expect(content).toContain('REQ-TYPES-050: appended at end');
     // existing REQ preserved
@@ -1137,7 +1235,7 @@ removed body
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
     // both the prior entry and the freshly appended one are present
     expect(content).toContain('REQ-OLD-001');
@@ -1173,7 +1271,7 @@ dropped body
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
     expect(content).toContain('## Deprecated Requirements');
     expect(content).toContain('REQ-TYPES-077**: dropped');
@@ -1212,10 +1310,13 @@ new body
 `,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd.md', 'utf-8');
-    // the archive-sync row is appended (no table to insert into)
-    expect(content).toContain('| archive-sync |');
+    // the row is appended (no table to insert into) and NAMES the change — the
+    // negative half is what matters: a fixed placeholder passed every positive
+    // assertion for as long as it existed, while identifying nothing
+    expect(content).toContain('| demo-change |');
+    expect(content).not.toContain('archive-sync');
     expect(content).toContain('MODIFIED REQ-TYPES-001');
   });
 
@@ -1248,7 +1349,7 @@ new body
     });
     vol.mkdirSync('/specs/features', { recursive: true });
 
-    const { files } = await syncToFeatureSpecs('/archive', '/specs/features');
+    const { files } = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     expect(files).toEqual(['/specs/features/brand-new.md']);
     const content = fs.readFileSync('/specs/features/brand-new.md', 'utf-8');
     // REMOVED route lands in Deprecated, not the active req list

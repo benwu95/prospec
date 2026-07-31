@@ -88,7 +88,9 @@ of trimming it away.
      Pitfalls, and independent enough to be understood on its own.
 - **Layout**: `modules/{module}/{sub-module}.md` — a sibling of the module's `README.md`, kebab-case
   name after the sub-area (e.g. `modules/services/spec-sync.md`). Same Recipe-First structure and
-  same budget as a README. If a sub-module would itself overflow, split it
+  same budget as a README — `prospec check knowledge-size` measures every `{sub-module}.md` as L2
+  against the same `l2_per_module` / `readme_max_lines`, so extraction moves knowledge without
+  moving it out of the budget's sight. If a sub-module would itself overflow, split it
   again the same way.
 - **Link from the main README**: keep a `## Sub-Modules` section (inside the auto block) listing each:
   ```markdown

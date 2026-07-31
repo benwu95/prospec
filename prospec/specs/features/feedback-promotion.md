@@ -165,7 +165,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
-| 2026-07-30 | archive-sync | ADDED REQ-CLI-030 | REQ-CLI-030 |
+| 2026-07-30 | restore-cli-first | ADDED REQ-CLI-030 | REQ-CLI-030 |
 | 2026-06-08 | add-feedback-promotion-pipeline | Establish the G6 feedback promotion pipeline: collect → auditable decision → human-approved three-tier promotion → governance | US-1~4; REQ-TYPES-024, REQ-TEMPLATES-069/070/071/072, REQ-TESTS-024 |
 | 2026-06-12 | add-knowledge-flywheel | Version-control the ledger (survives across worktree) + archive Phase 4.5 automatic extraction + tasks×kind feed + knowledge_health review prioritization | US-1/2/4 reshaped; MODIFIED REQ-TEMPLATES-069/071/072; ADDED REQ-TEMPLATES-093/094/095, REQ-TESTS-025 |
 | 2026-07-04 | carry-review-verify-evidence | The committed evidence for each source_changes in the ledger points to `_archived-history/{date}-{name}.md` (explicitly carried in the promotion-format Harvest + ledger header), replacing the evaporated gitignored bundle (issue #56) | US-1; REQ-TEMPLATES-128 (ADDED) |

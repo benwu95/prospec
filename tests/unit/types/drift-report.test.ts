@@ -122,6 +122,55 @@ describe('DriftReportSchema', () => {
     });
     expect(r.success).toBe(true);
 
+    // additive-only extension: a module carrying the sub-module timestamp parses,
+    // and every pre-existing key keeps its name and meaning
+    const withSubModule = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        knowledge_health: {
+          modules: [
+            {
+              name: 'templates',
+              last_src_commit: '2026-06-11T10:00:00Z',
+              last_readme_commit: '2026-06-10T09:00:00Z',
+              last_sub_module_commit: '2026-06-12T09:00:00Z',
+              stale: false,
+            },
+          ],
+          coverage: { documented: 6, total: 6 },
+        },
+      },
+    });
+    expect(withSubModule.success).toBe(true);
+    expect(
+      withSubModule.success
+        ? Object.keys(withSubModule.data.structural.knowledge_health!.modules[0]!)
+        : [],
+    ).toEqual(['name', 'last_src_commit', 'last_readme_commit', 'last_sub_module_commit', 'stale']);
+
+    // absent, never null-filled: the key carries a real commit or is not there at all,
+    // so a consumer never has to distinguish "no sub-module" from "unknown timestamp"
+    const nullFilled = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        knowledge_health: {
+          modules: [
+            {
+              name: 'templates',
+              last_src_commit: '2026-06-11T10:00:00Z',
+              last_readme_commit: '2026-06-10T09:00:00Z',
+              last_sub_module_commit: null,
+              stale: true,
+            },
+          ],
+          coverage: { documented: 6, total: 6 },
+        },
+      },
+    });
+    expect(nullFilled.success).toBe(false);
+
     const missingCoverage = DriftReportSchema.safeParse({
       ...baseReport,
       structural: {

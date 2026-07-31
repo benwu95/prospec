@@ -105,7 +105,7 @@ describe('syncToFeatureSpecs — MODIFIED never blanks an authored body', () => 
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     // title refreshed…
@@ -130,7 +130,7 @@ describe('syncToFeatureSpecs — MODIFIED never blanks an authored body', () => 
       '/archive/delta-spec.md': MODIFIED_WITH_SPEC,
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('#### REQ-TYPES-001: updated title');
@@ -180,7 +180,7 @@ Planning prose that is NOT a behavior spec.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('The original behavioural statement.');
@@ -199,7 +199,7 @@ Planning prose that is NOT a behavior spec.
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     const lines = content.split('\n');
@@ -237,7 +237,7 @@ Landing description sentence.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('#### REQ-TYPES-050: freshly added');
@@ -263,7 +263,7 @@ Landing description sentence.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('#### REQ-TYPES-051: bodyless');
@@ -290,7 +290,7 @@ Brand-new behaviour statement.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/brand-new.md', 'utf-8');
 
     expect(content).toContain('#### REQ-NEW-001: created with a body');
@@ -322,7 +322,7 @@ Body before the h2.
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('Body before the h2.');
@@ -353,7 +353,7 @@ Body before the rule.
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('Body before the rule.');
@@ -377,7 +377,7 @@ Body at EOF.
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('Body at EOF.');
@@ -405,7 +405,7 @@ Prices render $& and $\` and $$ and $1 literally.
 `),
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('Prices render $& and $` and $$ and $1 literally.');
@@ -431,7 +431,7 @@ Prices render $& and $\` and $$ and $1 literally.
 `),
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('Prices render $& and $` and $$ and $1 literally.');
@@ -465,7 +465,7 @@ FOREIGN-TAIL-MARKER
 `),
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('The converged behavioural statement.');
@@ -494,7 +494,7 @@ The converged behavioural statement.
 `),
     });
 
-    await syncToFeatureSpecs('/archive', '/specs/features');
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(content).toContain('The converged behavioural statement.');
@@ -521,7 +521,7 @@ The host command no longer exists.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     // deprecation is append-only, so the stale active section survives …
@@ -551,7 +551,7 @@ Already gone.
 `),
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     expect(result.pendingConvergence).toEqual([]);
   });
 });
@@ -563,7 +563,7 @@ describe('syncToFeatureSpecs — dry-run honesty', () => {
       '/archive/delta-spec.md': MODIFIED_WITHOUT_SPEC,
     });
 
-    const result = await syncToFeatureSpecs('/archive', '/specs/features', true);
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change', true);
 
     expect(result.pendingConvergence).toEqual([
       expect.objectContaining({ reqId: 'REQ-TYPES-001' }),

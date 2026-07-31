@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2904%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2933%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -633,7 +633,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／module README 對照其 token 與行數預算，恆 WARN 級）、review provenance（implemented 變更須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊、artifact language（變更工件的**散文**通篇不帶專案 artifact language 的字跡——判定前先剝除 fenced code——恆 WARN 級；該語言不在名稱→書寫系統對照表中、或 scope root 不可讀／位於 repo 外時，帶原因 skip），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／每個模組知識檔——README **與其抽出的 `{sub-module}.md`**——對照其 token 預算，模組知識檔另有行數預算，恆 WARN 級）、review provenance（implemented 變更須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊、artifact language（變更工件的**散文**通篇不帶專案 artifact language 的字跡——判定前先剝除 fenced code——恆 WARN 級；該語言不在名稱→書寫系統對照表中、或 scope root 不可讀／位於 repo 外時，帶原因 skip），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
 | `prospec check --record-tests [--change <name>]` | 執行專案測試指令（`tech_stack.test_command`；未設時，僅當 package.json 宣告 test script 才回退 `<package_manager> test`，兩者皆無則誠實回報、絕不猜測）並把 `{command, exit_code, digest, date}` 寫進該變更的 `metadata.yaml`。這是 `/prospec-verify` 測試維度的裁決依據——測試結果成為機器事實，而非 agent 自陳。指令以 argv 切分、**不經 shell** 執行；無法誠實執行時（無指令、Windows 上的 `.cmd`／`.bat` shim —— Node 拒絕無 shell 執行之、非 git repo、逾時）不寫入任何紀錄，並各自回報原因且該 check 為 `skipped`，絕不留下任何設定都清不掉的 FAIL。唯一例外：先前**已記錄的非零退出碼即使指令事後變得不可解析仍判 FAIL** —— 已知紅燈是事實，缺指令抑制不了它 |
 | `prospec check --escaped-defects [--json]` | 依 `introduced_by` 登記聚合各 gate 的 escaped-defect 率，橫跨 `.prospec/changes/` 與 `.prospec/archive/`——目前唯一針對 gate 本身的 ground-truth 準確度訊號。屬報表模式而非檢項：不產 finding、不影響 `--strict`。無登記樣本時明說無樣本，而不是輸出 0% 漏失率 |
 | `prospec check --record-review [--change <name>]` | 記錄該變更的 review 基線（程式 digest），供 `review-provenance` 證明 review 跑過且仍對應現行程式 |
@@ -656,8 +656,8 @@ oracle 的兩個維度——delta-spec 合規與設計一致性——維持機�
 knowledge:
   token_budget:
     l1_per_file: 1800       # 每個 L1 檔（index.md + 各 core convention）的 token 上限
-    l2_per_module: 1000     # 每個 module README 的 token 上限
-    readme_max_lines: 100   # 每個 module README 的行數上限
+    l2_per_module: 1000     # 每個模組知識檔（README 與各 sub-module）的 token 上限
+    readme_max_lines: 100   # 每個模組知識檔的行數上限
 ```
 
 `prospec init` 會把這三欄 seed 進新專案的 `.prospec.yaml`，一開始就顯式可調；刪掉的欄位回退預設。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code）。
@@ -754,7 +754,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2904 個測試）
+# 執行所有測試（2933 個測試）
 pnpm test
 
 # Watch 模式
@@ -767,9 +767,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2904 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2062 tests
-- Contract tests（CLI 輸出 + Skill 格式）：733 tests
+**測試覆蓋率**：2933 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2090 tests
+- Contract tests（CLI 輸出 + Skill 格式）：734 tests
 - Integration tests：43 tests
 - E2E tests：66 tests
 

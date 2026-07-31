@@ -89,7 +89,7 @@ const sync = async (existingBody: string, specBlock: string, dryRun = false) => 
     '/specs/features/sdd-workflow.md': spec(existingBody),
     '/archive/delta-spec.md': deltaSpec(specBlock),
   });
-  return syncToFeatureSpecs('/archive', '/specs/features', dryRun);
+  return syncToFeatureSpecs('/archive', '/specs/features', 'demo-change', dryRun);
 };
 
 describe('syncToFeatureSpecs — a landing block reports the behavior it discards', () => {
@@ -231,7 +231,7 @@ ${REPLACEMENT_DROPS_ALL}
 ---
 `,
     });
-    const result = await syncToFeatureSpecs('/archive', '/specs/features');
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
 
     expect(result.droppedBehavior).toEqual([]);

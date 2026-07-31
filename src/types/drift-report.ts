@@ -120,6 +120,18 @@ export const KnowledgeHealthModuleSchema = z.object({
   last_src_commit: z.string().nullable(),
   /** ISO timestamp of the module README's last git commit; null when the README is missing. */
   last_readme_commit: z.string().nullable(),
+  /**
+   * Newest git commit across the module's extracted sub-module `.md` siblings —
+   * absent when the module has none, never a fabricated timestamp. Additive: the
+   * keys above keep their names and meanings.
+   *
+   * For a DOCUMENTED module, `stale` is reproducible from this report as
+   * `last_src_commit` vs the newer of the two knowledge timestamps. A module with
+   * no README is reported stale by the coverage rule instead — that verdict is
+   * carried by its `coverage gap` finding, not by these timestamps, so it is
+   * deliberately NOT recomputable from them.
+   */
+  last_sub_module_commit: z.string().optional(),
   stale: z.boolean(),
 });
 

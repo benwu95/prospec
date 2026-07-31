@@ -7,33 +7,33 @@
 
 ## User Story
 
-As a developer relying on `pnpm typecheck` / CI to catch type errors,
-I want type-checking to cover `tests/` (and `scripts/`),
-So that test-file type breaks are caught by machine, not only at adversarial review.
+As a 仰賴 `pnpm typecheck` / CI 抓型別錯誤的開發者，
+I want 型別檢查涵蓋 `tests/`（以及 `scripts/`），
+So that 測試檔的型別破損由機器抓出，而不是只在對抗式 review 才被發現。
 
 ## Affected Modules
 
 | Module | Impact | Description |
 |--------|--------|-------------|
-| tests | Medium | 54 surfaced test-file type errors fixed; guard test added; suite now type-checked |
-| _(root config)_ | — | `tsconfig.typecheck.json` + `package.json` `typecheck` script (not a knowledge module) |
-| _(scripts)_ | — | `scripts/counts/rewrite.ts` type-safety fix, logic unchanged (not a knowledge module) |
+| tests | Medium | 修掉浮現的 54 個測試檔型別錯誤；新增 guard test；整套測試現已納入型別檢查 |
+| _(root config)_ | — | `tsconfig.typecheck.json` ＋ `package.json` 的 `typecheck` script（非知識模組） |
+| _(scripts)_ | — | `scripts/counts/rewrite.ts` 型別安全修正，邏輯不變（非知識模組） |
 
 ## Spec Impact (quick — diff-diagnosed)
 
-**No product-spec-covered behavior touched** → graduation skipped (archive Entry Gate quick spec-impact check). The diff is prospec's own dev tooling (typecheck config + npm script), test-file type reconciliations, and a counts-script type fix (behavior identical). No `prospec/specs/features/` REQ governs `pnpm typecheck` scope.
+**未觸及任何 product spec 涵蓋的行為** → 略過畢業（archive Entry Gate 的 quick spec-impact 檢查）。此 diff 是 prospec 自身的開發工具（typecheck 設定 ＋ npm script）、測試檔的型別調和，以及一處 counts 腳本的型別修正（行為相同）。`prospec/specs/features/` 沒有任何 REQ 管轄 `pnpm typecheck` 的範圍。
 
 ## Completion
 
-- **Tasks**: 7/7 code (100%); 4 `[V]` done
-- **Acceptance Criteria**: SC-001..004 met
+- **Tasks**: 7/7 code（100%）；4 個 `[V]` 完成
+- **Acceptance Criteria**: SC-001..004 達成
 
 ## Review & Verify
 
-- **Review**: 1 round, 0 critical / 0 major (review-clean). Independent fresh-context reviewer confirmed the 54 delegated fixes are honest type reconciliations (every `!` on a guaranteed index, mocks neutral, union narrowing throws-not-swallows), no weakened assertions; config/build/guard verified; mutation-verified both ways.
-- **Verify**: Grade **S** — 1/5 PASS, 2/5 not-applicable (quick), 3/5 PASS, 4/5 PASS, 5/5 PASS (6 n/a). typecheck 0, tests 2083, lint clean, `prospec check` 11/11.
-- **Quality Log**: no WARN/FAIL results (informational only: re-scaled standard→quick after plan-time discovery of 54 latent test type errors).
+- **Review**: 1 輪、0 critical / 0 major（review-clean）。獨立的 fresh-context reviewer 確認 54 個委派修正皆為誠實的型別調和（每個 `!` 都用在有保證的索引上、mock 中性、union narrowing 是拋出而非吞掉），無任何被弱化的斷言；設定／建置／guard 皆已驗證；雙向 mutation-verified。
+- **Verify**: Grade **S** —— 1/5 PASS、2/5 not-applicable（quick）、3/5 PASS、4/5 PASS、5/5 PASS（6 n/a）。typecheck 0、tests 2083、lint 乾淨、`prospec check` 11/11。
+- **Quality Log**: 無 WARN/FAIL（僅資訊性：在 plan 階段發現 54 個潛伏的測試型別錯誤後，由 standard 改判為 quick）。
 
 ## Knowledge Update
 
-`tests` module README synced (typecheck-coverage note + test counts) in the feature commit `2ae84d5`; no feature-spec graduation (no product-spec impact).
+`tests` 模組 README 已於 feature commit `2ae84d5` 同步（typecheck 覆蓋註記 ＋ 測試計數）；無 feature spec 畢業（無 product spec 影響）。

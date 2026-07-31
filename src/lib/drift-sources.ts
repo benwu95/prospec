@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -12,8 +12,10 @@ import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
   ARCHIVED_EXCLUDES,
   isArchivedSpec,
+  isContainedPath,
   isSafeResourceName,
   loadFeatureMap,
+  readContainedText,
   readIndex,
   readModuleReadme,
 } from './knowledge-reader.js';
@@ -97,6 +99,8 @@ export interface ModuleTimestamps {
   readme_exists: boolean;
   last_src_commit: string | null;
   last_readme_commit: string | null;
+  /** Newest commit across the module's sub-module `.md` siblings; null when it has none. */
+  last_sub_module_commit: string | null;
 }
 
 export interface GitTimestampSource {
@@ -281,7 +285,9 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   const headingReq = /^#{1,6}\s+~{0,2}(REQ-(?:[A-Z][A-Z0-9]*-)+\d+)/;
   const ids = new Set<string>();
   for (const file of files.sort()) {
-    const lines = readFileSync(path.join(featuresDir, file), 'utf-8').split('\n');
+    const text = readTextOrSkip(path.join(featuresDir, file));
+    if (text === null) continue;
+    const lines = text.split('\n');
     for (const line of lines) {
       const id = headingReq.exec(line)?.[1];
       if (id !== undefined) ids.add(id);
@@ -298,7 +304,9 @@ export function collectReqReferences(roots: string[], cwd: string): ReqReference
     for (const { file, relPath } of markdownFiles(root, cwd)) {
       if (seen.has(file)) continue;
       seen.add(file);
-      const lines = withoutFencedBlocks(readFileSync(file, 'utf-8').split('\n'));
+      const body = readTextOrSkip(file);
+      if (body === null) continue;
+      const lines = withoutFencedBlocks(body.split('\n'));
       lines.forEach((text, i) => {
         for (const m of text.matchAll(REQ_ID_PATTERN)) {
           refs.push({ id: m[0], source_path: relPath, line: i + 1 });
@@ -328,7 +336,9 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
     for (const { file, relPath } of markdownFiles(root, cwd)) {
       if (seen.has(file)) continue;
       seen.add(file);
-      const lines = withoutFencedBlocks(readFileSync(file, 'utf-8').split('\n'));
+      const body = readTextOrSkip(file);
+      if (body === null) continue;
+      const lines = withoutFencedBlocks(body.split('\n'));
       lines.forEach((text, i) => {
         for (const m of text.matchAll(linkPattern)) {
           const raw = m[1] ?? m[2];
@@ -402,7 +412,9 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
         if (fromModule !== entry.name) continue; // longest-prefix owner emits the edge once
         // blank block comments AND template-literal interiors (newlines kept) —
         // commented-out or string-embedded imports are not real edges
-        const content = readFileSync(path.resolve(cwd, relPath), 'utf-8')
+        const raw = readTextOrSkip(path.resolve(cwd, relPath));
+        if (raw === null) continue;
+        const content = raw
           .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
           .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '));
         for (const m of content.matchAll(importPattern)) {
@@ -476,12 +488,19 @@ export function collectGitTimestamps(
       'README.md',
     );
     const readmeExists = existsSync(path.resolve(cwd, readmeRel));
+    const subModuleRels = moduleKnowledgeFiles(
+      path.resolve(cwd, knowledgePath, 'modules'),
+      entry.name,
+    )
+      .filter((file) => file !== 'README.md')
+      .map((file) => path.join(path.dirname(readmeRel), file));
     modules.push({
       name: entry.name,
       readme_path: readmeRel.replace(/\\/g, '/'),
       readme_exists: readmeExists,
       last_src_commit: gitLastCommit(cwd, entry.paths),
       last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
+      last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
     });
   }
   return { available: true, modules };
@@ -595,16 +614,22 @@ export function collectKnowledgeSize(
     measure(rel, 'l1', readContainedFile(cwd, rel));
   }
 
-  // L2 — every module README under modules/.
+  // L2 — every module README under modules/, plus each extracted sub-module
+  // sibling: the conventions give a sub-module the SAME budget as a README, so
+  // measuring only the README would let an extraction move knowledge out of the
+  // budget's sight instead of making it smaller.
   const modulesDir = path.resolve(cwd, knowledgePath, 'modules');
   if (existsSync(modulesDir)) {
     for (const name of readdirSync(modulesDir).sort()) {
       if (!isSafeResourceName(name)) continue;
-      measure(
-        path.join(knowledgeRel, 'modules', name, 'README.md'),
-        'l2',
-        readModuleReadme(knowledgePath, name),
-      );
+      for (const file of moduleKnowledgeFiles(modulesDir, name)) {
+        const rel = path.join(knowledgeRel, 'modules', name, file);
+        measure(
+          rel,
+          'l2',
+          file === 'README.md' ? readModuleReadme(knowledgePath, name) : readContainedFile(cwd, rel),
+        );
+      }
     }
   }
 
@@ -628,7 +653,9 @@ export function collectTaskStates(cwd: string): TaskSource {
     const tasksPath = path.join(changesDir, name, 'tasks.md');
     if (!existsSync(tasksPath)) continue;
     const tasks: TaskItem[] = [];
-    readFileSync(tasksPath, 'utf-8').split('\n').forEach((line, i) => {
+    const body = readTextOrSkip(tasksPath);
+    if (body === null) continue;
+    body.split('\n').forEach((line, i) => {
       const task = parseTaskLine(line);
       if (task === null) return;
       tasks.push({ ...task, line: i + 1 });
@@ -701,7 +728,9 @@ export function collectFeatureMapGovernance(
     .sort();
   for (const file of files) {
     const reqs: FeatureSpecReqs['reqs'] = [];
-    readFileSync(path.join(featuresDir, file), 'utf-8')
+    const body = readTextOrSkip(path.join(featuresDir, file));
+    if (body === null) continue;
+    body
       .split('\n')
       .forEach((line, i) => {
         const id = ACTIVE_REQ_HEADING.exec(line)?.[1];
@@ -763,12 +792,28 @@ export function moduleAttributor(moduleMap: ModuleMap): (relPath: string) => str
  * lands outside is reported as non-existent, closing the existence oracle.
  */
 function existsContained(abs: string, cwd: string): boolean {
-  if (!existsSync(abs)) return false;
+  // Existence and containment only — deliberately NOT the whole contained read:
+  // a markdown link pointing at a real directory must count as EXISTING (else
+  // collectMarkdownLinks invents a broken-link FAIL) while being unreadable.
+  // The predicate itself is knowledge-reader's, so this is not a third copy.
+  return existsSync(abs) && isContainedPath(abs, cwd);
+}
+
+/**
+ * Read a file the caller ENUMERATED from disk, skipping it when the read fails.
+ *
+ * Containment is deliberately absent here: these callers walk a root they were
+ * handed and must keep scanning exactly what they scanned before. What changes is
+ * only the failure mode — a directory wearing a `.md` name (or a revoked
+ * permission) used to throw EISDIR out of the collector during `runChecks(...)`
+ * argument evaluation, taking all thirteen other verdicts with it. One
+ * pathological entry may cost its own line, never the whole run.
+ */
+function readTextOrSkip(absPath: string): string | null {
   try {
-    const rel = path.relative(realpathSync(cwd), realpathSync(abs));
-    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    return readFileSync(absPath, 'utf-8');
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -819,14 +864,42 @@ function isCheckableLink(raw: string): boolean {
 /** Read a repo-relative file, refusing to escape the repo (symlink-resolved). */
 function readContainedFile(cwd: string, relPath: string): string | null {
   const abs = path.resolve(cwd, relPath);
-  if (path.relative(cwd, abs).startsWith('..') || !existsContained(abs, cwd)) return null;
+  // Lexical reject first (cheap, no FS touch); realpath containment and the
+  // "exists but unreadable → absent" rule belong to the ONE shared helper —
+  // a second copy here is exactly how the two drifted into disagreeing about
+  // read failures, which cost an entire check run per pathological file (PB-006).
+  if (path.relative(cwd, abs).startsWith('..')) return null;
+  return readContainedText(abs, cwd);
+}
+
+/**
+ * A module's knowledge files — its `README.md` plus every extracted sub-module
+ * sibling — as sorted entry names.
+ *
+ * ONE source for both collectors that walk a module directory (size budget and
+ * staleness): a hand-copied walk in each would drift the moment a skip rule
+ * changes (PB-006). Subdirectories, non-`.md` entries and names rejected by
+ * `isSafeResourceName` are skipped rather than measured — a module directory may
+ * hold diagrams or an editor's dotfile, and neither is knowledge the budget
+ * governs.
+ *
+ * A symlink is a CANDIDATE, not a skip: containment is the readers' job
+ * (`readModuleReadme`/`readContainedFile` both resolve realpath and reject a
+ * target outside the tree), so filtering symlinks here buys no safety and
+ * silently drops a real measurement — a symlinked README used to be measured
+ * through `readModuleReadme` and would have gone unmeasured, i.e. the budget
+ * gate failing OPEN. Sorted so the emitted item order is reproducible across
+ * machines rather than inheriting readdir order.
+ */
+function moduleKnowledgeFiles(modulesDir: string, moduleName: string): string[] {
   try {
-    return readFileSync(abs, 'utf-8');
+    return readdirSync(path.join(modulesDir, moduleName), { withFileTypes: true })
+      .filter((e) => !e.isDirectory() && e.name.endsWith('.md') && isSafeResourceName(e.name))
+      .map((e) => e.name)
+      .sort();
   } catch {
-    // A path that exists but cannot be read (EISDIR / EACCES / too large) is
-    // reported as absent: every caller already degrades a null to an honest
-    // `{available:false}` skip, whereas a throw here kills the whole check run.
-    return null;
+    // not a directory / unreadable — the module simply contributes no knowledge file
+    return [];
   }
 }
 
