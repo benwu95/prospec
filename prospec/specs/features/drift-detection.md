@@ -31,12 +31,13 @@ so that structural drift is caught by a machine before it accumulates into real 
 - WHEN run twice consecutively against the same repo state, THEN results are completely identical (zero LLM, zero network)
 
 #### REQ-LIB-014: Deterministic structural drift engine
-A zero-LLM pure-function evaluator; the collector (I/O) is separated from the evaluator (pure function). The REQ definition source = `specs/features/` headings (excluding `_archived*`); fenced code block content is not scanned (CommonMark closing rule: same character, ≥ length, no info string); dependency direction follows the project's `module-map.yaml` `depends_on` (falling back to Constitution layering when absent), applicable to any prospec project.
-**Scenarios:**
+A zero-LLM pure-function evaluator; the collector (I/O) is separated from the evaluator (pure function). The REQ definition source = `specs/features/` headings (excluding `_archived*`); fenced code block content is not scanned (CommonMark closing rule: same character, ≥ length, no info string); dependency direction follows the project's `module-map.yaml` `depends_on` (falling back to Constitution layering when absent), applicable to any prospec project. The collectors' contained file read delegates to `lib/knowledge-reader`'s single contained-read helper — never a collector-local second copy of that invariant — with the caller supplying its own root (collectors use the repo root, knowledge reads use the knowledge tree); the dependency stays one-way (`drift-sources` imports knowledge-reader, never the reverse).
 - WHEN any of the three violation categories appears, THEN the finding contains `source_path` + `line`, sorted by (check, path, line number) codepoint
 - WHEN module-map exists but its schema is invalid, THEN throw a typed error (fail loudly, do not silently switch rule sets)
 - WHEN module-map paths point outside the repo, THEN that path is clamped and does not drive scanning or file reads
 - WHEN a module-map paths entry is a single source file, THEN import-edge collection scans only that file itself (file/dir/glob determined by `classifyModulePath`); non-source-file entries produce no import edges (no longer expanded to `<file>/**` and hitting ENOTDIR)
+- WHEN a contained read is needed, THEN it goes through that single helper rather than a collector-local implementation, and the existence probe shares the same containment predicate
+- WHEN a collector reads a file it ENUMERATED from disk (feature specs, markdown roots, `tasks.md`, import sources), THEN a read failure skips that entry instead of throwing: each collector is evaluated as an argument to `runChecks(...)`, so one directory wearing a `.md` name used to take all thirteen other verdicts with it. Containment is deliberately not added at those sites — they keep scanning exactly what they scanned before; only the failure mode changes
 
 ---
 
@@ -485,7 +486,8 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
-| 2026-07-31 | archive-sync | ADDED REQ-TYPES-073; ADDED REQ-TESTS-067; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-015 | REQ-TYPES-073, REQ-TESTS-067, REQ-LIB-027, REQ-LIB-015 |
+| 2026-07-31 | harden-contained-reads | MODIFIED REQ-LIB-014 (collector contained read delegates to the one helper; an enumerated read skips a failing entry instead of aborting the run) | REQ-LIB-014 |
+| 2026-07-31 | enforce-sub-module-budget | ADDED REQ-TYPES-073, REQ-TESTS-067; MODIFIED REQ-LIB-027 (L2 measures every module .md), REQ-LIB-015 (staleness vs the newest knowledge commit) | REQ-TYPES-073, REQ-TESTS-067, REQ-LIB-027, REQ-LIB-015 |
 | 2026-07-31 | archive-sync | ADDED REQ-TYPES-072; ADDED REQ-LIB-037; ADDED REQ-SERVICES-074; ADDED REQ-TESTS-065 | REQ-TYPES-072, REQ-LIB-037, REQ-SERVICES-074, REQ-TESTS-065 |
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5; ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034 (README factual-count drift check, BL-043) | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |

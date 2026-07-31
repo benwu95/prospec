@@ -554,7 +554,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-07-31 | archive-sync | MODIFIED REQ-KNOW-016; MODIFIED REQ-KNOW-013 | REQ-KNOW-016, REQ-KNOW-013 |
+| 2026-07-31 | enforce-sub-module-budget | MODIFIED REQ-KNOW-016 (resolved budget, machine-enforced for sub-modules), REQ-KNOW-013 (L2 covers each linked sub-module) | REQ-KNOW-016, REQ-KNOW-013 |
 | 2026-07-30 | archive-sync | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-360 (Knowledge base language policy English exemption) + REQ-TEMPLATES-141 (Constitution Language Policy restores the AI Knowledge exemption; three-way alignment of entry.md.hbs/ledger) (issue #67) | US-360, REQ-TEMPLATES-141 |
