@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 story_count: 15
 req_count: 61
 ---
@@ -167,7 +167,7 @@ The `index.md` Modules-table `Description` column carries only routing-level pos
 - WHEN measuring `index.md`, THEN it stays within the L1 per-file token budget (`knowledge-size` PASS)
 
 #### REQ-KNOW-013: L0-L3 Layered Loading
-- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs ≤1,000 tokens/module + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
+- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs **and each linked `{sub-module}.md`**, ≤1,000 tokens per file + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
 - WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0-L3 definitions
 - WHEN the Loading Strategy note names its budget source (skill templates + generated `index.md`), THEN it points to `.prospec.yaml` `knowledge.token_budget` and `prospec check knowledge-size` (downstream-visible / runnable), never the internal `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol
 
@@ -261,17 +261,18 @@ so that the AI produces more precise artifacts and Knowledge's value is fully le
 
 As a developer,
 I want an oversized module README to be able to extract a functionally-independent sub-area into a sub-module file,
-so that valuable detail is preserved while staying within the README token budget, rather than lossy trimming.
+so that valuable detail is preserved while every module knowledge file — the README and each extracted sub-module — stays within the same token budget, rather than lossy trimming.
 
 **Acceptance Scenarios:**
-- WHEN a module README exceeds the ≤100 line / ≤400 token budget and contains a content-rich, functionally-independent sub-area THEN extract it to `modules/{module}/{sub-module}.md`
+- WHEN a module README exceeds its resolved `l2_per_module` / `readme_max_lines` budget (defaults ≤1,000 tokens / ≤100 lines) and contains a content-rich, functionally-independent sub-area THEN extract it to `modules/{module}/{sub-module}.md`
 - WHEN extracting a sub-module THEN the main README links it via a `## Sub-Modules` section
 - WHEN loading a module README (L2) THEN also load its linked sub-modules
 
 #### REQ-KNOW-016: Sub-Module Extraction over Lossy Trimming
-- WHEN a module README would exceed its ≤100 line / ≤400 token budget and contains a content-rich, functionally-independent sub-area, THEN extract it to `modules/{module}/{sub-module}.md` instead of trimming away detail
+- WHEN a module README would exceed its resolved `l2_per_module` token budget or `readme_max_lines` line budget (defaults ≤1,000 tokens / ≤100 lines, overridable via `.prospec.yaml` `knowledge.token_budget`) and contains a content-rich, functionally-independent sub-area, THEN extract it to `modules/{module}/{sub-module}.md` instead of trimming away detail
 - WHEN extraction happens, THEN the main README links each sub-module from a `## Sub-Modules` section
 - WHEN knowledge-generate runs, THEN Step 4.5 performs extraction and emits a skeleton `## Sub-Modules` section
+- WHEN `prospec check knowledge-size` runs, THEN every extracted sub-module is measured against the SAME `l2_per_module` / `readme_max_lines` budget as the README — extraction moves knowledge, never moves it out of the budget's sight
 
 #### REQ-KNOW-017: Sub-Module Loading and Index Exclusion
 - WHEN loading a module README (L2), THEN also load the `{sub-module}.md` files it links
@@ -530,7 +531,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 - **SC-2**: `{base_dir}/index.md` and `module-map.yaml` stay consistent with the module directories
 - **SC-3**: AI Knowledge saves 70%+ of AI-conversation token consumption
 - **SC-4**: The Knowledge Quality Gate covers all 5 Planning Skills
-- **SC-5**: Each module README is ≤ 100 lines and includes the Modification Guide and Pitfalls sections
+- **SC-5**: Each module knowledge file — the README and each linked sub-module — is ≤ 100 lines, and the README includes the Modification Guide and Pitfalls sections
 - **SC-6**: The `{base_dir}/index.md` module table includes a Rationale column
 
 ## Maintenance Rules
@@ -553,6 +554,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-07-31 | archive-sync | MODIFIED REQ-KNOW-016; MODIFIED REQ-KNOW-013 | REQ-KNOW-016, REQ-KNOW-013 |
 | 2026-07-30 | archive-sync | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-360 (Knowledge base language policy English exemption) + REQ-TEMPLATES-141 (Constitution Language Policy restores the AI Knowledge exemption; three-way alignment of entry.md.hbs/ledger) (issue #67) | US-360, REQ-TEMPLATES-141 |

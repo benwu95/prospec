@@ -3,7 +3,7 @@ feature: drift-detection
 status: active
 last_updated: 2026-07-31
 story_count: 13
-req_count: 45
+req_count: 47
 ---
 
 # Deterministic Drift Check
@@ -43,16 +43,21 @@ A zero-LLM pure-function evaluator; the collector (I/O) is separated from the ev
 ### US-2: Knowledge health check [P2]
 
 As a developer who relies on AI Knowledge to judge context trustworthiness,
-I want check to compare module source code against its README by git commit timestamp and report coverage,
+I want check to compare module source code against its knowledge files — the README plus each extracted sub-module — by git commit timestamp and report coverage,
 so that whether Knowledge is stale can be judged rather than blindly trusted.
 
 **Acceptance Scenarios:**
-- WHEN a module's last src commit is later than its last README commit, THEN mark the module stale, severity always WARN (never FAIL)
-- WHEN the report is produced, THEN the `knowledge_health` field is a frozen contract (modules[]{name, last_src_commit, last_readme_commit, stale} + coverage{documented, total}), consumed directly by downstream (Knowledge Flywheel, MCP server)
+- WHEN a module's last src commit is later than its newest knowledge commit (the later of its README and sub-module commits), THEN mark the module stale, severity always WARN (never FAIL)
+- WHEN the report is produced, THEN the `knowledge_health` field is a frozen contract (modules[]{name, last_src_commit, last_readme_commit, `last_sub_module_commit` (optional, omitted when the module has none), stale} + coverage{documented, total}), consumed directly by downstream (Knowledge Flywheel, MCP server); the pre-existing keys are never reordered or renamed
 - WHEN git timestamps are unavailable (non-git / shallow clone) or module-map is missing, THEN the check is `skipped` + reason
 
 #### REQ-LIB-015: Knowledge health check (git timestamps)
-The comparison source is git log timestamps (file mtime is distorted after a CI checkout and does not participate in the judgment); timestamps are compared by epoch (%cI carries each one's own timezone offset). A shallow clone's boundary commit time is a fabricated fact — degrade to skipped. When module-map is missing, phantom coverage must not be fabricated from Constitution fallback modules.
+The comparison source is git log timestamps (file mtime is distorted after a CI checkout and does not participate in the judgment); timestamps are compared by epoch (%cI carries each one's own timezone offset). A module's knowledge is its `README.md` plus every extracted sub-module `.md` sibling, so staleness compares the module's last source commit against the NEWEST of those knowledge commits; the report carries both `last_readme_commit` (the README's own) and the optional `last_sub_module_commit`, so a documented module's verdict is reproducible from the report alone. A module with NO README stays stale by the coverage rule regardless of those timestamps — the coverage-gap finding is that verdict's carrier. A knowledge file reached through a symlink is enumerated like any other: containment is enforced by the canonical readers (realpath, reject outside the tree), never by skipping symlinks, since skipping one would drop a real measurement and let the budget gate fail open. A shallow clone's boundary commit time is a fabricated fact — degrade to skipped. When module-map is missing, phantom coverage must not be fabricated from Constitution fallback modules.
+- WHEN a module's source commit is newer than every knowledge commit it has, THEN the module is stale, severity always WARN (never FAIL)
+- WHEN only a sub-module file is updated and its commit is newer than the module's last source commit, THEN the module is NOT stale
+- WHEN the README is the newer of the two knowledge files, THEN it is the one the source commit is compared against
+- WHEN a module has no sub-module file, THEN `last_sub_module_commit` is absent and the verdict matches the README-only comparison
+- WHEN a module has sub-modules but no README, THEN it is reported stale with its `coverage gap` finding, not by a timestamp comparison
 
 ---
 
@@ -204,12 +209,12 @@ The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --jso
 ## US-8: knowledge-size budget check [P2]
 
 As a maintainer who maintains the effectiveness of layered knowledge loading,
-I want a deterministic `knowledge-size` check that counts tokens/lines for index.md, the core conventions, and each module README and compares them against the declared budget,
+I want a deterministic `knowledge-size` check that counts tokens/lines for index.md, the core conventions, and every module knowledge file — each README and each extracted `{sub-module}.md` sibling — and compares them against the declared budget,
 so that the layered token budget — long declared but never mechanically enforced — becomes a machine-checkable warn, preventing the layered model's effectiveness from silently eroding change by change.
 
 **Acceptance Scenarios:**
 - WHEN an L1 file (index.md or a core convention) exceeds the per-file token budget, THEN report WARN (including `source_path` + measured token/budget + `TOKEN_ESTIMATOR_LABEL`)
-- WHEN a module README's tokens exceed the per-module budget or its line count exceeds the readme line-count cap, THEN report WARN (tokens and lines each form an independent finding)
+- WHEN a module knowledge file's tokens exceed the per-module budget or its line count exceeds the line-count cap — the README and each extracted sub-module alike — THEN report WARN (tokens and lines each form an independent finding)
 - WHEN the file size is `≤` the budget, THEN do not report (boundary inclusive)
 - WHEN the knowledge base does not exist, THEN `knowledge-size` is skipped (with reason), never faking a PASS
 - WHEN `.prospec.yaml` sets `knowledge.token_budget`, THEN override `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` field by field; otherwise use the default
@@ -221,9 +226,10 @@ so that the layered token budget — long declared but never mechanically enforc
 `TokenBudgetSchema` renames the fields `l0_max` → `l1_per_file` and `l1_per_module` → `l2_per_module` (`readme_max_lines` unchanged, all optional), aligning name with reality to index.md's L1/L2 semantics. It adds `DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {l1_per_file:1800, l2_per_module:1000, readme_max_lines:100}` as the **single authoritative source** for the knowledge-size thresholds and index.md's declaration (the old field names were dead config, never read by the code). The default values were honestly calibrated by slim-knowledge-l1-l2 (#64): 1500/400 was too tight for already well-disciplined index/README, 1800/1000 is the structural lower bound and still warn-class as an anti-regression ratchet; `.prospec.yaml` can override field by field, and the init seed is synced. Since inject-resolved-knowledge-budgets, this single source is also injected — via `lib/config`'s `resolveKnowledgeTokenBudget` + agent-sync — into the budget rendering of generated skill templates (templates no longer hardcode budget numbers or a named `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`); `KnowledgeSizeBudget` (the resolved type) moves from `lib/drift-sources` to `types/config`.
 
 #### REQ-LIB-027: knowledge-size Collector + Evaluator
-`collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)` (I/O): using the canonical contained readers (`readIndex`/`readContainedFile`/`readModuleReadme`) it reads index.md + `CORE_CONVENTIONS` (L1) and `modules/*/README.md` (L2), `estimateTokens` counts tokens, `countLines` counts lines; the module name is derived from the README path (no module-map needed); if `knowledgePath` does not exist → `{available:false, reason}`. Pure `evaluateKnowledgeSize`: `!available → skipped`; an L1 file with tokens > `l1_per_file`, an L2 README with tokens > `l2_per_module` or lines > `readme_max_lines` → warn finding; L0 is out of scope.
-**Scenarios:**
+`collectKnowledgeSize(cwd, baseDir, knowledgePath, budget)` (I/O): using the canonical contained readers (`readIndex`/`readContainedFile`/`readModuleReadme`) it reads index.md + `CORE_CONVENTIONS` (L1) and, under each module directory, EVERY `.md` file directly inside `modules/<name>/` — the `README.md` and each extracted sub-module sibling — as L2; `estimateTokens` counts tokens, `countLines` counts lines; the module name is derived from the file path (no module-map needed); entries that are subdirectories, non-`.md` files, or names rejected by `isSafeResourceName` are skipped without erroring, while a symlinked entry stays a CANDIDATE — containment remains the canonical readers' realpath check, since skipping symlinks would silently drop a measurement the pre-change README path made (the budget gate failing open); the enumeration is sorted so item order is machine-independent; if `knowledgePath` does not exist → `{available:false, reason}`. Sub-modules carry the same `l2` kind as the README: the budget is identical, so a separate kind would add a value with no behavioral difference for every downstream consumer to handle. Pure `evaluateKnowledgeSize`: `!available → skipped`; an L1 file with tokens > `l1_per_file`, an L2 file (README or sub-module) with tokens > `l2_per_module` or lines > `readme_max_lines` → warn finding; L0 is out of scope.
 - WHEN an L1/L2 file exceeds the limit, THEN a warn finding (`source_path` + detail contains measured/budget/`TOKEN_ESTIMATOR_LABEL`); the `≤` boundary is not reported
+- WHEN a module directory holds only a README, THEN the emitted items are identical to the pre-change output
+- WHEN an entry under a module directory is a subdirectory, a non-`.md` file, or an unsafe name, THEN it is skipped — never measured, never an error
 - WHEN the knowledge base is absent, THEN `skipped` + reason; the evaluator is I/O-free, findings codepoint-sort
 
 #### REQ-LIB-028: resolveKnowledgeTokenBudget canonical helper (lib/config)
@@ -427,6 +433,26 @@ The artifact-language check is pinned across all three outcomes — clean, `warn
 
 ---
 
+
+#### REQ-TYPES-073: knowledge_health sub-module timestamp field
+`knowledge_health.modules[]` gains the optional `last_sub_module_commit` (an ISO 8601 string when present; the key is omitted rather than null-filled — the schema is `z.string().optional()` and rejects an explicit null) alongside the frozen `{name, last_src_commit, last_readme_commit, stale}` keys — additive only: no existing key is reordered, renamed or removed, so the Knowledge Flywheel and the MCP server keep parsing older and newer reports alike.
+- WHEN a module has at least one sub-module `.md`, THEN `last_sub_module_commit` carries the newest of their git commit timestamps
+- WHEN a module has none, THEN the field is absent — never a fabricated timestamp
+- WHEN a consumer reads the report for a DOCUMENTED module, THEN the `stale` verdict is reproducible from `last_src_commit` against the newer of `last_readme_commit` / `last_sub_module_commit`
+- WHEN a module has no README, THEN it is reported stale by the coverage rule and carries its `coverage gap` finding — that verdict is deliberately not recomputable from the timestamps, and the shipped report-shape reference states the same
+- WHEN the shipped `references/drift-report-format` enumerates the `knowledge_health` module keys, THEN it lists this field too, and a contract test derives the expected key set from the Zod schema rather than a hand-written list
+
+---
+
+
+#### REQ-TESTS-067: sub-module size and staleness coverage
+`collectKnowledgeSize` gains real-temp-dir cases for a module directory holding a README plus an over-budget sub-module, a README-only directory (output identical to the pre-change baseline), a subdirectory and a non-`.md` entry, and a name rejected by `isSafeResourceName`; `evaluateKnowledgeSize` gains an over-budget sub-module finding assertion. `collectKnowledgeHealth` gains a three-commit git fixture (source → README → sub-module only). New assertions are mutation-verified.
+- WHEN the suite runs on a module directory holding only a README, THEN the collected items equal the pre-change output
+- WHEN the suite runs on an over-budget sub-module, THEN exactly one warn finding names that file
+- WHEN a sub-module commit is newer than the module's last source commit, THEN knowledge-health reports the module as not stale
+
+---
+
 ## Edge Cases
 
 - `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
@@ -459,6 +485,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-07-31 | archive-sync | ADDED REQ-TYPES-073; ADDED REQ-TESTS-067; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-015 | REQ-TYPES-073, REQ-TESTS-067, REQ-LIB-027, REQ-LIB-015 |
 | 2026-07-31 | archive-sync | ADDED REQ-TYPES-072; ADDED REQ-LIB-037; ADDED REQ-SERVICES-074; ADDED REQ-TESTS-065 | REQ-TYPES-072, REQ-LIB-037, REQ-SERVICES-074, REQ-TESTS-065 |
 | 2026-06-19 | archive-sync | ADDED REQ-LIB-018; ADDED REQ-LIB-019; ADDED REQ-TESTS-031; MODIFIED REQ-TYPES-027 | REQ-LIB-018, REQ-LIB-019, REQ-TESTS-031, REQ-TYPES-027 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED US-5; ADDED REQ-TYPES-034; ADDED REQ-LIB-020; ADDED REQ-SERVICES-034 (README factual-count drift check, BL-043) | US-5, REQ-TYPES-034, REQ-LIB-020, REQ-SERVICES-034 |
