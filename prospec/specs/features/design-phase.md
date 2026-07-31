@@ -171,7 +171,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-07-30 | archive-sync | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
+| 2026-07-30 | restore-cli-first | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
 | 2026-02-16 | add-design-phase | Design Phase Generate/Extract dual modes and 4 platform adapters | US-001~003, REQ-DSGN-001~009 |
 | 2026-03-02 | v2-product-first | Migrated to Feature Spec; REQ IDs changed from REQ-TEMPLATES-050~058 to REQ-DSGN-001~009 | All |
 | 2026-06-16 | add-reverse-spec-extraction | REQ-DSGN-003 added an input=code reverse-spec variant cross-reference (behavior substantively belongs to sdd-workflow US-22, avoiding semantic pollution of the UI feature) | REQ-DSGN-003 (MODIFIED) |

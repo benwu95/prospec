@@ -661,7 +661,7 @@ Contract tests drive the real `init` + `agent sync` services and compare the two
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-07-30 | archive-sync | MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-030; MODIFIED REQ-LIB-013 | REQ-TYPES-063, REQ-LIB-030, REQ-LIB-013 |
+| 2026-07-30 | fix-cli-first-regressions | MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-030; MODIFIED REQ-LIB-013 | REQ-TYPES-063, REQ-LIB-030, REQ-LIB-013 |
 | 2026-02-04 | mvp-initial | CLI base framework, project initialization, architecture analysis | US-001~004, REQ-SETUP-001~010 |
 | 2026-02-09 | configure-base-dir | Configurable Base Directory | US-005, REQ-SETUP-011~012 |
 | 2026-03-02 | v2-product-first | Merged into a Feature Spec, added a first-time-use Story | US-006, REQ-SETUP-013 |

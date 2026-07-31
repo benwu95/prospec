@@ -555,11 +555,11 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
 | 2026-07-31 | enforce-sub-module-budget | MODIFIED REQ-KNOW-016 (resolved budget, machine-enforced for sub-modules), REQ-KNOW-013 (L2 covers each linked sub-module) | REQ-KNOW-016, REQ-KNOW-013 |
-| 2026-07-30 | archive-sync | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
+| 2026-07-30 | fix-cli-first-regressions | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-360 (Knowledge base language policy English exemption) + REQ-TEMPLATES-141 (Constitution Language Policy restores the AI Knowledge exemption; three-way alignment of entry.md.hbs/ledger) (issue #67) | US-360, REQ-TEMPLATES-141 |
 | 2026-07-01 | implement-hierarchical-index | ADDED REQ-KNOW-034, REQ-KNOW-035 | US-354, REQ-KNOW-034~035 |
-| 2026-06-19 | archive-sync | ADDED REQ-TYPES-031; ADDED REQ-TEMPLATES-113; ADDED REQ-SERVICES-029; ADDED REQ-TEMPLATES-114; ADDED REQ-TESTS-032 | REQ-TYPES-031, REQ-TEMPLATES-113, REQ-SERVICES-029, REQ-TEMPLATES-114, REQ-TESTS-032 |
+| 2026-06-19 | add-feature-map | ADDED REQ-TYPES-031; ADDED REQ-TEMPLATES-113; ADDED REQ-SERVICES-029; ADDED REQ-TEMPLATES-114; ADDED REQ-TESTS-032 | REQ-TYPES-031, REQ-TEMPLATES-113, REQ-SERVICES-029, REQ-TEMPLATES-114, REQ-TESTS-032 |
 | 2026-06-20 | harden-feature-prefixed-req-sync | ADDED REQ-SERVICES-032 (knowledge-update feature-prefix-aware resolution + mint guard, BL-043) | REQ-SERVICES-032 |
 | 2026-06-22 | fix-init-clobber-add-upgrade | knowledge-update Phase 2.5 format-drift consent (detect existing Knowledge format drift → migrate only after consent) | US-353; REQ-TEMPLATES-122 (ADDED) |
 | 2026-02-04 | mvp-initial | Establish the Knowledge generation pipeline | US-300~303, REQ-KNOW-001~008 |

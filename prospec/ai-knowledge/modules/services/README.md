@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `init.service.ts` / `upgrade.service.ts` | Scaffold config + Constitution + AI Knowledge (per-file skip-if-exists, `.prospec.yaml` last); upgrade records `version`, re-syncs, back-fills missing init docs (never overwrite) + migration report (stale-Language-Policy signal) |
-| `archive.service.ts` | Archive + spec-sync (Feature Spec / product.md / `feature-map.yaml`, `syncFeatureMap` sole writer); `executeFinalize` = post-judgment history copy + counter recount; `dryRun` short-circuits every write and returns `planned` |
+| `archive.service.ts` | Archive + spec-sync (Feature Spec / product.md / `feature-map.yaml`, `syncFeatureMap` sole writer); `syncToFeatureSpecs` takes the change name as a REQUIRED arg — both Change History writers name the change through `escapeTableCell` (a directory-sourced cell would otherwise shift columns); `executeFinalize` = post-judgment history copy + counter recount; `dryRun` short-circuits every write and returns `planned` |
 | `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs; triggers; sweep orphans; merge user blocks; per-group capability intersection |
 | `knowledge-init` + `raw-scan` / `knowledge-update.service.ts` | Initial scan → raw-scan.md (11-lang manifests) + module-map.yaml + skeletons; delta-spec-driven index/module-map refresh (`executeForChange`); README skeleton for NEW modules only (`readmePending` flags the rest) |
 | `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only) plus `log`/`status`/`scale`/`progress` bookkeeping; metadata I/O via `lib/change-metadata` |
