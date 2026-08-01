@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 story_count: 15
-req_count: 61
+req_count: 62
 ---
 
 # AI Knowledge
@@ -57,6 +57,7 @@ so that the module split reflects the real project architecture.
 - WHEN `.prospec.yaml` sets `knowledge.strategy` (auto/architecture/domain/package), THEN module-detector splits accordingly
 - WHEN strategy is `domain`, THEN split modules by business domain
 - WHEN strategy is `auto`, THEN try package → domain → architecture and pick the best result
+- WHEN any strategy runs, THEN it receives the source-file subset from REQ-LIB-038; only when that pass yields no module is the same strategy re-run over the unfiltered list
 
 #### REQ-SERVICES-025: Generate Module Map in Knowledge Init
 `prospec knowledge init` produces `module-map.yaml` from detected modules after scanning, via the `buildModuleMap` helper.
@@ -71,6 +72,16 @@ so that the module split reflects the real project architecture.
 **Scenarios:**
 - WHEN a custom knowledge base path is provided, THEN load the existing module-map.yaml from that path
 - WHEN no knowledge base path is provided, THEN fall back to legacy `docs/ai-knowledge` (backward compatible)
+
+#### REQ-LIB-038: Module Detection Gates on Source Files
+`detectModules()` narrows its input to a source-file subset before running any detection strategy, so documentation, asset and cache directories cannot become modules. The admission threshold applies to that subset, so it counts source files — but it is not purely a density gate: a `MODULE_INDICATORS`-named directory is still admitted on a single source file. Classification is a DENYLIST of non-source extensions, matched case-insensitively, plus a requirement that the file carry an extension; an allowlist of known source extensions is deliberately rejected, because it erases every code directory of a language the list does not name. The gate lives in `module-detector.ts`, not `scanner.ts` — `raw-scan.md`'s directory tree must still show every directory.
+- WHEN a directory holds only non-source files (`.md`, `.pdf`, `.png`, `.json`, `.yml`) or only extensionless ones (`.gitkeep`, `LICENSE`, `Makefile`), THEN it is absent from the detection result — unless the no-module fallback below fires, which overrides this and every other narrowing rule. The extension requirement targets dotfile placeholders; extensionless build and script files are excluded with them. A dotfile carrying a further extension (`.env.local`) classifies by that extension, and `scanDir` runs with `dot: false`, so the production file list holds no dotfiles at all
+- WHEN a directory holds 2+ source files, THEN it is still detected and its `paths` stay the same directory glob it had before
+- WHEN an extension is not in the non-source denylist, THEN it counts as source — so a language the denylist never anticipated keeps its code directories
+- WHEN extensions differ only in case, THEN classification is unchanged (`.MD` is still denied, `.H` is still source)
+- WHEN detection over the source subset yields no module at all — whether the subset is empty or merely too thin for any directory to reach the threshold — THEN it is re-run over the unfiltered file list. Narrowing legitimately returns FEWER modules than not narrowing (that is its purpose); what it must never return is ZERO where not narrowing would have returned some
+- WHEN an existing `module-map.yaml` is loaded, THEN the filter is not applied at all (the curated classification still wins)
+- WHEN the narrowed scope is in effect, THEN architecture-pattern recognition and import-relationship scanning read it too — so the reported `architecture` can change (an `mvc` project whose `views/` holds only `.md` reports `unknown`) — and the `domain` strategy's `infra` catch-all, which stores concrete file paths rather than a glob, lists only the subset; entry-point detection alone keeps the unfiltered list
 
 ---
 
@@ -515,6 +526,8 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 - WHEN running the drift tests, THEN a module containing only a file entry reports `available` and its file import is scanned; glob-entry behavior is unchanged
 - WHEN running the knowledge tests, THEN a folder entry → non-empty keyFiles, a file entry → only that file (both mutation-verified)
 
+---
+
 ## Edge Cases
 
 - delta-spec.md does not exist: allow manually specifying modules to update
@@ -554,6 +567,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-01 | filter-nonsource-modules | ADDED REQ-LIB-038; MODIFIED REQ-KNOW-014 | REQ-LIB-038, REQ-KNOW-014 |
 | 2026-07-31 | enforce-sub-module-budget | MODIFIED REQ-KNOW-016 (resolved budget, machine-enforced for sub-modules), REQ-KNOW-013 (L2 covers each linked sub-module) | REQ-KNOW-016, REQ-KNOW-013 |
 | 2026-07-30 | fix-cli-first-regressions | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-026; ADDED REQ-TEMPLATES-162; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; REMOVED REQ-KNOW-026 (persona-aware CLI fallback ladder retired — the CLI is a required file, so a probe STOP replaced every degraded path) | REQ-CLI-026, REQ-TEMPLATES-162, REQ-SERVICES-021, REQ-SERVICES-023, REQ-KNOW-026 |
