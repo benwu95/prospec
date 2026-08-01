@@ -55,6 +55,75 @@ const MODULE_INDICATORS = [
   'commands',
 ];
 
+/**
+ * Extensions that are NOT source code — prose, documents, design assets, data,
+ * config and build output — lowercase and without the dot. A directory holding
+ * only these is documentation or data, not a module.
+ *
+ * This is a DENYLIST on purpose. An allowlist of "known source extensions" fails
+ * in the one direction that matters: a language nobody thought to list gets its
+ * real code dirs erased, leaving an incidental script directory as the project's
+ * only module — strictly worse than not filtering at all. Denying the non-code
+ * families instead makes an unknown extension count as source, so the failure
+ * mode is a module too many, never a codebase wiped off the map.
+ */
+const NON_SOURCE_FILE_EXTENSIONS = new Set([
+  // Prose / documentation
+  'md', 'markdown', 'mdx', 'rst', 'txt', 'adoc', 'asciidoc', 'org', 'tex',
+  // Office / portable documents
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf',
+  'epub',
+  // Images / design assets
+  'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tif', 'tiff', 'psd',
+  'ai', 'sketch', 'fig', 'xcf',
+  // Audio / video
+  'mp3', 'mp4', 'm4a', 'wav', 'ogg', 'webm', 'mov', 'avi', 'flac',
+  // Archives
+  'zip', 'tar', 'tgz', 'gz', 'bz2', 'xz', '7z', 'rar', 'jar', 'whl',
+  // Data / config / manifests
+  'json', 'jsonc', 'json5', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf',
+  'properties', 'csv', 'tsv', 'xml', 'plist', 'lock', 'env',
+  // Fonts
+  'ttf', 'otf', 'woff', 'woff2', 'eot',
+  // Build output / binaries
+  'exe', 'dll', 'so', 'dylib', 'a', 'lib', 'o', 'obj', 'bin', 'pyc', 'pyo',
+  'class', 'wasm', 'map', 'min',
+  // Logs / caches / snapshots
+  'log', 'cache', 'snap', 'tmp', 'bak', 'swp',
+]);
+
+/**
+ * Does a file count as source code for the purpose of drawing module boundaries?
+ *
+ * Two conditions: the file must HAVE an extension, and that extension must not be
+ * a known non-source one ({@link NON_SOURCE_FILE_EXTENSIONS}), matched
+ * case-insensitively so `.MD` is denied like `.md`.
+ *
+ * What the extension requirement is actually load-bearing for is DOTFILES: two
+ * `.gitkeep` placeholders are enough to resurrect a pure-documentation tree as a
+ * module. Extensionless build and script files (`Makefile`, `Dockerfile`,
+ * `bin/tool`) are excluded as collateral — a directory whose code is only those is
+ * dropped unless it is the project's sole content, in which case the no-module
+ * fallback below restores it. Widening this is not free: it can push a project
+ * past the fallback and cost it more directories than it gains.
+ */
+function isSourceFile(file: string): boolean {
+  const ext = path.extname(file).slice(1).toLowerCase();
+  return ext !== '' && !NON_SOURCE_FILE_EXTENSIONS.has(ext);
+}
+
+/**
+ * Narrow a scanned file list to the files that count as source code.
+ *
+ * This lives in the detector rather than in `lib/scanner.ts` on purpose: the scan
+ * must keep returning everything, because `raw-scan.md`'s directory tree is
+ * supposed to show documentation and asset dirs. Only module-boundary decisions
+ * want the narrowed view.
+ */
+function filterSourceFiles(files: string[]): string[] {
+  return files.filter(isSourceFile);
+}
+
 export interface DetectedModule {
   name: string;
   description: string;
@@ -118,11 +187,27 @@ export function detectModules(
       };
     }
 
-    // Step 2: Strategy-based detection
-    const dirModules = detectByStrategy(files, cwd, strategy);
+    // Step 2: Strategy-based detection over source files only, so documentation,
+    // asset and cache dirs cannot become modules. The existing "2+ files"
+    // admission threshold then applies to this subset, which IS the source-file
+    // density gate.
+    let scope = filterSourceFiles(files);
+    let dirModules = detectByStrategy(scope, cwd, strategy);
+
+    if (dirModules.length === 0) {
+      // Narrowing must never turn imprecise detection into NO detection: a
+      // project whose substance is non-source files (docs-as-code, YAML
+      // manifests, LaTeX) would otherwise get an empty module-map — and
+      // `knowledge init` writes that file only when it is absent, so an empty map
+      // is sticky forever. Keying the fallback on "found no module" rather than
+      // "subset is empty" also covers the thin-subset case: one stray script in
+      // an otherwise non-source project must not erase every directory.
+      scope = files;
+      dirModules = detectByStrategy(scope, cwd, strategy);
+    }
 
     // Step 3: Architecture pattern recognition
-    const architecture = detectArchitecturePattern(files);
+    const architecture = detectArchitecturePattern(scope);
 
     // Step 4: Keyword generation
     const modulesWithKeywords = dirModules.map((m) => ({
@@ -134,11 +219,15 @@ export function detectModules(
     const resolvedModules = resolveConflicts(modulesWithKeywords);
 
     // Detect relationships
-    const modulesWithRelationships = detectRelationships(resolvedModules, files, cwd);
+    const modulesWithRelationships = detectRelationships(resolvedModules, scope, cwd);
 
     return {
       modules: modulesWithRelationships,
       architecture,
+      // Entry points read the FULL list: an entry point is not a module-boundary
+      // decision, so it has no reason to inherit this narrowing. Today every
+      // `entryPatterns` entry names a source extension, so the two lists happen to
+      // agree — passing `files` keeps that an accident rather than a dependency.
       entryPoints: detectEntryPoints(files),
     };
   } catch (err) {
