@@ -110,6 +110,38 @@ Apply the chosen strategy to split the project into modules. Guidelines:
 - **Split**: Large modules with >30 files into sub-domains if clear boundaries exist
 - Each module must have a clear, distinct responsibility
 
+**Revising `module-map.yaml` is yours to do.** Whatever is on disk may be a bootstrap draft, and
+`prospec knowledge init` writes that draft from a deterministic heuristic with no idea what this
+project is: a directory is admitted only on 2+ files that each carry an extension which is not on a
+global non-source denylist. You are the layer that can read the project. Judge what is on disk; do
+not assume it was decided.
+
+One piece of evidence is raw-scan.md's **`## Directories Without Source Files`** section: the
+topmost directories in which NO file passed that test, with file counts and extensions. A
+`manifests/` of Kubernetes YAML, a `chapters/` of LaTeX, an Android `res/layout/` of XML, a `bin/`
+of extensionless scripts — each can be a real module the heuristic cannot see. It is a partial
+view in both directions. Left out of it: a directory holding a single source file is admitted by
+neither the heuristic nor this section, nested directories fold into their topmost ancestor, and
+root-level files are never listed. Over-inclusive too: a listed directory may already BE a module —
+a curated `module-map.yaml` short-circuits detection entirely, and the no-module fallback re-runs
+detection over the unfiltered list when the narrowed pass finds nothing. Read the Directory Tree
+and the current `module-map.yaml` alongside it.
+
+- **Adding**: when a directory is this project's substance and `module-map.yaml` does not already
+  cover it, propose it as a module and write it only after the user confirms. Check the existing
+  `paths` first — a parent entry may already cover the directory the section lists.
+- **Removing**: when an entry is really a documentation or asset directory, propose removing it
+  under the same confirm-first discipline.
+- **Leaving alone**: when the section is empty, when you judge the current map right, or when the
+  user declines — `module-map.yaml` stays byte-identical. An empty section is not a reason to go
+  looking: it means no directory was excluded for want of source files. Nothing on disk marks a map as bootstrap-written versus hand-curated, so
+  never infer consent from the file itself: the user's confirmation is the only signal that a
+  revision is wanted, and it is required every time.
+
+Write revisions to `module-map.yaml` (the single source); `prospec/index.md`'s auto block is
+regenerated from it in Step 5, never hand-edited. Same propose → confirm → write-back path the
+`category` field already uses.
+
 ### Step 4: Create Module README.md (Recipe-First Format)
 
 For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{module}/README.md`, following the **canonical Recipe-First structure** defined in `prospec/ai-knowledge/_module-readme-conventions.md` (loaded at Startup Loading — the single source for section order, the `# {ProperName}` title, each section's template, and the `prospec:auto`/`prospec:user` marker contract). Keep each section concise; total ≤100 lines.

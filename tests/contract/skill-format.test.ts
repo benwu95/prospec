@@ -1310,6 +1310,51 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('NOT listed in');
     });
 
+    it('knowledge-generate may revise the bootstrap module map, confirm-first (REQ-TEMPLATES-170)', () => {
+      const content = renderTemplate(
+        'skills/prospec-knowledge-generate.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      // Section-scoped: Step 3 owns the boundary decision, so the authority must
+      // live there — not incidentally elsewhere in the document.
+      const section =
+        /^### Step 3: Decide Module Boundaries\n([\s\S]*?)(?=^### )/m.exec(content)?.[1] ?? '';
+      expect(section.trim().length).toBeGreaterThan(0);
+      // 1. the detector's output is characterized as a draft…
+      expect(section).toMatch(/draft/i);
+      // 2. …the evidence it is judged against is named…
+      expect(section).toContain('Directories Without Source Files');
+      // 3. …and the write-back is gated on user confirmation, not autonomous.
+      expect(section).toContain('module-map.yaml');
+      expect(section).toMatch(/only after the user confirms/);
+      // 4. all three verbs are present — adding was not the whole contract.
+      expect(section).toMatch(/\*\*Adding\*\*/);
+      expect(section).toMatch(/\*\*Removing\*\*/);
+      expect(section).toMatch(/\*\*Leaving alone\*\*/);
+      // 5. declining leaves the file untouched…
+      expect(section).toMatch(/byte-identical/);
+      // 6. …and index.md is regenerated from module-map, never hand-edited.
+      expect(section).toMatch(/index\.md.*regenerated from it/s);
+      expect(section).toMatch(/never hand-edited/);
+      // 7. the draft-vs-curated discriminator does not exist on disk, so the
+      // skill must not gate on it — confirmation is the only signal.
+      expect(section).toMatch(/[Nn]othing on disk marks a map as bootstrap-written/);
+      // The grant of authority must not sit inside a draft-vs-curated antecedent
+      // — the section itself says that predicate is unevaluable.
+      expect(section).not.toMatch(/\*\*When `prospec knowledge init` had to bootstrap/);
+      // All three arms of the leaving-alone rule, the empty section included.
+      expect(section).toMatch(/when the section is empty/);
+      // 8. a listed directory is not evidence that it is unmapped — check `paths`
+      // first, because a curated map short-circuits detection entirely.
+      expect(section).toMatch(/Check the existing\s+`paths` first/);
+      expect(section).toMatch(/may already BE a module/);
+      // Negative: the skill must not claim an existing map is untouchable, which
+      // is exactly the reading that stranded bootstrap drafts (REQ-KNOW-003).
+      expect(section).not.toMatch(/never (modify|change|edit) module-map/i);
+      // Negative: nor may it overclaim the evidence section's coverage.
+      expect(section).not.toMatch(/every directory the heuristic could not admit/i);
+    });
+
     it('knowledge-generate extracts sub-modules instead of lossy trimming', () => {
       const content = renderTemplate(
         'skills/prospec-knowledge-generate.hbs',

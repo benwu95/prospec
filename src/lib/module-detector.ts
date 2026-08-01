@@ -5,6 +5,7 @@ import type { KnowledgeStrategy } from '../types/config.js';
 import { DEFAULT_BASE_DIR } from '../types/config.js';
 import { ModuleDetectionError } from '../types/errors.js';
 import { parseYaml } from './yaml-utils.js';
+import { toInlineCodeSpan } from './markdown-fences.js';
 
 /**
  * Known architecture patterns and their typical directory structures.
@@ -21,39 +22,6 @@ const ARCHITECTURE_PATTERNS: Record<string, string[]> = {
   // Pragmatic Layered (Prospec-style)
   pragmatic: ['cli', 'services', 'lib', 'types'],
 };
-
-/**
- * Common directory names that typically represent modules.
- */
-const MODULE_INDICATORS = [
-  'src',
-  'lib',
-  'app',
-  'packages',
-  'modules',
-  'features',
-  'components',
-  'pages',
-  'routes',
-  'services',
-  'models',
-  'controllers',
-  'views',
-  'domain',
-  'application',
-  'infrastructure',
-  'api',
-  'core',
-  'shared',
-  'utils',
-  'helpers',
-  'types',
-  'config',
-  'middleware',
-  'plugins',
-  'cli',
-  'commands',
-];
 
 /**
  * Extensions that are NOT source code — prose, documents, design assets, data,
@@ -106,10 +74,185 @@ const NON_SOURCE_FILE_EXTENSIONS = new Set([
  * dropped unless it is the project's sole content, in which case the no-module
  * fallback below restores it. Widening this is not free: it can push a project
  * past the fallback and cost it more directories than it gains.
+ *
+ * Exported as the SINGLE source of this classification: `collectNonSourceDirectories`
+ * and, through it, `raw-scan.md`'s disclosure block reuse this predicate rather than
+ * re-deriving a second copy that would drift from the denylist.
+ *
+ * A denylist entry matches only a TERMINAL extension, because `path.extname` reads
+ * one: `min` denies `dist/app.min` but not `jquery.min.js`, whose extname is `.js`.
+ * So an entry is never dead for being "secondary-looking" — check the terminal case
+ * before concluding one is unreachable.
  */
-function isSourceFile(file: string): boolean {
+export function isSourceFile(file: string): boolean {
   const ext = path.extname(file).slice(1).toLowerCase();
   return ext !== '' && !NON_SOURCE_FILE_EXTENSIONS.has(ext);
+}
+
+/**
+ * Caps for the disclosure block, so a docs-heavy tree cannot drown the signal.
+ * The directory cap is exported because raw-scan.md states it in its truncation
+ * line — the rendered number and the applied number must be one value.
+ */
+export const NON_SOURCE_DIR_LIMIT = 50;
+const NON_SOURCE_EXT_LIMIT = 5;
+
+/** How a file carrying no extension at all is reported. */
+const NO_EXTENSION_LABEL = '(no extension)';
+
+/** Codepoint order — `localeCompare` would break byte-identical re-runs. */
+function compareCodepoint(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Descending file count, codepoint label as the tie-break.
+ *
+ * The caps below discard whatever falls past them, so this ordering decides what
+ * a truncated list KEEPS — and alphabetical truncation keeps the wrong things:
+ * on a 12-package monorepo it kept `apps/app00/assets` and dropped the
+ * `manifests/` the section exists to surface, and inside an Android `res/` it
+ * dropped `.xml` — the one extension that is actually UI source — while keeping
+ * five single-file image types. Ranking by volume keeps whatever most looks like
+ * a project's substance. The codepoint tie-break keeps the order total, so
+ * re-runs stay byte-identical.
+ */
+function compareBySignal(
+  a: { label: string; count: number },
+  b: { label: string; count: number },
+): number {
+  return b.count - a.count || compareCodepoint(a.label, b.label);
+}
+
+/**
+ * The extension a file is reported under, lowercased and dot-prefixed.
+ *
+ * Emptiness is decided the way {@link isSourceFile} decides it — on the extname
+ * with its dot stripped, not on the extname itself. `path.extname('weird.')` is
+ * `'.'`, so testing the raw extname would label a file the classifier calls
+ * extensionless as `` `.` ``: two halves of one feature disagreeing about the
+ * same file.
+ */
+function extensionLabel(file: string): string {
+  const ext = path.extname(file).slice(1);
+  return ext === '' ? NO_EXTENSION_LABEL : `.${ext.toLowerCase()}`;
+}
+
+/** One directory the source-file gate cannot admit, with the evidence for why. */
+export interface NonSourceDirectory {
+  /** Repo-relative directory path, no trailing slash. */
+  path: string;
+  /**
+   * The path with its trailing slash, pre-rendered as an escape-proof markdown
+   * code span. Renderers emit THIS: a scanned name may contain a backtick, and
+   * `raw-scan.md` is read by an agent that acts on it, so a name that closed its
+   * own span would spill into instruction-shaped prose. `path` stays raw for
+   * programmatic consumers.
+   */
+  pathDisplay: string;
+  /** Files in this directory and everything below it. */
+  fileCount: number;
+  /** Distinct extensions in that subtree, volume-ranked and capped. */
+  extensions: string[];
+  /** The same labels as code spans — see {@link NonSourceDirectory.pathDisplay}. */
+  extensionDisplays: string[];
+  /** Extensions the per-entry cap dropped — disclosed, never silent. */
+  extensionsOmitted: number;
+}
+
+export interface NonSourceDirectories {
+  directories: NonSourceDirectory[];
+  /** Qualifying directories the list cap dropped — disclosed, never silent. */
+  omitted: number;
+}
+
+/**
+ * Which directories hold files but no source file, as EVIDENCE for the LLM layer.
+ *
+ * This is a fact about the scanned file list, not a detection result: it is
+ * computed without running any strategy, so `--raw-scan-only` reports the same
+ * thing a full `knowledge init` does. What it buys is legibility — without it the
+ * skill layer cannot tell a directory a human deliberately left out of
+ * `module-map.yaml` from one the extension denylist silently dropped.
+ *
+ * Only the TOPMOST qualifying directory is reported; descendants fold into its
+ * counts, because `docs/a/b/c` with no source anywhere says nothing four times
+ * that it does not already say once. A non-source directory under a
+ * source-bearing parent still surfaces on its own (the parent does not qualify).
+ *
+ * Reported directories are NOT guaranteed absent from the detection result: the
+ * no-module fallback re-runs detection over the unfiltered list and can admit
+ * them after all.
+ */
+export function collectNonSourceDirectories(
+  files: string[],
+  options: { maxDirectories?: number; maxExtensions?: number } = {},
+): NonSourceDirectories {
+  // Clamp to 1: a cap of 0 (or below) would empty the list while leaving a
+  // non-zero `omitted`, and the renderer reads an empty list as "nothing
+  // qualified" — turning the disclosure into the opposite claim.
+  const maxDirectories = Math.max(1, options.maxDirectories ?? NON_SOURCE_DIR_LIMIT);
+  const maxExtensions = Math.max(1, options.maxExtensions ?? NON_SOURCE_EXT_LIMIT);
+
+  const stats = new Map<
+    string,
+    { fileCount: number; extensions: Map<string, number>; hasSource: boolean }
+  >();
+
+  for (const file of files) {
+    const parts = file.split('/');
+    // A root-level file belongs to no directory, so it can qualify none.
+    if (parts.length < 2) continue;
+    const source = isSourceFile(file);
+    const label = extensionLabel(file);
+    for (let i = 1; i < parts.length; i++) {
+      const dir = parts.slice(0, i).join('/');
+      let entry = stats.get(dir);
+      if (!entry) {
+        entry = { fileCount: 0, extensions: new Map(), hasSource: false };
+        stats.set(dir, entry);
+      }
+      entry.fileCount++;
+      entry.extensions.set(label, (entry.extensions.get(label) ?? 0) + 1);
+      if (source) entry.hasSource = true;
+    }
+  }
+
+  const qualifies = (dir: string): boolean => stats.get(dir)?.hasSource === false;
+
+  const topmost = [...stats.keys()]
+    .filter((dir) => {
+      if (!qualifies(dir)) return false;
+      const cut = dir.lastIndexOf('/');
+      return cut === -1 || !qualifies(dir.slice(0, cut));
+    })
+    .map((dir) => ({ label: dir, count: stats.get(dir)!.fileCount }))
+    .sort(compareBySignal);
+
+  const kept = topmost.slice(0, maxDirectories);
+
+  return {
+    directories: kept.map(({ label: dir }) => {
+      const entry = stats.get(dir)!;
+      const ranked = [...entry.extensions]
+        .map(([label, count]) => ({ label, count }))
+        .sort(compareBySignal);
+      const shown = ranked.slice(0, maxExtensions).map((e) => e.label);
+      return {
+        path: dir,
+        pathDisplay: toInlineCodeSpan(`${dir}/`),
+        fileCount: entry.fileCount,
+        extensions: shown,
+        // Symmetry with pathDisplay, not a reachable hole: an extension holding a
+        // backtick is absent from the denylist, so `isSourceFile` calls it source
+        // and its directory never qualifies. No test can kill a mutation of this
+        // line — the mutant is equivalent under every reachable input.
+        extensionDisplays: shown.map(toInlineCodeSpan),
+        extensionsOmitted: Math.max(0, ranked.length - maxExtensions),
+      };
+    }),
+    omitted: topmost.length - kept.length,
+  };
 }
 
 /**
@@ -545,12 +688,15 @@ function detectFromDirectories(files: string[]): DetectedModule[] {
     entry.files.push(file);
   }
 
-  // Filter: only directories with 2+ files or known module names. Each prefix
-  // emits its own glob; resolveConflicts later unions globs that share a name
-  // (so a module spanning two roots keeps both globs instead of one wide one).
+  // Filter: 2+ files, with no name-based exemption. A named-directory bypass
+  // (`utils`, `config`, `pages`, …) admitted single-file dirs and encoded an
+  // English/framework naming bias no user-chosen name could satisfy, while
+  // measuring zero admissions on real projects. Each prefix emits its own glob;
+  // resolveConflicts later unions globs that share a name (so a module spanning
+  // two roots keeps both globs instead of one wide one).
   const modules: DetectedModule[] = [];
   for (const [prefix, { name, files: dirFiles }] of dirMap) {
-    if (dirFiles.length >= 2 || MODULE_INDICATORS.includes(name)) {
+    if (dirFiles.length >= 2) {
       modules.push({
         name,
         description: inferDescription(name),

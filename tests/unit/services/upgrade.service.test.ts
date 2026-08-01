@@ -83,6 +83,7 @@ beforeEach(() => {
     outputFile: 'prospec/ai-knowledge/raw-scan.md',
     dryRun: false,
     files: [],
+    nonSourceDirectories: { directories: [], omitted: 0 },
   });
   vi.mocked(agentSyncExecute).mockResolvedValue({
     agents: [],

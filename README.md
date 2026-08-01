@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-2944%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2990%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -519,7 +519,9 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 | C++ | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
 | Swift | ✅ `Package.swift` | — ⁵ | ✅ | ✅ |
 
-¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). ³ C vs C++ is inferred from source-file extensions; set `tech_stack` in `.prospec.yaml` to override. ⁴ C/C++ dependencies are read from declarative manifests only — `CMakeLists.txt` and `conanfile.py` are imperative and not parsed. ⁵ Swift dependencies are not parsed (`Package.swift` is imperative Swift). Any unrecognized language still appears in the Directory Tree and File Stats sections.
+¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). ³ C vs C++ is inferred from source-file extensions; set `tech_stack` in `.prospec.yaml` to override. ⁴ C/C++ dependencies are read from declarative manifests only — `CMakeLists.txt` and `conanfile.py` are imperative and not parsed. ⁵ Swift dependencies are not parsed (`Package.swift` is imperative Swift). Any unrecognized language still appears in the Directory Tree and File Stats sections — and, because an unlisted extension counts as source, its code directories stay OUT of Directories Without Source Files.
+
+**Directories the scan cannot classify as code.** `raw-scan.md` also carries a `Directories Without Source Files` section: each topmost directory in which no file counts as source — the module detector requires a file to carry an extension AND for that extension not to be on its non-source denylist, so a directory whose only content is extensionless files (a `bin/` of scripts) lands here too. Root-level files belong to no directory and are never listed. It is a scan fact, not a detection verdict: a curated `module-map.yaml` (which detection always prefers) or the no-module fallback can still make such a directory a module. The section is the evidence `/prospec-knowledge-generate` weighs when deciding whether one of them — a `manifests/` of Kubernetes YAML, a `chapters/` of LaTeX — is really this project's substance and belongs in `module-map.yaml`.
 
 **A language outside this table?** It still scans — the Directory Tree and File Stats sections are always populated, and `/prospec-knowledge-generate` reads the source directly. The Tech Stack line falls back to `unknown`; declare it authoritatively in `.prospec.yaml` `tech_stack` (free-form — it overrides auto-detection and is reported with `Source: config`):
 
@@ -787,7 +789,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (2944 tests)
+# Run all tests (2990 tests)
 pnpm test
 
 # Watch mode
@@ -800,9 +802,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 2944 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2101 tests
-- Contract tests (CLI output + Skill format): 734 tests
+**Test Coverage**: 2990 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2133 tests
+- Contract tests (CLI output + Skill format): 748 tests
 - Integration tests: 43 tests
 - E2E tests: 66 tests
 

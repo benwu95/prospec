@@ -1,6 +1,6 @@
 # lib
 
-> Foundational utilities — config, file I/O, templates, scanning, detection, manifests, drift engine, status routing, knowledge reads, station engines (35 files)
+> Foundational utilities — config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (35 files)
 
 <!-- prospec:auto-start -->
 
@@ -14,18 +14,18 @@
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml`; returns `{doc, metadata}`; `appendQualityLogEntry` (canonical key order) |
 | `scanner.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath |
 | `module-detector.ts` | detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
-| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (14 checks; `artifact-language` samples the resolved language scope (prose only — fences stripped), WARN-only, and skips when the language is absent from its name→script table or one of four recorded unread conditions holds). L2 sizing and staleness both walk a module dir through the ONE `moduleKnowledgeFiles` helper — README **and** each sub-module `.md`, symlinks kept as candidates (containment stays with the readers) |
+| `drift-sources.ts` / `drift-checker.ts` | Drift collectors (ALL I/O; unavailable → `{available:false, reason}`) + pure evaluators / runChecks (14 checks; `artifact-language` is WARN-only and samples prose only). L2 sizing and staleness walk a module dir through the ONE `moduleKnowledgeFiles` helper — README **and** each sub-module `.md` |
 | `knowledge-reader.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis |
 | `status-router.ts` | I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
 | `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | I/O-free station engines — S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); keyed ledger upsert + scoring + playbook TTL; artifact structural verdicts |
 
-Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-policy.ts`, `token-accounting.ts`, `index-table.ts`/`index-template.ts`, `task-markers.ts`, `constitution-rules.ts`/`constitution-parser.ts`, `markdown-fences.ts`, `test-runner.ts`, `escaped-defects.ts`, `init-docs.ts`, `key-exports.ts`, `logger.ts`, `agent-detector.ts`, `date-utils.ts`.
+The other 18 `.ts` here are single-purpose helpers (`ls src/lib`); those carrying invariants appear under Pitfalls.
 
 ## Public API
 
 - Config/IO/render — `readConfig`/`writeConfig`/`atomicWrite`/`readFileIfExists`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
-- Scan/detect/parse — `scanDir`/`classifyModulePath`/`detectModules`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
+- Scan/detect/parse — `scanDir`/`classifyModulePath`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
 - Drift/knowledge/metadata — `runChecks(inputs)` + `collect*`, `loadModuleMap`/`loadFeatureMap`/`searchModules`, `readChangeMetadata`/`writeChangeMetadata*`/`appendQualityLogEntry`
 - Station mechanics — `findTable`/`renderMarkdownTable`/`replaceTableInDocument`, `computeGrade`/`mergeFindings`/`upsertLesson`/`scoreLessons`/`validate*`
 
@@ -36,7 +36,7 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 
 ## Modification Guide
 
-1. **Add a utility** — new `src/lib/{name}.ts`, pure stateless.
+1. **Add a utility** — pure, stateless; `template.ts`'s latches are the sole exception.
 2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it.
 3. **Change module detection** — edit its strategy in `module-detector.ts`.
 4. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts` (also sync the root-README check list).
@@ -45,18 +45,18 @@ Also: `content-merger.ts`, `detector.ts`, `manifest-parsers.ts`, `language-polic
 
 ## Ripple Effects
 
-- `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` ripples to mcp.service, drift-sources, check.service; `markdown-table.ts` to `review.md` + the lessons ledger.
+- `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` ripples to mcp.service, drift-sources, check.service.
 
 ## Pitfalls
 
-- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; noEscape YAML templates MUST run user text through `escapeYamlScalar()`.
-- The module gate lives in `module-detector.ts`, not `scanDir()` (`raw-scan.md` must still show doc/asset dirs), and DENIES non-code extensions — an allowlist erases any unlisted language's code dirs.
-- Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity); an unavailable source → `skipped`, never a vacuous pass (`import-direction` is JS/TS-ESM-only). `test-runner.ts` is the ONE flag-gated, `shell: false` project-command runner; argv[0] follows **libuv**, never PATHEXT: spawn cwd before PATH, entries unquoted, candidates resolved against it. An unspawnable Windows shim is refused pre-spawn as `command_unavailable_reason`, yet recorded runs STILL enumerate — only missing/stale skip, and a recorded non-zero exit FAILs under an unresolvable command. `computeChangeDigest` hashes UNTRACKED file contents too (whole-tree denylist, fails closed) — a tool that writes into the repo without being gitignored flips review/test provenance to a false red.
-- knowledge-reader owns THE contained read (`readContained` reports `absent`/`escaped`/`unreadable`; `isContainedPath` is shared with drift-sources' existence probe) — drift-sources imports FROM it, never the reverse (lib→lib cycle). A content read that cannot be READ is absent, but `loadModuleMap`/`loadFeatureMap` stay LOUD there (an unreadable map must not hand dependency-direction to the fallback ruleset); missing→null, invalid→throw. Collector reads of ENUMERATED files go through `readTextOrSkip`: one unreadable entry costs its own line, never the whole run. Same one-way rule for `constitution-parser`/`markdown-fences`.
-- `markdown-table.ts` is the SINGLE source for every pipe table prospec owns (review.md, the lessons ledger) and is I/O-free: both consumers hand-copied it and drifted — a row split ignoring the `\|` its own renderer wrote was a confirmed critical (PB-006).
-- `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`, not `'docs'`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both exception directions) — compose paths with `path.posix.join`.
-- `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it deliberately — a scanner must report a bad record, not throw.
-- Station engines decide, never re-derive policy: `verify-grade` has NO engine-unavailability WARN exemption — every WARN (`not-adjudicated` included) spends grade A's budget — and never re-applies scale rules; `lessons-ledger` frequency counts DISTINCT source changes; `review-merge` never infers finding identity from a location string.
+- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; noEscape YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
+- The module gate lives in `module-detector.ts`, not `scanDir()` (`raw-scan.md` must still show doc/asset dirs), and DENIES non-code extensions — an allowlist erases unlisted languages' dirs. Admission is a pure 2-source-file gate, no name exemption, reading only the LAST extension — so an entry matches TERMINAL segments only (`min` denies `app.min`, not `jquery.min.js`); none is dead for looking secondary. `isSourceFile` is THE classifier; whole-directory rejects (topmost, non-root) surface in `raw-scan.md` for the skill layer to overrule, never a second copy. Both disclosure lists rank by descending file count (codepoint tie-break): the caps discard the tail, so alphabetical order dropped the very evidence the section exists for.
+- `markdown-fences` owns both directions of CommonMark delimiters — `withoutFencedBlocks` for scanners, `toInlineCodeSpan` for emitters, which also COLLAPSES line breaks (a span lives in one paragraph; manifest text, unlike a glob path, can carry one). Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity, tie-breaks included); an unavailable source → `skipped`, never a vacuous pass (`import-direction`: JS/TS ESM only). `test-runner.ts` is the ONE flag-gated, `shell: false` project-command runner; argv[0] follows **libuv**, never PATHEXT (spawn cwd before PATH, entries unquoted). An unspawnable Windows shim is refused pre-spawn as `command_unavailable_reason`; recorded runs still enumerate and a non-zero exit still FAILs. `computeChangeDigest` hashes UNTRACKED contents too (fails closed) — a tool writing into the repo un-gitignored flips review/test provenance to a false red.
+- knowledge-reader owns THE contained read (`readContained` → `absent`/`escaped`/`unreadable`; `isContainedPath` shared with drift-sources) — drift-sources imports FROM it, never the reverse (lib→lib cycle; same for `constitution-parser`/`markdown-fences`). An unreadable content read is absent, but `loadModuleMap`/`loadFeatureMap` stay LOUD (an unreadable map must not hand dependency-direction to the fallback ruleset); missing→null, invalid→throw. Enumerated-file collector reads use `readTextOrSkip`: one unreadable entry costs its own line, not the run.
+- `markdown-table.ts` is the SINGLE, I/O-free source for every pipe table prospec owns (review.md, lessons ledger): both consumers hand-copied it and drifted — a row split ignoring the `\|` its own renderer wrote was a confirmed critical (PB-006).
+- `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both exception directions).
+- `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it — a scanner reports a bad record, not throws.
+- Station engines decide, never re-derive policy: `verify-grade` has NO WARN exemption (`not-adjudicated` included — each spends grade A's budget); `lessons-ledger` counts DISTINCT source changes; `review-merge` never infers identity from a location string.
 
 <!-- prospec:auto-end -->
 
