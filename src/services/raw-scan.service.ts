@@ -106,12 +106,15 @@ export async function generateRawScan(
       package_manager: techStack.package_manager,
       source: techStack.source,
     },
-    // Every scanned or manifest-derived value rendered inside a code span goes
-    // through the same guard — `package.json` `main` and a config-file path are
-    // as attacker-shaped as a directory name, and they land in the same
-    // agent-read file. The Directory Tree is exempt for a reason: it sits in a
-    // fenced block, `scanDir`'s glob never yields a newline-bearing path, and
-    // every emitted line ends in `/`, so no line can close the fence.
+    // Every scanned or manifest-derived value the template renders goes through
+    // the same guard — `package.json` `main`, a dependency name, a version
+    // specifier and a config-file path are all as attacker-shaped as a directory
+    // name, and they land in the same agent-read file. The manifest-derived ones
+    // are the wider class: unlike a scanned path they can carry a newline, which
+    // the guard collapses (see `toInlineCodeSpan`). The Directory Tree is exempt
+    // for a reason: it sits in a fenced block, `scanDir`'s glob never yields a
+    // newline-bearing path, and every emitted line ends in `/`, so no line can
+    // close the fence.
     entry_points: entryPoints,
     entry_point_displays: entryPoints.map(toInlineCodeSpan),
     directory_tree: directoryTree,
@@ -119,6 +122,12 @@ export async function generateRawScan(
       name: d.name,
       name_display: toInlineCodeSpan(d.name),
       version: d.version,
+      // A version specifier is arbitrary JSON text — the one interpolation that
+      // used to render as bare prose, and the widest of the manifest-derived
+      // values (a forged heading in it rendered for real).
+      version_display: d.version === undefined
+        ? undefined
+        : toInlineCodeSpan(d.version),
     })),
     config_files: configFiles,
     config_file_displays: configFiles.map(toInlineCodeSpan),

@@ -50,6 +50,6 @@ So that module 邊界的裁決權回到看得懂專案的那一層，偵測器�
 ## 已知殘留
 
 - 根目錄層級的檔案不屬於任何目錄，永不出現在揭露區塊（已在文案與 REQ 揭露）。
-- dependency 的 `version` 欄位以純散文渲染，不在 code span 範圍故未納入本次跳脫；同一威脅模型、不同的面。
+- ~~dependency 的 `version` 欄位以純散文渲染，不在 code span 範圍故未納入本次跳脫~~ → **archive 後、merge 前修正**：實測顯示這一面比原判斷嚴重（惡意 version 可偽造整個 `## Directories Without Source Files` 區塊並排在真區塊之前），且同時暴露 `toInlineCodeSpan` 對 manifest 來源值不足——code span 不能跨空行，而 JSON 字串可含換行。修法為在 helper 內折疊換行（三個 manifest 欄位一次修好）並把 version 納入 guard。
 - 根 README 的散文無契約測試釘住——本輪唯一只能靠人看的面。
 - issue #114 的兩個方向未納入（`.prospec.yaml` 偵測覆寫、補完拒絕清單），理由記於 proposal Non-Goals 與 `.tasks/**/decisions.md` D-01。

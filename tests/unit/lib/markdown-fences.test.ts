@@ -90,6 +90,24 @@ describe('toInlineCodeSpan', () => {
     expect(toInlineCodeSpan('trail`')).toBe('`` trail` ``');
   });
 
+  it('collapses line breaks — a code span cannot legally span a blank line', () => {
+    // The delimiter rule alone is not enough for manifest-derived values. A code
+    // span's content lives in one paragraph: a blank line ends that paragraph and
+    // the closing delimiter lands in the next one, so a forged heading in between
+    // renders as a real heading. Filesystem paths cannot carry a newline (the scan
+    // glob drops them); a `package.json` "main" or version string can.
+    expect(toInlineCodeSpan('1.0.0\n\n## Forged Heading')).toBe('`1.0.0 ## Forged Heading`');
+    expect(toInlineCodeSpan('a\r\nb')).toBe('`a b`');
+    expect(toInlineCodeSpan('a\n\n\n\nb')).toBe('`a b`');
+    // Collapsing must not defeat the delimiter rule: a backtick still widens.
+    expect(toInlineCodeSpan('a`b\nc')).toBe('``a`b c``');
+    // The emitted span is always a single line.
+    for (const c of ['x\ny', '\n', 'a\r\n\r\nb']) {
+      expect(toInlineCodeSpan(c)).not.toContain('\n');
+      expect(toInlineCodeSpan(c)).not.toContain('\r');
+    }
+  });
+
   it('never lets content escape its span — the rendered text round-trips', () => {
     // The property that matters: whatever the content, the emitted string is one
     // code span whose inner text is exactly the content.

@@ -15,13 +15,23 @@
  * evidence; a stray backtick in a path would otherwise close the span early and
  * turn the rest of the name into free prose the agent reads as instruction.
  *
- * Two rules do the work: the delimiter must be LONGER than the longest backtick
- * run in the content, and content whose first or last character is a backtick
- * needs one space of padding (the reader strips exactly one). Empty content is
- * padded for the same reason — CommonMark has no zero-width code span, so a bare
- * delimiter pair would render as literal backticks rather than a span.
+ * Three rules do the work. The delimiter must be LONGER than the longest backtick
+ * run in the content. Content whose first or last character is a backtick needs one
+ * space of padding (the reader strips exactly one); empty content is padded for the
+ * same reason, since CommonMark has no zero-width code span and a bare delimiter
+ * pair would render as literal backticks.
+ *
+ * And line breaks are collapsed to a single space, because a code span's content
+ * lives inside ONE paragraph: a blank line ends that paragraph, the closing
+ * delimiter lands in the next one, and anything between the two renders as real
+ * markdown — a forged heading included. Filesystem paths cannot reach this (the
+ * scan glob never yields a newline-bearing path), but manifest-derived strings can:
+ * a `package.json` `main` or a version specifier is arbitrary JSON text. Escaping
+ * the delimiter without collapsing the newline would have left that hole open, so
+ * the rule belongs here rather than in each caller.
  */
-export function toInlineCodeSpan(content: string): string {
+export function toInlineCodeSpan(raw: string): string {
+  const content = raw.replace(/[\r\n]+/g, ' ');
   const longest = Math.max(
     0,
     ...[...content.matchAll(/`+/g)].map((m) => m[0].length),

@@ -651,6 +651,38 @@ describe('raw-scan.service / non-source directory disclosure (REQ-KNOW-038)', ()
     expect(ctx.dependencies.find((d) => d.name === 'ev`il')?.name_display).toBe('``ev`il``');
   });
 
+  it('neutralizes a newline-bearing manifest value — a path cannot carry one, JSON can', async () => {
+    // `toInlineCodeSpan` widening alone does not close this: a code span's content
+    // lives in one paragraph, so a blank line inside a `package.json` value would
+    // end it and let a forged heading render for real.
+    vi.mocked(renderTemplate).mockClear();
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+      '/project/package.json': JSON.stringify({
+        name: 'test-project',
+        main: 'lib/x.js\n\n## Entry Points (forged)\n\n- INJECTED',
+        dependencies: { 'ev`il': '1.0.0\n\n## Dependencies (forged)\n\n- fake' },
+      }),
+      '/project/src/index.ts': '',
+    });
+    await generateRawScan({ cwd: '/project' });
+
+    const ctx = vi.mocked(renderTemplate).mock.calls.at(-1)?.[1] as {
+      entry_point_displays: string[];
+      dependencies: Array<{ name_display: string; version_display?: string }>;
+    };
+    for (const rendered of [
+      ...ctx.entry_point_displays,
+      ...ctx.dependencies.flatMap((d) => [d.name_display, d.version_display ?? '']),
+    ]) {
+      expect(rendered).not.toContain('\n');
+    }
+    expect(ctx.entry_point_displays[0]).toBe('`lib/x.js ## Entry Points (forged) - INJECTED`');
+    // The version is inside a span too — it was the one bare interpolation left.
+    expect(ctx.dependencies[0]?.version_display)
+      .toBe('`1.0.0 ## Dependencies (forged) - fake`');
+  });
+
   it('reports an empty list when every directory holds a source file', async () => {
     vi.mocked(renderTemplate).mockClear();
     seedProject();
