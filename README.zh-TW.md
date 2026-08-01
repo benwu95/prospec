@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-2944%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-2988%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -502,7 +502,9 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | C++ | ✅ ³ | ✅ `vcpkg.json` / `conanfile.txt` ⁴ | ✅ | ✅ |
 | Swift | ✅ `Package.swift` | — ⁵ | ✅ | ✅ |
 
-¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。³ C 與 C++ 由原始碼副檔名推斷；可於 `.prospec.yaml` 設 `tech_stack` 覆寫。⁴ C/C++ 依賴僅讀宣告式 manifest——`CMakeLists.txt` 與 `conanfile.py` 為命令式、不解析。⁵ Swift 依賴不解析（`Package.swift` 為命令式 Swift）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊。
+¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。³ C 與 C++ 由原始碼副檔名推斷；可於 `.prospec.yaml` 設 `tech_stack` 覆寫。⁴ C/C++ 依賴僅讀宣告式 manifest——`CMakeLists.txt` 與 `conanfile.py` 為命令式、不解析。⁵ Swift 依賴不解析（`Package.swift` 為命令式 Swift）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊——且因為未列出的副檔名一律算原始碼，其程式碼目錄**不會**出現在 Directories Without Source Files。
+
+**掃描無法判定為程式碼的目錄。** `raw-scan.md` 另有一個 `Directories Without Source Files` 區塊：列出沒有任何檔案算得上原始碼的最上層目錄，含檔案數與副檔名組成——module 偵測器要求檔案**有**副檔名、**且**該副檔名不在非原始碼拒絕清單上，因此只含無副檔名檔案的目錄（一整包腳本的 `bin/`）也會落在這裡。根目錄層級的檔案不屬於任何目錄，永遠不會被列出。它是掃描事實而非偵測判決：curated 的 `module-map.yaml`（偵測一律優先採用）或零結果退回，仍可能讓這類目錄成為 module。該區塊是 `/prospec-knowledge-generate` 判斷的依據——某個目錄（一整包 Kubernetes YAML 的 `manifests/`、一整本 LaTeX 的 `chapters/`）究竟是不是這個專案的本體、該不該寫進 `module-map.yaml`。
 
 **表外的語言？** 仍會掃描——Directory Tree 與 File Stats 永遠有值，且 `/prospec-knowledge-generate` 會直接讀原始碼。Tech Stack 會落為 `unknown`；可於 `.prospec.yaml` 的 `tech_stack` 權威宣告（free-form——覆蓋自動偵測，並以 `Source: config` 呈現）：
 
@@ -754,7 +756,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（2944 個測試）
+# 執行所有測試（2988 個測試）
 pnpm test
 
 # Watch 模式
@@ -767,9 +769,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：2944 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2101 tests
-- Contract tests（CLI 輸出 + Skill 格式）：734 tests
+**測試覆蓋率**：2988 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2131 tests
+- Contract tests（CLI 輸出 + Skill 格式）：748 tests
 - Integration tests：43 tests
 - E2E tests：66 tests
 

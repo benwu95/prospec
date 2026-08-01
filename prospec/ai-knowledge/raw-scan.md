@@ -105,9 +105,29 @@ tests/
     types/
 ```
 
+## Directories Without Source Files
+
+> Directories that hold files but no source file. `module-detector.ts` counts a file as source
+> only when it carries an extension AND that extension is not on its non-source denylist — so a
+> directory whose only content is extensionless files (a `bin/` of scripts) qualifies too, its
+> files reported as `(no extension)`. Root-level files belong to no directory and are never listed.
+>
+> This is a fact about the scan, not a detection verdict. A directory listed here can still be a
+> module two ways: a curated `module-map.yaml`, which detection prefers over every heuristic, and
+> the no-module fallback, which re-runs detection over the unfiltered file list when the narrowed
+> pass finds nothing. Read the list as evidence — if one of these is this project's substance
+> (Kubernetes manifests, LaTeX chapters, a Makefile-driven build) and `module-map.yaml` does not
+> already cover it, put it there deliberately. Nested directories fold into their topmost
+> non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
+> alphabetically first.
+
+- `prospec/` — 129 files: `.md`, `.yaml`
+- `tests/fixtures/` — 20 files: `.md`, `.yaml`, `.json`
+- `planning/` — 10 files: `.md`
+
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 533 |
+| Total files | 534 |
 | Scan depth | 10 |

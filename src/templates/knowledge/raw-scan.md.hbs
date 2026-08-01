@@ -15,8 +15,8 @@
 ## Entry Points
 
 {{#if entry_points}}
-{{#each entry_points}}
-- `{{this}}`
+{{#each entry_point_displays}}
+- {{this}}
 {{/each}}
 {{else}}
 _No entry points detected_
@@ -26,7 +26,7 @@ _No entry points detected_
 
 {{#if dependencies}}
 {{#each dependencies}}
-- `{{this.name}}`{{#if this.version}} @ {{this.version}}{{/if}}
+- {{this.name_display}}{{#if this.version}} @ {{this.version}}{{/if}}
 {{/each}}
 {{else}}
 _No dependencies detected_
@@ -35,8 +35,8 @@ _No dependencies detected_
 ## Config Files
 
 {{#if config_files}}
-{{#each config_files}}
-- `{{this}}`
+{{#each config_file_displays}}
+- {{this}}
 {{/each}}
 {{else}}
 _No config files detected_
@@ -47,6 +47,33 @@ _No config files detected_
 ```
 {{directory_tree}}
 ```
+
+## Directories Without Source Files
+
+> Directories that hold files but no source file. `module-detector.ts` counts a file as source
+> only when it carries an extension AND that extension is not on its non-source denylist — so a
+> directory whose only content is extensionless files (a `bin/` of scripts) qualifies too, its
+> files reported as `(no extension)`. Root-level files belong to no directory and are never listed.
+>
+> This is a fact about the scan, not a detection verdict. A directory listed here can still be a
+> module two ways: a curated `module-map.yaml`, which detection prefers over every heuristic, and
+> the no-module fallback, which re-runs detection over the unfiltered file list when the narrowed
+> pass finds nothing. Read the list as evidence — if one of these is this project's substance
+> (Kubernetes manifests, LaTeX chapters, a Makefile-driven build) and `module-map.yaml` does not
+> already cover it, put it there deliberately. Nested directories fold into their topmost
+> non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
+> alphabetically first.
+
+{{#if non_source_directories}}
+{{#each non_source_directories}}
+- {{this.path_display}} — {{this.file_count}} {{#if (eq this.file_count 1)}}file{{else}}files{{/if}}: {{#each this.extension_displays}}{{#unless @first}}, {{/unless}}{{this}}{{/each}}{{#if this.extensions_omitted}} (+{{this.extensions_omitted}} more){{/if}}
+{{/each}}
+{{else}}
+_Every directory holds at least one source file_
+{{/if}}
+{{#if non_source_directories_omitted}}
+_… and {{non_source_directories_omitted}} more directories, omitted by the {{non_source_directories_cap}}-directory cap_
+{{/if}}
 
 ## File Stats
 

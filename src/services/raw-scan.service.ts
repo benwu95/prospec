@@ -22,6 +22,12 @@ import {
   csprojIsExecutable,
   type ManifestDependency,
 } from '../lib/manifest-parsers.js';
+import {
+  collectNonSourceDirectories,
+  NON_SOURCE_DIR_LIMIT,
+  type NonSourceDirectories,
+} from '../lib/module-detector.js';
+import { toInlineCodeSpan } from '../lib/markdown-fences.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir, fileExists } from '../lib/fs-utils.js';
 
@@ -43,6 +49,11 @@ export interface RawScanResult {
   dryRun: boolean;
   /** All scanned files (relative to cwd) — for callers that need module detection. */
   files: string[];
+  /**
+   * Directories the source-file gate cannot admit, as evidence for the LLM layer.
+   * A fact about the file list, so it is reported whether or not detection runs.
+   */
+  nonSourceDirectories: NonSourceDirectories;
 }
 
 /**
@@ -85,6 +96,7 @@ export async function generateRawScan(
   const dependencies = collectDependencies(cwd, scanResult.files);
   const configFiles = collectConfigFiles(scanResult.files);
   const directoryTree = buildDirectoryTree(scanResult.files, depth);
+  const nonSourceDirectories = collectNonSourceDirectories(scanResult.files);
 
   const rawScanContext = {
     project_name: config.project.name,
@@ -94,14 +106,39 @@ export async function generateRawScan(
       package_manager: techStack.package_manager,
       source: techStack.source,
     },
+    // Every scanned or manifest-derived value rendered inside a code span goes
+    // through the same guard — `package.json` `main` and a config-file path are
+    // as attacker-shaped as a directory name, and they land in the same
+    // agent-read file. The Directory Tree is exempt for a reason: it sits in a
+    // fenced block, `scanDir`'s glob never yields a newline-bearing path, and
+    // every emitted line ends in `/`, so no line can close the fence.
     entry_points: entryPoints,
+    entry_point_displays: entryPoints.map(toInlineCodeSpan),
     directory_tree: directoryTree,
-    dependencies,
+    dependencies: dependencies.map((d) => ({
+      name: d.name,
+      name_display: toInlineCodeSpan(d.name),
+      version: d.version,
+    })),
     config_files: configFiles,
+    config_file_displays: configFiles.map(toInlineCodeSpan),
     file_stats: {
       total_files: scanResult.count,
       scan_depth: depth,
     },
+    // Templates render with `noEscape`, so the code spans are pre-built by
+    // `collectNonSourceDirectories` — a scanned name must not be able to close
+    // its own span in a file an agent reads as evidence and acts on.
+    non_source_directories: nonSourceDirectories.directories.map((d) => ({
+      path: d.path,
+      path_display: d.pathDisplay,
+      file_count: d.fileCount,
+      extensions: d.extensions,
+      extension_displays: d.extensionDisplays,
+      extensions_omitted: d.extensionsOmitted,
+    })),
+    non_source_directories_omitted: nonSourceDirectories.omitted,
+    non_source_directories_cap: NON_SOURCE_DIR_LIMIT,
   };
 
   let outputFile: string | null = null;
@@ -127,6 +164,7 @@ export async function generateRawScan(
     outputFile,
     dryRun,
     files: scanResult.files,
+    nonSourceDirectories,
   };
 }
 

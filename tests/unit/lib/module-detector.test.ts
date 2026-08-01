@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
-import { detectModules, buildModuleMap } from '../../../src/lib/module-detector.js';
+import { toInlineCodeSpan } from '../../../src/lib/markdown-fences.js';
+import {
+  detectModules,
+  buildModuleMap,
+  collectNonSourceDirectories,
+  isSourceFile,
+} from '../../../src/lib/module-detector.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -175,13 +181,14 @@ modules:
     const files = [
       'package.json',
       'tsconfig.json',
-      // A bare root file whose name IS a MODULE_INDICATOR ('config'). This makes
-      // the `parts.length < 2` skip guard load-bearing: without it, this single
-      // file would split to ['config'], get name='config', and survive the
-      // downstream `dirFiles.length >= 2 || MODULE_INDICATORS.includes(name)`
-      // filter via the indicator branch — leaking a spurious root module. The
-      // 1-file non-indicator names (package.json/tsconfig.json) alone could not
-      // exercise the guard because the 2-file threshold drops them regardless.
+      // Root files must never surface as modules. NOTE on coverage: with the
+      // name-based bypass gone, `detectFromDirectories`' `parts.length < 2`
+      // guard no longer changes this outcome for any reachable input — a root
+      // file always forms a singleton prefix bucket, which the uniform 2-file
+      // threshold drops anyway (and a prefix shared with a same-named directory
+      // is not constructible on a real filesystem). The guard is retained as
+      // intent, not as the thing under test; what this case pins is the
+      // OUTCOME, which must hold however the guard is refactored.
       'config',
       'src/services/auth.ts',
       'src/services/user.ts',
@@ -196,9 +203,7 @@ modules:
     const result = detectModules(files, '/project');
     const moduleNames = result.modules.map((m) => m.name);
     // Pin the whole positive set: the only surviving module is the 2-file
-    // src/services dir. Any root-level leakage (including the indicator-named
-    // 'config') fails this — deleting the root-skip guard yields ['config',
-    // 'services'].
+    // src/services dir. Any root-level leakage fails this.
     expect(moduleNames).toEqual(['services']);
     expect(moduleNames).not.toContain('config');
     expect(moduleNames).not.toContain('package.json');
@@ -1212,9 +1217,9 @@ describe('detectModules — source-file gating (REQ-LIB-038)', () => {
     const moduleNames = result.modules.map((m) => m.name);
     expect(result.modules.length).toBeGreaterThan(0);
     expect([...moduleNames].sort()).toEqual(['docs']);
-    // On the fallback path the root-level skip guard is the only thing keeping
-    // the MODULE_INDICATOR-named root file 'config' out — so this case keeps
-    // that guard load-bearing now that the filter would otherwise shadow it.
+    // Root files stay out on the fallback path too, where the scope is the
+    // unfiltered list (see the coverage note on the root-skip test above: the
+    // 2-file threshold, not the guard, is what excludes them now).
     expect(moduleNames).not.toContain('config');
   });
 
@@ -1246,6 +1251,24 @@ describe('detectModules — source-file gating (REQ-LIB-038)', () => {
     const moduleNames = result.modules.map((m) => m.name);
     expect([...moduleNames].sort()).toEqual(['core']);
     expect(moduleNames).not.toContain('docs-site');
+  });
+
+  it('reports architecture from the NARROWED scope, so a docs-only layer stops counting', () => {
+    // REQ-LIB-038: architecture-pattern recognition reads the source subset too.
+    // An mvc layout whose views/ and controllers/ hold only prose drops below the
+    // 2-indicator bar and must report `unknown` — over the unfiltered list it
+    // would still report `mvc`.
+    const files = [
+      'models/user.ts',
+      'models/order.ts',
+      'views/home.md',
+      'views/about.md',
+      'controllers/main.md',
+      'controllers/admin.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/mvc/${f}`, ''])));
+
+    expect(detectModules(files, '/mvc', 'architecture').architecture).toBe('unknown');
   });
 
   it('never filters a curated module-map — a doc-only module survives verbatim', () => {
@@ -1382,5 +1405,304 @@ describe('detectModules — catch block wraps unexpected errors (L145/L148/L149)
     }
     // Same identity → not re-wrapped (the `instanceof ... throw err` branch).
     expect(caught).toBe(original);
+  });
+});
+
+describe('collectNonSourceDirectories (REQ-KNOW-038)', () => {
+  it('lists a directory whose files are all non-source, with count and extensions', () => {
+    const result = collectNonSourceDirectories([
+      'manifests/deploy.yaml',
+      'manifests/service.yml',
+      'src/index.ts',
+      'src/util.ts',
+    ]);
+    expect(result.directories).toEqual([
+      {
+        path: 'manifests',
+        pathDisplay: '`manifests/`',
+        fileCount: 2,
+        extensions: ['.yaml', '.yml'],
+        extensionDisplays: ['`.yaml`', '`.yml`'],
+        extensionsOmitted: 0,
+      },
+    ]);
+    expect(result.omitted).toBe(0);
+  });
+
+  it('omits a directory holding at least one source file, however many non-source files it also has', () => {
+    const result = collectNonSourceDirectories([
+      'docs/a.md',
+      'docs/b.md',
+      'docs/c.pdf',
+      'docs/build.ts',
+    ]);
+    expect(result.directories).toEqual([]);
+  });
+
+  it('folds a nested non-source subtree into its topmost non-source ancestor', () => {
+    const result = collectNonSourceDirectories([
+      'book/chapters/one.tex',
+      'book/chapters/deep/two.tex',
+      'book/preface.md',
+      'src/a.ts',
+      'src/b.ts',
+    ]);
+    // `book` qualifies, so `book/chapters` and `book/chapters/deep` fold into it.
+    expect(result.directories.map((d) => d.path)).toEqual(['book']);
+    expect(result.directories[0]?.fileCount).toBe(3);
+    // Volume-ranked: two `.tex` outrank one `.md`.
+    expect(result.directories[0]?.extensions).toEqual(['.tex', '.md']);
+  });
+
+  it('lists a non-source directory nested under a source-bearing parent', () => {
+    const result = collectNonSourceDirectories([
+      'src/index.ts',
+      'src/util.ts',
+      'src/assets/logo.png',
+      'src/assets/icon.svg',
+    ]);
+    // `src` holds source, so it does not qualify — `src/assets` is the topmost that does.
+    expect(result.directories.map((d) => d.path)).toEqual(['src/assets']);
+    expect(result.directories[0]?.extensions).toEqual(['.png', '.svg']);
+  });
+
+  it('orders equal-volume extensions by codepoint, not locale', () => {
+    const result = collectNonSourceDirectories([
+      'gamma/z.yaml',
+      'gamma/a.md',
+      'gamma/_raw.png',
+      'src/a.ts',
+      'src/b.ts',
+    ]);
+    // One file each, so the tie-break IS the order. Codepoint and ICU collation
+    // disagree on these three, so swapping the comparator flips the expectation.
+    const gamma = result.directories.find((d) => d.path === 'gamma');
+    expect(gamma?.extensions).toEqual(['.md', '.png', '.yaml']);
+  });
+
+  it('reports extensionless files as `(no extension)`, sorted ahead of dotted extensions', () => {
+    const result = collectNonSourceDirectories([
+      'bin/deploy',
+      'bin/notes.md',
+      'src/a.ts',
+      'src/b.ts',
+    ]);
+    expect(result.directories[0]?.extensions).toEqual(['(no extension)', '.md']);
+  });
+
+  it('labels a trailing-dot filename the same way the classifier judges it', () => {
+    // `path.extname('weird.')` is '.', but `isSourceFile` strips the dot before
+    // testing emptiness — so the file is extensionless to the gate. The reporter
+    // must agree, or one feature describes the same file two ways.
+    expect(isSourceFile('docs/weird.')).toBe(false);
+    const result = collectNonSourceDirectories(['docs/weird.', 'docs/a.md']);
+    expect(result.directories[0]?.extensions).toEqual(['(no extension)', '.md']);
+    expect(result.directories[0]?.extensions).not.toContain('.');
+  });
+
+  it('ignores root-level files — they belong to no directory', () => {
+    const result = collectNonSourceDirectories(['README.md', 'LICENSE', 'src/a.ts', 'src/b.ts']);
+    expect(result.directories).toEqual([]);
+  });
+
+  it('returns an empty result for an empty file list', () => {
+    expect(collectNonSourceDirectories([])).toEqual({ directories: [], omitted: 0 });
+  });
+
+  it('caps the directory list and discloses how many were omitted', () => {
+    const files = Array.from({ length: 53 }, (_, i) =>
+      `d${String(i).padStart(3, '0')}/note.md`,
+    );
+    const result = collectNonSourceDirectories(files);
+    expect(result.directories).toHaveLength(50);
+    expect(result.omitted).toBe(3);
+    // The kept 50 are the first in codepoint order, not an arbitrary slice.
+    expect(result.directories[0]?.path).toBe('d000');
+    expect(result.directories.at(-1)?.path).toBe('d049');
+  });
+
+  it('caps extensions per entry and discloses the remainder', () => {
+    const result = collectNonSourceDirectories([
+      'assets/a.png', 'assets/b.jpg', 'assets/c.gif', 'assets/d.svg',
+      'assets/e.webp', 'assets/f.bmp', 'assets/g.ico',
+      'src/a.ts', 'src/b.ts',
+    ]);
+    const assets = result.directories[0];
+    expect(assets?.extensions).toEqual(['.bmp', '.gif', '.ico', '.jpg', '.png']);
+    expect(assets?.extensionsOmitted).toBe(2);
+    expect(assets?.fileCount).toBe(7);
+  });
+
+  it('clamps a zero or negative cap to 1 — an empty list with a non-zero omitted count would render the opposite claim', () => {
+    const zero = collectNonSourceDirectories(['a/x.md', 'b/y.md'], { maxDirectories: 0 });
+    expect(zero.directories.map((d) => d.path)).toEqual(['a']);
+    expect(zero.omitted).toBe(1);
+
+    const negative = collectNonSourceDirectories(['a/x.md', 'b/y.md', 'c/z.md'], {
+      maxDirectories: -1,
+    });
+    // Never drops an entry without counting it: kept + omitted === qualifying.
+    expect(negative.directories.length + negative.omitted).toBe(3);
+
+    const zeroExt = collectNonSourceDirectories(['a/x.md', 'a/y.png'], { maxExtensions: 0 });
+    expect(zeroExt.directories[0]?.extensions).toEqual(['.md']);
+    expect(zeroExt.directories[0]?.extensionsOmitted).toBe(1);
+  });
+
+  it('honors explicit caps over the defaults', () => {
+    const result = collectNonSourceDirectories(
+      ['a/x.md', 'b/y.md', 'c/z.md'],
+      { maxDirectories: 2, maxExtensions: 1 },
+    );
+    expect(result.directories.map((d) => d.path)).toEqual(['a', 'b']);
+    expect(result.omitted).toBe(1);
+  });
+});
+
+describe('isSourceFile (REQ-LIB-038 exported single source)', () => {
+  it('is exported so raw-scan reuses this classification instead of re-deriving one', () => {
+    expect(typeof isSourceFile).toBe('function');
+  });
+
+  it('reads only the LAST extension, so a denylist entry matches terminal segments only', () => {
+    // `path.extname('jquery.min.js')` is `.js`, so the `min` entry cannot reach
+    // it — but `path.extname('app.min')` IS `.min`, so the entry is live and the
+    // minified build output it names stays denied. Removing it on a
+    // "dead entry" reading would silently reclassify that output as source.
+    expect(isSourceFile('vendor/jquery.min.js')).toBe(true);
+    expect(isSourceFile('dist/app.min')).toBe(false);
+    expect(isSourceFile('dist/APP.MIN')).toBe(false);
+    expect(isSourceFile('vendor/app.js.map')).toBe(false);
+  });
+
+  it('matches the denylist case-insensitively and rejects extensionless files', () => {
+    expect(isSourceFile('docs/READ.MD')).toBe(false);
+    expect(isSourceFile('include/vec.H')).toBe(true);
+    expect(isSourceFile('Makefile')).toBe(false);
+  });
+});
+
+describe('detectModules — uniform 2-file threshold (REQ-LIB-038)', () => {
+  it('drops a single-source-file directory whose name used to grant a bypass', () => {
+    const files = ['src/utils/one.ts', 'src/core/a.ts', 'src/core/b.ts'];
+    vol.fromJSON({
+      '/project/src/utils/one.ts': '',
+      '/project/src/core/a.ts': '',
+      '/project/src/core/b.ts': '',
+    });
+    const names = detectModules(files, '/project', 'architecture').modules.map((m) => m.name);
+    // `utils` is on no list any more — 1 source file is 1 source file.
+    expect(names).not.toContain('utils');
+    expect(names).toContain('core');
+  });
+
+  it('leaves a 2+ source-file directory detected with its glob unchanged', () => {
+    const files = ['src/config/a.ts', 'src/config/b.ts', 'src/core/a.ts', 'src/core/b.ts'];
+    vol.fromJSON({
+      '/project/src/config/a.ts': '',
+      '/project/src/config/b.ts': '',
+      '/project/src/core/a.ts': '',
+      '/project/src/core/b.ts': '',
+    });
+    const modules = detectModules(files, '/project', 'architecture').modules;
+    expect(modules.find((m) => m.name === 'config')?.paths).toEqual(['src/config/**']);
+  });
+
+  it('falls back to the unfiltered list when removing the bypass takes the count to zero', () => {
+    // Source subset is a single file, so no directory reaches the threshold.
+    // Under the old name-based bypass `utils` was admitted here and the fallback
+    // never fired; now it must, and `docs` — which exists only in the unfiltered
+    // list — is the proof that it did.
+    const files = ['utils/helper.ts', 'utils/README.md', 'docs/a.md', 'docs/b.md'];
+    vol.fromJSON({
+      '/project/utils/helper.ts': '',
+      '/project/utils/README.md': '',
+      '/project/docs/a.md': '',
+      '/project/docs/b.md': '',
+    });
+    const names = detectModules(files, '/project', 'architecture').modules.map((m) => m.name);
+    expect(names).toContain('utils');
+    expect(names).toContain('docs');
+  });
+});
+
+describe('collectNonSourceDirectories — the caps keep the signal (REQ-KNOW-038)', () => {
+  it('ranks directories by file volume so a truncated list keeps the substantial ones', () => {
+    // The monorepo shape that made codepoint truncation useless: 12 tiny asset
+    // dirs sorting alphabetically before the one directory that IS the evidence.
+    const files = [
+      ...Array.from({ length: 12 }, (_, i) => [
+        `apps/app${String(i).padStart(2, '0')}/src/index.ts`,
+        `apps/app${String(i).padStart(2, '0')}/assets/logo.png`,
+      ]).flat(),
+      ...Array.from({ length: 9 }, (_, i) => `manifests/deploy${i}.yaml`),
+    ];
+    const result = collectNonSourceDirectories(files, { maxDirectories: 3 });
+    // `manifests` (9 files) must survive a cap of 3 even though `apps/app00/assets`
+    // sorts first alphabetically.
+    expect(result.directories[0]?.path).toBe('manifests');
+    expect(result.directories.map((d) => d.path)).toContain('manifests');
+    expect(result.omitted).toBe(10);
+  });
+
+  it('ranks extensions by occurrence so the per-entry cap keeps the telling one', () => {
+    // Android `res/`: `.xml` IS the signal (it is UI source), and it is the only
+    // extension with more than one file — alphabetical truncation dropped it.
+    const files = [
+      'app/src/main/java/Main.java',
+      'app/src/main/res/layout/activity_main.xml',
+      'app/src/main/res/layout/fragment_list.xml',
+      'app/src/main/res/layout/dialog.xml',
+      'app/src/main/res/drawable/a.gif',
+      'app/src/main/res/drawable/b.jpg',
+      'app/src/main/res/drawable/d.png',
+      'app/src/main/res/drawable/e.webp',
+      'app/src/main/res/values/c.json',
+    ];
+    const res = collectNonSourceDirectories(files).directories
+      .find((d) => d.path.endsWith('res'));
+    expect(res?.extensions[0]).toBe('.xml');
+    expect(res?.extensions).toContain('.xml');
+    expect(res?.extensionsOmitted).toBe(1);
+  });
+
+  it('breaks volume ties by codepoint, not locale', () => {
+    // Equal counts, so the tie-break is the whole ordering: codepoint puts '_'
+    // (0x5F) and uppercase 'Z' (0x5A) before lowercase 'a'; ICU collation does not.
+    const result = collectNonSourceDirectories([
+      'alpha/b.md', 'Zeta/a.md', '_tools/c.md',
+      'gamma/z.yaml', 'gamma/a.md', 'gamma/_raw.png',
+      'src/a.ts', 'src/b.ts',
+    ]);
+    expect(result.directories.map((d) => d.path)).toEqual(['gamma', 'Zeta', '_tools', 'alpha']);
+  });
+
+  it('renders every path and extension as an escape-proof code span', () => {
+    // A scanned directory name can contain a backtick; rendered raw it would
+    // close its span and spill the rest as prose into an agent-read artifact.
+    const result = collectNonSourceDirectories([
+      'ok/a.md',
+      'we`ird/b.md',
+      'src/a.ts',
+      'src/b.ts',
+    ]);
+    const plain = result.directories.find((d) => d.path === 'ok');
+    const tricky = result.directories.find((d) => d.path === 'we`ird');
+    expect(plain?.pathDisplay).toBe('`ok/`');
+    expect(tricky?.pathDisplay).toBe('``we`ird/``');
+    // The raw path stays available for programmatic consumers.
+    expect(tricky?.path).toBe('we`ird');
+    expect(plain?.extensionDisplays).toEqual(['`.md`']);
+
+    // Extension labels go through the same helper for symmetry, but note that no
+    // REACHABLE label needs widening: a backtick-bearing extension is not on the
+    // denylist, so `isSourceFile` calls it source and its directory never
+    // qualifies. `path.extname('x.we`ird')` really is '.we`ird' — it just cannot
+    // arrive here. Asserting the relation is the most a test can pin.
+    expect(plain?.extensionDisplays).toEqual(
+      (plain?.extensions ?? []).map((e) => toInlineCodeSpan(e)),
+    );
+    expect(collectNonSourceDirectories(['weird/a.we`ird', 'weird/b.we`ird'])
+      .directories).toEqual([]);
   });
 });

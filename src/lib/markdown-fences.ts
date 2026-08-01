@@ -7,6 +7,33 @@
  */
 
 /**
+ * Render arbitrary text as ONE inline code span it cannot escape.
+ *
+ * The producing side of the same CommonMark delimiter rules this module already
+ * owns for the scanning side. Callers emit filesystem-derived text — directory
+ * names, extensions — into generated markdown that an agent then reads as
+ * evidence; a stray backtick in a path would otherwise close the span early and
+ * turn the rest of the name into free prose the agent reads as instruction.
+ *
+ * Two rules do the work: the delimiter must be LONGER than the longest backtick
+ * run in the content, and content whose first or last character is a backtick
+ * needs one space of padding (the reader strips exactly one). Empty content is
+ * padded for the same reason — CommonMark has no zero-width code span, so a bare
+ * delimiter pair would render as literal backticks rather than a span.
+ */
+export function toInlineCodeSpan(content: string): string {
+  const longest = Math.max(
+    0,
+    ...[...content.matchAll(/`+/g)].map((m) => m[0].length),
+  );
+  const fence = '`'.repeat(longest + 1);
+  const needsPad =
+    content === '' || content.startsWith('`') || content.endsWith('`');
+  const pad = needsPad ? ' ' : '';
+  return `${fence}${pad}${content}${pad}${fence}`;
+}
+
+/**
  * Blank fenced code blocks while KEEPING line count, so a scanner's finding
  * line numbers stay correct. Fences carry illustrative examples — scanning them
  * produces false positives, and false positives are what kills trust in a checker.
