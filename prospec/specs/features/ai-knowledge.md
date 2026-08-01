@@ -3,7 +3,7 @@ feature: ai-knowledge
 status: active
 last_updated: 2026-08-01
 story_count: 15
-req_count: 62
+req_count: 64
 ---
 
 # AI Knowledge
@@ -45,13 +45,17 @@ I want the AI to auto-detect module boundaries or use a predefined module-map.ya
 so that the module split reflects the real project architecture.
 
 **Acceptance Scenarios:**
-- WHEN module-map.yaml exists THEN prefer the predefined classification
+- WHEN module-map.yaml exists THEN the deterministic detector prefers the predefined classification
 - WHEN module-map.yaml does not exist THEN the AI auto-determines module boundaries
 - WHEN executing `prospec knowledge init` and module-map.yaml does not exist THEN produce module-map.yaml from the detected modules
+- WHEN the detector's heuristic excluded a directory for want of source files THEN raw-scan.md discloses it, so the AI layer judges the exclusion on evidence instead of inheriting it
+- WHEN the AI layer disagrees with the map on disk THEN it may revise the module entries, always proposing first and writing only on the user's confirmation
 
 #### REQ-KNOW-003: Use Module Map for Classification
-- WHEN module-map.yaml exists, THEN use predefined classification, preserving `keywords` and `relationships`
-- WHEN module-map.yaml doesn't exist, THEN AI auto-determines module boundaries from raw-scan.md
+Module classification is layered. `detectModules()` (deterministic, lib) defers to an existing `module-map.yaml` and only drafts one when the file is absent; the LLM layer owns the judgment about whether that draft is right.
+- WHEN module-map.yaml exists, THEN `detectModules()` uses the predefined classification, preserving `keywords` and `relationships`
+- WHEN module-map.yaml doesn't exist, THEN the AI auto-determines module boundaries from raw-scan.md, and `prospec knowledge init` persists the deterministic draft so the file exists offline
+- WHEN the map on disk needs revising, THEN `/prospec-knowledge-generate` MAY revise its module entries under REQ-TEMPLATES-170's propose → confirm → write-back discipline. The layer boundary is who DECIDES, not who wrote the file: no artifact records whether a map was bootstrap-written or hand-curated, so the user's confirmation — required every time — is what protects a curated map, not a provenance test
 
 #### REQ-KNOW-014: Flexible Granularity Strategy
 - WHEN `.prospec.yaml` sets `knowledge.strategy` (auto/architecture/domain/package), THEN module-detector splits accordingly
@@ -74,14 +78,44 @@ so that the module split reflects the real project architecture.
 - WHEN no knowledge base path is provided, THEN fall back to legacy `docs/ai-knowledge` (backward compatible)
 
 #### REQ-LIB-038: Module Detection Gates on Source Files
-`detectModules()` narrows its input to a source-file subset before running any detection strategy, so documentation, asset and cache directories cannot become modules. The admission threshold applies to that subset, so it counts source files — but it is not purely a density gate: a `MODULE_INDICATORS`-named directory is still admitted on a single source file. Classification is a DENYLIST of non-source extensions, matched case-insensitively, plus a requirement that the file carry an extension; an allowlist of known source extensions is deliberately rejected, because it erases every code directory of a language the list does not name. The gate lives in `module-detector.ts`, not `scanner.ts` — `raw-scan.md`'s directory tree must still show every directory.
+`detectModules()` narrows its input to a source-file subset before running any detection strategy, so documentation, asset and cache directories cannot become modules. The admission threshold applies to that subset and is a pure density gate: every directory needs 2+ source files, with no name-based exemption. Classification is a DENYLIST of non-source extensions, matched case-insensitively, plus a requirement that the file carry an extension; an allowlist of known source extensions is deliberately rejected, because it erases every code directory of a language the list does not name. `isSourceFile` is exported as the single source of that classification — `collectNonSourceDirectories()` (REQ-KNOW-038) reuses it instead of re-deriving one. The gate lives in `module-detector.ts`, not `scanner.ts` — `raw-scan.md`'s directory tree must still show every directory.
 - WHEN a directory holds only non-source files (`.md`, `.pdf`, `.png`, `.json`, `.yml`) or only extensionless ones (`.gitkeep`, `LICENSE`, `Makefile`), THEN it is absent from the detection result — unless the no-module fallback below fires, which overrides this and every other narrowing rule. The extension requirement targets dotfile placeholders; extensionless build and script files are excluded with them. A dotfile carrying a further extension (`.env.local`) classifies by that extension, and `scanDir` runs with `dot: false`, so the production file list holds no dotfiles at all
 - WHEN a directory holds 2+ source files, THEN it is still detected and its `paths` stay the same directory glob it had before
+- WHEN a directory holds exactly 1 source file, THEN it is NOT detected whatever it is named — the name-based single-file exemption is gone, so the gate carries no English/framework naming bias
 - WHEN an extension is not in the non-source denylist, THEN it counts as source — so a language the denylist never anticipated keeps its code directories
 - WHEN extensions differ only in case, THEN classification is unchanged (`.MD` is still denied, `.H` is still source)
+- WHEN a file's name carries several dotted segments, THEN only the TERMINAL one is classified — `jquery.min.js` is source because its extname is `.js`, while `dist/app.min` is denied because its extname IS `.min`. A denylist entry is therefore never dead merely for looking like a secondary segment; check the terminal case before removing one
 - WHEN detection over the source subset yields no module at all — whether the subset is empty or merely too thin for any directory to reach the threshold — THEN it is re-run over the unfiltered file list. Narrowing legitimately returns FEWER modules than not narrowing (that is its purpose); what it must never return is ZERO where not narrowing would have returned some
 - WHEN an existing `module-map.yaml` is loaded, THEN the filter is not applied at all (the curated classification still wins)
-- WHEN the narrowed scope is in effect, THEN architecture-pattern recognition and import-relationship scanning read it too — so the reported `architecture` can change (an `mvc` project whose `views/` holds only `.md` reports `unknown`) — and the `domain` strategy's `infra` catch-all, which stores concrete file paths rather than a glob, lists only the subset; entry-point detection alone keeps the unfiltered list
+- WHEN the narrowed scope is in effect, THEN architecture-pattern recognition and import-relationship scanning read it too — so the reported `architecture` can change (an `mvc` project whose `views/` AND `models/` hold only `.md` drops to one indicator and reports `unknown`; losing `views/` alone still leaves `models` + `controllers` at the two-indicator bar, so it stays `mvc`) — and the `domain` strategy's `infra` catch-all, which stores concrete file paths rather than a glob, lists only the subset; entry-point detection alone keeps the unfiltered list
+#### REQ-KNOW-038: raw-scan.md Discloses Directories Without Source Files
+`generateRawScan()` renders a `## Directories Without Source Files` section into `raw-scan.md`, listing every topmost directory whose files are all non-source under REQ-LIB-038's classification, with that directory's file count and the extensions present. The section is evidence for the LLM layer, not a detection result: it is computed from the scanned file list alone through the exported `isSourceFile`, so `prospec knowledge init`, `--raw-scan-only` and `prospec upgrade` all produce it identically, whether or not module detection runs.
+- WHEN a directory holds files but none that `isSourceFile` accepts, THEN it appears in the section with its file count and its extensions, extensionless files reported as `(no extension)`
+- WHEN such a directory nests under another qualifying one, THEN only the topmost non-source ancestor is listed and its descendants fold into that entry's count
+- WHEN a directory holds at least one source file, THEN it is absent from the section however many non-source files it also holds
+- WHEN the section is rendered, THEN directories are ordered by descending file count with the codepoint path as tie-break, and each entry's extensions by descending occurrence with the codepoint label as tie-break — so the order is total and two input orderings of one file list render byte-identically
+- WHEN more than 50 directories qualify, THEN the first 50 in that ranked order are listed and the omitted count is stated; within an entry, more than 5 extensions are capped the same way — truncation is disclosed, never silent. Ranking by volume rather than alphabetically is what makes a truncated list keep the evidence: alphabetical truncation kept `apps/app00/assets` over a 9-file `manifests/`, and kept five single-file image types over the `.xml` that is an Android `res/`'s only source-shaped content
+- WHEN no directory qualifies, THEN an explicit placeholder line is rendered and the section still appears
+- WHEN the section's prose states the criterion, THEN it states BOTH halves of REQ-LIB-038's test — the file must carry an extension AND that extension must not be on the denylist — because the extensionless half is what puts a `Makefile`-driven `bin/` in the list
+- WHEN the prose states the consequence, THEN it presents the list as a scan fact rather than a detection verdict, naming the two paths by which a listed directory can still be a module: a curated `module-map.yaml`, which `detectModules` prefers over every heuristic and which short-circuits classification entirely, and the no-module fallback, which re-runs detection over the unfiltered list. An absolute claim that no strategy admits them is false on any project that already has a curated map
+- WHEN the list is empty but the cap omitted entries, THEN the truncation line still renders — it lives outside the list's conditional block — and a cap below 1 is clamped to 1, so that state is unreachable in the first place
+- WHEN any scanned or manifest-derived value is rendered inside a code span anywhere in `raw-scan.md` — a directory name, an extension label, an entry point, a dependency name, a config-file path — THEN it is emitted through `lib/markdown-fences`' `toInlineCodeSpan`: delimiter longer than the longest backtick run in the content, one space of padding when the content starts or ends with a backtick or is empty (CommonMark has no zero-width span). Templates render with `noEscape` and the file is read and acted on by an agent, so a scanned name — or a free-form `package.json` `main` — must not be able to close its own span and spill the remainder as prose. The Directory Tree is the one exemption, because it is a fenced block whose lines all end in `/` and the scan glob never yields a newline-bearing path. Raw values stay alongside the display forms for programmatic consumers
+- WHEN an extension label would need widening, THEN note that no such label is reachable — a backtick-bearing extension is absent from the denylist, so `isSourceFile` calls it source and its directory never qualifies. The guard is applied for symmetry and a mutation of it is equivalent under every reachable input
+
+---
+
+#### REQ-TEMPLATES-170: knowledge-generate May Revise the Bootstrap Module Map
+`/prospec-knowledge-generate` Step 3 states that a bootstrap-written `module-map.yaml` is a deterministic draft rather than a curated decision, and authorizes the skill to add or remove module entries on the evidence of raw-scan.md's `## Directories Without Source Files` section (REQ-KNOW-038), under the same propose → user-confirm → write-back discipline REQ-KNOW-019 already applies to `category`.
+- WHEN the section lists a directory the skill judges to be the project's substance, THEN it proposes adding that module and writes it to module-map.yaml only after the user confirms
+- WHEN the skill judges an existing module entry to be a documentation or asset directory, THEN it proposes removing it under the same confirm-first discipline
+- WHEN the section is empty or the user declines, THEN module-map.yaml is left byte-identical
+- WHEN deciding whether it may revise at all, THEN the skill does NOT gate on whether the map was bootstrap-written or hand-curated: nothing on disk records that distinction, so the guard would be unevaluable. Every revision is proposed and requires the user's confirmation, which is the only signal that exists
+- WHEN proposing an addition, THEN the skill first checks the existing entries' `paths` — a parent entry may already cover the listed directory, and detection short-circuits on a curated map, so a listed directory is not evidence that it is unmapped
+- WHEN a revision is accepted, THEN module-map.yaml stays the single source and `{base_dir}/index.md`'s auto block is regenerated from it, never hand-edited
+- WHEN the LLM adjudicates module boundaries, THEN it does so in the skill layer only — `module-detector.ts` stays deterministic and LLM-free, because `prospec check`, the provenance digest, offline availability and the CI gate all depend on that
+
+---
+
 
 ---
 
@@ -528,6 +562,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 ---
 
+
 ## Edge Cases
 
 - delta-spec.md does not exist: allow manually specifying modules to update
@@ -567,6 +602,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-01 | delegate-module-adjudication | ADDED REQ-KNOW-038; ADDED REQ-TEMPLATES-170; MODIFIED REQ-LIB-038; MODIFIED REQ-KNOW-003 | REQ-KNOW-038, REQ-TEMPLATES-170, REQ-LIB-038, REQ-KNOW-003 |
 | 2026-08-01 | filter-nonsource-modules | ADDED REQ-LIB-038; MODIFIED REQ-KNOW-014 | REQ-LIB-038, REQ-KNOW-014 |
 | 2026-07-31 | enforce-sub-module-budget | MODIFIED REQ-KNOW-016 (resolved budget, machine-enforced for sub-modules), REQ-KNOW-013 (L2 covers each linked sub-module) | REQ-KNOW-016, REQ-KNOW-013 |
 | 2026-07-30 | fix-cli-first-regressions | ADDED REQ-TESTS-061; MODIFIED REQ-TEMPLATES-141; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-019; MODIFIED REQ-KNOW-034; REMOVED REQ-KNOW-006 | REQ-TESTS-061, REQ-TEMPLATES-141, REQ-KNOW-004, REQ-KNOW-005, REQ-KNOW-012, REQ-KNOW-019, REQ-KNOW-034, REQ-KNOW-006 |
