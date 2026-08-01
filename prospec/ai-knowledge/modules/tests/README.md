@@ -1,6 +1,6 @@
 # tests
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 137 test files, 2,933 tests (unit 2090, contract 734, integration 43, e2e 66)); tests every source module.
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 137 test files, 2,944 tests (unit 2101, contract 734, integration 43, e2e 66)); tests every source module.
 
 <!-- prospec:auto-start -->
 

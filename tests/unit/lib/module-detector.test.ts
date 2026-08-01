@@ -1041,6 +1041,267 @@ describe('buildModuleMap', () => {
   });
 });
 
+describe('detectModules — source-file gating (REQ-LIB-038)', () => {
+  it('drops doc/asset/cache dirs and keeps only source-bearing dirs (top-level-flat layout)', () => {
+    // The shape issue #92 reports: a brownfield project whose real code sits in
+    // src/<pkg> + tests, surrounded by several top-level dirs carrying no code.
+    const files = [
+      'cache/data.json',
+      'cache/index.json',
+      'docs/format.md',
+      'docs/mapping.md',
+      'docs/workflow.md',
+      'samples/one.json',
+      'samples/two.json',
+      'scripts/build.sh',
+      'scripts/release.sh',
+      'spec/one.pdf',
+      'spec/two.pdf',
+      'src/pkg/__init__.py',
+      'src/pkg/parser.py',
+      'src/pkg/writer.py',
+      'tests/test_parser.py',
+      'tests/test_writer.py',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/flat/${f}`, ''])));
+
+    const result = detectModules(files, '/flat', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    // Pin the whole positive set (order-independent): only source-bearing dirs.
+    expect([...moduleNames].sort()).toEqual(['pkg', 'scripts', 'tests']);
+    // Negative assertions per noise dir — each is 2+ files and would qualify on
+    // the unfiltered list, so dropping the filter turns every one of these red.
+    for (const noise of ['docs', 'samples', 'spec', 'cache']) {
+      expect(moduleNames).not.toContain(noise);
+    }
+    // paths keep the pre-change directory-glob shape (only the input narrowed).
+    expect(result.modules.find((m) => m.name === 'pkg')?.paths).toEqual(['src/pkg/**']);
+    expect(result.modules.find((m) => m.name === 'tests')?.paths).toEqual(['tests/**']);
+  });
+
+  it('counts source files only for the admission threshold, ignoring doc volume', () => {
+    const files = [
+      // 3 source files buried under 5 docs — still a module.
+      'dll/bundle.py',
+      'dll/check.py',
+      'dll/build.py',
+      'dll/README.md',
+      'dll/README.nuget.md',
+      'dll/NOTES.md',
+      'dll/CHANGELOG.md',
+      'dll/LICENSE.md',
+      // 1 source file plus docs — below the 2-file threshold, so not a module.
+      'tools/convert.py',
+      'tools/usage.md',
+      'tools/examples.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/mixed/${f}`, ''])));
+
+    const result = detectModules(files, '/mixed', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect([...moduleNames].sort()).toEqual(['dll']);
+    // 3 files pre-filter, 1 post-filter: the threshold must see the subset.
+    expect(moduleNames).not.toContain('tools');
+  });
+
+  it('matches extensions case-insensitively and treats extensionless files as non-source', () => {
+    const files = [
+      'native/decoder.H',
+      'native/decoder.c',
+      // Uppercase NON-source extensions must still be denied — this is what the
+      // case-folding is load-bearing for: without it `.MD`/`.PNG` miss the
+      // non-source set and 'handbook' becomes a module.
+      'handbook/INTRO.MD',
+      'handbook/COVER.PNG',
+      // Extensionless executables/build files carry no recognizable extension.
+      'bin/olfconvert',
+      'bin/olfdump',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/cfam/${f}`, ''])));
+
+    const result = detectModules(files, '/cfam', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect([...moduleNames].sort()).toEqual(['native']);
+    expect(moduleNames).not.toContain('handbook');
+    expect(moduleNames).not.toContain('bin');
+  });
+
+  it('treats template and style extensions as source', () => {
+    // Excluding these would erase prospec's own src/templates/** (66 .hbs) and
+    // every frontend project's component/style dirs. The two doc-only files are
+    // load-bearing: without them, denying template/style extensions leaves NO
+    // module, the fallback restores the unfiltered list, and these three dirs come
+    // back anyway — making the assertion vacuous for exactly the regression it
+    // guards. With them the fallback still fires, but it now also admits 'docs',
+    // so the negative assertion below is what turns the mutation red.
+    const files = [
+      'templates/skill.hbs',
+      'templates/readme.hbs',
+      'ui/Button.vue',
+      'ui/Input.vue',
+      'styles/main.scss',
+      'styles/reset.css',
+      'docs/guide.md',
+      'docs/reference.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/web/${f}`, ''])));
+
+    const result = detectModules(files, '/web', 'architecture');
+    expect([...result.modules.map((m) => m.name)].sort()).toEqual([
+      'styles',
+      'templates',
+      'ui',
+    ]);
+    expect(result.modules.map((m) => m.name)).not.toContain('docs');
+  });
+
+  it('keeps an unrecognized language’s dirs — an unknown extension counts as source', () => {
+    // The polarity guard. Under an allowlist of known source extensions, a
+    // language nobody listed loses every code dir while an incidental script dir
+    // survives — here detection would collapse to ['docs'], the exact inverse of
+    // this change's purpose. Denying only non-code families keeps .f90 as source.
+    const files = [
+      'src/solver.f90',
+      'src/mesh.f90',
+      'src/io.f90',
+      'kernels/advect.f90',
+      'kernels/diffuse.f90',
+      'docs/build.sh',
+      'docs/publish.sh',
+      'docs/manual.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/fortran/${f}`, ''])));
+
+    const result = detectModules(files, '/fortran', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    // 'docs' qualifying on its two shell scripts is pre-existing imprecision, not
+    // the erasure this pins against — what must never happen is 'src'/'kernels'
+    // disappearing while 'docs' stays.
+    expect([...moduleNames].sort()).toEqual(['docs', 'kernels', 'src']);
+  });
+
+  it('falls back when narrowing finds no module, not merely when the subset is empty', () => {
+    // A Kubernetes-manifest repo whose only source file is one CI script. The
+    // subset is non-empty (`hack/verify.sh`) yet no directory reaches the 2-file
+    // threshold, so an emptiness-keyed fallback would never fire and detection
+    // would return ZERO modules — and `knowledge init` writes module-map.yaml only
+    // when absent, making that empty map permanent.
+    const files = [
+      'manifests/deployment.yaml',
+      'manifests/service.yaml',
+      'manifests/ingress.yaml',
+      'overlays/dev/kustomization.yaml',
+      'overlays/prod/kustomization.yaml',
+      'hack/verify.sh',
+      'README.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/k8s/${f}`, ''])));
+
+    const result = detectModules(files, '/k8s', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect([...moduleNames].sort()).toEqual(['manifests', 'overlays']);
+  });
+
+  it('falls back to the unfiltered list when no file is recognized as source', () => {
+    // A docs-as-code project: filtering to an empty subset must degrade to the
+    // pre-change behavior, never to an empty module map.
+    const files = ['config', 'docs/guide.md', 'docs/reference.md', 'notes.txt'];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/docsonly/${f}`, ''])));
+
+    const result = detectModules(files, '/docsonly', 'architecture');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect(result.modules.length).toBeGreaterThan(0);
+    expect([...moduleNames].sort()).toEqual(['docs']);
+    // On the fallback path the root-level skip guard is the only thing keeping
+    // the MODULE_INDICATOR-named root file 'config' out — so this case keeps
+    // that guard load-bearing now that the filter would otherwise shadow it.
+    expect(moduleNames).not.toContain('config');
+  });
+
+  it('narrows the domain strategy to source files too', () => {
+    const files = [
+      'features/checkout/api.ts',
+      'features/checkout/index.ts',
+      'features/onboarding/guide.md',
+      'features/onboarding/spec.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/domain/${f}`, ''])));
+
+    const result = detectModules(files, '/domain', 'domain');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect(moduleNames).toContain('checkout');
+    expect(moduleNames).not.toContain('onboarding');
+  });
+
+  it('narrows the package strategy to source files too', () => {
+    const files = [
+      'packages/core/src/index.ts',
+      'packages/core/src/util.ts',
+      'packages/docs-site/README.md',
+      'packages/docs-site/CHANGELOG.md',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/mono/${f}`, ''])));
+
+    const result = detectModules(files, '/mono', 'package');
+    const moduleNames = result.modules.map((m) => m.name);
+    expect([...moduleNames].sort()).toEqual(['core']);
+    expect(moduleNames).not.toContain('docs-site');
+  });
+
+  it('never filters a curated module-map — a doc-only module survives verbatim', () => {
+    // Guards the early-return path: the filter narrows detection INPUT only. A
+    // later pass that also filtered the curated result would drop this module.
+    const files = ['docs/guide.md', 'docs/reference.md', 'src/lib/config.ts'];
+    vol.fromJSON({
+      '/curated/prospec/ai-knowledge/module-map.yaml': `
+modules:
+  - name: documentation
+    description: Handbook and specs
+    paths:
+      - docs/**
+    keywords:
+      - docs
+    relationships:
+      depends_on: []
+      used_by: []
+`,
+      ...Object.fromEntries(files.map((f) => [`/curated/${f}`, ''])),
+    });
+
+    const result = detectModules(files, '/curated');
+    expect(result.modules.map((m) => m.name)).toEqual(['documentation']);
+    expect(result.modules[0]?.paths).toEqual(['docs/**']);
+  });
+
+  it('leaves a src-centric project unchanged', () => {
+    const files = [
+      'src/cli/index.ts',
+      'src/cli/parse-options.ts',
+      'src/lib/config.ts',
+      'src/lib/fs-utils.ts',
+      'src/services/init.service.ts',
+      'src/services/knowledge-init.service.ts',
+      'src/types/config.ts',
+      'src/types/errors.ts',
+      'tests/unit/config.test.ts',
+      'tests/unit/fs-utils.test.ts',
+    ];
+    vol.fromJSON(Object.fromEntries(files.map((f) => [`/srccentric/${f}`, ''])));
+
+    const result = detectModules(files, '/srccentric', 'architecture');
+    expect([...result.modules.map((m) => m.name)].sort()).toEqual([
+      'cli',
+      'lib',
+      'services',
+      'tests',
+      'types',
+    ]);
+    expect(result.modules.find((m) => m.name === 'cli')?.paths).toEqual(['src/cli/**']);
+    expect(result.modules.find((m) => m.name === 'tests')?.paths).toEqual(['tests/**']);
+    expect(result.architecture).toBe('pragmatic');
+  });
+});
+
 describe('detectModules — catch block wraps unexpected errors (L145/L148/L149)', () => {
   afterEach(() => {
     vi.resetModules();
