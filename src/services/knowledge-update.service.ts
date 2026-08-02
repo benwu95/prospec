@@ -1,8 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
+import { forbiddenArtifacts } from '../types/change.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { readChangeMetadata } from '../lib/change-metadata.js';
+import { readChangeMetadata, readScaleQuietly } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
 import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
@@ -611,9 +612,14 @@ export async function executeForChange(
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
   const deltaSpecPath = path.join(changeDir, 'delta-spec.md');
   if (!fs.existsSync(deltaSpecPath)) {
+    // Only offer the plan station to a scale whose contract allows one — sending
+    // a quick change there names a station that refuses it.
+    const scale = readScaleQuietly(path.join(changeDir, 'metadata.yaml'), changeName);
     throw new PrerequisiteError(
       `delta-spec.md not found for change '${changeName}'`,
-      'A quick change has no delta-spec by contract — name the modules explicitly with --module, or run `prospec change plan` first',
+      forbiddenArtifacts(scale).includes('delta-spec.md')
+        ? `\`scale: ${scale}\` has no delta-spec by contract — name the modules explicitly with --module`
+        : 'A change with no delta-spec yet — name the modules explicitly with --module, or run `prospec change plan` first',
     );
   }
   const { metadata } = readChangeMetadata(path.join(changeDir, 'metadata.yaml'), changeName);

@@ -9,6 +9,7 @@ import { vol } from 'memfs';
 import { execute as storyExecute } from '../../src/services/change-story.service.js';
 import { execute as planExecute } from '../../src/services/change-plan.service.js';
 import { execute as tasksExecute } from '../../src/services/change-tasks.service.js';
+import { execute as scaleExecute } from '../../src/services/change-scale.service.js';
 import { PrerequisiteError } from '../../src/types/errors.js';
 import { ChangeMetadataSchema } from '../../src/types/change.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
@@ -159,5 +160,44 @@ describe('Change Management Flow Integration', () => {
     await expect(
       tasksExecute({ change: 'partial-flow', cwd: '/project' }),
     ).rejects.toThrow(PrerequisiteError);
+  });
+
+  // REQ-TESTS-072 / SC-001: the quick path has a legal CLI route end to end.
+  it('should complete the quick story → scale → tasks workflow without plan artifacts', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+    });
+
+    await storyExecute({ name: 'quick-flow', cwd: '/project', description: 'quick' });
+    await scaleExecute({ change: 'quick-flow', cwd: '/project', scale: 'quick' });
+
+    const result = await tasksExecute({ change: 'quick-flow', cwd: '/project' });
+
+    expect(result.createdFiles).toContain('.prospec/changes/quick-flow/tasks.md');
+    expect(fs.existsSync('/project/.prospec/changes/quick-flow/tasks.md')).toBe(true);
+    expect(fs.existsSync('/project/.prospec/changes/quick-flow/plan.md')).toBe(false);
+    expect(fs.existsSync('/project/.prospec/changes/quick-flow/delta-spec.md')).toBe(false);
+
+    const metadata = ChangeMetadataSchema.parse(
+      parseYaml(
+        fs.readFileSync('/project/.prospec/changes/quick-flow/metadata.yaml', 'utf-8'),
+      ),
+    );
+    expect(metadata.status).toBe('tasks');
+    expect(metadata.scale).toBe('quick');
+  });
+
+  it('should refuse the plan station once a change is marked quick', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+    });
+
+    await storyExecute({ name: 'quick-flow', cwd: '/project', description: 'quick' });
+    await scaleExecute({ change: 'quick-flow', cwd: '/project', scale: 'quick' });
+
+    await expect(
+      planExecute({ change: 'quick-flow', cwd: '/project' }),
+    ).rejects.toThrow(PrerequisiteError);
+    expect(fs.existsSync('/project/.prospec/changes/quick-flow/plan.md')).toBe(false);
   });
 });

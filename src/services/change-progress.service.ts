@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
+import { forbiddenArtifacts } from '../types/change.js';
+import { readScaleQuietly } from '../lib/change-metadata.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { parseTaskLine, type ParsedTaskLine } from '../lib/task-markers.js';
 import { resolveChange } from './change-resolver.js';
@@ -75,11 +77,18 @@ export async function execute(options: ChangeProgressOptions): Promise<ChangePro
     'Which change should report task progress?',
   );
 
-  const tasksPath = path.join(cwd, '.prospec', 'changes', changeName, 'tasks.md');
+  const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+  const tasksPath = path.join(changeDir, 'tasks.md');
   if (!fs.existsSync(tasksPath)) {
+    // Pointing a scale whose contract has no task list at `change tasks` sends
+    // the user to a station that refuses them — the suggestion has to know the
+    // same contract the tasks station enforces.
+    const scale = readScaleQuietly(path.join(changeDir, 'metadata.yaml'), changeName);
     throw new PrerequisiteError(
       `tasks.md not found for change '${changeName}'`,
-      'Run `prospec change tasks` (or /prospec-tasks) first to create the task list',
+      forbiddenArtifacts(scale).includes('tasks.md')
+        ? `\`scale: ${scale}\` has no task list by contract — there is no progress to report`
+        : 'Run `prospec change tasks` (or /prospec-tasks) first to create the task list',
     );
   }
 

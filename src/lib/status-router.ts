@@ -3,6 +3,7 @@ import type {
   ChangeRouteFacts,
   SddStation,
 } from '../types/status.js';
+import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 
 /**
  * The executable copy of `prospec/ai-knowledge/_status-lifecycle.md` — a pure,
@@ -17,7 +18,9 @@ import type {
  * - `scale: quick` — story → tasks is the single legal skip (no plan.md /
  *   delta-spec.md by contract; never a blocker).
  * - `scale: backfill` — a lifecycle ENTRY at `implemented`, not a skip; the
- *   brownfield code pre-exists and plan/tasks are absent by design.
+ *   brownfield code pre-exists and plan/tasks are absent by design. Before it
+ *   reaches `implemented` the promotion is unfinished, so the route is the
+ *   `promote` station — never plan or tasks, which refuse that scale.
  * - design / review own no status transition: design sits between plan and
  *   tasks (only when proposal.md declares ui_scope full/partial), review
  *   between implemented and verified (done-ness read from review_provenance).
@@ -38,22 +41,55 @@ const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
 
 /** Route one in-flight change to its next SDD station. Pure — no I/O. */
 export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
+  const forbidden = forbiddenArtifacts(facts.scale);
+
   const base = {
     name: facts.name,
     status: facts.status,
     scale: facts.scale,
-    current: STATUS_STATION[facts.status],
-  };
+    // `implemented` marks `implement` as completed — except for a scale with no
+    // task list, which never ran that station: its `implemented` came from the
+    // promotion. Naming `implement` there would credit a station whose artifacts
+    // that scale's contract forbids.
+    current:
+      facts.status === 'implemented' && forbidden.includes('tasks.md')
+        ? 'promote'
+        : STATUS_STATION[facts.status],
+  } satisfies Omit<ChangeRoute, 'next' | 'blockingGates' | 'reasons'>;
+
+  // A scale with neither a plan nor a task list has NO forward planning station:
+  // its lifecycle entry is the promotion itself, landing at `implemented`. Until
+  // it gets there the promotion is simply incomplete — routing such a change to
+  // plan or tasks names a station the CLI refuses.
+  if (
+    forbidden.includes('plan.md') &&
+    forbidden.includes('tasks.md') &&
+    isStatusBefore(facts.status, 'implemented')
+  ) {
+    return {
+      ...base,
+      next: 'promote',
+      blockingGates: [
+        'promotion scaffold complete — `prospec validate promote-scaffold` PASSes and `status: implemented` is set',
+      ],
+      reasons: [
+        `scale: ${facts.scale} — its contract has no plan and no task list, so the lifecycle entry is the promotion itself; \`status: ${facts.status}\` is before \`implemented\`, so that promotion has not landed`,
+      ],
+    };
+  }
 
   switch (facts.status) {
     case 'story': {
-      if (facts.scale === 'quick') {
+      // A scale that also forbids tasks.md already returned above, so forbidding
+      // plan.md here means exactly the quick skip — the second clause would be a
+      // tautology, and a condition that cannot fail pins nothing.
+      if (forbidden.includes('plan.md')) {
         return {
           ...base,
           next: 'tasks',
           blockingGates: ['tasks.md created (decomposed directly from proposal.md)'],
           reasons: [
-            'scale: quick — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the /prospec-archive Entry Gate)',
+            `scale: ${facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the /prospec-archive Entry Gate)`,
           ],
         };
       }
@@ -66,7 +102,13 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     }
 
     case 'plan': {
-      const designApplies = facts.uiScope === 'full' || facts.uiScope === 'partial';
+      // Design hangs off the `plan` station, so a scale whose contract has no plan
+      // is never routed to it — the lifecycle states this for quick, and keying it
+      // on the registry rather than the scale name keeps the two from drifting.
+      // (Reachable at this status only via a manual `change status plan`.)
+      const designApplies =
+        (facts.uiScope === 'full' || facts.uiScope === 'partial') &&
+        !forbidden.includes('plan.md');
       if (designApplies && !facts.hasDesignSpec) {
         return {
           ...base,

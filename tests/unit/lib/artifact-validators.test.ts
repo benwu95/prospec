@@ -61,6 +61,7 @@ describe('validatePromoteScaffold', () => {
     slug: 'user-profile',
     hasBackfillDraft: true,
     hasProposal: true,
+    hasDeltaSpec: true,
     hasPlan: false,
     hasTasks: false,
     metadata: { scale: 'backfill', status: 'implemented', relatedModules: ['services'] },
@@ -71,6 +72,15 @@ describe('validatePromoteScaffold', () => {
     const verdict = validatePromoteScaffold(good);
     expect(verdict.ok).toBe(true);
     expect(verdict.findings).toEqual([]);
+  });
+
+  // REQ-LIB-040: delta-spec.md is what promotion exists to produce — the
+  // "complete machine verdict" must cover it, not only the forbidden artifacts.
+  it('fails when delta-spec.md is missing and names the file', () => {
+    const verdict = validatePromoteScaffold({ ...good, hasDeltaSpec: false });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.findings.filter((f) => f.level === 'FAIL')).toHaveLength(1);
+    expect(verdict.findings[0]?.message).toContain('delta-spec.md');
   });
 
   it('fails when plan/tasks exist — backfill has no hollow planning artifacts', () => {

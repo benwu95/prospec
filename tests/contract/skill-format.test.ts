@@ -17,6 +17,9 @@ import {
   intersectCapabilities,
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
+import { SCALE_FORBIDDEN_ARTIFACTS } from '../../src/types/change.js';
+import { SDD_STATIONS } from '../../src/types/status.js';
+import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 
 const TEMPLATE_CONTEXT = {
@@ -2778,10 +2781,131 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       '**Executable copy**: `prospec status` computes',
       // Review F4 ruling: the router does not suggest design under quick.
       'Under `scale: quick` the router does not suggest design',
+      // The matrix rationale ships to every downstream project — pinning only the
+      // symbol name would let the surrounding claim drift between the copies.
+      'is the **executable copy**: `prospec change plan` / `prospec change tasks` refuse from it before writing anything',
+      'so the table and the registry cannot disagree',
+      'routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks',
+      "That a station actually honours a given row is proven by that station's own tests, not by this table",
     ]) {
       expect(tmpl).toContain(marker);
       expect(copy).toContain(marker);
     }
+  });
+
+  // REQ-TESTS-072: the previous assertion proves the two DOCUMENTS agree; it
+  // cannot prove either agrees with the code. This one pins the documented
+  // matrix against `SCALE_FORBIDDEN_ARTIFACTS` — the drift this change exists
+  // to close (a contract stated in prose that nothing implements).
+  // The station order changed in this change; REQ-TYPES-070 claims `SDD_STATIONS`
+  // matches the lifecycle doc, so the doc has to carry the order and the claim has
+  // to be enforced — the pre-existing omission of `design` from the spec's copy of
+  // that chain is exactly what an unenforced claim decays into.
+  describe('station order ↔ SDD_STATIONS', () => {
+    const parseOrder = (doc: string): string[] => {
+      const section = sectionOf(doc, '## Station order');
+      const chain = /^`([a-z]+(?: → [a-z]+)+)`$/m.exec(section)?.[1];
+      expect(chain, 'no backticked station chain in the Station order section').toBeDefined();
+      return chain!.split(' → ');
+    };
+
+    it('the lifecycle template order equals SDD_STATIONS', () => {
+      expect(parseOrder(renderLifecycle())).toEqual([...SDD_STATIONS]);
+    });
+
+    it('the ai-knowledge copy order equals SDD_STATIONS', () => {
+      const copy = fs.readFileSync(
+        path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+        'utf-8',
+      );
+      expect(parseOrder(copy)).toEqual([...SDD_STATIONS]);
+    });
+  });
+
+  describe('light-scale artifact matrix ↔ code registry', () => {
+    const isMatrixHeader = (headers: string[]): boolean =>
+      headers[0] === 'scale' && headers[1] === 'forbidden artifacts';
+
+    /**
+     * Every cell is tokenized WHOLE: an empty set must be written exactly `—`,
+     * and every other token must be backtick-wrapped. Extracting only backticked
+     * tokens would make un-backticked prose ("plan.md, delta-spec.md", or an
+     * emptied cell) parse as "forbids nothing" — i.e. the empty-set rows could
+     * never fail whatever the doc claimed (PB-001: the extraction key must cover
+     * the whole target).
+     */
+    const parseMatrix = (doc: string): Record<string, string[]> => {
+      // Section-scoped: a table sitting outside its own heading must not satisfy
+      // this assertion, and a second contradicting table must not hide behind the
+      // first one findTable happens to reach.
+      const section = sectionOf(doc, '## Light-scale artifact matrix');
+      expect(
+        doc
+          .split('\n')
+          .filter(
+            (l) =>
+              l.trimStart().startsWith('|') &&
+              isMatrixHeader(splitTableRow(l).map((h) => h.toLowerCase())),
+          ),
+        'exactly one matrix table may exist per document',
+      ).toHaveLength(1);
+      const table = findTable(section.split('\n'), { isTarget: isMatrixHeader });
+      expect(table, 'Light-scale artifact matrix table not found in its section').not.toBeNull();
+      const matrix: Record<string, string[]> = {};
+      for (const row of table!.rows) {
+        const scale = (row[0] ?? '').replace(/`/g, '').trim();
+        const cell = (row[1] ?? '').trim();
+        if (cell === '—') {
+          matrix[scale] = [];
+          continue;
+        }
+        matrix[scale] = cell
+          .split(',')
+          .map((token) => {
+            const artifact = /^`([^`]+)`$/.exec(token.trim())?.[1];
+            expect(
+              artifact,
+              `matrix cell for '${scale}' has a non-backticked entry (${token.trim()}); an empty set must be written '—'`,
+            ).toBeDefined();
+            return artifact!;
+          })
+          .sort();
+      }
+      return matrix;
+    };
+
+    const registry = Object.fromEntries(
+      Object.entries(SCALE_FORBIDDEN_ARTIFACTS).map(([scale, artifacts]) => [
+        scale,
+        [...artifacts].sort(),
+      ]),
+    );
+
+    it('the lifecycle template matrix equals the registry, both directions', () => {
+      expect(parseMatrix(renderLifecycle())).toEqual(registry);
+    });
+
+    it('the ai-knowledge copy matrix equals the registry, both directions', () => {
+      const copy = fs.readFileSync(
+        path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+        'utf-8',
+      );
+      expect(parseMatrix(copy)).toEqual(registry);
+    });
+
+    it('names the registry as the executable copy, so the table is not a second source', () => {
+      for (const doc of [
+        renderLifecycle(),
+        fs.readFileSync(
+          path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+          'utf-8',
+        ),
+      ]) {
+        expect(sectionOf(doc, '## Light-scale artifact matrix')).toContain(
+          'SCALE_FORBIDDEN_ARTIFACTS',
+        );
+      }
+    });
   });
 });
 

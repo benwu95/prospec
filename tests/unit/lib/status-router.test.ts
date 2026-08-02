@@ -161,43 +161,105 @@ describe('status-router — backfill entry (never a skipped station)', () => {
   });
 });
 
+describe('status-router — an unfinished promotion routes to promote, never to a station that refuses it', () => {
+  // Reachable state: /prospec-promote-backfill runs `change story` → `change scale
+  // backfill` → `change status implemented`; interrupted between the last two, the
+  // change sits at a pre-implemented status with no plan and no task list.
+  it.each(['story', 'plan', 'tasks'] as const)(
+    'backfill at %s routes to promote',
+    (status) => {
+      const route = routeChange(facts({ status, scale: 'backfill' }));
+      expect(route.next).toBe('promote');
+      expect(route.blockingGates.join(' ')).toContain('validate promote-scaffold');
+      expect(route.reasons.join(' ')).toContain('the lifecycle entry is the promotion itself');
+      // Never name a station the CLI refuses for this scale.
+      expect(route.blockingGates.join(' ')).not.toContain('plan.md + delta-spec.md');
+    },
+  );
+
+  it('stops routing to promote once the promotion has landed at implemented', () => {
+    expect(routeChange(facts({ status: 'implemented', scale: 'backfill' })).next).toBe('review');
+  });
+
+  // `implemented` normally marks `implement` as the completed station, but a scale
+  // with no task list never ran it — its `implemented` came from the promotion.
+  it('credits promote, not implement, as the completed station for a landed backfill', () => {
+    expect(routeChange(facts({ status: 'implemented', scale: 'backfill' })).current).toBe(
+      'promote',
+    );
+    for (const scale of ['quick', 'standard', 'full'] as const) {
+      expect(routeChange(facts({ status: 'implemented', scale })).current).toBe('implement');
+    }
+  });
+
+  it('never routes quick to promote — quick has a tasks station', () => {
+    for (const status of ['story', 'plan', 'tasks'] as const) {
+      expect(routeChange(facts({ status, scale: 'quick' })).next).not.toBe('promote');
+    }
+  });
+});
+
 describe('status-router — full status × scale matrix stays lifecycle-consistent', () => {
   // Every combination routes without throwing and lands on a station the
   // lifecycle order permits from that status. `backfill`/`quick` specifics are
   // pinned above; this guards the whole input space against regressions.
-  const NEXT_BY_STATUS: Record<string, ReadonlyArray<string | null>> = {
-    story: ['plan', 'tasks'],
-    plan: ['design', 'tasks'],
-    tasks: ['implement'],
-    implemented: ['review', 'verify'],
-    verified: ['archive'],
-    archived: [null],
+  // Keyed by BOTH axes: a per-status union would let a wrong scale reach a station
+  // that is legal for some other scale at that status (widening `tasks` to accept
+  // `promote` once left `full × tasks` unpinned entirely).
+  const NEXT_BY_STATUS_SCALE: Record<string, Record<string, string | null>> = {
+    story: { quick: 'tasks', standard: 'plan', full: 'plan', backfill: 'promote' },
+    plan: { quick: 'tasks', standard: 'tasks', full: 'tasks', backfill: 'promote' },
+    tasks: { quick: 'implement', standard: 'implement', full: 'implement', backfill: 'promote' },
+    implemented: { quick: 'review', standard: 'review', full: 'review', backfill: 'review' },
+    verified: { quick: 'archive', standard: 'archive', full: 'archive', backfill: 'archive' },
+    archived: { quick: null, standard: null, full: null, backfill: null },
   };
 
   for (const status of CHANGE_STATUSES) {
     for (const scale of CHANGE_SCALES) {
-      it(`${status} × ${scale} routes to a lifecycle-legal next station`, () => {
+      it(`${status} × ${scale} routes to exactly its lifecycle-legal next station`, () => {
         const route = routeChange(facts({ status, scale }));
-        expect(NEXT_BY_STATUS[status]).toContain(route.next);
+        expect(route.next).toBe(NEXT_BY_STATUS_SCALE[status]![scale]);
         expect(route.reasons.length).toBeGreaterThan(0);
       });
     }
   }
 
-  it('quick at story is the only scale that skips plan', () => {
+  // Both light scales skip plan, for different reasons: quick still has a tasks
+  // station, backfill has none at all and owes a finished promotion instead.
+  it('routes each scale at story per its artifact contract', () => {
+    const expected: Record<string, string> = {
+      quick: 'tasks',
+      backfill: 'promote',
+      standard: 'plan',
+      full: 'plan',
+    };
     for (const scale of CHANGE_SCALES) {
-      const route = routeChange(facts({ status: 'story', scale }));
-      expect(route.next).toBe(scale === 'quick' ? 'tasks' : 'plan');
+      expect(routeChange(facts({ status: 'story', scale })).next).toBe(expected[scale]);
     }
   });
 
   // Review F4 ruling (documented in _status-lifecycle.md): the router does not
   // suggest design under `scale: quick` — quick legally skips `plan`, the
   // station design hangs off; a quick UI change runs /prospec-design manually.
-  it('quick with a declared ui_scope never routes to design', () => {
-    for (const status of ['story', 'tasks'] as const) {
-      const route = routeChange(facts({ status, scale: 'quick', uiScope: 'full' }));
-      expect(route.next).toBe(status === 'story' ? 'tasks' : 'implement');
+  // Every status, not just the two the ruling was written against: `plan` is
+  // reachable under quick via a manual `change status plan`, and design hangs off
+  // the plan station that quick's contract removes.
+  it.each(['story', 'plan', 'tasks'] as const)(
+    'quick with a declared ui_scope never routes to design (at %s)',
+    (status) => {
+      const expected = { story: 'tasks', plan: 'tasks', tasks: 'implement' } as const;
+      for (const uiScope of ['full', 'partial'] as const) {
+        const route = routeChange(facts({ status, scale: 'quick', uiScope }));
+        expect(route.next).not.toBe('design');
+        expect(route.next).toBe(expected[status]);
+      }
+    },
+  );
+
+  it('still routes standard and full to design when a ui_scope is declared', () => {
+    for (const scale of ['standard', 'full'] as const) {
+      expect(routeChange(facts({ status: 'plan', scale, uiScope: 'full' })).next).toBe('design');
     }
   });
 });

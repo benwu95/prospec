@@ -302,3 +302,99 @@ description: Add auth
     expect(context.related_modules).toBeUndefined();
   });
 });
+
+// REQ-SERVICES-076 / REQ-TEMPLATES-087: the plan station is mechanically closed
+// for the scales whose contract forbids plan.md, not merely closed by the
+// skill's Entry Gate judgment.
+describe('change-plan.service light-scale contract', () => {
+  const changeDir = '/project/.prospec/changes/light';
+  const metadata = (scale?: string, status = 'story') =>
+    `name: light
+created_at: "2026-01-01T00:00:00.000Z"
+status: ${status}
+related_modules: []
+description: light change
+${scale ? `scale: ${scale}\n` : ''}`;
+
+  const seed = (scale?: string, status?: string) =>
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/metadata.yaml`]: metadata(scale, status),
+    });
+
+  it('refuses quick and points at the tasks station', async () => {
+    seed('quick');
+
+    // Both of this station's products are named — the guard keys on what the
+    // station writes, not on the scale name.
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /plan\.md\/delta-spec\.md must not exist under `scale: quick`/,
+    );
+    expect(fs.existsSync(`${changeDir}/plan.md`)).toBe(false);
+    expect(fs.existsSync(`${changeDir}/delta-spec.md`)).toBe(false);
+    expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toContain('status: story');
+  });
+
+  it('refuses backfill and points at the promotion skill', async () => {
+    seed('backfill', 'implemented');
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /plan\.md must not exist under `scale: backfill`/,
+    );
+    expect(fs.existsSync(`${changeDir}/plan.md`)).toBe(false);
+    expect(fs.existsSync(`${changeDir}/delta-spec.md`)).toBe(false);
+  });
+
+  it('carries an actionable redirect per scale', async () => {
+    seed('quick');
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toMatchObject({
+      suggestion: expect.stringContaining('prospec change tasks'),
+    });
+
+    vol.reset();
+    seed('backfill', 'implemented');
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toMatchObject({
+      suggestion: expect.stringContaining('/prospec-promote-backfill'),
+    });
+  });
+
+  it('refuses quick even with --force — force overwrites, it does not override the contract', async () => {
+    seed('quick');
+
+    await expect(
+      execute({ change: 'light', cwd: '/project', force: true }),
+    ).rejects.toThrow(PrerequisiteError);
+    expect(fs.existsSync(`${changeDir}/plan.md`)).toBe(false);
+  });
+
+  // The contract refusal must win over BOTH later prerequisites: otherwise a
+  // quick change is told to pass --force, or to write a proposal, for a station
+  // that will never apply to it.
+  it('refuses quick ahead of the clobber check and the proposal prerequisite', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/plan.md`]: '# Stray plan\n',
+      [`${changeDir}/metadata.yaml`]: metadata('quick'),
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /must not exist under `scale: quick`/,
+    );
+    // Not the clobber message, and not the missing-proposal message.
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.not.toThrow(
+      /already exist|proposal\.md does not exist/,
+    );
+    expect(fs.readFileSync(`${changeDir}/plan.md`, 'utf-8')).toBe('# Stray plan\n');
+  });
+
+  it.each(['standard', 'full', undefined])('leaves scale %s untouched', async (scale) => {
+    seed(scale);
+
+    const result = await execute({ change: 'light', cwd: '/project' });
+
+    expect(result.createdFiles).toContain('.prospec/changes/light/plan.md');
+    expect(result.createdFiles).toContain('.prospec/changes/light/delta-spec.md');
+    expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toContain('status: plan');
+  });
+});
