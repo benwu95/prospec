@@ -20,7 +20,10 @@ export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
  * One review finding as the reviewer reports it. `id` is the finding's stable
  * identity across rounds — code edits shift line numbers, so whether a finding
  * is "the same one as last round" is the reviewer's call, never inferred from
- * the location string. A finding without an `id` is keyed by (location, lens).
+ * the location string: an id no row carries opens a new row, unless the row it
+ * would land on carries no id either (the pre-ids shape, which that id adopts).
+ * A finding without an `id` is keyed by (location, lens) against the rows that
+ * predate the round, minus any the round names by id.
  */
 export const ReviewFindingSchema = z.object({
   /** Stable identity across rounds; reuse the prior round's id to update a row. */

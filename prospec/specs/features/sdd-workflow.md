@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-02
 story_count: 30
 req_count: 155
 ---
@@ -612,7 +612,7 @@ so that critical issues are caught before being graded "deployable", without man
 `prospec-review` uses a fresh-context reviewer to review the change diff between implement→verify; reviewer mode B by default / A opt-in; the **spec-architecture lens** (delta-spec REQ / dependency direction / conventions / ripple) is always layered on; a critical is drop-in auto-fixed after an independent verifier confirms it, escalating to a human after the hard cap. What the harness can do is not the skill's judgment: the harness-degradation section renders from the shared `harness-capabilities` partial against the agent's sync-resolved capability flags, and the skill's own prose supplies only review's degraded action.
 - WHEN rendered, THEN it includes Entry Gate / Reviewer Modes / spec-architecture lens / verifier-confirmed critical / hard cap / escalation / Output Contract + Exit Gate
 - WHEN a critical is reported, THEN auto-fix only when existence-verified; architectural/ambiguous → escalate to a human
-- WHEN findings persist, THEN land them in `review.md` (dedup by Location, take the highest severity, carry forward across rounds)
+- WHEN findings persist, THEN land them in `review.md` keyed by the reviewer-supplied `id` (severity taken as the maximum, rows carried forward across rounds) — identity is never inferred from Location
 - WHEN the skill is rendered, THEN its harness section states the resolved capabilities rather than asking the agent to determine them
 - WHEN `can_spawn_subagent` is false, THEN the rendered skill names the degraded path directly, instructs no spawn anywhere, and offers reviewer mode A only where the flag resolves to yes
 - WHEN review degrades for any reason, THEN the choice is disclosed to the developer — never a silent skip
@@ -620,6 +620,7 @@ so that critical issues are caught before being graded "deployable", without man
 #### REQ-TEMPLATES-067: Review Severity Contract + review.md Format
 `references/review-format.md` defines the severity criteria and review.md structure. critical = real defect/security + dependency-direction violation + logical contradiction with a delta-spec REQ (completeness left to verify); major = perf/maintainability (does not block, downgraded to WARN, not counted toward grade); nit dropped.
 - WHEN referenced, THEN it includes the three-tier criteria + auto-fix boundary + review.md fields (location/severity/lens/status) + reviewer-lens definitions
+- WHEN referenced, THEN it states the identity rule the merge command implements — the id is the reviewer's, an unknown id opens a new row unless the row it would land on carries no id either, and an omitted id costs cross-round tracking (keying on location+lens against pre-round rows) without ever collapsing two id-less findings of one round into a single row
 
 #### REQ-TEMPLATES-068: Unified Commit Boundary After verify(S/A)
 The commit boundary is unified to after "the last gate that could require changing code" = after verify reaches S/A; implement defers commit, and verify **prompts the user** to commit after S/A (folding implement+review+verify fixes into a single atomic-by-feature commit); **prospec does not auto-commit**.
@@ -1275,8 +1276,14 @@ Four `prospec change` subcommands take over the `metadata.yaml` and `tasks.md` m
 - WHEN `change progress --complete <id|ordinal>` runs, THEN exactly one checkbox flips (an already-checked task is a no-op) and the reported X/Y denominator counts code tasks only — unchecked `[M]`/`[V]` tasks are surfaced as reminders, never counted or blocking
 
 #### REQ-CLI-028: `prospec review merge` Merges the Cumulative Findings Table
-The `review.md` findings table is merged by the CLI. The reviewer supplies one round's findings as JSON, **including each finding's identity** — code edits shift line numbers, so "is this the same finding as last round" is judgment, expressed by reusing the prior round's `id`; the CLI never infers identity from a location string. Given that input the bookkeeping is mechanical: merge by identity, escalate severity to the maximum, carry existing rows forward so a resolved finding is never re-raised, and render one canonical table through the shared `lib/markdown-table`. The round's `criticals_found`/`criticals_fixed`/`majors` counts are derived from the round's findings and feed `change log`.
-- WHEN a finding reuses a prior round's `id`, THEN it updates that row; a finding with no id keys on (location, lens) instead of creating a duplicate
+The `review.md` findings table is merged by the CLI. The reviewer supplies one round's findings as JSON, **including each finding's identity** — code edits shift line numbers, so "is this the same finding as last round" is judgment, expressed by reusing the prior round's `id`; the CLI never infers identity from a location string. The `(location, lens)` fallback is reachable only where one side volunteers no identity — an incoming finding that carries none, or a candidate row written before ids existed — never merely because an id lookup missed. Given that input the bookkeeping is mechanical: merge by identity, escalate severity to the maximum, carry existing rows forward so a resolved finding is never re-raised, and render one canonical table through the shared `lib/markdown-table`. The round's `criticals_found`/`criticals_fixed`/`majors` counts are derived from the round's findings and feed `change log`.
+- WHEN a finding reuses a prior round's `id`, THEN it updates that row, wherever the location has drifted to
+- WHEN a finding carries an id no row holds yet, THEN it opens a new row even if an existing row shares its `(location, lens)` — the one exception is the first unclaimed pre-round row at that key carrying no id at all, which that new id adopts (the pre-ids legacy shape)
+- WHEN two findings in one round carry the same id, THEN they update one row — reusing an id asserts sameness, so the second finding's status and summary win rather than opening a row
+- WHEN a finding carries no id, THEN it keys on (location, lens) against the rows that existed before this round — updating the first unclaimed one in table order instead of creating a duplicate, whether or not that row carries an id
+- WHEN two id-less findings in one round share a (location, lens), THEN they land as two rows: a row minted this round is never a fallback target and a pre-round row is claimable once, so declining to supply an id costs cross-round tracking only, never the finding's existence
+- WHEN a finding moves the row it matched to a new location, THEN that row stops answering to its previous (location, lens) for the rest of the round — an id-less finding arriving at the vacated location takes the next unclaimed pre-round row there, or opens its own when there is none, rather than dragging the moved one back
+- WHEN one round holds both an id naming a row and an id-less finding at that row's location, THEN the named row is reserved before any location matching, so the id-less finding never lands on it — it takes the next unclaimed pre-round row at that key, or opens its own — and asserted identity outranks inferred identity whatever order the findings arrive in, so neither finding's summary or severity lands on the other's row
 - WHEN a merged row already carries a higher severity than the incoming finding, THEN the higher one is kept (severity only ever escalates)
 - WHEN a pre-existing hand-written review.md is read, THEN its legacy shape parses (column aliases, missing ID/Summary tolerated) and the prose around the table is preserved
 - WHEN the same round is merged twice, THEN the rendered table is byte-identical
@@ -1341,6 +1348,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-02 | restrict-identity-fallback | MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-067 | REQ-CLI-028, REQ-TEMPLATES-066, REQ-TEMPLATES-067 |
 | 2026-07-31 | name-change-history-rows | ADDED REQ-SERVICES-075; ADDED REQ-TESTS-069 | REQ-SERVICES-075, REQ-TESTS-069 |
 | 2026-07-31 | pilot-mutation-testing | ADDED REQ-TEMPLATES-169; ADDED REQ-TESTS-066 | REQ-TEMPLATES-169, REQ-TESTS-066 |
 | 2026-07-30 | report-dropped-req-bullets | ADDED REQ-SERVICES-073; ADDED REQ-CLI-032; ADDED REQ-TEMPLATES-168; ADDED REQ-TESTS-064; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-SERVICES-072 | REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064, REQ-TEMPLATES-166, REQ-SERVICES-072 |

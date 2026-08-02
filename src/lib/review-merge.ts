@@ -94,27 +94,62 @@ function fallbackKey(location: string, lens: string): string {
 /**
  * Merge one round's findings into the cumulative rows.
  *
- * Identity: an incoming `id` matches the row carrying that id; a finding
- * without an id (or whose id is unknown — e.g. the prior row predates ids)
- * falls back to (location, lens). Existing rows are never removed — they are
- * the cross-round anchor. Severity only ever escalates (max); status and
- * summary take the incoming round's word.
+ * Identity is the reviewer's, never the location string: an incoming `id`
+ * matches the row carrying it, and an id no row carries opens a NEW row — the
+ * one exception being a candidate row with no id at all, the pre-ids legacy
+ * shape that such an id adopts. A finding without an id keys on
+ * (location, lens) against the rows that predate this round, taken in table
+ * order and each claimable once — so withholding an id costs cross-round
+ * tracking, never the finding's own row, and re-merging the same round stays
+ * byte-identical. A row leaves the location index the moment this round claims
+ * it, and any row the round names by id is reserved before location matching
+ * begins: `location` is overwritten from the finding, and identity asserted
+ * outranks identity inferred regardless of the order findings arrive in.
+ * Existing rows are never removed — they are the cross-round anchor. Severity only ever escalates
+ * (max); status and summary take the incoming round's word.
  */
 export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]): ReviewRow[] {
   const merged = existing.map((r) => ({ ...r }));
   const byId = new Map<string, ReviewRow>();
-  const byFallback = new Map<string, ReviewRow>();
+  const byFallback = new Map<string, ReviewRow[]>();
+  const seededAt = new Map<ReviewRow, string>();
   for (const row of merged) {
     if (row.id) byId.set(row.id, row);
-    byFallback.set(fallbackKey(row.location, row.lens), row);
+    const key = fallbackKey(row.location, row.lens);
+    seededAt.set(row, key);
+    const queue = byFallback.get(key);
+    if (queue) queue.push(row);
+    else byFallback.set(key, [row]);
+  }
+
+  const claim = (row: ReviewRow): void => {
+    const key = seededAt.get(row);
+    const queue = key === undefined ? undefined : byFallback.get(key);
+    const at = queue?.indexOf(row) ?? -1;
+    if (queue && at !== -1) queue.splice(at, 1);
+  };
+
+  // Reserve every row this round names by id before any location matching:
+  // identity asserted outranks identity inferred, whichever order the findings
+  // arrive in. Without this an id-less finding could claim the very row a later
+  // finding names — collapsing two findings into one row, the defect this
+  // whole rule exists to prevent.
+  for (const finding of incoming) {
+    const named = finding.id === undefined ? undefined : byId.get(finding.id);
+    if (named) claim(named);
   }
 
   for (const finding of incoming) {
     const status = finding.status ?? 'open';
-    const target =
-      (finding.id ? byId.get(finding.id) : undefined) ??
-      byFallback.get(fallbackKey(finding.location, finding.lens));
+    const candidate = byFallback.get(fallbackKey(finding.location, finding.lens))?.[0];
+    const target = finding.id
+      ? (byId.get(finding.id) ?? (candidate?.id ? undefined : candidate))
+      : candidate;
     if (target) {
+      // Redundant for an id match — the pass above already reserved it — but
+      // keeping it unconditional makes "a claimed row is out of the index" a
+      // local guarantee, not one that depends on that pass staying exhaustive.
+      claim(target);
       target.severity = severityMax(target.severity, finding.severity);
       target.location = finding.location;
       target.status = status;
@@ -134,7 +169,6 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
       };
       merged.push(row);
       if (row.id) byId.set(row.id, row);
-      byFallback.set(fallbackKey(row.location, row.lens), row);
     }
   }
   return merged;
