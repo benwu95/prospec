@@ -20,29 +20,29 @@
 
 ## Dependencies
 
-- `@commander-js/extra-typings` @ ^14.0.0
-- `@inquirer/prompts` @ ^8.2.0
-- `@modelcontextprotocol/sdk` @ 1.29.0
-- `commander` @ ^14.0.3
-- `fast-glob` @ ^3.3.3
-- `fast-xml-parser` @ ^5.9.0
-- `handlebars` @ ^4.7.8
-- `picocolors` @ ^1.1.1
-- `smol-toml` @ ^1.6.1
-- `yaml` @ ^2.8.2
-- `zod` @ ^4.3.6
-- `@eslint/js` @ ^9.39.2
-- `@stryker-mutator/core` @ ^9.6.1
-- `@stryker-mutator/vitest-runner` @ ^9.6.1
-- `@types/node` @ ^25.2.0
-- `@vitest/coverage-v8` @ ^4.0.18
-- `esbuild` @ ^0.28.1
-- `eslint` @ ^9.39.2
-- `memfs` @ ^4.56.10
-- `tsx` @ ^4.22.4
-- `typescript` @ 5.9
-- `typescript-eslint` @ ^8.54.0
-- `vitest` @ ^4.0.18
+- `@commander-js/extra-typings` @ `^14.0.0`
+- `@inquirer/prompts` @ `^8.2.0`
+- `@modelcontextprotocol/sdk` @ `1.29.0`
+- `commander` @ `^14.0.3`
+- `fast-glob` @ `^3.3.3`
+- `fast-xml-parser` @ `^5.9.0`
+- `handlebars` @ `^4.7.8`
+- `picocolors` @ `^1.1.1`
+- `smol-toml` @ `^1.6.1`
+- `yaml` @ `^2.8.2`
+- `zod` @ `^4.3.6`
+- `@eslint/js` @ `^9.39.2`
+- `@stryker-mutator/core` @ `^9.6.1`
+- `@stryker-mutator/vitest-runner` @ `^9.6.1`
+- `@types/node` @ `^25.2.0`
+- `@vitest/coverage-v8` @ `^4.0.18`
+- `esbuild` @ `^0.28.1`
+- `eslint` @ `^9.39.2`
+- `memfs` @ `^4.56.10`
+- `tsx` @ `^4.22.4`
+- `typescript` @ `5.9`
+- `typescript-eslint` @ `^8.54.0`
+- `vitest` @ `^4.0.18`
 
 ## Config Files
 
@@ -121,7 +121,7 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `prospec/` — 129 files: `.md`, `.yaml`
+- `prospec/` — 130 files: `.md`, `.yaml`
 - `tests/fixtures/` — 20 files: `.md`, `.yaml`, `.json`
 - `planning/` — 10 files: `.md`
 
@@ -129,5 +129,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 534 |
+| Total files | 535 |
 | Scan depth | 10 |
