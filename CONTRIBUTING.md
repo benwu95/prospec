@@ -71,6 +71,14 @@ pnpm run typecheck
 
 # Lint
 pnpm run lint
+
+# Re-derive the factual counts the docs declare (test totals, .hbs inventory)
+pnpm counts
+
+# Same, read-only: exits 1 on drift (this form measures the suite itself).
+# CI instead runs `pnpm run counts:check --from vitest-report.json`, reusing
+# the report `pnpm run test:coverage` wrote — so a stale count fails the PR.
+pnpm counts:check
 ```
 
 ## Project Structure

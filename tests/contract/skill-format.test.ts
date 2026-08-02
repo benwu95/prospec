@@ -2056,7 +2056,7 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
     expect(workflow).not.toMatch(/stryker|mutation|mutate/i);
 
     // Enumerate the directory rather than naming one file: ci.yml is the actual
-    // gate (lint/typecheck/build/test:coverage) and so is where a mutation step
+    // gate (lint/typecheck/counts:check/build/test:coverage) and so is where a mutation step
     // would most plausibly be added. A future workflow is covered on arrival.
     const workflowDir = path.join(__dirname, '../../.github/workflows');
     const shipped = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));

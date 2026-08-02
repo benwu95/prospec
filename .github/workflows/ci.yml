@@ -32,6 +32,13 @@ jobs:
 
       - run: pnpm run test:coverage
 
+      # After the suite on purpose: `--from` buckets the JSON report the coverage
+      # step just wrote instead of running the whole suite a second time, so the
+      # count contract is gated for free. Without `--from` the script still spawns
+      # its own run (the local `pnpm counts` path) — an absent or unreadable
+      # report is an explicit skip, and a skip fails `--check`.
+      - run: pnpm run counts:check --from vitest-report.json
+
       - name: Compose coverage comment
         if: always()
         # body is built only from .total numeric fields + fixed metric names —
