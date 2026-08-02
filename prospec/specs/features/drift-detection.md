@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-02
 story_count: 13
-req_count: 47
+req_count: 49
 ---
 
 # Deterministic Drift Check
@@ -53,12 +53,32 @@ so that whether Knowledge is stale can be judged rather than blindly trusted.
 - WHEN git timestamps are unavailable (non-git / shallow clone) or module-map is missing, THEN the check is `skipped` + reason
 
 #### REQ-LIB-015: Knowledge health check (git timestamps)
-The comparison source is git log timestamps (file mtime is distorted after a CI checkout and does not participate in the judgment); timestamps are compared by epoch (%cI carries each one's own timezone offset). A module's knowledge is its `README.md` plus every extracted sub-module `.md` sibling, so staleness compares the module's last source commit against the NEWEST of those knowledge commits; the report carries both `last_readme_commit` (the README's own) and the optional `last_sub_module_commit`, so a documented module's verdict is reproducible from the report alone. A module with NO README stays stale by the coverage rule regardless of those timestamps — the coverage-gap finding is that verdict's carrier. A knowledge file reached through a symlink is enumerated like any other: containment is enforced by the canonical readers (realpath, reject outside the tree), never by skipping symlinks, since skipping one would drop a real measurement and let the budget gate fail open. A shallow clone's boundary commit time is a fabricated fact — degrade to skipped. When module-map is missing, phantom coverage must not be fabricated from Constitution fallback modules.
+The comparison source is git log timestamps (file mtime is distorted after a CI checkout and does not participate in the judgment); timestamps are compared by epoch (%cI carries each one's own timezone offset). A module's knowledge is its `README.md` plus every extracted sub-module `.md` sibling, so staleness compares the module's last source commit against the NEWEST of those knowledge commits; the report carries both `last_readme_commit` (the README's own) and the optional `last_sub_module_commit`, so a documented module's verdict is reproducible from the report alone. The source-commit query EXCLUDES the registered generated artifacts (REQ-LIB-039) by git pathspec — build output that sits under a module path but carries no knowledge a README could describe, so a commit regenerating it must not demand a knowledge update. That exclusion is scoped to this judgment alone: the same file stays inside `computeChangeDigest`, which fingerprints shipped code and must keep invalidating review/test provenance when it changes. A pathspec the local git cannot parse degrades to the unexcluded query — the noisier but true answer — never to a null source commit, which the staleness rule reads as fresh. A module with NO README stays stale by the coverage rule regardless of those timestamps — the coverage-gap finding is that verdict's carrier. A knowledge file reached through a symlink is enumerated like any other: containment is enforced by the canonical readers (realpath, reject outside the tree), never by skipping symlinks, since skipping one would drop a real measurement and let the budget gate fail open. A shallow clone's boundary commit time is a fabricated fact — degrade to skipped. When module-map is missing, phantom coverage must not be fabricated from Constitution fallback modules.
 - WHEN a module's source commit is newer than every knowledge commit it has, THEN the module is stale, severity always WARN (never FAIL)
 - WHEN only a sub-module file is updated and its commit is newer than the module's last source commit, THEN the module is NOT stale
 - WHEN the README is the newer of the two knowledge files, THEN it is the one the source commit is compared against
 - WHEN a module has no sub-module file, THEN `last_sub_module_commit` is absent and the verdict matches the README-only comparison
 - WHEN a module has sub-modules but no README, THEN it is reported stale with its `coverage gap` finding, not by a timestamp comparison
+- WHEN a commit under the module's paths touches ONLY registered generated artifacts, THEN `last_src_commit` does not move and that commit alone never makes the module stale
+- WHEN one commit touches both a generated artifact and authored source, THEN it still counts as a source commit
+- WHEN the excluded-pathspec query fails, THEN the collector falls back to the unexcluded query instead of reporting no source commit
+
+#### REQ-LIB-039: Generated-source-artifact registry
+`lib/generated-artifacts.ts` is the ONE registry of repository-root-relative paths that are build output rather than authored source: the named `BUNDLED_TEMPLATES_SOURCE` and `GENERATED_SOURCE_ARTIFACTS` derived from it, never re-typed. The artifact's producer resolves its own output location from that same constant, so producer and consumers cannot drift into two hand-copied lists and a newly registered artifact reaches the module-staleness exclusion by construction. The registry is a build-time constant of THIS repository that the check applies to whatever repository it runs in: a checked project holding an authored file at a registered path would be exempted too, which is why the registry names exact paths and stays as small as the build output requires.
+- WHEN the templates bundler resolves where to write, THEN it derives the path from `BUNDLED_TEMPLATES_SOURCE` and holds no second copy of that path
+- WHEN a consumer needs the generated-artifact set, THEN it reads `GENERATED_SOURCE_ARTIFACTS` instead of enumerating paths itself
+- WHEN a path is added to the registry, THEN the module-staleness exclusion covers it with no further edit
+
+---
+
+
+#### REQ-TESTS-071: Generated-artifact exclusion and digest-boundary coverage
+The generated-artifact staleness exclusion is pinned from BOTH directions against temp-git fixtures, and the digest boundary is pinned beside it so the two scopes cannot silently converge into one.
+- WHEN only a generated artifact is committed under a module's paths, THEN `last_src_commit` stays at the last authored-source commit
+- WHEN authored source is committed afterwards with no knowledge update, THEN the module still reports stale
+- WHEN that same generated artifact is edited, THEN `computeChangeDigest` changes — asserted alongside the exclusion tests
+- WHEN the excluded-pathspec capture is fault-injected to fail, THEN the collector reports the unexcluded timestamp rather than null
+- WHEN the exclusion or the digest coverage is reverted, THEN mutation verification turns the corresponding test red
 
 ---
 
@@ -486,6 +506,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-02 | exclude-generated-from-staleness | ADDED REQ-LIB-039; ADDED REQ-TESTS-071; MODIFIED REQ-LIB-015 | REQ-LIB-039, REQ-TESTS-071, REQ-LIB-015 |
 | 2026-07-31 | harden-contained-reads | MODIFIED REQ-LIB-014 (collector contained read delegates to the one helper; an enumerated read skips a failing entry instead of aborting the run) | REQ-LIB-014 |
 | 2026-07-31 | enforce-sub-module-budget | ADDED REQ-TYPES-073, REQ-TESTS-067; MODIFIED REQ-LIB-027 (L2 measures every module .md), REQ-LIB-015 (staleness vs the newest knowledge commit) | REQ-TYPES-073, REQ-TESTS-067, REQ-LIB-027, REQ-LIB-015 |
 | 2026-07-31 | add-artifact-language-check | ADDED REQ-TYPES-072; ADDED REQ-LIB-037; ADDED REQ-SERVICES-074; ADDED REQ-TESTS-065 | REQ-TYPES-072, REQ-LIB-037, REQ-SERVICES-074, REQ-TESTS-065 |
