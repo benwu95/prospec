@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3002%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3009%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -789,7 +789,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3002 tests)
+# Run all tests (3009 tests)
 pnpm test
 
 # Watch mode
@@ -802,9 +802,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3002 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2142 tests
-- Contract tests (CLI output + Skill format): 751 tests
+**Test Coverage**: 3009 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2144 tests
+- Contract tests (CLI output + Skill format): 756 tests
 - Integration tests: 43 tests
 - E2E tests: 66 tests
 
@@ -816,9 +816,11 @@ The suite includes a real `init` + `agent sync` generation contract (`tests/inte
 # Rewrite every count in place to match the current suite/filesystem
 pnpm counts
 
-# Dry-run: report drift and exit 1 if any count is stale (CI-friendly)
+# Dry-run: report drift and exit 1 if any count is stale
 pnpm counts:check
 ```
+
+CI's `test` job runs the read-only form with `--from`, pointed at the JSON report `pnpm run test:coverage` writes in the step before it — so the gate costs no second suite run, and a stale count fails the PR. `--from` is read-only by construction: the rewrite mode refuses it, because nothing can tell a just-written report from yesterday's.
 
 ---
 

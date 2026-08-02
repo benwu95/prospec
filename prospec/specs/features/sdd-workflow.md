@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-08-02
-story_count: 30
-req_count: 155
+story_count: 31
+req_count: 156
 ---
 
 # SDD Workflow
@@ -775,6 +775,38 @@ Mutation testing ships as an on-demand deep audit, never as a gate. `pnpm mutate
 
 ---
 
+## US-31: The Repository's Own Count Contract Is Machine-Enforced [P1]
+
+As a contributor sending a pull request,
+I want CI to fail when the factual counts the docs declare have fallen behind their source,
+so that keeping them true does not depend on someone remembering to re-run the generator after their last edit — and so that the gate costs nothing, because it buckets a test run that already happened.
+
+**Acceptance Scenarios:**
+- WHEN a pull request adds or removes a counted file category without re-deriving the counts, THEN CI's `test` job fails and names every stale count
+- WHEN the counts match their source, THEN the gate exits 0, writes nothing, and adds no second suite run — it reads the JSON report the coverage step just wrote
+- WHEN a quality gate is added, removed, reordered, or made unable to fail the job, THEN a contract assertion turns red until the change is made deliberately in the version-controlled baseline
+- WHEN the report a gate reads cannot be shown to be fresh, THEN the rewrite mode refuses it outright rather than stamping unverified numbers into the docs
+
+### Behavior Specifications
+
+
+#### REQ-TESTS-070: CI Enforces the Factual-Count Contract
+The repository's own quality gates run in CI, and the gate list is itself pinned. `pnpm run test:coverage` writes a vitest JSON report alongside its coverage output, and `ci.yml`'s `test` job then runs `pnpm run counts:check --from <that report>`: the factual-count contract is gated by bucketing a run that already happened, not by running the suite a second time. `sync-counts` reads a report only when `--from` names one — there is no implicit discovery, because a leftover report would turn a measurement into a stale constant — an absent or unreadable report is an explicit skip, which fails `--check`, and the rewrite mode refuses the flag outright rather than writing numbers it cannot date. A contract assertion parses the real `ci.yml` and compares every STEP the `test` job runs, in order, against a version-controlled baseline — scripts by their whole command, actions as `uses:<name>` with the version stripped, a multi-line script as a single token whose body is separately asserted to run no package manager in command position. It also asserts that no command gate is neutralised and that the path the counts step reads is the path the coverage script writes and actually emits. The `windows-smoke` job deliberately runs no counts step: counts are platform-independent.
+- WHEN a change adds or removes a counted file category and the counts are not re-derived, THEN CI's `test` job fails and names every stale count
+- WHEN the counts match their source, THEN the step exits 0 and writes nothing — `--check` is read-only
+- WHEN `--from` names a missing or unreadable report, THEN the count sources are reported unavailable and `--check` exits non-zero — the gate never passes on an unverified count
+- WHEN `--from` is absent, THEN the script runs the suite itself, so the local `pnpm counts` path is unchanged
+- WHEN `--from` is passed to the rewrite mode, THEN the script refuses with exit 1 and writes nothing — a caller-named report cannot be shown to be fresh, and the rewrite mode would stamp its numbers into every doc; the flag is read-only by construction
+- WHEN any step in the `test` job is added, removed, reordered, or rewritten — as a script in any spelling, or as an action — THEN the contract assertion turns red until the baseline is updated in the same change; a multi-line script is compared as one token, so its body is governed by the next bullet rather than this one, and an action's version bump is not such a change and stays green
+- WHEN a multi-line script in that job invokes a package manager — as the first word of a line at ANY indentation, or after a shell separator — THEN the assertion turns red: the baseline compares such a step as one token, so a gate must never hide in its body; naming one mid-line — in a quoted string, a comment, or behind another command word (`if`, `env`, `time`, `!`, a backtick substitution) — stays green: the guard covers command-position calls, not every conceivable invocation
+- WHEN a command gate — the dependency install, or any `pnpm run` script in the baseline — or the job itself is given a truthy `continue-on-error` or a condition other than the default, THEN the contract assertion turns red: a gate that cannot fail the job is not a gate; the default spelled out explicitly (`continue-on-error: false`, `if: success()`) stays green, and the setup actions and reporting steps are out of scope — two of the latter legitimately carry `if: always()`, and a neutralised checkout or toolchain setup cascades into failures at every gate after it
+- WHEN the coverage script's report path and the counts step's `--from` path disagree, or the coverage script stops emitting the JSON reporter that writes it, THEN the contract assertion turns red rather than leaving the gate to fail for a filename reason
+
+
+---
+
+
+---
 
 ## Edge Cases
 
@@ -1322,7 +1354,7 @@ The review skill emits its round as findings JSON to `review merge` and records 
 
 #### REQ-TESTS-059: Four-Layer Coverage of the cli-first Delegation
 The new engines and commands are covered at four layers: pure-engine unit tests in lib (`verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `markdown-table`, including a bit-identical recomputation assertion), service and formatter unit tests, per-command e2e against a real temp project, and contract updates (probe single source, `bundled-templates-sync`, the startup-loading baseline, and the delegation wording pins). The negative assertions are mutation-verified.
-- WHEN the suite runs, THEN `pnpm test` is green at ≥ 80% coverage and `pnpm counts:check` passes
+- WHEN the suite runs, THEN `pnpm test` is green at ≥ 80% coverage; the factual-count contract is gated separately by REQ-TESTS-070, which is what actually runs `pnpm counts:check`
 - WHEN a CLI-unavailable fallback phrase reappears under `skills/`/`agent-configs/`, or the shared probe stops being the single source, THEN a negative contract assertion turns red
 - WHEN e2e runs, THEN each new command's success and refusal paths are exercised — the forward-only rejection, the validate-before-write refusal that leaves the file untouched, and `archive finalize --dry-run` writing nothing
 
@@ -1348,6 +1380,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-02 | enforce-counts-in-ci | ADDED REQ-TESTS-070; MODIFIED REQ-TESTS-059 | REQ-TESTS-070, REQ-TESTS-059 |
 | 2026-08-02 | restrict-identity-fallback | MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-067 | REQ-CLI-028, REQ-TEMPLATES-066, REQ-TEMPLATES-067 |
 | 2026-07-31 | name-change-history-rows | ADDED REQ-SERVICES-075; ADDED REQ-TESTS-069 | REQ-SERVICES-075, REQ-TESTS-069 |
 | 2026-07-31 | pilot-mutation-testing | ADDED REQ-TEMPLATES-169; ADDED REQ-TESTS-066 | REQ-TEMPLATES-169, REQ-TESTS-066 |

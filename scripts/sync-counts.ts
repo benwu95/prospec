@@ -18,6 +18,31 @@ import type { CountReport } from './counts/types.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+/**
+ * `--from <file>`: bucket an ALREADY-PRODUCED vitest JSON report instead of
+ * running the suite again. There is deliberately no implicit discovery — a
+ * leftover report from an earlier run would turn a measurement into a stale
+ * constant, so the caller names the file it just produced or gets the spawn.
+ */
+function reportArg(): string | null {
+  const i = process.argv.indexOf('--from');
+  if (i === -1) return null;
+  return process.argv[i + 1] ?? '';
+}
+
+/** Bucket an existing report; skip (with reason) rather than falling back to a spawn. */
+function readTestCounts(file: string): TestCountResult {
+  if (!file || file.startsWith('--')) return { counts: null, reason: '--from needs a file path' };
+  const abs = path.resolve(REPO_ROOT, file);
+  if (!existsSync(abs)) return { counts: null, reason: `no vitest report at ${file}` };
+  try {
+    const counts = deriveTestCounts(JSON.parse(readFileSync(abs, 'utf-8')));
+    return counts !== null ? { counts } : { counts: null, reason: `${file} has no results` };
+  } catch (err) {
+    return { counts: null, reason: `${file} is not a readable vitest report: ${(err as Error).message}` };
+  }
+}
+
 /** Run the suite once and bucket its counts; skip (with reason) if unavailable. */
 function gatherTestCounts(): TestCountResult {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'prospec-counts-'));
@@ -65,7 +90,17 @@ function printReport(report: CountReport, check: boolean): void {
 
 async function main(): Promise<void> {
   const check = process.argv.includes('--check');
-  const { truth, skipped } = buildTruth(REPO_ROOT, gatherTestCounts());
+  const from = reportArg();
+  // `--from` is a read-only affordance for a caller that JUST produced the
+  // report (CI runs it right after `test:coverage`). Nothing here can tell a
+  // fresh report from yesterday's, so the write mode — which would stamp those
+  // numbers into five docs — refuses it outright rather than trusting the name.
+  if (from !== null && !check) {
+    console.error('--from is only valid with --check; `pnpm counts` measures the suite itself');
+    process.exitCode = 1;
+    return;
+  }
+  const { truth, skipped } = buildTruth(REPO_ROOT, from === null ? gatherTestCounts() : readTestCounts(from));
   const report = await syncCounts({ repoRoot: REPO_ROOT, check, truth, skipped });
   printReport(report, check);
   if (check && checkFailed(report)) process.exitCode = 1;

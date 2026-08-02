@@ -17,7 +17,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=vitest-report.json",
     "test:watch": "vitest",
     "mutate": "stryker run stryker.config.json --mutate",
     "lint": "eslint src/ tests/",
