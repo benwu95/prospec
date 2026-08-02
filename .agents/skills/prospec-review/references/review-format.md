@@ -68,7 +68,13 @@ Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The 
   choice auditable by the next reader.
 - **Identity is the reviewer-supplied `id`** — reuse the prior round's id for a finding you judge to
   be the same one (line numbers drift as fixes land, so the CLI never infers identity from the
-  Location string; a finding without an id keys by location+lens).
+  Location string). An id no existing row carries **opens a new row**, even when a row already sits
+  at that Location and lens; the one exception is a row carrying no id at all — the pre-ids
+  hand-written shape, which a new id adopts. Omitting the id keys the finding by location+lens
+  against the rows that **predate this round** — each claimable once, in table order, and never a
+  row you name by id elsewhere in the same round. Withholding an id costs cross-round tracking,
+  never the finding's own row, so **two id-less findings you file at one Location in one round stay
+  two rows**.
 - The CLI's deterministic bookkeeping: merge by identity, **severity taken as the maximum**, rows
   **carried forward** across rounds as the anchor (resolved items are not re-raised), prose around
   the table preserved.

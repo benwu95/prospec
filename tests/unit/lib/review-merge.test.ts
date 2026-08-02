@@ -81,6 +81,122 @@ describe('mergeFindings', () => {
   });
 });
 
+describe('identity fallback never infers identity (issue #116)', () => {
+  it('a new id opens its own row even when an existing row shares (location, lens)', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-8', location: 'a.ts:10', severity: 'critical', lens: 'test-quality', status: 'fixed', summary: 'first finding' },
+    ];
+    const merged = mergeFindings(existing, [
+      finding({ id: 'NEW-4', location: 'a.ts:10', severity: 'major', lens: 'test-quality', summary: 'a DIFFERENT finding' }),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((r) => r.id)).toEqual(['F-8', 'NEW-4']);
+    expect(merged[0]).toMatchObject({ severity: 'critical', status: 'fixed', summary: 'first finding' });
+    expect(merged[1]).toMatchObject({ severity: 'major', status: 'open', summary: 'a DIFFERENT finding' });
+  });
+
+  it('two id-less findings sharing (location, lens) land as two rows', () => {
+    const merged = mergeFindings([], [
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'first' }),
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'second' }),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((r) => r.summary)).toEqual(['first', 'second']);
+  });
+
+  it('a pre-round row absorbs the first id-less finding; the second opens its own row', () => {
+    const existing: ReviewRow[] = [
+      { location: 'a.ts:10', severity: 'minor', lens: 'security', status: 'open', summary: 'carried' },
+    ];
+    const merged = mergeFindings(existing, [
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'first' }),
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'second' }),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toMatchObject({ summary: 'first', severity: 'major' });
+    expect(merged[1]).toMatchObject({ summary: 'second' });
+  });
+
+  it('an id-less finding still keys on (location, lens) against a row that carries an id', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'old' },
+    ];
+    const merged = mergeFindings(existing, [finding({ location: 'a.ts:1', status: 'fixed', summary: 'new' })]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ id: 'F-1', status: 'fixed', summary: 'new' });
+  });
+
+  it('reusing one id twice within a round updates a single row', () => {
+    const merged = mergeFindings([], [
+      finding({ id: 'F-1', location: 'a.ts:1', summary: 'first pass' }),
+      finding({ id: 'F-1', location: 'a.ts:1', status: 'fixed', summary: 'second pass' }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ status: 'fixed', summary: 'second pass' });
+  });
+
+  it('re-merging a round of id-less duplicates stays byte-identical', () => {
+    // Not covered by the id-carrying idempotence test above: the id-less path
+    // has no cross-invocation identity, so a replay must be absorbed by the
+    // rows the first merge created — one per finding, in order.
+    const round = [
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'first' }),
+      finding({ location: 'a.ts:10', lens: 'security', summary: 'second' }),
+    ];
+    const once = mergeFindings([], round);
+    const twice = mergeFindings(once, round);
+    expect(twice).toEqual(once);
+    expect(renderReviewTable(twice)).toBe(renderReviewTable(once));
+  });
+
+  it('a row the round names by id is reserved before any location matching', () => {
+    // Identity asserted outranks identity inferred, and must do so whatever
+    // order the findings arrive in: here the id-less finding is FIRST, so a
+    // resolution that ran in array order would hand it F-1's row.
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'the F-1 finding' },
+    ];
+    const round = [
+      finding({ location: 'a.ts:1', severity: 'critical', summary: 'an id-less finding at the same line' }),
+      finding({ id: 'F-1', location: 'a.ts:9', severity: 'minor', status: 'fixed', summary: 'F-1, fixed and moved' }),
+    ];
+    const once = mergeFindings(existing, round);
+    expect(once).toHaveLength(2);
+    expect(once[0]).toMatchObject({ id: 'F-1', location: 'a.ts:9', severity: 'major', status: 'fixed' });
+    expect(once[1]).toMatchObject({ location: 'a.ts:1', severity: 'critical', status: 'open' });
+    expect(once[1]!.id, 'the id-less finding must not inherit the named row\'s id').toBeUndefined();
+    expect(mergeFindings(once, round), 'the reservation must survive a replay').toEqual(once);
+  });
+
+  it('a row whose location this round moved is not re-claimed at its old key', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'the F-1 finding' },
+    ];
+    const merged = mergeFindings(existing, [
+      finding({ id: 'F-1', location: 'a.ts:9', summary: 'F-1 moved to line 9' }),
+      finding({ location: 'a.ts:1', summary: 'a different id-less finding at line 1' }),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toMatchObject({ id: 'F-1', location: 'a.ts:9', summary: 'F-1 moved to line 9' });
+    expect(merged[1]).toMatchObject({ location: 'a.ts:1', summary: 'a different id-less finding at line 1' });
+  });
+
+  it('an id match leaves the (location, lens) key of a DIFFERENT row claimable', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'drifting' },
+      { location: 'a.ts:9', severity: 'minor', lens: 'correctness', status: 'open', summary: 'legacy' },
+    ];
+    const merged = mergeFindings(existing, [
+      finding({ id: 'F-1', location: 'a.ts:9', summary: 'moved here' }),
+      finding({ location: 'a.ts:9', lens: 'correctness', summary: 'legacy update' }),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toMatchObject({ id: 'F-1', location: 'a.ts:9', summary: 'moved here' });
+    expect(merged[1]).toMatchObject({ summary: 'legacy update' });
+    expect(merged[1]!.id).toBeUndefined();
+  });
+});
+
 describe('roundCounts', () => {
   it('counts the round, not the cumulative table', () => {
     const counts = roundCounts([

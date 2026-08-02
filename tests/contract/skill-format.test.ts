@@ -2073,6 +2073,75 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
   });
 });
 
+describe('Identity rule in the finding format (REQ-TEMPLATES-067, REQ-CLI-028)', () => {
+  // The merge is CLI-owned but assigning the id is the reviewer's act, so the
+  // format reference is the only place that responsibility survives the
+  // handoff to the tool (PB-014). Mutation-verified against review-format.hbs,
+  // re-bundling each time — renderTemplate reads bundled-templates, so a
+  // .hbs-only edit proves nothing (H1 first reddened against a stale bundle):
+  // H0 anchor rule → "reads identity off the Location string"; H1 "**opens a
+  // new row**" → "updates that row"; H2 exception clause → "no exception
+  // applies"; H3 "**predate this round**" → "exist"; H4 the same-round clause
+  // → "they merge"; H5 "dedup by Location" reintroduced as a sibling bullet.
+  // Each reddened exactly the assertion it targets, control green. That
+  // establishes non-vacuity — the clause reaches the SHIPPED text — not that a
+  // reworded restatement of the old rule would be caught.
+  const identityBullet = (): string => {
+    const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+    const bullets = sectionOf(format, '## review.md Format')
+      .split(/\n- /)
+      .map(flat);
+    const matches = bullets.filter((b) => b.startsWith('**Identity is the reviewer-supplied'));
+    expect(matches, 'the identity rule must be exactly one bullet, not scattered').toHaveLength(1);
+    return matches[0]!;
+  };
+
+  it('states all three identity paths the merge engine implements', () => {
+    const bullet = identityBullet();
+    expect(bullet, 'the anchor rule: identity is never read off a location').toMatch(
+      /never infers identity from the Location string/,
+    );
+    expect(bullet, 'an unknown id must be stated to open a row, not update one').toMatch(
+      /id no existing row carries \*\*opens a new row\*\*/,
+    );
+    expect(bullet, 'the legacy adoption path is the one exception and must be named as such').toMatch(
+      /exception is a row carrying no id at all/,
+    );
+    expect(bullet, 'an id-less finding keys only against rows older than this round').toMatch(
+      /predate this round/,
+    );
+    expect(bullet, 'the cost of omitting an id must be bounded to cross-round tracking').toMatch(
+      /two id-less findings you file at one Location in one round stay two rows/,
+    );
+  });
+
+  it('the skill body teaches the same rule as the reference it points at', () => {
+    // The reviewer reads SKILL.md before the on-demand reference, so a blanket
+    // rule here outranks the corrected one there — pinning only the reference
+    // leaves the site that is read FIRST unguarded.
+    const skill = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    const persistence = flat(sectionOf(skill, '### Persistence'));
+    expect(persistence).toMatch(/An id no row carries opens a NEW row/);
+    expect(persistence).toMatch(/predate this round/);
+    expect(persistence).toMatch(/stay two rows/);
+    expect(
+      persistence,
+      'the pre-fix blanket sentence must not return',
+    ).not.toMatch(/a finding without an id keys by location\+lens/i);
+  });
+
+  it('never offers Location as an identity key', () => {
+    // The negative half: "dedup by Location" is the wording that produced the
+    // collapsed-rows defect (issue #116). A positive assertion elsewhere does
+    // not stop the old sentence from being reintroduced next to it.
+    const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+    expect(flat(sectionOf(format, '## review.md Format'))).not.toMatch(/dedup\w*\s+by\s+Location/i);
+
+    const skill = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    expect(flat(skill)).not.toMatch(/dedup\w*\s+by\s+Location/i);
+  });
+});
+
 describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
   it('Phase 3.5 step 0 introduces BOTH worklists, and never leaves "already landed" unqualified', () => {
     // The gate assertion below slices only the gate, so without this the whole
