@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-08-02
-story_count: 31
-req_count: 156
+story_count: 32
+req_count: 160
 ---
 
 # SDD Workflow
@@ -182,9 +182,12 @@ so that I can implement step by step, track progress, and estimate effort.
 ### Behavior Specifications
 
 #### REQ-CHNG-011: Decompose Plan into Tasks
+`/prospec-tasks` decomposes into a tasks.md grouped by architecture layer. Its plan.md prerequisite is scale-conditional: the `prospec change tasks` CLI reads the light-scale artifact registry instead of assuming every change has a plan.
 - WHEN plan.md valid, THEN tasks.md groups by architecture layer
 - WHEN parallelizable, THEN mark `[P]`
 - WHEN design-spec.md exists, THEN UI tasks annotated for MCP design reading
+- WHEN `scale: quick`, THEN the plan.md prerequisite is skipped and tasks are decomposed from proposal.md, advancing `story → tasks`
+- WHEN `scale: backfill`, THEN the station refuses: backfill records existing code and its contract forbids tasks.md
 
 #### REQ-CHNG-012: Architecture Layer Ordering
 Ordering: Types → Lib → Services → CLI → Tests; use a Templates grouping when only templates change.
@@ -802,9 +805,62 @@ The repository's own quality gates run in CI, and the gate list is itself pinned
 - WHEN a command gate — the dependency install, or any `pnpm run` script in the baseline — or the job itself is given a truthy `continue-on-error` or a condition other than the default, THEN the contract assertion turns red: a gate that cannot fail the job is not a gate; the default spelled out explicitly (`continue-on-error: false`, `if: success()`) stays green, and the setup actions and reporting steps are out of scope — two of the latter legitimately carry `if: always()`, and a neutralised checkout or toolchain setup cascades into failures at every gate after it
 - WHEN the coverage script's report path and the counts step's `--from` path disagree, or the coverage script stops emitting the JSON reporter that writes it, THEN the contract assertion turns red rather than leaving the gate to fail for a filename reason
 
+---
+
+## US-32: Light-Scale Artifact Contract Mechanized at the Stations [P1]
+
+As a developer running a `scale: quick` or `scale: backfill` change through the CLI,
+I want the plan and tasks stations to actually enforce the light-scale artifact contract the lifecycle declares, from one registry both of them read,
+So that a quick change has a legal route instead of a station that refuses it, a backfill change cannot be handed artifacts its own validator forbids, and the contract cannot be honoured at one station and silently ignored at the next.
+
+**Acceptance Scenarios:**
+- WHEN a scale's contract forbids a station's own product THEN that station refuses before writing anything, naming the station that does apply
+- WHEN a scale's contract removes a station's normal input THEN the station takes its documented substitute input rather than losing its prerequisite altogether
+- WHEN the documented artifact matrix and the code registry disagree in either direction THEN the build fails
+- WHEN a scale is written onto a change whose artifacts that scale forbids THEN the write is refused and the conflicting files are named
+- WHEN a change's scale leaves it with no forward planning station THEN routing names the station that owns its lifecycle entry, never one that must refuse it
+
+### Behavior Specifications
+
+#### REQ-TYPES-074: Light-Scale Forbidden-Artifact Registry
+`types/change.ts` exports `SCALE_FORBIDDEN_ARTIFACTS` — a frozen registry naming, per `CHANGE_SCALES` value, the change artifacts that scale's contract forbids — plus `forbiddenArtifacts(scale)`, which reads an absent scale as `standard`. It is the single source the plan/tasks stations and the lifecycle contract test both consume, so the contract cannot be honoured at one station and not another.
+- WHEN the scale is `quick`, THEN the forbidden set is `plan.md` and `delta-spec.md`
+- WHEN the scale is `backfill`, THEN the forbidden set is `plan.md` and `tasks.md`
+- WHEN the scale is `standard`, `full`, or absent, THEN the forbidden set is empty
+- WHEN the scale string is unknown or an inherited object key, THEN it reads as `standard` rather than yielding a non-array member
+- WHEN a new value is appended to `CHANGE_SCALES` without a registry entry, THEN the build fails rather than defaulting the new scale to "forbids nothing"
+- WHEN any station or engine needs the per-scale artifact contract, THEN it consumes this registry rather than re-testing a scale name — the plan and tasks stations, the `promote-scaffold` validator, and the `status` router all read it, so one contract has exactly one encoding
 
 ---
 
+
+#### REQ-SERVICES-076: Plan and Tasks Stations Honour the Forbidden-Artifact Registry
+`prospec change plan` and `prospec change tasks` resolve the change's scale through `forbiddenArtifacts()` before touching the filesystem: a station whose own product is forbidden refuses with an actionable redirect, and the tasks station's `plan.md` prerequisite applies only when `plan.md` is not forbidden for that scale. Refusal happens before any write, so the change directory stays byte-identical.
+- WHEN `scale: quick` and no plan.md exists, THEN `change tasks` scaffolds tasks.md and advances `story → tasks` without producing plan.md or delta-spec.md
+- WHEN `scale: backfill`, THEN `change tasks` refuses (backfill records existing code — no task list) and `change plan` refuses and points at `/prospec-promote-backfill`
+- WHEN `scale: quick`, THEN `change plan` refuses and points at `prospec change tasks`
+- WHEN the scale is `standard`, `full`, or absent, THEN both stations keep their existing prerequisites, including the missing-plan.md refusal at the tasks station
+- WHEN metadata.yaml is absent, THEN the scale is unknown, no prerequisite is relaxed, and the pre-existing refusal stands
+- WHEN metadata.yaml is present but invalid, THEN the validation error surfaces first (the record deciding which prerequisites apply is read before them); nothing is written and nothing is relaxed. Only suggestion-shaped reads (`change progress`, `knowledge update`) degrade to "scale unknown" via `readScaleQuietly`, never a gate
+- WHEN `change progress` finds no tasks.md, THEN its suggestion reads the same registry — a scale with no task list is told so instead of being sent to the tasks station that would refuse it
+- WHEN `change scale` is asked to write a scale whose contract forbids an artifact already on disk, THEN it refuses before writing and names those files — a scale and its artifacts must agree, or the change is invalid the moment the scale lands
+
+---
+
+
+#### REQ-LIB-040: Promote-Scaffold Verdict Covers delta-spec.md
+`validatePromoteScaffold` takes `hasDeltaSpec` as a required input and FAILs when the promotion scaffold has no `delta-spec.md`. The verdict `/prospec-promote-backfill` calls the complete machine check therefore covers the artifact promotion exists to produce, not only the artifacts it must not produce.
+- WHEN a promotion scaffold has no delta-spec.md, THEN the verdict is FAIL and names the missing file
+- WHEN delta-spec.md is present, THEN the check contributes no finding
+
+---
+
+
+#### REQ-TESTS-072: Lifecycle-Contract and Station-Matrix Coverage
+A contract test pins the light-scale artifact matrix documented in both `_status-lifecycle.md` copies against `SCALE_FORBIDDEN_ARTIFACTS` by set equality in both directions, so a contract stated in the doc but absent from the code (or the reverse) fails the build. Unit tests cover the two stations across every scale, and an integration test drives the quick path end to end.
+- WHEN the documented matrix and the registry disagree in either direction, THEN the contract test fails
+- WHEN a station stops honouring the registry, THEN its station-matrix unit test fails
+- WHEN the quick path runs `story → scale quick → tasks`, THEN the integration test asserts tasks.md exists, plan.md and delta-spec.md do not, and status is `tasks`
 
 ---
 
@@ -896,15 +952,19 @@ new-story Phase 3.5: a criteria table (number of modules touched / spec-covered 
 - WHEN not user-confirmed, THEN scale must not be written (NEVER rule + contract assertion lock)
 
 #### REQ-TEMPLATES-085: Fast-Forward Quick Path
-ff reads `metadata.scale`: quick skips Phase 3 (Plan Generation; no plan.md/delta-spec.md produced, no module README loaded), status story → tasks; standard/full keep the three-phase flow. The lifecycle's two copies (`_status-lifecycle.md` + init template) document the quick transition, with a contract assertion locking their sync.
+ff reads `metadata.scale`: quick skips Phase 3 (Plan Generation; no plan.md/delta-spec.md produced, no module README loaded), status story → tasks; standard/full keep the three-phase flow. The lifecycle's two copies (`_status-lifecycle.md` + init template) document the quick transition AND carry the light-scale artifact matrix, with contract assertions locking their sync with each other and with the code registry.
 - WHEN quick, THEN the Output Contract self-assesses "plan absent per contract", not falsely reporting Unmet
+- WHEN either copy's matrix diverges from `SCALE_FORBIDDEN_ARTIFACTS`, THEN the contract test fails
 
 #### REQ-TEMPLATES-086: Task Kind Marker Schema (Frozen)
 The kind marker syntax is frozen in a single place, the tasks-format reference: `[M]` manual, `[V]` verification, no marker=code, coexisting with `[P]` (`[P]` first). Other template references do not restate it (locked by negative assertion).
 - WHEN a consumer (tasks/verify/archive/implement) needs the definition, THEN reference the tasks-format "Task Kind Markers" section
 
 #### REQ-TEMPLATES-087: Scale-Tiered Plan Depth
-plan has three tiers by scale: quick is rejected at the Entry Gate and directed to tasks (no file produced), standard ≤120 lines (default), full is a complete architecture analysis (not subject to the 120-line cap). The plan-format reference includes three-tier guidance.
+plan has three tiers by scale: quick is rejected and directed to tasks (no file produced), standard ≤120 lines (default), full is a complete architecture analysis (not subject to the 120-line cap). The plan-format reference includes three-tier guidance. The rejection is mechanical rather than skill judgment alone — `prospec change plan` refuses whenever plan.md is forbidden for the change's scale.
+- WHEN `scale: quick`, THEN both the skill Entry Gate and the CLI refuse and direct the user to tasks, writing no plan.md or delta-spec.md
+- WHEN `scale: backfill`, THEN the CLI refuses and directs the user to `/prospec-promote-backfill` — a plan.md would fail that scaffold's own validate gate
+- WHEN the scale is `standard`, `full`, or absent, THEN the station behaves exactly as before
 
 #### REQ-TEMPLATES-088: Verify Kind-Aware Completion and Quick Dimension Reduction
 verify V1's completion-rate denominator includes only code tasks (`[M]`/`[V]` listed separately as reminders); for `scale: quick`, V2 spec-compliance is marked `not-applicable`, not faked as PASS, not counted toward the grade; the Entry Gate for quick requires only proposal + tasks. V1's data source, when the `prospec check --json` report is available, is its `task-completion` check item (same engine, no re-computation); when unavailable, fall back to LLM computation and state so explicitly — the denominator rule and quick dimension reduction are unchanged.
@@ -1253,17 +1313,23 @@ So that station-order derivation is testable deterministic code instead of per-s
 ### Behavior Specifications
 
 #### REQ-TYPES-070: Station-Routing Contract and Canonical Order
-The types layer defines the SDD station order — including the workflow rank of the no-status-transition design/review stations — and the `ChangeRouteFacts`/`ChangeRoute`/`StatusReport` report contract (current node, next station, blocking gates, reasons, per-change error entries). Implemented as `ChangeRoute` + `ChangeRouteError` (the delta-spec's `ChangeRouteEntry` expressiveness, split into routed/error shapes).
-- WHEN the station order is read, THEN `SDD_STATIONS` matches `_status-lifecycle.md`'s `story → plan → tasks → implement → review → verify → archive` (periodic learn excluded from the linear order)
+The types layer defines the SDD station order — including the workflow rank of the no-status-transition design/review stations and the `promote` backfill entry — and the `ChangeRouteFacts`/`ChangeRoute`/`StatusReport` report contract (current node, next station, blocking gates, reasons, per-change error entries). Implemented as `ChangeRoute` + `ChangeRouteError` (the delta-spec's `ChangeRouteEntry` expressiveness, split into routed/error shapes).
+- WHEN the station order is read, THEN `SDD_STATIONS` is `story → plan → design → tasks → promote → implement → review → verify → archive` (periodic learn excluded from the linear order), and a contract test pins it against the `## Station order` chain carried by both `_status-lifecycle.md` copies — the claim of agreement is enforced, not asserted
+- WHEN a station is routed to, THEN `STATION_SKILLS` names the skill that runs it for every station, `promote` → `/prospec-promote-backfill`
+- WHEN `promote`'s rank is read, THEN it sits immediately before `implement` — the status a promotion lands at
 - WHEN a change cannot be routed, THEN the contract expresses it as a named error entry, never a dropped record
 - WHEN the change schema is consulted, THEN `CHANGE_STATUSES`/`CHANGE_SCALES` are unchanged — routing adds no status value
 
 #### REQ-LIB-035: Pure Route Evaluator
-`lib/status-router.ts` exposes the I/O-free `routeChange(facts)` — the executable copy of `_status-lifecycle.md`: six-state order, the `scale: quick` story→tasks legal skip, the `scale: backfill` `implemented` entry (absent plan/tasks are its normal state), the design station insertion (`ui_scope` full/partial between plan and tasks, never under quick), review done-ness via `review_provenance`, verify B/C/D stay reasons, and the archive Knowledge-sync gate declaration.
+`lib/status-router.ts` exposes the I/O-free `routeChange(facts)` — the executable copy of `_status-lifecycle.md`: six-state order, the `scale: quick` story→tasks legal skip, the `scale: backfill` `implemented` entry (absent plan/tasks are its normal state), the design station insertion (`ui_scope` full/partial between plan and tasks, never under a scale with no plan), review done-ness via `review_provenance`, verify B/C/D stay reasons, and the archive Knowledge-sync gate declaration. Which stations a scale skips is read from `SCALE_FORBIDDEN_ARTIFACTS`, not from a scale name re-tested here.
 - WHEN the full status × scale matrix runs, THEN every computed station matches `_status-lifecycle.md` (fixture-pinned; retro-validated 46/46 against the local archive at verification)
 - WHEN `scale: quick` at `story`, THEN next is tasks and plan.md is never gated on; WHEN `scale: backfill` at `implemented`, THEN it is a legal entry, not a skip
 - WHEN `status: implemented` without `review_provenance`, THEN next is review (by workflow order, not status); with it, next is verify
 - WHEN the function runs, THEN it performs no I/O (drift-checker evaluator precedent)
+- WHEN a scale forbids `plan.md` but not `tasks.md`, THEN `story` routes to `tasks` (the quick skip) — derived from the registry, not from the scale's name
+- WHEN a scale forbids both `plan.md` and `tasks.md` and the change has not reached `implemented`, THEN it routes to `promote` with the incomplete promotion as the reason, and its blocking gate names `prospec validate promote-scaffold`
+- WHEN such a change reaches `implemented`, THEN routing resumes at the normal review/verify/archive path, and the completed station it reports is `promote` — never `implement`, a station that scale's contract never let it run
+- WHEN a scale's contract has no plan, THEN the design station is never suggested for it at any status (design hangs off `plan`), keyed on the artifact registry rather than the scale's name
 
 #### REQ-SERVICES-070: Status Service (Scan + Facts + Tolerance)
 `status.service.ts` `execute()` scans non-archived changes in `.prospec/changes/`, reads each metadata through the schema-enforced `lib/change-metadata`, collects routing facts (artifact existence, `lib/task-markers` code-task completion, proposal `ui_scope`, provenance/quality_log), and routes via the pure evaluator. Read-only.
@@ -1330,7 +1396,8 @@ The verify decision table runs as code and the machine ledger self-sources. `ver
 #### REQ-CLI-031: `prospec validate <kind>` Reports Artifact Structure Verdicts
 One command carries the artifact checks the backfill / promote / design skills used to narrate, with the machine/judgment boundary drawn explicitly per kind: `slug` and `promote-scaffold` are **complete** verdicts; `backfill-draft` and `design-spec` report the **structural subset** and the skill applies the semantic rules over those facts. A failing verdict exits 1, like `check --strict`.
 - WHEN `validate slug` runs, THEN the verdict is the executable `isSafeResourceName` guard (no path separators, no `..`, no empty segments)
-- WHEN `validate promote-scaffold` runs, THEN it checks the artifact set (reviewed draft + proposal present, no `plan.md`/`tasks.md`), `scale: backfill`, `status: implemented`, non-empty `related_modules`, and trust-zone cleanliness; a probe that cannot run (git failure, unreadable config) is reported as an explicit "could not verify" finding, never as clean
+- WHEN `validate promote-scaffold` runs, THEN it checks the artifact set — reviewed draft, proposal AND `delta-spec.md` present (promotion's own product), and none of the artifacts `SCALE_FORBIDDEN_ARTIFACTS` forbids under `scale: backfill` — plus `scale: backfill`, `status: implemented`, non-empty `related_modules`, and trust-zone cleanliness; a probe that cannot run (git failure, unreadable config) is reported as an explicit "could not verify" finding, never as clean
+- WHEN the registry gains a forbidden artifact this verdict cannot probe, THEN it reports that gap as a FAIL rather than passing silently
 - WHEN `validate backfill-draft` runs, THEN it reports route-header presence (`**Feature:**` / `**Story:**`), every `[NEEDS CLARIFICATION]` marker with its line, and the feature-map coverage gap as INFO — the >50% ratio classification (story-level denominator, heuristic-WHY exemption) is stated to be the skill's
 - WHEN `validate design-spec` runs, THEN a missing required section or a remaining `[NEEDS CLARIFICATION]` FAILs, and component coverage is out of scope — extracting the component list from proposal prose is judgment
 
@@ -1380,6 +1447,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-02 | mechanize-light-scale-gates | ADDED REQ-TYPES-074; ADDED REQ-SERVICES-076; ADDED REQ-LIB-040; ADDED REQ-TESTS-072; MODIFIED REQ-CHNG-011; MODIFIED REQ-TEMPLATES-087; MODIFIED REQ-CLI-031; MODIFIED REQ-TYPES-070; MODIFIED REQ-LIB-035; MODIFIED REQ-TEMPLATES-085 | REQ-TYPES-074, REQ-SERVICES-076, REQ-LIB-040, REQ-TESTS-072, REQ-CHNG-011, REQ-TEMPLATES-087, REQ-CLI-031, REQ-TYPES-070, REQ-LIB-035, REQ-TEMPLATES-085 |
 | 2026-08-02 | enforce-counts-in-ci | ADDED REQ-TESTS-070; MODIFIED REQ-TESTS-059 | REQ-TESTS-070, REQ-TESTS-059 |
 | 2026-08-02 | restrict-identity-fallback | MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-067 | REQ-CLI-028, REQ-TEMPLATES-066, REQ-TEMPLATES-067 |
 | 2026-07-31 | name-change-history-rows | ADDED REQ-SERVICES-075; ADDED REQ-TESTS-069 | REQ-SERVICES-075, REQ-TESTS-069 |
