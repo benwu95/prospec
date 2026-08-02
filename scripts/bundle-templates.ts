@@ -2,11 +2,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { BUNDLED_TEMPLATES_SOURCE } from '../src/lib/generated-artifacts.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Shared with the staleness exclusion, so neither side can move alone. */
+export const OUTPUT_FILE = path.resolve(__dirname, '..', BUNDLED_TEMPLATES_SOURCE);
 
 export function bundleTemplates() {
   const templatesDir = path.resolve(__dirname, '../src/templates');
-  const outputFile = path.resolve(__dirname, '../src/lib/bundled-templates.ts');
 
   function scanDirectory(dir: string, baseDir: string): Record<string, string> {
     const results: Record<string, string> = {};
@@ -31,8 +35,8 @@ export function bundleTemplates() {
 export const BUNDLED_TEMPLATES: Record<string, string> = ${JSON.stringify(templates, null, 2)};
 `;
 
-  fs.writeFileSync(outputFile, codeContent, 'utf-8');
-  console.log(`Successfully bundled ${Object.keys(templates).length} templates into ${outputFile}`);
+  fs.writeFileSync(OUTPUT_FILE, codeContent, 'utf-8');
+  console.log(`Successfully bundled ${Object.keys(templates).length} templates into ${OUTPUT_FILE}`);
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

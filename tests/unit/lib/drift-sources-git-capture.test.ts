@@ -3,7 +3,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
-import { computeChangeDigest } from '../../../src/lib/drift-sources.js';
+import { collectGitTimestamps, computeChangeDigest } from '../../../src/lib/drift-sources.js';
+import type { ModuleMap } from '../../../src/types/module-map.js';
 
 // Real git per test — the house timeout for git-bound suites (the 5s default is
 // this repo's proven flake vector under full-suite concurrency).
@@ -20,7 +21,7 @@ vi.setConfig({ testTimeout: 30_000 });
  * pattern the diff branch was fixed for.
  */
 
-const state = vi.hoisted(() => ({ failLsFiles: false }));
+const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -29,6 +30,13 @@ vi.mock('node:child_process', async (importOriginal) => {
     execFileSync: ((file: string, args: readonly string[], opts: unknown) => {
       if (state.failLsFiles && Array.isArray(args) && args.includes('ls-files')) {
         throw new Error('simulated ls-files capture failure');
+      }
+      if (
+        state.failExcludePathspec &&
+        Array.isArray(args) &&
+        args.some((a) => typeof a === 'string' && a.startsWith(':(exclude)'))
+      ) {
+        throw new Error('simulated pathspec-magic failure');
       }
       return (actual.execFileSync as (...a: unknown[]) => unknown)(file, args, opts);
     }) as typeof import('node:child_process').execFileSync,
@@ -65,5 +73,31 @@ describe('computeChangeDigest under selective git-capture failure', () => {
   it('fails closed (null) when the untracked listing cannot be captured', () => {
     state.failLsFiles = true;
     expect(computeChangeDigest(tmpDir)).toBeNull();
+  });
+
+  /**
+   * REQ-LIB-015 — the generated-artifact exclusion degrades to the UNEXCLUDED
+   * answer, never to null.
+   *
+   * `isStale` reads a null source commit as "not stale", so folding a pathspec
+   * failure into null would silence the staleness check for every module at
+   * once — the fail-open shape PB-013 exists to forbid. `:(exclude)` is the only
+   * pathspec magic here, so a git that cannot parse it must still get the
+   * noisier-but-true pre-exclusion timestamp.
+   */
+  describe('generated-artifact exclusion under a pathspec-magic failure', () => {
+    const MAP: ModuleMap = {
+      modules: [
+        { name: 'lib', paths: ['src/lib'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+
+    it('falls back to the unexcluded timestamp instead of reporting no source commit', () => {
+      state.failExcludePathspec = true;
+      const r = collectGitTimestamps(tmpDir, MAP, 'knowledge');
+
+      expect(r.available).toBe(true);
+      expect(r.modules[0]?.last_src_commit).toBeTruthy();
+    });
   });
 });

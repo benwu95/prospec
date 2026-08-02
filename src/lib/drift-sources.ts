@@ -5,6 +5,7 @@ import path from 'node:path';
 import { scanDirSync, classifyModulePath } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { GENERATED_SOURCE_ARTIFACTS } from './generated-artifacts.js';
 import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
@@ -498,7 +499,11 @@ export function collectGitTimestamps(
       name: entry.name,
       readme_path: readmeRel.replace(/\\/g, '/'),
       readme_exists: readmeExists,
-      last_src_commit: gitLastCommit(cwd, entry.paths),
+      // Generated artifacts carry code but no knowledge a README could
+      // describe, so regenerating one must not make the module stale — the
+      // resulting WARN has no honest fix. Scoped to THIS judgment: the same
+      // file stays inside computeChangeDigest (REQ-LIB-015 / REQ-LIB-039).
+      last_src_commit: gitLastCommit(cwd, entry.paths, GENERATED_SOURCE_ARTIFACTS),
       last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
       last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
     });
@@ -948,8 +953,23 @@ function gitCapture(cwd: string, args: string[]): string | null {
   }
 }
 
-function gitLastCommit(cwd: string, paths: string[]): string | null {
-  const out = gitCapture(cwd, ['log', '-1', '--format=%cI', '--', ...paths]);
+/** Last commit touching `paths`, ignoring `excludes` (repo-relative, posix).
+ *
+ *  A pathspec the local git cannot parse fails the capture — and folding THAT
+ *  into null would report "no source commit", which the staleness rule reads as
+ *  fresh (PB-013: a swallowed error must not turn a fact into a constant). Fall
+ *  back to the unexcluded query: noisier than intended, but true. */
+function gitLastCommit(
+  cwd: string,
+  paths: string[],
+  excludes: readonly string[] = [],
+): string | null {
+  const args = ['log', '-1', '--format=%cI', '--', ...paths];
+  if (excludes.length > 0) {
+    const excluded = gitCapture(cwd, [...args, ...excludes.map((p) => `:(exclude)${p}`)]);
+    if (excluded !== null) return excluded.trim() || null;
+  }
+  const out = gitCapture(cwd, args);
   return out === null ? null : out.trim() || null;
 }
 

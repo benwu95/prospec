@@ -24,6 +24,8 @@ import {
   computeChangeDigest,
   moduleAttributor,
 } from '../../../src/lib/drift-sources.js';
+import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
+import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
 import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
@@ -637,6 +639,76 @@ describe('collectGitTimestamps', () => {
     expect(r.modules.find((m) => m.name === 'types')?.last_sub_module_commit).toBeNull();
   });
 
+  // A module path holds authored source AND build output. Only the former is
+  // knowledge a README could describe, so only the former may move
+  // `last_src_commit` (REQ-LIB-015). The same file still counts for
+  // `computeChangeDigest` — see the digest suite below for that boundary.
+  const LIB_MAP: ModuleMap = {
+    modules: [{ name: 'lib', paths: ['src/lib'], keywords: [], relationships: { depends_on: [] } }],
+  };
+
+  const commitAt = (date: string, files: Record<string, string>) => {
+    for (const [rel, content] of Object.entries(files)) write(rel, content);
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-q', '-m', date], {
+      cwd: tmpDir,
+      stdio: 'pipe',
+      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+  };
+
+  /** authored src @06-10, README @06-11 — the caller adds the commits under test. */
+  const stagedLibRepo = () => {
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe' });
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    commitAt('2026-06-10T00:00:00+00:00', { 'src/lib/authored.ts': 'export const a = 1;\n' });
+    commitAt('2026-06-11T00:00:00+00:00', { 'knowledge/modules/lib/README.md': '# lib\n' });
+  };
+
+  const libHealth = () =>
+    evaluateKnowledgeHealth(collectGitTimestamps(tmpDir, LIB_MAP, 'knowledge')).knowledgeHealth
+      ?.modules[0];
+
+  it('does not move last_src_commit for a commit that only regenerates a generated artifact (REQ-LIB-015)', () => {
+    stagedLibRepo();
+    commitAt('2026-06-12T00:00:00+00:00', {
+      [BUNDLED_TEMPLATES_SOURCE]: 'export const BUNDLED_TEMPLATES = {};\n',
+    });
+
+    expect(libHealth()?.last_src_commit).toContain('2026-06-10');
+    // The whole point: no README edit could honestly clear this WARN, so it must
+    // never be raised — `pnpm bundle` regenerates the file on every `.hbs` change.
+    expect(libHealth()?.stale).toBe(false);
+  });
+
+  it('still reports stale when authored source moves after the generated artifact (REQ-LIB-015)', () => {
+    stagedLibRepo();
+    commitAt('2026-06-12T00:00:00+00:00', {
+      [BUNDLED_TEMPLATES_SOURCE]: 'export const BUNDLED_TEMPLATES = {};\n',
+    });
+    commitAt('2026-06-13T00:00:00+00:00', { 'src/lib/authored.ts': 'export const a = 2;\n' });
+
+    // The exclusion buys silence for build output only — widening it to the
+    // module directory would turn every real knowledge gap into a fake green.
+    expect(libHealth()?.last_src_commit).toContain('2026-06-13');
+    expect(libHealth()?.stale).toBe(true);
+  });
+
+  it('counts a commit that touches a generated artifact AND authored source (REQ-LIB-015)', () => {
+    stagedLibRepo();
+    commitAt('2026-06-12T00:00:00+00:00', {
+      [BUNDLED_TEMPLATES_SOURCE]: 'export const BUNDLED_TEMPLATES = {};\n',
+      'src/lib/authored.ts': 'export const a = 3;\n',
+    });
+
+    // Pathspec exclusion filters FILES, not commits — the usual shape of a
+    // `.hbs` change is exactly this mixed commit.
+    expect(libHealth()?.last_src_commit).toContain('2026-06-12');
+    expect(libHealth()?.stale).toBe(true);
+  });
+
   it('degrades a shallow clone to unavailable instead of fabricating staleness (REQ-LIB-015)', () => {
     const git = (cwd: string, ...args: string[]) =>
       execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf-8' });
@@ -750,6 +822,20 @@ describe('computeChangeDigest', () => {
       expect(computeChangeDigest(tmpDir)).toBe(d0);
     },
   );
+
+  it('flips when the generated bundle changes — the digest scope is NOT the staleness scope', () => {
+    initRepo();
+    write(BUNDLED_TEMPLATES_SOURCE, 'export const BUNDLED_TEMPLATES = {};\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'add bundle');
+    const d0 = computeChangeDigest(tmpDir);
+    write(BUNDLED_TEMPLATES_SOURCE, 'export const BUNDLED_TEMPLATES = { a: "1" };\n');
+    // The SAME file is excluded from `last_src_commit` (collectGitTimestamps
+    // above) because it carries no knowledge a README could describe — but it is
+    // shipped code, so editing it must keep invalidating review/test provenance.
+    // The two judgments are deliberately different scopes; this pins that apart.
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
 
   it('returns null (honest skip) rather than a constant when the diff cannot be captured', () => {
     initRepo();
