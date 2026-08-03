@@ -84,6 +84,41 @@ describe('change-progress service', () => {
     await expect(execute({ cwd: CWD, complete: 'T99' })).rejects.toThrow(PrerequisiteError);
     vol.reset();
     vol.fromJSON({ '/repo/.prospec/changes/add-widget/metadata.yaml': 'name: add-widget\n' });
+    await expect(execute({ cwd: CWD })).rejects.toThrow(PrerequisiteError);
     await expect(execute({ cwd: CWD })).rejects.toThrow(/tasks\.md not found/);
+    await expect(execute({ cwd: CWD })).rejects.toMatchObject({
+      suggestion: expect.stringContaining('prospec change tasks'),
+    });
+  });
+
+  // REQ-SERVICES-076: the suggestion must not send a scale with no task list to a
+  // station that refuses it.
+  it('does not point a backfill change at the tasks station', async () => {
+    vol.fromJSON({
+      '/repo/.prospec/changes/add-widget/metadata.yaml': `name: add-widget
+created_at: "2026-01-01T00:00:00.000Z"
+status: implemented
+related_modules: []
+description: backfill
+scale: backfill
+`,
+    });
+
+    await expect(execute({ cwd: CWD })).rejects.toThrow(PrerequisiteError);
+    await expect(execute({ cwd: CWD })).rejects.toMatchObject({
+      suggestion: expect.stringContaining('no task list by contract'),
+    });
+    // Negative: the station that would refuse this scale must NOT be suggested.
+    await expect(execute({ cwd: CWD })).rejects.not.toMatchObject({
+      suggestion: expect.stringContaining('prospec change tasks'),
+    });
+  });
+
+  it('keeps the default guidance when metadata.yaml is unreadable', async () => {
+    vol.fromJSON({ '/repo/.prospec/changes/add-widget/metadata.yaml': 'status: [not-a-status\n' });
+
+    await expect(execute({ cwd: CWD })).rejects.toMatchObject({
+      suggestion: expect.stringContaining('prospec change tasks'),
+    });
   });
 });

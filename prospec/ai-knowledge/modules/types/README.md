@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, GATE/DIMENSION_RESULTS, VERIFY_GRADES |
+| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` (the lifecycle doc's artifact matrix, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (path sets plus BOTH exception directions — `namedExceptions` / `englishExceptions`) |
 | `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (14 frozen), Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
@@ -19,11 +19,11 @@
 | `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents, each declaring `HarnessCapabilities`), `intersectCapabilities` |
 | `station.ts` | Station I/O contracts — `ReviewFindingSchema`, `VERIFY_DIMENSIONS` (+ machine/judgment split), `LessonInputSchema`, `VALIDATE_KINDS` |
 
-Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` order incl. the no-status design/review stations, `STATION_SKILLS`, `ChangeRoute*`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`, the skills' CLI probe floor).
+Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` order incl. the no-status design station and the `promote` backfill entry, `STATION_SKILLS`, `ChangeRoute*`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`, the skills' CLI probe floor).
 
 ## Public API
 
-- `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views
+- `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` / `forbiddenArtifacts` — metadata read (loose) + build (strict) views; lifecycle order and per-scale artifact contract
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `intersectCapabilities` — 17 skills + 4 agents (typed `Record<ValidAgent, ...>`); harness capability flags + their conservative AND
 - `DriftReportSchema` / `DRIFT_CHECK_IDS` — drift report schema + 14 frozen check ids
@@ -43,6 +43,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 2. **Add an error class** — extend `ProspecError` with `code` (UPPER_SNAKE) + `suggestion`.
 3. **Add a skill** — append to `SKILL_DEFINITIONS`, then bump the count in `skill-format.test.ts`.
 4. **Add a drift check id** — append to `DRIFT_CHECK_IDS` (frozen, additive) → wire it in drift services.
+   **Add a scale** — `CHANGE_SCALES` + its `SCALE_FORBIDDEN_ARTIFACTS` row (`satisfies` forces it) + the lifecycle doc's matrix (both copies).
 5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces a matching entry, `capabilities` included (survey the vendor docs and record the source inline).
 6. **Add a verify dimension** — extend `VERIFY_DIMENSIONS` (`station.ts`) with its `adjudicator`; `MACHINE_/JUDGMENT_DIMENSION_NAMES` derive from it, so never hand-list either set.
 

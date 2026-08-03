@@ -54,7 +54,9 @@ describe('validate slug', () => {
 });
 
 describe('validate promote-scaffold', () => {
-  function seedScaffold(over: { plan?: boolean; metadata?: string } = {}): void {
+  function seedScaffold(
+    over: { plan?: boolean; deltaSpec?: boolean; metadata?: string } = {},
+  ): void {
     const files: Record<string, string> = {
       [`${CHANGE_DIR}/backfill-draft.md`]: '**Feature:** widget\n**Story:** US-1\n',
       [`${CHANGE_DIR}/proposal.md`]: '# p\n',
@@ -69,6 +71,7 @@ related_modules:
 `,
     };
     if (over.plan) files[`${CHANGE_DIR}/plan.md`] = '# plan\n';
+    if (over.deltaSpec !== false) files[`${CHANGE_DIR}/delta-spec.md`] = '# delta\n';
     vol.fromJSON(files);
   }
 
@@ -77,6 +80,15 @@ related_modules:
     const result = await execute({ kind: 'promote-scaffold', change: 'promote-widget', cwd: CWD });
     expect(result.ok).toBe(true);
     expect(result.findings).toEqual([]);
+  });
+
+  // REQ-LIB-040: the service must probe delta-spec.md, not just pass the
+  // forbidden-artifact flags through.
+  it('fails when delta-spec.md is missing (promotion produced nothing)', async () => {
+    seedScaffold({ deltaSpec: false });
+    const result = await execute({ kind: 'promote-scaffold', change: 'promote-widget', cwd: CWD });
+    expect(result.ok).toBe(false);
+    expect(result.findings.map((f) => f.message).join(' ')).toContain('delta-spec.md');
   });
 
   it('fails when plan.md exists (no hollow planning artifacts)', async () => {

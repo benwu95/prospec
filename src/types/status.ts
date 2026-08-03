@@ -15,12 +15,19 @@ import type { ChangeScale, ChangeStatus, VerifyGrade } from './change.js';
  * design, review (and the periodic learn, which is not a linear station) own
  * no `status` transition, so resume logic places them by this order — never
  * by `status` alone.
+ *
+ * `promote` is the backfill lifecycle ENTRY (`/prospec-promote-backfill`), not a
+ * step every change walks: a scale whose contract has neither a plan nor a task
+ * list has no forward planning station, so its only route until it reaches
+ * `implemented` is finishing its promotion. It sits immediately before
+ * `implement` because that is the status the promotion lands at.
  */
 export const SDD_STATIONS = [
   'story',
   'plan',
   'design',
   'tasks',
+  'promote',
   'implement',
   'review',
   'verify',
@@ -35,6 +42,7 @@ export const STATION_SKILLS: Record<SddStation, string> = {
   plan: '/prospec-plan',
   design: '/prospec-design',
   tasks: '/prospec-tasks',
+  promote: '/prospec-promote-backfill',
   implement: '/prospec-implement',
   review: '/prospec-review',
   verify: '/prospec-verify',

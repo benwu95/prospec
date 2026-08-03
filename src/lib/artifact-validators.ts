@@ -1,3 +1,4 @@
+import { forbiddenArtifacts } from '../types/change.js';
 import { isSafeResourceName } from './knowledge-reader.js';
 
 /**
@@ -107,6 +108,8 @@ export interface PromoteScaffoldInputs {
   slug: string;
   hasBackfillDraft: boolean;
   hasProposal: boolean;
+  /** Promotion's own product — required, so a caller cannot forget to probe it. */
+  hasDeltaSpec: boolean;
   hasPlan: boolean;
   hasTasks: boolean;
   /** Parsed metadata fields (undefined when metadata.yaml is missing/unreadable). */
@@ -125,11 +128,30 @@ export function validatePromoteScaffold(inputs: PromoteScaffoldInputs): Validati
   if (!inputs.hasProposal) {
     findings.push({ level: 'FAIL', message: 'proposal.md is missing' });
   }
-  if (inputs.hasPlan) {
-    findings.push({ level: 'FAIL', message: 'plan.md must not exist — backfill is a light scale with no hollow plan' });
+  if (!inputs.hasDeltaSpec) {
+    findings.push({
+      level: 'FAIL',
+      message: 'delta-spec.md is missing — it is what promotion produces, not an optional extra',
+    });
   }
-  if (inputs.hasTasks) {
-    findings.push({ level: 'FAIL', message: 'tasks.md must not exist — backfill is a light scale with no task list' });
+  // The forbidden set comes from the SAME registry the plan/tasks stations refuse
+  // from — not a second hand-written copy a registry edit would leave stale.
+  const artifactPresence: Record<string, boolean | undefined> = {
+    'plan.md': inputs.hasPlan,
+    'tasks.md': inputs.hasTasks,
+  };
+  for (const artifact of forbiddenArtifacts('backfill')) {
+    if (artifactPresence[artifact] === undefined) {
+      findings.push({
+        level: 'FAIL',
+        message: `${artifact} is forbidden under \`scale: backfill\` but this verdict cannot probe it — the registry gained an artifact the validator does not check`,
+      });
+    } else if (artifactPresence[artifact]) {
+      findings.push({
+        level: 'FAIL',
+        message: `${artifact} must not exist — backfill is a light scale that records existing code`,
+      });
+    }
   }
   if (inputs.metadata === undefined) {
     findings.push({ level: 'FAIL', message: 'metadata.yaml is missing or unreadable' });

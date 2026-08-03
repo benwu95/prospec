@@ -5,8 +5,11 @@ import { readConfig } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
-import { isStatusBefore } from '../types/change.js';
+import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
+
+/** What this station writes — the set the scale contract is checked against. */
+const PLAN_STATION_PRODUCTS = ['plan.md', 'delta-spec.md'] as const;
 
 export interface ChangePlanOptions {
   change?: string;
@@ -27,9 +30,10 @@ export interface ChangePlanResult {
  * Execute the change plan workflow:
  *
  * 1. Resolve which change to work on (auto-detect / prompt / --change)
- * 2. Read proposal.md to validate prerequisite
- * 3. Render plan.md and delta-spec.md templates
- * 4. Update metadata.yaml status to 'plan'
+ * 2. Read metadata and refuse the scales whose contract forbids a plan
+ * 3. Read proposal.md to validate prerequisite
+ * 4. Render plan.md and delta-spec.md templates
+ * 5. Update metadata.yaml status to 'plan'
  */
 export async function execute(options: ChangePlanOptions): Promise<ChangePlanResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -47,7 +51,35 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
 
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
 
-  // 3. Validate proposal.md exists (prerequisite for plan)
+  // 3. Read metadata ONCE — validated at the boundary, and the Document keeps
+  // comments/field order intact for the status write below. It comes first
+  // because the scale it carries decides whether this station applies at all.
+  const metadataPath = path.join(changeDir, 'metadata.yaml');
+  const meta = fs.existsSync(metadataPath)
+    ? readChangeMetadata(metadataPath, changeName)
+    : null;
+  const relatedModules = meta?.metadata.related_modules ?? [];
+  const scale = meta?.metadata.scale;
+
+  // 3a. A scale whose contract forbids either of THIS station's products closes
+  // it: producing them would be the hollow artifact the light scales exist to
+  // avoid. Keyed on the station's own outputs, not on a scale name, so a future
+  // registry row is honoured without editing this branch. `--force` overwrites a
+  // file, it does not override the contract.
+  const forbidden = forbiddenArtifacts(scale);
+  const blockedProducts = PLAN_STATION_PRODUCTS.filter((a) => forbidden.includes(a));
+  if (blockedProducts.length > 0) {
+    throw new PrerequisiteError(
+      `${blockedProducts.join('/')} must not exist under \`scale: ${scale}\` — this station does not apply to it`,
+      // A scale with no task list either has no forward planning station at all;
+      // sending it to `change tasks` would just bounce off that station's gate.
+      forbidden.includes('tasks.md')
+        ? 'Formalize the reviewed draft with `/prospec-promote-backfill`; a plan.md would fail `prospec validate promote-scaffold`'
+        : 'Run `prospec change tasks` — a quick change decomposes straight from proposal.md (`story → tasks`)',
+    );
+  }
+
+  // 3b. Validate proposal.md exists (prerequisite for plan)
   const proposalPath = path.join(changeDir, 'proposal.md');
   if (!fs.existsSync(proposalPath)) {
     throw new PrerequisiteError(
@@ -56,7 +88,7 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
     );
   }
 
-  // 3b. Refuse to clobber existing plan artifacts (which may carry hand/AI edits)
+  // 3c. Refuse to clobber existing plan artifacts (which may carry hand/AI edits)
   // unless --force. Re-running the scaffold otherwise silently overwrites them.
   const planPath = path.join(changeDir, 'plan.md');
   const deltaSpecPath = path.join(changeDir, 'delta-spec.md');
@@ -66,14 +98,6 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
       'Re-run with --force to regenerate and overwrite the existing plan',
     );
   }
-
-  // 4. Read metadata ONCE — validated at the boundary, and the Document keeps
-  // comments/field order intact for the status write below.
-  const metadataPath = path.join(changeDir, 'metadata.yaml');
-  const meta = fs.existsSync(metadataPath)
-    ? readChangeMetadata(metadataPath, changeName)
-    : null;
-  const relatedModules = meta?.metadata.related_modules ?? [];
 
   // 5. Build template context
   const templateContext = {

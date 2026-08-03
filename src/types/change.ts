@@ -181,6 +181,33 @@ export function isStatusBefore(
   return currentIndex < CHANGE_STATUSES.indexOf(target);
 }
 export type ChangeScale = (typeof CHANGE_SCALES)[number];
+
+/**
+ * Which change artifacts each scale's contract forbids — the executable copy of
+ * the Light-scale artifact matrix in `prospec/ai-knowledge/_status-lifecycle.md`
+ * (a contract test pins the two together in both directions).
+ *
+ * `satisfies Record<ChangeScale, ...>` is load-bearing: a new `CHANGE_SCALES`
+ * value must declare its row rather than silently defaulting to "forbids
+ * nothing", which is how the quick path shipped with no station honouring it.
+ */
+export const SCALE_FORBIDDEN_ARTIFACTS = {
+  quick: ['plan.md', 'delta-spec.md'],
+  standard: [],
+  full: [],
+  backfill: ['plan.md', 'tasks.md'],
+} as const satisfies Record<ChangeScale, readonly string[]>;
+
+/** Forbidden artifacts for a change's scale; an absent or unknown scale reads as
+ *  `standard`. `hasOwn` — not `??` — because an inherited key (`constructor`,
+ *  `toString`) resolves truthy and would hand a caller a function to `.includes`. */
+export function forbiddenArtifacts(scale: string | undefined): readonly string[] {
+  if (scale !== undefined && Object.hasOwn(SCALE_FORBIDDEN_ARTIFACTS, scale)) {
+    return SCALE_FORBIDDEN_ARTIFACTS[scale as ChangeScale];
+  }
+  return SCALE_FORBIDDEN_ARTIFACTS.standard;
+}
+
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
 /** The shape a station constructs from scratch — see NewQualityLogEntrySchema. */
 export type NewQualityLogEntry = z.infer<typeof NewQualityLogEntrySchema>;

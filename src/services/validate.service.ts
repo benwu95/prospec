@@ -82,6 +82,7 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
       slug: changeName,
       hasBackfillDraft: fs.existsSync(path.join(changeDir, 'backfill-draft.md')),
       hasProposal: fs.existsSync(path.join(changeDir, 'proposal.md')),
+      hasDeltaSpec: fs.existsSync(path.join(changeDir, 'delta-spec.md')),
       hasPlan: fs.existsSync(path.join(changeDir, 'plan.md')),
       hasTasks: fs.existsSync(path.join(changeDir, 'tasks.md')),
       metadata,

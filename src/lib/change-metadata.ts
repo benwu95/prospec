@@ -63,6 +63,25 @@ export function readChangeMetadata(
 }
 
 /**
+ * The change's `scale` for SUGGESTION-shaped callers only: an absent, unreadable
+ * or invalid record degrades to `undefined` (scale unknown) instead of throwing.
+ * A gate must never use this — a gate reads through `readChangeMetadata` so a
+ * malformed record is loud. Single-sourced because two stations need the same
+ * degradation and a hand-copied try/catch is how they drift (PB-006).
+ */
+export function readScaleQuietly(
+  metadataPath: string,
+  changeName: string,
+): string | undefined {
+  if (!fs.existsSync(metadataPath)) return undefined;
+  try {
+    return readChangeMetadata(metadataPath, changeName).metadata.scale;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Validate a mutated `Document` and write it back, preserving comments and any
  * fields outside the schema. Validation runs before the write, so a rejected
  * document never reaches disk.

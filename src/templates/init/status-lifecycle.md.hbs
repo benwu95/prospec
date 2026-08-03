@@ -25,13 +25,32 @@ story → plan → tasks → implemented → verified → archived
 | `implemented` | `verified` | `/prospec-verify` | grade **S or A** (no FAIL, ≤ 2 WARN); its machine dimensions (task completion, Knowledge, tests) are adjudicated by `prospec check`, not by the agent |
 | `verified` | `archived` | `/prospec-archive` | only `verified` is archivable **and** affected-module Knowledge is synced (at the verify S/A commit prompt; archive Entry Gate re-confirms as backstop) |
 
+## Station order
+
+The stations `prospec status` routes between, in canonical order. Wider than the six statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`. `SDD_STATIONS` in `types/status.ts` is the **executable copy**, pinned against this line by a contract test.
+
+`story → plan → design → tasks → promote → implement → review → verify → archive`
+
+(The periodic `/prospec-learn` is not a linear station and is absent from this order.)
+
+## Light-scale artifact matrix
+
+Which artifacts each scale's contract forbids. `SCALE_FORBIDDEN_ARTIFACTS` in `types/change.ts` is the **executable copy**: `prospec change plan` / `prospec change tasks` refuse from it before writing anything, and a contract test pins this table against it in both directions — so the table and the registry cannot disagree. That a station actually honours a given row is proven by that station's own tests, not by this table.
+
+| Scale | Forbidden artifacts | Why |
+|-------|---------------------|-----|
+| `quick` | `plan.md`, `delta-spec.md` | plan is skipped by contract; impact is re-checked at the archive Entry Gate |
+| `standard` | — | the full forward path applies |
+| `full` | — | the full forward path applies |
+| `backfill` | `plan.md`, `tasks.md` | records existing code — nothing to plan, no work to schedule |
+
 ## Gates (why some transitions are conditional)
 
 - **`/prospec-ff`** fast-forwards `story → plan → tasks` in one pass (`scale: quick`: `story → tasks`, plan skipped) — it is planning-only and stops at `tasks`.
 - **`/prospec-implement`** sets `implemented` only when every `tasks.md` **code-task** checkbox is done (unchecked `[M]`/`[V]` tasks are reminders, not blockers) — this distinguishes "implemented, awaiting verify" from "tasks planned".
 - **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged (stays `implemented`); fix the WARN/FAIL items and re-run. Its machine dimensions are adjudicated by `prospec check` (verdicts adopted verbatim), its judgment dimensions in fresh context; an unavailable engine yields `not-adjudicated` (S unreachable, A attainable). Division of labour: verify's Key Difference section.
 - **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change — then archive sets `archived`.
-- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into a light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists). Under `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map.
+- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into a light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists). Under `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map. A backfill change that has **not yet reached `implemented`** has an unfinished promotion: `prospec status` routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks — both refuse that scale.
 
 ## Stations without a status transition
 

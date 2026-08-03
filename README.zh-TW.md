@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3017%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3073%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -521,9 +521,9 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | 命令 | 說明 |
 |------|------|
 | `prospec change story <name> [--description <d>] [--related-module <m>...] [--introduced-by <c>]` | 建立變更需求（骨架＋metadata.yaml；明確指定模組覆蓋關鍵字自動比對） |
-| `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec |
-| `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md |
-| `prospec status` | **唯讀**的決定論 SDD 路由 —— 回報每個進行中變更的 current node、建議下一站、blocking gates 與理由。即 `_status-lifecycle.md` 的可執行版本（含 quick 的 story→tasks 跳站、backfill 的 `implemented` 入口、以及無狀態轉換的 design/review 站）；metadata 格式錯誤會逐變更回報，絕不中斷 |
+| `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec；契約禁止 plan 的 scale 則直接拒絕（`quick` → 改跑 `change tasks`；`backfill` → `/prospec-promote-backfill`）|
+| `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md。plan.md 前置條件依 scale 成立 —— `quick` 直接由 proposal.md 拆解（`story → tasks`），`backfill` 一律拒絕（沒有任務清單）|
+| `prospec status` | **唯讀**的決定論 SDD 路由 —— 回報每個進行中變更的 current node、建議下一站、blocking gates 與理由。即 `_status-lifecycle.md` 的可執行版本（含 quick 的 story→tasks 跳站、backfill 的 `implemented` 入口 —— 未抵達前路由到 `promote` 站、以及無狀態轉換的 design/review 站）；metadata 格式錯誤會逐變更回報，絕不中斷 |
 | `prospec archive <name...> [--dry-run]` | 對 **verified** 變更執行決定論封存 mutation：搬移至 `.prospec/archive/{date}-{name}/`、產生 summary scaffold、執行機械式 Feature Spec sync、寫入 `status: archived`，並重建 `product.md` + `feature-map.yaml`（no-clobber／non-fatal 語義不變）。`--dry-run` 列出全部預定 mutation 而不寫入；具名目標不可封存時回報 `refused`/`not found`（exit 1），絕不靜默略過。spec sync 永不清空既有 REQ body——只有 delta-spec 的 `**Spec:**` 區塊會取代它——並在 stderr 列出**兩份**工作清單（`--quiet` 下仍可見，且不影響 exit code）：被刻意保留 body 的 REQ（待人工收斂），以及 body 被 `**Spec:**` 區塊取代的 REQ 及該區塊漏掉的既有 `WHEN/THEN` bullet——因為取代 body 會靜默丟掉新 body 沒有重述的部分。由 `/prospec-archive` 驅動，skill 保留判斷面工作（Entry Gate、Review & Verify summary、REQ 語意畢業） |
 | `prospec archive finalize <name> [--dry-run]` | 封存的**後置**步驟（在 summary 覆寫＋REQ 畢業之後執行）：把最終 summary.md 複製到 `specs/_archived-history/`（入版控的稽核軌跡），並依最終文本對帳每份 feature spec 的 frontmatter `story_count`/`req_count`；summary.md 仍是 scaffold 樣板時拒絕執行 |
 
@@ -756,7 +756,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3017 個測試）
+# 執行所有測試（3073 個測試）
 pnpm test
 
 # Watch 模式
@@ -769,10 +769,10 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3017 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2149 tests
-- Contract tests（CLI 輸出 + Skill 格式）：759 tests
-- Integration tests：43 tests
+**測試覆蓋率**：3073 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2198 tests
+- Contract tests（CLI 輸出 + Skill 格式）：764 tests
+- Integration tests：45 tests
 - E2E tests：66 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。

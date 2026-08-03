@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   CHANGE_SCALES,
   ChangeMetadataSchema,
+  SCALE_FORBIDDEN_ARTIFACTS,
   VERIFY_GRADES,
   NewQualityLogEntrySchema,
   QualityLogEntrySchema,
+  forbiddenArtifacts,
 } from '../../../src/types/change.js';
 import type {
   ChangeMetadata,
@@ -89,6 +91,46 @@ describe('ChangeMetadataSchema scale (REQ-TYPES-026)', () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.scale).toBeUndefined();
   });
+});
+
+describe('SCALE_FORBIDDEN_ARTIFACTS (REQ-TYPES-074)', () => {
+  it('covers every scale — a new CHANGE_SCALES value cannot default to forbidding nothing', () => {
+    expect(Object.keys(SCALE_FORBIDDEN_ARTIFACTS).sort()).toEqual([...CHANGE_SCALES].sort());
+  });
+
+  it('forbids the plan artifacts under quick', () => {
+    expect([...forbiddenArtifacts('quick')].sort()).toEqual(['delta-spec.md', 'plan.md']);
+  });
+
+  it('forbids plan.md and tasks.md under backfill', () => {
+    expect([...forbiddenArtifacts('backfill')].sort()).toEqual(['plan.md', 'tasks.md']);
+  });
+
+  it('forbids nothing under standard or full', () => {
+    expect(forbiddenArtifacts('standard')).toEqual([]);
+    expect(forbiddenArtifacts('full')).toEqual([]);
+  });
+
+  it('reads an absent scale as standard', () => {
+    expect(forbiddenArtifacts(undefined)).toEqual([]);
+  });
+
+  it('reads an unknown scale as standard', () => {
+    expect(forbiddenArtifacts('medium')).toEqual([]);
+  });
+
+  // An inherited key resolves truthy on a plain object literal, so a `??` fallback
+  // would hand the caller `Object.prototype.constructor` — and every call site
+  // does `.includes(...)` on the result.
+  it.each(['constructor', 'toString', '__proto__'])(
+    'reads the prototype key %s as standard, never as an inherited member',
+    (key) => {
+      const result = forbiddenArtifacts(key);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toEqual([]);
+      expect(() => result.includes('plan.md')).not.toThrow();
+    },
+  );
 });
 
 describe('ChangeMetadataSchema quality_log structured fields (issue #61)', () => {

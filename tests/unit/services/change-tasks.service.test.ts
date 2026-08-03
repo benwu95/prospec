@@ -314,3 +314,127 @@ description: already ahead
     expect(metadataContent).not.toContain('status: tasks');
   });
 });
+
+// REQ-SERVICES-076: the station asks the forbidden-artifact registry instead of
+// assuming every change has a plan.
+describe('change-tasks.service light-scale contract', () => {
+  const changeDir = '/project/.prospec/changes/light';
+  const metadata = (scale?: string, status = 'story') =>
+    `name: light
+created_at: "2026-01-01T00:00:00.000Z"
+status: ${status}
+related_modules: []
+description: light change
+${scale ? `scale: ${scale}\n` : ''}`;
+
+  it('scaffolds tasks.md under quick with no plan.md, advancing story → tasks', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/metadata.yaml`]: metadata('quick'),
+    });
+
+    const result = await execute({ change: 'light', cwd: '/project' });
+
+    expect(result.createdFiles).toContain('.prospec/changes/light/tasks.md');
+    expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(true);
+    // The quick contract forbids these two — skipping the prerequisite must not
+    // start producing them.
+    expect(fs.existsSync(`${changeDir}/plan.md`)).toBe(false);
+    expect(fs.existsSync(`${changeDir}/delta-spec.md`)).toBe(false);
+    expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toContain('status: tasks');
+  });
+
+  it.each(['standard', 'full'])(
+    'still refuses a missing plan.md under %s',
+    async (scale) => {
+      vol.fromJSON({
+        '/project/.prospec.yaml': 'project:\n  name: test\n',
+        [`${changeDir}/proposal.md`]: '# Proposal\n',
+        [`${changeDir}/metadata.yaml`]: metadata(scale),
+      });
+
+      await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+        /plan\.md does not exist/,
+      );
+      expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
+    },
+  );
+
+  it('refuses a missing plan.md when metadata.yaml is absent — unknown scale relaxes nothing', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /plan\.md does not exist/,
+    );
+    expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
+  });
+
+  it('refuses backfill for its own reason, not for a missing plan.md', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/delta-spec.md`]: '# Delta\n',
+      // status `story`, not `implemented`: at `implemented` the forward-only
+      // guard would block the metadata write anyway, so the byte-identical
+      // claim below would hold for the wrong reason.
+      [`${changeDir}/metadata.yaml`]: metadata('backfill'),
+    });
+    const before = fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8');
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /tasks\.md must not exist under `scale: backfill`/,
+    );
+    // Refuse before writing: no product, and metadata byte-identical.
+    expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
+    expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toBe(before);
+  });
+
+  // The contract refusal must win over BOTH later prerequisites, or the user is
+  // told to use --force (or to write a proposal) for a station that will never
+  // apply to this change.
+  it('refuses backfill ahead of the clobber and proposal checks', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/tasks.md`]: '# Stray tasks\n',
+      [`${changeDir}/metadata.yaml`]: metadata('backfill'),
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /tasks\.md must not exist under `scale: backfill`/,
+    );
+    expect(fs.readFileSync(`${changeDir}/tasks.md`, 'utf-8')).toBe('# Stray tasks\n');
+  });
+
+  // Skipping the plan.md prerequisite must not leave the station with NO input
+  // prerequisite: quick decomposes FROM proposal.md, so its absence is a refusal.
+  it('refuses quick when proposal.md — its decomposition source — is missing', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/metadata.yaml`]: metadata('quick'),
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /proposal\.md does not exist/,
+    );
+    expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
+    expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toContain('status: story');
+  });
+
+  it('refuses backfill even when a plan.md happens to exist', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/plan.md`]: '# Stray plan\n',
+      [`${changeDir}/metadata.yaml`]: metadata('backfill', 'implemented'),
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
+      /scale: backfill/,
+    );
+    expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
+  });
+});
