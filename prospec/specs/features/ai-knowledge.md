@@ -133,14 +133,15 @@ so that an AI Agent can quickly understand the module's responsibilities, API, a
 
 #### REQ-KNOW-004: Generate Module README (Recipe-First)
 Module README **content** is produced by `/prospec-knowledge-generate` (judgment); `prospec knowledge update` creates a skeleton only for a module that has none (create-only — REQ-SERVICES-021), never re-rendering an authored one.
-- WHEN the skill generates a module README, THEN it writes `{base_dir}/ai-knowledge/modules/{name}/README.md` in Recipe-First order: Overview → Key Files → Public API → Dependencies → Modification Guide → Ripple Effects → Pitfalls
+- WHEN the skill generates a module README, THEN it writes `{base_dir}/ai-knowledge/modules/{name}/README.md` in Recipe-First order: Overview → Key Files → Public API → Dependencies → Modification Guide → Ripple Effects (if downstream dependents exist) → Pitfalls
 - WHEN a module directory is written, THEN it contains only README.md (no api-surface.md or redundant files)
 - WHEN README.md already exists, THEN authored content inside the `prospec:auto` block is preserved — the update service flags it as `readmePending` instead of re-rendering it
 - WHEN scanning a module's files for key files (`updateModuleReadme`), THEN each `module-map.yaml` `paths` entry is interpreted through `moduleScanPatterns` (REQ-LIB-029): a directory expands to its subtree, a single file scans only itself, a glob passes through verbatim
 
 #### REQ-KNOW-010: Recipe-First README Sections
 - WHEN generating module README, THEN include `## Modification Guide` listing 2-5 modification scenarios
-- WHEN generating module README, THEN include `## Ripple Effects` listing cross-module impacts
+- WHEN generating module README AND the module has downstream dependents (`relationships.used_by.length > 0`), THEN include `## Ripple Effects` listing cross-module impacts
+- WHEN generating module README AND the module has no downstream dependents, THEN the `## Ripple Effects` section is omitted entirely
 - WHEN generating module README, THEN include `## Pitfalls` listing 2-3 common mistakes
 
 #### REQ-KNOW-011: Module README Token Budget

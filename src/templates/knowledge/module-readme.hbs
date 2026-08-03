@@ -27,10 +27,11 @@
 
 _(Auto-generated initial guide — customize in user section below)_
 
+{{#if relationships.used_by.length}}
 ## Ripple Effects
 
-{{#if relationships.used_by.length}}{{#each relationships.used_by}}- Changing this module may affect **{{this}}**
-{{/each}}{{else}}_(No downstream dependents detected)_
+{{#each relationships.used_by}}- Changing this module may affect **{{this}}**
+{{/each}}
 {{/if}}
 
 ## Pitfalls

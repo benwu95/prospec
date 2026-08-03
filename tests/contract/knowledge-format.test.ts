@@ -85,9 +85,17 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('## Modification Guide');
     });
 
-    it('should contain Ripple Effects section', () => {
+    it('should contain Ripple Effects section when there are downstream dependents', () => {
       const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).toContain('## Ripple Effects');
+    });
+
+    it('should NOT contain Ripple Effects section when there are no downstream dependents', () => {
+      const content = renderTemplate('knowledge/module-readme.hbs', {
+        ...templateContext,
+        relationships: { ...templateContext.relationships, used_by: [] }
+      });
+      expect(content).not.toContain('## Ripple Effects');
     });
 
     it('should contain Pitfalls section', () => {
