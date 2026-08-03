@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 story_count: 32
 req_count: 160
 ---
@@ -1321,10 +1321,11 @@ The types layer defines the SDD station order — including the workflow rank of
 - WHEN the change schema is consulted, THEN `CHANGE_STATUSES`/`CHANGE_SCALES` are unchanged — routing adds no status value
 
 #### REQ-LIB-035: Pure Route Evaluator
-`lib/status-router.ts` exposes the I/O-free `routeChange(facts)` — the executable copy of `_status-lifecycle.md`: six-state order, the `scale: quick` story→tasks legal skip, the `scale: backfill` `implemented` entry (absent plan/tasks are its normal state), the design station insertion (`ui_scope` full/partial between plan and tasks, never under a scale with no plan), review done-ness via `review_provenance`, verify B/C/D stay reasons, and the archive Knowledge-sync gate declaration. Which stations a scale skips is read from `SCALE_FORBIDDEN_ARTIFACTS`, not from a scale name re-tested here.
+`lib/status-router.ts` exposes the I/O-free `routeChange(facts)` — the executable copy of `_status-lifecycle.md`: six-state order, the `scale: quick` story→tasks legal skip, the `scale: backfill` `implemented` entry (absent plan/tasks are its normal state), the design station insertion (`ui_scope` full/partial between plan and tasks, never under a scale with no plan), review done-ness via `review_provenance`, verify B/C/D stay reasons, and the archive gate declarations — Knowledge sync **and** review/test provenance currency, the latter live on this edge because `verified` is inside `PROVENANCE_AUDITED_STATUSES` and the verify S/A commit stales both baselines by construction. Those gates are **declared, never evaluated**: the router stays I/O-free and never reads the drift report, so `prospec check` remains the only adjudicator. Which stations a scale skips is read from `SCALE_FORBIDDEN_ARTIFACTS`, not from a scale name re-tested here.
 - WHEN the full status × scale matrix runs, THEN every computed station matches `_status-lifecycle.md` (fixture-pinned; retro-validated 46/46 against the local archive at verification)
 - WHEN `scale: quick` at `story`, THEN next is tasks and plan.md is never gated on; WHEN `scale: backfill` at `implemented`, THEN it is a legal entry, not a skip
 - WHEN `status: implemented` without `review_provenance`, THEN next is review (by workflow order, not status); with it, next is verify
+- WHEN `status: verified`, THEN the blocking gates name review/test provenance currency alongside Knowledge sync, and the remedy they name is re-recording both baselines after the commit
 - WHEN the function runs, THEN it performs no I/O (drift-checker evaluator precedent)
 - WHEN a scale forbids `plan.md` but not `tasks.md`, THEN `story` routes to `tasks` (the quick skip) — derived from the registry, not from the scale's name
 - WHEN a scale forbids both `plan.md` and `tasks.md` and the change has not reached `implemented`, THEN it routes to `promote` with the incomplete promotion as the reason, and its blocking gate names `prospec validate promote-scaffold`
@@ -1447,6 +1448,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-03 | extend-provenance-audit-scope | MODIFIED REQ-LIB-035 | REQ-LIB-035 |
 | 2026-08-02 | mechanize-light-scale-gates | ADDED REQ-TYPES-074; ADDED REQ-SERVICES-076; ADDED REQ-LIB-040; ADDED REQ-TESTS-072; MODIFIED REQ-CHNG-011; MODIFIED REQ-TEMPLATES-087; MODIFIED REQ-CLI-031; MODIFIED REQ-TYPES-070; MODIFIED REQ-LIB-035; MODIFIED REQ-TEMPLATES-085 | REQ-TYPES-074, REQ-SERVICES-076, REQ-LIB-040, REQ-TESTS-072, REQ-CHNG-011, REQ-TEMPLATES-087, REQ-CLI-031, REQ-TYPES-070, REQ-LIB-035, REQ-TEMPLATES-085 |
 | 2026-08-02 | enforce-counts-in-ci | ADDED REQ-TESTS-070; MODIFIED REQ-TESTS-059 | REQ-TESTS-070, REQ-TESTS-059 |
 | 2026-08-02 | restrict-identity-fallback | MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-067 | REQ-CLI-028, REQ-TEMPLATES-066, REQ-TEMPLATES-067 |

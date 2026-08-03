@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-02
-story_count: 13
-req_count: 49
+last_updated: 2026-08-03
+story_count: 14
+req_count: 54
 ---
 
 # Deterministic Drift Check
@@ -165,25 +165,26 @@ so that factual-count drift is intercepted by a machine in CI, no longer relying
 ## US-6: review-provenance gate check [P1]
 
 As a maintainer who guards the verify gate,
-I want a deterministic `review-provenance` check that determines whether an `implemented` non-backfill change has a recorded review that still reflects the current code,
+I want a deterministic `review-provenance` check that determines whether an audited non-backfill change has a recorded review that still reflects the current code,
 so that "review must precede verify" turns from process prose into a machine-checkable, testable gate.
 
 **Acceptance Scenarios:**
-- WHEN an `implemented` non-backfill change has no recorded review baseline, THEN report FAIL "no review recorded" (points to `/prospec-review`)
+- WHEN an audited non-backfill change has no recorded review baseline, THEN report FAIL "no review recorded" (points to `/prospec-review`)
 - WHEN the recorded review digest does not match the current code fingerprint (code changed after review), THEN report FAIL "stale review"
 - WHEN the digest matches, THEN PASS (no finding)
-- WHEN the change is `scale: backfill` or its status is not `implemented`, THEN do not flag (exempt)
+- WHEN the change is `scale: backfill`, or its status is outside `PROVENANCE_AUDITED_STATUSES` (`story`/`plan`/`tasks`), THEN do not flag (exempt); `archived` is not exempt but unreachable — the bundle has left `.prospec/changes/`
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
 `DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **13** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
-`computeChangeDigest(cwd)`: the content fingerprint = HEAD sha + `git diff HEAD` + untracked, covering the whole working tree (all first-party content that a review audits), using a **denylist** to exclude workflow state (`.prospec/`, `prospec-report.json`), generated artifacts (`.claude/`, `dist/`), and the lockfile — **fail-closed rather than fail-open** (first-party code outside `src`/`tests`, such as `scripts/`, is still included); it does not rely on git commit timestamps (the commit boundary is after verify S/A, and during review/verify the code is not committed). `collectReviewProvenance(cwd)` (I/O) enumerates `.prospec/changes/*` with status/scale/recorded digest/`backfill_draft_present` + the current digest; the `gitCapture` helper is shared by `gitLastCommit` and digest; `evaluateReviewProvenance` (pure function) judges only `status==implemented`, exempting backfill **only when proven** by `backfill-draft.md` (`scale` alone is hand-editable — same draft gating as test-provenance). **Both** digest captures fail closed: a `git diff HEAD` failure and an `ls-files` failure each return `null` (honest skip), never a constant digest that would certify stale code as current; each branch is pinned by a revert-red test (an unborn-HEAD repo reaches the diff branch on real git; selective fault injection covers the untracked listing).
-**Scenarios:**
+`computeChangeDigest(cwd)`: the content fingerprint = HEAD sha + `git diff HEAD` + untracked, covering the whole working tree (all first-party content that a review audits), using a **denylist** to exclude workflow state (`.prospec/`, `prospec-report.json`), generated artifacts (`.claude/`, `dist/`), and the lockfile — **fail-closed rather than fail-open** (first-party code outside `src`/`tests`, such as `scripts/`, is still included); it does not rely on git commit timestamps (the commit boundary is after verify S/A, and during review/verify the code is not committed). `collectReviewProvenance(cwd)` (I/O) enumerates `.prospec/changes/*` with status/scale/recorded digest/`backfill_draft_present` + the current digest; the `gitCapture` helper is shared by `gitLastCommit` and digest; `evaluateReviewProvenance` (pure function) judges every change whose status is in `PROVENANCE_AUDITED_STATUSES` (REQ-TYPES-075) — `implemented` **and** `verified`, so the window between verify and archive is audited rather than silently exempt — exempting backfill **only when proven** by `backfill-draft.md` (`scale` alone is hand-editable — same draft gating as test-provenance). `archived` is outside the registry because such a change is unreachable, not forgiven: its bundle has left `.prospec/changes/` and the collector never enumerates it. Because HEAD is inside the digest, the verify S/A feature commit itself stales the baseline; that red is honest and the remedy is the PB-016 order — commit, then re-record `--record-review` and `--record-tests`, then archive. **Both** digest captures fail closed: a `git diff HEAD` failure and an `ls-files` failure each return `null` (honest skip), never a constant digest that would certify stale code as current; each branch is pinned by a revert-red test (an unborn-HEAD repo reaches the diff branch on real git; selective fault injection covers the untracked listing).
 - WHEN the recorded digest is absent, THEN fail "no review recorded"; WHEN recorded ≠ current, THEN fail "stale review"; match → no finding
-- WHEN a proven backfill (`backfill-draft.md` present) or a non-implemented change, THEN do not flag; an unproven `scale: backfill` gets no exemption; WHEN not git / no changes directory / digest null, THEN skipped + reason; findings codepoint-sort
-- Single in-flight change assumption: one whole-tree digest is compared against each change (fail-closed, not fail-open)
+- WHEN the change is `verified` and its code changed since the recorded review, THEN fail "stale review" — reaching grade S/A ends neither the audit nor the need to re-review
+- WHEN a proven backfill (`backfill-draft.md` present) or a change whose status is outside `PROVENANCE_AUDITED_STATUSES`, THEN do not flag; an unproven `scale: backfill` gets no exemption; WHEN not git / no changes directory / digest null, THEN skipped + reason; findings codepoint-sort
+- WHEN the change is `archived`, THEN no verdict exists at all — the collector cannot enumerate a bundle that archive has moved out of `.prospec/changes/`
+- Single in-flight change assumption: one whole-tree digest is compared against each change (fail-closed, not fail-open); widening the audited statuses widens that over-blocking, never opens it
 
 #### REQ-SERVICES-062: check.service injection + --record-review write path
 `check.service` injects `collectReviewProvenance` into `runChecks`; the `--record-review` branch uses `resolveChange` (`--change` can specify it, guarded by `existsSync`; if metadata is not found it honestly skips) → `computeChangeDigest` → a comment-preserving Document writes the metadata `review_provenance` (following the flag-gated side effects of `--json`/`--init-ci`; the pure check path stays read-only and deterministic).
@@ -192,7 +193,7 @@ so that "review must precede verify" turns from process prose into a machine-che
 `prospec check` adds `--record-review` (records the review baseline then exits) and `--change <name>` (targets record-review when multiple changes run in parallel), alongside `--json`/`--strict`/`--init-ci`; when the flags are absent, behavior is completely identical to the current one.
 
 #### REQ-TESTS-042: review-provenance engine tests
-`evaluateReviewProvenance` six scenarios (absent/stale/fresh/backfill/non-implemented/unavailable), `computeChangeDigest` (temp git dir: changing `src`/`scripts`/docs content flips the digest, changing only `.prospec/`/report/generated does not), `collectReviewProvenance`, `check.service` injection + `--record-review` writes metadata + `--strict` FAIL → exit 1 + backfill skipped — mutation-verified.
+`evaluateReviewProvenance` six scenarios (absent/stale/fresh/backfill/outside-the-audit-scope/unavailable — the audited statuses themselves, and the `verified` cases in particular, are covered by REQ-TESTS-073), `computeChangeDigest` (temp git dir: changing `src`/`scripts`/docs content flips the digest, changing only `.prospec/`/report/generated does not), `collectReviewProvenance`, `check.service` injection + `--record-review` writes metadata + `--strict` FAIL → exit 1 + backfill skipped — mutation-verified.
 
 ## US-7: metadata-completeness gate check [P1]
 
@@ -270,16 +271,16 @@ The `knowledge.token_budget` seed in `init/prospec.yaml.hbs` switches to `l1_per
 ## US-9: test-provenance gate check [P1]
 
 As a maintainer who guards the verify gate,
-I want a deterministic `test-provenance` check that decides whether an `implemented` change has a recorded test run that is current and green,
+I want a deterministic `test-provenance` check that decides whether an audited change has a recorded test run that is current and green,
 so that verify's test dimension is a machine verdict instead of an agent's self-report.
 
 **Acceptance Scenarios:**
-- WHEN an `implemented` change has no recorded test run, THEN report FAIL naming `prospec check --record-tests` as the remediation
+- WHEN an audited change has no recorded test run, THEN report FAIL naming `prospec check --record-tests` as the remediation
 - WHEN the recorded run predates the current code, THEN report FAIL "stale test run"
 - WHEN the recorded run's exit code is non-zero, THEN report FAIL naming the command and the code — **never** suppressed, including for a proven backfill
 - WHEN the project has no resolvable test command, THEN the check is `skipped` + reason, so a project that cannot satisfy it is never permanently barred from `verified`
 - WHEN the resolved command cannot be spawned on this platform — on Windows a `.cmd`/`.bat` shim, which Node refuses to spawn shell-free even by absolute path — THEN the check is `skipped` + reason naming the constraint and a shell-free alternative, for the same reason: a gate no configuration could clear is not a signal
-- WHEN the change's status is not `implemented`, THEN do not flag (exempt)
+- WHEN the change's status is outside `PROVENANCE_AUDITED_STATUSES` (`story`/`plan`/`tasks`), THEN do not flag (exempt); `archived` is unreachable rather than exempt
 
 #### REQ-TYPES-065: Drift Report test-provenance / constitution-severity check ids + constitution section
 `DRIFT_CHECK_IDS` appends `test-provenance` (12th, fail-class) and `constitution-severity` (13th, warn-class) — additive only, the pre-existing eleven keep their frozen order (report `checks[]` order and the CLI's status-line order both derive from it). `structural` gains an optional `constitution` section (`rules[]{name, severity: MUST|SHOULD|MAY|null, has_verify_hint, line}`), mirroring the `knowledge_health` optional-section precedent without touching that frozen contract.
@@ -289,8 +290,9 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN the Constitution is unavailable, THEN the whole `constitution` object is absent (not empty-and-passing)
 
 #### REQ-LIB-033: Test command resolution, execution and the test-provenance evaluator
-`resolveTestCommand(config, cwd)` in `lib/config.ts` (the canonical resolver, alongside `resolveBasePaths`/`resolveKnowledgeTokenBudget`): `tech_stack.test_command` wins; otherwise `<package_manager> test` **only when package.json declares a test script**; neither → `null`. `lib/test-runner.ts`'s `runTestCommand` uses `spawnSync` with `shell: false` and `killSignal: 'SIGKILL'` — shell syntax (pipes, `&&`, redirection) is **deliberately unsupported**, and the kill bounds the direct child only (grandchildren are a documented exclusion, not a claim). `collectTestProvenance` (I/O, in `drift-sources`) reports the recorded command/exit code/digest plus whether `backfill-draft.md` exists; an unresolvable test command is **not** source unavailability — it lands in `command_unavailable_reason` while the changes are still enumerated, so recorded facts survive it (only git-worktree absence, a missing changes dir, or an uncomputable digest stay source-level unavailable). Pure `evaluateTestProvenance` grades in a fixed order: recorded failure → command-unavailability skip → no record → stale.
+`resolveTestCommand(config, cwd)` in `lib/config.ts` (the canonical resolver, alongside `resolveBasePaths`/`resolveKnowledgeTokenBudget`): `tech_stack.test_command` wins; otherwise `<package_manager> test` **only when package.json declares a test script**; neither → `null`. `lib/test-runner.ts`'s `runTestCommand` uses `spawnSync` with `shell: false` and `killSignal: 'SIGKILL'` — shell syntax (pipes, `&&`, redirection) is **deliberately unsupported**, and the kill bounds the direct child only (grandchildren are a documented exclusion, not a claim). `collectTestProvenance` (I/O, in `drift-sources`) reports the recorded command/exit code/digest plus whether `backfill-draft.md` exists; an unresolvable test command is **not** source unavailability — it lands in `command_unavailable_reason` while the changes are still enumerated, so recorded facts survive it (only git-worktree absence, a missing changes dir, or an uncomputable digest stay source-level unavailable). Pure `evaluateTestProvenance` audits the statuses in `PROVENANCE_AUDITED_STATUSES` (REQ-TYPES-075) — the same registry review-provenance reads, so the two gates cannot cover different windows — and grades in a fixed order: recorded failure → command-unavailability skip → no record → stale.
 - WHEN the recorded exit code is non-zero, THEN fail — checked FIRST, before staleness and before the command-unavailability skip, so neither a stale+failing backfill record nor a command that stopped resolving can suppress a known-red run (a recorded failure is a fact that needs no runnable command)
+- WHEN the change is `verified`, THEN it is audited exactly like an `implemented` one; `archived` yields no verdict because the collector cannot enumerate a moved bundle
 - WHEN a proven backfill (`backfill-draft.md` present) has no record, or a stale **green** record, THEN exempt (outcome unknown, the same state as no tests); an **unproven** backfill (`scale` alone, which is hand-editable) gets no relaxation at all
 - WHEN the run timed out, THEN no record is written and the timeout is distinguished from other signals (SIGSEGV / OOM / Ctrl-C reported as themselves); `TestRunResult` carries the `timeout_ms` the run was actually given, so reporting never restates the default
 - WHEN the run is killed rather than exiting on its own, THEN only a **signal-terminated** run goes unrecorded, and whether a kill produces one is platform-shaped. POSIX reads the signal out of the wait status whoever sent it (`WIFSIGNALED`/`WTERMSIG`), so such a run carries no exit code and nothing is recorded — but a child that *catches* the signal and exits normally reports an exit code and IS recorded, like any run. Windows carries no signal in the wait status at all: libuv synthesizes one from an `exit_signal` it sets only for a kill issued through `uv_process_kill` on that handle, so a self-kill or third-party kill reports none and surfaces as `TerminateProcess`'s exit code (1 when libuv issued it), indistinguishable from a suite that failed on its own — recorded like a red suite: fail-closed, never silently absent, and pinned per platform rather than asserted as one cross-platform rule. The timeout half holds on both platforms because that kill is the one `spawnSync` issues itself (on Windows it reports `signal: 'SIGKILL'` alongside `ETIMEDOUT`)
@@ -318,7 +320,7 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN no flag is passed, THEN behavior is identical to the previous version
 
 #### REQ-TESTS-056: Engine tests for the new collectors and evaluators
-`evaluateTestProvenance` (missing / stale / non-zero exit / stale+failing precedence / proven-backfill exemptions / unproven backfill / non-implemented / unavailable), `evaluateConstitutionSeverity`, `parseConstitutionRules` (fence-aware, untagged, unknown tag, level-1 heading closes the section), `aggregateEscapedDefects`, `resolveTestCommand`, `runTestCommand` (exit code / timeout, driven by `process.execPath` so it can never recurse into the project suite), and all three collectors against temp-git fixtures. Shim classification is tested through an **injected** probe so the win32 branch runs on any host: non-win32 always spawnable, a real `.exe` in any PATH directory beating an earlier `.cmd`, `.com` accepted, a shim reported only when no directory holds a startable file, a declared extension short-circuiting the search, a path never searched on PATH, a negative assertion that PATHEXT does not influence the verdict, and `defaultExecutableProbe.exists` across file / directory / missing. A `describe.runIf(process.platform === 'win32')` block additionally pins the real-host behaviour and runs once a Windows job exists — the injected tests prove the decision, that one proves the reality. The digest self-trip guard is **derived from the report filename constants**, not hand-listed, so a future report joins it by construction. Every headline hardening carries a **revert-red mutation pin**: the recorded-failure-vs-unresolvable-command ordering test (red under the old skip-first collector), the mixed-alias `passed=1` fixture (reproduces the schema abort pre-fix), the unborn-HEAD fixture reaching the `diff === null` branch on real git, and a selective `child_process` fault injection for the `ls-files` capture (its own file, `vi.setConfig` 30s like every git-bound suite).
+`evaluateTestProvenance` (missing / stale / non-zero exit / stale+failing precedence / proven-backfill exemptions / unproven backfill / outside-the-audit-scope / unavailable — the audited statuses, `verified` included, are covered by REQ-TESTS-073), `evaluateConstitutionSeverity`, `parseConstitutionRules` (fence-aware, untagged, unknown tag, level-1 heading closes the section), `aggregateEscapedDefects`, `resolveTestCommand`, `runTestCommand` (exit code / timeout, driven by `process.execPath` so it can never recurse into the project suite), and all three collectors against temp-git fixtures. Shim classification is tested through an **injected** probe so the win32 branch runs on any host: non-win32 always spawnable, a real `.exe` in any PATH directory beating an earlier `.cmd`, `.com` accepted, a shim reported only when no directory holds a startable file, a declared extension short-circuiting the search, a path never searched on PATH, a negative assertion that PATHEXT does not influence the verdict, and `defaultExecutableProbe.exists` across file / directory / missing. A `describe.runIf(process.platform === 'win32')` block additionally pins the real-host behaviour and runs once a Windows job exists — the injected tests prove the decision, that one proves the reality. The digest self-trip guard is **derived from the report filename constants**, not hand-listed, so a future report joins it by construction. Every headline hardening carries a **revert-red mutation pin**: the recorded-failure-vs-unresolvable-command ordering test (red under the old skip-first collector), the mixed-alias `passed=1` fixture (reproduces the schema abort pre-fix), the unborn-HEAD fixture reaching the `diff === null` branch on real git, and a selective `child_process` fault injection for the `ls-files` capture (its own file, `vi.setConfig` 30s like every git-bound suite).
 
 #### REQ-TESTS-062: Windows smoke job + real-host adjudication of the shim gate
 
@@ -474,6 +476,71 @@ The artifact-language check is pinned across all three outcomes — clean, `warn
 
 ---
 
+
+## US-14: Provenance audit scope covers the verified→archived window [P1]
+
+As a maintainer who guards the archive gate,
+I want the two provenance gates to audit every status in which unreviewed code can still reach the permanent record — `verified` included — and to say so in a document pinned against the code,
+so that reaching grade S/A stops being an implicit end to the audit, and the gate that graduates requirements into the trust zone can assert that a review round saw the code they describe.
+
+**Acceptance Scenarios:**
+- WHEN a `verified` change's code changed after its recorded review or test run, THEN both gates report FAIL and name the remediation — reaching S/A ends neither the audit nor the need to re-review
+- WHEN a `verified` change's baselines still match the code, THEN neither gate produces a finding
+- WHEN the status is `story`/`plan`/`tasks`, THEN neither gate flags it — review is not yet due; WHEN it is `archived`, THEN no verdict exists at all, because the bundle has left `.prospec/changes/`
+- WHEN the `/prospec-archive` Entry Gate runs, THEN it reads both checks and refuses to archive on either FAIL, and states that a re-verify which does not reach S/A leaves both `status` and `metadata-completeness` green while the change is not archivable
+- WHEN the audited status set and the lifecycle doc's table disagree in either direction, THEN the contract test fails
+
+### Behavior Specifications
+
+#### REQ-TYPES-075: Provenance audit-scope registry
+`PROVENANCE_AUDITED_STATUSES` in `types/change.ts` is the ONE registry of change statuses the two provenance gates audit — `implemented` and `verified` — declared `as const satisfies readonly ChangeStatus[]` so a status that is not in `CHANGE_STATUSES` cannot enter it, and read through the pure `isProvenanceAudited(status)` predicate that both evaluators share instead of each testing a literal. It sits beside `SCALE_FORBIDDEN_ARTIFACTS` as the same kind of registry: an executable copy of a scope the lifecycle doc states in prose. Membership is tested through a `Set`, never a plain-object lookup, so an inherited key (`constructor`, `toString`) cannot resolve truthy and admit a change whose metadata carries a forged status. `archived` is deliberately absent and is NOT an exemption: `prospec archive` moves the bundle out of `.prospec/changes/`, so the collectors never enumerate such a change and no verdict about it exists to give.
+- WHEN a status string outside `CHANGE_STATUSES` is added to the registry, THEN compilation fails on the `satisfies` clause
+- WHEN `isProvenanceAudited` receives `null`, `undefined`, an unknown string, or an `Object` prototype key, THEN it returns false
+- WHEN either evaluator filters by status, THEN it calls that predicate rather than comparing against a literal, so the two gates cannot drift into different scopes
+
+---
+
+
+#### REQ-TEMPLATES-171: archive Entry Gate consumes both provenance checks
+The `/prospec-archive` Entry Gate carries a machine check that runs `prospec check --json` and reads BOTH `review-provenance` and `test-provenance` for the archive target: either one FAIL refuses the archive. It closes the station's own blind spot — the gate that graduates REQs into the trust zone previously asserted nothing about whether any review round had seen the code those REQs describe. The remediation it names covers both causes the two findings distinguish: code edited after verify (re-run `/prospec-review`, then `/prospec-verify`) and a baseline left behind by the verify S/A commit (re-record both after committing, the order PB-016 states). Because that remediation routes back through verify, the item also states the boundary of the re-run: a change already at `verified` keeps that status whatever the new grade is, and `hasVerifyGrade` accepts any earlier S/A entry in `quality_log`, so a re-verify grading B/C/D leaves both `status` and `metadata-completeness` green while the change is not archivable. The CLI is required, matching the `metadata-completeness` item beside it: the shared probe STOPs before this gate when the engine is missing, so the item offers no manual fallback.
+- WHEN either provenance check reports FAIL for the target, THEN the Entry Gate refuses to archive and names the remediation
+- WHEN both report PASS or `skipped`, THEN the item passes and the remaining Entry Gate items judge as before
+- WHEN the re-run of `/prospec-verify` does not reach S/A, THEN the change is not archivable even though `status` still reads `verified` — the item says so explicitly, because no machine check will
+- WHEN the CLI is absent, THEN the probe has already stopped the skill — the item never degrades into a hand-run comparison
+
+---
+
+
+#### REQ-TEMPLATES-172: `_status-lifecycle.md` states the provenance audit scope
+Both copies of `_status-lifecycle.md` (`init/status-lifecycle.md.hbs` and this project's `prospec/ai-knowledge/_status-lifecycle.md`) carry a `## Provenance audit scope` table that names, for every one of the six statuses, whether `review-provenance` and `test-provenance` audit it and why. `PROVENANCE_AUDITED_STATUSES` is the executable copy and a contract test pins the table against it by set equality in both directions, so the stated scope and the enforced scope cannot diverge — the failure this section exists to prevent was a gate whose filter excluded the very state it was meant to guard while no document admitted it. The table states the two non-audited groups as different facts, not one exemption: `story`/`plan`/`tasks` are before review is due, while `archived` is unreachable because the bundle has left `.prospec/changes/`.
+- WHEN a status is added to or removed from the registry without the table following, THEN the contract test fails
+- WHEN a reader asks which statuses the provenance gates cover, THEN the answer is in the lifecycle doc rather than only in the evaluator source
+- WHEN either copy's table, or one of the marker sentences asserted in both, diverges, THEN the contract test fails. The section's remaining prose is deliberately NOT compared copy-to-copy: only `## What each gate checks` carries whole-section string equality between the two files, so claiming a copy-equality guard here would assert a check that does not exist
+
+---
+
+
+#### REQ-TEMPLATES-173: review and verify are re-enterable from `verified`
+Widening the provenance audit scope to `verified` makes "a graded change carrying a red gate" a legitimate state, and clearing it requires re-entering both the review and verify stations. Their status precondition is therefore stated as a **floor** — `implemented` or later, a `verified` change included — and `/prospec-review`'s Error Handling table keys its refusal on the same condition the floor states, a status BEFORE `implemented` (`story`/`plan`/`tasks`), instead of on "not `implemented`", which also refused the very re-entry the archive Entry Gate prescribes and pointed the operator at `/prospec-implement`, a station that cannot help a graded change. Neither station needs a backward transition: review owns no status, and `prospec verify record` on an already-`verified` change writes its `quality_log` entry and reports `already verified — status unchanged`, which is success. `/prospec-verify` states the boundary of that re-entry: on B/C/D the status stays `verified` because status never regresses, and `hasVerifyGrade` still finds the earlier S/A entry, so the report — not `status` and not `metadata-completeness` — is what says the change is not archivable. Both `_status-lifecycle.md` copies carry the same two facts, so the canonical lifecycle admits the flow its skills describe.
+- WHEN a `verified` change's baseline is stale, THEN it re-enters review and verify without any status regression, and each station's status item reads as satisfied
+- WHEN `/prospec-review` meets a status at or past `implemented`, THEN its Error Handling table does not refuse it; a change still before `implemented` — `story`, `plan` or `tasks` alike — is the one sent to `/prospec-implement`
+- WHEN a re-entering `verified` change grades B/C/D, THEN `status` stays `verified` and no machine check records the new grade — the verify report states it is not archivable
+- WHEN either lifecycle copy omits the re-entry facts, THEN the contract test fails
+
+---
+
+
+#### REQ-TESTS-073: Provenance audit-scope coverage
+The widened audit scope is pinned from both directions for each gate, and the stated scope is pinned against the registry rather than against the other document. `evaluateReviewProvenance` and `evaluateTestProvenance` each get a `verified` change with a stale baseline (FAIL) and a `verified` change with a matching baseline (no finding), alongside negative cases that the widening must not disturb: a `tasks` change stays unaudited, a `verified` proven backfill keeps its draft-gated exemption, and a `verified` change with a recorded non-zero exit still fails through the recorded-failure branch that outranks staleness. A contract test compares the `## Provenance audit scope` table in both `_status-lifecycle.md` copies against `PROVENANCE_AUDITED_STATUSES` by set equality — document-to-document agreement alone never proved either matched the code. The archive Entry Gate assertion slices that gate's section and then narrows to the provenance bullet: of its markers only `The CLI is required` appears elsewhere in the section, so section scope alone already goes red on removal, and the narrowing is what stops a weaker marker list from passing on the neighbouring `metadata-completeness` bullet. No count is stated here on purpose — the marker list grows with the bullet, and a number would go stale the next time it does. The prose this change adds to the review, verify and lifecycle documents is pinned too — with a **negative** assertion per reinstatable claim, since each was written to replace a sentence that contradicted the new scope. Every new assertion is mutation-verified: reverting the registry to `implemented` alone must turn the stale-`verified` cases red.
+- WHEN the registry is reverted to `implemented` only, THEN the stale-`verified` cases for both gates fail
+- WHEN the lifecycle table and the registry disagree in either direction, THEN the contract test fails
+- WHEN the Entry Gate item is removed from the archive skill, THEN the bullet-scoped assertion fails
+- WHEN a replaced claim is reinstated — review's `status not implemented` refusal row, or the lifecycle's unconditional `(stays implemented)` parenthetical — THEN its negative assertion fails
+- WHEN the router's `verified` branch drops the provenance gate declaration, THEN its unit assertion fails
+- WHEN a negative case (`tasks`, proven backfill, recorded non-zero exit) is evaluated, THEN its pre-existing verdict is unchanged
+
+---
+
 ## Edge Cases
 
 - `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
@@ -506,6 +573,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-03 | extend-provenance-audit-scope | ADDED REQ-TYPES-075; ADDED REQ-TEMPLATES-171; ADDED REQ-TEMPLATES-172; ADDED REQ-TEMPLATES-173; ADDED REQ-TESTS-073; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-033; MODIFIED REQ-TESTS-042; MODIFIED REQ-TESTS-056 | REQ-TYPES-075, REQ-TEMPLATES-171, REQ-TEMPLATES-172, REQ-TEMPLATES-173, REQ-TESTS-073, REQ-LIB-024, REQ-LIB-033, REQ-TESTS-042, REQ-TESTS-056 |
 | 2026-08-02 | exclude-generated-from-staleness | ADDED REQ-LIB-039; ADDED REQ-TESTS-071; MODIFIED REQ-LIB-015 | REQ-LIB-039, REQ-TESTS-071, REQ-LIB-015 |
 | 2026-07-31 | harden-contained-reads | MODIFIED REQ-LIB-014 (collector contained read delegates to the one helper; an enumerated read skips a failing entry instead of aborting the run) | REQ-LIB-014 |
 | 2026-07-31 | enforce-sub-module-budget | ADDED REQ-TYPES-073, REQ-TESTS-067; MODIFIED REQ-LIB-027 (L2 measures every module .md), REQ-LIB-015 (staleness vs the newest knowledge commit) | REQ-TYPES-073, REQ-TESTS-067, REQ-LIB-027, REQ-LIB-015 |

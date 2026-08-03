@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` (the lifecycle doc's artifact matrix, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES |
+| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` + `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` (the lifecycle doc's artifact matrix and provenance audit scope, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (path sets plus BOTH exception directions — `namedExceptions` / `englishExceptions`) |
 | `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (14 frozen), Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
@@ -44,6 +44,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 3. **Add a skill** — append to `SKILL_DEFINITIONS`, then bump the count in `skill-format.test.ts`.
 4. **Add a drift check id** — append to `DRIFT_CHECK_IDS` (frozen, additive) → wire it in drift services.
    **Add a scale** — `CHANGE_SCALES` + its `SCALE_FORBIDDEN_ARTIFACTS` row (`satisfies` forces it) + the lifecycle doc's matrix (both copies).
+   **Change what the provenance gates audit** — `PROVENANCE_AUDITED_STATUSES` + the lifecycle doc's audit-scope table (both copies); the evaluators read the registry, never a literal.
 5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces a matching entry, `capabilities` included (survey the vendor docs and record the source inline).
 6. **Add a verify dimension** — extend `VERIFY_DIMENSIONS` (`station.ts`) with its `adjudicator`; `MACHINE_/JUDGMENT_DIMENSION_NAMES` derive from it, so never hand-list either set.
 

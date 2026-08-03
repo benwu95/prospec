@@ -36,6 +36,7 @@
 - Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity, tie-breaks included); an unavailable source → `skipped`, never a vacuous pass (`import-direction`: JS/TS ESM only).
 - L2 sizing and staleness walk a module dir via the ONE `moduleKnowledgeFiles` helper — README **and** each sub-module `.md`.
 - `test-runner.ts`'s argv[0] follows **libuv**, never PATHEXT (spawn cwd before PATH, entries unquoted). An unspawnable Windows shim is refused pre-spawn (`command_unavailable_reason`); recorded runs still enumerate and a non-zero exit still FAILs.
+- Both provenance evaluators filter through `PROVENANCE_AUDITED_STATUSES` (`types/change.ts`, pinned against the lifecycle doc's audit-scope table): `implemented` **and** `verified`, so the verify→archive window is covered; `archived` is unreachable (bundle moved), not exempt. HEAD is in the digest, so the verify commit itself stales both baselines — re-record after committing (PB-016), never widen the gate.
 - `computeChangeDigest` hashes UNTRACKED contents too (fails closed) — a tool writing into the repo un-gitignored flips review/test provenance to a false red.
 - `GENERATED_SOURCE_ARTIFACTS` subtracts build output from `last_src_commit` only, never from the digest; an unparsable `:(exclude)` falls back to the unexcluded query (null reads as not-stale).
 - The contained read belongs to `knowledge-reader` ([lib](./README.md) Pitfalls) — drift-sources imports FROM it, never the reverse.

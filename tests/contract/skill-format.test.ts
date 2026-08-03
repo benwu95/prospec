@@ -17,7 +17,11 @@ import {
   intersectCapabilities,
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
-import { SCALE_FORBIDDEN_ARTIFACTS } from '../../src/types/change.js';
+import {
+  CHANGE_STATUSES,
+  PROVENANCE_AUDITED_STATUSES,
+  SCALE_FORBIDDEN_ARTIFACTS,
+} from '../../src/types/change.js';
 import { SDD_STATIONS } from '../../src/types/status.js';
 import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
@@ -2787,6 +2791,12 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       'so the table and the registry cannot disagree',
       'routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks',
       "That a station actually honours a given row is proven by that station's own tests, not by this table",
+      // The two reasons a status sits outside the audit scope are different facts;
+      // collapsing `archived` into "exempt" is how the gap stayed unacknowledged.
+      'unreachable rather than exempt',
+      // Without this the honest-red window reads as a bug and gets "fixed" by
+      // loosening the gate rather than by re-recording after the commit (PB-016).
+      'the verify S/A feature commit itself stales both baselines',
     ]) {
       expect(tmpl).toContain(marker);
       expect(copy).toContain(marker);
@@ -2903,6 +2913,87 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       ]) {
         expect(sectionOf(doc, '## Light-scale artifact matrix')).toContain(
           'SCALE_FORBIDDEN_ARTIFACTS',
+        );
+      }
+    });
+  });
+
+  // REQ-TESTS-073: same shape as the matrix pin above, for the scope the two
+  // provenance gates enforce. The defect it closes was precisely a scope stated
+  // in prose ("judges only status==implemented") that no document reconciled
+  // with the state it needed to guard.
+  describe('provenance audit scope ↔ code registry', () => {
+    const isScopeHeader = (headers: string[]): boolean =>
+      headers[0] === 'status' && headers[1] === 'audited';
+
+    /**
+     * Both columns are tokenized WHOLE: the status must be backtick-wrapped and the
+     * verdict must be exactly `Yes` or `No`. A loose `includes('Yes')` would let a
+     * hedged cell ("Yes, but only …") or an emptied one still parse as a verdict, so
+     * the `No` rows — the ones that make `archived`'s absence falsifiable — could
+     * never fail whatever the doc claimed (PB-001: the key must cover the target).
+     */
+    const parseScope = (doc: string): Record<string, boolean> => {
+      const section = sectionOf(doc, '## Provenance audit scope');
+      expect(
+        doc
+          .split('\n')
+          .filter(
+            (l) =>
+              l.trimStart().startsWith('|') &&
+              isScopeHeader(splitTableRow(l).map((h) => h.toLowerCase())),
+          ),
+        'exactly one provenance audit-scope table may exist per document',
+      ).toHaveLength(1);
+      const table = findTable(section.split('\n'), { isTarget: isScopeHeader });
+      expect(table, 'Provenance audit scope table not found in its section').not.toBeNull();
+      const scope: Record<string, boolean> = {};
+      for (const row of table!.rows) {
+        const cell = (row[0] ?? '').trim();
+        const status = /^`([^`]+)`$/.exec(cell)?.[1];
+        expect(status, `audit-scope row carries a non-backticked status (${cell})`).toBeDefined();
+        const verdict = (row[1] ?? '').trim();
+        expect(
+          ['Yes', 'No'],
+          `audit-scope verdict for '${status}' must be exactly Yes or No, found '${verdict}'`,
+        ).toContain(verdict);
+        scope[status!] = verdict === 'Yes';
+      }
+      return scope;
+    };
+
+    // Keyed over EVERY lifecycle status, not only the audited ones: a table that
+    // listed just the Yes rows would make dropping `archived` — or any other
+    // exclusion — unfalsifiable.
+    const expected = Object.fromEntries(
+      CHANGE_STATUSES.map((status) => [
+        status,
+        (PROVENANCE_AUDITED_STATUSES as readonly string[]).includes(status),
+      ]),
+    );
+
+    it('the lifecycle template scope equals the registry, both directions', () => {
+      expect(parseScope(renderLifecycle())).toEqual(expected);
+    });
+
+    it('the ai-knowledge copy scope equals the registry, both directions', () => {
+      const copy = fs.readFileSync(
+        path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+        'utf-8',
+      );
+      expect(parseScope(copy)).toEqual(expected);
+    });
+
+    it('names the registry as the executable copy, so the table is not a second source', () => {
+      for (const doc of [
+        renderLifecycle(),
+        fs.readFileSync(
+          path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+          'utf-8',
+        ),
+      ]) {
+        expect(sectionOf(doc, '## Provenance audit scope')).toContain(
+          'PROVENANCE_AUDITED_STATUSES',
         );
       }
     });
@@ -4058,6 +4149,99 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
     expect(gate).toContain('Metadata completeness (machine-checked)');
     expect(gate).toContain('metadata-completeness');
     expect(gate).toContain('do not archive');
+  });
+
+  // REQ-TEMPLATES-171. Section-scoped, then narrowed to the bullet — a refinement of
+  // the sibling assertion above, not a replacement for it. Of the markers below, only
+  // `The CLI is required` occurs elsewhere in the Entry Gate (the metadata-completeness
+  // bullet's trailing parenthetical); every other one is unique to this item, so section
+  // scope alone would already go red on removal. The narrowing is what stops a WEAKER
+  // marker list from passing on that neighbouring bullet.
+  it('archive Entry Gate blocks archiving on both provenance machine checks', () => {
+    const gate = sectionOf(render('prospec-archive'), '## Entry Gate');
+    const item = gate
+      .split('\n')
+      .find((l) => l.startsWith('- **Review and test provenance (machine-checked)**'));
+    expect(item, 'the provenance Entry Gate item is missing').toBeDefined();
+    for (const marker of [
+      'review-provenance',
+      'test-provenance',
+      'Either FAIL → do not archive',
+      // The two findings demand DIFFERENT fixes; naming only re-review sends the
+      // reader down the wrong path when the cause was the commit moving HEAD.
+      '/prospec-review',
+      '--record-review',
+      '--record-tests',
+      '`skipped` is not a FAIL',
+      // The remediation routes into a re-verify, and a re-verify that grades B/C/D
+      // leaves an already-`verified` change at `verified` while `quality_log` keeps
+      // the earlier S/A entry — so the bullet must say the status is not the pass.
+      'does not reach S/A',
+      'never archive on the strength of a `status` the latest verify did not earn',
+      'The CLI is required',
+    ]) {
+      expect(item!, `provenance Entry Gate item is missing '${marker}'`).toContain(marker);
+    }
+  });
+
+  // REQ-TEMPLATES-173. Widening the audit scope to `verified` made the review and
+  // verify stations re-enterable; the prose that governs re-entry is what an agent
+  // acts on, so each claim below is pinned — including a NEGATIVE for the Error
+  // Handling row that used to refuse exactly this path.
+  it('review and verify state their status Entry Gate item as a floor, re-enterable from verified', () => {
+    const review = render('prospec-review');
+    const reviewGate = sectionOf(review, '## Entry Gate');
+    expect(reviewGate).toContain('`implemented` **or later**');
+    expect(reviewGate).toContain('floor, not a ceiling');
+    expect(reviewGate).toContain('`verified` change whose code moved after verify');
+    // The Error Handling table once read "metadata status not `implemented` → Stop;
+    // point to /prospec-implement", which refuses a `verified` re-entry and sends the
+    // operator somewhere that cannot help. The refusal now keys on the SAME condition
+    // the floor states — a status before `implemented` — so it covers `story`/`plan`
+    // too; keying it on `tasks` alone would leave those two unrouted.
+    const reviewErrors = sectionOf(review, '## Error Handling');
+    expect(reviewErrors).toContain('BEFORE `implemented`');
+    for (const status of ['`story`', '`plan`', '`tasks`']) {
+      expect(reviewErrors, `the refusal row must name ${status}`).toContain(status);
+    }
+    expect(reviewErrors, 'the status-not-implemented refusal must not come back').not.toContain(
+      'metadata status not `implemented`',
+    );
+
+    const verify = render('prospec-verify');
+    expect(sectionOf(verify, '## Entry Gate')).toContain('`implemented` **or later**');
+    expect(sectionOf(verify, '## Entry Gate')).toContain('floor, not a ceiling');
+  });
+
+  it('verify states that a re-entering verified change keeps `verified` on B/C/D and is not archivable', () => {
+    const section = sectionOf(render('prospec-verify'), '## Record & Status Update');
+    for (const marker of [
+      'already-`verified` change, "unchanged" means it stays `verified`',
+      'status never regresses',
+      'NOT archivable',
+    ]) {
+      expect(section, `verify's re-entry boundary is missing '${marker}'`).toContain(marker);
+    }
+  });
+
+  it('both lifecycle copies state the B/C/D re-entry case and review re-running after verified', () => {
+    for (const doc of [
+      renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT),
+      fs.readFileSync(
+        path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+        'utf-8',
+      ),
+    ]) {
+      const gates = sectionOf(doc, '## Gates (why some transitions are conditional)');
+      expect(gates).toContain('re-entering after a post-verify edit stays `verified`');
+      // The parenthetical it replaced — "(stays `implemented`)" — is false on that path.
+      expect(gates, 'the unconditional stays-implemented claim must not come back').not.toContain(
+        'leaves `status` unchanged (stays `implemented`)',
+      );
+      expect(sectionOf(doc, '## Stations without a status transition')).toContain(
+        're-runs **after** `verified`',
+      );
+    }
   });
 
   it('the shipped status-lifecycle template documents design as a no-status station (ui_scope-gated)', () => {
