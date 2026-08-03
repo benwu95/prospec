@@ -69,6 +69,8 @@ Apply `references/review-format.md`. In short: **critical** blocks the loop and 
 
 Emit this round's findings as a JSON array — `{id?, location, severity (minor|major|critical), lens, status, summary}` per finding — to a temp file, then run `prospec review merge --findings <file>` (Bash). The CLI owns the cumulative `review.md` bookkeeping: merge by finding identity, severity taken as the maximum, rows carried forward across rounds so resolved items are not re-raised. **Finding IDENTITY is your judgment**: code edits shift line numbers, so reuse the prior round's `id` for a finding you consider the same one — the CLI never infers identity from the location string. An id no row carries opens a NEW row (only a row with no id at all — the pre-ids shape — is adopted by one), and a finding you leave id-less keys by location+lens against the rows that predate this round, so two id-less findings you file at one location in one round stay two rows. Confirmed cross-change recurring criticals may be flagged for promotion (feeds the feedback-promotion pipeline).
 
+> **Clean review (0 findings)**: When your JSON array is empty (`[]`), the CLI generates an empty table with English headers. To satisfy the Constitution's Language Policy, you **MUST** manually append a summary sentence in the artifact language (e.g., a short sentence stating that no issues were found) to `.prospec/changes/[name]/review.md` after running the CLI merge command.
+
 ### Review Provenance (machine gate)
 
 Review must leave a machine-queryable record so `/prospec-verify`'s Entry Gate can prove it ran and is still current:
