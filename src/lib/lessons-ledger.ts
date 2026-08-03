@@ -138,6 +138,17 @@ export function upsertLesson(entries: LedgerEntry[], lesson: LessonInput): Upser
     return { entries: next, action: 'created', warnings };
   }
 
+  // A retired row's counters are its only evidence that the pattern was real,
+  // and its root cause is gone — so an unattended harvest must not raise them.
+  // Refusing loudly keeps the guarantee mechanical instead of leaving it to
+  // whoever happens to read the sweep rules.
+  if (existing.status === 'retired') {
+    warnings.push(
+      `retired row ${lesson.key}: frequency not incremented and no metadata unioned — record this occurrence in its description, or deliberately un-retire the row if the pattern is live again`,
+    );
+    return { entries: next, action: 'unchanged', warnings };
+  }
+
   if (existing.kind !== lesson.kind) {
     warnings.push(
       `kind mismatch for ${lesson.key}: ledger has '${existing.kind}', input says '${lesson.kind}' — ledger value kept`,
@@ -225,22 +236,42 @@ export interface PlaybookTtl {
   reviewBy: string; // YYYY-MM-DD
 }
 
+/**
+ * The retirement marker the Staleness Sweep writes on a retired playbook entry.
+ * Case-sensitive on purpose, and a line that also carries `UN-RETIRED` is NOT a
+ * retirement: a live entry records its retire-then-revive history as
+ * `- **Retired {date}, UN-RETIRED {date}**`, and reading that as retired would
+ * drop a live rule from the needs-review list for good.
+ */
+const PLAYBOOK_RETIRED_MARKER = /^\s*-\s+\*\*RETIRED\b(?!.*UN-RETIRED)/m;
+
 /** Parse playbook TTL lines; entries whose review-by date is before `today`
- *  belong on the needs-review list. Conflict detection stays LLM judgment. */
+ *  belong on the needs-review list, except entries already retired.
+ *  Conflict detection stays LLM judgment. */
 export function expiredPlaybookEntries(playbookContent: string, today: string): PlaybookTtl[] {
-  const lines = playbookContent.split('\n');
-  let currentEntry = '';
   const expired: PlaybookTtl[] = [];
-  for (const line of lines) {
+  let currentEntry = '';
+  let body: string[] = [];
+  const flush = () => {
+    if (!currentEntry) return;
+    const block = body.join('\n');
+    // A retired entry's TTL is spent by definition — re-reporting it would
+    // re-open a decision already made, so the needs-review list would grow
+    // monotonically with dead rules.
+    if (PLAYBOOK_RETIRED_MARKER.test(block)) return;
+    const ttl = /\*\*TTL\*\*:\s*(?:review by\s*)?(\d{4}-\d{2}-\d{2})/.exec(block);
+    if (ttl && ttl[1]! < today) expired.push({ entry: currentEntry, reviewBy: ttl[1]! });
+  };
+  for (const line of playbookContent.split('\n')) {
     const heading = /^###\s+(.+)$/.exec(line);
     if (heading) {
+      flush();
       currentEntry = heading[1]!.trim();
+      body = [];
       continue;
     }
-    const ttl = /\*\*TTL\*\*:\s*(?:review by\s*)?(\d{4}-\d{2}-\d{2})/.exec(line);
-    if (ttl && currentEntry && ttl[1]! < today) {
-      expired.push({ entry: currentEntry, reviewBy: ttl[1]! });
-    }
+    body.push(line);
   }
+  flush();
   return expired;
 }

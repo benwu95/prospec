@@ -83,6 +83,7 @@
       "references/promotion-format.md",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_lessons-ledger.md",
+      "{{knowledge_base_path}}/_playbook.md",
       "{{knowledge_base_path}}/module-map.yaml"
     ],
     "mandatory": 1

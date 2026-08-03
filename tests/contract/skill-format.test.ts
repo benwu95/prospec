@@ -1735,14 +1735,49 @@ describe('Skill Format Contract', () => {
   describe('prospec-learn skill — feedback promotion pipeline (BL-036)', () => {
     const render = () => renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
 
-    it('has the four pipeline phases under Core Workflow', () => {
+    it('has the five pipeline phases under Core Workflow, Sweep first', () => {
       const c = render();
       const flow = c.slice(c.indexOf('## Core Workflow'));
       expect(flow.length).toBeGreaterThan(0);
-      expect(flow).toContain('### Collect');
-      expect(flow).toContain('### Score');
-      expect(flow).toContain('### Promote');
-      expect(flow).toContain('### Govern');
+      const phases = [...flow.matchAll(/^### (\w+)$/gm)].map((m) => m[1]);
+      // ordering, not mere presence: the staleness audit is a PRE-step, so a
+      // Sweep appended after Collect would defeat its purpose and go red here
+      expect(phases).toEqual(['Sweep', 'Collect', 'Score', 'Promote', 'Govern']);
+    });
+
+    it('Sweep states the three expiry tests, the evidence bar, and human approval', () => {
+      const c = render();
+      const sweep = c.slice(c.indexOf('### Sweep'), c.indexOf('### Collect'));
+      expect(sweep.length).toBeGreaterThan(0);
+      // the three tests the issue defines — mechanized / gone / contradicted
+      expect(sweep).toMatch(/mechanized/i);
+      expect(sweep).toMatch(/no longer applicable/i);
+      expect(sweep).toMatch(/contradicted/i);
+      // evidence bar: a mechanism without an executor is not a mechanism
+      expect(sweep).toMatch(/executor/i);
+      expect(sweep).toMatch(/nothing runs is not a mechanism/i);
+      // retirement is a shared-tier write — same approval discipline as Promote
+      expect(sweep).toMatch(/explicit human approval/i);
+      expect(sweep).toContain('needs-review list');
+      // both governed files are in scope, and the reference owns the semantics
+      expect(sweep).toContain('promotion-format.md');
+    });
+
+    it('the ledger tier is protected against tidy-up deletion (NEVER + Failure Conditions)', () => {
+      const c = render();
+      const never = c.slice(c.indexOf('## NEVER'), c.indexOf('## Error Handling'));
+      expect(never.length).toBeGreaterThan(0);
+      expect(never).toMatch(/NEVER\*\* delete a ledger row/);
+      expect(never).toMatch(/renumber a `PB-\{NNN\}` id/);
+      expect(never).toMatch(/NEVER\*\* raise a retired row's `frequency`/);
+      const fail = c.slice(c.indexOf('### Failure Conditions'), c.indexOf('### Output Summary'));
+      expect(fail).toMatch(/deleted, or a counter changed, to tidy the file/);
+    });
+
+    it('Startup Loading reads the whole playbook — the Sweep and duplicate-check input', () => {
+      const loading = sectionOf(render(), '## Startup Loading');
+      expect(loading).toContain('_playbook.md');
+      expect(loading).toMatch(/in full/i);
     });
 
     it('Score phase states an explicit numeric promotion rule (auditable/reproducible)', () => {
@@ -1786,6 +1821,32 @@ describe('Skill Format Contract', () => {
       expect(c).toMatch(/frequency/i);
       expect(c).toMatch(/approval/i);
       expect(c).toMatch(/ledger/i);
+    });
+
+    it('promotion-format owns the Staleness Sweep semantics: retire + compress, never delete', () => {
+      const sweep = sectionOf(
+        renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT),
+        '## Staleness Sweep (pre-Collect)',
+      );
+      expect(sweep.length).toBeGreaterThan(0);
+      // the three expiry tests, as table rows
+      for (const test of ['mechanized', 'no longer applicable', 'contradicted']) {
+        expect(sweep).toContain(`| ${test} |`);
+      }
+      // ledger tier: counters are the evidence, so the row survives its rule
+      expect(sweep).toMatch(/never deleted, never re-keyed/);
+      expect(sweep).toContain('`status: retired`');
+      expect(sweep).toMatch(/`frequency`, `impact_modules` and `source_changes` stay untouched/);
+      expect(sweep).toMatch(/never re-opened/);
+      // playbook tier: permanent ids, tombstone form, and the machine skip
+      expect(sweep).toMatch(/permanent and never reused/);
+      expect(sweep).toContain('- **RETIRED {date}**');
+      expect(sweep).toContain('## Retired Entries');
+      expect(sweep).toMatch(/never returns to the needs-review list/);
+      // the two boundaries that stop the sweep from eating live knowledge
+      expect(sweep).toMatch(/Mechanized ≠ retired/);
+      expect(sweep).toMatch(/`personal` row is the opposite case/);
+      expect(sweep).toMatch(/never compressed/);
     });
 
     it('prospec-plan and prospec-implement load relevant playbook lessons', () => {
@@ -1851,6 +1912,25 @@ describe('Skill Format Contract', () => {
       expect(harvest).not.toMatch(/prospec-learn`'s/);
       // but the Score/Promote workflow hand-off to /prospec-learn remains
       expect(harvest).toContain('/prospec-learn');
+    });
+
+    // The retired-row refusal lives in `prospec learn upsert`, so it is only
+    // mechanical while BOTH stations write through that command — pin the writer
+    // at the archive end and the rule at the reference end, or reverting either
+    // to "upsert into the ledger" leaves the guard on a path nothing reaches.
+    it('archive Phase 4.5 harvests through `prospec learn upsert`, and the reference states the retired-row refusal', () => {
+      const harvest = sectionOf(
+        renderArchive(),
+        '### Phase 4.5: Auto-Harvest Recurring Lessons',
+      );
+      expect(harvest).toContain('prospec learn upsert --lesson');
+      expect(harvest).toMatch(/never hand-edited/);
+      expect(harvest).toMatch(/`retired`/);
+      const fmt = sectionOf(renderFormat(), '## Harvest (archive-time auto-extraction)');
+      expect(fmt.length).toBeGreaterThan(0);
+      expect(fmt).toMatch(/A `retired` row is never raised by harvest/);
+      expect(fmt).toContain('prospec learn upsert');
+      expect(fmt).toMatch(/untouched/);
     });
 
     it('archive Phase 4.5 is no longer a passive suggestion-only pointer', () => {

@@ -96,6 +96,42 @@ describe('upsertLesson', () => {
     upsertLesson(base, lesson());
     expect(base.find((e) => e.key === lesson().key)!.frequency).toBe(2);
   });
+
+  // Staleness Sweep guarantee, mechanized: the archive Phase 4.5 harvest runs
+  // unattended, so "a retired row is never re-opened" cannot rest on the agent
+  // reading the sweep rules.
+  const retiredRow = (): LedgerEntry[] => [
+    {
+      key: 'fix/rework-misses-parallel-site',
+      description: '根因已消滅 ｜ **Retired**: 2026-07-04',
+      frequency: 2,
+      impactModules: ['lib'],
+      kind: 'playbook',
+      sourceChanges: ['enforce-metadata-schema', 'add-mcp-server'],
+      status: 'retired',
+    },
+  ];
+
+  it('refuses to raise a RETIRED row: no frequency, no unioned metadata, and it says so', () => {
+    const { entries, action, warnings } = upsertLesson(retiredRow(), lesson());
+    const row = entries.find((e) => e.key === lesson().key)!;
+    expect(action).toBe('unchanged');
+    expect(row.frequency).toBe(2);
+    expect(row.sourceChanges).toEqual(['enforce-metadata-schema', 'add-mcp-server']);
+    expect(row.impactModules).toEqual(['lib']);
+    expect(row.status).toBe('retired');
+    expect(warnings.join(' ')).toContain('retired row fix/rework-misses-parallel-site');
+  });
+
+  it('still increments the same row when it is NOT retired (the refusal keys on status)', () => {
+    const live = retiredRow().map((e) => ({ ...e, status: 'promoted' as const }));
+    const { entries, action, warnings } = upsertLesson(live, lesson());
+    const row = entries.find((e) => e.key === lesson().key)!;
+    expect(action).toBe('incremented');
+    expect(row.frequency).toBe(3);
+    expect(row.sourceChanges).toContain('restore-cli-first');
+    expect(warnings.join(' ')).not.toContain('retired row');
+  });
 });
 
 describe('scoreLessons', () => {
@@ -179,6 +215,82 @@ describe('expiredPlaybookEntries', () => {
 
   it('returns [] when nothing expired', () => {
     expect(expiredPlaybookEntries(playbook, '2026-01-01')).toEqual([]);
+  });
+
+  // Staleness Sweep: a retired entry's TTL is spent, so re-reporting it would
+  // re-open a decision already made and the needs-review list would grow
+  // monotonically with dead rules.
+  const retired = [
+    '## Retired Entries',
+    '',
+    '### PB-003: an outgrown rule',
+    '- **Source**: some-change · **Criteria**: freq=3, modules=2',
+    '- **TTL**: review by 2026-05-01',
+    '- **RETIRED 2026-07-04** (issue #66): root cause eliminated by `pnpm counts`',
+  ].join('\n');
+
+  it('skips an entry carrying the RETIRED marker even though its TTL has passed', () => {
+    expect(expiredPlaybookEntries(`${playbook}\n\n${retired}`, '2026-07-30')).toEqual([
+      { entry: 'PB-002: another rule', reviewBy: '2026-06-01' },
+    ]);
+  });
+
+  it('reports that same entry once the RETIRED marker is absent (the skip is the marker, not the section)', () => {
+    const withoutMarker = retired
+      .split('\n')
+      .filter((l) => !l.startsWith('- **RETIRED'))
+      .join('\n');
+    expect(expiredPlaybookEntries(`${playbook}\n\n${withoutMarker}`, '2026-07-30')).toEqual([
+      { entry: 'PB-002: another rule', reviewBy: '2026-06-01' },
+      { entry: 'PB-003: an outgrown rule', reviewBy: '2026-05-01' },
+    ]);
+  });
+
+  // The real playbook carries this shape on a LIVE entry (PB-004, retired
+  // 2026-07-04 then un-retired 2026-07-28): one case-normalisation away from
+  // silently dropping a live rule from the needs-review list for good.
+  it('does NOT treat a retire-then-revive provenance line as a retirement', () => {
+    const revived = [
+      '### PB-004: un-retired and narrowed',
+      '- **Source**: some-change · **Criteria**: freq=3, modules=2',
+      '- **TTL**: review by 2026-05-20',
+      '- **Retired 2026-07-04, UN-RETIRED and narrowed 2026-07-28** (enforce-metadata-schema)',
+    ].join('\n');
+    const stillReported = [{ entry: 'PB-004: un-retired and narrowed', reviewBy: '2026-05-20' }];
+    const reviveLine = '- **Retired 2026-07-04, UN-RETIRED and narrowed 2026-07-28** (enforce-metadata-schema)';
+    // (a) as the real file writes it — lower-case head, so case-sensitivity alone carries it
+    expect(expiredPlaybookEntries(revived, '2026-07-30')).toEqual(stillReported);
+    // (b) the same line after someone upper-cases the head — only the UN-RETIRED
+    //     exclusion can carry this one, so it fails if that lookahead is dropped
+    expect(
+      expiredPlaybookEntries(
+        revived.replace(reviveLine, reviveLine.replace('**Retired', '**RETIRED')),
+        '2026-07-30',
+      ),
+    ).toEqual(stillReported);
+    // (c) a lower-case `Retired` line with no UN-RETIRED at all is not the machine
+    //     marker either — only the documented upper-case form retires an entry, and
+    //     erring toward "still on the list" is the safe direction
+    expect(
+      expiredPlaybookEntries(
+        revived.replace(reviveLine, '- **Retired 2026-07-04**: narrowed later, see PB-004'),
+        '2026-07-30',
+      ),
+    ).toEqual(stillReported);
+    // (d) positive control: the plain marker on its own line DOES retire the entry
+    expect(
+      expiredPlaybookEntries(
+        revived.replace(reviveLine, '- **RETIRED 2026-07-04** (issue #66): root cause eliminated'),
+        '2026-07-30',
+      ),
+    ).toEqual([]);
+  });
+
+  it('scopes the marker to its own entry — a live sibling past TTL is still reported', () => {
+    const live = ['### PB-004: still active', '- **TTL**: review by 2026-06-15'].join('\n');
+    expect(expiredPlaybookEntries(`${retired}\n\n${live}`, '2026-07-30')).toEqual([
+      { entry: 'PB-004: still active', reviewBy: '2026-06-15' },
+    ]);
   });
 });
 
