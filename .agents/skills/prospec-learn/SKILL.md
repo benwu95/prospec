@@ -38,7 +38,8 @@ nondeterministic serialization this contract exists to remove.
 2. [STABLE] Read `prospec/CONSTITUTION.md` — the promotion target (Constitution rules) and the duplicate-check baseline
 3. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — to compute each lesson's impact-module count
 4. [DYNAMIC] Read the existing lessons ledger `prospec/ai-knowledge/_lessons-ledger.md` (if present) — carry-forward anchor (version-controlled, survives worktrees)
-5. [DYNAMIC] Read `.prospec/lessons.yaml`-config or `.prospec.yaml` promotion thresholds (if set; threshold config only — the ledger itself is `prospec/ai-knowledge/_lessons-ledger.md`, not this file); otherwise use the reference defaults
+5. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) **in full** — the Sweep's team-tier input and Promote's duplicate-check baseline. This is the one skill that reads the whole playbook; every other reader loads only the entries relevant to its change
+6. [DYNAMIC] Read `.prospec/lessons.yaml`-config or `.prospec.yaml` promotion thresholds (if set; threshold config only — the ledger itself is `prospec/ai-knowledge/_lessons-ledger.md`, not this file); otherwise use the reference defaults
 
 ## Entry Gate
 
@@ -49,6 +50,14 @@ nondeterministic serialization this contract exists to remove.
 - Prior unresolved WARN: read the lessons ledger and surface any lesson already flagged "suggest promote" but not yet decided.
 
 ## Core Workflow
+
+### Sweep
+
+Runs FIRST — audit the two governed files for entries the project has outgrown, so this run keys new occurrences against a current ledger instead of adding evidence to a dead rule. Tests, evidence bar and removal semantics: `references/promotion-format.md` → **Staleness Sweep**.
+
+- The mechanical half is already computed: `prospec learn upsert` reports playbook entries past their TTL review-by date (entries already retired are excluded). The judgment half is the three expiry tests — **mechanized** (a gate/test/type/check now enforces it), **no longer applicable** (the artifact, station, command or config it governs is gone), **contradicted** (it conflicts with a Constitution rule, a shipped spec, or a newer entry).
+- Evidence, not memory: name the mechanism (`file:line`, a `DRIFT_CHECK_IDS` id, a test name) **and its executor**, then confirm no occurrence postdates it. A checker nothing runs is not a mechanism, and a mechanized root cause does not by itself retire the entry that still states WHY — annotate that one instead.
+- Present every finding on the **needs-review list** with its evidence and a proposed action, then stop for **explicit human approval** — retirement is a shared-tier write and carries the same approval discipline as promotion. Apply only what was approved; the rest stays listed.
 
 ### Collect
 
@@ -81,21 +90,23 @@ The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule fro
 
 - Every shared rule (playbook/Constitution) carries a **TTL** and a source reference.
 - `prospec learn upsert` also reports playbook entries past their TTL review-by date — carry them onto the **needs-review list**. Rule **conflict** detection (including cross-author contradictory feedback) stays your judgment; both go to human retirement/arbitration — never auto-resolved, never silently dropped.
-- Retiring a shared rule is version controlled with the reason and date.
+- Retiring a shared rule is version controlled with the reason and date — a ledger row keeps every counter and turns `status: retired` with a `｜ **Retired**:` suffix; a playbook entry keeps its provenance head, swaps TTL/Guidance for a `- **RETIRED {date}**:` line and moves under `## Retired Entries`. The audit that finds these entries runs pre-Collect (see **Sweep**); Govern records what the human approved there.
 
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / count) — no subjective adjectives.
 
 ### Success Criteria
+- [ ] the Sweep ran before Collect: every expired entry it found is on the needs-review list with a named mechanism/evidence and a recorded human decision
 - [ ] lessons ledger `prospec/ai-knowledge/_lessons-ledger.md` written/refreshed with keyed entries (frequency, impact_modules, source)
 - [ ] each "suggest promote" carries an auditable score detail (reproducible from the ledger)
 - [ ] no team-playbook / Constitution write occurred without explicit human approval (manual)
 - [ ] expired/conflicting shared rules surfaced on the needs-review list
 
 ### Failure Conditions
-- a shared-layer or Constitution write happened without recorded human approval
+- a shared-layer or Constitution write happened without recorded human approval — retiring or editing an existing entry counts as such a write
 - a promotion suggestion lacks a traceable score detail (black-box)
+- a ledger row was deleted, or a counter changed, to tidy the file
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
@@ -111,6 +122,8 @@ Verify the output against this skill's **site-specific** rule (**promotion-appro
 - **NEVER** recompute frequency by re-scanning all archives each run — maintain an incremental counter in the ledger; re-derivation drifts and is non-reproducible
 - **NEVER** auto-resolve a rule conflict or auto-pick between contradictory cross-author feedback — flag it for human arbitration
 - **NEVER** silently sustain an expired or conflicting shared rule — it must appear on the needs-review list
+- **NEVER** delete a ledger row, renumber a `PB-{NNN}` id, or change a counter to tidy either file — retire in place; `frequency` and `source_changes` are the only evidence the pattern was real
+- **NEVER** raise a retired row's `frequency` with an occurrence that predates the fix that retired it — the counter would assert a live pattern; record such an occurrence in `description`
 - **NEVER** suggest promotion from a single occurrence or negligible impact — that is early noise, not a pattern
 
 ## Error Handling
@@ -119,5 +132,7 @@ Verify the output against this skill's **site-specific** rule (**promotion-appro
 |----------|--------|
 | No archived changes **and** empty ledger | Stop; report there is nothing to collect (accumulate lessons over more changes first). A populated `_lessons-ledger.md` alone is sufficient material — do not stop |
 | module-map.yaml missing | Compute impact from delta-spec REQ prefixes instead; note reduced precision |
+| `_playbook.md` absent | Sweep the ledger tier only and report the absent team tier — it is a **placeholder** convention doc (`init` registers it in `index.md` but deliberately does not create it), so it comes into existence when the first promotion is approved. Never scaffold it mid-run |
+| An expiry claim cannot be evidenced (mechanism not found, or found with no executor) | Leave the entry active and list it as unresolved with what was checked — an unevidenced retirement is a silent rule deletion |
 | Human approval not given | Leave the lesson at its current tier; record the pending suggestion, do not write |
 | Promotion write fails | Do not silently drop; keep the queued suggestion and report the failure |

@@ -1199,7 +1199,7 @@ so that the institutionalized hard gate coincides with the review that actually 
 - WHEN `/prospec-review` completes a round (including review-clean), THEN metadata `quality_log` records a `prospec-review` entry, and `prospec check --record-review` code-computes and writes the `review_provenance` baseline
 - WHEN `scale: backfill`, THEN keep the current review exemption (recommended, not blocking)
 - WHEN the drift engine is unavailable, THEN the verify Entry Gate falls back to reading `quality_log` — a missing `prospec-review` entry still blocks, staleness downgrades to WARN, never silently pass
-- WHEN reviewing the skill templates, THEN the residual playbook rules PB-001/003/006/007 are grep-hittable in the corresponding template (implement NEVER + review lens); PB-004/005, whose root cause was fixed in #65, are retired in the ledger/playbook
+- WHEN reviewing the skill templates, THEN the residual playbook rules PB-001/003/006/007 are grep-hittable in the corresponding template (implement NEVER + review lens); PB-005, whose root cause was fixed in #65, is retired under `_playbook.md`'s `## Retired Entries`, while PB-004 was un-retired and narrowed (2026-07-28) to the counts `pnpm counts` does not own and is live again
 
 ### Behavior Specifications
 
@@ -1217,9 +1217,9 @@ The `prospec-verify` Entry Gate is upgraded from recommended to blocking: a non-
 - WHEN backfill, THEN exempt; WHEN the engine is unavailable, THEN quality_log fallback, no silent pass
 
 #### REQ-TEMPLATES-132: residual playbook rules pushed back into the skill gate
-The residual playbook rules are inlined into the authoring decision points: PB-001 (contract assertions section-scoped+mutation-verify) → `prospec-implement` NEVER + review test-quality lens; PB-003 (claim ⊆ impl) → review docs-claims lens; PB-006 (extract a helper for parallel modules) → strengthen the review DRY lens; PB-007 (sweep every consumer) → `prospec-implement` NEVER + review parallel-site lens. PB-002 (freq 1, design-time) keeps its ruling in the playbook. PB-004/PB-005, whose root cause was fixed in #65, are retired in `_playbook.md`/`_lessons-ledger.md`.
+The residual playbook rules are inlined into the authoring decision points: PB-001 (contract assertions section-scoped+mutation-verify) → `prospec-implement` NEVER + review test-quality lens; PB-003 (claim ⊆ impl) → review docs-claims lens; PB-006 (extract a helper for parallel modules) → strengthen the review DRY lens; PB-007 (sweep every consumer) → `prospec-implement` NEVER + review parallel-site lens. PB-002 (freq 1, design-time) keeps its ruling in the playbook. PB-005, whose root cause was fixed in #65, is retired under `_playbook.md`'s `## Retired Entries`; PB-004 was retired with it and then **un-retired and narrowed** (2026-07-28) to the factual counts `pnpm counts` does not own, so it is a live entry again — the ledger key that carried it (`docs/duplicated-count-drift`) stays retired while `docs/module-readme-manual-counts-uncovered` carries the narrowed rule.
 - WHEN reviewing the template, THEN PB-001/003/006/007 are grep-hittable in the corresponding template
-- WHEN reviewing the ledger/playbook, THEN PB-004/005 are marked retired and PB-002's ruling is recorded
+- WHEN reviewing the ledger/playbook, THEN PB-005 is marked retired, PB-004 is live under its narrowed scope, and PB-002's ruling is recorded
 
 #### REQ-TESTS-043: gate template contract test
 `skill-format.test.ts` section-scoped + mutation-verified pins: review records provenance each round, the verify Entry Gate blocking wording (negative: no "Absence does NOT block verify"), and the grep-hit of PB-001/003/006/007 in the corresponding template.
@@ -1448,6 +1448,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-03 | add-learn-staleness-sweep | MODIFIED REQ-TEMPLATES-132 | US-24 (MODIFIED), REQ-TEMPLATES-132 |
 | 2026-08-03 | extend-provenance-audit-scope | MODIFIED REQ-LIB-035 | REQ-LIB-035 |
 | 2026-08-02 | mechanize-light-scale-gates | ADDED REQ-TYPES-074; ADDED REQ-SERVICES-076; ADDED REQ-LIB-040; ADDED REQ-TESTS-072; MODIFIED REQ-CHNG-011; MODIFIED REQ-TEMPLATES-087; MODIFIED REQ-CLI-031; MODIFIED REQ-TYPES-070; MODIFIED REQ-LIB-035; MODIFIED REQ-TEMPLATES-085 | REQ-TYPES-074, REQ-SERVICES-076, REQ-LIB-040, REQ-TESTS-072, REQ-CHNG-011, REQ-TEMPLATES-087, REQ-CLI-031, REQ-TYPES-070, REQ-LIB-035, REQ-TEMPLATES-085 |
 | 2026-08-02 | enforce-counts-in-ci | ADDED REQ-TESTS-070; MODIFIED REQ-TESTS-059 | REQ-TESTS-070, REQ-TESTS-059 |

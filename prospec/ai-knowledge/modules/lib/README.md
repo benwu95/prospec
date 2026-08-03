@@ -15,7 +15,7 @@
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
 | `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
-| `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); ledger upsert + scoring + playbook TTL; artifact structural verdicts (promote-scaffold covers promotion's own product, delta-spec.md, not only the artifacts backfill forbids) |
+| `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped); artifact structural verdicts (promote-scaffold covers promotion's own product, delta-spec.md, not only the artifacts backfill forbids) |
 
 The drift engine's 6 files are listed in the sub-module below; the other 15 `.ts` are single-purpose helpers, with invariants in Pitfalls.
 
@@ -52,7 +52,7 @@ The drift engine's 6 files are listed in the sub-module below; the other 15 `.ts
 - `markdown-table.ts`: both consumers (review.md, lessons ledger) once hand-copied it and drifted — a row split ignoring the `\|` its own renderer wrote (PB-006).
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both directions).
 - `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it — a scanner reports a bad record, not throws.
-- Station engines decide, never re-derive policy: `verify-grade` has NO WARN exemption (`not-adjudicated` included — each spends grade A's budget); `lessons-ledger` counts DISTINCT source changes; `review-merge` never infers identity from a location — its (location, lens) fallback needs one id-less side, sees pre-round rows only, and drops any row it claims, moves or renames.
+- Station engines decide, never re-derive policy: `verify-grade` has NO WARN exemption (`not-adjudicated` included — each spends grade A's budget); `lessons-ledger` counts DISTINCT source changes and REFUSES a `retired` row (counters are its only evidence the pattern was real, so an unattended harvest cannot raise them; its playbook marker is case-sensitive and excludes an `UN-RETIRED` annotation, or a revived rule would vanish from the needs-review list); `review-merge` never infers identity from a location — its (location, lens) fallback needs one id-less side, sees pre-round rows only, and drops any row it claims, moves or renames.
 
 ## Sub-Modules
 

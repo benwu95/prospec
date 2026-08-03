@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3108%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3119%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -429,7 +429,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
 - **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. With an optional `feature-map.yaml` (feature→module index, bootstrapped at archive) it adds two governance checks: REQ-prefix legality (WARN) and the feature→module edge (FAIL).
 - **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
-- **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons into a **version-controlled** ledger (`_lessons-ledger.md`); `/prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution.
+- **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons into a **version-controlled** ledger (`_lessons-ledger.md`); `/prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution. Before each collection it **sweeps both files for entries the project has outgrown** — a rule some gate now enforces, one whose subject is gone, or one that contradicts the Constitution — and surfaces each with its evidence for human retirement; expiry retires in place (a ledger row keeps every counter, a playbook id is never reused), so the audit trail survives the cleanup.
 
 ### Right-Sized Process (Scale)
 
@@ -789,7 +789,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3108 tests)
+# Run all tests (3119 tests)
 pnpm test
 
 # Watch mode
@@ -802,9 +802,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3108 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2226 tests
-- Contract tests (CLI output + Skill format): 771 tests
+**Test Coverage**: 3119 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2232 tests
+- Contract tests (CLI output + Skill format): 776 tests
 - Integration tests: 45 tests
 - E2E tests: 66 tests
 
