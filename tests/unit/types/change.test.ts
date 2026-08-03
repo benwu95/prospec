@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHANGE_SCALES,
+  CHANGE_STATUSES,
   ChangeMetadataSchema,
+  PROVENANCE_AUDITED_STATUSES,
   SCALE_FORBIDDEN_ARTIFACTS,
   VERIFY_GRADES,
   NewQualityLogEntrySchema,
   QualityLogEntrySchema,
   forbiddenArtifacts,
+  isProvenanceAudited,
 } from '../../../src/types/change.js';
 import type {
   ChangeMetadata,
@@ -129,6 +132,53 @@ describe('SCALE_FORBIDDEN_ARTIFACTS (REQ-TYPES-074)', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual([]);
       expect(() => result.includes('plan.md')).not.toThrow();
+    },
+  );
+});
+
+describe('PROVENANCE_AUDITED_STATUSES (REQ-TYPES-075)', () => {
+  it('audits implemented AND verified — the window verify opens stays inside the scope', () => {
+    expect([...PROVENANCE_AUDITED_STATUSES].sort()).toEqual(['implemented', 'verified']);
+  });
+
+  it('names only real lifecycle statuses', () => {
+    for (const status of PROVENANCE_AUDITED_STATUSES) {
+      expect(CHANGE_STATUSES).toContain(status);
+    }
+  });
+
+  // Absent for a different reason than the pre-review statuses: archive has moved
+  // the bundle out of `.prospec/changes/`, so no collector can enumerate it and no
+  // verdict exists to give. Recording it as an "exemption" would misdescribe that.
+  it('leaves archived out of the registry', () => {
+    expect([...PROVENANCE_AUDITED_STATUSES]).not.toContain('archived');
+  });
+
+  it.each([...PROVENANCE_AUDITED_STATUSES])('reports %s as audited', (status) => {
+    expect(isProvenanceAudited(status)).toBe(true);
+  });
+
+  it.each(['story', 'plan', 'tasks', 'archived'])(
+    'reports %s as unaudited',
+    (status) => {
+      expect(isProvenanceAudited(status)).toBe(false);
+    },
+  );
+
+  it.each([null, undefined, '', 'IMPLEMENTED', 'verify'])(
+    'reports the non-status %s as unaudited',
+    (value) => {
+      expect(isProvenanceAudited(value)).toBe(false);
+    },
+  );
+
+  // Membership goes through a Set, never a plain-object lookup: an inherited key
+  // resolves truthy on an object literal, which would admit a change whose
+  // metadata carries a forged status — the trap `forbiddenArtifacts` guards above.
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
+    'reports the prototype key %s as unaudited',
+    (key) => {
+      expect(isProvenanceAudited(key)).toBe(false);
     },
   );
 });

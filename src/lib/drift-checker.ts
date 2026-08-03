@@ -1,3 +1,4 @@
+import { isProvenanceAudited } from '../types/change.js';
 import {
   DRIFT_CHECK_IDS,
   DRIFT_REPORT_FILENAME,
@@ -331,18 +332,28 @@ export function evaluateMcpReadmeCounts(src: McpReadmeCountSource): CheckOutcome
 }
 
 /**
- * Review provenance — an `implemented`, non-backfill change must carry a review
+ * Review provenance — an audited, non-backfill change must carry a review
  * baseline whose digest still matches the current code (REQ-LIB-024). Absent →
  * fail (review never ran); mismatch → fail (code changed since review, re-review
  * needed). FAIL-class: this is the machine gate that makes review non-skippable
- * before verify. Non-`implemented` changes are exempt; backfill is exempt only
- * when proven by `backfill-draft.md` (`scale` alone is hand-editable, #103); an
- * unavailable source (not git / no changes dir / no digest) skips.
+ * before verify. The audited statuses come from `PROVENANCE_AUDITED_STATUSES`:
+ * `implemented` AND `verified`, so the window between verify and archive is
+ * covered — grade S/A ends neither the audit nor the need to re-review. Earlier
+ * statuses are exempt (review is not yet due) and `archived` is unreachable
+ * rather than forgiven: its bundle has left `.prospec/changes/`, so the collector
+ * never enumerates it. Backfill is exempt only when proven by
+ * `backfill-draft.md` (`scale` alone is hand-editable, #103); an unavailable
+ * source (not git / no changes dir / no digest) skips.
+ *
+ * HEAD is inside the digest, so the verify S/A feature commit itself stales the
+ * baseline. That red is honest, and the remedy is the PB-016 order: commit, then
+ * re-record both baselines, then archive.
  *
  * Assumes a single change in flight at a time (the normal prospec workflow): the
  * one whole-tree `current_digest` is compared against every change, so with
  * concurrent changes, editing one flips the others stale — over-blocking
- * (fail-closed), never fail-open.
+ * (fail-closed), never fail-open. Widening the audited statuses widens that
+ * over-blocking; it cannot open the gate.
  */
 export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutcome {
   if (!src.available) {
@@ -350,7 +361,7 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
   }
   const findings: DriftFinding[] = [];
   for (const c of src.changes) {
-    if (c.status !== 'implemented') continue;
+    if (!isProvenanceAudited(c.status)) continue;
     // Draft-gated like test-provenance (issue #103): `scale` is hand-editable, so
     // only a proven backfill (backfill-draft.md present) skips the review gate.
     if (c.scale === 'backfill' && c.backfill_draft_present) continue;
@@ -466,13 +477,15 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
 }
 
 /**
- * Test provenance — an `implemented` change must carry a recorded test run whose
+ * Test provenance — an audited change must carry a recorded test run whose
  * digest still matches the current code AND whose exit code is zero (REQ-LIB-033).
  * Absent → fail (the suite was never recorded); digest mismatch → fail (code
  * changed since the run); non-zero exit → fail (the suite failed). FAIL-class:
  * this is what makes verify's test dimension a machine verdict instead of an
- * agent's self-report. A non-`implemented` change is exempt; an unavailable source
- * (not git / no changes dir / no digest) skips.
+ * agent's self-report. The audited statuses are `PROVENANCE_AUDITED_STATUSES` —
+ * the same registry review-provenance reads, so the two gates cannot cover
+ * different windows; a change before tests are due is exempt and `archived` is
+ * unreachable. An unavailable source (not git / no changes dir / no digest) skips.
  *
  * **A recorded failure outranks an unresolvable command.** When the test command
  * cannot run on this machine (unset, or a Windows shim), the missing/stale
@@ -499,7 +512,7 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   }
   const findings: DriftFinding[] = [];
   for (const c of src.changes) {
-    if (c.status !== 'implemented') continue;
+    if (!isProvenanceAudited(c.status)) continue;
     const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
     if (c.recorded_digest !== null && c.recorded_exit_code !== 0) {
       // Checked FIRST — before staleness, before the unresolvable-command skip —

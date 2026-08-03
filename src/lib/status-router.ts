@@ -195,6 +195,11 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         blockingGates: [
           'only `verified` changes are archivable',
           'affected-module Knowledge synced (verify S/A commit prompt; the archive Entry Gate re-confirms as backstop)',
+          // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these two are live
+          // gates on this edge, not just on the one before it — and the verify S/A
+          // commit stales both by construction (HEAD is in the digest). Declared,
+          // not evaluated: the router is I/O-free and never reads the drift report.
+          'review/test provenance current for the final code (`prospec check` — re-record both after the verify S/A commit)',
         ],
         reasons: ['status `verified` — next station per lifecycle order'],
       };

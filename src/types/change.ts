@@ -208,6 +208,41 @@ export function forbiddenArtifacts(scale: string | undefined): readonly string[]
   return SCALE_FORBIDDEN_ARTIFACTS.standard;
 }
 
+/**
+ * The change statuses `review-provenance` and `test-provenance` audit — the
+ * executable copy of the Provenance audit scope table in
+ * `prospec/ai-knowledge/_status-lifecycle.md` (a contract test pins the two
+ * together in both directions). Both evaluators read this one registry, so the
+ * two gates cannot drift into covering different windows.
+ *
+ * `verified` is in scope on purpose: reaching grade S/A ends neither the audit nor
+ * the need to re-review. An `implemented`-only scope let code edited after verify
+ * graduate REQs into the trust zone that no review round had ever seen, with both
+ * gates reporting PASS.
+ *
+ * `archived` is absent for a different reason than `story`/`plan`/`tasks`, and it
+ * is NOT an exemption: `prospec archive` moves the bundle out of
+ * `.prospec/changes/`, so the collectors never enumerate such a change and no
+ * verdict about it exists to give.
+ */
+export const PROVENANCE_AUDITED_STATUSES = [
+  'implemented',
+  'verified',
+] as const satisfies readonly ChangeStatus[];
+
+/** Typed `unknown` on purpose: the argument is a raw metadata field, and `has`
+ *  answers honestly for `null`/`undefined` without a narrowing guard the runtime
+ *  does not need — a guard mutation testing correctly reports as redundant. */
+const PROVENANCE_AUDITED: ReadonlySet<unknown> = new Set(PROVENANCE_AUDITED_STATUSES);
+
+/** Whether a change's recorded status is inside the provenance gates' audit scope.
+ *  A `Set` — not an object lookup — because an inherited key (`constructor`,
+ *  `toString`) resolves truthy on an object literal and would admit a change whose
+ *  metadata carries a forged status. */
+export function isProvenanceAudited(status: string | null | undefined): boolean {
+  return PROVENANCE_AUDITED.has(status);
+}
+
 export type QualityLogEntry = z.infer<typeof QualityLogEntrySchema>;
 /** The shape a station constructs from scratch — see NewQualityLogEntrySchema. */
 export type NewQualityLogEntry = z.infer<typeof NewQualityLogEntrySchema>;

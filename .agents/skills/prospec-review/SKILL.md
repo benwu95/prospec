@@ -41,7 +41,7 @@ nondeterministic serialization this contract exists to remove.
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
-- Implementation is done: metadata status is `implemented` and tasks.md **code-task** checkboxes are complete (unchecked `[M]`/`[V]` tasks do not block; kind schema: tasks-format reference); if still `tasks`, FAIL and point to `/prospec-implement`.
+- Implementation is done: metadata status is `implemented` **or later** and tasks.md **code-task** checkboxes are complete (unchecked `[M]`/`[V]` tasks do not block; kind schema: tasks-format reference); if still `tasks`, FAIL and point to `/prospec-implement`. This item is a floor, not a ceiling — a `verified` change whose code moved after verify legitimately re-enters here (that is what its stale `review-provenance` demands), and the loop ends the same way, stamping a fresh baseline; no status regression is involved or possible.
 - Planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md. **Exception — `metadata.scale: quick`**: only proposal.md + tasks.md are required (a quick change legitimately has no plan/delta-spec); do not FAIL on their absence. **Exception — `metadata.scale: backfill`**: only proposal.md + delta-spec.md are required (a backfill change records existing code — no forward plan/tasks); do not FAIL on their absence.
 - Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
 
@@ -130,7 +130,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 
 | Scenario | Action |
 |----------|--------|
-| metadata status not `implemented` | Stop; point to `/prospec-implement` to finish tasks first |
+| metadata status is BEFORE `implemented` (`story`/`plan`/`tasks` — implementation unfinished) | Stop; point to `/prospec-implement` to finish tasks first. A status at or past `implemented` — `verified` included — is NOT this scenario: the Entry Gate item is a floor |
 | No change diff vs branch base | Report nothing to review; suggest proceeding to `/prospec-verify` |
 | Sub-agent spawn fails at runtime | Offer the harness reviewer or single-pass fallback; do not skip |
 | Fix repeatedly turns tests red | Roll back, mark the critical unresolved, escalate to the human |

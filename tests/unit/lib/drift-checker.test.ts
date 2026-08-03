@@ -489,8 +489,40 @@ describe('evaluateReviewProvenance', () => {
     expect(r.findings[0]?.detail).toContain('no review recorded');
   });
 
-  it('does not flag a change that is not yet implemented (review not due)', () => {
-    const r = evaluateReviewProvenance(src({ status: 'tasks', recorded_digest: null }));
+  it('does not flag a change before review is due (story/plan/tasks)', () => {
+    for (const status of ['story', 'plan', 'tasks']) {
+      const r = evaluateReviewProvenance(src({ status, recorded_digest: null }));
+      expect(r.result.status).toBe('pass');
+      expect(r.findings).toHaveLength(0);
+    }
+  });
+
+  // The verified→archived window: reaching grade S/A ends neither the audit nor the
+  // need to re-review. Before REQ-TYPES-075 both cases below passed silently, so
+  // code edited after verify could graduate REQs no review round had ever seen.
+  it('fails (stale) when a VERIFIED change was edited after its recorded review', () => {
+    const r = evaluateReviewProvenance(src({ status: 'verified', recorded_digest: 'OLD' }, 'CUR'));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('stale review');
+  });
+
+  it('fails when a VERIFIED change carries no recorded review at all', () => {
+    const r = evaluateReviewProvenance(src({ status: 'verified', recorded_digest: null }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no review recorded');
+  });
+
+  it('passes a VERIFIED change whose recorded review still matches the code', () => {
+    const r = evaluateReviewProvenance(src({ status: 'verified', recorded_digest: 'CUR' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('keeps the draft-gated backfill exemption at VERIFIED too', () => {
+    const r = evaluateReviewProvenance(
+      src({ status: 'verified', scale: 'backfill', backfill_draft_present: true, recorded_digest: 'OLD' }),
+    );
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
   });
@@ -1208,12 +1240,56 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     expect(r.findings[0]?.detail).toContain('no test run recorded');
   });
 
-  it('exempts a change that is not yet implemented', () => {
-    for (const status of ['story', 'plan', 'tasks', 'verified', 'archived']) {
+  // `archived` is here for a different reason than the pre-review statuses: a
+  // collector cannot enumerate a bundle archive has moved out of
+  // `.prospec/changes/`, so a source claiming one is a shape that never occurs.
+  it('exempts a change before tests are due, and has no verdict for archived', () => {
+    for (const status of ['story', 'plan', 'tasks', 'archived']) {
       const r = evaluateTestProvenance(src({ status, recorded_digest: null }));
       expect(r.result.status, status).toBe('pass');
       expect(r.findings, status).toHaveLength(0);
     }
+  });
+
+  // Mirror of review-provenance's verified cases: the two gates read one registry,
+  // so a scope that covered only review would still let an unverified test record
+  // reach archive.
+  it('fails (stale) when a VERIFIED change was edited after its recorded run', () => {
+    const r = evaluateTestProvenance(src({ status: 'verified', recorded_digest: 'OLD' }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('stale test run');
+  });
+
+  it('fails when a VERIFIED change carries no recorded run at all', () => {
+    const r = evaluateTestProvenance(
+      src({ status: 'verified', recorded_digest: null, recorded_exit_code: null, recorded_command: '' }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no test run recorded');
+  });
+
+  it('passes a VERIFIED change whose recorded run still matches the code', () => {
+    const r = evaluateTestProvenance(src({ status: 'verified' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('keeps the recorded-failure branch outranking staleness at VERIFIED', () => {
+    const r = evaluateTestProvenance(
+      src({ status: 'verified', recorded_digest: 'OLD', recorded_exit_code: 3 }),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('`pnpm test` exited 3');
+    expect(r.findings[0]?.detail).toContain('the record is stale');
+  });
+
+  it('keeps the draft-gated backfill exemption at VERIFIED too', () => {
+    const r = evaluateTestProvenance(
+      src({ status: 'verified', scale: 'backfill', backfill_draft_present: true, recorded_digest: 'OLD' }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
   });
 });
 

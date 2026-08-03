@@ -48,8 +48,8 @@ Which artifacts each scale's contract forbids. `SCALE_FORBIDDEN_ARTIFACTS` in `t
 
 - **`/prospec-ff`** fast-forwards `story → plan → tasks` in one pass (`scale: quick`: `story → tasks`, plan skipped) — it is planning-only and stops at `tasks`.
 - **`/prospec-implement`** sets `implemented` only when every `tasks.md` **code-task** checkbox is done (unchecked `[M]`/`[V]` tasks are reminders, not blockers) — this distinguishes "implemented, awaiting verify" from "tasks planned".
-- **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged (stays `implemented`); fix the WARN/FAIL items and re-run. Its machine dimensions are adjudicated by `prospec check` (verdicts adopted verbatim), its judgment dimensions in fresh context; an unavailable engine yields `not-adjudicated` (S unreachable, A attainable). Division of labour: verify's Key Difference section.
-- **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change — then archive sets `archived`.
+- **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged — status never regresses, so an already-`verified` change re-entering after a post-verify edit stays `verified`. Neither `status` nor `metadata-completeness` (it accepts any earlier S/A entry) then records the new grade: the report, not the status, says the change is not archivable. Fix the WARN/FAIL items and re-run until S/A. Its machine dimensions are adjudicated by `prospec check` (verdicts adopted verbatim), its judgment dimensions in fresh context; an unavailable engine yields `not-adjudicated` (S unreachable, A attainable). Division of labour: verify's Key Difference section.
+- **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change; it also refuses on either provenance check FAILing (see Provenance audit scope) — then archive sets `archived`.
 - **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into a light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists). Under `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map. A backfill change that has **not yet reached `implemented`** has an unfinished promotion: `prospec status` routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks — both refuse that scale.
 
 ## Stations without a status transition
@@ -57,7 +57,7 @@ Which artifacts each scale's contract forbids. `SCALE_FORBIDDEN_ARTIFACTS` in `t
 Some workflow stations participate in the SDD order but own **no** `status` transition — they operate on the working tree and leave `status` to the stations above. Resume logic must place them by workflow order, not by `status`:
 
 - **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design. Under `scale: quick` the router does not suggest design (quick skips `plan`); run `/prospec-design` manually.
-- **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `/prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`.
+- **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `/prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`. It also re-runs **after** `verified` when a post-verify edit staled that baseline — owning no status, it needs no transition to be re-enterable, and its Entry Gate status item is a floor.
 - **`/prospec-learn`** — periodic; promotes lessons, owns no `status`.
 
 ## What each gate checks (artifact ownership)
@@ -66,6 +66,21 @@ Different derived artifacts have different rightful update times — gates are s
 
 - **AI Knowledge** (module READMEs) tracks current code; updated by `/prospec-knowledge-update` anytime. `/prospec-verify` grades only **pre-existing Knowledge ↔ code drift** (lag behind the change under verification is informational). Knowledge-sync's **prevention point is the `/prospec-verify` S/A commit prompt** — folded into the feature commit, so a later source-only commit doesn't flip `knowledge-health` stale; the `/prospec-archive` Entry Gate is the **backstop** that still refuses to archive until affected-module READMEs reflect the change's final state.
 - **Feature Specs** (`specs/features/`) describe *graduated* capabilities, updated **only** by `/prospec-archive` (Phase 3.5 graduation). A spec not yet reflecting an un-archived change is the normal pre-archive state — so `/prospec-verify` **does NOT gate on Feature Spec freshness**, keeping verify (gate) and archive (sole spec writer) from deadlocking.
+
+## Provenance audit scope
+
+Which statuses `review-provenance` and `test-provenance` audit. `PROVENANCE_AUDITED_STATUSES` in `types/change.ts` is the **executable copy**, pinned against this table both ways; both gates read that one registry, so neither can cover a window the other does not.
+
+| Status | Audited | Why |
+|--------|---------|-----|
+| `story` | No | review is not due — no baseline to be stale against |
+| `plan` | No | as above |
+| `tasks` | No | as above |
+| `implemented` | Yes | review and the test run precede verify |
+| `verified` | Yes | S/A ends neither the audit nor the need to re-review — code edited afterwards would graduate requirements no review saw |
+| `archived` | No | unreachable rather than exempt: the bundle has left `.prospec/changes/`, so no collector enumerates it |
+
+HEAD is in the digest, so the verify S/A feature commit itself stales both baselines — an honest red. Re-record **after** committing (`--record-review`, then `--record-tests`), then archive.
 
 ## Escaped-defect registration (`introduced_by`)
 

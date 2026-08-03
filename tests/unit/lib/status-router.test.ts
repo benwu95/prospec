@@ -127,6 +127,16 @@ describe('status-router — lifecycle edges', () => {
     expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
   });
 
+  // `verified` is inside PROVENANCE_AUDITED_STATUSES, so both provenance gates are
+  // live on the verified→archive edge. Omitting them under-reported the blocking set
+  // for exactly the state that widening the audit scope exists to guard, and the
+  // verify S/A commit stales both by construction.
+  it('verified declares the provenance gates and names the re-record remedy', () => {
+    const gates = routeChange(facts({ status: 'verified' })).blockingGates.join(' ');
+    expect(gates).toContain('provenance');
+    expect(gates).toContain('re-record');
+  });
+
   it('archived is terminal — next is null, periodic learn applies', () => {
     const route = routeChange(facts({ status: 'archived' }));
     expect(route.next).toBeNull();
