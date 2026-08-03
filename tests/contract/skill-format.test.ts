@@ -4420,7 +4420,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     // A-budget is now total — every WARN counts, no exemption class.
     it('the engine-outage A-budget exclusion class is REMOVED — every WARN counts (issue #107)', () => {
       const section = flat(sectionOf(verify(), '### When a machine check skips'));
-      expect(section).toMatch(/Every WARN counts against grade A's ≤ 2 budget/);
+      expect(section).toMatch(/Every WARN counts against grade A's (?:(?:≤|<=)\s*2|at\s+most\s+two\s+WARNs?)\s+budget/i);
       expect(section).toContain('there is no exemption class');
       // the removal is explained, not silent: the CLI-required posture emptied the class
       expect(section).toContain('the carve-out is gone');
@@ -4435,7 +4435,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     // copy is exactly how the #102 contradiction shipped in the other direction.
     it('no mention of the ≤ 2 WARN budget reintroduces an exclusion class (issue #107)', () => {
       const doc = flat(verify());
-      const hits = [...doc.matchAll(/(?:≤|<=)\s*2\s+(?:budget-counted\s+)?WARN/g)];
+      const hits = [...doc.matchAll(/(?:(?:≤|<=)\s*2\s+(?:budget-counted\s+)?WARNs?|at\s+most\s+two\s+WARNs?)/gi)];
       // definition + rubric/merge-rule restatements
       expect(hits.length).toBeGreaterThanOrEqual(2);
       for (const m of hits) {

@@ -514,7 +514,7 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   for (const c of src.changes) {
     if (!isProvenanceAudited(c.status)) continue;
     const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
-    if (c.recorded_digest !== null && c.recorded_exit_code !== 0) {
+    if (c.recorded_exit_code !== 0 && (c.recorded_exit_code !== null || c.recorded_digest !== null)) {
       // Checked FIRST — before staleness, before the unresolvable-command skip —
       // and never exempt under backfill: a recorded failure is a KNOWN failure
       // whatever the tree or the toolchain did afterwards, and the verify contract
