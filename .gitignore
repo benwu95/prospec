@@ -44,6 +44,7 @@ Thumbs.db
 !.agents/skills/
 .agents/skills/*
 !.agents/skills/prospec-*
+!.agents/skills/release/
 
 # Prospec
 .prospec/
