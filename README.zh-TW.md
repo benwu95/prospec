@@ -329,6 +329,36 @@ flowchart TD
 
 流程同時是 **scale-aware** 的：經使用者確認的 `quick` 變更會完全跳過 Plan 階段（`story → tasks`），並由 archive 時的 backstop 把關 —— 見[相稱流程](#相稱流程scale)。
 
+### Skill 與 CLI 協同模式：判斷面與確定性執行
+
+Prospec 提供擁有 17+ 個頂層命令的豐富 CLI，但**開發者平時幾乎不需要手動輸入這些 CLI 指令**。日常的 SDD 開發流程主要是透過 AI Agent 介面中的 slash-command **Skills**（例如 `/prospec-ff`、`/prospec-implement`、`/prospec-verify` 等）來驅動。
+
+Skills 與 CLI 之間的互動遵循嚴格的職責分工：
+
+- **Skills（Agent 內部的判斷面）**：在 LLM 上下文中執行。負責非確定性的思維與對話任務 —— 訪談需求、撰寫架構草案、執行對抗式審查、評估 UI/UX 規範以及給予品質分級。
+- **CLI（`prospec` 確定性執行引擎）**：由 Skills 在背景透過指令探針（`_cli-probe`）自動呼叫。CLI 負責所有位元可重現的狀態變更 —— 建立變更骨架 (scaffolds)、驗證 YAML metadata、更新生命週期狀態轉換、寫入結構化 quality_log、計算 drift 報告、執行機械式 Spec Sync 以及歸檔已完成變更。
+
+```
+  使用者 ⇄ AI Agent (Slash-Command Skills)
+           │
+           │  (1) 提問與引導 SDD 開發流程
+           │  (2) 執行高階判斷（撰寫文章、對抗審查、編寫程式碼）
+           ▼
+  Skill 執行迴圈
+           │
+           │  背景自動呼叫：Skills 執行 `prospec <command>`
+           ▼
+  `prospec` CLI (確定性執行引擎)
+           │
+           ├── 骨架建立（story / plan / tasks）
+           ├── 生命週期與 Metadata（status / scale / progress）
+           ├── 確定性稽核與評分（check / verify record / review merge）
+           └── 知識與規格同步（archive / knowledge update / learn upsert）
+```
+
+**為什麼這種分離設計如此重要：**
+把所有的紀錄與狀態轉換交給 CLI 執行檔處理後，Prospec 徹底避免了 LLM 格式化錯誤（例如格式不正確的 YAML/JSON 或損壞的 frontmatter），保證了零 token 的狀態檢查，並確保相同的儲存庫狀態永遠產出完全一致、位元可重現的產物。
+
 ### 核心原則
 
 Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案的 prospec 資產 —— 生成的 Skills、配置與目錄結構：
@@ -803,14 +833,24 @@ git clone https://github.com/benwu95/prospec.git
 cd prospec
 pnpm install
 
-# Dev 模式執行
+# Dev 模式執行（TypeScript watch）
 pnpm run dev
 
-# 建置
+# 直接執行本機 CLI（免事先建置，使用 tsx）
+pnpm cli --help
+pnpm cli status
+
+# 建置正式版本
 pnpm run build
 
-# 測試
+# 執行單元與合約測試套件
 pnpm test
+
+# 程式碼品質與文件計數驗證
+pnpm typecheck
+pnpm lint
+pnpm counts          # 自動更新文件中的事實計數
+pnpm counts:check    # 驗證文件計數是否一致
 ```
 
 <details>

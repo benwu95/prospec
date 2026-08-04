@@ -331,6 +331,36 @@ Every **Archive** enriches **AI Knowledge** (more complete with each change), an
 
 The flow is also **scale-aware**: a user-confirmed `quick` change skips the Plan stage entirely (`story → tasks`), with archive-time backstops — see [Right-Sized Process](#right-sized-process-scale).
 
+### Skill ↔ CLI Cooperation Model
+
+Prospec includes a feature-rich CLI with 17+ top-level commands, but **developers rarely execute CLI commands directly**. Day-to-day SDD work is driven through slash-command **Skills** inside your AI Agent interface (`/prospec-ff`, `/prospec-implement`, `/prospec-verify`, etc.).
+
+The interaction between Skills and CLI follows a clear division of labor:
+
+- **Skills (The Judgment Layer in AI Agent)**: Run inside your LLM context. They handle nondeterministic human/AI tasks — interviewing requirements, writing architectural prose, running adversarial reviews, evaluating WCAG/design guidelines, and assigning quality grades.
+- **CLI (`prospec` - The Deterministic Execution Layer)**: Called by Skills under the hood via background subshell probes (`_cli-probe`). The CLI handles all byte-reproducible state mutations — creating change scaffolds, validating YAML metadata, updating lifecycle status transitions, recording structured quality logs, calculating drift reports, running mechanical spec sync, and archiving completed changes.
+
+```
+  User ⇄ AI Agent (Slash-Command Skills)
+         │
+         │  (1) Asks questions & guides SDD workflow
+         │  (2) Executes high-level judgment (prose, review, code)
+         ▼
+  Skill Execution Loop
+         │
+         │  Under the hood: Skills call `prospec <command>`
+         ▼
+  `prospec` CLI (Deterministic Engine)
+         │
+         ├── Scaffolding (story / plan / tasks)
+         ├── Lifecycle & Metadata (status / scale / progress)
+         ├── Deterministic Audits & Grading (check / verify record / review merge)
+         └── Knowledge & Spec Sync (archive / knowledge update / learn upsert)
+```
+
+**Why this separation matters:**
+By delegating all bookkeeping and state transitions to the CLI binary, Prospec eliminates LLM formatting errors (e.g. malformed YAML/JSON or broken frontmatter), guarantees zero-token state checks, and ensures that the exact same repository state always produces identical, byte-reproducible artifacts.
+
 ### Core principles
 
 Prospec enforces 6 principles over the assets it injects into your project — the generated Skills, configs, and directory structure:
@@ -836,14 +866,24 @@ git clone https://github.com/benwu95/prospec.git
 cd prospec
 pnpm install
 
-# Run in dev mode
+# Run in dev mode (TypeScript watch build)
 pnpm run dev
 
-# Build
+# Run local CLI directly without building (via tsx)
+pnpm cli --help
+pnpm cli status
+
+# Build for production
 pnpm run build
 
-# Test
+# Run unit & contract test suite
 pnpm test
+
+# Run quality checks & update factual counts in docs
+pnpm typecheck
+pnpm lint
+pnpm counts          # Update factual counts in docs
+pnpm counts:check    # Verify factual counts in docs are in sync
 ```
 
 <details>
