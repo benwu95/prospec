@@ -78,6 +78,22 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 **Verify**: `/prospec-verify`'s Constitution audit checks whether a change that altered a README-documented surface also updated the root `README.md`; a gap is graded **WARN** (advisory — does not block grade S/A) and recorded to `quality_log`. Governs the prospec project only; intentionally NOT encoded into any shipped Skill template.
 
+### [MUST] Factual Count Integrity
+
+**Description**: Factual counts — test tallies, template/skill/reference inventories, module file counts, feature spec `story_count`/`req_count`, and root-README check enumerations — are duplicated across `README.md`, `README.zh-TW.md`, `prospec/index.md`, module READMEs, and feature spec frontmatter. Three tiers govern them:
+
+1. **Machine-owned** (`pnpm counts`): `scripts/sync-counts.ts` regenerates test counts and `.hbs`/skill/reference inventories from source. Run `pnpm counts` to sync; never hand-edit these numbers.
+2. **CI-gated** (`pnpm counts:check`): the checker runs in `ci.yml` and exits non-zero on drift. A failing `counts:check` blocks merge.
+3. **Hand-maintained** (everything else): module README `(N files, N lines)` headers, feature spec frontmatter `story_count`/`req_count`, and the root-README `prospec check` prose enumeration have no single source and no machine guard. When a change adds or removes a module source file, graduates or deprecates a REQ, or appends a `DRIFT_CHECK_IDS` entry, re-derive these from the filesystem or the spec body at the same sync point and land them in the **same feature commit**. Never copy a sibling doc or carry a declared value forward by arithmetic — that propagates any pre-existing offset.
+
+The drift engine does **not** check count accuracy — a correct aggregate can mask offsetting per-layer errors.
+
+**Rationale**: Factual counts drift silently and compound: 23 occurrences over 6 modules before machine ownership was established (PB-004 provenance), and every new drift check missed the README prose enumeration until adversarial review caught it (PB-009 provenance, 5 occurrences across 3 modules). Splitting counts into three explicit tiers eliminates the assumption that `pnpm counts` covers everything — it does not.
+
+**Verify**: `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. The root-README check enumeration matches `DRIFT_CHECK_IDS`.
+
+---
+
 <!-- Add your own principles below. Tag each with [MUST] / [SHOULD] / [MAY] so verify can grade them. -->
 
 ## Constraints
@@ -88,6 +104,7 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
 - [x] Dependency direction is `cli → services → lib → types` — no reverse or circular imports
 - [x] User-facing changes update the root `README.md` in the same change ([SHOULD] — verify Constitution audit WARNs on a gap)
+- [x] Factual counts: machine-owned via `pnpm counts` (never hand-edit); CI-gated via `pnpm counts:check`; hand-maintained counts re-derived from source at sync point (same feature commit)
 
 ---
 
@@ -97,7 +114,8 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 - **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
+- **Counts**: `pnpm counts` for machine-owned tallies; `pnpm counts:check` in CI; hand-maintained counts (module file counts, spec frontmatter, README check enumeration) re-derived from source at each sync point
 
 ---
 
-> Last updated: 2026-07-25
+> Last updated: 2026-08-04

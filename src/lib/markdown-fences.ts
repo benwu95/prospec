@@ -55,10 +55,11 @@ export function toInlineCodeSpan(raw: string): string {
 export function withoutFencedBlocks(lines: string[]): string[] {
   let fence: { char: string; len: number } | null = null;
   return lines.map((line) => {
-    // Up to three spaces of indentation only: four or more (or a tab) makes an
-    // indented code block, whose literal ``` must not flip fence state — the old
-    // `^\s*` opener let one blind the scanner to the whole rest of the file.
-    const m = /^ {0,3}(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
+    // We allow arbitrary leading whitespace because a fenced block may be deeply
+    // indented inside list items. We cannot differentiate root-level indented code
+    // blocks from list-item fenced blocks without a full markdown parser, so we err
+    // on the side of NOT blinding the scanner to valid fences (Issue #106).
+    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
     if (m !== null && m[1] !== undefined) {
       const marker = m[1];
       const rest = m[2] ?? '';

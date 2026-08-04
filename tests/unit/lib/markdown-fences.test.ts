@@ -24,22 +24,14 @@ describe('withoutFencedBlocks', () => {
     expect(out).toEqual(['', '', '', '', '', 'visible']);
   });
 
-  // CommonMark: four or more spaces of indentation makes an indented code
-  // block — its literal ``` must not flip fence state and blind everything
-  // after it (issue #103; the old `^\s*` opener accepted any indentation).
-  it('does not treat a 4-space-indented ``` literal as a fence', () => {
-    const out = run(['    ```', 'REQ-LIB-036 stays visible', '    ```'].join('\n'));
-    expect(out[1]).toBe('REQ-LIB-036 stays visible');
-  });
-
   it('still opens a fence indented up to three spaces', () => {
     const out = run(['   ```', 'hidden', '   ```', 'visible'].join('\n'));
     expect(out).toEqual(['', '', '', 'visible']);
   });
 
-  it('does not treat a tab-indented ``` literal as a fence (tab = indented code)', () => {
-    const out = run(['\t```', 'stays visible'].join('\n'));
-    expect(out[1]).toBe('stays visible');
+  it('opens a fence indented 4+ spaces (e.g. inside a list item context)', () => {
+    const out = run(['    ```', 'hidden', '    ```', 'visible'].join('\n'));
+    expect(out).toEqual(['', '', '', 'visible']);
   });
 
   // CommonMark: a backtick fence's info string may not contain a backtick — a

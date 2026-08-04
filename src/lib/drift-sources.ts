@@ -495,18 +495,23 @@ export function collectGitTimestamps(
     )
       .filter((file) => file !== 'README.md')
       .map((file) => path.join(path.dirname(readmeRel), file));
-    modules.push({
-      name: entry.name,
-      readme_path: readmeRel.replace(/\\/g, '/'),
-      readme_exists: readmeExists,
-      // Generated artifacts carry code but no knowledge a README could
-      // describe, so regenerating one must not make the module stale — the
-      // resulting WARN has no honest fix. Scoped to THIS judgment: the same
-      // file stays inside computeChangeDigest (REQ-LIB-015 / REQ-LIB-039).
-      last_src_commit: gitLastCommit(cwd, entry.paths, GENERATED_SOURCE_ARTIFACTS),
-      last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
-      last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
-    });
+    
+    try {
+      modules.push({
+        name: entry.name,
+        readme_path: readmeRel.replace(/\\/g, '/'),
+        readme_exists: readmeExists,
+        // Generated artifacts carry code but no knowledge a README could
+        // describe, so regenerating one must not make the module stale — the
+        // resulting WARN has no honest fix. Scoped to THIS judgment: the same
+        // file stays inside computeChangeDigest (REQ-LIB-015 / REQ-LIB-039).
+        last_src_commit: gitLastCommit(cwd, entry.paths, GENERATED_SOURCE_ARTIFACTS),
+        last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
+        last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
+      });
+    } catch (e) {
+      return { available: false, reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`, modules: [] };
+    }
   }
   return { available: true, modules };
 }
@@ -970,7 +975,8 @@ function gitLastCommit(
     if (excluded !== null) return excluded.trim() || null;
   }
   const out = gitCapture(cwd, args);
-  return out === null ? null : out.trim() || null;
+  if (out === null) throw new Error(`git log capture failed for paths: ${paths.join(' ')}`);
+  return out.trim() || null;
 }
 
 /**
@@ -1011,6 +1017,7 @@ export function computeChangeDigest(cwd: string): string | null {
     ':(exclude)yarn.lock',
   ];
   const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
+  if (head === null) return null;
   const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
   // A capture failure (e.g. a diff past gitCapture's buffer) must NOT collapse
   // into a constant digest — that would silently certify stale code as current.
@@ -1025,7 +1032,7 @@ export function computeChangeDigest(cwd: string): string | null {
     .filter((l) => l.length > 0)
     .sort();
   const hash = createHash('sha256');
-  hash.update(`head\0${head === null ? '' : head.trim()}\0diff\0${diff}`);
+  hash.update(`head\0${head.trim()}\0diff\0${diff}`);
   for (const rel of untracked) {
     hash.update(`\0file\0${rel}\0`);
     try {
@@ -1129,9 +1136,6 @@ export function collectTestProvenance(
     );
   }
   const current_digest = digest;
-  if (current_digest === null) {
-    return unavailable('source unavailable: could not compute the current change digest');
-  }
   // An unset or unspawnable command is a fact about THIS machine, not about the
   // recorded runs — it must never gate enumeration. The old early-return here
   // (available: false, changes: []) suppressed recorded non-zero exits, letting a
