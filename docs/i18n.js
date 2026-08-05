@@ -50,7 +50,7 @@
     'hero.facts.principles': '<b>6</b> 條強制原則',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',
     'hero.agents': '不綁定 agent —— 支援 <b>Claude Code</b>、<b>Codex</b>、<b>Copilot</b> 與 <b>Antigravity</b>。',
-    'hero.model': '三個元件：<b>Skills</b> 在你的 agent 內驅動迴圈，<b>AI Knowledge</b> 是版控的專案記憶，而輕量的 <b>CLI</b> 只負責 bootstrap —— 不在 runtime 迴圈內。',
+    'hero.model': '三個元件：<b>Skills</b> 在你的 agent 內驅動判斷面，<b>AI Knowledge</b> 是版控的專案記憶，而 <b>CLI</b> 在背景作為確定性執行引擎（Deterministic Engine）。',
 
     // ---- proof (terminal transcript) ----
     'proof.aria': '終端機對話：開發者請 agent 加上深色模式切換；Prospec 跑完整個 SDD 迴圈，變更達到 grade A 並完成歸檔。',
@@ -112,17 +112,17 @@
 
     // ---- three pieces ----
     'pieces.eyebrow': '§03 · 模型',
-    'pieces.h2': '三個元件 —— 而 CLI 不會擋你的路。',
-    'pieces.lede': '你透過 agent 內的 Skills 驅動日常工作。CLI 只負責 bootstrap 與重新生成 —— 不在 runtime 迴圈內。',
+    'pieces.h2': '三個元件 —— Agent 負責判斷面，CLI 負責確定性執行。',
+    'pieces.lede': '你透過 agent 內的 Skills 驅動日常工作。背景中，Skills 將所有狀態轉換、骨架建立與 drift 檢查委派給 prospec CLI。',
     'pieces.1.k': '操作面',
     'pieces.1.p': '以 slash command 驅動的工作流，在你的 AI agent 內跑完整個 SDD 迴圈。這是你每天會碰的部分 —— 用自然語言描述變更，Skills 就會驅動它。',
     'pieces.1.role': '執行工作流',
     'pieces.2.k': '記憶',
     'pieces.2.p': '結構化、版控的專案記憶 —— 模組、規格、慣例、教訓。Skills 讀取它，並隨每次變更擴充它，所以 context 是漸進式的，而非一次全部塞給你。',
     'pieces.2.role': '每次變更皆讀取並擴充',
-    'pieces.3.k': '啟動',
-    'pieces.3.p': '輕量、偶爾使用的工具：<code>init</code>、<code>agent sync</code>、知識掃描、drift 檢查、唯讀 MCP server。執行它來建立骨架與重新生成 —— 然後它就退到一旁。',
-    'pieces.3.role': '一次性 / 偶爾使用',
+    'pieces.3.k': '執行引擎',
+    'pieces.3.p': '確定性執行引擎：由 <code>prospec status</code> 自動路由生命週期，背景探針執行骨架建立、YAML 結構驗證、零 token drift 檢查與機械式 Spec Sync，徹底杜絕 LLM 格式化錯誤。',
+    'pieces.3.role': '背景確定性執行引擎',
 
     // ---- quickstart ----
     'quickstart.eyebrow': '§04 · 快速上手',
@@ -210,7 +210,7 @@
     'faq.eyebrow': '§08 · 誠實的邊界',
     'faq.h2': '謹慎的工程師會問的問題。',
     'faq.q1.q': '工作時需要讓 CLI 一直跑著嗎？',
-    'faq.q1.a': '不需要。CLI 是 bootstrap／更新工具。一旦 <code>prospec quickstart</code> 生成了 Skills 與 Knowledge（純 Markdown，已 commit 進你的 repo），你的 agent 就從這些檔案運作。除非要重新生成或升級，否則不會再用到 binary。MCP server 純屬加值 —— 沒有任何東西依賴它。',
+    'faq.q1.a': '不需要手動執行。開發者日常主要透過 AI Agent 介面中的 slash-command Skills 驅動流程。Skills 會在背景自動呼叫 <code>prospec</code> CLI 作為確定性執行引擎，處理所有位元可重現的狀態變更、零 token 狀態檢查與 Spec Sync，徹底避免 LLM 格式化錯誤。',
     'faq.q2.q': '它會把我鎖進單一 AI 供應商嗎？',
     'faq.q2.a': '不會。Prospec 不綁定 AI agent。<code>agent sync</code> 會寫出 Claude Code（<code>CLAUDE.md</code> + <code>.claude/skills/</code>）以及給 Antigravity / Codex / Copilot 的 agents.md 標準（<code>AGENTS.md</code> + <code>.agents/skills/</code>）。知識是通用的 Markdown —— 切換 agent 不會讓你的專案記憶卡住。',
     'faq.q3.q': '省 token 的主張是真的，還是行銷話術？',
@@ -220,7 +220,7 @@
     'faq.q5.q': 'Greenfield 還是 brownfield？',
     'faq.q5.a': '都支援，用同樣的兩個 bootstrap 指令。在新 repo 上，知識從最小開始，隨著你持續出貨逐步補完。在既有 repo 上，<code>/prospec-quickstart</code> 會先把你的程式碼讀進 AI Knowledge，而 backfill 流程能從未被記錄的行為反向萃取規格。',
     'faq.q6.q': '它的淵源與授權是什麼？',
-    'faq.q6.a': '採 MIT 授權。本專案 fork 自 <a href="https://github.com/ci-yang/prospec">ci-yang/prospec</a>，並從 OpenSpec、Spec-Kit、cc-sdd 與 BMAD 汲取靈感。它自身的貢獻是「以 Skills 驅動 SDD、CLI 僅為薄層」，外加把 AI Knowledge 作為結構化、版控的 context engineering。',
+    'faq.q6.a': '採 MIT 授權。本專案 fork 自 <a href="https://github.com/ci-yang/prospec">ci-yang/prospec</a>，並從 OpenSpec、Spec-Kit、cc-sdd 與 BMAD 汲取靈感。它自身的貢獻是「Skills 判斷面 ＋ CLI 確定性執行引擎協同架構」，外加把 AI Knowledge 作為結構化、版控的 context engineering。',
 
     // ---- final CTA ----
     'final.eyebrow': '開始使用',
@@ -230,7 +230,7 @@
     'final.ctaGhost': '閱讀完整 README',
 
     // ---- footer ----
-    'footer.desc': '為 AI coding agent 打造的漸進式規格驅動開發。Skills 執行工作流；輕量的 CLI 負責 bootstrap。',
+    'footer.desc': '為 AI coding agent 打造的漸進式規格驅動開發。Skills 負責判斷面；確定性 CLI 在背景執行。',
     'footer.aria.start': '開始',
     'footer.h.start': '開始',
     'footer.start.quickstart': '快速上手',

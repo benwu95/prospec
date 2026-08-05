@@ -60,7 +60,7 @@
     {
       "@type":"Question",
       "name":"Do I need the CLI running while I work?",
-      "acceptedAnswer":{"@type":"Answer","text":"No. The CLI is a bootstrap/update tool. Once prospec quickstart has generated the Skills and Knowledge (plain Markdown, committed to your repo), your agent works from those files. The binary isn't needed again until you regenerate or upgrade. The MCP server is a pure add-on — nothing depends on it."}
+      "acceptedAnswer":{"@type":"Answer","text":"No manually. Skills in your AI Agent call the prospec CLI under the hood as a background deterministic engine for zero-error state transitions, zero-token state checks, and spec sync. The MCP server is a pure add-on for read-only project truth."}
     },
     {
       "@type":"Question",
@@ -85,7 +85,7 @@
     {
       "@type":"Question",
       "name":"What's the lineage and license?",
-      "acceptedAnswer":{"@type":"Answer","text":"MIT-licensed. This project is a fork of ci-yang/prospec, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD with a thin CLI, plus AI Knowledge as structured, versioned context engineering."}
+      "acceptedAnswer":{"@type":"Answer","text":"MIT-licensed. This project is a fork of ci-yang/prospec, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD paired with a deterministic CLI engine, plus AI Knowledge as structured, versioned context engineering."}
     }
   ]
 }
@@ -163,7 +163,7 @@
       <span><b>MIT</b></span>
     </div>
     <p class="hero__agents" data-i18n="hero.agents">Agent-agnostic — works with <b>Claude Code</b>, <b>Codex</b>, <b>Copilot</b>, and <b>Antigravity</b>.</p>
-    <p class="hero__model" data-i18n="hero.model">Three pieces: <b>Skills</b> run the loop inside your agent, <b>AI Knowledge</b> is versioned project memory, and a thin <b>CLI</b> only bootstraps — it's not in the runtime loop.</p>
+    <p class="hero__model" data-i18n="hero.model">Three pieces: <b>Skills</b> drive judgment inside your agent, <b>AI Knowledge</b> is versioned project memory, and the <b>CLI</b> serves as a background deterministic execution engine.</p>
   </div>
 
   <div class="wrap proof">
@@ -318,8 +318,8 @@
   <div class="wrap">
     <div class="sec-head reveal">
       <span class="eyebrow" data-i18n="pieces.eyebrow">§03 · The model</span>
-      <h2 data-i18n="pieces.h2">Three pieces — and the CLI stays out of your way.</h2>
-      <p class="lede" data-i18n="pieces.lede">You drive day-to-day work through Skills inside your agent. The CLI only bootstraps and regenerates — it is not in the runtime loop.</p>
+      <h2 data-i18n="pieces.h2">Three pieces — judgment in AI, deterministic execution in CLI.</h2>
+      <p class="lede" data-i18n="pieces.lede">You drive day-to-day work through Skills inside your agent. Under the hood, Skills delegate state transitions, scaffolding, and drift checks to the prospec CLI.</p>
     </div>
     <div class="pieces reveal">
       <div class="piece">
@@ -335,10 +335,10 @@
         <p class="role" data-i18n="pieces.2.role">read &amp; grown every change</p>
       </div>
       <div class="piece">
-        <span class="pk" data-i18n="pieces.3.k">Bootstrap</span>
+        <span class="pk" data-i18n="pieces.3.k">Execution</span>
         <h3>CLI <span class="cli">prospec</span></h3>
-        <p data-i18n="pieces.3.p">A thin, occasional tool: <code>init</code>, <code>agent sync</code>, knowledge scans, drift checks, a read-only MCP server. Run it to scaffold and regenerate — then it gets out of the way.</p>
-        <p class="role" data-i18n="pieces.3.role">one-time / occasional</p>
+        <p data-i18n="pieces.3.p">A deterministic execution engine: <code>prospec status</code> routes lifecycle state, subshell probes handle scaffolding, YAML validation, zero-token drift checks, and mechanical spec sync without LLM formatting errors.</p>
+        <p class="role" data-i18n="pieces.3.role">deterministic engine under the hood</p>
       </div>
     </div>
   </div>
@@ -550,7 +550,7 @@
     <div class="faq reveal">
       <details>
         <summary><span class="q">Q1</span><span data-i18n="faq.q1.q">Do I need the CLI running while I work?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q1.a">No. The CLI is a bootstrap/update tool. Once <code>prospec quickstart</code> has generated the Skills and Knowledge (plain Markdown, committed to your repo), your agent works from those files. The binary isn't needed again until you regenerate or upgrade. The MCP server is a pure add-on — nothing depends on it.</div>
+        <div data-i18n="faq.q1.a">No manual CLI execution is needed. Day-to-day SDD work is driven through slash-command Skills in your AI Agent. Under the hood, Skills call the <code>prospec</code> CLI as a background deterministic engine to handle byte-reproducible state mutations, zero-token drift checks, and spec sync without formatting errors.</div>
       </details>
       <details>
         <summary><span class="q">Q2</span><span data-i18n="faq.q2.q">Does it lock me into one AI vendor?</span><span class="pm" aria-hidden="true">+</span></summary>
@@ -570,7 +570,7 @@
       </details>
       <details>
         <summary><span class="q">Q6</span><span data-i18n="faq.q6.q">What's the lineage and license?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q6.a">MIT-licensed. This project is a fork of <a href="https://github.com/ci-yang/prospec">ci-yang/prospec</a>, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD with a thin CLI, plus AI Knowledge as structured, versioned context engineering.</div>
+        <div data-i18n="faq.q6.a">MIT-licensed. This project is a fork of <a href="https://github.com/ci-yang/prospec">ci-yang/prospec</a>, and draws inspiration from OpenSpec, Spec-Kit, cc-sdd, and BMAD. Its own contribution is Skills-driven SDD paired with a deterministic CLI engine, plus AI Knowledge as structured, versioned context engineering.</div>
       </details>
     </div>
   </div>
@@ -612,7 +612,7 @@
     <div class="foot">
       <div class="foot__brand">
         <span class="brand">prospec<span class="dot" aria-hidden="true">.</span></span>
-        <p data-i18n="footer.desc">Progressive Spec-Driven Development for AI coding agents. Skills run the workflow; a thin CLI bootstraps.</p>
+        <p data-i18n="footer.desc">Progressive Spec-Driven Development for AI coding agents. Skills handle the judgment layer; a deterministic CLI handles execution under the hood.</p>
         <p class="lic">MIT · TypeScript · Node ≥ 22.13 · pnpm ≥ 11</p>
       </div>
       <nav aria-label="Start" data-i18n-aria-label="footer.aria.start">
