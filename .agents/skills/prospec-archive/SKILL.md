@@ -57,7 +57,7 @@ nondeterministic serialization this contract exists to remove.
 
 ## Core Workflow
 
-> Phases 3.5 (Feature Spec Sync), 3.6 (Product Spec Regeneration), and 4.5 (Auto-Harvest Recurring Lessons) are intentional insertions added by later changes — kept on purpose, not a numbering gap.
+> Phases 3.5 (Feature Spec Sync), 3.6 (Product Spec Sync), and 4.5 (Auto-Harvest Recurring Lessons) are intentional insertions added by later changes — kept on purpose, not a numbering gap.
 
 ### Phase 1: Scan and Confirm Targets
 
@@ -92,7 +92,7 @@ For each change to archive:
 
 The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
 1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations (move destination, summary scaffold, Feature Spec targets, metadata update, product.md/feature-map actions).
-2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, writes the scaffold summary.md, runs the mechanical Feature Spec sync, sets `status: archived` + `archived_at`, regenerates product.md, and bootstraps feature-map.yaml (no-clobber). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
+2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, writes the scaffold summary.md, runs the mechanical Feature Spec sync, sets `status: archived` + `archived_at`, syncs the `## Feature Map` section of product.md (the rest of that file is authored and is preserved; a missing one is bootstrapped), and bootstraps feature-map.yaml (no-clobber). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
 3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record.
 The `_archived-history` copy and the feature-spec counter reconciliation happen AFTER the judgment
 work, via `prospec archive finalize` in Phase 3.7 — running them here would copy the scaffold and
@@ -126,18 +126,18 @@ count the pre-graduation spec text.
 > - [ ] Merged REQ wording converged and placed under the right Story section
 > - [ ] Any sync failure logged and surfaced to the user (non-fatal)
 
-### Phase 3.6: Product Spec Regeneration
+### Phase 3.6: Product Spec Sync
 
-`prospec archive` (Phase 3) already regenerated both outputs — confirm rather than re-derive:
+`prospec archive` (Phase 3) already wrote both outputs — confirm rather than re-derive:
 
-1. Confirm `prospec/specs/product.md` was regenerated (per `references/product-spec-format.md`) and its Feature Map lists every active Feature Spec — including any spec Phase 3.5's wording pass just touched
+1. Confirm `prospec/specs/product.md`: its Feature Map lists every active Feature Spec — including any spec Phase 3.5's wording pass just touched — and everything outside that section is unchanged apart from the frontmatter's `last_updated` (`## Feature Map` is the only machine-owned region; a **missing** product.md is instead bootstrapped to `references/product-spec-format.md`, TBD placeholders included)
 2. Confirm `prospec/ai-knowledge/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net.
 
-**Product Spec and feature-map regeneration are non-fatal** — if either fails, Feature Spec Sync results are still valid.
+**Product Spec and feature-map writes are non-fatal** — if either fails, Feature Spec Sync results are still valid.
 
 > **Phase 3.6 Gate** — proceed when:
-> - [ ] `prospec/specs/product.md` regenerated per `references/product-spec-format.md`
-> - [ ] Core Stories reflect P0 User Stories from all active Feature Specs
+> - [ ] `prospec/specs/product.md` Feature Map lists every active Feature Spec, and content outside that section is preserved apart from the `last_updated` refresh (a bootstrapped file follows `references/product-spec-format.md`)
+> - [ ] any `TBD` placeholder the bootstrap left (Vision, Target Users, Core Stories, a new feature's description) is either filled in or knowingly left for the author — the sync never fills them
 > - [ ] `prospec/ai-knowledge/feature-map.yaml` present (bootstrapped on first archive; existing curated index left untouched)
 
 ### Phase 3.7: Finalize (post-judgment CLI step)
@@ -216,7 +216,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## NEVER
 
 - **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves. The explicit change name passed to `prospec archive <name>` is that confirmation's carrier — never archive unnamed
-- **NEVER** hand-execute the deterministic mutations — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and product/feature-map regeneration; `prospec archive finalize` owns the `_archived-history` copy and the counter reconciliation; hand-running any of them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
+- **NEVER** hand-execute the deterministic mutations — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and the product Feature-Map/feature-map writes; `prospec archive finalize` owns the `_archived-history` copy and the counter reconciliation; hand-running any of them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
 - **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; archiving `story` / `plan` / `tasks` / `implemented` bypasses the verification gate and risks meaningless summaries, broken Spec Sync, or unverified work entering the permanent record. Tell the user to verify to S/A first (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
 - **NEVER** emit a summary.md that lacks the `## Review & Verify` section — the review/verify evidence (grade, criticals/majors, `quality_log`) lives only in the gitignored bundle otherwise, and the `_archived-history` copy is the sole durable record; when a source is absent record `Unverified`/`no review round`, never fabricate

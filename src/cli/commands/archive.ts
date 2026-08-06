@@ -16,14 +16,14 @@ import { resolveLogLevel } from '../log-level.js';
  *
  * Deterministic archive mutations (REQ-CLI-024): move the change bundle to
  * `.prospec/archive/{date}-{name}/`, generate the summary scaffold, sync
- * delta-spec requirements to Feature Specs, and rebuild product.md +
+ * delta-spec requirements to Feature Specs, and sync product.md's Feature Map +
  * feature-map.yaml. Names are required — the explicit target is the caller's
  * confirmation. `--dry-run` previews every mutation without writing.
  */
 export function registerArchiveCommand(program: Command): void {
   const archive = program
     .command('archive')
-    .description('Archive verified changes: move to .prospec/archive/, sync Feature Specs, rebuild product.md + feature-map.yaml')
+    .description("Archive verified changes: move to .prospec/archive/, sync Feature Specs, sync product.md's Feature Map + feature-map.yaml")
     .argument('<names...>', 'change name(s) under .prospec/changes/ to archive')
     .option('--dry-run', 'compute and print every planned mutation without writing anything')
     .action(async (names: string[], opts: { dryRun?: boolean }) => {

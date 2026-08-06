@@ -7,6 +7,7 @@ import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { matchReqHeading, readSpecCounters } from '../lib/spec-headings.js';
+import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
@@ -64,7 +65,8 @@ export interface ArchiveResult {
 }
 
 export interface PlannedMutation {
-  action: 'move' | 'write' | 'update';
+  /** `skip` is a planned NON-mutation — a write the run will deliberately not perform. */
+  action: 'move' | 'write' | 'update' | 'skip';
   target: string;
   detail: string;
 }
@@ -421,51 +423,366 @@ export async function syncToFeatureSpecs(
   return { files: updatedFiles, pendingConvergence, droppedBehavior };
 }
 
+/** One Feature Map entry's identity: the spec it links to and the title shown. */
+export interface ProductFeature {
+  slug: string;
+  title: string;
+}
+
+interface FeatureMapEntry {
+  title: string;
+  /** Verbatim source lines — carrying their own line endings — never re-encoded. */
+  descriptionLines: string[];
+}
+
+interface FeatureMapEntries {
+  bySlug: Map<string, FeatureMapEntry>;
+  byTitle: Map<string, FeatureMapEntry>;
+}
+
+const FEATURE_MAP_HEADING = 'Feature Map';
+const NO_FEATURES_PLACEHOLDER = '_(No active features yet)_';
+const TBD_DESCRIPTION = 'TBD — describe this feature and its value in 1-2 sentences.';
 /**
- * Generate product.md by scanning all Feature Specs' frontmatter.
- * Synthesizes a product overview with feature map and P0 stories summary.
+ * An entry's machine-owned link line, anchored at BOTH ends: an unanchored match
+ * would swallow a cross-reference sentence that merely starts with a link, taking
+ * the author's prose with it. Tolerant of the forms a human writes — `./features/`,
+ * an ASCII arrow, and all three CommonMark link-title delimiters — because failing
+ * to recognize one appends a second link rather than replacing the first.
+ */
+const FEATURE_LINK_RE =
+  /^(?:→|->)\s*\[[^\]]*\]\((?:\.\/)?features\/([^)/\s]+)\.md(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\)\s*$/;
+const NO_ENTRIES: FeatureMapEntries = { bySlug: new Map(), byTitle: new Map() };
+
+/**
+ * List the feature spec files both product.md and feature-map.yaml index — sorted,
+ * archived specs excluded, unsafe slugs skipped. ONE copy of the rule: the two
+ * indexes must not disagree about the same directory, and a hand-copied filter is
+ * exactly how they would drift (PB-006). Unsorted `readdir` order would also make
+ * the output differ per filesystem.
+ */
+async function listFeatureSpecFiles(featuresPath: string): Promise<string[]> {
+  return (await fs.promises.readdir(featuresPath))
+    .filter(
+      (f) =>
+        f.endsWith('.md') && !isArchivedSpec(f) && isSafeResourceName(f.slice(0, -'.md'.length)),
+    )
+    .sort();
+}
+
+async function scanActiveFeatures(featuresPath: string): Promise<ProductFeature[]> {
+  if (!fs.existsSync(featuresPath)) return [];
+  const features: ProductFeature[] = [];
+  for (const file of await listFeatureSpecFiles(featuresPath)) {
+    const content = await fs.promises.readFile(path.join(featuresPath, file), 'utf-8');
+    const frontmatter = parseFeatureSpecFrontmatter(content);
+    if (frontmatter === null || frontmatter.status !== 'active') continue;
+    const slug = file.slice(0, -'.md'.length);
+    // An empty title would render as a bare `### `, which reads back as a heading
+    // and turns the next run into an append. The slug is always a usable name.
+    features.push({ slug, title: frontmatter.feature.trim() === '' ? slug : frontmatter.feature });
+  }
+  return features;
+}
+
+/**
+ * Every h1/h2 in the document, ATX or setext, with the line span the heading itself
+ * occupies. A setext underline (`Target Users` over `------------`) IS an h2: reading
+ * only `## ` would run the machine-owned region past it and swallow the author's
+ * remaining sections. ATX matching is CommonMark-tolerant — up to three leading
+ * spaces, any run of spaces after the marker, an optional closing `##` — because a
+ * heading this misses is read as absent, and an absent heading grows a duplicate
+ * section on every run.
+ */
+function topLevelHeadings(probe: string[]): Array<{ start: number; contentStart: number; text: string }> {
+  const found: Array<{ start: number; contentStart: number; text: string }> = [];
+  for (let i = 0; i < probe.length; i++) {
+    const line = probe[i] ?? '';
+    // The text is OPTIONAL: `##` alone is a valid empty ATX heading, and reading it
+    // as ordinary prose swallows every section after it into the machine-owned
+    // region. `#hashtag` still does not match — CommonMark needs a space or EOL.
+    const atx = /^ {0,3}(#{1,2})(?:[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*)?$/.exec(line);
+    if (atx !== null) {
+      found.push({ start: i, contentStart: i + 1, text: (atx[2] ?? '').trim() });
+      continue;
+    }
+    // A setext underline applies to the paragraph line above it. Require three or
+    // more marks so a lone `-` list bullet or a `--` cannot masquerade as one, and
+    // reject an underline over anything that is itself block syntax.
+    const previous = probe[i - 1] ?? '';
+    if (
+      /^ {0,3}(=|-)\1{2,}\s*$/.test(line) &&
+      previous.trim() !== '' &&
+      !/^ {0,3}(#|>|[-*+]\s|\d+[.)]\s|\||=|-)/.test(previous)
+    ) {
+      found.push({ start: i - 1, contentStart: i + 1, text: previous.trim() });
+    }
+  }
+  return found;
+}
+
+/**
+ * Half-open range of a section: `contentStart` is the first body line after the
+ * heading (which may span two lines when written setext), `end` the next h1/h2 or
+ * EOF. Boundaries are read off fence-blanked lines — a `## ` inside a fenced
+ * example is not a heading.
+ */
+function findSectionRange(
+  probe: string[],
+  headingText: string,
+): { start: number; contentStart: number; end: number } | null {
+  // Scan markdown only: a `## Feature Map` line inside YAML frontmatter is a
+  // comment or a key, and splicing there destroys the frontmatter.
+  const bodyStart = frontmatterEnd(probe);
+  const masked = withoutFencedBlocks(probe).map((l, i) => (i < bodyStart ? '' : l));
+  const headings = topLevelHeadings(masked);
+  const index = headings.findIndex((h) => h.text === headingText);
+  const heading = headings[index];
+  if (heading === undefined) return null;
+  return {
+    start: heading.start,
+    contentStart: heading.contentStart,
+    end: headings[index + 1]?.start ?? probe.length,
+  };
+}
+
+/**
+ * Index the authored entries of a Feature Map region so a re-render can keep the
+ * one part of it a human writes: the description. Keyed by slug first (the link
+ * is the entry's stable identity) and by title as a fallback, so an entry whose
+ * link is missing or malformed still matches by name instead of losing its prose.
+ */
+function parseFeatureMapEntries(raw: string[], probe: string[]): FeatureMapEntries {
+  const masked = withoutFencedBlocks(probe);
+  const blocks: Array<{ title: string; body: Array<{ raw: string; masked: string }> }> = [];
+  for (let i = 0; i < raw.length; i++) {
+    const heading = /^ {0,3}###\s+(.*?)\s*#*\s*$/.exec(masked[i] ?? '');
+    if (heading !== null) {
+      blocks.push({ title: (heading[1] ?? '').trim(), body: [] });
+      continue;
+    }
+    blocks[blocks.length - 1]?.body.push({ raw: raw[i] ?? '', masked: masked[i] ?? '' });
+  }
+
+  const bySlug = new Map<string, FeatureMapEntry>();
+  const byTitle = new Map<string, FeatureMapEntry>();
+  for (const block of blocks) {
+    let slug: string | null = null;
+    const descriptionLines: string[] = [];
+    for (const line of block.body) {
+      // A link inside a fenced example is an illustration, not this entry's link.
+      const link = FEATURE_LINK_RE.exec(line.masked.trim());
+      if (link?.[1] !== undefined && slug === null) {
+        slug = link[1];
+        continue;
+      }
+      descriptionLines.push(line.raw);
+    }
+    while (descriptionLines[0]?.trim() === '') descriptionLines.shift();
+    while (descriptionLines[descriptionLines.length - 1]?.trim() === '') descriptionLines.pop();
+    const entry: FeatureMapEntry = { title: block.title, descriptionLines };
+    if (slug !== null) bySlug.set(slug, entry);
+    byTitle.set(entry.title, entry);
+  }
+  return { bySlug, byTitle };
+}
+
+/**
+ * The section body as lines. Authored description lines are passed through
+ * VERBATIM (own line ending included); generated lines take `eol`, the document's
+ * prevailing ending — so a re-render never re-encodes a byte it did not author.
+ */
+function renderFeatureMapLines(
+  features: ProductFeature[],
+  existing: FeatureMapEntries,
+  eol: string,
+): string[] {
+  if (features.length === 0) return [`${NO_FEATURES_PLACEHOLDER}${eol}`];
+  const out: string[] = [];
+  for (const f of features) {
+    if (out.length > 0) out.push(eol);
+    const previous = existing.bySlug.get(f.slug) ?? existing.byTitle.get(f.title);
+    out.push(`### ${f.title}${eol}`, eol);
+    if (previous !== undefined && previous.descriptionLines.length > 0) {
+      out.push(...previous.descriptionLines);
+    } else {
+      out.push(`${TBD_DESCRIPTION}${eol}`);
+    }
+    out.push(`→ [features/${f.slug}.md](features/${f.slug}.md)${eol}`);
+  }
+  return out;
+}
+
+/**
+ * Refresh `last_updated` inside the frontmatter block only — a body line that
+ * happens to start with the key is prose, not metadata. An absent key is left
+ * absent: prospec seeds the keys it owns at bootstrap and refreshes one of them
+ * afterwards; it never adds a key back into a file the author trimmed.
+ */
+/**
+ * Index of the first body line, or 0 when the document has no frontmatter.
+ *
+ * The closing delimiter is matched like a YAML reader matches it (trailing
+ * whitespace, longer rules) rather than by exact string — locking onto a LATER
+ * `---` in the body would mask the real headings behind it. And a leading `---`
+ * is only frontmatter when the region reads as YAML: a document that merely
+ * OPENS with a thematic break must not have its first sections masked away.
+ */
+function frontmatterEnd(probe: string[]): number {
+  if (probe[0] !== '---') return 0;
+  const close = probe.findIndex((l, i) => i > 0 && /^-{3,}\s*$/.test(l));
+  if (close === -1) return 0;
+  const region = probe.slice(1, close).filter((l) => l.trim() !== '');
+  const isKey = (l: string): boolean => /^[A-Za-z_][\w.-]*\s*:/.test(l);
+  // `#` opens a YAML comment, so a `## Feature Map` line inside real frontmatter
+  // is legal and must NOT disqualify it. What disqualifies a region is a line YAML
+  // could not hold at all — ordinary prose, which is what a thematic-break-opened
+  // markdown document has where a frontmatter would have keys.
+  const isYamlish = (l: string): boolean =>
+    /^\s*#/.test(l) || isKey(l) || /^\s+\S/.test(l) || /^\s*-\s/.test(l);
+  if (region.length === 0 || !region.every(isYamlish) || !region.some(isKey)) return 0;
+  return close + 1;
+}
+
+function refreshLastUpdated(raw: string[], probe: string[], today: string, eol: string): string[] {
+  const close = frontmatterEnd(probe) - 1;
+  if (close < 1) return raw;
+  const index = probe.findIndex((l, i) => i > 0 && i < close && /^last_updated:/.test(l));
+  if (index === -1) return raw;
+  const next = [...raw];
+  next[index] = `last_updated: ${today}${eol}`;
+  return next;
+}
+
+/**
+ * Rewrite ONLY the `## Feature Map` section of an authored product.md. Everything
+ * else — frontmatter keys the author maintains (`version`, `feature_count`, …),
+ * the title, Vision, Target Users, any section they added — survives byte for
+ * byte, line endings included. Missing the section entirely, it is appended rather
+ * than imposed on the middle of someone's document.
+ *
+ * Lines are carried raw and matched through a `\r`-stripped probe, so a CRLF or
+ * mixed-ending document keeps every ending it had: normalizing the whole file
+ * would rewrite every line the splice is supposed to leave alone.
+ */
+function spliceProductSpec(content: string, features: ProductFeature[], today: string): string {
+  const rawInput = content.split('\n');
+  const probe = rawInput.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
+  const eol = rawInput.filter((l) => l.endsWith('\r')).length > rawInput.length / 2 ? '\r' : '';
+
+  // Refresh first, on the array the probe indexes. Doing it after the splice made
+  // `probe` and the spliced array disagree about every index past the section.
+  const raw = refreshLastUpdated(rawInput, probe, today, eol);
+
+  const range = findSectionRange(probe, FEATURE_MAP_HEADING);
+  const body = renderFeatureMapLines(
+    features,
+    range === null
+      ? NO_ENTRIES
+      : parseFeatureMapEntries(
+          raw.slice(range.contentStart, range.end),
+          probe.slice(range.contentStart, range.end),
+        ),
+    eol,
+  );
+
+  // The final element is the file terminator (`''` → one trailing newline). Using
+  // `eol` there would strand a lone `\r` past the last line ending.
+  const tail = range !== null && range.end < raw.length ? [eol, ...raw.slice(range.end)] : [''];
+  const spliced =
+    range === null
+      ? [...trimTrailingBlank(raw), eol, `## ${FEATURE_MAP_HEADING}${eol}`, eol, ...body, '']
+      : [...raw.slice(0, range.contentStart), eol, ...body, ...tail];
+  return spliced.join('\n');
+}
+
+function trimTrailingBlank(lines: string[]): string[] {
+  const head = [...lines];
+  while (head.length > 0 && head[head.length - 1]?.trim() === '') head.pop();
+  return head;
+}
+
+/**
+ * The skeleton written when no product.md exists — every section
+ * `references/product-spec-format.md` requires, with TBD placeholders for what
+ * only a human can supply. A contract test pins this section set against that
+ * reference, so the shipped format and the generated file cannot diverge again.
+ */
+export function bootstrapProductSpec(
+  projectName: string,
+  features: ProductFeature[],
+  today: string,
+): string {
+  return `---
+product: ${projectName}
+version: TBD
+last_updated: ${today}
+---
+
+# ${projectName} — TBD
+
+## Vision
+
+TBD — the problem this product solves and its core value proposition (1-2 paragraphs).
+
+## Target Users
+
+| Role | Description | Core Need |
+|------|-------------|-----------|
+| TBD | TBD | TBD |
+
+## Feature Map
+
+${renderFeatureMapLines(features, NO_ENTRIES, '').join('\n')}
+
+## Core User Stories Summary
+
+TBD — one line per feature summarizing its key User Story.
+
+## Product Principles
+
+TBD — the principles this product is designed around.
+
+## Roadmap Overview
+
+| Phase | Status | Key Capabilities |
+|-------|--------|------------------|
+| TBD | TBD | TBD |
+`;
+}
+
+/**
+ * Sync product.md's Feature Map from the active Feature Specs.
+ *
+ * product.md is an authored PRD entry with ONE machine-owned region. An existing
+ * file is spliced (see `spliceProductSpec`); only a missing one is generated, and
+ * then to the shipped format's full shape. The whole-file rewrite this replaced
+ * silently deleted every hand-written section on every archive run.
  */
 export async function generateProductSpec(
   featuresPath: string,
   productSpecPath: string,
   projectName: string,
 ): Promise<string> {
-  const features: Array<{ slug: string; title: string; status: string }> = [];
-
-  if (fs.existsSync(featuresPath)) {
-    const files = await fs.promises.readdir(featuresPath);
-    for (const file of files) {
-      if (!file.endsWith('.md')) continue;
-      const filePath = path.join(featuresPath, file);
-      const content = await fs.promises.readFile(filePath, 'utf-8');
-      const frontmatter = parseFeatureSpecFrontmatter(content);
-      if (frontmatter) {
-        features.push({
-          slug: file.replace(/\.md$/, ''),
-          title: frontmatter.feature,
-          status: frontmatter.status,
-        });
-      }
-    }
+  // An authored file is never rewritten from a scan source that is not there:
+  // `syncFeatureMap` refuses to write in that state, and emptying the Feature Map
+  // would report a missing directory as the fact "this product has no features".
+  // Bootstrapping is still safe — there is nothing to lose in a file that is absent.
+  const exists = fs.existsSync(productSpecPath);
+  if (exists && !fs.existsSync(featuresPath)) return productSpecPath;
+  // An unclosed fence makes the document unparseable in BOTH directions: trusting
+  // the mask hides the whole tail, and ignoring it lets a fenced `## ` cut the
+  // section short. Neither guess is safe on someone's authored file, so refuse —
+  // the preview says so, and closing the fence resumes the sync.
+  if (exists && hasUnclosedFence((await fs.promises.readFile(productSpecPath, 'utf-8')).split('\n'))) {
+    return productSpecPath;
   }
 
+  const features = await scanActiveFeatures(featuresPath);
   const today = new Date().toISOString().slice(0, 10);
-  const featureMap = features
-    .filter((f) => f.status === 'active')
-    .map((f) => `### ${f.title}\n→ [features/${f.slug}.md](features/${f.slug}.md)`)
-    .join('\n\n');
-
-  const content = `---
-product: ${projectName}
-last_updated: ${today}
----
-
-# ${projectName}
-
-## Feature Map
-
-${featureMap || '_(No active features yet)_'}
-`;
+  const content = exists
+    ? spliceProductSpec(await fs.promises.readFile(productSpecPath, 'utf-8'), features, today)
+    : bootstrapProductSpec(projectName, features, today);
 
   await ensureDir(path.dirname(productSpecPath));
   await atomicWrite(productSpecPath, content);
@@ -499,12 +816,12 @@ export async function syncFeatureMap(
   if (fs.existsSync(featureMapPath)) return null; // no-clobber (bootstrap-once)
   if (!fs.existsSync(featuresPath)) return null;
   const moduleNames = new Set(moduleMap.modules.map((m) => m.name.toLowerCase()));
-  // Mirror the reader/collector: archived specs excluded, and an unsafe slug is
-  // skipped (loadFeatureMap would drop it on read-back — never emit an entry the
-  // reader discards, and never let a slug with YAML-special chars into the index).
-  const files = (await fs.promises.readdir(featuresPath))
-    .filter((f) => f.endsWith('.md') && !isArchivedSpec(f) && isSafeResourceName(f.slice(0, -'.md'.length)))
-    .sort();
+  // Mirror the reader/collector through the SHARED lister: archived specs excluded,
+  // and an unsafe slug skipped (loadFeatureMap would drop it on read-back — never
+  // emit an entry the reader discards, and never let a slug with YAML-special chars
+  // into the index). product.md indexes the same directory through the same call,
+  // so the two indexes cannot disagree by construction rather than by coincidence.
+  const files = await listFeatureSpecFiles(featuresPath);
   const features: FeatureEntry[] = [];
   for (const file of files) {
     const content = await fs.promises.readFile(path.join(featuresPath, file), 'utf-8');
@@ -712,21 +1029,45 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     }
   }
 
-  // Regenerate product.md from Feature Specs (non-fatal). Dry-run cannot scan
-  // the post-sync spec state (nothing was written), so it predicts the ACTION
-  // from the same guards the real run uses, not the bytes.
+  // Sync product.md's Feature Map from Feature Specs (non-fatal). Dry-run cannot
+  // scan the post-sync spec state (nothing was written), so it predicts the ACTION
+  // from the same guards the real run uses, not the bytes. The existence probe IS
+  // knowable up front, though — spec-sync never creates product.md — so the preview
+  // says which of the two very different writes is coming.
   if (archived.length > 0 && featuresPath && productSpecPath) {
     if (dryRun) {
-      planned.push({
-        action: 'write',
-        target: productSpecPath,
-        detail: 'regenerate product.md from Feature Specs',
-      });
+      // Mirror generateProductSpec's own guards, against the state spec-sync WOULD
+      // leave on disk: an existing features dir, or the one the real run creates
+      // whenever a delta-spec had routes.
+      const productExists = fs.existsSync(productSpecPath);
+      const featuresWillExist = fs.existsSync(featuresPath) || specSyncWouldTouchFeaturesDir;
+      const malformed =
+        productExists &&
+        hasUnclosedFence(fs.readFileSync(productSpecPath, 'utf-8').split('\n'));
+      if (malformed) {
+        // A refusal is a planned NON-mutation: say it here rather than let the
+        // preview imply a write that will not happen.
+        planned.push({
+          action: 'skip',
+          target: productSpecPath,
+          detail:
+            'product.md has an unclosed code fence — its Feature Map is left untouched until the fence is closed',
+        });
+      } else if (!productExists || featuresWillExist) {
+        planned.push({
+          action: 'write',
+          target: productSpecPath,
+          detail: productExists
+            ? 'splice the `## Feature Map` section of product.md — frontmatter (except last_updated) and every section outside it are preserved'
+            : 'bootstrap product.md from the product-spec-format skeleton (no existing file)',
+        });
+      }
     } else {
       try {
         await generateProductSpec(featuresPath, productSpecPath, projectName);
       } catch {
-        // Product Spec regeneration failure is non-fatal
+        // Product Spec sync failure is non-fatal — including a read failure on an
+        // existing file, which the splice path added as a new throw source
       }
     }
     // feature-map.yaml is the sibling feature→module index — same scan point as
@@ -1449,12 +1790,16 @@ ${deprecatedSection || '_(None)_'}
 function parseFeatureSpecFrontmatter(
   content: string,
 ): { feature: string; status: string } | null {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  // Normalize CRLF first: a Windows checkout's spec would otherwise fail to parse
+  // and be counted as "not a feature spec" by every caller of this function.
+  const fmMatch = content.replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---/);
   if (!fmMatch) return null;
 
   const fm = fmMatch[1]!;
-  const featureMatch = fm.match(/^feature:\s*(.+)$/m);
-  const statusMatch = fm.match(/^status:\s*(.+)$/m);
+  // Horizontal whitespace only: `\s*` spans the newline, so a valueless `feature:`
+  // silently captured the NEXT key's line and rendered it as the feature's name.
+  const featureMatch = fm.match(/^feature:[ \t]*(.*)$/m);
+  const statusMatch = fm.match(/^status:[ \t]*(.+)$/m);
 
   if (!featureMatch) return null;
 

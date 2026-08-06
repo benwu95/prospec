@@ -1002,6 +1002,572 @@ last_updated: 2026-01-01
   });
 });
 
+// --- generateProductSpec: splice vs bootstrap (REQ-SERVICES-079) ---
+
+const featureSpec = (slug: string, title = slug, status = 'active'): string =>
+  `---\nfeature: ${title}\nstatus: ${status}\nlast_updated: 2026-01-01\nstory_count: 1\nreq_count: 1\n---\n\n# ${title}\n`;
+
+/** The `## Feature Map` region, so the rest of the file can be diffed as one unit. */
+function outsideFeatureMap(content: string): string[] {
+  const lines = content.split('\n');
+  const start = lines.findIndex((l) => /^##\s+Feature Map\s*$/.test(l));
+  if (start === -1) return lines;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^#{1,2}\s/.test(lines[i] ?? '')) {
+      end = i;
+      break;
+    }
+  }
+  return [...lines.slice(0, start), ...lines.slice(end)];
+}
+
+const AUTHORED_PRODUCT_SPEC = `---
+product: downstream
+version: 1.65.0
+feature_count: 34
+last_updated: 2020-01-01
+---
+
+# Downstream — the tagline someone wrote
+
+## Vision
+
+A paragraph a human wrote and expects to keep.
+
+## Target Users
+
+| Role | Description | Core Need |
+|------|-------------|-----------|
+| Dev | Writes code | Fast feedback |
+
+## Feature Map
+
+### alpha
+
+The alpha feature, described by hand.
+→ [features/alpha.md](features/alpha.md)
+
+## Product Principles
+
+1. **Boring** — surprises are bugs.
+
+## A Section Nobody Generated
+
+Custom prose that belongs to the author.
+`;
+
+describe('generateProductSpec splices an existing product.md (REQ-SERVICES-079)', () => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  it('leaves every byte outside the Feature Map section untouched except last_updated', async () => {
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    const expected = outsideFeatureMap(AUTHORED_PRODUCT_SPEC).map((l) =>
+      l.startsWith('last_updated:') ? `last_updated: ${today}` : l,
+    );
+    expect(outsideFeatureMap(after)).toEqual(expected);
+    // the named victims of the old whole-file rewrite, asserted individually
+    expect(after).toContain('version: 1.65.0');
+    expect(after).toContain('feature_count: 34');
+    expect(after).toContain('# Downstream — the tagline someone wrote');
+  });
+
+  it('keeps an authored entry description and refreshes only its title and link', async () => {
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC,
+      '/specs/features/alpha.md': featureSpec('alpha', 'Alpha Renamed'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('The alpha feature, described by hand.');
+    expect(after).toContain('### Alpha Renamed');
+    expect(after).not.toContain('### alpha\n');
+    expect(after).toContain('→ [features/alpha.md](features/alpha.md)');
+  });
+
+  it('drops an entry whose spec is gone and appends new features with a TBD description', async () => {
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC,
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).not.toContain('features/alpha.md');
+    expect(after).not.toContain('The alpha feature, described by hand.');
+    expect(after).toContain('### beta');
+    expect(after).toMatch(/### beta\n\nTBD[^\n]*\n→ \[features\/beta\.md\]/);
+  });
+
+  it('appends the section at end of file when there is no Feature Map heading', async () => {
+    const authored = '---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\n## Vision\n\nMine.\n';
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('## Vision\n\nMine.\n');
+    expect(after).toContain('## Feature Map');
+    expect(after.indexOf('## Feature Map')).toBeGreaterThan(after.indexOf('## Vision'));
+    expect(after).toContain('→ [features/beta.md](features/beta.md)');
+  });
+
+  it('does not let a `## ` line inside a fenced code block end the section', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\n## Feature Map\n\n### alpha\n\nDescribed.\n→ [features/alpha.md](features/alpha.md)\n\n\`\`\`markdown\n## Not A Real Heading\n\`\`\`\n\n## Roadmap Overview\n\nKeep me.\n`;
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    // Had the fenced `## ` ended the section, the splice would have cut the fence
+    // OPENER (it precedes that line) and left an orphan closer behind.
+    expect(after).toContain('```markdown\n## Not A Real Heading\n```');
+    expect(after).toContain('## Roadmap Overview\n\nKeep me.\n');
+  });
+
+  it('is byte-identical across two consecutive runs', async () => {
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+    const first = fs.readFileSync('/specs/product.md', 'utf-8');
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(first);
+  });
+
+  it('leaves a file without frontmatter alone outside the section (no last_updated is invented)', async () => {
+    vol.fromJSON({
+      '/specs/product.md': '# p\n\n## Feature Map\n\n_(No active features yet)_\n',
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after.startsWith('# p\n')).toBe(true);
+    expect(after).not.toContain('last_updated');
+  });
+});
+
+describe('generateProductSpec survives malformed and hostile product.md input (REQ-SERVICES-079)', () => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  it('keeps authored prose and the file’s own line endings when product.md is CRLF', async () => {
+    // What git hands a Windows checkout. A trailing \r defeats every anchored
+    // match here, so the entry parser used to fall back to TBD and wipe the prose.
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC.replace(/\n/g, '\r\n'),
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('The alpha feature, described by hand.');
+    expect(after).toContain(`last_updated: ${today}`);
+    // no mixed endings: every LF in the output belongs to a CRLF pair
+    expect(after.replace(/\r\n/g, '')).not.toContain('\n');
+  });
+
+  it('parses a CRLF feature spec rather than counting it as "not a feature"', async () => {
+    vol.fromJSON({
+      '/specs/product.md': AUTHORED_PRODUCT_SPEC,
+      '/specs/features/alpha.md': featureSpec('alpha').replace(/\n/g, '\r\n'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('→ [features/alpha.md](features/alpha.md)');
+    expect(after).not.toContain('_(No active features yet)_');
+  });
+
+  it('does not touch an authored file when the features directory is absent', async () => {
+    // syncFeatureMap refuses to write in this state; emptying the Feature Map
+    // would report a missing directory as the fact "this product has no features".
+    vol.fromJSON({ '/specs/product.md': AUTHORED_PRODUCT_SPEC });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'downstream');
+
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(AUTHORED_PRODUCT_SPEC);
+  });
+
+  it('leaves a cross-reference line that merely starts with a link inside the description', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\n→ [features/beta.md](features/beta.md) is the sibling feature.\n→ [features/alpha.md](features/alpha.md)\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('→ [features/beta.md](features/beta.md) is the sibling feature.');
+    expect([...after.matchAll(/→ \[features\/alpha\.md\]/g)]).toHaveLength(1);
+  });
+
+  it('recognizes the link forms a human writes instead of appending a second link', async () => {
+    for (const link of [
+      '→ [features/alpha.md](./features/alpha.md)',
+      '→ [Alpha](features/alpha.md "the spec")',
+      "→ [Alpha](features/alpha.md 'the spec')",
+      '→ [Alpha](features/alpha.md (the spec))',
+      '-> [features/alpha.md](features/alpha.md)',
+    ]) {
+      vol.reset();
+      vol.fromJSON({
+        '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nAlpha desc.\n${link}\n`,
+        '/specs/features/alpha.md': featureSpec('alpha'),
+      });
+
+      await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+      const after = fs.readFileSync('/specs/product.md', 'utf-8');
+      expect(after, link).toContain('Alpha desc.');
+      expect([...after.matchAll(/\(\.?\/?features\/alpha\.md/g)], link).toHaveLength(1);
+    }
+  });
+
+  it('refuses to write at all when an unclosed fence makes the document unparseable', async () => {
+    // Neither reading matters: trusting the mask hides the tail, ignoring it lets a
+    // fenced `## ` cut the section short. Both guesses damage an authored file.
+    const malformed = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Vision\n\n\`\`\`markdown\nnever closed\n\n## Feature Map\n\n### alpha\n\nAuthored description.\n→ [features/alpha.md](features/alpha.md)\n`;
+    vol.fromJSON({
+      '/specs/product.md': malformed,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(malformed);
+  });
+
+  it('refuses on an unclosed fence in a CRLF document too, not just an LF one', async () => {
+    // The fence scanner matched with `.`, which never matches `\r`, so a CRLF file's
+    // fences all read as absent — the refusal fired for LF and the CRLF twin grew a
+    // duplicate section on every run.
+    const lf = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Vision\n\n\`\`\`md\nforgot to close\n\n## Feature Map\n\n### alpha\n\nAuthored.\n→ [features/alpha.md](features/alpha.md)\n`;
+    for (const doc of [lf, lf.replace(/\n/g, '\r\n')]) {
+      vol.reset();
+      vol.fromJSON({ '/specs/product.md': doc, '/specs/features/alpha.md': featureSpec('alpha') });
+
+      await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+      await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+      expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(doc);
+    }
+  });
+
+  it('never splices into YAML frontmatter that happens to contain the heading text', async () => {
+    // The section scan ran from line 0, so a `## Feature Map` line inside the
+    // frontmatter became the splice target: keys deleted, YAML corrupted, and the
+    // real section never synced.
+    vol.fromJSON({
+      '/specs/product.md': `---\n## Feature Map\nproduct: p\nversion: 2.0.0\nlast_updated: 2020-01-01\n---\n\n# Demo\n\n## Feature Map\n\n### alpha\n\nMine.\n→ [features/alpha.md](features/alpha.md)\n\n## Notes\n\nend\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('product: p');
+    expect(after).toContain('version: 2.0.0');
+    expect(after).toContain(`last_updated: ${today}`);
+    expect(after).toContain('Mine.'); // the REAL section was the one synced
+    expect(after).toContain('## Notes\n\nend\n');
+  });
+
+  it('keeps last_updated aligned with the line it names, however long the frontmatter', async () => {
+    // The refresh indexed the pre-splice array but wrote into the spliced one, so a
+    // long frontmatter put the new value into the document body.
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\na: 1\nb: 2\nc: 3\nd: 4\ne: 5\nf: 6\ng: 7\nh: 8\ni: 9\nj: 10\nlast_updated: 2020-01-01\n---\n\n# Demo\n\nbody\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const first = fs.readFileSync('/specs/product.md', 'utf-8');
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(first).toContain('a: 1');
+    expect(first).toContain('j: 10');
+    expect(first).toContain('# Demo\n\nbody');
+    expect(first.match(/last_updated:/g)).toHaveLength(1);
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(first);
+  });
+
+  it('does not read a bare hash run as an h1/h2 boundary', async () => {
+    // `###` is an empty h3, not an h2. Counting it split the section at a divider,
+    // orphaning the entry below it and losing its authored description.
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nAlpha prose.\n→ [features/alpha.md](features/alpha.md)\n\n###\n\n### beta\n\nAuthored beta prose.\n→ [features/beta.md](features/beta.md)\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('Authored beta prose.');
+    expect(after.match(/### beta/g)).toHaveLength(1);
+  });
+
+  it('falls back to the slug rather than emitting an empty entry heading', async () => {
+    // A blank `feature:` rendered `### `, which the next run read as a heading —
+    // the section then appended instead of replacing, growing without bound.
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n_(No active features yet)_\n\n## Vision\n\nV.\n`,
+      '/specs/features/alpha.md': `---\nfeature:   \nstatus: active\nlast_updated: 2026-01-01\n---\n`,
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+    const first = fs.readFileSync('/specs/product.md', 'utf-8');
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(first).toContain('### alpha');
+    expect(first).not.toMatch(/^### $/m);
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(first);
+  });
+
+  it('finds the frontmatter close even when it carries trailing whitespace', async () => {
+    // Matching `---` exactly locked onto a LATER thematic break, masking the real
+    // heading and appending a second Feature Map section.
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n--- \n\n## Feature Map\n\n### alpha\n\nAuthored alpha prose.\n→ [features/alpha.md](features/alpha.md)\n\n---\n\n## Appendix\n\nA.\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after.match(/## Feature Map/g)).toHaveLength(1);
+    expect(after).toContain('Authored alpha prose.');
+    expect(after).toContain(`last_updated: ${today}`);
+    expect(after).toContain('## Appendix\n\nA.\n');
+  });
+
+  it('does not mistake a leading thematic break for frontmatter', async () => {
+    // A document that merely OPENS with `---` had its first sections masked, and a
+    // body sentence beginning `last_updated:` rewritten as metadata.
+    vol.fromJSON({
+      '/specs/product.md': `---\n\n# Demo\n\nThe field is documented below.\n\nlast_updated: is a reserved key in our house format.\n\n---\n\n## Feature Map\n\n### alpha\n\nProse.\n→ [features/alpha.md](features/alpha.md)\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('last_updated: is a reserved key in our house format.');
+    expect(after.match(/## Feature Map/g)).toHaveLength(1);
+  });
+
+  it('treats an empty ATX heading as the boundary it is', async () => {
+    // `##` alone is a valid empty heading; reading it as prose swallowed — and then
+    // deleted — every section after it.
+    for (const marker of ['##', '#']) {
+      vol.reset();
+      vol.fromJSON({
+        '/specs/product.md': `# Demo\n\n## Feature Map\n\nold\n\n${marker}\n\nafter this heading\n`,
+        '/specs/features/alpha.md': featureSpec('alpha'),
+      });
+
+      await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+      const after = fs.readFileSync('/specs/product.md', 'utf-8');
+      expect(after, marker).toContain(`\n${marker}\n`);
+      expect(after, marker).toContain('after this heading');
+    }
+  });
+
+  it('keeps a mixed-ending file mixed — only the section and last_updated may change', async () => {
+    // The first CRLF fix normalized the WHOLE file, rewriting every line ending in
+    // a document the splice is supposed to leave alone.
+    const mixed = `---\nproduct: p\nlast_updated: 2020-01-01\n---\r\n\n# Title\n\n## Vision\n\nMine.\n\n## Feature Map\n\n### alpha\n\nAlpha desc.\n→ [features/alpha.md](features/alpha.md)\n`;
+    vol.fromJSON({ '/specs/product.md': mixed, '/specs/features/alpha.md': featureSpec('alpha') });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after.match(/\r\n/g)).toHaveLength(1);
+    expect(after).toContain('\n## Vision\n\nMine.\n');
+    expect(after).toContain('Alpha desc.');
+  });
+
+  it('treats a setext underline as the h2 that ends the section', async () => {
+    // A setext heading IS an h2; missing it ran the machine-owned region to EOF and
+    // deleted every section after it once the last feature went deprecated.
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nAlpha desc.\n→ [features/alpha.md](features/alpha.md)\n\nTarget Users\n------------\n\n| Role | Need |\n|------|------|\n| Dev  | Fast |\n\nRoadmap\n-------\n\nQ3 stuff.\n`,
+      '/specs/features/alpha.md': featureSpec('alpha', 'alpha', 'deprecated'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('| Dev  | Fast |');
+    expect(after).toContain('Q3 stuff.');
+    expect(after).toContain('Target Users\n------------');
+    expect(after).toContain('_(No active features yet)_');
+  });
+
+  it('finds the section under every ATX heading form CommonMark allows', async () => {
+    for (const heading of ['##  Feature Map', '## Feature Map ##', '  ## Feature Map']) {
+      vol.reset();
+      vol.fromJSON({
+        '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n${heading}\n\n### alpha\n\nAlpha desc.\n→ [features/alpha.md](features/alpha.md)\n`,
+        '/specs/features/alpha.md': featureSpec('alpha'),
+      });
+
+      await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+      const after = fs.readFileSync('/specs/product.md', 'utf-8');
+      // a heading read as absent grows a SECOND section on every run
+      expect([...after.matchAll(/Feature Map/g)], heading).toHaveLength(1);
+      expect(after, heading).toContain('Alpha desc.');
+    }
+  });
+
+  it('does not split entries on a `###` or bind a slug from inside a fenced example', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nReal description.\n\n\`\`\`markdown\n### beta\n→ [features/beta.md](features/beta.md)\n\`\`\`\n\n→ [features/alpha.md](features/alpha.md)\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/beta.md': featureSpec('beta'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    // the fenced sample stayed part of alpha's description, and beta did NOT
+    // inherit it by having its slug bound from inside the fence
+    expect(after).toContain('Real description.');
+    expect(after).toMatch(/### beta\n\nTBD/);
+  });
+
+  it('refreshes last_updated in the frontmatter only, never a body line that looks like it', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Vision\n\nlast_updated: see CHANGELOG for the real date\n\n## Feature Map\n\n_(No active features yet)_\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('last_updated: see CHANGELOG for the real date');
+    expect(after).toContain(`last_updated: ${today}\n---`);
+  });
+
+  it('does not add a last_updated key back into frontmatter the author trimmed', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nversion: 2.0.0\n---\n\n## Feature Map\n\n_(No active features yet)_\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).not.toContain('last_updated');
+    expect(after).toContain('version: 2.0.0');
+  });
+
+  it('matches an entry by title when its link is missing entirely', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nDescription with no link line at all.\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(after).toContain('Description with no link line at all.');
+    expect(after).toContain('→ [features/alpha.md](features/alpha.md)');
+  });
+});
+
+describe('generateProductSpec scans features deterministically (REQ-SERVICES-079)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('sorts a shuffled readdir result rather than inheriting filesystem order', async () => {
+    // memfs already returns lexicographic order, so only a shuffled source proves
+    // the .sort() is load-bearing — without it this assertion cannot go red.
+    vol.fromJSON({
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/mid.md': featureSpec('mid'),
+      '/specs/features/zeta.md': featureSpec('zeta'),
+    });
+    // `as never` picks a lane through readdir's overload set (string[] vs Dirent[])
+    vi.spyOn(fs.promises, 'readdir').mockResolvedValue(['zeta.md', 'alpha.md', 'mid.md'] as never);
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect([...after.matchAll(/→ \[features\/([^\]]+)\.md\]/g)].map((m) => m[1])).toEqual([
+      'alpha',
+      'mid',
+      'zeta',
+    ]);
+  });
+
+  it('sorts entries and applies the isArchivedSpec / isSafeResourceName filters', async () => {
+    vol.fromJSON({
+      '/specs/features/zeta.md': featureSpec('zeta'),
+      '/specs/features/alpha.md': featureSpec('alpha'),
+      '/specs/features/mid.md': featureSpec('mid'),
+      // an archived spec left at status: active — feature-map.yaml excludes it,
+      // so product.md must too, or the two indexes disagree
+      '/specs/features/_archived-old.md': featureSpec('_archived-old'),
+      // an unsafe slug the feature-map reader would drop on read-back
+      '/specs/features/user profile.md': featureSpec('user profile'),
+    });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    const order = [...after.matchAll(/→ \[features\/([^\]]+)\.md\]/g)].map((m) => m[1]);
+    expect(order).toEqual(['alpha', 'mid', 'zeta']);
+    expect(after).not.toContain('_archived-old');
+    expect(after).not.toContain('user profile');
+  });
+});
+
+describe('generateProductSpec bootstraps a missing product.md (REQ-SPEC-013)', () => {
+  it('emits every section the product-spec-format reference requires', async () => {
+    vol.fromJSON({ '/specs/features/alpha.md': featureSpec('alpha') });
+
+    await generateProductSpec('/specs/features', '/specs/product.md', 'test-project');
+
+    const content = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(content.split('\n').filter((l) => l.startsWith('## '))).toEqual([
+      '## Vision',
+      '## Target Users',
+      '## Feature Map',
+      '## Core User Stories Summary',
+      '## Product Principles',
+      '## Roadmap Overview',
+    ]);
+    expect(content).toMatch(/^---\nproduct: test-project\nversion: TBD\nlast_updated: \d{4}-\d{2}-\d{2}\n---\n/);
+    expect(content).toContain('# test-project — TBD');
+  });
+});
+
 // --- scanChanges (error & edge branches) ---
 
 describe('scanChanges error and edge branches', () => {

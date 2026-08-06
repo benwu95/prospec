@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-08-06
-story_count: 32
-req_count: 161
+story_count: 33
+req_count: 165
 ---
 
 # SDD Workflow
@@ -285,7 +285,7 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 - WHEN archiving completes THEN generate summary.md (knowledge sync is enforced by the Entry Gate; the service layer does not auto-trigger knowledge-update/raw-scan)
 - WHEN Feature Spec Sync THEN read delta-spec ADDED/MODIFIED/REMOVED and merge into `specs/features/` (Replace-in-Place)
 - WHEN Feature Spec Sync writes a Change History row THEN its Change column is the archived change's name, never a fixed placeholder
-- WHEN Feature Spec Sync completes THEN auto-regenerate `specs/product.md`
+- WHEN Feature Spec Sync completes THEN sync the `## Feature Map` section of `specs/product.md` (the rest of that authored file is preserved)
 - WHEN archiving completes THEN summary.md (and its committed `_archived-history` copy) carries a `## Review & Verify` section, so the audit trail carries review/verify evidence and does not evaporate with the gitignored bundle
 - WHEN executing the deterministic mutations THEN `prospec archive <name...>` performs them (previewable with `--dry-run`), and the skill keeps only the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation)
 
@@ -298,11 +298,14 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 
 #### REQ-TEMPLATES-010: Archive Skill Template (explicitly lists the spec-history copy step)
 
-#### REQ-SPEC-013: Product Spec Auto-Generation
-After archive Feature Spec Sync completes, auto-synthesize `specs/product.md` from all Feature Specs.
-- WHEN Feature Spec Sync completes, THEN trigger product.md regeneration
-- WHEN regenerating, THEN extract frontmatter from all Feature Specs in features/
-- WHEN product.md generated, THEN Feature Map links match current Feature Spec files
+#### REQ-SPEC-013: Product Spec Feature Map Sync
+After archive Feature Spec Sync completes, prospec syncs the Feature Map of `specs/product.md` — it never rebuilds the file. product.md is a human-authored PRD entry with one machine-owned region.
+- WHEN Feature Spec Sync completes, THEN the Feature Map sync is triggered
+- WHEN syncing, THEN frontmatter is read from every Feature Spec in `features/`, and only `status: active` specs are listed
+- WHEN the sync completes, THEN Feature Map links match the current Feature Spec files
+- WHEN `specs/product.md` already exists, THEN only the `## Feature Map` section is rewritten and `last_updated` refreshed; all other content is preserved
+- WHEN `specs/product.md` does not exist, THEN it is bootstrapped with every section `product-spec-format` requires, unknown content marked with a recognizable TBD placeholder
+- WHEN previewing with `--dry-run`, THEN the planned detail distinguishes bootstrap from splice, names what the splice will touch, and reports a refusal (unclosed fence) as a planned non-mutation
 
 #### REQ-TEMPLATES-126: Archive Summary Review & Verify Section
 archive-format defines a `## Review & Verify` section between Completion and Knowledge Update (quality grade, critical/major counts + findings excerpts, quality_log digest), so the committed summary carries the review/verify evidence that previously lived only in the gitignored bundle.
@@ -327,7 +330,7 @@ prospec-archive Phase 2 aggregates from metadata.yaml `quality_log` / `review.md
 
 #### REQ-CLI-024: `prospec archive` command with dry-run preview and post-judgment `finalize`
 The CLI registers `prospec archive <name...>` — a thin command (parse → `archive.service.execute()` → format) executing the deterministic archive mutations. Names are required: the explicit target carries the caller's confirmation. `prospec archive finalize <name>` is its **post-judgment** sibling, carrying the two write points that can only run after the skill's work: copying the finalized `summary.md` into `specs/_archived-history/{YYYY-MM-DD}-{name}.md`, and reconciling every feature spec's frontmatter `story_count`/`req_count` against its final body through the shared REQ-heading matcher, so a spec whose REQs sit at a level other than h4 is counted rather than zeroed. Reconciliation refuses before it writes: when a counter the frontmatter declares above zero would be rewritten to zero, that file is left byte-identical and reported as a refused reconciliation instead — a zeroed count is treated as a parse signal, never as a fact, and the reason names the field. That report goes to **stderr and stays visible under `--quiet`**, like the command's other human worklists, without setting an exit code: nothing failed, a file was deliberately not rewritten. Printing it on stdout under the normal-verbosity guard would have traded a silent wrong write for a silent non-write. Both support `--dry-run`, and the refusals are reported identically there. Module derivation stays read-only — the archive report lists the REQ-prefix-derived affected modules, while the skill's Entry Gate derivation reads the working-tree diff and therefore has no archive-bundle equivalent.
-- WHEN running `prospec archive <name>` on a verified change, THEN the bundle moves to `.prospec/archive/{date}-{name}/` with summary scaffold, mechanical Feature Spec sync, `status: archived` + `archived_at`, product.md regeneration, and feature-map bootstrap (no-clobber)
+- WHEN running `prospec archive <name>` on a verified change, THEN the bundle moves to `.prospec/archive/{date}-{name}/` with summary scaffold, mechanical Feature Spec sync, `status: archived` + `archived_at`, a `## Feature Map` sync of product.md (the rest of that authored file preserved; a missing one bootstrapped), and feature-map bootstrap (no-clobber)
 - WHEN running either command with `--dry-run`, THEN every planned mutation is printed and nothing is written
 - WHEN `archive finalize` finds a `summary.md` still lacking its `## Review & Verify` section, THEN it refuses — that section is the deterministic marker that the prose overwrite happened, and finalizing earlier would commit the scaffold and count pre-graduation text
 - WHEN a feature spec's declared counter is above zero and the body-derived count is zero, THEN that file is not rewritten and the refusal is reported on stderr with the field named, under `--dry-run` and under `--quiet` too
@@ -437,10 +440,12 @@ so that the spec truly becomes the Single Source of Truth for SDD.
 - WHEN Maintenance Rules, THEN define Replace-in-Place, Functional Grouping, No Inline Provenance, Deprecation over Deletion
 
 #### REQ-SPEC-011: Product Spec Format Template
-`product-spec-format.hbs` (PRD entry) includes vision, target users, feature map, and a summary of core Stories.
+`product-spec-format.hbs` (the PRD entry contract) defines vision, target users, feature map, a summary of core Stories, and the ownership boundary between the author and the generator.
 - WHEN product.md, THEN ≤ 80 lines, readable in 2 minutes
-- WHEN Feature Map, THEN each item links to corresponding Feature Spec
-- WHEN generated, THEN synthesizable from all Feature Spec frontmatter
+- WHEN Feature Map, THEN each item links to its corresponding Feature Spec and carries a 1-2 sentence description
+- WHEN a file is bootstrapped, THEN it is synthesized from all Feature Spec frontmatter and contains every section this reference requires
+- WHEN describing frontmatter, THEN the reference states that the bootstrap skeleton seeds `product`, `last_updated` and a `version: TBD` placeholder, that `last_updated` is the only key prospec writes afterwards, and that every other key is preserved byte-for-byte — `version` and `feature_count` are author-maintained and are never rewritten, and `feature_count` is not a prospec-managed field at all
+- WHEN describing the generator, THEN the reference states that `## Feature Map` is the only machine-owned region of the file
 
 #### REQ-SPECS-001: specs/ Directory Structure
 Product-First structure: `product.md` (PRD entry) + `features/` (Feature Specs). Historical traceability is handled by the Feature Spec Change History + `.prospec/archive/`.
@@ -883,6 +888,71 @@ A contract test pins the light-scale artifact matrix documented in both `_status
 
 ---
 
+## US-33: product.md Is Authored, With One Machine-Owned Region [P1]
+
+As a developer whose `specs/product.md` carries hand-written product context,
+I want archive to sync only its `## Feature Map` section,
+So that the version, Vision, Target Users and any section I added survive every archive run instead of being silently deleted by a whole-file rewrite.
+
+**Acceptance Scenarios:**
+- WHEN an existing product.md is synced THEN only the `## Feature Map` section and the frontmatter `last_updated` change; every other byte survives, line endings included
+- WHEN a Feature Map entry carries an authored description THEN the description is carried forward and only its title and link are refreshed
+- WHEN product.md is missing THEN it is bootstrapped with every section the shipped format reference requires, unknown content marked TBD
+- WHEN the document cannot be parsed reliably — an unclosed code fence — or the scan source is absent THEN nothing is written and the preview says so, rather than guessing
+- WHEN previewing with `--dry-run` THEN the planned detail distinguishes bootstrap from splice from refusal
+
+### Behavior Specifications
+
+#### REQ-SERVICES-079: generateProductSpec splices instead of regenerating
+`generateProductSpec` writes within a boundary, like its co-located siblings: an existing `specs/product.md` is spliced, never rebuilt from scratch. Its feature scan applies the same rules as `syncFeatureMap` — sorted, `isArchivedSpec`/`isSafeResourceName` filtered — so the two indexes cannot disagree about the same specs, and `readdir` order cannot produce a cross-platform diff.
+- WHEN `specs/product.md` exists and has a `## Feature Map` heading, THEN only the lines between that heading and the next h2 (or EOF) are replaced, and every other byte survives — frontmatter `version`, `feature_count` and any custom key, `## Vision`, `## Target Users`, and any author-added section
+- WHEN splicing, THEN `last_updated` is refreshed inside the frontmatter block only, and no other frontmatter key is written
+- WHEN an existing Feature Map entry carries an authored description, THEN the description survives and only its title and link are refreshed; an entry whose feature spec is gone (or turned deprecated) is dropped, and a new feature is appended with a recognizable TBD description
+- WHEN `specs/product.md` exists without a `## Feature Map` heading, THEN the section is appended at end of file and the existing content is left untouched
+- WHEN locating section boundaries or parsing entries, THEN headings and links are read off fence-blanked lines, so a `## `, `### ` or link inside a fenced example is never mistaken for structure
+- WHEN the document contains an UNCLOSED code fence, THEN nothing is written at all — the document cannot be parsed reliably in either direction, and `--dry-run` reports the refusal as a planned non-mutation naming the fence
+- WHEN a heading is written setext-style (text over `---`/`===`), or is an EMPTY ATX heading (`##` alone), THEN it ends the section like any other h2, so the sections after it are never absorbed into the machine-owned region; a bare run of three or more hashes is NOT an h1/h2 and never ends it
+- WHEN a feature spec declares no feature name, THEN its entry heading falls back to the slug rather than rendering an empty `### `, which the next run would read back as a heading and append past
+- WHEN the `## Feature Map` heading carries extra spacing, leading indentation, or a closing `##`, THEN it is still found rather than treated as absent and duplicated at end of file
+- WHEN the same heading text appears inside the YAML frontmatter, THEN it is not a splice target — the scan starts after the frontmatter block, so no authored key is ever displaced (a `#` line there is a YAML comment and does not disqualify the block)
+- WHEN the frontmatter's closing delimiter carries trailing whitespace or extra dashes, THEN it is still recognized as the close, so the scan never locks onto a later `---` in the body and masks the real headings behind it
+- WHEN the document merely OPENS with a `---` thematic break rather than frontmatter, THEN no frontmatter is assumed — the region is only treated as frontmatter when it reads as YAML, so authored prose beginning `last_updated:` is never rewritten as metadata
+- WHEN the file uses CRLF or MIXED line endings, THEN every line the splice does not author keeps its own ending byte-for-byte, and generated lines take the document's prevailing ending
+- WHEN an entry's link is written as `./features/…`, carries a link title in any of CommonMark's three delimiters, or uses an ASCII `->`, THEN it is recognized as that entry's link rather than left in place and duplicated; a line that merely BEGINS with such a link stays part of the authored description
+- WHEN `specs/features/` does not exist, THEN an existing `specs/product.md` is not written at all — an absent scan source is never reported as the fact "this product has no features" (the same state `syncFeatureMap` refuses to write from)
+- WHEN scanning `specs/features/`, THEN the list is sorted and filtered by `isArchivedSpec` and `isSafeResourceName`, and only `status: active` specs are listed
+- WHEN the write or the read fails, THEN the failure stays non-fatal to the archive run
+
+---
+
+
+#### REQ-LIB-043: hasUnclosedFence exposes the mask's own reliability
+`lib/markdown-fences` exports `hasUnclosedFence(lines)` alongside `withoutFencedBlocks(lines)`, both driven by ONE internal scanner so the two can never disagree about where a fence begins or ends. A document with an open fence at EOF has every following line masked, so a scanner that trusts the mask reads a truncated document; this predicate lets a caller degrade to the raw lines instead of acting on a mask that is wrong about most of the file.
+- WHEN a fence is opened and never closed, THEN `hasUnclosedFence` returns true
+- WHEN every fence is closed (or there are none), THEN it returns false
+- WHEN both helpers run on the same input, THEN they agree, because one scanner produces both answers
+- WHEN the input carries CRLF line endings, THEN fences are still recognized — the scanner matches a `\r`-stripped view of each line while returning the line unchanged
+
+---
+
+
+#### REQ-TEMPLATES-175: Archive skill Phase 3.6 states the preservation contract
+The archive skill's Phase 3.6 check and its Phase 3.6 Gate checkbox describe what the run actually produces, so an agent can tick them honestly: the Feature Map lists every active Feature Spec, and authored content outside that section is preserved. `references/product-spec-format.md` stays the contract for the bootstrap skeleton, not for every re-run.
+- WHEN Phase 3.6 runs, THEN it confirms the Feature Map lists every active Feature Spec and that content outside the Feature Map section was preserved apart from the `last_updated` refresh
+- WHEN the Phase 3.6 Gate checkbox is emitted, THEN its wording matches the Phase 3.6 check item
+- WHEN `specs/product.md` did not exist before the run, THEN the check confirms the bootstrapped skeleton follows `references/product-spec-format.md`
+
+---
+
+
+#### REQ-TESTS-075: Format reference and bootstrap output are pinned to each other
+A contract test compares the sections the shipped format reference requires with the sections the bootstrap actually emits, as sets, in both directions. A reference no test compares against is a wish, not a contract — this is the guard that would have caught the two-month-old divergence.
+- WHEN the contract test runs, THEN the h2 set parsed from `references/product-spec-format.hbs` fenced blocks equals the h2 set of the bootstrap output
+- WHEN a section is added to or removed from either side alone, THEN the assertion fails
+
+---
+
+---
 
 ## Edge Cases
 
@@ -1468,6 +1538,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-06 | stop-clobbering-product-spec | ADDED REQ-SERVICES-079; ADDED REQ-LIB-043; ADDED REQ-TEMPLATES-175; ADDED REQ-TESTS-075; MODIFIED REQ-SPEC-013; MODIFIED REQ-SPEC-011; MODIFIED REQ-CLI-024 | REQ-SERVICES-079, REQ-LIB-043, REQ-TEMPLATES-175, REQ-TESTS-075, REQ-SPEC-013, REQ-SPEC-011, REQ-CLI-024 |
 | 2026-08-06 | unify-req-heading-matcher | ADDED REQ-SERVICES-078; MODIFIED REQ-SERVICES-072; MODIFIED REQ-CLI-024; MODIFIED REQ-TESTS-060; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-159; MODIFIED REQ-TESTS-057 | REQ-SERVICES-078, REQ-SERVICES-072, REQ-CLI-024, REQ-TESTS-060, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-TESTS-057 |
 | 2026-08-03 | fix-issue-106-drift-engine-blindspots | MODIFIED REQ-TEMPLATES-153 | REQ-TEMPLATES-153 |
 | 2026-08-03 | add-learn-staleness-sweep | MODIFIED REQ-TEMPLATES-132 | US-24 (MODIFIED), REQ-TEMPLATES-132 |
