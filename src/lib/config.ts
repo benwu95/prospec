@@ -7,7 +7,7 @@ import {
   DEFAULT_BASE_DIR,
   DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
 } from '../types/config.js';
-import type { ProspecConfig, KnowledgeSizeBudget } from '../types/config.js';
+import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
@@ -81,14 +81,19 @@ export function isArtifactLanguageUnset(config: ProspecConfig): boolean {
  * overrides individual fields; anything unset falls back to
  * DEFAULT_KNOWLEDGE_TOKEN_BUDGET — the single source shared with index.md's
  * declared budgets and the budget numbers rendered into generated skills.
+ *
+ * The field list is DERIVED from the default rather than hand-written: a threshold
+ * added to the schema but forgotten here would accept the config key and silently
+ * ignore the override.
  */
 export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSizeBudget {
-  const tb = config.knowledge?.token_budget;
-  return {
-    l1_per_file: tb?.l1_per_file ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
-    l2_per_module: tb?.l2_per_module ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
-    readme_max_lines: tb?.readme_max_lines ?? DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
-  };
+  const tb: NonNullable<TokenBudget> = config.knowledge?.token_budget ?? {};
+  const resolved: KnowledgeSizeBudget = { ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET };
+  for (const key of Object.keys(resolved) as (keyof KnowledgeSizeBudget)[]) {
+    const override = tb[key];
+    if (override !== undefined) resolved[key] = override;
+  }
+  return resolved;
 }
 
 /**

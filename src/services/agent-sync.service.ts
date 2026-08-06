@@ -151,8 +151,9 @@ export async function execute(
     // contradictory scopes. Named exceptions stay out of L0: the entry config
     // points at the Constitution rule for them, keeping this always-loaded file lean.
     ...entryLanguageContext(languageScope),
-    // L1/L2 token/line budgets (l1_per_file / l2_per_module / readme_max_lines)
-    // rendered into the knowledge-loading skill templates — resolved per-project
+    // EVERY knowledge-size budget field, spread rather than hand-listed, so a new
+    // threshold reaches the templates without a second edit here — they are
+    // rendered into the knowledge-loading skill templates, resolved per-project
     // so a downstream reader sees real numbers and a source they can inspect,
     // never the internal DEFAULT_KNOWLEDGE_TOKEN_BUDGET symbol.
     ...resolveKnowledgeTokenBudget(config),

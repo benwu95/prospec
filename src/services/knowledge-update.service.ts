@@ -2,7 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { forbiddenArtifacts } from '../types/change.js';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../lib/config.js';
+import type { KnowledgeSizeBudget } from '../types/config.js';
 import { readChangeMetadata, readScaleQuietly } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
 import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
@@ -249,6 +250,9 @@ export async function updateIndex(
     projectName: string;
     techStack?: { language?: string; framework?: string; package_manager?: string };
     additionalCore?: string[];
+    // Resolved by the caller: updateIndex takes an options bag, not the config, and
+    // the loading-rules table it renders needs one number per budget field.
+    tokenBudget: KnowledgeSizeBudget;
   },
 ): Promise<GeneratedFile> {
   const indexPath = path.join(options.cwd, options.baseDir, 'index.md');
@@ -273,6 +277,7 @@ export async function updateIndex(
     knowledgeBasePath: options.knowledgeBasePath,
     coreConventions: core,
     demandConventions: demand,
+    tokenBudget: options.tokenBudget,
     modulesTable,
   });
 
@@ -565,6 +570,7 @@ export async function execute(
       projectName,
       techStack: config.tech_stack,
       additionalCore: config.knowledge?.additional_core_conventions ?? [],
+      tokenBudget: resolveKnowledgeTokenBudget(config),
     });
     result.generatedFiles.push(indexFile);
   }

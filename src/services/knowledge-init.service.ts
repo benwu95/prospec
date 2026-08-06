@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../lib/config.js';
 import { detectModules, buildModuleMap } from '../lib/module-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { atomicWrite, ensureDir, fileExists } from '../lib/fs-utils.js';
@@ -104,6 +104,7 @@ export async function execute(
 
         const indexContext = buildIndexTemplateContext({
           projectName: config.project.name,
+          tokenBudget: resolveKnowledgeTokenBudget(config),
           techStack: {
             language: rawScan.techStack.language,
             framework: rawScan.techStack.framework,

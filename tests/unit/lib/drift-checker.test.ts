@@ -35,7 +35,25 @@ import type {
   TaskSource,
   TestProvenanceSource,
 } from '../../../src/lib/drift-sources.js';
-import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
+import {
+  KNOWLEDGE_SIZE_KINDS,
+  KNOWLEDGE_SIZE_RULES,
+  type KnowledgeSizeBudget,
+  type KnowledgeSizeKind,
+} from '../../../src/types/config.js';
+
+// Deliberately tighter than the shipped defaults so a fixture can bust a budget
+// with a small number; every field is present so adding a threshold is a compile
+// error here rather than a silently ungraded surface.
+const BASE_SIZE_BUDGET: KnowledgeSizeBudget = {
+  l1_per_file: 1500,
+  l2_per_module: 400,
+  readme_max_lines: 100,
+  spec_per_file: 800,
+  demand_knowledge_per_file: 900,
+  skill_per_file: 700,
+  reference_per_file: 600,
+};
 
 const emptyInputs: DriftCheckInputs = {
   reqDefinitions: { available: true, ids: [] },
@@ -51,7 +69,7 @@ const emptyInputs: DriftCheckInputs = {
   metadataCompleteness: { available: true, changes: [] },
   knowledgeSize: {
     available: true,
-    budget: { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 },
+    budget: { ...BASE_SIZE_BUDGET },
     items: [],
   },
   testProvenance: {
@@ -70,7 +88,7 @@ const emptyInputs: DriftCheckInputs = {
   generatedAt: '2026-06-12T00:00:00Z',
 };
 
-const SIZE_BUDGET: KnowledgeSizeBudget = { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 };
+const SIZE_BUDGET: KnowledgeSizeBudget = { ...BASE_SIZE_BUDGET };
 const sizeSrc = (items: KnowledgeSizeItem[], budget: KnowledgeSizeBudget = SIZE_BUDGET): KnowledgeSizeSource => ({
   available: true,
   budget,
@@ -151,10 +169,81 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
   it('honours the budget carried on the source (config override)', () => {
     const r = evaluateKnowledgeSize(sizeSrc(
       [{ source_path: 'prospec/index.md', kind: 'l1', tokens: 3118, lines: 61 }],
-      { l1_per_file: 10000, l2_per_module: 400, readme_max_lines: 100 },
+      { ...BASE_SIZE_BUDGET, l1_per_file: 10000 },
     ));
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
+  });
+
+  // Each kind's expected limit is a LITERAL, not `BASE_SIZE_BUDGET[rule.tokenKey]`:
+  // reading the limit through the rule under test makes the fixture move with the
+  // defect, so re-binding a kind to the wrong budget field stays green. The
+  // literal-vs-registry agreement is what makes these cases falsifiable; the
+  // registry still drives the case LIST, so a new kind with no entry here fails
+  // the completeness assertion below rather than shipping ungraded.
+  const EXPECTED_LIMIT: Record<KnowledgeSizeKind, number> = {
+    l1: 1500,
+    l2: 400,
+    spec: 800,
+    'demand-knowledge': 900,
+    skill: 700,
+    reference: 600,
+  };
+
+  it('covers every kind, and each expected limit matches the budget its rule names', () => {
+    expect(Object.keys(EXPECTED_LIMIT).sort()).toEqual([...KNOWLEDGE_SIZE_KINDS].sort());
+    for (const kind of KNOWLEDGE_SIZE_KINDS) {
+      expect(BASE_SIZE_BUDGET[KNOWLEDGE_SIZE_RULES[kind].tokenKey], kind).toBe(EXPECTED_LIMIT[kind]);
+    }
+  });
+
+  describe.each(KNOWLEDGE_SIZE_KINDS.map((kind) => [kind, KNOWLEDGE_SIZE_RULES[kind]] as const))(
+    'kind %s',
+    (kind, rule) => {
+      it('warns above its own token budget and stays silent at the inclusive boundary', () => {
+        const limit = EXPECTED_LIMIT[kind]!;
+        const at = evaluateKnowledgeSize(sizeSrc([{ source_path: 'f.md', kind, tokens: limit, lines: 1 }]));
+        expect(at.findings).toHaveLength(0);
+
+        const over = evaluateKnowledgeSize(sizeSrc([{ source_path: 'f.md', kind, tokens: limit + 1, lines: 1 }]));
+        expect(over.result.status).toBe('warn');
+        const tokenFindings = over.findings.filter((f) => f.detail.includes('token budget'));
+        expect(tokenFindings).toHaveLength(1);
+        expect(tokenFindings[0]!.detail).toContain(String(limit + 1));
+        expect(tokenFindings[0]!.detail).toContain(String(limit));
+        expect(tokenFindings[0]!.detail).toContain(rule.tokenKey);
+        expect(tokenFindings[0]!.detail).toContain(rule.remedy);
+      });
+
+      it('grades lines only when its rule declares a line budget', () => {
+        const r = evaluateKnowledgeSize(sizeSrc([
+          { source_path: 'f.md', kind, tokens: 1, lines: BASE_SIZE_BUDGET.readme_max_lines + 1 },
+        ]));
+        const lineFindings = r.findings.filter((f) => f.detail.includes('line budget'));
+        expect(lineFindings).toHaveLength('lineKey' in rule ? 1 : 0);
+      });
+
+      it('honours a config override of its own budget field', () => {
+        const limit = EXPECTED_LIMIT[kind]!;
+        const r = evaluateKnowledgeSize(sizeSrc(
+          [{ source_path: 'f.md', kind, tokens: limit + 1, lines: 1 }],
+          { ...BASE_SIZE_BUDGET, [rule.tokenKey]: limit + 1 },
+        ));
+        expect(r.findings.filter((f) => f.detail.includes('token budget'))).toHaveLength(0);
+      });
+    },
+  );
+
+  it('names the remedy that fits the surface, not one generic instruction', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/specs/features/big.md', kind: 'spec', tokens: 9999, lines: 1 },
+      { source_path: 'prospec/ai-knowledge/_lessons-ledger.md', kind: 'demand-knowledge', tokens: 9999, lines: 1 },
+      { source_path: '.claude/skills/prospec-verify/SKILL.md', kind: 'skill', tokens: 9999, lines: 1 },
+    ]));
+    const detailOf = (p: string): string => r.findings.find((f) => f.source_path === p)!.detail;
+    expect(detailOf('prospec/specs/features/big.md')).toContain('slices');
+    expect(detailOf('prospec/ai-knowledge/_lessons-ledger.md')).toContain('/prospec-learn');
+    expect(detailOf('.claude/skills/prospec-verify/SKILL.md')).toContain('on-demand reference');
   });
 });
 

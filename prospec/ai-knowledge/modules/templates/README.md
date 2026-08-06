@@ -35,7 +35,7 @@
 
 ## Pitfalls
 
-- Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output.
+- Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output. `_knowledge-loading-rules.hbs` must carry a row per knowledge budget field (contract-asserted per field, from the budget's own keys): an un-rowed field renders as an empty cell in every generated `index.md` and SKILL.md, and a fixture that hand-lists a subset of the budget cannot detect it.
 - Template prose that describes CLI behavior is a claim under test (PB-003): raw-scan's disclosure block must state that the no-module fallback can still admit the listed directories, and `prospec-knowledge-generate` Step 3 must keep both the draft characterization and the propose→confirm write-back — `knowledge-format`/`skill-format` pin each.
 - A shipped template must not assert a fact about THIS repo — it renders verbatim into every downstream project (the verify commit-prompt once claimed "this repo's generator is named in its contributor docs", true here and false there).
 - All templates are English-only (REQ-TEMPLATES-073); document language comes from the Constitution Language Policy — `entry.md.hbs` renders its scope from injected `language_*` keys that BOTH render sites must supply (missing key → empty, not an error), and `review-format`'s Summary prose follows the artifact language while enums/paths stay English. That reference and `prospec-review`'s own Persistence paragraph both restate `lib/review-merge`'s identity rule — the skill body is read FIRST, so all three move together or the reviewer is taught the stale one. Never quote literal mustaches in prose.

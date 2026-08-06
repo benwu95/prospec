@@ -55,12 +55,29 @@ knowledge:
     - my-custom-api-rules.md
   # Module-partitioning strategy. Valid: auto, architecture, domain, package.
   strategy: auto
-  # L1/L2 size limits for the knowledge-size drift check. Set only the fields you
-  # want to change; anything unset falls back to the default shown here.
+  # Per-file size limits for the knowledge-size drift check, one per load surface.
+  # Set only the fields you want to change; anything unset falls back to the
+  # default shown here. Over-budget files WARN — a pressure signal, never a build
+  # breaker — and each finding names the convergence path for its surface.
   token_budget:
+    # L1 — index.md and each core convention
     l1_per_file: 1800
+    # L2 — each module README and each extracted sub-module
     l2_per_module: 1000
     readme_max_lines: 100
+    # each Feature Spec (and product.md); slice an over-budget spec under
+    # specs/features/{feature}/ — slices are measured against this same budget
+    spec_per_file: 5000
+    # each load-on-demand knowledge file (lessons ledger, playbook, ...). Kept
+    # separate from l1_per_file on purpose: a file read in slices has no business
+    # being graded against the budget of a document read whole
+    demand_knowledge_per_file: 10000
+    # each deployed SKILL.md / reference. Measured only where the project holds
+    # the skill template sources — a project that merely consumes generated skills
+    # cannot act on such a finding, so it is not given one
+    skill_per_file: 5000
+    # each generated skill reference, read on demand by one phase
+    reference_per_file: 2500
 
 # Language for AI-generated change artifacts (and their archived summaries under
 # specs/_archived-history/). Code, identifiers, technical terms, commit messages,

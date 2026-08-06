@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3240%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3293%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -681,18 +681,24 @@ oracle 的兩個維度——delta-spec 合規與設計一致性——維持機�
 獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的
 判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
 
-**調整 `knowledge-size` 預算** —— token／行數門檻預設為 `l1_per_file: 1800`、`l2_per_module: 1000`、`readme_max_lines: 100`，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
+**調整 `knowledge-size` 預算** —— `knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
 
 ```yaml
 # .prospec.yaml
 knowledge:
   token_budget:
-    l1_per_file: 1800       # 每個 L1 檔（index.md + 各 core convention）的 token 上限
-    l2_per_module: 1000     # 每個模組知識檔（README 與各 sub-module）的 token 上限
-    readme_max_lines: 100   # 每個模組知識檔的行數上限
+    l1_per_file: 1800               # 每個 L1 檔（index.md + 各 core convention）的 token 上限
+    l2_per_module: 1000             # 每個模組知識檔（README 與各 sub-module）的 token 上限
+    readme_max_lines: 100           # 每個模組知識檔的行數上限
+    spec_per_file: 5000             # 每份 Feature Spec（與 product.md）的 token 上限
+    demand_knowledge_per_file: 10000 # 每個 load-on-demand 知識檔的 token 上限
+    skill_per_file: 5000            # 每份生成的 SKILL.md 的 token 上限
+    reference_per_file: 2500        # 每份生成的 skill reference 的 token 上限
 ```
 
-`prospec init` 會把這三欄 seed 進新專案的 `.prospec.yaml`，一開始就顯式可調；刪掉的欄位回退預設。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code）。
+新初始化的專案，其 `.prospec.yaml` 不含 `token_budget` 區塊，因此每個門檻都回退到上面的 shipped default；要改哪幾欄，跑 `prospec config example` 取得完整逐欄註解的區塊再複製過去。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code），且每則 finding 會指出該載入面的具名收斂路徑，而不是泛泛的「請壓縮」：Feature Spec 切到 `specs/features/{feature}/`、治理知識檔跑 `/prospec-learn` 的 Staleness Sweep、L2 檔抽出 sub-module。
+
+其中兩項值得單獨說明。**Feature Spec 是單調成長的** —— 每次歸檔都會 append 畢業的 REQ，而沒有任何機制會移除 —— 所以在成熟專案裡支配載入量的那一層，正是先前完全沒有預算的那一層；切出來的 slice 以同一個 `spec_per_file` 量測，因此分割不可能把它移出預算視線。**skill 檔只在 authoring 專案量測**，以 skill 樣板原始碼是否存在來偵測：純消費生成 skill 的專案對這種 finding 無法行動，而「無法行動的 WARN」正是這個檢查存在要避免的東西。
 
 </details>
 
@@ -719,7 +725,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
 - **`knowledge.strategy`**：決定在產生知識庫時，專案模組的切分策略（`auto`, `architecture`, `domain`, `package`）。
-- **`knowledge.token_budget`**：控制 L1 與 L2 知識庫檔案的 token 數與行數上限。
+- **`knowledge.token_budget`**：控制 `knowledge-size` 逐檔評分的 token 數與行數上限，每個載入面各一個 —— L1 檔、L2 模組知識、Feature Spec、load-on-demand 知識，以及（在自行撰寫 skill 的專案）每一份已部署的 skill 與其 references，含手寫的。
 - **`knowledge.additional_core_conventions`**：Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔案（例如 API 規範、資安規範等）也希望能做為 Core Conventions (L1) 強制預先載入，可以將相對於 `ai-knowledge/` 的檔名加在這裡。
 - **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
 
@@ -786,7 +792,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3240 個測試）
+# 執行所有測試（3293 個測試）
 pnpm test
 
 # Watch 模式
@@ -799,9 +805,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3240 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2340 tests
-- Contract tests（CLI 輸出 + Skill 格式）：789 tests
+**測試覆蓋率**：3293 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2391 tests
+- Contract tests（CLI 輸出 + Skill 格式）：791 tests
 - Integration tests：45 tests
 - E2E tests：66 tests
 

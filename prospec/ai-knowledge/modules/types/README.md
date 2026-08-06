@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` + `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` (the lifecycle doc's artifact matrix and provenance audit scope, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES |
-| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
+| `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget` (7 per-surface thresholds), `KnowledgeSizeKind`＋`KNOWLEDGE_SIZE_RULES`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (path sets plus BOTH exception directions — `namedExceptions` / `englishExceptions`) |
 | `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (15 frozen), Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
@@ -19,7 +19,7 @@
 | `skill.ts` | SKILL_DEFINITIONS (17 skills, each ≥3 collision-free triggers), AGENT_CONFIGS (4 agents, each declaring `HarnessCapabilities`), `intersectCapabilities` |
 | `station.ts` | Station I/O contracts — `ReviewFindingSchema`, `VERIFY_DIMENSIONS` (+ machine/judgment split), `LessonInputSchema`, `VALIDATE_KINDS` |
 
-Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts` (per-gate escaped-defect report), `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` order incl. the no-status design station and the `promote` backfill entry, `STATION_SKILLS`, `ChangeRoute*`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`, the skills' CLI probe floor).
+Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `status.ts` (SDD station-routing contract — `SDD_STATIONS` order incl. the no-status design station and the `promote` backfill entry, `STATION_SKILLS`, `ChangeRoute*`/`StatusReport`), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
 
 ## Public API
 
@@ -54,7 +54,7 @@ Also: `conventions.ts` (CORE_CONVENTIONS, INIT_DOC_REGISTRY), `escaped-defect.ts
 
 ## Pitfalls
 
-- `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`.
+- `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`. A budget threshold needs BOTH `TokenBudgetSchema` and `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — the resolver reads the default's keys, so a schema-only field parses then is ignored (a key-set equality test pins it). `KNOWLEDGE_SIZE_RULES` is `satisfies`-closed, so an unruled kind is a compile error.
 - `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of it gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body. `DIMENSION_RESULTS` is likewise wider than the gate three-state (`not-applicable` and `not-adjudicated` are dimension-only).
 - `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS`, `drift-report` knowledge_health are FROZEN — extend additively, never reorder/remove. The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (both provenance checks' backfill exemptions are draft-gated; a recorded non-zero exit is never exempt); a stale claim here has twice reopened a closed bypass.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.

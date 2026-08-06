@@ -13,6 +13,7 @@ import { renderTemplate } from '../../src/lib/template.js';
 import { collectNonSourceDirectories } from '../../src/lib/module-detector.js';
 import { toInlineCodeSpan } from '../../src/lib/markdown-fences.js';
 import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { FeatureMapSchema } from '../../src/types/feature-map.js';
 import {
@@ -148,6 +149,7 @@ describe('Knowledge Format Contract', () => {
       knowledgeBasePath: 'prospec/ai-knowledge',
       coreConventions: ['_conventions.md', '_glossary.md'],
       demandConventions: ['_playbook.md'],
+      tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
     });
 
     it('should render without errors', () => {
@@ -155,6 +157,33 @@ describe('Knowledge Format Contract', () => {
       // prove interpolation actually ran (template is mostly static otherwise)
       expect(content).toContain('test-project');
       expect(content).toContain('typescript');
+    });
+
+    // index.md.hbs includes the shared knowledge-loading-rules partial, whose table
+    // renders one number per budget field. Handlebars renders an unset variable as
+    // the EMPTY STRING, so a context that omits the budget ships an index.md
+    // declaring `≤  tokens per file` — silently, in every generated project. The
+    // sentinels are derived from the budget so a new field is covered on arrival.
+    it('renders EVERY budget field in the loading-rules table it embeds', () => {
+      const sentinels = Object.fromEntries(
+        Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((field, i) => [field, 4200 + i]),
+      ) as typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET;
+      const content = renderTemplate(
+        'knowledge/index.md.hbs',
+        buildIndexTemplateContext({
+          projectName: 'p',
+          baseDir: 'prospec',
+          knowledgeBasePath: 'prospec/ai-knowledge',
+          coreConventions: [],
+          demandConventions: [],
+          tokenBudget: sentinels,
+        }),
+      );
+      const table = content.slice(content.indexOf('## Progressive Knowledge Loading Strategy'));
+      for (const [field, sentinel] of Object.entries(sentinels)) {
+        expect(table, `${field} renders empty in a generated index.md`).toContain(String(sentinel));
+      }
+      expect(table, 'an unset budget renders as an empty cell, never an error').not.toMatch(/≤\s{2,}tokens/);
     });
 
     it('should contain Rationale column header', () => {
@@ -213,6 +242,7 @@ describe('Knowledge Format Contract', () => {
           knowledgeBasePath: 'prospec/ai-knowledge',
           coreConventions: ['_conventions.md'],
           demandConventions: [],
+          tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
         }),
       );
       expect(content).toContain(INDEX_TABLE_COLUMNS.join(' | '));
@@ -236,6 +266,7 @@ describe('Knowledge Format Contract', () => {
           knowledgeBasePath: 'prospec/ai-knowledge',
           coreConventions: [],
           demandConventions: [],
+          tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
         }),
       );
       // Assert an independent literal of the documented schema, not the same

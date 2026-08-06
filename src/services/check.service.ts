@@ -194,6 +194,9 @@ export async function execute(
       paths.baseDir,
       paths.knowledgePath,
       resolveKnowledgeTokenBudget(config),
+      // The same list the index writers split on — a file the project promoted to
+      // a core convention must be graded as L1, not as load-on-demand knowledge.
+      config.knowledge?.additional_core_conventions ?? [],
     ),
     // The resolved command decides whether this check can apply at all — a project
     // with none skips honestly instead of failing a gate it can never satisfy.

@@ -5,7 +5,7 @@ import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import type { InitDoc } from '../types/conventions.js';
 import { ALL_INITIAL_CONVENTION_DOCS } from '../types/conventions.js';
 import type { TechStackResult } from './detector.js';
-import { resolveBasePaths, resolveArtifactLanguage } from './config.js';
+import { resolveBasePaths, resolveArtifactLanguage, resolveKnowledgeTokenBudget } from './config.js';
 import { renderTemplate } from './template.js';
 import { filterConventions } from './scanner.js';
 import { buildIndexTemplateContext } from './index-template.js';
@@ -82,6 +82,7 @@ export function buildInitDocContexts(
     knowledgeBasePath: path.relative(cwd, knowledgePath).replace(/\\/g, '/'),
     coreConventions,
     demandConventions,
+    tokenBudget: resolveKnowledgeTokenBudget(config),
   });
 
   return { standard, index };

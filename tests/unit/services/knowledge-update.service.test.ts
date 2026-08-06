@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { vol } from 'memfs';
 import {
   parseDeltaSpec,
@@ -34,6 +35,10 @@ vi.mock('../../../src/lib/config.js', () => ({
     constitutionPath: '/test/prospec/CONSTITUTION.md',
     specsPath: '/test/prospec/specs',
   }),
+  // Real defaults, not a stub: the index this service writes embeds the
+  // loading-rules table, and a mocked-away budget would render it with empty cells
+  // in every assertion here while the real emitter shipped numbers.
+  resolveKnowledgeTokenBudget: vi.fn().mockReturnValue(DEFAULT_KNOWLEDGE_TOKEN_BUDGET),
 }));
 
 // Partial mock: keep the REAL moduleScanPatterns/classifyModulePath (so the
@@ -460,7 +465,7 @@ describe('updateIndex', () => {
   it('emits the canonical 7-column header/separator and 7-cell rows, no phantom Files column', async () => {
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET },
     );
 
     const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
@@ -510,7 +515,7 @@ ${INDEX_TABLE_SEPARATOR}
 
     const result = await updateIndex(
       [{ name: 'auth', description: 'Auth module', status: 'Active' }],
-      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET },
     );
 
     const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
@@ -541,7 +546,7 @@ ${INDEX_TABLE_SEPARATOR}
 
     return updateIndex(
       [{ name: 'billing', description: 'cost is $1 per $& token', status: 'Active' }],
-      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET },
     ).then(() => {
       const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
       // the literal $1 / $& must survive, and the auto block must not self-nest
@@ -567,7 +572,7 @@ ${INDEX_TABLE_SEPARATOR}
           dependsOn: ['lib'],
         },
       ],
-      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+      { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET },
     );
 
     const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;

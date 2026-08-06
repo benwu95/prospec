@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { vol } from 'memfs';
 import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, type ProspecConfig } from '../../../src/types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -151,11 +151,7 @@ describe('resolveBasePaths', () => {
 describe('resolveKnowledgeTokenBudget', () => {
   it('falls back to DEFAULT_KNOWLEDGE_TOKEN_BUDGET when knowledge.token_budget is unset', () => {
     const budget = resolveKnowledgeTokenBudget({ project: { name: 't' } } as ProspecConfig);
-    expect(budget).toEqual({
-      l1_per_file: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l1_per_file,
-      l2_per_module: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module,
-      readme_max_lines: DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines,
-    });
+    expect(budget).toEqual({ ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET });
   });
 
   it('overrides only the fields set in knowledge.token_budget, keeping defaults for the rest', () => {
@@ -166,6 +162,31 @@ describe('resolveKnowledgeTokenBudget', () => {
     expect(budget.l1_per_file).toBe(9999);
     expect(budget.l2_per_module).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.l2_per_module);
     expect(budget.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
+  });
+
+  // The resolver derives its field list from DEFAULT_KNOWLEDGE_TOKEN_BUDGET, so a
+  // threshold the SCHEMA accepts but the default omits is parsed, then silently
+  // ignored — an override the user wrote and nothing honours. Only a key-set
+  // equality between the two catches that; asserting the resolver against the
+  // default alone is a tautology.
+  it('keeps TokenBudgetSchema and DEFAULT_KNOWLEDGE_TOKEN_BUDGET at the same field set', () => {
+    const schemaKeys = Object.keys(
+      (ProspecConfigSchema.shape.knowledge.unwrap().shape.token_budget.unwrap() as {
+        shape: Record<string, unknown>;
+      }).shape,
+    ).sort();
+    expect(schemaKeys).toEqual(Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).sort());
+  });
+
+  it('honours an override of EVERY budget field, not just the three original ones', () => {
+    const overrides = Object.fromEntries(
+      Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((k, i) => [k, 10_000 + i]),
+    );
+    const budget = resolveKnowledgeTokenBudget({
+      project: { name: 't' },
+      knowledge: { token_budget: overrides },
+    } as ProspecConfig);
+    expect(budget).toEqual(overrides);
   });
 });
 
