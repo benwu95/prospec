@@ -191,11 +191,37 @@ refactor(scope): restructure code
 chore: dependency updates, config changes
 ```
 
+A completed change lands as **two commits**, in this order:
+
+1. **The change itself** (`feat:` / `fix:` / `docs:` / …). Its boundary is `/prospec-verify` reaching
+   grade S/A — one atomic commit folding the implementation, the review fixes, the verify fixes,
+   every source-touched module README, and any re-derived factual counts.
+2. **The archive commit**, written after `/prospec-archive`. It carries the Feature Spec graduation,
+   the `prospec/specs/_archived-history/` summary, and the refreshed `raw-scan.md`. Its subject line
+   is **not** standardised — `docs(archive): archive <name>`, `docs(spec): graduate <subject>
+   requirements`, `docs(specs): archive <name>` and `chore: archive <name>` have all been used within
+   one six-week span — so take the wording from `git log` and treat the *contents* listed above as
+   the stable part.
+
+The message rules live in `prospec/CONSTITUTION.md` → `[MUST] Atomic Commits by Feature`, in its
+**Verify** clause: conventional prefix; subject and body in English; body as a bulleted list, never
+prose paragraphs; one concern per commit; **no AI co-authorship attribution**. The allowed prefix
+vocabulary is wider than the examples given there — `prospec/ai-knowledge/_conventions.md` → Git
+Conventions carries the full list, adding `perf:` and `ci:`.
+
 ### 5. Submit a Pull Request
 
-- Write a clear description of what changed and why
-- Reference any related issues
-- Ensure all tests pass
+- **One issue → one change → one PR.** Open the PR from the change's branch; let the merge close the
+  issue rather than closing it by hand.
+- **Write the PR body in Traditional Chinese (Taiwan).** This is a house convention, **not** a
+  consequence of the Constitution's `[MUST] Language Policy` — that rule is defined over repo *paths*
+  (`.prospec/changes/**` and friends), and a PR body is not one. The code, commit messages, and trust
+  zone inside the same PR stay English.
+- Structure the body as bullets covering what changed and why, and **end with `Closes #NN`**.
+- **Never append an AI attribution footer.** This repo carries no AI co-authorship in commit
+  messages or PR bodies.
+- Ensure `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `prospec check` pass. CI additionally gates
+  `pnpm run counts:check` — a stale factual count fails the PR.
 
 ## Adding a New Skill
 

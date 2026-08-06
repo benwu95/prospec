@@ -72,11 +72,11 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 ---
 ### [SHOULD] User-Facing Documentation Stays Current
 
-**Description**: When a change adds, changes, or removes a user-facing surface documented in the root `README.md` (a feature, command, skill, workflow, or directory layout), the README is updated in the same change, during implementation — before verification. Pure internal changes (refactors, tests, or docs outside the README) that touch no README-documented surface are exempt.
+**Description**: When a change adds, changes, or removes a user-facing surface documented in the root `README.md` (a feature, command, skill, workflow, or directory layout), the README is updated in the same change, during implementation — before verification. The repository ships a **bilingual root README** — `README.md` (English) and `README.zh-TW.md` (Traditional Chinese) — and the two stay at content parity: a user-visible edit to either lands in the other within the same change. Pure internal changes (refactors, tests, or docs outside the README) that touch no README-documented surface are exempt.
 
 **Rationale**: For a developer tool, a stale README silently misleads every user — the cost lands on people outside the change. Folding the README update into implementation keeps "done" honest: cheap alongside the code, expensive when discovered later.
 
-**Verify**: `/prospec-verify`'s Constitution audit checks whether a change that altered a README-documented surface also updated the root `README.md`; a gap is graded **WARN** (advisory — does not block grade S/A) and recorded to `quality_log`. Governs the prospec project only; intentionally NOT encoded into any shipped Skill template.
+**Verify**: `/prospec-verify`'s Constitution audit checks whether a change that altered a README-documented surface also updated **both** root READMEs — `README.md` and `README.zh-TW.md`; a gap in either is graded **WARN** (advisory — does not block grade S/A) and recorded to `quality_log`. Prose parity has **no machine guard**: `pnpm counts:check` covers only the factual numbers anchored in both files, so the audit is the sole enforcement point. Governs the prospec project only; intentionally NOT encoded into any shipped Skill template.
 
 ### [MUST] Factual Count Integrity
 
@@ -103,7 +103,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 - [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
 - [x] Dependency direction is `cli → services → lib → types` — no reverse or circular imports
-- [x] User-facing changes update the root `README.md` in the same change ([SHOULD] — verify Constitution audit WARNs on a gap)
+- [x] User-facing changes update **both** root READMEs — `README.md` and `README.zh-TW.md` — in the same change ([SHOULD] — verify Constitution audit WARNs on a gap)
 - [x] Factual counts: machine-owned via `pnpm counts` (never hand-edit); CI-gated via `pnpm counts:check`; hand-maintained counts re-derived from source at sync point (same feature commit)
 
 ---
@@ -111,11 +111,11 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 ## Quality Standards
 
 - **Testing**: All public functions have unit tests; coverage ≥ 80%
-- **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; root `README.md` kept current with user-facing changes ([SHOULD] — verify WARNs on a gap)
+- **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; both root READMEs (`README.md` + `README.zh-TW.md`) kept current and at parity with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
 - **Counts**: `pnpm counts` for machine-owned tallies; `pnpm counts:check` in CI; hand-maintained counts (module file counts, spec frontmatter, README check enumeration) re-derived from source at each sync point
 
 ---
 
-> Last updated: 2026-08-04
+> Last updated: 2026-08-06
