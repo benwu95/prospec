@@ -12,6 +12,7 @@ import {
   collectMcpReadmeCounts,
   collectMetadataCompleteness,
   collectReqDefinitions,
+  collectSpecCounters,
   collectReqReferences,
   collectArtifactLanguage,
   collectConstitutionRules,
@@ -293,6 +294,101 @@ describe('collectReqDefinitions', () => {
     write('specs/features/a.md', 'body mentions REQ-AUTH-009 inline\n#### REQ-AUTH-001: Real\n');
     const r = collectReqDefinitions(path.join(tmpDir, 'specs/features'));
     expect(r.ids).toEqual(['REQ-AUTH-001']);
+  });
+});
+
+describe('collectSpecCounters (REQ-LIB-042)', () => {
+  const featuresDir = () => path.join(tmpDir, 'specs/features');
+
+  const spec = (over: { story?: string; req?: string; body?: string } = {}): string =>
+    `---
+feature: widget
+status: active
+last_updated: 2026-08-01
+story_count: ${over.story ?? '1'}
+req_count: ${over.req ?? '2'}
+---
+
+# Widget
+
+### US-1: a story
+
+#### REQ-WIDGET-001: one
+
+### REQ-WIDGET-002: two at h3
+
+## Deprecated Requirements
+
+#### REQ-WIDGET-003: retired
+${over.body ?? ''}`;
+
+  it('reports declared vs body-derived counts, counting REQ headings at any level', () => {
+    write('specs/features/widget.md', spec());
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.specs).toEqual([
+      {
+        source_path: 'specs/features/widget.md',
+        feature: 'widget',
+        declared: { story_count: 1, req_count: 2 },
+        actual: { story_count: 1, req_count: 2 },
+      },
+    ]);
+  });
+
+  it('excludes Deprecated Requirements from the body count', () => {
+    write('specs/features/widget.md', spec({ req: '3' }));
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.specs[0]!.declared.req_count).toBe(3);
+    expect(r.specs[0]!.actual.req_count).toBe(2);
+  });
+
+  it('reports a null declaration for a missing counter field rather than inventing zero', () => {
+    write('specs/features/widget.md', '---\nfeature: widget\nstatus: active\n---\n\n#### REQ-WIDGET-001: one\n');
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.specs[0]!.declared).toEqual({ story_count: null, req_count: null });
+    expect(r.specs[0]!.actual).toEqual({ story_count: 0, req_count: 1 });
+  });
+
+  it('skips archived specs and files without frontmatter', () => {
+    write('specs/features/widget.md', spec());
+    write('specs/features/_archived-old.md', spec());
+    write('specs/features/notes.md', '# no frontmatter\n');
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.specs.map((s) => s.feature)).toEqual(['widget']);
+  });
+
+  it('is unavailable when the features directory is absent', () => {
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/not found/);
+    expect(r.specs).toEqual([]);
+  });
+
+  it('is unavailable when the directory holds no spec', () => {
+    mkdirSync(featuresDir(), { recursive: true });
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/no feature specs/);
+  });
+
+  // A sample of zero is not a clean bill of health: reporting `available: true`
+  // with an empty list made the check PASS over nothing checked.
+  it('is unavailable when specs exist but none of them parses', () => {
+    write('specs/features/a.md', '# no frontmatter at all\n');
+    write('specs/features/b.md', 'still no frontmatter\n');
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/could be parsed \(frontmatter missing or unreadable\)/);
+    expect(r.specs).toEqual([]);
+  });
+
+  it('costs one line, not the run, when a spec cannot be read', () => {
+    write('specs/features/widget.md', spec());
+    mkdirSync(path.join(tmpDir, 'specs/features/oops.md'), { recursive: true });
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.available).toBe(true);
+    expect(r.specs.map((s) => s.feature)).toEqual(['widget']);
   });
 });
 

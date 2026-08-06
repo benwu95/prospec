@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatArchiveOutput } from '../../../src/cli/formatters/archive-output.js';
-import type { ArchiveResult } from '../../../src/services/archive.service.js';
+import {
+  formatArchiveOutput,
+  formatArchiveFinalizeOutput,
+} from '../../../src/cli/formatters/archive-output.js';
+import type {
+  ArchiveResult,
+  ArchiveFinalizeResult,
+} from '../../../src/services/archive.service.js';
 
 let logSpy: ReturnType<typeof vi.spyOn>;
 let stderrSpy: ReturnType<typeof vi.spyOn>;
@@ -265,5 +271,93 @@ describe('archive-output', () => {
     expect(text).not.toContain('\u0007');
     expect(text).toContain('evil');
     expect(text).toContain('reasontext');
+  });
+});
+
+/**
+ * A reconciliation the service refused (a declared counter would have been
+ * zeroed) is only useful if the operator sees it — otherwise the refusal is as
+ * silent as the wrong write it replaced (REQ-CLI-024).
+ */
+describe('formatArchiveFinalizeOutput — refused reconciliations are visible', () => {
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  function out(): string {
+    return stdoutSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+  }
+
+  function finalizeResult(overrides: Partial<ArchiveFinalizeResult> = {}): ArchiveFinalizeResult {
+    return {
+      changeName: 'add-widget',
+      archiveDir: '.prospec/archive/2026-08-06-add-widget',
+      historyPath: 'prospec/specs/_archived-history/2026-08-06-add-widget.md',
+      reconciled: [],
+      refusedReconciliations: [],
+      planned: [],
+      dryRun: false,
+      ...overrides,
+    };
+  }
+
+  const refusal = {
+    file: 'prospec/specs/features/quiz.md',
+    from: { story_count: 1, req_count: 10 },
+    to: { story_count: 1, req_count: 0 },
+    reason: 'req_count would drop to zero',
+  };
+
+  it('routes each refusal to stderr with its declared value and reason', () => {
+    formatArchiveFinalizeOutput(finalizeResult({ refusedReconciliations: [refusal] }), 'normal');
+    const err = stderr();
+    expect(err).toContain('prospec/specs/features/quiz.md');
+    expect(err).toContain('10');
+    expect(err).toContain('req_count would drop to zero');
+    // stdout carries the success narration; the worklist does not hide in it
+    expect(out()).not.toMatch(/refus/i);
+  });
+
+  // The whole point of a refusal is that the operator learns the counter was left
+  // as declared. Printing it under the normal-verbosity guard meant
+  // `finalize --quiet` traded a silent wrong write for a silent non-write.
+  it('keeps the refusal visible under --quiet, where stdout says nothing at all', () => {
+    formatArchiveFinalizeOutput(finalizeResult({ refusedReconciliations: [refusal] }), 'quiet');
+    expect(out()).toBe('');
+    expect(stderr()).toContain('prospec/specs/features/quiz.md');
+    expect(stderr()).toContain('req_count would drop to zero');
+  });
+
+  it('says nothing about refusals when there are none', () => {
+    formatArchiveFinalizeOutput(finalizeResult(), 'normal');
+    expect(stderr()).toBe('');
+    expect(out()).not.toMatch(/refus/i);
+  });
+
+  // Two contradicting claims about the same files must never print together.
+  it('suppresses "already consistent" when a reconciliation was refused', () => {
+    formatArchiveFinalizeOutput(finalizeResult({ refusedReconciliations: [refusal] }), 'normal');
+    expect(out()).not.toContain('already consistent');
+    stdoutSpy.mockClear();
+    formatArchiveFinalizeOutput(finalizeResult(), 'normal');
+    expect(out()).toContain('already consistent');
+  });
+
+  it('sanitizes control characters out of a refusal line', () => {
+    formatArchiveFinalizeOutput(
+      finalizeResult({
+        refusedReconciliations: [
+          { ...refusal, file: 'evil\u001b[2Jspec.md', reason: 'bad\u0007reason' },
+        ],
+      }),
+      'normal',
+    );
+    const err = stderr();
+    expect(err).not.toContain('\u001b');
+    expect(err).not.toContain('\u0007');
+    expect(err).toContain('evil');
+    expect(err).toContain('reason');
   });
 });

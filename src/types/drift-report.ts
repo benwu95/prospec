@@ -92,6 +92,21 @@ export const DRIFT_CHECK_IDS = [
   // a non-resolving scope shape, and a root whose own PARENT is unreadable are
   // all indistinguishable from genuine absence.
   'artifact-language',
+  // Spec counters — an active feature spec whose frontmatter `story_count` /
+  // `req_count` disagrees with its own body warns (warn), one finding per
+  // disagreeing field. The body counts REQ headings at ANY heading level
+  // (`lib/spec-headings`, the same matcher archive writes with) outside
+  // `## Deprecated Requirements`, and stories at both `## US-` and `### US-`.
+  // Until now these counters had exactly one writer (`archive finalize`) and no
+  // reader: a wrong value entered the trust zone silently and stayed. WARN-class
+  // rather than fail: the value is normally corrected by the next
+  // `archive finalize` — but NOT when that recount refuses to zero a declared
+  // counter, in which case this warn persists until a human converges the spec.
+  // Skips — never a vacuous pass — when the features directory is absent, holds no
+  // spec, or holds none that parses, and a
+  // frontmatter that declares neither counter is out of scope rather than a
+  // finding (adding it is the writer's job, not the reader's).
+  'spec-counters',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

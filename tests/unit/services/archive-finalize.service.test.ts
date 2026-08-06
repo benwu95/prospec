@@ -142,7 +142,236 @@ describe('archive finalize', () => {
   });
 });
 
+/**
+ * A downstream 1.0.0 project's spec used `### REQ-…{#anchor}` (h3), which the
+ * h4-only counter read as zero REQs — `req_count: 10 → 0` into the trust zone,
+ * in a file the change never touched (issue #138).
+ */
+const H3_SPEC = `---
+feature: quiz
+status: active
+last_updated: 2026-08-01
+story_count: 1
+req_count: 2
+---
+
+# Quiz
+
+## User Stories & Behavior Specifications
+
+### US-1: tagging
+
+### REQ-QUIZ-001: Tag a question {#req-quiz-001}
+
+- WHEN a question is submitted, THEN it is tagged
+
+### REQ-QUIZ-002: Review a tag {#req-quiz-002}
+
+- WHEN a reviewer opens a tag, THEN the standard is shown
+
+## Deprecated Requirements
+
+_(None)_
+`;
+
+/** REQ ids live only in a table — the body genuinely has no REQ heading. */
+const HEADINGLESS_SPEC = `---
+feature: widget
+status: active
+last_updated: 2026-08-01
+story_count: 1
+req_count: 3
+---
+
+# Widget
+
+### US-1: story
+
+| REQ | Note |
+|-----|------|
+| REQ-WIDGET-001 | tabular only |
+`;
+
+const H3_SPEC_PATH = '/repo/prospec/specs/features/quiz.md';
+
+describe('archive finalize — heading levels and the zeroing refusal', () => {
+  it('counts REQ headings at any level, so an h3 spec is reconciled instead of zeroed', async () => {
+    vol.fromJSON({ [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY, [H3_SPEC_PATH]: H3_SPEC });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.reconciled).toEqual([]);
+    expect(result.refusedReconciliations).toEqual([]);
+    expect(vol.readFileSync(H3_SPEC_PATH, 'utf-8')).toBe(H3_SPEC);
+  });
+
+  it('refuses to zero a declared counter, leaving the file byte-identical', async () => {
+    vol.fromJSON({
+      [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY,
+      [H3_SPEC_PATH]: HEADINGLESS_SPEC,
+    });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.reconciled).toEqual([]);
+    expect(result.refusedReconciliations).toEqual([
+      {
+        file: 'prospec/specs/features/quiz.md',
+        from: { story_count: 1, req_count: 3 },
+        to: { story_count: 1, req_count: 0 },
+        reason: expect.stringMatching(/zero/i),
+      },
+    ]);
+    expect(vol.readFileSync(H3_SPEC_PATH, 'utf-8')).toBe(HEADINGLESS_SPEC);
+  });
+
+  // The story_count half needs a fixture where ONLY story_count zeroes: with both
+  // counters at zero, dropping story_count from the rule entirely still leaves
+  // req_count triggering the same refusal, and the test cannot tell the
+  // difference (it stayed green under exactly that mutation).
+  it('refuses on a zeroed story_count alone, naming that field', async () => {
+    const reqsButNoStory = `---
+feature: quiz
+status: active
+last_updated: 2026-08-01
+story_count: 2
+req_count: 2
+---
+
+# Quiz
+
+- US-1 listed as a bullet, not a heading
+- US-2 likewise
+
+#### REQ-QUIZ-001: one
+
+#### REQ-QUIZ-002: two
+`;
+    vol.fromJSON({ [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY, [H3_SPEC_PATH]: reqsButNoStory });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.refusedReconciliations).toHaveLength(1);
+    const refusal = result.refusedReconciliations[0]!;
+    expect(refusal.to).toEqual({ story_count: 0, req_count: 2 });
+    expect(refusal.reason).toContain('story_count');
+    expect(refusal.reason).not.toContain('req_count');
+    expect(vol.readFileSync(H3_SPEC_PATH, 'utf-8')).toBe(reqsButNoStory);
+  });
+
+  it('names both fields when both would be zeroed', async () => {
+    vol.fromJSON({
+      [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY,
+      [H3_SPEC_PATH]: HEADINGLESS_SPEC.replace('### US-1: story', '- US-1 listed as a bullet'),
+    });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.refusedReconciliations).toHaveLength(1);
+    expect(result.refusedReconciliations[0]!.to).toEqual({ story_count: 0, req_count: 0 });
+    expect(result.refusedReconciliations[0]!.reason).toContain('story_count');
+    expect(result.refusedReconciliations[0]!.reason).toContain('req_count');
+  });
+
+  it('treats a genuinely empty spec as normal — zero declared, zero counted', async () => {
+    const emptySpec = HEADINGLESS_SPEC.replace('story_count: 1', 'story_count: 0')
+      .replace('req_count: 3', 'req_count: 0')
+      .replace('### US-1: story', '');
+    vol.fromJSON({ [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY, [H3_SPEC_PATH]: emptySpec });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.refusedReconciliations).toEqual([]);
+    expect(result.reconciled).toEqual([]);
+  });
+
+  it('still corrects a non-zeroing mismatch (the pre-existing behavior)', async () => {
+    vol.fromJSON({
+      [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY,
+      [H3_SPEC_PATH]: H3_SPEC.replace('req_count: 2', 'req_count: 7'),
+    });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+
+    expect(result.refusedReconciliations).toEqual([]);
+    expect(result.reconciled).toHaveLength(1);
+    expect(vol.readFileSync(H3_SPEC_PATH, 'utf-8')).toContain('req_count: 2');
+  });
+
+  it('dry-run reports a refusal and plans no mutation for that file', async () => {
+    vol.fromJSON({
+      [`${ARCHIVE_DIR}/summary.md`]: FINAL_SUMMARY,
+      [H3_SPEC_PATH]: HEADINGLESS_SPEC,
+    });
+
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD, dryRun: true });
+
+    expect(result.refusedReconciliations).toHaveLength(1);
+    expect(result.planned.map((p) => p.target)).not.toContain('prospec/specs/features/quiz.md');
+    expect(vol.readFileSync(H3_SPEC_PATH, 'utf-8')).toBe(HEADINGLESS_SPEC);
+  });
+});
+
 describe('recountFeatureSpecCounters', () => {
+  it('counts REQ headings at h3 as well as h4 (issue #138 regression)', () => {
+    const recount = recountFeatureSpecCounters(H3_SPEC)!;
+    expect(recount.to).toEqual({ story_count: 1, req_count: 2 });
+    expect(recount.changed).toBe(false);
+    expect(recount.refusal).toBeUndefined();
+  });
+
+  it('flags a refusal instead of rewriting when a declared counter would go to zero', () => {
+    const recount = recountFeatureSpecCounters(HEADINGLESS_SPEC)!;
+    expect(recount.to.req_count).toBe(0);
+    expect(recount.refusal).toMatch(/zero/i);
+    expect(recount.content).toBe(HEADINGLESS_SPEC);
+  });
+
+  // Tolerating CRLF made such a file REACHABLE by the rewrite for the first time
+  // (it used to fail frontmatter parsing and be skipped whole), so the rewrite
+  // has to preserve the endings it found instead of hardcoding `\n`.
+  it('rewrites a CRLF spec without mixing line endings', () => {
+    const crlf = [
+      '---',
+      'feature: quiz',
+      'status: active',
+      'story_count: 9',
+      'req_count: 9',
+      '---',
+      '',
+      '# Quiz',
+      '',
+      '### US-1: s',
+      '',
+      '#### REQ-QUIZ-001: a',
+      '',
+    ].join('\r\n');
+
+    const recount = recountFeatureSpecCounters(crlf)!;
+
+    expect(recount.to).toEqual({ story_count: 1, req_count: 1 });
+    expect(recount.content).toContain('story_count: 1\r\n');
+    expect(recount.content).toContain('req_count: 1\r\n');
+    // no lone LF anywhere: every newline is still part of a CRLF pair
+    expect(/(?<!\r)\n/.test(recount.content)).toBe(false);
+    expect((recount.content.match(/\r\n/g) ?? []).length).toBe((crlf.match(/\r\n/g) ?? []).length);
+  });
+
+  it('adds a MISSING counter line with the file\'s own line ending', () => {
+    const crlf = ['---', 'feature: quiz', '---', '', '#### REQ-QUIZ-001: a', ''].join('\r\n');
+    const recount = recountFeatureSpecCounters(crlf)!;
+    expect(recount.content).toContain('req_count: 1');
+    expect(/(?<!\r)\n/.test(recount.content)).toBe(false);
+  });
+
+  it('does not count a struck-through REQ heading as active', () => {
+    const recount = recountFeatureSpecCounters(
+      '---\nfeature: x\nstory_count: 0\nreq_count: 0\n---\n\n#### ~~REQ-X-001~~: retired\n',
+    )!;
+    expect(recount.to.req_count).toBe(0);
+  });
+
+
   it('excludes Deprecated Requirements from req_count and counts stories at BOTH h2 and h3 (review C2)', () => {
     // Real specs mix heading levels: sdd-workflow is all `## US-`, mcp-server
     // all `### US-`, drift-detection mixed — the counter is the union.

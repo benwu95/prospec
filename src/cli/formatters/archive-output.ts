@@ -98,6 +98,23 @@ export function formatArchiveFinalizeOutput(
   result: ArchiveFinalizeResult,
   logLevel: LogLevel = 'normal',
 ): void {
+  // A refused reconciliation goes to stderr and survives --quiet, like the other
+  // worklists this command hands a human (pendingConvergence / droppedBehavior).
+  // It was written to stdout under the normal-verbosity guard, which meant
+  // `finalize --quiet` left a spec's counter untouched and said nothing at all —
+  // trading a silent wrong write for a silent non-write. It does not set an exit
+  // code: nothing failed, a file was deliberately not rewritten.
+  if (result.refusedReconciliations.length > 0) {
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.refusedReconciliations.length} feature spec(s) left untouched — the recount refused to zero a declared counter:\n`,
+    );
+    for (const r of result.refusedReconciliations) {
+      process.stderr.write(
+        `  ${pc.yellow('!')} ${sanitizeTerminal(r.file)}: declares story_count ${r.from.story_count ?? '—'}, req_count ${r.from.req_count ?? '—'} — ${sanitizeTerminal(r.reason)}\n`,
+      );
+    }
+  }
+
   if (logLevel === 'quiet') return;
 
   const lines: string[] = [];
@@ -117,7 +134,9 @@ export function formatArchiveFinalizeOutput(
           `  ${pc.green('✓')} ${sanitizeTerminal(r.file)}: story_count ${r.from.story_count ?? '—'} → ${r.to.story_count}, req_count ${r.from.req_count ?? '—'} → ${r.to.req_count}`,
         );
       }
-    } else {
+    } else if (result.refusedReconciliations.length === 0) {
+      // Suppressed when something was refused: "already consistent" beside a
+      // refusal line is two contradicting claims about the same files.
       lines.push(pc.dim('Feature-spec counters already consistent — nothing to reconcile'));
     }
   }

@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-03
-story_count: 14
-req_count: 54
+last_updated: 2026-08-06
+story_count: 16
+req_count: 59
 ---
 
 # Deterministic Drift Check
@@ -37,7 +37,7 @@ A zero-LLM pure-function evaluator; the collector (I/O) is separated from the ev
 - WHEN module-map paths point outside the repo, THEN that path is clamped and does not drive scanning or file reads
 - WHEN a module-map paths entry is a single source file, THEN import-edge collection scans only that file itself (file/dir/glob determined by `classifyModulePath`); non-source-file entries produce no import edges (no longer expanded to `<file>/**` and hitting ENOTDIR)
 - WHEN a contained read is needed, THEN it goes through that single helper rather than a collector-local implementation, and the existence probe shares the same containment predicate
-- WHEN a collector reads a file it ENUMERATED from disk (feature specs, markdown roots, `tasks.md`, import sources), THEN a read failure skips that entry instead of throwing: each collector is evaluated as an argument to `runChecks(...)`, so one directory wearing a `.md` name used to take all thirteen other verdicts with it. Containment is deliberately not added at those sites — they keep scanning exactly what they scanned before; only the failure mode changes
+- WHEN a collector reads a file it ENUMERATED from disk (feature specs, markdown roots, `tasks.md`, import sources), THEN a read failure skips that entry instead of throwing: each collector is evaluated as an argument to `runChecks(...)`, so one directory wearing a `.md` name used to take all fourteen other verdicts with it. Containment is deliberately not added at those sites — they keep scanning exactly what they scanned before; only the failure mode changes
 
 ---
 
@@ -150,7 +150,8 @@ so that factual-count drift is intercepted by a machine in CI, no longer relying
 - WHEN module-map is missing, THEN `mcp-readme-counts` is skipped (with reason), never faking a PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**13**).
+`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**15**).
+- WHEN a check id is appended to the registry, THEN every prose copy of the total is updated in the same change. This spec's copies are enumerated by REQ id rather than counted — REQ-LIB-014 (as total − 1), REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045 — because a count of unguarded numbers is one more unguarded number, and this bullet said "three" while there were four. None of them has a machine guard; the ordinal statements ("the 11th frozen id") are historical and correctly frozen
 
 #### REQ-LIB-020: README count collector + evaluator
 `collectMcpReadmeCounts` (I/O: a whitelist pattern captures README count declarations + counts `registerResource`/`registerTool` in the named file; string/template-literal/fenced-block-aware counting; skips the claim when the source is missing) + pure `evaluateMcpReadmeCounts` (declared ≠ actual → warn finding).
@@ -177,7 +178,9 @@ so that "review must precede verify" turns from process prose into a machine-che
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **13** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
+`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **15** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065; the 14th is `artifact-language`, see REQ-TYPES-072; the 15th is `spec-counters`, see REQ-TYPES-076). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
+- WHEN a check id is appended to the registry, THEN this total is updated in the same change
+- WHEN the total is read, THEN it equals `DRIFT_CHECK_IDS.length`
 
 #### REQ-LIB-024: [review-provenance Collector + Evaluator + computeChangeDigest]
 `computeChangeDigest(cwd)`: the content fingerprint = HEAD sha + `git diff HEAD` + untracked, covering the whole working tree (all first-party content that a review audits), using a **denylist** to exclude workflow state (`.prospec/`, `prospec-report.json`), generated artifacts (`.claude/`, `dist/`), and the lockfile — **fail-closed rather than fail-open** (first-party code outside `src`/`tests`, such as `scripts/`, is still included); it does not rely on git commit timestamps (the commit boundary is after verify S/A, and during review/verify the code is not committed). If `head === null`, it immediately returns `null` to defensively pin the fail-closed invariant against future refactoring. `collectReviewProvenance(cwd)` (I/O) enumerates `.prospec/changes/*` with status/scale/recorded digest/`backfill_draft_present` + the current digest; the `gitCapture` helper is shared by `gitLastCommit` and digest; `evaluateReviewProvenance` (pure function) judges every change whose status is in `PROVENANCE_AUDITED_STATUSES` (REQ-TYPES-075) — `implemented` **and** `verified`, so the window between verify and archive is audited rather than silently exempt — exempting backfill **only when proven** by `backfill-draft.md` (`scale` alone is hand-editable — same draft gating as test-provenance). `archived` is outside the registry because such a change is unreachable, not forgiven: its bundle has left `.prospec/changes/` and the collector never enumerates it. Because HEAD is inside the digest, the verify S/A feature commit itself stales the baseline; that red is honest and the remedy is the PB-016 order — commit, then re-record `--record-review` and `--record-tests`, then archive. **Both** digest captures fail closed: a `git diff HEAD` failure and an `ls-files` failure each return `null` (honest skip), never a constant digest that would certify stale code as current; each branch is pinned by a revert-red test (an unborn-HEAD repo reaches the diff branch on real git; selective fault injection covers the untracked listing).
@@ -225,7 +228,8 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --json` and read `metadata-completeness`, FAIL → refuse archiving (when the CLI is absent, fall back to reading that change's metadata directly); prevents incomplete/ungraded metadata from entering the permanent record.
 
 #### REQ-TESTS-045: metadata-completeness engine tests
-`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 13 checks (including knowledge-size, test-provenance and constitution-severity) — the S/A clause and the skill clause mutation-verified.
+`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 15 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language and spec-counters) — the S/A clause and the skill clause mutation-verified.
+- WHEN a check id is added to the registry, THEN the skipped-never-PASS assertion covers it too
 
 ---
 
@@ -539,6 +543,73 @@ The widened audit scope is pinned from both directions for each gate, and the st
 - WHEN the router's `verified` branch drops the provenance gate declaration, THEN its unit assertion fails
 - WHEN a negative case (`tasks`, proven backfill, recorded non-zero exit) is evaluated, THEN its pre-existing verdict is unchanged
 
+## US-15: One rule for what a REQ heading is [P1]
+
+As a maintainer of a project whose feature specs do not all put REQs at h4,
+I want every reader AND every writer of a feature spec to recognise a REQ heading by the same rule,
+So that the narrowest parser cannot silently rewrite my trust zone while the others report it healthy.
+
+**Acceptance Scenarios:**
+- WHEN a spec's REQs sit at a level other than h4, THEN the archive writers count, merge and probe them exactly as the drift collectors read them
+- WHEN a second copy of the heading pattern or the id shape appears anywhere in `src/`, THEN a contract test fails naming the file
+- WHEN the counters are derived, THEN the writer and the reader use one derivation, so a check can never police a rule the writer does not follow
+- WHEN a spec is checked out with CRLF endings, THEN it is counted identically to its LF form
+
+### Behavior Specifications
+
+#### REQ-LIB-041: Single-source feature-spec REQ heading matcher
+`lib/spec-headings.ts` is the ONE definition of a feature-spec REQ heading: `matchReqHeading(line, {includeStruck})` returns `{id, level}` for any ATX level (h1–h6), tolerating a trailing `{#anchor}` or title text, and rejecting a malformed prefix. It is a leaf with zero internal lib imports, so both the drift collectors and the archive writers import it without a lib→lib cycle. `includeStruck` is opt-in and exists for the definition inventory alone — an active-REQ reader must never count a struck id. Two further facts live beside it because separating them re-creates the very defect: `REQ_ID_SOURCE` is the id shape, exported as regex SOURCE rather than an instance (the mention scanner needs a global flag, and a shared `/g` regex leaks `lastIndex` between callers); and `readSpecCounters(content)` derives what a spec's frontmatter declares beside what its body holds, so the counter WRITER and the counter READER cannot disagree about how a spec is counted. Deprecated-section exclusion is part of that derivation, not of heading recognition.
+- WHEN a REQ heading appears at any level from h1 to h6, THEN `matchReqHeading` returns its id and level
+- WHEN the heading carries a trailing `{#anchor}` or title text, THEN the id parses unchanged
+- WHEN the id is struck through and `includeStruck` is not set, THEN no match is returned
+- WHEN the counters are derived, THEN REQ headings outside `## Deprecated Requirements` count at any level — h2 included, tested before the story-section branch that would otherwise consume the line — and stories count at both `## US-` and `### US-`
+- WHEN a spec is checked out with CRLF endings, THEN its frontmatter still parses, because a spec that fails to parse leaves the counter reader with a sample of zero
+- WHEN the heading separator is compared with the readers this replaced, THEN it stays `\s+`: narrowing it would silently drop a REQ separated by an ideographic or non-breaking space from the definition index, turning every reference to it into a FAIL-class dangling reference
+- WHEN a second copy of the heading pattern or the id shape is introduced anywhere in `src/`, THEN the single-source contract test fails naming it — the detectors are written against the shapes this change removed (an h4-only regex, a heading string probed inline OR held in a variable first, a re-typed id class) and each is proven to fire on that shape before the ban is asserted
+
+---
+
+## US-16: Frontmatter counters have a reader, not just a writer [P2]
+
+As a maintainer,
+I want a check that compares each feature spec's declared `story_count`/`req_count` against its own body,
+So that a wrong counter cannot enter the trust zone silently and stay there — which is what happened while `archive finalize` was the only code that ever looked at those numbers.
+
+**Acceptance Scenarios:**
+- WHEN a spec's declared counter disagrees with its body, THEN the check warns naming the file, the field, the declared and the actual value
+- WHEN every spec agrees, THEN the check passes
+- WHEN the features directory is absent, holds no spec, or holds none that parses, THEN the check skips with that reason rather than passing over a sample of zero
+- WHEN a counter the frontmatter never declares is read, THEN it is out of scope rather than a finding
+
+### Behavior Specifications
+
+#### REQ-TYPES-076: `spec-counters` drift check id
+`DRIFT_CHECK_IDS` carries `spec-counters` as its fifteenth frozen id — appended, never reordered, and additive-only (the `knowledge_health` frozen contract is untouched). Its per-id comment states the check's scope (each active feature spec's frontmatter `story_count`/`req_count` against its own body), its WARN-only severity, and that it skips when the features directory is absent or holds no spec — those comments are read as the registry's source of truth. Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).
+- WHEN reading `DRIFT_CHECK_IDS`, THEN `spec-counters` is present and the preceding ids keep their order
+- WHEN the evaluator's behavior changes, THEN the per-id comment is updated with it
+
+#### REQ-LIB-042: spec-counters collector + evaluator
+`collectSpecCounters(featuresDir, cwd)` (all I/O) reads every non-archived feature spec and reports, per file, the frontmatter `story_count`/`req_count` it declares alongside the counts derived from its body through the shared `matchReqHeading` — REQ headings outside the `## Deprecated Requirements` section, stories at both `## US-` and `### US-` levels, mirroring what `archive finalize` writes. An absent features directory, a directory with no spec, a directory whose specs all fail to parse, and an unreadable enumerated file each degrade honestly: the first three return `{available:false, reason}` so the check skips rather than passing vacuously, the fourth costs its own line, not the run. A sample of zero is never reported as clean — that is the shape in which a check passes over nothing checked. Pure `evaluateSpecCounters` emits one warn finding per disagreeing counter, naming the file, the field, the declared value and the body-derived value; findings are codepoint-sorted. A missing counter field is not a disagreement — it is out of scope, since the writer's own contract is to add it.
+- WHEN a spec's declared counter differs from its body-derived count, THEN the check warns naming file, field, declared and actual
+- WHEN every spec agrees, THEN the check passes
+- WHEN the features directory is absent, holds no spec, or holds no spec that parses, THEN the check skips with a reason
+- WHEN a counter field is absent from the frontmatter, THEN no finding is emitted for it
+
+#### REQ-SERVICES-077: spec-counters check wiring
+`check.service` resolves the features directory through the same canonical resolver every other collector uses — never a re-derived path — and injects `collectSpecCounters`'s result into `runChecks`. The check participates in the pure read-only path, so a `prospec check` run remains byte-reproducible and side-effect-free, and its outcome and findings appear in the `--json` report like every other id.
+- WHEN `prospec check` runs, THEN `spec-counters` appears in the report with its outcome and findings
+- WHEN the project overrides its specs path in `.prospec.yaml`, THEN the collector reads the overridden location
+- WHEN the check runs, THEN no file is written
+
+#### REQ-TESTS-074: REQ-heading matcher and spec-counters tests
+Unit tests pin `matchReqHeading` across every ATX level, a trailing `{#anchor}`, a struck id with and without `includeStruck`, and a malformed prefix; `collectSpecCounters`/`evaluateSpecCounters` are covered in all three states (agreeing, disagreeing, source unavailable) plus `check.service` injection. Mutation verification is part of the contract, not a follow-up: narrowing the shared matcher back to h4-only must turn the archive regressions red. The structural assertions carry the claims a substring probe cannot make — the heading set for a REQ id, the count of `---` rules, the number of times a landing body appears, and the negative `not.toMatch(/^###\s+REQ-…/m)` for an injected label — while the remaining whole-file `toContain` probes are backed by that mutation pass rather than by their own scoping.
+- WHEN the shared matcher is narrowed to `^####`, THEN the archive spec-sync and counter regressions fail
+- WHEN a check is added to the registry without an evaluator, THEN compilation fails
+- WHEN the skipped-never-PASS assertion runs, THEN it covers all 15 check ids
+- WHEN the collector is pointed at a directory that does not exist, THEN a check-service test fails — the wiring is pinned by a positive warn case, not only by a skip that an empty project produces anyway
+- WHEN a boundary assertion is written, THEN its fixture carries a non-empty landing body, because with an empty one the boundary code never executes and the assertion cannot fail
+- WHEN an assertion is a whole-file substring probe, THEN a mutation proves it fires — the claim rests on that pass, not on the probe's own precision
+
 ---
 
 ## Edge Cases
@@ -573,6 +644,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-06 | unify-req-heading-matcher | ADDED REQ-LIB-041; ADDED REQ-TYPES-076; ADDED REQ-LIB-042; ADDED REQ-SERVICES-077; ADDED REQ-TESTS-074; MODIFIED REQ-TYPES-052; MODIFIED REQ-TYPES-034; MODIFIED REQ-LIB-014; MODIFIED REQ-TESTS-045 | REQ-LIB-041, REQ-TYPES-076, REQ-LIB-042, REQ-SERVICES-077, REQ-TESTS-074, REQ-TYPES-052, REQ-TYPES-034, REQ-LIB-014, REQ-TESTS-045 |
 | 2026-08-03 | fix-issue-106-drift-engine-blindspots | MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-036; MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-024 | REQ-LIB-033, REQ-LIB-036, REQ-LIB-015, REQ-LIB-024 |
 | 2026-08-03 | extend-provenance-audit-scope | ADDED REQ-TYPES-075; ADDED REQ-TEMPLATES-171; ADDED REQ-TEMPLATES-172; ADDED REQ-TEMPLATES-173; ADDED REQ-TESTS-073; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-033; MODIFIED REQ-TESTS-042; MODIFIED REQ-TESTS-056 | REQ-TYPES-075, REQ-TEMPLATES-171, REQ-TEMPLATES-172, REQ-TEMPLATES-173, REQ-TESTS-073, REQ-LIB-024, REQ-LIB-033, REQ-TESTS-042, REQ-TESTS-056 |
 | 2026-08-02 | exclude-generated-from-staleness | ADDED REQ-LIB-039; ADDED REQ-TESTS-071; MODIFIED REQ-LIB-015 | REQ-LIB-039, REQ-TESTS-071, REQ-LIB-015 |

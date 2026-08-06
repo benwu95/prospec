@@ -51,7 +51,7 @@ position. Each entry: `{ id, status, reason? }`.
 - `id` ∈ the frozen `DRIFT_CHECK_IDS` set: `req-references`, `file-paths`, `import-direction`,
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
-  `test-provenance`, `constitution-severity`, `artifact-language`.
+  `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`.
 
 `artifact-language` reports change artifacts whose PROSE carries no character in the project's
 artifact language (fenced code blocks are stripped before the test, so a quoted sample does not
@@ -64,6 +64,17 @@ degrade the whole check to a skip rather than reporting clean. It is not vacuity
 whatever the canonical scanner filters — build-artifact directory names, symlinked entries,
 dotfiles, secret-shaped names, depth over 10 — and a root whose own PARENT is unreadable are all
 indistinguishable from genuine absence and pass.
+
+`spec-counters` reports an active feature spec whose frontmatter `story_count`/`req_count` disagrees
+with its own body — one `warn` finding per disagreeing field, naming the declared and the actual
+value. The body is counted with the same matcher `archive finalize` writes with (REQ headings at ANY
+level outside `## Deprecated Requirements`; stories at both `## US-` and `### US-`), so the check
+cannot police a rule the writer does not follow. `warn`-class because `archive finalize` normally
+corrects the value on the next archive — with one exception that matters: when the body would zero a
+counter the frontmatter declares above zero, finalize refuses to write and this warn is what persists
+until a human converges the spec. It skips, with the reason, when the features directory is absent,
+holds no spec, or holds none that parses, and a counter the frontmatter never declares is out of scope
+rather than a finding.
 
 Gates skills read by id: `review-provenance` (review recorded and not stale),
 `task-completion` (code-task completion), `knowledge-health` (module staleness — see below),

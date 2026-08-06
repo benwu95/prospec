@@ -13,7 +13,11 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
-import { DriftReportSchema, DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
+import {
+  DriftReportSchema,
+  DRIFT_CHECK_IDS,
+  DRIFT_REPORT_FILENAME,
+} from '../../../src/types/drift-report.js';
 
 // check.service drives fast-glob + git collectors — real temp dirs, like scanner.test.ts.
 
@@ -57,6 +61,65 @@ function write(relPath: string, content: string): void {
 }
 
 describe('check.service execute', () => {
+  // Nothing pinned this wiring: pointing the collector at a non-existent
+  // directory left the entire suite green, and `spec-counters` would have skipped
+  // in every real project forever. The check's own unit tests call the evaluator
+  // directly and never reach check.service.
+  it('wires spec-counters to the resolved features directory (REQ-SERVICES-077)', async () => {
+    write(
+      'prospec/specs/features/a.md',
+      [
+        '---',
+        'feature: a',
+        'status: active',
+        'story_count: 4',
+        'req_count: 9',
+        '---',
+        '',
+        '### US-1: one story, not four',
+        '',
+        '#### REQ-A-001: one REQ, not nine',
+      ].join('\n'),
+    );
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const outcome = result.report.structural.checks.find((c) => c.id === 'spec-counters');
+    expect(outcome?.status).toBe('warn');
+    const findings = result.report.structural.findings.filter((f) => f.check === 'spec-counters');
+    expect(findings.map((f) => f.source_path)).toEqual([
+      'prospec/specs/features/a.md',
+      'prospec/specs/features/a.md',
+    ]);
+    expect(findings.map((f) => f.detail).join('\n')).toMatch(/story_count 4.*1/s);
+    expect(findings.map((f) => f.detail).join('\n')).toMatch(/req_count 9.*1/s);
+  });
+
+  it('reads the OVERRIDDEN specs path, never a re-derived one', async () => {
+    write(
+      '.prospec.yaml',
+      [
+        'version: "1.0"',
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: docs-base',
+        'knowledge:',
+        '  base_path: docs-base/ai-knowledge',
+      ].join('\n'),
+    );
+    write(
+      'docs-base/specs/features/a.md',
+      ['---', 'feature: a', 'status: active', 'story_count: 3', 'req_count: 0', '---', '', '# a'].join('\n'),
+    );
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const findings = result.report.structural.findings.filter((f) => f.check === 'spec-counters');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.source_path).toBe('docs-base/specs/features/a.md');
+  });
+
   it('produces a schema-valid report and writes it with --json', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\nsee REQ-A-001\n');
     const result = await execute({ cwd: tmpDir, json: true });
@@ -68,7 +131,7 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (all fourteen checks, FR-007)', async () => {
+  it('marks unavailable sources as skipped — never PASS (every registered check, FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo,
     // no feature-map.yaml, no CONSTITUTION.md
     const result = await execute({ cwd: tmpDir });
@@ -85,8 +148,8 @@ describe('check.service execute', () => {
       (c) => c.id === 'artifact-language',
     );
     expect(artifactLanguage?.reason).toContain('not in the script table');
-    expect(result.report.summary.skipped_count).toBe(14);
-    expect(result.report.structural.checks).toHaveLength(14);
+    expect(result.report.summary.skipped_count).toBe(DRIFT_CHECK_IDS.length);
+    expect(result.report.structural.checks).toHaveLength(DRIFT_CHECK_IDS.length);
     expect(result.hasFail).toBe(false);
     // no facts → no inventory section at all (absent, not empty-and-passing)
     expect(result.report.structural.constitution).toBeUndefined();
@@ -677,7 +740,7 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
 
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
-    expect(result.report.structural.checks).toHaveLength(14);
+    expect(result.report.structural.checks).toHaveLength(DRIFT_CHECK_IDS.length);
   });
 
   it('survives an UNREADABLE directory — the scanner raises, the collector must not', async () => {
@@ -694,7 +757,7 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
     try {
       const result = await execute({ cwd: tmpDir });
       if (result.kind !== 'report') throw new Error('expected report');
-      expect(result.report.structural.checks).toHaveLength(14);
+      expect(result.report.structural.checks).toHaveLength(DRIFT_CHECK_IDS.length);
     } finally {
       chmodSync(locked, 0o755);
     }
@@ -764,7 +827,7 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
 
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
-    expect(result.report.structural.checks).toHaveLength(14);
+    expect(result.report.structural.checks).toHaveLength(DRIFT_CHECK_IDS.length);
     // …and the not-a-directory root is reported unchecked, not clean
     const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
     expect(check?.status).toBe('skipped');

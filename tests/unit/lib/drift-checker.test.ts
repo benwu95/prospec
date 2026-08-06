@@ -15,6 +15,7 @@ import {
   evaluateArtifactLanguage,
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
+  evaluateSpecCounters,
   evaluateTaskCompletion,
   evaluateTestProvenance,
   runChecks,
@@ -30,6 +31,7 @@ import type {
   KnowledgeSizeSource,
   MetadataCompletenessSource,
   ReviewProvenanceSource,
+  SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
 } from '../../../src/lib/drift-sources.js';
@@ -59,6 +61,7 @@ const emptyInputs: DriftCheckInputs = {
     changes: [],
   },
   artifactLanguage: { available: true, language: 'Traditional Chinese (Taiwan)', files: [] },
+  specCounters: { available: true, specs: [] },
   constitutionRules: {
     available: true,
     source_path: 'prospec/CONSTITUTION.md',
@@ -934,6 +937,68 @@ describe('evaluateFeatureModules (REQ-LIB-019)', () => {
     );
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
+  });
+});
+
+describe('evaluateSpecCounters (REQ-LIB-042)', () => {
+  const claim = (over: Partial<SpecCounterSource['specs'][number]> = {}) => ({
+    source_path: 'prospec/specs/features/widget.md',
+    feature: 'widget',
+    declared: { story_count: 1, req_count: 2 },
+    actual: { story_count: 1, req_count: 2 },
+    ...over,
+  });
+
+  it('skips when the source is unavailable (never a vacuous pass)', () => {
+    const r = evaluateSpecCounters({ available: false, reason: 'no feature specs', specs: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('no feature specs');
+  });
+
+  it('passes when every declared counter matches its body', () => {
+    expect(evaluateSpecCounters({ available: true, specs: [claim()] }).result.status).toBe('pass');
+  });
+
+  it('warns per disagreeing counter, naming the field, the declared and the actual value', () => {
+    const r = evaluateSpecCounters({
+      available: true,
+      specs: [claim({ declared: { story_count: 4, req_count: 10 } })],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings.every((f) => f.severity === 'warn')).toBe(true);
+    expect(r.findings.map((f) => f.detail).join('\n')).toMatch(/req_count.*10.*2/s);
+    expect(r.findings.map((f) => f.detail).join('\n')).toMatch(/story_count.*4.*1/s);
+  });
+
+  it('never warns about a counter the frontmatter does not declare', () => {
+    const r = evaluateSpecCounters({
+      available: true,
+      specs: [claim({ declared: { story_count: null, req_count: null } })],
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toEqual([]);
+  });
+
+  // Ordering is runChecks' contract (one codepoint sort over every check's
+  // findings), so it is pinned THERE — an evaluator that sorted its own slice
+  // would still not make the report deterministic.
+  it('reaches the report codepoint-sorted alongside every other check', () => {
+    const report = runChecks({
+      ...emptyInputs,
+      specCounters: {
+        available: true,
+        specs: [
+          claim({ source_path: 'z.md', declared: { story_count: 1, req_count: 9 } }),
+          claim({ source_path: 'a.md', declared: { story_count: 1, req_count: 9 } }),
+        ],
+      },
+    });
+    const paths = report.structural.findings
+      .filter((f) => f.check === 'spec-counters')
+      .map((f) => f.source_path);
+    expect(paths).toEqual(['a.md', 'z.md']);
+    expect(report.structural.checks.find((c) => c.id === 'spec-counters')?.status).toBe('warn');
   });
 });
 

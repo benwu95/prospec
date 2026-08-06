@@ -10,6 +10,7 @@ import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
+import { matchReqHeading, readSpecCounters, REQ_ID_SOURCE } from './spec-headings.js';
 import {
   ARCHIVED_EXCLUDES,
   isArchivedSpec,
@@ -39,8 +40,11 @@ import type { KnowledgeSizeBudget } from '../types/config.js';
  * pass (REQ-LIB-014..016).
  */
 
-/** REQ-{MODULE}-{NUMBER} with uppercase, possibly hyphenated module names. */
-const REQ_ID_PATTERN = /REQ-(?:[A-Z][A-Z0-9]*-)+\d+/g;
+/** Every REQ id MENTION in prose — the heading matcher's sibling, built from the
+ *  same single-sourced id shape (`REQ_ID_SOURCE`) so a reference and a definition
+ *  can never disagree about what an id looks like. Own instance: `/g` carries
+ *  `lastIndex`, which a shared one would leak between callers. */
+const REQ_ID_PATTERN = new RegExp(REQ_ID_SOURCE, 'g');
 
 /** Reports `prospec check` itself writes into the repo root. Excluded from the
  *  change digest so a command cannot invalidate the very baselines it feeds —
@@ -283,18 +287,83 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   if (files.length === 0) {
     return { available: false, reason: `source unavailable: no feature specs in ${featuresDir}`, ids: [] };
   }
-  const headingReq = /^#{1,6}\s+~{0,2}(REQ-(?:[A-Z][A-Z0-9]*-)+\d+)/;
   const ids = new Set<string>();
   for (const file of files.sort()) {
     const text = readTextOrSkip(path.join(featuresDir, file));
     if (text === null) continue;
     const lines = text.split('\n');
     for (const line of lines) {
-      const id = headingReq.exec(line)?.[1];
+      // A struck id is still DEFINED — this index answers "does this REQ exist
+      // anywhere", so a reference to a deprecated REQ is not a dangling one.
+      const id = matchReqHeading(line, { includeStruck: true })?.id;
       if (id !== undefined) ids.add(id);
     }
   }
   return { available: true, ids: [...ids].sort() };
+}
+
+/** One feature spec's declared counters beside the counts its body yields. */
+export interface SpecCounterClaim {
+  /** repo-relative spec path. */
+  source_path: string;
+  /** Canonical slug = filename without `.md`. */
+  feature: string;
+  declared: { story_count: number | null; req_count: number | null };
+  actual: { story_count: number; req_count: number };
+}
+
+export interface SpecCounterSource {
+  available: boolean;
+  reason?: string;
+  specs: SpecCounterClaim[];
+}
+
+/**
+ * Collect each active feature spec's frontmatter counters against its own body
+ * (REQ-LIB-042). The derivation is `readSpecCounters` — the same function
+ * `archive finalize` writes with, so the check cannot police a rule the writer
+ * does not follow.
+ *
+ * Absent directory / no specs → unavailable, so the check skips rather than
+ * passing vacuously. An unreadable enumerated file costs its own line, never the
+ * run (`readTextOrSkip`), and a file without frontmatter is not a spec.
+ */
+export function collectSpecCounters(featuresDir: string, cwd: string): SpecCounterSource {
+  if (!existsSync(featuresDir)) {
+    return { available: false, reason: `source unavailable: ${featuresDir} not found`, specs: [] };
+  }
+  const files = readdirSync(featuresDir).filter((f) => f.endsWith('.md') && !isArchivedSpec(f));
+  if (files.length === 0) {
+    return {
+      available: false,
+      reason: `source unavailable: no feature specs in ${featuresDir}`,
+      specs: [],
+    };
+  }
+  const specs: SpecCounterClaim[] = [];
+  for (const file of files.sort()) {
+    const text = readTextOrSkip(path.join(featuresDir, file));
+    if (text === null) continue;
+    const counters = readSpecCounters(text);
+    if (counters === null) continue;
+    specs.push({
+      source_path: path.relative(cwd, path.join(featuresDir, file)).replace(/\\/g, '/'),
+      feature: file.slice(0, -'.md'.length),
+      declared: counters.declared,
+      actual: counters.actual,
+    });
+  }
+  // Files existed but none of them yielded counters (unreadable, or no
+  // frontmatter at all) — a sample of zero is not a clean bill of health. Saying
+  // `available: true` here reported PASS over nothing checked.
+  if (specs.length === 0) {
+    return {
+      available: false,
+      reason: `source unavailable: no feature spec in ${featuresDir} could be parsed (frontmatter missing or unreadable)`,
+      specs: [],
+    };
+  }
+  return { available: true, specs };
 }
 
 /** Collect every REQ id mention in markdown under the given roots. */
@@ -679,13 +748,6 @@ export function collectTaskStates(cwd: string): TaskSource {
   return { available: true, changes };
 }
 
-/** REQ headings a feature spec owns. A `~~deprecated~~` heading starts with
- *  `~~`, so the id capture fails at that offset — governance operates on the
- *  live spec surface, never historical/removed behavior. Shared with the
- *  archive feature-map bootstrap so seeded modules and the self-validating
- *  drift extract module-prefix REQs identically (no dual-copy drift). */
-export const ACTIVE_REQ_HEADING = /^#{1,6}\s+(REQ-(?:[A-Z][A-Z0-9]*-)+\d+)/;
-
 /** REQ-{PREFIX}-{NNN} → {PREFIX} (multi-segment safe, e.g. API-MIDDLEWARE). */
 export function reqIdToPrefix(id: string): string {
   return id.replace(/^REQ-/, '').replace(/-\d+$/, '');
@@ -743,7 +805,7 @@ export function collectFeatureMapGovernance(
     body
       .split('\n')
       .forEach((line, i) => {
-        const id = ACTIVE_REQ_HEADING.exec(line)?.[1];
+        const id = matchReqHeading(line)?.id;
         if (id === undefined) return;
         reqs.push({ id, prefix: reqIdToPrefix(id), line: i + 1 });
       });

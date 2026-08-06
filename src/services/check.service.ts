@@ -30,6 +30,7 @@ import {
   collectMetadataCompleteness,
   collectQualityLedger,
   collectReqDefinitions,
+  collectSpecCounters,
   collectReqReferences,
   collectReviewProvenance,
   collectTaskStates,
@@ -203,6 +204,9 @@ export async function execute(
     // from, and is a deliberate subset of it — it enforces less than the rule
     // states but can never contradict it.
     artifactLanguage: collectArtifactLanguage(cwd, resolveLanguageScope(config, cwd)),
+    // Same resolved features directory the REQ-definition and feature-map
+    // collectors read — the counters are a fact about those very files.
+    specCounters: collectSpecCounters(featuresDir, cwd),
     generatedAt: new Date().toISOString(),
   });
   // Stamp the code state the verdicts describe — `verify record` refuses a
