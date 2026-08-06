@@ -285,7 +285,7 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 - WHEN archiving completes THEN generate summary.md (knowledge sync is enforced by the Entry Gate; the service layer does not auto-trigger knowledge-update/raw-scan)
 - WHEN Feature Spec Sync THEN read delta-spec ADDED/MODIFIED/REMOVED and merge into `specs/features/` (Replace-in-Place)
 - WHEN Feature Spec Sync writes a Change History row THEN its Change column is the archived change's name, never a fixed placeholder
-- WHEN Feature Spec Sync completes THEN auto-regenerate `specs/product.md`
+- WHEN Feature Spec Sync completes THEN sync the `## Feature Map` section of `specs/product.md` (the rest of that authored file is preserved)
 - WHEN archiving completes THEN summary.md (and its committed `_archived-history` copy) carries a `## Review & Verify` section, so the audit trail carries review/verify evidence and does not evaporate with the gitignored bundle
 - WHEN executing the deterministic mutations THEN `prospec archive <name...>` performs them (previewable with `--dry-run`), and the skill keeps only the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation)
 

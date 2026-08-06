@@ -24,7 +24,9 @@ import {
 } from '../../src/types/change.js';
 import { SDD_STATIONS } from '../../src/types/status.js';
 import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
+import { withoutFencedBlocks } from '../../src/lib/markdown-fences.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
+import { bootstrapProductSpec } from '../../src/services/archive.service.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
@@ -565,6 +567,72 @@ describe('Skill Format Contract', () => {
       );
       expect(content).toContain('80 lines');
     });
+
+    // The two-month-old defect this pins: the reference required 7 sections while
+    // the generator emitted 1, and nothing compared them. A reference no test
+    // compares against is a wish (REQ-TESTS-075).
+    it('requires exactly the sections the bootstrap emits, in both directions', () => {
+      const content = renderTemplate(
+        'skills/references/product-spec-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const lines = content.split('\n');
+      const masked = withoutFencedBlocks(lines);
+      // The REQUIRED sections are the ones inside the reference's fenced examples;
+      // the document's own headings (Purpose, Standard Format, …) sit outside them.
+      const required = lines.filter((l, i) => masked[i] !== l && l.startsWith('## '));
+      expect(required.length).toBeGreaterThan(0);
+
+      const emitted = bootstrapProductSpec('test-project', [], '2026-01-01')
+        .split('\n')
+        .filter((l) => l.startsWith('## '));
+
+      expect(new Set(emitted)).toEqual(new Set(required));
+    });
+
+    it('states the frontmatter ownership boundary that keeps authored keys alive', () => {
+      const content = renderTemplate(
+        'skills/references/product-spec-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const start = content.indexOf('### 1. Frontmatter');
+      expect(start).toBeGreaterThan(-1);
+      const rest = content.slice(start);
+      const next = rest.indexOf('\n### ', 1);
+      const section = next === -1 ? rest : rest.slice(0, next);
+      expect(section.trim().length).toBeGreaterThan(0);
+      // REQ-SPEC-011 requires each half of the boundary to be stated by name —
+      // a single sentence mentioning one key and the word "preserved" satisfied
+      // the earlier assertion pair while the rest of the rule could vanish.
+      const ownership = section.slice(section.indexOf('**Ownership**'));
+      expect(ownership.trim().length).toBeGreaterThan(0);
+      for (const authored of ['`version`', '`feature_count`']) {
+        expect(ownership, `author-maintained key not named: ${authored}`).toContain(authored);
+      }
+      expect(ownership).toContain('`last_updated`');
+      expect(ownership).toMatch(/bootstrap/i);
+      expect(ownership).toMatch(/author-maintained|authored/i);
+      expect(ownership).toMatch(/never generated|preserved byte for byte/i);
+    });
+
+    it('declares the Feature Map as the only machine-owned region, not a whole-file regeneration', () => {
+      const content = renderTemplate(
+        'skills/references/product-spec-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const start = content.indexOf('## Generation Mode');
+      expect(start).toBeGreaterThan(-1);
+      const rest = content.slice(start + '## Generation Mode'.length);
+      const nextHeading = rest.search(/\n## /);
+      const section = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+      expect(section.trim().length).toBeGreaterThan(0);
+      expect(section).toContain('machine-owned');
+      expect(section).toContain('## Feature Map');
+      expect(section).toMatch(/authored/i);
+      // negative: the pre-fix wording claimed the whole file was synthesized
+      expect(section).not.toContain('Auto-generated');
+      expect(section).not.toMatch(/Manually written/i);
+    });
   });
 
   describe('Delta-spec Feature/Story routing fields', () => {
@@ -623,13 +691,16 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('specs/history/');
     });
 
-    it('should contain Product Spec Regeneration phase', () => {
+    it('should contain Product Spec Sync phase', () => {
       const content = renderTemplate(
         'skills/prospec-archive.hbs',
         TEMPLATE_CONTEXT,
       );
-      expect(content).toContain('Product Spec Regeneration');
+      expect(content).toContain('Product Spec Sync');
       expect(content).toContain('product.md');
+      // the skill must not tell an agent the whole file is regenerated — that
+      // check was unsatisfiable, and ticking it honestly is the point of the fix
+      expect(content).not.toMatch(/regenerat\w*\s+product\.md/i);
     });
 
     it('should reference feature-spec-format in Startup Loading', () => {
@@ -3809,7 +3880,7 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
       const c = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
       expect(sectionOf(c, '### Phase 2: Generate Summary')).toContain('references/archive-format.md');
       expect(sectionOf(c, '### Phase 3.5: Feature Spec Sync')).toContain('references/feature-spec-format.md');
-      expect(sectionOf(c, '### Phase 3.6: Product Spec Regeneration')).toContain('references/product-spec-format.md');
+      expect(sectionOf(c, '### Phase 3.6: Product Spec Sync')).toContain('references/product-spec-format.md');
       expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
     });
   });
@@ -4619,12 +4690,16 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     expect(flat(phase35)).toContain('do not recount them by hand');
   });
 
-  it('Phase 3.6 confirms the CLI outputs instead of regenerating them', () => {
-    const phase36 = sectionOf(render(), '### Phase 3.6: Product Spec Regeneration');
-    expect(flat(phase36)).toContain('already regenerated');
+  it('Phase 3.6 confirms the CLI outputs instead of re-deriving them', () => {
+    const phase36 = sectionOf(render(), '### Phase 3.6: Product Spec Sync');
+    expect(flat(phase36)).toContain('already wrote both outputs');
     expect(phase36).toContain('product.md');
     expect(phase36).toContain('feature-map.yaml');
     expect(phase36).not.toContain('Extract P0 User Stories');
+    // the check must be satisfiable: it asks about the machine-owned region and
+    // the preservation of everything else, never about a whole-file regeneration
+    expect(flat(phase36)).toContain('outside that section is unchanged');
+    expect(phase36).not.toContain('was regenerated');
   });
 
   it('NEVER forbids hand-executing the deterministic mutations when the CLI is available', () => {

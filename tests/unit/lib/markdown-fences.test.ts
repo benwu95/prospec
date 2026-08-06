@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { withoutFencedBlocks, toInlineCodeSpan } from '../../../src/lib/markdown-fences.js';
+import {
+  withoutFencedBlocks,
+  hasUnclosedFence,
+  toInlineCodeSpan,
+} from '../../../src/lib/markdown-fences.js';
 
 /**
  * REQ-LIB-036 — CommonMark fence boundaries for the shared blanking helper.
@@ -116,5 +120,60 @@ describe('toInlineCodeSpan', () => {
       const longest = Math.max(0, ...[...content.matchAll(/`+/g)].map((m) => m[0].length));
       expect(fence.length).toBeGreaterThan(longest);
     }
+  });
+});
+
+/**
+ * REQ-LIB-043 — whether the mask can be trusted at all.
+ *
+ * An open fence at EOF blanks every line after it, so a scanner reading only the
+ * masked view sees a truncated document and concludes a heading is absent when it
+ * is plainly there. Both answers come from one scanner, so they cannot disagree.
+ */
+describe('hasUnclosedFence', () => {
+  const unclosed = (text: string): boolean => hasUnclosedFence(text.split('\n'));
+
+  it('is false when there is no fence, or every fence closes', () => {
+    expect(unclosed('# Title\n\nplain prose\n')).toBe(false);
+    expect(unclosed('a\n```ts\ncode\n```\nb\n')).toBe(false);
+    expect(unclosed('a\n~~~\ncode\n~~~\nb\n')).toBe(false);
+    // a closer longer than its opener still closes
+    expect(unclosed('```\ncode\n`````\n')).toBe(false);
+    // a one-line ```code``` span is inline code, never an opener
+    expect(unclosed('text ```inline``` more\n')).toBe(false);
+  });
+
+  it('is true when a fence is still open at end of input', () => {
+    expect(unclosed('a\n```markdown\nnever closed\n')).toBe(true);
+    expect(unclosed('a\n~~~\nnever closed\n')).toBe(true);
+    // a closer of a DIFFERENT character does not close
+    expect(unclosed('```\ncode\n~~~\n')).toBe(true);
+    // a shorter run does not close a longer opener
+    expect(unclosed('````\ncode\n```\n')).toBe(true);
+    // a closer carrying an info string is not a closer
+    expect(unclosed('```\ncode\n``` trailing\n')).toBe(true);
+  });
+
+  it('sees fences in a CRLF document — `.` does not match `\\r`', () => {
+    // Every caller splits on `\n`, so a CRLF document's fence lines arrive with a
+    // trailing `\r`. Matching the raw line made every fence read as absent.
+    expect(unclosed('a\r\n```md\r\nforgot to close\r\n')).toBe(true);
+    expect(unclosed('a\r\n```md\r\ncode\r\n```\r\nb\r\n')).toBe(false);
+    // masking still returns the ORIGINAL lines, `\r` included
+    expect(withoutFencedBlocks('a\r\n```\r\ncode\r\n```\r\nb\r'.split('\n'))).toEqual([
+      'a\r',
+      '',
+      '',
+      '',
+      'b\r',
+    ]);
+  });
+
+  it('agrees with withoutFencedBlocks — an open fence masks the whole tail', () => {
+    const lines = 'a\n```\nopen\n## Heading\n'.split('\n');
+    expect(hasUnclosedFence(lines)).toBe(true);
+    // the heading the caller would look for is masked away, which is exactly why
+    // the caller must ask this question before trusting the mask
+    expect(withoutFencedBlocks(lines)).toEqual(['a', '', '', '', '']);
   });
 });

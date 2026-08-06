@@ -12,9 +12,12 @@ This document defines the format for the Product Spec at `prospec/specs/product.
 
 ## Generation Mode
 
-Product Specs can be:
-- **Auto-generated**: Synthesized from all Feature Specs' frontmatter and P0 User Stories
-- **Manually written**: Authored directly, then kept in sync via archive Spec Sync
+`product.md` is an **authored** document with exactly one machine-owned region:
+
+- **`## Feature Map`** — synced by `prospec archive` from the active Feature Specs on every run. An existing entry keeps the description you wrote; only its title and link are refreshed. An entry whose Feature Spec is gone is dropped; a new feature arrives with a `TBD` description for you to write. **The whole section is rewritten**, so only per-entry descriptions survive it: intro prose, a note, or a table placed directly under the heading (not under a `### {Feature Title}`) is replaced — put such content in a section of its own.
+- **Everything else** — yours. A **missing** `product.md` is bootstrapped once, with every section below and `TBD` placeholders; from then on nothing outside the Feature Map section is rewritten, line endings included.
+
+The sync **refuses to write** rather than guess when the file cannot be parsed reliably: an unclosed code fence anywhere in `product.md` leaves the whole file untouched (`--dry-run` reports it), and a missing `specs/features/` directory is never read as "this product has no features". Close the fence, or restore the directory, and the next run syncs normally.
 
 ---
 
@@ -29,6 +32,8 @@ version: {version}
 last_updated: {YYYY-MM-DD}
 ---
 ```
+
+**Ownership**: the bootstrap skeleton is the only whole-file write prospec performs; it seeds `product`, `last_updated`, and `version` as a `TBD` placeholder for you to fill. From then on `last_updated` is the sole frontmatter key prospec ever writes — `version`, `feature_count`, and any key you add are author-maintained: never rewritten, preserved byte for byte. `feature_count` in particular is **not** a prospec-managed field; nothing generates or validates it.
 
 ### 2. Title + Vision
 
@@ -52,7 +57,7 @@ last_updated: {YYYY-MM-DD}
 
 ### 4. Feature Map
 
-Each feature links to its detailed Feature Spec:
+Each feature links to its detailed Feature Spec. The description under each title is authored — the sync carries it forward:
 
 ```markdown
 ## Feature Map

@@ -53,13 +53,31 @@ export function toInlineCodeSpan(raw: string): string {
  * 4-backtick fence wrapping a 3-backtick example leaks its content.
  */
 export function withoutFencedBlocks(lines: string[]): string[] {
+  return scanFences(lines).masked;
+}
+
+/**
+ * Whether a fence is still open at end of input — the document is malformed, and
+ * every line after that opener is masked. A caller that only reads masked lines
+ * then sees a truncated document and can conclude a heading is absent when it is
+ * plainly there; the honest answer is to stop trusting the mask, not to act on it.
+ * Shares one scanner with `withoutFencedBlocks` so the two cannot disagree.
+ */
+export function hasUnclosedFence(lines: string[]): boolean {
+  return scanFences(lines).unclosed;
+}
+
+function scanFences(lines: string[]): { masked: string[]; unclosed: boolean } {
   let fence: { char: string; len: number } | null = null;
-  return lines.map((line) => {
+  const masked = lines.map((line) => {
     // We allow arbitrary leading whitespace because a fenced block may be deeply
     // indented inside list items. We cannot differentiate root-level indented code
     // blocks from list-item fenced blocks without a full markdown parser, so we err
     // on the side of NOT blinding the scanner to valid fences (Issue #106).
-    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
+    // Match against a `\r`-stripped view: `.` never matches `\r` and there is no
+    // `m` flag, so a CRLF document's fence lines would not match at all and every
+    // fence would read as absent. The ORIGINAL line is what we return.
+    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(line.endsWith('\r') ? line.slice(0, -1) : line);
     if (m !== null && m[1] !== undefined) {
       const marker = m[1];
       const rest = m[2] ?? '';
@@ -77,4 +95,5 @@ export function withoutFencedBlocks(lines: string[]): string[] {
     }
     return fence === null ? line : '';
   });
+  return { masked, unclosed: fence !== null };
 }

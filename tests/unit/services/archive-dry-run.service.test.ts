@@ -178,6 +178,67 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
     expect(existsSync(featureMapPath)).toBe(true);
   });
 
+  it('distinguishes the product.md bootstrap from the splice, and names what the splice touches', async () => {
+    // The old detail said "regenerate product.md from Feature Specs" in both
+    // states — the preview never warned that authored content was at stake.
+    verifiedChangeFixture();
+    const productPath = path.join(tmp, 'prospec', 'specs', 'product.md');
+
+    const bootstrap = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    const bootstrapDetail = bootstrap.planned.find((p) => p.target === productPath)?.detail ?? '';
+
+    write('prospec/specs/product.md', '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n# test-project\n\n## Feature Map\n\n_(No active features yet)_\n');
+    const splice = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    const spliceDetail = splice.planned.find((p) => p.target === productPath)?.detail ?? '';
+
+    expect(bootstrapDetail).toMatch(/bootstrap/i);
+    expect(spliceDetail).toMatch(/splice/i);
+    expect(spliceDetail).toContain('## Feature Map');
+    expect(spliceDetail).not.toBe(bootstrapDetail);
+  });
+
+  it('keeps a product.md write failure non-fatal — the splice added a read that can throw', async () => {
+    // The old generator only WROTE product.md; the splice reads the existing file
+    // first (EISDIR/EACCES/vanished symlink), so an unhandled throw here would
+    // abort the run after the bundle had already moved.
+    verifiedChangeFixture();
+    mkdirSync(path.join(tmp, 'prospec', 'specs', 'product.md'), { recursive: true });
+
+    const result = await execute({ cwd: tmp, names: ['feat-x'] });
+
+    expect(result.archived).toHaveLength(1);
+    expect(result.skipped).toHaveLength(0);
+  });
+
+  it('previews the unclosed-fence refusal as a planned non-mutation, and honours it', async () => {
+    verifiedChangeFixture();
+    const malformed = '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n## Vision\n\n```md\nnever closed\n\n## Feature Map\n\n### alpha\n\nAuthored.\n→ [features/alpha.md](features/alpha.md)\n';
+    write('prospec/specs/product.md', malformed);
+    const productPath = path.join(tmp, 'prospec', 'specs', 'product.md');
+
+    const dry = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    const entry = dry.planned.find((p) => p.target === productPath);
+    expect(entry?.action).toBe('skip');
+    expect(entry?.detail).toMatch(/unclosed code fence/i);
+
+    await execute({ cwd: tmp, names: ['feat-x'] });
+    expect(readFileSync(productPath, 'utf-8')).toBe(malformed);
+  });
+
+  it('predicts no product.md write when the file exists and no features dir will', async () => {
+    verifiedChangeFixture();
+    write('prospec/specs/product.md', '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nAuthored.\n→ [features/alpha.md](features/alpha.md)\n');
+    // a delta-spec with no routes leaves specs/features/ untouched
+    write('.prospec/changes/feat-x/delta-spec.md', '# Delta Spec\n\n## ADDED\n\n_No requirements._\n');
+
+    const dry = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    expect(dry.planned.filter((p) => p.target.endsWith('product.md'))).toHaveLength(0);
+
+    const before = readFileSync(path.join(tmp, 'prospec', 'specs', 'product.md'), 'utf-8');
+    await execute({ cwd: tmp, names: ['feat-x'] });
+    expect(readFileSync(path.join(tmp, 'prospec', 'specs', 'product.md'), 'utf-8')).toBe(before);
+  });
+
   it('respects feature-map no-clobber in the planned output', async () => {
     verifiedChangeFixture();
     write('prospec/ai-knowledge/feature-map.yaml', 'features:\n  - feature: alpha\n    modules: [lib]\n    status: active\n');
