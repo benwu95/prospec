@@ -152,12 +152,16 @@ two writes that MUST come after the judgment work above:
    record in version control). It lands in `_archived-history/` (drift-excluded via
    `ARCHIVED_EXCLUDES`), never flat under `prospec/specs/`.
 2. Reconciles every feature spec's frontmatter `story_count`/`req_count` against its FINAL
-   (post-graduation) body.
+   (post-graduation) body — except a spec whose body would zero a counter the frontmatter declares
+   above zero: that file is left byte-identical and reported as a refused reconciliation on stderr.
+   A zeroed count is treated as a parse signal, not a fact, so converge that spec by hand (its
+   counters keep warning under `spec-counters` until you do).
 
 Non-fatal — a finalize failure never un-archives; fix and re-run (idempotent).
 
 > **Phase 3.7 Gate** — proceed when:
-> - [ ] `prospec archive finalize` ran after Phase 3.5's graduation (refusal = the summary overwrite from Phase 3 is missing — fix that first)
+> - [ ] `prospec archive finalize` ran after Phase 3.5's graduation
+> - [ ] each refusal was read for WHICH kind it is: a *command* refusal means the Phase 3 summary overwrite is missing (fix that first); a *reconciliation* refusal names a spec whose counter would have been zeroed (converge that spec — re-running finalize will not fix it)
 
 ### Phase 4: Knowledge Sync Re-check
 

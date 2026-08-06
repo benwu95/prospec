@@ -5,7 +5,8 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap } from '../lib/knowledge-reader.js';
-import { ACTIVE_REQ_HEADING, reqIdToPrefix } from '../lib/drift-sources.js';
+import { reqIdToPrefix } from '../lib/drift-sources.js';
+import { matchReqHeading, readSpecCounters } from '../lib/spec-headings.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
@@ -391,8 +392,10 @@ export async function syncToFeatureSpecs(
           content = moveReqToDeprecated(content, route);
           // Deprecation only APPENDS a bullet — the REQ's active section (and its
           // pre-removal body, now describing behavior that no longer exists) stays
-          // put. Report it, or the graduation gate passes over dead spec text.
-          if (content.includes(`#### ${route.reqId}:`)) {
+          // put. Report it, or the graduation gate passes over dead spec text. The
+          // probe reads headings at any level: an h4-only probe reported nothing
+          // for a spec whose REQs sit elsewhere, leaving dead text unflagged.
+          if (existingReqLevel(content, route.reqId) !== null) {
             pendingConvergence.push(pendingFor(route, STALE_DEPRECATED_REASON));
           }
         } else {
@@ -509,7 +512,7 @@ export async function syncFeatureMap(
     if (!frontmatter) continue;
     const modules = new Set<string>();
     for (const line of content.split('\n')) {
-      const id = ACTIVE_REQ_HEADING.exec(line)?.[1];
+      const id = matchReqHeading(line)?.id;
       if (id === undefined) continue;
       const module = reqIdToPrefix(id).toLowerCase();
       if (moduleNames.has(module)) modules.add(module);
@@ -1089,6 +1092,15 @@ function droppedFor(
   return { feature: route.feature, reqId: route.reqId, bullets };
 }
 
+/** The heading level a REQ id already occupies in this spec, or null when absent. */
+function existingReqLevel(content: string, reqId: string): number | null {
+  for (const line of content.split('\n')) {
+    const heading = matchReqHeading(line);
+    if (heading?.id === reqId) return heading.level;
+  }
+  return null;
+}
+
 /**
  * Merge a requirement into an existing Feature Spec (ADDED or MODIFIED).
  *
@@ -1097,26 +1109,46 @@ function droppedFor(
  * one; with nothing to land, a MODIFIED REQ keeps its existing body and only its
  * title line is refreshed — the REQ is reported back as pending convergence
  * instead of silently losing its WHEN/THEN text.
+ *
+ * The REQ is found by ID at whatever heading level the spec already uses, and
+ * the replacement keeps that level. Matching the literal `#### {id}:` instead
+ * sent every non-h4 spec down the ADDED path, which appended a SECOND section
+ * with the same id beside the original — two contradicting bodies for one REQ,
+ * reported by neither worklist (issue #138).
  */
 function mergeRequirementInPlace(
   content: string,
   route: FeatureRoute,
 ): { content: string; pending?: PendingConvergence; dropped?: DroppedBehavior } {
-  const reqHeader = `#### ${route.reqId}:`;
-  const titleLine = `#### ${route.reqId}: ${route.description}`;
   const body = landingBody(route);
+  const existingLevel = route.status === 'MODIFIED' ? existingReqLevel(content, route.reqId) : null;
 
-  if (route.status === 'MODIFIED' && content.includes(reqHeader)) {
-    // Replace existing REQ section (from header to next h4 or h3 or section end)
+  if (existingLevel !== null) {
+    const titleLine = `${'#'.repeat(existingLevel)} ${route.reqId}: ${route.description}`;
+    // Replace the existing REQ section (from its heading to the next section)
     const lines = content.split('\n');
     const result: string[] = [];
     // The superseded body is collected, not just discarded: what the landing
     // block omits is the behavior that would vanish from the trust zone.
     const superseded: string[] = [];
     let skipping = false;
+    // Only the FIRST section carrying the id is merged. A spec corrupted by the
+    // h4-only merge already holds a second section with the same id; rewriting
+    // both would land the body twice and restructure the duplicate's heading
+    // level. It is left byte-identical and reported instead — deleting authored
+    // text is never this sync's call to make.
+    let replaced = false;
+    let duplicates = 0;
 
     for (const line of lines) {
-      if (line.startsWith(reqHeader)) {
+      if (matchReqHeading(line)?.id === route.reqId) {
+        if (replaced) {
+          duplicates++;
+          skipping = false;
+          result.push(line);
+          continue;
+        }
+        replaced = true;
         result.push(titleLine);
         // With a landing body the old one is superseded; without, keep it.
         if (body !== '') {
@@ -1126,10 +1158,19 @@ function mergeRequirementInPlace(
         }
         continue;
       }
-      // Stop skipping at the next section boundary — ANY heading (h2 included,
-      // e.g. ## Edge Cases / ## Change History) or a `---` rule. Without the h2
-      // case, a REQ that is the last h4 before an h2 ate everything to EOF.
-      if (skipping && (/^#{2,4}\s/.test(line) || line.trim() === '---')) {
+      // Stop skipping at the next section boundary: ANY other REQ heading (a REQ
+      // is never part of another REQ's body — and this sync's own ADDED path
+      // inserts at h4, so a deeper sibling REQ is a shape it creates itself), any
+      // heading at or above the REQ's own level, or a `---` rule. h1/h2 always
+      // bound it, whatever the REQ's level, because a document section is not
+      // body text — an h1-level REQ would otherwise eat `## Edge Cases` and the
+      // whole Change History table.
+      const boundary = /^(#{1,6})\s/.exec(line);
+      const bounded =
+        matchReqHeading(line) !== null ||
+        (boundary !== null && boundary[1]!.length <= Math.max(existingLevel, 2)) ||
+        line.trim() === '---';
+      if (skipping && bounded) {
         skipping = false;
       }
       if (skipping) {
@@ -1140,12 +1181,38 @@ function mergeRequirementInPlace(
     }
 
     const merged = result.join('\n');
-    return body === ''
-      ? { content: merged, pending: pendingFor(route, NO_SPEC_BLOCK_REASON) }
-      : { content: merged, dropped: droppedFor(route, superseded.join('\n'), body) };
+    // Both reports are independent facts and both are due: the duplication needs
+    // converging, AND whatever the landing block dropped from the section it DID
+    // replace still left the trust zone. Returning only the duplication report
+    // silently swallowed the dropped bullets (REQ-SERVICES-073).
+    const duplicatePending =
+      duplicates > 0
+        ? pendingFor(
+            route,
+            `${duplicates} further section(s) carry this REQ id — pre-existing duplication left untouched; converge them by hand`,
+          )
+        : undefined;
+    if (body === '') {
+      // Both reasons are due here too — `??` reported the duplication and dropped
+      // the fact that the body was preserved and still needs converging. One REQ
+      // carries one pending entry, so they are stated together.
+      const reason =
+        duplicatePending === undefined
+          ? NO_SPEC_BLOCK_REASON
+          : `${NO_SPEC_BLOCK_REASON}; additionally, ${duplicatePending.reason}`;
+      return { content: merged, pending: pendingFor(route, reason) };
+    }
+    return {
+      content: merged,
+      ...(duplicatePending === undefined ? {} : { pending: duplicatePending }),
+      dropped: droppedFor(route, superseded.join('\n'), body),
+    };
   }
 
-  // ADDED: append before Edge Cases or at end of User Stories section
+  // ADDED (or a MODIFIED id this spec does not carry yet): append before Edge
+  // Cases or at the end. New REQs land at the format-mandated h4 even in a spec
+  // that uses another level — the shared matcher counts the mix correctly.
+  const titleLine = `#### ${route.reqId}: ${route.description}`;
   const insertBefore = '## Edge Cases';
   const newReq = body === ''
     ? `\n${titleLine}\n\n---\n`
@@ -1251,6 +1318,15 @@ function appendToChangeHistory(
 
 /**
  * Create a new Feature Spec file from scratch.
+ *
+ * The REQs are grouped under their `**Story:**` heading rather than listed flat,
+ * and the frontmatter counters are then DERIVED from the rendered body by
+ * `readSpecCounters` — the same function `archive finalize` and the
+ * `spec-counters` check read with. Declaring `story_count` from the route list
+ * while the body carried no story heading made every freshly created spec start
+ * life with a counter its own body could not confirm: `finalize` refuses to zero
+ * such a counter, so the file would have been born permanently unreconcilable
+ * and permanently warned about.
  */
 function createNewFeatureSpec(
   feature: string,
@@ -1258,29 +1334,74 @@ function createNewFeatureSpec(
   today: string,
   changeName: string,
 ): string {
+  const reqSection = (r: FeatureRoute): string => {
+    const body = landingBody(r);
+    const head = `#### ${r.reqId}: ${r.description}`;
+    return body === '' ? `${head}\n\n---` : `${head}\n${body}\n\n---`;
+  };
+
+  const active = routes.filter((r) => r.status !== 'REMOVED');
   const stories = [...new Set(routes.map((r) => r.story).filter(Boolean))];
-  const reqSections = routes
-    .filter((r) => r.status !== 'REMOVED')
-    .map((r) => {
-      const body = landingBody(r);
-      const head = `#### ${r.reqId}: ${r.description}`;
-      return body === '' ? `${head}\n\n---` : `${head}\n${body}\n\n---`;
-    })
-    .join('\n\n');
+  const grouped = stories.map((story) => {
+    const reqs = active.filter((r) => r.story === story).map(reqSection);
+    return [`### ${storyHeadingText(story)}`, ...reqs].join('\n\n');
+  });
+  // Storyless REQs come FIRST, directly under the section heading. Appended after
+  // the groups they read as belonging to the last story — a false attribution
+  // written into the trust zone, and one no counter could reveal.
+  const ungrouped = active.filter((r) => r.story === '').map(reqSection);
+  const reqSections = [...ungrouped, ...grouped].join('\n\n');
 
   const deprecatedSection = routes
     .filter((r) => r.status === 'REMOVED')
     .map((r) => `- **${r.reqId}**: ${r.description} _(removed ${today})_`)
     .join('\n');
 
+  const body = specBodyTemplate(
+    feature,
+    reqSections,
+    deprecatedSection,
+    today,
+    changeName,
+    routes.map((r) => r.reqId).join(', '),
+  );
+  const counters = readSpecCounters(`---\nfeature: ${feature}\n---${body}`);
+
   return `---
 feature: ${feature}
 status: active
 last_updated: ${today}
-story_count: ${stories.length}
-req_count: ${routes.filter((r) => r.status !== 'REMOVED').length}
+story_count: ${counters?.actual.story_count ?? 0}
+req_count: ${counters?.actual.req_count ?? 0}
 ---
+${body}`;
+}
 
+/**
+ * A `**Story:**` label as heading text. The label is delta-spec prose, so a label
+ * that happens to read as a REQ heading would DEFINE that REQ in the trust zone —
+ * `collectReqDefinitions` would then resolve references to an id nobody wrote a
+ * requirement for. Such a label is neutralised into a code span, which keeps the
+ * heading readable while the id stops parsing as a definition.
+ */
+function storyHeadingText(story: string): string {
+  return matchReqHeading(`### ${story}`, { includeStruck: true }) === null ? story : `\`${story}\``;
+}
+
+/**
+ * Everything after a new Feature Spec's frontmatter. Split out so the counters
+ * above are derived from the SAME text that ships — a second copy of this
+ * template would let the declared counts describe a body nobody rendered.
+ */
+function specBodyTemplate(
+  feature: string,
+  reqSections: string,
+  deprecatedSection: string,
+  today: string,
+  changeName: string,
+  reqIds: string,
+): string {
+  return `
 # ${feature}
 
 ## Who & Why
@@ -1318,7 +1439,7 @@ ${deprecatedSection || '_(None)_'}
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| ${today} | ${escapeTableCell(changeName)} | Created from archive | ${routes.map((r) => r.reqId).join(', ')} |
+| ${today} | ${escapeTableCell(changeName)} | Created from archive | ${reqIds} |
 `;
 }
 
@@ -1357,6 +1478,11 @@ export interface CounterReconciliation {
   to: { story_count: number; req_count: number };
 }
 
+/** A reconciliation the recount refused — the file was left byte-identical. */
+export interface RefusedReconciliation extends CounterReconciliation {
+  reason: string;
+}
+
 export interface ArchiveFinalizeResult {
   changeName: string;
   archiveDir: string;
@@ -1364,6 +1490,8 @@ export interface ArchiveFinalizeResult {
   historyPath: string;
   /** Feature specs whose frontmatter counters were corrected. */
   reconciled: CounterReconciliation[];
+  /** Feature specs left untouched because the recount refused to zero a counter. */
+  refusedReconciliations: RefusedReconciliation[];
   planned: PlannedMutation[];
   dryRun: boolean;
 }
@@ -1376,11 +1504,16 @@ export interface ArchiveFinalizeResult {
  *
  * 1. copy the (overwritten) summary.md to `specs/_archived-history/{dir}.md`
  *    — the committed audit trail (.prospec/archive/ is gitignored);
- * 2. recount every feature spec's frontmatter `story_count` / `req_count`
- *    from its FINAL body (`### US-` headings; `#### REQ-` outside Deprecated).
+ * 2. recount every feature spec's frontmatter `story_count` / `req_count` from
+ *    its FINAL body via `readSpecCounters` — REQ headings at ANY level outside
+ *    Deprecated, stories at `## US-` and `### US-` — EXCEPT a spec whose body
+ *    would zero a counter it declares above zero: that one is left untouched and
+ *    reported in `refusedReconciliations`.
  *
- * Refuses while summary.md still lacks the `## Review & Verify` section — the
- * deterministic marker that the scaffold has not been overwritten yet.
+ * Refuses the whole run while summary.md still lacks the `## Review & Verify`
+ * section — the deterministic marker that the scaffold has not been overwritten
+ * yet. That refusal and a refused reconciliation are different things: re-running
+ * clears the first, never the second.
  */
 export async function executeFinalize(
   options: ArchiveFinalizeOptions,
@@ -1430,6 +1563,7 @@ export async function executeFinalize(
   // the body is idempotent and also corrects pre-existing drift (PB-004).
   const featuresDir = path.join(specsPath, 'features');
   const reconciled: CounterReconciliation[] = [];
+  const refusedReconciliations: RefusedReconciliation[] = [];
   const rewrites: Array<{ absolute: string; content: string }> = [];
   if (fs.existsSync(featuresDir)) {
     for (const entry of fs.readdirSync(featuresDir, { withFileTypes: true })) {
@@ -1437,8 +1571,20 @@ export async function executeFinalize(
       const absolute = path.join(featuresDir, entry.name);
       const content = fs.readFileSync(absolute, 'utf-8');
       const recount = recountFeatureSpecCounters(content);
-      if (!recount || !recount.changed) continue;
+      if (!recount) continue;
       const relFile = path.relative(cwd, absolute).replace(/\\/g, '/');
+      if (recount.refusal !== undefined) {
+        // Reported, never written — and reported identically under --dry-run,
+        // since the refusal is a fact about the file, not about the run mode.
+        refusedReconciliations.push({
+          file: relFile,
+          from: recount.from,
+          to: recount.to,
+          reason: recount.refusal,
+        });
+        continue;
+      }
+      if (!recount.changed) continue;
       reconciled.push({ file: relFile, from: recount.from, to: recount.to });
       planned.push({
         action: 'update',
@@ -1462,6 +1608,7 @@ export async function executeFinalize(
     archiveDir: path.relative(cwd, archiveDir).replace(/\\/g, '/'),
     historyPath: relHistoryPath,
     reconciled,
+    refusedReconciliations,
     planned,
     dryRun,
   };
@@ -1487,58 +1634,66 @@ function escapeRegExp(text: string): string {
 }
 
 /**
- * Recount `story_count` (`### US-` headings) and `req_count` (`#### REQ-`
- * headings outside the `## Deprecated Requirements` section) from the spec
- * body and rewrite the frontmatter values. Returns null when the file has no
- * frontmatter counters to reconcile.
+ * Recount `story_count` / `req_count` from the spec body (via `readSpecCounters`
+ * — the same derivation the `spec-counters` drift check reads with) and rewrite
+ * the frontmatter values. Returns null when the file has no frontmatter.
+ *
+ * Refuses before writing when a counter the frontmatter declares above zero
+ * would be rewritten to zero: the file comes back byte-identical with a
+ * `refusal` reason instead. Zero REQs in a spec that claims ten is a parse gap
+ * far more often than a fact, and the previous unconditional write put that
+ * wrong number into the trust zone silently — where nothing read it again.
  */
 export function recountFeatureSpecCounters(content: string): {
   content: string;
   changed: boolean;
   from: { story_count: number | null; req_count: number | null };
   to: { story_count: number; req_count: number };
+  /** Set when the rewrite was refused; `content` is then the input, unchanged. */
+  refusal?: string;
 } | null {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!fmMatch) return null;
+  const counters = readSpecCounters(content);
+  if (counters === null) return null;
 
-  let storyCount = 0;
-  let reqCount = 0;
-  let inDeprecated = false;
-  for (const line of content.slice(fmMatch[0].length).split('\n')) {
-    const h2 = /^##\s+(.+)$/.exec(line);
-    if (h2) {
-      const title = h2[1]!.trim();
-      inDeprecated = /^deprecated requirements/i.test(title);
-      // Real feature specs carry stories at BOTH heading levels — sdd-workflow
-      // is all `## US-`, mcp-server all `### US-`, drift-detection mixed. Every
-      // current frontmatter counter equals the h2+h3 union.
-      if (/^US-/.test(title)) storyCount++;
-      continue;
-    }
-    if (/^###\s+US-/.test(line)) storyCount++;
-    if (!inDeprecated && /^####\s+REQ-/.test(line)) reqCount++;
+  const { declared: from, actual: to, frontmatter, frontmatterLength, eol } = counters;
+
+  const zeroed = (['story_count', 'req_count'] as const).filter(
+    (field) => (from[field] ?? 0) > 0 && to[field] === 0,
+  );
+  if (zeroed.length > 0) {
+    return {
+      content,
+      changed: false,
+      from,
+      to,
+      refusal:
+        `${zeroed.join(' and ')} would be rewritten to zero from a declared ` +
+        `${zeroed.map((f) => from[f]).join('/')} — refusing to write a count the body cannot confirm`,
+    };
   }
 
-  const fromStory = /^story_count:\s*(\d+)\s*$/m.exec(fmMatch[1]!);
-  const fromReq = /^req_count:\s*(\d+)\s*$/m.exec(fmMatch[1]!);
-  const from = {
-    story_count: fromStory ? Number.parseInt(fromStory[1]!, 10) : null,
-    req_count: fromReq ? Number.parseInt(fromReq[1]!, 10) : null,
-  };
+  // Rewrites keep the file's own line ending: the counter lines carry a trailing
+  // `\r` on a CRLF checkout, and the fences are rebuilt with `eol` — a hardcoded
+  // `\n` here turned a CRLF spec into a mixed-ending one the moment tolerating
+  // CRLF made such a file reachable at all.
+  const setCounter = (text: string, field: 'story_count' | 'req_count', value: number): string =>
+    text.replace(
+      new RegExp(String.raw`^(${field}:)[ \t]*\d+([ \t]*\r?)$`, 'm'),
+      (_m, label: string, trailing: string) => `${label} ${value}${trailing}`,
+    );
 
-  let newFrontmatter = fmMatch[1]!;
-  newFrontmatter = fromStory
-    ? newFrontmatter.replace(/^story_count:\s*\d+\s*$/m, `story_count: ${storyCount}`)
-    : `${newFrontmatter}\nstory_count: ${storyCount}`;
-  newFrontmatter = fromReq
-    ? newFrontmatter.replace(/^req_count:\s*\d+\s*$/m, `req_count: ${reqCount}`)
-    : `${newFrontmatter}\nreq_count: ${reqCount}`;
+  let newFrontmatter = frontmatter;
+  newFrontmatter = from.story_count !== null
+    ? setCounter(newFrontmatter, 'story_count', to.story_count)
+    : `${newFrontmatter}${eol}story_count: ${to.story_count}`;
+  newFrontmatter = from.req_count !== null
+    ? setCounter(newFrontmatter, 'req_count', to.req_count)
+    : `${newFrontmatter}${eol}req_count: ${to.req_count}`;
 
-  const changed = from.story_count !== storyCount || from.req_count !== reqCount;
   return {
-    content: `---\n${newFrontmatter}\n---${content.slice(fmMatch[0].length)}`,
-    changed,
+    content: `---${eol}${newFrontmatter}${eol}---${content.slice(frontmatterLength)}`,
+    changed: from.story_count !== to.story_count || from.req_count !== to.req_count,
     from,
-    to: { story_count: storyCount, req_count: reqCount },
+    to,
   };
 }

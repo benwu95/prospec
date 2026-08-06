@@ -26,6 +26,7 @@ import type {
   ReqDefinitionIndex,
   ReqReference,
   ReviewProvenanceSource,
+  SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
 } from './drift-sources.js';
@@ -63,6 +64,7 @@ export interface DriftCheckInputs {
   testProvenance: TestProvenanceSource;
   constitutionRules: ConstitutionRuleSource;
   artifactLanguage: ArtifactLanguageSource;
+  specCounters: SpecCounterSource;
   generatedAt: string;
 }
 
@@ -329,6 +331,41 @@ export function evaluateMcpReadmeCounts(src: McpReadmeCountSource): CheckOutcome
         `but the code has ${c.actual}`,
     }));
   return outcome('mcp-readme-counts', findings);
+}
+
+/**
+ * Spec counters — a feature spec's frontmatter `story_count`/`req_count` against
+ * the body it describes (REQ-LIB-042). WARN-class: `archive finalize` normally
+ * rewrites the value on the next archive, so this is a visibility signal for the
+ * window in between — except where that recount REFUSES (a declared counter the
+ * body would zero), and there the warn is the durable signal that a human must
+ * converge the spec. The counts arrive already derived by `readSpecCounters`, the
+ * writer's own function — this evaluator only compares.
+ *
+ * A counter the frontmatter never declares is out of scope (`null`), not a
+ * finding: adding it is the writer's job, and reporting it here would red every
+ * project whose specs predate the counters.
+ */
+export function evaluateSpecCounters(src: SpecCounterSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('spec-counters', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const spec of src.specs) {
+    for (const field of ['story_count', 'req_count'] as const) {
+      const declared = spec.declared[field];
+      if (declared === null || declared === spec.actual[field]) continue;
+      findings.push({
+        check: 'spec-counters' as const,
+        severity: 'warn' as const,
+        source_path: spec.source_path,
+        detail:
+          `counter drift: frontmatter declares ${field} ${declared} ` +
+          `but the body holds ${spec.actual[field]}`,
+      });
+    }
+  }
+  return outcome('spec-counters', findings);
 }
 
 /**
@@ -638,6 +675,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'test-provenance': evaluateTestProvenance(inputs.testProvenance),
     'constitution-severity': evaluateConstitutionSeverity(inputs.constitutionRules),
     'artifact-language': evaluateArtifactLanguage(inputs.artifactLanguage),
+    'spec-counters': evaluateSpecCounters(inputs.specCounters),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);
