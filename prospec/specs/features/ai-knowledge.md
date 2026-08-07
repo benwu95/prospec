@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-08-01
+last_updated: 2026-08-07
 story_count: 15
 req_count: 64
 ---
@@ -213,9 +213,10 @@ The `index.md` Modules-table `Description` column carries only routing-level pos
 - WHEN curating a module's positioning, THEN edit `module-map.yaml` `description` (the single source); the index cell is regenerated from it (a non-empty module-map value is never overwritten by the index backfill)
 - WHEN measuring `index.md`, THEN it stays within the L1 per-file token budget (`knowledge-size` PASS)
 
-#### REQ-KNOW-013: L0-L3 Layered Loading
-- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section reflecting L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected) → L1 (root `index.md` + Core Conventions, ≤1,800 tokens per file, actively read at task start — NOT auto-loaded) → L2 (module READMEs **and each linked `{sub-module}.md`**, ≤1,000 tokens per file + load-on-demand conventions + feature specs) → L3 (source code, unlimited)
-- WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with the L0-L3 definitions
+#### REQ-KNOW-013: Per-Surface Layered Loading
+- WHEN generating `{base_dir}/index.md`, THEN append a `## Progressive Knowledge Loading Strategy` section with one row per measured load surface: L0 (`AGENTS.md`/`CLAUDE.md`, auto-injected, out of scope) → L1 (root `index.md` + Core Conventions, ≤`l1_per_file`, actively read at task start — NOT auto-loaded) → L2 (module READMEs **and each linked `{sub-module}.md`**, ≤`l2_per_module` and ≤`readme_max_lines`) → Spec (`specs/features/**/*.md` + `specs/product.md`, ≤`spec_per_file`, a slice under `features/{feature}/` measured alike) → Demand (load-on-demand conventions, ≤`demand_knowledge_per_file`) → Skill (deployed `SKILL.md` ≤`skill_per_file` and each reference ≤`reference_per_file`, measured only where the project holds the skill template sources) → L3 (source code, unlimited)
+- WHEN a budget field exists in `KnowledgeSizeBudget`, THEN the table declares it — a field with no row renders as an empty cell, not an error, so the contract is asserted per field rather than per row
+- WHEN Skill templates reference Knowledge, THEN their Loading Strategy stays consistent with these definitions
 - WHEN the Loading Strategy note names its budget source (skill templates + generated `index.md`), THEN it points to `.prospec.yaml` `knowledge.token_budget` and `prospec check knowledge-size` (downstream-visible / runnable), never the internal `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol
 
 #### REQ-TESTS-061: index-vs-module-map regeneration guard
@@ -505,8 +506,8 @@ The root-level `{base_dir}/index.md` is the single L1 entry point.
 - WHEN generated, THEN the legacy `ai-knowledge/_index.md` is no longer generated
 
 #### REQ-KNOW-035: Conventions Loading Filtering
-- WHEN index file is generated, THEN core files (`_conventions.md`, `_diagram-conventions.md`, `_glossary.md`, `_status-lifecycle.md`) are listed in the Core Conventions (L1) section (actively read at task start, NOT auto-loaded).
-- WHEN dynamically scanning `ai-knowledge/` for `_*.md` files, THEN non-core files (incl. `_playbook.md` and `_lessons-ledger.md`) are listed in the Load-on-Demand Conventions (L2) section.
+- WHEN index file is generated, THEN core files (`_conventions.md`, `_diagram-conventions.md`, `_glossary.md`, `_status-lifecycle.md`, plus anything `.prospec.yaml` `knowledge.additional_core_conventions` promotes) are listed in the Core Conventions (L1) section (actively read at task start, NOT auto-loaded).
+- WHEN dynamically scanning `ai-knowledge/` for `_*.md` files, THEN non-core files (incl. `_playbook.md` and `_lessons-ledger.md`) are listed in the **Load-on-Demand Conventions** section — the heading carries no layer tag, because these files are graded against `demand_knowledge_per_file`, not the L2 per-module budget.
 - WHEN a core file is missing, THEN it is gracefully skipped without breaking the generation process.
 - WHEN a legacy `ai-knowledge/_index.md` exists, THEN it is always excluded from both lists (back-compat filter; the consent-gated `/prospec-upgrade` handles its migration).
 
@@ -604,6 +605,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-KNOW-013; MODIFIED REQ-KNOW-035 | REQ-KNOW-013, REQ-KNOW-035 |
 | 2026-08-01 | delegate-module-adjudication | ADDED REQ-KNOW-038; ADDED REQ-TEMPLATES-170; MODIFIED REQ-LIB-038; MODIFIED REQ-KNOW-003 | REQ-KNOW-038, REQ-TEMPLATES-170, REQ-LIB-038, REQ-KNOW-003 |
 | 2026-08-01 | filter-nonsource-modules | ADDED REQ-LIB-038; MODIFIED REQ-KNOW-014 | REQ-LIB-038, REQ-KNOW-014 |
 | 2026-07-31 | enforce-sub-module-budget | MODIFIED REQ-KNOW-016 (resolved budget, machine-enforced for sub-modules), REQ-KNOW-013 (L2 covers each linked sub-module) | REQ-KNOW-016, REQ-KNOW-013 |

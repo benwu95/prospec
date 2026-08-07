@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-08-07
 story_count: 21
 req_count: 82
 ---
@@ -156,9 +156,11 @@ Contract tests pin down: boilerplate is partial-ized (references contain `{{> ..
 - WHEN a partial's content/whitespace is edited without `agent sync`, THEN the byte-sync guard turns red
 
 #### REQ-AGNT-035: Generated Skill Token Budget Rendered Per-Project (No Internal Symbols)
-`agent-sync` injects `resolveKnowledgeTokenBudget(config)`'s `l1_per_file`/`l2_per_module`/`readme_max_lines` into the shared `templateContext`; the knowledge-loading skill templates (`_knowledge-loading-rules` partial, `prospec-knowledge-generate`, `prospec-knowledge-update`) render the budget via `{{...}}` variables, and mark the source as `.prospec.yaml` `knowledge.token_budget` (editable) and `prospec check knowledge-size` (runnable), no longer naming the internal constant `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (which downstream cannot resolve).
+`agent-sync` spreads **every** field of `resolveKnowledgeTokenBudget(config)` into the shared `templateContext`, and `buildIndexTemplateContext` does the same for the generated `index.md`, so a threshold added to the budget reaches both render sites without a second edit. The knowledge-loading skill templates (`_knowledge-loading-rules` partial, `prospec-knowledge-generate`, `prospec-knowledge-update`) render the budget via `{{...}}` variables and mark the source as `.prospec.yaml` `knowledge.token_budget` (editable) and `prospec check knowledge-size` (runnable), never the internal `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` symbol (which downstream cannot resolve).
+- WHEN a budget field is injected but no template row renders it, THEN a contract test fails — Handlebars renders the unknown variable as the empty string, so the guard is per field, not per row
+- WHEN a generated `index.md` or `SKILL.md` shows a budget, THEN the number is the project's resolved value and its stated source is inspectable downstream
 - WHEN any SKILL.md is generated, THEN the content does not contain `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`
-- WHEN `.prospec.yaml` does not override, THEN render the default values (L1 1800 / L2 1000 tokens, README 100 lines); after setting `l2_per_module: 1200` and re-syncing, L2 shows 1200
+- WHEN `.prospec.yaml` does not override, THEN every rendered budget is its shipped default; after overriding any field and re-syncing, the rendered number is the override
 
 #### REQ-TESTS-049: Generated Skill Budget Rendering Contract
 The skill-format contract asserts that the rendered skill output does not contain `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`, and uses a sentinel budget to prove the numbers come from the injected context (not hardcoded); the agent-sync unit test asserts the injected value == `resolveKnowledgeTokenBudget` (override hits, unset fields fall back to DEFAULT). mutation-verified.
@@ -786,6 +788,7 @@ so that a skill either performs its deterministic steps through the CLI or does 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
 | 2026-07-30 | add-harness-capability-flags | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
 | 2026-07-14 | add-metadata-format-reference | ADDED REQ-AGNT-037 (`getSkillReferences` registers `metadata-format` for new-story/ff, agent sync deploys self-contained, references dir count derived from the map) | US-401; REQ-AGNT-037 (ADDED) |
