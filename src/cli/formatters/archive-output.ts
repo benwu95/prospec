@@ -14,6 +14,7 @@ import { sanitizeTerminal } from './sanitize.js';
  * Pending convergence (REQ-SERVICES-072) is warning-class: the spec body the
  * sync deliberately did NOT replace is work a human still owes, so it goes to
  * stderr too — unswallowable under --quiet — but it never fails the command.
+ * A declined product.md sync (REQ-CLI-033) is warning-class for the same reason.
  */
 export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): void {
   if (logLevel !== 'quiet') {
@@ -57,6 +58,15 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
         `  ${pc.yellow('·')} ${sanitizeTerminal(p.feature)} ${sanitizeTerminal(p.reqId)} — ${sanitizeTerminal(p.reason)}\n`,
       );
     }
+  }
+
+  // Warning-class like the two worklists below it: the run succeeded, but the
+  // Feature Map is NOT current and this line is the only thing that says so — a
+  // silent non-write reads exactly like a successful sync.
+  if (result.productSpecDeclined !== null) {
+    process.stderr.write(
+      `${pc.yellow('!')} product.md Feature Map not synced (${sanitizeTerminal(result.productSpecDeclined.reason)}) — ${sanitizeTerminal(result.productSpecDeclined.detail)}\n`,
+    );
   }
 
   if (result.droppedBehavior.length > 0) {

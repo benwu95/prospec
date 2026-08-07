@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-06
+last_updated: 2026-08-07
 story_count: 33
-req_count: 165
+req_count: 168
 ---
 
 # SDD Workflow
@@ -446,6 +446,7 @@ so that the spec truly becomes the Single Source of Truth for SDD.
 - WHEN a file is bootstrapped, THEN it is synthesized from all Feature Spec frontmatter and contains every section this reference requires
 - WHEN describing frontmatter, THEN the reference states that the bootstrap skeleton seeds `product`, `last_updated` and a `version: TBD` placeholder, that `last_updated` is the only key prospec writes afterwards, and that every other key is preserved byte-for-byte — `version` and `feature_count` are author-maintained and are never rewritten, and `feature_count` is not a prospec-managed field at all
 - WHEN describing the generator, THEN the reference states that `## Feature Map` is the only machine-owned region of the file
+- WHEN describing that region's heading, THEN the reference states that a decorated variant such as `## Feature Map (34 active)` is a near miss that makes the sync refuse rather than append, and that the remedy is to give curated content a heading of its own
 
 #### REQ-SPECS-001: specs/ Directory Structure
 Product-First structure: `product.md` (PRD entry) + `features/` (Feature Specs). Historical traceability is handled by the Feature Spec Change History + `.prospec/archive/`.
@@ -898,7 +899,8 @@ So that the version, Vision, Target Users and any section I added survive every 
 - WHEN an existing product.md is synced THEN only the `## Feature Map` section and the frontmatter `last_updated` change; every other byte survives, line endings included
 - WHEN a Feature Map entry carries an authored description THEN the description is carried forward and only its title and link are refreshed
 - WHEN product.md is missing THEN it is bootstrapped with every section the shipped format reference requires, unknown content marked TBD
-- WHEN the document cannot be parsed reliably — an unclosed code fence — or the scan source is absent THEN nothing is written and the preview says so, rather than guessing
+- WHEN the document cannot be parsed reliably — an unclosed code fence — or the scan source is absent, or its only Feature-Map-ish heading is a near miss such as `## Feature Map (34 active)` THEN nothing is written, rather than guessing or appending a second map beside the author's own
+- WHEN a sync declines for any of those reasons THEN the run says so and names the remedy — on stderr during a real run, as a planned non-mutation under `--dry-run` — so a file left untouched on purpose never reads like one that synced
 - WHEN previewing with `--dry-run` THEN the planned detail distinguishes bootstrap from splice from refusal
 
 ### Behavior Specifications
@@ -908,7 +910,9 @@ So that the version, Vision, Target Users and any section I added survive every 
 - WHEN `specs/product.md` exists and has a `## Feature Map` heading, THEN only the lines between that heading and the next h2 (or EOF) are replaced, and every other byte survives — frontmatter `version`, `feature_count` and any custom key, `## Vision`, `## Target Users`, and any author-added section
 - WHEN splicing, THEN `last_updated` is refreshed inside the frontmatter block only, and no other frontmatter key is written
 - WHEN an existing Feature Map entry carries an authored description, THEN the description survives and only its title and link are refreshed; an entry whose feature spec is gone (or turned deprecated) is dropped, and a new feature is appended with a recognizable TBD description
-- WHEN `specs/product.md` exists without a `## Feature Map` heading, THEN the section is appended at end of file and the existing content is left untouched
+- WHEN `specs/product.md` exists without a `## Feature Map` heading AND without a near-miss one, THEN the section is appended at end of file and the existing content is left untouched
+- WHEN the document carries a NEAR-MISS heading instead — a top-level heading whose text case-folds to `feature map` after dropping a leading ordinal, a trailing colon, and one trailing parenthesized or bracketed suffix — THEN nothing is written at all: the section is neither appended nor spliced over the author's own content, and the refusal names the heading so it can be renamed
+- WHEN both an exact and a near-miss heading are present, THEN the exact one is the splice target and the near-miss stays authored content, untouched
 - WHEN locating section boundaries or parsing entries, THEN headings and links are read off fence-blanked lines, so a `## `, `### ` or link inside a fenced example is never mistaken for structure
 - WHEN the document contains an UNCLOSED code fence, THEN nothing is written at all — the document cannot be parsed reliably in either direction, and `--dry-run` reports the refusal as a planned non-mutation naming the fence
 - WHEN a heading is written setext-style (text over `---`/`===`), or is an EMPTY ATX heading (`##` alone), THEN it ends the section like any other h2, so the sections after it are never absorbed into the machine-owned region; a bare run of three or more hashes is NOT an h1/h2 and never ends it
@@ -941,6 +945,8 @@ The archive skill's Phase 3.6 check and its Phase 3.6 Gate checkbox describe wha
 - WHEN Phase 3.6 runs, THEN it confirms the Feature Map lists every active Feature Spec and that content outside the Feature Map section was preserved apart from the `last_updated` refresh
 - WHEN the Phase 3.6 Gate checkbox is emitted, THEN its wording matches the Phase 3.6 check item
 - WHEN `specs/product.md` did not exist before the run, THEN the check confirms the bootstrapped skeleton follows `references/product-spec-format.md`
+- WHEN the run reported a declined `product.md` sync, THEN Phase 3.6 treats the Feature Map as NOT synced and sends the agent to the reported remedy instead of ticking the checkbox — the remedy is applied in place and the sync lands on the NEXT archive run, because this change's bundle has already moved out of `.prospec/changes/` and its own run cannot be retried
+- WHEN Phase 3.6 runs, THEN it also asks whether the authored part of `product.md` already carries a section that IS a feature map under a different name (`## 功能地圖`, `## Feature Inventory`), which the CLI's lexical near-miss rule cannot see, and treats one as a duplicate to reconcile with the author before ticking — the mechanical guard covers same-name variants, this check covers renamed equivalents
 
 ---
 
@@ -951,6 +957,36 @@ A contract test compares the sections the shipped format reference requires with
 - WHEN a section is added to or removed from either side alone, THEN the assertion fails
 
 ---
+
+---
+
+
+#### REQ-SERVICES-080: The product.md sync reports why it declined
+One decision function answers why the `product.md` sync declined to write, and both the real run and the `--dry-run` preview read that one answer — a second, hand-copied guard is exactly how the preview and the run drift apart (PB-006). The reason travels out on the archive result rather than dying inside the service.
+- WHEN the sync declines to write an existing `specs/product.md` — an unclosed code fence, an absent `specs/features/`, or a near-miss Feature Map heading — THEN the archive result carries the reason together with the offending detail
+- WHEN the run is a `--dry-run`, THEN the same decision produces the `skip` planned non-mutation, so the preview and the real run cannot disagree about whether the file is written
+- WHEN the sync writes normally, or bootstraps a missing file, THEN no decline is reported
+- WHEN more than one near-miss heading is present, THEN the reason names the first and states how many were found
+
+---
+
+
+#### REQ-CLI-033: archive prints a declined product.md sync to stderr
+`archive-output` prints a declined `product.md` sync as a WARNING-class worklist, beside `refusedReconciliations`, `pendingConvergence` and `droppedBehavior`: the run succeeded, but one file was deliberately left alone and only this line says so.
+- WHEN the archive result carries a `product.md` decline, THEN one warning line goes to stderr naming the reason and the offending heading or fence
+- WHEN `--quiet` is set, THEN the line still prints — it is the only signal that the Feature Map was not synced
+- WHEN a decline is printed, THEN the exit code is unchanged: it is a worklist, never a failure
+- WHEN free-form text (a heading, a path) reaches the terminal, THEN it goes through `sanitizeTerminal`
+
+---
+
+
+#### REQ-TESTS-076: Near-miss refusal is pinned in both directions
+The near-miss rule is pinned by enumeration in both directions, because an over-wide rule blocks a downstream project's Feature Map sync permanently and a silent write-back defeats the refusal.
+- WHEN the normalization is tested, THEN both the matching set (`Feature Map (34 active)`, `feature map`, `Feature Map:`, `4. Feature Map`) and the non-matching set (`Feature Map Rationale`, `Feature Maps`, an unrelated heading) are asserted
+- WHEN a near-miss fixture runs a real archive, THEN `product.md` is asserted byte-identical, `last_updated` included
+- WHEN the same fixture runs `--dry-run`, THEN exactly one `skip` targets `product.md` and no `write` does
+- WHEN the formatter is tested, THEN the decline line is asserted present under `--quiet` and absent on a clean sync
 
 ---
 
@@ -1538,6 +1574,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-07 | refuse-near-miss-feature-map | ADDED REQ-SERVICES-080; ADDED REQ-CLI-033; ADDED REQ-TESTS-076; MODIFIED REQ-SERVICES-079; MODIFIED REQ-SPEC-011; MODIFIED REQ-TEMPLATES-175 | REQ-SERVICES-080, REQ-CLI-033, REQ-TESTS-076, REQ-SERVICES-079, REQ-SPEC-011, REQ-TEMPLATES-175 |
 | 2026-08-06 | stop-clobbering-product-spec | ADDED REQ-SERVICES-079; ADDED REQ-LIB-043; ADDED REQ-TEMPLATES-175; ADDED REQ-TESTS-075; MODIFIED REQ-SPEC-013; MODIFIED REQ-SPEC-011; MODIFIED REQ-CLI-024 | REQ-SERVICES-079, REQ-LIB-043, REQ-TEMPLATES-175, REQ-TESTS-075, REQ-SPEC-013, REQ-SPEC-011, REQ-CLI-024 |
 | 2026-08-06 | unify-req-heading-matcher | ADDED REQ-SERVICES-078; MODIFIED REQ-SERVICES-072; MODIFIED REQ-CLI-024; MODIFIED REQ-TESTS-060; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-159; MODIFIED REQ-TESTS-057 | REQ-SERVICES-078, REQ-SERVICES-072, REQ-CLI-024, REQ-TESTS-060, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-TESTS-057 |
 | 2026-08-03 | fix-issue-106-drift-engine-blindspots | MODIFIED REQ-TEMPLATES-153 | REQ-TEMPLATES-153 |

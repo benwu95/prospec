@@ -41,6 +41,7 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
     notFound: [],
     pendingConvergence: [],
     droppedBehavior: [],
+    productSpecDeclined: null,
     ...overrides,
   };
 }
@@ -152,6 +153,49 @@ describe('archive-output', () => {
     expect(err).toContain('1 REQ body/bodies kept their existing text');
     expect(err).toContain('sdd-workflow REQ-SERVICES-010');
     expect(err).toContain('no **Spec:** block');
+  });
+
+  it('reports a declined product.md sync on stderr, even in quiet mode', () => {
+    // Without this line a refusal is indistinguishable from a successful sync —
+    // the whole point of refusing instead of appending a duplicate section.
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+        productSpecDeclined: {
+          reason: 'near-miss-heading',
+          detail:
+            'product.md has no exact `## Feature Map` heading but carries a near-miss one — `## Feature Map (34 active)` (1 found). Rename it',
+        },
+      }),
+      'quiet',
+    );
+    expect(logSpy).not.toHaveBeenCalled();
+    const err = stderr();
+    expect(err).toContain('product.md Feature Map not synced');
+    expect(err).toContain('near-miss-heading');
+    expect(err).toContain('## Feature Map (34 active)');
+  });
+
+  it('prints nothing about product.md when the sync was not declined', () => {
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+      }),
+      'normal',
+    );
+    expect(stderr()).not.toContain('Feature Map not synced');
+  });
+
+  it('strips control characters out of a decline detail', () => {
+    formatArchiveOutput(
+      emptyResult({
+        archived: [{ name: 'x', sourcePath: '/p', archivePath: '/a', summaryGenerated: true }],
+        productSpecDeclined: { reason: 'near-miss-heading', detail: 'head[31ming' },
+      }),
+      'quiet',
+    );
+    expect(stderr()).not.toContain('\u001b');
+    expect(stderr()).toContain('head[31ming');
   });
 
   it('lists dropped behavior verbatim, one bullet per line', () => {
