@@ -60,7 +60,7 @@ first-ever run still needs the full init.
 | **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
 | **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 1800 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
-| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 10000 tokens per file |
+| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 15000 tokens per file |
 | **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 5000 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
@@ -72,7 +72,7 @@ first-ever run still needs the full init.
 3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤2500, L2 ≤1800 and ≤100 lines, Spec ≤5000, Demand ≤10000, Skill ≤5000, reference ≤2500. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
+**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤2500, L2 ≤1800 and ≤100 lines, Spec ≤5000, Demand ≤15000, Skill ≤5000, reference ≤2500. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
 
 ## Core Workflow
 
