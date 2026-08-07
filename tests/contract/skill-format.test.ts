@@ -651,6 +651,32 @@ describe('Skill Format Contract', () => {
       expect(section).not.toContain('Auto-generated');
       expect(section).not.toMatch(/Manually written/i);
     });
+
+    // A downstream author followed this reference exactly and still grew a second
+    // Feature Map: it documented the ownership boundary but never said what a
+    // decorated heading does. The rule is only usable if the remedy is stated here.
+    it('states the near-miss heading refusal and its remedy', () => {
+      const content = renderTemplate(
+        'skills/references/product-spec-format.hbs',
+        TEMPLATE_CONTEXT,
+      );
+      const start = content.indexOf('## Generation Mode');
+      const rest = content.slice(start + '## Generation Mode'.length);
+      const nextHeading = rest.search(/\n## /);
+      const section = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+      expect(section.trim().length).toBeGreaterThan(0);
+
+      expect(section).toContain('## Feature Map (34 active)');
+      expect(section).toMatch(/near miss/i);
+      // both halves of the remedy, and the boundary that keeps it from over-reading
+      expect(section).toMatch(/rename it/i);
+      expect(section).toContain('## Feature Map Rationale');
+      // every refusal is reported — the silent non-write is the defect being fixed
+      expect(section).toMatch(/reported/i);
+      expect(section).toContain('skip');
+      // negative: refusing must not be described as taking the section over
+      expect(section).not.toMatch(/splices? (over|into) (it|that section)/i);
+    });
   });
 
   describe('Delta-spec Feature/Story routing fields', () => {
@@ -4718,6 +4744,54 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     // the preservation of everything else, never about a whole-file regeneration
     expect(flat(phase36)).toContain('outside that section is unchanged');
     expect(phase36).not.toContain('was regenerated');
+  });
+
+  // The append-a-duplicate defect passed the old Phase 3.6 check: the appended
+  // section DID list every active Feature Spec. Two questions close that blind
+  // spot — one about the machine's verdict, one only a reader can answer.
+  it('Phase 3.6 asks whether the sync was declined, and looks for a renamed feature map', () => {
+    const rendered = render();
+    const phase36 = sectionOf(rendered, '### Phase 3.6: Product Spec Sync');
+    expect(flat(phase36)).toContain('did **not** report a declined `product.md` sync');
+    expect(flat(phase36)).toMatch(/near-miss/i);
+    // the semantic half: lexical matching cannot see a differently-named map, and
+    // its reach over SAME-name headings is narrow, so both are the reader's to spot
+    expect(flat(phase36)).toMatch(/different name/i);
+    expect(flat(phase36)).toContain('Feature Inventory');
+    expect(flat(phase36)).toContain('lexical');
+    expect(flat(phase36)).toContain('## Feature Map (draft) (2024)');
+
+    const gate = sectionOf(rendered, '> **Phase 3.6 Gate**');
+    expect(gate.trim().length).toBeGreaterThan(0);
+    expect(flat(gate)).toContain('no declined `product.md` sync');
+    expect(flat(gate)).toMatch(/another name/i);
+
+    // `sectionOf` runs to the next `##`/`###`, and the Gate is quoted lines inside
+    // Phase 3.6 — so `phase36` CONTAINS `gate`. Asserting over both is asserting
+    // over the superset twice: the body half must be sliced off explicitly, or a
+    // body-side regression passes on the Gate's copy of the wording alone.
+    const gateStart = phase36.indexOf('> **Phase 3.6 Gate**');
+    expect(gateStart).toBeGreaterThan(0);
+    const body = phase36.slice(0, gateStart);
+    expect(body).not.toContain('Phase 3.6 Gate');
+
+    // A gate is an all-must-hold list: the product.md confirmation item has to
+    // carry the same decline condition the body states, or a declined run leaves
+    // the gate unsatisfiable and blocks Phase 3.7 — which cannot be skipped, the
+    // bundle having already moved. REQ-TEMPLATES-175 requires the two to match,
+    // so BOTH halves are asserted independently.
+    for (const section of [body, gate]) {
+      expect(flat(section)).toMatch(/when the sync ran/i);
+    }
+
+    // The remedy must be one the workflow can actually perform HERE: Phase 3 already
+    // moved the bundle out of `.prospec/changes/`, so `prospec archive <name>` now
+    // answers `not found` and exits 1 — an instruction to retry this change's sync
+    // is a checkbox no agent can honestly tick.
+    for (const section of [body, gate]) {
+      expect(flat(section)).not.toMatch(/re-run/i);
+      expect(flat(section)).toContain('next archive run');
+    }
   });
 
   it('NEVER forbids hand-executing the deterministic mutations when the CLI is available', () => {

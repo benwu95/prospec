@@ -225,18 +225,48 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
     expect(readFileSync(productPath, 'utf-8')).toBe(malformed);
   });
 
-  it('predicts no product.md write when the file exists and no features dir will', async () => {
+  it('previews the near-miss-heading refusal as a planned non-mutation, and honours it', async () => {
+    verifiedChangeFixture();
+    // The heading a downstream author writes: same words, decorated with a count.
+    // Appending past it grows a SECOND feature map that then drifts from the first.
+    const authored = '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n## Feature Map (34 active)\n\n### alpha\n\nCurated by hand.\n→ [features/alpha.md](features/alpha.md)\n';
+    write('prospec/specs/product.md', authored);
+    const productPath = path.join(tmp, 'prospec', 'specs', 'product.md');
+
+    const dry = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
+    const entries = dry.planned.filter((p) => p.target === productPath);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.action).toBe('skip');
+    expect(entries[0]?.detail).toContain('Feature Map (34 active)');
+
+    const real = await execute({ cwd: tmp, names: ['feat-x'] });
+    expect(readFileSync(productPath, 'utf-8')).toBe(authored);
+    expect(real.productSpecDeclined?.reason).toBe('near-miss-heading');
+  });
+
+  it('predicts the missing-features-dir refusal instead of staying silent about it', async () => {
     verifiedChangeFixture();
     write('prospec/specs/product.md', '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nAuthored.\n→ [features/alpha.md](features/alpha.md)\n');
     // a delta-spec with no routes leaves specs/features/ untouched
     write('.prospec/changes/feat-x/delta-spec.md', '# Delta Spec\n\n## ADDED\n\n_No requirements._\n');
 
     const dry = await execute({ cwd: tmp, names: ['feat-x'], dryRun: true });
-    expect(dry.planned.filter((p) => p.target.endsWith('product.md'))).toHaveLength(0);
+    const entries = dry.planned.filter((p) => p.target.endsWith('product.md'));
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.action).toBe('skip');
 
     const before = readFileSync(path.join(tmp, 'prospec', 'specs', 'product.md'), 'utf-8');
-    await execute({ cwd: tmp, names: ['feat-x'] });
+    const real = await execute({ cwd: tmp, names: ['feat-x'] });
     expect(readFileSync(path.join(tmp, 'prospec', 'specs', 'product.md'), 'utf-8')).toBe(before);
+    expect(real.productSpecDeclined?.reason).toBe('missing-features-dir');
+  });
+
+  it('reports no decline when the splice actually runs', async () => {
+    verifiedChangeFixture();
+    write('prospec/specs/product.md', '---\nproduct: test-project\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n_(No active features yet)_\n');
+
+    const real = await execute({ cwd: tmp, names: ['feat-x'] });
+    expect(real.productSpecDeclined).toBeNull();
   });
 
   it('respects feature-map no-clobber in the planned output', async () => {

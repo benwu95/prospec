@@ -911,7 +911,7 @@ req_count: 4
 
     const result = await generateProductSpec('/specs/features', '/specs/product.md', 'test-project');
 
-    expect(result).toBe('/specs/product.md');
+    expect(result.path).toBe('/specs/product.md');
     expect(fs.existsSync('/specs/product.md')).toBe(true);
 
     const content = fs.readFileSync('/specs/product.md', 'utf-8');
@@ -996,7 +996,7 @@ last_updated: 2026-01-01
     vol.mkdirSync('/specs', { recursive: true });
 
     const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
-    expect(result).toBe('/specs/product.md');
+    expect(result.path).toBe('/specs/product.md');
     const content = fs.readFileSync('/specs/product.md', 'utf-8');
     expect(content).toContain('_(No active features yet)_');
   });
@@ -1166,6 +1166,206 @@ describe('generateProductSpec splices an existing product.md (REQ-SERVICES-079)'
     const after = fs.readFileSync('/specs/product.md', 'utf-8');
     expect(after.startsWith('# p\n')).toBe(true);
     expect(after).not.toContain('last_updated');
+  });
+});
+
+describe('a near-miss Feature Map heading is refused, not appended past (REQ-SERVICES-079)', () => {
+  /** An authored product.md whose only Feature-Map-ish heading is `heading`. */
+  const authoredUnder = (heading: string): string =>
+    `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\n${heading}\n\n### alpha\n\nMine, grouped by hand.\n→ [features/alpha.md](features/alpha.md)\n\n## Roadmap\n\nMine too.\n`;
+
+  // The rule drops a leading ordinal, a trailing colon, and ONE trailing
+  // parenthesized or bracketed suffix, then case-folds. Anything else is a
+  // DIFFERENT heading: over-matching would splice away curated content, and
+  // under-matching brings back the duplicate section this refusal exists to stop.
+  // The colon cases run on both sides of the suffix — an author's ordering of the
+  // two carries no meaning — while the suffix strip is capped at one, which is the
+  // boundary `(draft) (2024)` below pins.
+  const NEAR_MISSES = [
+    '## Feature Map (34 active)',
+    '## Feature Map [34]',
+    '## feature map',
+    '## FEATURE MAP',
+    '## Feature Map:',
+    '## 4. Feature Map',
+    '## Feature Map (34 active):',
+    '## Feature Map: (34 active)',
+  ];
+  const UNRELATED = [
+    '## Feature Map Rationale',
+    '## Feature Maps',
+    '## Map of Features',
+    '## Roadmap Overview',
+    // one suffix is the documented cap — a second one names the author's own
+    // organizing scheme, so this heading appends rather than refusing forever
+    '## Feature Map (draft) (2024)',
+  ];
+
+  it.each(NEAR_MISSES)('refuses and writes nothing under %s', async (heading) => {
+    const authored = authoredUnder(heading);
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    // byte-identical: `last_updated` is not refreshed either — a refusal writes NOTHING
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+    expect(result.declined?.reason).toBe('near-miss-heading');
+    expect(result.declined?.detail).toContain(heading.replace(/^##\s+/, ''));
+  });
+
+  it.each(UNRELATED)('leaves %s alone and appends the section as before', async (heading) => {
+    vol.fromJSON({
+      '/specs/product.md': authoredUnder(heading),
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(result.declined).toBeNull();
+    expect(after).toContain(heading);
+    expect(after).toContain('## Feature Map\n');
+  });
+
+  it('splices the exact heading and leaves a near-miss sibling untouched', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\n## Feature Map (34 active)\n\nMy curated grouping.\n\n## Feature Map\n\n### alpha\n\nMachine-owned entry.\n→ [features/alpha.md](features/alpha.md)\n`;
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    const after = fs.readFileSync('/specs/product.md', 'utf-8');
+    expect(result.declined).toBeNull();
+    expect(after).toContain('## Feature Map (34 active)\n\nMy curated grouping.');
+    expect(after).toContain('Machine-owned entry.');
+  });
+
+  it('does not read a near-miss heading out of a fenced block or the frontmatter', async () => {
+    // Both are masked for the exact heading already; the near-miss scan must read
+    // the SAME masked view, or a documented example refuses a real sync forever.
+    const authored = `---\nproduct: p\n## Feature Map (34 active)\nlast_updated: 2020-01-01\n---\n\n# p\n\n\`\`\`markdown\n## Feature Map (34 active)\n\`\`\`\n`;
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined).toBeNull();
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toContain('## Feature Map\n');
+  });
+
+  it('detects a setext-written near-miss heading', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\nFeature Map (34 active)\n------------------------\n\nMine.\n`;
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('near-miss-heading');
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+  });
+
+  it('names the first near-miss heading and how many were found', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\n## Feature Map (34 active)\n\nOne.\n\n## Feature Map:\n\nTwo.\n`;
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.detail).toContain('Feature Map (34 active)');
+    expect(result.declined?.detail).toContain('2');
+  });
+});
+
+describe('generateProductSpec reports every branch in which it declines to write (REQ-SERVICES-080)', () => {
+  it('reports an unclosed fence rather than declining silently', async () => {
+    const malformed = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n\`\`\`markdown\nnever closed\n\n## Feature Map\n`;
+    vol.fromJSON({
+      '/specs/product.md': malformed,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('unclosed-fence');
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(malformed);
+  });
+
+  it('reports an absent specs/features/ rather than declining silently', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nMine.\n→ [features/alpha.md](features/alpha.md)\n`;
+    vol.fromJSON({ '/specs/product.md': authored });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('missing-features-dir');
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+    // A reason without a remedy sends the reader to the ONE repair that destroys
+    // data: an empty directory reads as zero features, and the next sync replaces
+    // every authored entry with the no-features placeholder.
+    expect(result.declined?.detail).toMatch(/restore it/i);
+    expect(result.declined?.detail).toMatch(/empty/i);
+  });
+
+  it('tells a project whose Feature Map holds nothing to create the directory instead', async () => {
+    // Same reason, opposite advice. `prospec init` never creates `specs/features/`,
+    // so a project whose first archive bootstrapped product.md sits here on EVERY
+    // later archive — and there, creating the directory is the whole fix, not the
+    // destructive move the populated-map wording forbids.
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n_(No active features yet)_\n`;
+    vol.fromJSON({ '/specs/product.md': authored });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('missing-features-dir');
+    expect(result.declined?.detail).toMatch(/nothing a sync would erase/i);
+    // the advice the populated-map state needs must NOT reach this one
+    expect(result.declined?.detail).not.toMatch(/is not a fix/i);
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+  });
+
+  it.each([
+    ['bullet list', '- [Auth](features/auth.md) — user login\n- [Billing](features/billing.md) — invoices'],
+    ['table', '| Feature | Spec |\n|---|---|\n| Auth | features/auth.md |'],
+    ['prose', 'Every capability we ship, grouped by the teaching flow.'],
+  ])(
+    'treats a Feature Map written as a %s as content, not as an empty region',
+    async (_shape, body) => {
+      // `spliceProductSpec` replaces the WHOLE region, so a map a human wrote in any
+      // shape is erasable. Counting `### ` entries called these files empty and sent
+      // their authors to the remedy that wipes them — the very loss this refusal exists
+      // to prevent.
+      const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n${body}\n\n## Vision\n\nMine.\n`;
+      vol.fromJSON({ '/specs/product.md': authored });
+
+      const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+      expect(result.declined?.reason).toBe('missing-features-dir');
+      expect(result.declined?.detail).toMatch(/is not a fix/i);
+      expect(result.declined?.detail).not.toMatch(/nothing a sync would erase/i);
+      expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+    },
+  );
+
+  it('reports no decline when the sync writes, and none when it bootstraps', async () => {
+    vol.fromJSON({
+      '/specs/product.md': `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n_(none)_\n`,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+    expect((await generateProductSpec('/specs/features', '/specs/product.md', 'p')).declined).toBeNull();
+
+    vol.reset();
+    vol.fromJSON({ '/specs/features/alpha.md': featureSpec('alpha') });
+    expect((await generateProductSpec('/specs/features', '/specs/product.md', 'p')).declined).toBeNull();
   });
 });
 

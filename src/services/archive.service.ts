@@ -62,6 +62,12 @@ export interface ArchiveResult {
    * phase confirms each dropped bullet was deliberate. Dry-run too.
    */
   droppedBehavior: DroppedBehavior[];
+  /**
+   * Why the product.md Feature Map sync wrote nothing, or null when it wrote.
+   * A decline is the ONLY signal that the Feature Map is not current — without it
+   * a silent non-write reads exactly like a successful sync.
+   */
+  productSpecDeclined: ProductSpecDecline | null;
 }
 
 export interface PlannedMutation {
@@ -522,6 +528,18 @@ function topLevelHeadings(probe: string[]): Array<{ start: number; contentStart:
 }
 
 /**
+ * The document's real h1/h2s: fenced blocks blanked and the frontmatter masked
+ * away, because a `## Feature Map` line in either place is an example or a YAML
+ * comment, not structure. ONE view for both readers of it — the splice target and
+ * the near-miss scan — so a heading one of them sees can never be invisible to
+ * the other (PB-006).
+ */
+function documentHeadings(probe: string[]): ReturnType<typeof topLevelHeadings> {
+  const bodyStart = frontmatterEnd(probe);
+  return topLevelHeadings(withoutFencedBlocks(probe).map((l, i) => (i < bodyStart ? '' : l)));
+}
+
+/**
  * Half-open range of a section: `contentStart` is the first body line after the
  * heading (which may span two lines when written setext), `end` the next h1/h2 or
  * EOF. Boundaries are read off fence-blanked lines — a `## ` inside a fenced
@@ -531,11 +549,7 @@ function findSectionRange(
   probe: string[],
   headingText: string,
 ): { start: number; contentStart: number; end: number } | null {
-  // Scan markdown only: a `## Feature Map` line inside YAML frontmatter is a
-  // comment or a key, and splicing there destroys the frontmatter.
-  const bodyStart = frontmatterEnd(probe);
-  const masked = withoutFencedBlocks(probe).map((l, i) => (i < bodyStart ? '' : l));
-  const headings = topLevelHeadings(masked);
+  const headings = documentHeadings(probe);
   const index = headings.findIndex((h) => h.text === headingText);
   const heading = headings[index];
   if (heading === undefined) return null;
@@ -654,6 +668,114 @@ function refreshLastUpdated(raw: string[], probe: string[], today: string, eol: 
   return next;
 }
 
+/** Why the product.md sync declined to write. Reported, never silent. */
+export type ProductSpecDeclineReason =
+  | 'missing-features-dir'
+  | 'unclosed-fence'
+  | 'near-miss-heading';
+
+export interface ProductSpecDecline {
+  reason: ProductSpecDeclineReason;
+  /** What was found and what resolves it — printed verbatim beside the reason. */
+  detail: string;
+}
+
+/**
+ * Strip the decorations a human adds to a heading — a leading ordinal, a trailing
+ * colon, and ONE trailing parenthesized or bracketed suffix — then case-fold.
+ *
+ * The colon is stripped on BOTH sides of the suffix, so the order an author
+ * combines them in (`Feature Map (34):` vs `Feature Map: (34)`) carries no meaning.
+ * The suffix is stripped exactly once, deliberately: repeating it until stable
+ * would fold `Feature Map (draft) (2024)` in too, and that heading names something
+ * the author organized, not the region this sync owns.
+ */
+function normalizeHeadingText(text: string): string {
+  return text
+    .trim()
+    .replace(/^\d+[.)]\s*/, '')
+    .replace(/\s*:$/, '')
+    .replace(/\s*[([][^()[\]]*[)\]]$/, '')
+    .replace(/\s*:$/, '')
+    .trim()
+    .toLowerCase();
+}
+
+const FEATURE_MAP_HEADING_NORMALIZED = normalizeHeadingText(FEATURE_MAP_HEADING);
+
+/**
+ * Would a zero-feature sync erase anything a human wrote in the Feature Map region?
+ * That is the only question separating the two `missing-features-dir` states, and it
+ * has to be asked of the WHOLE region: `spliceProductSpec` replaces every line
+ * between the heading and the next h2, so a map written as a bullet list, a table or
+ * plain prose is just as erasable as one written as `### ` entries — counting entries
+ * called those files empty and sent their authors to the one destructive remedy.
+ *
+ * An unclosed fence makes the document unparseable, so it answers YES: of the two
+ * answers, the cautious one is the safe guess.
+ */
+function featureMapRegionHasContent(content: string): boolean {
+  const raw = content.split('\n');
+  if (hasUnclosedFence(raw)) return true;
+  const probe = raw.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
+  const range = findSectionRange(probe, FEATURE_MAP_HEADING);
+  // No region at all — the sync would append beside what is there, erasing nothing.
+  if (range === null) return false;
+  return probe
+    .slice(range.contentStart, range.end)
+    .some((l) => l.trim() !== '' && l.trim() !== NO_FEATURES_PLACEHOLDER);
+}
+
+/**
+ * Why the sync would decline to write this product.md, or null when it may write.
+ *
+ * ONE decision, read by both the real run and the `--dry-run` preview — a second,
+ * hand-copied guard is exactly how the two drift into disagreeing about whether a
+ * file gets written (PB-006).
+ *
+ * The near-miss case is a refusal rather than a wider match ON PURPOSE. A heading
+ * like `## Feature Map (34 active)` is almost always an author's own curated map;
+ * splicing over it would delete that content outright, while appending past it —
+ * the old behavior — grows a SECOND feature map that drifts from the first on every
+ * run. Refusing leaves the file byte-identical and costs the author one rename.
+ */
+export function inspectProductSpecSync(
+  content: string,
+  featuresExist: boolean,
+): ProductSpecDecline | null {
+  if (!featuresExist) {
+    // Two states share this reason and need OPPOSITE advice, so the remedy is
+    // chosen from what the file actually holds: creating the directory is the whole
+    // fix for a project that has no specs yet, and the one destructive move for a
+    // Feature Map whose entries a zero-feature scan would erase.
+    return {
+      reason: 'missing-features-dir',
+      detail: featureMapRegionHasContent(content)
+        ? 'the feature specs directory is absent — an unreadable scan source is never the fact "this product has no features". Restore it together with its Feature Specs; creating it EMPTY is not a fix, because the next sync would then read zero features and replace the whole Feature Map region — entries, lists, tables and prose alike — with the no-features placeholder'
+        : 'the feature specs directory is absent, and the Feature Map region holds nothing a sync would erase. Create `specs/features/` (or archive a change that routes a `**Feature:**`) and the next run syncs normally',
+    };
+  }
+  const raw = content.split('\n');
+  if (hasUnclosedFence(raw)) {
+    return {
+      reason: 'unclosed-fence',
+      detail:
+        'product.md has an unclosed code fence — its Feature Map is left untouched until the fence is closed',
+    };
+  }
+  const headings = documentHeadings(raw.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l)));
+  if (headings.some((h) => h.text === FEATURE_MAP_HEADING)) return null;
+  const nearMisses = headings.filter(
+    (h) => normalizeHeadingText(h.text) === FEATURE_MAP_HEADING_NORMALIZED,
+  );
+  const first = nearMisses[0];
+  if (first === undefined) return null;
+  return {
+    reason: 'near-miss-heading',
+    detail: `product.md has no exact \`## ${FEATURE_MAP_HEADING}\` heading but carries a near-miss one — \`## ${first.text}\` (${nearMisses.length} found). Rename it so curated content keeps a heading of its own, or make it exactly \`## ${FEATURE_MAP_HEADING}\` to hand that section to prospec`,
+  };
+}
+
 /**
  * Rewrite ONLY the `## Feature Map` section of an authored product.md. Everything
  * else — frontmatter keys the author maintains (`version`, `feature_count`, …),
@@ -763,30 +885,34 @@ export async function generateProductSpec(
   featuresPath: string,
   productSpecPath: string,
   projectName: string,
-): Promise<string> {
-  // An authored file is never rewritten from a scan source that is not there:
-  // `syncFeatureMap` refuses to write in that state, and emptying the Feature Map
-  // would report a missing directory as the fact "this product has no features".
-  // Bootstrapping is still safe — there is nothing to lose in a file that is absent.
+): Promise<{ path: string; declined: ProductSpecDecline | null }> {
+  // Every decline path returns the SAME shape as a write: the caller reports the
+  // reason instead of discovering, three archives later, that nothing ever synced.
+  // Bootstrapping is exempt from all of it — an absent file has nothing to lose.
   const exists = fs.existsSync(productSpecPath);
-  if (exists && !fs.existsSync(featuresPath)) return productSpecPath;
-  // An unclosed fence makes the document unparseable in BOTH directions: trusting
-  // the mask hides the whole tail, and ignoring it lets a fenced `## ` cut the
-  // section short. Neither guess is safe on someone's authored file, so refuse —
-  // the preview says so, and closing the fence resumes the sync.
-  if (exists && hasUnclosedFence((await fs.promises.readFile(productSpecPath, 'utf-8')).split('\n'))) {
-    return productSpecPath;
+  if (exists) {
+    const authored = await fs.promises.readFile(productSpecPath, 'utf-8');
+    const declined = inspectProductSpecSync(authored, fs.existsSync(featuresPath));
+    if (declined !== null) return { path: productSpecPath, declined };
+
+    const today = new Date().toISOString().slice(0, 10);
+    await ensureDir(path.dirname(productSpecPath));
+    await atomicWrite(
+      productSpecPath,
+      spliceProductSpec(authored, await scanActiveFeatures(featuresPath), today),
+    );
+    return { path: productSpecPath, declined: null };
   }
 
-  const features = await scanActiveFeatures(featuresPath);
   const today = new Date().toISOString().slice(0, 10);
-  const content = exists
-    ? spliceProductSpec(await fs.promises.readFile(productSpecPath, 'utf-8'), features, today)
-    : bootstrapProductSpec(projectName, features, today);
-
+  const content = bootstrapProductSpec(
+    projectName,
+    await scanActiveFeatures(featuresPath),
+    today,
+  );
   await ensureDir(path.dirname(productSpecPath));
   await atomicWrite(productSpecPath, content);
-  return productSpecPath;
+  return { path: productSpecPath, declined: null };
 }
 
 /**
@@ -900,6 +1026,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const planned: PlannedMutation[] = [];
   const pendingConvergence: PendingConvergence[] = [];
   const droppedBehavior: DroppedBehavior[] = [];
+  let productSpecDeclined: ProductSpecDecline | null = null;
   let specSyncWouldTouchFeaturesDir = false;
 
   // Resolve specsPath from config (non-fatal if config is missing)
@@ -1036,24 +1163,19 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   // says which of the two very different writes is coming.
   if (archived.length > 0 && featuresPath && productSpecPath) {
     if (dryRun) {
-      // Mirror generateProductSpec's own guards, against the state spec-sync WOULD
-      // leave on disk: an existing features dir, or the one the real run creates
-      // whenever a delta-spec had routes.
+      // Run generateProductSpec's OWN decision (never a second copy of it) against
+      // the state spec-sync WOULD leave on disk: an existing features dir, or the
+      // one the real run creates whenever a delta-spec had routes.
       const productExists = fs.existsSync(productSpecPath);
       const featuresWillExist = fs.existsSync(featuresPath) || specSyncWouldTouchFeaturesDir;
-      const malformed =
-        productExists &&
-        hasUnclosedFence(fs.readFileSync(productSpecPath, 'utf-8').split('\n'));
-      if (malformed) {
+      const declined = productExists
+        ? inspectProductSpecSync(fs.readFileSync(productSpecPath, 'utf-8'), featuresWillExist)
+        : null;
+      if (declined !== null) {
         // A refusal is a planned NON-mutation: say it here rather than let the
         // preview imply a write that will not happen.
-        planned.push({
-          action: 'skip',
-          target: productSpecPath,
-          detail:
-            'product.md has an unclosed code fence — its Feature Map is left untouched until the fence is closed',
-        });
-      } else if (!productExists || featuresWillExist) {
+        planned.push({ action: 'skip', target: productSpecPath, detail: declined.detail });
+      } else {
         planned.push({
           action: 'write',
           target: productSpecPath,
@@ -1064,7 +1186,8 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       }
     } else {
       try {
-        await generateProductSpec(featuresPath, productSpecPath, projectName);
+        productSpecDeclined = (await generateProductSpec(featuresPath, productSpecPath, projectName))
+          .declined;
       } catch {
         // Product Spec sync failure is non-fatal — including a read failure on an
         // existing file, which the splice path added as a new throw source
@@ -1108,6 +1231,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     notFound,
     pendingConvergence,
     droppedBehavior,
+    productSpecDeclined,
   };
 }
 
