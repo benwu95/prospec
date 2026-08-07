@@ -61,6 +61,37 @@ function write(relPath: string, content: string): void {
 }
 
 describe('check.service execute', () => {
+  // Same class of gap as the spec-counters wiring below: the collector's own unit
+  // test proves a promoted convention is graded `l1`, but nothing proved the
+  // SERVICE hands it the list — replacing the argument with a literal `[]` left
+  // all 3,287 tests green. `additional_core_conventions` is what index.md lists
+  // under "Core Conventions (L1)", so mis-wiring it grades that file against
+  // 10,000 instead of 1,800: a budget silently exempting the file its own index.md
+  // declares.
+  it('wires additional_core_conventions into the knowledge-size collector (REQ-SERVICES-065)', async () => {
+    write('prospec/index.md', 'A'.repeat(40));
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(40));
+    // 8,000 tokens: over l1_per_file (1,800) but under demand_knowledge_per_file
+    // (10,000), so the two kinds give opposite verdicts on the same file.
+    write('prospec/ai-knowledge/_team-style.md', 'T'.repeat(32_000));
+    write('.prospec.yaml', [
+      'project:',
+      '  name: t',
+      'knowledge:',
+      '  additional_core_conventions:',
+      '    - _team-style.md',
+    ].join('\n'));
+
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const finding = result.report.structural.findings.find(
+      (f) => f.check === 'knowledge-size' && f.source_path.endsWith('_team-style.md'),
+    );
+    expect(finding, 'a promoted convention over l1_per_file must warn').toBeDefined();
+    expect(finding!.detail).toContain('l1_per_file');
+    expect(finding!.detail).not.toContain('demand_knowledge_per_file');
+  });
+
   // Nothing pinned this wiring: pointing the collector at a non-existent
   // directory left the entire suite green, and `spec-counters` would have skipped
   // in every real project forever. The check's own unit tests call the evaluator

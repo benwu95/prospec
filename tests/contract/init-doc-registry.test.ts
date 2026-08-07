@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { INIT_DOC_REGISTRY } from '../../src/types/conventions.js';
 import { renderTemplate } from '../../src/lib/template.js';
 import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import { filterConventions } from '../../src/lib/scanner.js';
 import { ALL_INITIAL_CONVENTION_DOCS } from '../../src/types/conventions.js';
 
@@ -31,6 +32,7 @@ describe('INIT_DOC_REGISTRY templates render (issue #48)', () => {
     knowledgeBasePath: 'prospec/ai-knowledge',
     coreConventions: core,
     demandConventions: demand,
+    tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
   });
 
   it.each(INIT_DOC_REGISTRY.map((doc) => [doc.template, doc]))(

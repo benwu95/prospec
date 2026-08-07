@@ -44,6 +44,17 @@ knowledge:
   base_path: {{base_dir}}/ai-knowledge
   strategy: auto
   token_budget:
+    # index.md and each core convention
     l1_per_file: 1800
+    # each module README and each extracted sub-module
     l2_per_module: 1000
     readme_max_lines: 100
+    # each Feature Spec (and product.md)
+    spec_per_file: 5000
+    # each load-on-demand knowledge file (lessons ledger, playbook, ...)
+    demand_knowledge_per_file: 10000
+    # each deployed SKILL.md / reference — measured only where this project
+    # holds the skill template sources
+    skill_per_file: 5000
+    # each generated skill reference, read on demand by one phase
+    reference_per_file: 2500

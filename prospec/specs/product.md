@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 1.0.0
-last_updated: 2026-08-06
+last_updated: 2026-08-07
 ---
 
 # prospec — Progressive Spec-Driven Development for AI agents

@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { scanDirSync, classifyModulePath } from './scanner.js';
+import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { GENERATED_SOURCE_ARTIFACTS } from './generated-artifacts.js';
@@ -22,12 +22,12 @@ import {
   readModuleReadme,
 } from './knowledge-reader.js';
 import { estimateTokens } from './token-accounting.js';
-import { CORE_CONVENTIONS } from '../types/conventions.js';
 import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
-import type { KnowledgeSizeBudget } from '../types/config.js';
+import { AGENT_CONFIGS } from '../types/skill.js';
+import type { KnowledgeSizeBudget, KnowledgeSizeKind } from '../types/config.js';
 
 /**
  * Drift source collectors — ALL filesystem/git I/O for `prospec check`
@@ -131,9 +131,6 @@ export interface McpReadmeCountSource {
   reason?: string;
   claims: McpReadmeCountClaim[];
 }
-
-/** Which progressive-loading layer a knowledge file belongs to. */
-export type KnowledgeSizeKind = 'l1' | 'l2';
 
 export interface KnowledgeSizeItem {
   /** repo-relative path of the measured knowledge file */
@@ -649,21 +646,24 @@ export function collectMcpReadmeCounts(
 }
 
 /**
- * Collect token/line sizes of the knowledge files the progressive-loading
- * budget governs (REQ-LIB-027): `index.md` + each core convention (L1) and
- * every module README (L2). Sizes come from the deterministic `estimateTokens`
- * (chars-per-token) so the check stays zero-LLM; the pure evaluator compares
- * them against `budget`. L0 (`AGENTS.md`/`CLAUDE.md`) is agent-injected config,
- * not a knowledge-base file, and is out of scope. The whole check skips when the
- * knowledge base is absent — never a fabricated pass. Module READMEs are
- * enumerated straight from `modules/` (no module-map needed: sizing needs only
- * the file, and the module name is its directory).
+ * Collect token/line sizes of every knowledge file the progressive-loading budget
+ * governs (REQ-LIB-027): `index.md` + each core convention (L1), every module
+ * README and sub-module (L2), every Feature Spec and `product.md` (spec), the
+ * load-on-demand governance files (demand-knowledge), and — only where the project
+ * authors skills — each deployed `SKILL.md` and reference. Sizes come from the
+ * deterministic `estimateTokens` (chars-per-token) so the check stays zero-LLM; the
+ * pure evaluator compares them against `budget`. L0 (`AGENTS.md`/`CLAUDE.md`) is
+ * agent-injected config, not a knowledge-base file, and is out of scope. The whole
+ * check skips when the knowledge base is absent — never a fabricated pass. Module
+ * READMEs are enumerated straight from `modules/` (no module-map needed: sizing
+ * needs only the file, and the module name is its directory).
  */
 export function collectKnowledgeSize(
   cwd: string,
   baseDir: string,
   knowledgePath: string,
   budget: KnowledgeSizeBudget,
+  additionalCore: string[],
 ): KnowledgeSizeSource {
   if (!existsSync(path.resolve(cwd, knowledgePath))) {
     return {
@@ -685,34 +685,224 @@ export function collectKnowledgeSize(
     });
   };
 
-  // L1 — index.md (via the canonical base-dir reader, so this can never disagree
-  // with the services that write it) + each core convention.
+  // L1 / demand-knowledge — index.md (via the canonical base-dir reader, so this
+  // can never disagree with the services that write it) plus BOTH halves of the
+  // convention split. The split is the one `filterConventions` call index.md's own
+  // Conventions block is generated from, `additionalCore` included: a project that
+  // promotes a file to `additional_core_conventions` has it listed under "Core
+  // Conventions (L1)" in index.md, so grading it against the load-on-demand budget
+  // — 10,000 instead of 1,800 — would silently exempt it from the budget its own
+  // index.md declares. Load-on-demand conventions are deliberately NOT core: a file
+  // read in slices has no business being graded against the per-file budget of a
+  // document read whole (issue #135).
   measure(path.relative(cwd, path.resolve(cwd, baseDir, 'index.md')), 'l1', readIndex(baseDir));
-  for (const conv of CORE_CONVENTIONS) {
-    const rel = path.join(knowledgeRel, conv);
-    measure(rel, 'l1', readContainedFile(cwd, rel));
+  const { core, demand } = filterConventions(conventionFileNames(cwd, knowledgeRel), additionalCore);
+  for (const [names, kind] of [[core, 'l1'], [demand, 'demand-knowledge']] as const) {
+    for (const name of names) {
+      const rel = path.join(knowledgeRel, name);
+      measure(rel, kind, readContainedFile(cwd, rel));
+    }
   }
 
   // L2 — every module README under modules/, plus each extracted sub-module
   // sibling: the conventions give a sub-module the SAME budget as a README, so
   // measuring only the README would let an extraction move knowledge out of the
   // budget's sight instead of making it smaller.
+  // `existsSync` is not enough of a guard: `modules` being a FILE (ENOTDIR) or
+  // unreadable (EACCES) makes `readdirSync` throw, and this collector is an
+  // argument to `runChecks(...)` — the throw would take all fifteen verdicts.
   const modulesDir = path.resolve(cwd, knowledgePath, 'modules');
-  if (existsSync(modulesDir)) {
-    for (const name of readdirSync(modulesDir).sort()) {
-      if (!isSafeResourceName(name)) continue;
-      for (const file of moduleKnowledgeFiles(modulesDir, name)) {
-        const rel = path.join(knowledgeRel, 'modules', name, file);
-        measure(
-          rel,
-          'l2',
-          file === 'README.md' ? readModuleReadme(knowledgePath, name) : readContainedFile(cwd, rel),
-        );
-      }
+  for (const name of readdirNamesOrEmpty(modulesDir)) {
+    if (!isSafeResourceName(name)) continue;
+    for (const file of moduleKnowledgeFiles(modulesDir, name)) {
+      const rel = path.join(knowledgeRel, 'modules', name, file);
+      measure(
+        rel,
+        'l2',
+        file === 'README.md' ? readModuleReadme(knowledgePath, name) : readContainedFile(cwd, rel),
+      );
     }
   }
 
+  // spec — product.md + every Feature Spec, RECURSIVELY: a spec sliced into
+  // `features/{feature}/{slice}.md` must stay measured, or splitting an
+  // over-budget spec would move it out of the budget's sight instead of making it
+  // smaller (the same failure mode sub-module extraction had).
+  const specsRel = path.relative(cwd, path.resolve(cwd, baseDir, 'specs')).replace(/\\/g, '/');
+  const productRel = path.join(specsRel, 'product.md');
+  measure(productRel, 'spec', readContainedFile(cwd, productRel));
+  for (const rel of budgetedMarkdownFiles(cwd, path.join(specsRel, 'features'))) {
+    measure(rel, 'spec', readContainedFile(cwd, rel));
+  }
+
+  // skill / reference — only where the project holds the skill template sources.
+  // A project that merely consumes generated skills cannot act on such a finding,
+  // and an unactionable WARN is the shape this check exists to avoid.
+  if (existsSync(path.resolve(cwd, SKILL_TEMPLATE_SOURCE_DIR))) {
+    for (const item of collectAuthoredSkillItems(cwd)) items.push(item);
+  }
+
   return { available: true, budget, items };
+}
+
+/**
+ * Authoring mode — the project holds the skill templates that generate the
+ * deployed `SKILL.md` files, so a size finding on one names something it can fix.
+ */
+const SKILL_TEMPLATE_SOURCE_DIR = 'src/templates/skills';
+
+/**
+ * Top-level `_*.md` names under the knowledge base — the same glob
+ * `scanDir('_*.md', { cwd: knowledgeRoot })` gives the index writers, listed here
+ * without `scanDirSync` for the reasons `budgetedMarkdownFiles` documents.
+ *
+ * Two deliberate divergences from those writers, both in the direction of
+ * measuring MORE (a budget that exempts a file silently fails open, which is the
+ * defect this check exists to remove): `SENSITIVE_PATTERNS` is not applied, so
+ * `_secret-rotation-rules.md` is measured though index.md does not list it; and a
+ * SYMLINKED `_*.md` is measured, where the writers' `onlyFiles: true` +
+ * `followSymbolicLinks: false` drops it. Both are gaps on the writers' side.
+ */
+function conventionFileNames(cwd: string, knowledgeRel: string): string[] {
+  try {
+    return readdirSync(path.resolve(cwd, knowledgeRel), { withFileTypes: true })
+      .filter((e) => !e.isDirectory() && e.name.startsWith('_') && e.name.endsWith('.md'))
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Directory entry names, or `[]` when the path is missing, a file, or unreadable. */
+function readdirNamesOrEmpty(absDir: string): string[] {
+  try {
+    return readdirSync(absDir).sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every `.md` under `dirRel`, recursively, as sorted repo-relative paths.
+ *
+ * Deliberately NOT `markdownFiles`/`scanDirSync`, which this collector briefly
+ * used and must not, for two measured reasons. (1) `scanDirSync` THROWS
+ * `ScanError` on an unreadable entry, and `collectKnowledgeSize` is evaluated as
+ * an ARGUMENT to `runChecks(...)` — one `references/` path that is a file rather
+ * than a directory took all fifteen verdicts down with it. This walk closes the
+ * shapes THIS collector owns; an EACCES directory under a `markdownRoots` path
+ * still aborts the run from `collectMarkdownLinks`' `scanDirSync`, and a
+ * `specs/features` that is a file aborts it from `collectReqDefinitions`' bare
+ * `readdirSync` — both pre-existing, reproducible on the parent commit, and NOT
+ * fixed here. (2) It merges `SENSITIVE_PATTERNS`, which
+ * silently drops a Feature Spec named `secret-rotation.md` or
+ * `credential-vault.md`; a budget gate that fails OPEN is the exact defect this
+ * check exists to remove, and a spec is not a credential.
+ *
+ * `isSafeResourceName` is the ONE name filter — it admits only `[A-Za-z0-9]`-initial
+ * names, which already excludes `_archived*` artifacts and dotfiles. A symlinked
+ * `.md` FILE is a candidate (containment stays the canonical reader's realpath
+ * check, and skipping it would silently drop a real measurement — the argument
+ * `moduleKnowledgeFiles` makes), but a symlinked sub-DIRECTORY is NOT descended
+ * into: `followSymbolicLinks: false` is what the replaced `scanDirSync`
+ * guaranteed, and without it one `features/loop -> ..` turns a single spec into
+ * tens of thousands of duplicate items. `depth` is the backstop for a deep real tree.
+ *
+ * The walk ROOT is deliberately NOT given that rule, even though `readdirSync`
+ * resolves the last segment of its own argument. Refusing a symlinked root was
+ * tried and reverted: it silently zeroed every measurement for a project that
+ * legitimately symlinks `specs/features` or a skill's `references/` — a budget
+ * failing OPEN on a normal deployment, which is worse than the bounded oddity it
+ * prevented (a self-referential root like `references -> ..` re-listing one file
+ * under the wrong kind, one level deep, from a configuration nothing generates).
+ */
+function budgetedMarkdownFiles(cwd: string, dirRel: string, depth = 10): string[] {
+  if (depth <= 0) return [];
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(path.resolve(cwd, dirRel), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found: string[] = [];
+  for (const entry of entries) {
+    if (!isSafeResourceName(entry.name)) continue;
+    const rel = path.join(dirRel, entry.name).replace(/\\/g, '/');
+    // A `.md` name is a file candidate even when it is a symlink or an unreadable
+    // directory — the reader turns those into "absent" without erroring.
+    if (entry.name.endsWith('.md')) found.push(rel);
+    else if (entry.isDirectory()) found.push(...budgetedMarkdownFiles(cwd, rel, depth - 1));
+  }
+  return found.sort();
+}
+
+/**
+ * The deployed skill artifacts, deduplicated across every agent skill path. The
+ * same skill is written to `.claude/skills` AND `.agents/skills`, so measuring
+ * each copy would multiply one oversized skill into one finding per agent. The
+ * LARGEST copy is kept — the budget asks whether the skill fits, and the worst
+ * case is the binding one.
+ *
+ * Identity is `{skill}` for a SKILL.md and `{skill}/{basename}` for a reference —
+ * the SKILL name is part of the key on purpose. Keying a reference by basename
+ * alone deduplicates across DIFFERENT skills, and two skills may ship different
+ * files under one basename: the smaller one then disappears and can never warn.
+ * Deduplicating only what deployment actually duplicates (one skill NAME across
+ * agent paths) costs a second finding for a shared oversized reference and buys
+ * back the guarantee that nothing measured is silently dropped.
+ *
+ * The key is the directory name, so two differently-named directories are two
+ * skills even when one is a symlink to the other — deliberately: the harness
+ * dispatches on the directory name, so it really would load both, and collapsing
+ * them by resolved path would under-report a genuinely doubled load.
+ */
+function collectAuthoredSkillItems(cwd: string): KnowledgeSizeItem[] {
+  const largestByName = new Map<string, KnowledgeSizeItem>();
+  const consider = (name: string, item: KnowledgeSizeItem): void => {
+    const key = `${item.kind}:${name}`;
+    const seen = largestByName.get(key);
+    if (seen === undefined || item.tokens > seen.tokens) largestByName.set(key, item);
+  };
+  // Sorted so a tie between two agent paths resolves to the same copy on every
+  // machine (the first wins — `consider` replaces only on strictly greater).
+  const skillPaths = [...new Set(Object.values(AGENT_CONFIGS).map((a) => a.skillPath))].sort();
+  for (const skillPath of skillPaths) {
+    let skillDirs: Dirent[];
+    try {
+      skillDirs = readdirSync(path.resolve(cwd, skillPath), { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const dir of skillDirs) {
+      // A symlinked skill directory reports `isDirectory() === false`; skipping it
+      // would leave a really-deployed skill unmeasured (budget failing open).
+      if (!(dir.isDirectory() || dir.isSymbolicLink()) || !isSafeResourceName(dir.name)) continue;
+      const skillRel = path.join(skillPath, dir.name, 'SKILL.md').replace(/\\/g, '/');
+      const skillText = readContainedFile(cwd, skillRel);
+      if (skillText !== null) {
+        consider(dir.name, {
+          source_path: skillRel,
+          kind: 'skill',
+          tokens: estimateTokens(skillText),
+          lines: countLines(skillText),
+        });
+      }
+      for (const relPath of budgetedMarkdownFiles(cwd, path.join(skillPath, dir.name, 'references'))) {
+        const refText = readContainedFile(cwd, relPath);
+        if (refText === null) continue;
+        consider(`${dir.name}/${path.basename(relPath)}`, {
+          source_path: relPath,
+          kind: 'reference',
+          tokens: estimateTokens(refText),
+          lines: countLines(refText),
+        });
+      }
+    }
+  }
+  return [...largestByName.values()].sort((a, b) =>
+    a.source_path < b.source_path ? -1 : a.source_path > b.source_path ? 1 : 0,
+  );
 }
 
 /** Collect checkbox/kind state from every active change's tasks.md. */

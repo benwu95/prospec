@@ -1,4 +1,5 @@
 import { isProvenanceAudited } from '../types/change.js';
+import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
 import {
   DRIFT_CHECK_IDS,
   DRIFT_REPORT_FILENAME,
@@ -464,50 +465,41 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
 }
 
 /**
- * Knowledge size budget — an L1 file (index.md or a core convention) over the
- * per-file token budget, or a module README over its per-module token or line
- * budget, warns (REQ-LIB-027). WARN-class: the progressive-loading budget is a
- * pressure signal against silent regrowth, never a build breaker. Turns the
- * long-declared-but-unenforced index.md layer budgets into a machine check; L0
- * (agent-injected config) is out of scope. An unavailable source (no knowledge
- * base) skips, never a fabricated pass.
+ * Knowledge size budget — a measured knowledge file over the budget its load
+ * surface is graded against warns (REQ-LIB-027). Every surface is graded through
+ * one registry (`KNOWLEDGE_SIZE_RULES`), so which budget applies and what an
+ * over-budget file should DO about it live together instead of in per-kind
+ * branches; only a surface whose rule declares a `lineKey` is graded on lines.
+ * WARN-class: the progressive-loading budget is a pressure signal against silent
+ * regrowth, never a build breaker. L0 (agent-injected config) is out of scope. An
+ * unavailable source (no knowledge base) skips, never a fabricated pass.
  */
 export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   if (!src.available) {
     return skipped('knowledge-size', src.reason ?? 'source unavailable');
   }
   const findings: DriftFinding[] = [];
+  const warn = (source_path: string, detail: string): void => {
+    findings.push({ check: 'knowledge-size', severity: 'warn', source_path, detail });
+  };
   for (const item of src.items) {
-    if (item.kind === 'l1') {
-      if (item.tokens > src.budget.l1_per_file) {
-        findings.push({
-          check: 'knowledge-size',
-          severity: 'warn',
-          source_path: item.source_path,
-          detail:
-            `L1 file over budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
-            `> ${src.budget.l1_per_file} per-file budget`,
-        });
-      }
-      continue;
+    const rule: KnowledgeSizeRule = KNOWLEDGE_SIZE_RULES[item.kind];
+    const tokenBudget = src.budget[rule.tokenKey];
+    if (item.tokens > tokenBudget) {
+      warn(
+        item.source_path,
+        `${rule.label} over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
+          `> ${tokenBudget} ${rule.tokenKey} budget — ${rule.remedy}`,
+      );
     }
-    if (item.tokens > src.budget.l2_per_module) {
-      findings.push({
-        check: 'knowledge-size',
-        severity: 'warn',
-        source_path: item.source_path,
-        detail:
-          `L2 file over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
-          `> ${src.budget.l2_per_module} per-module budget`,
-      });
-    }
-    if (item.lines > src.budget.readme_max_lines) {
-      findings.push({
-        check: 'knowledge-size',
-        severity: 'warn',
-        source_path: item.source_path,
-        detail: `L2 file over line budget: ${item.lines} lines > ${src.budget.readme_max_lines} budget`,
-      });
+    if (rule.lineKey === undefined) continue;
+    const lineBudget = src.budget[rule.lineKey];
+    if (item.lines > lineBudget) {
+      warn(
+        item.source_path,
+        `${rule.label} over line budget: ${item.lines} lines > ${lineBudget} ` +
+          `${rule.lineKey} budget — ${rule.remedy}`,
+      );
     }
   }
   return outcome('knowledge-size', findings);

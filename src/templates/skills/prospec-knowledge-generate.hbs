@@ -39,7 +39,7 @@ first-ever run still needs the full init.
 
 {{> knowledge-loading-rules}}
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's current settings are L1 ≤{{l1_per_file}}/file, L2 ≤{{l2_per_module}}/module, ≤{{readme_max_lines}} lines. When writing `index.md`'s budget note, cite `.prospec.yaml` `knowledge.token_budget` as the source (and `prospec check knowledge-size` as the enforcement), never an internal constant name.
+**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤{{l1_per_file}}, L2 ≤{{l2_per_module}} and ≤{{readme_max_lines}} lines, Spec ≤{{spec_per_file}}, Demand ≤{{demand_knowledge_per_file}}, Skill ≤{{skill_per_file}}, reference ≤{{reference_per_file}}. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
 
 ## Core Workflow
 
@@ -145,7 +145,7 @@ The `prospec:auto` block contains two auto-generated sections. Populate them wit
 1. **Conventions**:
    - Scan the `{{knowledge_base_path}}/` directory for `.md` files (excluding `_index.md`).
    - List them under **Core Conventions (L1)** if they are built-in core files (e.g. `_conventions.md`) or defined in `.prospec.yaml`'s `additional_core_conventions`.
-   - List the rest under **Load-on-Demand Conventions (L2)**.
+   - List the rest under **Load-on-Demand Conventions**.
 
 2. **Modules**: Fill the module table using the new format:
 

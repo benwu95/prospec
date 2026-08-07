@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3240%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3293%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -714,18 +714,24 @@ Constitution audit is split: severities and the rule list come from the machine 
 violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported
 `not-adjudicated` (never PASS) and grade S becomes unreachable.
 
-**Tuning the `knowledge-size` budgets** — the token/line thresholds default to `l1_per_file: 1800`, `l2_per_module: 1000`, `readme_max_lines: 100` and are overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
+**Tuning the `knowledge-size` budgets** — `knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
 ```yaml
 # .prospec.yaml
 knowledge:
   token_budget:
-    l1_per_file: 1800       # max tokens per L1 file (index.md + each core convention)
-    l2_per_module: 1000     # max tokens per module file (README and each sub-module)
-    readme_max_lines: 100   # max lines per module file
+    l1_per_file: 1800               # max tokens per L1 file (index.md + each core convention)
+    l2_per_module: 1000             # max tokens per module file (README and each sub-module)
+    readme_max_lines: 100           # max lines per module file
+    spec_per_file: 5000             # max tokens per Feature Spec (and product.md)
+    demand_knowledge_per_file: 10000 # max tokens per load-on-demand knowledge file
+    skill_per_file: 5000            # max tokens per generated SKILL.md
+    reference_per_file: 2500        # max tokens per generated skill reference
 ```
 
-`prospec init` seeds these three fields into a new project's `.prospec.yaml` so they are explicit and adjustable from day one; anything you delete falls back to the default. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code).
+A freshly initialized project's `.prospec.yaml` carries no `token_budget` block, so every threshold resolves from the shipped default above; run `prospec config example` for the fully annotated block to copy the fields you want to change. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code), and each finding names the convergence path for its surface rather than a generic "please compress": slice a Feature Spec under `specs/features/{feature}/`, run `/prospec-learn`'s Staleness Sweep on a governance file, extract a sub-module from an L2 file.
+
+Two of these deserve their own note. **Feature Specs grow monotonically** — every archived change appends graduated REQs and nothing ever removes them — so the surface that dominates a mature project's load is the one that had no budget at all before; slices under `specs/features/{feature}/` are measured against the same `spec_per_file`, so splitting a spec cannot move it out of the budget's sight. **Skill files are measured only in authoring projects**, detected by the presence of the skill template sources: a project that merely consumes generated skills cannot act on a finding about one, and an unactionable WARN is exactly what this check exists to avoid.
 
 </details>
 
@@ -752,7 +758,7 @@ Key configurations you can tweak:
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
 - **`knowledge.strategy`**: Determines how the project is split into modules during knowledge generation (`auto`, `architecture`, `domain`, `package`).
-- **`knowledge.token_budget`**: Controls token/line size limits for L1 and L2 knowledge files.
+- **`knowledge.token_budget`**: Controls the per-file token/line limits `knowledge-size` grades, one per load surface — L1 files, L2 module knowledge, Feature Specs, load-on-demand knowledge, and (in skill-authoring projects) every deployed skill and its references, hand-authored ones included.
 - **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
 - **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
 
@@ -819,7 +825,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3240 tests)
+# Run all tests (3293 tests)
 pnpm test
 
 # Watch mode
@@ -832,9 +838,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3240 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2340 tests
-- Contract tests (CLI output + Skill format): 789 tests
+**Test Coverage**: 3293 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2391 tests
+- Contract tests (CLI output + Skill format): 791 tests
 - Integration tests: 45 tests
 - E2E tests: 66 tests
 

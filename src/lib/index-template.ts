@@ -1,4 +1,5 @@
 import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
+import type { KnowledgeSizeBudget } from '../types/config.js';
 
 /**
  * Context for `knowledge/index.md.hbs` and its `index-auto-block` partial.
@@ -21,6 +22,13 @@ export interface IndexTemplateOptions {
   knowledgeBasePath: string;
   coreConventions: string[];
   demandConventions: string[];
+  /**
+   * Resolved knowledge-size budget. `index.md.hbs` includes the shared
+   * `knowledge-loading-rules` partial, whose table renders one number per budget
+   * field — Handlebars renders an unset variable as the EMPTY STRING, so omitting
+   * this ships an index.md declaring `≤  tokens per file`.
+   */
+  tokenBudget: KnowledgeSizeBudget;
   /** Prerendered Markdown module table (header + separator + rows). */
   modulesTable?: string;
 }
@@ -36,6 +44,9 @@ export function buildIndexTemplateContext(
     core_conventions: options.coreConventions,
     demand_conventions: options.demandConventions,
     index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
+    // Spread, never hand-listed: a threshold added to the budget must reach the
+    // loading-rules table without a second edit here.
+    ...options.tokenBudget,
     modules_table: options.modulesTable,
   };
 }

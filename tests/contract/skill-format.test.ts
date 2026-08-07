@@ -17,6 +17,7 @@ import {
   intersectCapabilities,
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import {
   CHANGE_STATUSES,
   PROVENANCE_AUDITED_STATUSES,
@@ -43,9 +44,10 @@ const TEMPLATE_CONTEXT = {
   language_is_english: true,
   language_native_paths: '`.prospec/changes/**`, `prospec/specs/_archived-history/**`',
   language_english_paths: '`prospec/CONSTITUTION.md`, `prospec/ai-knowledge/**`',
-  l1_per_file: 1800,
-  l2_per_module: 1000,
-  readme_max_lines: 100,
+  // Spread, never hand-listed: agent-sync injects the WHOLE resolved budget, and a
+  // trio written out here left four fields undefined, which Handlebars renders as
+  // the empty string — so a template naming a new budget stayed green.
+  ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
   // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
   // fixture models a fully-capable harness so the default renders exercise the
   // primary path; the degraded branch is rendered explicitly where it is asserted.
@@ -100,7 +102,23 @@ describe('Knowledge budget rendering (no leaked symbol, values from injected con
   // numbers come from the injected context (agent-sync's resolveKnowledgeTokenBudget),
   // not a hardcoded literal in the template. Downstream projects can only read the
   // rendered number and a source they can inspect — never the internal TS symbol.
-  const ctx = { ...TEMPLATE_CONTEXT, l1_per_file: 4242, l2_per_module: 2424, readme_max_lines: 77 };
+  // One distinct sentinel per budget field, DERIVED from the single source so a new
+  // threshold gets one automatically. A hand-listed trio is what let the shared
+  // partial keep a stale L2 row (naming Feature Specs at the module budget) while
+  // every contract test stayed green: Handlebars renders an unknown variable as the
+  // empty string, so an un-sentinelled field cannot be missed by any assertion.
+  const BUDGET_SENTINELS = Object.fromEntries(
+    Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((field, i) => [field, 4200 + i]),
+  ) as Record<keyof typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET, number>;
+  const ctx = { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS, l1_per_file: 4242, l2_per_module: 2424, readme_max_lines: 77 };
+
+  it('the shared loading-rules partial renders EVERY budget field', () => {
+    const content = renderTemplate('skills/prospec-plan.hbs', { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS });
+    const table = content.slice(content.indexOf('## Progressive Knowledge Loading Strategy'));
+    for (const [field, sentinel] of Object.entries(BUDGET_SENTINELS)) {
+      expect(table, `${field} has no row in the loading-rules table`).toContain(String(sentinel));
+    }
+  });
 
   for (const name of KNOWLEDGE_LOADING_SKILLS) {
     it(`${name}: leaks no internal budget symbol and takes the L1 budget from context`, () => {

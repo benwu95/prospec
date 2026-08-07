@@ -135,7 +135,7 @@ describe('CLI E2E', () => {
       // Core conventions are listed with knowledge-base-prefixed paths; the
       // playbook stays load-on-demand (never core).
       expect(indexContent).toContain('- `prospec/ai-knowledge/_conventions.md`');
-      const coreSection = indexContent.split('**Load-on-Demand Conventions (L2)**')[0];
+      const coreSection = indexContent.split('**Load-on-Demand Conventions**')[0];
       expect(coreSection).not.toContain('_playbook.md');
     });
 

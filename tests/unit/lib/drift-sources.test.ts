@@ -68,9 +68,19 @@ const MODULE_MAP: ModuleMap = {
 };
 
 describe('collectKnowledgeSize (REQ-LIB-027)', () => {
-  const BUDGET: KnowledgeSizeBudget = { l1_per_file: 1500, l2_per_module: 400, readme_max_lines: 100 };
+  const BUDGET: KnowledgeSizeBudget = {
+    l1_per_file: 1500,
+    l2_per_module: 400,
+    readme_max_lines: 100,
+    spec_per_file: 800,
+    demand_knowledge_per_file: 900,
+    skill_per_file: 700,
+    reference_per_file: 600,
+  };
   const baseDir = () => path.join(tmpDir, 'prospec');
   const knowledgePath = () => path.join(tmpDir, 'prospec', 'ai-knowledge');
+  const collect = (additionalCore: string[] = []) =>
+    collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET, additionalCore);
 
   it('measures index.md + core conventions as L1 and module READMEs as L2, with repo-relative paths', () => {
     write('prospec/index.md', 'A'.repeat(40)); // 40 chars → 10 tokens, 1 line
@@ -78,7 +88,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/ai-knowledge/modules/lib/README.md', 'line1\nline2\n'); // 12 chars → 3 tokens, 2 lines
     write('prospec/ai-knowledge/modules/types/README.md', 'C'.repeat(8)); // 2 tokens
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.available).toBe(true);
     expect(src.budget).toEqual(BUDGET);
 
@@ -93,7 +103,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
   });
 
   it('skips (never PASS) when the knowledge base is absent', () => {
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.available).toBe(false);
     expect(src.reason).toContain('source unavailable');
     expect(src.items).toHaveLength(0);
@@ -104,7 +114,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/ai-knowledge/modules/templates/README.md', 'B'.repeat(40)); // 10 tokens
     write('prospec/ai-knowledge/modules/templates/skill-authoring.md', 'C'.repeat(2000)); // 500 tokens > 400
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     const byPath = new Map(src.items.map((i) => [i.source_path, i]));
     expect(byPath.get('prospec/ai-knowledge/modules/templates/README.md')).toMatchObject({
       kind: 'l2',
@@ -119,7 +129,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
   it('emits nothing extra for a module directory holding only a README', () => {
     write('prospec/ai-knowledge/modules/lib/README.md', 'line1\nline2\n');
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.items.filter((i) => i.kind === 'l2')).toEqual([
       {
         source_path: 'prospec/ai-knowledge/modules/lib/README.md',
@@ -138,7 +148,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
       path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
     );
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.items.filter((i) => i.kind === 'l2')).toEqual([
       {
         source_path: 'prospec/ai-knowledge/modules/lib/README.md',
@@ -157,7 +167,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/ai-knowledge/modules/templates/zz-last.md', 'B'.repeat(8));
     write('prospec/ai-knowledge/modules/templates/README.md', 'C'.repeat(8));
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
       'prospec/ai-knowledge/modules/templates/README.md',
       'prospec/ai-knowledge/modules/templates/skill-authoring.md',
@@ -171,7 +181,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/ai-knowledge/modules/lib/notes.txt', 'Z'.repeat(8)); // not markdown
     write('prospec/ai-knowledge/modules/lib/.draft.md', 'W'.repeat(8)); // rejected by isSafeResourceName
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     const l2Paths = src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path);
     expect(l2Paths).toEqual(['prospec/ai-knowledge/modules/lib/README.md']);
   });
@@ -187,7 +197,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
       path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
     );
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.available).toBe(true);
     expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
       'prospec/ai-knowledge/modules/types/README.md',
@@ -200,7 +210,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/index.md', 'A'.repeat(40));
     mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/_conventions.md'), { recursive: true });
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.available).toBe(true);
     expect(src.items.map((i) => i.source_path)).toEqual(['prospec/index.md']);
   });
@@ -213,7 +223,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
       path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'),
     );
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.items.filter((i) => i.kind === 'l2')).toEqual([]);
   });
 
@@ -224,10 +234,337 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/lib/README.md'), { recursive: true });
     write('prospec/ai-knowledge/modules/lib/api-surface.md', 'Y'.repeat(8));
 
-    const src = collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET);
+    const src = collect();
     expect(src.items.filter((i) => i.kind === 'l2').map((i) => i.source_path)).toEqual([
       'prospec/ai-knowledge/modules/lib/api-surface.md',
     ]);
+  });
+
+  const pathsOf = (src: ReturnType<typeof collectKnowledgeSize>, kind: string): string[] =>
+    src.items.filter((i) => i.kind === kind).map((i) => i.source_path);
+
+  it('measures product.md and every Feature Spec as `spec`', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'A'.repeat(8));
+    write('prospec/specs/product.md', 'P'.repeat(40)); // 10 tokens
+    write('prospec/specs/features/sdd-workflow.md', 'S'.repeat(4000)); // 1000 tokens > 800
+    write('prospec/specs/features/design-phase.md', 'D'.repeat(8));
+
+    const src = collect();
+    expect(pathsOf(src, 'spec')).toEqual([
+      'prospec/specs/product.md',
+      'prospec/specs/features/design-phase.md',
+      'prospec/specs/features/sdd-workflow.md',
+    ]);
+    expect(src.items.find((i) => i.source_path === 'prospec/specs/features/sdd-workflow.md')).toMatchObject({
+      kind: 'spec',
+      tokens: 1000,
+    });
+  });
+
+  // Without recursion, slicing an over-budget spec into `features/{feature}/` would
+  // move it OUT of the budget's sight — the same way measuring only READMEs once
+  // let a sub-module extraction escape the L2 budget.
+  it('recurses into a sliced Feature Spec directory, grading each slice as `spec`', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'A'.repeat(8));
+    write('prospec/specs/features/sdd-workflow.md', 'R'.repeat(8)); // routing stub
+    write('prospec/specs/features/sdd-workflow/stations.md', 'X'.repeat(4000)); // 1000 tokens
+    write('prospec/specs/features/sdd-workflow/gates.md', 'Y'.repeat(8));
+
+    const src = collect();
+    expect(pathsOf(src, 'spec')).toEqual([
+      'prospec/specs/features/sdd-workflow.md',
+      'prospec/specs/features/sdd-workflow/gates.md',
+      'prospec/specs/features/sdd-workflow/stations.md',
+    ]);
+  });
+
+  it('never errors when specs/ is absent', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'A'.repeat(8));
+    const src = collect();
+    expect(src.available).toBe(true);
+    expect(pathsOf(src, 'spec')).toEqual([]);
+  });
+
+  // The spec walk reuses the file's ONE markdown walker, so it inherits that
+  // walker's exclusions: `ARCHIVED_EXCLUDES` for archived artifacts (flat file AND
+  // directory form) and fast-glob's `dot: false` for hidden ones. Each exclusion
+  // gets its own fixture — asserting on one would pass with the other deleted.
+  it('excludes archived and hidden artifacts from the spec walk', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'A'.repeat(8));
+    write('prospec/specs/features/live.md', 'L'.repeat(8));
+    write('prospec/specs/features/_archived-old.md', 'O'.repeat(8));
+    write('prospec/specs/features/_archived-2025/superseded.md', 'S'.repeat(8));
+    write('prospec/specs/features/.draft.md', 'D'.repeat(8));
+
+    expect(pathsOf(collect(), 'spec')).toEqual([
+      'prospec/specs/features/live.md',
+    ]);
+  });
+
+  it('measures every load-on-demand convention as `demand-knowledge`, never as an L1 core convention', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8)); // core → L1
+    write('prospec/ai-knowledge/_lessons-ledger.md', 'L'.repeat(4000)); // 1000 tokens > 900
+    write('prospec/ai-knowledge/_playbook.md', 'P'.repeat(8));
+    // _module-readme-conventions.md deliberately absent — a partial set is normal
+
+    const src = collect();
+    expect(pathsOf(src, 'demand-knowledge')).toEqual([
+      'prospec/ai-knowledge/_lessons-ledger.md',
+      'prospec/ai-knowledge/_playbook.md',
+    ]);
+    expect(pathsOf(src, 'l1')).not.toContain('prospec/ai-knowledge/_lessons-ledger.md');
+  });
+
+  // index.md lists an `additional_core_conventions` entry under "Core Conventions
+  // (L1)". Splitting without that list here would grade it as load-on-demand — a
+  // 10,000-token budget on a file its own index.md declares at 1,800 — and the L1
+  // arm would never see it either, so the budget it declares could never fire.
+  it('grades an additional_core_convention as l1, exactly as index.md declares it', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/ai-knowledge/_team-style.md', 'T'.repeat(8000)); // 2000 tokens
+    write('prospec/ai-knowledge/_playbook.md', 'P'.repeat(8));
+
+    const promoted = collect(['_team-style.md']);
+    expect(pathsOf(promoted, 'l1')).toContain('prospec/ai-knowledge/_team-style.md');
+    expect(pathsOf(promoted, 'demand-knowledge')).toEqual(['prospec/ai-knowledge/_playbook.md']);
+
+    const notPromoted = collect();
+    expect(pathsOf(notPromoted, 'l1')).not.toContain('prospec/ai-knowledge/_team-style.md');
+    expect(pathsOf(notPromoted, 'demand-knowledge')).toEqual([
+      'prospec/ai-knowledge/_playbook.md',
+      'prospec/ai-knowledge/_team-style.md',
+    ]);
+  });
+
+  // A hand-written file list here would have measured nothing for a project that
+  // names its own governance file — index.md would list it as load-on-demand and
+  // the budget would be blind to it. The set is derived, so this holds.
+  it('measures a project-specific load-on-demand convention it was never told about', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/ai-knowledge/_house-review-rules.md', 'H'.repeat(4000)); // 1000 tokens > 900
+    write('prospec/ai-knowledge/raw-scan.md', 'R'.repeat(4000)); // not `_*.md` — a scan artifact
+    write('prospec/ai-knowledge/_index.md', 'I'.repeat(4000)); // legacy index, excluded by contract
+
+    const src = collect();
+    expect(pathsOf(src, 'demand-knowledge')).toEqual([
+      'prospec/ai-knowledge/_house-review-rules.md',
+    ]);
+  });
+
+  // The authoring gate is the whole point of US-2: a project that only CONSUMES
+  // generated skills cannot act on a size finding about one, so the difference the
+  // gate makes must be exactly those two kinds — not "roughly" those two.
+  it('collects skill/reference kinds only in authoring mode, and nothing else changes', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/specs/features/x.md', 'X'.repeat(8));
+    write('.claude/skills/prospec-verify/SKILL.md', 'V'.repeat(4000)); // 1000 tokens > 700
+    write('.claude/skills/prospec-verify/references/promotion-format.md', 'R'.repeat(8));
+
+    const consuming = collect();
+    expect(consuming.items.some((i) => i.kind === 'skill' || i.kind === 'reference')).toBe(false);
+
+    write('src/templates/skills/prospec-verify.hbs', 'template source');
+    const authoring = collect();
+
+    const key = (i: { source_path: string; kind: string }): string => `${i.kind}:${i.source_path}`;
+    const added = authoring.items.filter((i) => !consuming.items.some((c) => key(c) === key(i)));
+    expect(added.map(key).sort()).toEqual([
+      'reference:.claude/skills/prospec-verify/references/promotion-format.md',
+      'skill:.claude/skills/prospec-verify/SKILL.md',
+    ]);
+    expect(consuming.items.every((c) => authoring.items.some((a) => key(a) === key(c)))).toBe(true);
+  });
+
+  it('counts a skill deployed to two agent paths once, keeping the larger copy', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('src/templates/skills/prospec-verify.hbs', 'template source');
+    write('.claude/skills/prospec-verify/SKILL.md', 'A'.repeat(40)); // 10 tokens
+    write('.agents/skills/prospec-verify/SKILL.md', 'B'.repeat(400)); // 100 tokens — larger
+    write('.claude/skills/prospec-verify/references/plan-format.md', 'C'.repeat(400)); // 100 — larger
+    write('.agents/skills/prospec-verify/references/plan-format.md', 'D'.repeat(40)); // 10
+
+    const src = collect();
+    expect(src.items.filter((i) => i.kind === 'skill')).toEqual([
+      { source_path: '.agents/skills/prospec-verify/SKILL.md', kind: 'skill', tokens: 100, lines: 1 },
+    ]);
+    expect(src.items.filter((i) => i.kind === 'reference')).toEqual([
+      {
+        source_path: '.claude/skills/prospec-verify/references/plan-format.md',
+        kind: 'reference',
+        tokens: 100,
+        lines: 1,
+      },
+    ]);
+  });
+
+  // The whole collector is evaluated as an ARGUMENT to runChecks(...), so a throw
+  // here does not cost one item — it costs all fifteen check verdicts. `scanDirSync`
+  // throws ScanError on exactly these shapes, which is why the walk here does not
+  // use it. `it.skipIf` on Windows: chmod 0o000 does not revoke read there, so the
+  // EACCES half cannot be built; the ENOTDIR half still runs everywhere.
+  it('survives a references path that is a file rather than a directory', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('src/templates/skills/x.hbs', 'template source');
+    write('.claude/skills/foo/SKILL.md', 'S'.repeat(8));
+    write('.claude/skills/foo/references', 'not a directory');
+
+    const src = collect();
+    expect(src.available).toBe(true);
+    expect(pathsOf(src, 'skill')).toEqual(['.claude/skills/foo/SKILL.md']);
+    expect(pathsOf(src, 'reference')).toEqual([]);
+  });
+
+  // Scope note: this pins the COLLECTOR, not the whole run. An unreadable directory
+  // under a `markdownRoots` path still aborts `runChecks` from
+  // `collectReqReferences`' own `scanDirSync` — pre-existing, tracked separately.
+  //
+  // The `.hbs` write is load-bearing: without it the authoring gate short-circuits
+  // the entire skill arm, and the "under a skill" half of this case would be
+  // unreachable — a test that cannot fail for half of what it claims.
+  it.skipIf(process.platform === 'win32')(
+    'survives an unreadable directory under specs/features and under a skill',
+    () => {
+      write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+      write('src/templates/skills/x.hbs', 'template source');
+      write('prospec/specs/features/live.md', 'L'.repeat(8));
+      write('.claude/skills/foo/SKILL.md', 'S'.repeat(8));
+      write('.claude/skills/foo/references/ok.md', 'R'.repeat(8));
+      const lockedSpec = path.join(tmpDir, 'prospec/specs/features/locked');
+      const lockedRef = path.join(tmpDir, '.claude/skills/foo/references/locked');
+      mkdirSync(lockedSpec, { recursive: true });
+      mkdirSync(lockedRef, { recursive: true });
+      chmodSync(lockedSpec, 0o000);
+      chmodSync(lockedRef, 0o000);
+
+      const src = collect();
+      expect(src.available).toBe(true);
+      expect(pathsOf(src, 'spec')).toEqual(['prospec/specs/features/live.md']);
+      expect(pathsOf(src, 'skill')).toEqual(['.claude/skills/foo/SKILL.md']);
+      expect(pathsOf(src, 'reference')).toEqual(['.claude/skills/foo/references/ok.md']);
+
+      chmodSync(lockedSpec, 0o755);
+      chmodSync(lockedRef, 0o755);
+    },
+  );
+
+  // `existsSync` says yes for a FILE too, and `readdirSync` then throws ENOTDIR —
+  // the same all-fifteen-verdicts outage as the references case, from the L2 arm.
+  it('survives a modules path that is a file rather than a directory', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/ai-knowledge/modules', 'not a directory');
+
+    const src = collect();
+    expect(src.available).toBe(true);
+    expect(pathsOf(src, 'l2')).toEqual([]);
+    expect(pathsOf(src, 'l1')).toContain('prospec/ai-knowledge/_conventions.md');
+  });
+
+  // A project may legitimately symlink a whole tree (a shared specs directory, a
+  // skill's references). Refusing a symlinked walk ROOT was tried and reverted:
+  // it zeroed every measurement for such a project — the budget failing OPEN on a
+  // normal deployment. This pins that the root IS followed.
+  it.skipIf(process.platform === 'win32')(
+    'measures through a symlinked walk root, so a symlinked tree is not silently unmeasured',
+    () => {
+      write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+      write('prospec/specs/real-features/live.md', 'L'.repeat(4000)); // 1000 tokens > 800
+      symlinkSync('real-features', path.join(tmpDir, 'prospec/specs/features'));
+
+      expect(pathsOf(collect(), 'spec')).toEqual(['prospec/specs/features/live.md']);
+    },
+  );
+
+  // The replaced `scanDirSync` guaranteed `followSymbolicLinks: false`. Losing
+  // that turns one `features/loop -> ..` into tens of thousands of duplicate items
+  // (measured: 29,524 from a single real spec), so the walk descends into real
+  // directories only — a symlinked `.md` FILE stays a candidate.
+  it.skipIf(process.platform === 'win32')(
+    'does not descend into a symlinked directory, so a link loop cannot multiply items',
+    () => {
+      write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+      write('prospec/specs/features/live.md', 'L'.repeat(8));
+      write('prospec/specs/features/nested/slice.md', 'N'.repeat(8));
+      symlinkSync('..', path.join(tmpDir, 'prospec/specs/features/loop'));
+      symlinkSync('live.md', path.join(tmpDir, 'prospec/specs/features/aliased.md'));
+
+      expect(pathsOf(collect(), 'spec')).toEqual([
+        'prospec/specs/features/aliased.md',
+        'prospec/specs/features/live.md',
+        'prospec/specs/features/nested/slice.md',
+      ]);
+    },
+  );
+
+  // The depth guard is the backstop for a real (non-symlink) tree. Without it a
+  // pathological nesting walks unbounded; with it the walk stops and the run
+  // survives. 10 levels is the same bound `scanDirSync` applies.
+  it('stops descending past the depth bound instead of walking unbounded', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/specs/features/shallow.md', 'S'.repeat(8));
+    const deep = 'prospec/specs/features/' + Array.from({ length: 12 }, (_, i) => `d${i}`).join('/');
+    write(`${deep}/buried.md`, 'B'.repeat(8));
+
+    const specs = pathsOf(collect(), 'spec');
+    expect(specs).toContain('prospec/specs/features/shallow.md');
+    expect(specs).not.toContain(`${deep}/buried.md`);
+  });
+
+  // A spec is not a credential: `scanDirSync` merges SENSITIVE_PATTERNS
+  // (`**/*secret*`, `**/*credential*`, `**/*.env*`, `**/*.key`, `**/*.pem`), which
+  // would drop these files silently — a budget gate failing OPEN.
+  it('measures a Feature Spec whose name matches a sensitive-file pattern', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('prospec/specs/features/secret-rotation.md', 'S'.repeat(4000)); // 1000 tokens > 800
+    write('prospec/specs/features/credential-vault.md', 'V'.repeat(4000));
+    write('prospec/specs/features/env-setup.md', 'E'.repeat(8));
+
+    expect(pathsOf(collect(), 'spec')).toEqual([
+      'prospec/specs/features/credential-vault.md',
+      'prospec/specs/features/env-setup.md',
+      'prospec/specs/features/secret-rotation.md',
+    ]);
+  });
+
+  // Deduplication exists for the copies DEPLOYMENT makes (one skill, many agent
+  // paths). Keying a reference by basename alone also merges different skills'
+  // files, and the smaller of two same-named references then vanishes — it could
+  // never warn, however far over budget it was.
+  it('keeps same-named references from DIFFERENT skills apart', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('src/templates/skills/x.hbs', 'template source');
+    write('.claude/skills/prospec-plan/references/plan-format.md', 'A'.repeat(4000)); // 1000 tokens
+    write('.claude/skills/prospec-ff/references/plan-format.md', 'B'.repeat(2800)); // 700 tokens
+
+    expect(pathsOf(collect(), 'reference')).toEqual([
+      '.claude/skills/prospec-ff/references/plan-format.md',
+      '.claude/skills/prospec-plan/references/plan-format.md',
+    ]);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'measures a skill deployed as a symlinked directory (readdir reports it as not-a-directory)',
+    () => {
+      write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+      write('src/templates/skills/x.hbs', 'template source');
+      write('.claude/skills/real/SKILL.md', 'R'.repeat(4000)); // 1000 tokens
+      symlinkSync('real', path.join(tmpDir, '.claude/skills/aliased'));
+
+      expect(pathsOf(collect(), 'skill')).toEqual([
+        '.claude/skills/aliased/SKILL.md',
+        '.claude/skills/real/SKILL.md',
+      ]);
+    },
+  );
+
+  it('skips a skill directory entry that is not a directory, and a missing SKILL.md', () => {
+    write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
+    write('src/templates/skills/x.hbs', 'template source');
+    write('.claude/skills/README.md', 'not a skill dir'); // file, not a directory
+    mkdirSync(path.join(tmpDir, '.claude/skills/half-built'), { recursive: true }); // no SKILL.md
+    write('.claude/skills/real/SKILL.md', 'S'.repeat(8));
+
+    const src = collect();
+    expect(pathsOf(src, 'skill')).toEqual(['.claude/skills/real/SKILL.md']);
   });
 });
 
