@@ -98,7 +98,7 @@ detection over the unfiltered list when the narrowed pass finds nothing. Read th
 and the current `module-map.yaml` alongside it.
 
 - **Adding**: when a directory is this project's substance and `module-map.yaml` does not already
-  cover it, propose it as a module and write it only after the user confirms. Check the existing
+  cover it, propose it as a module. STOP. Ask the user to confirm the addition before writing. Check the existing
   `paths` first — a parent entry may already cover the directory the section lists.
 - **Removing**: when an entry is really a documentation or asset directory, propose removing it
   under the same confirm-first discipline.
@@ -167,7 +167,7 @@ domain split, keep ONE flat table — do not force grouping.
 
 - **Derive** each module's category from its paths, keywords, and purpose. Record it in
   `module-map.yaml` as an ordered `category: [primary, …secondary]` list — the single source of
-  truth. Propose it, confirm with the user, then write it back; on later runs read category from
+  truth. Propose it. STOP. Ask the user to confirm the categories before writing them back; on later runs read category from
   `module-map.yaml` and never re-guess a module that already has one.
 - **Primary first**: a module appears under its primary (`category[0]`) `### {Category}` heading
   **exactly once** — never list it under two headings (the index must stay duplicate-free). Secondary
@@ -229,6 +229,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** exceed {{readme_max_lines}} lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` (Step 4.5) before resorting to lossy trimming; agent uses L2 (source) for details
 - **NEVER** list sub-modules in `{{base_dir}}/index.md` or `module-map.yaml` — they are an L2 sub-layer reached only via the parent README's `## Sub-Modules` links
 - **NEVER** duplicate source code in README — use function signatures and 1-line descriptions; the README is a map, not a copy
+- **NEVER** use passive voice for confirmation wait points — always use an active imperative ("STOP. Ask the user...").
 
 ## Error Handling
 

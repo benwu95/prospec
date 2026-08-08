@@ -130,9 +130,10 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — the
-scaffold lands at `status: implemented`, so the next step is `/prospec-verify` (which grades
-spec-fidelity under `scale: backfill`); read `metadata.yaml` status and
-`prospec/ai-knowledge/_status-lifecycle.md`. Then ask **"Run `/prospec-verify` now? (Y/n)"**:
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
 on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
-the Y.
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.

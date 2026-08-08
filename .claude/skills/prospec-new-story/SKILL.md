@@ -61,7 +61,7 @@ Collect: Background (why), Role (who), Feature (what), Value (why it matters), C
 
 ### Phase 2: Derive Change Name
 
-Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm before proceeding.
+Derive a kebab-case name from interview results (verb-first, 2-4 words). STOP. Ask the user to confirm the change name before proceeding.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
@@ -163,10 +163,18 @@ Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `
 
 ### Phase 8: Summary + Next Steps
 
-Save proposal.md, suggest:
-1. `/prospec-plan` — proceed to planning (`scale: quick` skips plan — go to `/prospec-tasks` directly)
-2. `/prospec-ff` — fast-forward full planning (honours `scale`)
-3. Manually adjust proposal.md
+Save proposal.md.
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 
 ## Output Contract
 
@@ -201,6 +209,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
 - **NEVER** run `prospec change scale` without explicit user confirmation — a misjudged `quick` skips plan entirely
 - **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
+- **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
 
 ## Error Handling
 

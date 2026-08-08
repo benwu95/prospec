@@ -48,7 +48,7 @@ When triggered, briefly describe:
 | Design tool has existing design for this Story (check via adapter) | **Extract Mode** |
 | Otherwise | **Generate Mode** |
 
-3. Confirm detected mode with user before proceeding.
+3. STOP. Ask the user to confirm the detected mode before proceeding; do not proceed to Phase 2 until a reply is received.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
@@ -138,7 +138,7 @@ Display completion summary:
 - Platform artifacts (if any)
 - Unresolved items (if any)
 
-Suggest: `/prospec-plan` (if plan.md doesn't exist) or `/prospec-tasks` (if plan.md exists)
+{{> next-step-handoff}}
 
 ## Output Contract
 
@@ -165,6 +165,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** proceed with `ui_scope: none` — Design Phase has no value for backend-only changes; wasted tokens and user confusion
 - **NEVER** generate design specs without reading the adapter reference — each platform has unique MCP tools and capabilities; blind generation produces unusable specs
 - **NEVER** leave `[NEEDS CLARIFICATION]` unresolved — unresolved items propagate ambiguity to Tasks and Implement, causing inconsistent UI implementation
+- **NEVER** use passive voice for confirmation wait points — always use an active imperative ("STOP. Ask the user...").
 
 ## Error Handling
 
