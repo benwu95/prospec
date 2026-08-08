@@ -62,7 +62,7 @@ FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 ### Phase 1: Quick Interview (3 questions to converge)
 
 Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
-Derive kebab-case change name, confirm before proceeding.
+Derive kebab-case change name. STOP. Ask the user to confirm the change name; do not enter Phase 2 until a reply is received.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] change name (kebab-case) confirmed
@@ -73,7 +73,7 @@ Derive kebab-case change name, confirm before proceeding.
 | Step | Action |
 |------|--------|
 | Scaffold | Run `prospec change story [name] --description "<one-liner>"` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
-| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto); user confirms; write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
+| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |
 
@@ -111,7 +111,18 @@ Loading is still read). Status advances `story → tasks` directly
 
 ### Completion: Summary Report
 
-List all produced files, task statistics, suggest `/prospec-implement` as next step.
+List all produced files and task statistics.
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 
 ## Error Recovery
 
@@ -159,6 +170,8 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
+- **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
+- **NEVER** proceed into Phase 2 without the user's explicit reply to the change name, nor proceed past the Scale step without the user's explicit reply to the scale.
 
 ## Error Handling
 

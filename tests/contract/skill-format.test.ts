@@ -1448,7 +1448,7 @@ describe('Skill Format Contract', () => {
       expect(section).toContain('Directories Without Source Files');
       // 3. …and the write-back is gated on user confirmation, not autonomous.
       expect(section).toContain('module-map.yaml');
-      expect(section).toMatch(/only after the user confirms/);
+      expect(section).toContain('STOP. Ask the user to confirm the addition before writing');
       // 4. all three verbs are present — adding was not the whole contract.
       expect(section).toMatch(/\*\*Adding\*\*/);
       expect(section).toMatch(/\*\*Removing\*\*/);
@@ -2103,10 +2103,17 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
   const OUTPUT_NOTE = 'self-assess and emit a concise Output Summary';
 
   it('Next-Step Handoff is a partial single source: users reference it, none holds an inline copy (PB-006)', () => {
-    const users = SKILL_DEFINITIONS.map((s) => s.name).filter((n) =>
-      src(n).includes('{{> next-step-handoff}}'),
-    );
-    expect(users.length).toBeGreaterThanOrEqual(6); // dedup happened across the shared-handoff skills
+    // Contract test derives expected skills from SDD_STATIONS instead of hardcoded file names (PB-001)
+    const expectedUsers = [
+      'prospec-ff',
+      ...SDD_STATIONS.map((s) => (s === 'story' || s === 'promote' ? (s === 'story' ? 'prospec-new-story' : 'prospec-promote-backfill') : `prospec-${s}`)),
+    ].sort();
+
+    const users = SKILL_DEFINITIONS.map((s) => s.name)
+      .filter((n) => src(n).includes('{{> next-step-handoff}}'))
+      .sort();
+
+    expect(users).toEqual(expectedUsers);
     // a user that reverts to an inline paste (dropping the include) turns this red
     for (const n of users) expect(src(n)).not.toContain(HANDOFF);
     expect(readPartial('_next-step-handoff.hbs')).toContain(HANDOFF); // single source holds it

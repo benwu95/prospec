@@ -63,7 +63,7 @@ nondeterministic serialization this contract exists to remove.
 | Design tool has existing design for this Story (check via adapter) | **Extract Mode** |
 | Otherwise | **Generate Mode** |
 
-3. Confirm detected mode with user before proceeding.
+3. STOP. Ask the user to confirm the detected mode before proceeding; do not proceed to Phase 2 until a reply is received.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
@@ -153,7 +153,16 @@ Display completion summary:
 - Platform artifacts (if any)
 - Unresolved items (if any)
 
-Suggest: `/prospec-plan` (if plan.md doesn't exist) or `/prospec-tasks` (if plan.md exists)
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Then ask **"Run <next-step> now? (Y/n)"**:
+on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
+the Y. If the stage is terminal (`archived`), the linear flow is complete — point to periodic `/prospec-learn`
+rather than a workflow successor. If the result does not advance (e.g. verify grade B/C/D), say so and
+point to the corrective step instead of offering the next skill.
 
 ## Output Contract
 
@@ -180,6 +189,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** proceed with `ui_scope: none` — Design Phase has no value for backend-only changes; wasted tokens and user confusion
 - **NEVER** generate design specs without reading the adapter reference — each platform has unique MCP tools and capabilities; blind generation produces unusable specs
 - **NEVER** leave `[NEEDS CLARIFICATION]` unresolved — unresolved items propagate ambiguity to Tasks and Implement, causing inconsistent UI implementation
+- **NEVER** use passive voice for confirmation wait points — always use an active imperative ("STOP. Ask the user...").
 
 ## Error Handling
 

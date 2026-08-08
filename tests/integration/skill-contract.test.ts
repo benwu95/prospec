@@ -37,6 +37,7 @@ import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 // skills" integer (REQ-TESTS-039).
 const EXPECTED_STATUS_LIFECYCLE_SKILLS = [
   'prospec-archive',
+  'prospec-design',
   'prospec-ff',
   'prospec-implement',
   'prospec-new-story',

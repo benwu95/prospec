@@ -46,7 +46,7 @@ Collect: Background (why), Role (who), Feature (what), Value (why it matters), C
 
 ### Phase 2: Derive Change Name
 
-Derive a kebab-case name from interview results (verb-first, 2-4 words). Confirm before proceeding.
+Derive a kebab-case name from interview results (verb-first, 2-4 words). STOP. Ask the user to confirm the change name before proceeding.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
@@ -148,10 +148,9 @@ Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `
 
 ### Phase 8: Summary + Next Steps
 
-Save proposal.md, suggest:
-1. `/prospec-plan` — proceed to planning (`scale: quick` skips plan — go to `/prospec-tasks` directly)
-2. `/prospec-ff` — fast-forward full planning (honours `scale`)
-3. Manually adjust proposal.md
+Save proposal.md.
+
+{{> next-step-handoff}}
 
 ## Output Contract
 
@@ -186,6 +185,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
 - **NEVER** run `prospec change scale` without explicit user confirmation — a misjudged `quick` skips plan entirely
 - **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
+- **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
 
 ## Error Handling
 

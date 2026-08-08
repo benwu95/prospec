@@ -112,12 +112,4 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Candidate feature slug fails `prospec validate slug` | Reject; ask the user to confirm a safe slug |
 | No module resolves from the draft's `file:line` | STOP; `related_modules` cannot be empty — the draft's tracing is incomplete |
 
-## Next-Step Handoff
-
-After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — the
-scaffold lands at `status: implemented`, so the next step is `/prospec-verify` (which grades
-spec-fidelity under `scale: backfill`); read `metadata.yaml` status and
-`{{knowledge_base_path}}/_status-lifecycle.md`. Then ask **"Run `/prospec-verify` now? (Y/n)"**:
-on **Y**, invoke it in this session; on **n**, stop and leave the suggestion — never auto-run without
-the Y.
+{{> next-step-handoff}}
