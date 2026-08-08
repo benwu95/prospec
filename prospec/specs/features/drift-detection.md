@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-07
-story_count: 16
-req_count: 61
+last_updated: 2026-08-08
+story_count: 17
+req_count: 65
 ---
 
 # Deterministic Drift Check
@@ -37,7 +37,7 @@ A zero-LLM pure-function evaluator; the collector (I/O) is separated from the ev
 - WHEN module-map paths point outside the repo, THEN that path is clamped and does not drive scanning or file reads
 - WHEN a module-map paths entry is a single source file, THEN import-edge collection scans only that file itself (file/dir/glob determined by `classifyModulePath`); non-source-file entries produce no import edges (no longer expanded to `<file>/**` and hitting ENOTDIR)
 - WHEN a contained read is needed, THEN it goes through that single helper rather than a collector-local implementation, and the existence probe shares the same containment predicate
-- WHEN a collector reads a file it ENUMERATED from disk (feature specs, markdown roots, `tasks.md`, import sources), THEN a read failure skips that entry instead of throwing: each collector is evaluated as an argument to `runChecks(...)`, so one directory wearing a `.md` name used to take all fourteen other verdicts with it. Containment is deliberately not added at those sites — they keep scanning exactly what they scanned before; only the failure mode changes
+- WHEN a collector reads a file it ENUMERATED from disk (feature specs, markdown roots, `tasks.md`, import sources), THEN a read failure skips that entry instead of throwing: each collector is evaluated as an argument to `runChecks(...)`, so one directory wearing a `.md` name used to take all fifteen other verdicts with it. Containment is deliberately not added at those sites — they keep scanning exactly what they scanned before; only the failure mode changes
 
 ---
 
@@ -116,7 +116,7 @@ so that drift checks are enforced in the CI main pipeline without burning any to
 `execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the workflow template (rerun-safe, does not overwrite); the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
 
 #### REQ-CLI-011: `prospec check` command
-Flags `--json`/`--strict`/`--init-ci`; the human-readable output lists each of the five checks with its own status (skipped explicitly attaches a reason); untrusted repo strings are output after `sanitizeTerminal()` filters C0/C1 control characters.
+Flags `--json`/`--strict`/`--init-ci`; the human-readable output lists each of the sixteen checks with its own status (skipped explicitly attaches a reason); untrusted repo strings are output after `sanitizeTerminal()` filters C0/C1 control characters.
 
 #### REQ-TEMPLATES-091: CI Workflow template
 Two jobs: check (checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` enables pipefail, tee must not mask the exit code) → report artifact) + comment (**no checkout**, only downloads the artifact, an off-the-shelf sticky action posts a 4-space-indented code block — no fence can escape, `head -c 60000` cap). Supply-chain hardening is the default: third-party actions are pinned to full commit SHAs, minimal-privilege `permissions:`.
@@ -150,8 +150,8 @@ so that factual-count drift is intercepted by a machine in CI, no longer relying
 - WHEN module-map is missing, THEN `mcp-readme-counts` is skipped (with reason), never faking a PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**15**).
-- WHEN a check id is appended to the registry, THEN every prose copy of the total is updated in the same change. This spec's copies are enumerated by REQ id rather than counted — REQ-LIB-014 (as total − 1), REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045 — because a count of unguarded numbers is one more unguarded number, and this bullet said "three" while there were four. None of them has a machine guard; the ordinal statements ("the 11th frozen id") are historical and correctly frozen
+`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**16**).
+- WHEN a check id is appended to the registry, THEN every prose copy of the total is updated in the same change. This spec's copies are enumerated by REQ id rather than counted — REQ-LIB-014 (as total − 1), REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045, REQ-LIB-027 (twice), REQ-TESTS-074 and REQ-CLI-011 — because a count of unguarded numbers is one more unguarded number, and this enumeration has now under-counted itself three times: it said "three" while there were four, then named four while there were six, then six while there were seven. Treat a number stated in prose anywhere in this spec as a copy until proven an ordinal. None of them has a machine guard; the ordinal statements ("the 11th frozen id") are historical and correctly frozen
 
 #### REQ-LIB-020: README count collector + evaluator
 `collectMcpReadmeCounts` (I/O: a whitelist pattern captures README count declarations + counts `registerResource`/`registerTool` in the named file; string/template-literal/fenced-block-aware counting; skips the claim when the source is missing) + pure `evaluateMcpReadmeCounts` (declared ≠ actual → warn finding).
@@ -178,7 +178,7 @@ so that "review must precede verify" turns from process prose into a machine-che
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **15** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065; the 14th is `artifact-language`, see REQ-TYPES-072; the 15th is `spec-counters`, see REQ-TYPES-076). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
+`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **16** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065; the 14th is `artifact-language`, see REQ-TYPES-072; the 15th is `spec-counters`, see REQ-TYPES-076; the 16th is `delta-spec-provenance`, see REQ-TYPES-078). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
 - WHEN a check id is appended to the registry, THEN this total is updated in the same change
 - WHEN the total is read, THEN it equals `DRIFT_CHECK_IDS.length`
 
@@ -191,7 +191,10 @@ so that "review must precede verify" turns from process prose into a machine-che
 - Single in-flight change assumption: one whole-tree digest is compared against each change (fail-closed, not fail-open); widening the audited statuses widens that over-blocking, never opens it
 
 #### REQ-SERVICES-062: check.service injection + --record-review write path
-`check.service` injects `collectReviewProvenance` into `runChecks`; the `--record-review` branch uses `resolveChange` (`--change` can specify it, guarded by `existsSync`; if metadata is not found it honestly skips) → `computeChangeDigest` → a comment-preserving Document writes the metadata `review_provenance` (following the flag-gated side effects of `--json`/`--init-ci`; the pure check path stays read-only and deterministic).
+`check.service` injects `collectReviewProvenance` and `collectDeltaSpecProvenance` into `runChecks`; the `--record-review` branch uses `resolveChange` (`--change` can specify it, guarded by `existsSync`; if metadata is not found it honestly skips) → `computeChangeDigest` and `computeDeltaSpecDigest` → a comment-preserving Document that writes the metadata `review_provenance` and, when the change has a delta-spec, `delta_spec_provenance` in the same write (following the flag-gated side effects of `--json`/`--init-ci`; the pure check path stays read-only and deterministic).
+- WHEN `--record-review` runs, THEN both fingerprints are stamped in one document write so they describe the same moment
+- WHEN the change has no delta-spec, THEN only the review baseline is written and the omission is reported
+- WHEN the pure check path runs, THEN neither fingerprint is written
 
 #### REQ-CLI-012: prospec check --record-review flag
 `prospec check` adds `--record-review` (records the review baseline then exits) and `--change <name>` (targets record-review when multiple changes run in parallel), alongside `--json`/`--strict`/`--init-ci`; when the flags are absent, behavior is completely identical to the current one.
@@ -228,7 +231,7 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --json` and read `metadata-completeness`, FAIL → refuse archiving (when the CLI is absent, fall back to reading that change's metadata directly); prevents incomplete/ungraded metadata from entering the permanent record.
 
 #### REQ-TESTS-045: metadata-completeness engine tests
-`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 15 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language and spec-counters) — the S/A clause and the skill clause mutation-verified.
+`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 16 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language, spec-counters and delta-spec-provenance) — the S/A clause and the skill clause mutation-verified.
 - WHEN a check id is added to the registry, THEN the skipped-never-PASS assertion covers it too
 
 ---
@@ -259,7 +262,7 @@ so that the layered token budget — long declared but never mechanically enforc
 #### REQ-LIB-027: knowledge-size Collector + Evaluator
 `collectKnowledgeSize(cwd, baseDir, knowledgePath, budget, additionalCore)` (I/O) measures, through the canonical contained readers and `estimateTokens`/`countLines`: `index.md`, plus BOTH halves of one `filterConventions` split over the knowledge root's `_*.md` files — the `core` half as `l1`, the `demand` half as `demand-knowledge`. That split is the rule index.md's own Conventions block is generated from, `additionalCore` (`.prospec.yaml` `knowledge.additional_core_conventions`) included: a promoted convention is listed under "Core Conventions (L1)" in index.md, so grading it against the load-on-demand budget would silently exempt it from the budget its own index.md declares, and a hand-written file list would leave a project's own governance file measured by nothing. Also measured: every `.md` directly inside `modules/<name>/` — the README and each extracted sub-module sibling — as `l2` (the module name is derived from the file path, so no module-map is needed); under that directory a subdirectory, a non-`.md` file or a name rejected by `isSafeResourceName` is skipped without erroring, while a symlinked entry stays a CANDIDATE — containment remains the canonical readers' realpath check, since skipping symlinks would silently drop a measurement the pre-change README path made (the budget gate failing open) — and the enumeration is sorted so item order is machine-independent; `<baseDir>/specs/product.md` and every `.md` under `<baseDir>/specs/features/`, **recursively**, as `spec`; and, only in authoring mode, each deployed `SKILL.md` as `skill` and each deployed `references/**/*.md` as `reference` (the walk recurses, exactly as the spec walk does). Authoring mode means the project holds the skill template sources (`src/templates/skills/`) — a project that merely consumes generated skills cannot act on such a finding, so it is not given one. Deployed skill artifacts are enumerated across the distinct `skillPath`s of `AGENT_CONFIGS` and deduplicated by `{skill}` / `{skill}/{reference basename}`, keeping the largest copy, so the copies DEPLOYMENT makes (one skill name across agent paths) collapse to one item while two different skills shipping one basename stay two — the smaller of those would otherwise vanish and could never warn. Ties keep the first in sorted path order, so item order is machine-independent; two differently-named skill directories are two skills even when one symlinks to the other, because the harness dispatches on the directory name.
 
-No enumeration in this collector may throw: it is evaluated as an ARGUMENT to `runChecks(...)`, so one pathological path would take all fifteen verdicts down rather than cost its own line. Every directory read — `modules/`, the knowledge root, and each spec/reference walk — degrades to "no entries" on ENOTDIR/EACCES (`existsSync` is not sufficient: it says yes for a file). The spec and reference walks use `budgetedMarkdownFiles`, deliberately NOT `markdownFiles`/`scanDirSync`: that helper throws, and it applies `SENSITIVE_PATTERNS`, which silently drops a Feature Spec named `secret-rotation.md` — a budget that exempts a file for its NAME fails open. The walk admits only names `isSafeResourceName` accepts (already excluding `_archived*` artifacts and dotfiles), treats a symlinked `.md` file as a candidate, does not descend into a symlinked sub-directory, and bounds real recursion at depth 10. The walk ROOT deliberately IS followed: refusing a symlinked root was tried and reverted because it silently zeroed every measurement for a project that legitimately symlinks `specs/features` or a skill's `references/` — a budget failing OPEN on a normal deployment, worse than the bounded oddity it prevented (a self-referential root re-listing one file under the wrong kind, one level deep, from a configuration nothing generates). The convention listing is a plain non-recursive read of `_*.md` names, diverging from the index writers' `scanDir` in two ways, both toward measuring more: `SENSITIVE_PATTERNS` is not applied, and a symlinked `_*.md` is measured. This hardening covers THIS collector only, and only the shapes it owns: an unreadable (EACCES) directory anywhere under a `markdownRoots` path still aborts the whole run from `collectMarkdownLinks`' `scanDirSync`, and `specs/features` being a file aborts it from `collectReqDefinitions`' bare `readdirSync` — both pre-existing, reproducible on the parent commit, and out of this REQ's scope. A missing `specs/` directory or absent skill deployment contributes no items and is not an error; `knowledgePath` missing → `{available:false, reason}`. Pure `evaluateKnowledgeSize`: `!available → skipped`; otherwise each item is graded through `KNOWLEDGE_SIZE_RULES[item.kind]` — tokens over `tokenKey`'s budget, and lines over `lineKey`'s budget when the rule declares one, each an independent warn finding. L0 (agent-injected config) stays out of scope; every finding is warn-class.
+No enumeration in this collector may throw: it is evaluated as an ARGUMENT to `runChecks(...)`, so one pathological path would take all sixteen verdicts down rather than cost its own line. Every directory read — `modules/`, the knowledge root, and each spec/reference walk — degrades to "no entries" on ENOTDIR/EACCES (`existsSync` is not sufficient: it says yes for a file). The spec and reference walks use `budgetedMarkdownFiles`, deliberately NOT `markdownFiles`/`scanDirSync`: that helper throws, and it applies `SENSITIVE_PATTERNS`, which silently drops a Feature Spec named `secret-rotation.md` — a budget that exempts a file for its NAME fails open. The walk admits only names `isSafeResourceName` accepts (already excluding `_archived*` artifacts and dotfiles), treats a symlinked `.md` file as a candidate, does not descend into a symlinked sub-directory, and bounds real recursion at depth 10. The walk ROOT deliberately IS followed: refusing a symlinked root was tried and reverted because it silently zeroed every measurement for a project that legitimately symlinks `specs/features` or a skill's `references/` — a budget failing OPEN on a normal deployment, worse than the bounded oddity it prevented (a self-referential root re-listing one file under the wrong kind, one level deep, from a configuration nothing generates). The convention listing is a plain non-recursive read of `_*.md` names, diverging from the index writers' `scanDir` in two ways, both toward measuring more: `SENSITIVE_PATTERNS` is not applied, and a symlinked `_*.md` is measured. This hardening covers THIS collector only, and only the shapes it owns: an unreadable (EACCES) directory anywhere under a `markdownRoots` path still aborts the whole run from `collectMarkdownLinks`' `scanDirSync`, and `specs/features` being a file aborts it from `collectReqDefinitions`' bare `readdirSync` — both pre-existing, reproducible on the parent commit, and out of this REQ's scope. A missing `specs/` directory or absent skill deployment contributes no items and is not an error; `knowledgePath` missing → `{available:false, reason}`. Pure `evaluateKnowledgeSize`: `!available → skipped`; otherwise each item is graded through `KNOWLEDGE_SIZE_RULES[item.kind]` — tokens over `tokenKey`'s budget, and lines over `lineKey`'s budget when the rule declares one, each an independent warn finding. L0 (agent-injected config) stays out of scope; every finding is warn-class.
 - WHEN a file of ANY kind — `l1`, `l2`, `spec`, `demand-knowledge`, `skill` or `reference` — exceeds its kind's budget, THEN a warn finding carries `source_path`, measured tokens, the budget, `TOKEN_ESTIMATOR_LABEL` and that kind's remedy; the `≤` boundary is not reported
 - WHEN an entry under a module directory is a subdirectory, a non-`.md` file, or an unsafe name, THEN it is skipped — never measured, never an error
 - WHEN a module directory holds only a README, THEN the emitted items are identical to the pre-change output
@@ -268,7 +271,7 @@ No enumeration in this collector may throw: it is evaluated as an ARGUMENT to `r
 - WHEN a directory UNDER the walk root is a symlink, THEN the walk does not descend into it, so a link loop cannot multiply items
 - WHEN the walk ROOT itself is a symlink, THEN it IS followed, so a legitimately symlinked `specs/features` or `references/` tree is still measured
 - WHEN a Feature Spec's name matches a sensitive-file pattern (`secret`, `credential`, `.env`, `.key`), THEN it is still measured
-- WHEN `modules/`, the knowledge root, or a `references/` path is a FILE (ENOTDIR) or a dangling symlink, THEN the collector returns what it could read and `runChecks` still produces all fifteen verdicts
+- WHEN `modules/`, the knowledge root, or a `references/` path is a FILE (ENOTDIR) or a dangling symlink, THEN the collector returns what it could read and `runChecks` still produces all sixteen verdicts
 - WHEN such a path is unreadable (EACCES), THEN this collector still returns, but the run can be aborted earlier by another collector's unguarded scan — a pre-existing outage this REQ does not claim to close
 - WHEN `.prospec.yaml` promotes a convention through `additional_core_conventions`, THEN it is graded as `l1`, exactly as index.md declares it
 - WHEN `src/templates/skills/` is absent, THEN no `skill` or `reference` item is collected and the remaining items are byte-identical to the authoring-mode run
@@ -529,31 +532,32 @@ The artifact-language check is pinned across all three outcomes — clean, `warn
 ## US-14: Provenance audit scope covers the verified→archived window [P1]
 
 As a maintainer who guards the archive gate,
-I want the two provenance gates to audit every status in which unreviewed code can still reach the permanent record — `verified` included — and to say so in a document pinned against the code,
+I want the provenance gates to audit every status in which unreviewed code can still reach the permanent record — `verified` included — and to say so in a document pinned against the code,
 so that reaching grade S/A stops being an implicit end to the audit, and the gate that graduates requirements into the trust zone can assert that a review round saw the code they describe.
 
 **Acceptance Scenarios:**
-- WHEN a `verified` change's code changed after its recorded review or test run, THEN both gates report FAIL and name the remediation — reaching S/A ends neither the audit nor the need to re-review
-- WHEN a `verified` change's baselines still match the code, THEN neither gate produces a finding
-- WHEN the status is `story`/`plan`/`tasks`, THEN neither gate flags it — review is not yet due; WHEN it is `archived`, THEN no verdict exists at all, because the bundle has left `.prospec/changes/`
-- WHEN the `/prospec-archive` Entry Gate runs, THEN it reads both checks and refuses to archive on either FAIL, and states that a re-verify which does not reach S/A leaves both `status` and `metadata-completeness` green while the change is not archivable
+- WHEN a `verified` change's code changed after its recorded review or test run, THEN every provenance gate whose baseline the change invalidated reports FAIL and names its own remediation — reaching S/A ends neither the audit nor the need to re-review
+- WHEN a `verified` change's baselines still match the code, THEN no provenance gate produces a finding
+- WHEN the status is `story`/`plan`/`tasks`, THEN no provenance gate flags it — review is not yet due; WHEN it is `archived`, THEN no verdict exists at all, because the bundle has left `.prospec/changes/`
+- WHEN the `/prospec-archive` Entry Gate runs, THEN it reads all three checks and refuses to archive on any FAIL, and states that a re-verify which does not reach S/A leaves both `status` and `metadata-completeness` green while the change is not archivable
 - WHEN the audited status set and the lifecycle doc's table disagree in either direction, THEN the contract test fails
 
 ### Behavior Specifications
 
 #### REQ-TYPES-075: Provenance audit-scope registry
-`PROVENANCE_AUDITED_STATUSES` in `types/change.ts` is the ONE registry of change statuses the two provenance gates audit — `implemented` and `verified` — declared `as const satisfies readonly ChangeStatus[]` so a status that is not in `CHANGE_STATUSES` cannot enter it, and read through the pure `isProvenanceAudited(status)` predicate that both evaluators share instead of each testing a literal. It sits beside `SCALE_FORBIDDEN_ARTIFACTS` as the same kind of registry: an executable copy of a scope the lifecycle doc states in prose. Membership is tested through a `Set`, never a plain-object lookup, so an inherited key (`constructor`, `toString`) cannot resolve truthy and admit a change whose metadata carries a forged status. `archived` is deliberately absent and is NOT an exemption: `prospec archive` moves the bundle out of `.prospec/changes/`, so the collectors never enumerate such a change and no verdict about it exists to give.
+`PROVENANCE_AUDITED_STATUSES` in `types/change.ts` is the ONE registry of change statuses the three provenance gates audit — `implemented` and `verified` — declared `as const satisfies readonly ChangeStatus[]` so a status that is not in `CHANGE_STATUSES` cannot enter it, and read through the pure `isProvenanceAudited(status)` predicate that all three evaluators share instead of each testing a literal. It sits beside `SCALE_FORBIDDEN_ARTIFACTS` as the same kind of registry: an executable copy of a scope the lifecycle doc states in prose. Membership is tested through a `Set`, never a plain-object lookup, so an inherited key (`constructor`, `toString`) cannot resolve truthy and admit a change whose metadata carries a forged status. `archived` is deliberately absent and is NOT an exemption: `prospec archive` moves the bundle out of `.prospec/changes/`, so the collectors never enumerate such a change and no verdict about it exists to give.
 - WHEN a status string outside `CHANGE_STATUSES` is added to the registry, THEN compilation fails on the `satisfies` clause
 - WHEN `isProvenanceAudited` receives `null`, `undefined`, an unknown string, or an `Object` prototype key, THEN it returns false
-- WHEN either evaluator filters by status, THEN it calls that predicate rather than comparing against a literal, so the two gates cannot drift into different scopes
+- WHEN any evaluator filters by status, THEN it calls that predicate rather than comparing against a literal, so the three gates cannot drift into different scopes
 
 ---
 
 
-#### REQ-TEMPLATES-171: archive Entry Gate consumes both provenance checks
-The `/prospec-archive` Entry Gate carries a machine check that runs `prospec check --json` and reads BOTH `review-provenance` and `test-provenance` for the archive target: either one FAIL refuses the archive. It closes the station's own blind spot — the gate that graduates REQs into the trust zone previously asserted nothing about whether any review round had seen the code those REQs describe. The remediation it names covers both causes the two findings distinguish: code edited after verify (re-run `/prospec-review`, then `/prospec-verify`) and a baseline left behind by the verify S/A commit (re-record both after committing, the order PB-016 states). Because that remediation routes back through verify, the item also states the boundary of the re-run: a change already at `verified` keeps that status whatever the new grade is, and `hasVerifyGrade` accepts any earlier S/A entry in `quality_log`, so a re-verify grading B/C/D leaves both `status` and `metadata-completeness` green while the change is not archivable. The CLI is required, matching the `metadata-completeness` item beside it: the shared probe STOPs before this gate when the engine is missing, so the item offers no manual fallback.
-- WHEN either provenance check reports FAIL for the target, THEN the Entry Gate refuses to archive and names the remediation
-- WHEN both report PASS or `skipped`, THEN the item passes and the remaining Entry Gate items judge as before
+#### REQ-TEMPLATES-171: archive Entry Gate consumes all three provenance checks
+The `/prospec-archive` Entry Gate carries a machine check that runs `prospec check --json` and reads `review-provenance`, `test-provenance` and `delta-spec-provenance` for the archive target: any one FAIL refuses the archive. Together they close the station's blind spot from both sides — the gate that graduates REQs into the trust zone previously asserted neither that a review round had seen the code those REQs describe, nor that the landing blocks about to be copied verbatim reflect what that review concluded. The remediation names the cause each finding distinguishes: code edited after verify (re-run `/prospec-review`, then `/prospec-verify`), a baseline left behind by the verify S/A commit (re-record after committing, the order PB-016 states), and a delta-spec whose landing blocks were not updated after review fixed the behavior they describe (fold the fix into the block, then re-record). Because that remediation routes back through verify, the item also states the boundary of the re-run: a change already at `verified` keeps that status whatever the new grade is, and `hasVerifyGrade` accepts any earlier S/A entry in `quality_log`, so a re-verify grading B/C/D leaves both `status` and `metadata-completeness` green while the change is not archivable. The CLI is required, matching the `metadata-completeness` item beside it: the shared probe STOPs before this gate when the engine is missing, so the item offers no manual fallback.
+- WHEN any of the three provenance checks reports FAIL for the target, THEN the Entry Gate refuses to archive and names the remediation for that check
+- WHEN `delta-spec-provenance` reports FAIL, THEN the remediation points at the landing blocks rather than at the code, because a stale block is what would reach the trust zone
+- WHEN all three report PASS or `skipped`, THEN the item passes and the remaining Entry Gate items judge as before
 - WHEN the re-run of `/prospec-verify` does not reach S/A, THEN the change is not archivable even though `status` still reads `verified` — the item says so explicitly, because no machine check will
 - WHEN the CLI is absent, THEN the probe has already stopped the skill — the item never degrades into a hand-run comparison
 
@@ -561,9 +565,9 @@ The `/prospec-archive` Entry Gate carries a machine check that runs `prospec che
 
 
 #### REQ-TEMPLATES-172: `_status-lifecycle.md` states the provenance audit scope
-Both copies of `_status-lifecycle.md` (`init/status-lifecycle.md.hbs` and this project's `prospec/ai-knowledge/_status-lifecycle.md`) carry a `## Provenance audit scope` table that names, for every one of the six statuses, whether `review-provenance` and `test-provenance` audit it and why. `PROVENANCE_AUDITED_STATUSES` is the executable copy and a contract test pins the table against it by set equality in both directions, so the stated scope and the enforced scope cannot diverge — the failure this section exists to prevent was a gate whose filter excluded the very state it was meant to guard while no document admitted it. The table states the two non-audited groups as different facts, not one exemption: `story`/`plan`/`tasks` are before review is due, while `archived` is unreachable because the bundle has left `.prospec/changes/`.
+Both copies of `_status-lifecycle.md` (`init/status-lifecycle.md.hbs` and this project's `prospec/ai-knowledge/_status-lifecycle.md`) carry a `## Provenance audit scope` table that names, for every one of the six statuses, whether `review-provenance`, `test-provenance` and `delta-spec-provenance` audit it and why. `PROVENANCE_AUDITED_STATUSES` is the executable copy and a contract test pins the table against it by set equality in both directions, so the stated scope and the enforced scope cannot diverge — the failure this section exists to prevent was a gate whose filter excluded the very state it was meant to guard while no document admitted it. The table states the two non-audited groups as different facts, not one exemption: `story`/`plan`/`tasks` are before review is due, while `archived` is unreachable because the bundle has left `.prospec/changes/`.
 - WHEN a status is added to or removed from the registry without the table following, THEN the contract test fails
-- WHEN a reader asks which statuses the provenance gates cover, THEN the answer is in the lifecycle doc rather than only in the evaluator source
+- WHEN a reader asks which statuses the provenance gates cover, THEN the answer is in the lifecycle doc rather than only in the evaluator source, and it names all three gates
 - WHEN either copy's table, or one of the marker sentences asserted in both, diverges, THEN the contract test fails. The section's remaining prose is deliberately NOT compared copy-to-copy: only `## What each gate checks` carries whole-section string equality between the two files, so claiming a copy-equality guard here would assert a check that does not exist
 
 ---
@@ -650,10 +654,70 @@ So that a wrong counter cannot enter the trust zone silently and stay there — 
 Unit tests pin `matchReqHeading` across every ATX level, a trailing `{#anchor}`, a struck id with and without `includeStruck`, and a malformed prefix; `collectSpecCounters`/`evaluateSpecCounters` are covered in all three states (agreeing, disagreeing, source unavailable) plus `check.service` injection. Mutation verification is part of the contract, not a follow-up: narrowing the shared matcher back to h4-only must turn the archive regressions red. The structural assertions carry the claims a substring probe cannot make — the heading set for a REQ id, the count of `---` rules, the number of times a landing body appears, and the negative `not.toMatch(/^###\s+REQ-…/m)` for an injected label — while the remaining whole-file `toContain` probes are backed by that mutation pass rather than by their own scoping.
 - WHEN the shared matcher is narrowed to `^####`, THEN the archive spec-sync and counter regressions fail
 - WHEN a check is added to the registry without an evaluator, THEN compilation fails
-- WHEN the skipped-never-PASS assertion runs, THEN it covers all 15 check ids
+- WHEN the skipped-never-PASS assertion runs, THEN it covers all 16 check ids
 - WHEN the collector is pointed at a directory that does not exist, THEN a check-service test fails — the wiring is pinned by a positive warn case, not only by a skip that an empty project produces anyway
 - WHEN a boundary assertion is written, THEN its fixture carries a non-empty landing body, because with an empty one the boundary code never executes and the assertion cannot fail
 - WHEN an assertion is a whole-file substring probe, THEN a mutation proves it fires — the claim rests on that pass, not on the probe's own precision
+
+## US-17: delta-spec-provenance gate check [P1]
+
+As a developer who runs review before archiving,
+I want a deterministic `delta-spec-provenance` check that decides whether an audited change's landing blocks are the ones its review round saw,
+so that a REQ corrected during review cannot be reverted by an archive copying the pre-review text — the gap the other two provenance gates structurally cannot cover, because the whole-tree digest excludes `.prospec/`.
+
+**Acceptance Scenarios:**
+- WHEN a change's `delta-spec.md` is edited after its baseline was recorded, THEN the check reports it stale and the archive Entry Gate refuses, while `review-provenance` and `test-provenance` stay green
+- WHEN `prospec check --record-review` runs, THEN both the code baseline and the delta-spec fingerprint are stamped in one write, so the two can never describe different moments
+- WHEN an audited change carries a delta-spec but no recorded baseline, THEN the check FAILs rather than passing on an unproven artifact
+- WHEN the delta-spec is present but unreadable, THEN the check FAILs with its own reason — never the staleness message, which would send the author to edit a file they cannot read
+- WHEN the scale carries no delta-spec, or the change is a backfill proven by `backfill-draft.md`, THEN nothing graduates verbatim from it and the check passes without comparing
+
+### Behavior Specifications
+
+#### REQ-TYPES-078: Drift Report delta-spec-provenance check id
+`DRIFT_CHECK_IDS` appends `delta-spec-provenance` as its 16th frozen id, additive only, leaving the preceding fifteen in their frozen order (the report's `checks[]` order and the CLI's status-line order both derive from it) and not touching the `knowledge_health` frozen contract. Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure through the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard.
+- WHEN the new id is appended, THEN the preceding fifteen keep their positions
+- WHEN a `runChecks` dispatch for the new id is missing, THEN compilation fails
+- WHEN the registry total is read, THEN it equals `DRIFT_CHECK_IDS.length`
+
+#### REQ-LIB-045: delta-spec fingerprint collector and evaluator
+A narrow fingerprint covers the one artifact the archive graduates verbatim: `computeDeltaSpecDigest` hashes a change's `delta-spec.md` alone, and a read failure returns null so an unavailable source degrades to an honest skip rather than a constant that would certify stale text as current. It is deliberately separate from `computeChangeDigest`, whose scope is unchanged and still excludes workflow state — folding `.prospec/` into the whole-tree digest would turn every artifact edit into a red review baseline, which is why that exclusion exists. `evaluateDeltaSpecProvenance` judges every change whose status is in `PROVENANCE_AUDITED_STATUSES`, comparing the recorded fingerprint against the current one. Two cases pass without a comparison rather than being read as agreement: a scale that carries no delta-spec, and a backfill proven by `backfill-draft.md` — draft-gated exactly like the other two provenance gates, because `scale` alone is hand-editable. Only an unavailable source is `skipped`.
+- WHEN a change's delta-spec is edited after its fingerprint was recorded, THEN the check reports the change as stale
+- WHEN the delta-spec is unchanged since recording, THEN the check passes
+- WHEN no fingerprint was ever recorded for an audited change, THEN the check reports it as absent, never as passing
+- WHEN the delta-spec is present but cannot be read, THEN the check FAILS with its own reason — fail-closed, and distinct from staleness so the remedy is not "edit the file you cannot read"
+- WHEN the change's scale carries no delta-spec, THEN nothing graduates verbatim from it and the check passes without comparing
+- WHEN the change is a backfill proven by `backfill-draft.md`, THEN it is exempt — a proven backfill never runs review, so no baseline could ever exist and the alternative would make every backfill permanently unarchivable
+- WHEN `.prospec/changes/` is absent, THEN the whole source is unavailable and the check is `skipped` with that reason — the only path that yields `skipped`
+- WHEN only files outside the change's delta-spec change, THEN this fingerprint is unaffected
+
+#### REQ-SERVICES-082: check.service records the delta-spec fingerprint
+The `--record-review` branch records the delta-spec fingerprint in the same comment-preserving Document write that records the review baseline, so the two cannot be stamped at different moments. A change with no delta-spec has the field omitted rather than filled with a placeholder, and the pure check path stays read-only and byte-reproducible as before.
+- WHEN `--record-review` runs for a change with a delta-spec, THEN both fingerprints are written in one document write
+- WHEN the change has no delta-spec, THEN the field is omitted and the run reports why
+- WHEN the pure check path runs, THEN no fingerprint is written
+
+#### REQ-TESTS-078: delta-spec-provenance engine tests
+The delta-spec provenance engine is pinned the way the review-provenance engine is: the evaluator is exercised for an absent record, a stale record, a fresh record, a status outside the audit scope and an unavailable source; the fingerprint is exercised in a temporary directory where editing the delta-spec flips it and editing anything else does not; and the fail-closed branch carries a test that turns red if the null return is replaced by a constant.
+- WHEN the evaluator meets any of its five states, THEN the asserted verdict distinguishes it from the other four
+- WHEN a file other than the change's delta-spec is edited, THEN the fingerprint is unchanged
+- WHEN the fail-closed null is replaced by a constant, THEN a test turns red
+- WHEN a mutation is introduced into the evaluator, THEN at least one test fails
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
 
 ---
 
@@ -668,7 +732,7 @@ Unit tests pin `matchReqHeading` across every ATX level, a trailing `{#anchor}`,
 
 ## Success Criteria
 
-- **SC-1**: On a consistent-state repo, `check --strict` exits 0, and each of the five checks has an explicit status
+- **SC-1**: On a consistent-state repo, `check --strict` exits 0, and each of the sixteen checks has an explicit status
 - **SC-2**: After injecting the three drift categories, `--strict` exits 1, and all findings are locatable
 - **SC-3**: On the same repo state, consecutive runs produce byte-for-byte identical reports (except generated_at); sorting is by codepoint (stable across environments)
 - **SC-4**: The semantic layer is `not-checked` under any run
@@ -689,6 +753,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TYPES-078; ADDED REQ-LIB-045; ADDED REQ-SERVICES-082; ADDED REQ-TESTS-078; MODIFIED REQ-TYPES-052; MODIFIED REQ-SERVICES-062; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TESTS-045; MODIFIED REQ-TYPES-075; MODIFIED REQ-TEMPLATES-172; MODIFIED REQ-LIB-027; MODIFIED REQ-TYPES-034; MODIFIED REQ-LIB-014; MODIFIED REQ-TESTS-074; MODIFIED REQ-CLI-011 | REQ-TYPES-078, REQ-LIB-045, REQ-SERVICES-082, REQ-TESTS-078, REQ-TYPES-052, REQ-SERVICES-062, REQ-TEMPLATES-171, REQ-TESTS-045, REQ-TYPES-075, REQ-TEMPLATES-172, REQ-LIB-027, REQ-TYPES-034, REQ-LIB-014, REQ-TESTS-074, REQ-CLI-011 |
 | 2026-08-07 | measure-all-load-surfaces | ADDED REQ-TYPES-077; ADDED REQ-LIB-044; MODIFIED REQ-TYPES-061; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-028; MODIFIED REQ-SERVICES-065; MODIFIED REQ-TEMPLATES-149; MODIFIED REQ-TESTS-048 | REQ-TYPES-077, REQ-LIB-044, REQ-TYPES-061, REQ-LIB-027, REQ-LIB-028, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048 |
 | 2026-08-06 | unify-req-heading-matcher | ADDED REQ-LIB-041; ADDED REQ-TYPES-076; ADDED REQ-LIB-042; ADDED REQ-SERVICES-077; ADDED REQ-TESTS-074; MODIFIED REQ-TYPES-052; MODIFIED REQ-TYPES-034; MODIFIED REQ-LIB-014; MODIFIED REQ-TESTS-045 | REQ-LIB-041, REQ-TYPES-076, REQ-LIB-042, REQ-SERVICES-077, REQ-TESTS-074, REQ-TYPES-052, REQ-TYPES-034, REQ-LIB-014, REQ-TESTS-045 |
 | 2026-08-03 | fix-issue-106-drift-engine-blindspots | MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-036; MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-024 | REQ-LIB-033, REQ-LIB-036, REQ-LIB-015, REQ-LIB-024 |

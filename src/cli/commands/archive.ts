@@ -33,8 +33,17 @@ export function registerArchiveCommand(program: Command): void {
       try {
         const result = await execute({ names, dryRun: opts.dryRun ?? false });
         formatArchiveOutput(result, logLevel);
+        // A spec-loss verdict is an unhonored request too: the caller asked for a
+        // sync and one or more feature specs were deliberately left unwritten. It
+        // drives the exit code under `--dry-run` as well — the preview's whole job
+        // is to answer "would this run be clean?", and a preview that exits 0 on a
+        // run that will refuse answers it wrong (REQ-CLI-034).
         const unhonored =
-          result.refused.length > 0 || result.notFound.length > 0 || result.skipped.length > 0;
+          result.refused.length > 0 ||
+          result.notFound.length > 0 ||
+          result.skipped.length > 0 ||
+          result.refusedRequirements.length > 0 ||
+          result.droppedBehavior.length > 0;
         if (unhonored) {
           process.exitCode = 1;
         }

@@ -393,6 +393,37 @@ describe('TestProvenanceSchema (REQ-TYPES-066)', () => {
   });
 });
 
+describe('DeltaSpecProvenanceSchema (REQ-TYPES-078)', () => {
+  const withProvenance = (over: Record<string, unknown>) => ({
+    ...base,
+    delta_spec_provenance: { digest: 'abc', date: '2026-08-08', ...over },
+  });
+
+  it('accepts a recorded delta-spec baseline', () => {
+    const r = ChangeMetadataSchema.safeParse(withProvenance({}));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.delta_spec_provenance?.digest).toBe('abc');
+  });
+
+  it('accepts metadata without it (every pre-existing change stays valid)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.delta_spec_provenance).toBeUndefined();
+  });
+
+  it('rejects a missing digest — a baseline with no fingerprint proves nothing', () => {
+    const noDigest = { ...base, delta_spec_provenance: { date: '2026-08-08' } };
+    expect(ChangeMetadataSchema.safeParse(noDigest).success).toBe(false);
+  });
+
+  // Loose like its two siblings: a read must never strip an unmodeled key.
+  it('keeps unmodeled keys on read', () => {
+    const r = ChangeMetadataSchema.safeParse(withProvenance({ note: 'x' }));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.delta_spec_provenance).toMatchObject({ note: 'x' });
+  });
+});
+
 describe('ChangeMetadataSchema related_modules (bare module names, REQ-TYPES-064)', () => {
   // The index.md Module column is bold (`**types**`); a consumer that forwards the
   // cell verbatim writes an unresolvable module name that downstream module

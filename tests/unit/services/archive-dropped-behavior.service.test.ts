@@ -110,9 +110,16 @@ describe('syncToFeatureSpecs — a landing block reports the behavior it discard
     // replacement cannot silently demote the namesake regression fixture into a
     // superset-with-drop case while the suite stays green.
     expect(whenLines(REPLACEMENT_DROPS_ALL)).toHaveLength(whenLines(EXISTING_BODY).length);
-    // and the replacement still landed — this report never blocks the merge
+    // …and the replacement did NOT land. This assertion is the inverse of what it
+    // used to be, deliberately: the report was advisory, the merge went through,
+    // and the authored bullets left the trust zone anyway with only a stderr line
+    // to show for it. An undeclared drop now holds the write (REQ-CLI-034) — the
+    // author either restores the bullets or declares them retired.
     const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
-    expect(content).toContain('- WHEN review degrades for any reason, THEN the choice is disclosed to the developer — never a silent skip');
+    expect(content).not.toContain(
+      '- WHEN review degrades for any reason, THEN the choice is disclosed to the developer — never a silent skip',
+    );
+    expect(content).toContain(EXISTING_BODY.split('\n')[1]!);
   });
 
   it('reports a drop even when the replacement has MORE bullets than the original', async () => {
@@ -290,5 +297,85 @@ ${REPLACEMENT_DROPS_ALL}
     const replaced = await sync(EXISTING_BODY, REPLACEMENT_DROPS_ALL);
     expect(replaced.pendingConvergence).toEqual([]);
     expect(replaced.droppedBehavior).toHaveLength(1);
+  });
+});
+
+/**
+ * Bullet-shape coverage (REQ-SERVICES-073, widened).
+ *
+ * The drop diff recognised exactly one shape — a hyphen followed by a bare `WHEN`.
+ * Every other list style a project might use (`*`, an ordered marker, a bolded
+ * keyword) was invisible to it, so for those projects the entire worklist reported
+ * nothing while behavior was being replaced. The report was not wrong, it was
+ * silent, which is worse.
+ *
+ * The false-positive guards are pinned in the same suite on purpose: widening
+ * recognition is only safe while a re-indented or reflowed bullet still matches
+ * its twin. A worklist that cries wolf gets ignored, and then it protects nothing.
+ */
+describe('dropped-behavior bullet shapes (REQ-SERVICES-073)', () => {
+  const syncWith = async (existingBody: string, specBlock: string) => {
+    vol.reset();
+    vol.fromJSON({
+      '/f/sdd-workflow.md': spec(existingBody),
+      '/c/delta-spec.md': deltaSpec(specBlock),
+    });
+    return syncToFeatureSpecs('/c', '/f', 'my-change', false);
+  };
+
+  it.each([
+    ['a hyphen bullet (the shape that always worked)', '- WHEN a tag is applied, THEN items filter'],
+    ['an asterisk bullet', '* WHEN a tag is applied, THEN items filter'],
+    ['an ordered marker', '1. WHEN a tag is applied, THEN items filter'],
+    ['a bolded keyword', '- **WHEN** a tag is applied, **THEN** items filter'],
+  ])('reports a dropped %s', async (_why, bullet) => {
+    const r = await syncWith(`Body.\n${bullet}`, 'Replacement body with no bullets at all.');
+    expect(r.droppedBehavior[0]?.bullets).toEqual([bullet]);
+  });
+
+  it('reports every shape in one body as a set, not a count', async () => {
+    const body = [
+      'Body.',
+      '- WHEN one, THEN a',
+      '* WHEN two, THEN b',
+      '2. WHEN three, THEN c',
+      '- **WHEN** four, **THEN** d',
+    ].join('\n');
+    const r = await syncWith(body, 'Replacement.');
+    expect(r.droppedBehavior[0]?.bullets).toHaveLength(4);
+  });
+
+  it('does not report a bullet the replacement restates verbatim', async () => {
+    const bullet = '* WHEN a tag is applied, THEN items filter';
+    const r = await syncWith(`Body.\n${bullet}`, `New body.\n${bullet}`);
+    expect(r.droppedBehavior).toEqual([]);
+  });
+
+  // The two false-positive shapes the original hyphen-only matcher was careful
+  // about. Widening the marker must not weaken either.
+  it('does not report a bullet that was only re-indented', async () => {
+    const r = await syncWith('Body.\n* WHEN a, THEN b', 'New body.\n  * WHEN a, THEN b');
+    expect(r.droppedBehavior).toEqual([]);
+  });
+
+  it('does not report a bullet whose continuation was only re-wrapped', async () => {
+    const r = await syncWith(
+      'Body.\n1. WHEN a happens,\n   THEN b follows',
+      'New body.\n1. WHEN a happens, THEN b follows',
+    );
+    expect(r.droppedBehavior).toEqual([]);
+  });
+
+  // The reason the continuation rule requires indentation: an unindented fence or
+  // table row absorbed into the bullet changes its key and invents a drop.
+  it('does not absorb an unindented line that follows a bullet', async () => {
+    const bullet = '* WHEN a, THEN b';
+    const r = await syncWith(`Body.\n${bullet}\n| col | col |`, `New body.\n${bullet}`);
+    expect(r.droppedBehavior).toEqual([]);
+  });
+
+  it('ignores a line that merely mentions WHEN without being a bullet', async () => {
+    const r = await syncWith('Body. When the user acts, things happen.', 'New body.');
+    expect(r.droppedBehavior).toEqual([]);
   });
 });

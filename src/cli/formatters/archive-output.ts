@@ -69,16 +69,74 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
     );
   }
 
+  // BLOCKING-class from here down. These two were warnings once: the report
+  // printed and the spec was written anyway, so the authored text left the trust
+  // zone with a stderr line as its only trace. The spec is now left untouched, and
+  // the wording has to say so — a reader who sees "archived" above a yellow line
+  // will otherwise assume the write went through (REQ-CLI-032 / REQ-CLI-034).
+  if (result.refusedRequirements.length > 0) {
+    const verb = result.dryRun ? 'would be refused' : 'refused';
+    process.stderr.write(
+      `${pc.red('✗')} ${result.refusedRequirements.length} REQ(s) ${verb} — a landing block was cut short by a label the delta-spec template does not own; the feature spec was left unchanged:\n`,
+    );
+    for (const r of result.refusedRequirements) {
+      process.stderr.write(
+        `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
+          `\`**${sanitizeTerminal(r.label)}:**\` ends the \`**${sanitizeTerminal(r.block)}:**\` block, swallowing ${r.swallowedCount} line(s) from:\n` +
+          `      ${sanitizeTerminal(r.firstSwallowedLine)}\n`,
+      );
+    }
+    process.stderr.write(
+      `  fix the block each refusal names — inline the labelled section as bullets; a \`**Dropped:**\` declaration does NOT release a refusal\n`,
+    );
+  }
+
   if (result.droppedBehavior.length > 0) {
     const verb = result.dryRun ? 'would drop' : 'dropped';
     process.stderr.write(
-      `${pc.yellow('!')} ${result.droppedBehavior.length} REQ body/bodies ${verb} authored behavior — confirm each is deliberate:\n`,
+      `${pc.red('✗')} ${result.droppedBehavior.length} REQ body/bodies ${verb} authored behavior that was not declared deliberate — the feature spec was left unchanged:\n`,
     );
     for (const d of result.droppedBehavior) {
       process.stderr.write(
-        `  ${pc.yellow('·')} ${sanitizeTerminal(d.feature)} ${sanitizeTerminal(d.reqId)}:\n`,
+        `  ${pc.red('·')} ${sanitizeTerminal(d.feature)} ${sanitizeTerminal(d.reqId)}:\n`,
       );
       // In full, one per line: a count cannot tell a reader what to restore.
+      for (const bullet of d.bullets) {
+        process.stderr.write(`      ${sanitizeTerminal(bullet)}\n`);
+      }
+    }
+    process.stderr.write(
+      `  restore each bullet into the \`**Spec:**\` block, or list it under \`**Dropped:**\` to record that its exact text is intentionally not carried forward\n`,
+    );
+  }
+
+  // Informational: the loss happened and was declared, so nothing is held back.
+  // Printed anyway — a deliberate removal is still a removal, and the graduation
+  // phase confirms it against the merged file.
+  if (result.acknowledgedDrops.length > 0) {
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.acknowledgedDrops.length} REQ body/bodies replaced text the delta-spec declared intentional:\n`,
+    );
+    for (const d of result.acknowledgedDrops) {
+      process.stderr.write(
+        `  ${pc.yellow('·')} ${sanitizeTerminal(d.feature)} ${sanitizeTerminal(d.reqId)}:\n`,
+      );
+      for (const bullet of d.bullets) {
+        process.stderr.write(`      ${sanitizeTerminal(bullet)}\n`);
+      }
+    }
+  }
+
+  // A declaration matching nothing means the author is describing a body the spec
+  // no longer has — worth saying, not worth blocking on.
+  if (result.staleDeclarations.length > 0) {
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.staleDeclarations.length} stale \`**Dropped:**\` declaration(s) — these bullets were not dropped; the delta-spec may describe an older body:\n`,
+    );
+    for (const d of result.staleDeclarations) {
+      process.stderr.write(
+        `  ${pc.yellow('·')} ${sanitizeTerminal(d.feature)} ${sanitizeTerminal(d.reqId)}:\n`,
+      );
       for (const bullet of d.bullets) {
         process.stderr.write(`      ${sanitizeTerminal(bullet)}\n`);
       }

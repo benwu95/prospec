@@ -26,7 +26,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 - `executeFinalize` / `executeForChange` / `executeWrite` — archive post-judgment; change-driven knowledge update; trigger write-back
 - `resolveChange(...)` — change selector (zero/ambiguous → `PrerequisiteError`; traversal names refused pre-probe)
 - `computeUnlocalizedSkills(config)` — fill-missing skill set (agent-sync hint + agent-triggers)
-- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + `pendingConvergence`/`droppedBehavior` (stderr worklists, never fail)
+- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + five worklists; `droppedBehavior` (undeclared) and `refusedRequirements` are BLOCKING (the spec is left unwritten and the command exits non-zero), the other three are advisory — see the Spec Sync sub-module
 - `recountFeatureSpecCounters(content)` — frontmatter counters from the final body, derived by `lib/spec-headings`
 
 ## Dependencies
@@ -49,7 +49,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 - Refuse before writing, never after (file stays byte-identical): `verify record` self-reads machine dimensions from `prospec-report.json` and REFUSES a stale `change_digest`; `change status` refuses gate-owned targets (`GATE_OWNED_STATUSES`) and backward jumps (error lists the legal forward set); `change plan`/`change tasks` refuse a station the scale's contract closes (`--force` overwrites, never overrides the contract); `agent triggers --write` inserts only MISSING keys, re-validating BEFORE any byte reaches disk.
 - `raw-scan.service` classifies through `lib/module-detector`'s exported `isSourceFile`, never its own copy; its disclosure is a fact about the file list, so `--raw-scan-only` reports it without detection. EVERY code-span value goes through `toInlineCodeSpan` (entry point, dependency name AND version, config path, directory, extension): `raw-scan.md` is agent-read, and a manifest value is arbitrary text, not a path.
 - `mcp.service` resources are per-request reads, never cached; diagnostics to stderr (stdout is the JSON-RPC channel).
-- check.service keeps every side effect behind a flag (pure path: read-only, byte-reproducible); one change digest serves both provenance collectors; a collector needing config-derived policy takes it as a REQUIRED argument (`collectKnowledgeSize`'s `additional_core_conventions`) so an omission is a compile error, not a silent behaviour difference; `--record-tests` checks preconditions BEFORE spawning, records the POST-run digest, then merges `test_provenance` into a FRESHLY re-read document (a mid-run edit survives; one that stops validating records nothing).
+- check.service keeps every side effect behind a flag (pure path: read-only, byte-reproducible); one change digest serves the review/test provenance collectors, while `collectDeltaSpecProvenance` deliberately takes none — it fingerprints each change's OWN delta-spec, which is the point of it being separate; a collector needing config-derived policy takes it as a REQUIRED argument (`collectKnowledgeSize`'s `additional_core_conventions`) so an omission is a compile error, not a silent behaviour difference; `--record-tests` checks preconditions BEFORE spawning, records the POST-run digest, then merges `test_provenance` into a FRESHLY re-read document (a mid-run edit survives; one that stops validating records nothing).
 
 ## Sub-Modules
 

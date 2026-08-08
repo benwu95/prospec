@@ -107,6 +107,21 @@ export const DRIFT_CHECK_IDS = [
   // frontmatter that declares neither counter is out of scope rather than a
   // finding (adding it is the writer's job, not the reader's).
   'spec-counters',
+  // Delta-spec provenance — an audited change whose delta-spec was never
+  // fingerprinted, or whose recorded fingerprint predates the current
+  // delta-spec (stale), fails (fail). Deliberately NOT covered by
+  // review-provenance: `computeChangeDigest` excludes `.prospec/`, so the one
+  // artifact archive copies VERBATIM into the trust zone — the `**Spec:**`
+  // landing block — sits outside every existing gate. A review round that
+  // corrects a REQ's behavior without folding the correction back into the
+  // block leaves both existing provenance checks green while archive reverts
+  // the fix. Widening computeChangeDigest instead would red every review
+  // baseline on any artifact edit, which is why `.prospec/` is excluded there
+  // in the first place; this narrow fingerprint buys the coverage without that
+  // cost. Reads the same PROVENANCE_AUDITED_STATUSES registry as the other two
+  // gates, and skips — never a vacuous pass — for a scale that has no
+  // delta-spec.
+  'delta-spec-provenance',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

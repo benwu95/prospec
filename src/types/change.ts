@@ -94,6 +94,16 @@ export const TestProvenanceSchema = z.looseObject({
   date: z.string(), // ISO 8601 date
 });
 
+/** Machine-written delta-spec baseline (written by `prospec check --record-review`
+ *  in the same document write as `review_provenance`, so the two describe one
+ *  moment). `digest` fingerprints the change's `delta-spec.md` ALONE — the whole-tree
+ *  `computeChangeDigest` excludes `.prospec/`, leaving the one artifact archive copies
+ *  verbatim into the trust zone unguarded. `date` is the ISO 8601 record date. */
+export const DeltaSpecProvenanceSchema = z.looseObject({
+  digest: z.string(),
+  date: z.string(), // ISO 8601 date
+});
+
 /** A module name as written to `related_modules` — the plain name, matching a
  *  `module-map.yaml` entry. Rejects the markdown emphasis and stray whitespace a
  *  producer picks up when it forwards a rendered table cell (`**types**`) verbatim:
@@ -133,6 +143,14 @@ const ChangeMetadataShape = {
   // required-field floor: adding it there would retroactively fail every change
   // archived before this field existed.
   test_provenance: TestProvenanceSchema.optional(),
+  // Machine-written delta-spec baseline (written by `prospec check --record-review`
+  // alongside review_provenance). The delta-spec-provenance drift check recomputes
+  // the digest and flags the change stale when it no longer matches, so a landing
+  // block corrected during review cannot be reverted by an archive reading the
+  // pre-review text. Like test_provenance, deliberately NOT part of the
+  // metadata-completeness required-field floor — that would retroactively fail every
+  // change recorded before this field existed.
+  delta_spec_provenance: DeltaSpecProvenanceSchema.optional(),
   // Escaped-defect registration (issue #61): on a bug-fix change, names the change
   // that missed the defect (its change-name string), so per-gate escaped-defect rate
   // can be tracked. Optional keeps existing metadata valid; a convention + example
@@ -250,5 +268,6 @@ export type QualityDimension = z.infer<typeof QualityDimensionSchema>;
 export type VerifyGrade = (typeof VERIFY_GRADES)[number];
 export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;
 export type TestProvenance = z.infer<typeof TestProvenanceSchema>;
+export type DeltaSpecProvenance = z.infer<typeof DeltaSpecProvenanceSchema>;
 export type DimensionAdjudicator = (typeof DIMENSION_ADJUDICATORS)[number];
 export type GateResult = (typeof GATE_RESULTS)[number];

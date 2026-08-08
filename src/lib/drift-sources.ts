@@ -184,6 +184,37 @@ export interface ReviewProvenanceSource {
   changes: ReviewProvenanceChange[];
 }
 
+export interface DeltaSpecProvenanceChange {
+  name: string;
+  /** repo-relative metadata.yaml path (finding anchor). */
+  source_path: string;
+  status: string;
+  scale: string;
+  /** digest recorded by `--record-review`; null when never recorded. */
+  recorded_digest: string | null;
+  /** Fingerprint of THIS change's delta-spec right now; null when absent or
+   *  unreadable — which of the two is told apart by `delta_spec_present`, so an
+   *  unreadable file can never be mistaken for a scale that carries none. */
+  current_digest: string | null;
+  /** False for a scale with no delta-spec (quick) — that change is skipped, never
+   *  read as agreement. */
+  delta_spec_present: boolean;
+  /** True when `backfill-draft.md` sits beside the metadata. A proven backfill is
+   *  exempt from review, so `--record-review` never runs for one and no baseline
+   *  can exist — without this exemption the gate would make every backfill
+   *  permanently unarchivable. Keyed on the draft, not the hand-editable `scale`,
+   *  exactly like the other two provenance gates. */
+  backfill_draft_present: boolean;
+}
+
+/** Unlike its two provenance siblings there is no ONE current digest here: the
+ *  fingerprint is per change, because each hashes its own `delta-spec.md`. */
+export interface DeltaSpecProvenanceSource {
+  available: boolean;
+  reason?: string;
+  changes: DeltaSpecProvenanceChange[];
+}
+
 /** Required metadata fields a well-formed change carries — checked for presence
  *  (non-empty), stricter than ChangeMetadataSchema (which makes `scale` optional). */
 export const REQUIRED_METADATA_FIELDS = ['name', 'created_at', 'status', 'scale'] as const;
@@ -1254,6 +1285,35 @@ function gitLastCommit(
  * plus a hash of every untracked file), the two results can never differ within a
  * run, and computing it per-collector doubled every `prospec check`.
  */
+/**
+ * Content fingerprint of ONE change's `delta-spec.md` (REQ-LIB-045) — the narrow
+ * sibling of `computeChangeDigest`, and narrow on purpose.
+ *
+ * `computeChangeDigest` excludes `.prospec/` so that a `--record-review`, a status
+ * write or an `agent sync` cannot self-trip the review baseline. The cost of that
+ * exclusion is that the delta-spec — the ONE artifact archive copies verbatim into
+ * `specs/features/**` — sits outside every provenance gate: a review round that
+ * corrects a REQ's behavior without folding the correction back into its `**Spec:**`
+ * block leaves review- and test-provenance green while archive reverts the fix.
+ * Widening the whole-tree digest to cover `.prospec/` would red every baseline on
+ * any artifact edit, which is the very thing that exclusion exists to prevent, so
+ * the coverage is bought with this separate, single-file fingerprint instead.
+ *
+ * Deliberately git-free: it hashes bytes, so it works the same in a fresh clone, a
+ * shallow clone, or a directory that is not a repository at all. Returns null when
+ * the file is absent (a scale with no delta-spec — the caller skips that change)
+ * and when it cannot be read (PB-013: an unreadable source degrades to an honest
+ * null, never to a constant that would certify a stale landing block as current).
+ */
+export function computeDeltaSpecDigest(changeDir: string): string | null {
+  try {
+    const contents = readFileSync(path.join(changeDir, 'delta-spec.md'));
+    return createHash('sha256').update('delta-spec\0').update(contents).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
 export function computeChangeDigest(cwd: string): string | null {
   if (!isGitWorkTree(cwd)) return null;
   const scope = [
@@ -1351,6 +1411,49 @@ export function collectReviewProvenance(
     });
   }
   return { available: true, current_digest, changes };
+}
+
+/**
+ * Collect delta-spec-provenance facts for every change in `.prospec/changes/`
+ * (REQ-LIB-045). Sibling of collectReviewProvenance, with one structural
+ * difference: there is no single current digest to pass in, because each change
+ * fingerprints its OWN `delta-spec.md`.
+ *
+ * Deliberately NOT gated on being a git repository — the fingerprint hashes bytes,
+ * so it is just as meaningful outside one, and requiring git here would skip the
+ * gate in exactly the environments (fresh clone, export) where a stale landing
+ * block is most likely to go unnoticed. Only a missing `.prospec/changes/` makes
+ * the source unavailable; a change that carries no delta-spec is flagged per change
+ * so the evaluator can skip it, because marking the whole source unavailable for
+ * one quick change would blind the gate to every other change beside it.
+ */
+export function collectDeltaSpecProvenance(cwd: string): DeltaSpecProvenanceSource {
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  if (!existsSync(changesDir)) {
+    return {
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      changes: [],
+    };
+  }
+  const changes: DeltaSpecProvenanceChange[] = [];
+  for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
+    // unparseable metadata — metadata-completeness owns that finding, not this one
+    if (entry.meta === null) continue;
+    const changeDir = path.join(changesDir, entry.name);
+    const prov = entry.meta.delta_spec_provenance as { digest?: unknown } | undefined;
+    changes.push({
+      name: entry.name,
+      source_path: entry.source_path,
+      status: readString(entry.meta.status),
+      scale: readString(entry.meta.scale),
+      recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
+      current_digest: computeDeltaSpecDigest(changeDir),
+      delta_spec_present: existsSync(path.join(changeDir, 'delta-spec.md')),
+      backfill_draft_present: existsSync(path.join(changeDir, 'backfill-draft.md')),
+    });
+  }
+  return { available: true, changes };
 }
 
 /**

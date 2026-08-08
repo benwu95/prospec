@@ -27,6 +27,7 @@ import type {
   ReqDefinitionIndex,
   ReqReference,
   ReviewProvenanceSource,
+  DeltaSpecProvenanceSource,
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
@@ -60,6 +61,7 @@ export interface DriftCheckInputs {
   featureMapGovernance: FeatureMapGovernanceSource;
   mcpReadmeCounts: McpReadmeCountSource;
   reviewProvenance: ReviewProvenanceSource;
+  deltaSpecProvenance: DeltaSpecProvenanceSource;
   metadataCompleteness: MetadataCompletenessSource;
   knowledgeSize: KnowledgeSizeSource;
   testProvenance: TestProvenanceSource;
@@ -426,6 +428,72 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
 }
 
 /**
+ * Delta-spec provenance — an audited change must carry a delta-spec baseline whose
+ * fingerprint still matches its `delta-spec.md` (REQ-LIB-045). FAIL-class, and the
+ * one gate aimed at the artifact rather than the code: `computeChangeDigest`
+ * excludes `.prospec/`, so review- and test-provenance both stay green when a
+ * review round corrects a REQ's behavior and the correction is never folded back
+ * into its `**Spec:**` block — and archive then copies the pre-review text verbatim
+ * into the trust zone, reverting the fix.
+ *
+ * Every branch fails CLOSED. Absent → fail (no baseline proves anything); mismatch
+ * → fail (the block moved after review saw it); present-but-unreadable → fail with
+ * its OWN reason, because reporting that as "stale" would send the author to edit a
+ * file they cannot read. Only two things pass without a comparison: a scale that
+ * carries no delta-spec (nothing graduates verbatim from it) and a backfill proven
+ * by `backfill-draft.md` — a proven backfill never runs review, so no baseline can
+ * ever exist for it and the alternative would be making every backfill permanently
+ * unarchivable. `scale` alone buys nothing, matching the other two gates.
+ *
+ * Audited statuses come from the shared `PROVENANCE_AUDITED_STATUSES`, so all three
+ * provenance gates cover the same window — `verified` included, which is where this
+ * one earns its keep: the landing blocks graduate at archive, after verify.
+ */
+export function evaluateDeltaSpecProvenance(src: DeltaSpecProvenanceSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('delta-spec-provenance', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  const fail = (c: DeltaSpecProvenanceSource['changes'][number], detail: string): void => {
+    findings.push({
+      check: 'delta-spec-provenance',
+      severity: 'fail',
+      source_path: c.source_path,
+      detail,
+    });
+  };
+  for (const c of src.changes) {
+    if (!isProvenanceAudited(c.status)) continue;
+    // Nothing graduates verbatim from a change with no delta-spec.
+    if (!c.delta_spec_present) continue;
+    // Draft-gated exactly like the other two gates (issue #103).
+    if (c.scale === 'backfill' && c.backfill_draft_present) continue;
+    if (c.current_digest === null) {
+      fail(
+        c,
+        `delta-spec for change "${c.name}" could not be read — its landing blocks cannot be ` +
+          `proven current, so archive must not graduate them`,
+      );
+    } else if (c.recorded_digest === null) {
+      fail(
+        c,
+        `no delta-spec baseline recorded for change "${c.name}" — run ` +
+          `\`prospec check --record-review\` so the \`**Spec:**\` blocks archive graduates ` +
+          `can be proven to match what review saw`,
+      );
+    } else if (c.recorded_digest !== c.current_digest) {
+      fail(
+        c,
+        `stale delta-spec for change "${c.name}": the delta-spec changed since the recorded ` +
+          `baseline. If review corrected behavior, fold the correction into the \`**Spec:**\` ` +
+          `block and re-record; the block, not the code, is what archive copies verbatim`,
+      );
+    }
+  }
+  return outcome('delta-spec-provenance', findings);
+}
+
+/**
  * Metadata completeness — a change whose metadata.yaml is missing a required
  * field (name/created_at/status/scale), or that is verified/archived yet records
  * no /prospec-verify S/A grade in quality_log, fails (FAIL-class). Backs the
@@ -668,6 +736,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'constitution-severity': evaluateConstitutionSeverity(inputs.constitutionRules),
     'artifact-language': evaluateArtifactLanguage(inputs.artifactLanguage),
     'spec-counters': evaluateSpecCounters(inputs.specCounters),
+    'delta-spec-provenance': evaluateDeltaSpecProvenance(inputs.deltaSpecProvenance),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

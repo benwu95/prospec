@@ -7,14 +7,14 @@
 | File | Purpose |
 |------|---------|
 | `drift-sources.ts` | Drift collectors — ALL filesystem/git I/O; an unavailable source returns `{available:false, reason}` so its check skips. Also the git timestamp collector and `computeChangeDigest` |
-| `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (15 checks; `artifact-language`/`spec-counters` are WARN-only) |
+| `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (16 checks; `artifact-language`/`spec-counters` are WARN-only) |
 | `test-runner.ts` | The ONE flag-gated, `shell: false` project-command runner — the fact `test-provenance` grades |
 | `escaped-defects.ts` / `constitution-parser.ts` | Per-gate escaped-defect aggregation; `## Principles` rule inventory + RFC-2119 severities |
 | `generated-artifacts.ts` | The build-output registry subtracted from module staleness — single-sourced with `scripts/bundle-templates.ts`, its only other consumer |
 
 ## Public API
 
-- `runChecks(inputs)` + every `collect*` source, `computeChangeDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
+- `runChecks(inputs)` + every `collect*` source, `computeChangeDigest`, `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
 
 ## Dependencies
 
@@ -36,9 +36,10 @@
 - Drift findings are codepoint-sorted (`localeCompare` breaks byte-identity, tie-breaks included); an unavailable source → `skipped`, never a vacuous pass (`import-direction`: JS/TS ESM only).
 - L2 sizing and staleness walk a module dir via the ONE `moduleKnowledgeFiles` helper — README **and** each sub-module `.md`.
 - `collectKnowledgeSize` measures SIX surfaces (`l1`/`l2`/`spec`/`demand-knowledge`/`skill`/`reference`), each graded through `types/config`'s `KNOWLEDGE_SIZE_RULES`. Its l1+demand halves come from ONE `filterConventions` split — the same rule the index writers use, `additional_core_conventions` included, so a promoted convention is graded L1 as its own index.md declares. Skill/reference are collected only in authoring mode (the project holds `src/templates/skills/`), deduped by skill NAME across agent paths (two names = two skills, even via symlink).
-- NO enumeration in that collector may throw: it is an ARGUMENT to `runChecks(...)`, so one bad path costs all fifteen verdicts, not its own line — hence `readdirNamesOrEmpty` and `budgetedMarkdownFiles` rather than `scanDirSync`, which throws AND applies `SENSITIVE_PATTERNS` (a Feature Spec named `secret-*.md` would vanish — a budget failing OPEN). That walk follows its ROOT (a legitimately symlinked tree must still be measured) but never descends a symlinked sub-directory. Still unguarded and out of scope: `collectMarkdownLinks`/`collectReqDefinitions` abort the run on an EACCES dir or a `specs/features` that is a file.
+- NO enumeration in that collector may throw: it is an ARGUMENT to `runChecks(...)`, so one bad path costs all sixteen verdicts, not its own line — hence `readdirNamesOrEmpty` and `budgetedMarkdownFiles` rather than `scanDirSync`, which throws AND applies `SENSITIVE_PATTERNS` (a Feature Spec named `secret-*.md` would vanish — a budget failing OPEN). That walk follows its ROOT (a legitimately symlinked tree must still be measured) but never descends a symlinked sub-directory. Still unguarded and out of scope: `collectMarkdownLinks`/`collectReqDefinitions` abort the run on an EACCES dir or a `specs/features` that is a file.
 - `test-runner.ts`'s argv[0] follows **libuv**, never PATHEXT (spawn cwd before PATH, entries unquoted). An unspawnable Windows shim is refused pre-spawn (`command_unavailable_reason`); recorded runs still enumerate and a non-zero exit still FAILs.
-- Both provenance evaluators filter through `PROVENANCE_AUDITED_STATUSES` (`types/change.ts`, pinned against the lifecycle doc's audit-scope table): `implemented` **and** `verified`, so the verify→archive window is covered; `archived` is unreachable (bundle moved), not exempt. HEAD is in the digest, so the verify commit itself stales both baselines — re-record after committing (PB-016), never widen the gate.
+- All THREE provenance evaluators filter through `PROVENANCE_AUDITED_STATUSES` (`types/change.ts`, pinned against the lifecycle doc's audit-scope table): `implemented` **and** `verified`, so the verify→archive window is covered; `archived` is unreachable (bundle moved), not exempt. HEAD is in the digest, so the verify commit itself stales both baselines — re-record after committing (PB-016), never widen the gate.
 - `computeChangeDigest` hashes UNTRACKED contents too (fails closed) — a tool writing into the repo un-gitignored flips review/test provenance to a false red.
+- `computeDeltaSpecDigest` is its NARROW sibling and deliberately separate: the whole-tree digest excludes `.prospec/`, so the delta-spec — the one artifact archive copies verbatim into the trust zone — had no gate at all. It hashes that ONE file, is git-free (bytes, so a fresh clone judges the same), and fails closed to null on an unreadable file. Widening `computeChangeDigest` instead would red every review baseline on any artifact edit, which is why the exclusion exists. `--record-review` stamps both baselines in one document write; `evaluateDeltaSpecProvenance` skips a scale with no delta-spec and a backfill proven by `backfill-draft.md` (which never runs review, so no baseline could ever exist for it).
 - `GENERATED_SOURCE_ARTIFACTS` subtracts build output from `last_src_commit` only, never from the digest; an unparsable `:(exclude)` falls back to the unexcluded query (null reads as not-stale).
 - The contained read belongs to `knowledge-reader` ([lib](./README.md) Pitfalls) — drift-sources imports FROM it, never the reverse.

@@ -19,10 +19,12 @@ import {
   scriptGapReason,
   scriptPatternFor,
   collectQualityLedger,
+  collectDeltaSpecProvenance,
   collectReviewProvenance,
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  computeDeltaSpecDigest,
   moduleAttributor,
 } from '../../../src/lib/drift-sources.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -1198,6 +1200,144 @@ describe('collectTaskStates', () => {
       [true, 'verification'],
     ]);
     expect(tasks[1]?.line).toBe(2);
+  });
+});
+
+// The narrow sibling of computeChangeDigest (REQ-LIB-045). It exists precisely
+// because computeChangeDigest excludes `.prospec/` — so the artifact archive copies
+// VERBATIM into the trust zone has no fingerprint at all. These tests pin the two
+// halves that matter: it MOVES with the delta-spec, and it moves with NOTHING else.
+describe('computeDeltaSpecDigest (REQ-LIB-045)', () => {
+  const changeDir = () => path.join(tmpDir, '.prospec/changes/c1');
+
+  it('returns null when the change has no delta-spec — absence is never a digest', () => {
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    expect(computeDeltaSpecDigest(changeDir())).toBeNull();
+  });
+
+  it('returns null when the change directory does not exist at all', () => {
+    expect(computeDeltaSpecDigest(changeDir())).toBeNull();
+  });
+
+  it('is stable for unchanged content and flips when the delta-spec changes', () => {
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nold body\n');
+    const d0 = computeDeltaSpecDigest(changeDir());
+    expect(d0).toBeTruthy();
+    expect(computeDeltaSpecDigest(changeDir())).toBe(d0);
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\ncorrected body\n');
+    expect(computeDeltaSpecDigest(changeDir())).not.toBe(d0);
+  });
+
+  // The whole point of the narrow scope: editing code, or any other artifact in the
+  // same change, must NOT move this fingerprint — otherwise it degenerates into a
+  // second copy of computeChangeDigest and re-imports the cost that keeps
+  // `.prospec/` excluded there.
+  it('does not move when anything other than the delta-spec changes', () => {
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const d0 = computeDeltaSpecDigest(changeDir());
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    write('.prospec/changes/c1/plan.md', 'a plan\n');
+    write('.prospec/changes/c1/metadata.yaml', 'status: verified\n');
+    write('.prospec/changes/c2/delta-spec.md', 'another change\n');
+    expect(computeDeltaSpecDigest(changeDir())).toBe(d0);
+  });
+
+  it('is unaffected by whether the directory is a git repository', () => {
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const outsideGit = computeDeltaSpecDigest(changeDir());
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+    expect(computeDeltaSpecDigest(changeDir())).toBe(outsideGit);
+  });
+
+  // PB-013 / REQ-LIB-045: an unreadable source must degrade to an honest null, not
+  // to a constant that would certify a stale landing block as current. Skipped as
+  // root, where chmod 000 does not deny reads.
+  it.skipIf(process.getuid?.() === 0)(
+    'returns null — never a constant — when the delta-spec cannot be read',
+    () => {
+      write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+      const readable = computeDeltaSpecDigest(changeDir());
+      chmodSync(path.join(changeDir(), 'delta-spec.md'), 0o000);
+      const denied = computeDeltaSpecDigest(changeDir());
+      chmodSync(path.join(changeDir(), 'delta-spec.md'), 0o644);
+      expect(readable).toBeTruthy();
+      expect(denied).toBeNull();
+    },
+  );
+});
+
+describe('collectDeltaSpecProvenance (REQ-LIB-045)', () => {
+  const meta = (over = '') =>
+    `name: c1\ncreated_at: 2026-08-08T00:00:00Z\nstatus: implemented\nscale: full\n${over}`;
+
+  it('is unavailable — never an empty pass — when .prospec/changes/ is absent', () => {
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.available).toBe(false);
+    expect(src.reason).toMatch(/\.prospec\/changes/);
+    expect(src.changes).toEqual([]);
+  });
+
+  it('enumerates status, scale, recorded and current digest per change', () => {
+    write('.prospec/changes/c1/metadata.yaml', meta('delta_spec_provenance:\n  digest: recorded-abc\n  date: 2026-08-08\n'));
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.available).toBe(true);
+    expect(src.changes).toHaveLength(1);
+    const c = src.changes[0]!;
+    expect(c).toMatchObject({
+      name: 'c1',
+      status: 'implemented',
+      scale: 'full',
+      recorded_digest: 'recorded-abc',
+      delta_spec_present: true,
+    });
+    expect(c.current_digest).toBe(computeDeltaSpecDigest(path.join(tmpDir, '.prospec/changes/c1')));
+    expect(c.source_path).toContain('metadata.yaml');
+  });
+
+  it('reports a never-recorded baseline as null rather than omitting the change', () => {
+    write('.prospec/changes/c1/metadata.yaml', meta());
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.changes[0]!.recorded_digest).toBeNull();
+    expect(src.changes[0]!.delta_spec_present).toBe(true);
+  });
+
+  // A quick change legitimately carries no delta-spec. The source stays AVAILABLE —
+  // marking the whole source unavailable for one such change would blind the gate to
+  // every other change in the directory.
+  it('keeps the source available and flags the change when a scale carries no delta-spec', () => {
+    write('.prospec/changes/quick1/metadata.yaml', 'name: quick1\ncreated_at: 2026-08-08T00:00:00Z\nstatus: implemented\nscale: quick\n');
+    write('.prospec/changes/c1/metadata.yaml', meta());
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.available).toBe(true);
+    const quick = src.changes.find((c) => c.name === 'quick1')!;
+    expect(quick.delta_spec_present).toBe(false);
+    expect(quick.current_digest).toBeNull();
+    expect(src.changes.find((c) => c.name === 'c1')!.delta_spec_present).toBe(true);
+  });
+
+  // A proven backfill never runs review, so `--record-review` never writes it a
+  // baseline. Without surfacing the draft the evaluator could only read that as
+  // "absent" and make every backfill permanently unarchivable.
+  it('surfaces backfill-draft.md so the evaluator can exempt a proven backfill', () => {
+    write('.prospec/changes/c1/metadata.yaml', meta());
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    write('.prospec/changes/bf/metadata.yaml', 'name: bf\ncreated_at: 2026-08-08T00:00:00Z\nstatus: implemented\nscale: backfill\n');
+    write('.prospec/changes/bf/delta-spec.md', '**Spec:**\nbody\n');
+    write('.prospec/changes/bf/backfill-draft.md', 'draft\n');
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.changes.find((c) => c.name === 'bf')!.backfill_draft_present).toBe(true);
+    expect(src.changes.find((c) => c.name === 'c1')!.backfill_draft_present).toBe(false);
+  });
+
+  it('skips a change whose metadata does not parse — that finding belongs to metadata-completeness', () => {
+    write('.prospec/changes/broken/metadata.yaml', ':::not yaml:::\n  - [\n');
+    write('.prospec/changes/c1/metadata.yaml', meta());
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const src = collectDeltaSpecProvenance(tmpDir);
+    expect(src.changes.map((c) => c.name)).toEqual(['c1']);
   });
 });
 

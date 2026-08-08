@@ -382,6 +382,107 @@ describe('CLI E2E', () => {
       ).toBe(true);
     });
 
+    // Spec-loss guards, end to end (REQ-CLI-034). Asserted through the real
+    // compiled CLI because the thing under test is the exit code and the bytes on
+    // disk — neither is observable from the service's return value alone.
+    async function writeLossyChange(name: string, specBlock: string): Promise<void> {
+      await writeVerifiedChange(name);
+      const featuresDir = path.join(tmpDir, 'prospec', 'specs', 'features');
+      await fs.promises.mkdir(featuresDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(featuresDir, 'alpha.md'),
+        `---\nfeature: alpha\nstatus: active\nlast_updated: 2026-01-01\n---\n\n# alpha\n\n## User Stories\n\n### US-1: a story\n\n#### REQ-LIB-002: existing\nOld body.\n- WHEN a happens, THEN b follows\n\n---\n\n## Edge Cases\n\n- none\n`,
+      );
+      await fs.promises.writeFile(
+        path.join(tmpDir, '.prospec', 'changes', name, 'delta-spec.md'),
+        `# Delta Spec\n\n## MODIFIED\n\n### REQ-LIB-002: existing\n\n**Feature:** alpha\n**Story:** US-1\n\n**Spec:**\n${specBlock}\n\n**Priority:** High\n\n---\n`,
+      );
+    }
+
+    const alphaSpec = (): string =>
+      fs.readFileSync(path.join(tmpDir, 'prospec', 'specs', 'features', 'alpha.md'), 'utf-8');
+
+    it('exits 1 and leaves the feature spec untouched when a bullet would be dropped', async () => {
+      await writeLossyChange('feat-loss', 'A new body that restates nothing.');
+      const before = alphaSpec();
+
+      const { stderr, exitCode } = await runCli(['archive', 'feat-loss']);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('- WHEN a happens, THEN b follows');
+      expect(alphaSpec()).toBe(before);
+    });
+
+    it('exits 1 on --dry-run too — a clean preview must mean a clean run', async () => {
+      await writeLossyChange('feat-loss', 'A new body that restates nothing.');
+      const { exitCode } = await runCli(['archive', 'feat-loss', '--dry-run']);
+      expect(exitCode).toBe(1);
+    });
+
+    it('exits 1 and writes nothing when a landing block is truncated by a foreign label', async () => {
+      await writeLossyChange(
+        'feat-trunc',
+        'A new body.\n\n**Scenarios:**\n- WHEN a happens, THEN b follows',
+      );
+      const before = alphaSpec();
+
+      const { stderr, exitCode } = await runCli(['archive', 'feat-trunc']);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Scenarios');
+      expect(alphaSpec()).toBe(before);
+    });
+
+    // The recovery path, end to end (REQ-CLI-034). Holding the feature-spec write
+    // is only half a guard: the first implementation held it AFTER the bundle had
+    // moved and the change was stamped `archived`, so the remedy the CLI printed
+    // was unreachable and the REQ could never land. The verdict now runs before
+    // anything moves, which makes "fix the block and re-run" literally true.
+    it('leaves the change in place — nothing archived — when the sync would lose text', async () => {
+      await writeLossyChange('feat-recover', 'A new body that restates nothing.');
+
+      const { exitCode } = await runCli(['archive', 'feat-recover']);
+      expect(exitCode).toBe(1);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-recover'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'archive'))).toBe(false);
+      const meta = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'feat-recover', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(meta).toContain('status: verified');
+      expect(meta).not.toContain('status: archived');
+    });
+
+    it('archives cleanly on the re-run after the delta-spec is fixed', async () => {
+      await writeLossyChange('feat-recover', 'A new body that restates nothing.');
+      expect((await runCli(['archive', 'feat-recover'])).exitCode).toBe(1);
+
+      // The remedy the CLI printed: declare the removal, then re-run. No hand-moving.
+      const deltaPath = path.join(tmpDir, '.prospec', 'changes', 'feat-recover', 'delta-spec.md');
+      const delta = await fs.promises.readFile(deltaPath, 'utf-8');
+      await fs.promises.writeFile(
+        deltaPath,
+        delta.replace(
+          '**Priority:** High',
+          '**Dropped:**\n- WHEN a happens, THEN b follows\n\n**Priority:** High',
+        ),
+      );
+
+      const { exitCode } = await runCli(['archive', 'feat-recover']);
+      expect(exitCode).toBe(0);
+      expect(alphaSpec()).toContain('A new body that restates nothing.');
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-recover'))).toBe(false);
+    });
+
+    it('exits 0 and writes once the drop is declared deliberate', async () => {
+      await writeLossyChange(
+        'feat-declared',
+        'A new body that restates nothing.\n\n**Dropped:**\n- WHEN a happens, THEN b follows',
+      );
+
+      const { exitCode } = await runCli(['archive', 'feat-declared']);
+      expect(exitCode).toBe(0);
+      expect(alphaSpec()).toContain('A new body that restates nothing.');
+    });
+
     it('refuses a non-verified named target with exit 1', async () => {
       const changeDir = path.join(tmpDir, '.prospec', 'changes', 'feat-y');
       await fs.promises.mkdir(changeDir, { recursive: true });

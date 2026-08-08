@@ -55,7 +55,15 @@ export function formatCheckOutput(
   if (result.kind === 'record-review') {
     const change = sanitizeTerminal(result.change);
     if (result.recorded) {
-      console.log(`${pc.green('✓')} Recorded review baseline for change "${change}"`);
+      // Which baselines were stamped, not just that something was — an identical
+      // success line for "recorded both" and "recorded one" is the silence the
+      // `deltaSpecSkipped` field exists to prevent, and it was previously written
+      // by the service and read by nobody.
+      console.log(
+        result.deltaSpecSkipped === true
+          ? `${pc.green('✓')} Recorded review baseline for change "${change}" — no delta-spec, so no delta-spec baseline was stamped`
+          : `${pc.green('✓')} Recorded review + delta-spec baselines for change "${change}"`,
+      );
     } else {
       console.log(
         `${pc.yellow('●')} Review baseline not recorded for "${change}" — ${sanitizeTerminal(result.reason ?? 'skipped')}`,

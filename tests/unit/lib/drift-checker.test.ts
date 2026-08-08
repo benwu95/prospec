@@ -15,6 +15,7 @@ import {
   evaluateArtifactLanguage,
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
+  evaluateDeltaSpecProvenance,
   evaluateSpecCounters,
   evaluateTaskCompletion,
   evaluateTestProvenance,
@@ -31,6 +32,7 @@ import type {
   KnowledgeSizeSource,
   MetadataCompletenessSource,
   ReviewProvenanceSource,
+  DeltaSpecProvenanceSource,
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
@@ -66,6 +68,7 @@ const emptyInputs: DriftCheckInputs = {
   featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
   mcpReadmeCounts: { available: true, claims: [] },
   reviewProvenance: { available: true, current_digest: 'CUR', changes: [] },
+  deltaSpecProvenance: { available: true, changes: [] },
   metadataCompleteness: { available: true, changes: [] },
   knowledgeSize: {
     available: true,
@@ -510,6 +513,105 @@ describe('evaluateTaskCompletion', () => {
   it('skips with reason when .prospec/changes is unavailable', () => {
     const r = evaluateTaskCompletion({ available: false, reason: 'source unavailable: .prospec/changes/ not found', changes: [] });
     expect(r.result.status).toBe('skipped');
+  });
+});
+
+describe('evaluateDeltaSpecProvenance (REQ-LIB-045)', () => {
+  const src = (
+    over: Partial<DeltaSpecProvenanceSource['changes'][number]> = {},
+  ): DeltaSpecProvenanceSource => ({
+    available: true,
+    changes: [
+      {
+        name: 'c1',
+        source_path: '.prospec/changes/c1/metadata.yaml',
+        status: 'implemented',
+        scale: 'standard',
+        recorded_digest: 'CUR',
+        current_digest: 'CUR',
+        delta_spec_present: true,
+        backfill_draft_present: false,
+        ...over,
+      },
+    ],
+  });
+
+  it('skips when the source is unavailable (no changes dir)', () => {
+    const r = evaluateDeltaSpecProvenance({
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      changes: [],
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('.prospec/changes/');
+  });
+
+  it('passes when the recorded fingerprint still matches the delta-spec', () => {
+    const r = evaluateDeltaSpecProvenance(src());
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails when an audited change has no recorded delta-spec baseline', () => {
+    const r = evaluateDeltaSpecProvenance(src({ recorded_digest: null }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('no delta-spec baseline');
+  });
+
+  // The failure this whole check exists for: review corrected a REQ, the landing
+  // block was never updated, and archive is about to copy the pre-review text.
+  it('fails (stale) when the delta-spec moved after the baseline was recorded', () => {
+    const r = evaluateDeltaSpecProvenance(src({ recorded_digest: 'OLD', current_digest: 'CUR' }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('stale delta-spec');
+    // The remediation must point at the landing block, not at the code — pointing
+    // at the code is what the other two provenance findings already do.
+    expect(r.findings[0]?.detail).toMatch(/\*\*Spec:\*\*|landing block/);
+  });
+
+  it('skips a change whose scale carries no delta-spec, without failing it', () => {
+    const r = evaluateDeltaSpecProvenance(
+      src({ scale: 'quick', delta_spec_present: false, current_digest: null, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  // Present but unreadable is NOT the same as absent. Reporting it as a plain
+  // "stale" would send the author to edit a file they cannot read.
+  it('fails with its own reason when the delta-spec exists but cannot be read', () => {
+    const r = evaluateDeltaSpecProvenance(src({ delta_spec_present: true, current_digest: null }));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('could not be read');
+  });
+
+  it('exempts a PROVEN backfill — it never runs review, so no baseline can exist', () => {
+    const r = evaluateDeltaSpecProvenance(
+      src({ scale: 'backfill', backfill_draft_present: true, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('grants NO exemption to an unproven backfill (scale alone is hand-editable)', () => {
+    const r = evaluateDeltaSpecProvenance(
+      src({ scale: 'backfill', backfill_draft_present: false, recorded_digest: null }),
+    );
+    expect(r.result.status).toBe('fail');
+  });
+
+  it('does not flag a change before review is due (story/plan/tasks)', () => {
+    for (const status of ['story', 'plan', 'tasks']) {
+      const r = evaluateDeltaSpecProvenance(src({ status, recorded_digest: null }));
+      expect(r.result.status, status).toBe('pass');
+    }
+  });
+
+  // The verify→archive window is exactly where this gate has to hold: the landing
+  // blocks graduate at archive, which happens while the change is `verified`.
+  it('audits a verified change — the window between verify and archive is in scope', () => {
+    const r = evaluateDeltaSpecProvenance(src({ status: 'verified', recorded_digest: 'OLD' }));
+    expect(r.result.status).toBe('fail');
   });
 });
 
