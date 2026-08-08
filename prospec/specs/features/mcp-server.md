@@ -1,9 +1,9 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-08
 story_count: 4
-req_count: 11
+req_count: 13
 ---
 
 # MCP Truth Layer (Project Truth Server)
@@ -111,12 +111,13 @@ so that agents know the trustworthiness of the knowledge they read, and stale kn
 ### US-4: Interactive query tools [P2]
 
 As an agent that needs structured answers (rather than whole documents),
-I want two read-only tools, `search_modules` and `get_dependency_direction`,
-so that questions like "which module does this concept belong to" and "can A import B" can be answered at low cost.
+I want three read-only tools, `search_modules`, `get_dependency_direction` and `get_spec_requirements`,
+so that questions like "which module does this concept belong to", "can A import B" and "what exactly does this requirement say" can be answered at low cost — the last one without reading a whole Feature Spec.
 
 **Acceptance Scenarios:**
 - WHEN calling `search_modules` with an existing keyword, THEN it returns a sorted list of hits (including description)
 - WHEN asking about the dependency direction of two modules, THEN it returns the allow determination and indicates the source
+- WHEN asking for named requirements of a feature, THEN it returns just those slices plus any selector that matched nothing, and refuses a call with no selector
 
 #### REQ-MCP-005: search_modules and get_dependency_direction
 `search_modules` performs normalized term-OR matching against the Module/Keywords/Aliases columns of the root-level `index.md` auto block module table (lowercase, `-`/`_`/whitespace as equivalent separators, included if any term matches), sorted by deterministic rules (field weight name > keywords > aliases, number of distinct matched terms, ties broken by module-name codepoint order). `get_dependency_direction` answers based on module-map `depends_on`, falling back to the Constitution chain when the map is missing and indicating the source. `search_modules` results additionally carry an ordered category list for each matched module (joined from module-map by `attachModuleCategories`, not by parsing index headings).
@@ -136,6 +137,20 @@ so that questions like "which module does this concept belong to" and "can A imp
 - WHEN an existing client receives the result, THEN the unknown category field is ignored and does not break existing consumption
 - WHEN the schema evolves, THEN only additive (no reordering/removal of existing fields)
 
+#### REQ-TYPES-079: MCP tool contract for the REQ-scoped read
+The MCP contract types carry the REQ-scoped read: `MCP_TOOL_NAMES` gains `get_spec_requirements` by append, and the tool's input shape and result schema sit beside the other two tools' rather than inside the service, so the frozen contract stays in one file.
+- WHEN a tool name is added, THEN it is appended and the existing names keep their order — clients consume a frozen list
+- WHEN the input shape is declared, THEN it is a raw Zod shape as the SDK's `registerTool` requires, with a wrapped schema exported for standalone validation
+- WHEN the result schema is declared, THEN it carries both the selected slices and the selectors that matched nothing, so an unmatched selector is part of the contract rather than an empty success
+
+#### REQ-MCP-009: `get_spec_requirements` tool exposes the same narrow read
+The MCP server exposes the REQ-granular read as a tool, `get_spec_requirements`, taking a feature plus optional REQ and story selectors and returning the same slices and misses the CLI does — from the same library functions, so the two surfaces cannot drift.
+- WHEN the tool is called with selectors, THEN it returns the selected slices and the unmatched selectors as structured output
+- WHEN the tool is called with no selector at all, THEN it refuses and points at the `spec://feature/{name}` resource: this result carries no whole-spec field, so an empty selection would read as "this feature specifies nothing"
+- WHEN the tool is called for a feature that does not resolve, THEN it returns a tool error listing the specs that DO exist and does not echo the requested name back — the name is caller-supplied text and a service cannot reach the CLI's terminal sanitizer
+- WHEN `spec://feature/{name}` is read, THEN it still returns the whole spec text unchanged — the narrow read is a tool because a resource template cannot carry an optional query, and a resource is an addressable identity rather than a query
+- WHEN the tool runs, THEN stdout carries only the JSON-RPC channel and diagnostics go to stderr
+
 #### REQ-LIB-017: attachModuleCategories pure join
 `lib/knowledge-reader`'s `attachModuleCategories(result, moduleMap)` attaches module-map's ordered `category` to search matches by module name; module-map is the single truth. `searchModules` ranking and `parseIndexModules` enumeration are unchanged.
 
@@ -153,6 +168,7 @@ so that questions like "which module does this concept belong to" and "can A imp
 
 ---
 
+
 ## Edge Cases
 
 - module-map missing: map-dependent surfaces are gracefully unavailable + `prospec knowledge init` hint; the remaining resources behave as usual
@@ -164,7 +180,7 @@ so that questions like "which module does this concept belong to" and "can A imp
 ## Success Criteria
 
 - **SC-1**: An MCP client (in-memory transport contract test) can enumerate and read all six kinds of resources
-- **SC-2**: The two tools return contract-correct results on fixtures (including empty results and erroneous input)
+- **SC-2**: The three tools return contract-correct results on fixtures (including empty results and erroneous input)
 - **SC-3**: Zero mcp references in `templates/` and existing services (graceful structural guarantee holds)
 - **SC-4**: health and the `knowledge_health` of `prospec check --json` are byte-for-byte consistent under the same state
 - **SC-5**: Both the Chinese and English versions of the README contain a `prospec mcp serve` feature section
@@ -184,6 +200,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-08 | read-specs-by-req | ADDED REQ-TYPES-079; ADDED REQ-MCP-009 | REQ-TYPES-079, REQ-MCP-009 |
 | 2026-07-31 | harden-contained-reads | ADDED REQ-TESTS-068 (contained-read failure coverage + single-source guards); MODIFIED REQ-MCP-006 (a content read past containment but unreadable is absent; a governance map is LOUD; the read reports absent/escaped/unreadable) | REQ-TESTS-068, REQ-MCP-006 |
 | 2026-06-13 | add-mcp-server | Read-only MCP server (BL-033 + read layer + OPT-A2 health consumption; converged after two rounds of adversarial review and fixing 4 criticals) | US-1~4; REQ-MCP-001~008 |
 | 2026-06-13 | mcp-serve-cwd | `prospec mcp serve --cwd <path>` pins the project root directory; config resolution and the preAction guard both respect `--cwd`, supporting a single agent registering multi-project servers across directories | REQ-MCP-001 (MODIFIED) |
