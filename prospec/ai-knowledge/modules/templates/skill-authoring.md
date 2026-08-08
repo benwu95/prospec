@@ -21,7 +21,7 @@
 
 ## Modification Guide
 
-1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step), register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
+1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step) and `{{> next-step-handoff}}` at the end, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
 2. **Add a reference** — create `skills/references/{name}.hbs`, map it in `agent-sync.service.ts`, cite it from the skill.
 3. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
 
