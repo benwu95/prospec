@@ -156,6 +156,7 @@ describe('createProgram', () => {
         'print-template',
         'quickstart',
         'review',
+        'spec',
         'status',
         'upgrade',
         'validate',

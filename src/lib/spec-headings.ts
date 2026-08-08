@@ -1,5 +1,7 @@
+import { hasUnclosedFence, withoutFencedBlocks } from './markdown-fences.js';
+
 /**
- * THE definition of a Feature-Spec REQ heading, and of the counters derived
+ * THE definition of a Feature-Spec REQ heading, and of everything derived
  * from one (REQ-LIB-041).
  *
  * It exists because three copies of the heading rule disagreed: the drift
@@ -12,9 +14,14 @@
  * `readSpecCounters` lives here for the same reason rather than in either
  * caller: the writer (`archive finalize`) and the reader (the `spec-counters`
  * drift check) must derive the counts identically, or the check would police a
- * rule the writer does not follow. Leaf module with no internal imports, so both
- * `lib/drift-sources` and `services/archive` can depend on it without a lib→lib
- * cycle.
+ * rule the writer does not follow. `indexSpec` joins them for the same reason
+ * again: a narrow REQ-scoped read needs each requirement's boundaries and its
+ * owning story, and deriving those from a second walk would put the
+ * Deprecated-section rule and the heading-level rule in two places.
+ *
+ * Its only import is the other leaf that owns CommonMark fences, so
+ * `lib/drift-sources` and `services/archive` still depend on this module without
+ * a lib→lib cycle.
  */
 
 /** A matched REQ heading: its id and the ATX level it was written at. */
@@ -73,6 +80,285 @@ export function matchReqHeading(
   return { id: match[3]!, level: match[1]!.length };
 }
 
+/** One line of a spec, as written and as the heading rules read it. */
+interface ScannedLine {
+  /** The line as written, without its terminator — what a slice is cut from. */
+  raw: string;
+  /** The same line with fenced-block content masked — what the rules below read. */
+  probe: string;
+  /** Offset of the line's first character. */
+  start: number;
+  /** An active (non-struck) REQ heading. */
+  active: ReqHeading | null;
+  /** Any REQ heading, struck included — what bounds ANOTHER requirement's body. */
+  any: ReqHeading | null;
+  /** ATX level of any heading on this line. */
+  heading: number | null;
+  /** A story heading (`## US-1: …` or `### US-1: …`). */
+  story: { id: string; text: string; level: number } | null;
+  /** Whether `## Deprecated Requirements` is in force ON this line. */
+  deprecated: boolean;
+}
+
+/**
+ * The section a spec retires requirements into. Exported because the renderer of
+ * a narrow read groups deprecated requirements under this very heading, and a
+ * second literal would be a second rule.
+ */
+export const DEPRECATED_SECTION = 'Deprecated Requirements';
+const DEPRECATED_HEADING = new RegExp(`^${DEPRECATED_SECTION}`, 'i');
+
+/**
+ * NO `$` anchor, and nothing after the id — that combination is what made this
+ * pattern cubic.
+ *
+ * A line can hold a bare `\r` (a lone CR is not a terminator to `walkLines`'
+ * `\r?\n`), and `.` never matches one, so a `$` at the end was unreachable; the
+ * engine then tried every split of the preceding whitespace runs against a match
+ * that could not succeed. Measured on `## US-A` + N spaces + `B\rZ`: 4 KB took
+ * 10.1 s and 8 KB took 82 s, and `prospec check` inherited it the moment the
+ * definition inventory moved onto this walk. Stripping a TRAILING `\r` does not
+ * cure it — the CR that matters can sit mid-line — and neither would excluding CR
+ * from the separator class, so the fix is structural: match only as far as the id,
+ * with no trailing capture and no anchor, which leaves nothing to backtrack over.
+ * U+2028/U+2029 are unmatched by `.` for the same reason and are covered by the
+ * same fix.
+ *
+ * The separator stays broad (`[^\S\r\n]` — space, tab, ideographic, NBSP) because
+ * narrowing it would drop a REQ from the definition index; see `matchReqHeading`.
+ * `H2_HEADING` loses its anchor for the same reason: its capture is only read for
+ * the Deprecated-section test, and stopping at a mid-line CR is the better answer
+ * anyway.
+ */
+const STORY_HEADING = /^(#{2,3})[^\S\r\n]+(US-[^\s:]*)/;
+const STORY_HASHES = /^#{2,3}[^\S\r\n]+/;
+const H2_HEADING = /^##\s+(.+)/;
+const ATX_HEADING = /^(#{1,6})\s/;
+
+/**
+ * Split into lines while keeping each line's offset, so a caller can slice the
+ * ORIGINAL text (line endings and all) from what the rules matched.
+ *
+ * `\r?\n`, not `\n`: a trailing `\r` is a line TERMINATOR to JS regex, so `.`
+ * will not match it and a `$`-anchored pattern fails on every line of a CRLF
+ * checkout — which once made five of this repo's ten specs miscount.
+ */
+function walkLines(content: string, from: number): { raw: string; probe: string; start: number }[] {
+  const raws: string[] = [];
+  const starts: number[] = [];
+  let start = from;
+  const eol = /\r?\n/g;
+  eol.lastIndex = from;
+  let match: RegExpExecArray | null;
+  while ((match = eol.exec(content)) !== null) {
+    raws.push(content.slice(start, match.index));
+    starts.push(start);
+    start = match.index + match[0].length;
+  }
+  raws.push(content.slice(start));
+  starts.push(start);
+  // An unclosed fence masks everything after its opener, so a scanner that trusts
+  // the mask reads a truncated document and calls a plainly-present heading
+  // absent. Degrade to the raw lines — which is what these readers did before
+  // fences were considered at all, so a malformed spec is counted exactly as it
+  // was. On this repo's ten specs no fence contains a heading or a `---` at all,
+  // so masking changes no current count; it only stops a fenced EXAMPLE of a REQ
+  // heading from being read as a definition.
+  const probes = hasUnclosedFence(raws) ? raws : withoutFencedBlocks(raws);
+  // The probe is `\r`-stripped, exactly as `markdown-fences`' own scanner does it:
+  // a lone CR is not a terminator above, and leaving it in the matched view makes
+  // `$` unreachable (see STORY_HEADING). `raw` keeps every byte, so a slice still
+  // carries the file's own line endings.
+  return raws.map((raw, i) => ({
+    raw,
+    probe: stripCarriageReturn(probes[i] ?? raw),
+    start: starts[i]!,
+  }));
+}
+
+function stripCarriageReturn(line: string): string {
+  return line.endsWith('\r') ? line.slice(0, -1) : line;
+}
+
+/**
+ * THE walk. Both public readers below consume it, so the Deprecated-section rule
+ * and the heading-level rule exist once rather than once per reader.
+ *
+ * Branch ORDER is load-bearing and preserved from the counter reader this
+ * replaced: an active REQ heading is decided FIRST, because `## REQ-X-001` is a
+ * REQ at h2 and not a story section; only a non-REQ line reaches the section
+ * branches, and a struck REQ heading deliberately keeps falling through to them.
+ * A REQ heading at h1/h2 still CLOSES the Deprecated section — membership is
+ * decided by heading level, not by what the heading says.
+ */
+function scanSpec(content: string, from: number): ScannedLine[] {
+  let deprecated = false;
+  const scanned: ScannedLine[] = [];
+  for (const line of walkLines(content, from)) {
+    const active = matchReqHeading(line.probe);
+    const any = active ?? matchReqHeading(line.probe, { includeStruck: true });
+    const atx = ATX_HEADING.exec(line.probe);
+    const heading = atx === null ? null : atx[1]!.length;
+    if (active !== null) {
+      if (active.level <= 2) deprecated = false;
+      scanned.push({ ...line, active, any, heading, story: null, deprecated });
+      continue;
+    }
+    const h2 = H2_HEADING.exec(line.probe);
+    if (h2 !== null) deprecated = DEPRECATED_HEADING.test(h2[1]!.trim());
+    const storyMatch = STORY_HEADING.exec(line.probe);
+    const story =
+      storyMatch === null
+        ? null
+        : {
+            id: storyMatch[2]!,
+            // Stripped with the SAME separator class the match used: `[ \t]+` left
+            // an ideographic space in place, so the heading text kept its own
+            // hashes and a re-render emitted them twice.
+            text: stripCarriageReturn(line.raw).replace(STORY_HASHES, '').trim(),
+            level: storyMatch[1]!.length,
+          };
+    scanned.push({ ...line, active, any, heading, story, deprecated });
+  }
+  return scanned;
+}
+
+/**
+ * Offset one past the section opened at `headingIndex`, bounded by the first
+ * following line the caller calls a boundary. Trailing blank lines belong to the
+ * gap between sections, not to the section, so they are excluded — a slice ends
+ * with its last content line's terminator.
+ */
+function boundedEnd(
+  lines: ScannedLine[],
+  headingIndex: number,
+  content: string,
+  isBoundary: (line: ScannedLine) => boolean,
+): number {
+  let end = lines.length;
+  for (let i = headingIndex + 1; i < lines.length; i++) {
+    if (isBoundary(lines[i]!)) {
+      end = i;
+      break;
+    }
+  }
+  while (end - 1 > headingIndex && lines[end - 1]!.raw.trim() === '') end--;
+  return end < lines.length ? lines[end]!.start : content.length;
+}
+
+/** One requirement as the document places it. */
+export interface SpecRequirementRecord {
+  id: string;
+  /** ATX heading level, 1–6 — the level a rewrite must preserve. */
+  level: number;
+  /** Owning story's heading text (`US-1: Create Change Request [P0]`), or null. */
+  story: string | null;
+  /** Owning story's id (`US-1`), or null outside every story. */
+  storyId: string | null;
+  /** The level that story heading was written at — carried here so a renderer
+   *  never re-derives it by searching the story list, nor falls back to a guess. */
+  storyLevel: number | null;
+  /** Sits under `## Deprecated Requirements`. */
+  deprecated: boolean;
+  /** Written with a struck id (`#### ~~REQ-X-001~~: retired`). */
+  struck: boolean;
+  /** Offset of the heading line's first character. */
+  start: number;
+  /** Offset one past the requirement's last character. */
+  end: number;
+}
+
+/** One User Story section and the requirements it owns. */
+export interface SpecStoryRecord {
+  /** `US-1`. */
+  id: string;
+  /** The heading AS WRITTEN, hashes stripped — never reassembled from id + title,
+   *  which would invent a `:` for a heading that never had one. */
+  heading: string;
+  /** ATX level — real specs write stories at both h2 and h3. */
+  level: number;
+  start: number;
+  end: number;
+  /** Ids of the requirements defined inside this story, in document order. */
+  requirements: string[];
+}
+
+export interface SpecIndex {
+  requirements: SpecRequirementRecord[];
+  stories: SpecStoryRecord[];
+}
+
+/**
+ * The document's requirements and stories with their boundaries — what a
+ * REQ-scoped read needs in order to quote a requirement without loading the
+ * whole capability record (REQ-LIB-046).
+ *
+ * A requirement's body ends at the same place the archive writer's merge ends
+ * it: any other REQ heading, any heading at or above its own level (h1/h2 always,
+ * whatever the requirement's level, or an h1-level REQ would swallow
+ * `## Edge Cases` and the Change History table), or a `---` rule. One rule, so a
+ * quoted requirement is exactly the text a graduation edit would replace.
+ */
+export function indexSpec(content: string, options: MatchReqHeadingOptions = {}): SpecIndex {
+  const lines = scanSpec(content, 0);
+  const requirements: SpecRequirementRecord[] = [];
+  const stories: SpecStoryRecord[] = [];
+  let current: SpecStoryRecord | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    // Ownership ends where the story's own slice ends, rather than at a second
+    // rule about which headings close a story: `## Deprecated Requirements` and
+    // `## Edge Cases` both end it, and a retired requirement belongs to no story.
+    if (current !== null && line.start >= current.end) {
+      current = null;
+    }
+    if (line.story !== null) {
+      current = {
+        id: line.story.id,
+        heading: line.story.text,
+        level: line.story.level,
+        start: line.start,
+        end: boundedEnd(
+          lines,
+          i,
+          content,
+          (l) => l.story !== null || (l.heading !== null && l.heading <= 2),
+        ),
+        requirements: [],
+      };
+      stories.push(current);
+      continue;
+    }
+    const heading = line.any;
+    if (heading === null) continue;
+    const struck = line.active === null;
+    if (struck && options.includeStruck !== true) continue;
+    const bound = Math.max(heading.level, 2);
+    requirements.push({
+      id: heading.id,
+      level: heading.level,
+      story: current?.heading ?? null,
+      storyId: current?.id ?? null,
+      storyLevel: current?.level ?? null,
+      deprecated: line.deprecated,
+      struck,
+      start: line.start,
+      end: boundedEnd(
+        lines,
+        i,
+        content,
+        (l) =>
+          l.any !== null ||
+          (l.heading !== null && l.heading <= bound) ||
+          l.probe.trim() === '---',
+      ),
+    });
+    current?.requirements.push(heading.id);
+  }
+  return { requirements, stories };
+}
+
 /** What a feature spec's frontmatter declares, and what its body actually holds. */
 export interface SpecCounterReading {
   /** `null` for a counter the frontmatter does not declare at all. */
@@ -106,35 +392,15 @@ export function readSpecCounters(content: string): SpecCounterReading | null {
 
   let storyCount = 0;
   let reqCount = 0;
-  let inDeprecated = false;
-  // Split on `\r?\n`, not `\n`: a trailing `\r` is a line TERMINATOR to JS regex,
-  // so `.` will not match it and a `$`-anchored pattern like the h2 test below
-  // fails on every line of a CRLF checkout. Tolerating CRLF in the frontmatter
-  // while leaving it in the body made five of this repo's ten specs miscount
-  // their stories — and, being non-zero, the wrong values sailed past the
-  // zeroing refusal straight into the trust zone.
-  for (const line of content.slice(fmMatch[0].length).split(/\r?\n/)) {
-    // REQ headings are tested FIRST: an `## REQ-X-001` is a REQ at h2, not a
-    // story section, and the h2 branch below ends in `continue` — testing it
-    // first would count that REQ as zero while `matchReqHeading` happily
-    // recognises it, exactly the level blindness this module exists to remove.
-    // A REQ heading at h1/h2 still CLOSES the Deprecated section, though: section
-    // membership is decided by heading level, not by what the heading says, and
-    // skipping that reset silently un-counted every REQ that followed one.
-    const reqHeading = matchReqHeading(line);
-    if (reqHeading !== null) {
-      if (reqHeading.level <= 2) inDeprecated = false;
-      if (!inDeprecated) reqCount++;
+  // The walk starts AFTER the frontmatter, exactly where this reader always
+  // started: a `# comment` inside frontmatter parses as an h1 heading, and letting
+  // it into the scan would change what the section rules see.
+  for (const line of scanSpec(content, fmMatch[0].length)) {
+    if (line.active !== null) {
+      if (!line.deprecated) reqCount++;
       continue;
     }
-    const h2 = /^##\s+(.+)$/.exec(line);
-    if (h2) {
-      const title = h2[1]!.trim();
-      inDeprecated = /^deprecated requirements/i.test(title);
-      if (/^US-/.test(title)) storyCount++;
-      continue;
-    }
-    if (/^###\s+US-/.test(line)) storyCount++;
+    if (line.story !== null) storyCount++;
   }
 
   const declaredStory = /^story_count:[ \t]*(\d+)[ \t]*\r?$/m.exec(fmMatch[2]!);

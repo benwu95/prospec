@@ -15,6 +15,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { buildMcpServer, type McpServerContext } from '../../src/services/mcp.service.js';
 import { execute as checkExecute } from '../../src/services/check.service.js';
 import { isSafeResourceName } from '../../src/lib/knowledge-reader.js';
+import { MCP_TOOL_NAMES } from '../../src/types/mcp.js';
 
 /**
  * MCP server contract tests over the SDK's in-memory linked transport
@@ -262,10 +263,15 @@ describe('graceful degradation without module-map (REQ-MCP-006 AC3)', () => {
 });
 
 describe('tools (REQ-MCP-005)', () => {
-  it('lists exactly the two read-only tools', async () => {
+  it('lists exactly the read-only tools the contract names', async () => {
     const client = await connect(writeFixtureProject());
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(names).toEqual(['get_dependency_direction', 'search_modules']);
+    expect(names).toEqual([...MCP_TOOL_NAMES].sort());
+    expect(names).toEqual([
+      'get_dependency_direction',
+      'get_spec_requirements',
+      'search_modules',
+    ]);
   });
 
   it('search_modules: separator-normalized matching with ranked structured output', async () => {
@@ -376,6 +382,114 @@ describe('tools (REQ-MCP-005)', () => {
       direction: 'cli → types',
       source: 'constitution-fallback',
     });
+  });
+
+  it('get_spec_requirements quotes only the requirements asked for', async () => {
+    const ctx = writeFixtureProject();
+    write(
+      'prospec/specs/features/sdd-workflow.md',
+      [
+        '# SDD',
+        '',
+        '## US-1: A story [P0]',
+        '',
+        '#### REQ-SDD-001: first',
+        'Body one.',
+        '',
+        '#### REQ-SDD-002: second',
+        'Body two.',
+        '',
+      ].join('\n'),
+    );
+    const client = await connect(ctx);
+    const result = await client.callTool({
+      name: 'get_spec_requirements',
+      arguments: { feature: 'sdd-workflow', req: ['REQ-SDD-002'] },
+    });
+    expect(result.isError ?? false).toBe(false);
+    expect(result.structuredContent).toEqual({
+      feature: 'sdd-workflow',
+      slices: [
+        {
+          id: 'REQ-SDD-002',
+          kind: 'requirement',
+          story: 'US-1: A story [P0]',
+          deprecated: false,
+          text: '#### REQ-SDD-002: second\nBody two.\n',
+        },
+      ],
+      misses: [],
+    });
+  });
+
+  it('get_spec_requirements reports an unmatched selector instead of an empty success', async () => {
+    const client = await connect(writeFixtureProject());
+    const result = await client.callTool({
+      name: 'get_spec_requirements',
+      arguments: { feature: 'sdd-workflow', req: ['REQ-SDD-404'] },
+    });
+    expect(result.isError ?? false).toBe(false);
+    expect(result.structuredContent).toMatchObject({ slices: [], misses: ['REQ-SDD-404'] });
+  });
+
+  it('get_spec_requirements refuses a call with no selector instead of answering empty', async () => {
+    // `{feature}` alone is legal input (both selectors are optional), and it used to
+    // return `{slices: [], misses: []}` — indistinguishable from "this feature
+    // specifies nothing". This result has no whole-spec field; that read has its own
+    // address, which the refusal names.
+    const client = await connect(writeFixtureProject());
+    const result = await client.callTool({
+      name: 'get_spec_requirements',
+      arguments: { feature: 'sdd-workflow' },
+    });
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain('spec://feature/{name}');
+  });
+
+  it('get_spec_requirements does not echo the caller-supplied feature name back', async () => {
+    // The name is caller-controlled text travelling to a client that may print it;
+    // the CLI's refusal path strips control bytes, this one cannot (services must not
+    // import the cli sanitizer), so it names the available specs instead.
+    const client = await connect(writeFixtureProject());
+    const result = await client.callTool({
+      name: 'get_spec_requirements',
+      arguments: { feature: 'ghost\u001b]52;c;eA==\u0007', req: ['REQ-SDD-001'] },
+    });
+    expect(result.isError).toBe(true);
+    const text = JSON.stringify(result.content);
+    expect(text).not.toContain('ghost');
+    expect(text).not.toContain('52;c;eA==');
+    expect(text).toContain('sdd-workflow');
+  });
+
+  it('get_spec_requirements errors on an unresolvable feature and names the real ones', async () => {
+    const client = await connect(writeFixtureProject());
+    for (const feature of ['nope', '_archived-old', '../../etc/passwd']) {
+      const result = await client.callTool({
+        name: 'get_spec_requirements',
+        arguments: { feature, req: ['REQ-SDD-001'] },
+      });
+      expect(result.isError, feature).toBe(true);
+      const text = JSON.stringify(result.content);
+      expect(text, feature).toContain('sdd-workflow');
+      expect(text, feature).not.toContain(feature);
+    }
+  });
+
+  it('leaves the whole-spec resource read untouched — the narrow read is a TOOL', async () => {
+    // A `{?req,story}` expansion on `spec://feature/{name}` would compile to a
+    // MANDATORY `\?req=…` match in the SDK's UriTemplate, so the plain read would
+    // stop matching its own template. This assertion is the guard on that choice.
+    const ctx = writeFixtureProject();
+    const client = await connect(ctx);
+    expect(await readText(client, 'spec://feature/sdd-workflow')).toBe(
+      '# SDD\n\n#### REQ-SDD-001: x\n',
+    );
+    const templates = (await client.listResourceTemplates()).resourceTemplates.map(
+      (t) => t.uriTemplate,
+    );
+    expect(templates).toContain('spec://feature/{name}');
+    expect(templates.some((t) => t.includes('{?'))).toBe(false);
   });
 });
 

@@ -30,8 +30,12 @@ import {
   SearchModulesResultSchema,
   GetDependencyDirectionInputShape,
   DependencyDirectionResultSchema,
+  GetSpecRequirementsInputShape,
+  SpecRequirementsResultSchema,
   type DependencyDirectionResult,
 } from '../types/mcp.js';
+import { indexSpec } from '../lib/spec-headings.js';
+import { selectSpecSlices } from '../lib/spec-slices.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import { McpResourceNotFound } from '../types/errors.js';
 
@@ -283,6 +287,61 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
         source: rules.source,
       };
       return structuredResult(result);
+    },
+  );
+
+  server.registerTool(
+    'get_spec_requirements',
+    {
+      title: 'Get spec requirements',
+      description:
+        'Quote only the requirements a change touches — by REQ id or story — ' +
+        'instead of reading a whole feature spec',
+      inputSchema: GetSpecRequirementsInputShape,
+      outputSchema: SpecRequirementsResultSchema,
+      annotations: { readOnlyHint: true },
+    },
+    ({ feature, req, story }) => {
+      // Same two lib functions the CLI command calls, so the two surfaces cannot
+      // answer one question two ways. A resource read stays whole-spec: this is a
+      // query, and the SDK cannot express an optional one in a URI template.
+      const content = readFeatureSpec(ctx.featuresDir, feature);
+      if (content === null) {
+        // The requested name is deliberately NOT echoed: it is caller-supplied text
+        // and this result travels as JSON to a client that may print it. The list is
+        // the actionable half anyway.
+        return toolError(
+          `feature spec not found — active feature specs: ${
+            listFeatureSpecs(ctx.featuresDir).filter(isSafeResourceName).join(', ') || 'none'
+          }`,
+        );
+      }
+      const wantedReq = (req ?? []).flatMap((value) => value.split(',')).filter((v) => v.trim() !== '');
+      const wantedStory = (story ?? []).flatMap((value) => value.split(',')).filter((v) => v.trim() !== '');
+      if (wantedReq.length === 0 && wantedStory.length === 0) {
+        // Refused rather than answered with an empty selection: this tool's result
+        // has no whole-spec field, and `{slices: [], misses: []}` reads exactly like
+        // "this feature specifies nothing". The whole spec has its own address.
+        return toolError(
+          'get_spec_requirements needs at least one `req` or `story` selector — read the ' +
+            'spec://feature/{name} resource for a whole spec',
+        );
+      }
+      const selection = selectSpecSlices(content, indexSpec(content, { includeStruck: true }), {
+        req: wantedReq,
+        story: wantedStory,
+      });
+      return structuredResult({
+        feature,
+        slices: selection.slices.map(({ id, kind, story: owner, deprecated, text }) => ({
+          id,
+          kind,
+          story: owner,
+          deprecated,
+          text,
+        })),
+        misses: selection.misses,
+      });
     },
   );
 }

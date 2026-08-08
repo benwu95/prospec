@@ -326,6 +326,102 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec spec show', () => {
+    const SPEC = [
+      '---',
+      'feature: widget',
+      'status: active',
+      'story_count: 1',
+      'req_count: 2',
+      '---',
+      '',
+      '## US-1: A story [P0]',
+      '',
+      '#### REQ-WIDGET-001: first',
+      'Body one.',
+      '',
+      '#### REQ-WIDGET-002: second',
+      'Body two.',
+      '',
+    ].join('\n');
+
+    async function seedSpec(): Promise<void> {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'spec-show-test' }),
+      );
+      await runCli(['init', '--name', 'spec-show-test', '--agents', 'claude']);
+      const featuresDir = path.join(tmpDir, 'prospec/specs/features');
+      await fs.promises.mkdir(featuresDir, { recursive: true });
+      await fs.promises.writeFile(path.join(featuresDir, 'widget.md'), SPEC);
+    }
+
+    it('should print only the requested requirement, under its story heading', async () => {
+      await seedSpec();
+      const { stdout, stderr, exitCode } = await runCli([
+        'spec',
+        'show',
+        'widget',
+        '--req',
+        'REQ-WIDGET-002',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe('');
+      expect(stdout).toBe(
+        '## US-1: A story [P0]\n\n#### REQ-WIDGET-002: second\nBody two.\n',
+      );
+    });
+
+    it('should exit non-zero and name an unmatched selector on stderr', async () => {
+      await seedSpec();
+      const { stdout, stderr, exitCode } = await runCli([
+        'spec',
+        'show',
+        'widget',
+        '--req',
+        'REQ-WIDGET-001,REQ-WIDGET-404',
+      ]);
+      // The hit is still printed: a partial answer plus a named miss beats both a
+      // silent empty success and discarding what did resolve.
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('#### REQ-WIDGET-001: first');
+      expect(stderr).toContain('REQ-WIDGET-404');
+    });
+
+    it('should print the whole spec when no selector is given', async () => {
+      await seedSpec();
+      const { stdout, exitCode } = await runCli(['spec', 'show', 'widget']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe(SPEC);
+    });
+
+    it('should refuse a selector flag that carries no usable id', async () => {
+      await seedSpec();
+      for (const empty of ['', ',', '  ']) {
+        const { stdout, stderr, exitCode } = await runCli([
+          'spec',
+          'show',
+          'widget',
+          '--req',
+          empty,
+        ]);
+        // Falling through to the whole-spec branch printed the entire capability
+        // record with exit 0 — the read this command replaces, and exactly the
+        // argument a station loop builds from an empty REQ list.
+        expect(exitCode, JSON.stringify(empty)).not.toBe(0);
+        expect(stdout, JSON.stringify(empty)).not.toContain('#### REQ-WIDGET-001');
+        expect(stderr, JSON.stringify(empty)).toMatch(/no usable id/i);
+      }
+    });
+
+    it('should refuse an absent feature and name the ones that exist', async () => {
+      await seedSpec();
+      const { stderr, exitCode } = await runCli(['spec', 'show', 'nope']);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('widget');
+    });
+  });
+
   describe('prospec archive', () => {
     async function writeVerifiedChange(name: string): Promise<void> {
       const changeDir = path.join(tmpDir, '.prospec', 'changes', name);

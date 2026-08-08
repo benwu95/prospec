@@ -25,6 +25,7 @@ import { registerChangeStatusCommand } from './commands/change-status.js';
 import { registerChangeScaleCommand } from './commands/change-scale.js';
 import { registerChangeProgressCommand } from './commands/change-progress.js';
 import { registerStatusCommand } from './commands/status.js';
+import { registerSpecCommand } from './commands/spec-show.js';
 import { registerArchiveCommand } from './commands/archive.js';
 import { registerReviewCommand } from './commands/review-merge.js';
 import { registerVerifyCommand } from './commands/verify-record.js';
@@ -110,6 +111,7 @@ export function createProgram(): Command {
   registerChangeScaleCommand(program);
   registerChangeProgressCommand(program);
   registerStatusCommand(program);
+  registerSpecCommand(program);
   registerArchiveCommand(program);
   registerReviewCommand(program);
   registerVerifyCommand(program);

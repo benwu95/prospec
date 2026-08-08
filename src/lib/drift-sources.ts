@@ -10,7 +10,7 @@ import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
-import { matchReqHeading, readSpecCounters, REQ_ID_SOURCE } from './spec-headings.js';
+import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE } from './spec-headings.js';
 import {
   ARCHIVED_EXCLUDES,
   isArchivedSpec,
@@ -319,13 +319,11 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   for (const file of files.sort()) {
     const text = readTextOrSkip(path.join(featuresDir, file));
     if (text === null) continue;
-    const lines = text.split('\n');
-    for (const line of lines) {
-      // A struck id is still DEFINED — this index answers "does this REQ exist
-      // anywhere", so a reference to a deprecated REQ is not a dangling one.
-      const id = matchReqHeading(line, { includeStruck: true })?.id;
-      if (id !== undefined) ids.add(id);
-    }
+    // The same index the narrow REQ-scoped read is built on, so a change to what
+    // counts as a definition reaches this inventory and that read together.
+    // A struck id is still DEFINED — this index answers "does this REQ exist
+    // anywhere", so a reference to a deprecated REQ is not a dangling one.
+    for (const req of indexSpec(text, { includeStruck: true }).requirements) ids.add(req.id);
   }
   return { available: true, ids: [...ids].sort() };
 }

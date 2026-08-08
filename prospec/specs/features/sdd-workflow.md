@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-08-08
-story_count: 33
-req_count: 173
+story_count: 34
+req_count: 179
 ---
 
 # SDD Workflow
@@ -1048,23 +1048,71 @@ The near-miss rule is pinned by enumeration in both directions, because an over-
 - WHEN the regeneration step list is edited so a hop is dropped, THEN a baseline assertion turns red — the steps are data pinned against a version-controlled literal, because the first draft lost the bundle hop with nothing to notice
 - WHEN an orphan FILE sits inside a directory the sync still writes — a reference dropped from `getSkillReferences`, say — THEN it survives and the check passes: the orphan sweep is directory-granular and only touches `prospec-`-prefixed directories that are no longer shipped skills. This is a known limitation of the sweep the check inherits, stated rather than implied
 
-
 ---
 
+## US-34: Stations Read the Requirements a Change Touches [P1]
 
----
+As a developer running the SDD pipeline on a project whose Feature Specs have grown,
+I want `/prospec-verify` and `/prospec-archive` to read only the requirements my change touches,
+so that a round of the pipeline costs what the change costs, not what the whole capability record costs.
 
+**Acceptance Scenarios:**
+- WHEN a station needs the requirements a change touches, THEN it fetches them by REQ id or story from the spec on disk, never by loading a whole Feature Spec
+- WHEN a requirement is asked for that the spec does not carry, THEN the selector is named and the command exits non-zero, so an absence is never read as "no such behaviour is specified"
+- WHEN the same question is asked through the MCP surface, THEN it is answered by the same library selection, so the two surfaces cannot drift
+- WHEN archive graduates a change, THEN the requirements it judges come from the graduation key and their text from the merged spec — the CLI worklists report exceptions, they do not define the set
 
----
+**Independent Test:**
+Quote a known REQ set from a large spec and compare the output size against the whole file; the read is REQ-scoped when the ratio tracks the requirement count rather than the file.
 
+### Behavior Specifications
 
----
+#### REQ-LIB-046: Pure REQ/story slice selection over a spec index
+`lib/spec-slices.ts` turns a spec index into the exact source text a station needs, as a pure function of the content it is given — no filesystem access, no config resolution — so the CLI command and the MCP tool share one selection implementation instead of one each.
+- WHEN REQ ids and story ids are both supplied, THEN their union is emitted in document order, and a REQ reached by both selectors is emitted once
+- WHEN a selector matches nothing, THEN it is returned in a `misses` list alongside whatever did match, never as an empty result that reads like an absent REQ
+- WHEN a selected REQ body contains a fenced code block, THEN the slice boundary lies outside the fence, so the emitted text parses as the same markdown it came from
+- WHEN a selected REQ sits under `## Deprecated Requirements`, THEN it is emitted with its deprecated status marked rather than silently presented as active, and a struck id is reported as struck even where no deprecated section is in force
+- WHEN one REQ id appears in two sections and only one of them lies inside a selected story, THEN the other occurrence is still emitted: deduplication is by position, because deduplicating by id dropped it from the output and from `misses` alike
+- WHEN a slice is emitted, THEN it carries the heading path of the User Story that owns it, at the level that heading was written, so a reader knows which story the requirement belongs to without reading the file
+- WHEN slices are rendered, THEN the line ending they carry is the one the spec uses, so the output diffs cleanly against the file it was quoted from
 
+#### REQ-SERVICES-084: `spec show` service resolves one feature spec and selects from it
+The `spec show` service reads one feature spec and returns the slices a caller selected, keeping every path decision in one place: the feature name is resolved through the existing contained reader, so containment, the `_archived*` exclusion and the unsafe-name guard apply unchanged.
+- WHEN the named feature spec exists and is active, THEN the service returns its selected slices together with any unmatched selectors
+- WHEN the name resolves to nothing — absent, archived, or unsafe — THEN the service raises a prerequisite error whose suggestion names the feature specs that do exist, so the refusal carries an actionable half
+- WHEN selectors arrive comma-separated, repeated as flags, or both, THEN they expand to one selector set, so the two input shapes cannot disagree
+- WHEN the spec is read, THEN it is the file on disk at that moment, never a cached or reconstructed copy — a station judging a merged spec must see what was actually written
 
----
+#### REQ-CLI-035: `prospec spec show <feature> [--req] [--story]`
+`prospec spec show <feature> [--req <ids>] [--story <ids>]` prints the selected requirement text and nothing else, so its output can be read as spec source.
+- WHEN every selector matches, THEN the slices are written to stdout and the command exits 0
+- WHEN any selector matches nothing, THEN the matched slices still go to stdout, each unmatched selector is named on stderr, and the command exits non-zero — an empty selection is never reported as success
+- WHEN free-form text reaches the terminal, THEN it passes through the shared terminal sanitizer, as every other formatter does
+- WHEN no selector flag is given at all, THEN the whole spec is printed, so the command degrades to the read it replaces rather than refusing
+- WHEN a selector flag IS given but carries no usable id (`--req ''`, `--req ,`), THEN the command refuses and says so, because falling through to the whole-spec branch silently restored the very read this command replaces — and that is exactly the argument a station loop builds from an empty REQ list
 
+#### REQ-TEMPLATES-176: verify reads the REQs a change touches, not whole Feature Specs
+`/prospec-verify`'s Startup Loading loads the Feature Spec requirements this change touches — the REQ ids its delta-spec names, read through `prospec spec show` — rather than the `specs/features/` directory, because 2/5 compares the change against those REQs and never against the rest of the capability record.
+- WHEN Startup Loading reaches the Feature Spec item, THEN it names the REQ-scoped read and does not instruct a whole-directory or whole-file read
+- WHEN that item is inspected, THEN it is still annotated `[DYNAMIC]` and still ordered after the stable items
+- WHEN `metadata.scale` is `quick`, THEN the item is skipped exactly as before — a change with no delta-spec has no REQ list to route
+- WHEN the REQ-scoped instruction is deleted or widened back to a whole-spec read, THEN a section-scoped contract assertion turns red
 
----
+#### REQ-TEMPLATES-177: archive graduation reads every graduating REQ from the merged file
+`/prospec-archive`'s graduation phase reads every requirement this change graduates, one REQ at a time, from the merged Feature Spec on disk via `prospec spec show`. The graduation key by scale names that set — the delta-spec's REQ ids, or a quick change's Spec Impact section — and the CLI's worklists do NOT: each of them is an exception report, so a requirement that landed cleanly appears in none of them while still needing its wording converged.
+- WHEN graduation judges a requirement, THEN the text it reads comes from the post-sync Feature Spec, never from the delta-spec entry or from a worklist's wording alone
+- WHEN the set of requirements to judge is chosen, THEN it comes from the graduation key rather than from the worklists, because a cleanly-landed requirement is absent from every worklist and a `quick` change has no routes at all, which leaves all of them empty
+- WHEN a requirement is read, THEN it is fetched by its own REQ id, so the phase never loads a whole spec to judge a handful of requirements
+- WHEN the phase is inspected, THEN it still names every worklist the CLI produces rather than a subset, and states what each one reports
+- WHEN the merged-file instruction, the graduating-set rule, or the exception-report characterisation is removed, THEN a section-scoped contract assertion turns red — each is asserted separately, because one disjunction over two clauses pinned neither
+
+#### REQ-TESTS-080: The narrow read is pinned at every layer, mutation-verified
+The REQ-granular read is asserted at all four test layers, and each new assertion class is mutation-verified before it counts: the index and the slicer by unit tests, the two station wordings by section-scoped contract assertions, the MCP tool over the in-memory transport, and the command plus its exit code end to end.
+- WHEN the REQ definition inventory moves onto the shared walk, THEN fixture tests pin what counts as a definition — a heading at any level, a struck id included, an archived spec excluded, a fenced example excluded, and a heading past an unclosed fence still found — and the FAIL-class `req-references` check keeps passing over this repo's own specs
+- WHEN an implementation of the REQ heading walk, of the id shape, or of REQ body slicing appears anywhere in `src/` beyond the owners the registry names, THEN the single-source contract test fails naming it, and each detector is proven to fire on the shape it bans
+- WHEN a selector matches nothing, THEN an end-to-end test asserts the non-zero exit code and the named selector on stderr
+- WHEN either station's REQ-scoped read instruction is deleted, THEN its contract assertion turns red
 
 ## Edge Cases
 
@@ -1650,6 +1698,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-08 | read-specs-by-req | ADDED REQ-LIB-046; ADDED REQ-SERVICES-084; ADDED REQ-CLI-035; ADDED REQ-TEMPLATES-176; ADDED REQ-TEMPLATES-177; ADDED REQ-TESTS-080 | REQ-LIB-046, REQ-SERVICES-084, REQ-CLI-035, REQ-TEMPLATES-176, REQ-TEMPLATES-177, REQ-TESTS-080 |
 | 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TESTS-079; ADDED REQ-SERVICES-081; ADDED REQ-CLI-034; ADDED REQ-SERVICES-083; ADDED REQ-TESTS-077; MODIFIED REQ-SERVICES-072; MODIFIED REQ-SERVICES-073; MODIFIED REQ-CLI-032; MODIFIED REQ-CLI-033; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-TEMPLATES-168; MODIFIED REQ-SPEC-010; MODIFIED REQ-TESTS-070 | REQ-TESTS-079, REQ-SERVICES-081, REQ-CLI-034, REQ-SERVICES-083, REQ-TESTS-077, REQ-SERVICES-072, REQ-SERVICES-073, REQ-CLI-032, REQ-CLI-033, REQ-TEMPLATES-166, REQ-TEMPLATES-168, REQ-SPEC-010, REQ-TESTS-070 |
 | 2026-08-07 | refuse-near-miss-feature-map | ADDED REQ-SERVICES-080; ADDED REQ-CLI-033; ADDED REQ-TESTS-076; MODIFIED REQ-SERVICES-079; MODIFIED REQ-SPEC-011; MODIFIED REQ-TEMPLATES-175 | REQ-SERVICES-080, REQ-CLI-033, REQ-TESTS-076, REQ-SERVICES-079, REQ-SPEC-011, REQ-TEMPLATES-175 |
 | 2026-08-06 | stop-clobbering-product-spec | ADDED REQ-SERVICES-079; ADDED REQ-LIB-043; ADDED REQ-TEMPLATES-175; ADDED REQ-TESTS-075; MODIFIED REQ-SPEC-013; MODIFIED REQ-SPEC-011; MODIFIED REQ-CLI-024 | REQ-SERVICES-079, REQ-LIB-043, REQ-TEMPLATES-175, REQ-TESTS-075, REQ-SPEC-013, REQ-SPEC-011, REQ-CLI-024 |
