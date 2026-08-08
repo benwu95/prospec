@@ -4924,3 +4924,54 @@ describe('CLI-first contract — shared required probe, no manual fallbacks (iss
     expect(section).not.toContain('fall back to scanning');
   });
 });
+
+// REQ-TEMPLATES-176/177: the two stations that judge a change against the
+// permanent record read it by REQ, not by the file. Both wordings are the whole
+// point of the change — an agent that reads a spec whole pays the cost this
+// change exists to remove, and one that reads the delta-spec instead of the
+// merged file re-opens PB-015.
+describe('REQ-scoped Feature Spec reads at verify and archive', () => {
+  const renderSkill = (name: string) => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+
+  it('verify Startup Loading item 7 reads the touched REQs, never the directory', () => {
+    const loading = flat(sectionOf(renderSkill('prospec-verify'), '## Startup Loading'));
+    const item = /7\. \[DYNAMIC\](.*?)(?=8\. \[DYNAMIC\])/.exec(loading)?.[1] ?? '';
+    expect(item.trim().length, 'item 7 not found in Startup Loading').toBeGreaterThan(0);
+    expect(item).toContain('prospec spec show');
+    expect(item).toContain('--req');
+    // REQ-TEMPLATES-080: every item stays annotated, and this one stays DYNAMIC.
+    expect(loading).toContain('7. [DYNAMIC]');
+    // REQ-TEMPLATES-134: quick still skips it.
+    expect(item).toContain('scale: quick');
+    // The negative half — a whole-file read is what this item replaced.
+    expect(item).toMatch(/never read the whole/i);
+    expect(item).not.toMatch(/Read `prospec\/specs\/features\/`/);
+    // An ADDED REQ is absent by design (it graduates at archive), so the command
+    // reports it unmatched and exits non-zero. Without saying so, the station reads
+    // its own designed state as a blocking 2/5 failure — running this change's own
+    // ADDED ids prints six `✗` lines and exits 1.
+    expect(item).toMatch(/ADDED REQ is expected to be missing/i);
+    expect(item).toMatch(/never a 2\/5 finding/);
+  });
+
+  it('archive Phase 3.5 reads every graduating REQ from the MERGED file (PB-015)', () => {
+    const phase = flat(sectionOf(renderSkill('prospec-archive'), '### Phase 3.5: Feature Spec Sync'));
+    expect(phase).toContain('prospec spec show');
+    expect(phase).toContain('merged Feature Spec on disk');
+    // The REQ SET comes from the graduation key, never from the worklists: each of
+    // those is an exception report, so a cleanly-landed REQ appears in none of them
+    // while still needing its wording converged. Narrowing the read to worklist
+    // members silently skipped the most common case.
+    expect(phase).toMatch(/every requirement this change graduates/i);
+    // Two clauses, two assertions: written as one disjunction, deleting either
+    // side stayed green and neither was actually pinned.
+    expect(phase).toMatch(/worklists above do \*\*not\*\* define that set/);
+    expect(phase).toMatch(/EXCEPTION report/);
+    expect(phase).toMatch(/Graduation key by scale\*\* names that set/);
+    // Reading the delta-spec entry instead of the merged file is the failure this
+    // sentence exists to prevent; the prohibition must survive a reword.
+    expect(phase).toMatch(/[Nn]ever substitute the delta-spec/);
+    expect(phase).not.toContain('Read each Feature Spec the CLI reported as synced');
+    expect(phase).not.toMatch(/worklists decide WHICH/);
+  });
+});

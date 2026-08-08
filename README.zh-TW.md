@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3468%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3532%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -554,6 +554,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change plan [--change <name>] [--force]` | 生成實作計劃（骨架）；除非加 `--force`，否則拒絕覆寫既有 plan/delta-spec；契約禁止 plan 的 scale 則直接拒絕（`quick` → 改跑 `change tasks`；`backfill` → `/prospec-promote-backfill`）|
 | `prospec change tasks [--change <name>] [--force]` | 拆分任務清單（骨架）；除非加 `--force`，否則拒絕覆寫既有 tasks.md。plan.md 前置條件依 scale 成立 —— `quick` 直接由 proposal.md 拆解（`story → tasks`），`backfill` 一律拒絕（沒有任務清單）|
 | `prospec status` | **唯讀**的決定論 SDD 路由 —— 回報每個進行中變更的 current node、建議下一站、blocking gates 與理由。即 `_status-lifecycle.md` 的可執行版本（含 quick 的 story→tasks 跳站、backfill 的 `implemented` 入口 —— 未抵達前路由到 `promote` 站、以及無狀態轉換的 design/review 站）；metadata 格式錯誤會逐變更回報，絕不中斷 |
+| `prospec spec show <feature> [--req <ids>] [--story <ids>]` | **唯讀**的 REQ 粒度 Feature Spec 讀取：只印出你指名的需求（`--req`，可重複且接受逗號分隔）或整個 User Story（`--story`），每段都置於擁有它的標題之下，因此輸出本身就是一段合法的 spec 原文。不給選擇器時印出整份 spec。verify 的 Startup Loading 與 archive 的畢業階段改走它，而非整檔載入——單一 spec 可達數萬 token 的無關能力記錄，而站點永遠只判斷該變更觸及的需求。未命中的選擇器印在 stderr 並以 exit 1 結束（`--quiet` 下仍可見）：要求一條不存在的 REQ，不該被讀成「沒有這條行為規格」。同一個讀取以 MCP tool `get_spec_requirements` 提供給 agent |
 | `prospec archive <name...> [--dry-run]` | 對 **verified** 變更執行決定論封存 mutation：搬移至 `.prospec/archive/{date}-{name}/`、產生 summary scaffold、執行機械式 Feature Spec sync、寫入 `status: archived`，同步 `product.md` 的 `## Feature Map` 區段（該檔唯一的機器擁有區域——手工維護的 frontmatter 欄位與其餘章節逐 byte 保留；缺檔時才依出貨的 product-spec 格式 bootstrap 一份骨架），並 bootstrap `feature-map.yaml`（no-clobber／non-fatal 語義不變）。面對**已存在**的 `product.md`，該 sync **寧可拒絕也不臆測**，且必定說明理由：近似標題（`## Feature Map (34 active)` —— 越過它 append 會在你自己那份旁邊長出第二份 feature map）、未閉合的 code fence、或 `specs/features/` 不存在，三者皆讓檔案逐 byte 不變，並回報理由與對應的補救方式（**缺檔**時則改為 bootstrap，且不回報任何拒絕）。`--dry-run` 列出全部預定 mutation 而不寫入；具名目標不可封存時回報 `refused`/`not found`（exit 1），絕不靜默略過。spec sync 永不清空既有 REQ body——只有 delta-spec 的 `**Spec:**` 區塊會取代它——並在 stderr 列出**兩份**工作清單（`--quiet` 下仍可見，且不影響 exit code）：被刻意保留 body 的 REQ（待人工收斂），以及 body 被 `**Spec:**` 區塊取代的 REQ 及該區塊漏掉的既有 `WHEN/THEN` bullet——因為取代 body 會靜默丟掉新 body 沒有重述的部分。另一支獨立的 `product.md` sync 則自行回報拒絕：實跑時印為獨立一行 stderr（`--quiet` 下仍可見，且不影響 exit code），`--dry-run` 時預告為一筆 `skip` —— 兩種模式下它都是「刻意不寫」與「已同步」之間唯一的區別訊號。由 `/prospec-archive` 驅動，skill 保留判斷面工作（Entry Gate、Review & Verify summary、REQ 語意畢業） |
 | `prospec archive finalize <name> [--dry-run]` | 封存的**後置**步驟（在 summary 覆寫＋REQ 畢業之後執行）：把最終 summary.md 複製到 `specs/_archived-history/`（入版控的稽核軌跡），並依最終文本對帳每份 feature spec 的 frontmatter `story_count`/`req_count`；summary.md 仍是 scaffold 樣板時拒絕執行 |
 
@@ -590,8 +591,11 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `spec://feature/{name}` | Feature specs（REQ source of truth）；archived specs 以與 `prospec check` 同一條規則排除 |
 
 **Tools**：`search_modules`（這個概念歸哪個模組 —— 對策展索引欄位做正規化 term-OR 比對，
-查 `drift checker` 找得到 `drift-checker`）與 `get_dependency_direction`（`from` 可否 import `to`？
-—— 依 module-map `depends_on` 回答，無 map 時用 Constitution 鏈，回應標明判定來源）。
+查 `drift checker` 找得到 `drift-checker`）、`get_dependency_direction`（`from` 可否 import `to`？
+—— 依 module-map `depends_on` 回答，無 map 時用 Constitution 鏈，回應標明判定來源），
+以及 `get_spec_requirements`（只引出變更觸及的需求，依 REQ id 或 story，而非讀整份 Feature Spec ——
+與 `prospec spec show` 同一個窄讀；帶參數的查詢做成 tool 是因為 resource template 無法承載選擇性
+query，且無選擇器時它拒絕而非回空集合）。
 
 **註冊方式** —— 把 agent 的 MCP 設定指向 `prospec mcp serve --cwd <專案根目錄>`。`--cwd` 釘住專案，
 讓 server 不論 agent 從何處啟動都能解析到該專案的 `.prospec.yaml` —— 也因此單一 agent 能一次註冊多個
@@ -792,7 +796,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3468 個測試）
+# 執行所有測試（3532 個測試）
 pnpm test
 
 # Watch 模式
@@ -805,11 +809,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3468 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2545 tests
-- Contract tests（CLI 輸出 + Skill 格式）：806 tests
+**測試覆蓋率**：3532 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2594 tests
+- Contract tests（CLI 輸出 + Skill 格式）：816 tests
 - Integration tests：45 tests
-- E2E tests：72 tests
+- E2E tests：77 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

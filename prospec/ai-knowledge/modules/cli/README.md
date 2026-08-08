@@ -1,6 +1,6 @@
 # cli
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (56 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (58 files)
 
 <!-- prospec:auto-start -->
 
@@ -8,9 +8,9 @@
 
 | File | Purpose |
 |------|---------|
-| `index.ts` | `createProgram()` registers all 17 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
-| `commands/` | 25 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress), status, archive (+`finalize`), review merge, verify record, learn, validate, measure, check, mcp — parse flags → call service → format |
-| `formatters/` | 26 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `error-output.ts` also has `handleError()`; `archive-output.ts` prints each dry-run `PlannedMutation` by its action — including `skip`, a planned NON-mutation (a write the run will deliberately not perform), rendered by the same generic branch — and routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`). Two spec-loss worklists are BLOCKING-class — they drive exit 1 and the feature spec was left unwritten, so the wording says so: `refusedRequirements` (a landing block cut short by a foreign label) and `droppedBehavior` (bullets replaced without being declared deliberate, printed in full per bullet, never as a count). Five stay WARNING-class (visible under `--quiet`, never exit 1): `refusedReconciliations` (finalize left a spec's declared counter alone rather than zero it), `pendingConvergence` (body kept, converge it), `acknowledgedDrops` (a removal the delta-spec declared deliberate), `staleDeclarations` (a declared bullet that was not dropped) and `productSpecDeclined` (the Feature Map sync wrote nothing — the only signal separating a deliberate non-write from a successful sync) |
+| `index.ts` | `createProgram()` registers all 18 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
+| `commands/` | 26 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress), status, spec show, archive (+`finalize`), review merge, verify record, learn, validate, measure, check, mcp — parse flags → call service → format |
+| `formatters/` | 27 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `error-output.ts` also has `handleError()`; `archive-output.ts` prints each dry-run `PlannedMutation` by its action — including `skip`, a planned NON-mutation (a write the run will deliberately not perform), rendered by the same generic branch — and routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`). Two spec-loss worklists are BLOCKING-class — they drive exit 1 and the feature spec was left unwritten, so the wording says so: `refusedRequirements` (a landing block cut short by a foreign label) and `droppedBehavior` (bullets replaced without being declared deliberate, printed in full per bullet, never as a count). Five stay WARNING-class (visible under `--quiet`, never exit 1): `refusedReconciliations` (finalize left a spec's declared counter alone rather than zero it), `pendingConvergence` (body kept, converge it), `acknowledgedDrops` (a removal the delta-spec declared deliberate), `staleDeclarations` (a declared bullet that was not dropped) and `productSpecDeclined` (the Feature Map sync wrote nothing — the only signal separating a deliberate non-write from a successful sync) |
 | `formatters/sanitize.ts` | Shared `sanitizeTerminal()` — strips C0/C1/DEL; the single source every formatter routes free-form text through |
 | `log-level.ts` | `resolveLogLevel(opts)` — root-flag → LogLevel; imported by every command |
 | `parse-options.ts` | Shared Commander parsers — `parseDepth` (positive int), `parseDate` (bare ISO 8601), `collect` (repeatable option → array) |
@@ -18,8 +18,8 @@
 
 ## Public API
 
-- `createProgram()` — Commander program, all 17 top-level commands; `main()` runs on load (NOT exported)
-- `registerXxxCommand(program)` — 25 registrars; `formatXxxOutput(result, logLevel)` — 26 formatters; `handleError(err, verbose)` → stderr
+- `createProgram()` — Commander program, all 18 top-level commands; `main()` runs on load (NOT exported)
+- `registerXxxCommand(program)` — 26 registrars; `formatXxxOutput(result, logLevel)` — 27 formatters; `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`

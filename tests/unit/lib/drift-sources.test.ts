@@ -634,6 +634,35 @@ describe('collectReqDefinitions', () => {
     const r = collectReqDefinitions(path.join(tmpDir, 'specs/features'));
     expect(r.ids).toEqual(['REQ-AUTH-001']);
   });
+
+  it('indexes a heading at any level, since the shared index is level-agnostic', () => {
+    write('specs/features/a.md', '# REQ-A-001: h1\n\n## REQ-A-002: h2\n\n###### REQ-A-003: h6\n');
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual([
+      'REQ-A-001',
+      'REQ-A-002',
+      'REQ-A-003',
+    ]);
+  });
+
+  it('does not index a REQ heading shown inside a fenced example', () => {
+    // The inventory now shares `indexSpec`, which masks fenced blocks: a spec
+    // that DOCUMENTS the heading shape no longer declares the example as a real
+    // requirement. No current spec has one, so no id set changed when this
+    // collector moved onto the shared index — but a reference to the example
+    // would have counted as satisfied.
+    write(
+      'specs/features/a.md',
+      '#### REQ-A-001: Real\n\n```md\n#### REQ-A-002: only an example\n```\n',
+    );
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual(['REQ-A-001']);
+  });
+
+  it('still indexes headings past an UNCLOSED fence rather than trusting the mask', () => {
+    // An open fence masks the whole tail; a collector that trusted it would call
+    // every following REQ undefined and turn each reference into a dangling one.
+    write('specs/features/a.md', '```md\nopen fence, never closed\n\n#### REQ-A-001: Real\n');
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual(['REQ-A-001']);
+  });
 });
 
 describe('collectSpecCounters (REQ-LIB-042)', () => {

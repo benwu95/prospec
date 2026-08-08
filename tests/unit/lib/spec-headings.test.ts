@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { matchReqHeading, readSpecCounters } from '../../../src/lib/spec-headings.js';
+import { indexSpec, matchReqHeading, readSpecCounters } from '../../../src/lib/spec-headings.js';
 
 /**
  * The ONE definition of a feature-spec REQ heading (REQ-LIB-041). It exists
@@ -172,6 +172,31 @@ describe('readSpecCounters', () => {
     }
   });
 
+  it('counts this repo\'s specs exactly as the pre-shared-walk reader did', () => {
+    // Literal baseline captured by RUNNING the implementation that predated the
+    // shared walk (`git show HEAD:src/lib/spec-headings.ts`), never re-derived
+    // from the code under test — a table computed by the subject proves nothing.
+    // These are `actual` counts, so a spec whose declared frontmatter is wrong
+    // still pins the reader.
+    const baseline: [string, number, number][] = [
+      ['agent-integration.md', 21, 82],
+      ['ai-knowledge.md', 15, 64],
+      ['design-phase.md', 4, 11],
+      ['drift-detection.md', 17, 65],
+      ['feedback-promotion.md', 4, 13],
+      ['mcp-server.md', 4, 11],
+      ['project-setup.md', 19, 47],
+      ['sdd-workflow.md', 33, 173],
+      ['standalone-binary.md', 1, 8],
+      ['token-measurement.md', 4, 12],
+    ];
+    const dir = path.resolve(import.meta.dirname, '../../../prospec/specs/features');
+    for (const [file, story_count, req_count] of baseline) {
+      const content = fs.readFileSync(path.join(dir, file), 'utf-8');
+      expect(readSpecCounters(content)!.actual, file).toEqual({ story_count, req_count });
+    }
+  });
+
   it('reports null for a counter the frontmatter never declares', () => {
     const counters = readSpecCounters(spec('\n#### REQ-QUIZ-001: a\n', 'status: active'))!;
     expect(counters.declared).toEqual({ story_count: null, req_count: null });
@@ -180,5 +205,219 @@ describe('readSpecCounters', () => {
 
   it('returns null when there is no frontmatter to reconcile against', () => {
     expect(readSpecCounters('# Quiz\n\n#### REQ-QUIZ-001: a\n')).toBeNull();
+  });
+});
+
+/**
+ * `indexSpec` is the same walk seen from the other side: the counters need
+ * totals, a narrow read needs each requirement's boundaries and the story that
+ * owns it (REQ-LIB-041). Both come from one scanner so the Deprecated rule and
+ * the heading-level rule cannot reach one reader and miss the other.
+ */
+describe('indexSpec', () => {
+  const body = [
+    '## US-1: First story [P0]',
+    '',
+    'As a developer,',
+    '',
+    '#### REQ-QUIZ-001: first',
+    'One sentence.',
+    '- WHEN a, THEN b',
+    '',
+    '#### REQ-QUIZ-002: second',
+    'Body two.',
+    '',
+    '---',
+    '',
+    '### US-2: Second story [P1]',
+    '',
+    '#### REQ-QUIZ-003: third',
+    'Body three.',
+    '',
+    '## Deprecated Requirements',
+    '',
+    '#### ~~REQ-QUIZ-004~~: retired',
+    'Gone.',
+    '',
+    '## Edge Cases',
+    '',
+    '- nothing',
+    '',
+  ].join('\n');
+
+  it('records every active requirement with its level, story and boundaries', () => {
+    const index = indexSpec(body);
+    expect(index.requirements.map((r) => r.id)).toEqual([
+      'REQ-QUIZ-001',
+      'REQ-QUIZ-002',
+      'REQ-QUIZ-003',
+    ]);
+    expect(index.requirements.map((r) => r.level)).toEqual([4, 4, 4]);
+    expect(index.requirements.map((r) => r.story)).toEqual([
+      'US-1: First story [P0]',
+      'US-1: First story [P0]',
+      'US-2: Second story [P1]',
+    ]);
+    for (const req of index.requirements) {
+      expect(body.slice(req.start, req.end), req.id).toContain(req.id);
+    }
+  });
+
+  it('slices a requirement from its heading to the next section boundary', () => {
+    const index = indexSpec(body);
+    const first = index.requirements[0]!;
+    expect(body.slice(first.start, first.end)).toBe(
+      '#### REQ-QUIZ-001: first\nOne sentence.\n- WHEN a, THEN b\n',
+    );
+    // The `---` rule bounds a body, exactly as the archive writer's merge does.
+    const second = index.requirements[1]!;
+    expect(body.slice(second.start, second.end)).toBe('#### REQ-QUIZ-002: second\nBody two.\n');
+    // An h2 section heading bounds it even though the REQ sits deeper.
+    const third = index.requirements[2]!;
+    expect(body.slice(third.start, third.end)).toBe('#### REQ-QUIZ-003: third\nBody three.\n');
+  });
+
+  it('marks a requirement inside the Deprecated section instead of dropping it', () => {
+    const index = indexSpec(body, { includeStruck: true });
+    const retired = index.requirements.find((r) => r.id === 'REQ-QUIZ-004')!;
+    expect(retired.deprecated).toBe(true);
+    expect(retired.struck).toBe(true);
+    expect(index.requirements.filter((r) => !r.deprecated)).toHaveLength(3);
+  });
+
+  it('omits a struck requirement unless includeStruck is set', () => {
+    expect(indexSpec(body).requirements.map((r) => r.id)).not.toContain('REQ-QUIZ-004');
+  });
+
+  it('records stories at both h2 and h3 with the requirements they own', () => {
+    const index = indexSpec(body);
+    expect(index.stories.map((s) => s.id)).toEqual(['US-1', 'US-2']);
+    expect(index.stories.map((s) => s.level)).toEqual([2, 3]);
+    expect(index.stories[0]!.requirements).toEqual(['REQ-QUIZ-001', 'REQ-QUIZ-002']);
+    expect(index.stories[1]!.requirements).toEqual(['REQ-QUIZ-003']);
+    expect(body.slice(index.stories[0]!.start, index.stories[0]!.end)).toContain('As a developer,');
+    // A story's slice stops at the next story, never spilling into it.
+    expect(body.slice(index.stories[0]!.start, index.stories[0]!.end)).not.toContain('US-2');
+  });
+
+  it('keeps both sections when a story number repeats', () => {
+    const twice = ['## US-1: first [P0]', '', '## US-1: again [P1]', ''].join('\n');
+    expect(indexSpec(twice).stories.map((s) => s.heading)).toEqual([
+      'US-1: first [P0]',
+      'US-1: again [P1]',
+    ]);
+    expect(indexSpec(twice).stories).toHaveLength(2);
+  });
+
+  it('keeps the heading AS WRITTEN, whatever whitespace separates it', () => {
+    // `[ \t]+` once stripped the hashes here and left them in the text, so a
+    // re-render emitted the hashes twice. The separator class the matcher uses
+    // and the class the stripper uses must be the same one.
+    const wide = ['##\u3000US-1: Wide [P0]', '', '#### REQ-QUIZ-020: x', 'Body.', ''].join('\n');
+    const index = indexSpec(wide);
+    expect(index.stories[0]).toMatchObject({ id: 'US-1', heading: 'US-1: Wide [P0]', level: 2 });
+    expect(index.requirements[0]).toMatchObject({ story: 'US-1: Wide [P0]', storyLevel: 2 });
+  });
+
+  it('stays linear on a heading with a long whitespace run and a mid-line CR', () => {
+    // The shape that made these patterns cubic: `.` never matches a bare `\r` (and
+    // `walkLines` only treats `\r\n` as a terminator), so a `$` anchor was
+    // unreachable and every split of the whitespace run was tried against a match
+    // that could not succeed — 4 KB took 10.1 s and 8 KB took 82 s, on a path
+    // `prospec check` runs. U+2028 is unmatched by `.` for the same reason.
+    // The budget is 2 s against a pre-fix 82 s: five orders of margin, not a race.
+    for (const terminator of ['\r', ' ']) {
+      const spec = [
+        '---',
+        'feature: slow',
+        '---',
+        '',
+        `## US-A${' '.repeat(16000)}B${terminator}Z`,
+        '',
+        '#### REQ-SLOW-001: x',
+        'Body.',
+        '',
+      ].join('\n');
+      const started = performance.now();
+      const index = indexSpec(spec, { includeStruck: true });
+      readSpecCounters(spec);
+      const elapsed = performance.now() - started;
+      expect(elapsed, `${JSON.stringify(terminator)} took ${elapsed.toFixed(0)}ms`).toBeLessThan(2000);
+      expect(index.requirements.map((r) => r.id)).toEqual(['REQ-SLOW-001']);
+      expect(index.stories.map((s) => s.id)).toEqual(['US-A']);
+    }
+  });
+
+  it('bounds a requirement at h1/h2 whatever its own level', () => {
+    // REQ-LIB-041: h1/h2 always bound, or an h1-level REQ swallows `## Edge Cases`
+    // and the whole Change History table. Every other fixture writes REQs at h4,
+    // where `Math.max(level, 2)` is a no-op — removing it stayed green.
+    const shallow = [
+      '# REQ-QUIZ-030: h1 requirement',
+      'Body of the h1 REQ.',
+      '',
+      '## Edge Cases',
+      '',
+      '- an edge case that must NOT be swallowed',
+      '',
+    ].join('\n');
+    const req = indexSpec(shallow).requirements[0]!;
+    const body = shallow.slice(req.start, req.end);
+    expect(body).toBe('# REQ-QUIZ-030: h1 requirement\nBody of the h1 REQ.\n');
+    expect(body).not.toContain('Edge Cases');
+    expect(body).not.toContain('must NOT be swallowed');
+  });
+
+  it('preserves the file\'s own line endings inside a slice', () => {
+    const crlf = body.replace(/\n/g, '\r\n');
+    const req = indexSpec(crlf).requirements[0]!;
+    expect(crlf.slice(req.start, req.end)).toBe(
+      '#### REQ-QUIZ-001: first\r\nOne sentence.\r\n- WHEN a, THEN b\r\n',
+    );
+  });
+
+  it('reports the same requirement set under either line ending', () => {
+    const crlf = body.replace(/\n/g, '\r\n');
+    expect(indexSpec(crlf).requirements.map((r) => [r.id, r.level, r.story, r.deprecated])).toEqual(
+      indexSpec(body).requirements.map((r) => [r.id, r.level, r.story, r.deprecated]),
+    );
+  });
+
+  it('keeps a fenced code block whole inside a requirement slice', () => {
+    const fenced = [
+      '## US-1: fences [P0]',
+      '',
+      '#### REQ-QUIZ-010: fenced',
+      'Body.',
+      '```md',
+      '#### REQ-QUIZ-999: not a heading, it is inside a fence',
+      '---',
+      '```',
+      'After the fence.',
+      '',
+      '#### REQ-QUIZ-011: next',
+      'Body.',
+      '',
+    ].join('\n');
+    const index = indexSpec(fenced);
+    expect(index.requirements.map((r) => r.id)).toEqual(['REQ-QUIZ-010', 'REQ-QUIZ-011']);
+    const slice = fenced.slice(index.requirements[0]!.start, index.requirements[0]!.end);
+    expect(slice).toContain('After the fence.');
+    expect((slice.match(/```/g) ?? []).length % 2).toBe(0);
+  });
+
+  it('agrees with readSpecCounters on this repo\'s own specs', () => {
+    // The two readers share one walk; this is the guard that they stay agreed on
+    // real specs, not only on fixtures.
+    const dir = path.resolve(import.meta.dirname, '../../../prospec/specs/features');
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+      const content = fs.readFileSync(path.join(dir, file), 'utf-8');
+      const counters = readSpecCounters(content)!;
+      const index = indexSpec(content);
+      expect(index.requirements.filter((r) => !r.deprecated), file).toHaveLength(
+        counters.actual.req_count,
+      );
+      expect(index.stories, file).toHaveLength(counters.actual.story_count);
+    }
   });
 });

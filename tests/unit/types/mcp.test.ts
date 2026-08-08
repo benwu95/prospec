@@ -26,8 +26,14 @@ describe('MCP resource URI constants', () => {
     );
   });
 
-  it('exposes exactly the two read-only tool names', () => {
-    expect([...MCP_TOOL_NAMES]).toEqual(['search_modules', 'get_dependency_direction']);
+  it('exposes exactly the read-only tool names, append-only', () => {
+    // Append-only like the URI set: clients consume a frozen list, so a new tool
+    // goes on the END and the existing order never moves.
+    expect([...MCP_TOOL_NAMES]).toEqual([
+      'search_modules',
+      'get_dependency_direction',
+      'get_spec_requirements',
+    ]);
   });
 });
 
