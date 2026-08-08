@@ -172,28 +172,83 @@ describe('readSpecCounters', () => {
     }
   });
 
-  it('counts this repo\'s specs exactly as the pre-shared-walk reader did', () => {
+  it('counts the shapes the pre-shared-walk reader counted, identically', () => {
     // Literal baseline captured by RUNNING the implementation that predated the
-    // shared walk (`git show HEAD:src/lib/spec-headings.ts`), never re-derived
-    // from the code under test — a table computed by the subject proves nothing.
-    // These are `actual` counts, so a spec whose declared frontmatter is wrong
-    // still pins the reader.
-    const baseline: [string, number, number][] = [
-      ['agent-integration.md', 21, 82],
-      ['ai-knowledge.md', 15, 64],
-      ['design-phase.md', 4, 11],
-      ['drift-detection.md', 17, 65],
-      ['feedback-promotion.md', 4, 13],
-      ['mcp-server.md', 4, 11],
-      ['project-setup.md', 19, 47],
-      ['sdd-workflow.md', 33, 173],
-      ['standalone-binary.md', 1, 8],
-      ['token-measurement.md', 4, 12],
+    // shared walk (`git show main:src/lib/spec-headings.ts`) over these fixtures,
+    // never re-derived from the code under test — a table computed by the subject
+    // proves nothing.
+    //
+    // The fixtures are synthetic ON PURPOSE. A first version pinned this repo's own
+    // specs, which made the assertion a hostage of the trust zone: the very next
+    // archive graduated REQs into `sdd-workflow.md` and `mcp-server.md` and reddened
+    // CI for a legitimate content change. What needs pinning is the counting RULES,
+    // and those live in shapes, not in today's requirement totals.
+    const fm = (story: string, req: string): string =>
+      `---\nfeature: fx\nstory_count: ${story}\nreq_count: ${req}\n---\n`;
+    const fixtures: [name: string, spec: string, story: number, req: number][] = [
+      [
+        'REQ at every ATX level',
+        `${fm('0', '6')}\n# REQ-FX-001: h1\n\n## REQ-FX-002: h2\n\n### REQ-FX-003: h3\n\n#### REQ-FX-004: h4\n\n##### REQ-FX-005: h5\n\n###### REQ-FX-006: h6\n`,
+        0,
+        6,
+      ],
+      [
+        'stories at h2 and h3, a REQ that is not a story',
+        `${fm('2', '1')}\n## US-1: h2 story\n\n### US-2: h3 story\n\n## REQ-FX-010: not a story\n`,
+        2,
+        1,
+      ],
+      [
+        'deprecated section closed by an h2 REQ',
+        `${fm('0', '3')}\n#### REQ-FX-020: live\n\n## Deprecated Requirements\n\n#### REQ-FX-021: dead\n\n## REQ-FX-022: h2 reopens\n\n#### REQ-FX-023: live again\n`,
+        0,
+        3,
+      ],
+      [
+        'deprecated section holds while only deeper headings follow',
+        `${fm('0', '1')}\n#### REQ-FX-030: live\n\n## Deprecated Requirements\n\n#### REQ-FX-031: dead\n\n##### REQ-FX-032: also dead\n`,
+        0,
+        1,
+      ],
+      [
+        'struck ids are not active',
+        `${fm('1', '1')}\n## US-1: s\n\n#### REQ-FX-040: live\n\n#### ~~REQ-FX-041~~: retired\n`,
+        1,
+        1,
+      ],
+      [
+        'anchors and bare ids',
+        `${fm('0', '2')}\n#### REQ-FX-050 {#req-fx-050}\n\n#### REQ-FX-051: titled {#req-fx-051}\n`,
+        0,
+        2,
+      ],
+      [
+        'non-heading mentions and indented shapes',
+        `${fm('0', '1')}\nSee REQ-FX-060 inline.\n- #### REQ-FX-061: in a bullet\n  #### REQ-FX-062: indented\n####REQ-FX-063: no space\n\n#### REQ-FX-064: the only real one\n`,
+        0,
+        1,
+      ],
+      [
+        'US- prefix that is not a numbered story',
+        `${fm('2', '0')}\n## US-1: real\n\n## USA-1: not a story\n\n### US-ABC: still counted by prefix\n`,
+        2,
+        0,
+      ],
+      [
+        'no trailing newline',
+        `${fm('1', '1')}\n## US-1: s\n\n#### REQ-FX-070: last line has no newline`,
+        1,
+        1,
+      ],
     ];
-    const dir = path.resolve(import.meta.dirname, '../../../prospec/specs/features');
-    for (const [file, story_count, req_count] of baseline) {
-      const content = fs.readFileSync(path.join(dir, file), 'utf-8');
-      expect(readSpecCounters(content)!.actual, file).toEqual({ story_count, req_count });
+
+    for (const [name, spec, story_count, req_count] of fixtures) {
+      expect(readSpecCounters(spec)!.actual, name).toEqual({ story_count, req_count });
+      // Line endings must not change what a spec is counted as.
+      expect(readSpecCounters(spec.replace(/\n/g, '\r\n'))!.actual, `${name} (CRLF)`).toEqual({
+        story_count,
+        req_count,
+      });
     }
   });
 
