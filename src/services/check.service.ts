@@ -33,6 +33,8 @@ import {
   collectSpecCounters,
   collectReqReferences,
   collectReviewProvenance,
+  collectDeltaSpecProvenance,
+  computeDeltaSpecDigest,
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
@@ -85,6 +87,10 @@ export interface RecordReviewResult {
   /** False when skipped honestly (e.g. not a git repo) — no fake digest written. */
   recorded: boolean;
   reason?: string;
+  /** True when the review baseline was recorded but the change carries no
+   *  delta-spec, so no delta-spec baseline could be. Disclosed rather than silent:
+   *  the reader must be able to tell "recorded both" from "recorded one". */
+  deltaSpecSkipped?: boolean;
 }
 
 export interface RecordTestsResult {
@@ -188,6 +194,9 @@ export async function execute(
       ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
     reviewProvenance: collectReviewProvenance(cwd, currentDigest),
+    // No shared digest to pass: this one fingerprints each change's own
+    // delta-spec, so the collector computes them per change.
+    deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
     metadataCompleteness: collectMetadataCompleteness(cwd),
     knowledgeSize: collectKnowledgeSize(
       cwd,
@@ -273,9 +282,24 @@ async function recordReviewProvenance(
     return { kind: 'record-review', change, recorded: false, reason: digestFailureReason(cwd) };
   }
   const { doc } = readChangeMetadata(metadataPath, change);
-  doc.set('review_provenance', doc.createNode({ digest, date: new Date().toISOString().slice(0, 10) }));
+  const date = new Date().toISOString().slice(0, 10);
+  doc.set('review_provenance', doc.createNode({ digest, date }));
+  // The delta-spec baseline is stamped in the SAME write (REQ-SERVICES-082). Two
+  // separate writes could record two different moments, and the whole point of
+  // this fingerprint is to prove the landing blocks are the ones review saw.
+  // A change with no delta-spec gets no field rather than a placeholder — the
+  // evaluator skips it, and a fabricated value would make that skip impossible.
+  const deltaSpecDigest = computeDeltaSpecDigest(path.dirname(metadataPath));
+  if (deltaSpecDigest !== null) {
+    doc.set('delta_spec_provenance', doc.createNode({ digest: deltaSpecDigest, date }));
+  }
   await writeChangeMetadataDoc(metadataPath, doc, change);
-  return { kind: 'record-review', change, recorded: true };
+  return {
+    kind: 'record-review',
+    change,
+    recorded: true,
+    ...(deltaSpecDigest === null ? { deltaSpecSkipped: true } : {}),
+  };
 }
 
 /** A null digest has two very different causes — misreporting a capture failure

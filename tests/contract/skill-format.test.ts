@@ -2345,7 +2345,7 @@ describe('Identity rule in the finding format (REQ-TEMPLATES-067, REQ-CLI-028)',
 });
 
 describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
-  it('Phase 3.5 step 0 introduces BOTH worklists, and never leaves "already landed" unqualified', () => {
+  it('Phase 3.5 step 0 introduces EVERY worklist, and never leaves "already landed" unqualified', () => {
     // The gate assertion below slices only the gate, so without this the whole
     // step-0 rewrite can revert silently — including the exact sentence
     // ("a REQ absent from the worklist already landed its authored spec text")
@@ -2356,6 +2356,14 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
     );
     expect(phase).toMatch(/graduation worklist/i);
     expect(phase).toMatch(/dropped behavior/i);
+    // REQ-TEMPLATES-166 requires the phase to name every worklist the CLI
+    // produces, not a subset — the three added by this change included, or the
+    // agent is told to converge from an incomplete picture.
+    for (const worklist of ['refusedRequirements', 'acknowledgedDrops', 'staleDeclarations']) {
+      expect(phase, `step 0 must name ${worklist}`).toContain(worklist);
+    }
+    // a refusal points at the block the CLI named, which is NOT always `**Spec:**`
+    expect(phase).toMatch(/Acceptance Criteria.{0,120}no `\*\*Spec:\*\*` block|no `\*\*Spec:\*\*` block.{0,120}Acceptance Criteria/is);
     // the qualifier must travel with the claim, in the same sentence
     expect(phase).toMatch(/landed.{0,80}does not mean.{0,20}lost nothing/is);
     expect(phase).not.toMatch(/already landed its authored spec text\.\s*$/m);
@@ -2367,7 +2375,15 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
       '> **Phase 3.5 Gate** — proceed when:',
     );
     expect(gate).toMatch(/dropped behavior/i);
-    expect(gate).toMatch(/confirmed deliberate or restored/i);
+    // Confirming a deliberate removal now means WRITING it into the entry's
+    // `**Dropped:**` block. The old wording ("confirmed deliberate or restored")
+    // was satisfiable by asserting it in conversation, which left nothing for a
+    // later reader — or the CLI — to audit.
+    expect(gate).toMatch(/restored into the `\*\*Spec:\*\*` block or written into/i);
+    expect(gate).toContain('**Dropped:**');
+    // the refusal is a DIFFERENT finding with a different fix, and the gate says so
+    expect(gate).toMatch(/refused/i);
+    expect(gate).toMatch(/does not release a refusal/i);
     // an empty report must not add ceremony — the item self-satisfies
     expect(gate).toMatch(/empty report satisfies/i);
   });
@@ -3486,10 +3502,22 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
     // negative: Before/After/Reason must NOT be described as landing content
     expect(block).toContain('never copied into the Feature');
 
-    // "verbatim" has an edge — the reference must state it (PB-003)
+    // "verbatim" has an edge — the reference must state it (PB-003), and now also
+    // what happens PAST that edge: a foreign label is a refusal, not a silent cut.
     expect(block).toContain('Where the block ends');
-    expect(block).toContain('at any Markdown\nheading');
-    expect(block).toContain('is NOT landed');
+    expect(block).toContain('at any Markdown heading');
+    expect(block).toMatch(/refuses that REQ/);
+    expect(block).toMatch(/byte-identical/);
+    // negative: the superseded promise must be gone, or authors keep writing the
+    // shape that used to be silently truncated
+    expect(block).not.toContain('is NOT landed, silently');
+    // The declaration that releases a deliberate removal lives in its own h3, so
+    // it is scoped separately — asserting it against the whole reference would let
+    // the `**Dropped:**` line in the MODIFIED scaffold mask a deletion here.
+    const declaration = sectionOf(ref, '### `**Dropped:**` — declaring a deliberate removal');
+    expect(declaration).toMatch(/stale declaration/i);
+    expect(declaration).toMatch(/holds the write/i);
+    expect(declaration).toMatch(/--dry-run/);
 
     // both entry templates advertise the block (asserted on the whole reference:
     // the ADDED/MODIFIED sections embed fenced `### REQ-…` lines, which a
@@ -4352,16 +4380,22 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
   // bullet's trailing parenthetical); every other one is unique to this item, so section
   // scope alone would already go red on removal. The narrowing is what stops a WEAKER
   // marker list from passing on that neighbouring bullet.
-  it('archive Entry Gate blocks archiving on both provenance machine checks', () => {
+  it('archive Entry Gate blocks archiving on all three provenance machine checks', () => {
     const gate = sectionOf(render('prospec-archive'), '## Entry Gate');
     const item = gate
       .split('\n')
-      .find((l) => l.startsWith('- **Review and test provenance (machine-checked)**'));
+      .find((l) => l.startsWith('- **Review, test and delta-spec provenance (machine-checked)**'));
     expect(item, 'the provenance Entry Gate item is missing').toBeDefined();
     for (const marker of [
       'review-provenance',
       'test-provenance',
-      'Either FAIL → do not archive',
+      // The third gate closes the blind spot the other two share: they fingerprint
+      // CODE, and the landing blocks archive copies verbatim are not code.
+      'delta-spec-provenance',
+      'Any FAIL → do not archive',
+      // Its remedy points at the block, not at the code — naming a re-review here
+      // would send the reader to fix something that is already correct.
+      'Fix the block, not the code',
       // The two findings demand DIFFERENT fixes; naming only re-review sends the
       // reader down the wrong path when the cause was the commit moving HEAD.
       '/prospec-review',

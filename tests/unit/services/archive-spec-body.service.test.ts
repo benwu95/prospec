@@ -99,8 +99,17 @@ The converged behavioural statement.
 - WHEN converged, THEN the whole block lands verbatim
 - WHEN re-synced, THEN it stays byte-identical
 
+**Dropped:**
+- WHEN a thing happens, THEN the other thing follows
+- WHEN it does not, THEN nothing happens
+- WHEN replaced, THEN this bullet is superseded
+
 ---
 `);
+// ^ This one fixture is reused against two different existing bodies, so the
+// declaration names the superseded bullets of BOTH. Whichever body it meets, the
+// bullets belonging to the other are simply stale declarations — reported, never
+// blocking, which is exactly the behaviour that lets one fixture serve both.
 
 describe('syncToFeatureSpecs — MODIFIED never blanks an authored body', () => {
   it('preserves the existing body when the delta-spec carries no **Spec:** block', async () => {
@@ -488,6 +497,10 @@ Body at EOF.
 Prices render $& and $\` and $$ and $1 literally.
 - WHEN the body carries a replacement pattern, THEN it lands verbatim
 
+**Dropped:**
+- WHEN a thing happens, THEN the other thing follows
+- WHEN it does not, THEN nothing happens
+
 ---
 `),
     });
@@ -514,6 +527,10 @@ Prices render $& and $\` and $$ and $1 literally.
 Prices render $& and $\` and $$ and $1 literally.
 - WHEN the body carries a replacement pattern, THEN it lands verbatim
 
+**Dropped:**
+- WHEN a thing happens, THEN the other thing follows
+- WHEN it does not, THEN nothing happens
+
 ---
 `),
     });
@@ -537,6 +554,11 @@ Prices render $& and $\` and $$ and $1 literally.
 
 **Feature:** sdd-workflow
 **Story:** US-1
+
+
+**Dropped:**
+- WHEN a thing happens, THEN the other thing follows
+- WHEN it does not, THEN nothing happens
 
 **Spec:**
 The converged behavioural statement.
@@ -571,6 +593,11 @@ FOREIGN-TAIL-MARKER
 
 **Feature:** sdd-workflow
 **Story:** US-1
+
+
+**Dropped:**
+- WHEN a thing happens, THEN the other thing follows
+- WHEN it does not, THEN nothing happens
 
 **Spec:**
 The converged behavioural statement.
@@ -701,10 +728,12 @@ describe('syncToFeatureSpecs — REQ heading level is data, not an assumption', 
     // the sibling h3 REQ is untouched
     expect(content).toContain('### REQ-TYPES-002: second req');
     expect(content).toContain('Second body stays put.');
-    // and the behavior the block dropped is still reported
-    expect(result.droppedBehavior).toEqual([
+    // and the behavior the block dropped is still reported — as an acknowledged
+    // drop, because this fixture declares it deliberate (REQ-SERVICES-083)
+    expect(result.acknowledgedDrops).toEqual([
       expect.objectContaining({ reqId: 'REQ-TYPES-001' }),
     ]);
+    expect(result.droppedBehavior).toEqual([]);
   });
 
   it('preserves an h3 REQ body when the delta-spec carries no **Spec:** block', async () => {
@@ -912,6 +941,13 @@ Body that IS superseded.
  * written and reported, because deleting authored text is not this sync's call.
  */
 describe('syncToFeatureSpecs — a pre-existing duplicate id is reported, not compounded', () => {
+  // Declares the bullet THIS fixture supersedes, so the write is released and both
+  // reports — the duplication and the drop — can be observed on the same run.
+  const MODIFIED_DECLARING_WHEN_A = MODIFIED_WITH_SPEC.replace(
+    '**Dropped:**',
+    '**Dropped:**\n- WHEN a, THEN b',
+  );
+
   it('merges the first section only and reports the rest', async () => {
     vol.fromJSON({
       '/specs/features/sdd-workflow.md': `---
@@ -934,7 +970,7 @@ Original body.
 Duplicate body.
 - WHEN a, THEN b
 `,
-      '/archive/delta-spec.md': MODIFIED_WITH_SPEC,
+      '/archive/delta-spec.md': MODIFIED_DECLARING_WHEN_A,
     });
 
     const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
@@ -953,7 +989,7 @@ Duplicate body.
     // BOTH reports are due: the duplication AND whatever the landing block
     // dropped from the section it did replace. Returning only the first swallowed
     // the authored bullets that just left the trust zone.
-    expect(result.droppedBehavior).toEqual([
+    expect(result.acknowledgedDrops).toEqual([
       expect.objectContaining({
         reqId: 'REQ-TYPES-001',
         bullets: ['- WHEN a, THEN b'],

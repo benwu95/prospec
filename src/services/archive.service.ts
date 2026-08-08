@@ -63,6 +63,16 @@ export interface ArchiveResult {
    */
   droppedBehavior: DroppedBehavior[];
   /**
+   * REQs the sync refused to land because their delta-spec landing block was cut
+   * short by a foreign label (REQ-SERVICES-081). Blocking-class: the feature spec
+   * was left byte-identical. Dry-run too.
+   */
+  refusedRequirements: SpecRefusal[];
+  /** Dropped bullets the delta-spec declared deliberate — informational. Dry-run too. */
+  acknowledgedDrops: DroppedBehavior[];
+  /** Declared bullets that were not actually dropped — informational. Dry-run too. */
+  staleDeclarations: StaleDeclaration[];
+  /**
    * Why the product.md Feature Map sync wrote nothing, or null when it wrote.
    * A decline is the ONLY signal that the Feature Map is not current — without it
    * a silent non-write reads exactly like a successful sync.
@@ -101,6 +111,35 @@ export interface FeatureRoute {
   specBody?: string;
   /** Fallback body for ADDED: `**Description:**` prose + `**Acceptance Criteria:**` as bullets. */
   descriptionBody?: string;
+  /** Set when a label outside the template registry cut the landing block short —
+   *  the body carried here is incomplete, so the REQ is refused rather than landed
+   *  (REQ-SERVICES-081). */
+  truncation?: DeltaBlockTruncation;
+  /** Bullets the entry's `**Dropped:**` block declares it does not carry into the new body —
+   *  the only thing that releases a drop for writing (REQ-SERVICES-083). */
+  declaredDrops?: Bullet[];
+}
+
+/**
+ * A REQ the sync REFUSED to land because its delta-spec landing block was cut
+ * short by a label the template does not own (REQ-SERVICES-081).
+ *
+ * Distinct from `PendingConvergence` (body kept because there was nothing to
+ * land — normal, expected) and from `DroppedBehavior` (body replaced, some
+ * behavior not restated — a judgment call). This one is an authoring error in the
+ * delta-spec: the block itself is incomplete, so no comparison against the current
+ * body would mean anything. The fix is in the block, never in the feature spec.
+ */
+export interface SpecRefusal {
+  feature: string;
+  reqId: string;
+  /** Which delta-spec block was cut short — the one the author must fix. */
+  block: string;
+  /** The label that interrupted the block. */
+  label: string;
+  /** The interrupting line as written, so the author can find the spot. */
+  firstSwallowedLine: string;
+  swallowedCount: number;
 }
 
 /** A REQ whose Feature-Spec body the sync did NOT replace — a human must converge it. */
@@ -124,13 +163,30 @@ export interface DroppedBehavior {
   bullets: string[];
 }
 
+/** Bullets an entry declared as not carried into the new body that were not dropped at all —
+ *  the author is describing a body the spec no longer has. Reported, never blocking:
+ *  nothing is lost by a declaration that matches nothing. */
+export interface StaleDeclaration {
+  feature: string;
+  reqId: string;
+  bullets: string[];
+}
+
 export interface SpecSyncResult {
   /** Feature Spec files created or updated. */
   files: string[];
   /** REQs left for the graduation phase; populated under dry-run too. */
   pendingConvergence: PendingConvergence[];
-  /** REQs whose replacement body omits authored behavior; dry-run too. */
+  /** Dropped bullets NOT declared deliberate — the blocking list. A file with any
+   *  of these is left byte-identical. Unchanged in meaning for a delta-spec that
+   *  declares nothing, which is every delta-spec written before REQ-SERVICES-083. */
   droppedBehavior: DroppedBehavior[];
+  /** Dropped bullets the entry declared deliberate — informational, never blocking. */
+  acknowledgedDrops: DroppedBehavior[];
+  /** Declared bullets that were not actually dropped; informational. */
+  staleDeclarations: StaleDeclaration[];
+  /** REQs refused because their landing block was truncated; dry-run too. */
+  refusedRequirements: SpecRefusal[];
 }
 
 // --- Core functions ---
@@ -368,7 +424,16 @@ export async function syncToFeatureSpecs(
   dryRun = false,
 ): Promise<SpecSyncResult> {
   const routes = await readFeatureRoutes(archiveDir);
-  if (routes.length === 0) return { files: [], pendingConvergence: [], droppedBehavior: [] };
+  if (routes.length === 0) {
+    return {
+      files: [],
+      pendingConvergence: [],
+      droppedBehavior: [],
+      acknowledgedDrops: [],
+      staleDeclarations: [],
+      refusedRequirements: [],
+    };
+  }
 
   if (!dryRun) await ensureDir(featuresPath);
 
@@ -383,6 +448,9 @@ export async function syncToFeatureSpecs(
   const updatedFiles: string[] = [];
   const pendingConvergence: PendingConvergence[] = [];
   const droppedBehavior: DroppedBehavior[] = [];
+  const refusedRequirements: SpecRefusal[] = [];
+  const acknowledgedDrops: DroppedBehavior[] = [];
+  const staleDeclarations: StaleDeclaration[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   for (const [feature, featureRoutes] of byFeature) {
@@ -394,9 +462,24 @@ export async function syncToFeatureSpecs(
 
     if (fileExists) {
       let content = await fs.promises.readFile(specFile, 'utf-8');
+      // Tracks whether ANY route actually reached this file. When every route is
+      // refused, the frontmatter bump and the Change History row would be the only
+      // edits — a file that says "this change touched me" while carrying none of
+      // it, which is exactly the false record the refusal exists to prevent.
+      let landedAny = false;
+      // Per-file worklists. They are held here rather than pushed straight onto the
+      // run-level lists because the write decision below depends on them: a file
+      // that would lose text is not written at all, and its findings still have to
+      // be reported. Deciding after the write would leave the loss on disk.
+      const fileRefusals: SpecRefusal[] = [];
+      const fileUndeclared: DroppedBehavior[] = [];
+      const fileAcknowledged: DroppedBehavior[] = [];
+      const fileStale: StaleDeclaration[] = [];
+      const filePending: PendingConvergence[] = [];
 
       for (const route of featureRoutes) {
         if (route.status === 'REMOVED') {
+          landedAny = true;
           content = moveReqToDeprecated(content, route);
           // Deprecation only APPENDS a bullet — the REQ's active section (and its
           // pre-removal body, now describing behavior that no longer exists) stays
@@ -404,29 +487,81 @@ export async function syncToFeatureSpecs(
           // probe reads headings at any level: an h4-only probe reported nothing
           // for a spec whose REQs sit elsewhere, leaving dead text unflagged.
           if (existingReqLevel(content, route.reqId) !== null) {
-            pendingConvergence.push(pendingFor(route, STALE_DEPRECATED_REASON));
+            filePending.push(pendingFor(route, STALE_DEPRECATED_REASON));
           }
         } else {
           const merged = mergeRequirementInPlace(content, route);
           content = merged.content;
-          if (merged.pending) pendingConvergence.push(merged.pending);
-          if (merged.dropped) droppedBehavior.push(merged.dropped);
+          if (merged.pending) filePending.push(merged.pending);
+          if (merged.drops?.undeclared) fileUndeclared.push(merged.drops.undeclared);
+          if (merged.drops?.acknowledged) fileAcknowledged.push(merged.drops.acknowledged);
+          if (merged.drops?.stale) fileStale.push(merged.drops.stale);
+          if (merged.refused) fileRefusals.push(merged.refused);
+          else landedAny = true;
         }
       }
 
+      // THE decision, taken before a byte is written (REQ-CLI-034). A refusal or an
+      // undeclared drop means this file would come out of the run holding less
+      // authored behavior than it went in with, so it is not written at all —
+      // reporting after the write would leave the loss on disk and make the report
+      // an obituary rather than a guard.
+      //
+      // Only the BLOCKING findings survive a hold. `pendingConvergence` describes
+      // the file's state AFTER a write that did not happen, and one of its reasons
+      // actively instructs a human to strike a REQ body from the trust zone because
+      // a deprecation landed — when the file is held, that deprecation exists only
+      // in the discarded in-memory copy, so following it would delete authored text
+      // for an event that never occurred. The re-run reports it truthfully once the
+      // loss is resolved. Same for the two advisory drop lists: they describe writes
+      // this run did not perform.
+      refusedRequirements.push(...fileRefusals);
+      droppedBehavior.push(...fileUndeclared);
+      if (fileRefusals.length > 0 || fileUndeclared.length > 0) continue;
+      pendingConvergence.push(...filePending);
+      acknowledgedDrops.push(...fileAcknowledged);
+      staleDeclarations.push(...fileStale);
+
+      // Currently unreachable — every route that fails to land is a refusal, and a
+      // refusal already `continue`d above. Kept deliberately, like the fail-closed
+      // guard in `computeChangeDigest`: it pins the invariant (a file records a
+      // Change History row only when something actually landed in it) against a
+      // future path that stops landing a route without refusing it.
+      if (!landedAny) continue;
+      // Only the routes that landed may claim a Change History row — a no-op today
+      // for the same reason, and retained for the same one.
+      const landed = featureRoutes.filter((r) => r.truncation === undefined);
       content = updateFeatureSpecFrontmatter(content, today);
-      content = appendToChangeHistory(content, featureRoutes, today, changeName);
+      content = appendToChangeHistory(content, landed, today, changeName);
       if (!dryRun) await atomicWrite(specFile, content);
     } else {
-      const content = createNewFeatureSpec(feature, featureRoutes, today, changeName);
-      pendingConvergence.push(...featureRoutes.filter(bodyless).map((r) => pendingFor(r)));
+      // A truncated route is refused on the creation path too — landing a fragment
+      // into a brand-new spec is the same loss as landing one into an existing
+      // file, minus the chance of noticing it in a diff.
+      const refused = featureRoutes.filter((r) => r.truncation !== undefined);
+      refusedRequirements.push(
+        ...refused.map((r) => ({ feature: r.feature, reqId: r.reqId, ...r.truncation! })),
+      );
+      const landable = featureRoutes.filter((r) => r.truncation === undefined);
+      // Every route refused → there is nothing to write. Creating the scaffold
+      // anyway would claim the feature is documented when none of it landed.
+      if (landable.length === 0) continue;
+      const content = createNewFeatureSpec(feature, landable, today, changeName);
+      pendingConvergence.push(...landable.filter(bodyless).map((r) => pendingFor(r)));
       if (!dryRun) await atomicWrite(specFile, content);
     }
 
     updatedFiles.push(specFile);
   }
 
-  return { files: updatedFiles, pendingConvergence, droppedBehavior };
+  return {
+    files: updatedFiles,
+    pendingConvergence,
+    droppedBehavior,
+    acknowledgedDrops,
+    staleDeclarations,
+    refusedRequirements,
+  };
 }
 
 /** One Feature Map entry's identity: the spec it links to and the title shown. */
@@ -1026,6 +1161,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const planned: PlannedMutation[] = [];
   const pendingConvergence: PendingConvergence[] = [];
   const droppedBehavior: DroppedBehavior[] = [];
+  const refusedRequirements: SpecRefusal[] = [];
+  const acknowledgedDrops: DroppedBehavior[] = [];
+  const staleDeclarations: StaleDeclaration[] = [];
   let productSpecDeclined: ProductSpecDecline | null = null;
   let specSyncWouldTouchFeaturesDir = false;
 
@@ -1049,6 +1187,29 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   for (const change of candidates) {
     try {
       const createdDate = String(change.metadata.created ?? change.metadata.created_at ?? 'unknown');
+
+      // PREFLIGHT — decide before anything moves (REQ-CLI-034).
+      //
+      // The spec-loss verdict used to be taken after `moveToArchive` had already
+      // emptied `.prospec/changes/` and the run had stamped `status: archived`.
+      // Holding the write then left the REQ permanently unlandable AND the record
+      // claiming the change had graduated: re-running reported `notFound`, and the
+      // only way back was hand-moving the bundle and editing metadata — the very
+      // manual surgery this workflow forbids. So the sync is tried against the
+      // SOURCE directory first, in dry-run, and a change that would lose authored
+      // text is left exactly where it is, with its delta-spec still editable and
+      // re-running the whole command as its recovery path.
+      if (featuresPath) {
+        const preflight = await syncToFeatureSpecs(change.dir, featuresPath, change.name, true);
+        if (preflight.refusedRequirements.length > 0 || preflight.droppedBehavior.length > 0) {
+          refusedRequirements.push(...preflight.refusedRequirements);
+          droppedBehavior.push(...preflight.droppedBehavior);
+          skipped.push(change.name);
+          skippedReasons[change.name] =
+            'spec sync would lose authored behavior — nothing was archived; fix the delta-spec and re-run';
+          continue;
+        }
+      }
 
       // Move to archive. Dry-run mirrors moveToArchive: an existing archive
       // directory makes the real run throw → skipped, so predict the same.
@@ -1100,6 +1261,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
           specFiles.push(...syncedFiles);
           pendingConvergence.push(...sync.pendingConvergence);
           droppedBehavior.push(...sync.droppedBehavior);
+          refusedRequirements.push(...sync.refusedRequirements);
+          acknowledgedDrops.push(...sync.acknowledgedDrops);
+          staleDeclarations.push(...sync.staleDeclarations);
           if (dryRun) {
             for (const specFile of syncedFiles) {
               planned.push({
@@ -1231,6 +1395,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     notFound,
     pendingConvergence,
     droppedBehavior,
+    refusedRequirements,
+    acknowledgedDrops,
+    staleDeclarations,
     productSpecDeclined,
   };
 }
@@ -1353,17 +1520,34 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
 
   const pushCurrent = () => {
     if (currentReqId && currentFeature) {
-      const specBody = extractDeltaBlock(currentBody, 'Spec');
+      const spec = extractDeltaBlock(currentBody, 'Spec');
+      const descriptionBody = buildDescriptionBody(currentBody);
+      const declared = declaredDrops(currentBody);
+      // The truncation that matters is the one on whichever block actually lands.
+      // For MODIFIED that is always the Spec block; for ADDED without one, the
+      // Description/Acceptance-Criteria fallback IS the landing body, so a foreign
+      // label cutting THAT short loses trust-zone text just the same.
+      // The fallback's truncation counts ONLY where the fallback can actually
+      // land — an ADDED entry with no Spec block. For MODIFIED those blocks are
+      // change narrative that never reaches the trust zone, so refusing on them
+      // would deny the REQ the preserve-body + pendingConvergence path
+      // REQ-SERVICES-072 guarantees, and swallow its worklist entry.
+      const truncation =
+        spec.truncation ??
+        (currentSection === 'ADDED' && spec.content === ''
+          ? (extractDeltaBlock(currentBody, 'Description').truncation ??
+            extractDeltaBlock(currentBody, 'Acceptance Criteria').truncation)
+          : null);
       routes.push({
         reqId: currentReqId,
         feature: currentFeature,
         story: currentStory,
         status: currentSection as FeatureRoute['status'],
         description: currentDescription,
-        ...(specBody === '' ? {} : { specBody }),
-        ...(buildDescriptionBody(currentBody) === ''
-          ? {}
-          : { descriptionBody: buildDescriptionBody(currentBody) }),
+        ...(spec.content === '' ? {} : { specBody: spec.content }),
+        ...(descriptionBody === '' ? {} : { descriptionBody }),
+        ...(truncation === null ? {} : { truncation }),
+        ...(declared.length === 0 ? {} : { declaredDrops: declared }),
       });
     }
   };
@@ -1411,39 +1595,185 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
 }
 
 /** A `**Label:**` line — the boundary between delta-spec blocks. */
-const DELTA_BLOCK_LABEL = /^\*\*[A-Za-z][\w \-/]*:\*\*/;
+const DELTA_BLOCK_LABEL = /^\*\*([A-Za-z][\w \-/]*):\*\*/;
 
 /** Any ATX heading — a block never swallows one (see extractDeltaBlock). */
 const ATX_HEADING = /^#{1,6}\s/;
 
 /**
- * Content of one `**Label:**` block: the remainder of the label line plus every
- * following line up to the next label, a heading, an entry-separating `---`, or
- * the end. Returns `''` when the block is absent — the caller decides what that
- * means.
+ * The delta-spec template's OWN field labels — the registry that tells a normal
+ * block boundary apart from a truncation (REQ-SERVICES-081).
  *
- * The heading boundary matters because this text lands in the trust zone: a
+ * Every one of these is a field the delta-spec format itself writes after a
+ * `**Spec:**` block, so meeting one means the block ended where the template says
+ * it ends. Any OTHER label is part of the body the author wrote — most importantly
+ * `**Scenarios:**`, which is exactly what the Feature Spec scaffold puts inside a
+ * REQ body, so a landing block written to the documented shape used to land as its
+ * opening sentence and nothing else.
+ *
+ * `Dropped` is in here for a second reason: it is where an author declares a
+ * deliberate removal (REQ-SERVICES-083). Leaving it out would make every
+ * declaration truncate the very block it accompanies — the registry has to know
+ * about the feature that depends on it.
+ */
+export const DELTA_TEMPLATE_FIELDS = [
+  'Feature',
+  'Story',
+  'Before',
+  'After',
+  'Reason',
+  'Description',
+  'Acceptance Criteria',
+  'Spec',
+  'Dropped',
+  'Priority',
+] as const;
+
+const TEMPLATE_FIELD_LOOKUP = new Set<string>(DELTA_TEMPLATE_FIELDS.map((f) => f.toLowerCase()));
+
+/** What (if anything) ends a delta-spec block at this line. */
+export type BlockTerminator =
+  | { kind: 'none' }
+  | { kind: 'template-field'; label: string }
+  | { kind: 'foreign-label'; label: string }
+  | { kind: 'heading' }
+  | { kind: 'rule' };
+
+/**
+ * Classify one line as a block boundary (REQ-SERVICES-081).
+ *
+ * Headings and rules keep the meaning they always had. The split that matters is
+ * between a template field — a real boundary — and a foreign label, which is body
+ * text the author wrote and which cutting there would silently discard.
+ *
+ * `alreadySeen` carries the template fields that appeared EARLIER in the same
+ * entry, and a repeat of one of those is body text rather than a boundary. Plain
+ * membership was a silent-truncation allowlist: `**Reason:**` written inside a
+ * `**Spec:**` body read as a legitimate boundary, so every bullet after it was
+ * dropped with no truncation, no refusal and exit 0 — the very failure this guard
+ * exists to close, narrowed rather than removed. The drop diff cannot cover that
+ * case either, because the lost bullets are NEW text absent from the superseded
+ * body, so the set difference sees nothing missing.
+ *
+ * First-occurrence, NOT a fixed field order: the real corpus writes
+ * `**Acceptance Criteria:**` after `**Spec:**` in MODIFIED entries and before it in
+ * ADDED ones, so any single canonical order refuses legitimate history (four such
+ * refusals in this repo's own archive, caught by the corpus regression).
+ *
+ * Case-insensitive against the registry: matching `**priority:**` costs nothing
+ * (no foreign label collides with a template field name) and spares a downstream
+ * project a refusal it could not act on.
+ */
+export function classifyBlockTerminator(
+  line: string,
+  alreadySeen: ReadonlySet<string> = new Set(),
+): BlockTerminator {
+  if (ATX_HEADING.test(line)) return { kind: 'heading' };
+  const trimmed = line.trim();
+  if (trimmed === '---') return { kind: 'rule' };
+  const label = DELTA_BLOCK_LABEL.exec(trimmed)?.[1];
+  if (label === undefined) return { kind: 'none' };
+  const key = label.toLowerCase();
+  return TEMPLATE_FIELD_LOOKUP.has(key) && !alreadySeen.has(key)
+    ? { kind: 'template-field', label }
+    : { kind: 'foreign-label', label };
+}
+
+/** Does this line carry content of its own after the closing `**`? */
+function labelLineHasInlineContent(line: string): boolean {
+  const m = /^\*\*[A-Za-z][\w \-/]*:\*\*(.*)$/.exec(line.trim());
+  return m !== null && m[1]!.trim() !== '';
+}
+
+/** Where a block was cut short by a label the template does not own. */
+export interface DeltaBlockTruncation {
+  /** Which block was cut short — `Spec`, `Description` or `Acceptance Criteria`.
+   *  Without it the remediation can only guess, and it guessed `**Spec:**` for an
+   *  ADDED entry that has no such block. */
+  block: string;
+  /** The interrupting label, so the report can name it. */
+  label: string;
+  /** The label line as written — what the author looks for to find the spot. */
+  firstSwallowedLine: string;
+  /**
+   * Lines of CONTENT lost. A bare label line contributes nothing (ending at one
+   * loses no behaviour); a label carrying text after its closing `**` contributes
+   * itself, because that text IS the behaviour. Counting lines instead let
+   * `**Scenarios:** WHEN x, THEN y` — label and content on one line — score 1 and
+   * slip under the threshold, silently dropping the very thing this guard exists
+   * to protect.
+   */
+  swallowedCount: number;
+}
+
+export interface DeltaBlock {
+  content: string;
+  truncation: DeltaBlockTruncation | null;
+}
+
+/**
+ * Content of one `**Label:**` block: the remainder of the label line plus every
+ * following line up to the block's end. `content` is `''` when the block is
+ * absent — the caller decides what that means.
+ *
+ * A block ends at one of the delta-spec template's OWN field labels, at any
+ * heading, at an entry-separating `---`, or at the end of the entry. Meeting
+ * anything else that merely LOOKS like a label — `**Scenarios:**` above all, which
+ * is what the Feature Spec scaffold puts inside a REQ body — is not a boundary but
+ * a truncation: the author's body continues, and cutting it there is how a
+ * correctly-written landing block came to land as its opening sentence alone. Such
+ * a cut is reported in `truncation` so the caller can refuse the REQ rather than
+ * write the remainder (REQ-SERVICES-081).
+ *
+ * The heading boundary matters for a different reason and is unchanged: a
  * delta-spec whose last block is `**Spec:**` followed by any heading (a
  * traceability table, a closing note, an unfilled `### REQ-[MODULE]-001`
  * template line) would otherwise land that foreign section inside the REQ body —
  * where a later sync can no longer remove it, since the injected heading becomes
  * the in-place replacement's own stop boundary.
  */
-function extractDeltaBlock(bodyLines: string[], label: string): string {
+export function extractDeltaBlock(bodyLines: string[], label: string): DeltaBlock {
   const labelRe = new RegExp(`^\\*\\*${label}:\\*\\*\\s*(.*)$`);
   const start = bodyLines.findIndex((l) => labelRe.test(l.trim()));
-  if (start === -1) return '';
+  if (start === -1) return { content: '', truncation: null };
 
   const first = bodyLines[start]!.trim().match(labelRe)![1]!.trim();
   const collected = first === '' ? [] : [first];
+  let truncation: DeltaBlockTruncation | null = null;
+
+  // Template fields consumed BEFORE this block — a repeat of one of them further
+  // down is the author's body text, not the template's next field.
+  const seen = new Set<string>([label.toLowerCase()]);
+  for (let i = 0; i < start; i++) {
+    const m = DELTA_BLOCK_LABEL.exec(bodyLines[i]!.trim());
+    if (m) seen.add(m[1]!.toLowerCase());
+  }
+
   for (let i = start + 1; i < bodyLines.length; i++) {
     const line = bodyLines[i]!;
-    if (DELTA_BLOCK_LABEL.test(line.trim()) || line.trim() === '---' || ATX_HEADING.test(line)) {
+    const boundary = classifyBlockTerminator(line, seen);
+    if (boundary.kind === 'foreign-label') {
+      // Everything from here to the REAL boundary is body the author wrote and
+      // this block would drop. Count the CONTENT, not the lines: the label line
+      // itself only counts when it carries text of its own.
+      let swallowedCount = labelLineHasInlineContent(line) ? 1 : 0;
+      for (let j = i + 1; j < bodyLines.length; j++) {
+        const kind = classifyBlockTerminator(bodyLines[j]!, seen).kind;
+        if (kind === 'template-field' || kind === 'heading' || kind === 'rule') break;
+        if (bodyLines[j]!.trim() !== '') swallowedCount++;
+      }
+      if (swallowedCount > 0) {
+        truncation = { block: label, label: boundary.label, firstSwallowedLine: line, swallowedCount };
+        break;
+      }
+      // A bare label with nothing under it loses no behaviour — it ends the block
+      // exactly as a template field would, which is what it did before this guard.
       break;
     }
+    if (boundary.kind !== 'none') break;
     collected.push(line);
   }
-  return collected.join('\n').trim();
+  return { content: collected.join('\n').trim(), truncation };
 }
 
 /**
@@ -1452,8 +1782,8 @@ function extractDeltaBlock(bodyLines: string[], label: string): string {
  * becomes the `-` bullets Feature Specs use). Empty when neither block exists.
  */
 function buildDescriptionBody(bodyLines: string[]): string {
-  const description = extractDeltaBlock(bodyLines, 'Description');
-  const criteria = extractDeltaBlock(bodyLines, 'Acceptance Criteria');
+  const description = extractDeltaBlock(bodyLines, 'Description').content;
+  const criteria = extractDeltaBlock(bodyLines, 'Acceptance Criteria').content;
   const bullets = criteria
     .split('\n')
     .map((l) => l.replace(/^\s*\d+\.\s+/, '- '))
@@ -1497,28 +1827,77 @@ function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConver
  * re-indented or reflowed bullet is not a false drop; reporting the text means
  * what the author is asked to restore is what their file actually said.
  */
-interface Bullet {
+export interface Bullet {
   key: string;
   text: string;
 }
 
-/** Trim, then collapse whitespace runs — the comparison key, never the report. */
+/**
+ * The comparison key, never the report: trim, drop the list marker, drop emphasis
+ * around the keywords, then collapse whitespace runs.
+ *
+ * The marker MUST come out. `delta-spec-format` mandates `- WHEN …, THEN …` in a
+ * landing block, so a project whose feature spec is written with `*` or `1.`
+ * markers compares its own unchanged behaviour against the mandated shape and sees
+ * a difference — a FALSE drop, which now holds the write and tells the author to
+ * "restore" a bullet that is already there. Keeping the marker in the key was a
+ * defensible call while the report was advisory; once it began blocking, it turned
+ * the widening into a wall for exactly the projects the widening was added for.
+ */
 function normalizeBullet(line: string): string {
-  return line.trim().replace(/\s+/g, ' ');
+  return line
+    .trim()
+    .replace(/^(?:[-*]|\d+\.)\s+/, '')
+    .replace(/\*\*(WHEN|THEN)\*\*/gi, '$1')
+    .replace(/\s+/g, ' ');
 }
 
+/** Any Markdown list marker: `-`, `*`, or an ordered `N.`. */
+const LIST_MARKER = /^(?:[-*]|\d+\.)\s/;
+
 /**
- * `- WHEN … THEN …` bullets of a REQ body, each joined with its indented
+ * A `WHEN … THEN …` bullet's opening line, in any list style a project might use.
+ *
+ * Recognising only `- WHEN` meant a project writing `* WHEN`, `1. WHEN` or
+ * `- **WHEN**` got an EMPTY drop report while its behavior was being replaced —
+ * the worklist was not wrong, it was silent. The emphasis run is optional and
+ * unanchored on the right so `**WHEN**` and `WHEN` both match; `\b` still keeps
+ * `WHENEVER` out.
+ */
+const WHEN_BULLET = /^(?:[-*]|\d+\.)\s+\*{0,2}WHEN\b/i;
+
+/**
+ * `WHEN … THEN …` bullets of a REQ body, each joined with its indented
  * continuation lines: a wrapped bullet whose first line is unchanged but whose
  * `THEN` clause was rewritten is a total behavior swap, and comparing first
  * lines alone would report nothing.
+ *
+ * The comparison key normalises the marker and the keyword emphasis away (see
+ * `normalizeBullet`), so a bullet restyled from `- WHEN` to `* WHEN` is the SAME
+ * behaviour and is not reported. That reverses an earlier call to treat a restyle
+ * as a reportable edit: it was defensible while the report was advisory, but once
+ * a drop began holding the write it turned the mandated `- WHEN …` landing shape
+ * into a false block against any project whose spec uses another marker.
  */
-function whenThenBullets(body: string): Bullet[] {
+export function whenThenBullets(body: string): Bullet[] {
+  return collectBullets(body, WHEN_BULLET);
+}
+
+/**
+ * List items of `body` whose opening line matches `opens`, each joined with its
+ * indented continuation lines.
+ *
+ * Shared by the drop diff and the deliberate-loss declaration so the two produce
+ * IDENTICAL keys for identical text. If the declaration parsed differently, a
+ * declaration copied straight out of the CLI's own dry-run report could fail to
+ * match the drop it names, and the author would have no way to clear the gate.
+ */
+function collectBullets(body: string, opens: RegExp): Bullet[] {
   const bullets: Bullet[] = [];
   let open = false;
   for (const raw of body.split('\n')) {
     const line = raw.trim();
-    if (/^-\s+WHEN\b/i.test(line)) {
+    if (opens.test(line)) {
       bullets.push({ key: normalizeBullet(line), text: raw });
       open = true;
       continue;
@@ -1527,8 +1906,16 @@ function whenThenBullets(body: string): Bullet[] {
     // fenced code block, a table row or a trailing prose sentence sitting at
     // column 0 gets absorbed and the bullet no longer matches its unchanged
     // twin — a FALSE drop report, which costs the worklist its credibility
-    // faster than a missed one.
-    if (open && line !== '' && /^\s/.test(raw) && !line.startsWith('-') && !line.startsWith('#')) {
+    // faster than a missed one. The "not another bullet" guard tracks the widened
+    // marker set: leaving it at `-` would let a `*` sibling be swallowed as the
+    // previous bullet's continuation, merging two behaviors into one key.
+    if (
+      open &&
+      line !== '' &&
+      /^\s/.test(raw) &&
+      !LIST_MARKER.test(line) &&
+      !line.startsWith('#')
+    ) {
       const last = bullets[bullets.length - 1]!;
       last.key = normalizeBullet(`${last.key} ${line}`);
       last.text += `\n${raw}`;
@@ -1540,6 +1927,20 @@ function whenThenBullets(body: string): Bullet[] {
 }
 
 /**
+ * The bullets an entry's `**Dropped:**` block declares it does not carry into the new body
+ * (REQ-SERVICES-083).
+ *
+ * Every list item is captured, not just the `WHEN`-shaped ones: a declaration that
+ * matches no computed drop must be reported as stale, and it can only be reported
+ * if it was parsed in the first place. Keys come from the same collector the drop
+ * diff uses, so a bullet copied out of `--dry-run` output matches the drop it names
+ * even after re-indentation or re-wrapping.
+ */
+export function declaredDrops(bodyLines: string[]): Bullet[] {
+  return collectBullets(extractDeltaBlock(bodyLines, 'Dropped').content, LIST_MARKER);
+}
+
+/**
  * Behavior the replacement body leaves behind — a SET difference, never a count.
  * The failure this exists to catch replaced three authored bullets with three
  * unrelated ones, so any count-based check would have passed it.
@@ -1548,13 +1949,34 @@ function droppedFor(
   route: FeatureRoute,
   existingBody: string,
   landing: string,
-): DroppedBehavior | undefined {
+): DropAssessment {
   const kept = new Set(whenThenBullets(landing).map((b) => b.key));
-  const bullets = whenThenBullets(existingBody)
-    .filter((b) => !kept.has(b.key))
-    .map((b) => b.text);
-  if (bullets.length === 0) return undefined;
-  return { feature: route.feature, reqId: route.reqId, bullets };
+  const dropped = whenThenBullets(existingBody).filter((b) => !kept.has(b.key));
+  const declared = route.declaredDrops ?? [];
+  const declaredKeys = new Set(declared.map((b) => b.key));
+  const droppedKeys = new Set(dropped.map((b) => b.key));
+
+  const list = (bullets: Bullet[]): DroppedBehavior | undefined =>
+    bullets.length === 0
+      ? undefined
+      : { feature: route.feature, reqId: route.reqId, bullets: bullets.map((b) => b.text) };
+
+  const stale = declared.filter((b) => !droppedKeys.has(b.key));
+  return {
+    undeclared: list(dropped.filter((b) => !declaredKeys.has(b.key))),
+    acknowledged: list(dropped.filter((b) => declaredKeys.has(b.key))),
+    stale:
+      stale.length === 0
+        ? undefined
+        : { feature: route.feature, reqId: route.reqId, bullets: stale.map((b) => b.text) },
+  };
+}
+
+/** The three-way split of one REQ's drop diff against its declaration. */
+interface DropAssessment {
+  undeclared?: DroppedBehavior;
+  acknowledged?: DroppedBehavior;
+  stale?: StaleDeclaration;
 }
 
 /** The heading level a REQ id already occupies in this spec, or null when absent. */
@@ -1584,7 +2006,23 @@ function existingReqLevel(content: string, reqId: string): number | null {
 function mergeRequirementInPlace(
   content: string,
   route: FeatureRoute,
-): { content: string; pending?: PendingConvergence; dropped?: DroppedBehavior } {
+): {
+  content: string;
+  pending?: PendingConvergence;
+  drops?: DropAssessment;
+  refused?: SpecRefusal;
+} {
+  // A truncated landing block is refused BEFORE anything is computed against it
+  // (REQ-SERVICES-081). Not even the title line is refreshed: the body carried
+  // here is a fragment, so every downstream comparison — the drop diff above all —
+  // would be measured against text the author never finished. The content is
+  // returned untouched, which is what makes this a refusal rather than a warning.
+  if (route.truncation !== undefined) {
+    return {
+      content,
+      refused: { feature: route.feature, reqId: route.reqId, ...route.truncation },
+    };
+  }
   const body = landingBody(route);
   const existingLevel = route.status === 'MODIFIED' ? existingReqLevel(content, route.reqId) : null;
 
@@ -1670,7 +2108,7 @@ function mergeRequirementInPlace(
     return {
       content: merged,
       ...(duplicatePending === undefined ? {} : { pending: duplicatePending }),
-      dropped: droppedFor(route, superseded.join('\n'), body),
+      drops: droppedFor(route, superseded.join('\n'), body),
     };
   }
 

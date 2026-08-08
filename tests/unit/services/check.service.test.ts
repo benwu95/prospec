@@ -331,6 +331,56 @@ describe('check.service review-provenance', () => {
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
   });
 
+  // --- delta-spec provenance (REQ-SERVICES-082 / REQ-LIB-045) ---------------
+  const deltaSpecCheck = (r: Awaited<ReturnType<typeof execute>>) => {
+    if (r.kind !== 'report') throw new Error('expected report');
+    return r.report.structural.checks.find((c) => c.id === 'delta-spec-provenance');
+  };
+
+  it('--record-review stamps BOTH baselines in one write', async () => {
+    initGitChange();
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    const rec = await execute({ cwd: tmpDir, recordReview: true });
+    if (rec.kind !== 'record-review') throw new Error('expected record-review');
+    expect(rec.recorded).toBe(true);
+    expect(rec.deltaSpecSkipped).toBeUndefined();
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(meta).toContain('review_provenance:');
+    expect(meta).toContain('delta_spec_provenance:');
+    expect(deltaSpecCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  // The failure the whole check exists for: review corrected a REQ, the landing
+  // block was updated afterwards (or not at all), and archive would graduate text
+  // no review round ever saw. Note that editing ONLY the delta-spec leaves
+  // review-provenance green — that is precisely the blind spot being closed.
+  it('goes stale when the delta-spec changes after the baseline, while review-provenance stays green', async () => {
+    initGitChange();
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\npre-review body\n');
+    await execute({ cwd: tmpDir, recordReview: true });
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\ncorrected body\n');
+    const after = await execute({ cwd: tmpDir });
+    expect(deltaSpecCheck(after)?.status).toBe('fail');
+    expect(provenance(after)?.status).toBe('pass');
+  });
+
+  it('fails an audited change that carries a delta-spec but no recorded baseline', async () => {
+    initGitChange();
+    write('.prospec/changes/c1/delta-spec.md', '**Spec:**\nbody\n');
+    expect(deltaSpecCheck(await execute({ cwd: tmpDir }))?.status).toBe('fail');
+  });
+
+  it('passes a change with no delta-spec, and says so when recording', async () => {
+    initGitChange('quick');
+    const rec = await execute({ cwd: tmpDir, recordReview: true });
+    if (rec.kind !== 'record-review') throw new Error('expected record-review');
+    expect(rec.recorded).toBe(true);
+    expect(rec.deltaSpecSkipped).toBe(true);
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(meta).not.toContain('delta_spec_provenance:');
+    expect(deltaSpecCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
   // Aligned with test-provenance by #103: `scale` alone is hand-editable.
   it('grants no review exemption to an unproven backfill (no backfill-draft.md)', async () => {
     initGitChange('backfill');

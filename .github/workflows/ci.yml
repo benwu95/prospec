@@ -39,6 +39,13 @@ jobs:
       # report is an explicit skip, and a skip fails `--check`.
       - run: pnpm run counts:check --from vitest-report.json
 
+      # The contract suite reads `src/templates/**` only, so a template edit that
+      # was never deployed passes every test while the SKILL.md an agent loads
+      # still teaches the superseded rule. This runs the real sync and fails if it
+      # changes anything — the generated tree must be committed and current, the
+      # same property `counts:check` enforces for the declared numbers.
+      - run: pnpm run agents:check
+
       - name: Compose coverage comment
         if: always()
         # body is built only from .total numeric fields + fixed metric names —

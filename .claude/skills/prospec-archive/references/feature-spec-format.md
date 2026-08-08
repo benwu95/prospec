@@ -81,11 +81,17 @@ User Stories are the **primary organizational unit**. REQ IDs appear as sub-item
 ---
 ```
 
-> The `**Scenarios:**` label is **optional** — a REQ whose body is a description plus bare
-> `- WHEN …, THEN …` bullets is equally valid, and that is the shape a body landed from a delta-spec
-> `**Spec:**` block takes (a `**Label:**` line ends that block, so the label cannot be carried
-> through). Both shapes read the same; do not add the label to a landed body just to match the
-> scaffold above.
+> The `**Scenarios:**` label is **optional**, and it belongs to a **hand-authored** spec only — a REQ
+> whose body is a description plus bare `- WHEN …, THEN …` bullets is equally valid, and that is the
+> shape a body landed from a delta-spec `**Spec:**` block takes. Both read the same; do not add the
+> label to a landed body just to match the scaffold above.
+>
+> **Never put this label inside a delta-spec `**Spec:**` block.** That block ends at the delta-spec
+> template's own field labels, so `**Scenarios:**` inside it is not a boundary but a truncation:
+> `prospec archive` refuses the REQ, leaves this file byte-identical and exits non-zero, naming the
+> label and the first line it swallowed. Write the bullets directly under the statement instead. See
+> `references/delta-spec-format.md`, "The `**Spec:**` Block", which states the same rule from the
+> authoring side — the two references must agree.
 
 ### 4. Edge Cases
 

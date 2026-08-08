@@ -51,7 +51,8 @@ position. Each entry: `{ id, status, reason? }`.
 - `id` ∈ the frozen `DRIFT_CHECK_IDS` set: `req-references`, `file-paths`, `import-direction`,
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
-  `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`.
+  `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
+  `delta-spec-provenance`.
 
 `artifact-language` reports change artifacts whose PROSE carries no character in the project's
 artifact language (fenced code blocks are stripped before the test, so a quoted sample does not
@@ -65,6 +66,20 @@ whatever the canonical scanner filters — build-artifact directory names, symli
 dotfiles, secret-shaped names, depth over 10 — and a root whose own PARENT is unreadable are all
 indistinguishable from genuine absence and pass.
 
+`delta-spec-provenance` reports an audited change whose `delta-spec.md` no longer matches the
+fingerprint recorded alongside its review baseline — `fail`-class, and the only check aimed at an
+artifact rather than at code. It exists because `computeChangeDigest` excludes `.prospec/`, which
+leaves the `**Spec:**` blocks archive copies VERBATIM into the trust zone outside every other gate:
+when a review round corrects a REQ's behavior and the correction never reaches its landing block,
+`review-provenance` and `test-provenance` both stay green while archive graduates the pre-review
+text. Three branches fail — no baseline recorded, the fingerprint moved, and the delta-spec present
+but unreadable (its own reason, so the remedy is not "edit the file you cannot read"). It passes
+without comparing for a scale that carries no delta-spec, and for a backfill proven by
+`backfill-draft.md`, which never runs review and could therefore never hold a baseline. The audited
+statuses are the shared `PROVENANCE_AUDITED_STATUSES`, so all three provenance gates cover the same
+window — `verified` included, which is where this one matters, since landing blocks graduate at
+archive.
+
 `spec-counters` reports an active feature spec whose frontmatter `story_count`/`req_count` disagrees
 with its own body — one `warn` finding per disagreeing field, naming the declared and the actual
 value. The body is counted with the same matcher `archive finalize` writes with (REQ headings at ANY
@@ -76,7 +91,7 @@ until a human converges the spec. It skips, with the reason, when the features d
 holds no spec, or holds none that parses, and a counter the frontmatter never declares is out of scope
 rather than a finding.
 
-Gates skills read by id: `review-provenance` (review recorded and not stale),
+Gates skills read by id: `review-provenance` (review recorded and not stale), `delta-spec-provenance` (the landing blocks archive graduates match what review saw),
 `task-completion` (code-task completion), `knowledge-health` (module staleness — see below),
 `test-provenance` (a test run recorded, current, and green — `skipped` when the project has no
 resolvable test command, so a project that cannot satisfy it is never permanently barred; a

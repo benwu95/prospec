@@ -41,6 +41,9 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
     notFound: [],
     pendingConvergence: [],
     droppedBehavior: [],
+    refusedRequirements: [],
+    acknowledgedDrops: [],
+    staleDeclarations: [],
     productSpecDeclined: null,
     ...overrides,
   };
@@ -403,5 +406,81 @@ describe('formatArchiveFinalizeOutput — refused reconciliations are visible', 
     expect(err).not.toContain('\u0007');
     expect(err).toContain('evil');
     expect(err).toContain('reason');
+  });
+});
+
+/**
+ * Refusals and the declaration worklists (REQ-CLI-032 / REQ-CLI-034).
+ *
+ * The dropped-behavior report used to be WARNING-class: printed, then the file was
+ * written anyway and the exit code stayed 0. It is now the opposite — the file was
+ * NOT written, and the output has to say which and why, because a reader who sees
+ * "archived" with a warning underneath will reasonably assume the write happened.
+ */
+describe('formatArchiveOutput — refusals and declarations', () => {
+  const refusal = {
+    feature: 'content-library',
+    reqId: 'REQ-CONTENT-LIBRARY-013',
+    block: 'Spec',
+    label: 'Scenarios',
+    firstSwallowedLine: '**Scenarios:**',
+    swallowedCount: 4,
+  };
+
+  it('prints each refused REQ with the interrupting label and the swallowed line', () => {
+    formatArchiveOutput(emptyResult({ refusedRequirements: [refusal] }), 'normal');
+    const err = stderr();
+    expect(err).toContain('REQ-CONTENT-LIBRARY-013');
+    expect(err).toContain('Scenarios');
+    expect(err).toContain('**Scenarios:**');
+  });
+
+  it('says the spec was NOT written, so a reader cannot mistake it for a warning', () => {
+    formatArchiveOutput(emptyResult({ refusedRequirements: [refusal] }), 'normal');
+    expect(stderr()).toMatch(/not written|left unchanged|byte-identical/i);
+  });
+
+  it('routes free-form text through sanitizeTerminal', () => {
+    const withEscape = `**Sce${String.fromCharCode(27)}[31mnarios:**`;
+    formatArchiveOutput(emptyResult({ refusedRequirements: [{ ...refusal, firstSwallowedLine: withEscape }] }), 'normal');
+    expect(stderr()).not.toContain(String.fromCharCode(27) + '[31m');
+  });
+
+  // The remediation used to hardcode `**Spec:**`, which named a block an ADDED
+  // entry falling back to Description/Acceptance Criteria does not have.
+  it('names the block that was actually cut short, not always `**Spec:**`', () => {
+    formatArchiveOutput(
+      emptyResult({ refusedRequirements: [{ ...refusal, block: 'Description' }] }),
+      'normal',
+    );
+    expect(stderr()).toContain('`**Description:**` block');
+    expect(stderr()).not.toContain('fix the `**Spec:**` block itself');
+  });
+
+  it('prints nothing for an empty refusal list', () => {
+    formatArchiveOutput(emptyResult(), 'normal');
+    expect(stderr()).not.toMatch(/refused/i);
+  });
+
+  it('names an acknowledged drop as deliberate rather than as a problem', () => {
+    formatArchiveOutput(emptyResult({
+        acknowledgedDrops: [{ feature: 'f', reqId: 'REQ-X-001', bullets: ['- WHEN a, THEN b'] }],
+      }), 'normal');
+    expect(stderr()).toMatch(/deliberate|declared/i);
+  });
+
+  it('prints a stale declaration in full', () => {
+    formatArchiveOutput(emptyResult({
+        staleDeclarations: [
+          { feature: 'f', reqId: 'REQ-X-001', bullets: ['- WHEN never existed, THEN nothing'] },
+        ],
+      }), 'normal');
+    expect(stderr()).toMatch(/stale/i);
+    expect(stderr()).toContain('- WHEN never existed, THEN nothing');
+  });
+
+  it('phrases a dry-run refusal as a preview', () => {
+    formatArchiveOutput(emptyResult({ dryRun: true, refusedRequirements: [refusal] }), 'normal');
+    expect(stderr()).toMatch(/would/i);
   });
 });
