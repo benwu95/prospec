@@ -1,6 +1,6 @@
 # Skill Authoring
 
-> Sub-module of [templates](./README.md) — the skill-template contract (17 skills, 7 partials, 21 references) and what `agent sync` deploys from it.
+> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 7 partials, 21 references) and what `agent sync` deploys from it.
 
 ## Key Files
 

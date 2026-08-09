@@ -1,4 +1,4 @@
-# cli
+# CLI Surface
 
 > Thin I/O layer — Commander commands parse args → call one service → format output (58 files)
 

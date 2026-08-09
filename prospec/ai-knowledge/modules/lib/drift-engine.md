@@ -1,6 +1,6 @@
 # Drift Engine
 
-> Sub-module of [lib](./README.md) — the zero-LLM drift engine: collectors (all I/O), pure evaluators, and the provenance fingerprints the gates read.
+> Sub-module of [Shared Kernel](./README.md) — the zero-LLM drift engine: collectors (all I/O), pure evaluators, and the provenance fingerprints the gates read.
 
 ## Key Files
 

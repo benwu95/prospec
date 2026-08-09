@@ -1,6 +1,6 @@
-# lib
+# Shared Kernel
 
-> Foundational utilities — config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (38 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (38 files)
 
 <!-- prospec:auto-start -->
 

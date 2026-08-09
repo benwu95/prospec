@@ -1,6 +1,6 @@
 # Read-only Queries
 
-> Sub-module of [services](./README.md) — the three services that only ever READ the trust zone: the MCP server, SDD status routing, and the REQ-scoped Feature Spec read. None of them writes, so none needs the write contracts in [Spec Sync](./spec-sync.md).
+> Sub-module of [Command Services](./README.md) — the three services that only ever READ the trust zone: the MCP server, SDD status routing, and the REQ-scoped Feature Spec read. None of them writes, so none needs the write contracts in [Spec Sync](./spec-sync.md).
 
 ## Key Files
 

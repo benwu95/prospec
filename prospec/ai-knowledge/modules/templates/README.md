@@ -1,4 +1,4 @@
-# templates
+# Template Library
 
 > Handlebars template library — 66 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 

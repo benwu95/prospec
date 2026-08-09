@@ -1,4 +1,4 @@
-# services
+# Command Services
 
 > Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (29 files)
 

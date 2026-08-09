@@ -1,6 +1,6 @@
 # Spec Sync
 
-> Sub-module of [services](./README.md) — how `archive.service` writes the spec layer: Feature Specs, `product.md`, `feature-map.yaml`, and the post-judgment `finalize` pass.
+> Sub-module of [Command Services](./README.md) — how `archive.service` writes the spec layer: Feature Specs, `product.md`, `feature-map.yaml`, and the post-judgment `finalize` pass.
 
 ## Key Files
 

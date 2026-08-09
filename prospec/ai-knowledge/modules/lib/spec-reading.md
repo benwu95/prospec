@@ -1,6 +1,6 @@
 # Spec Reading
 
-> Sub-module of [lib](./README.md) — the ONE definition of a feature-spec REQ heading, the index derived from it, and the REQ-scoped read both the CLI and the MCP server serve from.
+> Sub-module of [Shared Kernel](./README.md) — the ONE definition of a feature-spec REQ heading, the index derived from it, and the REQ-scoped read both the CLI and the MCP server serve from.
 
 ## Key Files
 
