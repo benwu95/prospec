@@ -191,21 +191,14 @@ The `prospec:auto` block contains two auto-generated sections. Populate them wit
 - **Rationale**: Why this module exists as a separate unit (1 sentence)
 - **Status**: Active / Deprecated / New
 
-**Category grouping (optional, judgment-gated):**
+**Category derivation (optional, judgment-gated):**
 
-When the modules fall into **≥2 meaningful domain categories** (e.g. by feature area), group the
-table into `### {Category}` sub-tables instead of one flat table — each sub-table reuses the SAME
-column layout above. When modules are only architectural layers (types/lib/services/cli) with no
-domain split, keep ONE flat table — do not force grouping.
-
+When the modules fall into **≥2 meaningful domain categories** (e.g. by feature area):
 - **Derive** each module's category from its paths, keywords, and purpose. Record it in
   `module-map.yaml` as an ordered `category: [primary, …secondary]` list — the single source of
   truth. Propose it. STOP. Ask the user to confirm the categories before writing them back; on later runs read category from
   `module-map.yaml` and never re-guess a module that already has one.
-- **Primary first**: a module appears under its primary (`category[0]`) `### {Category}` heading
-  **exactly once** — never list it under two headings (the index must stay duplicate-free). Secondary
-  categories live only in `module-map.yaml` (surfaced by the MCP `search_modules` join), not in `prospec/index.md`.
-- Keep every L1 file within budget regardless of grouping (≤ 2500 tokens per file).
+- **CLI Rendering**: The CLI will automatically render `### {Category}` grouped sub-tables in the index based on these values. Do not generate grouped tables manually.
 
 
 ### Step 6: Populate _conventions.md
@@ -220,7 +213,6 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - Every extracted sub-module is linked from its parent README's `## Sub-Modules` section and is NOT listed in `prospec/index.md`
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
 - prospec/index.md has Aliases + Rationale columns
-- If grouped, every `### {Category}` sub-table reuses the identical column layout (keeps the index machine-parseable) and each module is listed under its primary category only
 - **Each L1 file (prospec/index.md, each core convention) ≤ 2500 tokens per file** (estimate ~4 chars/token)
 - All `prospec:user-start/end` content preserved
 - Strategy matches project structure (auto resolved correctly)

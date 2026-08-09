@@ -27,6 +27,7 @@ import {
 import { ModuleDetectionError } from '../../../src/types/errors.js';
 import { BareModuleNameSchema } from '../../../src/types/change.js';
 import { INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR } from '../../../src/types/knowledge.js';
+import { buildIndexTable } from '../../../src/lib/index-table.js';
 
 // knowledge-reader uses plain node:fs only (no fast-glob/git), but tests run
 // on real temp dirs to mirror the drift-sources suite it shares fixtures with.
@@ -404,21 +405,29 @@ describe('parseIndexModules', () => {
   });
 
   it('parses all modules across grouped ### {Category} sub-tables (REQ-KNOW-018 AC3)', () => {
-    const grouped = [
-      '<!-- prospec:auto-start -->',
-      '### Identity',
-      '',
-      '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |',
-      '|--------|----------|---------|--------|-------------|-----------|------------|',
-      '| **auth** | login, token | 身份 | Active | Auth | core | — |',
-      '',
-      '### Quiz System',
-      '',
-      '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |',
-      '|--------|----------|---------|--------|-------------|-----------|------------|',
-      '| **quiz** | grade, question | 測驗 | Active | Quiz | core | auth |',
-      '<!-- prospec:auto-end -->',
-    ].join('\n');
+    const tableModules = [
+      {
+        name: 'auth',
+        status: 'Active',
+        description: 'Auth',
+        keywords: ['login', 'token'],
+        aliases: ['身份'],
+        rationale: 'core',
+        dependsOn: [],
+        category: ['Identity'],
+      },
+      {
+        name: 'quiz',
+        status: 'Active',
+        description: 'Quiz',
+        keywords: ['grade', 'question'],
+        aliases: ['測驗'],
+        rationale: 'core',
+        dependsOn: ['auth'],
+        category: ['Quiz System'],
+      },
+    ];
+    const grouped = buildIndexTable(tableModules);
     const modules = parseIndexModules(grouped);
     expect(modules.map((m) => m.name)).toEqual(['auth', 'quiz']);
     expect(modules[1]).toEqual({

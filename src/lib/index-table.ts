@@ -34,6 +34,7 @@ export interface IndexRowModule {
   aliases?: string[];
   rationale?: string;
   dependsOn?: string[];
+  category?: string[];
 }
 
 function scalarCell(value: string | undefined): string {
@@ -73,8 +74,27 @@ export function buildIndexRow(m: IndexRowModule): string {
   return `| ${cells.join(' | ')} |`;
 }
 
-/** Header + separator + one row per module (flat table). */
+/** Header + separator + one row per module (flat table or grouped if categories present). */
 export function buildIndexTable(modules: IndexRowModule[]): string {
+  const hasCategory = modules.every((m) => m.category && m.category.length > 0);
+  const primaryCategories = new Set(modules.map((m) => m.category?.[0]));
+
+  if (hasCategory && primaryCategories.size >= 2) {
+    const orderedCategories = Array.from(new Set(modules.map((m) => m.category![0])));
+    const output: string[] = [];
+    for (const cat of orderedCategories) {
+      output.push(`### ${cat}\n`);
+      output.push(INDEX_TABLE_HEADER);
+      output.push(INDEX_TABLE_SEPARATOR);
+      const catModules = modules.filter(m => m.category![0] === cat);
+      for (const m of catModules) {
+        output.push(buildIndexRow(m));
+      }
+      output.push('');
+    }
+    return output.join('\n').trim();
+  }
+
   return [INDEX_TABLE_HEADER, INDEX_TABLE_SEPARATOR, ...modules.map(buildIndexRow)].join('\n');
 }
 
