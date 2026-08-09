@@ -47,17 +47,25 @@ FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 ### Phase 1: Quick Interview (3 questions to converge)
 
 Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
-Derive kebab-case change name. STOP. Ask the user to confirm the change name; do not enter Phase 2 until a reply is received.
+Derive kebab-case change name. STOP. Ask the user to confirm the change name **and, in the same
+question, which tracker item this change belongs to (optional — accept "none")**; do not enter Phase 2
+until a reply is received. Folding the tracker question into the name confirmation is deliberate: it
+is not a fourth interview question, so the three-question ceiling below still holds. The answer is
+free-form (a reference, a URL, another tracker's id) and is written by `prospec change story --issue`
+in Phase 2 — prospec judges nothing about its shape and calls no API (runs of whitespace, line breaks
+included, collapse to one space). No answer means the field is simply
+absent; never invent one, and never derive one from the branch name.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] change name (kebab-case) confirmed
 > - [ ] core goal, primary user, and 3-5 ACs collected
+> - [ ] tracker item asked for alongside the name — answered, or explicitly declined
 
 ### Phase 2: Story Generation
 
 | Step | Action |
 |------|--------|
-| Scaffold | Run `prospec change story [name] --description "<one-liner>"` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md` |
+| Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md`. Pass `--issue` only when Phase 1 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
 | Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |

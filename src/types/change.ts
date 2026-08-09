@@ -156,6 +156,16 @@ const ChangeMetadataShape = {
   // can be tracked. Optional keeps existing metadata valid; a convention + example
   // live in `_status-lifecycle.md`. No referential-integrity check by design.
   introduced_by: z.string().optional(),
+  // External-tracker registration (issue #131): the tracker item this change
+  // belongs to — deliberately NOT `introduced_by`, which names the CHANGE whose
+  // gates let a defect through. Shape-free on purpose: prospec binds to no
+  // forge, so `#131`, a full URL and another tracker's id are equally valid and
+  // none has its shape judged or is verified to exist (runs of whitespace do
+  // collapse — a structural guard for the display surfaces, not a shape check).
+  // Like `introduced_by`, a pure
+  // registration convention — optional, outside the metadata-completeness
+  // required-field floor, and enforced by no drift check.
+  issue: z.string().optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still

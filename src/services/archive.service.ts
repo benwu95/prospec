@@ -11,6 +11,7 @@ import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
+import { normalizeIssueRef } from '../lib/change-metadata.js';
 import type { ChangeStatus } from '../types/change.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -353,15 +354,22 @@ export async function generateSummary(
     taskStats = calculateTaskStats(tasksContent);
   }
 
-  // Read metadata for quality grade
+  // Read metadata for quality grade and the external-tracker registration
   const metadataPath = path.join(archiveDir, 'metadata.yaml');
   let qualityGrade = 'Unverified';
+  let issue: string | undefined;
   if (fs.existsSync(metadataPath)) {
     const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
     const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
     if (meta.quality_grade) {
       qualityGrade = String(meta.quality_grade);
     }
+    // Through the shared normalizer, never raw: the summary is copied VERBATIM
+    // into the committed `_archived-history/` trail, where a value carrying a
+    // line break renders a forged `##` heading and a forged
+    // `- **Quality Grade**:` row below the real one. It also absorbs the lenient
+    // read here (a non-string value reads as nothing registered).
+    issue = normalizeIssueRef(meta.issue);
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -370,7 +378,7 @@ export async function generateSummary(
 - **Archived**: ${today}
 - **Original Created**: ${createdDate}
 - **Quality Grade**: ${qualityGrade}
-
+${issue === undefined ? '' : `- **Issue**: ${issue}\n`}
 ## User Story
 
 ${userStory}

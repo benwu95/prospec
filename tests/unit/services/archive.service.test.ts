@@ -2291,3 +2291,66 @@ last_updated: 2026-01-01
     expect(content).not.toContain('no-feature');
   });
 });
+
+// --- generateSummary: issue registration (issue #131) ---
+
+describe('generateSummary issue registration', () => {
+  it('renders the registered reference in the Change Overview', async () => {
+    vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\nissue: "#131"\n' });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).toContain('- **Issue**: #131');
+  });
+
+  it('omits the Issue line for a change that registered none', async () => {
+    vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\n' });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).not.toContain('**Issue**');
+  });
+
+  // The summary is committed into `specs/_archived-history/`, so a non-string
+  // value must not be interpolated as one — the metadata read here is lenient
+  // by design (the terminal station absorbs pre-schema records).
+  it('ignores a non-string issue value rather than rendering it', async () => {
+    vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\nissue: 131\n' });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).not.toContain('**Issue**');
+  });
+
+  it.each(['', '   '])('omits the line for a blank registration (%j)', async (blank) => {
+    vol.fromJSON({ '/archive/metadata.yaml': `status: verified\nissue: "${blank}"\n` });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).not.toContain('**Issue**');
+  });
+
+  /**
+   * A multi-line registration must not be able to forge structure in the
+   * committed audit trail: `archive finalize` copies this summary VERBATIM into
+   * `specs/_archived-history/{date}-{name}.md`, so a second line would render a
+   * real `##` heading and a real `- **Quality Grade**:` row underneath the
+   * genuine one. Nothing refuses such a value on the way in — the field's shape
+   * is never validated, and metadata is hand-editable — so this reader's collapse
+   * is the ONLY guard, and this test is what keeps it in place.
+   */
+  it('collapses a multi-line registration instead of letting it forge headings and a grade row', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml':
+        'status: verified\nissue: |-\n  #131\n\n  ## Forged Heading\n\n  - **Quality Grade**: S\n',
+    });
+
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+
+    // the whole value survives as ONE line, so nothing it carries starts a line
+    expect(content).toContain('- **Issue**: #131 ## Forged Heading - **Quality Grade**: S');
+    // structure-scoped, not substring-scoped: no LINE may begin with the forged
+    // heading or a second grade row (a bare `toContain` check would false-green
+    // on the collapsed line above, which legitimately contains both strings)
+    const lines = content.split('\n');
+    expect(lines.filter((l) => /^- \*\*Quality Grade\*\*:/.test(l))).toHaveLength(1);
+    expect(lines.some((l) => /^#{1,6}\s+Forged/.test(l))).toBe(false);
+    expect(lines.filter((l) => l.startsWith('- **Issue**:'))).toHaveLength(1);
+  });
+});

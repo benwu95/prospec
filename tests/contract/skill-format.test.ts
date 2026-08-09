@@ -4982,3 +4982,83 @@ describe('REQ-scoped Feature Spec reads at verify and archive', () => {
     expect(phase).not.toMatch(/worklists decide WHICH/);
   });
 });
+
+describe('issue registration documented in both references (REQ-TEMPLATES-178, issue #131)', () => {
+  /** Slice from a heading to the next line-start `## ` (this file's convention). */
+  function section(content: string, heading: string): string {
+    const start = content.indexOf(heading);
+    if (start === -1) return '';
+    const rest = content.slice(start + heading.length);
+    const next = rest.search(/\n## /);
+    return next === -1 ? rest : rest.slice(0, next);
+  }
+
+  it('metadata-format places `issue` last in the canonical order and rows it with its command', () => {
+    const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+    const order = section(ref, '## Canonical field order');
+    expect(order).toContain('`introduced_by` → `issue`');
+    // the row, not merely the word: the field table is what a skill reads to
+    // learn WHICH command owns the write
+    expect(order).toMatch(/\|\s*`issue`\s*\|\s*no\s*\|\s*`prospec change story --issue`/);
+  });
+
+  it('metadata-format records the no-validation stance, the quoting consequence, and absence semantics', () => {
+    const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+    const entry = section(ref, '### `issue` — the external-tracker registration');
+    expect(entry.length).toBeGreaterThan(0);
+    // shape-free: the accepted forms and the explicit no-API claim. Scoped to
+    // FORMAT on purpose — a bare "never validated" would contradict the
+    // whitespace collapse the next assertion pins, and the CLI's own help.
+    expect(entry).toMatch(/format is never validated/i);
+    expect(entry).toMatch(/No API\s+is called/);
+    expect(entry).toContain('another tracker');
+    // the collapse, and that it is named as a safety measure rather than a
+    // shape check — the distinction the reference exists to keep straight
+    expect(entry).toMatch(/whitespace collapse/i);
+    expect(entry).toContain('not a shape judgement');
+    expect(entry).toContain('- **Quality Grade**:');
+    // a `#`-leading value must be quoted or it reads back as a comment
+    expect(entry).toContain('YAML comment');
+    // absent ≠ blank — the distinction the conditional write exists to preserve
+    expect(entry).toContain('never an empty string');
+    // the field registers; the convention itself lives in the project's own docs
+    expect(entry).toContain('contributor docs');
+    // and it is not the escaped-defect field
+    expect(entry).toContain('introduced_by');
+  });
+
+  it('the two change-creating skills ask for the tracker item and pass --issue at scaffold', () => {
+    // ff folds it into the change-name confirmation on purpose: its NEVER block
+    // caps Phase 1 at three questions, so a fourth interview question would
+    // contradict the skill's own contract.
+    const ff = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+    const ffPhase1 = section(ff, '### Phase 1: Quick Interview');
+    expect(ffPhase1).toMatch(/same\s+question/);
+    expect(ffPhase1).toMatch(/optional/i);
+    expect(ffPhase1).toContain('not a fourth interview question');
+    expect(ffPhase1).toContain('never invent one');
+    // scoped claim, not a blanket "validates nothing" — the readers collapse
+    expect(ffPhase1).toMatch(/judges nothing about its shape/);
+    expect(ffPhase1).toMatch(/collapse to one space/);
+    expect(section(ff, '### Phase 2: Story Generation')).toContain('[--issue <ref>]');
+
+    const ns = renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+    const nsPhase2 = section(ns, '### Phase 2: Derive Change Name');
+    expect(nsPhase2).toContain('same question');
+    expect(nsPhase2).toMatch(/\*\*optional\*\*/);
+    expect(nsPhase2).toContain('never invent one');
+    expect(nsPhase2).toMatch(/judges nothing about its shape/);
+    expect(nsPhase2).toMatch(/collapse to one space/);
+    expect(section(ns, '### Phase 3: Create Scaffolding')).toContain('[--issue <ref>]');
+  });
+
+  it('archive-format carries the Issue line as omit-when-unregistered', () => {
+    const ref = renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
+    const overview = section(ref, '### 1. Change Overview');
+    expect(overview).toContain('- **Issue**:');
+    expect(overview).toMatch(/omit(ted)? the whole line|omitted \*\*entirely\*\*/);
+    // this file IS the committed audit record, so the collapse is format contract
+    expect(overview).toMatch(/\*\*single line\*\*/);
+    expect(overview).toMatch(/whitespace collapse/i);
+  });
+});

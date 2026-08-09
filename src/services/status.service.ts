@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { readChangeMetadata } from '../lib/change-metadata.js';
+import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { routeChange } from '../lib/status-router.js';
 import { parseTaskLine } from '../lib/task-markers.js';
@@ -71,6 +71,7 @@ async function collectFacts(
   name: string,
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
 ): Promise<ChangeRouteFacts> {
+  const issue = normalizeIssueRef(metadata.issue);
   const tasksText = await readFileIfExists(path.join(changeDir, 'tasks.md'));
   const codeTasks = tasksText
     .split('\n')
@@ -88,6 +89,7 @@ async function collectFacts(
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
+    ...(issue === undefined ? {} : { issue }),
   };
 }
 

@@ -34,7 +34,7 @@ finds itself about to WRITE this shape by hand has taken a wrong turn — run th
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
-`quality_log` → `review_provenance` → `test_provenance` → `introduced_by`
+`quality_log` → `review_provenance` → `test_provenance` → `introduced_by` → `issue`
 
 | Field | Required | Written by | Notes |
 |-------|----------|-----------|-------|
@@ -48,6 +48,7 @@ finds itself about to WRITE this shape by hand has taken a wrong turn — run th
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
 | `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
+| `issue` | no | `prospec change story --issue` | external-tracker registration — see below |
 
 ### `test_provenance` — the recorded test run
 
@@ -64,6 +65,37 @@ than a self-report. The `test-provenance` drift check fails when this block is a
 `digest` no longer matches the code, or when `exit_code` is non-zero. It is deliberately **not** part
 of the `metadata-completeness` required-field floor — requiring it would retroactively fail every
 change archived before the field existed.
+
+### `issue` — the external-tracker registration
+
+```yaml
+issue: "#412"                     # quoted: unquoted, `#` opens a YAML comment
+```
+
+The tracker item this change belongs to, written once at scaffold time
+(`prospec change story --issue <ref>`). **Shape-free — its format is never validated**: prospec binds to no
+forge, so a bare reference (`#412`), a full URL, and another tracker's id (`ABC-123`) are equally
+valid, its shape is never judged, and nothing checks that the item exists or is still open. No API
+is called. Three consequences worth knowing:
+
+- **A value opening with `#` is emitted quoted** — it would otherwise read back as a YAML comment and
+  the whole value would vanish. The serializer handles this; do not add quotes by hand.
+- **Absent means unregistered.** A change that names no tracker item carries no `issue` key at all —
+  never an empty string, never `null` — so "not registered" stays distinguishable from "registered as
+  blank". A blank or whitespace-only value reads as unregistered, not as a registration.
+- **Runs of whitespace collapse to one space**, line breaks included — the one way the value is
+  normalized, and it is a safety measure, not a shape judgement. The reference is printed by
+  `prospec status` and by the archive summary that is copied into the committed spec-history trail,
+  where a second line would render a forged `##` heading or a forged `- **Quality Grade**:` row for
+  real. Same defence the pipe-table and code-span writers apply to free-form text.
+
+Like `introduced_by`, this is a **registration convention only**: outside the required-field floor
+(no pre-existing change turns red for lacking it) and enforced by no drift check. And it is
+deliberately not `introduced_by`, which names the *change* whose gates let a defect through — this
+names the *external item* the change belongs to. Whether a project registers one at all, how its
+tracker items map to changes, and how a merge closes them are that project's own conventions,
+documented in its contributor docs; this field only makes the link machine-readable.
+`prospec status` and the archive summary print it when present.
 
 ## `quality_log` entry shape
 
@@ -131,6 +163,7 @@ quality_log:
     date: 2026-07-13
     result: PASS
     warnings: []
+issue: "#412"
 ```
 
 ---

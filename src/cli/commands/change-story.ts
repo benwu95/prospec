@@ -34,10 +34,19 @@ export function registerChangeCommand(program: Command): void {
       '--introduced-by <change>',
       'Bug-fix changes: the change that missed the defect (escaped-defect registration)',
     )
+    .option(
+      '--issue <ref>',
+      'External tracker item this change belongs to (free-form: `#131`, a URL, another tracker id)',
+    )
     .action(
       async (
         name: string,
-        options: { description?: string; relatedModule: string[]; introducedBy?: string },
+        options: {
+          description?: string;
+          relatedModule: string[];
+          introducedBy?: string;
+          issue?: string;
+        },
       ) => {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
@@ -50,6 +59,9 @@ export function registerChangeCommand(program: Command): void {
               ? { relatedModules: options.relatedModule }
               : {}),
             ...(options.introducedBy ? { introducedBy: options.introducedBy } : {}),
+            // `!== undefined`, not truthiness: a blank value is forwarded so the
+            // service's `normalizeIssueRef` stays the ONE place blank is judged.
+            ...(options.issue !== undefined ? { issue: options.issue } : {}),
           });
           formatChangeStoryOutput(result, logLevel);
         } catch (err) {

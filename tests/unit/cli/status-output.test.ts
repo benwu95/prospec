@@ -107,3 +107,42 @@ describe('status-output', () => {
     expect(text).toContain('badvalue');
   });
 });
+
+describe('status-output — issue registration (issue #131)', () => {
+  const withIssue = (issue?: string): StatusReport => ({
+    clean: false,
+    changes: [
+      {
+        name: 'add-widget',
+        status: 'plan',
+        scale: 'standard',
+        current: 'plan',
+        next: 'tasks',
+        blockingGates: ['tasks.md created'],
+        reasons: ['status `plan` — next station per lifecycle order'],
+        ...(issue === undefined ? {} : { issue }),
+      },
+    ],
+    errors: [],
+  });
+
+  it('prints the registered issue reference', () => {
+    formatStatusOutput(withIssue('#131'), 'normal');
+    expect(output()).toMatch(/issue:\s+#131/);
+  });
+
+  it('prints no issue line for a change that registered none', () => {
+    formatStatusOutput(withIssue(), 'normal');
+    expect(output()).not.toContain('issue:');
+  });
+
+  // The reference is free-form flag text that reaches the terminal, so it goes
+  // through the shared sanitizer like every other repo-derived string.
+  it('sanitizes control characters out of the reference', () => {
+    const esc = String.fromCharCode(27);
+    formatStatusOutput(withIssue(`#131${esc}[2J`), 'normal');
+    const text = output();
+    expect(text).not.toContain(esc);
+    expect(text).toContain('#131');
+  });
+});

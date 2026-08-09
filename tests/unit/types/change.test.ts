@@ -286,6 +286,36 @@ describe('ChangeMetadataSchema introduced_by (escaped-defect registration, issue
   });
 });
 
+describe('ChangeMetadataSchema issue (external-tracker registration, issue #131)', () => {
+  it('accepts a change naming the tracker item it belongs to', () => {
+    const r = ChangeMetadataSchema.safeParse({ ...base, issue: '#131' });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.issue).toBe('#131');
+  });
+
+  it('accepts metadata without issue (backward compatible)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.issue).toBeUndefined();
+  });
+
+  // Shape-free by contract: prospec binds to no forge, so a hash ref, a full
+  // URL and another tracker's id are all equally valid and none is normalized.
+  it.each([
+    ['#125', 'a bare hash reference'],
+    ['https://github.com/benwu95/prospec/issues/131', 'a full URL'],
+    ['ABC-123', 'another tracker id'],
+  ])('accepts %s verbatim (%s)', (value) => {
+    const r = ChangeMetadataSchema.safeParse({ ...base, issue: value });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.issue).toBe(value);
+  });
+
+  it('rejects a non-string issue — the value is free-form text, not a number', () => {
+    expect(ChangeMetadataSchema.safeParse({ ...base, issue: 131 }).success).toBe(false);
+  });
+});
+
 describe('QualityDimensionSchema result vocabulary (REQ-TYPES-064)', () => {
   const entry = (result: string) => ({
     ...base,

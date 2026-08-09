@@ -6,6 +6,7 @@ import {
   writeChangeMetadataDoc,
   writeChangeMetadataObject,
   appendQualityLogEntry,
+  normalizeIssueRef,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
 
@@ -343,4 +344,44 @@ scale: standard
       }),
     ).toThrow();
   });
+});
+
+describe('normalizeIssueRef (issue #131)', () => {
+  it.each([
+    ['#131', '#131'],
+    ['https://github.com/benwu95/prospec/issues/131', 'https://github.com/benwu95/prospec/issues/131'],
+    ['ABC-123', 'ABC-123'],
+    ['  #131  ', '#131'],
+  ])('keeps %j as %j — shape is never judged', (input, expected) => {
+    expect(normalizeIssueRef(input)).toBe(expected);
+  });
+
+  // Blank is not a registration: `--issue "$REF"` with REF unset expands to it,
+  // and `absent !== blank` is what metadata-format promises its readers.
+  it.each(['', '   ', '\t', '\n'])('reads a blank value (%j) as unregistered', (blank) => {
+    expect(normalizeIssueRef(blank)).toBeUndefined();
+  });
+
+  // The collapse is the structural defence: a second line renders a forged `##`
+  // heading and a forged `- **Quality Grade**:` row inside the committed
+  // `_archived-history/` summary.
+  it.each([
+    ['#131\n\n## Forged\n\n- **Quality Grade**: S', '#131 ## Forged - **Quality Grade**: S'],
+    ['#131\r\n## Forged', '#131 ## Forged'],
+    ['#131\r## Forged', '#131 ## Forged'],
+    ['#131\t\textra', '#131 extra'],
+  ])('collapses whitespace runs in %j', (input, expected) => {
+    const out = normalizeIssueRef(input);
+    expect(out).toBe(expected);
+    expect(out).not.toMatch(/[\r\n]/);
+  });
+
+  // `archive.service` reads metadata leniently, so a non-string must read as
+  // nothing registered rather than be stringified into the audit trail.
+  it.each([[131], [null], [undefined], [{ ref: '#131' }], [['#131']], [true]])(
+    'reads a non-string value (%j) as unregistered',
+    (value) => {
+      expect(normalizeIssueRef(value)).toBeUndefined();
+    },
+  );
 });

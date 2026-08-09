@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3532%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3585%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -567,10 +567,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 | Command | Description |
 |---------|-------------|
-| `prospec change story <name> [--description <d>] [--related-module <m>...] [--introduced-by <c>]` | Create change story (scaffold + metadata.yaml; explicit modules override keyword auto-match) |
+| `prospec change story <name> [--description <d>] [--related-module <m>...] [--introduced-by <c>] [--issue <ref>]` | Create change story (scaffold + metadata.yaml; explicit modules override keyword auto-match; `--issue` registers the tracker item this change belongs to — free-form single line, no shape check) |
 | `prospec change plan [--change <name>] [--force]` | Generate implementation plan (scaffold); refuses to overwrite an existing plan/delta-spec unless `--force`, and refuses outright for a scale whose contract forbids a plan (`quick` → run `change tasks`; `backfill` → `/prospec-promote-backfill`) |
 | `prospec change tasks [--change <name>] [--force]` | Break down tasks (scaffold); refuses to overwrite an existing tasks.md unless `--force`. The plan.md prerequisite is scale-conditional — `quick` decomposes straight from proposal.md (`story → tasks`), `backfill` is refused (it has no task list) |
-| `prospec status` | **Read-only** deterministic SDD routing — reports each in-flight change's current node, suggested next station, blocking gates, and reasons. The executable copy of `_status-lifecycle.md` (quick's story→tasks skip, backfill's `implemented` entry — routed to the `promote` station until it lands there — and the no-status-transition design/review stations included); malformed metadata is reported per change, never fatal |
+| `prospec status` | **Read-only** deterministic SDD routing — reports each in-flight change's current node, suggested next station, blocking gates, reasons, and its registered `issue` when it has one. The executable copy of `_status-lifecycle.md` (quick's story→tasks skip, backfill's `implemented` entry — routed to the `promote` station until it lands there — and the no-status-transition design/review stations included); malformed metadata is reported per change, never fatal |
 | `prospec spec show <feature> [--req <ids>] [--story <ids>]` | **Read-only** REQ-scoped read of a permanent Feature Spec: prints just the requirements you name (`--req`, repeatable and comma-tolerant) or whole User Stories (`--story`), each under the heading that owns it, so the output is a valid slice of spec source. With no selector it prints the whole spec. verify's Startup Loading and archive's graduation phase read through it instead of loading a spec whole — one spec can be tens of thousands of tokens of unrelated capability record, and a station only ever judges the requirements a change touches. An unmatched selector is named on stderr and exits 1 (visible under `--quiet`): asking for a REQ that does not exist must not read as "no such behaviour is specified". The same read is exposed to agents as the MCP tool `get_spec_requirements` |
 | `prospec archive <name...> [--dry-run]` | Execute the deterministic archive mutations for a **verified** change: move the bundle to `.prospec/archive/{date}-{name}/`, generate the summary scaffold, run the mechanical Feature Spec sync, set `status: archived`, sync the `## Feature Map` section of `product.md` (its only machine-owned region — authored frontmatter keys and every other section survive byte for byte; a missing file is bootstrapped to the shipped product-spec format), and bootstrap `feature-map.yaml` (no-clobber / non-fatal semantics unchanged). On an **existing** `product.md` that sync **refuses rather than guesses**, and always says why: a near-miss heading (`## Feature Map (34 active)` — appending past it would grow a second feature map beside yours), an unclosed code fence, or an absent `specs/features/` each leave the file byte-identical and report the reason with its remedy (a **missing** `product.md` is bootstrapped instead, and reports nothing). `--dry-run` prints every planned mutation without writing; a named target that is not archivable is reported `refused`/`not found` (exit 1), never silently skipped. The spec sync never blanks an authored REQ body — only a delta-spec `**Spec:**` block replaces one — and it lists TWO worklists on stderr (visible under `--quiet`, never exit 1): every REQ whose body it deliberately kept (converge it by hand), and every REQ whose body a `**Spec:**` block replaced along with the existing `WHEN/THEN` bullets that block omits — because replacing a body silently drops whatever the new one fails to restate. The separate `product.md` sync reports a refusal on its own: a real run prints it as its own stderr line (visible under `--quiet`, never exit 1), `--dry-run` previews it as a planned `skip` — either way it is the only signal separating a file left untouched on purpose from one that synced. `/prospec-archive` drives it and keeps the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation) |
 | `prospec archive finalize <name> [--dry-run]` | The POST-judgment archive step (runs after the summary overwrite + REQ graduation): copies the finalized summary.md into `specs/_archived-history/` (the committed audit trail) and reconciles every feature spec's frontmatter `story_count`/`req_count` against its final body; refuses while summary.md still looks like the scaffold |
@@ -829,7 +829,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3532 tests)
+# Run all tests (3585 tests)
 pnpm test
 
 # Watch mode
@@ -842,11 +842,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3532 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2594 tests
-- Contract tests (CLI output + Skill format): 816 tests
+**Test Coverage**: 3585 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2640 tests
+- Contract tests (CLI output + Skill format): 820 tests
 - Integration tests: 45 tests
-- E2E tests: 77 tests
+- E2E tests: 80 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

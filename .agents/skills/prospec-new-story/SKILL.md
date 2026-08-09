@@ -61,17 +61,23 @@ Collect: Background (why), Role (who), Feature (what), Value (why it matters), C
 
 ### Phase 2: Derive Change Name
 
-Derive a kebab-case name from interview results (verb-first, 2-4 words). STOP. Ask the user to confirm the change name before proceeding.
+Derive a kebab-case name from interview results (verb-first, 2-4 words). STOP. Ask the user to confirm
+the change name and, in the same question, which tracker item this change belongs to (**optional** —
+accept "none"). The answer is free-form (a reference, a URL, another tracker's id) and is written by
+`prospec change story --issue` in Phase 3 — prospec judges nothing about its shape and calls no API
+(runs of whitespace, line breaks included, collapse to one space). No
+answer means the field is simply absent; never invent one, and never derive one from the branch name.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
 > - [ ] User confirmed the name
+> - [ ] Tracker item asked for alongside the name — answered, or explicitly declined
 
 ### Phase 3: Create Scaffolding
 
 | Scenario | Action |
 |----------|--------|
-| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>"` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md` |
+| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md`. Pass `--issue` only when Phase 2 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
 | Already exists | Read existing files, proceed to populate |
 
 > **Phase 3 Gate** — proceed when:
