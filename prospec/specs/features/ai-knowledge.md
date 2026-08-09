@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-08-07
+last_updated: 2026-08-09
 story_count: 15
 req_count: 64
 ---
@@ -347,12 +347,12 @@ so that I can quickly locate modules by domain without manually maintaining a du
 #### REQ-TYPES-028: module-map ModuleEntry Ordered category
 `ModuleEntrySchema` adds an optional `category: string[]` (ordered, `[0]` = primary), backward-compatible (absent = flat table; `loadModuleMap` still loads existing maps without category); the single source of truth for classification.
 
-#### REQ-KNOW-018: index.md Presentation Grouped by Category
-knowledge-generate/update groups the auto section into `### {Category}` sub-tables when there are ≥2 domain categories; each sub-table has consistent columns, and `parseIndexModules` still correctly enumerates all modules from the grouped output.
+#### REQ-KNOW-018: Knowledge Index 支援按 Category 分組渲染
+`buildIndexTable` (CLI) groups the auto section into `### {Category}` sub-tables when all modules have a category and there are ≥2 primary categories; each sub-table has consistent columns, and `parseIndexModules` correctly enumerates all modules from the grouped output.
 
 **Scenarios:**
-- WHEN ≥2 domains THEN produce ≥2 `### {Category}` sub-headings; <2 or purely layered THEN a single flat table
-- WHEN re-run THEN grouping is stable and the `prospec:user` section is preserved
+- WHEN all modules have a category AND ≥2 primary categories exist THEN produce `### {Category}` sub-headings; OTHERWISE produce a single flat table (fail-flat)
+- WHEN re-run THEN grouping is stable (by `module-map` declaration order) and the `prospec:user` section is preserved
 - WHEN `parseIndexModules` parses the grouped output THEN the returned module count = the actual count (duplicate header/separator rows are skipped)
 
 #### REQ-KNOW-019: Auto-Infer category and Persist It
@@ -605,6 +605,7 @@ Uses fixtures to cover the classifier's four states and the consistent behavior 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-09 | fix-index-category-grouping | MODIFIED REQ-KNOW-018 | REQ-KNOW-018 |
 | 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-KNOW-013; MODIFIED REQ-KNOW-035 | REQ-KNOW-013, REQ-KNOW-035 |
 | 2026-08-01 | delegate-module-adjudication | ADDED REQ-KNOW-038; ADDED REQ-TEMPLATES-170; MODIFIED REQ-LIB-038; MODIFIED REQ-KNOW-003 | REQ-KNOW-038, REQ-TEMPLATES-170, REQ-LIB-038, REQ-KNOW-003 |
 | 2026-08-01 | filter-nonsource-modules | ADDED REQ-LIB-038; MODIFIED REQ-KNOW-014 | REQ-LIB-038, REQ-KNOW-014 |
