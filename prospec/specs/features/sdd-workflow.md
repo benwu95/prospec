@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-08
-story_count: 34
-req_count: 179
+last_updated: 2026-08-09
+story_count: 35
+req_count: 187
 ---
 
 # SDD Workflow
@@ -1114,6 +1114,101 @@ The REQ-granular read is asserted at all four test layers, and each new assertio
 - WHEN a selector matches nothing, THEN an end-to-end test asserts the non-zero exit code and the named selector on stderr
 - WHEN either station's REQ-scoped read instruction is deleted, THEN its contract assertion turns red
 
+
+## US-35: A Change Carries the Tracker Item It Belongs To [P1]
+
+As a maintainer (or an agent) picking up a change mid-flight,
+I want the tracker item a change belongs to recorded on the change itself,
+so that the link survives the session and the harness instead of living in whoever remembers it.
+
+**Acceptance Scenarios:**
+- WHEN a change is scaffolded with a tracker reference, THEN `metadata.yaml` records it and `prospec status` and the archive summary both surface it
+- WHEN a change registers none, THEN no key is written and no display line is printed — absent stays distinguishable from blank
+- WHEN a reference is given in any form — a bare `#125`, a full URL, another tracker's id — THEN it is stored as written: nothing judges its format, checks that the item exists, or calls a forge API
+- WHEN a reference carries a line break, THEN it collapses to a single line, so it cannot forge a heading or a second grade row inside the committed archive summary
+- WHEN either change-creating skill runs, THEN it asks for the tracker item at the point it already stops for the change name, and accepts a refusal
+
+**Independent Test:**
+Scaffold one change with a reference and one without; the first shows the link in `metadata.yaml`, `prospec status` and its archive summary, the second shows no trace of the field in any of the three.
+
+### Behavior Specifications
+
+
+#### REQ-TYPES-080: ChangeMetadata issue external-tracker registration field
+`ChangeMetadataSchema` gains an optional `issue` (string) positioned after `introduced_by` in the canonical field order, registering the external tracker item this change belongs to; `ChangeRouteFacts`/`ChangeRoute` carry the same optional field — additively extending the REQ-TYPES-070 report contract — so routing can hand it to the display layer. It is deliberately distinct from `introduced_by`: that field names the *change* whose gates let a defect through, this one names the *external tracker item* the change belongs to. Shape-free by design — no format validation, no forge API call, no referential-integrity check, and outside the `metadata-completeness` required-field floor, so no pre-existing change turns red for lacking it.
+- WHEN metadata contains `issue`, THEN the schema accepts it and the type is `string | undefined`
+- WHEN metadata omits `issue`, THEN it still validates (backward-compatible)
+- WHEN the value is `#125`, a full URL, or another tracker's id, THEN it is accepted verbatim — the schema never judges its shape
+- WHEN the route contract is read, THEN `ChangeRouteFacts`/`ChangeRoute` carry `issue` as optional, keeping absent distinguishable from present
+
+---
+
+
+#### REQ-LIB-047: Route evaluator passes the issue registration through
+`routeChange` carries `facts.issue` into its `ChangeRoute` verbatim, staying pure and I/O-free. The field is passed by conditional spread, so a fact set without it yields a route without the key rather than one holding `undefined`, and it takes no part in any routing decision — station placement, gates and reasons are computed identically whether or not it is present.
+- WHEN facts carry `issue`, THEN the returned `ChangeRoute` carries the same value unchanged
+- WHEN facts omit `issue`, THEN the returned `ChangeRoute` has no `issue` key at all
+- WHEN two otherwise identical fact sets differ only in `issue`, THEN `current`, `next`, `blockingGates` and `reasons` are identical
+
+---
+
+
+#### REQ-LIB-048: Single-line issue reference normalization
+`lib/change-metadata.ts` exposes `normalizeIssueRef(value: unknown)`, THE single place the `issue` field's absent/blank/multi-line semantics are decided — the writer (`change story`) and both readers (`status`, the archive summary) go through it, so no two sites can disagree about what a blank means. A non-string value reads as unregistered, because the archive's metadata read is deliberately lenient and the terminal station absorbs pre-schema records. Runs of whitespace — line breaks included — collapse to one space. That collapse is a **structural guard, not a shape check**: the value is printed in `prospec status`'s per-change block and in the archive summary that is copied verbatim into the committed `specs/_archived-history/` trail, where a second line renders a real `##` heading and a real second `- **Quality Grade**:` row. It is the same defence the pipe-table and inline-code-span writers already apply to free-form text.
+- WHEN a value carries a line break, THEN it is collapsed to a single space and no rendered line begins with the injected heading or a second grade row
+- WHEN the value is a non-string, an empty string, or whitespace only, THEN it reads as unregistered — no key is written and no display line is printed
+- WHEN a legitimate reference is normalized, THEN its shape is never otherwise judged: no format check, no existence check, no API call
+- WHEN any of the three sites is read, THEN it calls this helper rather than carrying its own copy of the rule
+
+---
+
+
+#### REQ-SERVICES-085: Services write, collect and surface the issue registration
+Three services split the field's lifecycle. `change-story.service` accepts an `issue` option and writes it through `normalizeIssueRef` (REQ-LIB-048) by conditional spread, so an absent — or whitespace-only — value leaves the key out of the YAML entirely rather than serializing an empty string or `null`; serialization stays with `writeChangeMetadataObject`, which quotes a value that would otherwise read as a YAML comment. `status.service`'s fact collection carries the normalized `metadata.issue` into the routing facts, and `archive.service`'s `generateSummary` renders an `- **Issue**: <ref>` line inside the Change Overview block only when the archived metadata carries one — through the same helper, never the raw value.
+- WHEN `prospec change story` runs with a non-blank `--issue`, THEN `metadata.yaml` carries that key, quoted when the value would otherwise parse as a comment, and reads back as the same single-line reference
+- WHEN `--issue` is absent or blank, THEN `metadata.yaml` has no `issue` key — not an empty string, not `null`
+- WHEN the status service collects facts for a change carrying `issue`, THEN that value reaches the route; when it does not, the facts omit the key
+- WHEN the archive summary is generated for a change carrying `issue`, THEN the Change Overview block gains one `- **Issue**: <ref>` line; without it, the block is unchanged
+
+---
+
+
+#### REQ-CLI-036: change story --issue flag
+`prospec change story <name>` accepts `--issue <ref>`, a thin pass-through: the value reaches `change-story.service` verbatim and, when the flag is absent, the option is not present on the service call at all. Like `--related-module`, the flag exists only on `change story`: registering the tracker item is part of creating the change, and there is no amend-after-the-fact subcommand.
+- WHEN `--issue <ref>` is given, THEN the command forwards that value unchanged to the service
+- WHEN the flag is omitted, THEN the service options carry no `issue` key
+- WHEN the real compiled CLI is exercised end-to-end, THEN both the given and the omitted case are covered
+
+---
+
+
+#### REQ-TEMPLATES-178: metadata-format and archive-format references document the issue field
+`references/metadata-format.hbs` places `issue` last in the canonical field order and adds its row to the field table (written by `prospec change story --issue`), recording four facts a reader needs: the value's shape is never judged and no API is called, a value opening with `#` is quoted by the serializer or it would read back as a YAML comment, runs of whitespace collapse to one space (the structural guard of REQ-LIB-048, stated as such so a reader does not mistake it for a shape check), and the reason the convention exists lives in the contributor docs — the field registers, the docs explain. `references/archive-format.hbs` adds the same field as an optional `- **Issue**: {ref}` line in its Change Overview block, omitted when the change registered none and stated as a single line — this file is the committed audit record, so the collapse is part of its format contract.
+- WHEN the metadata-format reference is read, THEN `issue` appears in the canonical field order and in the field table with its writing command
+- WHEN its `issue` entry is read, THEN it states the no-shape-check stance, the quoting consequence, the whitespace collapse and why it exists, and points at the contributor docs for the convention
+- WHEN the archive-format reference is read, THEN its Change Overview block carries the optional Issue line and says it is a single line with whitespace collapsed
+
+---
+
+
+#### REQ-TEMPLATES-179: Change-creating skills ask for the tracker item
+The two skills that create a change — `prospec-new-story.hbs` (Phase 2) and `prospec-ff.hbs` (Phase 1) — ask which tracker item the change belongs to **inside the existing change-name confirmation**, as an optional question that accepts a refusal, and pass `[--issue <ref>]` on the scaffold command when an answer was given. This is the only point at which the field can be set. Folding it into the existing STOP is deliberate rather than incidental: ff's own NEVER block caps Phase 1 at three questions, so a fourth interview question would contradict the skill's contract. Without this step the field stays unfilled in practice — `--issue` exists only on `change story`, so an answer skipped at scaffold time cannot be amended without rebuilding the change, and the convention falls back to whoever remembers it.
+- WHEN either skill reaches its change-name confirmation, THEN it also asks for the tracker item, marks it optional, accepts a declined answer, and forbids inventing one or deriving it from the branch name
+- WHEN either skill's phase gate is read, THEN it carries an item for the tracker question that a user who declined still satisfies
+- WHEN either skill scaffolds, THEN its command shows `[--issue <ref>]` and says to pass it only when an answer was given
+- WHEN ff's Phase 1 is read, THEN the tracker question is folded into the name confirmation, so its three-question ceiling still holds
+
+---
+
+
+#### REQ-TESTS-081: Issue-registration coverage at every layer
+Coverage spans every path the registration travels: schema acceptance with and without it, the router pass-through in both directions, the three services, and the status formatter's print-only-when-present branch. The two reference templates are pinned by section-scoped contract assertions, mutation-verified against the bundle (the render source). End-to-end, the real compiled CLI proves the on-disk difference between the two invocations, including that a `#`-leading value round-trips instead of being read back as a comment and that a multi-line value lands as one line no part of which starts a forged heading or a second grade row.
+- WHEN the unit suites run, THEN each path is covered in both the present and the absent case
+- WHEN the contract assertions run, THEN they are section-scoped and mutation-verified against the bundled templates
+- WHEN the e2e cases run, THEN the omitted-flag invocation produces metadata carrying no `issue` key, the given-flag invocation round-trips a `#`-leading value, and a multi-line value is collapsed so no metadata or status line begins with the injected structure
+
+---
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -1591,7 +1686,7 @@ The types layer defines the SDD station order — including the workflow rank of
 
 #### REQ-CLI-023: prospec status Command and Formatter
 `commands/status.ts` (`registerStatusCommand`) + `formatters/status-output.ts`, registered in `index.ts`; thin delegation to the service, stdout for results, stderr via `handleError`, repo-derived strings through `sanitizeTerminal`.
-- WHEN `prospec status` runs, THEN each in-flight change prints name, current node, next station, blocking gates, and reasons
+- WHEN `prospec status` runs, THEN each in-flight change prints name, current node, its `issue` reference (only when the change registered one), next station, blocking gates, and reasons
 - WHEN output renders, THEN free-form strings pass `sanitizeTerminal`; errors route to stderr
 - WHEN the real CLI is exercised end-to-end, THEN the clean-state and in-flight scenarios pass
 
@@ -1698,6 +1793,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-09 | add-issue-link-field | ADDED REQ-TYPES-080; ADDED REQ-LIB-047; ADDED REQ-LIB-048; ADDED REQ-SERVICES-085; ADDED REQ-CLI-036; ADDED REQ-TEMPLATES-178; ADDED REQ-TEMPLATES-179; ADDED REQ-TESTS-081; MODIFIED REQ-CLI-023 | REQ-TYPES-080, REQ-LIB-047, REQ-LIB-048, REQ-SERVICES-085, REQ-CLI-036, REQ-TEMPLATES-178, REQ-TEMPLATES-179, REQ-TESTS-081, REQ-CLI-023 |
 | 2026-08-08 | read-specs-by-req | ADDED REQ-LIB-046; ADDED REQ-SERVICES-084; ADDED REQ-CLI-035; ADDED REQ-TEMPLATES-176; ADDED REQ-TEMPLATES-177; ADDED REQ-TESTS-080 | REQ-LIB-046, REQ-SERVICES-084, REQ-CLI-035, REQ-TEMPLATES-176, REQ-TEMPLATES-177, REQ-TESTS-080 |
 | 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TESTS-079; ADDED REQ-SERVICES-081; ADDED REQ-CLI-034; ADDED REQ-SERVICES-083; ADDED REQ-TESTS-077; MODIFIED REQ-SERVICES-072; MODIFIED REQ-SERVICES-073; MODIFIED REQ-CLI-032; MODIFIED REQ-CLI-033; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-TEMPLATES-168; MODIFIED REQ-SPEC-010; MODIFIED REQ-TESTS-070 | REQ-TESTS-079, REQ-SERVICES-081, REQ-CLI-034, REQ-SERVICES-083, REQ-TESTS-077, REQ-SERVICES-072, REQ-SERVICES-073, REQ-CLI-032, REQ-CLI-033, REQ-TEMPLATES-166, REQ-TEMPLATES-168, REQ-SPEC-010, REQ-TESTS-070 |
 | 2026-08-07 | refuse-near-miss-feature-map | ADDED REQ-SERVICES-080; ADDED REQ-CLI-033; ADDED REQ-TESTS-076; MODIFIED REQ-SERVICES-079; MODIFIED REQ-SPEC-011; MODIFIED REQ-TEMPLATES-175 | REQ-SERVICES-080, REQ-CLI-033, REQ-TESTS-076, REQ-SERVICES-079, REQ-SPEC-011, REQ-TEMPLATES-175 |
