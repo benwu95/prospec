@@ -1,15 +1,39 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/status.service.js';
+import type { ChangeRouteFacts } from '../../../src/types/status.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
 
+/**
+ * The facts this service hands the router, captured per call.
+ *
+ * Asserting on the returned `ChangeRoute` cannot see what the service produced:
+ * `routeChange` spreads `issue` conditionally itself, so it absorbs a service
+ * that writes the key unconditionally (with `issue: undefined`) and the route
+ * comes out identical either way. Delegating to the real router keeps every
+ * other test in this file black-box.
+ */
+const { routedFacts } = vi.hoisted(() => ({ routedFacts: [] as ChangeRouteFacts[] }));
+
+vi.mock('../../../src/lib/status-router.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/status-router.js')>();
+  return {
+    ...actual,
+    routeChange: (facts: ChangeRouteFacts) => {
+      routedFacts.push(facts);
+      return actual.routeChange(facts);
+    },
+  };
+});
+
 beforeEach(() => {
   vol.reset();
   vi.clearAllMocks();
+  routedFacts.length = 0;
 });
 
 afterEach(() => {
@@ -236,4 +260,48 @@ describe('status.service — read-only purity', () => {
     await execute({ cwd: CWD });
     expect(vol.toJSON()).toEqual(before);
   });
+});
+
+describe('status.service — issue registration (issue #131)', () => {
+  const changeWith = (extra?: string) => ({
+    [`${CWD}/.prospec/changes/add-widget/metadata.yaml`]: metadataYaml({
+      name: 'add-widget',
+      status: 'plan',
+      ...(extra === undefined ? {} : { extra }),
+    }),
+  });
+
+  it('carries a registered issue reference into the facts and out to the route', async () => {
+    vol.fromJSON(changeWith('issue: "#131"\n'));
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts).toHaveLength(1);
+    expect(routedFacts[0]?.issue).toBe('#131');
+    expect(report.changes[0]?.issue).toBe('#131');
+  });
+
+  // Asserted on the FACTS, not the route: the router drops an `issue:
+  // undefined` of its own accord, so a route-level assertion passes even when
+  // this service writes the key unconditionally (mutation-verified — replacing
+  // the conditional spread in collectFacts with `issue: metadata.issue` turns
+  // this test red, and left the route-level version green).
+  it('omits the key from the facts for a change that registered none', async () => {
+    vol.fromJSON(changeWith());
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts).toHaveLength(1);
+    expect(Object.hasOwn(routedFacts[0] as object, 'issue')).toBe(false);
+    expect(Object.hasOwn(report.changes[0] as object, 'issue')).toBe(false);
+  });
+
+  // A blank registration is not a registration: the schema is `z.string()`
+  // with no floor, so `issue: ""` parses, and every reader must agree it means
+  // unregistered (the archive summary already does).
+  it.each(['issue: ""\n', "issue: '   '\n"])(
+    'treats a blank registration (%j) as absent',
+    async (extra) => {
+      vol.fromJSON(changeWith(extra));
+      await execute({ cwd: CWD });
+      expect(routedFacts).toHaveLength(1);
+      expect(Object.hasOwn(routedFacts[0] as object, 'issue')).toBe(false);
+    },
+  );
 });

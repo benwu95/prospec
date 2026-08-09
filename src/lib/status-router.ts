@@ -55,6 +55,10 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       facts.status === 'implemented' && forbidden.includes('tasks.md')
         ? 'promote'
         : STATUS_STATION[facts.status],
+    // Display-only pass-through, spread conditionally: writing `issue:
+    // facts.issue` would put the key on every route, and the formatter's
+    // print-only-when-registered branch reads absence, not falsiness.
+    ...(facts.issue === undefined ? {} : { issue: facts.issue }),
   } satisfies Omit<ChangeRoute, 'next' | 'blockingGates' | 'reasons'>;
 
   // A scale with neither a plan nor a task list has NO forward planning station:

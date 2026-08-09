@@ -73,6 +73,10 @@ export interface ChangeRouteFacts {
   hasReviewProvenance: boolean;
   /** Latest `prospec-verify` quality_log grade, null when never verified. */
   lastVerifyGrade: VerifyGrade | null;
+  /** Registered external-tracker reference (metadata `issue`), absent when the
+   *  change registered none. Display data, NOT a routing fact — every station
+   *  verdict is computed as if it were not here. */
+  issue?: string;
 }
 
 /** One routed in-flight change — the router's whole verdict. */
@@ -88,6 +92,8 @@ export interface ChangeRoute {
   blockingGates: string[];
   /** Why the router placed the change here (quick skip, backfill entry, …). */
   reasons: string[];
+  /** The registered tracker reference, carried through for display only. */
+  issue?: string;
 }
 
 /** A change whose metadata could not be routed — reported, never dropped. */

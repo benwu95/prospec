@@ -136,3 +136,39 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
     doc.set('quality_log', doc.createNode([ordered]));
   }
 }
+
+/**
+ * The single-line tracker reference a change registers, or `undefined` when it
+ * registered none.
+ *
+ * THE one place the `issue` field's absent/blank/multi-line semantics are
+ * decided, shared by every writer and reader (`change story` writes through it,
+ * `status` and the archive summary read through it) — three hand-copied variants
+ * disagreed on blank alone (PB-006: one helper, not a convention).
+ *
+ * Two rules, both load-bearing:
+ *
+ * - **Blank is not a registration.** A whitespace-only value — what `--issue
+ *   "$REF"` expands to with `REF` unset — reads as absent, so the key stays out
+ *   of the YAML and out of both display surfaces. `absent ≠ blank` is what
+ *   `metadata-format` promises its readers.
+ * - **Whitespace runs collapse to one space**, line breaks included. The value
+ *   reaches `prospec status`'s per-change block and the archive summary that is
+ *   copied verbatim into the committed `specs/_archived-history/` trail; a second
+ *   line there renders a forged `##` heading or a forged `- **Quality Grade**:`
+ *   row for real. This collapse is the ONLY guard — nothing refuses such a value
+ *   on the way in, by design (the field's shape is never validated), and metadata
+ *   is hand-editable besides. So a new sink for this value must call this helper;
+ *   skipping it reopens the gap. Same defence as `toInlineCodeSpan`'s line-break
+ *   collapse (`lib/markdown-fences.ts`) and `escapeTableCell`'s
+ *   (`lib/markdown-table.ts`).
+ *
+ * Takes `unknown` deliberately: `archive.service` reads metadata leniently (the
+ * terminal station absorbs pre-schema records), so a non-string value must read
+ * as "nothing registered" rather than be stringified into the audit trail.
+ */
+export function normalizeIssueRef(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const collapsed = value.replace(/\s+/g, ' ').trim();
+  return collapsed === '' ? undefined : collapsed;
+}

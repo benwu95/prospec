@@ -273,3 +273,33 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
     }
   });
 });
+
+/**
+ * The issue registration is display data, not a routing fact (issue #131): the
+ * router carries it so `prospec status` can print it, and every station verdict
+ * must be computed as if it were not there.
+ */
+describe('status-router — issue registration pass-through', () => {
+  it('carries the registered issue reference into the route unchanged', () => {
+    expect(routeChange(facts({ issue: '#131' })).issue).toBe('#131');
+  });
+
+  it('omits the key entirely when the facts carry no issue', () => {
+    const route = routeChange(facts());
+    expect(route.issue).toBeUndefined();
+    // Absent, not present-and-undefined: the display layer distinguishes the
+    // two, and a spread writing `issue: undefined` would collapse them.
+    expect(Object.hasOwn(route, 'issue')).toBe(false);
+  });
+
+  it('leaves every routing verdict identical across the whole status × scale matrix', () => {
+    for (const status of CHANGE_STATUSES) {
+      for (const scale of CHANGE_SCALES) {
+        const without = routeChange(facts({ status, scale }));
+        const { issue, ...withIssue } = routeChange(facts({ status, scale, issue: '#131' }));
+        expect(issue).toBe('#131');
+        expect(withIssue).toEqual(without);
+      }
+    }
+  });
+});

@@ -211,8 +211,24 @@ Conventions carries the full list, adding `perf:` and `ci:`.
 
 ### 5. Submit a Pull Request
 
+> `/submit-pr` walks this section end to end (branch → push → body → open). It is maintainer tooling
+> for this repo, like `/release` — not a prospec SDD skill. This section stays the authority; the
+> skill only executes it.
+
 - **One issue → one change → one PR.** Open the PR from the change's branch; let the merge close the
   issue rather than closing it by hand.
+- **Register the issue on the change itself**, at scaffold time:
+  `prospec change story <name> --issue "#NN"`. That writes `issue: "#NN"` into the change's
+  `metadata.yaml`, and `prospec status` plus the archive summary (and its committed
+  `prospec/specs/_archived-history/` copy) then carry the link. The division is deliberate: the field
+  is the **mechanical** record — optional, free-form (whitespace collapses to one line), no shape check
+  and no forge API — and this section
+  is where the convention around it is **explained**. Without the field the link survives only in
+  commit and PR prose, recoverable by nothing but a human reading it; without this section the field
+  is a string with no stated meaning. Field format and its no-validation stance:
+  `src/templates/skills/references/metadata-format.hbs` → `` `issue` ``.
+- **Land the change as two commits** — the feature commit at `/prospec-verify` grade S/A, then the
+  archive commit — as specified in [§4 Commit](#4-commit). Push both before opening the PR.
 - **Write the PR body in Traditional Chinese (Taiwan).** This is a house convention, **not** a
   consequence of the Constitution's `[MUST] Language Policy` — that rule is defined over repo *paths*
   (`.prospec/changes/**` and friends), and a PR body is not one. The code, commit messages, and trust

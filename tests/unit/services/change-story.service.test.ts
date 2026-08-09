@@ -516,3 +516,57 @@ describe('explicit related modules (--related-module)', () => {
     expect(metadata).toContain('- cli');
   });
 });
+
+/**
+ * The issue registration (issue #131) — the mechanical carrier for the
+ * one-issue-one-change-one-PR convention. Shape-free and never validated; the
+ * only contract is that an absent registration leaves no trace in the YAML.
+ */
+describe('issue registration (--issue)', () => {
+  beforeEach(() => {
+    vol.fromJSON({ '/project/.prospec.yaml': 'project:\n  name: test\n' });
+  });
+
+  it('writes the reference and round-trips a value that would read as a YAML comment', async () => {
+    await execute({ name: 'add-widget', cwd: '/project', issue: '#131' });
+
+    const raw = fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8');
+    // Unquoted, `#131` opens a comment and the whole value is lost on read-back.
+    expect(raw).toContain('issue: "#131"');
+    const metadata = parseYaml<{ issue?: string }>(raw);
+    expect(metadata.issue).toBe('#131');
+  });
+
+  it.each([
+    ['https://github.com/benwu95/prospec/issues/131', 'a full URL'],
+    ['ABC-123', 'another tracker id'],
+  ])('stores %s verbatim — no forge is assumed (%s)', async (value) => {
+    await execute({ name: 'add-widget', cwd: '/project', issue: value });
+
+    const metadata = parseYaml<{ issue?: string }>(
+      fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
+    );
+    expect(metadata.issue).toBe(value);
+  });
+
+  it('omits the key when no issue is given', async () => {
+    await execute({ name: 'add-widget', cwd: '/project' });
+
+    const metadata = parseYaml<Record<string, unknown>>(
+      fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
+    );
+    expect('issue' in metadata).toBe(false);
+  });
+
+  // A blank flag value is the shape a shell expansion produces (`--issue "$REF"`
+  // with REF unset); recording it as `issue: ""` would assert a registration
+  // that was never made.
+  it.each(['', '   '])('treats a blank value (%j) as no registration', async (blank) => {
+    await execute({ name: 'add-widget', cwd: '/project', issue: blank });
+
+    const metadata = parseYaml<Record<string, unknown>>(
+      fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
+    );
+    expect('issue' in metadata).toBe(false);
+  });
+});

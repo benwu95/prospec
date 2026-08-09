@@ -4,7 +4,7 @@ import { AlreadyExistsError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { writeChangeMetadataObject } from '../lib/change-metadata.js';
+import { normalizeIssueRef, writeChangeMetadataObject } from '../lib/change-metadata.js';
 import { stripCellEmphasis } from '../lib/knowledge-reader.js';
 import type { NewChangeMetadata } from '../types/change.js';
 import { INDEX_COLUMN, INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
@@ -19,6 +19,9 @@ export interface ChangeStoryOptions {
   /** Escaped-defect registration for bug-fix changes: the change that missed
    *  the defect (see _status-lifecycle.md). */
   introducedBy?: string;
+  /** External-tracker registration: the issue this change belongs to. Free-form
+   *  (`#131`, a URL, another tracker's id) and never validated. */
+  issue?: string;
   cwd?: string;
 }
 
@@ -95,6 +98,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   // excess-property check on each spread body — TypeScript does not apply it to
   // spread members, so without this a typo'd optional key would compile, pass the
   // loose read-side schema, and reach disk under the wrong name.
+  const issue = normalizeIssueRef(options.issue);
   const metadata: NewChangeMetadata = {
     name: changeName,
     created_at: new Date().toISOString(),
@@ -108,6 +112,9 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     ...(options.introducedBy
       ? ({ introduced_by: options.introducedBy } satisfies Partial<NewChangeMetadata>)
       : {}),
+    // Absent/blank/multi-line semantics live in `normalizeIssueRef`, not here —
+    // the status service and the archive summary read through the same helper.
+    ...(issue !== undefined ? ({ issue } satisfies Partial<NewChangeMetadata>) : {}),
   };
   const metadataPath = path.join(changeDir, 'metadata.yaml');
   await writeChangeMetadataObject(metadataPath, metadata);

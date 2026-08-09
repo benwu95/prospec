@@ -9,8 +9,9 @@ import { sanitizeTerminal } from './sanitize.js';
  *
  * Output structure:
  * 1. Clean state (no in-flight changes), or
- * 2. Per change: name + scale, status/current station, suggested next skill,
- *    blocking gates, reasons
+ * 2. Per change: name + scale, status/current station, the registered issue
+ *    reference (only when one exists), suggested next skill, blocking gates,
+ *    reasons
  * 3. Unroutable records (malformed metadata) — reported, never dropped
  */
 export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): void {
@@ -29,6 +30,9 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
       `${pc.green('●')} ${sanitizeTerminal(change.name)}  ${pc.dim(`[${change.scale}]`)}`,
     );
     console.log(`  status:  ${pc.cyan(change.status)} (completed station: ${change.current})`);
+    if (change.issue !== undefined) {
+      console.log(`  issue:   ${sanitizeTerminal(change.issue)}`);
+    }
     const next =
       change.next === null
         ? pc.dim('— terminal (periodic /prospec-learn)')

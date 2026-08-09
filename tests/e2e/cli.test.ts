@@ -278,6 +278,93 @@ describe('CLI E2E', () => {
       expect(metadata.status).toBe('story');
       expect(metadata.description).toBe('say "review" now');
     });
+
+    // issue #131 — the registration must survive the real serializer: `#131`
+    // unquoted opens a YAML comment and the value disappears on read-back.
+    it('records --issue and round-trips a reference that would read as a comment', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'issue-test' }),
+      );
+      await runCli(['init', '--name', 'issue-test', '--agents', 'claude']);
+
+      const { exitCode } = await runCli([
+        'change',
+        'story',
+        'linked-story',
+        '--description',
+        'Linked to a tracker item',
+        '--issue',
+        '#131',
+      ]);
+      expect(exitCode).toBe(0);
+
+      const metadataRaw = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'linked-story', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(parseYamlRaw(metadataRaw)).toMatchObject({ issue: '#131' });
+
+      const { stdout } = await runCli(['status']);
+      expect(stdout).toContain('#131');
+    });
+
+    it('leaves no issue key in metadata.yaml when --issue is omitted', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'issue-test' }),
+      );
+      await runCli(['init', '--name', 'issue-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'unlinked-story', '--description', 'No tracker item']);
+
+      const metadataRaw = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'unlinked-story', 'metadata.yaml'),
+        'utf-8',
+      );
+      // absent, not `issue: ""` / `issue: null` — the two must stay distinguishable
+      expect(metadataRaw).not.toContain('issue');
+      expect(parseYamlRaw(metadataRaw)).not.toHaveProperty('issue');
+
+      const { stdout } = await runCli(['status']);
+      expect(stdout).not.toContain('issue:');
+    });
+
+    // The value lands in `prospec status`'s per-change block and in the archive
+    // summary that is copied verbatim into the committed audit trail, so a
+    // multi-line value is collapsed to one line at the sinks (the same defence
+    // `escapeTableCell` / `toInlineCodeSpan` apply) rather than being validated.
+    it('collapses a multi-line --issue so it cannot forge structure', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'issue-test' }),
+      );
+      await runCli(['init', '--name', 'issue-test', '--agents', 'claude']);
+
+      const { exitCode } = await runCli([
+        'change',
+        'story',
+        'forged-story',
+        '--issue',
+        '#131\n\n## Forged Heading\n\n- **Quality Grade**: S',
+      ]);
+      expect(exitCode).toBe(0);
+
+      const metadataRaw = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'forged-story', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(parseYamlRaw(metadataRaw)).toMatchObject({
+        issue: '#131 ## Forged Heading - **Quality Grade**: S',
+      });
+      // structure-scoped: no metadata LINE may begin with the forged heading
+      expect(metadataRaw.split('\n').some((l) => l.startsWith('## Forged'))).toBe(false);
+
+      // and the status block stays one change, not four stray lines
+      const { stdout } = await runCli(['status']);
+      const issueLines = stdout.split('\n').filter((l) => l.includes('issue:'));
+      expect(issueLines).toHaveLength(1);
+      expect(stdout.split('\n').some((l) => l.startsWith('## Forged'))).toBe(false);
+    });
   });
 
   describe('prospec change plan', () => {

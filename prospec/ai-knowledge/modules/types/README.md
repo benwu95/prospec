@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` + `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` (the lifecycle doc's artifact matrix and provenance audit scope, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES |
+| `change.ts` | Change metadata contract — loose read + strict build views (incl. `NewQualityLogEntrySchema`), `BareModuleNameSchema`, CHANGE_STATUSES/SCALES, `SCALE_FORBIDDEN_ARTIFACTS` + `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` (the lifecycle doc's artifact matrix and audit scope, executable), GATE/DIMENSION_RESULTS, VERIFY_GRADES, `issue` |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget` (7 per-surface thresholds), `KnowledgeSizeKind`＋`KNOWLEDGE_SIZE_RULES`, `KNOWLEDGE_STRATEGIES`, VALID_AGENTS, `test_command` |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (path sets plus BOTH exception directions — `namedExceptions` / `englishExceptions`) |
 | `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp), `DRIFT_CHECK_IDS` (16 frozen), Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |

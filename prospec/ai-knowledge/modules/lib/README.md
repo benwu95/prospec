@@ -11,9 +11,9 @@
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem |
-| `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order) |
+| `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it |
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
-| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md` |
+| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
 | `spec-headings.ts` / `spec-slices.ts` | THE feature-spec REQ heading rule, the index over it, and the REQ-scoped read — see the sub-module below |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
 | `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped); artifact structural verdicts (promote-scaffold covers promotion's own product, delta-spec.md, not only the artifacts backfill forbids) |
