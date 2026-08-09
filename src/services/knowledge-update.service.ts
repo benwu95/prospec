@@ -751,15 +751,16 @@ export function collectAllModules(
         aliases: entry.aliases ?? [],
         rationale: entry.rationale ?? '',
         dependsOn: entry.relationships?.depends_on ?? [],
+        category: entry.category ?? [],
       });
     }
   } catch {
     // Fallback: use result data only (curated columns unknown → left empty).
     for (const name of [...result.created, ...result.updated]) {
-      modules.push({ name, description: `${name} module`, status: 'Active', keywords: [], aliases: [], rationale: '', dependsOn: [] });
+      modules.push({ name, description: `${name} module`, status: 'Active', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
     }
     for (const name of result.deprecated) {
-      modules.push({ name, description: `${name} module`, status: 'Deprecated', keywords: [], aliases: [], rationale: '', dependsOn: [] });
+      modules.push({ name, description: `${name} module`, status: 'Deprecated', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
     }
   }
 

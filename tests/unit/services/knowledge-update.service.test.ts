@@ -742,6 +742,7 @@ describe('collectAllModules', () => {
       aliases: [],
       rationale: '',
       dependsOn: [],
+      category: [],
     });
     expect(modules).toContainEqual({
       name: 'changedmod',
@@ -751,6 +752,7 @@ describe('collectAllModules', () => {
       aliases: [],
       rationale: '',
       dependsOn: [],
+      category: [],
     });
     expect(modules).toContainEqual({
       name: 'goneMod',
@@ -760,6 +762,7 @@ describe('collectAllModules', () => {
       aliases: [],
       rationale: '',
       dependsOn: [],
+      category: [],
     });
   });
 });

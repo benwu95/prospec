@@ -32,7 +32,7 @@ Load these specific convention files only when their topics are relevant to the 
 
 _Table format: Module | Keywords | Aliases | Status | Description | Rationale | Depends On_
 
-_Optional grouping: when modules fall into ≥2 domain categories, group rows under `### {Category}` sub-headings (each sub-table reuses the columns above; a module appears under its primary category only). Pure architectural-layer projects keep one flat table._
+_Optional grouping: when modules have categories and fall into ≥2 primary domain categories, they are automatically grouped under `### {Category}` sub-headings (each sub-table reuses the columns above; a module appears under its primary category only). Projects without categories keep one flat table._
 <!-- prospec:auto-end -->
 
 ## Project Info
