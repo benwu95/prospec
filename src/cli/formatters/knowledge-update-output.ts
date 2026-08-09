@@ -25,6 +25,15 @@ export function formatKnowledgeUpdateOutput(
     const deprecated = result.deprecated.map((m) => sanitizeTerminal(m)).join(', ');
     lines.push(`${pc.yellow('●')} deprecated: ${deprecated}`);
   }
+  if (result.sweptFiles && result.sweptFiles.length > 0) {
+    for (const swept of result.sweptFiles) {
+      if (swept.savings > 0) {
+        lines.push(`${pc.green('✓')} swept: ${sanitizeTerminal(swept.module)} (${swept.savings} tokens saved)`);
+      } else {
+        lines.push(`${pc.gray('●')} swept: ${sanitizeTerminal(swept.module)} (none)`);
+      }
+    }
+  }
   if (result.readmePending.length > 0) {
     lines.push('');
     lines.push(

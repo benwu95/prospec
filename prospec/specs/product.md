@@ -37,6 +37,11 @@ Scans source code into modular, layered project memory (per-module README, root 
 Produces visual and interaction specs from a proposal (Generate Mode) or extracts them from Figma, pencil, and Penpot (Extract Mode). Platform adapters give an agent exact colors, spacing, and states instead of guesses.
 → [features/design-phase.md](features/design-phase.md)
 
+### drift-checks
+
+TBD — describe this feature and its value in 1-2 sentences.
+→ [features/drift-checks.md](features/drift-checks.md)
+
 ### drift-detection
 
 `prospec check` — a deterministic, zero-LLM audit of spec ↔ code ↔ knowledge consistency (REQ references, file paths, dependency direction, knowledge freshness, task completion). `--strict` gates CI; an unavailable source is reported as an honest skip, never a false pass.
@@ -46,6 +51,11 @@ Produces visual and interaction specs from a proposal (Generate Mode) or extract
 
 Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger, scores them by an explicit rule, and promotes them — only with human approval — through ledger → team playbook → Constitution rule.
 → [features/feedback-promotion.md](features/feedback-promotion.md)
+
+### knowledge-management
+
+TBD — describe this feature and its value in 1-2 sentences.
+→ [features/knowledge-management.md](features/knowledge-management.md)
 
 ### mcp-server
 

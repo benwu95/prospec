@@ -122,6 +122,7 @@ export const DRIFT_CHECK_IDS = [
   // gates, and skips — never a vacuous pass — for a scale that has no
   // delta-spec.
   'delta-spec-provenance',
+  'unjustified-budget-override',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

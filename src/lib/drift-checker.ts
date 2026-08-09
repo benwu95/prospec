@@ -31,6 +31,7 @@ import type {
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
+  BudgetOverrideSource,
 } from './drift-sources.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 
@@ -64,6 +65,7 @@ export interface DriftCheckInputs {
   deltaSpecProvenance: DeltaSpecProvenanceSource;
   metadataCompleteness: MetadataCompletenessSource;
   knowledgeSize: KnowledgeSizeSource;
+  budgetOverrides: BudgetOverrideSource;
   testProvenance: TestProvenanceSource;
   constitutionRules: ConstitutionRuleSource;
   artifactLanguage: ArtifactLanguageSource;
@@ -559,6 +561,15 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
         `${rule.label} over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
           `> ${tokenBudget} ${rule.tokenKey} budget — ${rule.remedy}`,
       );
+    } else if (src.budget.headroom !== undefined) {
+      const headroomThreshold = Math.floor(tokenBudget * src.budget.headroom);
+      if (item.tokens > headroomThreshold) {
+        warn(
+          item.source_path,
+          `${rule.label} pressure signal: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
+            `approaches ${tokenBudget} ${rule.tokenKey} budget (headroom ${src.budget.headroom})`,
+        );
+      }
     }
     if (rule.lineKey === undefined) continue;
     const lineBudget = src.budget[rule.lineKey];
@@ -571,6 +582,28 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
     }
   }
   return outcome('knowledge-size', findings);
+}
+
+/**
+ * Budget overrides — any token_budget override > default must have an adjacent YAML comment.
+ */
+export function evaluateBudgetOverrides(src: BudgetOverrideSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('unjustified-budget-override', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const override of src.overrides) {
+    if (!override.hasComment) {
+      findings.push({
+        check: 'unjustified-budget-override',
+        severity: 'warn',
+        source_path: src.source_path,
+        line: override.line,
+        detail: `unjustified budget override: token_budget.${override.key} is set to ${override.value} (default ${override.defaultValue}) without a comment. Add a comment explaining why this module needs more space.`,
+      });
+    }
+  }
+  return outcome('unjustified-budget-override', findings);
 }
 
 /**
@@ -737,6 +770,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'artifact-language': evaluateArtifactLanguage(inputs.artifactLanguage),
     'spec-counters': evaluateSpecCounters(inputs.specCounters),
     'delta-spec-provenance': evaluateDeltaSpecProvenance(inputs.deltaSpecProvenance),
+    'unjustified-budget-override': evaluateBudgetOverrides(inputs.budgetOverrides),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

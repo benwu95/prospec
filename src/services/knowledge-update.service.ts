@@ -12,7 +12,7 @@ import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
-import { isSafeResourceName, loadFeatureMap } from '../lib/knowledge-reader.js';
+import { isSafeResourceName, loadFeatureMap, sweepModuleReadme } from '../lib/knowledge-reader.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { buildIndexTemplateContext } from '../lib/index-template.js';
@@ -76,6 +76,8 @@ export interface KnowledgeUpdateResult {
   generatedFiles: GeneratedFile[];
   /** Non-fatal notices — e.g. non-canonical REQ ids skipped during parsing. */
   warnings: string[];
+  /** Result of Phase 3a Sweep */
+  sweptFiles: Array<{ module: string; savings: number }>;
 }
 
 // --- Delta Spec Parser (Task 6: REQ-SERVICES-020) ---
@@ -190,6 +192,28 @@ export async function updateModuleReadme(
     path: path.join(options.knowledgeBasePath, 'modules', moduleName, 'README.md'),
     action: 'created',
   };
+}
+
+// --- Phase 3a Sweep (Task 7) ---
+
+export async function applyReadmeSweep(
+  moduleName: string,
+  options: { cwd: string; knowledgeBasePath: string },
+): Promise<{ savings: number } | null> {
+  const readmePath = path.join(
+    options.cwd,
+    options.knowledgeBasePath,
+    'modules',
+    moduleName,
+    'README.md',
+  );
+  const existingContent = await readFileIfExists(readmePath);
+  if (!existingContent) return null;
+  const { swept, savings } = sweepModuleReadme(existingContent);
+  if (savings > 0 || swept !== existingContent) {
+    await atomicWrite(readmePath, swept);
+  }
+  return { savings };
 }
 
 // --- Mark Module Deprecated (Task 9: REQ-SERVICES-021) ---
@@ -400,6 +424,7 @@ export async function execute(
     readmePending: [],
     generatedFiles: [],
     warnings: [],
+    sweptFiles: [],
   };
 
   const baseOpts = { cwd, knowledgeBasePath, excludePatterns };
@@ -480,6 +505,15 @@ export async function execute(
         if (!result.readmePending.includes(mod) && !result.created.includes(mod)) {
           result.readmePending.push(mod);
         }
+      }
+    }
+
+    // Run sweep on affected modules (added but already existed + modified)
+    const uniqueAffected = [...new Set([...result.readmePending, ...result.updated])];
+    for (const mod of uniqueAffected) {
+      const sweepRes = await applyReadmeSweep(mod, baseOpts);
+      if (sweepRes) {
+        result.sweptFiles.push({ module: mod, savings: sweepRes.savings });
       }
     }
 

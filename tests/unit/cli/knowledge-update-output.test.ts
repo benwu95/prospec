@@ -31,6 +31,7 @@ function baseResult(
     readmePending: [],
     generatedFiles: [],
     warnings: [],
+    sweptFiles: [],
     ...overrides,
   };
 }

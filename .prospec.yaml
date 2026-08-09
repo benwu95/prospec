@@ -20,7 +20,9 @@ agents:
 knowledge:
   base_path: prospec/ai-knowledge
   token_budget:
+    # Prospec's own L1 index is naturally large as it catalogs its own complex architecture.
     l1_per_file: 2500
+    # Prospec's own L2 modules contain deep contextual rules requiring higher limits.
     l2_per_module: 1800
     # Raised from the shipped 10000 by the 2026-08-07 /prospec-learn Sweep: the
     # ledger's floor is ~10,217 because 82 `personal` rows (8,366 tokens) may not

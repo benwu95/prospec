@@ -22,6 +22,7 @@ import {
   searchModules,
   attachModuleCategories,
   normalizeSearchText,
+  sweepModuleReadme,
 } from '../../../src/lib/knowledge-reader.js';
 import { ModuleDetectionError } from '../../../src/types/errors.js';
 import { BareModuleNameSchema } from '../../../src/types/change.js';
@@ -530,5 +531,76 @@ describe('attachModuleCategories (REQ-LIB-017)', () => {
   it('preserves an empty result with its suggestion untouched', () => {
     const empty = { matches: [], suggestion: 'read knowledge://index' };
     expect(attachModuleCategories(empty, { modules: [] })).toEqual(empty);
+  });
+});
+
+describe('sweepModuleReadme (Task 9: REQ-SERVICES-xxx)', () => {
+  it('leaves content without sweep targets untouched', () => {
+    const text = '# module\n\nSome normal content here.';
+    const res = sweepModuleReadme(text);
+    expect(res.swept).toBe(text);
+    expect(res.savings).toBe(0);
+  });
+
+  it('compresses mechanized initialization text into a one-liner', () => {
+    const before = [
+      'This is the `test` module.',
+      'It was generated automatically.',
+    ].join('\n');
+    const res = sweepModuleReadme(before);
+    expect(res.swept).toBe('`test` module\n');
+    expect(res.savings).toBeGreaterThan(0);
+  });
+
+  it('removes <!-- sweep: replaced --> blocks entirely', () => {
+    const before = [
+      '# Intro',
+      '<!-- sweep: replaced -->',
+      'Old API that is gone.',
+      '<!-- /sweep -->',
+      'New API is here.',
+    ].join('\n');
+    const res = sweepModuleReadme(before);
+    expect(res.swept).toBe('# Intro\nNew API is here.');
+    expect(res.savings).toBeGreaterThan(0);
+  });
+
+  it('removes <!-- sweep: absorbed --> blocks entirely', () => {
+    const before = [
+      '# Intro',
+      '<!-- sweep: absorbed -->',
+      'Old stuff now in index.md.',
+      '<!-- /sweep -->',
+    ].join('\n');
+    const res = sweepModuleReadme(before);
+    expect(res.swept).toBe('# Intro\n');
+    expect(res.savings).toBeGreaterThan(0);
+  });
+
+  it('handles multiple sweeps in one pass', () => {
+    const before = [
+      'This is the `multi` module, generated.',
+      '<!-- sweep: replaced -->',
+      'Old text',
+      '<!-- /sweep -->',
+      '<!-- sweep: absorbed -->',
+      'More old text',
+      '<!-- /sweep -->',
+      'Keep this',
+    ].join('\n');
+    const res = sweepModuleReadme(before);
+    expect(res.swept.trim()).toBe('`multi` module\nKeep this');
+  });
+
+  it('leaves content untouched when <!-- /sweep --> tag is missing (negative test)', () => {
+    const before = [
+      '# Intro',
+      '<!-- sweep: replaced -->',
+      'Old API that is gone.',
+      'New API is here.',
+    ].join('\n');
+    const res = sweepModuleReadme(before);
+    expect(res.swept).toBe(before);
+    expect(res.savings).toBe(0);
   });
 });

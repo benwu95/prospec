@@ -9,6 +9,7 @@ import {
   evaluateImportDirection,
   evaluateKnowledgeHealth,
   evaluateKnowledgeSize,
+  evaluateBudgetOverrides,
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
@@ -55,6 +56,7 @@ const BASE_SIZE_BUDGET: KnowledgeSizeBudget = {
   demand_knowledge_per_file: 900,
   skill_per_file: 700,
   reference_per_file: 600,
+  headroom: 1.0,
 };
 
 const emptyInputs: DriftCheckInputs = {
@@ -74,6 +76,11 @@ const emptyInputs: DriftCheckInputs = {
     available: true,
     budget: { ...BASE_SIZE_BUDGET },
     items: [],
+  },
+  budgetOverrides: {
+    available: true,
+    source_path: '.prospec.yaml',
+    overrides: [],
   },
   testProvenance: {
     available: true,
@@ -178,6 +185,27 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
     expect(r.findings).toHaveLength(0);
   });
 
+  it('warns when token usage crosses the headroom threshold (pressure signal)', () => {
+    const budget = { ...BASE_SIZE_BUDGET, headroom: 0.85 }; // 1500 * 0.85 = 1275
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 1276, lines: 60 },
+    ], budget));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('pressure signal');
+    expect(r.findings[0]?.detail).toContain('1276');
+    expect(r.findings[0]?.detail).toContain('0.85');
+  });
+
+  it('stays silent when token usage is exactly at the headroom threshold', () => {
+    const budget = { ...BASE_SIZE_BUDGET, headroom: 0.85 }; // 1500 * 0.85 = 1275
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 1275, lines: 60 },
+    ], budget));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
   // Each kind's expected limit is a LITERAL, not `BASE_SIZE_BUDGET[rule.tokenKey]`:
   // reading the limit through the rule under test makes the fixture move with the
   // defect, so re-binding a kind to the wrong budget field stays green. The
@@ -247,6 +275,42 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
     expect(detailOf('prospec/specs/features/big.md')).toContain('slices');
     expect(detailOf('prospec/ai-knowledge/_lessons-ledger.md')).toContain('/prospec-learn');
     expect(detailOf('.claude/skills/prospec-verify/SKILL.md')).toContain('on-demand reference');
+  });
+});
+
+describe('evaluateBudgetOverrides', () => {
+  it('passes when source is unavailable', () => {
+    const r = evaluateBudgetOverrides({ available: false, reason: 'no yaml', source_path: '.prospec.yaml', overrides: [] });
+    expect(r.result.status).toBe('skipped');
+  });
+
+  it('passes when there are no overrides', () => {
+    const r = evaluateBudgetOverrides({ available: true, source_path: '.prospec.yaml', overrides: [] });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns when a budget override lacks a comment', () => {
+    const r = evaluateBudgetOverrides({
+      available: true,
+      source_path: '.prospec.yaml',
+      overrides: [{ key: 'demand_knowledge_per_file', value: 15000, defaultValue: 10000, hasComment: false, line: 12 }],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]?.detail).toContain('unjustified budget override');
+    expect(r.findings[0]?.detail).toContain('demand_knowledge_per_file');
+    expect(r.findings[0]?.line).toBe(12);
+  });
+
+  it('passes when a budget override has a comment', () => {
+    const r = evaluateBudgetOverrides({
+      available: true,
+      source_path: '.prospec.yaml',
+      overrides: [{ key: 'demand_knowledge_per_file', value: 15000, defaultValue: 10000, hasComment: true, line: 12 }],
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
   });
 });
 

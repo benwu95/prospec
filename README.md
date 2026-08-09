@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3585%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3602%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -731,6 +731,7 @@ knowledge:
     demand_knowledge_per_file: 10000 # max tokens per load-on-demand knowledge file
     skill_per_file: 5000            # max tokens per generated SKILL.md
     reference_per_file: 2500        # max tokens per generated skill reference
+    headroom: 0.85                  # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
 ```
 
 A freshly initialized project's `.prospec.yaml` carries no `token_budget` block, so every threshold resolves from the shipped default above; run `prospec config example` for the fully annotated block to copy the fields you want to change. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code), and each finding names the convergence path for its surface rather than a generic "please compress": slice a Feature Spec under `specs/features/{feature}/`, run `/prospec-learn`'s Staleness Sweep on a governance file, extract a sub-module from an L2 file.
@@ -829,7 +830,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3585 tests)
+# Run all tests (3602 tests)
 pnpm test
 
 # Watch mode
@@ -842,8 +843,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3585 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2640 tests
+**Test Coverage**: 3602 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2657 tests
 - Contract tests (CLI output + Skill format): 820 tests
 - Integration tests: 45 tests
 - E2E tests: 80 tests

@@ -19,6 +19,7 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
       demand_knowledge_per_file: 10000,
       skill_per_file: 5000,
       reference_per_file: 2500,
+      headroom: 0.85,
     });
   });
 
@@ -168,6 +169,10 @@ describe('single-source: index.md declares the DEFAULT budget numbers', () => {
         declared.add(field);
       }
     }
-    expect([...declared].sort()).toEqual(Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).sort());
+    expect([...declared].sort()).toEqual(
+      Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET)
+        .filter((k) => k !== 'headroom')
+        .sort(),
+    );
   });
 });

@@ -38,6 +38,7 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  collectBudgetOverrides,
   isGitWorkTree,
 } from '../lib/drift-sources.js';
 import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
@@ -198,6 +199,7 @@ export async function execute(
     // delta-spec, so the collector computes them per change.
     deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
     metadataCompleteness: collectMetadataCompleteness(cwd),
+    budgetOverrides: collectBudgetOverrides(cwd),
     knowledgeSize: collectKnowledgeSize(
       cwd,
       paths.baseDir,

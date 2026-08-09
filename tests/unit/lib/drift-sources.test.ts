@@ -25,6 +25,7 @@ import {
   collectTestProvenance,
   computeChangeDigest,
   computeDeltaSpecDigest,
+  collectBudgetOverrides,
   moduleAttributor,
 } from '../../../src/lib/drift-sources.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -78,6 +79,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     demand_knowledge_per_file: 900,
     skill_per_file: 700,
     reference_per_file: 600,
+    headroom: 1.0,
   };
   const baseDir = () => path.join(tmpDir, 'prospec');
   const knowledgePath = () => path.join(tmpDir, 'prospec', 'ai-knowledge');
@@ -2277,5 +2279,82 @@ describe('scriptPatternFor — Latin orthography rule (REQ-LIB-037)', () => {
     expect(scriptPatternFor('Hindi')).toBeDefined();
     expect(scriptPatternFor('Persian')).toBeDefined();
     expect(scriptPatternFor('Serbian (Cyrillic)')).toBeDefined();
+  });
+});
+
+describe('collectBudgetOverrides', () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(path.join(os.tmpdir(), 'prospec-budget-overrides-'));
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('returns unavailable when .prospec.yaml is missing', () => {
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(false);
+    if (!res.available) {
+      expect(res.reason).toMatch(/not found|unreadable/);
+    }
+  });
+
+  it('returns unavailable when token_budget is missing', () => {
+    writeFileSync(path.join(cwd, '.prospec.yaml'), 'project:\n  name: test\n');
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(false);
+    if (!res.available) {
+      expect(res.reason).toMatch(/token_budget/);
+    }
+  });
+
+  it('collects overrides greater than default with comment status', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    l1_per_file: 999999 # This one has a comment
+    l2_per_module: 500000
+    demand_knowledge_per_file: 15000 # Justification
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.overrides).toHaveLength(3);
+      const l1 = res.overrides.find((o) => o.key === 'l1_per_file');
+      expect(l1?.hasComment).toBe(true);
+      const l2 = res.overrides.find((o) => o.key === 'l2_per_module');
+      expect(l2?.hasComment).toBe(false);
+      const demand = res.overrides.find((o) => o.key === 'demand_knowledge_per_file');
+      expect(demand?.hasComment).toBe(true);
+    }
+  });
+
+  it('ignores overrides less than or equal to default', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    l1_per_file: 1800
+    l2_per_module: 500
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.overrides).toHaveLength(0);
+    }
+  });
+
+  it('returns unavailable on malformed yaml', () => {
+    writeFileSync(path.join(cwd, '.prospec.yaml'), 'knowledge:\n  token_budget: [unclosed');
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(false);
+    if (!res.available) {
+      expect(res.reason).toMatch(/failed to parse/);
+    }
   });
 });
