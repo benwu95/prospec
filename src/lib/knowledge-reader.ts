@@ -6,6 +6,7 @@ import { ModuleMapSchema, type ModuleMap } from '../types/module-map.js';
 import { FeatureMapSchema, type FeatureMap } from '../types/feature-map.js';
 import type { SearchModulesResult, SearchMatchField } from '../types/mcp.js';
 import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
+import { estimateTokens } from './token-accounting.js';
 
 /**
  * Knowledge content read layer (REQ-MCP-006) — whole-document reads for the
@@ -415,4 +416,29 @@ export function isContainedPath(target: string, root: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Automated Sweep Phase 3a
+ * Applies 3 criteria: mechanized content compression, replaced content removal, absorbed content removal.
+ */
+export function sweepModuleReadme(content: string): { swept: string; savings: number } {
+  let swept = content;
+  
+  // 1. Mechanized content compression
+  swept = swept.replace(
+    /^This is the `([^`]+)` module.*(?:\nIt was generated automatically\.)?\s*/gm,
+    '`$1` module\n'
+  );
+
+  // 2. Replaced content removal (block)
+  swept = swept.replace(/<!--\s*sweep:\s*replaced\s*-->[\s\S]*?<!--\s*\/sweep\s*-->\n?/g, '');
+
+  // 3. Absorbed content removal (block)
+  swept = swept.replace(/<!--\s*sweep:\s*absorbed\s*-->[\s\S]*?<!--\s*\/sweep\s*-->\n?/g, '');
+
+  const beforeTokens = estimateTokens(content);
+  const afterTokens = estimateTokens(swept);
+
+  return { swept, savings: Math.max(0, beforeTokens - afterTokens) };
 }

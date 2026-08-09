@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3585%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3602%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -698,6 +698,7 @@ knowledge:
     demand_knowledge_per_file: 10000 # 每個 load-on-demand 知識檔的 token 上限
     skill_per_file: 5000            # 每份生成的 SKILL.md 的 token 上限
     reference_per_file: 2500        # 每份生成的 skill reference 的 token 上限
+    headroom: 0.85                  # 觸發壓力預警的預算水位比例（0.85 = 85%）
 ```
 
 新初始化的專案，其 `.prospec.yaml` 不含 `token_budget` 區塊，因此每個門檻都回退到上面的 shipped default；要改哪幾欄，跑 `prospec config example` 取得完整逐欄註解的區塊再複製過去。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code），且每則 finding 會指出該載入面的具名收斂路徑，而不是泛泛的「請壓縮」：Feature Spec 切到 `specs/features/{feature}/`、治理知識檔跑 `/prospec-learn` 的 Staleness Sweep、L2 檔抽出 sub-module。
@@ -796,7 +797,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3585 個測試）
+# 執行所有測試（3602 個測試）
 pnpm test
 
 # Watch 模式
@@ -809,8 +810,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3585 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2640 tests
+**測試覆蓋率**：3602 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2657 tests
 - Contract tests（CLI 輸出 + Skill 格式）：820 tests
 - Integration tests：45 tests
 - E2E tests：80 tests

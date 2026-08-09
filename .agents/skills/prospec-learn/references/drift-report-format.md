@@ -52,7 +52,7 @@ position. Each entry: `{ id, status, reason? }`.
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
   `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
-  `delta-spec-provenance`.
+  `delta-spec-provenance`, `unjustified-budget-override`.
 
 `artifact-language` reports change artifacts whose PROSE carries no character in the project's
 artifact language (fenced code blocks are stripped before the test, so a quoted sample does not
@@ -90,6 +90,9 @@ counter the frontmatter declares above zero, finalize refuses to write and this 
 until a human converges the spec. It skips, with the reason, when the features directory is absent,
 holds no spec, or holds none that parses, and a counter the frontmatter never declares is out of scope
 rather than a finding.
+
+`unjustified-budget-override` reports `token_budget` values configured in `.prospec.yaml` that exceed their default threshold without an adjacent YAML comment explaining the reason. Every finding is `fail`-class, ensuring that knowledge thresholds are only raised with documented justification. It skips when no `knowledge.token_budget` section is configured.
+
 
 Gates skills read by id: `review-provenance` (review recorded and not stale), `delta-spec-provenance` (the landing blocks archive graduates match what review saw),
 `task-completion` (code-task completion), `knowledge-health` (module staleness — see below),

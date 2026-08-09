@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
+import { parseDocument, isMap, isScalar } from 'yaml';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { GENERATED_SOURCE_ARTIFACTS } from './generated-artifacts.js';
 import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
@@ -145,6 +147,21 @@ export interface KnowledgeSizeSource {
   reason?: string;
   budget: KnowledgeSizeBudget;
   items: KnowledgeSizeItem[];
+}
+
+export interface BudgetOverride {
+  key: keyof KnowledgeSizeBudget;
+  value: number;
+  defaultValue: number;
+  hasComment: boolean;
+  line: number;
+}
+
+export interface BudgetOverrideSource {
+  available: boolean;
+  reason?: string;
+  source_path: string;
+  overrides: BudgetOverride[];
 }
 
 export type { TaskKind } from './task-markers.js';
@@ -772,6 +789,72 @@ export function collectKnowledgeSize(
   }
 
   return { available: true, budget, items };
+}
+
+/**
+ * Collect token_budget overrides from .prospec.yaml, utilizing YAML AST to
+ * check for neighboring comments.
+ */
+export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
+  const configPath = path.resolve(cwd, '.prospec.yaml');
+  const content = readContainedText(configPath, cwd);
+  if (!content) {
+    return { available: false, reason: 'source unavailable: .prospec.yaml not found', source_path: '.prospec.yaml', overrides: [] };
+  }
+  
+  let doc;
+  try {
+    doc = parseDocument(content);
+    if (doc.errors.length > 0) throw new Error('yaml parse error');
+    
+    const overrides: BudgetOverride[] = [];
+    const contents = doc.contents;
+    let hasBudgetSection = false;
+    
+    if (isMap(contents)) {
+      const knowledgeNode = contents.get('knowledge', true);
+      if (isMap(knowledgeNode)) {
+        const budgetNode = knowledgeNode.get('token_budget', true);
+        if (isMap(budgetNode)) {
+          hasBudgetSection = true;
+          
+          for (const item of budgetNode.items) {
+            if (!isScalar(item.key) || !isScalar(item.value)) continue;
+            const keyStr = String(item.key.value);
+            if (!(keyStr in DEFAULT_KNOWLEDGE_TOKEN_BUDGET)) continue;
+            
+            const defaultValue = DEFAULT_KNOWLEDGE_TOKEN_BUDGET[keyStr as keyof KnowledgeSizeBudget];
+            const value = Number(item.value.value);
+            
+            if (value > (defaultValue ?? 0)) {
+              const startPos = item.key.range?.[0] ?? 0;
+              const line = content.substring(0, startPos).split('\n').length;
+              const hasComment = !!item.key.commentBefore || !!item.value.comment || !!item.value.commentBefore;
+              
+              overrides.push({
+                key: keyStr as keyof KnowledgeSizeBudget,
+                value,
+                defaultValue,
+                hasComment,
+                line,
+              });
+            }
+          }
+        }
+      }
+    }
+    if (!hasBudgetSection) {
+      return { available: false, reason: 'no knowledge.token_budget section configured', source_path: '.prospec.yaml', overrides: [] };
+    }
+    
+    return {
+      available: true,
+      source_path: '.prospec.yaml',
+      overrides,
+    };
+  } catch {
+    return { available: false, reason: 'source unavailable: failed to parse .prospec.yaml AST', source_path: '.prospec.yaml', overrides: [] };
+  }
 }
 
 /**

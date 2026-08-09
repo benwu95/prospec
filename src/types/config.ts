@@ -52,6 +52,7 @@ const TokenBudgetSchema = z.object({
   demand_knowledge_per_file: z.number().optional(),
   skill_per_file: z.number().optional(),
   reference_per_file: z.number().optional(),
+  headroom: z.number().min(0).max(1).optional(),
 }).optional();
 
 export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
@@ -79,6 +80,7 @@ export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
   demand_knowledge_per_file: 10000,
   skill_per_file: 5000,
   reference_per_file: 2500,
+  headroom: 0.85,
 } as const;
 
 /** Resolved token/line budget (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden by config). */
@@ -97,6 +99,8 @@ export interface KnowledgeSizeBudget {
   skill_per_file: number;
   /** max tokens per generated skill reference — graded only where the project authors skills */
   reference_per_file: number;
+  /** headroom threshold (0.0 to 1.0) before early warning is emitted */
+  headroom: number;
 }
 
 /**

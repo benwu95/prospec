@@ -29,6 +29,7 @@ const EMPTY_RESULT: KnowledgeUpdateResult = {
   readmePending: [],
   generatedFiles: [],
   warnings: [],
+  sweptFiles: [],
 };
 
 /** Module name → its rendered row, as `prospec knowledge update` would write it. */

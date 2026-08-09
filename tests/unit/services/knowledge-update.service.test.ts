@@ -696,7 +696,7 @@ describe('collectAllModules', () => {
 
     // result.deprecated holds the lowercased delta-spec name
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: ['api'], readmePending: [], generatedFiles: [], warnings: [] },
+      { created: [], updated: [], deprecated: ['api'], readmePending: [], generatedFiles: [], warnings: [], sweptFiles: [] },
       '/project/module-map.yaml',
     );
 
@@ -711,7 +711,7 @@ describe('collectAllModules', () => {
     });
 
     const modules = collectAllModules(
-      { created: [], updated: [], deprecated: [], readmePending: [], generatedFiles: [], warnings: [] },
+      { created: [], updated: [], deprecated: [], readmePending: [], generatedFiles: [], warnings: [], sweptFiles: [] },
       '/project/module-map.yaml',
     );
 
@@ -729,6 +729,7 @@ describe('collectAllModules', () => {
         readmePending: [],
         generatedFiles: [],
         warnings: [],
+        sweptFiles: [],
       },
       '/nonexistent/module-map.yaml',
     );
