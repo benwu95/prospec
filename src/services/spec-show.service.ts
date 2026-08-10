@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { isSafeResourceName, listFeatureSpecs, readFeatureSpec } from '../lib/knowledge-reader.js';
+import { isSafeResourceName, listFeatureSpecs, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { indexSpec } from '../lib/spec-headings.js';
 import { renderSpecSlices, selectSpecSlices, type SpecSlice } from '../lib/spec-slices.js';
 import { PrerequisiteError } from '../types/errors.js';
@@ -56,7 +56,8 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
   // One reader, one refusal: `readFeatureSpec` already enforces realpath
   // containment, the `_archived*` exclusion and the resource-name guard, so a
   // traversing or escaped name never reaches the filesystem through this service.
-  const content = readFeatureSpec(featuresDir, options.feature);
+  const loaded = loadFeatureSpecContent(featuresDir, options.feature);
+  const content = loaded ? loaded.specContent : null;
   if (content === null) {
     // Filtered like the MCP listing: naming a spec the read path would refuse
     // anyway makes the refusal an inventory of unreadable files.
@@ -87,7 +88,11 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
   }
 
   if (req.length === 0 && story.length === 0) {
-    return { feature: options.feature, path: relPath, slices: [], misses: [], text: content };
+    let text = typeof content === 'string' ? content : content.main;
+    if (typeof content !== 'string') {
+      text += '\n\n' + Object.values(content.slices).join('\n\n');
+    }
+    return { feature: options.feature, path: relPath, slices: [], misses: [], text };
   }
 
   const selection = selectSpecSlices(content, indexSpec(content, { includeStruck: true }), {

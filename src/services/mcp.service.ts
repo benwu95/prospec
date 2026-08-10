@@ -5,9 +5,9 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import {
   isSafeResourceName,
   listFeatureSpecs,
+  loadFeatureSpecContent,
   loadModuleMap,
   parseIndexModules,
-  readFeatureSpec,
   readFeatureMapRaw,
   readIndex,
   readModuleMapRaw,
@@ -239,8 +239,11 @@ function registerSpecResources(server: McpServer, ctx: McpServerContext): void {
       description: 'Feature spec (REQ source of truth) for one feature',
       mimeType: 'text/markdown',
     },
-    (uri, variables) =>
-      textResource(uri.href, 'text/markdown', readFeatureSpec(ctx.featuresDir, String(variables.name))),
+    (uri, variables) => {
+      const loaded = loadFeatureSpecContent(ctx.featuresDir, String(variables.name));
+      const content = loaded ? (typeof loaded.specContent === 'string' ? loaded.specContent : loaded.specContent.main + '\n\n' + Object.values(loaded.specContent.slices).join('\n\n')) : null;
+      return textResource(uri.href, 'text/markdown', content);
+    }
   );
 }
 
@@ -305,7 +308,8 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       // Same two lib functions the CLI command calls, so the two surfaces cannot
       // answer one question two ways. A resource read stays whole-spec: this is a
       // query, and the SDK cannot express an optional one in a URI template.
-      const content = readFeatureSpec(ctx.featuresDir, feature);
+      const loaded = loadFeatureSpecContent(ctx.featuresDir, feature);
+      const content = loaded ? loaded.specContent : null;
       if (content === null) {
         // The requested name is deliberately NOT echoed: it is caller-supplied text
         // and this result travels as JSON to a client that may print it. The list is

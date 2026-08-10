@@ -13,7 +13,7 @@
 | `template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem |
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it |
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
-| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
+| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
 | `spec-headings.ts` / `spec-slices.ts` | THE feature-spec REQ heading rule, the index over it, and the REQ-scoped read — see the sub-module below |
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
 | `verify-grade.ts` / `review-merge.ts` / `lessons-ledger.ts` / `artifact-validators.ts` | S/A/B/C/D grade table; identity-keyed findings merge (severity max, carry-forward); ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped); artifact structural verdicts (promote-scaffold covers promotion's own product, delta-spec.md, not only the artifacts backfill forbids) |
@@ -24,7 +24,7 @@ The drift engine's 6 files are listed in the sub-module below; the other 16 `.ts
 
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
-- Knowledge/metadata — `loadModuleMap`/`searchModules`, `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
+- Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`, `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
 - Station mechanics — `findTable`/`renderMarkdownTable`/`replaceTableInDocument`, `computeGrade`/`mergeFindings`/`upsertLesson`/`validate*`, `indexSpec`/`selectSpecSlices`/`renderSpecSlices`
 
 ## Dependencies
@@ -51,7 +51,7 @@ The drift engine's 6 files are listed in the sub-module below; the other 16 `.ts
 - `markdown-fences` owns both directions of CommonMark delimiters — `withoutFencedBlocks` + `hasUnclosedFence` for scanners (ONE internal scanner backs both, so they cannot disagree; an open fence masks the whole tail, and a scanner that trusts that mask reads a truncated document — degrade to raw lines instead), `toInlineCodeSpan` for emitters, which COLLAPSES line breaks (a span lives in one paragraph; manifest text, unlike a glob path, can carry one).
 - knowledge-reader owns THE contained read (`readContained` → `absent`/`escaped`/`unreadable`; `isContainedPath` shared with drift-sources) — drift-sources imports FROM it, never the reverse (lib→lib cycle; same for `constitution-parser`/`markdown-fences`). An unreadable content read is absent, but `loadModuleMap`/`loadFeatureMap` stay LOUD (else dependency-direction silently falls back); missing→null, invalid→throw. Enumerated-file reads use `readTextOrSkip`: one unreadable entry costs its line, not the run.
 - `markdown-table.ts`: both consumers (review.md, lessons ledger) once hand-copied it and drifted — a row split ignoring the `\|` its own renderer wrote (PB-006).
-- The REQ-heading rule, the counters and the narrow read share ONE walk — invariants in [Spec Reading](./spec-reading.md).
+- The REQ-heading rule, the counters and the narrow read share ONE walk, which now traverses slice links seamlessly — invariants in [Spec Reading](./spec-reading.md).
 - `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both directions).
 - `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it — a scanner reports a bad record, not throws.
 - Station engines decide, never re-derive policy: `verify-grade` has NO WARN exemption (`not-adjudicated` included — each spends grade A's budget); `lessons-ledger` counts DISTINCT source changes and REFUSES a `retired` row (counters are its only evidence the pattern was real, so an unattended harvest cannot raise them; its playbook marker is case-sensitive and excludes an `UN-RETIRED` annotation, or a revived rule would vanish from the needs-review list); `review-merge` never infers identity from a location — its (location, lens) fallback needs one id-less side, sees pre-round rows only, and drops any row it claims, moves or renames.

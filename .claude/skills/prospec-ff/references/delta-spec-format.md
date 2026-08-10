@@ -61,7 +61,7 @@ New requirements with full details:
 ---
 ```
 
-> **Feature** routes this REQ to `specs/features/{feature-slug}.md` during archive Spec Sync.
+> **Feature** routes this REQ to `specs/features/{feature-slug}.md` (or its automatically resolved sub-module slice) during archive Spec Sync.
 > **Story** links this REQ to the User Story in proposal.md it implements.
 
 **Example:**
@@ -198,7 +198,7 @@ Out of scope for this story. Email notification will be handled by a separate mo
 
 `prospec archive`'s Feature-Spec sync is mechanical: it can copy text, never author it. The
 `**Spec:**` block is the ONE part of a delta-spec entry that lands **verbatim** as the REQ's body in
-`specs/features/{feature-slug}.md`. Write it in spec form — a 1-2 sentence statement of the resulting
+`specs/features/{feature-slug}.md` (or its automatically resolved sub-module slice). Write it in spec form — a 1-2 sentence statement of the resulting
 behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Spec's language**, not the
 change-artifact language (a project whose change artifacts are non-English still lands English spec
 bodies when its Feature Specs are English).

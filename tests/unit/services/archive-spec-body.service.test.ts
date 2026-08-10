@@ -1116,3 +1116,82 @@ describe('syncToFeatureSpecs — dry-run honesty', () => {
     expect(fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8')).toBe(EXISTING_SPEC);
   });
 });
+
+describe('syncToFeatureSpecs — sub-module slices', () => {
+  beforeEach(() => {
+    vol.fromJSON({
+      '/archive/delta-spec.md': deltaSpec(`## MODIFIED
+
+### REQ-QUIZ-001: updated text
+**Feature:** quiz
+**Story:** US-1
+
+**Spec:**
+New body for the slice.
+
+## ADDED
+
+### REQ-QUIZ-003: brand new
+**Feature:** quiz
+**Story:** US-2
+
+**Spec:**
+This belongs in slice B.
+`),
+      '/specs/features/quiz.md': [
+        '---',
+        'feature: Quiz',
+        'story_count: 2',
+        'req_count: 2',
+        '---',
+        '## Slices',
+        '- [A](./quiz/a.md)',
+        '- [B](./quiz/b.md)',
+        '',
+        '## Change History',
+        '| Date | Change |',
+        '|---|---|',
+        '| 2023-01-01 | Initial |',
+      ].join('\n'),
+      '/specs/features/quiz/a.md': [
+        '## US-1: Update feature',
+        '',
+        '#### REQ-QUIZ-001: old',
+        'Old body.',
+        '',
+      ].join('\n'),
+      '/specs/features/quiz/b.md': [
+        '## US-2: New feature',
+        '',
+        '#### REQ-QUIZ-002: existing',
+        'Existing body.',
+        '',
+      ].join('\n'),
+    });
+  });
+
+  it('routes MODIFIED reqs to their existing slice and ADDED reqs to their story\'s slice', async () => {
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change', false);
+    console.log(JSON.stringify(result, null, 2));
+    
+    // It should have touched the main file (Change history) and both slices
+    expect(result.files.sort()).toEqual([
+      '/specs/features/quiz.md',
+      '/specs/features/quiz/a.md',
+      '/specs/features/quiz/b.md'
+    ].sort());
+
+    const main = fs.readFileSync('/specs/features/quiz.md', 'utf-8');
+    expect(main).toContain('demo-change'); // Change History updated
+
+    const sliceA = fs.readFileSync('/specs/features/quiz/a.md', 'utf-8');
+    expect(sliceA).toContain('REQ-QUIZ-001: updated');
+    expect(sliceA).toContain('New body for the slice.');
+    expect(sliceA).not.toContain('Old body.');
+
+    const sliceB = fs.readFileSync('/specs/features/quiz/b.md', 'utf-8');
+    expect(sliceB).toContain('REQ-QUIZ-002: existing'); // kept
+    expect(sliceB).toContain('REQ-QUIZ-003: brand new'); // added
+    expect(sliceB).toContain('This belongs in slice B.');
+  });
+});

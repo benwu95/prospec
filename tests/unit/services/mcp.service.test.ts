@@ -33,6 +33,7 @@ const readFeatureSpec = vi.fn();
 const readProduct = vi.fn();
 const listFeatureSpecs = vi.fn();
 const loadModuleMap = vi.fn();
+const loadFeatureSpecContent = vi.fn();
 const parseIndexModules = vi.fn();
 const searchModules = vi.fn();
 const attachModuleCategories = vi.fn();
@@ -50,7 +51,8 @@ vi.mock('../../../src/lib/knowledge-reader.js', () => ({
   parseIndexModules: (...a: unknown[]) => parseIndexModules(...a),
   searchModules: (...a: unknown[]) => searchModules(...a),
   attachModuleCategories: (...a: unknown[]) => attachModuleCategories(...a),
-  isSafeResourceName: (...a: unknown[]) => isSafeResourceName(...a),
+  isSafeResourceName: (name: string) => /^[a-z0-9-]+$/.test(name),
+  loadFeatureSpecContent: (...a: unknown[]) => loadFeatureSpecContent(...a),
 }));
 
 // --- drift-checker / drift-sources: dependency-direction + health ---------------
@@ -309,24 +311,24 @@ describe('mcp.service knowledge resources', () => {
   });
 });
 
-describe('mcp.service feature-spec resources', () => {
-  it('feature-spec read returns the spec body when present', async () => {
-    readFeatureSpec.mockReturnValue('#### REQ-X-001');
+describe('feature-spec resources', () => {
+    it('feature-spec read returns the spec body when present', async () => {
+      loadFeatureSpecContent.mockReturnValue({ specContent: '#### REQ-X-001', mainFile: 'payments.md' });
     const client = await connectClient();
 
     const res = await client.readResource({ uri: 'spec://feature/payments' });
-    expect(firstText(res).text).toBe('#### REQ-X-001');
-    expect(readFeatureSpec).toHaveBeenCalledWith(CTX.featuresDir, 'payments');
-  });
+      expect(firstText(res).text).toBe('#### REQ-X-001');
+      expect(loadFeatureSpecContent).toHaveBeenCalledWith(CTX.featuresDir, 'payments');
+    });
 
-  it('feature-spec read throws not-found when the spec is missing', async () => {
-    readFeatureSpec.mockReturnValue(null);
+    it('feature-spec read throws not-found when the spec is missing', async () => {
+      loadFeatureSpecContent.mockReturnValue(null);
     const client = await connectClient();
 
     await expect(client.readResource({ uri: 'spec://feature/ghost' })).rejects.toThrow(
       /MCP resource not found/,
     );
-  });
+    });
 
   it('feature-spec list advertises only safe spec names', async () => {
     listFeatureSpecs.mockReturnValue(['payments', '../evil', 'auth']);

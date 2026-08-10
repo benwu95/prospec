@@ -7,6 +7,7 @@ import { FeatureMapSchema, type FeatureMap } from '../types/feature-map.js';
 import type { SearchModulesResult, SearchMatchField } from '../types/mcp.js';
 import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 import { estimateTokens } from './token-accounting.js';
+import { parseSpecSlices, type SpecContent } from './spec-headings.js';
 
 /**
  * Knowledge content read layer (REQ-MCP-006) — whole-document reads for the
@@ -102,6 +103,25 @@ export function readFeatureSpec(featuresDir: string, name: string): string | nul
   const filename = `${name}.md`;
   if (isArchivedSpec(filename)) return null;
   return readContainedText(path.join(featuresDir, filename), featuresDir);
+}
+
+export function loadFeatureSpecContent(featuresDir: string, feature: string): { specContent: SpecContent; mainFile: string } | null {
+  const main = readFeatureSpec(featuresDir, feature);
+  if (main === null) return null;
+  const mainFile = path.join(featuresDir, `${feature}.md`);
+  const slicesList = parseSpecSlices(main);
+  if (slicesList.length === 0) {
+    return { specContent: main, mainFile };
+  }
+  const slices: Record<string, string> = {};
+  for (const sliceName of slicesList) {
+    const resolvedSlice = path.join(featuresDir, feature, `${sliceName}.md`);
+    const sliceContent = readContainedText(resolvedSlice, featuresDir);
+    if (sliceContent !== null) {
+      slices[sliceName] = sliceContent;
+    }
+  }
+  return { specContent: { main, slices }, mainFile };
 }
 
 // Product spec — the PRD entry point at specs/product.md (root is specsPath, the

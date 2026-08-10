@@ -4,9 +4,9 @@ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import { isArchivedSpec, isSafeResourceName, loadModuleMap } from '../lib/knowledge-reader.js';
+import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
-import { matchReqHeading, readSpecCounters } from '../lib/spec-headings.js';
+import { matchReqHeading, readSpecCounters, indexSpec, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
@@ -418,6 +418,18 @@ async function readFeatureRoutes(artifactsDir: string): Promise<FeatureRoute[]> 
   return extractFeatureRoutes(deltaContent);
 }
 
+function determineTargetSlice(route: FeatureRoute, specIndex: SpecIndex): string | null {
+  let slice: string | null = null;
+  if (route.status === 'MODIFIED' || route.status === 'REMOVED') {
+    const req = specIndex.requirements.find((r) => r.id === route.reqId);
+    slice = req?.slice ?? null;
+  } else if (route.status === 'ADDED') {
+    const story = specIndex.stories.find((s) => s.id === route.story);
+    slice = story?.slice ?? null;
+  }
+  return slice;
+}
+
 export async function syncToFeatureSpecs(
   archiveDir: string,
   featuresPath: string,
@@ -469,7 +481,10 @@ export async function syncToFeatureSpecs(
     const fileExists = fs.existsSync(specFile);
 
     if (fileExists) {
-      let content = await fs.promises.readFile(specFile, 'utf-8');
+      const loaded = loadFeatureSpecContent(featuresPath, feature);
+      if (!loaded) continue;
+      let specContent = loaded.specContent;
+      const specIndex = indexSpec(specContent, { includeStruck: true });
       // Tracks whether ANY route actually reached this file. When every route is
       // refused, the frontmatter bump and the Change History row would be the only
       // edits — a file that says "this change touched me" while carrying none of
@@ -484,28 +499,43 @@ export async function syncToFeatureSpecs(
       const fileAcknowledged: DroppedBehavior[] = [];
       const fileStale: StaleDeclaration[] = [];
       const filePending: PendingConvergence[] = [];
+      const modifiedSlices = new Set<string>();
 
       for (const route of featureRoutes) {
+        const targetSlice = determineTargetSlice(route, specIndex);
+        let targetContent = targetSlice
+          ? (specContent as { main: string; slices: Record<string, string> }).slices[targetSlice]!
+          : (typeof specContent === 'string' ? specContent : specContent.main);
+
         if (route.status === 'REMOVED') {
           landedAny = true;
-          content = moveReqToDeprecated(content, route);
+          targetContent = moveReqToDeprecated(targetContent, route);
           // Deprecation only APPENDS a bullet — the REQ's active section (and its
           // pre-removal body, now describing behavior that no longer exists) stays
           // put. Report it, or the graduation gate passes over dead spec text. The
           // probe reads headings at any level: an h4-only probe reported nothing
           // for a spec whose REQs sit elsewhere, leaving dead text unflagged.
-          if (existingReqLevel(content, route.reqId) !== null) {
+          if (existingReqLevel(targetContent, route.reqId) !== null) {
             filePending.push(pendingFor(route, STALE_DEPRECATED_REASON));
           }
         } else {
-          const merged = mergeRequirementInPlace(content, route);
-          content = merged.content;
+          const merged = mergeRequirementInPlace(targetContent, route);
+          targetContent = merged.content;
           if (merged.pending) filePending.push(merged.pending);
           if (merged.drops?.undeclared) fileUndeclared.push(merged.drops.undeclared);
           if (merged.drops?.acknowledged) fileAcknowledged.push(merged.drops.acknowledged);
           if (merged.drops?.stale) fileStale.push(merged.drops.stale);
           if (merged.refused) fileRefusals.push(merged.refused);
           else landedAny = true;
+        }
+
+        if (targetSlice) {
+          (specContent as { main: string; slices: Record<string, string> }).slices[targetSlice] = targetContent;
+          modifiedSlices.add(targetSlice);
+        } else if (typeof specContent === 'string') {
+          specContent = targetContent;
+        } else {
+          specContent.main = targetContent;
         }
       }
 
@@ -539,9 +569,27 @@ export async function syncToFeatureSpecs(
       // Only the routes that landed may claim a Change History row — a no-op today
       // for the same reason, and retained for the same one.
       const landed = featureRoutes.filter((r) => r.truncation === undefined);
-      content = updateFeatureSpecFrontmatter(content, today);
-      content = appendToChangeHistory(content, landed, today, changeName);
-      if (!dryRun) await atomicWrite(specFile, content);
+      
+      if (typeof specContent === 'string') {
+        specContent = updateFeatureSpecFrontmatter(specContent, today);
+        specContent = appendToChangeHistory(specContent, landed, today, changeName);
+        if (!dryRun) await atomicWrite(specFile, specContent);
+      } else {
+        specContent.main = updateFeatureSpecFrontmatter(specContent.main, today);
+        specContent.main = appendToChangeHistory(specContent.main, landed, today, changeName);
+        if (!dryRun) {
+          await atomicWrite(specFile, specContent.main);
+          for (const sliceName of modifiedSlices) {
+            const resolvedSlice = path.resolve(featuresPath, feature, `${sliceName}.md`);
+            await atomicWrite(resolvedSlice, specContent.slices[sliceName]!);
+            updatedFiles.push(resolvedSlice);
+          }
+        } else {
+          for (const sliceName of modifiedSlices) {
+            updatedFiles.push(path.resolve(featuresPath, feature, `${sliceName}.md`));
+          }
+        }
+      }
     } else {
       // A truncated route is refused on the creation path too — landing a fragment
       // into a brand-new spec is the same loss as landing one into an existing
@@ -2483,9 +2531,11 @@ export async function executeFinalize(
   if (fs.existsSync(featuresDir)) {
     for (const entry of fs.readdirSync(featuresDir, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const feature = entry.name.replace(/\.md$/, '');
       const absolute = path.join(featuresDir, entry.name);
-      const content = fs.readFileSync(absolute, 'utf-8');
-      const recount = recountFeatureSpecCounters(content);
+      const loaded = loadFeatureSpecContent(featuresDir, feature);
+      if (!loaded) continue;
+      const recount = recountFeatureSpecCounters(loaded.specContent);
       if (!recount) continue;
       const relFile = path.relative(cwd, absolute).replace(/\\/g, '/');
       if (recount.refusal !== undefined) {
@@ -2559,7 +2609,7 @@ function escapeRegExp(text: string): string {
  * far more often than a fact, and the previous unconditional write put that
  * wrong number into the trust zone silently — where nothing read it again.
  */
-export function recountFeatureSpecCounters(content: string): {
+export function recountFeatureSpecCounters(specContent: SpecContent): {
   content: string;
   changed: boolean;
   from: { story_count: number | null; req_count: number | null };
@@ -2567,10 +2617,11 @@ export function recountFeatureSpecCounters(content: string): {
   /** Set when the rewrite was refused; `content` is then the input, unchanged. */
   refusal?: string;
 } | null {
-  const counters = readSpecCounters(content);
+  const counters = readSpecCounters(specContent);
   if (counters === null) return null;
 
   const { declared: from, actual: to, frontmatter, frontmatterLength, eol } = counters;
+  const content = typeof specContent === 'string' ? specContent : specContent.main;
 
   const zeroed = (['story_count', 'req_count'] as const).filter(
     (field) => (from[field] ?? 0) > 0 && to[field] === 0,
