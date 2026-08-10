@@ -8,6 +8,8 @@
  * inline-code-span emitter and the trailing-newline trim.
  */
 
+import { stripTrailingCr } from './text-lines.js';
+
 /**
  * Trim trailing newlines without a regex.
  *
@@ -97,7 +99,7 @@ function scanFences(lines: string[]): { masked: string[]; unclosed: boolean } {
     // Match against a `\r`-stripped view: `.` never matches `\r` and there is no
     // `m` flag, so a CRLF document's fence lines would not match at all and every
     // fence would read as absent. The ORIGINAL line is what we return.
-    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(line.endsWith('\r') ? line.slice(0, -1) : line);
+    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(stripTrailingCr(line));
     if (m !== null && m[1] !== undefined) {
       const marker = m[1];
       const rest = m[2] ?? '';

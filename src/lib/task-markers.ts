@@ -6,6 +6,8 @@
  * archive disagree on the same file.
  */
 
+import { stripTrailingCr } from './text-lines.js';
+
 export type TaskKind = 'code' | 'manual' | 'verification';
 
 export interface ParsedTaskLine {
@@ -19,7 +21,9 @@ const KIND_MARKER = /^(?:[A-Za-z]{0,3}\d+[a-z]?\s+)?(?:\[P\]\s+)?\[([MV])\]\s/i;
 
 /** Parse one tasks.md line; null when it is not a checkbox task line. */
 export function parseTaskLine(line: string): ParsedTaskLine | null {
-  const m = CHECKBOX.exec(line);
+  // Callers hand over raw lines (several of them re-join and write the file back),
+  // so the CRLF tolerance is applied to the matched VIEW only.
+  const m = CHECKBOX.exec(stripTrailingCr(line));
   const mark = m?.[1];
   const rest = m?.[2];
   if (mark === undefined || rest === undefined) return null;

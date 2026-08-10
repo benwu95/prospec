@@ -1,7 +1,7 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-03
+last_updated: 2026-08-10
 story_count: 4
 req_count: 13
 ---
@@ -94,7 +94,7 @@ After `prospec-learn` Score, read the `prospec-report.json` file: stale modules 
 - WHEN fixture corpus, THEN well-formed + scenarios distinguishable (not relying on real archives)
 
 #### REQ-CLI-030: `prospec learn upsert` Ledger Engine
-`prospec learn upsert --lesson <file>` executes the ledger's mechanical half. The skill decides whether an occurrence is the same lesson — the `key` — and hands it over as JSON (`key`, `description`, `kind`, `source_change`, `impact_modules`); the CLI performs the keyed upsert, increments `frequency` only for a **distinct** `source_change` (incremented, never recomputed by re-scanning), unions `source_changes`/`impact_modules`, applies the `freq≥3 ∧ modules≥2` rule with a reproducible audit string, renders the canonical table through the shared `lib/markdown-table` while preserving the surrounding prose, and lists playbook entries past their TTL review-by date — parsed per `### ` entry block, skipping any block that carries a retirement marker. A `retired` ledger row is refused rather than raised: no counter moves, nothing is unioned, and the refusal is reported. `references/promotion-format` remains the format authority the parser follows, and the thresholds stay overridable via `.prospec.yaml` `learn.thresholds`.
+`prospec learn upsert --lesson <file>` executes the ledger's mechanical half. The skill decides whether an occurrence is the same lesson — the `key` — and hands it over as JSON (`key`, `description`, `kind`, `source_change`, `impact_modules`); the CLI performs the keyed upsert, increments `frequency` only for a **distinct** `source_change` (incremented, never recomputed by re-scanning), unions `source_changes`/`impact_modules`, applies the `freq≥3 ∧ modules≥2` rule with a reproducible audit string, renders the canonical table through the shared `lib/markdown-table` while preserving the surrounding prose, and lists playbook entries past their TTL review-by date — parsed per `### ` entry block located through the shared line-ending primitive, skipping any block that carries a retirement marker. A `retired` ledger row is refused rather than raised: no counter moves, nothing is unioned, and the refusal is reported. `references/promotion-format` remains the format authority the parser follows, and the thresholds stay overridable via `.prospec.yaml` `learn.thresholds`.
 - WHEN the same key is upserted from an already-recorded source change, THEN it is idempotent: metadata unions, `frequency` does not increment, and no duplicate row appears
 - WHEN a lesson qualifies, THEN only a `personal` row advances to `suggest-promote` (`promoted`/`declined`/`retired` are never revisited, so a declined lesson is not re-suggested) and the suggestion carries the reproducible detail `frequency=N · impact_modules=M · kind=… · rule=…`
 - WHEN `impact_modules` names a module absent from `module-map.yaml`, THEN it is dropped from scoring with a warning; with no module-map at all the list is used as supplied and flagged unverifiable
@@ -102,6 +102,7 @@ After `prospec-learn` Score, read the `prospec-report.json` file: stale modules 
 - WHEN a playbook entry carries a retirement marker, THEN it is absent from the TTL needs-review report however far past its review-by date it is — a settled decision is never re-opened — while a live sibling entry in the same file past its own date is still reported
 - WHEN a lesson is upserted onto a row whose `status` is `retired`, THEN the command reports `unchanged`, leaves `frequency`/`source_changes`/`impact_modules` untouched and warns naming the key — the refusal is mechanical for every writer that goes through this command, which is both stations (learn Collect and archive Phase 4.5, whose harvest invokes it rather than hand-editing the table); recording the occurrence in `description`, or un-retiring the row, stays a human act
 - WHEN a playbook line carries `UN-RETIRED` alongside `RETIRED`, THEN it is NOT read as a retirement marker — a live entry's retire-then-revive provenance keeps the entry on the TTL report; the marker is the upper-case `- **RETIRED {date}**` line, matched case-sensitively
+- WHEN the playbook is read with CRLF line endings, THEN its entry blocks are located exactly as in the LF form, so a live entry past its review-by date is still reported and a retirement marker still excludes a settled one
 
 ---
 
@@ -187,6 +188,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-10 | unify-line-splitting | MODIFIED REQ-CLI-030 | REQ-CLI-030 |
 | 2026-08-03 | add-learn-staleness-sweep | ADDED REQ-TEMPLATES-174; MODIFIED REQ-TEMPLATES-071; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-CLI-030; MODIFIED REQ-TESTS-024; MODIFIED REQ-TEMPLATES-128; MODIFIED REQ-TYPES-024 | US-4 (MODIFIED), REQ-TEMPLATES-174, REQ-TEMPLATES-071, REQ-TEMPLATES-072, REQ-CLI-030, REQ-TESTS-024, REQ-TEMPLATES-128, REQ-TYPES-024 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-030 | REQ-CLI-030 |
 | 2026-06-08 | add-feedback-promotion-pipeline | Establish the G6 feedback promotion pipeline: collect → auditable decision → human-approved three-tier promotion → governance | US-1~4; REQ-TYPES-024, REQ-TEMPLATES-069/070/071/072, REQ-TESTS-024 |

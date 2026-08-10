@@ -412,6 +412,45 @@ describe('CLI E2E', () => {
       const { exitCode } = await runCli(['status']);
       expect(exitCode).not.toBe(0);
     });
+
+    // End to end over the real artifacts a Windows checkout produces
+    // (the Git for Windows installer sets `core.autocrlf=true` and this repo ships
+    // no `.gitattributes`): both the router and the drift engine read tasks.md, and
+    // both used to see an empty task list under CRLF.
+    it('routes and checks a CRLF task list exactly like its LF form', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'crlf-test' }),
+      );
+      await runCli(['init', '--name', 'crlf-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'add-feature', '--description', 'CRLF routing e2e']);
+      await runCli(['change', 'scale', 'quick']);
+      await runCli(['change', 'tasks']);
+
+      const tasksPath = path.join(tmpDir, '.prospec', 'changes', 'add-feature', 'tasks.md');
+      const TASKS = ['- [x] T1 done', '- [ ] T2 pending', '- [ ] T3 [M] manual', ''].join('\n');
+      const taskCompletion = async (): Promise<unknown> => {
+        await runCli(['check', '--json']);
+        const report = JSON.parse(
+          await fs.promises.readFile(path.join(tmpDir, 'prospec-report.json'), 'utf-8'),
+        ) as { structural: { checks: { id: string; status: string }[] } };
+        return report.structural.checks.find((c) => c.id === 'task-completion');
+      };
+
+      await fs.promises.writeFile(tasksPath, TASKS);
+      const lfStatus = await runCli(['status']);
+      const lfCheck = await taskCompletion();
+
+      await fs.promises.writeFile(tasksPath, TASKS.replace(/\n/g, '\r\n'));
+      const crlfStatus = await runCli(['status']);
+      const crlfCheck = await taskCompletion();
+
+      expect(crlfStatus.stdout).toBe(lfStatus.stdout);
+      expect(crlfCheck).toEqual(lfCheck);
+      // Anti-vacuity: both sides would also agree on "no tasks parsed at all".
+      expect(lfStatus.stdout).toContain('1/2');
+      expect(lfCheck).toBeDefined();
+    });
   });
 
   describe('prospec spec show', () => {

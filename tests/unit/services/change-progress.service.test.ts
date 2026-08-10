@@ -56,6 +56,25 @@ describe('change-progress service', () => {
     expect(written).toContain('- [ ] T3 implement widget.service ~50 lines');
   });
 
+  // The CRLF tolerance is in the MATCHER, never in the line source: this station
+  // splits, edits one line and joins the file back, so stripping `\r` at the split
+  // would normalise every untouched line of the user's file on a single checkbox
+  // flip. Before the matcher was fixed the same file threw "contains no checkbox
+  // tasks" instead.
+  it('flips one checkbox in a CRLF task list and leaves every other line byte-identical', async () => {
+    const crlf = TASKS.replace(/\n/g, '\r\n');
+    seed(crlf);
+    const result = await execute({ cwd: CWD, complete: 'T2' });
+    expect(result.progress).toEqual({ checked: 2, total: 3 });
+    // Reported text is the matched view — no stray carriage return reaches the user.
+    expect(result.completedTask).toBe('T2 [P] widen the config type ~10 lines');
+
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toBe(crlf.replace('- [ ] T2', '- [x] T2'));
+    // Negative assertion: not one line ending was rewritten to a bare LF.
+    expect(/(?<!\r)\n/.test(written)).toBe(false);
+  });
+
   it('falls back to a 1-based ordinal over all tasks when no ID token matches', async () => {
     seed(TASKS.replace(/T\d+ /g, ''));
     const result = await execute({ cwd: CWD, complete: '2' });

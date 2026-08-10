@@ -17,6 +17,8 @@
  * parses back differently than it was written.
  */
 
+import { stripTrailingCr } from './text-lines.js';
+
 /** The prefix every marker in this grammar shares — the collision guard's key. */
 export const EVIDENCE_MARKER_PREFIX = '<!-- prospec:evidence';
 
@@ -56,16 +58,11 @@ const BLOCK_OPEN_RE = new RegExp(
   `^${EVIDENCE_MARKER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\S.*?)\\s*-->$`,
 );
 
-/** Drop a trailing CR so a marker comparison survives a CRLF checkout (issue #140). */
-function withoutCr(line: string): string {
-  return line.endsWith('\r') ? line.slice(0, -1) : line;
-}
-
 function trimBlankEdges(lines: string[]): string[] {
   let start = 0;
   let end = lines.length;
-  while (start < end && withoutCr(lines[start]!).trim() === '') start++;
-  while (end > start && withoutCr(lines[end - 1]!).trim() === '') end--;
+  while (start < end && stripTrailingCr(lines[start]!).trim() === '') start++;
+  while (end > start && stripTrailingCr(lines[end - 1]!).trim() === '') end--;
   return lines.slice(start, end);
 }
 
@@ -184,7 +181,7 @@ export function splitEvidenceSection(content: string): {
   after: string;
 } {
   const lines = content.split('\n');
-  const sectionAt = lines.findIndex((l) => withoutCr(l).trim() === EVIDENCE_SECTION_MARKER);
+  const sectionAt = lines.findIndex((l) => stripTrailingCr(l).trim() === EVIDENCE_SECTION_MARKER);
   if (sectionAt === -1) return { before: content, blocks: new Map(), after: '' };
 
   const blocks = new Map<string, EvidenceBlock>();
@@ -204,7 +201,7 @@ export function splitEvidenceSection(content: string): {
 
   const sectionLines = lines.slice(sectionAt + 1);
   const endAt = sectionLines.findIndex(
-    (l) => withoutCr(l).trim() === EVIDENCE_SECTION_END_MARKER,
+    (l) => stripTrailingCr(l).trim() === EVIDENCE_SECTION_END_MARKER,
   );
   const blockLines = endAt === -1 ? sectionLines : sectionLines.slice(0, endAt);
 
@@ -214,7 +211,7 @@ export function splitEvidenceSection(content: string): {
   // block on the next write, which is the very loss `after` exists to prevent.
   let legacyAfterFrom: number | undefined;
   for (const [index, raw] of blockLines.entries()) {
-    const line = withoutCr(raw);
+    const line = stripTrailingCr(raw);
     const open = BLOCK_OPEN_RE.exec(line.trim());
     if (open?.[1] !== undefined) {
       close();
