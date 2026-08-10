@@ -1,9 +1,9 @@
 ---
 feature: token-measurement
 status: active
-last_updated: 2026-07-05
-story_count: 4
-req_count: 12
+last_updated: 2026-08-09
+story_count: 5
+req_count: 13
 ---
 
 # Token Measurement Harness
@@ -125,7 +125,22 @@ So that a keyless environment can also track context-assembly scale, and is no l
 - WHEN the report is missing, THEN it points to the offline production command; if the schema does not match → it shows a validation error and does not output a partial table
 - WHEN reviewing the output, THEN no "below threshold"-style verdict appears (only the numbers are presented)
 
----
+### US-5: Context budget projection report [P1]
+
+As an agent developer,
+I want `prospec measure` to provide a "per-change projection" mode,
+So that I can see the actual context floor overhead required for each change.
+
+**Acceptance Scenarios:**
+- WHEN I run the projection measurement command (e.g., `prospec measure --project-workflow standard`), THEN it outputs the estimated token budget report including SKILL.md, references, L1, affected L2, and feature specs
+- WHEN the report is output, THEN its values should reflect the actual floor
+- WHEN I pass `scale: quick`, THEN the report correctly omits unnecessary stations (like plan) and displays a lower token floor
+
+#### REQ-MEASURE-013: Per-Change Context Projection Mode
+The CLI command `prospec measure` provides a `--project-workflow <scale>` mode to project the token floor of a change.
+- WHEN `--project-workflow standard` is run, THEN it outputs a categorical breakdown and total token estimation for the full standard change workflow (including L1, L2, station SKILLs, references, and feature specs)
+- WHEN `--project-workflow quick` is run, THEN the token projection omits stations that are skipped in a quick change (e.g., plan)
+
 
 ## Edge Cases
 
@@ -159,6 +174,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-09 | add-per-change-context-report-to-measure | ADDED REQ-MEASURE-013 | REQ-MEASURE-013 |
 | 2026-06-11 | add-token-measurement-harness | New Feature: multi-provider token measurement harness + read-only report CLI | US-1~3, REQ-MEASURE-001~007 |
 | 2026-06-11 | reorder-stable-prefix-loading | before/after comparison procedure (including the attribution deliberate-exclusion boundary) + glossary assembly variant | REQ-MEASURE-008~009 (ADDED) |
 | 2026-07-05 | unlock-measurement | Offline size-estimation mode: context-assembly scale can be tracked even without an API key (SizeReportSchema independent of MeasurementReport, harness `--offline` produces size-report.json, `prospec measure --offline` read-only display, honesty boundary with no threshold; LiteLLM evaluated but not adopted, continuing with the char/4 heuristic) (issue #61) | US-4; REQ-MEASURE-010~012 (ADDED) |
