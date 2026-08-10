@@ -25,13 +25,17 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 **Verify**: Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
 
 ---
-### [MUST] Atomic Commits by Feature
+### [MUST] Atomic Commits and Format Requirements
 
-**Description**: Each independent functional unit is committed on completion. A commit contains exactly one feature or one fix — never unrelated changes mixed together.
+**Description**: Each independent functional unit is committed on completion. A commit contains exactly one feature or one fix — never unrelated changes mixed together. Furthermore, every commit message MUST adhere to these strict formatting requirements:
+- Follow Conventional Commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
+- Both subject and body MUST be written in English.
+- The commit body MUST be formatted as a bulleted list; prose paragraphs are prohibited.
+- Do NOT include AI co-authorship attribution (e.g., `Co-authored-by:`).
 
-**Rationale**: Atomic commits keep version history clean and traceable, simplify reverts, and make code review easier. Mixed commits make debugging and rollback difficult.
+**Rationale**: Atomic commits keep version history clean and traceable. A strict, predictable commit format ensures uniform changelogs, avoids prose bloat in `git log`, and keeps the focus entirely on the technical "what" and "why".
 
-**Verify**: Each commit follows Conventional Commits (`feat:`/`fix:`/`refactor:`/`test:`/`docs:`/`chore:`); messages (subject and body) are in English; the body is a bulleted list, not prose paragraphs; a single commit holds one concern; no AI co-authorship attribution.
+**Verify**: Each commit holds one concern; follows Conventional Commits; messages are entirely in English; bodies are bulleted lists; no AI co-authorship attribution.
 
 ---
 ### [MUST] User Stories Follow INVEST
@@ -93,13 +97,29 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 **Verify**: `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. The root-README check enumeration matches `DRIFT_CHECK_IDS`.
 
 ---
+### [MUST] Pre-Merge CI Checks
+
+**Description**: All changes MUST pass the same suite of checks enforced by GitHub Actions CI before merging. This includes:
+1. **Linting**: `pnpm run lint`
+2. **Type Checking**: `pnpm run typecheck`
+3. **Tests & Coverage**: `pnpm run test:coverage` (with ≥ 80% coverage)
+4. **Factual Counts**: `pnpm run counts:check`
+5. **Agent Templates**: `pnpm run agents:check`
+6. **Project Drift**: `prospec check --strict`
+
+**Rationale**: Running these checks locally or verifying them in CI prevents broken code or drifted documentation from entering the `main` branch. It ensures that all project invariants (types, linting, tests, counts, agent configurations, and knowledge health) remain strictly enforced.
+
+**Verify**: The CI workflow passes successfully on the pull request. For local verification, all of the listed `pnpm` and `prospec` commands exit with code 0.
+
+---
 
 <!-- Add your own principles below. Tag each with [MUST] / [SHOULD] / [MAY] so verify can grade them. -->
 
 ## Constraints
 
 - [x] Change artifacts (`.prospec/changes/`, `.prospec/archive/`, `specs/_archived-history/`) are written in Traditional Chinese (Taiwan); the trust zone stays English (exempt, minus the named exceptions)
-- [x] No mixed commits across unrelated features; commit messages in English; bulleted bodies; no AI co-authorship
+- [x] Commits are atomic by feature; follow Conventional Commits; messages in English; bodies are bulleted lists; no AI co-authorship
+- [x] All changes MUST pass CI parity checks (`lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, `prospec check --strict`) before merge
 - [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
 - [x] Dependency direction is `cli → services → lib → types` — no reverse or circular imports
@@ -113,6 +133,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 - **Testing**: All public functions have unit tests; coverage ≥ 80%
 - **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; both root READMEs (`README.md` + `README.zh-TW.md`) kept current and at parity with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
+- **Pre-Merge Checks**: Code MUST pass `lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, and `prospec check --strict`
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
 - **Counts**: `pnpm counts` for machine-owned tallies; `pnpm counts:check` in CI; hand-maintained counts (module file counts, spec frontmatter, README check enumeration) re-derived from source at each sync point
 
