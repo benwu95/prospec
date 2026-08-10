@@ -1198,6 +1198,57 @@ describe('CLI E2E', () => {
       expect(stderr).toContain('Measurement report not found');
       expect(stderr).toContain('measure:tokens');
     });
+
+    it('projects offline budget when --project-workflow is used', async () => {
+      // Set up a fake project and a change
+      await fs.promises.rm(path.join(tmpDir, '.prospec.yaml'), { force: true });
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'workflow-test' }),
+      );
+      await runCli(['init', '--name', 'workflow-test', '--agents', 'claude']);
+      
+      const changeName = 'feat-workflow';
+      const storyRes = await runCli(['change', 'story', changeName, '--description', 'test workflow scale']);
+      
+      if (storyRes.exitCode !== 0) {
+        console.error('STORY STDERR:', storyRes.stderr);
+        console.error('STORY STDOUT:', storyRes.stdout);
+      }
+      expect(storyRes.exitCode).toBe(0);
+      
+      const changeDir = path.join(tmpDir, '.prospec', 'changes', changeName);
+      
+      try {
+        await fs.promises.access(changeDir);
+      } catch {
+        const changesLs = await fs.promises.readdir(path.join(tmpDir, '.prospec', 'changes')).catch(() => []);
+        console.error('LS .prospec/changes:', changesLs);
+        console.error('STORY STDOUT:', storyRes.stdout);
+      }
+      
+      // Inject some metadata to hit the modules/specs logic
+      const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+      await fs.promises.writeFile(
+        path.join(changeDir, 'metadata.yaml'),
+        metadata + 'related_modules:\n  - core\n',
+      );
+      
+      await fs.promises.writeFile(
+        path.join(changeDir, 'delta-spec.md'),
+        '**Feature:** my-feature\n',
+      );
+
+      const { stdout, exitCode, stderr } = await runCli([
+        'measure', '--project-workflow', 'standard', '--change', changeName
+      ]);
+      
+      expect(stderr).toBe('');
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Scale: standard');
+      expect(stdout).toContain('L1 (Constitution, etc.)');
+      expect(stdout).toContain('Total Projected Budget');
+    });
   });
 
   describe('unknown command', () => {

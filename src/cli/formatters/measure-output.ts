@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { MeasureResult, SizeMeasureResult } from '../../services/measure.service.js';
-import type { BaselineComparison, ProviderRun } from '../../types/measurement.js';
+import type { BaselineComparison, ProviderRun, ProjectionReport } from '../../types/measurement.js';
 import { AGENT_PROVIDER_MAP } from '../../types/measurement.js';
 import { sanitizeTerminal } from './sanitize.js';
 
@@ -130,6 +130,37 @@ export function formatSizeOutput(
   }
 
   lines.push(pc.dim('Deterministic char-based size estimate (no tokenizer, no API). Cache behavior and $ cost require a provider API key and are NOT part of this report.'));
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+export function formatProjectionOutput(
+  report: ProjectionReport,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const lines: string[] = [];
+  lines.push(pc.bold('Token Budget Projection (offline)'));
+  lines.push(`Scale: ${pc.cyan(sanitizeTerminal(report.scale))}`);
+  lines.push('');
+  lines.push(`    ${'Category'.padEnd(25)}${'Items'.padStart(8)}${'Est. Tokens'.padStart(15)}`);
+  
+  const addRow = (name: string, cat: { count: number; tokens: number }) => {
+    lines.push(`    ${name.padEnd(25)}${num(cat.count).padStart(8)}${num(cat.tokens).padStart(15)}`);
+  };
+  
+  addRow('L1 (Constitution, etc.)', report.l1);
+  addRow('L2 (Module READMEs)', report.l2);
+  addRow('Skills (SKILL.md)', report.skills);
+  addRow('References', report.references);
+  addRow('Feature Specs', report.specs);
+  lines.push('');
+  // 25 + 8 + 15 = 48 total width. Padding adjustments:
+  // "Total Projected Budget" = 22 chars. 48 - 22 = 26.
+  lines.push(`    ${pc.bold('Total Projected Budget'.padEnd(33))}${pc.bold(num(report.total_tokens).padStart(15))}`);
+  lines.push('');
+  lines.push(pc.dim('Numbers are deterministic char-based size estimates (no tokenizer, no API).'));
 
   process.stdout.write(lines.join('\n') + '\n');
 }

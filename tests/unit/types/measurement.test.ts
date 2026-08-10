@@ -4,6 +4,7 @@ import {
   MeasurementReportSchema,
   SizeReportSchema,
   TaskMeasurementSchema,
+  ProjectionReportSchema,
 } from '../../../src/types/measurement.js';
 
 describe('TaskMeasurementSchema reason invariant', () => {
@@ -97,3 +98,30 @@ describe('MeasurementReportSchema is unchanged by the size-report addition', () 
     expect(r.success).toBe(false);
   });
 });
+
+describe('ProjectionReportSchema', () => {
+  const validProjection = {
+    scale: 'standard',
+    l1: { count: 3, tokens: 3000 },
+    l2: { count: 2, tokens: 2000 },
+    skills: { count: 7, tokens: 7000 },
+    references: { count: 5, tokens: 5000 },
+    specs: { count: 2, tokens: 2000 },
+    total_tokens: 19000,
+  };
+
+  it('accepts a well-formed projection report', () => {
+    const r = ProjectionReportSchema.safeParse(validProjection);
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects an invalid scale', () => {
+    expect(ProjectionReportSchema.safeParse({ ...validProjection, scale: 'unknown' }).success).toBe(false);
+  });
+
+  it('rejects negative token counts', () => {
+    const bad = { ...validProjection, l1: { count: 1, tokens: -100 } };
+    expect(ProjectionReportSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
