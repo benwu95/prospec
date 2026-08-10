@@ -17,7 +17,7 @@
 | `check.service.ts` | Drift-check orchestration — collectors → evaluators → report (stamps `change_digest`); non-check modes (json/init-ci/record-review/record-tests/escaped-defects); every collector goes through a canonical resolver, never a re-derived path |
 | `mcp.service.ts` / `status.service.ts` / `spec-show.service.ts` | The read-only surfaces — `src/services/mcp.service.ts` registers 8 resources + 3 tools (full path so `mcp-readme-counts` audits the line); SDD routing and the REQ-scoped Feature Spec read sit beside it. See the Read-only Queries sub-module |
 
-Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`, `measure`, `print-template`, `config-example`. README/index **content** is skill judgment (`/prospec-knowledge-generate`) — no service generates it.
+Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`, `measure` (projects context budget via `--project-workflow`), `print-template`, `config-example`. README/index **content** is skill judgment (`/prospec-knowledge-generate`) — no service generates it.
 
 ## Public API
 

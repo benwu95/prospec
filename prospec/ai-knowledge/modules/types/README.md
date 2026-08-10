@@ -23,7 +23,7 @@ Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `versi
 
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views; lifecycle ordering
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
-- `DriftReportSchema` / `MeasurementReportSchema` — drift report + offline measurement schemas
+- `DriftReportSchema` / `MeasurementReportSchema` / `ProjectionReportSchema` — drift report, offline measurement, and context projection schemas
 - `ReviewFindingSchema` / `LessonInputSchema` — station I/O: reviewer findings, lesson upsert
 - `INDEX_TABLE_COLUMNS` — the canonical `index.md` column schema every emitter and parser derives from
 - `ProspecError` — base error (code + suggestion, optional `cause`)

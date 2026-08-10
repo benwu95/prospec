@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHANGE_SCALES } from './change.js';
 
 /**
  * Token measurement schemas — validates measurement-report.json
@@ -151,6 +152,24 @@ export const SizeReportSchema = z.object({
   comparisons: z.array(SizeBaselineComparisonSchema),
 });
 
+export const PROJECT_WORKFLOW_SCALES = CHANGE_SCALES;
+
+export const ProjectionCategorySchema = z.object({
+  tokens: z.number().int().nonnegative(),
+  count: z.number().int().nonnegative(),
+});
+
+export const ProjectionReportSchema = z.object({
+  scale: z.enum(PROJECT_WORKFLOW_SCALES),
+  l1: ProjectionCategorySchema,
+  l2: ProjectionCategorySchema,
+  skills: ProjectionCategorySchema,
+  references: ProjectionCategorySchema,
+  specs: ProjectionCategorySchema,
+  total_tokens: z.number().int().nonnegative(),
+});
+
+
 export type MeasurementProvider = (typeof MEASUREMENT_PROVIDERS)[number];
 export type AssemblyStrategy = (typeof ASSEMBLY_STRATEGIES)[number];
 export type MeasurementBaseline = (typeof MEASUREMENT_BASELINES)[number];
@@ -166,3 +185,8 @@ export type SizeStrategyEstimate = z.infer<typeof SizeStrategyEstimateSchema>;
 export type SizeTaskEstimate = z.infer<typeof SizeTaskEstimateSchema>;
 export type SizeBaselineComparison = z.infer<typeof SizeBaselineComparisonSchema>;
 export type SizeReport = z.infer<typeof SizeReportSchema>;
+
+
+export type ProjectWorkflowScale = (typeof PROJECT_WORKFLOW_SCALES)[number];
+export type ProjectionCategory = z.infer<typeof ProjectionCategorySchema>;
+export type ProjectionReport = z.infer<typeof ProjectionReportSchema>;

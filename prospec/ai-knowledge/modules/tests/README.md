@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 148 test files, 3,602 tests (unit 2657, contract 820, integration 45, e2e 80)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 148 test files, 3,607 tests (unit 2661, contract 820, integration 45, e2e 81)).
 
 <!-- prospec:auto-start -->
 
@@ -11,7 +11,7 @@
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`), service and formatter; heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` (19) | Format, registry and trust-zone pins rendered from the real templates — see [Contract Guards](./contract-guards.md). |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
-| `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |
+| `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure incl. projection, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |
 | `tests/fixtures/` | `startup-loading-baseline.json` (71 loading items), `token-corpus/` (12 task descriptions), `lessons-harvest/` (synthetic archived corpus). |
 
 ## Public API

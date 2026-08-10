@@ -13,6 +13,8 @@ vi.mock('node:fs', async () => {
   return { ...memfs.fs, default: memfs.fs };
 });
 
+
+
 const validReport: MeasurementReport = {
   corpus: 'sdd-tasks-v1',
   git_commit: 'abc1234def5678',
@@ -233,3 +235,40 @@ describe('measure.service executeOffline', () => {
     await expect(executeOffline({ cwd: '/proj' })).rejects.toThrow(MeasurementReportInvalid);
   });
 });
+
+describe('measure.service executeProjection', () => {
+  it('projects token budget by scanning files based on metadata.yaml scale', async () => {
+    // Setup virtual filesystem with the required files
+    vol.fromJSON({
+      '/proj/.prospec/changes/my-change/metadata.yaml': `
+name: my-change
+created_at: 2026-08-09T00:00:00.000Z
+status: implemented
+scale: standard
+related_modules:
+  - cli
+      `,
+      '/proj/.prospec/changes/my-change/delta-spec.md': `
+**Feature:** token-measurement
+      `,
+      '/proj/prospec/index.md': 'L1 Index',
+      '/proj/prospec/ai-knowledge/_conventions.md': 'L1 Conventions',
+      '/proj/prospec/ai-knowledge/modules/cli/README.md': 'CLI Module L2',
+      '/proj/prospec/specs/features/token-measurement.md': 'Feature Spec Content',
+      '/proj/.agents/skills/prospec-implement/SKILL.md': 'Implement Skill',
+      '/proj/.agents/skills/prospec-implement/references/ref1.md': 'Reference Content',
+    });
+
+    const { executeProjection } = await import('../../../src/services/measure.service.js');
+    const result = await executeProjection({ cwd: '/proj', change: 'my-change' });
+
+    expect(result.scale).toBe('standard');
+    expect(result.l1.count).toBe(2); // index.md and _conventions.md found
+    expect(result.l2.count).toBe(1);
+    expect(result.specs.count).toBe(1);
+    expect(result.skills.count).toBe(1);
+    expect(result.references.count).toBe(1);
+    expect(result.total_tokens).toBeGreaterThan(0);
+  });
+});
+

@@ -1,7 +1,8 @@
 import type { Command } from 'commander';
-import { execute, executeOffline } from '../../services/measure.service.js';
-import { formatMeasureOutput, formatSizeOutput } from '../formatters/measure-output.js';
+import { execute, executeOffline, executeProjection } from '../../services/measure.service.js';
+import { formatMeasureOutput, formatSizeOutput, formatProjectionOutput } from '../formatters/measure-output.js';
 import { handleError } from '../formatters/error-output.js';
+import { resolveChange } from '../../services/change-resolver.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 
@@ -22,12 +23,22 @@ export function registerMeasureCommand(program: Command): void {
     .description('Display the token measurement report (read-only)')
     .option('--report <path>', 'Report file path (default: measurement-report.json, or size-report.json with --offline)')
     .option('--offline', 'Display the keyless offline size estimate (size-report.json) instead of the API measurement report')
-    .action(async (options: { report?: string; offline?: boolean }) => {
+    .option('--project-workflow [scale]', 'Project token budget for a single change workflow, without requiring a report file')
+    .option('--change <name>', 'Change name to project budget for (required with --project-workflow if ambiguous)')
+    .action(async (options: { report?: string; offline?: boolean; projectWorkflow?: boolean | string; change?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
-        if (options.offline) {
+        if (options.projectWorkflow) {
+          const cwd = process.cwd();
+          const changeName = await resolveChange(cwd, options.change, logLevel === 'quiet', 'Select a change to project token budget:');
+          const result = await executeProjection({
+            projectWorkflow: options.projectWorkflow,
+            change: changeName,
+          });
+          formatProjectionOutput(result, logLevel);
+        } else if (options.offline) {
           const result = await executeOffline({ reportPath: options.report });
           formatSizeOutput(result, logLevel);
         } else {
