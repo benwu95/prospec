@@ -41,4 +41,5 @@
 - A same-input-twice comparison is a tautology — `knowledge-format`'s order-independence pin renders TWO orderings of one file list and compares those.
 - A `--dry-run` flag bound to the wrong Commander scope still prints the preview while writing, so the pin must be "writes NOTHING", not "prints a preview".
 - Two references contradicting each other stays invisible while this project's authors happen to follow one of them — `spec-sync-corpus.test.ts` exists because that happened.
+- **A section slicer must not stop at a heading inside a code fence.** `skill-format`'s `sectionOf` keyed its boundary on `^#{2,3} ` over raw lines, so the moment `review-format.hbs` gained a fenced example containing `## Evidence`, two live assertions silently sliced half a section — and passed on the surviving half. Boundary detection runs over fence-MASKED lines while the body comes from the raw ones (and an unclosed fence degrades to raw lines, `markdown-fences`' own rule). Any format reference that shows headings in an example is exposed to this.
 - A disjunction hides a dead half: pin each clause separately, or deleting either side stays green.

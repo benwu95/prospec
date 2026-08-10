@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3615%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3745%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -562,8 +562,8 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change status <to> [--change <name>]` | forward-only 生命週期轉換；逆向／非法跳躍會被拒絕並列出合法目標 |
 | `prospec change log --skill <station> --result <PASS\|WARN\|FAIL> [--warning <w>...] [--grade <g>] [--dimension n=r...] [--criticals-found <n>] ...` | 附加一筆結構化 `quality_log`（固定鍵序，逸出由程式保證） |
 | `prospec change progress [--complete <task>] [--change <name>]` | code-task 進度（X/Y，`[M]`/`[V]` 不計分母）＋下一個任務；`--complete` 只勾選指定的一項 |
-| `prospec review merge --findings <file> [--change <name>]` | 把一輪 review findings JSON 合併進累積 review.md 表（identity 鍵、severity 取最大、跨輪保留）並回報該輪結構化計數 |
-| `prospec verify record --dimension <name>=<result>... [--warning <w>...]` | 計算 S/A/B/C/D 評分 —— machine 維度自讀 `prospec-report.json` drift 報告（其 `test-provenance` check 承載已記錄的測試執行）、judgment 維度來自旗標 —— 寫入結構化 quality_log，S/A 時前進 `status: verified` |
+| `prospec review merge --findings <file> [--change <name>]` | 把一輪 review findings JSON 合併進累積 review.md 表（identity 鍵、severity 取最大、跨輪保留），把每個 finding 的 `repro` 欄與 `evidence` 全文落進該工件，並回報該輪計數與 critical 的有界摘要 |
+| `prospec verify record --dimension <name>=<result>... \| --dimensions <file> [--warning <w>...]` | 計算 S/A/B/C/D 評分 —— machine 維度自讀 `prospec-report.json` drift 報告（其 `test-provenance` check 承載已記錄的測試執行）、judgment 維度來自旗標或 `--dimensions` JSON 檔（後者可另帶各維度的 evidence，追加進 `verify.md`）—— 寫入結構化 quality_log，S/A 時前進 `status: verified` |
 | `prospec learn upsert --lesson <file> [--today <date>]` | lessons-ledger 的 keyed 冪等 upsert＋明文 `freq≥3 ∧ modules≥2` 計分規則（可稽核 detail）＋playbook TTL 掃描 |
 | `prospec validate <kind> [target] [--change <name>]` | artifact 結構的機器判定：`slug`／`promote-scaffold`（完整）與 `backfill-draft`／`design-spec`（結構子集 —— 章節、標頭、NC 位置）；FAIL 時 exit 1 |
 
@@ -778,8 +778,8 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（66 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 19 個 reference 範本
+└── templates/    — Handlebars 範本（67 個 .hbs 檔案）
+    └── skills/   — 17 個 Skill 範本 + 22 個 reference 範本
 ```
 
 ### Tech Stack
@@ -797,7 +797,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3615 個測試）
+# 執行所有測試（3745 個測試）
 pnpm test
 
 # Watch 模式
@@ -810,11 +810,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3615 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2668 tests
-- Contract tests（CLI 輸出 + Skill 格式）：821 tests
+**測試覆蓋率**：3745 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2784 tests
+- Contract tests（CLI 輸出 + Skill 格式）：832 tests
 - Integration tests：45 tests
-- E2E tests：81 tests
+- E2E tests：84 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

@@ -29,6 +29,12 @@ export function formatVerifyRecordOutput(
     lines.push(`Warnings (${result.warnings.length}):`);
     for (const w of result.warnings) lines.push(`  - ${sanitizeTerminal(w)}`);
   }
+  // Named, never inlined: the grader's evidence went to an artifact precisely so
+  // it does not travel back through a context. Telling the developer where it
+  // landed is the whole report it gets here.
+  if (result.evidencePath !== undefined) {
+    lines.push(`Judgment evidence: ${pc.cyan(sanitizeTerminal(result.evidencePath))}`);
+  }
   const changeName = sanitizeTerminal(result.changeName);
   // Distinguish "already verified" from "grade too low" — a re-run at S/A must
   // not read as a failed gate.

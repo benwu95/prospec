@@ -3,6 +3,7 @@ import {
   withoutFencedBlocks,
   hasUnclosedFence,
   toInlineCodeSpan,
+  trimTrailingNewlines,
 } from '../../../src/lib/markdown-fences.js';
 
 /**
@@ -175,5 +176,33 @@ describe('hasUnclosedFence', () => {
     // the heading the caller would look for is masked away, which is exactly why
     // the caller must ask this question before trusting the mask
     expect(withoutFencedBlocks(lines)).toEqual(['a', '', '', '', '']);
+  });
+});
+
+describe('trimTrailingNewlines', () => {
+  it.each([
+    ['no trailing newline', 'a\nb', 'a\nb'],
+    ['one', 'a\n', 'a'],
+    ['several', 'a\n\n\n', 'a'],
+    ['CRLF', 'a\r\n\r\n', 'a'],
+    ['all newlines', '\n\n', ''],
+    ['empty', '', ''],
+  ])('trims %s', (_label, input, expected) => {
+    expect(trimTrailingNewlines(input)).toBe(expected);
+  });
+
+  it('is linear in the length of an interior newline run', () => {
+    // `replace(/\n+$/, '')` backtracks quadratically here: `evidence` is
+    // deliberately uncapped, so one payload with a long blank stretch made every
+    // later append take tens of seconds. Doubling the run must not quadruple the
+    // time — assert against a wall-clock ceiling a quadratic scan cannot meet.
+    const run = (n: number): number => {
+      const s = `x\n${'\n'.repeat(n)}b\n`;
+      const started = performance.now();
+      expect(trimTrailingNewlines(s)).toBe(`x\n${'\n'.repeat(n)}b`);
+      return performance.now() - started;
+    };
+    run(50_000);
+    expect(run(200_000)).toBeLessThan(1_000);
   });
 });

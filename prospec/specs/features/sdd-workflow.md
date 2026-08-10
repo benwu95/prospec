@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-09
-story_count: 35
-req_count: 187
+last_updated: 2026-08-10
+story_count: 36
+req_count: 197
 ---
 
 # SDD Workflow
@@ -654,6 +654,7 @@ so that critical issues are caught before being graded "deployable", without man
 `references/review-format.md` defines the severity criteria and review.md structure. critical = real defect/security + dependency-direction violation + logical contradiction with a delta-spec REQ (completeness left to verify); major = perf/maintainability (does not block, downgraded to WARN, not counted toward grade); nit dropped.
 - WHEN referenced, THEN it includes the three-tier criteria + auto-fix boundary + review.md fields (location/severity/lens/status) + reviewer-lens definitions
 - WHEN referenced, THEN it states the identity rule the merge command implements — the id is the reviewer's, an unknown id opens a new row unless the row it would land on carries no id either, and an omitted id costs cross-round tracking (keying on location+lens against pre-round rows) without ever collapsing two id-less findings of one round into a single row
+- WHEN referenced, THEN it documents the two surfaces `review.md` gained — the table's `Repro` column and the marker-anchored evidence section carrying each finding's full prose — and defers the relayed-field ceilings to the shared delegated-evidence reference rather than restating the numbers, so the contract has one set of values
 
 #### REQ-TEMPLATES-068: Unified Commit Boundary After verify(S/A)
 The commit boundary is unified to after "the last gate that could require changing code" = after verify reaches S/A; implement defers commit, and verify **prompts the user** to commit after S/A (folding implement+review+verify fixes into a single atomic-by-feature commit); **prospec does not auto-commit**.
@@ -1209,6 +1210,133 @@ Coverage spans every path the registration travels: schema acceptance with and w
 
 ---
 
+
+## US-36: Delegated Evidence Stays in the Artifact, Not in the Context [P1]
+
+As a developer running `/prospec-review` or `/prospec-verify`,
+I want a delegated reviewer or grader to hand back a claim, a re-runnable command and a file path — never the prose that argued for its finding,
+so that confirming a finding exists costs one command instead of a paragraph, and the argument itself survives in the artifact rather than in a context that is about to be discarded.
+
+Delegating to a fresh context buys independence and saves the SEARCH cost — the sub-agent reads the files itself. What it does not save is the RESULT: an unbounded return payload carries the whole argument back, and the argument's job was to let the orchestrator confirm, once, that the finding is real. After that confirmation only two things matter, and neither is prose.
+
+**Acceptance Scenarios:**
+- WHEN a delegated agent reports a round, THEN it writes the payload — evidence included — to a file and returns only that path plus the counts or verdicts, and the command's own report is what the orchestrator acts on
+- WHEN a finding is a critical, THEN it carries a command that shows the defect, because existence is confirmed by running something rather than by reading a paragraph
+- WHEN a round is accepted, THEN each finding's command lands in the findings table and its prose lands verbatim in the artifact, both cumulative across rounds — a later round that reports a status must not erase the reason the finding was raised
+- WHEN any relayed field is over its ceiling, spans lines, or carries the artifact's own block grammar, THEN the whole round is refused before a byte is written and the artifact is left byte-identical
+- WHEN the artifact is rebuilt, THEN the region between its section markers belongs to the command and everything below the closing marker is handed back — a boundary inferred from content is forgeable by quoting that content
+
+**Independent Test:**
+Give a round evidence prose carrying a distinctive marker string, then compare the command's output against the artifact: the marker appears in the artifact and nowhere in the output. Append a sentence below the closing marker and merge again — it survives.
+
+### Behavior Specifications
+
+#### REQ-TYPES-081: Relayed-field ceilings and the finding's evidence half
+`types/station.ts` carries one registry — `RELAYED_FIELD_MAX_CHARS` — for every field a delegated reviewer or grader relays back to the orchestrating context, and the review finding gains the two fields that make a bounded relay possible: `repro`, a re-runnable command, and `evidence`, the full prose that is written to the artifact instead of returned.
+- WHEN a relayed field exceeds its ceiling, THEN validation fails and the failure names the field, its actual length and the ceiling
+- WHEN a field is rendered outside a table cell — a digest line, or the raw line anchoring an evidence block — THEN it is a relayed field and carries a ceiling: the set is `id`, `location`, `summary`, `repro`, `lens`, because a line break in `lens` mints a digest line carrying a fabricated `repro:` the review loop is told to run, and one in `id` mints a second evidence block under another finding's anchor
+- WHEN `evidence` is supplied at any length, THEN it is accepted — it never enters a return payload, so no ceiling applies to it
+- WHEN a relayed field contains a line break, THEN it is refused: each is rendered either as one table cell — whose writer collapses line breaks, so the value would not survive a re-read — or as one raw line, where a break forges structure
+- WHEN a finding's severity is `critical`, THEN `repro` is required: a command the orchestrator can run is what replaces the prose it no longer receives
+- WHEN a finding carries `repro` or `evidence`, THEN `id` is required — the artifact anchors an evidence block by that id, so evidence without one has nowhere to land
+- WHEN a judgment dimension verdict arrives as structured input, THEN it is validated against the same ceilings as a finding, so the two stations cannot drift into two payload contracts
+
+---
+
+
+#### REQ-LIB-049: One evidence-block grammar, shared by both artifacts
+`lib/delegated-evidence.ts` owns the evidence-block grammar — the section and per-block markers, rendering, parsing and marker-collision detection — as an I/O-free module every artifact writer calls, so `review.md` and `verify.md` cannot grow two hand-copied grammars the way the pipe-table engine once did.
+- WHEN prose is offered to an artifact, THEN one guard covers the whole grammar because every marker shares one prefix — which is what lets a caller check once and refuse before writing, instead of producing a document that parses back differently than it was written
+- WHEN a document carrying an evidence section is parsed, THEN the section is located by its MARKER rather than by the `## Evidence` heading, and the content preceding it is returned separately — evidence routinely quotes headings and tables, so a locator keyed on prose would split the document at text a reviewer merely cited
+- WHEN the block set is empty, THEN the rendered section is the empty string rather than a bare heading — a round with no evidence leaves the artifact it would have decorated unchanged
+- WHEN a CRLF artifact is parsed, THEN each preserved prose line is stored without its carriage return, so re-rendering emits one line ending rather than a mix and `render → split → render` stays byte-identical
+- WHEN a block's closing marker is absent, THEN end of input closes it, so a truncated artifact keeps its prose rather than losing it to the missing marker
+- WHEN a document is split, THEN whatever follows the section's CLOSING marker is returned alongside the blocks, so a caller that rebuilds the section can put it back — the review skill mandates appending an artifact-language sentence there, and rebuilding without it deleted content the contract required
+- WHEN the section's end is determined, THEN it comes from an explicit closing marker and never from a property of the content: a hand-written tail can open with a block marker exactly as a real block does, so any boundary inferred from the text can be forged by quoting it, and the forged block then replaces the evidence the artifact recorded
+- WHEN a section heading is supplied by a caller, THEN it is refused if it carries a line break or a marker — it is a raw line like a block's anchor, and being a parameter is precisely why it needs the same refusal
+- WHEN the artifact is read back, THEN what it holds is trusted: recovering evidence across rounds IS reading the artifact, and no text file distinguishes the writer's own lines from a hand edit — so the section's start is located by content, a hand-written marker can hijack it, and the boundary is stated rather than defended, exactly as the findings table's rows have always been trusted. The guarded path is the incoming payload, which is where an unbounded relay would have injected
+- WHEN a block is offered for rendering, THEN the module names the first field that cannot be emitted as a raw line — its anchor, its heading, or a marker in its prose — so the caller refuses before writing rather than producing a document that parses back as different structure
+- WHEN trailing newlines are trimmed during document assembly, THEN it is done by a linear scan: the regex form backtracks quadratically in the length of any newline run, and `evidence` is uncapped by design
+
+---
+
+
+#### REQ-LIB-050: Evidence is cumulative across review rounds
+`lib/review-merge` treats a row's `repro` and `evidence` as cumulative state rather than per-round input: a later round that re-reports a finding without them keeps what the artifact already holds, and the rendered evidence section follows table-row order so the document is a function of the merged rows alone.
+- WHEN a round supplies `evidence` for a finding, THEN that row's evidence is replaced by the incoming text
+- WHEN a finding carries `repro`, THEN it lands in the table's own `Repro` column rather than inside the evidence prose, so it survives a re-parse through the same escaping the table already round-trips exactly — the evidence section then holds prose only, which round-trips as raw lines
+- WHEN a round re-reports a finding and omits `evidence`, THEN the row keeps the evidence recorded when the finding was first raised — a fix round reports a status, and must not erase the reason the finding existed
+- WHEN rows are rendered, THEN evidence blocks appear in table-row order, so block order is derived from the table rather than from the order the blocks happened to be parsed in
+- WHEN the same round is merged twice, THEN the whole document — table and evidence section alike — is byte-identical
+
+---
+
+
+#### REQ-SERVICES-086: `review merge` lands evidence, and refuses before writing
+The `review merge` service performs every refusal before the first byte reaches disk — the relayed-field ceilings and their single-line rule, the required `repro` on a critical, the required `id` behind evidence, and a marker in ANY field that reaches a raw evidence line (the prose and the `id` anchoring it alike) — and only then writes `review.md` once, so a refused round leaves the artifact exactly as it found it.
+- WHEN a round is refused for any reason, THEN `review.md` is byte-identical afterwards, and a file that did not exist is not created
+- WHEN a round is accepted, THEN each finding's `repro` lands in the table's `Repro` column and its `evidence` lands verbatim in the document's evidence section, so the artifact holds both halves the reviewer did not relay
+- WHEN the service returns, THEN its result carries this round's criticals as a bounded digest (id, location, lens, summary, repro) plus the number of evidence blocks the document now holds, so the caller can report the round without re-reading the findings file
+
+---
+
+
+#### REQ-SERVICES-087: `verify record` appends judgment evidence to `verify.md`
+The `verify record` service accepts the judgment dimensions' evidence as optional structured input and appends it to `verify.md` under a heading carrying the run's date and grade, while the grade computation and the `quality_log` entry it serializes stay exactly as they were — the metadata records the verdict, the artifact records why.
+- WHEN evidence is supplied, THEN the `quality_log` entry carries the same field set it carried before this contract existed: a dimension's evidence lands in `verify.md`, never in `metadata.yaml`
+- WHEN the command runs more than once for a change, THEN each run appends its own dated, graded section rather than overwriting the previous one — the same append semantics `quality_log` already has, so a re-verify after fixes does not erase the reasoning that graded it lower
+- WHEN no judgment dimension carries prose at all — no evidence, no summary, no repro — THEN no `verify.md` is written, so a change graded without prose is not given an empty artifact
+- WHEN a run's section is appended, THEN it is opened by the shared section MARKER rather than delimited by its `## {date} — grade {G}` heading alone, so grader evidence quoting a previous run cannot forge a phantom graded entry in the audit record
+- WHEN the run is recorded, THEN `metadata.yaml` is written BEFORE `verify.md`: a failure on the authoritative write must not leave a dated, graded evidence section for a run that has no `quality_log` entry
+
+---
+
+
+#### REQ-CLI-037: `review merge` reports the round as a bounded digest
+The `review merge` command's output is the orchestrating context's whole intake for a review round: it names the artifact it wrote, how many evidence blocks that artifact now holds, the round's counts, and — for each critical — the finding's id, location, lens, summary and the command that reproduces it.
+- WHEN a round contains criticals, THEN each one is printed as a claim line plus its `repro` line, which is what lets the caller verify the finding exists by running a command instead of by reading a paragraph
+- WHEN the round carried evidence, THEN the evidence prose does not appear in the output — the artifact holds it and the output names the artifact
+- WHEN any finding-supplied text is printed, THEN it passes through the shared terminal sanitizer, because a finding's location and summary are free-form text written by an agent
+
+---
+
+
+#### REQ-CLI-038: `verify record --dimensions <file>` carries the verdicts and their evidence
+`prospec verify record` takes the judgment verdicts either as repeated `--dimension name=result` flags or as a single `--dimensions <file>` JSON array whose entries may also carry that dimension's summary, repro and evidence — one round has one verdict source, so supplying both is refused.
+- WHEN both the repeatable flag and the file are given, THEN the command refuses with a usage error naming BOTH options, rather than silently preferring one — the conflict is declared to the argument parser, so the refusal reads as the usage mistake it is instead of as an unexpected internal error
+- WHEN only the repeatable flag is given, THEN behaviour is unchanged and no `verify.md` is written, so the smaller grammar stays available for a change whose verdicts need no prose
+- WHEN the file is given AND any dimension carries prose, THEN the output names the `verify.md` it wrote alongside the grade, so the developer is told where the judgment evidence went; a prose-free run writes no file and names none
+
+---
+
+
+#### REQ-TEMPLATES-180: One reference defines the delegated-payload contract for both stations
+A single reference — deployed to both `prospec-review` and `prospec-verify` — defines what a delegated reviewer or grader returns and what it writes: the relayed fields and their ceilings, the evidence-block format the artifacts carry, and the forms a `repro` may take.
+- WHEN either station is synced, THEN the reference is deployed alongside it, so the contract has one text and neither station teaches a private version of it
+- WHEN the reference is read, THEN it states that a round's relayed size is the per-finding ceiling times the number of findings, and that findings are never dropped or merged to fit a budget — the ceiling bounds each finding's prose, never the set of defects reported
+- WHEN the reference describes `repro`, THEN it admits a read-only probe (a failing-test invocation, or a command that displays the cited code) as well as an executable reproduction, so a finding reached by inspection can still name a command the reader runs
+- WHEN the reference describes a fixed finding, THEN it states that the same `repro` re-run after the fix is what shows the fix worked, so the field stays useful past the round that raised it
+
+---
+
+
+#### REQ-TEMPLATES-181: Both stations return a path, never the evidence prose
+The review and verify skills instruct a delegated agent to write its findings or dimension verdicts — evidence included — to a file and to return only that file's path together with the counts or verdict lines, and each skill's NEVER list forbids relaying evidence prose through the return payload.
+- WHEN the review loop verifies a critical before auto-fixing it, THEN it runs that finding's `repro` and reads the cited code, rather than relying on prose the reviewer relayed
+- WHEN either skill is rendered, THEN it tells the agent to write the payload file and return its path, and points at the shared delegated-evidence reference for the ceilings instead of restating them in the stable prefix
+- WHEN either skill is rendered, THEN its NEVER list forbids returning evidence prose to the orchestrating context, because an unbounded relay is what made the delegation cost the context it was meant to save
+
+---
+
+
+#### REQ-TESTS-082: The payload contract is guarded at every layer it crosses
+Every layer the payload contract crosses carries its own guard: the block grammar and the carry-forward in unit tests, the refusals in service tests that assert the artifact is byte-identical afterwards, the bounded output in formatter tests that assert the evidence prose is absent, the reference deployment in a contract test derived from the reference registry, and the two commands in end-to-end tests against the compiled CLI.
+- WHEN a refusal is tested, THEN the assertion covers the artifact's bytes as well as the exit path, because a refusal that still wrote is the failure mode worth catching
+- WHEN the reference deployment is tested, THEN the expected set is derived from the reference registry rather than written as a literal, so adding a station to the contract cannot leave the test asserting the old pair
+- WHEN the bounded output is tested, THEN the assertion is that the evidence text does not appear, which is the property the whole contract exists to produce
+
+---
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -1720,7 +1848,7 @@ Four `prospec change` subcommands take over the `metadata.yaml` and `tasks.md` m
 - WHEN `change progress --complete <id|ordinal>` runs, THEN exactly one checkbox flips (an already-checked task is a no-op) and the reported X/Y denominator counts code tasks only — unchecked `[M]`/`[V]` tasks are surfaced as reminders, never counted or blocking
 
 #### REQ-CLI-028: `prospec review merge` Merges the Cumulative Findings Table
-The `review.md` findings table is merged by the CLI. The reviewer supplies one round's findings as JSON, **including each finding's identity** — code edits shift line numbers, so "is this the same finding as last round" is judgment, expressed by reusing the prior round's `id`; the CLI never infers identity from a location string. The `(location, lens)` fallback is reachable only where one side volunteers no identity — an incoming finding that carries none, or a candidate row written before ids existed — never merely because an id lookup missed. Given that input the bookkeeping is mechanical: merge by identity, escalate severity to the maximum, carry existing rows forward so a resolved finding is never re-raised, and render one canonical table through the shared `lib/markdown-table`. The round's `criticals_found`/`criticals_fixed`/`majors` counts are derived from the round's findings and feed `change log`.
+The `review.md` findings table is merged by the CLI. The reviewer supplies one round's findings as JSON, **including each finding's identity** — code edits shift line numbers, so "is this the same finding as last round" is judgment, expressed by reusing the prior round's `id`; the CLI never infers identity from a location string. The `(location, lens)` fallback is reachable only where one side volunteers no identity — an incoming finding that carries none, or a candidate row written before ids existed — never merely because an id lookup missed. Given that input the bookkeeping is mechanical: merge by identity, escalate severity to the maximum, carry existing rows forward so a resolved finding is never re-raised, persist each finding's `repro` and `evidence` into the document's evidence section, and render one canonical table through the shared `lib/markdown-table`. The round's `criticals_found`/`criticals_fixed`/`majors` counts are derived from the round's findings and feed `change log`.
 - WHEN a finding reuses a prior round's `id`, THEN it updates that row, wherever the location has drifted to
 - WHEN a finding carries an id no row holds yet, THEN it opens a new row even if an existing row shares its `(location, lens)` — the one exception is the first unclaimed pre-round row at that key carrying no id at all, which that new id adopts (the pre-ids legacy shape)
 - WHEN two findings in one round carry the same id, THEN they update one row — reusing an id asserts sameness, so the second finding's status and summary win rather than opening a row
@@ -1731,13 +1859,20 @@ The `review.md` findings table is merged by the CLI. The reviewer supplies one r
 - WHEN a merged row already carries a higher severity than the incoming finding, THEN the higher one is kept (severity only ever escalates)
 - WHEN a pre-existing hand-written review.md is read, THEN its legacy shape parses (column aliases, missing ID/Summary tolerated) and the prose around the table is preserved
 - WHEN the same round is merged twice, THEN the rendered table is byte-identical
+- WHEN a finding carries a repro, THEN it lands in the table's `Repro` column — a seventh column a legacy table simply lacks, so an existing review.md still parses
+- WHEN a finding carries evidence, THEN the merge writes it into the document's marker-anchored evidence section under that finding's id, so the artifact keeps the full prose the reviewer no longer relays
+- WHEN a relayed field exceeds its ceiling, a critical arrives without a repro, or evidence text contains an evidence-block marker, THEN the command refuses the whole round before any byte is written and `review.md` stays byte-identical
+- WHEN the round is reported, THEN the output carries each critical's id, location, lens, summary and repro — and never the evidence prose, so the orchestrating context verifies existence by running a command rather than by reading a paragraph
 
 #### REQ-CLI-029: `prospec verify record` Grades and Records the Verify Verdict
-The verify decision table runs as code and the machine ledger self-sources. `verify record` accepts only the three judgment verdicts (`delta-spec-compliance`, `constitution`, `design`) plus the budget-counted WARN strings; the machine dimensions (`task-completion`, `knowledge`, `tests`) are read by the CLI from `prospec-report.json` — 5/5 from its `test-provenance` check, which is itself the reader of metadata `test_provenance` — and an LLM's relay of an engine verdict is refused outright. It computes the S/A/B/C/D grade, derives the gate three-state `result`, serializes the `dimensions`/`quality_log` entry, and on S/A advances `status: verified`. There is no engine-unavailability exemption class: every WARN counts against grade A's budget.
+The verify decision table runs as code and the machine ledger self-sources. `verify record` accepts only the three judgment verdicts (`delta-spec-compliance`, `constitution`, `design`) plus the budget-counted WARN strings — as repeated `--dimension` flags, or as one `--dimensions` file that may also carry each dimension's summary, repro and evidence; the machine dimensions (`task-completion`, `knowledge`, `tests`) are read by the CLI from `prospec-report.json` — 5/5 from its `test-provenance` check, which is itself the reader of metadata `test_provenance` — and an LLM's relay of an engine verdict is refused outright. It computes the S/A/B/C/D grade, derives the gate three-state `result`, serializes the `dimensions`/`quality_log` entry, and on S/A advances `status: verified`. There is no engine-unavailability exemption class: every WARN counts against grade A's budget.
 - WHEN `prospec-report.json` is absent, or its `change_digest` does not match the current code state, THEN the command refuses and names `prospec check --record-tests` then `prospec check --json` as the fix — a report older than the last edit never grades the current code; when the digest is not computable at all (no git repository) the freshness guard skips honestly rather than blocking
 - WHEN the judgment input is not exactly the three judgment dimensions, THEN it refuses: a dimension that does not apply is passed as `not-applicable`, never omitted, and a machine dimension may not be passed at all
 - WHEN the grade is B/C/D, THEN `status` is unchanged; WHEN S/A, THEN the `quality_log` entry and the status advance land in one atomic write
 - WHEN a machine check honestly skipped, THEN its dimension is recorded `not-adjudicated` and the emitted WARN embeds that check's own skip reason, so the recorded warnings are the complete budget ledger
+- WHEN the verdicts arrive as a `--dimensions` file, THEN each dimension's evidence is appended to `verify.md` under a dated, graded heading while the `quality_log` entry keeps exactly the fields it carried before — evidence belongs to the artifact, never to the metadata
+- WHEN both the repeatable flag and the file are given, THEN the command refuses with a usage error naming both options — one round has one verdict source — and refuses again in the service, so a programmatic caller cannot bypass the grammar
+- WHEN only the repeatable flag is given, THEN behaviour is unchanged and no `verify.md` is written
 
 #### REQ-CLI-031: `prospec validate <kind>` Reports Artifact Structure Verdicts
 One command carries the artifact checks the backfill / promote / design skills used to narrate, with the machine/judgment boundary drawn explicitly per kind: `slug` and `promote-scaffold` are **complete** verdicts; `backfill-draft` and `design-spec` report the **structural subset** and the skill applies the semantic rules over those facts. A failing verdict exits 1, like `check --strict`.
@@ -1793,6 +1928,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-10 | separate-review-evidence | ADDED REQ-TYPES-081; ADDED REQ-LIB-049; ADDED REQ-LIB-050; ADDED REQ-SERVICES-086; ADDED REQ-SERVICES-087; ADDED REQ-CLI-037; ADDED REQ-CLI-038; ADDED REQ-TEMPLATES-180; ADDED REQ-TEMPLATES-181; ADDED REQ-TESTS-082; MODIFIED REQ-CLI-028; MODIFIED REQ-CLI-029; MODIFIED REQ-TEMPLATES-067 | REQ-TYPES-081, REQ-LIB-049, REQ-LIB-050, REQ-SERVICES-086, REQ-SERVICES-087, REQ-CLI-037, REQ-CLI-038, REQ-TEMPLATES-180, REQ-TEMPLATES-181, REQ-TESTS-082, REQ-CLI-028, REQ-CLI-029, REQ-TEMPLATES-067 |
 | 2026-08-09 | add-issue-link-field | ADDED REQ-TYPES-080; ADDED REQ-LIB-047; ADDED REQ-LIB-048; ADDED REQ-SERVICES-085; ADDED REQ-CLI-036; ADDED REQ-TEMPLATES-178; ADDED REQ-TEMPLATES-179; ADDED REQ-TESTS-081; MODIFIED REQ-CLI-023 | REQ-TYPES-080, REQ-LIB-047, REQ-LIB-048, REQ-SERVICES-085, REQ-CLI-036, REQ-TEMPLATES-178, REQ-TEMPLATES-179, REQ-TESTS-081, REQ-CLI-023 |
 | 2026-08-08 | read-specs-by-req | ADDED REQ-LIB-046; ADDED REQ-SERVICES-084; ADDED REQ-CLI-035; ADDED REQ-TEMPLATES-176; ADDED REQ-TEMPLATES-177; ADDED REQ-TESTS-080 | REQ-LIB-046, REQ-SERVICES-084, REQ-CLI-035, REQ-TEMPLATES-176, REQ-TEMPLATES-177, REQ-TESTS-080 |
 | 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TESTS-079; ADDED REQ-SERVICES-081; ADDED REQ-CLI-034; ADDED REQ-SERVICES-083; ADDED REQ-TESTS-077; MODIFIED REQ-SERVICES-072; MODIFIED REQ-SERVICES-073; MODIFIED REQ-CLI-032; MODIFIED REQ-CLI-033; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-TEMPLATES-168; MODIFIED REQ-SPEC-010; MODIFIED REQ-TESTS-070 | REQ-TESTS-079, REQ-SERVICES-081, REQ-CLI-034, REQ-SERVICES-083, REQ-TESTS-077, REQ-SERVICES-072, REQ-SERVICES-073, REQ-CLI-032, REQ-CLI-033, REQ-TEMPLATES-166, REQ-TEMPLATES-168, REQ-SPEC-010, REQ-TESTS-070 |

@@ -36,7 +36,7 @@ A finding is critical only if it is one of:
 
 ## Auto-Fix Boundary
 
-Only a critical that is **confirmed to exist** (by an independent verifier citing Evidence) **and** has a **concrete, local, drop-in** fix is auto-applied to the working tree. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
+Only a critical that is **confirmed to exist** — by running its `repro` and reading the cited code, with an independent verifier's `[confirmed]` verdict — **and** has a **concrete, local, drop-in** fix is auto-applied to the working tree. A `critical` therefore always carries a `repro`: the confirmation is an execution, not a reading of relayed prose. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
 
 ---
 
@@ -49,17 +49,36 @@ Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The 
 ```markdown
 # Review Findings: {change-name}
 
-| ID | Location | Severity | Lens | Status | Summary |
-|---|---|---|---|---|---|
-| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | off-by-one in loop bound |
-| F-2 | src/services/bar.ts:88 | major | maintainability | proposed | duplicated matcher |
+| ID | Location | Severity | Lens | Status | Summary | Repro |
+|---|---|---|---|---|---|---|
+| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | off-by-one in loop bound | pnpm vitest run tests/unit/lib/foo.test.ts -t 'bound' |
+| F-2 | src/services/bar.ts:88 | major | maintainability | proposed | duplicated matcher |  |
+
+<!-- prospec:evidence-section -->
+## Evidence
+
+<!-- prospec:evidence F-1 -->
+### F-1
+
+read foo.ts:38-46 — the `<=` bound overruns when n === len.
+<!-- prospec:evidence-end -->
+<!-- prospec:evidence-section-end -->
 ```
 
-- **Summary prose follows the artifact language** the Constitution's Language Policy assigns to
-  `.prospec/changes/**` — the same rule the change's other artifacts obey. Keep file paths,
-  identifiers, API names, and the Severity/Lens/Status enums in English; write the Summary sentence
-  in the artifact language. (The CLI is language-agnostic: whatever the findings JSON carries is what
-  lands in the table.)
+- **Two surfaces carry the finding's evidence half.** `Repro` is a table column — one command, so it
+  rides the same `\|` escaping the table already round-trips exactly. The prose lives in the
+  marker-anchored `## Evidence` section below, keyed by finding `id`. Both are cumulative across
+  rounds: a round that re-reports a finding without them keeps what the artifact holds, because a fix
+  round reports a status and must not erase the reason the finding existed. A round with no evidence
+  writes no section at all. The two markers delimit a CLI-owned region — a sentence of your own (the artifact-language summary a clean round must carry) goes BELOW the closing marker, and the merge puts it back on every write. The relayed-field ceilings, the `repro` forms and the payload contract
+  behind all of this are in [`delegated-evidence-format.md`](delegated-evidence-format.md) — this
+  document does not restate the numbers, so there is one set of them.
+
+- **Summary and evidence prose follow the artifact language** the Constitution's Language Policy
+  assigns to `.prospec/changes/**` — the same rule the change's other artifacts obey. Keep file paths,
+  identifiers, API names, the `Repro` command, and the Severity/Lens/Status enums in English; write
+  the Summary sentence and the evidence in the artifact language. (The CLI is language-agnostic:
+  whatever the findings JSON carries is what lands in the artifact.)
 - **A claim of mutation verification must name the mutations.** When a finding's Summary asserts
   that an assertion was (or was not) mutation-verified, it states each mutation applied and whether
   that mutation turned the test red. This governs the reviewer's own output, not the change: an

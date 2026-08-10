@@ -18,6 +18,8 @@ import {
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
+import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
+import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
   CHANGE_STATUSES,
   PROVENANCE_AUDITED_STATUSES,
@@ -25,7 +27,7 @@ import {
 } from '../../src/types/change.js';
 import { SDD_STATIONS } from '../../src/types/status.js';
 import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
-import { withoutFencedBlocks } from '../../src/lib/markdown-fences.js';
+import { withoutFencedBlocks, hasUnclosedFence } from '../../src/lib/markdown-fences.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 import { bootstrapProductSpec } from '../../src/services/archive.service.js';
 
@@ -48,6 +50,12 @@ const TEMPLATE_CONTEXT = {
   // trio written out here left four fields undefined, which Handlebars renders as
   // the empty string — so a template naming a new budget stayed green.
   ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+  // The delegated-payload ceilings agent-sync injects, spread for the same reason
+  // as the budget above: a new relayed field must reach the fixture without a
+  // second edit here, or its row renders empty and no assertion can miss it.
+  ...Object.fromEntries(
+    Object.entries(RELAYED_FIELD_MAX_CHARS).map(([f, m]) => [`relayed_max_${f}`, m]),
+  ),
   // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
   // fixture models a fully-capable harness so the default renders exercise the
   // primary path; the degraded branch is rendered explicitly where it is asserted.
@@ -74,11 +82,22 @@ const RUNTIME_FALLBACK_SENTINEL = 'Should a spawn fail at runtime';
 const NO_SPAWN_SENTINEL = 'no sub-agent primitive';
 
 // slice from the heading line to the next ##/### heading; guard non-empty (PB-001)
+//
+// The boundary is decided on FENCE-MASKED lines while the body comes from the raw
+// ones. A format reference legitimately shows a `## …` heading inside a fenced
+// example (review-format.md's evidence section is one), and a slicer that stopped
+// at it truncated the very section it was asked for — silently, so the
+// assertions that ran against the stub still passed on the surviving half. When a
+// fence is left open the mask hides the whole tail, so the honest move is to stop
+// trusting it and fall back to raw lines (markdown-fences' own rule).
 const sectionOf = (content: string, heading: string): string => {
-  const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // match to the next ##/### heading, or end-of-file for a trailing section
-  const re = new RegExp(`^${esc}[^\\n]*\\n([\\s\\S]*?)(?=^#{2,3} |(?![\\s\\S]))`, 'm');
-  const body = re.exec(content)?.[1] ?? '';
+  const lines = content.split('\n');
+  const probe = hasUnclosedFence(lines) ? lines : withoutFencedBlocks(lines);
+  const start = probe.findIndex((l) => l.startsWith(heading));
+  expect(start, `section not found: ${heading}`).toBeGreaterThanOrEqual(0);
+  let end = start + 1;
+  while (end < probe.length && !/^#{2,3} /.test(probe[end]!)) end++;
+  const body = lines.slice(start + 1, end).join('\n');
   expect(
     body.trim().length,
     `section not found or empty: ${heading}`,
@@ -287,6 +306,10 @@ describe('Skill Format Contract', () => {
       ['adapter-html.hbs', '# Platform Adapter: HTML'],
       ['review-format.hbs', '# Review Format Reference'],
       ['review-lenses-content.hbs', '# Review Lens Criteria Reference'],
+      [
+        'delegated-evidence-format.hbs',
+        '# Delegated Payload Contract and Evidence Landing Format',
+      ],
       ['debug-recovery-format.hbs', '# Debug & Recovery Reference'],
       ['drift-report-format.hbs', '# Drift Report (prospec-report.json) Format Reference'],
     ];
@@ -4108,10 +4131,16 @@ describe('Archive summary Review & Verify section (REQ-TEMPLATES-126)', () => {
     renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
 
   it('archive-format defines a Review & Verify section spec with grade, criticals/majors, and quality_log digest', () => {
-    // the content categories live in the intro prose BEFORE the fenced
-    // `## Review & Verify` example, so the sectionOf slice (which stops at the
-    // next line-start `## ` — including the one inside the fence) still sees them
-    const section = sectionOf(render(), '### 6. Review & Verify');
+    // The content categories must live in the section's own PROSE, not in its
+    // fenced `## Review & Verify` example — an example demonstrating a category
+    // is not the reference defining it. These assertions used to lean on
+    // `sectionOf` stopping at the fence's `## ` line, which it no longer does
+    // (that boundary silently truncated other sections), so mask the fence here
+    // and pin the prose directly rather than depending on where a slice ends.
+    const section = withoutFencedBlocks(
+      sectionOf(render(), '### 6. Review & Verify').split('\n'),
+    ).join('\n');
+    expect(section.trim().length, 'prose-only slice is empty — every expectation below would pass vacuously').toBeGreaterThan(0);
     expect(section).toContain('quality grade');
     expect(section).toContain('critical');
     expect(section).toContain('major');
@@ -5069,5 +5098,135 @@ describe('issue registration documented in both references (REQ-TEMPLATES-178, i
     // this file IS the committed audit record, so the collapse is format contract
     expect(overview).toMatch(/\*\*single line\*\*/);
     expect(overview).toMatch(/whitespace collapse/i);
+  });
+});
+
+// Version-controlled baseline: which stations speak the delegated-payload
+// contract. Both stations delegate judgment to a fresh context, so both must
+// deploy the ONE reference that defines it — a third station joining (or one
+// dropping out) is a deliberate act that has to touch this list.
+const DELEGATED_EVIDENCE_STATIONS = ['prospec-review', 'prospec-verify'];
+
+describe('Delegated payload contract (issue #142 E)', () => {
+  const REF = 'delegated-evidence-format.md';
+
+  it('the reference is registered for exactly the delegating stations', () => {
+    const registered = SKILL_DEFINITIONS.filter((s) =>
+      getSkillReferences(s.name).some((r) => r.outputName === REF),
+    )
+      .map((s) => s.name)
+      .sort();
+    expect(registered).toEqual([...DELEGATED_EVIDENCE_STATIONS].sort());
+  });
+
+  it('each station cites the reference in its own references/ dir', () => {
+    for (const station of DELEGATED_EVIDENCE_STATIONS) {
+      const skill = renderTemplate(`skills/${station}.hbs`, TEMPLATE_CONTEXT);
+      expect(skill, `${station} must cite ${REF} to make it reachable`).toContain(
+        `references/${REF}`,
+      );
+    }
+  });
+
+  it('the ceilings render from the injected context, one row per relayed field', () => {
+    // Sentinels distinct from the real constants prove the numbers come from
+    // agent-sync's injection, not from a literal in the template that would be
+    // free to drift from the schema that enforces the refusal.
+    const sentinels = Object.fromEntries(
+      Object.keys(RELAYED_FIELD_MAX_CHARS).map((f, i) => [`relayed_max_${f}`, 7100 + i]),
+    );
+    const ref = renderTemplate('skills/references/delegated-evidence-format.hbs', {
+      ...TEMPLATE_CONTEXT,
+      ...sentinels,
+    });
+    const table = sectionOf(ref, '## Relayed fields and their ceilings');
+    for (const [field, sentinel] of Object.entries(sentinels)) {
+      const name = field.replace('relayed_max_', '');
+      const row = table.split('\n').find((l) => l.startsWith(`| \`${name}\``));
+      expect(row, `no ceiling row for the relayed field \`${name}\``).toBeDefined();
+      expect(row).toContain(String(sentinel));
+    }
+    // Negative: the internal constant's name must never leak to a downstream reader
+    expect(ref).not.toContain('RELAYED_FIELD_MAX_CHARS');
+    // evidence is the one field with no ceiling — stating that is the contract's point
+    expect(table).toMatch(/`evidence`.*no ceiling/);
+  });
+
+  it('the reference forbids trading findings for budget', () => {
+    const ref = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+    const table = sectionOf(ref, '## Relayed fields and their ceilings');
+    expect(flat(table)).toMatch(/never dropped, merged, or summarized together to fit a budget/);
+  });
+
+  it('the reference admits a read-only probe as a repro and keeps it useful after the fix', () => {
+    const ref = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+    const repro = sectionOf(ref, '## `repro` — what counts');
+    expect(flat(repro)).toMatch(/read-only probe/);
+    expect(flat(repro)).toMatch(/required on every `critical`/);
+    expect(flat(repro)).toMatch(/after\*\* the fix|after the fix/);
+  });
+
+  it('the reference assigns the artifact language to summary and evidence (PB-014)', () => {
+    const ref = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+    const language = sectionOf(ref, '## Language');
+    expect(flat(language)).toMatch(/artifact language/);
+    expect(flat(language)).toMatch(/`summary` and `evidence`/);
+    expect(flat(language)).toMatch(/`repro` is a command/);
+  });
+
+  it('both stations forbid relaying evidence prose in their NEVER list', () => {
+    for (const station of DELEGATED_EVIDENCE_STATIONS) {
+      const never = sectionOf(renderTemplate(`skills/${station}.hbs`, TEMPLATE_CONTEXT), '## NEVER');
+      const rule = never
+        .split('\n')
+        .filter((l) => l.startsWith('- **NEVER**'))
+        .find((l) => /evidence prose/.test(l));
+      expect(rule, `${station} has no NEVER forbidding an evidence-prose relay`).toBeDefined();
+      expect(flat(rule!)).toMatch(/returns? the path|returns only its path/);
+    }
+  });
+
+  it('review-format documents both evidence surfaces and defers the numbers', () => {
+    const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+    const section = sectionOf(format, '## review.md Format');
+    // the table header is the structural claim, not just the word "Repro"
+    expect(section).toContain('| ID | Location | Severity | Lens | Status | Summary | Repro |');
+    expect(section).toContain('<!-- prospec:evidence-section -->');
+    expect(section).toContain('<!-- prospec:evidence-end -->');
+    // Pin the CLAIM, not the word. `/cumulative across rounds|cumulative/` was a
+    // self-subsuming disjunction — the second branch matched pre-existing prose
+    // elsewhere in the same section, so deleting the sentence this assertion was
+    // written for left it green.
+    expect(flat(section)).toMatch(
+      /a round that re-reports a finding without them keeps what the artifact holds/,
+    );
+    expect(flat(section)).toMatch(/round with no evidence writes no section at all/);
+    // Negative: the ceilings live in ONE document — restating a number here is
+    // the second copy free to drift (the defect the shared reference removes).
+    expect(section).toContain('delegated-evidence-format.md');
+    for (const max of Object.values(RELAYED_FIELD_MAX_CHARS)) {
+      expect(section, `review-format restates the ${max}-character ceiling`).not.toContain(
+        String(max),
+      );
+    }
+  });
+
+  it('review states that a critical carries a repro and is confirmed by running it', () => {
+    const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    const loop = sectionOf(review, '### The Loop');
+    expect(flat(loop)).toMatch(/running its `repro`/);
+    const persistence = sectionOf(review, '### Persistence');
+    expect(flat(persistence)).toMatch(/Every `critical` needs a `repro`/);
+    expect(flat(persistence)).toMatch(/evidence never travels back/);
+  });
+
+  it('verify names both verdict forms as alternatives and points evidence at verify.md', () => {
+    const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    const record = sectionOf(verify, '## Record & Status Update (CLI-executed)');
+    expect(record).toContain('--dimensions <file>');
+    expect(record).toContain('--dimension <name>=<result>');
+    expect(flat(record)).toMatch(/\*\*alternatives\*\*, supplying both is refused/);
+    expect(flat(record)).toMatch(/verify\.md/);
+    expect(flat(record)).toMatch(/never enters `metadata\.yaml`/);
   });
 });

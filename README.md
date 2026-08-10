@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3615%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3745%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -579,8 +579,8 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition; a backward/invalid jump is refused with the legal targets listed |
 | `prospec change log --skill <station> --result <PASS\|WARN\|FAIL> [--warning <w>...] [--grade <g>] [--dimension n=r...] [--criticals-found <n>] ...` | Append one structured `quality_log` entry (canonical key order, escaping by construction) |
 | `prospec change progress [--complete <task>] [--change <name>]` | Code-task progress (X/Y, `[M]`/`[V]` excluded) + next task; `--complete` flips exactly one checkbox |
-| `prospec review merge --findings <file> [--change <name>]` | Merge one review round's findings JSON into the cumulative review.md table (identity-keyed, severity max, carry-forward) and report the round's structured counts |
-| `prospec verify record --dimension <name>=<result>... [--warning <w>...]` | Compute the S/A/B/C/D grade — machine dimensions self-sourced from the `prospec-report.json` drift report (whose `test-provenance` check carries the recorded test run), judgment dimensions from the flags — record the structured quality_log entry, and advance `status: verified` on S/A |
+| `prospec review merge --findings <file> [--change <name>]` | Merge one review round's findings JSON into the cumulative review.md table (identity-keyed, severity max, carry-forward), land each finding's `repro` column and `evidence` prose in the artifact, and report the round's counts plus a bounded digest of its criticals |
+| `prospec verify record --dimension <name>=<result>... \| --dimensions <file> [--warning <w>...]` | Compute the S/A/B/C/D grade — machine dimensions self-sourced from the `prospec-report.json` drift report (whose `test-provenance` check carries the recorded test run), judgment dimensions from the flags or from a `--dimensions` JSON file that may also carry each dimension's evidence (appended to `verify.md`) — record the structured quality_log entry, and advance `status: verified` on S/A |
 | `prospec learn upsert --lesson <file> [--today <date>]` | Keyed idempotent lessons-ledger upsert + the explicit `freq≥3 ∧ modules≥2` scoring rule (auditable detail) + playbook TTL scan |
 | `prospec validate <kind> [target] [--change <name>]` | Machine verdicts for artifact structure: `slug` / `promote-scaffold` (complete) and `backfill-draft` / `design-spec` (structural subset — sections, headers, NC locations); FAIL exits 1 |
 
@@ -811,8 +811,8 @@ src/
 ├── services/     — Business logic (14 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (66 .hbs files)
-    └── skills/   — 17 Skill templates + 19 reference templates
+└── templates/    — Handlebars templates (67 .hbs files)
+    └── skills/   — 17 Skill templates + 22 reference templates
 ```
 
 ### Tech Stack
@@ -830,7 +830,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3615 tests)
+# Run all tests (3745 tests)
 pnpm test
 
 # Watch mode
@@ -843,11 +843,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3615 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2668 tests
-- Contract tests (CLI output + Skill format): 821 tests
+**Test Coverage**: 3745 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2784 tests
+- Contract tests (CLI output + Skill format): 832 tests
 - Integration tests: 45 tests
-- E2E tests: 81 tests
+- E2E tests: 84 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

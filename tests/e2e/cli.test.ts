@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import { execFile, execFileSync } from 'node:child_process';
 import { parse as parseYamlRaw } from 'yaml';
 import { promisify } from 'node:util';
+import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
 
 // Every test here spawns a cold `node dist/cli/index.js` subprocess (full CLI
 // import graph). Under the full parallel suite, CPU contention makes an
@@ -769,16 +770,52 @@ describe('CLI E2E', () => {
       await fs.promises.writeFile(
         findings,
         JSON.stringify([
-          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug' },
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug', repro: 'pnpm vitest run a' },
         ]),
       );
       const { exitCode, stdout } = await runCli(['review', 'merge', '--findings', findings]);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('criticals_found=1');
       const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
-      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | bug |');
+      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | bug | pnpm vitest run a |');
       const bad = await runCli(['review', 'merge', '--findings', path.join(tmpDir, 'missing.json')]);
       expect(bad.exitCode).not.toBe(0);
+    });
+
+    it('review merge lands evidence in review.md and keeps it out of stdout', async () => {
+      const changeDir = await initChange();
+      const findings = path.join(tmpDir, 'round.json');
+      const evidence = 'read a.ts:38-46 — the bound overruns.\n\nSECRET-EVIDENCE-PROSE-MARKER';
+      await fs.promises.writeFile(
+        findings,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:42', severity: 'critical', lens: 'correctness', status: 'open', summary: 'off-by-one', repro: "pnpm vitest run a -t 'bound'", evidence },
+        ]),
+      );
+      const { exitCode, stdout } = await runCli(['review', 'merge', '--findings', findings]);
+      expect(exitCode).toBe(0);
+      // the digest names the critical and its repro …
+      expect(stdout).toContain('criticals to verify before any fix');
+      expect(stdout).toContain("repro: pnpm vitest run a -t 'bound'");
+      expect(stdout).toContain('1 evidence block(s)');
+      // … and never carries the evidence prose, which is the whole contract
+      expect(stdout).not.toContain('SECRET-EVIDENCE-PROSE-MARKER');
+      const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
+      expect(review).toContain('SECRET-EVIDENCE-PROSE-MARKER');
+      expect(review).toContain('<!-- prospec:evidence F-1 -->');
+
+      // a critical without a repro is refused, and review.md is left as it was
+      const before = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
+      await fs.promises.writeFile(
+        findings,
+        JSON.stringify([
+          { id: 'F-2', location: 'src/b.ts:1', severity: 'critical', lens: 'security', summary: 'no repro' },
+        ]),
+      );
+      const refused = await runCli(['review', 'merge', '--findings', findings]);
+      expect(refused.exitCode).not.toBe(0);
+      expect(refused.stderr).toContain('repro');
+      expect(await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8')).toBe(before);
     });
 
     it('verify record refuses without the drift report, naming the prerequisite', async () => {
@@ -791,6 +828,51 @@ describe('CLI E2E', () => {
       ]);
       expect(exitCode).not.toBe(0);
       expect(stderr).toContain('prospec-report.json not found');
+    });
+
+    it('verify record refuses --dimension and --dimensions together', async () => {
+      await initChange();
+      const dims = path.join(tmpDir, 'verdicts.json');
+      await fs.promises.writeFile(
+        dims,
+        JSON.stringify([{ name: 'delta-spec-compliance', result: 'PASS' }]),
+      );
+      const { exitCode, stderr } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimensions', dims,
+      ]);
+      expect(exitCode).not.toBe(0);
+      // Commander's own conflict message — declaring the conflict is what makes the
+      // refusal render as a usage error; throwing from the action printed
+      // "An unexpected error occurred" over the real reason.
+      // The full option spec, closing quote included: `'--dimension` alone also
+      // matches the message a self-referential `.conflicts('dimensions')` typo
+      // produces, so it would pin that A conflict fired, not which one.
+      expect(stderr).toContain("cannot be used with option '--dimension <spec>'");
+      expect(stderr).not.toContain('unexpected error');
+    });
+
+    it('verify record reads --dimensions and refuses a payload past its ceiling', async () => {
+      await initChange();
+      const dims = path.join(tmpDir, 'verdicts.json');
+      await fs.promises.writeFile(
+        dims,
+        JSON.stringify([
+          {
+            name: 'delta-spec-compliance',
+            result: 'PASS',
+            summary: 's'.repeat(RELAYED_FIELD_MAX_CHARS.summary + 1),
+          },
+        ]),
+      );
+      const { exitCode, stderr } = await runCli(['verify', 'record', '--dimensions', dims]);
+      expect(exitCode).not.toBe(0);
+      // the ceiling refusal must precede the missing-report prerequisite
+      expect(stderr).toContain('relayed-field ceiling');
+      // and the `--dimension` default must not count as "supplied", or the
+      // conflict declaration would make the file form unusable on its own
+      expect(stderr).not.toContain('cannot be used with');
     });
 
     it('learn upsert creates the ledger and emits the audit rule string at threshold', async () => {

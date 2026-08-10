@@ -55,8 +55,9 @@ modules:
       rendering, scanning, token accounting, the zero-LLM drift engine
       (collectors + evaluators), Constitution rule parsing, the flag-gated test
       runner, escaped-defect aggregation, knowledge readers, multi-language
-      manifest parsers, and the I/O-free station engines (markdown-table, verify
-      grade, review-merge, lessons-ledger, artifact validators).
+      manifest parsers, and the I/O-free station engines (markdown-table,
+      delegated-evidence, verify grade, review-merge, lessons-ledger, artifact
+      validators).
     paths:
       - src/lib
     keywords:
@@ -86,6 +87,7 @@ modules:
       - language-policy
       - status-router
       - markdown-table
+      - delegated-evidence
       - verify-grade
       - review-merge
       - lessons-ledger
@@ -201,8 +203,8 @@ modules:
     rationale: "Thin I/O layer: no business logic, delegates to services"
 
   - name: templates
-    description: "Handlebars template library — 17 skills + 7 shared partials, 21
-      references, 1 agent-config, 4 change, 15 init/knowledge (66 `.hbs`
+    description: "Handlebars template library — 17 skills + 7 shared partials, 22
+      references, 1 agent-config, 4 change, 15 init/knowledge (67 `.hbs`
       templates) — the source of every generated skill, README, and index; every
       skill delegates its deterministic steps to the CLI behind the shared
       `_cli-probe` partial."
@@ -247,8 +249,8 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
 
   - name: tests
-    description: 4-layer test suite — 148 files, 3,615 tests (unit 2668 + contract
-      821 + integration 45 + e2e 81). Validates every module — format contracts,
+    description: 4-layer test suite — 149 files, 3,745 tests (unit 2784 + contract
+      832 + integration 45 + e2e 84). Validates every module — format contracts,
       the cli-first probe + station-command contracts, the drift engine, token
       corpus, and the MCP protocol over in-memory transport.
     paths:

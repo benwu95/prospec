@@ -14,6 +14,8 @@
  */
 
 /** Marker patterns */
+import { trimTrailingNewlines } from './markdown-fences.js';
+
 const AUTO_START = '<!-- prospec:auto-start -->';
 const AUTO_END = '<!-- prospec:auto-end -->';
 const USER_START = '<!-- prospec:user-start -->';
@@ -215,7 +217,7 @@ export function mergeManagedDoc(generated: string, existing: string): string {
   }
 
   // Unmanaged file: migrate the existing content into generated's user block.
-  return injectUserBlock(generated, existing.replace(/\n+$/, ''));
+  return injectUserBlock(generated, trimTrailingNewlines(existing));
 }
 
 /**
@@ -229,5 +231,5 @@ function injectUserBlock(generated: string, body: string): string {
   }
   // Defensive: a generated doc without a user block (e.g. a degenerate template)
   // still must not drop the migrated content — append a fresh user block.
-  return `${generated.replace(/\n+$/, '')}\n\n${block}\n`;
+  return `${trimTrailingNewlines(generated)}\n\n${block}\n`;
 }

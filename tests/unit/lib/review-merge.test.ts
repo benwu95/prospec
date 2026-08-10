@@ -5,6 +5,7 @@ import {
   roundCounts,
   renderReviewTable,
   renderReviewDocument,
+  parseReviewDocument,
   type ReviewRow,
 } from '../../../src/lib/review-merge.js';
 import type { ReviewFinding } from '../../../src/types/station.js';
@@ -289,5 +290,145 @@ describe('pipe-escaping round trip (review C1 regression)', () => {
       finding({ location: 'src/b.ts|util:3', severity: 'critical', status: 'fixed', summary: 's' }),
     ]);
     expect(again).toHaveLength(1);
+  });
+});
+
+describe('evidence and repro are cumulative row state', () => {
+  const row = (over: Partial<ReviewRow> & Pick<ReviewRow, 'location'>): ReviewRow => ({
+    severity: 'critical',
+    lens: 'correctness',
+    status: 'open',
+    summary: 's',
+    ...over,
+  });
+
+  it('a round supplying evidence replaces the row evidence', () => {
+    const merged = mergeFindings(
+      [row({ id: 'F-1', location: 'a.ts:1', evidence: 'old prose' })],
+      [finding({ id: 'F-1', location: 'a.ts:1', summary: 's', repro: 'pnpm test' , evidence: 'new prose' })],
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.evidence).toBe('new prose');
+  });
+
+  it('a round re-reporting a finding WITHOUT evidence keeps what was recorded', () => {
+    const merged = mergeFindings(
+      [row({ id: 'F-1', location: 'a.ts:1', evidence: 'why it was raised', repro: 'pnpm a' })],
+      [finding({ id: 'F-1', location: 'a.ts:9', summary: 's', status: 'fixed', repro: 'pnpm a' })],
+    );
+    expect(merged[0]!.evidence).toBe('why it was raised');
+    expect(merged[0]!.status).toBe('fixed');
+  });
+
+  it('a round supplying only repro leaves the recorded evidence alone', () => {
+    const merged = mergeFindings(
+      [row({ id: 'F-1', location: 'a.ts:1', evidence: 'prose', repro: 'old cmd' })],
+      [finding({ id: 'F-1', location: 'a.ts:1', summary: 's', repro: 'new cmd' })],
+    );
+    expect(merged[0]!.repro).toBe('new cmd');
+    expect(merged[0]!.evidence).toBe('prose');
+  });
+
+  it('renders the evidence section in table-row order, not parse order', () => {
+    const doc = renderReviewDocument(
+      '',
+      [
+        row({ id: 'F-2', location: 'b.ts:2', evidence: 'second' }),
+        row({ id: 'F-1', location: 'a.ts:1', evidence: 'first' }),
+      ],
+      'x',
+    );
+    expect(doc.indexOf('second')).toBeLessThan(doc.indexOf('first'));
+  });
+
+  it('omits the evidence section entirely when no row carries evidence', () => {
+    const doc = renderReviewDocument('', [row({ id: 'F-1', location: 'a.ts:1' })], 'x');
+    expect(doc).not.toContain('## Evidence');
+    expect(doc).not.toContain('prospec:evidence');
+  });
+
+  it('puts repro in its own column so it survives a re-parse', () => {
+    const repro = "pnpm vitest run tests/unit/lib/a.test.ts -t 'bound | edge'";
+    const doc = renderReviewDocument('', [row({ id: 'F-1', location: 'a.ts:1', repro })], 'x');
+    const [parsed] = parseReviewRows(doc);
+    expect(parsed?.repro).toBe(repro);
+  });
+
+  it('round-trips a whole document — table, repro column and evidence prose', () => {
+    const rows = [
+      row({ id: 'F-1', location: 'a.ts:1', repro: 'pnpm a', evidence: 'first\n\nsecond' }),
+      row({ id: 'F-2', location: 'b.ts:2', severity: 'major', summary: 'dup' }),
+    ];
+    const first = renderReviewDocument('', rows, 'x');
+    const { rows: reread } = parseReviewDocument(first);
+    expect(reread.map((r) => r.evidence)).toEqual(['first\n\nsecond', undefined]);
+    expect(renderReviewDocument(first, reread, 'x')).toBe(first);
+  });
+
+  it('re-merging the same round over the written document is byte-identical', () => {
+    const round = [
+      finding({ id: 'F-1', location: 'a.ts:1', summary: 's', severity: 'critical', repro: 'pnpm a', evidence: 'prose' }),
+    ];
+    const first = renderReviewDocument('', mergeFindings([], round), 'x');
+    const parsed = parseReviewDocument(first);
+    const second = renderReviewDocument(first, mergeFindings(parsed.rows, round), 'x');
+    expect(second).toBe(first);
+  });
+
+  it('keeps prose after the table above the evidence section', () => {
+    const withProse = renderReviewDocument(
+      '# Review Findings: x\n\n| ID | Location | Severity | Lens | Status | Summary | Repro |\n|---|---|---|---|---|---|---|\n\n本輪未發現問題。\n',
+      [row({ id: 'F-1', location: 'a.ts:1', evidence: 'prose' })],
+      'x',
+    );
+    expect(withProse.indexOf('本輪未發現問題。')).toBeLessThan(withProse.indexOf('## Evidence'));
+  });
+
+  it('reads a legacy 6-column table (no Repro column) and leaves repro unset', () => {
+    const legacy = [
+      '# Review Findings: x',
+      '',
+      '| ID | Location | Severity | Lens | Status | Summary |',
+      '|---|---|---|---|---|---|',
+      '| F-1 | a.ts:1 | critical | correctness | open | old row |',
+      '',
+    ].join('\n');
+    const { rows } = parseReviewDocument(legacy);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.repro).toBeUndefined();
+    expect(rows[0]!.evidence).toBeUndefined();
+    const merged = mergeFindings(rows, [
+      finding({ id: 'F-1', location: 'a.ts:1', summary: 'now with evidence', evidence: 'prose' }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(renderReviewDocument(legacy, merged, 'x')).toContain('prose');
+  });
+});
+
+describe('content below the evidence section survives a rebuild', () => {
+  const critical = (over: Partial<ReviewFinding> = {}): ReviewFinding =>
+    finding({ id: 'F-1', location: 'a.ts:1', severity: 'critical', summary: 's', repro: 'pnpm a', evidence: 'prose', ...over });
+
+  it('keeps the artifact-language sentence the review skill mandates appending', () => {
+    // prospec-review REQUIRES a clean round to append a sentence in the artifact
+    // language BELOW what the CLI wrote. The section is rebuilt on every merge,
+    // so without preserving the tail that mandated sentence is deleted by the
+    // next round — the contract asking for it and the engine destroying it.
+    const first = renderReviewDocument('', mergeFindings([], [critical()]), 'x');
+    const annotated = `${first}\n本輪未發現新問題。\n`;
+    const parsed = parseReviewDocument(annotated);
+    const second = renderReviewDocument(annotated, mergeFindings(parsed.rows, [critical({ status: 'fixed' })]), 'x');
+    expect(second).toContain('本輪未發現新問題。');
+    // and it stays BELOW the evidence section, where its author put it
+    expect(second.indexOf('## Evidence')).toBeLessThan(second.indexOf('本輪未發現新問題。'));
+  });
+
+  it('does not duplicate the tail when the same round is merged twice', () => {
+    const first = renderReviewDocument('', mergeFindings([], [critical()]), 'x');
+    const annotated = `${first}\nTAIL\n`;
+    const a = renderReviewDocument(annotated, mergeFindings(parseReviewDocument(annotated).rows, [critical()]), 'x');
+    const b = renderReviewDocument(a, mergeFindings(parseReviewDocument(a).rows, [critical()]), 'x');
+    expect(b).toBe(a);
+    expect(b.match(/TAIL/g)).toHaveLength(1);
   });
 });
