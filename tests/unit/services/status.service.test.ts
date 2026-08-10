@@ -136,6 +136,38 @@ describe('status.service — routing in-flight changes', () => {
     expect(report.changes[0]?.blockingGates.join(' ')).toContain('1/2');
   });
 
+  // The router's gate is only as good as the task grammar it is fed: under CRLF
+  // every checkbox line used to miss, so a half-done task list routed as if it
+  // held no code tasks at all.
+  it('counts the same code tasks whether tasks.md is LF or CRLF', async () => {
+    const TASKS = [
+      '- [x] T1 code task done',
+      '- [ ] T2 code task pending',
+      '- [ ] T3 [M] manual task never counted',
+      '- [x] T4 [V] verification task never counted',
+    ].join('\n');
+
+    const factsFor = async (tasks: string): Promise<ChangeRouteFacts> => {
+      vol.reset();
+      routedFacts.length = 0;
+      vol.fromJSON({
+        [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+          name: 'add-auth',
+          status: 'tasks',
+        }),
+        [`${CWD}/.prospec/changes/add-auth/tasks.md`]: tasks,
+      });
+      await execute({ cwd: CWD });
+      return routedFacts[0]!;
+    };
+
+    const lf = await factsFor(TASKS);
+    const crlf = await factsFor(TASKS.replace(/\n/g, '\r\n'));
+    expect(crlf).toEqual(lf);
+    // Anti-vacuity: an empty count would make the two sides agree on nothing.
+    expect(lf).toMatchObject({ codeTasksTotal: 2, codeTasksDone: 1 });
+  });
+
   it('inserts the design station when proposal.md declares ui_scope full at plan', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/add-ui/metadata.yaml`]: metadataYaml({

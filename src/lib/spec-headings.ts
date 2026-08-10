@@ -1,4 +1,5 @@
 import { hasUnclosedFence, withoutFencedBlocks } from './markdown-fences.js';
+import { stripTrailingCr } from './text-lines.js';
 
 /**
  * THE definition of a Feature-Spec REQ heading, and of everything derived
@@ -167,19 +168,17 @@ function walkLines(content: string, from: number): { raw: string; probe: string;
   // so masking changes no current count; it only stops a fenced EXAMPLE of a REQ
   // heading from being read as a definition.
   const probes = hasUnclosedFence(raws) ? raws : withoutFencedBlocks(raws);
-  // The probe is `\r`-stripped, exactly as `markdown-fences`' own scanner does it:
-  // a lone CR is not a terminator above, and leaving it in the matched view makes
-  // `$` unreachable (see STORY_HEADING). `raw` keeps every byte, so a slice still
+  // The probe is `\r`-stripped, exactly as `markdown-fences`' own scanner does it.
+  // Belt-and-braces here rather than load-bearing: `walkLines` above already splits
+  // on `/\r?\n/`, so only a final line ending in a bare CR can carry one, and no
+  // probe consumer is `$`-anchored (STORY_HEADING and friends deliberately are not —
+  // see the cubic-backtracking note). `raw` keeps every byte, so a slice still
   // carries the file's own line endings.
   return raws.map((raw, i) => ({
     raw,
-    probe: stripCarriageReturn(probes[i] ?? raw),
+    probe: stripTrailingCr(probes[i] ?? raw),
     start: starts[i]!,
   }));
-}
-
-function stripCarriageReturn(line: string): string {
-  return line.endsWith('\r') ? line.slice(0, -1) : line;
 }
 
 /**
@@ -217,7 +216,7 @@ function scanSpec(content: string, from: number): ScannedLine[] {
             // Stripped with the SAME separator class the match used: `[ \t]+` left
             // an ideographic space in place, so the heading text kept its own
             // hashes and a re-render emitted them twice.
-            text: stripCarriageReturn(line.raw).replace(STORY_HASHES, '').trim(),
+            text: stripTrailingCr(line.raw).replace(STORY_HASHES, '').trim(),
             level: storyMatch[1]!.length,
           };
     scanned.push({ ...line, active, any, heading, story, deprecated });

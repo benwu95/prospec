@@ -138,3 +138,21 @@ Prose only.
     expect(parseConstitutionRules(TAGGED)).toEqual(parseConstitutionRules(TAGGED));
   });
 });
+
+// The line-ending family (issue #140). Every pattern here is `$`-anchored on a
+// `split('\n')` line, and they survive CRLF only because each ends in `\s*` (which
+// matches `\r`) — the severity tag is read from `RULE_HEADING`'s capture, already
+// `\r`-free by the time `SEVERITY_TAGGED` sees it. That chain is what this pins:
+// tighten either pattern to `[ \t]*$` and a Windows checkout silently parses zero
+// rules, which verify's Constitution audit would read as "no rules to grade".
+describe('parseConstitutionRules line endings', () => {
+  it('parses a CRLF Constitution exactly as its LF form', () => {
+    const lf = parseConstitutionRules(TAGGED);
+    const crlf = parseConstitutionRules(TAGGED.replace(/\n/g, '\r\n'));
+    expect(crlf).toEqual(lf);
+    // Anti-vacuity: equality is worthless if neither side parsed a rule, and the
+    // severity must survive — that is the field the audit grades by.
+    expect(lf.length).toBeGreaterThan(0);
+    expect(lf.map((r) => r.severity)).toContain('MUST');
+  });
+});

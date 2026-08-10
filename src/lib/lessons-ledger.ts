@@ -5,6 +5,7 @@ import {
   replaceTableInDocument,
   type FindTableOptions,
 } from './markdown-table.js';
+import { stripTrailingCr } from './text-lines.js';
 
 /**
  * Deterministic mechanics for the lessons ledger
@@ -263,7 +264,9 @@ export function expiredPlaybookEntries(playbookContent: string, today: string): 
     if (ttl && ttl[1]! < today) expired.push({ entry: currentEntry, reviewBy: ttl[1]! });
   };
   for (const line of playbookContent.split('\n')) {
-    const heading = /^###\s+(.+)$/.exec(line);
+    // `\r`-stripped view only: the body lines are collected raw, so a block keeps
+    // whatever endings the file uses.
+    const heading = /^###\s+(.+)$/.exec(stripTrailingCr(line));
     if (heading) {
       flush();
       currentEntry = heading[1]!.trim();

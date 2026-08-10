@@ -341,3 +341,38 @@ describe('gap-spanning table (review C3 regression)', () => {
     expect(entries.length).toBe(rawKeyCount);
   });
 });
+
+// The `### ` entry locator is `$`-anchored while its lines come from `split('\n')`,
+// so a CRLF checkout never matched a heading: `currentEntry` stayed empty, `flush()`
+// returned at once, and the needs-review list came back empty however far past its
+// review-by date an entry was. The Sweep's "nothing expired" then reads exactly like
+// the truth.
+describe('expiredPlaybookEntries line endings', () => {
+  const playbook = [
+    '### PB-001: some rule',
+    '- **TTL**: review by 2026-12-11',
+    '',
+    '### PB-002: another rule',
+    '- **TTL**: review by 2026-06-01',
+    '',
+    '### PB-003: a settled rule',
+    '- **TTL**: review by 2026-05-01',
+    '- **RETIRED 2026-07-04** (issue #66): root cause eliminated',
+    '',
+    '### PB-004: revived rule',
+    '- **TTL**: review by 2026-05-20',
+    '- **Retired 2026-07-04, UN-RETIRED 2026-07-28** (some-change)',
+  ].join('\n');
+
+  it('reports the same expired entries under CRLF as under LF', () => {
+    const lf = expiredPlaybookEntries(playbook, '2026-07-30');
+    const crlf = expiredPlaybookEntries(playbook.replace(/\n/g, '\r\n'), '2026-07-30');
+    expect(crlf).toEqual(lf);
+    // Anti-vacuity plus both retirement semantics: PB-002 (live, expired) and
+    // PB-004 (un-retired, expired) are in; PB-001 (future) and PB-003 (retired) out.
+    expect(lf).toEqual([
+      { entry: 'PB-002: another rule', reviewBy: '2026-06-01' },
+      { entry: 'PB-004: revived rule', reviewBy: '2026-05-20' },
+    ]);
+  });
+});

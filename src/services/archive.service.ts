@@ -11,6 +11,7 @@ import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
+import { stripTrailingCr } from '../lib/text-lines.js';
 import { normalizeIssueRef } from '../lib/change-metadata.js';
 import type { ChangeStatus } from '../types/change.js';
 import { PrerequisiteError } from '../types/errors.js';
@@ -908,7 +909,7 @@ const FEATURE_MAP_HEADING_NORMALIZED = normalizeHeadingText(FEATURE_MAP_HEADING)
 function featureMapRegionHasContent(content: string): boolean {
   const raw = content.split('\n');
   if (hasUnclosedFence(raw)) return true;
-  const probe = raw.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
+  const probe = raw.map(stripTrailingCr);
   const range = findSectionRange(probe, FEATURE_MAP_HEADING);
   // No region at all — the sync would append beside what is there, erasing nothing.
   if (range === null) return false;
@@ -954,7 +955,7 @@ export function inspectProductSpecSync(
         'product.md has an unclosed code fence — its Feature Map is left untouched until the fence is closed',
     };
   }
-  const headings = documentHeadings(raw.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l)));
+  const headings = documentHeadings(raw.map(stripTrailingCr));
   if (headings.some((h) => h.text === FEATURE_MAP_HEADING)) return null;
   const nearMisses = headings.filter(
     (h) => normalizeHeadingText(h.text) === FEATURE_MAP_HEADING_NORMALIZED,
@@ -980,7 +981,7 @@ export function inspectProductSpecSync(
  */
 function spliceProductSpec(content: string, features: ProductFeature[], today: string): string {
   const rawInput = content.split('\n');
-  const probe = rawInput.map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
+  const probe = rawInput.map(stripTrailingCr);
   const eol = rawInput.filter((l) => l.endsWith('\r')).length > rawInput.length / 2 ? '\r' : '';
 
   // Refresh first, on the array the probe indexes. Doing it after the splice made

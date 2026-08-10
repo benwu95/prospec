@@ -169,3 +169,29 @@ describe('replaceTableInDocument', () => {
     expect(doc).toBe(`${table}\n`);
   });
 });
+
+// The line-ending family (issue #140): this engine's patterns end in `\s*$`, and
+// `\s` DOES match `\r`, so a CRLF document works — by accident of the character
+// class, not by rule. Tightening one of them to `[ \t]*$` would break every table
+// on a Windows checkout, and nothing else in the suite would notice.
+describe('markdown-table line endings', () => {
+  const TABLE = ['| Key | Value |', '| --- | --- |', '| a | b |', '| c\\|1 | d |'].join('\n');
+  const anyHeader: FindTableOptions = { isTarget: (cells) => cells[0] === 'key' };
+
+  it('locates and splits a CRLF table exactly as its LF form', () => {
+    const lf = findTable(TABLE.split('\n'), anyHeader);
+    const crlf = findTable(TABLE.replace(/\n/g, '\r\n').split('\n'), anyHeader);
+    expect(crlf).toEqual(lf);
+    // Anti-vacuity: two data rows, and the escaped pipe survived the split.
+    expect(lf?.rows).toEqual([
+      ['a', 'b'],
+      ['c|1', 'd'],
+    ]);
+  });
+
+  it('reads a separator row and a last cell identically under either ending', () => {
+    expect(isSeparatorRow('| --- | --- |\r')).toBe(isSeparatorRow('| --- | --- |'));
+    expect(splitTableRow('| a | b |\r')).toEqual(splitTableRow('| a | b |'));
+    expect(splitTableRow('| a | b |\r')).toEqual(['a', 'b']);
+  });
+});

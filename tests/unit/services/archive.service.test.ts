@@ -315,6 +315,32 @@ Description.
     expect(content).toContain('1/3 [M]/[V] (not counted)');
   });
 
+  // Same file, same stats, either line ending: under CRLF the grammar used to match
+  // nothing, so a fully-tracked change archived its summary claiming no tasks at all.
+  it('reads a CRLF task list into the same completion stats as its LF form', async () => {
+    const TASKS = [
+      '# Tasks',
+      '',
+      '- [x] T1 Implement schema field ~15 lines',
+      '- [ ] T2 Update formatter ~20 lines',
+      '- [ ] T3 [M] Run `prospec agent sync` ~5 lines',
+      '',
+    ].join('\n');
+    const statsLine = async (tasks: string): Promise<string> => {
+      vol.reset();
+      vol.fromJSON({ '/archive/tasks.md': tasks, '/archive/metadata.yaml': 'status: verified\n' });
+      const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+      return content.split('\n').find((l) => l.startsWith('- **Tasks**:')) ?? '';
+    };
+
+    const lf = await statsLine(TASKS);
+    const crlf = await statsLine(TASKS.replace(/\n/g, '\r\n'));
+    expect(crlf).toBe(lf);
+    // Anti-vacuity: both sides would agree on an "N/A" or a zero denominator too.
+    expect(lf).toContain('1/2');
+    expect(lf).toContain('0/1 [M]/[V] (not counted)');
+  });
+
   it('keeps the plain completion format when no kind-marked tasks exist', async () => {
     vol.fromJSON({
       '/archive/tasks.md': '- [x] Task 1\n- [ ] Task 2\n',
@@ -1260,6 +1286,26 @@ describe('a near-miss Feature Map heading is refused, not appended past (REQ-SER
     expect(fs.readFileSync('/specs/product.md', 'utf-8')).toContain('## Feature Map\n');
   });
 
+  // The decision point, not the render: `inspectProductSpecSync` matches headings
+  // through its own `\r`-stripped probe. Drop that strip and the ATX pattern
+  // (`[ \t]*$`, which does not admit `\r`) matches NO heading in a CRLF file, so
+  // this refusal never fires there — the splice then appends a second Feature Map
+  // section beside the author's curated one, which is the damage REQ-SERVICES-079
+  // exists to prevent. Only a CRLF fixture can fail that way.
+  it('refuses a near-miss heading in a CRLF product.md too', async () => {
+    const authored = authoredUnder('## Feature Map (34 active)').replace(/\n/g, '\r\n');
+    vol.fromJSON({
+      '/specs/product.md': authored,
+      '/specs/features/alpha.md': featureSpec('alpha'),
+    });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('near-miss-heading');
+    // a refusal writes NOTHING — not even `last_updated`, and no appended section
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
+  });
+
   it('detects a setext-written near-miss heading', async () => {
     const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n# p\n\nFeature Map (34 active)\n------------------------\n\nMine.\n`;
     vol.fromJSON({
@@ -1314,6 +1360,25 @@ describe('generateProductSpec reports every branch in which it declines to write
     // every authored entry with the no-features placeholder.
     expect(result.declined?.detail).toMatch(/restore it/i);
     expect(result.declined?.detail).toMatch(/empty/i);
+  });
+
+  // Same decision under CRLF. `featureMapRegionHasContent` locates the region
+  // through its own `\r`-stripped probe; without it the region is not found, the
+  // populated map reads as empty, and this state gets the OPPOSITE advice — the one
+  // whose own comment calls creating the directory "the one destructive move".
+  it('gives a CRLF product.md the restore advice, not the create-the-directory one', async () => {
+    const authored = `---\nproduct: p\nlast_updated: 2020-01-01\n---\n\n## Feature Map\n\n### alpha\n\nMine.\n\u2192 [features/alpha.md](features/alpha.md)\n`.replace(
+      /\n/g,
+      '\r\n',
+    );
+    vol.fromJSON({ '/specs/product.md': authored });
+
+    const result = await generateProductSpec('/specs/features', '/specs/product.md', 'p');
+
+    expect(result.declined?.reason).toBe('missing-features-dir');
+    expect(result.declined?.detail).toMatch(/restore it/i);
+    expect(result.declined?.detail).not.toMatch(/nothing a sync would erase/i);
+    expect(fs.readFileSync('/specs/product.md', 'utf-8')).toBe(authored);
   });
 
   it('tells a project whose Feature Map holds nothing to create the directory instead', async () => {
