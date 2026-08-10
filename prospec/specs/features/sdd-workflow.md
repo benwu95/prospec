@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-08-10
-story_count: 36
-req_count: 197
+story_count: 37
+req_count: 199
 ---
 
 # SDD Workflow
@@ -1337,6 +1337,42 @@ Every layer the payload contract crosses carries its own guard: the block gramma
 
 ---
 
+
+## US-37: CRLF-Safe Artifact Parsing [P1]
+
+As a developer running prospec on a Windows checkout,
+I want every artifact this workflow parses line by line to read the same as it does under LF,
+so that a task list, a playbook or a spec is never silently read as empty because of the byte its lines end with.
+
+`\r` is a line terminator to a JS regex: `.` never matches it, and a `$` without the `m` flag anchors the end of the STRING. A `$`-anchored per-line pattern fed by lines split on `\n` therefore matches NOTHING in a CRLF document — and the failure is silent, because an empty parse is indistinguishable from an artifact that has nothing in it yet. Two such patterns had already been fixed one at a time; the family they belong to had never been swept, and two more were live: the frozen task grammar answered "no tasks" for a populated `tasks.md`, and the playbook TTL report came back empty however far past its review-by date an entry was.
+
+The rule that fixes them is small, and its scope is what keeps it honest: the strip is applied to the matched VIEW, never to the line source, because several callers split a document, edit one line and join it back — stripping there would rewrite the endings of every line the edit never touched.
+
+**Acceptance Scenarios:**
+- WHEN an artifact is parsed line by line, THEN its CRLF form yields the same result as its LF form, and the strip that makes that true has one implementation rather than one per site
+- WHEN a document is split, edited and re-joined, THEN every line the edit did not touch keeps its own ending byte-for-byte
+- WHEN a pattern is already tolerant of the carriage return — through its own character class, an upstream trim, the `m` flag, or a comparison-only whole-document normalisation — THEN it needs no strip of its own, and the rule does not claim otherwise
+- WHEN the shared strip is reduced to an identity function, THEN the differential assertions across every layer it crosses turn red
+
+#### REQ-LIB-051: One implementation of the trailing-CR strip
+The trailing-carriage-return strip has exactly one implementation: a shared primitive returning the line as a matcher should see it, without altering the line its caller holds. It is the strip that is single-sourced, not CRLF tolerance itself — a pattern can also be tolerant without stripping anything.
+- WHEN a per-line rule removes a trailing carriage return before matching, THEN it calls the shared primitive rather than writing that removal a second time; four shapes need no implementation of their own and are outside this rule — a pattern already tolerant through its own optional `\r?` or character class (an upstream `.trim()` removes the carriage return too, it just needs no code here), a pattern that CAPTURES the carriage return to write it back, an `m`-flagged multi-line pattern whose `$` matches before it, and a whole-document `\r\n`→`\n` normalisation of a comparison-only copy that never reaches a write
+- WHEN a line carries a carriage return anywhere but at its end, THEN that character survives untouched, so parsed text is never silently rewritten
+- WHEN tasks.md is read under CRLF, THEN the frozen task grammar yields the same tasks — count, checked state, kind and text — as its LF form, and every consumer inherits that: the drift engine's task facts, `prospec status` routing, `change progress` bookkeeping and the archive task statistics
+- WHEN a playbook is read under CRLF, THEN its `### ` entry blocks are located exactly as in the LF form, so the TTL needs-review report is unchanged
+- WHEN a document is split so one line can be edited and joined back, THEN the other lines keep their own endings, because what the primitive returns is a matching view and not the line itself — flipping one checkbox in a CRLF task list rewrites no other line. A caller may still choose to STORE the stripped view as its data, and one does: the evidence-block body is kept CR-normalised on purpose, so that `render → split → render` stays byte-identical
+
+---
+
+
+#### REQ-TESTS-083: The line-ending family is pinned differentially and mutation-verified
+The line-ending family is pinned by differential assertions at each layer it crosses, and those pins are mutation-verified.
+- WHEN the task grammar or the playbook TTL parser is tested, THEN the same content is asserted under both LF and CRLF and the two results must be equal
+- WHEN `change progress --complete` runs against a CRLF task list, THEN a byte-level assertion pins that only the flipped line changed
+- WHEN the shared primitive is reduced to an identity function, THEN those differential assertions fail — a suite that stays green under that mutation does not pin the behavior
+
+---
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -1928,6 +1964,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-10 | unify-line-splitting | ADDED REQ-LIB-051; ADDED REQ-TESTS-083 | REQ-LIB-051, REQ-TESTS-083 |
 | 2026-08-10 | separate-review-evidence | ADDED REQ-TYPES-081; ADDED REQ-LIB-049; ADDED REQ-LIB-050; ADDED REQ-SERVICES-086; ADDED REQ-SERVICES-087; ADDED REQ-CLI-037; ADDED REQ-CLI-038; ADDED REQ-TEMPLATES-180; ADDED REQ-TEMPLATES-181; ADDED REQ-TESTS-082; MODIFIED REQ-CLI-028; MODIFIED REQ-CLI-029; MODIFIED REQ-TEMPLATES-067 | REQ-TYPES-081, REQ-LIB-049, REQ-LIB-050, REQ-SERVICES-086, REQ-SERVICES-087, REQ-CLI-037, REQ-CLI-038, REQ-TEMPLATES-180, REQ-TEMPLATES-181, REQ-TESTS-082, REQ-CLI-028, REQ-CLI-029, REQ-TEMPLATES-067 |
 | 2026-08-09 | add-issue-link-field | ADDED REQ-TYPES-080; ADDED REQ-LIB-047; ADDED REQ-LIB-048; ADDED REQ-SERVICES-085; ADDED REQ-CLI-036; ADDED REQ-TEMPLATES-178; ADDED REQ-TEMPLATES-179; ADDED REQ-TESTS-081; MODIFIED REQ-CLI-023 | REQ-TYPES-080, REQ-LIB-047, REQ-LIB-048, REQ-SERVICES-085, REQ-CLI-036, REQ-TEMPLATES-178, REQ-TEMPLATES-179, REQ-TESTS-081, REQ-CLI-023 |
 | 2026-08-08 | read-specs-by-req | ADDED REQ-LIB-046; ADDED REQ-SERVICES-084; ADDED REQ-CLI-035; ADDED REQ-TEMPLATES-176; ADDED REQ-TEMPLATES-177; ADDED REQ-TESTS-080 | REQ-LIB-046, REQ-SERVICES-084, REQ-CLI-035, REQ-TEMPLATES-176, REQ-TEMPLATES-177, REQ-TESTS-080 |
