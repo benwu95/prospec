@@ -11,6 +11,8 @@
  * replacement that preserves surrounding prose.
  */
 
+import { trimTrailingNewlines } from './markdown-fences.js';
+
 /**
  * Split one `| a | b |` row into trimmed cells, honoring the `\|` escaping
  * `renderMarkdownTable` writes (a plain split('|') would shear any cell
@@ -126,7 +128,7 @@ export function replaceTableInDocument(
   const lines = content.split('\n');
   const block = findTable(lines, options);
   if (!block) {
-    return `${content.replace(/\n+$/, '')}\n\n${table}\n`;
+    return `${trimTrailingNewlines(content)}\n\n${table}\n`;
   }
   const before = lines.slice(0, block.start).join('\n');
   const after = lines.slice(block.end).join('\n');

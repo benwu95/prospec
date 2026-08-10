@@ -15,7 +15,7 @@
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
-| `station.ts` | Station I/O schemas — `ReviewFindingSchema`, `LessonInputSchema` (its dimension/kind registries are in the sub-module) |
+| `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema`, `LessonInputSchema`; `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 
 Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
 
@@ -24,7 +24,7 @@ Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `versi
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views; lifecycle ordering
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
 - `DriftReportSchema` / `MeasurementReportSchema` / `ProjectionReportSchema` — drift report, offline measurement, and context projection schemas
-- `ReviewFindingSchema` / `LessonInputSchema` — station I/O: reviewer findings, lesson upsert
+- `ReviewFindingSchema` / `JudgmentDimensionsInputSchema` / `LessonInputSchema` — station I/O: reviewer findings, judgment verdicts + their evidence, lesson upsert
 - `INDEX_TABLE_COLUMNS` — the canonical `index.md` column schema every emitter and parser derives from
 - `ProspecError` — base error (code + suggestion, optional `cause`)
 
@@ -48,7 +48,7 @@ Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `versi
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`. A budget threshold needs BOTH `TokenBudgetSchema` and `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — the resolver reads the default's keys, so a schema-only field parses then is ignored (a key-set equality test pins it).
 - `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of it gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body.
-- `ReviewFindingSchema.id` is optional but never decorative: omitting it buys location+lens keying against pre-round rows only, so the schema's doc comment is where that cost is stated for the caller.
+- `ReviewFindingSchema.id` is optional but never decorative: omitting it buys location+lens keying against pre-round rows only, so the schema's doc comment is where that cost is stated for the caller. A finding carrying `repro`/`evidence` therefore REQUIRES one — the artifact anchors evidence by id. `evidence` is the one deliberately uncapped field (it never travels back); every relayed field is capped AND single-line because each is rendered as one table cell OR one raw line — `id` and `lens` are in the set for the raw-line half, and leaving them out made both forgeable.
 - `MINIMUM_CLI_VERSION` (`version.ts`) is the skills' probe floor, NOT the package version — bump it only when a skill starts calling a CLI surface a newer version added, never as a release chore.
 - `feature-map.ts` is shape-only — slug/module-map checks live in the lib loader, not here.
 - `test_provenance` is deliberately outside the metadata required-field floor.

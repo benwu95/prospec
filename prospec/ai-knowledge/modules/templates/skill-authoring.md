@@ -1,6 +1,6 @@
 # Skill Authoring
 
-> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 7 partials, 21 references) and what `agent sync` deploys from it.
+> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 7 partials, 22 references) and what `agent sync` deploys from it.
 
 ## Key Files
 
@@ -8,7 +8,7 @@
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; every skill carries `{{> cli-probe}}` and delegates its deterministic steps to `prospec` commands (phase wording pinned by skill-format contract tests) |
 | `skills/_*.hbs` (7) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
-| `skills/references/*.hbs` (21) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` is a reader's guide to the **CLI-written** metadata.yaml, `review-format` pins the 6-column CLI-written findings table **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
+| `skills/references/*.hbs` (22) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 7-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
 
 ## Public API
 
@@ -22,7 +22,7 @@
 ## Modification Guide
 
 1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step) and `{{> next-step-handoff}}` at the end, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
-2. **Add a reference** — create `skills/references/{name}.hbs`, map it in `agent-sync.service.ts`, cite it from the skill.
+2. **Add a reference** — create `skills/references/{name}.hbs`, map it in `agent-sync.service.ts` (once per skill that needs it — a shared reference is registered per station, never cross-linked), cite it from the skill.
 3. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
 
 ## Ripple Effects
@@ -38,4 +38,4 @@
 - A `**Spec:**` block replaces a MODIFIED REQ's WHOLE body, so `references/delta-spec-format.hbs` tells authors to write the RESULTING requirement, not the delta. The archive CLI no longer merely reports the `WHEN/THEN` bullets a block drops — an undeclared drop HOLDS the write and exits non-zero, released only by listing the bullet in that entry's `**Dropped:**` block (a rewrite counts, not just a retirement). A block cut short by a label the template does not own at that point is REFUSED outright, and no declaration releases a refusal. Still uncovered: an ADDED entry reusing an existing REQ id, reported by no worklist. The two format references must agree on that boundary — they contradicted each other, and the contradiction was invisible here because this project's authors happened to follow one of them; `tests/contract/spec-sync-corpus.test.ts` now pins their agreement.
 - Rule placement follows the rule's SUBJECT: a criterion in `review-lenses-content`'s tables states a property of the change under review and carries a severity the reviewer files against it; a rule about the reviewer's own output belongs in `review-format` § review.md Format instead — a row there would carry a severity with nothing to file it on. The test-quality criteria row set is frozen against a version-controlled baseline in `tests/contract/skill-format.test.ts`, so adding ANY row fails until the baseline is updated deliberately; cross-references between the two files must name their referent ("the **mutation-verified** criterion"), never a position ("the row above"), which drifts as rows are added.
 - `references/product-spec-format.hbs` is pinned to code: a contract test compares the h2 set inside its fenced examples against `bootstrapProductSpec`'s output as SETS, both directions, so a section added to either side alone turns red. Its Ownership paragraph states the frontmatter boundary (bootstrap seeds `product`/`last_updated`/`version: TBD`; afterwards `last_updated` is the only key prospec writes) — `feature_count` is explicitly NOT prospec-managed.
-- Single-source contracts: the task-kind table ONLY in `references/tasks-format.hbs`, the lessons-ledger format AND the staleness-sweep expiry tests / per-tier retirement semantics ONLY in `references/promotion-format.hbs` (both `prospec-learn`'s Sweep station and `prospec-archive`'s Phase 4.5 harvest cite it rather than restating it — and Phase 4.5 writes through `prospec learn upsert`, so the CLI's refusal to raise a retired row holds on that unattended path too), the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test requires exactly one across both skills). Contract tests flag restatement.
+- Single-source contracts: the task-kind table ONLY in `references/tasks-format.hbs`, the lessons-ledger format AND the staleness-sweep expiry tests / per-tier retirement semantics ONLY in `references/promotion-format.hbs` (both `prospec-learn`'s Sweep station and `prospec-archive`'s Phase 4.5 harvest cite it rather than restating it — and Phase 4.5 writes through `prospec learn upsert`, so the CLI's refusal to raise a retired row holds on that unattended path too), the review/verify division of labour ONLY in `skills/prospec-verify.hbs` (a contract test requires exactly one across both skills), the delegated-payload ceilings ONLY in `references/delegated-evidence-format.hbs` (both delegating stations, numbers injected; `review-format` defers). Contract tests flag restatement.

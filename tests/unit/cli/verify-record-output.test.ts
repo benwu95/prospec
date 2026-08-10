@@ -108,4 +108,16 @@ describe('status line honesty (already-verified vs grade-too-low)', () => {
     expect(out).toContain('only S/A graduate');
     expect(out).not.toContain('already verified');
   });
+  it('names verify.md when the run recorded judgment evidence, and nothing otherwise', () => {
+    const withEvidence = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ evidencePath: '.prospec/changes/feat-x/verify.md' }),
+        'normal',
+      ),
+    );
+    expect(withEvidence).toContain('Judgment evidence: .prospec/changes/feat-x/verify.md');
+    expect(captureStdout(() => formatVerifyRecordOutput(baseResult(), 'normal'))).not.toContain(
+      'Judgment evidence:',
+    );
+  });
 });

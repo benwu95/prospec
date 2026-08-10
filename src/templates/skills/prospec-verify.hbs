@@ -133,6 +133,11 @@ share the implementation's context**: run it by the mechanism the capability blo
 with only the delta-spec, the code, and this contract as its inputs. A grader that just implemented
 the change is validating its own reasoning, not the change against the spec.
 
+The grader **writes** its verdicts — `{name, result, summary?, repro?, evidence?}` per dimension — as a
+JSON array to a file and **returns only that path plus the one-line verdicts**; the evidence never
+travels back, and `verify record --dimensions` lands it in `verify.md` (contract:
+[`references/delegated-evidence-format.md`](references/delegated-evidence-format.md), on demand).
+
 {{> harness-capabilities degraded_action="offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record the WARN \"2/5 graded in-session — fresh context unavailable\" (that WARN states in-session grading, so it belongs to that branch alone)"}}
 
 **`metadata.scale: quick`**: this dimension is `not-applicable` — there is no delta-spec to
@@ -318,10 +323,12 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
 
 ## Record & Status Update (CLI-executed)
 
-Run `prospec verify record` (Bash) with ONLY the judgment verdicts — one
-`--dimension <name>=<result>` per judgment dimension (`delta-spec-compliance`, `constitution`,
-`design`; a dimension that does not apply is `=not-applicable`, never omitted) plus one
-`--warning "<detail>"` per budget-counted WARN. The CLI:
+Run `prospec verify record` (Bash) with ONLY the judgment verdicts — as `--dimensions <file>` (the
+grader's JSON array, evidence included) or as one `--dimension <name>=<result>` each when there is no
+prose to record; the two are **alternatives**, supplying both is refused. Either way cover exactly
+`delta-spec-compliance`, `constitution`, `design` (one that does not apply is reported
+`not-applicable` — `=not-applicable`, never omitted), plus one `--warning "<detail>"` per
+budget-counted WARN. The CLI:
 
 - **self-sources the machine dimensions** (1/5 `task-completion`, 4/5 `knowledge`, 5/5 `tests`) from
   the `prospec-report.json` drift report — 5/5 comes from its `test-provenance` check, which is what
@@ -340,7 +347,9 @@ Run `prospec verify record` (Bash) with ONLY the judgment verdicts — one
   items until a re-run reaches S/A. Reading `status: verified` as a pass here archives a change
   whose latest verify graded B/C/D;
 - applies the `scale: backfill` grade-input policy (below) from `metadata.scale` + the
-  `backfill-draft.md` provenance check.
+  `backfill-draft.md` provenance check;
+- with `--dimensions`, appends the judgment evidence to `verify.md` under a dated, graded heading and
+  names that path. Evidence never enters `metadata.yaml`, so cite `verify.md` rather than inline prose.
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `{{knowledge_base_path}}/_status-lifecycle.md`.
 
@@ -411,6 +420,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** report a `not-applicable` dimension as PASS — quick's missing delta-spec dimension stays visibly unchecked
 - **NEVER** overturn a machine dimension's verdict (1/5, 4/5, 5/5) — the engine adjudicates, you interpret; re-grading its FAIL as WARN/PASS (or its PASS as FAIL) puts the judgment noise back into the one place that was free of it
 - **NEVER** adjudicate a machine dimension yourself or relay one into `prospec verify record` — the CLI reads them from the report; and NEVER report `not-adjudicated` as PASS (reading tasks.md or re-running tests by hand and calling it PASS re-creates the generator-is-its-own-validator problem this split removes)
+- **NEVER** return evidence prose to this context — a delegated grader writes it to the dimensions file and returns the path; an unbounded relay costs the very context delegation was meant to save
 - **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; on 2/5's degraded path, say so and record the WARN
 - **NEVER** treat a drift-report `skipped` check as PASS — skipped means unchecked; present the skip reason instead
 - **NEVER** compute the grade or hand-write the verify `quality_log` entry yourself — `prospec verify record` owns the decision table, the entry serialization, and the S/A status advance

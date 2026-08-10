@@ -10,7 +10,7 @@
 | `drift-report.ts` | `DRIFT_CHECK_IDS` (16, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
 | `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities`), `intersectCapabilities`, `VALID_AGENTS` |
-| `station.ts` | `VERIFY_DIMENSIONS` (+ its machine/judgment split) and `VALIDATE_KINDS` — the judgment↔mechanics boundary |
+| `station.ts` | `VERIFY_DIMENSIONS` (+ its machine/judgment split), `VALIDATE_KINDS` — the judgment↔mechanics boundary — and `RELAYED_FIELD_MAX_CHARS`, the ceilings on what a delegated reviewer/grader RELAYS back (`evidence` is deliberately absent from the set: it goes to the artifact, never into a return payload). Adding a relayed field obliges a row in `delegated-evidence-format.hbs`, whose values `agent sync` injects — a contract test derives the expected rows from this constant's keys |
 | `status.ts` | `SDD_STATIONS` order, incl. the no-status design station and the `promote` backfill entry; `STATION_SKILLS` |
 | `conventions.ts` | `CORE_CONVENTIONS` (the L1 set), `INIT_DOC_REGISTRY` |
 | `config.ts` (closed half) | `KNOWLEDGE_SIZE_RULES` (`satisfies`-closed per `KnowledgeSizeKind`), `KNOWLEDGE_STRATEGIES` |

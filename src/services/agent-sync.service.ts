@@ -16,6 +16,7 @@ import { computeUnlocalizedSkills } from './trigger-localization.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
 import { MINIMUM_CLI_VERSION } from '../types/version.js';
+import { RELAYED_FIELD_MAX_CHARS } from '../types/station.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
@@ -157,6 +158,17 @@ export async function execute(
     // so a downstream reader sees real numbers and a source they can inspect,
     // never the internal DEFAULT_KNOWLEDGE_TOKEN_BUDGET symbol.
     ...resolveKnowledgeTokenBudget(config),
+    // The delegated-payload ceilings, spread the same way and for the same
+    // reason: the review/verify reference states real numbers a reader can act
+    // on, and the numbers have exactly one source — the schema that enforces
+    // them. A hardcoded literal in the template would be a second copy free to
+    // drift from the refusal it documents.
+    ...Object.fromEntries(
+      Object.entries(RELAYED_FIELD_MAX_CHARS).map(([field, max]) => [
+        `relayed_max_${field}`,
+        max,
+      ]),
+    ),
     // Entry config (CLAUDE.md/AGENTS.md) is always-loaded Layer 0 — exclude
     // excludeFromEntryConfig skills so a one-shot onboarding skill costs no
     // recurring tokens. syncSkillsDirSkills still writes its SKILL.md (below),
@@ -539,6 +551,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'review-lenses-content.md',
         title: 'Review Lens Criteria (security / performance / maintainability)',
       },
+      {
+        templateName: 'delegated-evidence-format.hbs',
+        outputName: 'delegated-evidence-format.md',
+        title: 'Delegated Payload Contract and Evidence Landing Format',
+      },
     ],
     'prospec-verify': [
       {
@@ -550,6 +567,14 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'drift-report-format.hbs',
         outputName: 'drift-report-format.md',
         title: 'Drift Report (prospec-report.json) Format',
+      },
+      // Shared with prospec-review deliberately: both stations delegate to a
+      // fresh context, so the payload contract must have one text, not a copy
+      // per station that can drift.
+      {
+        templateName: 'delegated-evidence-format.hbs',
+        outputName: 'delegated-evidence-format.md',
+        title: 'Delegated Payload Contract and Evidence Landing Format',
       },
     ],
     'prospec-archive': [

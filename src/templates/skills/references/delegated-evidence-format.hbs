@@ -1,0 +1,157 @@
+# Delegated Payload Contract and Evidence Landing Format
+
+Shared by **prospec-review** and **prospec-verify** — the two stations that delegate judgment to a
+fresh context. It fixes *what a delegated agent returns*, *what it writes*, and *where the CLI lands
+the evidence*, so the independence delegation buys does not cost the context it was meant to save.
+
+---
+
+## Why this contract exists
+
+Delegating to a fresh context saves **search** cost — the sub-agent reads the files itself. But the
+**result** comes back, and an unbounded result brings the whole argument with it: paragraphs of
+evidence whose actual job was to let the orchestrator confirm, once, that the finding is real. After
+that confirmation only two things matter: the claim, and a command that can be re-run.
+
+So the payload splits in two:
+
+| Half | Travels | Lands in |
+|------|---------|----------|
+| claim + `repro` + the payload file's path | back to the orchestrating context | the CLI's round report |
+| `evidence` (full prose) | never | `review.md` / `verify.md`, written by the CLI |
+
+## What the delegated agent does
+
+1. **Write** the findings (review) or dimension verdicts (verify) as a JSON array to a file, evidence
+   prose included.
+2. **Return** that file's path plus the counts (review: criticals/majors) or the one-line verdicts
+   (verify) — **never the evidence prose**.
+3. The orchestrator runs `prospec review merge --findings <file>` / `prospec verify record
+   --dimensions <file>`. The CLI persists the evidence and prints the bounded digest that is the
+   orchestrator's whole intake for the round.
+
+## Relayed fields and their ceilings
+
+A **relayed** field is one that travels back. Each is a single line, because each is rendered either
+as one table cell — whose writer collapses line breaks, so a multi-line value would not survive a
+re-read — or as one raw line, where a break forges structure. Each is refused past its ceiling,
+naming the field, its actual length, and the ceiling.
+
+| Field | Ceiling (characters) | What it carries |
+|-------|----------------------|-----------------|
+| `id` | {{relayed_max_id}} | the finding's cross-round identity — **also** the evidence block's anchor |
+| `location` | {{relayed_max_location}} | `file:line`, or a file plus section |
+| `summary` | {{relayed_max_summary}} | the claim, one sentence |
+| `repro` | {{relayed_max_repro}} | one command that shows the defect |
+| `lens` | {{relayed_max_lens}} | which lens surfaced it |
+| `evidence` | **no ceiling** | the full prose — it never travels back |
+
+`id` and `lens` are in the table for a reason worth stating: both are printed into
+the round digest the orchestrating agent reads and acts on, and `id` is
+additionally written as a **raw line** — it anchors the evidence block. A line
+break in `lens` mints an extra digest line (a fabricated `repro:` the loop is told
+to run); a line break or a marker in `id` mints a second block under another
+finding's anchor, which the last-wins parse then adopts in place of the genuine
+evidence. Any field rendered outside a table cell belongs here.
+
+**A round's relayed size is the per-finding ceiling times the number of findings.** Findings are
+never dropped, merged, or summarized together to fit a budget: the ceiling bounds each finding's
+prose, never the set of defects reported. If a finding needs more words, they go in `evidence`.
+
+## `repro` — what counts
+
+The command a reader runs to see the defect. All of these qualify:
+
+- a failing-test invocation (`pnpm vitest run <file> -t '<name>'`)
+- a read-only probe that displays the cited code (`sed -n '38,46p' <file>`, a `grep` for the pattern)
+- a command whose output *is* the defect (a check that reports the wrong status)
+
+A finding reached by inspection rather than by execution still names a command — the probe that shows
+the cited lines. That is why `repro` is **required on every `critical`**: it is what the orchestrator
+verifies existence with, in place of prose it no longer receives.
+
+Re-run **after** the fix, the same `repro` is what shows the fix worked, so the field keeps its value
+past the round that raised it.
+
+## Trust boundary
+
+Two different kinds of input reach these artifacts, and only one of them is guarded.
+
+- **The payload is untrusted.** A delegated agent writes the findings / dimensions JSON, so every
+  field of it is checked before a byte is written: the ceilings, the single-line rule, and a marker in
+  any field that reaches a raw line. That is the path an unbounded relay could inject through, and it
+  is closed.
+- **The artifact is trusted on read-back.** `review.md` is CLI-owned, and the command believes what it
+  reads there — the findings table and the evidence blocks alike. It has to: recovering a finding's
+  evidence across rounds *is* reading the artifact back. Nothing in a text file distinguishes the
+  command's own writes from a hand edit, so a line placed there by hand can change what the next
+  round records — exactly as it can for any row of the findings table, which has always been trusted
+  the same way. Whoever can write such a line can equally edit the evidence text directly, so this
+  grants no capability the file's writability did not already give.
+
+The practical rule: **never hand-edit inside the markers.** Notes of your own go below the closing
+marker, where the command hands them back untouched.
+
+## Cross-field rules
+
+- `severity: critical` ⇒ `repro` required.
+- `repro` or `evidence` present ⇒ `id` required — the artifact anchors an evidence block by that id,
+  so evidence without one has nowhere to land.
+- A **line break** in any relayed field is refused: each is one table cell or one raw line.
+- An evidence-block marker in any field that reaches a raw line — the prose, the `id` anchoring it,
+  a dimension's name — is **refused before any byte is written**; the artifact is left byte-identical.
+
+## Evidence landing format
+
+Both artifacts delimit their section with the same pair of **markers**, and every block
+inside is marker-anchored. The section is located by the opening marker and ends at the
+closing one, never by a heading and never by a property of the content — evidence
+routinely quotes documents, markers and headings included, so anything inferred from
+the text can be forged by quoting it.
+
+Everything between the two markers is **CLI-owned**, and "owned" cuts both ways. The
+command reads its own blocks back out of that region — that is exactly how a finding's
+evidence carries across rounds, so text edited inside a block body becomes the recorded
+evidence. Anything else placed between the markers is **not** preserved: the region is
+rebuilt from the blocks on every write, so a stray line there is dropped. Your own notes
+go **below the closing marker**, which is the part the command hands back untouched.
+
+```markdown
+<!-- prospec:evidence-section -->
+## Evidence
+
+<!-- prospec:evidence F-1 -->
+### F-1
+
+read a.ts:38-46 — the `<=` bound overruns when n === len.
+<!-- prospec:evidence-end -->
+<!-- prospec:evidence-section-end -->
+
+any note of your own goes here, below the closing marker
+```
+
+- **review.md**: the `Repro` column of the findings table holds the command; the evidence section
+  holds the prose, keyed by finding `id`. Both are **cumulative** — a later round that re-reports a
+  finding without them keeps what the artifact already holds, because a fix round reports a status
+  and must not erase the reason the finding existed.
+- **verify.md**: each `verify record --dimensions` run appends a marker-opened section headed
+  `## {date} — grade {G}`, containing a block per judgment dimension that carries prose
+  (`**Summary:**` / `**Repro:**` lines, then the evidence). The marker is what delimits a run, so
+  evidence quoting a previous run's heading cannot forge a phantom graded entry in the audit record.
+  Appended, never overwritten — a re-verify after fixes must not erase the reasoning that graded it
+  lower. A run whose dimensions carry no prose (no evidence, no summary, no repro) writes no file.
+
+## Language
+
+The artifact language the Constitution's Language Policy assigns to `.prospec/changes/**` governs
+`summary` and `evidence` — they are narrative read by the change's author. `repro` is a command, and
+`location`, `id`, the severity/lens/status enums and every dimension name stay English. The CLI is
+language-agnostic: whatever the payload carries is what lands in the artifact.
+
+---
+
+## Reference Information
+
+- Project name: `{{project_name}}`
+- Payload files: `--findings <file>` (review) · `--dimensions <file>` (verify)
+- Artifacts: `.prospec/changes/{name}/review.md` · `.prospec/changes/{name}/verify.md`

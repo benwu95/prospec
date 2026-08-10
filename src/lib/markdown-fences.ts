@@ -1,10 +1,30 @@
 /**
- * Fenced-block blanking — shared by every markdown scanner in lib.
+ * Markdown text mechanics — shared by every scanner and emitter in lib.
  *
  * Extracted so the drift collectors and the Constitution parser cannot drift
- * apart on CommonMark fence rules (PB-006): a leaf module both can import
- * without creating a lib→lib cycle.
+ * apart on CommonMark fence rules (PB-006): a leaf module every consumer can
+ * import without creating a lib→lib cycle. It owns both directions of the fence
+ * rules plus the two whole-text primitives document assemblers share — the
+ * inline-code-span emitter and the trailing-newline trim.
  */
+
+/**
+ * Trim trailing newlines without a regex.
+ *
+ * `replace(/\n+$/, '')` backtracks quadratically in the length of any newline
+ * run the string contains — and `evidence` is deliberately uncapped, so one
+ * payload with a long blank stretch made each later append take minutes
+ * (200k-newline run: ~14s; 400k: ~57s). A scan from the end is linear.
+ */
+export function trimTrailingNewlines(text: string): string {
+  let end = text.length;
+  while (end > 0) {
+    const ch = text.charCodeAt(end - 1);
+    if (ch !== 0x0a && ch !== 0x0d) break;
+    end--;
+  }
+  return text.slice(0, end);
+}
 
 /**
  * Render arbitrary text as ONE inline code span it cannot escape.

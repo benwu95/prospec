@@ -4,6 +4,8 @@ import { execute } from '../../../src/services/verify-record.service.js';
 import { computeChangeDigest } from '../../../src/lib/drift-sources.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { QualityDimension } from '../../../src/types/change.js';
+import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
+import { EVIDENCE_SECTION_MARKER } from '../../../src/lib/delegated-evidence.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -220,5 +222,159 @@ describe('report freshness guard', () => {
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
     expect(result.grade).toBe('S');
     expect(vol.readFileSync(META, 'utf-8')).toContain('status: verified');
+  });
+  describe('--dimensions carries the verdicts and their evidence', () => {
+    const VERIFY = '/repo/.prospec/changes/add-widget/verify.md';
+    const DIMS = '/repo/verdicts.json';
+
+    const verdicts = (over: Record<string, unknown>[] = []): unknown[] => [
+      { name: 'delta-spec-compliance', result: 'PASS', summary: '16 REQ 全數對上程式碼', repro: 'prospec spec show sdd-workflow --req REQ-LIB-049', evidence: 'REQ-LIB-049 對應 src/lib/delegated-evidence.ts。\n\n每條 AC 逐一核對。' },
+      { name: 'constitution', result: 'PASS' },
+      { name: 'design', result: 'not-applicable' },
+      ...over,
+    ];
+
+    it('records the same quality_log field set as the flag form — evidence never reaches metadata', async () => {
+      seed();
+      await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-10' });
+      const viaFlags = vol.readFileSync(META, 'utf-8') as string;
+
+      vol.reset();
+      vi.mocked(computeChangeDigest).mockReturnValue(null);
+      seed();
+      vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
+      await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
+      const viaFile = vol.readFileSync(META, 'utf-8') as string;
+
+      const keysOf = (yaml: string): string[] =>
+        [...yaml.matchAll(/^\s*([a-z_]+):/gm)].map((m) => m[1]!);
+      expect(keysOf(viaFile)).toEqual(keysOf(viaFlags));
+      expect(viaFile).not.toContain('delegated-evidence.ts');
+      expect(viaFile).not.toContain('16 REQ');
+    });
+
+    it('writes verify.md with one block per dimension carrying prose', async () => {
+      seed();
+      vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
+      const result = await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
+      expect(result.evidencePath).toBe('.prospec/changes/add-widget/verify.md');
+      const written = vol.readFileSync(VERIFY, 'utf-8') as string;
+      expect(written).toContain('# Verify Evidence: add-widget');
+      expect(written).toContain('## 2026-08-10 — grade S');
+      expect(written).toContain('<!-- prospec:evidence delta-spec-compliance -->');
+      expect(written).toContain('### delta-spec-compliance — PASS');
+      expect(written).toContain('每條 AC 逐一核對。');
+      // `constitution` and `design` carry no prose, so they get no block
+      expect(written).not.toContain('prospec:evidence constitution');
+    });
+
+    it('appends a second dated section rather than overwriting the first', async () => {
+      seed();
+      vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
+      await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
+      vol.writeFileSync(
+        DIMS,
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'WARN', evidence: '第二輪：一條 AC 仍缺證據' },
+          { name: 'constitution', result: 'PASS' },
+          { name: 'design', result: 'not-applicable' },
+        ]),
+      );
+      await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-11' });
+      const written = vol.readFileSync(VERIFY, 'utf-8') as string;
+      expect(written).toContain('每條 AC 逐一核對。');
+      expect(written).toContain('第二輪：一條 AC 仍缺證據');
+      expect(written.match(/^## \d{4}-\d{2}-\d{2} — grade/gm)).toHaveLength(2);
+    });
+
+    it('writes no verify.md when no dimension carries prose', async () => {
+      seed();
+      vol.writeFileSync(
+        DIMS,
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'PASS' },
+          { name: 'constitution', result: 'PASS' },
+          { name: 'design', result: 'not-applicable' },
+        ]),
+      );
+      const result = await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [] });
+      expect(result.evidencePath).toBeUndefined();
+      expect(vol.existsSync(VERIFY)).toBe(false);
+    });
+
+    it.each([
+      ['a missing file', undefined, /Dimensions file not found/],
+      ['invalid JSON', 'not json', /not valid JSON/],
+      [
+        'a summary past its ceiling',
+        JSON.stringify([
+          {
+            name: 'delta-spec-compliance',
+            result: 'PASS',
+            summary: 's'.repeat(RELAYED_FIELD_MAX_CHARS.summary + 1),
+          },
+        ]),
+        new RegExp(`summary is ${RELAYED_FIELD_MAX_CHARS.summary + 1} characters`),
+      ],
+      [
+        'a marker inside evidence',
+        JSON.stringify([{ name: 'constitution', result: 'PASS', evidence: '<!-- prospec:evidence-end -->' }]),
+        /evidence-block grammar/,
+      ],
+    ] as const)('refuses %s before writing anything', async (_name, body, message) => {
+      seed();
+      if (body !== undefined) vol.writeFileSync(DIMS, body);
+      const before = vol.readFileSync(META, 'utf-8');
+      await expect(
+        execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [] }),
+      ).rejects.toThrow(message);
+      expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+      expect(vol.existsSync(VERIFY)).toBe(false);
+    });
+
+    it('marker-delimits each run so quoted evidence cannot forge a dated grade entry', async () => {
+      seed();
+      vol.writeFileSync(
+        DIMS,
+        JSON.stringify([
+          {
+            name: 'delta-spec-compliance',
+            result: 'PASS',
+            evidence: '引用上一輪的報告：\n\n## 2026-01-01 — grade S\n\n（以上為引文）',
+          },
+          { name: 'constitution', result: 'PASS' },
+          { name: 'design', result: 'not-applicable' },
+        ]),
+      );
+      await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
+      const written = vol.readFileSync(VERIFY, 'utf-8') as string;
+      // the quotation is preserved verbatim …
+      expect(written).toContain('## 2026-01-01 — grade S');
+      // … and reads as one run, because the marker is what delimits a run
+      expect(written.split(EVIDENCE_SECTION_MARKER)).toHaveLength(2);
+    });
+
+    it('records the verdict even when the verify.md write fails — metadata leads', async () => {
+      // The ordering property, pinned from the side a test can actually force: a
+      // directory where verify.md belongs makes that write fail (EISDIR), and the
+      // grade must already be recorded. Writing the artifact first meant the
+      // reverse — a dated, graded evidence section for a run with no quality_log
+      // entry at all.
+      seed();
+      vol.mkdirSync(VERIFY, { recursive: true });
+      vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
+      await expect(
+        execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' }),
+      ).rejects.toThrow();
+      expect(vol.readFileSync(META, 'utf-8')).toContain('grade: S');
+    });
+
+    it('refuses both verdict forms at once', async () => {
+      seed();
+      vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
+      await expect(
+        execute({ cwd: CWD, judgmentDimensions: judgment(), dimensionsPath: DIMS, warnings: [] }),
+      ).rejects.toThrow(PrerequisiteError);
+    });
   });
 });

@@ -1,10 +1,16 @@
 import { REVIEW_SEVERITIES, type ReviewFinding, type ReviewSeverity } from '../types/station.js';
 import {
+  renderEvidenceSection,
+  splitEvidenceSection,
+  type EvidenceBlock,
+} from './delegated-evidence.js';
+import {
   findTable,
   renderMarkdownTable,
   replaceTableInDocument,
   type FindTableOptions,
 } from './markdown-table.js';
+import { trimTrailingNewlines } from './markdown-fences.js';
 
 /**
  * Deterministic bookkeeping for the /prospec-review cumulative findings table
@@ -15,7 +21,16 @@ import {
  * numbers, so "is this the same finding as last round?" is the reviewer's call,
  * expressed by reusing the prior round's `id`). Given that input, this module
  * is pure mechanics: merge by identity, take the max severity, carry resolved
- * rows forward so they are never re-raised, render one canonical table.
+ * rows forward so they are never re-raised, render one canonical table plus the
+ * evidence section beneath it.
+ *
+ * `repro` and `evidence` are the reviewer's evidence half, and they live in two
+ * different places for one reason: exact round-tripping. `repro` is one command,
+ * so it is a table column and rides the pipe-table engine's own `\|` escaping;
+ * `evidence` is prose, so it lands in the marker-anchored section below as raw
+ * lines. Both are CUMULATIVE — a later round that re-reports a finding without
+ * them keeps what the artifact holds, because a fix round reports a status and
+ * must not erase the reason the finding existed.
  */
 
 export interface ReviewRow {
@@ -26,6 +41,10 @@ export interface ReviewRow {
   lens: string;
   status: string;
   summary: string;
+  /** The command that shows the defect — a table column, so it round-trips. */
+  repro?: string;
+  /** Full evidence prose; rendered into the evidence section, keyed by `id`. */
+  evidence?: string;
 }
 
 export interface ReviewRoundCounts {
@@ -34,7 +53,15 @@ export interface ReviewRoundCounts {
   majors: number;
 }
 
-const CANONICAL_HEADER = ['ID', 'Location', 'Severity', 'Lens', 'Status', 'Summary'] as const;
+const CANONICAL_HEADER = [
+  'ID',
+  'Location',
+  'Severity',
+  'Lens',
+  'Status',
+  'Summary',
+  'Repro',
+] as const;
 
 /** Column-name aliases accepted when parsing a pre-existing hand-written table. */
 const COLUMN_ALIASES: Record<string, keyof ReviewRow> = {
@@ -47,6 +74,7 @@ const COLUMN_ALIASES: Record<string, keyof ReviewRow> = {
   description: 'summary',
   note: 'summary',
   finding: 'summary',
+  repro: 'repro',
 };
 
 /** The findings table is the first markdown table whose header carries both a
@@ -63,7 +91,8 @@ function toSeverity(value: string): ReviewSeverity {
 }
 
 /** Parse the cumulative table out of an existing review.md (empty file → []).
- *  Tolerates the legacy 4-column hand-written shape (no ID / Summary). */
+ *  Tolerates the legacy hand-written shapes: a missing ID / Summary / Repro
+ *  column simply leaves that field unset. */
 export function parseReviewRows(content: string): ReviewRow[] {
   const table = findTable(content.split('\n'), FINDINGS_TABLE);
   if (!table) return [];
@@ -75,12 +104,30 @@ export function parseReviewRows(content: string): ReviewRow[] {
         const key = columnFor[i];
         if (!key) return;
         if (key === 'severity') row.severity = toSeverity(cell);
-        else if (key === 'id') row.id = cell || undefined;
-        else row[key] = cell;
+        else if (key === 'id' || key === 'repro') row[key] = cell || undefined;
+        else if (key !== 'evidence') row[key] = cell;
       });
       return row;
     })
     .filter((r) => r.location !== '');
+}
+
+/**
+ * Read a whole review.md: the content above the evidence section, plus the rows
+ * with each row's evidence re-attached from the block anchored by its id.
+ *
+ * The split happens BEFORE the table search on purpose — evidence prose quotes
+ * reports, and a quoted findings table would otherwise be the first table the
+ * search finds.
+ */
+export function parseReviewDocument(content: string): { before: string; rows: ReviewRow[] } {
+  const { before, blocks } = splitEvidenceSection(content);
+  const rows = parseReviewRows(before);
+  for (const row of rows) {
+    const block = row.id === undefined ? undefined : blocks.get(row.id);
+    if (block) row.evidence = block.body;
+  }
+  return { before, rows };
 }
 
 function severityMax(a: ReviewSeverity, b: ReviewSeverity): ReviewSeverity {
@@ -106,7 +153,10 @@ function fallbackKey(location: string, lens: string): string {
  * begins: `location` is overwritten from the finding, and identity asserted
  * outranks identity inferred regardless of the order findings arrive in.
  * Existing rows are never removed — they are the cross-round anchor. Severity only ever escalates
- * (max); status and summary take the incoming round's word.
+ * (max); status and summary take the incoming round's word. `repro` and
+ * `evidence` are the exception: only a round that SUPPLIES them overwrites
+ * them, so re-reporting a finding as fixed cannot blank the evidence recorded
+ * when it was raised.
  */
 export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]): ReviewRow[] {
   const merged = existing.map((r) => ({ ...r }));
@@ -154,6 +204,8 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
       target.location = finding.location;
       target.status = status;
       target.summary = finding.summary;
+      if (finding.repro !== undefined) target.repro = finding.repro;
+      if (finding.evidence !== undefined) target.evidence = finding.evidence;
       if (finding.id && !target.id) {
         target.id = finding.id;
         byId.set(finding.id, target);
@@ -166,6 +218,8 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
         lens: finding.lens,
         status,
         summary: finding.summary,
+        repro: finding.repro,
+        evidence: finding.evidence,
       };
       merged.push(row);
       if (row.id) byId.set(row.id, row);
@@ -189,22 +243,51 @@ export function roundCounts(incoming: ReviewFinding[]): ReviewRoundCounts {
 export function renderReviewTable(rows: ReviewRow[]): string {
   return renderMarkdownTable(
     CANONICAL_HEADER,
-    rows.map((r) => [r.id ?? '', r.location, r.severity, r.lens, r.status, r.summary]),
+    rows.map((r) => [
+      r.id ?? '',
+      r.location,
+      r.severity,
+      r.lens,
+      r.status,
+      r.summary,
+      r.repro ?? '',
+    ]),
+  );
+}
+
+/** The evidence blocks a row set carries, in table-row order — so the section is
+ *  a function of the merged rows, never of the order blocks were parsed in. */
+export function evidenceBlocksFor(rows: readonly ReviewRow[]): EvidenceBlock[] {
+  return rows.flatMap((r) =>
+    r.id !== undefined && r.evidence !== undefined && r.evidence !== ''
+      ? [{ key: r.id, body: r.evidence }]
+      : [],
   );
 }
 
 /**
  * Replace the findings table inside an existing review.md, preserving any
- * prose before and after it; a file without a table gets the table appended;
- * an empty/absent file gets a minimal scaffold.
+ * prose before and after it, then re-render the evidence section beneath;
+ * a file without a table gets the table appended; an empty/absent file gets a
+ * minimal scaffold.
+ *
+ * The old evidence section is split off before the table search, so passing a
+ * whole document is safe: the section is rebuilt from `rows`, never duplicated —
+ * and whatever followed it is put back, because that is where the review skill
+ * is told to append its artifact-language sentence.
  */
 export function renderReviewDocument(
   content: string,
   rows: ReviewRow[],
   changeName: string,
 ): string {
-  return replaceTableInDocument(content, renderReviewTable(rows), {
+  const { before, after } = splitEvidenceSection(content);
+  const table = replaceTableInDocument(before, renderReviewTable(rows), {
     ...FINDINGS_TABLE,
     scaffoldTitle: `# Review Findings: ${changeName}`,
   });
+  const section = renderEvidenceSection(evidenceBlocksFor(rows));
+  const tail = [section, after].filter((part) => part !== '').join('\n\n');
+  if (tail === '') return table;
+  return `${trimTrailingNewlines(table)}\n\n${tail}\n`;
 }
