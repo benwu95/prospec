@@ -180,7 +180,7 @@ describe('feature-spec REQ heading single source', () => {
         // the merge, the REMOVED probe (via existingReqLevel), and the recount
         /matchReqHeading\(line\)\?\.id === route\.reqId/,
         /function existingReqLevel/,
-        /readSpecCounters\(content\)/,
+        /readSpecCounters\((?:content|specContent)\)/,
       ],
       'src/lib/drift-sources.ts': [
         // The definition inventory reads the shared INDEX now, not its own line

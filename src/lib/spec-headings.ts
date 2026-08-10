@@ -41,6 +41,8 @@ export interface MatchReqHeadingOptions {
   includeStruck?: boolean;
 }
 
+export type SpecContent = string | { main: string; slices: Record<string, string> };
+
 /**
  * The id shape: `REQ-` plus one or more uppercase segments plus a number, so a
  * multi-segment module prefix (`REQ-API-MIDDLEWARE-003`) stays whole and an
@@ -266,6 +268,8 @@ export interface SpecRequirementRecord {
   start: number;
   /** Offset one past the requirement's last character. */
   end: number;
+  /** The slice file this requirement lives in, if any. */
+  slice?: string;
 }
 
 /** One User Story section and the requirements it owns. */
@@ -281,6 +285,8 @@ export interface SpecStoryRecord {
   end: number;
   /** Ids of the requirements defined inside this story, in document order. */
   requirements: string[];
+  /** The slice file this story lives in, if any. */
+  slice?: string;
 }
 
 export interface SpecIndex {
@@ -299,7 +305,28 @@ export interface SpecIndex {
  * `## Edge Cases` and the Change History table), or a `---` rule. One rule, so a
  * quoted requirement is exactly the text a graduation edit would replace.
  */
-export function indexSpec(content: string, options: MatchReqHeadingOptions = {}): SpecIndex {
+export function indexSpec(content: SpecContent, options: MatchReqHeadingOptions = {}): SpecIndex {
+  const isMulti = typeof content !== 'string';
+  const mainContent = isMulti ? content.main : content;
+
+  const mainIndex = indexSpecInternal(mainContent, options);
+
+  if (isMulti) {
+    const multiContent = content as { main: string; slices: Record<string, string> };
+    const slicesList = parseSpecSlices(mainContent);
+    for (const sliceName of slicesList) {
+      const sliceContent = multiContent.slices[sliceName];
+      if (sliceContent !== undefined) {
+        const sliceIndex = indexSpecInternal(sliceContent, options, sliceName);
+        mainIndex.requirements.push(...sliceIndex.requirements);
+        mainIndex.stories.push(...sliceIndex.stories);
+      }
+    }
+  }
+  return mainIndex;
+}
+
+function indexSpecInternal(content: string, options: MatchReqHeadingOptions, sliceName?: string): SpecIndex {
   const lines = scanSpec(content, 0);
   const requirements: SpecRequirementRecord[] = [];
   const stories: SpecStoryRecord[] = [];
@@ -327,6 +354,7 @@ export function indexSpec(content: string, options: MatchReqHeadingOptions = {})
         ),
         requirements: [],
       };
+      if (sliceName) current.slice = sliceName;
       stories.push(current);
       continue;
     }
@@ -353,6 +381,7 @@ export function indexSpec(content: string, options: MatchReqHeadingOptions = {})
           (l.heading !== null && l.heading <= bound) ||
           l.probe.trim() === '---',
       ),
+      slice: sliceName,
     });
     current?.requirements.push(heading.id);
   }
@@ -382,25 +411,30 @@ export interface SpecCounterReading {
  * `### US-`, because real specs use both (sdd-workflow is all h2, mcp-server all
  * h3, drift-detection mixed) and every current counter equals that union.
  */
-export function readSpecCounters(content: string): SpecCounterReading | null {
+export function readSpecCounters(content: SpecContent): SpecCounterReading | null {
+  const isMulti = typeof content !== 'string';
+  const mainContent = isMulti ? content.main : content;
+
   // `\r?\n` throughout: a spec checked out with CRLF endings is still a spec, and
   // failing to parse one used to make the whole collector report zero specs and
   // pass — a vacuous green on every Windows checkout.
-  const fmMatch = /^---(\r?\n)([\s\S]*?)\r?\n---/.exec(content);
+  const fmMatch = /^---(\r?\n)([\s\S]*?)\r?\n---/.exec(mainContent);
   if (fmMatch === null) return null;
   const eol = fmMatch[1] === '\r\n' ? '\r\n' : '\n';
 
-  let storyCount = 0;
-  let reqCount = 0;
-  // The walk starts AFTER the frontmatter, exactly where this reader always
-  // started: a `# comment` inside frontmatter parses as an h1 heading, and letting
-  // it into the scan would change what the section rules see.
-  for (const line of scanSpec(content, fmMatch[0].length)) {
-    if (line.active !== null) {
-      if (!line.deprecated) reqCount++;
-      continue;
+  const actual = countActuals(mainContent, fmMatch[0].length);
+
+  if (isMulti) {
+    const multiContent = content as { main: string; slices: Record<string, string> };
+    const slicesList = parseSpecSlices(mainContent);
+    for (const sliceName of slicesList) {
+      const sliceContent = multiContent.slices[sliceName];
+      if (sliceContent !== undefined) {
+        const sliceActual = countActuals(sliceContent, 0);
+        actual.story_count += sliceActual.story_count;
+        actual.req_count += sliceActual.req_count;
+      }
     }
-    if (line.story !== null) storyCount++;
   }
 
   const declaredStory = /^story_count:[ \t]*(\d+)[ \t]*\r?$/m.exec(fmMatch[2]!);
@@ -410,9 +444,44 @@ export function readSpecCounters(content: string): SpecCounterReading | null {
       story_count: declaredStory ? Number.parseInt(declaredStory[1]!, 10) : null,
       req_count: declaredReq ? Number.parseInt(declaredReq[1]!, 10) : null,
     },
-    actual: { story_count: storyCount, req_count: reqCount },
+    actual,
     frontmatter: fmMatch[2]!,
     frontmatterLength: fmMatch[0].length,
     eol,
   };
+}
+
+function countActuals(content: string, startFrom: number): { story_count: number; req_count: number } {
+  let storyCount = 0;
+  let reqCount = 0;
+  // The walk starts AFTER the frontmatter, exactly where this reader always
+  // started: a `# comment` inside frontmatter parses as an h1 heading, and letting
+  // it into the scan would change what the section rules see.
+  for (const line of scanSpec(content, startFrom)) {
+    if (line.active !== null) {
+      if (!line.deprecated) reqCount++;
+      continue;
+    }
+    if (line.story !== null) storyCount++;
+  }
+  return { story_count: storyCount, req_count: reqCount };
+}
+
+export function parseSpecSlices(content: string): string[] {
+  const slices: string[] = [];
+  let inSlices = false;
+  for (const line of walkLines(content, 0)) {
+    if (/^##\s+Slices/i.test(line.probe)) {
+      inSlices = true;
+      continue;
+    }
+    if (inSlices && /^##\s/.test(line.probe)) {
+      break;
+    }
+    if (inSlices) {
+      const match = /\[.+?\]\(\.\/[^/]+\/([^.]+)\.md\)/.exec(line.probe);
+      if (match) slices.push(match[1]!);
+    }
+  }
+  return slices;
 }

@@ -148,8 +148,8 @@ When requirements are removed, move them here with removal reason and date.
 
 ## File Length Guidelines
 
-- Keep under **300 lines** per Feature Spec
-- If a Feature Spec exceeds 300 lines, consider splitting into sub-features
+- Keep under **300 lines** per Feature Spec (or ≤ 5000 tokens)
+- If a Feature Spec exceeds the token budget, split it into per-story slices by creating a `## Slices` index in the main file (e.g., `- [Slice Name](./{feature-slug}/{slice}.md)`) and moving stories into those slice files.
 - User Stories section should occupy **40%+** of total content (not REQ-dominated)
 
 ---

@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 1.0.0
-last_updated: 2026-08-09
+last_updated: 2026-08-10
 ---
 
 # prospec — Progressive Spec-Driven Development for AI agents
@@ -32,6 +32,11 @@ Detects installed AI CLI tools and generates their entry configs and SDD Skill f
 Scans source code into modular, layered project memory (per-module README, root index, module map) and updates it incrementally — only the modules a change touched. The progressive L0–L3 loading model is what keeps agent context small.
 → [features/ai-knowledge.md](features/ai-knowledge.md)
 
+### archive-service
+
+Automates the cleanup and transition of completed changes, migrating short-lived artifacts to permanent records and syncing behavior to feature specifications.
+→ [features/archive-service.md](features/archive-service.md)
+
 ### design-phase
 
 Produces visual and interaction specs from a proposal (Generate Mode) or extracts them from Figma, pencil, and Penpot (Extract Mode). Platform adapters give an agent exact colors, spacing, and states instead of guesses.
@@ -56,6 +61,11 @@ Collects session corrections, repeated verify FAILs, and recurring review critic
 
 TBD — describe this feature and its value in 1-2 sentences.
 → [features/knowledge-management.md](features/knowledge-management.md)
+
+### knowledge-reader
+
+Centralizes the reading and parsing logic for AI Knowledge and Feature Specs, ensuring consistent interpretation across all system tools and agents.
+→ [features/knowledge-reader.md](features/knowledge-reader.md)
 
 ### mcp-server
 

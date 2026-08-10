@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { indexSpec, matchReqHeading, readSpecCounters } from '../../../src/lib/spec-headings.js';
+import { indexSpec, matchReqHeading, readSpecCounters, parseSpecSlices } from '../../../src/lib/spec-headings.js';
 
 /**
  * The ONE definition of a feature-spec REQ heading (REQ-LIB-041). It exists
@@ -261,6 +261,41 @@ describe('readSpecCounters', () => {
   it('returns null when there is no frontmatter to reconcile against', () => {
     expect(readSpecCounters('# Quiz\n\n#### REQ-QUIZ-001: a\n')).toBeNull();
   });
+
+  it('aggregates counters across multiple slices when provided', () => {
+    const main = spec('\n## Slices\n- [Slice A](./quiz/a.md)\n- [Slice B](./quiz/b.md)\n', 'story_count: 2\nreq_count: 3');
+    const slices = {
+      'a': '## US-1: a\n\n#### REQ-QUIZ-001: a\n',
+      'b': '## US-2: b\n\n#### REQ-QUIZ-002: b\n\n#### REQ-QUIZ-003: c\n',
+    };
+    const counters = readSpecCounters({ main, slices })!;
+    expect(counters.actual).toEqual({ story_count: 2, req_count: 3 });
+  });
+});
+
+describe('parseSpecSlices', () => {
+  it('extracts markdown links from the ## Slices section', () => {
+    const spec = [
+      '## Slices',
+      '',
+      '- [First](./quiz/first.md)',
+      '- [Second](./quiz/second.md)',
+      '',
+      '## Other Section',
+      '- [Third](./quiz/third.md)',
+    ].join('\n');
+    expect(parseSpecSlices(spec)).toEqual(['first', 'second']);
+  });
+
+  it('returns empty array if ## Slices section is absent', () => {
+    const spec = '## Edge Cases\n- [Link](./link.md)\n';
+    expect(parseSpecSlices(spec)).toEqual([]);
+  });
+
+  it('returns empty array if ## Slices section has no links', () => {
+    const spec = '## Slices\nNo slices yet.\n## Edge Cases\n';
+    expect(parseSpecSlices(spec)).toEqual([]);
+  });
 });
 
 /**
@@ -474,5 +509,35 @@ describe('indexSpec', () => {
       );
       expect(index.stories, file).toHaveLength(counters.actual.story_count);
     }
+  });
+
+  it('indexes requirements across multiple slices and tags them with their slice name', () => {
+    const main = [
+      '## Slices',
+      '- [Slice A](./quiz/a.md)',
+      '- [Slice B](./quiz/b.md)',
+      '',
+      '## US-0: Main',
+      '#### REQ-QUIZ-000: m',
+      'Main body.',
+    ].join('\n');
+      const slices = {
+        a: '### US-1\n#### REQ-QUIZ-001\nBody 1\n#### REQ-QUIZ-002\nBody 2',
+        b: '#### REQ-QUIZ-003\nBody 3'
+      };
+    const index = indexSpec({ main, slices });
+    
+    expect(index.requirements).toHaveLength(4);
+    expect(index.requirements.map(r => r.id)).toEqual(['REQ-QUIZ-000', 'REQ-QUIZ-001', 'REQ-QUIZ-002', 'REQ-QUIZ-003']);
+    
+    // The slice name should be recorded
+    const req0 = index.requirements.find(r => r.id === 'REQ-QUIZ-000')!;
+    expect(req0.slice).toBeUndefined();
+    
+    expect(index.requirements.find(r => r.id === 'REQ-QUIZ-001')?.slice).toBe('a');
+    expect(index.requirements.find(r => r.id === 'REQ-QUIZ-003')?.slice).toBe('b');
+
+    // Stories should also have slice tracking
+    expect(index.stories.find(s => s.id === 'US-1')!.slice).toBe('a');
   });
 });

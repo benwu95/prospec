@@ -177,6 +177,35 @@ describe('selectSpecSlices', () => {
     expect(picked.slices[0]!.text).not.toContain('REQ-QUIZ-011');
     expect((picked.slices[0]!.text.match(/```/g) ?? []).length).toBe(2);
   });
+
+  it('selects requirements and stories from multiple slices', () => {
+    const main = [
+      '## Slices',
+      '- [A](./quiz/a.md)',
+      '- [B](./quiz/b.md)',
+      '',
+      '## US-0: Main',
+      '#### REQ-QUIZ-000: m',
+      'Main body.',
+    ].join('\n');
+    const slices = {
+      'a': '## US-1: a\n\n#### REQ-QUIZ-001: a\n',
+      'b': '## US-2: b\n\n#### REQ-QUIZ-002: b\n',
+    };
+    const content = { main, slices };
+    const index = indexSpec(content);
+
+    const picked = selectSpecSlices(content, index, { req: ['REQ-QUIZ-001', 'REQ-QUIZ-000', 'REQ-QUIZ-002'] });
+    expect(picked.misses).toEqual([]);
+    expect(picked.slices).toHaveLength(3);
+    
+    // Sort order should be: Main (no slice), then Slice A, then Slice B
+    expect(picked.slices[0]!.id).toBe('REQ-QUIZ-000');
+    expect(picked.slices[1]!.id).toBe('REQ-QUIZ-001');
+    expect(picked.slices[2]!.id).toBe('REQ-QUIZ-002');
+
+    expect(picked.slices[1]!.text).toBe('#### REQ-QUIZ-001: a\n');
+  });
 });
 
 describe('renderSpecSlices', () => {

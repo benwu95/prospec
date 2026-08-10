@@ -3532,6 +3532,15 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
     expect(ref).toContain('**Spec:** (optional for ADDED');
     expect(ref).toContain('**Spec:** (REQUIRED for MODIFIED');
   });
+
+  it('delta-spec-format and feature-spec-format explain sub-module slices', () => {
+    const delta = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+    const feature = renderTemplate('skills/references/feature-spec-format.hbs', TEMPLATE_CONTEXT);
+
+    expect(delta).toContain('automatically resolved sub-module slice');
+    expect(feature).toContain('split it into per-story slices');
+    expect(feature).toContain('## Slices');
+  });
 });
 
 describe('scale adapter — review quick degradation (REQ-TEMPLATES-090)', () => {

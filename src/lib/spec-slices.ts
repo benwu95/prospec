@@ -1,4 +1,4 @@
-import { DEPRECATED_SECTION, type SpecIndex } from './spec-headings.js';
+import { DEPRECATED_SECTION, parseSpecSlices, type SpecIndex, type SpecContent } from './spec-headings.js';
 
 /**
  * The selection half of a REQ-scoped feature-spec read (REQ-LIB-046): given a
@@ -47,7 +47,7 @@ function normalize(selector: string): string {
 }
 
 export function selectSpecSlices(
-  content: string,
+  content: SpecContent,
   index: SpecIndex,
   selectors: SpecSelectors,
 ): SpecSelection {
@@ -66,11 +66,15 @@ export function selectSpecSlices(
     (req) => wantedReqs.includes(normalize(req.id)) && !inSelectedStory(req.start),
   );
 
-  // Sorted by START offset, not grouped by selector kind: a selected story can
+  // Sorted by SLICE FILE then START offset, not grouped by selector kind: a selected story can
   // open before a selected requirement that lives in a different story, and the
   // caller asked for a slice of the document, not two lists.
-  const positioned: { start: number; slice: SpecSlice }[] = [
+  const mainText = typeof content === 'string' ? content : content.main;
+  const slicesList = parseSpecSlices(mainText);
+
+  const positioned: { sliceFile: string; start: number; slice: SpecSlice }[] = [
     ...requirements.map((req) => ({
+      sliceFile: req.slice ?? '',
       start: req.start,
       slice: {
         id: req.id,
@@ -79,10 +83,11 @@ export function selectSpecSlices(
         storyLevel: req.deprecated ? null : req.storyLevel,
         deprecated: req.deprecated,
         struck: req.struck,
-        text: content.slice(req.start, req.end),
+        text: getSliceText(content, req.slice).slice(req.start, req.end),
       },
     })),
     ...stories.map((story) => ({
+      sliceFile: story.slice ?? '',
       start: story.start,
       slice: {
         id: story.id,
@@ -91,10 +96,20 @@ export function selectSpecSlices(
         storyLevel: story.level,
         deprecated: false,
         struck: false,
-        text: content.slice(story.start, story.end),
+        text: getSliceText(content, story.slice).slice(story.start, story.end),
       },
     })),
-  ].sort((a, b) => a.start - b.start);
+  ].sort((a, b) => {
+    if (a.sliceFile !== b.sliceFile) {
+      if (a.sliceFile === '') return -1;
+      if (b.sliceFile === '') return 1;
+      const idxA = slicesList.indexOf(a.sliceFile);
+      const idxB = slicesList.indexOf(b.sliceFile);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return a.sliceFile.localeCompare(b.sliceFile);
+    }
+    return a.start - b.start;
+  });
   const slices = positioned.map((entry) => entry.slice);
 
   const matchedReqs = new Set([
@@ -139,4 +154,10 @@ function headingFor(slice: SpecSlice): string | null {
   if (slice.deprecated) return `## ${DEPRECATED_SECTION}`;
   if (slice.story === null || slice.storyLevel === null) return null;
   return `${'#'.repeat(slice.storyLevel)} ${slice.story}`;
+}
+
+function getSliceText(content: SpecContent, slice?: string): string {
+  if (typeof content === 'string') return content;
+  if (!slice) return content.main;
+  return content.slices[slice] ?? '';
 }
