@@ -2173,17 +2173,23 @@ function mergeRequirementInPlace(
   // Cases or at the end. New REQs land at the format-mandated h4 even in a spec
   // that uses another level — the shared matcher counts the mix correctly.
   const titleLine = `#### ${route.reqId}: ${route.description}`;
-  const insertBefore = '## Edge Cases';
+  // Anchored to the HEADING, at line start — not to the bare string. A spec
+  // routinely quotes its own structure, so `## Edge Cases` also occurs inside
+  // prose and inline code spans; a first-substring match lands there instead
+  // and splices the new REQ into the middle of another requirement's bullet,
+  // truncating it. That corruption is silent — both worklists stay empty and
+  // the Change History row is still written — and it reaches the trust zone.
+  const insertBefore = /^## Edge Cases[ \t]*$/m;
   const newReq = body === ''
     ? `\n${titleLine}\n\n---\n`
     : `\n${titleLine}\n${body}\n\n---\n`;
   const pending = body === '' ? pendingFor(route) : undefined;
 
-  if (content.includes(insertBefore)) {
+  if (insertBefore.test(content)) {
     // Function replacer: the title and body are untrusted text and may contain
     // `$&`/`$1`/`$$` etc., which a string replacement would expand as special
     // patterns and corrupt the spec. A function returns the literal verbatim.
-    return { content: content.replace(insertBefore, () => newReq + '\n' + insertBefore), pending };
+    return { content: content.replace(insertBefore, (heading) => newReq + '\n' + heading), pending };
   }
 
   // Fallback: append at end
@@ -2197,21 +2203,22 @@ function moveReqToDeprecated(content: string, route: FeatureRoute): string {
   const today = new Date().toISOString().slice(0, 10);
   const deprecatedEntry = `\n- **${route.reqId}**: ${route.description} _(removed ${today})_`;
 
-  // Replace _(None)_ placeholder if present. Function replacers keep the
-  // untrusted route.description literal — see mergeRequirementInPlace.
-  if (content.includes('## Deprecated Requirements\n\n_(None)_')) {
-    return content.replace(
-      '## Deprecated Requirements\n\n_(None)_',
-      () => `## Deprecated Requirements\n${deprecatedEntry}`,
-    );
+  // Both anchors below match the HEADING at line start, never the bare string:
+  // a spec that quotes its own structure carries `## Deprecated Requirements`
+  // in prose and inline code (drift-detection.md does, at :621), and a
+  // first-substring match splices the retired entry into that bullet instead —
+  // the same silent corruption the ADDED insertion path guards against.
+  // Function replacers keep the untrusted route.description literal — see
+  // mergeRequirementInPlace.
+  const emptySection = /^## Deprecated Requirements\r?\n\r?\n_\(None\)_/m;
+  if (emptySection.test(content)) {
+    return content.replace(emptySection, () => `## Deprecated Requirements\n${deprecatedEntry}`);
   }
 
   // Append to existing Deprecated section
-  if (content.includes('## Deprecated Requirements')) {
-    return content.replace(
-      '## Deprecated Requirements',
-      () => `## Deprecated Requirements${deprecatedEntry}`,
-    );
+  const deprecatedHeading = /^## Deprecated Requirements[ \t]*$/m;
+  if (deprecatedHeading.test(content)) {
+    return content.replace(deprecatedHeading, (heading) => `${heading}${deprecatedEntry}`);
   }
 
   // No Deprecated section — append at end

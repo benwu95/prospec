@@ -180,7 +180,7 @@ export async function execute(
     importEdges: collectImportEdges(cwd, attributionMap),
     dependencyRules,
     timestamps: moduleMap
-      ? collectGitTimestamps(cwd, moduleMap, paths.knowledgePath)
+      ? collectGitTimestamps(cwd, moduleMap, paths.knowledgePath, config.knowledge?.generated_artifacts ?? [])
       : moduleMapMissing({ modules: [] }),
     tasks: collectTaskStates(cwd),
     // feature-map.yaml is the optional index; the collector reports it

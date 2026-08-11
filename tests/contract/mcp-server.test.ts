@@ -89,6 +89,7 @@ function writeFixtureProject(): McpServerContext {
     knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
     specsPath: path.join(tmpDir, 'prospec/specs'),
     featuresDir: path.join(tmpDir, 'prospec/specs/features'),
+    config: { version: '1.0.0', project: { name: 'test' } },
   };
 }
 
@@ -152,6 +153,7 @@ describe('resources (REQ-MCP-002/003)', () => {
       knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
       specsPath: path.join(tmpDir, 'prospec/specs'),
       featuresDir: path.join(tmpDir, 'prospec/specs/features'),
+      config: { version: '1.0.0', project: { name: 'test' } },
     });
     await expect(client.readResource({ uri: 'knowledge://feature-map' })).rejects.toThrow(/not found/i);
     await expect(client.readResource({ uri: 'spec://product' })).rejects.toThrow(/not found/i);

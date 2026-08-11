@@ -1,34 +1,19 @@
 /**
- * Contract: the generated-artifact registry and its producer share ONE source.
+ * Contract: the generated-artifact paths and its producer share ONE source.
  *
- * `GENERATED_SOURCE_ARTIFACTS` decides which files are exempt from the module
- * staleness comparison (REQ-LIB-015). If the bundler could name its own output
- * path independently, moving that output would leave the exemption pointing at
- * a path nothing writes — the exemption silently stops working, and the fix is
- * a second hand-copied edit nobody knows to make (REQ-LIB-039).
+ * `BUNDLED_TEMPLATES_SOURCE` is used in prospec.yaml's generated_artifacts exclusion.
+ * If the bundler could name its own output path independently, moving that output
+ * would leave the configuration pointing at a path nothing writes (REQ-LIB-039).
  */
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {
-  BUNDLED_TEMPLATES_SOURCE,
-  GENERATED_SOURCE_ARTIFACTS,
-} from '../../src/lib/generated-artifacts.js';
+import { BUNDLED_TEMPLATES_SOURCE } from '../../src/lib/generated-artifacts.js';
 import { OUTPUT_FILE } from '../../scripts/bundle-templates.js';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 
 describe('generated-artifact registry', () => {
-  it('lists repository-root-relative posix paths that exist on disk', () => {
-    expect(GENERATED_SOURCE_ARTIFACTS.length).toBeGreaterThan(0);
-    for (const rel of GENERATED_SOURCE_ARTIFACTS) {
-      expect(rel, 'repo-root relative, posix — git pathspecs are matched literally').toMatch(
-        /^[^/\\][^\\]*$/,
-      );
-      expect(fs.existsSync(path.resolve(REPO_ROOT, rel)), `${rel} is missing`).toBe(true);
-    }
-  });
-
   it('is where the templates bundler resolves its own output path', () => {
     expect(OUTPUT_FILE).toBe(path.resolve(REPO_ROOT, BUNDLED_TEMPLATES_SOURCE));
   });

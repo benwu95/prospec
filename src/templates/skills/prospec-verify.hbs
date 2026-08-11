@@ -342,8 +342,9 @@ budget-counted WARN. The CLI:
   **B/C/D** leaves `status` unchanged — state in the report that the change is NOT verified, list
   the WARN/FAIL items to resolve, then re-run `/prospec-verify` after fixing. **On a re-entering
   already-`verified` change, "unchanged" means it stays `verified`** — status never regresses, and
-  `quality_log` keeps the earlier S/A entry, so neither `status` nor `metadata-completeness` records
-  this grade. That combination is NOT archivable: say so in the report and resolve the WARN/FAIL
+  `quality_log` keeps the earlier S/A entry, so `status` does not record this grade — but
+  `metadata-completeness` does: for a `verified` change it reads only the LATEST `/prospec-verify`
+  entry, so it stays red until a fresh S/A is earned. That combination is NOT archivable: say so in the report and resolve the WARN/FAIL
   items until a re-run reaches S/A. Reading `status: verified` as a pass here archives a change
   whose latest verify graded B/C/D;
 - applies the `scale: backfill` grade-input policy (below) from `metadata.scale` + the

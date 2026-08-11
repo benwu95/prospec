@@ -92,6 +92,70 @@ describe('check.service execute', () => {
     expect(finding!.detail).not.toContain('demand_knowledge_per_file');
   });
 
+  // Exactly the gap above, one collector over: the staleness exclusion moved from
+  // a hardcoded constant to project config, but every test for it calls the
+  // collector directly and passes the list by hand. Hardcoding `[]` at BOTH
+  // service call sites — the whole feature inert — left all 3,762 tests green.
+  it('wires knowledge.generated_artifacts into the git-timestamp collector (REQ-LIB-039)', async () => {
+    const git = (args: string[], date?: string) =>
+      execFileSync('git', args, {
+        cwd: tmpDir,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+        env: date
+          ? { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }
+          : process.env,
+      });
+    const declare = (generated: string[]) =>
+      write(
+        '.prospec.yaml',
+        [
+          'project:',
+          '  name: t',
+          'knowledge:',
+          '  base_path: prospec/ai-knowledge',
+          ...(generated.length > 0
+            ? ['  generated_artifacts:', ...generated.map((g) => `    - ${g}`)]
+            : []),
+        ].join('\n'),
+      );
+    const libIsStale = async (): Promise<boolean | undefined> => {
+      const result = await execute({ cwd: tmpDir });
+      if (result.kind !== 'report') throw new Error('expected report');
+      return result.report.structural.knowledge_health?.modules.find((m) => m.name === 'lib')
+        ?.stale;
+    };
+
+    write('prospec/index.md', 'index\n');
+    write(
+      'prospec/ai-knowledge/module-map.yaml',
+      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n',
+    );
+    write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
+    git(['init', '-q']);
+    git(['config', 'user.email', 'test@test.dev']);
+    git(['config', 'user.name', 'test']);
+    write('src/lib/authored.ts', 'export const a = 1;\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'authored'], '2026-06-10T00:00:00+00:00');
+
+    // Build output regenerated AFTER the README — the case the exclusion exists
+    // for, since no README edit could honestly clear the resulting WARN.
+    write('src/lib/generated.ts', 'export const g = 1;\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'regenerate'], '2026-06-12T00:00:00+00:00');
+
+    declare(['src/lib/generated.ts']);
+    expect(await libIsStale(), 'a declared generated artifact must not make the module stale').toBe(
+      false,
+    );
+
+    // Same repository, same commits — only the configuration changes. Both
+    // directions are asserted so the service cannot pass a constant and pass.
+    declare([]);
+    expect(await libIsStale(), 'with nothing declared that commit counts as source').toBe(true);
+  });
+
   // Nothing pinned this wiring: pointing the collector at a non-existent
   // directory left the entire suite green, and `spec-counters` would have skipped
   // in every real project forever. The check's own unit tests call the evaluator

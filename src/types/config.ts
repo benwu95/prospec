@@ -172,6 +172,7 @@ const KnowledgeSchema = z.object({
   additional_core_conventions: z.array(z.string()).optional(),
   strategy: z.enum(KNOWLEDGE_STRATEGIES).optional(),
   token_budget: TokenBudgetSchema,
+  generated_artifacts: z.array(z.string()).optional(),
 }).optional();
 
 export const DEFAULT_BASE_DIR = 'prospec';

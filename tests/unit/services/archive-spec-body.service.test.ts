@@ -227,6 +227,115 @@ Planning prose that is NOT a behavior spec.
 });
 
 describe('syncToFeatureSpecs — ADDED lands a body', () => {
+  it('inserts before the Edge Cases HEADING, not an inline-code mention of it', async () => {
+    // A spec that quotes its own structure — `## Edge Cases` inside a bullet —
+    // is the ordinary case, not a contrived one: drift-detection.md carries
+    // exactly this shape, with the mention 112 lines above the real heading.
+    // Matching the bare substring splices the new REQ into the middle of that
+    // bullet and truncates it, and nothing reports it: both worklists come back
+    // empty and the Change History row is still written.
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd-workflow
+
+#### REQ-TYPES-001: pre-existing
+- WHEN a REQ is ADDED, THEN it is inserted before the \`## Edge Cases\` heading
+- WHEN this bullet is split, THEN the requirement above has been corrupted
+
+## Edge Cases
+
+- existing edge
+`,
+      '/archive/delta-spec.md': deltaSpec(`## ADDED
+
+### REQ-TYPES-051: inserted at the heading
+
+**Feature:** sdd-workflow
+**Story:** US-1
+
+**Spec:**
+Landing body.
+- WHEN inserted, THEN it lands above the heading
+
+**Priority:** High
+
+---
+`),
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    // The quoting bullet survives intact, and its sibling is still adjacent.
+    expect(content).toContain(
+      '- WHEN a REQ is ADDED, THEN it is inserted before the `## Edge Cases` heading\n' +
+        '- WHEN this bullet is split, THEN the requirement above has been corrupted',
+    );
+    // The new REQ sits after that bullet and before the real heading.
+    const added = content.indexOf('#### REQ-TYPES-051');
+    const quoted = content.indexOf('inserted before the `## Edge Cases` heading');
+    const heading = content.search(/^## Edge Cases[ \t]*$/m);
+    expect(added).toBeGreaterThan(quoted);
+    expect(added).toBeLessThan(heading);
+    // Exactly one heading, and the quoting bullet still precedes it: an anchor
+    // that matched the mention would leave the heading count intact but move
+    // `added` above `quoted`, so both facts are asserted, not just the ordering.
+    expect(content.match(/^## Edge Cases[ \t]*$/gm)).toHaveLength(1);
+    expect(quoted).toBeLessThan(heading);
+  });
+
+  it('appends a REMOVED requirement at the Deprecated HEADING, not an inline-code mention', async () => {
+    // Same defect class as the ADDED path above, in `moveReqToDeprecated`:
+    // `drift-detection.md:621` quotes `## Deprecated Requirements` inside a
+    // bullet 110 lines above the real heading.
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': `---
+feature: sdd-workflow
+status: active
+last_updated: 2026-01-01
+---
+
+# sdd-workflow
+
+#### REQ-TYPES-001: retired soon
+- WHEN a story's slice ends, THEN \`## Deprecated Requirements\` closes it
+- WHEN this bullet is split, THEN the requirement above has been corrupted
+
+## Deprecated Requirements
+
+- **REQ-TYPES-000**: earlier retirement _(removed 2026-01-01)_
+`,
+      '/archive/delta-spec.md': deltaSpec(`## REMOVED
+
+### REQ-TYPES-001: retired soon
+
+**Feature:** sdd-workflow
+**Story:** US-1
+
+**Reason:** superseded
+
+---
+`),
+    });
+
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain(
+      "- WHEN a story's slice ends, THEN `## Deprecated Requirements` closes it\n" +
+        '- WHEN this bullet is split, THEN the requirement above has been corrupted',
+    );
+    expect(content.match(/^## Deprecated Requirements[ \t]*$/gm)).toHaveLength(1);
+    const entry = content.indexOf('**REQ-TYPES-001**');
+    const depHeading = content.search(/^## Deprecated Requirements[ \t]*$/m);
+    expect(entry).toBeGreaterThan(depHeading);
+  });
+
   it('lands Description + Acceptance Criteria when no **Spec:** block is given', async () => {
     vol.fromJSON({
       '/specs/features/sdd-workflow.md': EXISTING_SPEC,

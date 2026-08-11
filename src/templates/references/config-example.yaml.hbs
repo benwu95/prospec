@@ -49,6 +49,10 @@ agents:
 knowledge:
   # Knowledge base location. Defaults to `{base_dir}/ai-knowledge`.
   base_path: prospec/ai-knowledge
+  # List of repository-root-relative, posix-formatted paths to generated artifacts.
+  # These files are exempt from knowledge staleness checks (they don't move last_src_commit).
+  generated_artifacts:
+    - dist/bundle.js
   # Extra convention files to pre-load as L1 Core Conventions, relative to the
   # ai-knowledge/ directory.
   additional_core_conventions:
