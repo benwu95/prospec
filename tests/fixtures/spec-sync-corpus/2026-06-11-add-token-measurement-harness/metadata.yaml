@@ -1,0 +1,39 @@
+name: add-token-measurement-harness
+created_at: 2026-06-11T02:11:52.676Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - tests
+description: Token 量測 harness：使用者可見的 input-token 節省比與 cache 命中率量測工具
+quality_log:
+  - skill: prospec-review
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "major: assemble.ts full-dump/檔案內容每 task × provider 重複讀取（efficiency，建議 hoist 單次組裝）"
+      - "major: usage-map.ts Gemini thoughtsTokenCount 未抑制/未計入，google output 與 spend 低報（建議 thinkingBudget: 0 + 映射折入 output）"
+      - "major: measurement.ts TaskMeasurement reason 不變式僅註解，未以 schema refine 強制"
+  - skill: prospec-review
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "major(開放): measurement.ts TaskMeasurement reason 不變式僅註解，未以 schema refine 強制"
+      - "major(開放): measure-output.ts 零量測 guard 隱藏 spent_usd——全失敗仍燒錢卻不顯示花費"
+      - "已解: 前輪 assemble 重複 I/O 與 Gemini thoughts 兩條 major 已於中間修正輪修復"
+  - skill: prospec-review
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "major(開放): measure-output.ts formatter 無 unit test（零任務 guard/aborted/quiet 無 mutation 抵抗）"
+      - "major(開放): REQ-005 AC4 無門檻判定——e2e 缺負向斷言釘住"
+      - "major(開放): token-accounting.ts outputCostUsd 未測（餵預算中止）"
+      - "major(開放): scripts/ 不在 lint/typecheck 閘門（建議 tsconfig.scripts.json + eslint 範圍擴充）"
+  - skill: prospec-verify
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "D2 REQ-002 AC2: 三 provider 實際 API 量測未執行（無金鑰環境）——離線路徑/結構全驗證，首次真實執行時驗收"
+      - "D4 Knowledge 陳舊: types/lib/services/cli/tests 五個 README 尚未反映 measurement 新增——建議 /prospec-knowledge-update"

@@ -1,0 +1,90 @@
+name: land-memory-only-knowledge
+created_at: 2026-08-06T02:39:10.329Z
+status: archived
+related_modules:
+  - cli
+  - lib
+description: 把只存在於 agent session memory 的專案慣例與操作事實落進 repo，讓任何 harness 的 agent 都讀得到
+scale: quick
+quality_log:
+  - skill: prospec-ff
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - TDD 覆蓋：本變更零 code surface，驗收靠 grep/diff/prospec check；刻意不加 release skill
+        兩份副本的同步契約測試（屬機制化範疇，且 tests README 已 1898/1800 超標，混入會把兩個不相干關注點放進同一
+        commit）
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - F-1 兩 commit 模式與訊息樣板與現況相左（docs(archive) 已停用於 2026-07-25）
+      - F-2 commit 規則交叉指向不完備（_conventions.md 只含 4 條中的 2 條）
+      - F-3 PR body 繁中的理由越界引用 Language Policy（該規則以 repo 路徑集合定義）
+      - F-4 cli README 的 rejected-by-commander 統攝不成立，且 learn upsert 多帶 status
+        是靜默剝除
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - Round 2：F-5/F-6/F-7 三個新 major 全由 round-1 的修復造成（PB-007
+        形狀）；根因為對易變事實寫全稱句，已改寫規則形狀而非再補分支
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - Round 3：F-8 未修（第三代同族缺陷，對易變事實寫全稱句）；已達 hard cap 3 輪，0 critical
+        貫穿三輪故阻斷軸早已收斂，F-8 依 severity contract 作為 major 提案交付人工裁決
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-06
+    result: PASS
+    warnings:
+      - Round 4：F-8 依人工裁決以整句刪除收斂；0 critical、0 新 major，8 列全數 fixed
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-06
+    result: PASS
+    warnings:
+      - 刻意排除：release skill
+        兩份副本（.claude/.agents）的同步無任何機器守門，本輪修掉既有漂移但未加契約測試——屬機制化範疇，且 tests README 已
+        1898/1800 超標
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: not-applicable
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 901fc12e39eb5b279f9659e58771cedab1375bfd866e46e8b798020f99f6b10a
+  date: 2026-08-06
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 901fc12e39eb5b279f9659e58771cedab1375bfd866e46e8b798020f99f6b10a
+  date: 2026-08-06
+archived_at: 2026-08-06

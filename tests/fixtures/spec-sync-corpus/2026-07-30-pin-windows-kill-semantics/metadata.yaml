@@ -1,0 +1,59 @@
+name: pin-windows-kill-semantics
+created_at: 2026-07-30T14:44:08.744Z
+status: archived
+related_modules:
+  - tests
+  - lib
+description: 把 Windows 無訊號的 kill 語意釘進測試與 REQ-LIB-033，讓 windows-smoke 的 vitest 步驟全綠
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-30
+    result: PASS
+    warnings: []
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 2
+  - skill: prospec-review
+    date: 2026-07-30
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - "SC-002（windows-smoke 的 vitest 步驟零失敗）尚未由 CI 證實：修正仍未 commit，分支最近一次 run
+        30544608256 跑的是修正前的 commit；且 ci.yml:77 的 continue-on-error 仍在，三條 win32
+        斷言目前無法讓 PR 轉紅（移除歸屬記於 T8／issue #101）"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: f31de3b13efb0f8e76b23cf4e9dd8f5688224caa37fc76b685ddfb69f844816d
+  date: 2026-07-30
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: f31de3b13efb0f8e76b23cf4e9dd8f5688224caa37fc76b685ddfb69f844816d
+  date: 2026-07-30
+archived_at: 2026-07-30

@@ -1,0 +1,75 @@
+name: align-language-policy-scope
+created_at: 2026-07-25T07:32:03.000Z
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: Seed one path-scoped Language Policy from a single source so
+  CONSTITUTION.md and the entry config agree
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-25
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-07-25
+    result: PASS
+    warnings:
+      - "T8 was written before its test (T7); the assertions were
+        mutation-verified afterwards instead of observed red first"
+  - skill: prospec-review
+    date: 2026-07-25
+    result: WARN
+    warnings:
+      - "formatPathList does not normalize backticks/newlines in config-derived
+        paths (same sink class already exists for base_dir/project_name)"
+      - "a knowledge.base_path that is an ancestor of base_dir/specs makes the
+        two zones' globs overlap; architectural, not drop-in"
+      - "init.service.ts:130 still hand-joins base_dir + 'ai-knowledge' instead
+        of resolveBasePaths (pre-existing convention breach)"
+      - "references/feature-spec-format.hbs and archive-format.hbs carry no
+        language declaration, unlike promotion-format"
+      - "agent sync does not refresh the AGENTS.md that init writes for a
+        claude-only project (design gap surfaced while fixing the render-site
+        defect)"
+      - "escalated: _lessons-ledger.md status column breaches promotion-format's
+        closed enum (`retired`, appended prose) — pre-existing data, owner's
+        call"
+    criticals_found: 8
+    criticals_fixed: 8
+    majors: 6
+  - skill: prospec-verify
+    date: 2026-07-25
+    result: PASS
+    warnings:
+      - "TDD ordering: T8 and the round-2 review fixes were written before their
+        tests (mutation-verified afterwards); coverage >= 80% is not
+        machine-measured (no coverage provider in this repo)"
+      - "knowledge-size: this change's additions push 4 L2 module READMEs 7-46
+        tokens over the 1000-token budget (lib 1046, templates 1045, services
+        1019, types 1007) — the files were already at the cap; remedy is
+        compression or the deferred sub-module extraction"
+      - "review-provenance flips stale after the mandated verify-time Knowledge
+        sync (the digest covers prospec/ai-knowledge/**), and again after the
+        commit — re-record the baseline after committing, before
+        /prospec-archive"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: delta-spec-compliance
+        result: PASS
+      - name: constitution-audit
+        result: PASS
+      - name: knowledge-consistency
+        result: WARN
+      - name: tests
+        result: PASS
+review_provenance:
+  digest: a0f19d9eeb485be9f5c97332a85a94d34f89fa28905b2ea0e1a4aebe860e8f24
+  date: 2026-07-25

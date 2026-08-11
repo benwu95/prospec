@@ -2081,70 +2081,37 @@ function mergeRequirementInPlace(
     };
   }
   const body = landingBody(route);
-  const existingLevel = route.status === 'MODIFIED' ? existingReqLevel(content, route.reqId) : null;
+  const specIndex = indexSpec(content, { includeStruck: true });
+  const reqs = specIndex.requirements.filter((r) => r.id === route.reqId);
 
-  if (existingLevel !== null) {
-    const titleLine = `${'#'.repeat(existingLevel)} ${route.reqId}: ${route.description}`;
-    // Replace the existing REQ section (from its heading to the next section)
-    const lines = content.split('\n');
-    const result: string[] = [];
-    // The superseded body is collected, not just discarded: what the landing
-    // block omits is the behavior that would vanish from the trust zone.
-    const superseded: string[] = [];
-    let skipping = false;
-    // Only the FIRST section carrying the id is merged. A spec corrupted by the
-    // h4-only merge already holds a second section with the same id; rewriting
-    // both would land the body twice and restructure the duplicate's heading
-    // level. It is left byte-identical and reported instead — deleting authored
-    // text is never this sync's call to make.
-    let replaced = false;
-    let duplicates = 0;
-
-    for (const line of lines) {
-      if (matchReqHeading(line)?.id === route.reqId) {
-        if (replaced) {
-          duplicates++;
-          skipping = false;
-          result.push(line);
-          continue;
-        }
-        replaced = true;
-        result.push(titleLine);
-        // With a landing body the old one is superseded; without, keep it.
-        if (body !== '') {
-          result.push(...body.split('\n'));
-          result.push('');
-          skipping = true;
-        }
-        continue;
-      }
-      // Stop skipping at the next section boundary: ANY other REQ heading (a REQ
-      // is never part of another REQ's body — and this sync's own ADDED path
-      // inserts at h4, so a deeper sibling REQ is a shape it creates itself), any
-      // heading at or above the REQ's own level, or a `---` rule. h1/h2 always
-      // bound it, whatever the REQ's level, because a document section is not
-      // body text — an h1-level REQ would otherwise eat `## Edge Cases` and the
-      // whole Change History table.
-      const boundary = /^(#{1,6})\s/.exec(line);
-      const bounded =
-        matchReqHeading(line) !== null ||
-        (boundary !== null && boundary[1]!.length <= Math.max(existingLevel, 2)) ||
-        line.trim() === '---';
-      if (skipping && bounded) {
-        skipping = false;
-      }
-      if (skipping) {
-        superseded.push(line);
-      } else {
-        result.push(line);
-      }
+  if (route.status === 'MODIFIED' && reqs.length > 0) {
+    const firstReq = reqs[0]!;
+    const titleLine = `${'#'.repeat(firstReq.level)} ${route.reqId}: ${route.description}`;
+    
+    let merged: string;
+    let superseded: string[] = [];
+    
+    if (body !== '') {
+      const pre = content.slice(0, firstReq.start);
+      const post = content.slice(firstReq.end);
+      
+      const oldBlock = content.slice(firstReq.start, firstReq.end);
+      const oldLines = stripTrailingCr(oldBlock).split('\n');
+      superseded = oldLines.slice(1);
+      
+      merged = pre + titleLine + '\n' + body + '\n' + post;
+    } else {
+      const oldBlock = content.slice(firstReq.start, firstReq.end);
+      const oldLines = stripTrailingCr(oldBlock).split('\n');
+      const keptBody = oldLines.slice(1).join('\n');
+      
+      const pre = content.slice(0, firstReq.start);
+      const post = content.slice(firstReq.end);
+      
+      merged = pre + titleLine + (oldLines.length > 1 ? '\n' + keptBody : '') + post;
     }
-
-    const merged = result.join('\n');
-    // Both reports are independent facts and both are due: the duplication needs
-    // converging, AND whatever the landing block dropped from the section it DID
-    // replace still left the trust zone. Returning only the duplication report
-    // silently swallowed the dropped bullets (REQ-SERVICES-073).
+    
+    const duplicates = reqs.length - 1;
     const duplicatePending =
       duplicates > 0
         ? pendingFor(
@@ -2152,10 +2119,8 @@ function mergeRequirementInPlace(
             `${duplicates} further section(s) carry this REQ id — pre-existing duplication left untouched; converge them by hand`,
           )
         : undefined;
+
     if (body === '') {
-      // Both reasons are due here too — `??` reported the duplication and dropped
-      // the fact that the body was preserved and still needs converging. One REQ
-      // carries one pending entry, so they are stated together.
       const reason =
         duplicatePending === undefined
           ? NO_SPEC_BLOCK_REASON

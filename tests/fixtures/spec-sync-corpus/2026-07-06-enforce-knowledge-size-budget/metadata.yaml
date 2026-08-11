@@ -1,0 +1,84 @@
+name: enforce-knowledge-size-budget
+created_at: 2026-07-06T02:00:23.951Z
+status: archived
+scale: standard
+related_modules:
+  - "**types**"
+  - "**lib**"
+  - "**services**"
+  - "**templates**"
+  - "**tests**"
+description: 新增第 11 個 drift check knowledge-size（warn 級），用 lib/token-accounting
+  對 index.md、core conventions、各 module README 計 token，超出宣告預算即 WARN 進
+  prospec-report.json；並校正 index.md 的 token 預算宣告，使其與 check 閾值單一來源一致（誠實邊界原則）
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+    notes: "INVEST advisory：US-1 六項全過；US-2 的 Independent 對 US-1
+      的閾值來源有軟耦合，但『宣告數字＝check 閾值』可獨立以 grep/測試斷言，可接受。Knowledge gate PASS：related
+      modules types/lib/services/tests 皆由 index.md keywords
+      命中；drift-detection.md 已涵蓋 drift check 家族，新 check 為其延伸。"
+  - skill: prospec-plan
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+    notes: "依賴方向 PASS：collector/evaluator 落 lib、被 services 呼叫，無逆向/跨層。設計決策：方案 A（讀
+      config + 誠實重命名 l0_max→l1_per_file/l1_per_module→l2_per_module +
+      DEFAULT_KNOWLEDGE_TOKEN_BUDGET 單一來源）；L1 改 per-file 語意（total 不可達→per-file
+      可達可定位）。6 ADDED + 2 MODIFIED REQ 全路由 drift-detection（US-8）。related_modules
+      補 templates。"
+  - skill: prospec-tasks
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+    notes: "17 tasks（code 15 + [V] 2），分層
+      Types→Lib→Services→Templates→Tests；每個新/改模組皆有測試任務（types T10/T14、lib
+      T11/T12、services T13、single-source T15）。TDD gate PASS。"
+  - skill: prospec-implement
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+    notes: "T1–T17 完成；全套 85 檔 2079 tests 綠（+17）、typecheck clean。PB-001
+      mutation-verify：single-source 測試（改 index.md 數字→紅）、frozen-count 測試（移除 check
+      id→紅）皆確認會變紅。實跑 prospec check：knowledge-size 如實 WARN 9
+      檔（index.md/_status-lifecycle 破 L1、6 README 破
+      L2；_conventions/_diagram/_glossary ≤1500 未 flag）—SC-001/002/004
+      達成。review-provenance FAIL 為預期（implemented 未記 review
+      baseline，/prospec-review 會清）。PB-006/007：index 走 readIndex、README 走
+      readModuleReadme、conventions 走 readContainedFile，無 ad-hoc 路徑/重複實作。"
+  - skill: prospec-review
+    date: "2026-07-06"
+    result: WARN
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+    warnings:
+      - "docs-claims/spec-sync（major，advisory）：知識庫（index.md auto-block +
+        types/lib/tests README）與 feature spec（drift-detection.md:199）仍寫『10
+        checks』，實為 11。index.md auto-block + module READMEs 由 verify 的
+        knowledge-update 收斂（勿手改 auto-block）；drift-detection.md 由 archive
+        spec-sync 收斂（delta-spec 已補 MODIFIED REQ-TYPES-052/034/REQ-TESTS-045）。"
+    notes: "獨立 fresh-context reviewer（Mode B）1 輪收斂：0 critical。correctness（strict >
+      邊界 mutation-verified）/security（canonical contained readers +
+      isSafeResourceName）/spec-architecture（依賴方向乾淨、窮盡護欄）/test-quality
+      PB-001（single-source 綁真列、會變紅）/parallel-site PB-006-007（rename
+      完整無殘留）/docs-claims PB-003（註記準確）全數 clean。"
+  - skill: prospec-verify
+    date: "2026-07-06"
+    result: PASS
+    grade: A
+    dimensions:
+      - { name: "1/5 task-completion", result: PASS }
+      - { name: "2/5 delta-spec", result: PASS }
+      - { name: "3/5 constitution", result: WARN }
+      - { name: "4/5 knowledge", result: PASS }
+      - { name: "5/5 tests", result: PASS }
+    warnings:
+      - "[SHOULD] User-Facing Documentation：root README.md:639 的 `prospec check` 檢查清單未列 knowledge-size（且 #66/#67 的 review-provenance/metadata-completeness 亦缺，屬既有債）→ advisory WARN，不擋 S/A；於 S/A commit 補列 knowledge-size（本變更表面）。"
+      - "資訊性（不計分）：本變更的 knowledge 計數 lag『10→11』於 index.md auto-block + types/lib/tests README，於 commit prompt 由 /prospec-knowledge-update 折入 feature commit；drift-detection.md 由 archive spec-sync 收斂。"
+    notes: "coverage 96.95% lines / 93.67% branch（config 100%/drift-checker 100%/drift-sources 97.9%/check.service 95.23%）≥80%；全套 2079 green。knowledge-size 的 report WARN 為 SC-002 刻意的誠實訊號（對現況超標檔如實 WARN），非缺陷、不計入評級。review-provenance PASS（baseline 新鮮）。Grade A → verified。"
+review_provenance:
+  digest: 476ddf27cee7016e83617331374317f36818dcc6125ddcca07124611f2be99a7
+  date: 2026-07-06

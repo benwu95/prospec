@@ -1,0 +1,163 @@
+name: configurable-generated-artifacts
+created_at: 2026-08-11T02:17:52.111Z
+status: archived
+related_modules:
+  - types
+  - lib
+description: Make generated-artifact exclusion configurable via .prospec.yaml
+  instead of hardcoded; also fix hasVerifyGrade to check latest entry only
+issue: https://github.com/benwu95/prospec/issues/133
+scale: full
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-08-11
+    result: PASS
+    warnings:
+      - ""
+  - skill: prospec-plan
+    date: 2026-08-11
+    result: PASS
+    warnings:
+      - ""
+  - skill: prospec-tasks
+    date: 2026-08-11
+    result: PASS
+    warnings:
+      - ""
+  - skill: prospec-review
+    date: 2026-08-11
+    result: WARN
+    warnings:
+      - "round 1: 9 criticals surfaced, 11 majors; fixes applied in-round and
+        re-reviewed in round 2"
+    criticals_found: 9
+    criticals_fixed: 0
+    majors: 11
+  - skill: prospec-review
+    date: 2026-08-11
+    result: WARN
+    warnings:
+      - "4 unresolved criticals escalated to human: F-5 (3 shipped templates
+        state refuted .some() semantics), F-6 (graduated REQ-TEMPLATES-171 +
+        drift-detection.md:557/:577 falsified, absent from delta-spec), F-8
+        (config glob covering a whole module makes last_src_commit null ->
+        isStale reads not-stale, PB-013 fail-open), F-21 (delta-spec.md has zero
+        CJK; Before/After/Reason must be Traditional Chinese per Constitution
+        MUST Language Policy)"
+      - 11 majors proposed, passed to verify as advisory WARN
+    criticals_found: 12
+    criticals_fixed: 8
+    majors: 11
+  - skill: prospec-review
+    date: 2026-08-11
+    result: WARN
+    warnings:
+      - "2 unresolved criticals escalated: R5-1 (archive.service.ts inserts
+        ADDED REQs via first-substring match on '## Edge Cases', which in
+        drift-detection.md hits an inline code span at :619 not the heading at
+        :731 — archiving this change would splice both new REQs into an existing
+        US-15 bullet, silently) and R4-3 (drift-detection.md:542 US-14
+        acceptance scenario asserts the refuted semantics; US-level spec text
+        has no graduation carrier)"
+      - round 5 reached the hard cap; loop stopped and escalated rather than
+        passing
+    criticals_found: 10
+    criticals_fixed: 8
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-11
+    result: WARN
+    warnings:
+      - "closing round after user adjudication: R5-1 fixed (both spec-sync
+        anchors), V-1 fixed (moveReqToDeprecated parallel site, PB-007 miss),
+        V-3/V-4 fixed; V-2 proposed (fenced-block masking, currently
+        unreachable)"
+      - R4-3 deferred to archive by user decision — [M] task recorded in
+        tasks.md naming file, line and the REQ-TEMPLATES-171/173 corrections it
+        must land with
+    criticals_found: 3
+    criticals_fixed: 2
+    majors: 3
+  - skill: prospec-verify
+    date: 2026-08-11
+    result: WARN
+    warnings:
+      - "2/5 REQ-TEMPLATES-173: the new lifecycle re-entry sentence added to
+        both _status-lifecycle.md copies and the prospec-verify/prospec-archive
+        templates carries no contract-test marker, while that REQ's fourth
+        bullet makes the contract test the enforcement mechanism for
+        lifecycle-copy content"
+      - "3/5 [SHOULD] User-Facing Documentation Stays Current violated:
+        knowledge.generated_artifacts is absent from both root READMEs while its
+        sibling additional_core_conventions is documented in prose and YAML in
+        each (review finding F-13, proposed and unfixed)"
+      - "R4-3 deferred by user decision:
+        prospec/specs/features/drift-detection.md:542 US-14 acceptance scenario
+        still asserts the refuted semantics; US-level spec text has no
+        graduation carrier, so an [M] task in tasks.md pins the manual fix to
+        archive time"
+    grade: B
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: WARN
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-08-11
+    result: PASS
+    warnings:
+      - "2/5 REQ-TEMPLATES-173: the new lifecycle re-entry sentence added to
+        both _status-lifecycle.md copies and the prospec-verify/prospec-archive
+        templates carries no contract-test marker, while that REQ's fourth
+        bullet makes the contract test the enforcement mechanism for
+        lifecycle-copy content"
+      - "3/5 [SHOULD] User-Facing Documentation Stays Current violated:
+        knowledge.generated_artifacts is absent from both root READMEs while its
+        sibling additional_core_conventions is documented in prose and YAML in
+        each (review finding F-13, proposed and unfixed)"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: WARN
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 3434bc60849f1d2e38d3e37222b8633b296889c64bfd3a0dc07a6d0d6e064f74
+  date: 2026-08-11
+delta_spec_provenance:
+  digest: 49facbb47328cd912012686de083514e56d141cf124c4efa0911adcf1be0cea0
+  date: 2026-08-11
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 3434bc60849f1d2e38d3e37222b8633b296889c64bfd3a0dc07a6d0d6e064f74
+  date: 2026-08-11
+archived_at: 2026-08-11

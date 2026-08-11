@@ -1,0 +1,40 @@
+name: agent-sync-hygiene
+created_at: 2026-07-05
+status: archived
+archived_at: 2026-07-05
+scale: standard
+related_modules:
+  - types
+  - services
+  - templates
+  - tests
+description: >-
+  agent-config sync 三項衛生：skill description 收斂為單一來源（skill.ts）+ 等價性測試； agent-sync
+  加 prospec-* orphan sweep（保留非 prospec skill）；trigger 防碰撞（收緊 baseline + 本專案中文，跨
+  skill substring/重複 0 violation）並重生。對應 GitHub issue #59。
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-05
+    result: PASS
+    warnings:
+      - "3 major (advisory) all fixed: sweep comment accuracy; .prospec.yaml
+        collision guard; equivalence-test escaping"
+  - skill: prospec-verify
+    date: 2026-07-05
+    result: S
+    warnings: []
+review_provenance:
+  digest: a2fe9596ce6b517f0381fd3c7a090aa88e6a1f328db57d492da21bf87b44fda1
+  date: 2026-07-05

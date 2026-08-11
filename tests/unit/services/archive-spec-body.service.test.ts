@@ -999,6 +999,134 @@ ${tail}`;
     });
   }
 
+  /**
+   * The two shapes the boundary owners used to disagree on. `indexSpec` reads a
+   * fence-masked probe, so a `---` or `####` inside a fenced block is not a
+   * boundary; and only an ACTIVE REQ heading bounds at any level, so a retired
+   * REQ heading quoted DEEPER than the REQ stays body text. Both assertions are
+   * negative-and-positive: the superseded text must be gone AND the document
+   * section after it must survive, because a boundary that is too greedy and one
+   * that is too shy fail in opposite directions.
+   */
+  const modifiedDeclaring = (...dropped: string[]): string =>
+    deltaSpec(`## MODIFIED
+
+### REQ-TYPES-001: updated title
+
+**Feature:** sdd-workflow
+**Story:** US-1
+
+**Spec:**
+The converged behavioural statement.
+- WHEN converged, THEN the whole block lands verbatim
+
+**Dropped:**
+${dropped.join('\n')}
+
+---
+`);
+
+  const FENCED_TAIL =
+    '\n```md\n---\n#### REQ-EXAMPLE-001: quoted heading inside a fence\n```\n\n' +
+    'Tail prose that IS also superseded.\n' +
+    '- WHEN the fence closes, THEN this bullet is still part of the body\n\n' +
+    '## Edge Cases\n\n- existing edge\n';
+
+  const STRUCK_TAIL =
+    '\n##### ~~REQ-TYPES-009: a retired REQ quoted as an example~~\n' +
+    "Quoted retirement prose that belongs to REQ-001's body.\n" +
+    "- WHEN the quote is deeper than the REQ, THEN this bullet is still REQ-001's\n\n" +
+    '## Edge Cases\n\n- existing edge\n';
+
+  it('consumes a fenced block holding --- and #### as part of the body it replaces', async () => {
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': spec('####', FENCED_TAIL),
+      '/archive/delta-spec.md': modifiedDeclaring(
+        '- WHEN replaced, THEN this bullet is superseded',
+        '- WHEN the fence closes, THEN this bullet is still part of the body',
+      ),
+    });
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain('The converged behavioural statement.');
+    // the fence, and everything after it inside the REQ, was body — not a boundary
+    expect(content).not.toContain('#### REQ-EXAMPLE-001: quoted heading inside a fence');
+    expect(content).not.toContain('Tail prose that IS also superseded.');
+    expect(content).not.toContain('- WHEN the fence closes, THEN this bullet is still part');
+    // …and the real document section after the REQ is untouched
+    expect(content).toContain('## Edge Cases');
+    expect(content).toContain('- existing edge');
+  });
+
+  it("consumes a struck REQ heading DEEPER than the REQ as part of the body it replaces", async () => {
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': spec('####', STRUCK_TAIL),
+      '/archive/delta-spec.md': modifiedDeclaring(
+        '- WHEN replaced, THEN this bullet is superseded',
+        "- WHEN the quote is deeper than the REQ, THEN this bullet is still REQ-001's",
+      ),
+    });
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain('The converged behavioural statement.');
+    // nothing is left stranded after the replacement
+    expect(content).not.toContain('##### ~~REQ-TYPES-009');
+    expect(content).not.toContain("Quoted retirement prose that belongs to REQ-001's body.");
+    expect(content).not.toContain('- WHEN the quote is deeper than the REQ');
+    expect(content).toContain('## Edge Cases');
+    expect(content).toContain('- existing edge');
+  });
+
+  // The sharpest guard of the pair: a boundary that stops at the deeper struck
+  // heading never SEES the bullet beyond it, so it reports no drop and the write
+  // sails through — the loss guard is defeated by a short slice, not by a bad
+  // declaration. This reds the moment the body stops early again.
+  it('refuses the write when a bullet BEYOND a deeper struck heading is undeclared', async () => {
+    const before = spec('####', STRUCK_TAIL);
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': before,
+      '/archive/delta-spec.md': modifiedDeclaring(
+        '- WHEN replaced, THEN this bullet is superseded',
+      ),
+    });
+    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+
+    expect(result.droppedBehavior).toEqual([
+      expect.objectContaining({ feature: 'sdd-workflow', reqId: 'REQ-TYPES-001' }),
+    ]);
+    expect(result.droppedBehavior[0]!.bullets).toContain(
+      "- WHEN the quote is deeper than the REQ, THEN this bullet is still REQ-001's",
+    );
+    // fail-closed: an undeclared loss leaves the trust-zone file byte-identical
+    expect(fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8')).toBe(before);
+  });
+
+  // The other direction: a retired SIBLING at the REQ's own level is a section,
+  // not body text. Loosening the struck case must not swallow its retirement
+  // record — that record is the only trace the REQ ever existed.
+  it("still stops at a struck REQ heading at the REQ's own level", async () => {
+    vol.fromJSON({
+      '/specs/features/sdd-workflow.md': spec(
+        '####',
+        '\n#### ~~REQ-TYPES-009: retired sibling~~\n' +
+          '**Removed**: 2026-01-01 | **Change**: an earlier change\n\n' +
+          '## Edge Cases\n\n- existing edge\n',
+      ),
+      '/archive/delta-spec.md': modifiedDeclaring(
+        '- WHEN replaced, THEN this bullet is superseded',
+      ),
+    });
+    await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change');
+    const content = fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8');
+
+    expect(content).toContain('The converged behavioural statement.');
+    expect(content).toContain('#### ~~REQ-TYPES-009: retired sibling~~');
+    expect(content).toContain('**Removed**: 2026-01-01 | **Change**: an earlier change');
+    expect(content).toContain('## Edge Cases');
+  });
+
   it('keeps a nested non-REQ subsection inside the body it replaces', async () => {
     vol.fromJSON({
       '/specs/features/sdd-workflow.md': spec(

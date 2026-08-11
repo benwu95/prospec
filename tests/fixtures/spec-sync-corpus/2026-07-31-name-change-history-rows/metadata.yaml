@@ -1,0 +1,49 @@
+name: name-change-history-rows
+created_at: 2026-07-31T15:48:27.238Z
+status: archived
+related_modules:
+  - services
+  - tests
+description: 讓 archive 的 Change History 列記下真實變更名（CLI 收變更名），並回填 15 列既有的 archive-sync
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 3
+  - skill: prospec-verify
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: a6b302ad061d6c6226349d7b940edcd19d7dbd29ec6508248c1a8bec9194c21b
+  date: 2026-07-31
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: a6b302ad061d6c6226349d7b940edcd19d7dbd29ec6508248c1a8bec9194c21b
+  date: 2026-07-31
+archived_at: 2026-07-31

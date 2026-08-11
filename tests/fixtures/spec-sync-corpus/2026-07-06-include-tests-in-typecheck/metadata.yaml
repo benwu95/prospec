@@ -1,0 +1,50 @@
+name: include-tests-in-typecheck
+created_at: 2026-07-06T10:03:43.000Z
+status: archived
+scale: quick
+related_modules:
+  - tests
+description: "讓 pnpm typecheck 涵蓋 tests/(與 scripts/):新增 tsconfig.typecheck.json
+  extends base、noEmit、include src+tests+scripts,repoint typecheck script;build
+  維持排除 tests。根治 PB-008 的 gate 盲點(測試檔型別破損逃過三閘)"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: "2026-07-06"
+    result: PASS
+    warnings:
+      - "re-scaled standard→quick after plan-time discovery: internal
+        dev-tooling, 1 module (tests), no product-spec REQ home; 54 latent test
+        type errors to fix (config needs rootDir='.')"
+  - skill: prospec-implement
+    date: "2026-07-06"
+    result: PASS
+    warnings:
+      - "54 surfaced test/scripts type errors fixed type-safely (no
+        as-any/@ts-ignore; delegated + independently verified); guard test
+        added; typecheck 0, tests 2083, lint clean; mutation-verified both
+        directions"
+  - skill: prospec-review
+    date: "2026-07-06"
+    result: PASS
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+    warnings: []
+  - skill: prospec-verify
+    date: "2026-07-06"
+    result: PASS
+    grade: S
+    dimensions:
+      - { name: task-completion, result: PASS }
+      - { name: delta-spec-compliance, result: not-applicable }
+      - { name: constitution-full-audit, result: PASS }
+      - { name: knowledge-consistency, result: PASS }
+      - { name: tests, result: PASS }
+    warnings: []
+review_provenance:
+  digest: f6734e43c2bbc6c36a49b0fa6c62d6bdabdb31e7f0a1481fe38774d217ef7a2a
+  date: 2026-07-06

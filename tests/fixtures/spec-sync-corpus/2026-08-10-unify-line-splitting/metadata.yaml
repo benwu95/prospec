@@ -1,0 +1,103 @@
+name: unify-line-splitting
+created_at: 2026-08-10T17:54:27.976Z
+status: archived
+description: 把 per-line 解析的行來源收斂成單一剝 \r 的 splitLines()，修掉 CRLF checkout 下
+  tasks.md 任務全部不被解析與 playbook TTL sweep 恆為空
+issue: "#140"
+scale: standard
+quality_log:
+  - skill: prospec-ff
+    date: 2026-08-10
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - F-1 critical 待驗證後修復：行尾容忍規則在 src/ 有 8 個站點，本輪只收斂 3 個
+      - F-2 major：core.autocrlf=true 被寫成 git 預設（實為 Git for Windows 安裝程式預設），四處落地含
+        L2 知識庫
+      - F-3 major：plan D 類 27 個站點無任何 LF/CRLF 差分斷言，與 REQ-TESTS-083 的 pinned at
+        each layer 相牴
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - round 2：F-1／F-2 已修復；新 F-4 critical（REQ-LIB-051 仍以 tolerance 全稱句宣稱，D 類 27
+        站不走 primitive）已修復為 strip 單一來源的定義式說法
+      - round 2：F-3 仍 open（documentHeadings 三個呼叫端只釘住一個）→ 已補兩條決策點斷言並 mutation 驗證
+      - round 2：F-5／F-6 majors（tasks.md 未同步、plan 定位點行號落後）已回填
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - round 3：F-3／F-4／F-6 已修復；新 F-7 critical（同軸線第二條全稱句：write-back 位元組保真對
+        delegated-evidence 刻意 CR-normalised 的 body 不成立）已收窄
+      - round 3：F-8 major（同一組站點在三份工件有四個計數）已統一為「13 個呼叫點／收斂前 8 份表達式散在 6 檔」
+      - round 3：F-9 major（13 個呼叫點中 6 個恆等）以檔頭區分 load-bearing 與 belt-and-braces
+        兩類用法並訂正 spec-headings 舊註解的錯誤理由；不刪除既有呼叫點（超出本變更範圍）
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - round 4：F-5／F-7／F-9 已修復；F-8 的計數第二次修正（機械重導：收斂前 6 份表達式／4 檔／11 呼叫點，缺陷本體 0 份）
+      - round 4：F-10 critical —— 同一條規則的 6 個陳述點前三輪只修了 2 個，本輪一次窮舉修完（含 delta-spec
+        首句與第五條 bullet 的自相矛盾）
+      - round 4：F-11 major —— 除外清單措辭（.trim() 確實會剝 CR）與完備性（第四種形狀：整檔 \r\n→\n 正規化）已補
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-10
+    result: PASS
+    warnings:
+      - round 5（收斂輪）：0 critical，遞迴的『全稱句』類別判定 closed；F-8／F-10／F-11 皆 fixed
+      - round 5 的兩個 majors（F-12 陳舊行號指標、F-13 rg 命中數）已於同輪訂正並回填 review.md 狀態
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-08-10
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: c6bc79bda76d4768d7c0c784a92fe7d67cd2347e393acaae919c414954ea79be
+  date: 2026-08-10
+delta_spec_provenance:
+  digest: bf37156dbcca5d9bf7489f60e4250f9333becf8044949b0c143334957d80bafd
+  date: 2026-08-10
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: c6bc79bda76d4768d7c0c784a92fe7d67cd2347e393acaae919c414954ea79be
+  date: 2026-08-10
+archived_at: 2026-08-10

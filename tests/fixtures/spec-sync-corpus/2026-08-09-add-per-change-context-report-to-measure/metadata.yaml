@@ -1,0 +1,89 @@
+name: add-per-change-context-report-to-measure
+created_at: 2026-08-09T15:18:54.461Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: Add per-change context budget report mode to prospec measure
+issue: "issue #142"
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-09
+    result: WARN
+    warnings:
+      - Found 3 major issues (maintainability/correctness)
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-09
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-09
+    result: PASS
+    warnings: []
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: WARN
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-review
+    date: 2026-08-09
+    result: WARN
+    warnings:
+      - Found 1 major issue (Readability/Correctness)
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-09
+    result: FAIL
+    warnings:
+      - Found 1 critical issue (quiet flag hardcoded), 1 major issue
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-09
+    result: PASS
+    warnings:
+      - Found 2 major issues, fixed 1 critical issue from round 2
+    criticals_found: 0
+    criticals_fixed: 1
+    majors: 2
+review_provenance:
+  digest: 296ebb5a40f47c98f77111229a6ec57e612b9952abf71e260f9bbec4dea3f054
+  date: 2026-08-09
+delta_spec_provenance:
+  digest: 35c8e44b2868965060928512f66a91cd963d849b2f2989ed51de32a4b6916f24
+  date: 2026-08-09
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: de3e21fe2b7721cfed4d1f98f45de498d68b3bc4a355edd503098a8e7f1ade23
+  date: 2026-08-09
+archived_at: 2026-08-09

@@ -1,0 +1,33 @@
+name: converge-constitution-audit
+created_at: 2026-07-04T10:46:30Z
+status: archived
+scale: full
+related_modules:
+  - templates
+  - tests
+description: >-
+  Constitution 收斂（GitHub issue #66 scope 3）：把 Constitution 全分級稽核從 ≥7 站收斂到
+  /prospec-verify 單站；規劃/執行各站降為站點特定檢查、非 verify 的 Exit Gate 降站點特定引用 （保留
+  quality_log），清理 orphaned Constitution [STABLE] 載入與 ff 的「NEVER skip
+  Constitution check at any phase」，verify 維持唯一全審並瘦身為契約稽核。依賴 Change A
+  （mechanize-review-gate）已於本 branch 之上。
+quality_log:
+  - skill: prospec-review
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "review-clean（0 unresolved critical）。1 major 已修：verify Key
+        Difference「Every other skill」對 explore 的 advisory Constitution
+        Checkpoint 過度宣稱（PB-003 claim⊆impl）→ 收斂措辭到 SDD-pipeline skills 並明列
+        explore 為決策輔助非 gate。7 項收斂不變式全數獨立核對通過（verify 唯一全審、無漏檢、5 個 orphaned
+        載入確為未消費、Exit Gate quality_log 保留、Startup Loading 完整、Entry Gate
+        存在性檢查保留、契約可攔 regression）。"
+  - skill: prospec-verify
+    date: "2026-07-05"
+    result: A
+    warnings:
+      - "Grade A（Ready to deploy）。5+1：1/5 task-completion PASS（drift）；2/5 四 REQ（TEMPLATES-133/TESTS-044 ADDED、CHNG-008/TEMPLATES-065 MODIFIED）全對應模板/測試 PASS；3/5 Constitution MUST 全 PASS——收斂本身自審通過（verify 作為唯一全審站對本變更做全審且合規），SHOULD dependency-direction N/A（純 template）、README-current N/A（無 user-facing surface 變更）；4/5 knowledge-health drift 9/9、0 stale；5/5 WARN（1964/1965，唯一 fail＝既有環境性 e2e `prospec --help` flake、單檔綠）；6 N/A（ui_scope none）。1 WARN、0 FAIL → A。"
+      - "commit-prompt 同步（S/A）：pnpm counts（測試 1959→1965、contract 591→597）+ templates 模組 README bump（Constitution 收斂描述，不引未畢業 REQ）；折入單一 atomic-by-feature commit。"
+review_provenance:
+  digest: 669c2e9ae81005e7c755eef98e85e13fa0987676226f8ab676864ce8dd7d7842
+  date: 2026-07-04

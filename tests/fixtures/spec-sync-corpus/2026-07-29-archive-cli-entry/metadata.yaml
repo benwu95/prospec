@@ -1,0 +1,65 @@
+name: archive-cli-entry
+created_at: 2026-07-29T14:25:52.713Z
+status: archived
+scale: standard
+related_modules:
+  - cli
+  - services
+  - templates
+  - tests
+description: 接上 archive.service 的 CLI 入口（含 --dry-run），決定論 mutation 下放程式碼，skill 只留 REQ 語意畢業
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-29
+    result: WARN
+    warnings:
+      - "F1 critical: dry-run feature-map 預測與 real run ensureDir
+        觸發條件漂移（confirmed→fixed）"
+      - "F2-F6 majors: notFound 誤診/skipped stdout/docs 高於實作/快照漏目錄/等價單向（proposed）"
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 5
+  - skill: prospec-review
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: c2b4296da6e3f1c0ea22e8fed194d6e62ceeb1ba0e4988d11a979a4316b0c5bd
+  date: 2026-07-29
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: c2b4296da6e3f1c0ea22e8fed194d6e62ceeb1ba0e4988d11a979a4316b0c5bd
+  date: 2026-07-29
+archived_at: 2026-07-29

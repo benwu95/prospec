@@ -1,0 +1,211 @@
+name: restore-cli-first
+created_at: 2026-07-29T16:17:01.924Z
+status: archived
+scale: full
+related_modules:
+  - cli
+  - services
+  - lib
+  - types
+  - templates
+  - tests
+description: 拋棄 skill-first：把 prospec skill 中所有確定性操作統一轉交給 CLI，CLI 成為 skill 必須檔案
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - US-4 聚合 review/verify/learn/validate 四個站點引擎，INVEST Small 邊緣（使用者裁決「一次全做」）
+      - delta-spec 24 REQs 超過 10-REQ 拆分指引、tasks 29 項超過 25 項指引——full scale
+        單一變更的既知代價，緩解見 plan Risk 表
+  - skill: prospec-review
+    date: 2026-07-29
+    result: WARN
+    warnings:
+      - 22 majors proposed in review.md（advisory，不入 verify 評分）：security
+        sanitize/traversal 家族、docs-claims、DRY、test-quality——清單見 review.md
+    criticals_found: 8
+    criticals_fixed: 8
+    majors: 22
+  - skill: prospec-review
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - round 2（使用者指示）：npm 安裝措辭移除（M13/M19 fixed）；其餘 20 majors 維持
+        proposed（advisory）
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 20
+  - skill: prospec-review
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - round 3（使用者指示修全部 majors）：18 fixed＋M12 deferred(backlog BUG-002，spec 手術另開
+        change)＋M10 未複現不盲修；narrow 複審 18/18 resolved、bundle 位元同步
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-review
+    date: 2026-07-30
+    result: PASS
+    warnings: []
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 4
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - MINIMUM_CLI_VERSION=0.6.0 高於 package.json 的 0.5.6：依現狀出貨，使用者裝到的 binary 會被
+        17 個 skill 的探針全數 STOP。補救：發版時把版本推到 ≥0.6.0（release skill 負責 bump），或在本變更內先
+        bump
+      - 4/5 knowledge-health WARN（lib 模組 README 落後於既有 commit 的 src/lib）：S/A
+        commit prompt 的知識同步步驟處理，archive Entry Gate 為 backstop
+      - spec-text drift（graduation 時修正 delta-spec 措辭，程式正確）：REQ-CLI-025 AC2
+        的「跳躍」實為合法前跳、REQ-CLI-027 AC2 的 snapshot/回讀改為寫入前驗證、REQ-CLI-029 AC1 的
+        test_provenance 為經 check 間接取得、REQ-TEMPLATES-165 的「旗標」實為 change scale
+        子指令等 11 處
+    grade: B
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - MINIMUM_CLI_VERSION=0.6.0 高於 package.json 的 0.5.6：依現狀出貨，使用者裝到的 binary 會被
+        17 個 skill 的探針全數 STOP。補救：發版時把版本推到 ≥0.6.0（release skill 負責 bump），或在本變更內先
+        bump（待使用者裁決）
+      - 4/5 knowledge-health WARN（lib 模組 README 落後於既有 commit 的 src/lib）：git
+        時間戳制，只能在 commit 時消除；S/A commit prompt 的知識同步步驟處理，archive Entry Gate 為
+        backstop
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - MINIMUM_CLI_VERSION=0.6.0 高於 package.json 的 0.5.6：依現狀出貨，使用者裝到的 binary 會被
+        17 個 skill 的探針全數 STOP。補救：發版時把版本推到 ≥0.6.0，或在 commit 前先 bump（待使用者裁決）
+      - 4/5 knowledge-health WARN（lib README 落後於既有 commit 的 src/lib）：git
+        時間戳制，知識同步已完成、只能在 feature commit 落地時消除；archive Entry Gate 為 backstop
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - MINIMUM_CLI_VERSION=0.6.0 高於 package.json 的 0.5.6：依現狀出貨，使用者裝到的 binary 會被
+        17 個 skill 的探針全數 STOP。補救：發版時把版本推到 ≥0.6.0，或在 commit 前先 bump（待使用者裁決）
+      - 4/5 knowledge-health WARN（lib README 落後於既有 commit 的 src/lib）：git
+        時間戳制；知識同步已完成，只能在 feature commit 落地時消除；archive Entry Gate 為 backstop
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - 探針地板 MINIMUM_CLI_VERSION=1.0.0 高於現行 package.json 0.5.6（刻意）：使用者裁決下一版直接跳
+        1.0.0 以區隔「CLI 必裝」的破壞性變更，package.json 的 bump 留給發版流程；在發版完成前，從本分支建置的 binary
+        會被 17 個 skill 的探針 STOP（預期行為，非缺陷）
+      - 4/5 knowledge-health WARN（lib README 落後於既有 commit 的 src/lib）：git
+        時間戳制；知識同步已完成，只能在 feature commit 落地時消除；archive Entry Gate 為 backstop
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 9ea68e3d1ae0fdc18b3d99c732a6b57ea34af84bd6886cb0801d3068737f224d
+  date: 2026-07-30
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 9ea68e3d1ae0fdc18b3d99c732a6b57ea34af84bd6886cb0801d3068737f224d
+  date: 2026-07-30
+archived_at: 2026-07-30

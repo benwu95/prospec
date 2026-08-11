@@ -1,0 +1,95 @@
+name: restrict-identity-fallback
+created_at: 2026-08-01T16:13:19.452Z
+status: archived
+related_modules:
+  - lib
+  - templates
+  - tests
+description: 收緊 review merge 的識別退回機制，讓帶新 id 的發現不再被 location+lens 併入既有列
+introduced_by: restore-cli-first
+scale: standard
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-08-01
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - "F-5 README 密度：markdown-table 的 SINGLE-source 主張維持壓縮（不變式仍存於 Key Files 與
+        Modification Guide #6，I/O-free 存於 index.md L1）"
+      - F-7 負向斷言只擋字面 dedup by Location，等義改寫可繞過（已於註解揭露）
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - 第二輪的 critical 由第一輪修復引入（PB-007 強化條款的原型）：修復只改變缺陷形狀 fallback→fallback 變成
+        fallback→id
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - 第三輪 0 critical（保留 pass 撐住），4 項皆為修復本身引入或遺留：計數未重跑、規格 bullet 絕對化、skill
+        本體未被斷言釘住、README 檔數改錯
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 7977c5120590a841d544f62df2b8bddf9dc1205b7f0977739a1f85df9cb065a4
+  date: 2026-08-02
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 7977c5120590a841d544f62df2b8bddf9dc1205b7f0977739a1f85df9cb065a4
+  date: 2026-08-02
+archived_at: 2026-08-02

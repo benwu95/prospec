@@ -1,0 +1,118 @@
+name: stop-silent-spec-body-loss
+created_at: 2026-08-07T15:42:34.531Z
+status: archived
+related_modules:
+  - lib
+  - services
+description: 讓 archive 的 Feature Spec sync 不再靜默丟失信任區內容：拒絕截斷、放寬掉落偵測、內容流失時阻擋、並為
+  delta-spec 建立 provenance 基線
+scale: full
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-07
+    result: WARN
+    warnings:
+      - F-4 架構性 critical 未解：擋寫發生於 moveToArchive 與 status=archived 之後，無 CLI
+        可及的重入路徑，已上呈使用者裁決
+      - F-17 major 未修：.prospec/ 於 CI 被 gitignore，archived-corpus 迴歸在 CI 全 skip
+    criticals_found: 16
+    criticals_fixed: 15
+    majors: 12
+  - skill: prospec-review
+    date: 2026-08-07
+    result: WARN
+    warnings:
+      - F-17 major 未修：.prospec/ 於 CI 被 gitignore，archived-corpus 迴歸在 CI 全
+        skip——待裁決是否提交 fixture 語料
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-07
+    result: WARN
+    warnings:
+      - F-17 major 未修：archived-corpus 迴歸在 CI 全 skip（.prospec/ gitignored）
+      - F-36 major 未修：契約測試不讀部署目錄，模板改動未部署無法轉紅
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - "F-17 未修（已開 issue #146）：archived-corpus 迴歸在 CI 全 skip"
+      - REQ-TESTS-079 的 Phase 3.5 手動收斂清單須於 archive graduation 逐條核對（US-31
+        標題／narrative／新增 scenario）
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - 2/5 WARN（獨立裁決）：REQ-CLI-034 的 per-feature-spec 敘述與 CLI 實際的 per-change
+        行為不符；已修但修復後未經獨立重評，故沿用 WARN
+      - 範圍成長：REQ-TESTS-079（agents:check CI 閘門）於 review 期間長出，不屬 proposal 五條 US
+        中任何一條；US-31 的收斂已列入 Phase 3.5 清單
+      - Phase 3.5 手動收斂清單共 11 項未執行——US 層文字無機械畢業載體，archive graduation 時須逐條核對（含新增
+        US-17）
+      - "F-17 未修（issue #146）：.prospec/ 於 CI 被 gitignore，archived-corpus 迴歸在 CI 全
+        skip"
+    grade: B
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-verify
+    date: 2026-08-08
+    result: PASS
+    warnings:
+      - "F-17 未修（issue #146）：.prospec/ 於 CI 被 gitignore，spec-sync-corpus 的
+        archived-corpus describe 在 CI 全 skip 且反空洞守衛自身亦 skipIf——真實語料迴歸目前僅在本機有效"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 405c1089d79f5b917a9916fd550f85c250be6660eab0791e98a0cf03d6f42cac
+  date: 2026-08-08
+delta_spec_provenance:
+  digest: 20f0fa211a1567daf19223d0cc9de4cdeaa765e02736b2a6176667ffaf4a6d1e
+  date: 2026-08-08
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 405c1089d79f5b917a9916fd550f85c250be6660eab0791e98a0cf03d6f42cac
+  date: 2026-08-08
+archived_at: 2026-08-08

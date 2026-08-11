@@ -1,0 +1,32 @@
+name: add-drift-checker
+created_at: 2026-06-12T01:52:46.369Z
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: 確定性 drift checker（BL-030 + OPT-A2）：`prospec check` 零 LLM 檢出
+  spec/code/knowledge 指涉與結構不一致，輸出機器可讀 prospec-report.json， --strict 供 CI
+  守門；/prospec-verify 開發期復用同一引擎
+quality_log:
+  - skill: prospec-review
+    date: "2026-06-12"
+    result: WARN
+    warnings:
+      - "major(已解-人工核可): compareFindings 用 localeCompare，跨環境（locale/ICU）排序不定，傷跨機器位元組一致性——建議 codepoint 比較"
+      - "major(已解-人工核可): module-map 缺失時 knowledge-health 以 constitution fallback 模組捏造 phantom coverage gap——應改 honest skip（boundaries unknown）"
+      - "major(已解-人工核可): 平鋪 _archived*.md 在引用掃描面未排除（僅目錄樣式），定義面卻排除——必然懸空 FAIL；exclude 加 '**/_archived*'"
+      - "major(已解-人工核可): loadModuleMap schema 壞檔 silent null 默默換 fallback 規則集——應 fail loudly 或 skip with reason"
+      - "major(已解-人工核可): block comment 內 import 計入邊（false illegal-import）——比對前 blank /* */ 保留行號"
+      - "major(已解-人工核可): 連結括號/percent-encoding 誤判 broken（design%20(v2).md、my%20file.md）——decodeURI + 平衡括號"
+      - "major(已解-人工核可): Windows 反斜線滲入 resolved_path/tasks_path——統一 / 正規化"
+      - "major(已解-人工核可): 連結解析可探測 repo 外路徑存在性（oracle）——resolve 後限制在 cwd 內"
+      - "major(已解-人工核可): module-map paths 可指向 repo 外（../ 或絕對路徑）驅動掃描——載入時 clamp"
+      - "major(已解-人工核可): PR comment 內容可逃逸 ``` fence 以 bot 名義貼偽造 markdown——compose 步驟 sanitize fence + 上限長度"
+      - "major(已解-人工核可): formatter 直出 untrusted 字串到 TTY（ANSI/OSC 注入）——format 時 strip C0/C1 控制字元"
+      - "major(已解-人工核可): DriftReportInvalid 死碼，schema 失敗以裸 ZodError 逃逸——runChecks safeParse 改丟 typed error"
+      - "major(已解-人工核可): 凍結 kind 文法在 drift-sources 與 archive.service 兩份可執行副本——抽 lib/task-markers 共用（services→lib 方向安全）"

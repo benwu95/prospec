@@ -1,0 +1,24 @@
+name: carry-review-verify-evidence
+created_at: 2026-07-04T02:51:39.299Z
+status: archived
+scale: standard
+description: "封存 audit trail 攜帶 review/verify 證據：_archived-history 加 ## Review &
+  Verify 節，ledger 以它為 canonical 證據指標"
+quality_log:
+  - skill: prospec-review
+    date: "2026-07-04"
+    result: WARN
+    warnings:
+      - "review-clean（0 critical / 0 major）；2 nits 已修（root-cause 過度概化、manifest 子計數）"
+      - "pre-archive 待辦（PB-004/005）：+5 測試 1860→1865、contract 575→580 需重導 README/README.zh-TW/_index/tests README 計數並 bump templates/tests 模組 README——archive Entry Gate drift 會硬性要求"
+  - skill: prospec-verify
+    date: "2026-07-04"
+    result: WARN
+    warnings:
+      - "5+1 維度全 PASS（1/5 task-completion PASS、2/5 四 REQ 全合規、3/5 Constitution MUST 全 PASS、4/5 drift 8/8 PASS 0 stale、5/5 1865/1865 綠、6 skip 無 UI）；grade A（保守，因 PB-004 計數同步待辦）"
+      - "pre-archive 待辦（承 review WARN）：README/README.zh-TW/index.md/tests README 測試計數 1860→1865（contract 575→580，per-layer 已從 vitest 重導）＋templates/tests 模組 README bump——由 /prospec-knowledge-update 補、archive Entry Gate 強制"
+  - skill: prospec-knowledge-update
+    date: "2026-07-04"
+    result: PASS
+    warnings:
+      - "PB-004/005 待辦已解：測試計數 1860→1865（contract 575→580）同步至 README.md/README.zh-TW.md/index.md/tests 模組 README；templates+tests 模組 README bump 描述 archive Review & Verify 能力（未引未畢業 REQ ID）；prospec check 8/8 PASS、contract+integration 618 綠"

@@ -1,0 +1,41 @@
+name: preserve-curated-index-columns
+created_at: 2026-07-05
+status: archived
+archived_at: 2026-07-05
+scale: standard
+related_modules:
+  - types
+  - lib
+  - services
+  - templates
+  - tests
+description: >-
+  根治 updateIndex 保真度：curated index 欄位（Keywords/Aliases/Rationale/Depends On） 收斂為
+  module-map.yaml 單一真相，index.md auto block 完全由其生成；updateIndex 內建 no-clobber
+  回填遷移（index.md → module-map），下游專案零遺失遷移。對應 GitHub issue #58。
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-05
+    result: PASS
+    warnings:
+      - "3 major (advisory): doc overclaim + execute() test gap fixed; bootstrap
+        comment-drop accepted (bounded)"
+  - skill: prospec-verify
+    date: 2026-07-05
+    result: S
+    warnings: []
+review_provenance:
+  digest: cb380552ccdde74b55d0c769f0df613a1534a9b1c1c36bd99bd2ff4af8fef169
+  date: 2026-07-05

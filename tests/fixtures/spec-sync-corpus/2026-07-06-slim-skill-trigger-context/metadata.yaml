@@ -1,0 +1,49 @@
+name: slim-skill-trigger-context
+created_at: 2026-07-05T15:49:48.991Z
+status: archived
+scale: standard
+related_modules:
+  - types
+  - services
+  - templates
+  - tests
+description: L0 registry per-agent slim + MANDATORY refs on-demand + kgen conventions dedup
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-06
+    result: PASS
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 1
+    warnings:
+      - "critical (spec-architecture) fixed: reconciled REQ-AGNT-020 in
+        delta-spec MODIFIED (slim CLAUDE.md contradicted the entry-config
+        per-skill-Triggers clause)"
+      - "major (test-quality) fixed: added plan/archive on-demand-citation
+        contract assertions"
+  - skill: prospec-verify
+    date: 2026-07-06
+    result: PASS
+    grade: S
+    dimensions:
+      - { name: task-completion, result: PASS }
+      - { name: delta-spec-compliance, result: PASS }
+      - { name: constitution-full-audit, result: PASS }
+      - { name: knowledge-consistency, result: PASS }
+      - { name: tests, result: PASS }
+    warnings: []
+review_provenance:
+  digest: 0153cb32a0e67b4d3533ab831f4eb2c7a05d6d91ac89b6f9f6d91f2fcb87737a
+  date: 2026-07-05

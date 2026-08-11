@@ -1,0 +1,40 @@
+name: compile-standalone-binary
+created_at: '2026-07-07T15:32:49+08:00'
+status: archived
+scale: standard
+quality_log:
+  - skill: prospec-new-story
+    date: '2026-07-07T15:32:49+08:00'
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: '2026-07-07T15:36:04+08:00'
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: '2026-07-07T16:12:00+08:00'
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: '2026-07-07T16:35:00+08:00'
+    result: PASS
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: delta-spec-compliance
+        result: PASS
+      - name: constitution-audit
+        result: PASS
+      - name: knowledge-consistency
+        result: WARN
+      - name: test-verification
+        result: PASS
+    warnings:
+      - Pre-existing knowledge drift in templates and tests modules.
+review_provenance:
+  digest: c5a7f9b15a5774e15a669214b15f40dc55463263122af04414a40c43d4872719
+  date: 2026-07-07

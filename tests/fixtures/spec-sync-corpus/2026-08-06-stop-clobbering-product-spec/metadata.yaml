@@ -1,0 +1,76 @@
+name: stop-clobbering-product-spec
+created_at: 2026-08-06T10:09:03.037Z
+status: archived
+related_modules:
+  - lib
+  - services
+description: archive 改以 splice 更新 product.md 的 Feature Map，不再整檔重生覆蓋手工內容
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - "F-8: filter chain 保留死條件 !isArchivedSpec（與 syncFeatureMap
+        結構對稱，ARCHIVED_PREFIX 若改動即復活）"
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 17
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - "F-29: refreshLastUpdated 的前置順序在 F-28 的 frontmatter
+        遮蔽之後已無可觀測差異，屬結構性保險，無測試釘住"
+    criticals_found: 5
+    criticals_fixed: 5
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - review 迴圈跑滿 5 輪（超出 hard cap 3、達 maximum 5）：round 3/4/5 的 critical
+        皆由前一輪修復所引入，最後一輪已全數修復並 mutation 驗紅，但收斂與否請人工裁決
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 4
+  - skill: prospec-verify
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 3efff0a8ae43f88ebadebb5b98215c6fa8603930461f87d073ddce7ad5f119ec
+  date: 2026-08-06
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 3efff0a8ae43f88ebadebb5b98215c6fa8603930461f87d073ddce7ad5f119ec
+  date: 2026-08-06
+archived_at: 2026-08-06

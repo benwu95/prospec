@@ -1,0 +1,24 @@
+name: add-knowledge-flywheel
+created_at: 2026-06-12
+status: archived
+scale: full
+description: >-
+  Knowledge Flywheel (Bundle 4) — turn archive into the durable harvest point for
+  recurring lessons: auto-extract quality_log + review patterns + tasks×kind skips
+  into a git-tracked lessons ledger, and prioritize the human-review queue by
+  knowledge_health. Reshapes the feedback-promotion pipeline (BL-029 + OPT-B3 + OPT-A2).
+related_modules:
+  - templates
+  - tests
+quality_log:
+  - skill: prospec-review
+    date: 2026-06-12
+    result: PASS
+    warnings:
+      - "4 majors resolved in-review (human-approved): stale 'personal ledger'/'personal lessons' wording swept across prospec-learn.hbs + types/skill.ts + _playbook.md (relocation reference-sweep residue — a recurring lesson worth harvesting); _lessons-ledger.md descriptions kept zh-TW by decision. 0 unresolved critical/major."
+  - skill: prospec-verify
+    date: 2026-06-12
+    result: WARN
+    warnings:
+      - "Grade A (verified). V4 knowledge WARN is PRE-EXISTING cli/lib README staleness from branch-base commit 4fb3225 (ANSI fix), NOT this change — remediate separately with /prospec-knowledge-update cli lib."
+      - "Archive follow-ups: (1) Entry Gate must /prospec-knowledge-update this change's modules (templates/tests + new _lessons-ledger.md); (2) Phase 3.5 must graduate MODIFIED REQ-069/072 into feedback-promotion.md (still encodes old .prospec/lessons.md model)."

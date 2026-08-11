@@ -1,0 +1,90 @@
+name: add-reverse-spec-extraction
+created_at: "2026-06-15"
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - tests
+description: "BL-032 反向規格萃取 /prospec-reverse-spec：Architecture C 純 Skill（無 runtime CLI/engine），對既有 brownfield code 反向萃取 route-compatible 的 Feature Spec 草稿（多源 triangulation 輸入、intent 推不出處標 [NEEDS CLARIFICATION]、>50% 護欄），agent 在 skill 內判斷 WHAT-layer 未覆蓋 module 以 scope；永不直寫信任區（只產 .prospec/changes/[name]/reverse-draft.md），走既有 forward 路徑人工 verify-and-promote。本輪只做 spec/設計（story→plan/delta-spec），實作待真實 brownfield 拉動（閘 OPT-A4 後）"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Constitution P1/P3/P4 PASS；P5（README [SHOULD]）本輪未觸發（無實作/無 user-facing surface 變更），實作若新增 reverse-spec 模式須同批更新 root README skill 清單 + design skill 段"
+      - "Knowledge Gate 全 PASS：related_modules 4 個匹配、capability specs（design-phase/drift-detection/sdd-workflow/mcp-server）已比對無 REQ 重疊"
+      - "交付邊界：本輪只到 plan/delta-spec，實作待真實 brownfield 拉動（需求 gate，閘 OPT-A4 後）"
+      - "scale：經使用者確認 full→standard——定為 Architecture C 純 Skill 後只剩 templates+tests 2 module，形狀對齊 BL-034 先例（純 Skill/新增 REQ/standard）；hard-veto 僅排除 quick，standard 成立"
+  - skill: prospec-plan
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Constitution P1/P3/P4 + 依賴方向全 PASS；layering 無違規（templates leaf + tests，零新 import）；P5 本輪未觸發（無 source 變更）"
+      - "REQ 路由：主體掛 sdd-workflow US-22（REQ-TEMPLATES-104~107 + REQ-TESTS-028，BL-034 先例）；MODIFIED REQ-DSGN-003 掛 design-phase 作交叉引用（守 PB-003、避免 UI feature 語意污染）"
+      - "PB-003 deliberate-exclusion：plan/delta-spec 明示本輪不落 code，AC 為實作後可驗、畢業前不得 archive"
+      - "交付邊界：本輪只到 plan/delta-spec；tasks/implement 待 brownfield 拉動（gate OPT-A4 後）"
+  - skill: prospec-tasks
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Gate 解除：OPT-A4 已實作完成（使用者確認），原需求 gate 解除，story→plan→tasks 推進至 tasks"
+      - "13 tasks（code 10／[M] 1／[V] 2），全 5 delta-spec REQ 覆蓋（104~107 → T1~T6＋T7、028 → T7~T9、MODIFIED DSGN-003 → T6）；Architecture C 僅 templates+tests，無 Types/Lib/Services/CLI 分層"
+      - "Constitution P1（繁中）PASS；P4（TDD）以執行順序註記契約斷言先 RED；P5（root README [SHOULD]）入 T11 advisory"
+      - "Knowledge Quality Gate 全 PASS：layer（templates leaf+tests）已對 README 確認、file paths 已驗（prospec-design.hbs／skill-format.test.ts／module READMEs 皆存在）、templates module 有 contract test 任務"
+      - "REQ-ID 畢業護欄：T10 README narrative 不得引用未畢業 REQ（104~107/028），避免 drift req-references FAIL"
+      - "Design dry-run（olfparser/pptx_text_converter.py，2026-06-15，4 源 triangulation）回饋已折入 delta-spec REQ-104/105 + REQ-TESTS-028 AC1 + tasks T1/T2/T3/T7：(1) >50% 中止分母只計 story-level intent——heuristic 校準 WHY 不計入（否則文件富模組誤中止＋PB-001 false-green）；(2) 明確 source→field 對照（+docs/README→role/value）；(3) AC 優先自 test 名/斷言推導；(4) 角色可自產品/消費者名反推。REQ-107 未覆蓋偵測之 dogfood 驗證待 Phase 2a（olfparser onboard 後）；dry-run 草稿存 reverse-draft-dryrun.md（非交付）"
+  - skill: prospec-implement
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "全 13 tasks 完成（code 10／[M] 1 agent-sync／[V] 2 mutation-verify+full-test）。TDD：T7/T8 契約先 RED → T1-T6 .hbs GREEN → T9 mutation-verify（6 斷言類各移除轉紅 + heading 移除證 section-scoped，守 PB-001）"
+      - "prospec-design.hbs Extract Mode 新增 Phase 2b-code 反向變體（inline，無新檔，英文模板 REQ-TEMPLATES-073）；Startup Loading 未動、startup-loading-baseline.json 不變（REQ-104 AC3 / REQ-TESTS-028 AC2 綠）"
+      - "計數同步（PB-004 re-derive 全層）：contract 484→491、total 1,061→1,068（unit 523/int 17/e2e 37 實跑確認無 per-layer drift）；6 處副本全更（README.md/zh-TW badge+body、_index.md、tests README）"
+      - "README narrative 未引用未畢業 REQ（104~107/028，守 drift req-references）；root README/zh-TW /prospec-design 條目補 input=code 變體（Constitution P5 [SHOULD]）"
+      - "typecheck 0 / lint 0 / 1068 passed；agent sync 重部署 76 檔（.claude 未追蹤，operational）。未 commit（commit boundary 在 verify S/A 後）"
+  - skill: prospec-review
+    date: "2026-06-15"
+    result: PASS
+    warnings:
+      - "security(major, advisory): WHAT-layer scoping 步驟（Phase 2b-code step 6）可加 explicit read-only/take-no-action 框架（現靠 'informational only / does not auto-trigger' 隱含）"
+      - "security(major, advisory): step-7 user-review gate 未明文要求對人工確認的 slug 重跑 isSafeResourceName（已由 archive.service.ts:280 在寫入邊界 backstop）"
+    notes:
+      - "Mode A 3-lens 並行（correctness/security/spec-architecture）+ 獨立 verifier；2 rounds 收斂 review-clean、suite 全程綠（1068）"
+      - "1 critical（correctness lens 捕獲、spec-architecture lens 漏判）：prospec-design.hbs 4 處硬寫 `prospec/specs/features/` → `{{base_dir}}/specs/features/`（對齊 5 個同儕 skill 慣例；非預設 base_dir 專案原會指錯信任區）。verifier confirmed→auto-fix→re-review [confirmed-resolved]"
+      - "coupled fix：契約斷言由 pin 'prospec/specs/features/' 改 'docs/specs/features/'（base_dir-templated；原為 false-green，改後反而能抓 hardcode regression）；並順手補 Core Workflow note 列 2b-code（自身造成的 orphan）"
+      - "2 majors 為 advisory hardening（皆 code-backstopped），不計入 verify grade（review/verify 分軸）"
+  - skill: prospec-review
+    date: "2026-06-16"
+    result: PASS
+    warnings:
+      - "security(major, advisory, 沿用 pass1): WHAT-layer scoping read-only 框架；step-7 slug isSafeResourceName 重確認（皆 code-backstopped，不計 grade）"
+    notes:
+      - "Re-review（使用者 again，涵蓋全 branch：base_dir refactor commit f9b0ddf + reverse-spec working tree）。Mode A 3-lens 並行 + verifier；收斂 review-clean、suite 全程綠（1068）"
+      - "2 新 critical 皆在 base_dir refactor（先前未審）：(1) module-detector 自訂路徑測試因 default docs→prospec 而 custom==default 變 vacuous → 改 custom-knowledge + mutation-verify（移除 override arg 轉紅）；(2) commit f9b0ddf 動 lib/services source 未 bump README（PB-005 drift WARN）→ 補真實 base_dir note，knowledge-health lib/services 轉 PASS"
+      - "base_dir fixes 已 amend 進 f9b0ddf（含 knowledge-update mock baseDir 一致性）。殘留 tests knowledge-health WARN 為 reverse-spec 自身（tests README bump 在 working tree，commit 2 清除）"
+      - "drift：req-references PASS（無提前引用未畢業 REQ）、import-direction PASS（module-detector lib→types 合法）、file-paths PASS"
+  - skill: prospec-verify
+    date: "2026-06-16"
+    result: PASS
+    warnings:
+      - "knowledge-health drift warn_count=1：tests module README 落後（本變更自身 lag；reverse-spec tests README bump 在 working tree，commit 2 清除）——informational，不影響 grade"
+      - "2 review security majors（advisory，code-backstopped）沿用，不計入 grade"
+    notes:
+      - "Grade A（Ready to deploy）。5 active dimensions 全 PASS、fail_count=0；V6 Design N/A（ui_scope none，未報 PASS）"
+      - "V1 task-completion PASS（drift）；V2 REQ-TEMPLATES-104~107 + REQ-TESTS-028 + MODIFIED REQ-DSGN-003 全實作（2-pass review 確認）；V3 Constitution 全 PASS（P1 繁中 / P2 atomic（base_dir=f9b0ddf 獨立 commit）/ P3 INVEST / P4 TDD+mutation-verify / P5 root+zh-TW README 已更；layering import-direction PASS）；V4 無 pre-existing drift（lib/services 已修，tests 為本變更 lag）；V5 1068 passed、typecheck 0、lint 0"
+      - "status → verified。commit boundary：reverse-spec working tree（7 檔：prospec-design.hbs + skill-format.test.ts + README×2 + _index + 2 module README）待使用者 commit 2"
+      - "尚餘 Phase 2 dogfood（olfparser onboard → 跑反向變體 → 驗 REQ-107），於 archive 後或平行進行"
+  - skill: prospec-verify
+    date: "2026-06-16"
+    result: PASS
+    warnings:
+      - "knowledge-health drift warn=1：tests README 本變更 lag（commit 2 清除）——informational，不影響 grade"
+    notes:
+      - "Dogfood 完成（olfparser 開 throwaway 分支 quickstart + 反向變體於 pptx_text_converter.py）：SC-001~004 + REQ-107 全 PASS、>50% 實算 ~17% 不中止。2-lens 對抗式 spec 分析後折入 2 個 skill 精進並 re-verify"
+      - "精進(1) completeness：先枚舉行為再聚類全部、明列 deferred（dogfood draft 僅 ~50% 覆蓋，靜默漏 rotation/insets/indent/<a:br>/level/VA-anchor）；(2) count-fidelity：可數事實須核實否則 ~N/[NEEDS CLARIFICATION]（draft 捏造 '15 formats' 實為 20、'16 Wingdings' 實為 12）"
+      - "折入 delta-spec REQ-104（Desc + AC5）+ prospec-design.hbs Step 1 + 1 mutation-verified contract 斷言；contract 491→492 / total 1068→1069，6 處副本同步（PB-004）"
+      - "re-verify：drift fail=0、1069 passed、lint 0 → Grade A 維持、status verified。dogfood 證 feature 設計健全（intent 誠實、code-over-stale-doc、trust-zone 安全、route-compatible）；module-detector 對 Python brownfield 偵測粗糙＝backlog item"

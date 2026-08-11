@@ -1,0 +1,55 @@
+name: fix-index-category-grouping
+created_at: 2026-08-09T14:23:00.544Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - templates
+description: Fix missing category grouping in index.md auto block
+issue: "155"
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-09
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-09
+    result: PASS
+    warnings:
+      - 2/5 graded in-session — fresh context unavailable
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 5d8b88b428e3efcf9b0e6da3172fbccb674194d2ab23e82dabb857e5e8a803a5
+  date: 2026-08-09
+delta_spec_provenance:
+  digest: 4b086e44cb8b4d96eaa46a214d63d0ba5b3927c91d79150681681f3ba99ab087
+  date: 2026-08-09
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 5d8b88b428e3efcf9b0e6da3172fbccb674194d2ab23e82dabb857e5e8a803a5
+  date: 2026-08-09
+archived_at: 2026-08-09

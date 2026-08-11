@@ -1,0 +1,40 @@
+name: complete-capability-to-feature-migration
+created_at: "2026-06-15"
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - tests
+  - services
+description: "完成 capability → feature 術語遷移收尾：移除 src/templates 殘留的 capability-spec-format.hbs（孤兒檔，REQ-TEMPLATES-031 已於 sdd-workflow Feature Spec 標 deprecated，本變更完成實作層移除）、修正 prospec-new-story 的 specs/capabilities/ 失效載入路徑與 archive/implement/verify/status-lifecycle 的殘留用語、同步 skill-format.test 與 startup-loading-baseline fixture，並依使用者確認納入 runtime（mcp.service.ts resource description）+ docs（README MCP 表格）的『Capability spec』用語修正。truth-layer（sdd-workflow.md / mcp-server.md）用語改由 delta-spec MODIFIED/REMOVED 經 /prospec-archive graduation 同步，不於 implement 直寫。一般英文 capability 用語與 _archived-capabilities/、MIGRATION.md 歷史封存不動。"
+quality_log:
+  - skill: prospec-ff
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Story (Phase 2)：Constitution P1（繁中）/P3（INVEST US-1/US-2 各自獨立可測）PASS；scale 經使用者確認 standard（quick 被 hard-veto——觸及 spec-covered 行為 REQ-CHNG-006/009、REQ-MCP-003、REQ-TEMPLATES-031）"
+      - "Plan (Phase 3)：Constitution P1/P4（guard 斷言先紅）/P5（README 同批）+ 依賴方向全 PASS；零新增 import，templates(leaf)/services/tests 無 layering 違規"
+      - "scope 精煉：只遷移 specs/capabilities/ 路徑與 Capability Spec(s)/capability-spec-format 產物名；一般英文 capability 用語 KEEP（含 status-lifecycle.md.hbs:36，亦避開與 ai-knowledge sibling 的 sync-lock ripple）"
+      - "刪檔安全性已驗證：capability-spec-format.hbs 不在 agent-sync referenceMap、無 skill 引用"
+      - "truth-layer 用語（sdd-workflow.md:86/99、mcp-server.md:73）不於 implement 直寫——走 delta-spec MODIFIED/REMOVED 經 archive graduation"
+  - skill: prospec-review
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Mode A 3 獨立 fresh-context lens（migration-completeness / spec-architecture / doc-count）全數收斂——0 critical，round 1 review-clean；pnpm test 52 files/1039 綠"
+      - "1 major（advisory）已就地修正：proposal FR-003 與 Edge Cases(行209) 原文早於 plan 階段 scope 精煉、過度宣稱——已回校為實際 shipped scope（KEEP verify:116/archive:82/status-lifecycle:36）"
+      - "delta-spec Before/After 經獨立核對與真相層 byte-faithful（PB-003 PASS）；刪檔無 dangling（referenceMap 無 capability-spec-format）；guard test PB-001 mutation-verified、涵蓋全 13 skills"
+      - "ARCHIVE 待辦：knowledge-tier 計數須同步——_index.md（templates 52→51 .hbs/19→18 ref；tests 1041→1039/contract 471→469）、modules/templates README（51/18）、modules/tests README（1039/469）；test 檔數 52 不變（PB-004/PB-005 走 archive knowledge-sync）"
+      - "DEPLOY 待辦（untracked）：prospec agent sync 重新部署 .claude/skills + .agents/skills（仍帶舊用語）"
+  - skill: prospec-verify
+    date: "2026-06-15"
+    result: PASS
+    grade: S
+    warnings: []
+    notes:
+      - "drift engine 5/5 structural PASS（req-references/file-paths/import-direction/knowledge-health/task-completion，0 fail/warn/skipped）"
+      - "5+1 維度全 PASS：1/5 task-completion（9 code tasks 全 [x]）；2/5 delta-spec（REQ-CHNG-006→new-story.hbs:22、REQ-MCP-003→mcp.service.ts:192、REQ-TEMPLATES-031→刪檔 皆相符；REQ-CHNG-009 為 truth-layer-only graduation、無 code artifact 屬設計）；3/5 Constitution P1/P3/P4/P5+依賴方向全 PASS；4/5 無 pre-existing knowledge drift；5/5 pnpm test 52 files/1039 綠；6 design=SKIP（ui_scope none）"
+      - "grade S → status: verified（commit boundary）。0 WARN/0 FAIL"
+      - "ARCHIVE 前必辦（informational、不入 grade）：(1) /prospec-knowledge-update 同步 knowledge-tier 計數（_index.md templates 52→51 .hbs/19→18 ref、tests row 1041→1039/contract 471→469；modules/templates README 51/18；modules/tests README 1039/469；test 檔數 52 不變）；(2) Feature Spec graduation——delta-spec REQ-CHNG-006/009 + REQ-MCP-003 + REQ-TEMPLATES-031 經 archive Phase 3.5 寫入 sdd-workflow.md/mcp-server.md；(3) [M] prospec agent sync 部署"

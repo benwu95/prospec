@@ -1,0 +1,57 @@
+name: harden-contained-reads
+created_at: 2026-07-31T14:41:28.255Z
+status: archived
+related_modules:
+  - lib
+  - tests
+description: 讓 knowledge-reader 的 contained read 對「存在但讀不到」回 null 而非拋錯中止整個 check
+  run，並與 drift-sources 的同一不變式收斂為單一 helper
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 4
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 23441dd9349b6e2ddc72fb4a738294488f65628724c209f15fb30921c5e9136d
+  date: 2026-07-31
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 23441dd9349b6e2ddc72fb4a738294488f65628724c209f15fb30921c5e9136d
+  date: 2026-07-31
+archived_at: 2026-07-31

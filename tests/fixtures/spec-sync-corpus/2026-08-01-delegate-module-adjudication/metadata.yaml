@@ -1,0 +1,139 @@
+name: delegate-module-adjudication
+created_at: 2026-08-01T02:55:14.778Z
+status: archived
+related_modules:
+  - lib
+description: 把 module 邊界的裁決權交給 LLM 層：raw-scan.md
+  揭露被原始碼閘門排除的目錄作為證據，/prospec-knowledge-generate 明確授權增刪
+  module-map.yaml，並移除偵測器裡的死條目與單檔繞過
+scale: full
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - "INVEST Independent: US-2 (skill 授權步驟) 引用 US-1 新增的 raw-scan
+        區塊，無法完全獨立交付；緩解方式為在 plan 中把 US-1 排在 US-2 之前，US-2 的 skill
+        文案以區塊名稱軟指向，不硬依賴其內容格式"
+  - skill: prospec-review
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - "Round 1: 6 個 major 未修（依契約 major 不自動修復）— F-10/F-11 上限依 codepoint
+        切片會丟掉最有訊號的目錄與副檔名、F-13 路徑以 noEscape 原樣插入供 LLM 讀取的工件、F-12 已隨 critical
+        家族一併掃除、F-14/F-15 已補測試"
+    criticals_found: 9
+    criticals_fixed: 9
+    majors: 6
+  - skill: prospec-review
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - Round 2 收斂：9 個 critical 全數解決、0 新增（12 個 mutation 逐一驗證修復確實被釘住）。3 個 major
+        未修待裁決：F-10/F-11 上限依 codepoint 切片會丟掉最有訊號的目錄與副檔名、F-13 路徑以 noEscape 插入 LLM
+        讀取的工件。Round 2 以 degraded 單次驗證路徑執行（平行 reviewer 逾時未回），驗證方式為機械式 mutation
+        而非第二意見
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - Round 3（獨立 fresh-context reviewer 回報後補跑）：F-6 於 round 2
+        未真正解決——修復只改變恆真式形狀；另有 5 個缺陷由修復本身引入（PB-007），其中 NEW-1/NEW-2 為與 F-2/F-4
+        同類的假文案宣稱。全數已修並逐一 mutation 驗證。仍未修的 3 個 major：F-10/F-11 上限排序、F-13
+        路徑消毒。已知未覆蓋面：根 README 散文無任何契約測試釘住（NEW-1 因此未被機器攔截）
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 3
+  - skill: prospec-verify
+    date: 2026-08-01
+    result: PASS
+    warnings:
+      - "2/5 W-1: prospec-knowledge-generate.hbs:83 的授權句仍以「當初是 bootstrap
+        寫的」為前提（When … had to bootstrap …），而同段 :105 已聲明磁碟上無從判定初稿與人工策展 — F-5
+        的修復加了免責句但保留了條件句式。三個操作性條目（Adding／Removing／Leaving alone）本身無此條件，故非矛盾，屬殘留"
+      - "2/5 W-2: REQ-TEMPLATES-170 Spec bullet 3 的「區塊為空」那一支未寫入 Step 3（:103-107
+        只涵蓋『判斷現況正確』與『使用者拒絕』兩支）。行為面已由空集佔位行與 confirm-first 保護，缺口在散文"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+  - skill: prospec-review
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - Round 4（使用者要求處理剩餘 3 個 major）：F-10/F-11/F-13 皆已修並由獨立複審以 13 個 mutation
+        確認。修復又引入 3 個新 major（NEW-6/7/9，第三次出現 PB-007 的形狀）皆已修。NEW-8
+        為判定的等價變異：帶反引號的副檔名不在拒絕清單上故算原始碼，其目錄永不符合揭露條件，因此無測試能殺死該變異——判斷已寫入程式註解與
+        REQ。複審自報未跑完整套件／typecheck／lint／counts 與 skill 模板的 mutation，此三者由我在本輪補跑並全綠
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 7
+  - skill: prospec-review
+    date: 2026-08-01
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-01
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-08-01
+    result: PASS
+    warnings:
+      - 2/5 獨立評分 56/57 PASS、0 FAIL，唯一 WARN 為 REQ-LIB-038 中一句繼承自 379304e
+        的錯誤舉例（views/ 只有 .md 的 mvc 專案並非回報 unknown）。該句已於評分後訂正並實測雙向成立，但訂正本身未再經
+        fresh context 複評——依「不得自行推翻 judgment 維度」原則，本維度仍記為 WARN 而非 PASS
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 70233d0a37f56a01a4139f04273d10ac396708a26093a9c629e486500507aec5
+  date: 2026-08-01
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 70233d0a37f56a01a4139f04273d10ac396708a26093a9c629e486500507aec5
+  date: 2026-08-01
+archived_at: 2026-08-01

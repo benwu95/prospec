@@ -1,0 +1,95 @@
+name: quick-scale-and-ceremony-cleanup
+created_at: "2026-07-05"
+status: archived
+scale: full
+related_modules:
+  - templates
+  - types
+  - lib
+  - services
+  - tests
+description: >-
+  quick scale 真減量（verify/archive 照 backfill 模式 scale-aware）＋ceremony 修剪
+  （[P]/~lines/INVEST 降級、design lifecycle 定位）＋規則衝突清理（Quality Gate 去重、 commit
+  語意統一、readme-counts 名實相符、Language Policy 三方對齊）＋archive Entry Gate metadata
+  schema 防呆。實作 GitHub issue #67。
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "INVEST 站點檢查 PASS。4 個 User Story 對齊 issue #67 四個 scope，各具 Independent
+        Test 與可量測 SC；I/N/V/E/T 均滿足，S（Small）為最軟項——full scale 承認整體規模大， 以四條可追溯
+        story 降風險。Related Modules 對 index.md 命中 5 模組；已檢閱
+        sdd-workflow/drift-detection/design-phase/ai-knowledge Feature Specs。"
+  - skill: prospec-plan
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "dependency/layering 站點檢查 PASS。唯一 code call chain（prospec check drift
+        引擎） 佈線遵守 cli→services→lib→types：id/schema→types、collector/evaluator→lib、
+        佈線→services、消費→skill prompt；無層級跨越、無 lib→lib 循環、無 commit 前副作用。 10 REQ 路由至
+        sdd-workflow/design-phase/drift-detection/ai-knowledge。兩個 Open Question
+        於 plan 定案：readme-counts 採改名 mcp-readme-counts；metadata 檢查採
+        metadata-completeness drift check（比照 review-provenance，機檢+可測）。"
+  - skill: prospec-tasks
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "TDD 站點檢查 PASS。23 任務（8 [P]），依 types→lib→services→templates→docs→tests
+        分層。每個改動的 code 模組皆有測試任務：types(id 集契約 T18)、lib(evaluator/collector
+        T15/T16/T20)、services(佈線經 T18 report 斷言)、templates(skill-format 契約 T19)。
+        metadata-completeness 覆蓋通過/失敗兩路徑 + mutation-verify(T20, PB-001)。"
+  - skill: prospec-implement
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "23/23 tasks 完成。typecheck 0 errors；全測試 1986/1987 pass（唯一 fail＝既有環境性 e2e
+        `prospec --help` flake，單檔 43/43 綠）。drift
+        引擎：readme-counts→mcp-readme-counts 改名 + metadata-completeness 新 check（比照
+        review-provenance 佈線）；7 skill 模板編修 +
+        Constitution/CLAUDE/lifecycle/ledger 治理對齊；agent-sync 重生 .claude/skills +
+        CLAUDE/AGENTS； pnpm counts 同步（1965→1987）。PB-001 契約
+        mutation-verified、PB-002 quick 逐站核對、 PB-006/007 rename 全站 grep。備註：模組
+        README/index『9 check ids』『readme-counts』描述屬 knowledge lag，待 verify S/A
+        commit prompt 同步；drift-detection feature spec 待 archive Phase 3.5。"
+      - "L-001（token-measurement/lessons.md）為 gitignored 個人筆記且其實質（AI
+        Knowledge=English） 已因 Constitution 還原而自動對齊，未編輯（delta-spec REQ-141 AC
+        之偏離，已記錄）。"
+  - skill: prospec-review
+    date: "2026-07-05"
+    result: PASS
+    warnings:
+      - "review-clean（round 2/cap 3，Mode A 4 平行獨立 lens：correctness/test-quality/
+        parallel-site/spec-architecture+PB-002）。4 個 critical 全數獨立確認後修復：(1)
+        collectMetadataCompleteness 對 null-parse metadata（空/註解/null）崩潰整個 prospec
+        check → 加非-mapping guard + c6-c8 測試（repro 驗證）；(2)
+        review-lenses-content.hbs:110 殘留舊 readme-counts id → 改名 + 重生 deployed
+        refs；(3) hasVerifyGrade 的 S/A clause 無測試釘住 → 加
+        c10(verify+B)/c11(review+A)，mutation-verified；(4) CONSTITUTION.md:78
+        INVEST checklist 仍寫 pre-plan 硬 gate 矛盾 advisory clause → 改寫。4 個 major
+        亦一併修（tasks [P]-no-consumer 措辭、verify 6-sections vs
+        condensed、Language-Policy association 測試、present-but-empty 欄位測試）。全套件
+        1991/1991 綠。"
+      - "知識落後（informational，非 unresolved）：index.md/模組 README/drift-detection
+        feature spec prose 仍稱 readme-counts/『9 ids』——依設計於 verify S/A commit
+        prompt（模組 README/index）與 archive Phase 3.5（feature spec）同步，非 drift。"
+  - skill: prospec-verify
+    date: "2026-07-05"
+    result: A
+    warnings:
+      - "Grade A（Ready to deploy）。5+1：1/5 task-completion PASS（drift）；2/5 十 REQ 全對應
+        實作 PASS（review 已獨立確認 metadata gate 有實作、Quality Gate 去重完整、commit 語意統一）；
+        3/5 Constitution 全 PASS——[MUST] Language Policy（.prospec/changes zh-TW、知識庫英文豁免、
+        commit 英文）／Atomic（flake 獨立 test: commit、#67 待本 S/A 單一 feat: commit）／INVEST（4
+        story）／TDD（drift 程式碼 test-first、mutation-verified）；[SHOULD] dependency-direction
+        PASS（import-direction check）、README-currency PASS（counts 已同步、無新命令/skill surface）；
+        4/5 knowledge-health drift 僅 1 WARN＝tests README 落後（本變更新增測試之 lag，本 commit 同步，
+        非 grade 輸入）；5/5 tests 1991/1991 PASS；6 N/A（ui_scope none）。0 FAIL。"
+      - "commit-prompt 同步（S/A）：對 types/lib/services/tests/templates 模組 README + index.md
+        同步 mcp-readme-counts 改名／metadata-completeness 新 check／10 check ids 描述（不引未畢業
+        REQ）；pnpm counts 已同步；折入單一 atomic-by-feature commit。drift-detection feature spec
+        待 archive Phase 3.5 畢業。"
+review_provenance:
+  digest: d3f5fa5fe93fd0e906d771c301f2f6b2116a7a60013ffcb906313da27e222481
+  date: 2026-07-05

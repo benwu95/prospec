@@ -1,0 +1,80 @@
+name: filter-nonsource-modules
+created_at: 2026-07-31T17:16:03.430Z
+status: archived
+description: "Gate module detection on source files so doc/asset/cache dirs
+  cannot become modules (issue #92)"
+scale: standard
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-31
+    result: WARN
+    warnings:
+      - "F-1 critical unresolved: global empty-subset fallback erases every real
+        code module for a language absent from the whitelist (verified: Fortran
+        repo detects only ['docs']) — fix is a whitelist→denylist polarity
+        change, escalated to the human"
+      - "F-2/F-3/F-4 majors open: tautological AC4 test, false entryPoints
+        rationale + unfalsifiable delta-spec bullet, stale 16→10 figure in
+        plan.md/tasks.md"
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-01
+    result: WARN
+    warnings:
+      - R-1 已知殘留（advisory，已交付使用者裁決）：程式碼本體為無副檔名或文稿副檔名的專案，若另有足夠原始碼讓窄化得到 ≥1 個
+        module，零結果退回不觸發，那些目錄會從 module 清單消失；屬多丟一個目錄而非空 map，已記入 proposal Edge
+        Cases
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 4
+  - skill: prospec-verify
+    date: 2026-08-01
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 52dc55be6b1fe07a47c4173716f6de3f1649609bb90c3c15fd44f1a0d756b017
+  date: 2026-08-01
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 52dc55be6b1fe07a47c4173716f6de3f1649609bb90c3c15fd44f1a0d756b017
+  date: 2026-08-01
+archived_at: 2026-08-01

@@ -1,0 +1,41 @@
+name: remove-archive-auto-knowledge-update
+created_at: 2026-07-05
+status: archived
+archived_at: 2026-07-05
+scale: standard
+related_modules:
+  - services
+  - templates
+  - tests
+description: >-
+  移除 archive.service.execute() 內的自動 knowledge-update 與同段 raw-scan safety net，
+  並修正 prospec-archive skill template 的「safety net / no-op」反向宣稱。對應 GitHub issue
+  #57。
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-verify
+    date: 2026-07-05
+    result: S
+    warnings: []
+review_provenance:
+  digest: 9f0716910c240437a143f48f394fc87ba75cc153bed2255d8517bef0177cc521
+  date: 2026-07-05

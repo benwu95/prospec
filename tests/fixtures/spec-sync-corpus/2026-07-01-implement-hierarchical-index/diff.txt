@@ -1,0 +1,1007 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 5347343..d64917d 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -18,10 +18,11 @@ The user's primary language for AI-generated documents is **Traditional Chinese
+ Project principles and constraints: [`prospec/CONSTITUTION.md`](prospec/CONSTITUTION.md)
+ 
+ ### AI Knowledge Base
+-Module index and project structure: [`prospec/ai-knowledge/_index.md`](prospec/ai-knowledge/_index.md)
++Module index and project structure (L1-L3 navigation): [`prospec/index.md`](prospec/index.md)
+ 
+ ### Coding Conventions
+ Coding standards and best practices: [`prospec/ai-knowledge/_conventions.md`](prospec/ai-knowledge/_conventions.md)
++Diagram conventions: [`prospec/ai-knowledge/_diagram-conventions.md`](prospec/ai-knowledge/_diagram-conventions.md)
+ 
+ ## Available Prospec Skills
+ 
+diff --git a/CLAUDE.md b/CLAUDE.md
+index f92dbac..d96665f 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -18,10 +18,11 @@ The user's primary language for AI-generated documents is **Traditional Chinese
+ Project principles and constraints: [`prospec/CONSTITUTION.md`](prospec/CONSTITUTION.md)
+ 
+ ### AI Knowledge Base
+-Module index and project structure: [`prospec/ai-knowledge/_index.md`](prospec/ai-knowledge/_index.md)
++Module index and project structure (L1-L3 navigation): [`prospec/index.md`](prospec/index.md)
+ 
+ ### Coding Conventions
+ Coding standards and best practices: [`prospec/ai-knowledge/_conventions.md`](prospec/ai-knowledge/_conventions.md)
++Diagram conventions: [`prospec/ai-knowledge/_diagram-conventions.md`](prospec/ai-knowledge/_diagram-conventions.md)
+ 
+ ## Available Prospec Skills
+ 
+diff --git a/README.md b/README.md
+index 1eef8db..312e591 100644
+--- a/README.md
++++ b/README.md
+@@ -209,9 +209,9 @@ prospec init          # → auto-detect tech stack; select AI assistants; choose
+ prospec agent sync    # → per-agent config + Skills
+ 
+ # `/prospec-quickstart` then, inside your AI agent:
+-prospec knowledge init       # → generates raw-scan.md + empty skeletons (_index.md, _conventions.md, module-map.yaml)
++prospec knowledge init       # → generates raw-scan.md + empty skeletons (prospec/index.md, _conventions.md, module-map.yaml)
+ /prospec-knowledge-generate  # → AI reads raw-scan.md, decides module partitioning,
+-                             #   creates modules/*/README.md + fills _index.md
++                             #   creates modules/*/README.md + fills prospec/index.md
+ ```
+ 
+ Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
+@@ -230,11 +230,11 @@ your-project/
+ ├── AGENTS.md                  # Antigravity / Codex / Copilot config (agents.md standard)
+ ├── {base_dir}/
+ │   ├── CONSTITUTION.md        # Project rules (user-defined)
++│   ├── index.md               # AI Entry Point & Module index (Markdown table)
+ │   ├── specs/
+ │   │   ├── product.md         # Product Spec (PRD entry point)
+ │   │   └── features/          # Living Feature Specs (accumulated)
+ │   └── ai-knowledge/
+-│       ├── _index.md          # Module index (Markdown table)
+ │       ├── _conventions.md    # Project conventions
+ │       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
+ │       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
+@@ -365,7 +365,7 @@ prospec upgrade                  # CLI (zero-LLM): record the new version + re-s
+ /prospec-upgrade                 # in your AI agent: refresh init-doc formats + localize new-skill triggers (asks before each change)
+ ```
+ 
+-- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `_index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
++- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **writes no curated docs** — it never touches `CONSTITUTION.md`, `_conventions.md`, `prospec/index.md`, the canonical convention docs, or any module README (the only `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
+ - **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it scans the files `prospec init` created, compares them to the latest templates, and offers to update any whose **format** has drifted — **asking for your confirmation per file** (it migrates format only, never your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
+ 
+ > `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
+@@ -433,7 +433,7 @@ longest possible prefix across triggers. Each loading item carries one of two ma
+ 
+ - **`[STABLE]`** — changes only on `agent sync` or governance edits: the skill's own
+   `references/` format specs, the Constitution, `_conventions.md`. These load first.
+-- **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `_index.md`
++- **`[DYNAMIC]`** — changes per knowledge update, per change, or per trigger: `prospec/index.md`
+   (first after the cache boundary), module READMEs, `_playbook.md`, Feature/Product Specs,
+   and `.prospec/changes/` artifacts. These load last.
+ 
+@@ -460,7 +460,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
+ | `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
+ | `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, and print a migration report, then hand off to `/prospec-upgrade`. Writes no docs — init-created / canonical-doc format updates are the consent-gated skill's job |
+ | `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
+-| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / _index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
++| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
+ | `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
+ 
+ > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
+@@ -471,6 +471,19 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
+ >
+ > Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
+ 
++#### Advanced Configuration
++
++Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can add `additional_core_conventions` to your `.prospec.yaml`:
++
++```yaml
++knowledge:
++  additional_core_conventions:
++    - _api-conventions.md
++    - _security-conventions.md
++```
++
++These paths are relative to the `ai-knowledge/` directory. Once configured, they will be pre-loaded alongside `_conventions.md` as global core instructions for the AI Agent.
++
+ #### Project-scan language support
+ 
+ `prospec knowledge init` (incl. `--raw-scan-only`) detects the following into `raw-scan.md`. Detection is deterministic (no LLM, no network) and best-effort; coverage differs by section:
+@@ -523,7 +536,7 @@ A **read-only**, stdio MCP server that exposes the project's truth — architect
+ 
+ | URI | Content |
+ |-----|---------|
+-| `knowledge://index` | AI Knowledge module index (`_index.md`) |
++| `knowledge://index` | AI Knowledge module index (`prospec/index.md`) |
+ | `knowledge://module/{name}` | One module's Recipe-First README |
+ | `knowledge://module-map` | Module boundaries + `depends_on` (`module-map.yaml`) |
+ | `knowledge://feature-map` | feature → module index + REQ prefixes (`feature-map.yaml`) |
+@@ -756,7 +769,7 @@ Prospec's unique contribution: **Skills-driven SDD with a thin CLI** — Skills
+ 
+ ## Links
+ 
+-- [AI Knowledge Index](./prospec/ai-knowledge/_index.md)
++- [AI Knowledge Index](./prospec/index.md)
+ - [Feature Specs](./prospec/specs/features/)
+ 
+ ---
+diff --git a/README.zh-TW.md b/README.zh-TW.md
+index 4dbf069..e3650ca 100644
+--- a/README.zh-TW.md
++++ b/README.zh-TW.md
+@@ -457,6 +457,19 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
+ >
+ > 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
+ 
++#### 進階設定 (Advanced Configuration)
++
++Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔（例如 API 規範、資安規範等）也希望能做為 Core Conventions 預設載入，可以在 `.prospec.yaml` 中加入 `additional_core_conventions`：
++
++```yaml
++knowledge:
++  additional_core_conventions:
++    - _api-conventions.md
++    - _security-conventions.md
++```
++
++這些檔案路徑相對於 `ai-knowledge/` 目錄。加上此設定後，它們就會與 `_conventions.md` 一同被預先載入，成為 AI Agent 的全域核心指示。
++
+ #### 專案掃描支援語言
+ 
+ `prospec knowledge init`（含 `--raw-scan-only`）會將下列語言偵測進 `raw-scan.md`。偵測為 deterministic（不使用 LLM、不連網）且 best-effort，各區塊涵蓋程度不同：
+diff --git a/src/cli/commands/knowledge-init.ts b/src/cli/commands/knowledge-init.ts
+index 29163e3..bdbf3b4 100644
+--- a/src/cli/commands/knowledge-init.ts
++++ b/src/cli/commands/knowledge-init.ts
+@@ -23,7 +23,7 @@ export function registerKnowledgeInitCommand(
+     .option('--depth <n>', 'Directory scan depth', parseDepth, 10)
+     .option(
+       '--raw-scan-only',
+-      'Regenerate only raw-scan.md; leave curated files (module-map.yaml, _index.md, _conventions.md) untouched',
++      'Regenerate only raw-scan.md; leave curated files (module-map.yaml, prospec/index.md, _conventions.md) untouched',
+     )
+     .action(
+       async (options: {
+diff --git a/src/cli/formatters/knowledge-init-output.ts b/src/cli/formatters/knowledge-init-output.ts
+index 47be4a4..0ed1850 100644
+--- a/src/cli/formatters/knowledge-init-output.ts
++++ b/src/cli/formatters/knowledge-init-output.ts
+@@ -54,7 +54,7 @@ export function formatKnowledgeInitOutput(
+   // 4b. Raw-scan-only note — curated files are deliberately left untouched
+   if (result.rawScanOnly && !result.dryRun) {
+     lines.push(
+-      `${pc.dim('·')} Curated files (module-map.yaml, _index.md, _conventions.md) left untouched`,
++      `${pc.dim('·')} Curated files (module-map.yaml, prospec/index.md, _conventions.md) left untouched`,
+     );
+   }
+ 
+diff --git a/src/lib/scanner.ts b/src/lib/scanner.ts
+index 6e83bf5..bb0fcd9 100644
+--- a/src/lib/scanner.ts
++++ b/src/lib/scanner.ts
+@@ -1,6 +1,7 @@
+ import fg from 'fast-glob';
+ import { execFile } from 'node:child_process';
+ import { promisify } from 'node:util';
++import path from 'node:path';
+ import { ScanError } from '../types/errors.js';
+ 
+ const execFileAsync = promisify(execFile);
+@@ -32,6 +33,51 @@ const SENSITIVE_PATTERNS = [
+   '**/*.pem',
+ ];
+ 
++/**
++ * Core convention files that should be pre-loaded by agents.
++ */
++export const CORE_CONVENTIONS = [
++  '_conventions.md',
++  '_diagram-conventions.md',
++  '_glossary.md',
++  '_playbook.md',
++  '_status-lifecycle.md',
++];
++
++export interface FilteredConventions {
++  core: string[];
++  demand: string[];
++}
++
++/**
++ * Filters a list of convention file paths into core and load-on-demand arrays.
++ * Always excludes `_index.md`.
++ * 
++ * @param files - Array of file paths (e.g. from a glob scan)
++ * @returns Filtered core and demand file paths
++ */
++export function filterConventions(
++  files: string[],
++  additionalCore: string[] = []
++): FilteredConventions {
++  const core: string[] = [];
++  const demand: string[] = [];
++  const coreSet = new Set([...CORE_CONVENTIONS, ...additionalCore]);
++
++  for (const file of files) {
++    const basename = path.basename(file);
++    if (basename === '_index.md') continue;
++
++    if (coreSet.has(basename)) {
++      core.push(file);
++    } else {
++      demand.push(file);
++    }
++  }
++
++  return { core, demand };
++}
++
+ export interface ScanOptions {
+   /**
+    * Maximum directory-traversal depth (default: 10), passed to fast-glob `deep`.
+diff --git a/src/services/change-story.service.ts b/src/services/change-story.service.ts
+index f919e9f..143f31b 100644
+--- a/src/services/change-story.service.ts
++++ b/src/services/change-story.service.ts
+@@ -1,7 +1,7 @@
+ import * as fs from 'node:fs';
+ import * as path from 'node:path';
+ import { AlreadyExistsError } from '../types/errors.js';
+-import { readConfig, resolveBasePaths } from '../lib/config.js';
++import { readConfig } from '../lib/config.js';
+ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
+ import { renderTemplate } from '../lib/template.js';
+ import { stringifyYaml } from '../lib/yaml-utils.js';
+@@ -29,7 +29,7 @@ export interface ChangeStoryResult {
+ /**
+  * Execute the change story workflow:
+  *
+- * 1. Read config to get knowledge base path
++ * 1. Read config to validate project is initialized
+  * 2. Validate change directory does not exist → AlreadyExistsError
+  * 3. Match related modules from _index.md keywords
+  * 4. Render proposal.md and metadata.yaml templates
+@@ -39,10 +39,8 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
+   const cwd = options.cwd ?? process.cwd();
+   const changeName = options.name;
+ 
+-  // 1. Read config
+-  const config = await readConfig(cwd);
+-  const { knowledgePath } = resolveBasePaths(config, cwd);
+-  const knowledgeBasePath = path.relative(cwd, knowledgePath);
++  // 1. Read config (throws ConfigNotFound if not initialized)
++  await readConfig(cwd);
+ 
+   // 2. Validate change directory does not exist
+   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+@@ -50,8 +48,8 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
+     throw new AlreadyExistsError(`.prospec/changes/${changeName}`);
+   }
+ 
+-  // 3. Match related modules from _index.md
+-  const relatedModules = matchRelatedModules(changeName, knowledgeBasePath, cwd);
++  // 3. Match related modules from prospec/index.md
++  const relatedModules = matchRelatedModules(changeName, cwd);
+ 
+   // 4. Create change directory
+   await ensureDir(changeDir);
+@@ -98,23 +96,22 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
+ }
+ 
+ /**
+- * Match related modules by comparing change name keywords against _index.md.
++ * Match related modules by comparing change name keywords against prospec/index.md.
+  *
+- * Reads the _index.md Markdown table and matches keywords from module entries
++ * Reads the prospec/index.md Markdown table and matches keywords from module entries
+  * against words extracted from the kebab-case change name.
+  */
+ function matchRelatedModules(
+   changeName: string,
+-  knowledgeBasePath: string,
+   cwd: string,
+ ): RelatedModule[] {
+-  const indexPath = path.join(cwd, knowledgeBasePath, '_index.md');
++  const indexPath = path.join(cwd, 'prospec', 'index.md');
+ 
+   let indexContent: string;
+   try {
+     indexContent = fs.readFileSync(indexPath, 'utf-8');
+   } catch {
+-    // No _index.md — return empty (not an error, just no modules to match)
++    // No prospec/index.md — return empty (not an error, just no modules to match)
+     return [];
+   }
+ 
+diff --git a/src/services/init.service.ts b/src/services/init.service.ts
+index 1fea482..e0838d7 100644
+--- a/src/services/init.service.ts
++++ b/src/services/init.service.ts
+@@ -149,7 +149,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
+     { path: path.join(cwd, baseDir, 'CONSTITUTION.md'), content: renderTemplate('init/constitution.md.hbs', templateContext), label: `${baseDir}/CONSTITUTION.md` },
+     { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('init/agents.md.hbs', templateContext), label: 'AGENTS.md', managed: true },
+     { path: path.join(knowledgePath, '_conventions.md'), content: renderTemplate('init/conventions.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_conventions.md` },
+-    { path: path.join(knowledgePath, '_index.md'), content: renderTemplate('init/index.md.hbs', templateContext), label: `${baseDir}/ai-knowledge/_index.md` },
++    { path: path.join(cwd, 'prospec', 'index.md'), content: renderTemplate('init/index.md.hbs', templateContext), label: `prospec/index.md` },
+     ...CANONICAL_CONVENTION_DOCS.map((doc) => ({
+       path: path.join(knowledgePath, doc.output),
+       content: renderTemplate(doc.template, templateContext),
+@@ -161,7 +161,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
+   // 10. Create directories (idempotent) and write each artifact. Curated
+   // trust-zone docs use per-file skip-if-exists (cf. knowledge-init.service):
+   // the step-1 gate only lets init run fully when .prospec.yaml is absent, and in
+-  // that window CONSTITUTION.md / _conventions.md / _index.md may still be present,
++  // that window CONSTITUTION.md / _conventions.md / prospec/index.md may still be present,
+   // so an unconditional write would clobber them — skipping rebuilds only what is
+   // missing (refreshing stale canonical docs is `prospec upgrade`'s job).
+   // `managed` docs (AGENTS.md) are zone-1 generated, not curated: merge them
+diff --git a/src/services/knowledge-init.service.ts b/src/services/knowledge-init.service.ts
+index 27b95ad..3588402 100644
+--- a/src/services/knowledge-init.service.ts
++++ b/src/services/knowledge-init.service.ts
+@@ -5,6 +5,7 @@ import { renderTemplate } from '../lib/template.js';
+ import { atomicWrite, ensureDir, fileExists } from '../lib/fs-utils.js';
+ import { stringifyYaml } from '../lib/yaml-utils.js';
+ import { INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
++import { scanDir, filterConventions } from '../lib/scanner.js';
+ import { generateRawScan } from './raw-scan.service.js';
+ 
+ export interface KnowledgeInitOptions {
+@@ -92,9 +93,14 @@ export async function execute(
+         outputFiles.push(path.join(knowledgeBasePath, 'module-map.yaml'));
+       }
+ 
+-      // _index.md skeleton (only if not exists)
+-      const indexPath = path.join(knowledgeDir, '_index.md');
++      // prospec/index.md skeleton (only if not exists)
++      const indexPath = path.join(cwd, 'prospec', 'index.md');
+       if (!fileExists(indexPath)) {
++        await ensureDir(path.dirname(indexPath));
++        const conventionScan = await scanDir('_*.md', { cwd: path.join(cwd, knowledgeBasePath) });
++        const additionalCore = config.knowledge?.additional_core_conventions ?? [];
++        const { core, demand } = filterConventions(conventionScan.files, additionalCore);
++
+         const indexContext = {
+           project_name: config.project.name,
+           tech_stack: {
+@@ -103,10 +109,12 @@ export async function execute(
+           },
+           knowledge_base_path: knowledgeBasePath,
+           index_table_columns: INDEX_TABLE_COLUMNS.join(' | '),
++          core_conventions: core,
++          demand_conventions: demand,
+         };
+         const indexContent = renderTemplate('knowledge/index.md.hbs', indexContext);
+         await atomicWrite(indexPath, indexContent);
+-        outputFiles.push(path.join(knowledgeBasePath, '_index.md'));
++        outputFiles.push(path.join('prospec', 'index.md'));
+       }
+ 
+       // _conventions.md skeleton (only if not exists)
+diff --git a/src/services/knowledge-update.service.ts b/src/services/knowledge-update.service.ts
+index 45743fe..4d5f29d 100644
+--- a/src/services/knowledge-update.service.ts
++++ b/src/services/knowledge-update.service.ts
+@@ -1,7 +1,7 @@
+ import * as fs from 'node:fs';
+ import * as path from 'node:path';
+ import { readConfig, resolveBasePaths } from '../lib/config.js';
+-import { scanDir } from '../lib/scanner.js';
++import { scanDir, filterConventions } from '../lib/scanner.js';
+ import { renderTemplate } from '../lib/template.js';
+ import { mergeContent, hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
+ import { deriveKeyExports } from '../lib/key-exports.js';
+@@ -232,11 +232,31 @@ export async function markModuleDeprecated(
+  */
+ export async function updateIndex(
+   modules: Array<{ name: string; description: string; status: string }>,
+-  options: { cwd: string; knowledgeBasePath: string; projectName: string },
++  options: { cwd: string; knowledgeBasePath: string; projectName: string; additionalCore?: string[] },
+ ): Promise<GeneratedFile> {
+-  const indexPath = path.join(options.cwd, options.knowledgeBasePath, '_index.md');
++  const indexPath = path.join(options.cwd, 'prospec', 'index.md');
+   await ensureDir(path.dirname(indexPath));
+ 
++  const conventionScan = await scanDir('_*.md', { cwd: path.join(options.cwd, options.knowledgeBasePath) });
++  const { core, demand } = filterConventions(conventionScan.files, options.additionalCore);
++
++  const conventionsBlock = `## Conventions
++
++**Pre-loaded Core Files (L0)**
++These files are automatically loaded by the AI for every conversation:
++${core.map(c => `- \`${c}\``).join('\n')}
++
++**Load-on-Demand Files (L1)**
++Load these specific convention files only when their topics are relevant to the task:
++${demand.map(c => `- \`${c}\``).join('\n')}
++
++## Modules
++
++_Populated by \`/prospec-knowledge-generate\`. Run \`prospec knowledge init\` first to produce raw-scan.md, then use the AI Skill to analyze and fill this section._
++
++_Table format: ${INDEX_TABLE_COLUMNS.join(' | ')}_
++`;
++
+   // Build new auto section content — header, separator, AND each row derive their
+   // column count from the canonical schema (types/knowledge.ts), so adding or
+   // reordering a column is a one-line edit there.
+@@ -255,17 +275,15 @@ export async function updateIndex(
+     })
+     .join('\n');
+ 
+-  // The auto block holds ONLY the module table. Everything around it (H1, the
+-  // intro, the `## Modules` heading, Project Info, How to Use, Conventions,
+-  // Loading Rules, any user notes) is curated static content that MUST survive
+-  // an incremental update.
++  // The auto block holds Conventions and Modules.
+   const autoBlock = `<!-- prospec:auto-start -->
++${conventionsBlock}
+ ${INDEX_TABLE_HEADER}
+ ${INDEX_TABLE_SEPARATOR}
+ ${tableRows}
+ <!-- prospec:auto-end -->`;
+ 
+-  // Read existing _index.md for in-place auto-block replacement
++  // Read existing index.md for in-place auto-block replacement
+   // (read-or-empty; non-ENOENT errors propagate).
+   const existingContent = await readFileIfExists(indexPath);
+   const action: GeneratedFile['action'] = existingContent ? 'updated' : 'created';
+@@ -278,13 +296,11 @@ ${tableRows}
+     finalContent = replaceAutoBlock(existingContent, autoBlock);
+   } else {
+     // Create (or a marker-less file): emit the canonical document with the
+-    // `## Modules` heading and Project Info as static content around the block.
++    // auto block and Project Info as static content.
+     finalContent = `# AI Knowledge Index
+ 
+-> This index helps AI Agents quickly understand the project structure.
+-> Read this file first, then load specific module READMEs as needed.
+-
+-## Modules
++> This file is the entry point for AI assistants, located at \`prospec/index.md\`.
++> Read this first, then load specific module READMEs or load-on-demand conventions (L1) as needed.
+ 
+ ${autoBlock}
+ 
+@@ -298,7 +314,7 @@ ${autoBlock}
+   await atomicWrite(indexPath, finalContent);
+ 
+   return {
+-    path: path.join(options.knowledgeBasePath, '_index.md'),
++    path: path.join('prospec', 'index.md'),
+     action,
+   };
+ }
+@@ -513,6 +529,7 @@ export async function execute(
+       cwd,
+       knowledgeBasePath,
+       projectName,
++      additionalCore: config.knowledge?.additional_core_conventions ?? [],
+     });
+     result.generatedFiles.push(indexFile);
+   }
+diff --git a/src/services/knowledge.service.ts b/src/services/knowledge.service.ts
+index 7b36fd2..32d5525 100644
+--- a/src/services/knowledge.service.ts
++++ b/src/services/knowledge.service.ts
+@@ -1,7 +1,7 @@
+ import * as fs from 'node:fs';
+ import * as path from 'node:path';
+ import { readConfig, resolveBasePaths } from '../lib/config.js';
+-import { scanDir } from '../lib/scanner.js';
++import { scanDir, filterConventions } from '../lib/scanner.js';
+ import { renderTemplate } from '../lib/template.js';
+ import { mergeContent } from '../lib/content-merger.js';
+ import { deriveKeyExports } from '../lib/key-exports.js';
+@@ -81,17 +81,19 @@ export async function execute(
+       });
+     }
+ 
+-    // 5. Update _index.md
+-    const indexPath = path.join(cwd, knowledgeBasePath, '_index.md');
++    // 5. Update index.md
++    const indexPath = path.join(cwd, 'prospec', 'index.md');
+     const indexAction = await updateIndex(
+       moduleInfos,
+       config.project.name,
+       config.tech_stack,
+       knowledgeBasePath,
+       indexPath,
++      cwd,
++      config.knowledge?.additional_core_conventions ?? [],
+     );
+     generatedFiles.push({
+-      path: path.join(knowledgeBasePath, '_index.md'),
++      path: path.join('prospec', 'index.md'),
+       action: indexAction,
+     });
+   }
+@@ -226,9 +228,14 @@ async function updateIndex(
+   techStack: { language?: string; framework?: string; package_manager?: string } | undefined,
+   knowledgeBasePath: string,
+   indexPath: string,
++  cwd: string,
++  additionalCore: string[] = [],
+ ): Promise<'created' | 'updated'> {
+   await ensureDir(path.dirname(indexPath));
+ 
++  const conventionScan = await scanDir('_*.md', { cwd: path.join(cwd, knowledgeBasePath) });
++  const { core, demand } = filterConventions(conventionScan.files, additionalCore);
++
+   const templateContext = {
+     project_name: projectName,
+     tech_stack: techStack,
+@@ -240,6 +247,8 @@ async function updateIndex(
+       keywords: m.keywords,
+       relationships: m.relationships,
+     })),
++    core_conventions: core,
++    demand_conventions: demand,
+   };
+ 
+   const newContent = renderTemplate(
+diff --git a/src/templates/agent-configs/entry.md.hbs b/src/templates/agent-configs/entry.md.hbs
+index a80d8ea..008e438 100644
+--- a/src/templates/agent-configs/entry.md.hbs
++++ b/src/templates/agent-configs/entry.md.hbs
+@@ -27,10 +27,11 @@ The user's primary language for AI-generated documents is **{{artifact_language}
+ Project principles and constraints: [`{{constitution_path}}`]({{constitution_path}})
+ 
+ ### AI Knowledge Base
+-Module index and project structure: [`{{knowledge_base_path}}/_index.md`]({{knowledge_base_path}}/_index.md)
++Module index and project structure (L1-L3 navigation): [`prospec/index.md`](prospec/index.md)
+ 
+ ### Coding Conventions
+ Coding standards and best practices: [`{{knowledge_base_path}}/_conventions.md`]({{knowledge_base_path}}/_conventions.md)
++Diagram conventions: [`{{knowledge_base_path}}/_diagram-conventions.md`]({{knowledge_base_path}}/_diagram-conventions.md)
+ 
+ ## Available Prospec Skills
+ 
+diff --git a/src/templates/knowledge/index.md.hbs b/src/templates/knowledge/index.md.hbs
+index d26c631..c7aee37 100644
+--- a/src/templates/knowledge/index.md.hbs
++++ b/src/templates/knowledge/index.md.hbs
+@@ -1,9 +1,23 @@
+ # AI Knowledge Index
+ 
+-> This file is the entry point for AI assistants (L0 — always loaded).
+-> Read this first, then load specific module READMEs (L1) as needed.
++> This file is the entry point for AI assistants, located at `prospec/index.md`.
++> Read this first, then load specific module READMEs or load-on-demand conventions (L1) as needed.
+ 
+ <!-- prospec:auto-start -->
++## Conventions
++
++**Pre-loaded Core Files (L0)**
++These files are automatically loaded by the AI for every conversation:
++{{#each core_conventions}}
++- `{{this}}`
++{{/each}}
++
++**Load-on-Demand Files (L1)**
++Load these specific convention files only when their topics are relevant to the task:
++{{#each demand_conventions}}
++- `{{this}}`
++{{/each}}
++
+ ## Modules
+ 
+ _Populated by `/prospec-knowledge-generate`. Run `prospec knowledge init` first to produce raw-scan.md, then use the AI Skill to analyze and fill this section._
+@@ -27,12 +41,13 @@ _Optional grouping: when modules fall into ≥2 domain categories, group rows un
+ 
+ | Layer | Files | When to Load | Token Budget |
+ |-------|-------|-------------|-------------|
+-| **L0** | `_index.md` + `_conventions.md` | Every conversation (auto-injected via agent config) | ≤ 1,500 tokens total |
+-| **L1** | `modules/{name}/README.md` (+ any `{sub-module}.md` it links) | When Skill identifies related modules from L0 keywords | ≤ 400 tokens per module |
+-| **L2** | Source code files | When Agent needs implementation details | No limit (read on demand) |
++| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | ~500 tokens |
++| **L1** | `prospec/index.md` + Core Conventions | Every conversation (acts as entry point for knowledge) | ≤ 1,500 tokens total |
++| **L2** | `modules/{name}/README.md` + Demand Conventions + `specs/features/*.md` | When Skill identifies related modules/features from L1 keywords | ≤ 400 tokens per module/feature |
++| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
+ 
+ **Principles:**
+-1. L0 answers "where to look" — L1 answers "how to modify" — L2 answers "how to write"
++1. L0 answers "how to use skills" — L1 answers "where to look" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
+ 2. Each layer must NOT duplicate information available in a lower layer
+ 3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+-4. Sub-modules are an L1 sub-layer reached via the README's `## Sub-Modules` links — never listed in `_index.md`
++4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
+diff --git a/src/templates/skills/prospec-upgrade.hbs b/src/templates/skills/prospec-upgrade.hbs
+index 05efad1..a8b2bb3 100644
+--- a/src/templates/skills/prospec-upgrade.hbs
++++ b/src/templates/skills/prospec-upgrade.hbs
+@@ -71,7 +71,8 @@ edits, so updating their format requires consent. Do it here:
+    - `{{knowledge_base_path}}/_status-lifecycle.md` ← `src/templates/init/status-lifecycle.md.hbs`
+    - `{{knowledge_base_path}}/_module-readme-conventions.md` ← `src/templates/init/module-readme-conventions.md.hbs`
+    - `{{knowledge_base_path}}/_diagram-conventions.md` ← `src/templates/init/diagram-conventions.md.hbs`
+-   - `{{constitution_path}}` (Constitution), `{{knowledge_base_path}}/_conventions.md`, `{{knowledge_base_path}}/_index.md` — compare the **format/structure** (severity tags, section markers, index column schema), never the user's authored wording
++   - `{{constitution_path}}` (Constitution), `{{knowledge_base_path}}/_conventions.md` — compare the **format/structure** (severity tags, section markers), never the user's authored wording
++   - **Index Migration**: If `{{knowledge_base_path}}/_index.md` exists, offer to migrate it to the new root location `prospec/index.md` using `src/templates/knowledge/index.md.hbs`. Preserve any user notes in the `<!-- prospec:user-start -->` block. The `Modules` table inside `prospec:auto` does not need manual copying; just run `pnpm exec prospec knowledge update` (or equivalent CLI command) after migration to regenerate the Modules table from `module-map.yaml`. Delete the old `_index.md` after a successful move.
+ 3. For each file whose format has drifted, **show a diff and ask the user whether to update it** —
+    migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
+    leave the rest unchanged.
+diff --git a/src/types/config.ts b/src/types/config.ts
+index f1c08d3..4cf1c34 100644
+--- a/src/types/config.ts
++++ b/src/types/config.ts
+@@ -42,6 +42,7 @@ export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
+ 
+ const KnowledgeSchema = z.object({
+   base_path: z.string().optional(),
++  additional_core_conventions: z.array(z.string()).optional(),
+   files: z.array(z.enum(KNOWLEDGE_FILE_TYPES)).optional(),
+   strategy: z.enum(KNOWLEDGE_STRATEGIES).optional(),
+   token_budget: TokenBudgetSchema,
+diff --git a/tests/contract/knowledge-format.test.ts b/tests/contract/knowledge-format.test.ts
+index 6c47a69..93753a2 100644
+--- a/tests/contract/knowledge-format.test.ts
++++ b/tests/contract/knowledge-format.test.ts
+@@ -173,11 +173,12 @@ describe('Knowledge Format Contract', () => {
+       expect(content).toContain('## Loading Rules');
+     });
+ 
+-    it('should define L0, L1, and L2 layers', () => {
++    it('should define L0, L1, L2, and L3 layers', () => {
+       const content = renderTemplate('knowledge/index.md.hbs', templateContext);
+       expect(content).toContain('L0');
+       expect(content).toContain('L1');
+       expect(content).toContain('L2');
++      expect(content).toContain('L3');
+     });
+ 
+     it('should not list api-surface, dependencies, or patterns as generated file types', () => {
+diff --git a/tests/e2e/cli.test.ts b/tests/e2e/cli.test.ts
+index 9bed852..c5d15b9 100644
+--- a/tests/e2e/cli.test.ts
++++ b/tests/e2e/cli.test.ts
+@@ -349,9 +349,11 @@ describe('CLI E2E', () => {
+ 
+       const kbDir = path.join(tmpDir, 'prospec', 'ai-knowledge');
+       const rawScanPath = path.join(kbDir, 'raw-scan.md');
+-      const curatedPaths = ['module-map.yaml', '_index.md', '_conventions.md'].map(
+-        (f) => path.join(kbDir, f),
+-      );
++      const curatedPaths = [
++        path.join(kbDir, 'module-map.yaml'),
++        path.join(tmpDir, 'prospec', 'index.md'),
++        path.join(kbDir, '_conventions.md'),
++      ];
+ 
+       const rawBefore = await fs.promises.readFile(rawScanPath, 'utf-8');
+       const curatedBefore = await Promise.all(
+diff --git a/tests/integration/init-flow.test.ts b/tests/integration/init-flow.test.ts
+index fd2e146..b548a25 100644
+--- a/tests/integration/init-flow.test.ts
++++ b/tests/integration/init-flow.test.ts
+@@ -65,7 +65,7 @@ describe('Init Flow Integration', () => {
+         '.prospec.yaml',
+         'AGENTS.md',
+         'prospec/CONSTITUTION.md',
+-        'prospec/ai-knowledge/_index.md',
++        'prospec/index.md',
+         'prospec/ai-knowledge/_conventions.md',
+         'prospec/specs/.gitkeep',
+       ]),
+diff --git a/tests/unit/cli/knowledge-init-output.test.ts b/tests/unit/cli/knowledge-init-output.test.ts
+index bdb3200..a0b92db 100644
+--- a/tests/unit/cli/knowledge-init-output.test.ts
++++ b/tests/unit/cli/knowledge-init-output.test.ts
+@@ -182,7 +182,7 @@ describe('formatKnowledgeInitOutput', () => {
+       'normal',
+     );
+     const out = output();
+-    expect(out).toContain('Curated files (module-map.yaml, _index.md, _conventions.md) left untouched');
++    expect(out).toContain('Curated files (module-map.yaml, prospec/index.md, _conventions.md) left untouched');
+   });
+ 
+   it('suppresses the curated-files note when raw-scan-only but dry run (L55 binary-expr#1 false)', () => {
+diff --git a/tests/unit/services/change-story.service.test.ts b/tests/unit/services/change-story.service.test.ts
+index ff21eb9..67ef3a8 100644
+--- a/tests/unit/services/change-story.service.test.ts
++++ b/tests/unit/services/change-story.service.test.ts
+@@ -116,7 +116,7 @@ knowledge:
+ `,
+       // Canonical 7 columns with populated Aliases/Rationale — the column shift
+       // that the old filter-empties + cells[3] parser misread (cells[3] = Status).
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -140,7 +140,7 @@ knowledge:
+   it('does not drop a data row whose Description cell contains --- (B11)', async () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -163,7 +163,7 @@ knowledge:
+ knowledge:
+   base_path: prospec/ai-knowledge
+ `,
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -194,7 +194,7 @@ knowledge:
+ knowledge:
+   base_path: prospec/ai-knowledge
+ `,
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -253,7 +253,7 @@ knowledge:
+   it('writes related_modules into metadata.yaml as a name array when modules match', async () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -306,7 +306,7 @@ describe('change-story metadata YAML escaping', () => {
+   it('passes matched related_modules into the proposal template context (and undefined when none)', async () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -395,7 +395,7 @@ describe('change-story branch coverage', () => {
+     // the early return — not the missing-file catch — is what produced the empty list.
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+@@ -415,7 +415,7 @@ describe('change-story branch coverage', () => {
+     // from the module-name guard (L153) the blank-module-row test covers.
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
+-      '/project/prospec/ai-knowledge/_index.md': `# Module Index
++      '/project/prospec/index.md': `# Module Index
+ 
+ | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
+ |--------|----------|---------|--------|-------------|-----------|------------|
+diff --git a/tests/unit/services/init.service.test.ts b/tests/unit/services/init.service.test.ts
+index ad306d9..793a212 100644
+--- a/tests/unit/services/init.service.test.ts
++++ b/tests/unit/services/init.service.test.ts
+@@ -59,7 +59,7 @@ describe('init.service', () => {
+     expect(fs.existsSync('/project/.prospec.yaml')).toBe(true);
+     expect(fs.existsSync('/project/prospec/CONSTITUTION.md')).toBe(true);
+     expect(fs.existsSync('/project/AGENTS.md')).toBe(true);
+-    expect(fs.existsSync('/project/prospec/ai-knowledge/_index.md')).toBe(true);
++    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
+     expect(fs.existsSync('/project/prospec/ai-knowledge/_conventions.md')).toBe(true);
+     expect(fs.existsSync('/project/prospec/specs/.gitkeep')).toBe(true);
+ 
+@@ -312,7 +312,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
+       '/project/package.json': '{}',
+       '/project/prospec/CONSTITUTION.md': '# CURATED Constitution — do not clobber\n',
+       '/project/prospec/ai-knowledge/_conventions.md': '# CURATED conventions\n',
+-      '/project/prospec/ai-knowledge/_index.md': '# CURATED index\n',
++      '/project/prospec/index.md': '# CURATED index\n',
+       '/project/prospec/ai-knowledge/_status-lifecycle.md': '# CURATED lifecycle\n',
+       '/project/prospec/ai-knowledge/_module-readme-conventions.md': '# CURATED readme conv\n',
+       '/project/prospec/ai-knowledge/_diagram-conventions.md': '# CURATED diagram\n',
+@@ -332,7 +332,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
+     expect(fs.readFileSync('/project/prospec/ai-knowledge/_conventions.md', 'utf-8')).toBe(
+       '# CURATED conventions\n',
+     );
+-    expect(fs.readFileSync('/project/prospec/ai-knowledge/_index.md', 'utf-8')).toBe(
++    expect(fs.readFileSync('/project/prospec/index.md', 'utf-8')).toBe(
+       '# CURATED index\n',
+     );
+     expect(fs.readFileSync('/project/prospec/ai-knowledge/_status-lifecycle.md', 'utf-8')).toBe(
+@@ -357,8 +357,8 @@ describe('init.service per-file idempotency (BL-044)', () => {
+     );
+     expect(result.createdFiles).not.toContain('prospec/CONSTITUTION.md');
+     // ...missing ones rebuilt.
+-    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
+-    expect(fs.existsSync('/project/prospec/ai-knowledge/_index.md')).toBe(true);
++    expect(result.createdFiles).toContain('prospec/index.md');
++    expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
+   });
+ 
+   it('writes every artifact on a greenfield init (behavior unchanged)', async () => {
+@@ -368,7 +368,7 @@ describe('init.service per-file idempotency (BL-044)', () => {
+ 
+     expect(result.createdFiles).toContain('prospec/CONSTITUTION.md');
+     expect(result.createdFiles).toContain('AGENTS.md');
+-    expect(result.createdFiles).toContain('prospec/ai-knowledge/_index.md');
++    expect(result.createdFiles).toContain('prospec/index.md');
+     expect(result.createdFiles).toContain('prospec/specs/.gitkeep');
+   });
+ 
+diff --git a/tests/unit/services/knowledge-init.service.test.ts b/tests/unit/services/knowledge-init.service.test.ts
+index 98058b7..24f2629 100644
+--- a/tests/unit/services/knowledge-init.service.test.ts
++++ b/tests/unit/services/knowledge-init.service.test.ts
+@@ -128,7 +128,7 @@ describe('knowledge-init.service', () => {
+     const base = '/project/prospec/ai-knowledge';
+     expect(fs.existsSync(`${base}/raw-scan.md`)).toBe(true);
+     expect(fs.existsSync(`${base}/module-map.yaml`)).toBe(true);
+-    expect(fs.existsSync(`${base}/_index.md`)).toBe(true);
++    expect(fs.existsSync(`${base}/../index.md`)).toBe(true);
+     expect(fs.existsSync(`${base}/_conventions.md`)).toBe(true);
+   });
+ 
+@@ -161,7 +161,7 @@ describe('knowledge-init.service', () => {
+ 
+     const result = await execute({ cwd: '/project' });
+ 
+-    expect(result.outputFiles).toContain('prospec/ai-knowledge/_index.md');
++    expect(result.outputFiles).toContain('prospec/index.md');
+     expect(result.outputFiles).toContain('prospec/ai-knowledge/_conventions.md');
+ 
+     // Verify _conventions.md contains skeleton
+@@ -180,7 +180,7 @@ describe('knowledge-init.service', () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+       '/project/src/index.ts': '',
+-      '/project/prospec/ai-knowledge/_index.md': existingIndex,
++      '/project/prospec/index.md': existingIndex,
+       '/project/prospec/ai-knowledge/_conventions.md': existingConventions,
+     });
+ 
+@@ -190,12 +190,12 @@ describe('knowledge-init.service', () => {
+     expect(result.outputFiles).toContain('prospec/ai-knowledge/raw-scan.md');
+ 
+     // _index.md and _conventions.md should NOT be in outputFiles (not overwritten)
+-    expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_index.md');
++    expect(result.outputFiles).not.toContain('prospec/index.md');
+     expect(result.outputFiles).not.toContain('prospec/ai-knowledge/_conventions.md');
+ 
+     // Verify existing content is preserved
+     const index = fs.readFileSync(
+-      '/project/prospec/ai-knowledge/_index.md',
++      '/project/prospec/index.md',
+       'utf-8',
+     );
+     expect(index).toBe(existingIndex);
+diff --git a/tests/unit/services/knowledge-update.service.test.ts b/tests/unit/services/knowledge-update.service.test.ts
+index 1e09f04..45e3ad3 100644
+--- a/tests/unit/services/knowledge-update.service.test.ts
++++ b/tests/unit/services/knowledge-update.service.test.ts
+@@ -39,6 +39,7 @@ vi.mock('../../../src/lib/scanner.js', () => ({
+     files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
+     count: 2,
+   }),
++  filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
+ }));
+ 
+ vi.mock('../../../src/lib/template.js', () => ({
+@@ -408,11 +409,11 @@ describe('updateIndex', () => {
+       { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+     );
+ 
+-    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
++    const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+     expect(content).toContain(INDEX_TABLE_HEADER);
+     expect(content).toContain(INDEX_TABLE_SEPARATOR);
+     // the phantom "Files" column (and old README placeholder) must be gone
+-    expect(content).not.toContain('Files');
++    expect(content).not.toContain('| Files |');
+     expect(content).not.toContain('| README |');
+ 
+     const row = content.split('\n').find((l) => l.startsWith('| auth '));
+@@ -426,7 +427,7 @@ describe('updateIndex', () => {
+     // + Project Info + How to Use, with NO user markers. Updating must replace
+     // only the auto block, not wipe the title/intro/curated sections.
+     vol.fromJSON({
+-      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
++      '/test/prospec/index.md': `# AI Knowledge Index
+ 
+ > This index helps AI Agents quickly understand the project structure.
+ 
+@@ -452,7 +453,7 @@ ${INDEX_TABLE_SEPARATOR}
+       { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+     );
+ 
+-    const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
++    const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+     expect(result.action).toBe('updated');
+     // the new row is present
+     expect(content).toContain('| auth ');
+@@ -467,7 +468,7 @@ ${INDEX_TABLE_SEPARATOR}
+ 
+   it('emits $-containing descriptions verbatim (no replacement-pattern injection)', () => {
+     vol.fromJSON({
+-      '/test/prospec/ai-knowledge/_index.md': `# AI Knowledge Index
++      '/test/prospec/index.md': `# AI Knowledge Index
+ 
+ ## Modules
+ 
+@@ -482,7 +483,7 @@ ${INDEX_TABLE_SEPARATOR}
+       [{ name: 'billing', description: 'cost is $1 per $& token', status: 'Active' }],
+       { cwd: '/test', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p' },
+     ).then(() => {
+-      const content = vol.readFileSync('/test/prospec/ai-knowledge/_index.md', 'utf-8') as string;
++      const content = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
+       // the literal $1 / $& must survive, and the auto block must not self-nest
+       expect(content).toContain('cost is $1 per $& token');
+       expect(content.match(/prospec:auto-start/g)?.length).toBe(1);
+@@ -634,7 +635,7 @@ describe('execute', () => {
+ 
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
+-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
++      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+       '/project/delta-spec.md': deltaContent,
+     });
+ 
+@@ -664,7 +665,7 @@ describe('execute', () => {
+ `;
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
+-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
++      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+       '/project/delta-spec.md': deltaContent,
+     });
+ 
+@@ -679,7 +680,7 @@ describe('execute', () => {
+   it('should process manual mode', async () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
+-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
++      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+     });
+ 
+     const result = await execute({
+@@ -906,7 +907,7 @@ describe('execute', () => {
+ 
+     await execute({ manualModules: ['services'], cwd: '/project' });
+ 
+-    const scanCall = vi.mocked(scanDir).mock.calls.at(-1)!;
++    const scanCall = vi.mocked(scanDir).mock.calls.find((call) => call[0] !== '_*.md')!;
+     expect((scanCall[1] as { exclude: string[] }).exclude).toEqual([]);
+   });
+ 
+@@ -935,7 +936,7 @@ describe('execute', () => {
+   it('should return empty result when no input provided', async () => {
+     vol.fromJSON({
+       '/project/.prospec.yaml': 'project:\n  name: test-project\ntech_stack:\n  language: typescript\n',
+-      '/project/prospec/ai-knowledge/_index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
++      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
+     });
+ 
+     const result = await execute({ cwd: '/project' });
+diff --git a/tests/unit/services/knowledge.service.test.ts b/tests/unit/services/knowledge.service.test.ts
+index 568194f..da6e16b 100644
+--- a/tests/unit/services/knowledge.service.test.ts
++++ b/tests/unit/services/knowledge.service.test.ts
+@@ -332,13 +332,13 @@ knowledge:
+ `,
+       '/project/src/services/auth.ts': '',
+       '/project/prospec/ai-knowledge/modules/services/README.md': existingReadme,
+-      '/project/prospec/ai-knowledge/_index.md': existingIndex,
++      '/project/prospec/index.md': existingIndex,
+     });
+ 
+     const result = await execute({ cwd: '/project' });
+ 
+     const readmeEntry = result.generatedFiles.find((f) => f.path.endsWith('README.md'));
+-    const indexEntry = result.generatedFiles.find((f) => f.path.endsWith('_index.md'));
++    const indexEntry = result.generatedFiles.find((f) => f.path.endsWith('index.md'));
+     expect(readmeEntry?.action).toBe('updated');
+     expect(indexEntry?.action).toBe('updated');
+ 
+@@ -351,7 +351,7 @@ knowledge:
+     expect(writtenReadme).toContain('# Rendered Template Content');
+ 
+     // mergeContent (L264 then-side) preserved the index user section
+-    const writtenIndex = fs.readFileSync('/project/prospec/ai-knowledge/_index.md', 'utf-8');
++    const writtenIndex = fs.readFileSync('/project/prospec/index.md', 'utf-8');
+     expect(writtenIndex).toContain('INDEX USER NOTE');
+     expect(writtenIndex).toContain('# Rendered Template Content');
+   });

@@ -18,7 +18,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { indexSpec, matchReqHeading } from '../../src/lib/spec-headings.js';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const SRC = path.join(REPO_ROOT, 'src');
@@ -85,15 +84,19 @@ function offenders(pattern: RegExp): string[] {
 
 /**
  * Where a REQ's body ENDS is a second rule that can fork the same way the heading
- * rule did. Two files decide it: `spec-headings` for the narrow read and the
- * counters, and the archive writer's in-place merge, which computes the same
- * boundary while rewriting — a residue this change deliberately leaves rather than
- * refactoring the writer under a fix for the readers. A THIRD implementation is
- * what this registry catches; the probe is the `---` rule test every version of
- * the boundary needs.
+ * rule did. ONE file decides it now — `spec-headings` — for the narrow read, the
+ * counters and the archive writer's in-place merge alike: the writer takes each
+ * REQ's boundary from `indexSpec` rather than recomputing it, so reader and writer
+ * can no longer disagree about which lines a graduation edit replaces. A SECOND
+ * implementation is what this registry catches; the probe is the `---` rule test
+ * every version of the boundary needs.
+ *
+ * The probe only recognises the literal `x.trim() === '---'`, so a rewrite that
+ * binds the trimmed line to a variable first slips past it — this registry bounds
+ * where the rule may live, not whether a copy of it is spelled recognisably.
  */
 const BOUNDARY_PROBE = /trim\(\)\s*===\s*'---'/;
-const BOUNDARY_OWNERS = ['src/lib/spec-headings.ts', 'src/services/archive.service.ts'];
+const BOUNDARY_OWNERS = ['src/lib/spec-headings.ts'];
 
 /** The two shapes this change deleted, as text — the detectors must see both. */
 const REMOVED_SHAPES = {
@@ -178,7 +181,7 @@ describe('feature-spec REQ heading single source', () => {
     const consumers: Record<string, RegExp[]> = {
       'src/services/archive.service.ts': [
         // the merge, the REMOVED probe (via existingReqLevel), and the recount
-        /matchReqHeading\(line\)\?\.id === route\.reqId/,
+        /indexSpec\(content, \{ includeStruck: true \}\)/,
         /function existingReqLevel/,
         /readSpecCounters\((?:content|specContent)\)/,
       ],
@@ -205,61 +208,5 @@ describe('feature-spec REQ heading single source', () => {
         expect(source, `${rel} must call through ${String(pattern)}`).toMatch(pattern);
       }
     }
-  });
-});
-
-/**
- * The two boundary owners must AGREE, not merely be two (REQ-LIB-041).
- *
- * `indexSpec` reads a fence-masked probe, treats a struck heading as a boundary and
- * trims trailing blanks; the archive writer's in-place merge reads the raw line,
- * ignores struck headings and keeps the blanks. On this repo's specs the three
- * differences never fire — no fence holds a heading or a `---`, no struck REQ sits
- * inside another REQ's body — so the claim that a quoted requirement is the text a
- * graduation edit would replace holds by COINCIDENCE. This test watches the
- * coincidence: it reds exactly when a spec gains the shape that would make the
- * archive merge stop early, which is the moment the writer needs converging too.
- */
-describe('REQ body boundary: the two owners agree on this repo\'s specs', () => {
-  /** The archive writer's rule, transcribed from `mergeRequirementInPlace`. */
-  const mergeBoundedBody = (lines: string[], at: number, level: number): string[] => {
-    const body: string[] = [];
-    for (let i = at + 1; i < lines.length; i++) {
-      const line = lines[i]!;
-      const heading = /^(#{1,6})\s/.exec(line);
-      const bounded =
-        matchReqHeading(line) !== null ||
-        (heading !== null && heading[1]!.length <= Math.max(level, 2)) ||
-        line.trim() === '---';
-      if (bounded) break;
-      body.push(line);
-    }
-    while (body.length > 0 && body[body.length - 1]!.trim() === '') body.pop();
-    return body;
-  };
-
-  const FEATURES = path.join(REPO_ROOT, 'prospec/specs/features');
-
-  it('every requirement in every active spec slices to the same body both ways', () => {
-    const files = fs.readdirSync(FEATURES).filter((f) => f.endsWith('.md') && !f.startsWith('_'));
-    expect(files.length).toBeGreaterThan(5);
-    let compared = 0;
-    for (const file of files) {
-      const content = fs.readFileSync(path.join(FEATURES, file), 'utf-8');
-      const lines = content.split('\n');
-      for (const req of indexSpec(content, { includeStruck: true }).requirements) {
-        const at = lines.findIndex((line) => matchReqHeading(line, { includeStruck: true })?.id === req.id);
-        if (at === -1) continue;
-        const viaIndex = content
-          .slice(req.start, req.end)
-          .split('\n')
-          .slice(1)
-          .filter((l, i, all) => !(i === all.length - 1 && l === ''));
-        expect(viaIndex, `${file} ${req.id}`).toEqual(mergeBoundedBody(lines, at, req.level));
-        compared++;
-      }
-    }
-    // Guard the guard: an empty comparison set satisfies any assertion.
-    expect(compared).toBeGreaterThan(400);
   });
 });

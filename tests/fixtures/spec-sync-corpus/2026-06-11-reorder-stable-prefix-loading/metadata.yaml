@@ -1,0 +1,28 @@
+name: reorder-stable-prefix-loading
+created_at: 2026-06-11T07:08:47.216Z
+status: archived
+related_modules:
+  - templates
+  - tests
+description: BL-020 KV-Cache 穩定前綴：13 個 skill 模板 Startup Loading 靜態優先重排 +
+  [STABLE]/[DYNAMIC] 標注，以 Story A harness 量測 before/after，含 OPT-D8 glossary 對照
+quality_log:
+  - skill: prospec-review
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "major(開放): README「_index 為 boundary 後第一位」與 plan/knowledge-update 模板實況不符——建議把 _index 移至 DYNAMIC 段首（cache 最優）或軟化措辭"
+      - "major(開放): contract itemKey 只取第一個 backtick，合併項尾部/子彈點刪除不會被集合斷言抓到——建議全 backtick join + 重建 fixture"
+      - "觀察: false-green 斷言模式跨 change 第三度出現，建議 /prospec-learn 評估 PB-001 擴域"
+  - skill: prospec-review
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "已解(人工核可): README/zh-TW 量測歸因過度宣稱——已套用 deliberate-exclusion 限定措辭；量級驗證列為後續候選（跨任務部分前綴模式）"
+      - "已解: runbook 兩條 critical（pnpm -- 轉發、缺 commit 前置）已於 round 3-4 修復並實證"
+  - skill: prospec-verify
+    date: "2026-06-11"
+    result: WARN
+    warnings:
+      - "D1/D2 合併 WARN: T14 = REQ-MEASURE-008 AC2 量測 pending（無 API key；proposal Edge Case 明文設計，runbook 與前置條件已留檔 notes.md）"
+      - "D4 Knowledge 陳舊: templates/tests README 未提及 Startup Loading 重排與 ordering 斷言——建議 /prospec-knowledge-update 後再 archive"

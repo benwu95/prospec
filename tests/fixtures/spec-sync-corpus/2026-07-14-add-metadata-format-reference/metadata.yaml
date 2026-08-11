@@ -1,0 +1,95 @@
+name: add-metadata-format-reference
+created_at: 2026-07-13T09:51:00.000Z
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - services
+  - tests
+description: 為 metadata.yaml 補上唯一缺席的 format
+  reference（references/metadata-format），記錄完整生命週期序列化格式（欄位順序／純量樣式／created_at ISO
+  8601／各階段追加的 quality_log·verify·review_provenance 欄位形狀），掛進 new-story 與 ff
+  的載入慣例，並讓下游會追加欄位的 skill 就近指向它，終結各 skill 自行發明 YAML 格式造成的漂移
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-13
+    result: PASS
+    warnings:
+      - "scale 評估：模組觸及 templates/services/tests（3 個，達 full
+        的模組數門檻），但性質為有界、單一目的、完全沿用既有 reference pattern 的文件＋接線變更，非架構性/跨切面；且會 MODIFY
+        reference-registry 的 spec 行為（觸發 quick 硬否決）。綜合判定 standard，使用者已確認"
+      - "INVEST 站點檢查 PASS：US-1 獨立可交付、可測（reference 檔存在＋skill 載入命中＋欄位集對應
+        schema）、規模小；I/N/V/E/T 均滿足"
+  - skill: prospec-plan
+    date: 2026-07-13
+    result: PASS
+    warnings:
+      - "dependency-direction 站點檢查 PASS：唯一 call chain 為 agent-sync 部署鏈 cli agent
+        sync→services.getSkillReferences→lib.renderTemplate→templates(.hbs)，無反向\
+        /循環；new-story/ff hasReferences 已 true，types 免動"
+      - "採 Option A（文件化 reference）而非 Option B（改 skill 呼叫 CLI）：與既有 reference
+        pattern 一致、不把 CLI 可用性問題引入零 CLI 依賴的 new-story 核心流程，且最嚴重漂移在 CLI
+        根本不產出的生命週期追加欄位（scale/quality_log/grade）"
+      - "已識別 restatement 風險：reference 須 defer status/schema 語意給
+        _status-lifecycle.md 與 types/change.ts，避免觸發 templates 單一來源契約測試"
+  - skill: prospec-tasks
+    date: 2026-07-13
+    result: PASS
+    warnings:
+      - "TDD 站點檢查 PASS：13 任務依 Tests→Templates→Services→Lib→Regen→Verification
+        分層；每個改動的 code 面向皆有測試任務——templates(metadata-format.hbs + skill 編修)與
+        services(getSkillReferences map) 由 T1-T3 skill-contract 斷言涵蓋，含
+        mutation-verify(T12, PB-001)。無 types/cli 程式碼改動"
+  - skill: prospec-implement
+    date: 2026-07-13
+    result: PASS
+    warnings:
+      - "13/13 任務完成。typecheck 0 errors（含 tests/）、pnpm test 2135/2135 綠（新增 4 個
+        skill-contract 斷言）、lint clean。bundled-templates 62→63、agent sync 重生
+        .claude/.agents（references 27→28）、pnpm counts 同步 .hbs 62→63/references
+        19→20/tests 2131→2135"
+      - "PB-001 mutation-verified 三個斷言類別：named-set(map 缺條目→actual=[]
+        轉紅)、deploy+cite(檔缺 ENOENT 轉紅)、content-pin(破壞『never in
+        `result`』字串轉紅、還原轉綠)"
+      - "下游 6 skill 採軟指向(具名提及、不含 references/*.md link)以尊重 [D] self-containment
+        契約——metadata-format 僅註冊/部署於 new-story+ff(其為建立 metadata.yaml
+        的入口)，plan/tasks/review/verify 於追加欄位處、implement/archive 於 status
+        就地編修處各加一行指向"
+      - "new-story baseline 合法更新(startup-loading-baseline.json)：新增
+        references/metadata-format.md 載入項、MANDATORY 1→2(與既有 proposal-format
+        同慣例)；ff 維持 per-phase on-demand、baseline 不變"
+  - skill: prospec-review
+    date: 2026-07-13
+    result: PASS
+    warnings:
+      - "獨立 reviewer 揪出的 1 critical 全數修復：reference 的 dimensions 範例用
+        flow-style，與其『exactly what stringifyYaml emits』宣稱及 AC2 block-style
+        自相矛盾——改為 block style（此 change 正為消除此類漂移，reference 自身須示範正確格式）"
+      - "1 major + 2 nits 亦於 review 修復（作者對自身新文件的事實/一致性修正）：quality_log Written-by
+        誤列 implement/漏 new-story·ff→改為 ground-truth 追加者；scale 值域改指向
+        CHANGE_SCALES；verify 範例 warnings 排序改為 fixed-keys-first。全套件 2135/2135 綠"
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-07-14
+    result: PASS
+    warnings:
+      - "Grade S（Ready to deploy）。5+1 全 PASS：1/5 task-completion（drift task-completion PASS、8/8 code tasks）；2/5 REQ-TEMPLATES-150(6 AC)+REQ-AGNT-037(4 AC) 全對應實作（欄位集 1:1 schema、self-containment [D] 綠、SKILL.md 載入指示命中）；3/5 Constitution 全 PASS——[MUST] Language Policy/Atomic/INVEST/TDD、[SHOULD] dependency-direction(import-direction PASS)/README-currency(counts 同步)；4/5 knowledge-health PASS 無 pre-existing drift；5/5 tests 2135/2135；6 N/A(ui_scope none)。0 WARN 0 FAIL"
+      - "commit-prep 已折入：templates README references per-category 計數 19→20(PB-009 家族、sync-counts 未涵蓋之手工計數)；services README generic 無需改；pnpm counts tracked 計數已同步"
+      - "review 期揪出並修復的 1 critical(reference dimensions 範例 flow-style 自相矛盾)為獨立軸、不計入 verify grade；最終交付狀態全 PASS"
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: delta-spec-compliance
+        result: PASS
+      - name: constitution-full-audit
+        result: PASS
+      - name: knowledge-consistency
+        result: PASS
+      - name: tests
+        result: PASS
+review_provenance:
+  digest: 7a4f0829dab3085306d755704645839f4f07eba636ed8dc7b0d5818cfa4c8c13
+  date: 2026-07-13

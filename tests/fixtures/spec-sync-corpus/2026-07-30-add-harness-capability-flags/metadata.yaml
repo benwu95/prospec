@@ -1,0 +1,67 @@
+name: add-harness-capability-flags
+created_at: 2026-07-30T15:40:30.657Z
+status: archived
+description: 以宣告式 harness capability 旗標取代 review/verify 的逐站散文降級判斷
+scale: standard
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - "INVEST-Independent: US-2 (兩站共用旗標) 無法脫離 US-1 (旗標機制)
+        獨立交付，屬刻意的機制→消費者順序依賴，非可拆分缺陷"
+  - skill: prospec-plan
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - delta-spec.md 156 行超出 100 行指引：6 個 REQ 各帶必要的 **Spec:** 落地區塊（MODIFIED
+        必填），刪減會直接降低畢業進 trust zone 的規格內容，故保留
+  - skill: prospec-review
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - HC-05 未修（提案）：agent-sync 對共用 AGENTS.md 仍以 configs[0] 的
+        surfacesSkillFrontmatter 渲染，與本變更為 capabilities 導入的交集屬同一類，但不在 delta-spec
+        範圍內——建議另開 issue
+      - HC-04 殘留：capability 鍵的 camel→snake 推導對含縮寫的旗標（如
+        canUseMCP→can_use_m_c_p）會產生模板作者不會寫的鍵名；今日無此鍵，若新增須加註
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 9
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - 2/5 需兩輪修正才收斂：獨立評分者先後揪出交集測試的 false-green（fixture
+        降級群組最後成員，last-member-wins 退化不會變紅）、verify degraded_action 遺失 HEAD 的替代
+        fresh-context 路徑（實質行為退化，且造成 review／verify 對「降級」定義分歧），以及
+        REQ-TEMPLATES-167 AC4 的過度宣稱。三項皆已修並重驗；殘留為 delta-spec 敘述準確度風險，非機制缺口
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 2a187b56687455d8f0c013a18555a8d1ff1487e9376b674f5b4de039754e8ab0
+  date: 2026-07-30
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 2a187b56687455d8f0c013a18555a8d1ff1487e9376b674f5b4de039754e8ab0
+  date: 2026-07-30
+archived_at: 2026-07-30

@@ -1,0 +1,12 @@
+# Review Findings: filter-nonsource-modules
+
+| ID | Location | Severity | Lens | Status | Summary |
+|---|---|---|---|---|---|
+| F-1 | src/lib/module-detector.ts:104 | critical | correctness | resolved | 原設計以「原始碼副檔名白名單」窄化，且 fallback 只看子集是否為空（全專案判斷）。後果：語言不在白名單、但專案任何角落有一個白名單內檔案時，全部真實程式碼目錄被抹除。實測 Fortran 專案（docs/ 內有兩支 .sh）偵測結果只剩 ['docs']。修法：極性反轉為非原始碼拒絕清單 + 要求有副檔名，未知副檔名一律算原始碼。第 2 輪以 30 種專案形狀差分實測確認該抹除類別已消失、且無任何形狀取得比變更前更多的 module。 |
+| F-2 | tests/unit/lib/module-detector.test.ts:1129 | major | test-quality | resolved | template／樣式測試對「整組被排除」是恆真的：子集被清空後 fallback 還原完整清單，斷言仍綠——恰好放過 proposal 指名要防的那個回歸。修法：fixture 混入兩個純文件檔並加負向斷言，使該變異必然轉紅（第 2 輪獨立以變異實測確認轉紅）。 |
+| F-3 | src/lib/module-detector.ts:213 | major | docs-claims | resolved | entryPoints 維持完整清單的註解理由是假的——本檔 entryPatterns 全部 11 條都要求帶副檔名，無副檔名檔案永遠不可能成為 entry point，因此 detectEntryPoints(files) 與 (scope) 對所有輸入等價；delta-spec 對應的 WHEN/THEN 條目因此是無法傑偽的需求，會被畢業進信任區。修法：註解改寫為真實理由（兩份清單今日一致是巧合非依賴），並從 delta-spec 撤除該條目。 |
+| F-4 | .prospec/changes/filter-nonsource-modules/tasks.md:37 | major | docs-claims | resolved | T13 已勾選並認證「16 → 10」、plan.md 同步殘留該數字，而實測與訂正後的 SC-002 是「16 → 9、移除 7」。已勾選的 [V] 任務攜帶錯誤數字會通過所有機器閘門。修法：兩處皆訂正；第 2 輪由審查者獨立重新量測 olfparser 確認 16 → 9 且移除的 7 個皆零原始碼。 |
+| NEW-1 | src/lib/module-detector.ts:190 | critical | correctness | resolved | 極性反轉後同一根因殘留：fallback 只在子集為空時觸發，不在子集太薄時觸發。實測 k8s manifest 專案（manifests/*.yaml + overlays + 一支 hack/verify.sh）、docs-as-code + 一支 lint script、LaTeX + 一支 build script 皆偵測出零個 module（變更前有數個）；並以 knowledge-init 端到端確認會把 modules: [] 寫入 module-map.yaml，而該檔只在不存在時寫入，空 map 永久黏著——比 F-1 的結果更糟。審查者評 major，實際判為 critical。修法：fallback 判準改為「以子集偵測得到零個 module」，涵蓋子集為空與子集太薄兩種情形。 |
+| NEW-2 | .prospec/changes/filter-nonsource-modules/proposal.md:22 | minor | docs-claims | resolved | 極性反轉後 US-1／US-2 的驗收場景仍用白名單語彙（「可辨識副檔名」），與同一份文件的 Edge Case 及出貨行為互相矛盾；英文 Spec 條目另承諾 fallback「rather than yielding an empty module map」，在自己的前提下也不成立。修法：兩個 story 場景與 FR-002／FR-003 全部改寫為拒絕清單與零結果退回語彙，Spec 條目改為承諾「窄化永不回傳比不窄化更少的 module」。 |
+| NEW-3 | tests/unit/lib/module-detector.test.ts:1135 | minor | docs-claims | resolved | F-2 修正時加的註解機制敘述自相矛盾：兩個 .md 檔本身也被拒絕，無法「讓子集保持非空」，且變異下三個 template 目錄並未消失而是多了 docs。測試本身有效，只有敘述錯誤。修法：註解改為正確機制（fallback 仍會觸發，是負向斷言讓變異轉紅）。 |
+| R-1 | src/lib/module-detector.ts:104 | major | correctness | accepted-limitation | 已知殘留（本輪不修，已記入 proposal Edge Cases 並交付使用者裁決）：程式碼本體為無副檔名檔案（bin/ 下的 shell 腳本、Makefile 驅動專案）或文稿副檔名（.tex／.org）的專案，若另有足夠原始碼讓窄化得到 ≥1 個 module，零結果退回不會觸發，那些目錄會從清單消失（bin/ 無副檔名腳本 + 2 個 .zsh → 只剩 etc）。屬「多丟一個目錄」而非空 map。收斂方向：無副檔名改判為原始碼、僅排除 dotfile 與具名 metadata，代價是再動一次 AC3。 |

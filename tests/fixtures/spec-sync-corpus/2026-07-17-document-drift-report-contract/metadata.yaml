@@ -1,0 +1,45 @@
+name: document-drift-report-contract
+created_at: 2026-07-17T13:20:52.560Z
+status: archived
+scale: quick
+related_modules:
+  - templates
+  - services
+description: 記載 prospec-report.json 結構為單一來源 reference,並修正 skill 引用的不存在欄位
+  knowledge_health.stale[]
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-17
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-17
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-review
+    date: 2026-07-18
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-07-18
+    result: PASS
+    grade: S
+    warnings: []
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: constitution
+        result: PASS
+      - name: knowledge-consistency
+        result: PASS
+      - name: tests
+        result: PASS
+review_provenance:
+  digest: ceb18b14be7fd1b1adcd39272b9ba35e5313ecadc1a5244318d4acf378029d75
+  date: 2026-07-17

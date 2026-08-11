@@ -1,0 +1,70 @@
+name: enforce-sub-module-budget
+created_at: 2026-07-31T09:33:09.258Z
+status: archived
+related_modules:
+  - lib
+  - types
+  - tests
+  - templates
+description: 讓 sub-module 知識檔進入 knowledge-size 量測範圍（同一 l2 預算），並以 templates 抽出
+  skill-authoring.md 作為 dogfood
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-31
+    result: WARN
+    warnings:
+      - F-4/F-5/F-6：三條 US
+        層敘述（drift-detection.md:50/:51/:207、ai-knowledge.md:267）與改後行為矛盾，**Spec:**
+        無載具可及，已登錄 delta-spec 的 Phase 3.5 手動收斂清單；F-14：既存缺陷（HEAD 即有）README 指向目錄的
+        symlink 會讓 readTextIfExists 拋 EISDIR 中止整個 check run，建議另開變更
+    criticals_found: 4
+    criticals_fixed: 3
+    majors: 10
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: a76cabe2cd278bfe68556697eab3460a6cc2df332a7a81ef3e60421a798ab0b6
+  date: 2026-07-31
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: a76cabe2cd278bfe68556697eab3460a6cc2df332a7a81ef3e60421a798ab0b6
+  date: 2026-07-31
+archived_at: 2026-07-31

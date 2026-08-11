@@ -1,0 +1,41 @@
+name: mechanize-review-gate
+created_at: 2026-07-04T08:52:59Z
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - templates
+  - tests
+description: >-
+  Gate 機器化（GitHub issue #66 scope 1+2+4）：review 執行留下機器可查、含 staleness 判準的
+  provenance；verify Entry Gate 對 non-backfill 變更於 review 缺席或 stale
+  時阻斷開跑（scale-aware， backfill 豁免）；殘餘 playbook 規則（PB-001/003/006/007）落回 skill
+  gate，#65 已修根因的 PB-004/005 於 ledger/playbook 退役。
+quality_log:
+  - skill: prospec-review
+    date: "2026-07-04"
+    result: WARN
+    warnings:
+      - "review-clean（0 unresolved critical）。1 critical 已修：computeChangeDigest 的
+        src/tests allowlist 對 scripts/ 等第一方 code 失效（fail-open）→ 改 whole-tree
+        denylist（排除 .prospec/report/.claude/lockfile），regression test 釘住；majors
+        M1（--record-review 加 --change 目標化，解 ≥2 change deadlock）、M3（metadata read
+        existsSync guard）已修；M2（單一 in-flight change 假設）已於 evaluator
+        註記（fail-closed）。"
+      - "proposed → verify WARN：M4（PB-006）metadata round-trip 於
+        check/change-plan/change-tasks 三處重複，建議抽共用 helper——advisory
+        follow-up，不阻斷。"
+      - "pre-verify 待辦知識同步：index.md / types README / drift-detection spec 的「8
+        check ids」→9（於 verify S/A commit-prompt 折入 feature commit，勿引未畢業 REQ）。"
+  - skill: prospec-verify
+    date: "2026-07-04"
+    result: A
+    warnings:
+      - "Grade A（Ready to deploy）。5+1：1/5 task-completion PASS（drift）；2/5 十個 REQ 全對應實作（TYPES-052/053、LIB-024、SERVICES-062、CLI-012、TEMPLATES-130/131/132、TESTS-042/043）PASS；3/5 Constitution MUST 全 PASS（Language/Atomic-Commits/INVEST/TDD），SHOULD dependency-direction PASS，SHOULD README-current WARN（新增 `prospec check --record-review`/`--change` 與第 9 檢項屬 user-facing，root README 待同步）；4/5 knowledge-health drift 9/9 PASS、0 stale、6/6 documented（本變更知識落差屬 informational）；5/5 WARN（1958/1959，唯一 fail＝既有環境性 e2e `prospec --help` timeout flake，單檔 43/43 綠、與本變更無關）；6 N/A（ui_scope none）。2 WARN、0 FAIL → A。"
+      - "carried review WARN（不計 grade）：M4（PB-006）metadata round-trip 三處重複 → follow-up refactor。"
+      - "commit-prompt 知識同步（S/A）：index.md 與 types/lib 模組 README 的「8 check ids」→9 並描述 review-provenance 檢項/`--record-review`（不引未畢業 REQ）；pnpm counts 重導測試計數；折入單一 atomic-by-feature commit。"
+review_provenance:
+  digest: 45575f8db162258a1d95e011551497787f5112a16588befaecf2004edf2056e0
+  date: 2026-07-04
