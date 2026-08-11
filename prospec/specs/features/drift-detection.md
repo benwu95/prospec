@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-08
-story_count: 17
-req_count: 65
+last_updated: 2026-08-11
+story_count: 19
+req_count: 67
 ---
 
 # Deterministic Drift Check
@@ -65,17 +65,20 @@ The comparison source is git log timestamps (file mtime is distorted after a CI 
 - WHEN the `gitCapture` for `gitLastCommit` unambiguously fails (not just an empty log), THEN it throws an exception rather than returning null
 
 #### REQ-LIB-039: Generated-source-artifact registry
-`lib/generated-artifacts.ts` is the ONE registry of repository-root-relative paths that are build output rather than authored source: the named `BUNDLED_TEMPLATES_SOURCE` and `GENERATED_SOURCE_ARTIFACTS` derived from it, never re-typed. The artifact's producer resolves its own output location from that same constant, so producer and consumers cannot drift into two hand-copied lists and a newly registered artifact reaches the module-staleness exclusion by construction. The registry is a build-time constant of THIS repository that the check applies to whatever repository it runs in: a checked project holding an authored file at a registered path would be exempted too, which is why the registry names exact paths and stays as small as the build output requires.
+`BUNDLED_TEMPLATES_SOURCE` remains a build-time constant in `lib/generated-artifacts.ts` for the templates bundler's output location (single-source for the producer). The module-staleness exclusion reads from `.prospec.yaml` `knowledge.generated_artifacts` (a glob array, default empty) instead of a hardcoded registry — each project declares its own generated files, and projects that declare nothing exclude nothing. Because the exclusion set is now project-writable and unbounded, it degrades rather than silences: whenever the excluded query yields no answer, the collector answers with the unexcluded timestamp instead of null.
 - WHEN the templates bundler resolves where to write, THEN it derives the path from `BUNDLED_TEMPLATES_SOURCE` and holds no second copy of that path
-- WHEN a consumer needs the generated-artifact set, THEN it reads `GENERATED_SOURCE_ARTIFACTS` instead of enumerating paths itself
-- WHEN a path is added to the registry, THEN the module-staleness exclusion covers it with no further edit
+- WHEN the staleness collector needs excluded paths, THEN it reads `knowledge.generated_artifacts` from the project's `.prospec.yaml` configuration, not a hardcoded constant
+- WHEN `.prospec.yaml` has no `knowledge.generated_artifacts` (or the key is absent), THEN no paths are excluded from `last_src_commit` — the default is empty
+- WHEN a configured glob matches SOME of the files under a module's paths, THEN those files are excluded from the staleness `last_src_commit` query but remain inside `computeChangeDigest`
+- WHEN the configured globs cover EVERY file under a module's paths — or git cannot parse the `:(exclude)` pathspec — THEN the excluded query has no answer and the collector degrades to the unexcluded timestamp, never to null: `isStale` reads a null `last_src_commit` as "not stale", so no configuration may be able to silence a module's staleness entirely
 
 ---
 
 
 #### REQ-TESTS-071: Generated-artifact exclusion and digest-boundary coverage
-The generated-artifact staleness exclusion is pinned from BOTH directions against temp-git fixtures, and the digest boundary is pinned beside it so the two scopes cannot silently converge into one.
-- WHEN only a generated artifact is committed under a module's paths, THEN `last_src_commit` stays at the last authored-source commit
+The generated-artifact staleness exclusion is pinned from BOTH directions against temp-git fixtures using config-driven excludes, and the digest boundary is pinned beside it so the two scopes cannot silently converge into one.
+- WHEN only a configured generated artifact is committed under a module's paths, THEN `last_src_commit` stays at the last authored-source commit
+- WHEN the configuration declares no generated artifacts (empty or absent), THEN no paths are excluded from `last_src_commit` — the previously hardcoded path is treated as authored source
 - WHEN authored source is committed afterwards with no knowledge update, THEN the module still reports stale
 - WHEN that same generated artifact is edited, THEN `computeChangeDigest` changes — asserted alongside the exclusion tests
 - WHEN the excluded-pathspec capture is fault-injected to fail, THEN the collector reports the unexcluded timestamp rather than null
@@ -219,9 +222,8 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 `DRIFT_CHECK_IDS` appends `metadata-completeness` (the 10th frozen check id, FAIL-class; additive-only, does not touch the `knowledge_health` frozen contract). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).
 
 #### REQ-LIB-025: metadata-completeness Collector + Evaluator
-`collectMetadataCompleteness(cwd)` (I/O) enumerates `.prospec/changes/*` and reads metadata: it checks the existence of `REQUIRED_METADATA_FIELDS` (name/created_at/status/scale) + `hasVerifyGrade` for `GRADED_STATUSES` (verified/archived) ones — prioritizing the structured `grade ∈ {S,A}` of the `prospec-verify` entry, keeping the legacy `result ∈ {S,A}` fallback so that existing archived metadata still passes; `skill`/`grade`/`result` are **trimmed before comparison** (these rows come off raw YAML with no schema pass — an exact match on `"A "` would flip a genuinely verified change into a FAIL-class finding); a non-mapping parse (empty/comment/null) is treated as all fields missing, not a crash. Pure `evaluateMetadataCompleteness` emits a fail finding for each missing field and each missing grade; in-progress does not apply the grade rule. The `metadata-completeness` check id is unchanged.
-**Scenarios:**
-- WHEN a required field is missing, THEN fail listing the missing items; WHEN verified has a structured grade S/A or a legacy result S/A, THEN pass; WHEN verified has neither, THEN fail; in-progress is exempt from the grade
+`collectMetadataCompleteness(cwd)` (I/O) enumerates `.prospec/changes/*` and reads metadata: it checks the existence of `REQUIRED_METADATA_FIELDS` (name/created_at/status/scale) + `hasVerifyGrade` for `GRADED_STATUSES` (verified/archived) ones — prioritizing the structured `grade ∈ {S,A}` of the `prospec-verify` entry, keeping the legacy `result ∈ {S,A}` fallback so that existing archived metadata still passes; `skill`/`grade`/`result` are **trimmed before comparison** (these rows come off raw YAML with no schema pass — an exact match on `"A "` would flip a genuinely verified change into a FAIL-class finding); a non-mapping parse (empty/comment/null) is treated as all fields missing, not a crash. `hasVerifyGrade` is timeline-aware: for `archived` status, any historical S/A entry suffices (backward compatible); for `verified` status, only the latest `prospec-verify` entry's grade is checked — a re-verify at B/C/D after a prior S/A returns false. Pure `evaluateMetadataCompleteness` emits a fail finding for each missing field and each missing grade; in-progress does not apply the grade rule. The `metadata-completeness` check id is unchanged.
+- WHEN a required field is missing, THEN fail listing the missing items; WHEN verified has the latest `prospec-verify` grade S/A or a legacy result S/A, THEN pass; WHEN verified has latest grade B/C/D despite historical S/A, THEN fail; WHEN archived has any historical S/A, THEN pass; WHEN verified has neither, THEN fail; in-progress is exempt from the grade
 - WHEN metadata is empty/null, THEN an all-fields-missing finding (does not deref null); no changes directory → skipped + reason; findings codepoint-sort
 
 #### REQ-SERVICES-063: check.service injects the metadata-completeness collector
@@ -539,7 +541,7 @@ so that reaching grade S/A stops being an implicit end to the audit, and the gat
 - WHEN a `verified` change's code changed after its recorded review or test run, THEN every provenance gate whose baseline the change invalidated reports FAIL and names its own remediation — reaching S/A ends neither the audit nor the need to re-review
 - WHEN a `verified` change's baselines still match the code, THEN no provenance gate produces a finding
 - WHEN the status is `story`/`plan`/`tasks`, THEN no provenance gate flags it — review is not yet due; WHEN it is `archived`, THEN no verdict exists at all, because the bundle has left `.prospec/changes/`
-- WHEN the `/prospec-archive` Entry Gate runs, THEN it reads all three checks and refuses to archive on any FAIL, and states that a re-verify which does not reach S/A leaves both `status` and `metadata-completeness` green while the change is not archivable
+- WHEN the `/prospec-archive` Entry Gate runs, THEN it reads all three checks and refuses to archive on any FAIL, and states that a re-verify which does not reach S/A leaves `status` green — while `metadata-completeness`, reading only the latest verify entry, turns red and says the change is not archivable
 - WHEN the audited status set and the lifecycle doc's table disagree in either direction, THEN the contract test fails
 
 ### Behavior Specifications
@@ -554,11 +556,11 @@ so that reaching grade S/A stops being an implicit end to the audit, and the gat
 
 
 #### REQ-TEMPLATES-171: archive Entry Gate consumes all three provenance checks
-The `/prospec-archive` Entry Gate carries a machine check that runs `prospec check --json` and reads `review-provenance`, `test-provenance` and `delta-spec-provenance` for the archive target: any one FAIL refuses the archive. Together they close the station's blind spot from both sides — the gate that graduates REQs into the trust zone previously asserted neither that a review round had seen the code those REQs describe, nor that the landing blocks about to be copied verbatim reflect what that review concluded. The remediation names the cause each finding distinguishes: code edited after verify (re-run `/prospec-review`, then `/prospec-verify`), a baseline left behind by the verify S/A commit (re-record after committing, the order PB-016 states), and a delta-spec whose landing blocks were not updated after review fixed the behavior they describe (fold the fix into the block, then re-record). Because that remediation routes back through verify, the item also states the boundary of the re-run: a change already at `verified` keeps that status whatever the new grade is, and `hasVerifyGrade` accepts any earlier S/A entry in `quality_log`, so a re-verify grading B/C/D leaves both `status` and `metadata-completeness` green while the change is not archivable. The CLI is required, matching the `metadata-completeness` item beside it: the shared probe STOPs before this gate when the engine is missing, so the item offers no manual fallback.
+The `/prospec-archive` Entry Gate carries a machine check that runs `prospec check --json` and reads `review-provenance`, `test-provenance` and `delta-spec-provenance` for the archive target: any one FAIL refuses the archive. Together they close the station's blind spot from both sides — the gate that graduates REQs into the trust zone previously asserted neither that a review round had seen the code those REQs describe, nor that the landing blocks about to be copied verbatim reflect what that review concluded. The remediation names the cause each finding distinguishes: code edited after verify (re-run `/prospec-review`, then `/prospec-verify`), a baseline left behind by the verify S/A commit (re-record after committing, the order PB-016 states), and a delta-spec whose landing blocks were not updated after review fixed the behavior they describe (fold the fix into the block, then re-record). Because that remediation routes back through verify, the item also states the boundary of the re-run: a change already at `verified` keeps that status whatever the new grade is, so `status` alone never reports the failure — but `metadata-completeness` does, because `hasVerifyGrade` reads only the LATEST `prospec-verify` entry for a `verified` change, so a re-verify grading B/C/D turns that check red until a fresh S/A is earned. The CLI is required, matching the `metadata-completeness` item beside it: the shared probe STOPs before this gate when the engine is missing, so the item offers no manual fallback.
 - WHEN any of the three provenance checks reports FAIL for the target, THEN the Entry Gate refuses to archive and names the remediation for that check
 - WHEN `delta-spec-provenance` reports FAIL, THEN the remediation points at the landing blocks rather than at the code, because a stale block is what would reach the trust zone
 - WHEN all three report PASS or `skipped`, THEN the item passes and the remaining Entry Gate items judge as before
-- WHEN the re-run of `/prospec-verify` does not reach S/A, THEN the change is not archivable even though `status` still reads `verified` — the item says so explicitly, because no machine check will
+- WHEN the re-run of `/prospec-verify` does not reach S/A, THEN the change is not archivable even though `status` still reads `verified` — the item says so explicitly, and `metadata-completeness` reports it as well, because that check reads the latest verify grade
 - WHEN the CLI is absent, THEN the probe has already stopped the skill — the item never degrades into a hand-run comparison
 
 ---
@@ -574,10 +576,10 @@ Both copies of `_status-lifecycle.md` (`init/status-lifecycle.md.hbs` and this p
 
 
 #### REQ-TEMPLATES-173: review and verify are re-enterable from `verified`
-Widening the provenance audit scope to `verified` makes "a graded change carrying a red gate" a legitimate state, and clearing it requires re-entering both the review and verify stations. Their status precondition is therefore stated as a **floor** — `implemented` or later, a `verified` change included — and `/prospec-review`'s Error Handling table keys its refusal on the same condition the floor states, a status BEFORE `implemented` (`story`/`plan`/`tasks`), instead of on "not `implemented`", which also refused the very re-entry the archive Entry Gate prescribes and pointed the operator at `/prospec-implement`, a station that cannot help a graded change. Neither station needs a backward transition: review owns no status, and `prospec verify record` on an already-`verified` change writes its `quality_log` entry and reports `already verified — status unchanged`, which is success. `/prospec-verify` states the boundary of that re-entry: on B/C/D the status stays `verified` because status never regresses, and `hasVerifyGrade` still finds the earlier S/A entry, so the report — not `status` and not `metadata-completeness` — is what says the change is not archivable. Both `_status-lifecycle.md` copies carry the same two facts, so the canonical lifecycle admits the flow its skills describe.
+Widening the provenance audit scope to `verified` makes "a graded change carrying a red gate" a legitimate state, and clearing it requires re-entering both the review and verify stations. Their status precondition is therefore stated as a **floor** — `implemented` or later, a `verified` change included — and `/prospec-review`'s Error Handling table keys its refusal on the same condition the floor states, a status BEFORE `implemented` (`story`/`plan`/`tasks`), instead of on "not `implemented`", which also refused the very re-entry the archive Entry Gate prescribes and pointed the operator at `/prospec-implement`, a station that cannot help a graded change. Neither station needs a backward transition: review owns no status, and `prospec verify record` on an already-`verified` change writes its `quality_log` entry and reports `already verified — status unchanged`, which is success. `/prospec-verify` states the boundary of that re-entry: on B/C/D the status stays `verified` because status never regresses, but `hasVerifyGrade` reads only the LATEST `prospec-verify` entry for a `verified` change, so `metadata-completeness` turns red on that grade — the verify report and that check, not `status`, are what say the change is not archivable. Both `_status-lifecycle.md` copies carry the same two facts, so the canonical lifecycle admits the flow its skills describe.
 - WHEN a `verified` change's baseline is stale, THEN it re-enters review and verify without any status regression, and each station's status item reads as satisfied
 - WHEN `/prospec-review` meets a status at or past `implemented`, THEN its Error Handling table does not refuse it; a change still before `implemented` — `story`, `plan` or `tasks` alike — is the one sent to `/prospec-implement`
-- WHEN a re-entering `verified` change grades B/C/D, THEN `status` stays `verified` and no machine check records the new grade — the verify report states it is not archivable
+- WHEN a re-entering `verified` change grades B/C/D, THEN `status` stays `verified` while `metadata-completeness` turns red on the latest grade — the verify report and that check both state it is not archivable
 - WHEN either lifecycle copy omits the re-entry facts, THEN the contract test fails
 
 ---
@@ -728,6 +730,47 @@ The delta-spec provenance engine is pinned the way the review-provenance engine 
 
 ---
 
+
+## US-18: Generated-artifact exclusion is declared by the project [P1]
+
+As a developer of a project that runs `prospec check`,
+I want the staleness-exempt paths for build output declared in my own `.prospec.yaml` rather than applied silently from a constant inside prospec,
+so that only the files I know to be generated are excluded, and an authored file that happens to share a path with prospec's own build output is never exempted behind my back.
+
+**Acceptance Scenarios:**
+- WHEN `.prospec.yaml` declares no `knowledge.generated_artifacts`, THEN nothing is exempt and every tracked file under a module's paths counts as authored source
+- WHEN a path or glob is declared, THEN matching files leave the staleness `last_src_commit` query while remaining inside `computeChangeDigest`
+- WHEN a declaration covers every file a module has — or git cannot parse the pathspec — THEN the collector answers with the unexcluded timestamp rather than null, so no configuration can silence a module
+
+#### REQ-TYPES-082: generated_artifacts config field
+`ProspecConfigSchema`'s `knowledge` object carries a `generated_artifacts` field — `z.array(z.string()).optional()`, matching its `additional_core_conventions` sibling — declaring repository-root-relative globs that are build output rather than authored source. The field is additive to the existing `knowledge` shape, and the empty default is supplied by each consumer (`?? []`) rather than by a schema `.default()`, which would put the field in the schema's OUTPUT type as required and break typed `ProspecConfig` literals that carry a `knowledge` object.
+- WHEN `knowledge.generated_artifacts` is present, THEN it parses as an array of glob strings
+- WHEN the field is absent, THEN every consumer reads it as `[]` and nothing is excluded
+- WHEN an existing `.prospec.yaml` omits the field, THEN the config still parses and no typed construction site is required to name it
+
+---
+
+
+## US-19: metadata-completeness reads the latest verify, not the best one [P1]
+
+As a project maintainer,
+I want `metadata-completeness` to judge whether the LATEST verify earned S/A rather than whether any verify ever did,
+so that a change that re-verifies at B/C/D stops passing the gate on the strength of a historical S/A — while changes already `archived` keep the any-entry reading, so stable history cannot flip.
+
+**Acceptance Scenarios:**
+- WHEN a `verified` change's latest `prospec-verify` entry grades B/C/D despite an earlier S/A, THEN the check fails until a fresh S/A is earned
+- WHEN the same `quality_log` belongs to an `archived` change, THEN any historical S/A still satisfies it
+- WHEN a change's status is outside `GRADED_STATUSES`, THEN the grade rule does not apply at all
+
+#### REQ-TESTS-084: hasVerifyGrade timeline-aware coverage
+`hasVerifyGrade`'s timeline-aware behavior is pinned by unit tests covering the latest-entry logic, the `archived` exemption, and the empty-log floor for BOTH graded statuses.
+- WHEN the latest `prospec-verify` entry grades B and an earlier one graded S, AND status is `verified`, THEN `hasVerifyGrade` returns false
+- WHEN that same `quality_log` is read with status `archived`, THEN it returns true, so stable history cannot flip
+- WHEN the only `prospec-verify` entry grades S and status is `verified`, THEN it returns true
+- WHEN `quality_log` is empty or holds no `prospec-verify` entry, THEN it returns false for `verified` AND for `archived` — the `archived` half is asserted too, because the any-entry branch is exactly where an empty log could fail open
+
+---
+
 ## Edge Cases
 
 - `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
@@ -760,6 +803,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-11 | configurable-generated-artifacts | MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-025; MODIFIED REQ-TESTS-071; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-173; ADDED REQ-TYPES-082; ADDED REQ-TESTS-084 | REQ-LIB-039, REQ-LIB-025, REQ-TESTS-071, REQ-TEMPLATES-171, REQ-TEMPLATES-173, REQ-TYPES-082, REQ-TESTS-084 |
 | 2026-08-08 | read-specs-by-req | MODIFIED REQ-LIB-041 | REQ-LIB-041 |
 | 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TYPES-078; ADDED REQ-LIB-045; ADDED REQ-SERVICES-082; ADDED REQ-TESTS-078; MODIFIED REQ-TYPES-052; MODIFIED REQ-SERVICES-062; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TESTS-045; MODIFIED REQ-TYPES-075; MODIFIED REQ-TEMPLATES-172; MODIFIED REQ-LIB-027; MODIFIED REQ-TYPES-034; MODIFIED REQ-LIB-014; MODIFIED REQ-TESTS-074; MODIFIED REQ-CLI-011 | REQ-TYPES-078, REQ-LIB-045, REQ-SERVICES-082, REQ-TESTS-078, REQ-TYPES-052, REQ-SERVICES-062, REQ-TEMPLATES-171, REQ-TESTS-045, REQ-TYPES-075, REQ-TEMPLATES-172, REQ-LIB-027, REQ-TYPES-034, REQ-LIB-014, REQ-TESTS-074, REQ-CLI-011 |
 | 2026-08-07 | measure-all-load-surfaces | ADDED REQ-TYPES-077; ADDED REQ-LIB-044; MODIFIED REQ-TYPES-061; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-028; MODIFIED REQ-SERVICES-065; MODIFIED REQ-TEMPLATES-149; MODIFIED REQ-TESTS-048 | REQ-TYPES-077, REQ-LIB-044, REQ-TYPES-061, REQ-LIB-027, REQ-LIB-028, REQ-SERVICES-065, REQ-TEMPLATES-149, REQ-TESTS-048 |
