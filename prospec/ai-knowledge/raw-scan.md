@@ -95,6 +95,95 @@ tests/
       2026-05-01-alpha/
       2026-05-08-beta/
       2026-05-15-gamma/
+    spec-sync-corpus/
+      2026-06-11-add-token-measurement-harness/
+      2026-06-11-reorder-stable-prefix-loading/
+      2026-06-12-add-drift-checker/
+      2026-06-12-add-knowledge-flywheel/
+      2026-06-15-add-dependency-knowledge/
+      2026-06-15-add-quickstart-command/
+      2026-06-15-complete-capability-to-feature-migration/
+      2026-06-16-add-knowledge-refresh-command/
+      2026-06-16-add-reverse-spec-extraction/
+      2026-06-16-raw-scan-c-cpp-swift/
+      2026-06-16-raw-scan-multi-language/
+      2026-06-22-fix-init-clobber-add-upgrade/
+      2026-06-22-preserve-agent-config-edits/
+      2026-06-22-remove-deprecated-steering-command/
+      2026-06-27-upgrade-config-nudges/
+      2026-06-30-reorganize-layered-index/
+      2026-07-01-implement-hierarchical-index/
+      2026-07-02-dedupe-init-doc-registry/
+      2026-07-02-fix-upgrade-doc-coverage/
+      2026-07-03-add-plan-flow-diagram/
+      2026-07-03-migrate-skill-contract-to-vitest/
+      2026-07-04-carry-review-verify-evidence/
+      2026-07-04-generate-factual-counts/
+      2026-07-04-mechanize-review-gate/
+      2026-07-04-sync-knowledge-at-verify-commit/
+      2026-07-05-agent-sync-hygiene/
+      2026-07-05-converge-constitution-audit/
+      2026-07-05-preserve-curated-index-columns/
+      2026-07-05-quick-scale-and-ceremony-cleanup/
+      2026-07-05-remove-archive-auto-knowledge-update/
+      2026-07-05-skill-template-partials/
+      2026-07-05-unlock-measurement/
+      2026-07-06-enforce-knowledge-size-budget/
+      2026-07-06-include-tests-in-typecheck/
+      2026-07-06-inject-resolved-knowledge-budgets/
+      2026-07-06-slim-knowledge-l1-l2/
+      2026-07-06-slim-skill-trigger-context/
+      2026-07-07-compile-standalone-binary/
+      2026-07-09-support-file-module-paths/
+      2026-07-14-add-metadata-format-reference/
+      2026-07-17-document-drift-report-contract/
+      2026-07-17-translate-feature-specs-to-english/
+      2026-07-25-align-language-policy-scope/
+      2026-07-28-enforce-metadata-schema/
+      2026-07-28-split-verify-adjudication/
+      2026-07-29-add-status-router/
+      2026-07-29-archive-cli-entry/
+      2026-07-29-harden-verify-adjudication/
+      2026-07-29-skip-unspawnable-test-command/
+      2026-07-30-add-harness-capability-flags/
+      2026-07-30-add-windows-smoke-ci/
+      2026-07-30-fix-cli-first-regressions/
+      2026-07-30-pin-windows-kill-semantics/
+      2026-07-30-report-dropped-req-bullets/
+      2026-07-30-restore-cli-first/
+      2026-07-31-add-artifact-language-check/
+      2026-07-31-enforce-sub-module-budget/
+      2026-07-31-harden-contained-reads/
+      2026-07-31-name-change-history-rows/
+      2026-07-31-pilot-mutation-testing/
+      2026-08-01-delegate-module-adjudication/
+      2026-08-01-filter-nonsource-modules/
+      2026-08-02-enforce-counts-in-ci/
+      2026-08-02-exclude-generated-from-staleness/
+      2026-08-02-mechanize-light-scale-gates/
+      2026-08-02-restrict-identity-fallback/
+      2026-08-03-add-learn-staleness-sweep/
+      2026-08-03-conditional-ripple-effects/
+      2026-08-03-extend-provenance-audit-scope/
+      2026-08-03-fix-issue-106-drift-engine-blindspots/
+      2026-08-06-land-memory-only-knowledge/
+      2026-08-06-stop-clobbering-product-spec/
+      2026-08-06-unify-req-heading-matcher/
+      2026-08-07-measure-all-load-surfaces/
+      2026-08-07-refuse-near-miss-feature-map/
+      2026-08-08-fix-sdd-handoff/
+      2026-08-08-read-specs-by-req/
+      2026-08-08-stop-silent-spec-body-loss/
+      2026-08-09-add-issue-link-field/
+      2026-08-09-add-per-change-context-report-to-measure/
+      2026-08-09-fix-index-category-grouping/
+      2026-08-09-knowledge-budget-drift-check-and-sweep/
+      2026-08-10-feature-spec-sub-modules/
+      2026-08-10-separate-review-evidence/
+      2026-08-10-unify-line-splitting/
+      2026-08-11-configurable-generated-artifacts/
+      synthetic-fenced/
+      synthetic-struck/
     token-corpus/
   integration/
   unit/
@@ -121,13 +210,13 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `prospec/` — 164 files: `.md`, `.yaml`
-- `tests/fixtures/` — 20 files: `.md`, `.yaml`, `.json`
+- `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 165 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 592 |
+| Total files | 1187 |
 | Scan depth | 10 |
