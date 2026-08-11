@@ -1,0 +1,690 @@
+diff --git a/src/lib/spec-headings.ts b/src/lib/spec-headings.ts
+index 2b6939a..31016e5 100644
+--- a/src/lib/spec-headings.ts
++++ b/src/lib/spec-headings.ts
+@@ -41,6 +41,8 @@ export interface MatchReqHeadingOptions {
+   includeStruck?: boolean;
+ }
+ 
++export type SpecContent = string | { main: string; slices: Record<string, string> };
++
+ /**
+  * The id shape: `REQ-` plus one or more uppercase segments plus a number, so a
+  * multi-segment module prefix (`REQ-API-MIDDLEWARE-003`) stays whole and an
+@@ -266,6 +268,8 @@ export interface SpecRequirementRecord {
+   start: number;
+   /** Offset one past the requirement's last character. */
+   end: number;
++  /** The slice file this requirement lives in, if any. */
++  slice?: string;
+ }
+ 
+ /** One User Story section and the requirements it owns. */
+@@ -281,6 +285,8 @@ export interface SpecStoryRecord {
+   end: number;
+   /** Ids of the requirements defined inside this story, in document order. */
+   requirements: string[];
++  /** The slice file this story lives in, if any. */
++  slice?: string;
+ }
+ 
+ export interface SpecIndex {
+@@ -299,7 +305,28 @@ export interface SpecIndex {
+  * `## Edge Cases` and the Change History table), or a `---` rule. One rule, so a
+  * quoted requirement is exactly the text a graduation edit would replace.
+  */
+-export function indexSpec(content: string, options: MatchReqHeadingOptions = {}): SpecIndex {
++export function indexSpec(content: SpecContent, options: MatchReqHeadingOptions = {}): SpecIndex {
++  const isMulti = typeof content !== 'string';
++  const mainContent = isMulti ? content.main : content;
++
++  const mainIndex = indexSpecInternal(mainContent, options);
++
++  if (isMulti) {
++    const multiContent = content as { main: string; slices: Record<string, string> };
++    const slicesList = parseSpecSlices(mainContent);
++    for (const sliceName of slicesList) {
++      const sliceContent = multiContent.slices[sliceName];
++      if (sliceContent !== undefined) {
++        const sliceIndex = indexSpecInternal(sliceContent, options, sliceName);
++        mainIndex.requirements.push(...sliceIndex.requirements);
++        mainIndex.stories.push(...sliceIndex.stories);
++      }
++    }
++  }
++  return mainIndex;
++}
++
++function indexSpecInternal(content: string, options: MatchReqHeadingOptions, sliceName?: string): SpecIndex {
+   const lines = scanSpec(content, 0);
+   const requirements: SpecRequirementRecord[] = [];
+   const stories: SpecStoryRecord[] = [];
+@@ -327,6 +354,7 @@ export function indexSpec(content: string, options: MatchReqHeadingOptions = {})
+         ),
+         requirements: [],
+       };
++      if (sliceName) current.slice = sliceName;
+       stories.push(current);
+       continue;
+     }
+@@ -353,6 +381,7 @@ export function indexSpec(content: string, options: MatchReqHeadingOptions = {})
+           (l.heading !== null && l.heading <= bound) ||
+           l.probe.trim() === '---',
+       ),
++      slice: sliceName,
+     });
+     current?.requirements.push(heading.id);
+   }
+@@ -382,25 +411,30 @@ export interface SpecCounterReading {
+  * `### US-`, because real specs use both (sdd-workflow is all h2, mcp-server all
+  * h3, drift-detection mixed) and every current counter equals that union.
+  */
+-export function readSpecCounters(content: string): SpecCounterReading | null {
++export function readSpecCounters(content: SpecContent): SpecCounterReading | null {
++  const isMulti = typeof content !== 'string';
++  const mainContent = isMulti ? content.main : content;
++
+   // `\r?\n` throughout: a spec checked out with CRLF endings is still a spec, and
+   // failing to parse one used to make the whole collector report zero specs and
+   // pass — a vacuous green on every Windows checkout.
+-  const fmMatch = /^---(\r?\n)([\s\S]*?)\r?\n---/.exec(content);
++  const fmMatch = /^---(\r?\n)([\s\S]*?)\r?\n---/.exec(mainContent);
+   if (fmMatch === null) return null;
+   const eol = fmMatch[1] === '\r\n' ? '\r\n' : '\n';
+ 
+-  let storyCount = 0;
+-  let reqCount = 0;
+-  // The walk starts AFTER the frontmatter, exactly where this reader always
+-  // started: a `# comment` inside frontmatter parses as an h1 heading, and letting
+-  // it into the scan would change what the section rules see.
+-  for (const line of scanSpec(content, fmMatch[0].length)) {
+-    if (line.active !== null) {
+-      if (!line.deprecated) reqCount++;
+-      continue;
++  const actual = countActuals(mainContent, fmMatch[0].length);
++
++  if (isMulti) {
++    const multiContent = content as { main: string; slices: Record<string, string> };
++    const slicesList = parseSpecSlices(mainContent);
++    for (const sliceName of slicesList) {
++      const sliceContent = multiContent.slices[sliceName];
++      if (sliceContent !== undefined) {
++        const sliceActual = countActuals(sliceContent, 0);
++        actual.story_count += sliceActual.story_count;
++        actual.req_count += sliceActual.req_count;
++      }
+     }
+-    if (line.story !== null) storyCount++;
+   }
+ 
+   const declaredStory = /^story_count:[ \t]*(\d+)[ \t]*\r?$/m.exec(fmMatch[2]!);
+@@ -410,9 +444,44 @@ export function readSpecCounters(content: string): SpecCounterReading | null {
+       story_count: declaredStory ? Number.parseInt(declaredStory[1]!, 10) : null,
+       req_count: declaredReq ? Number.parseInt(declaredReq[1]!, 10) : null,
+     },
+-    actual: { story_count: storyCount, req_count: reqCount },
++    actual,
+     frontmatter: fmMatch[2]!,
+     frontmatterLength: fmMatch[0].length,
+     eol,
+   };
+ }
++
++function countActuals(content: string, startFrom: number): { story_count: number; req_count: number } {
++  let storyCount = 0;
++  let reqCount = 0;
++  // The walk starts AFTER the frontmatter, exactly where this reader always
++  // started: a `# comment` inside frontmatter parses as an h1 heading, and letting
++  // it into the scan would change what the section rules see.
++  for (const line of scanSpec(content, startFrom)) {
++    if (line.active !== null) {
++      if (!line.deprecated) reqCount++;
++      continue;
++    }
++    if (line.story !== null) storyCount++;
++  }
++  return { story_count: storyCount, req_count: reqCount };
++}
++
++export function parseSpecSlices(content: string): string[] {
++  const slices: string[] = [];
++  let inSlices = false;
++  for (const line of walkLines(content, 0)) {
++    if (/^##\s+Slices/i.test(line.probe)) {
++      inSlices = true;
++      continue;
++    }
++    if (inSlices && /^##\s/.test(line.probe)) {
++      break;
++    }
++    if (inSlices) {
++      const match = /\[.+?\]\(\.\/[^/]+\/([^.]+)\.md\)/.exec(line.probe);
++      if (match) slices.push(match[1]!);
++    }
++  }
++  return slices;
++}
+diff --git a/src/lib/spec-slices.ts b/src/lib/spec-slices.ts
+index d93866a..4c05499 100644
+--- a/src/lib/spec-slices.ts
++++ b/src/lib/spec-slices.ts
+@@ -1,4 +1,4 @@
+-import { DEPRECATED_SECTION, type SpecIndex } from './spec-headings.js';
++import { DEPRECATED_SECTION, type SpecIndex, type SpecContent } from './spec-headings.js';
+ 
+ /**
+  * The selection half of a REQ-scoped feature-spec read (REQ-LIB-046): given a
+@@ -47,7 +47,7 @@ function normalize(selector: string): string {
+ }
+ 
+ export function selectSpecSlices(
+-  content: string,
++  content: SpecContent,
+   index: SpecIndex,
+   selectors: SpecSelectors,
+ ): SpecSelection {
+@@ -66,11 +66,12 @@ export function selectSpecSlices(
+     (req) => wantedReqs.includes(normalize(req.id)) && !inSelectedStory(req.start),
+   );
+ 
+-  // Sorted by START offset, not grouped by selector kind: a selected story can
++  // Sorted by SLICE FILE then START offset, not grouped by selector kind: a selected story can
+   // open before a selected requirement that lives in a different story, and the
+   // caller asked for a slice of the document, not two lists.
+-  const positioned: { start: number; slice: SpecSlice }[] = [
++  const positioned: { sliceFile: string; start: number; slice: SpecSlice }[] = [
+     ...requirements.map((req) => ({
++      sliceFile: req.slice ?? '',
+       start: req.start,
+       slice: {
+         id: req.id,
+@@ -79,10 +80,11 @@ export function selectSpecSlices(
+         storyLevel: req.deprecated ? null : req.storyLevel,
+         deprecated: req.deprecated,
+         struck: req.struck,
+-        text: content.slice(req.start, req.end),
++        text: getSliceText(content, req.slice).slice(req.start, req.end),
+       },
+     })),
+     ...stories.map((story) => ({
++      sliceFile: story.slice ?? '',
+       start: story.start,
+       slice: {
+         id: story.id,
+@@ -91,10 +93,10 @@ export function selectSpecSlices(
+         storyLevel: story.level,
+         deprecated: false,
+         struck: false,
+-        text: content.slice(story.start, story.end),
++        text: getSliceText(content, story.slice).slice(story.start, story.end),
+       },
+     })),
+-  ].sort((a, b) => a.start - b.start);
++  ].sort((a, b) => a.sliceFile.localeCompare(b.sliceFile) || a.start - b.start);
+   const slices = positioned.map((entry) => entry.slice);
+ 
+   const matchedReqs = new Set([
+@@ -140,3 +142,9 @@ function headingFor(slice: SpecSlice): string | null {
+   if (slice.story === null || slice.storyLevel === null) return null;
+   return `${'#'.repeat(slice.storyLevel)} ${slice.story}`;
+ }
++
++function getSliceText(content: SpecContent, slice?: string): string {
++  if (typeof content === 'string') return content;
++  if (!slice) return content.main;
++  return content.slices[slice] ?? '';
++}
+diff --git a/src/services/archive.service.ts b/src/services/archive.service.ts
+index 917018a..46111ba 100644
+--- a/src/services/archive.service.ts
++++ b/src/services/archive.service.ts
+@@ -6,7 +6,7 @@ import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
+ import { parseTaskLine } from '../lib/task-markers.js';
+ import { isArchivedSpec, isSafeResourceName, loadModuleMap } from '../lib/knowledge-reader.js';
+ import { reqIdToPrefix } from '../lib/drift-sources.js';
+-import { matchReqHeading, readSpecCounters } from '../lib/spec-headings.js';
++import { matchReqHeading, readSpecCounters, indexSpec, parseSpecSlices, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
+ import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
+ import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
+ import { renderTemplate } from '../lib/template.js';
+@@ -418,6 +418,42 @@ async function readFeatureRoutes(artifactsDir: string): Promise<FeatureRoute[]>
+   return extractFeatureRoutes(deltaContent);
+ }
+ 
++async function loadFeatureSpecContent(featuresPath: string, feature: string): Promise<{
++  specContent: SpecContent;
++  mainFile: string;
++}> {
++  const mainFile = path.join(featuresPath, `${feature}.md`);
++  const main = await fs.promises.readFile(mainFile, 'utf-8');
++  const slicesList = parseSpecSlices(main);
++  if (slicesList.length === 0) {
++    return { specContent: main, mainFile };
++  }
++
++  const slices: Record<string, string> = {};
++  console.log('SLICES_LIST:', slicesList);
++  for (const sliceName of slicesList) {
++    const resolvedSlice = path.join(featuresPath, feature, `${sliceName}.md`);
++    console.log('RESOLVED_SLICE:', resolvedSlice, 'EXISTS:', fs.existsSync(resolvedSlice));
++    if (fs.existsSync(resolvedSlice)) {
++      slices[sliceName] = await fs.promises.readFile(resolvedSlice, 'utf-8');
++    }
++  }
++  return { specContent: { main, slices }, mainFile };
++}
++
++function determineTargetSlice(route: FeatureRoute, specIndex: SpecIndex): string | null {
++  let slice: string | null = null;
++  if (route.status === 'MODIFIED' || route.status === 'REMOVED') {
++    const req = specIndex.requirements.find((r) => r.id === route.reqId);
++    slice = req?.slice ?? null;
++  } else if (route.status === 'ADDED') {
++    const story = specIndex.stories.find((s) => s.id === route.story);
++    slice = story?.slice ?? null;
++  }
++  console.log('determineTargetSlice:', route.reqId, slice, specIndex.requirements.map(r => r.id));
++  return slice;
++}
++
+ export async function syncToFeatureSpecs(
+   archiveDir: string,
+   featuresPath: string,
+@@ -432,6 +468,7 @@ export async function syncToFeatureSpecs(
+   dryRun = false,
+ ): Promise<SpecSyncResult> {
+   const routes = await readFeatureRoutes(archiveDir);
++  console.log('SYNC ROUTES:', routes);
+   if (routes.length === 0) {
+     return {
+       files: [],
+@@ -469,7 +506,10 @@ export async function syncToFeatureSpecs(
+     const fileExists = fs.existsSync(specFile);
+ 
+     if (fileExists) {
+-      let content = await fs.promises.readFile(specFile, 'utf-8');
++      const loaded = await loadFeatureSpecContent(featuresPath, feature);
++      let specContent = loaded.specContent;
++      console.log('SPEC CONTENT:', specContent);
++      const specIndex = indexSpec(specContent, { includeStruck: true });
+       // Tracks whether ANY route actually reached this file. When every route is
+       // refused, the frontmatter bump and the Change History row would be the only
+       // edits — a file that says "this change touched me" while carrying none of
+@@ -484,22 +524,28 @@ export async function syncToFeatureSpecs(
+       const fileAcknowledged: DroppedBehavior[] = [];
+       const fileStale: StaleDeclaration[] = [];
+       const filePending: PendingConvergence[] = [];
++      const modifiedSlices = new Set<string>();
+ 
+       for (const route of featureRoutes) {
++        const targetSlice = determineTargetSlice(route, specIndex);
++        let targetContent = targetSlice
++          ? (specContent as { main: string; slices: Record<string, string> }).slices[targetSlice]!
++          : (typeof specContent === 'string' ? specContent : specContent.main);
++
+         if (route.status === 'REMOVED') {
+           landedAny = true;
+-          content = moveReqToDeprecated(content, route);
++          targetContent = moveReqToDeprecated(targetContent, route);
+           // Deprecation only APPENDS a bullet — the REQ's active section (and its
+           // pre-removal body, now describing behavior that no longer exists) stays
+           // put. Report it, or the graduation gate passes over dead spec text. The
+           // probe reads headings at any level: an h4-only probe reported nothing
+           // for a spec whose REQs sit elsewhere, leaving dead text unflagged.
+-          if (existingReqLevel(content, route.reqId) !== null) {
++          if (existingReqLevel(targetContent, route.reqId) !== null) {
+             filePending.push(pendingFor(route, STALE_DEPRECATED_REASON));
+           }
+         } else {
+-          const merged = mergeRequirementInPlace(content, route);
+-          content = merged.content;
++          const merged = mergeRequirementInPlace(targetContent, route);
++          targetContent = merged.content;
+           if (merged.pending) filePending.push(merged.pending);
+           if (merged.drops?.undeclared) fileUndeclared.push(merged.drops.undeclared);
+           if (merged.drops?.acknowledged) fileAcknowledged.push(merged.drops.acknowledged);
+@@ -507,6 +553,15 @@ export async function syncToFeatureSpecs(
+           if (merged.refused) fileRefusals.push(merged.refused);
+           else landedAny = true;
+         }
++
++        if (targetSlice) {
++          (specContent as { main: string; slices: Record<string, string> }).slices[targetSlice] = targetContent;
++          modifiedSlices.add(targetSlice);
++        } else if (typeof specContent === 'string') {
++          specContent = targetContent;
++        } else {
++          specContent.main = targetContent;
++        }
+       }
+ 
+       // THE decision, taken before a byte is written (REQ-CLI-034). A refusal or an
+@@ -539,9 +594,27 @@ export async function syncToFeatureSpecs(
+       // Only the routes that landed may claim a Change History row — a no-op today
+       // for the same reason, and retained for the same one.
+       const landed = featureRoutes.filter((r) => r.truncation === undefined);
+-      content = updateFeatureSpecFrontmatter(content, today);
+-      content = appendToChangeHistory(content, landed, today, changeName);
+-      if (!dryRun) await atomicWrite(specFile, content);
++      
++      if (typeof specContent === 'string') {
++        specContent = updateFeatureSpecFrontmatter(specContent, today);
++        specContent = appendToChangeHistory(specContent, landed, today, changeName);
++        if (!dryRun) await atomicWrite(specFile, specContent);
++      } else {
++        specContent.main = updateFeatureSpecFrontmatter(specContent.main, today);
++        specContent.main = appendToChangeHistory(specContent.main, landed, today, changeName);
++        if (!dryRun) {
++          await atomicWrite(specFile, specContent.main);
++          for (const sliceName of modifiedSlices) {
++            const resolvedSlice = path.resolve(featuresPath, feature, `${sliceName}.md`);
++            await atomicWrite(resolvedSlice, specContent.slices[sliceName]!);
++            updatedFiles.push(resolvedSlice);
++          }
++        } else {
++          for (const sliceName of modifiedSlices) {
++            updatedFiles.push(path.resolve(featuresPath, feature, `${sliceName}.md`));
++          }
++        }
++      }
+     } else {
+       // A truncated route is refused on the creation path too — landing a fragment
+       // into a brand-new spec is the same loss as landing one into an existing
+@@ -2483,9 +2556,10 @@ export async function executeFinalize(
+   if (fs.existsSync(featuresDir)) {
+     for (const entry of fs.readdirSync(featuresDir, { withFileTypes: true })) {
+       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
++      const feature = entry.name.replace(/\.md$/, '');
+       const absolute = path.join(featuresDir, entry.name);
+-      const content = fs.readFileSync(absolute, 'utf-8');
+-      const recount = recountFeatureSpecCounters(content);
++      const loaded = await loadFeatureSpecContent(featuresDir, feature);
++      const recount = recountFeatureSpecCounters(loaded.specContent);
+       if (!recount) continue;
+       const relFile = path.relative(cwd, absolute).replace(/\\/g, '/');
+       if (recount.refusal !== undefined) {
+@@ -2559,7 +2633,7 @@ function escapeRegExp(text: string): string {
+  * far more often than a fact, and the previous unconditional write put that
+  * wrong number into the trust zone silently — where nothing read it again.
+  */
+-export function recountFeatureSpecCounters(content: string): {
++export function recountFeatureSpecCounters(specContent: SpecContent): {
+   content: string;
+   changed: boolean;
+   from: { story_count: number | null; req_count: number | null };
+@@ -2567,10 +2641,11 @@ export function recountFeatureSpecCounters(content: string): {
+   /** Set when the rewrite was refused; `content` is then the input, unchanged. */
+   refusal?: string;
+ } | null {
+-  const counters = readSpecCounters(content);
++  const counters = readSpecCounters(specContent);
+   if (counters === null) return null;
+ 
+   const { declared: from, actual: to, frontmatter, frontmatterLength, eol } = counters;
++  const content = typeof specContent === 'string' ? specContent : specContent.main;
+ 
+   const zeroed = (['story_count', 'req_count'] as const).filter(
+     (field) => (from[field] ?? 0) > 0 && to[field] === 0,
+diff --git a/src/services/spec-show.service.ts b/src/services/spec-show.service.ts
+index 156a295..897d688 100644
+--- a/src/services/spec-show.service.ts
++++ b/src/services/spec-show.service.ts
+@@ -56,7 +56,7 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
+   // One reader, one refusal: `readFeatureSpec` already enforces realpath
+   // containment, the `_archived*` exclusion and the resource-name guard, so a
+   // traversing or escaped name never reaches the filesystem through this service.
+-  const content = readFeatureSpec(featuresDir, options.feature);
++  let content: string | { main: string; slices: Record<string, string> } | null = readFeatureSpec(featuresDir, options.feature);
+   if (content === null) {
+     // Filtered like the MCP listing: naming a spec the read path would refuse
+     // anyway makes the refusal an inventory of unreadable files.
+@@ -73,6 +73,19 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
+   const story = expand(options.story);
+   const relPath = path.relative(cwd, path.join(featuresDir, `${options.feature}.md`));
+ 
++  const slicesList = (await import('../lib/spec-headings.js')).parseSpecSlices(content as string);
++  if (slicesList.length > 0) {
++    const fs = await import('node:fs');
++    const slices: Record<string, string> = {};
++    for (const sliceName of slicesList) {
++      const resolvedSlice = path.join(featuresDir, options.feature, `${sliceName}.md`);
++      if (fs.existsSync(resolvedSlice)) {
++        slices[sliceName] = fs.readFileSync(resolvedSlice, 'utf-8');
++      }
++    }
++    content = { main: content as string, slices };
++  }
++
+   // A selector FLAG that expands to nothing is not the same as no flag at all.
+   // `--req ''`, `--req ,` and `--req '  '` used to fall into the whole-spec branch
+   // below and print the entire capability record with exit 0 — silently restoring
+@@ -87,7 +100,11 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
+   }
+ 
+   if (req.length === 0 && story.length === 0) {
+-    return { feature: options.feature, path: relPath, slices: [], misses: [], text: content };
++    let text = typeof content === 'string' ? content : content.main;
++    if (typeof content !== 'string') {
++      text += '\n\n' + Object.values(content.slices).join('\n\n');
++    }
++    return { feature: options.feature, path: relPath, slices: [], misses: [], text };
+   }
+ 
+   const selection = selectSpecSlices(content, indexSpec(content, { includeStruck: true }), {
+diff --git a/tests/unit/lib/spec-headings.test.ts b/tests/unit/lib/spec-headings.test.ts
+index ff1f893..31f22ec 100644
+--- a/tests/unit/lib/spec-headings.test.ts
++++ b/tests/unit/lib/spec-headings.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, it, expect } from 'vitest';
+ import * as fs from 'node:fs';
+ import * as path from 'node:path';
+-import { indexSpec, matchReqHeading, readSpecCounters } from '../../../src/lib/spec-headings.js';
++import { indexSpec, matchReqHeading, readSpecCounters, parseSpecSlices } from '../../../src/lib/spec-headings.js';
+ 
+ /**
+  * The ONE definition of a feature-spec REQ heading (REQ-LIB-041). It exists
+@@ -261,6 +261,41 @@ describe('readSpecCounters', () => {
+   it('returns null when there is no frontmatter to reconcile against', () => {
+     expect(readSpecCounters('# Quiz\n\n#### REQ-QUIZ-001: a\n')).toBeNull();
+   });
++
++  it('aggregates counters across multiple slices when provided', () => {
++    const main = spec('\n## Slices\n- [Slice A](./quiz/a.md)\n- [Slice B](./quiz/b.md)\n', 'story_count: 2\nreq_count: 3');
++    const slices = {
++      'a': '## US-1: a\n\n#### REQ-QUIZ-001: a\n',
++      'b': '## US-2: b\n\n#### REQ-QUIZ-002: b\n\n#### REQ-QUIZ-003: c\n',
++    };
++    const counters = readSpecCounters({ main, slices })!;
++    expect(counters.actual).toEqual({ story_count: 2, req_count: 3 });
++  });
++});
++
++describe('parseSpecSlices', () => {
++  it('extracts markdown links from the ## Slices section', () => {
++    const spec = [
++      '## Slices',
++      '',
++      '- [First](./quiz/first.md)',
++      '- [Second](./quiz/second.md)',
++      '',
++      '## Other Section',
++      '- [Third](./quiz/third.md)',
++    ].join('\n');
++    expect(parseSpecSlices(spec)).toEqual(['first', 'second']);
++  });
++
++  it('returns empty array if ## Slices section is absent', () => {
++    const spec = '## Edge Cases\n- [Link](./link.md)\n';
++    expect(parseSpecSlices(spec)).toEqual([]);
++  });
++
++  it('returns empty array if ## Slices section has no links', () => {
++    const spec = '## Slices\nNo slices yet.\n## Edge Cases\n';
++    expect(parseSpecSlices(spec)).toEqual([]);
++  });
+ });
+ 
+ /**
+@@ -475,4 +510,34 @@ describe('indexSpec', () => {
+       expect(index.stories, file).toHaveLength(counters.actual.story_count);
+     }
+   });
++
++  it('indexes requirements across multiple slices and tags them with their slice name', () => {
++    const main = [
++      '## Slices',
++      '- [Slice A](./quiz/a.md)',
++      '- [Slice B](./quiz/b.md)',
++      '',
++      '## US-0: Main',
++      '#### REQ-QUIZ-000: m',
++      'Main body.',
++    ].join('\n');
++      const slices = {
++        a: '### US-1\n#### REQ-QUIZ-001\nBody 1\n#### REQ-QUIZ-002\nBody 2',
++        b: '#### REQ-QUIZ-003\nBody 3'
++      };
++    const index = indexSpec({ main, slices });
++    
++    expect(index.requirements).toHaveLength(4);
++    expect(index.requirements.map(r => r.id)).toEqual(['REQ-QUIZ-000', 'REQ-QUIZ-001', 'REQ-QUIZ-002', 'REQ-QUIZ-003']);
++    
++    // The slice name should be recorded
++    const req0 = index.requirements.find(r => r.id === 'REQ-QUIZ-000')!;
++    expect(req0.slice).toBeUndefined();
++    
++    expect(index.requirements.find(r => r.id === 'REQ-QUIZ-001')?.slice).toBe('a');
++    expect(index.requirements.find(r => r.id === 'REQ-QUIZ-003')?.slice).toBe('b');
++
++    // Stories should also have slice tracking
++    expect(index.stories.find(s => s.id === 'US-1')!.slice).toBe('a');
++  });
+ });
+diff --git a/tests/unit/lib/spec-slices.test.ts b/tests/unit/lib/spec-slices.test.ts
+index 2564f1f..f11786f 100644
+--- a/tests/unit/lib/spec-slices.test.ts
++++ b/tests/unit/lib/spec-slices.test.ts
+@@ -177,6 +177,35 @@ describe('selectSpecSlices', () => {
+     expect(picked.slices[0]!.text).not.toContain('REQ-QUIZ-011');
+     expect((picked.slices[0]!.text.match(/```/g) ?? []).length).toBe(2);
+   });
++
++  it('selects requirements and stories from multiple slices', () => {
++    const main = [
++      '## Slices',
++      '- [A](./quiz/a.md)',
++      '- [B](./quiz/b.md)',
++      '',
++      '## US-0: Main',
++      '#### REQ-QUIZ-000: m',
++      'Main body.',
++    ].join('\n');
++    const slices = {
++      './quiz/a.md': '## US-1: a\n\n#### REQ-QUIZ-001: a\n',
++      './quiz/b.md': '## US-2: b\n\n#### REQ-QUIZ-002: b\n',
++    };
++    const content = { main, slices };
++    const index = indexSpec(content);
++
++    const picked = selectSpecSlices(content, index, { req: ['REQ-QUIZ-001', 'REQ-QUIZ-000', 'REQ-QUIZ-002'] });
++    expect(picked.misses).toEqual([]);
++    expect(picked.slices).toHaveLength(3);
++    
++    // Sort order should be: Main (no slice), then Slice A, then Slice B
++    expect(picked.slices[0]!.id).toBe('REQ-QUIZ-000');
++    expect(picked.slices[1]!.id).toBe('REQ-QUIZ-001');
++    expect(picked.slices[2]!.id).toBe('REQ-QUIZ-002');
++
++    expect(picked.slices[1]!.text).toBe('#### REQ-QUIZ-001: a\n');
++  });
+ });
+ 
+ describe('renderSpecSlices', () => {
+diff --git a/tests/unit/services/archive-spec-body.service.test.ts b/tests/unit/services/archive-spec-body.service.test.ts
+index 00289ad..4910925 100644
+--- a/tests/unit/services/archive-spec-body.service.test.ts
++++ b/tests/unit/services/archive-spec-body.service.test.ts
+@@ -1116,3 +1116,82 @@ describe('syncToFeatureSpecs — dry-run honesty', () => {
+     expect(fs.readFileSync('/specs/features/sdd-workflow.md', 'utf-8')).toBe(EXISTING_SPEC);
+   });
+ });
++
++describe('syncToFeatureSpecs — sub-module slices', () => {
++  beforeEach(() => {
++    vol.fromJSON({
++      '/archive/delta-spec.md': deltaSpec(`## MODIFIED
++
++### REQ-QUIZ-001: updated text
++**Feature:** quiz
++**Story:** US-1
++
++**Spec:**
++New body for the slice.
++
++## ADDED
++
++### REQ-QUIZ-003: brand new
++**Feature:** quiz
++**Story:** US-2
++
++**Spec:**
++This belongs in slice B.
++`),
++      '/specs/features/quiz.md': [
++        '---',
++        'feature: Quiz',
++        'story_count: 2',
++        'req_count: 2',
++        '---',
++        '## Slices',
++        '- [A](./quiz/a.md)',
++        '- [B](./quiz/b.md)',
++        '',
++        '## Change History',
++        '| Date | Change |',
++        '|---|---|',
++        '| 2023-01-01 | Initial |',
++      ].join('\n'),
++      '/specs/features/quiz/a.md': [
++        '## US-1: Update feature',
++        '',
++        '#### REQ-QUIZ-001: old',
++        'Old body.',
++        '',
++      ].join('\n'),
++      '/specs/features/quiz/b.md': [
++        '## US-2: New feature',
++        '',
++        '#### REQ-QUIZ-002: existing',
++        'Existing body.',
++        '',
++      ].join('\n'),
++    });
++  });
++
++  it('routes MODIFIED reqs to their existing slice and ADDED reqs to their story\'s slice', async () => {
++    const result = await syncToFeatureSpecs('/archive', '/specs/features', 'demo-change', false);
++    console.log(JSON.stringify(result, null, 2));
++    
++    // It should have touched the main file (Change history) and both slices
++    expect(result.files.sort()).toEqual([
++      '/specs/features/quiz.md',
++      '/specs/features/quiz/a.md',
++      '/specs/features/quiz/b.md'
++    ].sort());
++
++    const main = fs.readFileSync('/specs/features/quiz.md', 'utf-8');
++    expect(main).toContain('demo-change'); // Change History updated
++
++    const sliceA = fs.readFileSync('/specs/features/quiz/a.md', 'utf-8');
++    expect(sliceA).toContain('REQ-QUIZ-001: updated');
++    expect(sliceA).toContain('New body for the slice.');
++    expect(sliceA).not.toContain('Old body.');
++
++    const sliceB = fs.readFileSync('/specs/features/quiz/b.md', 'utf-8');
++    expect(sliceB).toContain('REQ-QUIZ-002: existing'); // kept
++    expect(sliceB).toContain('REQ-QUIZ-003: brand new'); // added
++    expect(sliceB).toContain('This belongs in slice B.');
++  });
++});

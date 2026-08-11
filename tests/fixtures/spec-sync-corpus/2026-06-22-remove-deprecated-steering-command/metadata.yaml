@@ -1,0 +1,51 @@
+name: remove-deprecated-steering-command
+created_at: 2026-06-22T00:00:00.000Z
+status: archived
+archived_at: "2026-06-22"
+scale: standard
+related_modules:
+  - cli
+  - services
+  - templates
+  - tests
+  - lib
+  - types
+description: >-
+  移除已 deprecated 的 prospec steering 指令與其專屬死碼（command/formatter/service/
+  architecture.md.hbs 與專屬測試），並退役對應的 project-setup REQ-SETUP-008/009/010
+  （接受 architecture.md 生成與 .prospec.yaml 回寫兩能力刻意捨棄）、將指向 prospec steering
+  的提示字串改指 prospec knowledge init、同步受影響規格與 AI Knowledge。對應 backlog BL-045。
+quality_log:
+  - skill: prospec-ff
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "story phase: INVEST 3 stories、scale standard（spec-covered → veto 不可 quick）、Constitution 5 原則皆 PASS"
+      - "plan phase: 依賴方向不破、能力捨棄記於 delta REMOVED Reason；發現 archive MODIFIED merge 會塌 REQ body → REQ-MCP-006/REQ-SERVICES-025 改 implement 手動 in-place、不入 delta"
+      - "tasks phase: 25 tasks（code 22 / [M] 2 / [V] 1），coverage 近中性（刪源碼與其測試同減）"
+      - "implement startup 修正（PB-004/PB-005）：命令未在 README 文件化，但刪 .hbs/命令/服務/測試檔會動 README/_index/module README 的計數副本 → 擴充 tasks 為 28（含 README ×2 + tests/README 計數同步、測試數依實跑重衍生）"
+  - skill: prospec-implement
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "28/28 tasks done；typecheck/build 綠、coverage 96.04%、test 73 檔 1748 passed；prospec check 0 fail 1 warn"
+      - "唯一 warn＝PB-005 pre-commit stale（templates README 編輯未 commit，與 source 同 commit 後即清；archive Entry Gate 複核 0 stale）"
+      - "PB-004 計數已重新衍生並同步：tests 1786→1748（unit 1137/contract 554/integration 16/e2e 41、files 76→73）、.hbs 57→56、commands 13→12、formatters 15→14、services −1（README×2 badge+tree、_index、各 module README）"
+      - "pre-existing 計數不一致（services：module-map 13 / README 14 / _index 15，定義不同、非本變更引入）僅套 −1 delta、未強行對齊——交 review 判斷是否另開 backlog"
+      - "templates/steering/ 整目錄移除：module-readme.hbs git mv 至 templates/knowledge/、24 處路徑字串同步；raw-scan.md 以 --raw-scan-only 重生（去 steering/ 樹節點）"
+  - skill: prospec-review
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "對抗式 4-lens（Mode A）+ critical 驗證：0 critical、4 major（3 修、1 by-design）；fix 後 prospec check 0 fail、test 1748 不變"
+      - "修：services 計數——implement 誤用 −1 delta 套在既有就錯的副本上（PB-004）；re-derive execute()-services=14，README/README.zh-TW/module-map 由 13/13/12 全改 14（_index 已 14），四份一致"
+      - "by-design（不修，交 archive）：project-setup Deprecated Requirements 留 `_(None)_`——archive.service:832 比對該 marker 並以 delta-spec REMOVED 填入（feature spec sole writer）；手動填會在 archive 重複。verify 視為正確中間狀態"
+      - "advisory（另案候選）：archive 退役格式 bullet vs 既有手寫富格式不一致——archive 工具格式議題，非本變更缺陷"
+  - skill: prospec-verify
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "Grade A：5/5 維度全 PASS（1/5 task-completion、2/5 delta-spec、3/5 Constitution 6 原則全 PASS score 5、4/5 knowledge 無 pre-existing drift、5/5 test 1748 pass/coverage 96.04%）；6 design skip（ui_scope none）。獨立雙 auditor（Workflow）佐證"
+      - "唯一 WARN＝drift knowledge-health pre-commit stale（templates README 工作目錄已改未 commit）——verify 規則視為本變更 pre-archive lag、不影響評級；commit + archive Entry Gate 後 0 stale"
+      - "standing advisory（交 archive）：project-setup Deprecated Requirements `_(None)_` 由 archive.service:832 於歸檔以 delta-spec REMOVED 填入；archive 退役 bullet 格式 vs 既有富格式不一致＝候選 backlog"
+      - "status → verified（commit boundary）"

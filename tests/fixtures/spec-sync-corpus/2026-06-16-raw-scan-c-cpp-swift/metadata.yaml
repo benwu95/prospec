@@ -1,0 +1,31 @@
+name: raw-scan-c-cpp-swift
+created_at: 2026-06-16T08:18:26.818Z
+status: archived
+scale: standard
+related_modules:
+  - "**lib**"
+  - "**services**"
+  - "**tests**"
+description: 擴充 raw-scan 對 C/C++/Swift 的確定性偵測（Config Files / Entry Points /
+  宣告式 Dependencies / Swift+C/C++ Tech Stack）；命令式 manifest 留白交 LLM
+quality_log:
+  - skill: prospec-ff
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+    notes: "2 major (0 critical, 1 nit dropped), both verifier-confirmed and fixed pre-commit; C-family language/deps gating unified via hasCFamilySource; full suite 1143 green"
+  - skill: prospec-verify
+    date: "2026-06-16"
+    result: WARN
+    grade: A
+    warnings:
+      - "P4 coverage: numeric ≥80% target not machine-measured (@vitest/coverage-v8 not installed); qualitative coverage strong"
+    notes: "knowledge_health staleness (lib/services/templates/tests) is unarchived raw-scan-change lag — informational per verify dim 4/5, not graded; syncs at archive"

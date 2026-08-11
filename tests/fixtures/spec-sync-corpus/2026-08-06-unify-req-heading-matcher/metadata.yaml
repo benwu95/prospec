@@ -1,0 +1,85 @@
+name: unify-req-heading-matcher
+created_at: 2026-08-06T05:00:04.259Z
+status: archived
+description: 把 feature spec REQ heading 的三套讀法收斂成單一 matcher，修掉 archive 唯寫路徑只認 h4
+  造成的 req_count 歸零、MODIFIED 重複插入與 REMOVED 探針失效
+introduced_by: restore-cli-first
+scale: standard
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    criticals_found: 8
+    criticals_fixed: 8
+    majors: 9
+  - skill: prospec-review
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - "F-32 (pre-existing on main, issue #140): withoutFencedBlocks fence
+        detection is $-anchored over lines split on LF, so a CRLF checkout flips
+        file-paths to FAIL and artifact-language fails open — deliberately out
+        of this change scope"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-08-06
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 6c6ba90b74f512e65cf6a396d33d1e040f30855f96b6fcb68448314bb65c39a1
+  date: 2026-08-06
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 6c6ba90b74f512e65cf6a396d33d1e040f30855f96b6fcb68448314bb65c39a1
+  date: 2026-08-06
+archived_at: 2026-08-06

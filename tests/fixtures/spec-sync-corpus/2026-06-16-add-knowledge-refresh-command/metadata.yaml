@@ -1,0 +1,34 @@
+name: add-knowledge-refresh-command
+created_at: 2026-06-16T04:05:09.964Z
+status: archived
+scale: standard
+related_modules:
+  - "**lib**"
+  - "**services**"
+  - "**cli**"
+  - "**tests**"
+description: 新增 prospec knowledge refresh 指令，以 deterministic 方式重新產生
+  raw-scan.md，於 SDD 流程結束後刷新專案結構快照
+quality_log:
+  - skill: prospec-ff
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: "2026-06-16"
+    result: WARN
+    warnings:
+      - "knowledge-refresh-output.ts:25 outputFile not sanitizeTerminal'd (consistent with sibling knowledge-init-output; low risk)"
+      - "archive.service.ts raw-scan refresh catch is silent (consistent with knowledge-update pattern)"
+      - "prospec-archive.hbs:129 non-Node fallback wording thinner than generate (consistency)"
+      - "SC-005 archive→raw-scan refresh only mock-tested; no black-box rewrite test (verify dim 1-2)"
+  - skill: prospec-verify
+    date: "2026-06-16"
+    result: WARN
+    grade: A
+    warnings:
+      - "P4 coverage: numeric ≥80% target not machine-measured (@vitest/coverage-v8 not installed); qualitative coverage strong — recommend adding the provider for CI"

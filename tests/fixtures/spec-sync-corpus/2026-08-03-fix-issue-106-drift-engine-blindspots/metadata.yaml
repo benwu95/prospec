@@ -1,0 +1,27 @@
+name: fix-issue-106-drift-engine-blindspots
+created_at: 2026-08-03T16:08:28.297Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - templates
+  - tests
+description: "修復 Issue #106 中列出的所有 6 項 prospec check 漂移引擎漏洞"
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-03
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+review_provenance:
+  digest: 4e67371c4f773fb2fb965c5f1587e952565e58c8deb8d2f0a773437ee46d691d
+  date: 2026-08-03
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 4e67371c4f773fb2fb965c5f1587e952565e58c8deb8d2f0a773437ee46d691d
+  date: 2026-08-03
+archived_at: 2026-08-03

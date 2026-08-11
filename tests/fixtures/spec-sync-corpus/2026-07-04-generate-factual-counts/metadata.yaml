@@ -1,0 +1,31 @@
+name: generate-factual-counts
+created_at: 2026-07-04T05:16:27.000Z
+status: archived
+scale: quick
+related_modules:
+  - tests
+description: >-
+  計數工具化（issue #65 part a，工具先行）：repo-internal `pnpm counts` 腳本，從
+  vitest / 檔案系統重新導出事實型計數（測試總數與 per-layer 細項、.hbs / reference /
+  skill / 模組檔案 inventory），並以白名單 registry 就地寫回所有已知副本
+  （README.md、README.zh-TW.md、prospec/index.md、tests README、模組 README），
+  取代 PB-004 每次變更手工逐層重導。非 shipped CLI，對齊 scripts/measure-tokens.ts 先例。
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-04
+    result: PASS
+    warnings: >-
+      0 critical、2 major 皆已修（drop-in 硬化）：--check CI gate 改為 fail-closed
+      （skip 也 exit 1，抽 checkFailed + 3 測試）、registry 完整性守衛收緊為 toBe(1)
+      （鎖「恰一行」不變式）。已知環境性 flake：tests/e2e/cli.test.ts「prospec --help」
+      滿載下 5s timeout（review 修復前即出現、單獨跑 43/43 全過、未動 cli/），非回歸。
+  - skill: prospec-verify
+    date: 2026-07-04
+    result: A
+    warnings: >-
+      Grade A（Ready to deploy）。5+1 維：1/5 任務完成 PASS、2/5 delta-spec
+      not-applicable（quick）、3/5 Constitution 全審全 PASS、4/5 knowledge-health
+      PASS（0 stale、6/6 documented）、5/5 測試 WARN（本變更 64 tests 全過；
+      full suite 1928/1929，唯一失敗為既存環境性 e2e flake，單獨 43/43 全過）、
+      6 design skipped（ui_scope none）。drift check 8/8 PASS。this-change knowledge
+      lag（tests 模組 README 新增 counts 測試條目）於 archive Entry Gate 同步。

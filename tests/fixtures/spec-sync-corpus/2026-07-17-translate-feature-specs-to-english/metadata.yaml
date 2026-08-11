@@ -1,0 +1,36 @@
+name: translate-feature-specs-to-english
+created_at: 2026-07-17T16:53:21.945Z
+status: archived
+scale: quick
+description: 將 prospec/specs/features/ 下 10 份繁體中文 feature spec 翻譯為英文,符合
+  Constitution Language Policy(知識庫須英文);只改語言、保留 REQ/結構/frontmatter
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-17
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-17
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-07-17
+    result: PASS
+    grade: A
+    warnings:
+      - "翻譯保真僅深讀 4/10 檔 + 全 10 檔機械核對(CJK=0、REQ 集合/line-parity/數字多重集/結構皆同 HEAD);其餘 6 檔 prose 語意未逐行深讀。機械訊號強(line-parity=HEAD+1 表逐行 1:1 取代),殘餘語意風險低但非零 → 取 A 而非 S。非阻斷。"
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: constitution
+        result: PASS
+      - name: knowledge-consistency
+        result: PASS
+      - name: tests
+        result: PASS
+review_provenance:
+  digest: f35d2f96234df62ae48d55f487849e8e537e3d28826f0a8ea611801440202a35
+  date: 2026-07-17

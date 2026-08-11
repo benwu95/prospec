@@ -1,0 +1,97 @@
+name: enforce-counts-in-ci
+created_at: 2026-08-02T06:33:26.690Z
+status: archived
+related_modules:
+  - tests
+description: 把已存在的 pnpm counts:check 接進 CI，讓計數落後在 PR 就被擋下
+introduced_by: generate-factual-counts
+scale: standard
+quality_log:
+  - skill: prospec-plan
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - G-5 效率 major 由使用者裁決走根因（counts:check 改吃既有報告），非單純接受成本
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 6
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - "第二輪 0 critical，但 6 項全部由第一輪修復引入或遺留（uses: 拼法、block scalar、顯式 no-op
+        誤紅、reporter 旗標、mutation 數錯、模板只修一半）"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - 第三輪 7 項仍全部由前一輪修復引入（含 mutation 計數第三度數錯）；已改為每輪對當時出貨的實作重跑整組 mutation
+        並以單一權威句記錄
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - 第四輪（迴圈上限）6 項仍全由第三輪修復引入；N-6 的根因是本分支從 main 切出、帶著未修復的 review-merge 引擎，已
+        rebase 到 fix/restrict-identity-fallback 並以真 CLI 重建 review.md（25 列 ID 全在）
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-02
+    result: WARN
+    warnings:
+      - 第五輪由 verify 2/5 的 FAIL 觸發：N-4 的修復把缺陷換了形狀（錨點鎖第 0 欄），閘門在它宣稱要封的區塊裡仍可被繞過
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-08-02
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: a4f9effe95282827623f1a74e3fa4720aeed79cdbce1c0b27ad9098a1df3ceaf
+  date: 2026-08-02
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: a4f9effe95282827623f1a74e3fa4720aeed79cdbce1c0b27ad9098a1df3ceaf
+  date: 2026-08-02
+archived_at: 2026-08-02

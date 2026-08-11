@@ -1,0 +1,132 @@
+name: separate-review-evidence
+created_at: 2026-08-10T08:49:14.257Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: 把 reviewer／grader 的 return payload 與 evidence 分離：findings／dimension
+  verdicts 只回傳 claim ＋ 可重跑的 repro ＋ 檔案路徑，evidence 全文由 CLI 落進
+  review.md／verify.md，relayable 欄位有明文且機械執行的字數上限
+issue: "142"
+scale: full
+quality_log:
+  - skill: prospec-ff
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - INVEST 的 S 偏弱：26 個任務／6 個模組／13 條 REQ（使用者裁決把 verify grader 一併納入）。緩解：US-4 標
+        P2，T2／T6／T9／T12／T19 可整組退成 follow-up
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - "round 1 (mode A, 4 parallel lenses): 11 criticals / 12 majors — 6
+        distinct root causes; all fixed in the same round, statuses updated at
+        round 2 convergence"
+    criticals_found: 11
+    criticals_fixed: 0
+    majors: 12
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - "round 2 (fix-diff re-review): 1 critical + 6 majors, ALL of them caused
+        by round 1's own fixes (PB-007) — the tail-preservation fix let a marker
+        quoted in that tail be adopted as a block and replace recorded evidence;
+        fixed and mutation-verified 6/6"
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 6
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - "round 3 (narrow, round-2 fix diff): 2 criticals + 4 majors, again all
+        caused by the previous round's fixes — the contiguity heuristic never
+        fired on the forgery it was written for. Converged structurally
+        (explicit closing marker) rather than patching the heuristic a third
+        time; 4/4 mutations killed"
+    criticals_found: 2
+    criticals_fixed: 0
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - "round 4: R4-1 (legacy branch destroyed the tail) + R4-3/R4-5/R4-6
+        fixed. R4-2/R4-4 ESCALATED to the human — review.md's section START is
+        inferred from content, so a hand-written marker can hijack it; no
+        content-based rule is sound and the three ways out change the issue's
+        own acceptance criterion"
+    criticals_found: 2
+    criticals_fixed: 1
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-10
+    result: WARN
+    warnings:
+      - "review-clean at round 4: 40/42 findings fixed and mutation-verified
+        (13+6+4 mutations, all KILLED); 2 rows wontfix by human adjudication of
+        the review.md trust boundary (2026-08-10, option A) — contract written
+        into the shipped reference, lib/station-engines.md and delta-spec
+        REQ-LIB-049"
+    criticals_found: 15
+    criticals_fixed: 15
+    majors: 25
+  - skill: prospec-review
+    date: 2026-08-10
+    result: PASS
+    warnings:
+      - "round 5 (narrow, verify-triggered fix): 0 criticals — the loop's
+        early-stop condition, review-clean. 2 majors found and fixed: the
+        conflict assertion pinned only THAT a conflict fired, and two Spec
+        bullets asserted wording the refusal does not use"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-08-10
+    result: PASS
+    warnings:
+      - "3/5 constitution WARN: [MUST] User Stories Follow INVEST — S 偏弱（6 模組／13
+        REQ／26 任務）。六項判準五項成立、S 在單次迭代內落地故非違規，但這個尺寸直接產出五輪 44 個 review 發現"
+      - "4/5 knowledge-health WARN: templates 模組被判 stale —— src/templates/** 與
+        modules/templates/README.md 在同一個未 commit 的工作樹裡，git 時間戳比較的是已 commit 狀態，故在
+        feature commit 落地前必然為 stale；由 S/A commit prompt 一併解消，archive Entry Gate
+        再確認"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: WARN
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 5499b5be3d638798518ff8b3ad32f5975ad83da1a8b680b22fa2b12e5099a6df
+  date: 2026-08-10
+delta_spec_provenance:
+  digest: 166b723852daa192150ad8455a51bc20dfda63c996896b338cfc14099be415c7
+  date: 2026-08-10
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 5499b5be3d638798518ff8b3ad32f5975ad83da1a8b680b22fa2b12e5099a6df
+  date: 2026-08-10
+archived_at: 2026-08-10

@@ -1,0 +1,19 @@
+name: reorganize-layered-index
+created_at: 2026-06-30
+status: archived
+scale: full
+related_modules:
+  - templates
+  - lib
+  - services
+  - tests
+description: 重整 CLAUDE.md, AGENTS.md, 與 _index.md 的分層索引結構，明確定義 L0 至 L3 結構與載入時機；在
+  _index.md 的 prospec:auto 區塊中擴大包含 Project Info, How to Use, Loading Rules,
+  Conventions，並實作動態 Conventions 掃描載入機制。
+quality_log:
+  - skill: prospec-verify
+    date: 2026-06-30
+    result: WARN
+    warnings:
+      - "prospec/ai-knowledge/modules/tests/README.md: stale knowledge"
+archived_at: 2026-06-30

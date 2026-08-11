@@ -1,0 +1,82 @@
+name: support-file-module-paths
+created_at: 2026-07-09T03:56:16.000Z
+status: archived
+scale: standard
+related_modules:
+  - lib
+  - services
+  - types
+  - tests
+description: Unify module-map.yaml `paths` file/folder semantics across all
+  callers (drift scan + knowledge scan), so a single file entry is
+  scanned/attributed as that file and a folder entry covers its subtree
+  consistently
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-09
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-09
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-09
+    result: PASS
+    warnings:
+      - "types/module-map.ts 為 doc-comment-only 變更（schema shape
+        不變），無行為需新增測試任務；既有 module-map schema 測試已涵蓋"
+  - skill: prospec-implement
+    date: 2026-07-09
+    result: PASS
+    warnings:
+      - "scope-adjacent robustness fix：tests/contract/mcp-server.test.ts 的
+        byte-for-byte 測試（git-subprocess + checkExecute 最重）在平行套件負載下偶發 5s
+        timeout（非內容不符、單獨執行 1.3s），本變更新增測試提高 contention 而觸發；已為該測試加 20s timeout
+        headroom，非我方程式碼正確性問題。全套件 3/3 穩定綠 2111 tests"
+      - "7 個新測試全數 PB-001 mutation-verified（moduleScanPatterns identity /
+        importScanPattern file 分支移除 / getModuleInfos 原始 paths 皆使對應測試轉紅）"
+  - skill: prospec-review
+    date: 2026-07-09
+    result: WARN
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+    warnings:
+      - "major (correctness/edge-case) drift-sources.ts importScanPattern file
+        分支未過濾源碼副檔名：非源碼檔（如 docs/guide.md）作為 paths 條目會被讀取並掃 import，其 fenced code
+        可能被解析成偽 import 邊。窄（misconfiguration）、且優於變更前的 ENOTDIR crash。advisory
+        未修（reviewer 提的修法會重新引入 ENOTDIR）"
+      - "major (spec-architecture/consistency) 非 `*` 的 glob 語法（brace/`?`/`[]`）在
+        classifyModulePath 與 drift isGlob 皆以 `.includes('*')` 偵測 → knowledge
+        honors、drift skips 的跨 caller 分歧。exotic、drift 側 pre-existing。advisory 未修"
+  - skill: prospec-review
+    date: 2026-07-09
+    result: WARN
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+    warnings:
+      - "round 2: M1 已修（使用者要求）——importScanPattern 對非源碼檔 file 條目回傳
+        null、collectImportEdges skip；避免偽 import 邊，且不採 reviewer 會重引 ENOTDIR
+        的建議修法。修正認知：fenced ```ts 已被 template-literal 去除，真正向量為非源碼檔的裸 import 行。新增
+        mutation-verified 測試，全套件 2112 綠"
+      - "M2（exotic 非 * glob 一致性）延後為 advisory WARN——實務 module-map 僅用 */**，不影響使用者
+        glob 需求"
+  - skill: prospec-verify
+    date: 2026-07-09
+    result: PASS
+    grade: S
+    dimensions:
+      - { name: task-completion, result: PASS }
+      - { name: delta-spec-compliance, result: PASS }
+      - { name: constitution-full-audit, result: PASS }
+      - { name: knowledge-consistency, result: PASS }
+      - { name: tests, result: PASS }
+    warnings:
+      - "advisory (carried from review): M2 exotic 非 * glob 一致性延後——不計入 grade；實務 module-map 僅用 */**"
+      - "note: mcp-server.test.ts 的 20s timeout 為 scope-adjacent robustness fix（本變更測試負載觸發的 flake），非 feature 邏輯；commit 時可折入或另拆，由使用者決定"
+      - "informational: 本變更的 lib/services README 尚未描述 classifyModulePath/moduleScanPatterns（不影響 grade）——於 commit prompt 以 /prospec-knowledge-update 同步"
+review_provenance:
+  digest: ce9483647612d18321d74016679b7b1b01f4560a3809c75d070d3776be39db49
+  date: 2026-07-09

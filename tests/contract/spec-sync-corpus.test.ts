@@ -42,7 +42,7 @@ function entriesOf(content: string): string[][] {
 }
 
 function archivedDeltaSpecs(): Array<{ name: string; content: string }> {
-  const archiveDir = path.join(REPO, '.prospec/archive');
+  const archiveDir = path.join(REPO, 'tests/fixtures/spec-sync-corpus');
   if (!existsSync(archiveDir)) return [];
   const out: Array<{ name: string; content: string }> = [];
   for (const dir of readdirSync(archiveDir)) {
@@ -63,16 +63,14 @@ function featureSpecs(): Array<{ name: string; content: string }> {
 describe('archived delta-spec corpus — the refusal must not fire on real history', () => {
   const corpus = archivedDeltaSpecs();
 
-  // `.prospec/archive/` is gitignored, so CI has no corpus. Say so rather than
-  // reporting a vacuous pass over zero files.
-  it('has a corpus to check, or skips honestly', () => {
-    if (corpus.length === 0) {
-      console.warn('no archived delta-specs on disk (.prospec/archive is gitignored) — corpus checks skipped');
-    }
-    expect(true).toBe(true);
+  // `.prospec/archive/` is gitignored, so reading the corpus from there left CI
+  // with zero files and a vacuous pass. The corpus is committed under
+  // `tests/fixtures/` instead, and its absence is now a failure, not a skip.
+  it('has a corpus to check, and does not skip', () => {
+    expect(corpus.length).toBeGreaterThan(0);
   });
 
-  it.skipIf(corpus.length === 0)(
+  it(
     'refuses NO `**Spec:**` block in any archived delta-spec',
     () => {
       const refused: string[] = [];
@@ -86,7 +84,7 @@ describe('archived delta-spec corpus — the refusal must not fire on real histo
     },
   );
 
-  it.skipIf(corpus.length === 0)(
+  it(
     'sees only template fields terminating a `**Spec:**` block',
     () => {
       const foreign = new Set<string>();
@@ -106,7 +104,7 @@ describe('archived delta-spec corpus — the refusal must not fire on real histo
     },
   );
 
-  it.skipIf(corpus.length === 0)('covers a corpus large enough to mean something', () => {
+  it('covers a corpus large enough to mean something', () => {
     const blocks = corpus.reduce(
       (n, { content }) => n + (content.match(/^\*\*Spec:\*\*/gm) ?? []).length,
       0,

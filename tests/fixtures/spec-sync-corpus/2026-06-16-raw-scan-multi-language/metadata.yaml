@@ -1,0 +1,31 @@
+name: raw-scan-multi-language
+created_at: 2026-06-16T07:11:14.514Z
+status: archived
+scale: standard
+related_modules:
+  - "**lib**"
+  - "**services**"
+  - "**templates**"
+  - "**tests**"
+description: 讓 raw-scan 的四個區塊（Tech Stack / Entry Points / Dependencies /
+  Config Files）確定性支援主流後端語言（Python/Go/Rust/Java/C#/Ruby/PHP），並重排輸出區塊分組
+quality_log:
+  - skill: prospec-ff
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: "2026-06-16"
+    result: PASS
+    warnings: []
+    notes: "5 major findings (0 critical), all verifier-confirmed and fixed pre-commit per user decision; full suite 1129 green"
+  - skill: prospec-verify
+    date: "2026-06-16"
+    result: WARN
+    grade: A
+    warnings:
+      - "P4 coverage: numeric ≥80% target not machine-measured (@vitest/coverage-v8 not installed); qualitative coverage strong — recommend adding the provider for CI"

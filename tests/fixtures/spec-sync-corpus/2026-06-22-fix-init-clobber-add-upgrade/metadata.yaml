@@ -1,0 +1,58 @@
+name: fix-init-clobber-add-upgrade
+created_at: 2026-06-22T00:00:00.000Z
+status: archived
+scale: full
+related_modules:
+  - services
+  - cli
+  - types
+  - templates
+  - lib
+  - tests
+description: >-
+  修復 prospec init 對既有 curated trust-zone 檔案的覆寫破口（P0 資料遺失 bug），
+  並新增 prospec upgrade（CLI zero-LLM 刷新 canonical docs）與 /prospec-upgrade
+  （skill judgment 補新 skill 觸發詞 / 遷移過時格式）升級路徑，關閉觸發詞再本地化入口缺口。
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "User-Facing Documentation [SHOULD]: README/README.zh-TW 需於 implement 階段同步 prospec upgrade 指令與 /prospec-upgrade skill（含 skill 計數）"
+  - skill: prospec-plan
+    date: "2026-06-22"
+    result: WARN
+    warnings:
+      - "User-Facing Documentation [SHOULD]: 新增 prospec upgrade 指令 + /prospec-upgrade skill（count 16→17）須於 implement step 7 同步 README ×2 / CLAUDE.md / _index templates 描述 — 已納入計畫，未阻斷"
+  - skill: prospec-tasks
+    date: "2026-06-22"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "設計微調：PROSPEC_VERSION 置於 types/version（非 lib/version）——lint 禁 cli→lib，types 是 cli/services 共同可向下 import 層；已同步 delta-spec REQ-TYPES-036、plan、tasks"
+      - "pre-existing 修正：verify-skills.sh status-lifecycle 計數 8→10（8 為 promote-backfill 既有 drift 殘留，+prospec-upgrade 引用→10）"
+  - skill: prospec-review
+    date: "2026-06-22"
+    result: WARN
+    warnings:
+      - "0 confirmed criticals；4 confirmed majors（3 fixed：types README 計數、_index services/cli 列計數、CANONICAL_CONVENTION_DOCS 抽單一來源）"
+      - "advisory major（noted，未修）：readme-counts drift check 不涵蓋 _index.md 模組表檔案/指令計數——pre-existing 工具缺口，候選獨立 backlog；本變更靠人工 re-derive 維持正確"
+  - skill: prospec-verify
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "Grade A（原 BL-044 scope）：5/5 維度 PASS、drift 8/8、coverage 95.85%；但使用者新增需求（version 語義、CLI/skill upgrade 重切分、knowledge-update 格式同意）reopen 本變更，status 暫留 implemented，待二次迭代後重新 verify"
+  - skill: prospec-review
+    date: "2026-06-22"
+    result: WARN
+    warnings:
+      - "iter-2 對抗式複審：4 項新需求全部 MET（version 語義 / CLI upgrade 收斂 / prospec-upgrade skill scan+consent / knowledge-update 格式同意）、邏輯與 layering 乾淨"
+      - "1 major（已修）：7 處 doc/comment 殘留舊設計宣稱（CLI re-render canonical docs / prospec_version）——已全部更正為新契約（READMEs ×2、_index ×2、upgrade.ts/version.ts/canonical-docs.ts 註解）"
+  - skill: prospec-verify
+    date: "2026-06-22"
+    result: PASS
+    warnings:
+      - "Grade A（iter-1+2 完整）：5/5 維度 PASS、drift 8/8、verify:skills 28/28、test 1760、coverage 96%；status → verified。standing advisory：readme-counts drift check 不涵蓋 _index 模組表計數（pre-existing 工具缺口，候選 backlog）"

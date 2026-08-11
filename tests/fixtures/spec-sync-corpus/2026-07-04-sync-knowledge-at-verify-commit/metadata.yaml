@@ -1,0 +1,34 @@
+name: sync-knowledge-at-verify-commit
+created_at: 2026-07-04T06:31:25.000Z
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - tests
+description: >-
+  issue #65 part b（知識同步前移）：把知識同步（/prospec-knowledge-update）與事實計數重導
+  前移至 /prospec-verify 達 S/A 後的 commit prompt，使 feat commit 落地當下知識已同步、
+  不再必然把被改模組打成 knowledge-health stale；archive Entry Gate 由「唯一強制知識同步
+  檢查點」降為 backstop。改 prospec-verify / prospec-archive skill 範本、_status-lifecycle.md
+  （canonical + init 範本）gate 理由，並加契約測試。殺 PB-005 根因。
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-04
+    result: PASS
+    warnings: >-
+      1 critical + 1 major 皆已修。critical：新 commit-prompt step 1 未 scale-aware，
+      backfill 的 feature-slug REQ id 經 REQ-prefix knowledge-update 會造 phantom 模組
+      （archive.hbs:139 已明文防範）——加 scale: backfill exception（延模組推導至 Entry Gate）
+      並更正 backfill 註記。major：services/README.md:74「mandatory checkpoint」→ backstop
+      （完成 PB-007 平行站點掃描）。已知環境性 flake：tests/e2e/cli.test.ts「--help」5s timeout
+      （滿載下 nondeterministic、單獨全過、未動 cli/），非回歸。
+  - skill: prospec-verify
+    date: 2026-07-04
+    result: A
+    warnings: >-
+      Grade A（Ready to deploy）。5+1：1/5 任務完成 PASS、2/5 delta-spec PASS
+      （REQ-TEMPLATES-129/CHNG-004/045 實作皆符）、3/5 Constitution 全審全 PASS、
+      4/5 knowledge-health PASS（0 stale、6/6）、5/5 測試 WARN（part-b 契約 7/7；
+      full suite 1933/1934，唯一非過為既存環境性 e2e flake）、6 design skipped。
+      drift 8/8 PASS。本輪 dogfood 新 commit-prompt 工作流：commit 前同步 templates/tests
+      README + 跑 pnpm counts、折入同一 commit。

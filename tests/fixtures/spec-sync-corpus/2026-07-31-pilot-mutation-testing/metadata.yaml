@@ -1,0 +1,66 @@
+name: pilot-mutation-testing
+created_at: 2026-07-31T05:12:56.035Z
+status: archived
+description: Stryker mutation testing 以隨選深度稽核工具出貨；review test-quality lens 須申報實際跑過的變異
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-31
+    result: WARN
+    warnings:
+      - 第二輪：4 critical 全屬同一類——以單一未重測的樣本建立因果宣稱，且未讀工具自身印出的警告；5 major 全數修正
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 5
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 5
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-07-31
+    result: PASS
+    warnings:
+      - 2/5 獨立評分者判 WARN：AC2 的逾時機制宣稱錯誤（誤以 timeoutMS 為上限，實為
+        timeoutFactor×netTime+timeoutMS+overhead ≈144s）。已於評分後修正四處並以 JSON
+        reporter 取得逐 mutant 佐證，但不重新評分以免形成「改到 PASS 為止」
+      - 4/5 knowledge-health WARN：templates 模組 README 已於工作樹同步且與原始碼同一 commit
+        落地，check 比對的是已提交時間戳
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: e60f681fe5ea00985446e422887be119ea58693674b3d9e9260b0744c473447b
+  date: 2026-07-31
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: e60f681fe5ea00985446e422887be119ea58693674b3d9e9260b0744c473447b
+  date: 2026-07-31
+archived_at: 2026-07-31

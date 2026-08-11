@@ -1,0 +1,89 @@
+name: split-verify-adjudication
+created_at: 2026-07-28T06:43:26.000Z
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: Split verify's dimensions between the check engine (mechanical
+  adjudication) and fresh-context judgment
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-28
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-07-28
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-28
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-07-28
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-28
+    result: WARN
+    warnings:
+      - "3 majors escalated, not auto-fixed: Windows .cmd shim resolution in
+        test-runner (needs Windows CI validation); digest scope excludes
+        lockfiles, which is the wrong scope for the new test claim;
+        computeChangeDigest runs twice per check path"
+      - "out of blast radius, recorded only: measurement-report*.json flips the
+        digest in downstream repos (pre-existing);
+        .claude/skills/release/SKILL.md still says 11 drift checks (user-local
+        skill)"
+    criticals_found: 9
+    criticals_fixed: 9
+    majors: 24
+  - skill: prospec-verify
+    date: 2026-07-28
+    result: PASS
+    warnings:
+      - "known platform gap, escalated not fixed: on Windows libuv cannot
+        resolve .cmd/.bat shims and Node's CVE-2024-27980 guard rejects .cmd
+        without a shell, so the `<package_manager> test` fallback cannot spawn —
+        needs a shim-aware argv[0] lookup validated on Windows CI"
+      - "escalated: the change digest excludes lockfiles, which is right for a
+        review baseline but the wrong scope for the new test claim — a
+        dependency-tree change leaves a recorded test run looking current"
+      - "residual: the 5/5 cross-reference to Core Workflow Step 0 is
+        prose-only, pinned by no test, so it can re-rot"
+      - "informational lag (synced at this commit prompt):
+        modules/services/README.md does not yet list --record-tests /
+        --escaped-defects"
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 224ffec2a965e725a671fd3ed0a5ecd7fb3fe3a162fe467fa614081bbae9f16a
+  date: 2026-07-28
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 224ffec2a965e725a671fd3ed0a5ecd7fb3fe3a162fe467fa614081bbae9f16a
+  date: 2026-07-28

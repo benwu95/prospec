@@ -1,0 +1,56 @@
+name: inject-resolved-knowledge-budgets
+created_at: 2026-07-06T08:34:40.000Z
+status: archived
+scale: standard
+related_modules:
+  - types
+  - lib
+  - services
+  - templates
+  - tests
+description: "生成的 SKILL.md 與下游 index.md 不再洩漏內部符號
+  DEFAULT_KNOWLEDGE_TOKEN_BUDGET;agent-sync 注入 resolveKnowledgeTokenBudget
+  解析值,模板改指向 .prospec.yaml knowledge.token_budget 與 prospec check knowledge-size"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: "2026-07-06"
+    result: PASS
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+    warnings:
+      - "major (parallel-site/test-quality) fixed: repointed KnowledgeSizeBudget
+        import in drift-sources.test.ts + drift-checker.test.ts to
+        types/config.js (dangling type-only import after the interface move →
+        latent TS2459 that pnpm typecheck misses because tsconfig excludes
+        tests/)"
+  - skill: prospec-verify
+    date: "2026-07-06"
+    result: PASS
+    grade: S
+    dimensions:
+      - { name: task-completion, result: PASS }
+      - { name: delta-spec-compliance, result: PASS }
+      - { name: constitution-full-audit, result: PASS }
+      - { name: knowledge-consistency, result: PASS }
+      - { name: tests, result: PASS }
+    warnings: []
+review_provenance:
+  digest: 32847c71e5a48e32e60ac17dde65a75249aa945134e8707a79aac84fa4d05e46
+  date: 2026-07-06

@@ -1,0 +1,83 @@
+name: read-specs-by-req
+created_at: 2026-08-08T08:32:45.695Z
+status: archived
+related_modules:
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: 新增以 REQ id／story 為單位的 feature spec 窄讀入口，並把 verify、archive、drift
+  req-references 三個消費者改走同一份 REQ 索引，取代整檔讀取
+scale: full
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - INVEST Independent：US-2（兩站契約改走窄入口）與 US-3（REQ 索引單一實作）都依賴 US-1
+        的索引與入口先存在，無法各自獨立交付；屬同一變更內的順序依賴，實作順序固定為 US-1 → US-3 → US-2，不拆變更
+  - skill: prospec-review
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - 15 majors + 5 minors 未修，逐條記於 review.md：ReDoS(F-5)、MCP no-selector
+        分岔(F-6)、空選擇器落回整檔讀取(F-7)、Math.max 邊界變異存活(F-8)、sanitizer 無斷言(F-9)、verify
+        item 7 未說明 ADDED REQ 尚未畢業(F-10)、兩處計數/枚舉未同步(F-11/F-12)、boundary owner
+        三處不對稱(F-13)、MCP 未共用 service(F-14)、heading 分隔符不一致(F-15)、重複 id
+        去重吞掉第二份(F-16)、收斂清單數字與漏項(F-17)
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 15
+  - skill: prospec-review
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 13
+  - skill: prospec-review
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - F-14 未修（維持 proposed）：MCP tool 未走 spec-show.service，自行重做 feature
+        解析、not-found 訊息與逗號展開；屬架構級重構，依 review 契約不自動修，建議另開變更依 PB-006／PB-007 抽成單一入口
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 05419c9301440fd9d50f564764f141a50a26af73fee5ef17bbe3e52de4c982f5
+  date: 2026-08-08
+delta_spec_provenance:
+  digest: 881e38c5c2754b328fd396b89d562d48d7914c9fc012e8daa5ab6d849fbac592
+  date: 2026-08-08
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 05419c9301440fd9d50f564764f141a50a26af73fee5ef17bbe3e52de4c982f5
+  date: 2026-08-08
+archived_at: 2026-08-08

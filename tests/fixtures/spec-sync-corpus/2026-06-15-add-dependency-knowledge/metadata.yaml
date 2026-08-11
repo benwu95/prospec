@@ -1,0 +1,49 @@
+name: add-dependency-knowledge
+created_at: "2026-06-15"
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - tests
+description: "BL-034 依賴層知識：prospec-plan/implement 加入 optional on-demand Context7 usage-snippet 注入 Technical Summary，graceful degradation、輸出視為不可信（不執行/不作 gate）、永不進 stable prefix（保 G4）"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-06-15"
+    result: WARN
+    warnings:
+      - "Principle 5 [SHOULD]：若 root README.md 記載 plan/implement Technical Summary 行為面，需於 implement 同批補述（非阻擋）"
+  - skill: prospec-plan
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "前序 Principle 5 [SHOULD] WARN 已評估解決：root README 僅 full-tier 一行提及 Technical Summary，本變更為 optional additive 子節、未改 documented surface → 無需補述"
+      - "PB-004 測試計數已於 root README 同步（1036→1041、contract 466→471）；_index/模組 README 計數走 archive Entry Gate"
+  - skill: prospec-review
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Mode A 3-lens fresh-context + verifier：0 critical / 0 major / 0 nit；review-clean，無 fix round"
+  - skill: prospec-verify
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    grade: S
+    notes:
+      - "5+1 維度全 PASS（6/6 design n/a）；drift 0 fail/warn/stale；suite 1041 綠 + verify:skills 28/0 + lint clean → Grade S → status: verified"
+      - "informational（不計分）：本變更 Knowledge lag——templates skill-desc + tests 計數待 /prospec-knowledge-update 於 archive Entry Gate 同步"
+  - skill: prospec-archive
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "knowledge-update 同步 templates/tests README + _index；REQ-TEMPLATES-101/102/103 + REQ-TESTS-027 graduate 進 sdd-workflow.md US-21、REQ-TEMPLATES-044 MODIFIED；product.md regen；drift 0 fail（graduation 消解 req-references dangling）；Phase 4.5 harvest 累積 knowledge/req-citation-precedes-graduation（personal, freq 1）"

@@ -1,0 +1,128 @@
+name: measure-all-load-surfaces
+created_at: 2026-08-06T16:53:57.472Z
+status: archived
+related_modules:
+  - types
+  - services
+  - cli
+  - templates
+description: 擴大 knowledge-size 量測面至 feature spec、治理知識檔、product.md 與自舉時的 SKILL.md／references
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - "F-15 未解 major：修正 F-1 必需的三列表格使 prospec-knowledge-generate 由 4923 升到
+        5092，越過自身 5000 門檻；收斂需把 phase 專屬散文抽成 on-demand reference（issue #142 §E
+        的獨立工作）"
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 11
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - F-15 仍未解：prospec-knowledge-generate 5092 > 5000（修正表格必需的三列所致，散文已壓到最短）
+      - R2-3 範圍外的既有缺陷：markdownRoots 下不可讀目錄會由 collectReqReferences 丟出 ScanError
+        拖垮全部 15 個 verdict（parent commit 亦然），需另開 issue
+    criticals_found: 4
+    criticals_fixed: 4
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - F-15 仍未解：prospec-knowledge-generate 5092 > 5000（修正 loading 表必需的三列所致）
+      - 既有缺陷（本變更範圍外，需另開 issue）：markdownRoots 下不可讀目錄會由 collectReqReferences 的
+        scanDirSync 丟出 ScanError 拖垮全部 15 個 verdict，parent commit 亦然
+    criticals_found: 5
+    criticals_fixed: 5
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - F-15 仍未解：prospec-knowledge-generate 5092 > 5000
+      - 既有缺陷（範圍外，需另開 issue）：markdownRoots 下 EACCES 目錄由 collectMarkdownLinks 的
+        scanDirSync 中止整個 run；specs/features 為檔案時由 collectReqDefinitions 的裸
+        readdirSync 中止 —— 兩者 parent commit 亦然
+      - R4-1 是退回 round-3 的修復（review 契約的 early-stop 條件），第 5 輪為契約上限
+    criticals_found: 6
+    criticals_fixed: 6
+    majors: 0
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - 第 5 輪為契約硬上限；本輪 3 個 critical 全為規格／文件同步，零新程式缺陷，但這 5 項修復本身未經再一輪對抗式驗證
+      - F-15 仍未解：prospec-knowledge-generate 5092 > 5000（修正 loading 表必需的列數所致）
+      - 既有缺陷（範圍外）：markdownRoots 下 EACCES 目錄由 collectMarkdownLinks 中止整個
+        run；specs/features 為檔案時由 collectReqDefinitions 中止 —— 兩者 parent commit
+        亦然，待另開 issue
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 2
+  - skill: prospec-review
+    date: 2026-08-06
+    result: WARN
+    warnings:
+      - 第 6 輪為使用者裁定的超契約輪次；兩個 critical 皆為第 5 輪修復的殘留（同檔相鄰列未同步、Spec 又漏抄一條 module
+        臂保證）
+      - F-15 仍未解：prospec-knowledge-generate 5092 > 5000
+      - 既有缺陷（範圍外，待開 issue）：markdownRoots 下 EACCES 由 collectMarkdownLinks 中止整個
+        run；specs/features 為檔案時由 collectReqDefinitions 中止
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-07
+    result: WARN
+    warnings:
+      - "本輪由 verify 2/5 的 FAIL 觸發：REQ-TEMPLATES-149 自 #64
+        起即斷言一件不成立的事（init/prospec.yaml.hbs 是死樣板），六輪 review 全數漏掉 —— review
+        找缺陷、verify 對照契約，這是後者才抓得到的類別"
+      - R7-1 經實測拒絕：key-set 相等斷言雙向皆會紅，審查者的反向變異未落地
+      - 既有缺陷（範圍外，待開 issue）：init/prospec.yaml.hbs 無 production 消費者；markdownRoots
+        下 EACCES 由 collectMarkdownLinks 中止整個 run
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 4
+  - skill: prospec-verify
+    date: 2026-08-07
+    result: PASS
+    warnings:
+      - 2/5：REQ-TYPES-077 bullet 2 未限定範圍（L2 行數 finding 不帶
+        TOKEN_ESTIMATOR_LABEL，程式碼正確、措辭已收斂）；兩份 README 曾宣稱 prospec init 會 seed
+        七個預算欄位，實測為假（init/prospec.yaml.hbs 無 production 消費者），已更正 ——
+        兩項於評分後修復，未經再一輪獨立評分
+      - 4/5：lib／templates／types 三個模組知識落後本變更，依契約在 S/A commit prompt 同步
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: da0e0c72f58f728ba9ddc5b1d69298e74002411e55a2fc7403aea248519ada36
+  date: 2026-08-07
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: da0e0c72f58f728ba9ddc5b1d69298e74002411e55a2fc7403aea248519ada36
+  date: 2026-08-07
+archived_at: 2026-08-07

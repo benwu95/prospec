@@ -1,0 +1,54 @@
+name: unlock-measurement
+created_at: 2026-07-05
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+description: >-
+  量測解鎖三件套：prospec measure 離線 size 估算 mode（無 API key 也能追蹤）、 quality_log
+  結構化計數欄位（review criticals/majors、verify 各維度結果可機器聚合）、 以及 bug-fix change 的
+  introduced_by escaped-defect 登記約定。
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-05
+    result: PASS
+    warnings:
+      - "US-2 附帶收斂既有 hasVerifyGrade/result-enum 落差，略微擴張 Small — 非阻擋"
+  - skill: prospec-plan
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-05
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-07-05
+    result: PASS
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: delta-spec
+        result: PASS
+      - name: constitution
+        result: PASS
+      - name: knowledge-consistency
+        result: PASS
+      - name: tests
+        result: PASS
+    warnings: []
+review_provenance:
+  digest: 0cd576abbb074864e93d5e716d96153e2b2b60bc2e7d6e6c0703f2faf811e082
+  date: 2026-07-05

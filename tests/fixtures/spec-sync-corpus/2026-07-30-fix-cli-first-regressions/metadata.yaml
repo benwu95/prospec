@@ -1,0 +1,79 @@
+name: fix-cli-first-regressions
+created_at: 2026-07-30T07:19:28.935Z
+status: archived
+related_modules:
+  - templates
+  - tests
+description: 修復 restore-cli-first 衍生的三個缺陷：spec-sync 掉字、counts 來源分裂、knowledge generate 孤兒碼
+scale: full
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - US-3 涵蓋 ai-knowledge feature spec 約 7 個 REQ 的改述，INVEST Small 屬邊界；若 plan
+        階段發現 REQ 面擴大，拆為獨立 change
+  - skill: prospec-review
+    date: 2026-07-30
+    result: WARN
+    warnings:
+      - 第一輪：2 critical（extractDeltaBlock 缺 heading 終止＝信任區永久污染、landingBody
+        fallback 未限 ADDED＝MODIFIED 掉字）皆由獨立 verifier 實測確認後修復；12 major 全修
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 12
+  - skill: prospec-review
+    date: 2026-07-30
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-review
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - 第三輪（verify 2/5 獨立評分回饋＋post-review 文件 delta 覆核）：3 major 全修，含唯一 2/5 WARN 的
+        getModuleInfos 幽靈符號
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-verify
+    date: 2026-07-30
+    result: PASS
+    warnings:
+      - 2/5（獨立 fresh-context 評分）：15 REQ 中 14 PASS、1 WARN——REQ-KNOW-004 沿用舊 body
+        的 getModuleInfos 幽靈符號（評分後已修為 updateModuleReadme）；另有數個 bullet 僅能以 skill
+        指令文本驗證（category 分組、mutation-verified 紅燈），非可執行 oracle
+      - 4/5（machine, knowledge-health）：cli 與 tests 兩個模組 README 的最後 commit 早於其
+        source 最後 commit（前一次 commit 造成的既有落差）；本輪工作樹已更新兩份 README，落在同一個 feature
+        commit 即消解
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: WARN
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 963e1fbe39cb02418347b0e70d58d0ab606707ea657c3e299ae51cfd0dbdec82
+  date: 2026-07-30
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 963e1fbe39cb02418347b0e70d58d0ab606707ea657c3e299ae51cfd0dbdec82
+  date: 2026-07-30
+archived_at: 2026-07-30

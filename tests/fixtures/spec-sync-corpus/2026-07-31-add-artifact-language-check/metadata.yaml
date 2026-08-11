@@ -1,0 +1,62 @@
+name: add-artifact-language-check
+created_at: 2026-07-30T19:59:10.981Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+description: 新增 artifact-language drift check：變更工件缺少 artifact language 字跡即
+  FAIL，腳本無法判定時誠實 skip
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 12
+  - skill: prospec-review
+    date: 2026-07-31
+    result: WARN
+    warnings:
+      - AL-28 未修（提案）：collector 接受裸 {language, nativePaths} 而非 LanguageScope 型別，非
+        dir/** 形狀的 scope entry 會解析不到而被當成正當缺席；不可由出貨路徑觸達，且已被 delta-spec 與 per-id
+        註解明示涵蓋
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 17
+  - skill: prospec-verify
+    date: 2026-07-31
+    result: PASS
+    warnings: []
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: e5acc951876853d6e15d87b309abc33c6e126d61604efb5468226b803823719a
+  date: 2026-07-31
+review_provenance:
+  digest: b760ff4a6506446db3448accdad419f99d08d5eb947bcd462e0edf24bb328fd4
+  date: 2026-07-31
+archived_at: 2026-07-31

@@ -1,0 +1,71 @@
+name: harden-verify-adjudication
+created_at: 2026-07-29T09:40:49.000Z
+status: archived
+scale: full
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: Close the adjudication gaps the post-merge re-review of
+  split-verify-adjudication found (issue 103)
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-29
+    result: WARN
+    warnings:
+      - "6 majors proposed, not fixed (design decisions / pre-existing /
+        residual): digest-null still suppresses a recorded red one level up
+        (delta-spec keeps digest-null source-unavailable — follow-up issue);
+        markdown-fences container-blind for list-nested >=4-space fences
+        (latent, zero hits in repo); digest-less red record does not outrank an
+        unresolvable command (hand-edited metadata corner); gitLastCommit
+        capture failure folds into 'fresh' for knowledge-health (pre-existing);
+        head-null fallback in computeChangeDigest lacks an in-code
+        unreachability note; budget-annotation contract regex is blind to
+        paraphrased restatements"
+      - "honest caveat: timeout_ms pin is runner-level only — the service passes
+        no custom timeout today, so reverting the reason string would not be
+        caught until a configurable timeout exists"
+    criticals_found: 3
+    criticals_fixed: 3
+    majors: 10
+  - skill: prospec-verify
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+introduced_by: split-verify-adjudication
+review_provenance:
+  digest: f5404c401419afeb782bb25678da8011934e01c5c512a31186fd07b799bf95ed
+  date: 2026-07-29
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: f5404c401419afeb782bb25678da8011934e01c5c512a31186fd07b799bf95ed
+  date: 2026-07-29

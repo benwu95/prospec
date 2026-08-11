@@ -1,0 +1,27 @@
+name: dedupe-init-doc-registry
+created_at: 2026-07-02
+status: archived
+scale: quick
+related_modules:
+  - types
+  - services
+  - tests
+description: >-
+  收束 fix-upgrade-doc-coverage review 遺留的兩個 majors：USER_MANAGED_CONVENTION_DOCS
+  升級為 {template, output} 對並由 INIT_DOC_REGISTRY／ALL_INITIAL_CONVENTION_DOCS
+  推導（F2，PB-006）；InitDoc 增 context 判別欄位取代 'knowledge/index.md.hbs'
+  魔法字串雙處特判（F3）。行為逐位元不變。另補 feature-map.yaml
+  project-setup.modules 的 cli（人工策展）。
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-02
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-07-02
+    result: PASS
+    warnings: []
+  - skill: prospec-verify
+    date: 2026-07-02
+    result: PASS
+    warnings: []

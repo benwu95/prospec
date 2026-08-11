@@ -1,0 +1,31 @@
+name: fix-upgrade-doc-coverage
+created_at: 2026-07-02
+status: archived
+scale: standard
+related_modules:
+  - types
+  - services
+  - cli
+  - templates
+  - tests
+description: >-
+  修復 GitHub issue #48：升級流程未涵蓋所有 init 建立的文件。以單一事實來源推導 docs
+  inventory——CLI upgrade report 逐檔標記 present/missing，/prospec-upgrade skill
+  據以逐檔 diff 更新與補建缺檔（涵蓋 _glossary.md 與 index.md 格式漂移），並以
+  contract test 鎖住「init 產出集合 == inventory 集合」根治清單漂移。
+quality_log:
+  - skill: prospec-ff
+    date: 2026-07-02
+    result: WARN
+    warnings:
+      - "scale: standard 依準則與前例自動採用，未經即時使用者確認（詢問逾時）——實作前可覆寫"
+  - skill: prospec-review
+    date: 2026-07-02
+    result: WARN
+    warnings:
+      - "major F2（maintainability/DRY）：INIT_DOC_REGISTRY 手抄三個 user-managed 文件名，未與 USER_MANAGED_CONVENTION_DOCS 綁定——建議升級後者為 {template, output} 對或加綁定斷言（見 review.md）"
+      - "major F3（maintainability/DRY）：index 範本 context 選擇以 'knowledge/index.md.hbs' 魔法字串特判、雙處重複——建議 InitDoc 增 context 判別欄位（見 review.md）"
+  - skill: prospec-verify
+    date: 2026-07-02
+    result: PASS
+    warnings: []

@@ -1,0 +1,48 @@
+name: preserve-agent-config-edits
+created_at: 2026-06-22T01:59:00.364Z
+status: archived
+scale: full
+related_modules:
+  - lib
+  - services
+  - templates
+description: CLAUDE.md / AGENTS.md 改用 auto/user 區塊，init 與 agent sync 不再覆蓋使用者手寫內容
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-06-22
+    result: WARN
+    warnings:
+      - "User-Facing Documentation Stays Current [SHOULD]：本變更改動 init/agent sync
+        對 agent 設定檔的寫入行為，implement 階段需評估 root README.md 是否需補述"
+  - skill: prospec-plan
+    date: 2026-06-22
+    result: WARN
+    warnings:
+      - "User-Facing Documentation Stays Current [SHOULD]：README 補述仍未解，已列為 plan
+        Step 7，留待 implement；無層級違規、Knowledge gate 全 PASS"
+  - skill: prospec-tasks
+    date: 2026-06-22
+    result: WARN
+    warnings:
+      - "User-Facing Documentation Stays Current [SHOULD]：已轉為可執行任務 T11（評估/更新 root README.md）；測試覆蓋每個受影響模組（T6/T7/T8）"
+  - skill: prospec-implement
+    date: 2026-06-22
+    result: PASS
+    warnings:
+      - "README WARN 已解：T11 已更新 root README.md 與 README.zh-TW.md（Agent config layout 增補 auto/user 區塊保留說明）。全測試 1781 綠、typecheck/lint 通過"
+  - skill: prospec-review
+    date: 2026-06-22
+    result: WARN
+    warnings:
+      - "0 critical（review-clean）。Major（範圍外、不自動修，諮詢性）：(1) auto-block 正則在 knowledge-update.service.ts:284-291 與 mergeManagedDoc 重複，可由 content-merger export 收斂；(2) readFileIfExists 未被 knowledge.service/knowledge-update.service 既有三處 inline read-or-empty（bare catch{}）採用。兩者均為既有檔 DRY，列為 /prospec-learn 候選。"
+  - skill: prospec-verify
+    date: 2026-06-22
+    result: PASS
+    grade: S
+    warnings:
+      - "5+1 維度全 PASS（design 不適用）：tasks 100%、delta-spec 5 REQ 全相符、Constitution 6 原則全 PASS、knowledge 0 drift（6/6 documented）、測試 1781 綠/覆蓋率 96.01%。review 2 個 major 為諮詢性、依契約不計入評級，列為 /prospec-learn 候選。"
+  - skill: prospec-archive
+    date: 2026-06-22
+    result: PASS
+    warnings:
+      - "封存前修正 3 個撞號 ADDED REQ：REQ-LIB-014→021、REQ-AGNT-023→027、REQ-TEMPLATES-104→123（原編號已被 drift-detection/agent-integration/sdd-workflow 佔用）。graduate 至 agent-integration（US-435 + REQ-AGNT-027/LIB-021/TEMPLATES-123 ADDED、REQ-AGNT-008 MODIFIED）與 project-setup（REQ-SETUP-018 MODIFIED）。knowledge 已同步 lib/services/templates README。"

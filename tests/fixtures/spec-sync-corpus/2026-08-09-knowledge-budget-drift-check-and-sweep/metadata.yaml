@@ -1,0 +1,38 @@
+name: knowledge-budget-drift-check-and-sweep
+created_at: 2026-08-09T06:58:16.200Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: 增加 token budget drift check 與自動 Sweep 清理，防止無理由調高預算
+issue: "#154"
+scale: full
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-09
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-09
+    result: PASS
+    warnings: []
+    grade: A
+review_provenance:
+  digest: e73b68a198e4d93ca6b5bfb6179d368272b8ac1205218830be062d1daacfe642
+  date: 2026-08-09
+delta_spec_provenance:
+  digest: 40b9b53e8eb674402514444f8c5c96846781aff0de3f8fdf8d55f58e0dcde588
+  date: 2026-08-09
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: e73b68a198e4d93ca6b5bfb6179d368272b8ac1205218830be062d1daacfe642
+  date: 2026-08-09
+archived_at: 2026-08-09

@@ -1,0 +1,55 @@
+name: slim-knowledge-l1-l2
+created_at: 2026-07-06T05:06:54.451Z
+status: archived
+scale: standard
+related_modules:
+  - types
+  - lib
+  - services
+  - templates
+  - tests
+description: "L1/L2 知識層瘦身：index.md Description routing-only、knowledge-size
+  l1_per_file 1500→1800、6 個 module README 抽 sub-module（issue #64）"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-tasks
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: "2026-07-06"
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: "2026-07-06"
+    result: PASS
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+      - name: spec-compliance
+        result: PASS
+      - name: constitution
+        result: PASS
+      - name: knowledge-consistency
+        result: PASS
+      - name: tests
+        result: PASS
+    warnings: []
+review_provenance:
+  digest: e0058b50cdcb766dce47079557d0879f80f4dd8e2a64636c3c4613ceb7a02304
+  date: 2026-07-06

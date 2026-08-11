@@ -1,0 +1,71 @@
+name: add-quickstart-command
+created_at: "2026-06-15"
+status: archived
+scale: full
+related_modules:
+  - types
+  - services
+  - cli
+  - templates
+  - tests
+description: "OPT-A4 Quickstart：新增 prospec quickstart CLI 指令（init+agent-sync orchestrator，catch AlreadyExistsError 即 skip）＋ excludeFromEntryConfig 的 /prospec-quickstart skill（翻譯 triggers → re-sync → knowledge-init → 接 knowledge-generate），把 brownfield onboarding 壓到使用者 2 步輸入。excludeFromEntryConfig filter 讓 skill G4 中性（不列入 always-loaded entry config 但仍產 SKILL.md）。出貨即解開 BL-032（add-reverse-spec-extraction）gate"
+quality_log:
+  - skill: prospec-new-story
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Constitution P1/P3/P4/P5 + 依賴方向全 PASS（P4/P5/依賴方向為規劃層 PASS，實作階段落實：TDD 測試先行、README 同批更新、cli→services→lib→types 無反向 import）"
+      - "Knowledge Gate 全 PASS：related_modules 5 個（types/services/cli/templates/tests）皆匹配 _index.md keywords；feature spec 已比對——project-setup US-006/REQ-SETUP-013（首次使用引導）為延伸點、agent-integration（skill 定義/skill_triggers）為 excludeFromEntryConfig 落點，無 REQ 重疊衝突"
+      - "scale：經使用者確認 full——5 模組 + 新增 requirements + cross-cutting（新 CLI 指令/service/skill/結構性 type 欄位/agent-sync render filter）+ 2 個新 precedent（excludeFromEntryConfig、skill 改 .prospec.yaml）；hard-veto 排除 quick（觸及 spec-covered 行為）"
+      - "架構已於探索定案 Hybrid（CLI quickstart + excludeFromEntryConfig skill），指令名稱定 prospec quickstart；3 個 open question 留 plan 定（knowledge-init 歸屬、knowledge-generate inline vs chain、excludeFromEntryConfig 治理慣例）"
+      - "交付邊界：本 change 出貨解開 BL-032 gate（add-reverse-spec-extraction，status=plan，閘 OPT-A4 後）"
+  - skill: prospec-plan
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Constitution P1/P3/P4/P5 + 依賴方向全 PASS；Phase 6 layering 檢查無違規——quickstart.service 編排 sibling init/agent-sync 屬既有 service-orchestrates-service 模式（先例 change-resolver），cli→services→lib→types 無反向 import"
+      - "Knowledge Gate 全 PASS：Brownfield（6 模組）、4 相關模組 README + _conventions 已載、Technical Summary 已綜合、feature spec（project-setup US-006 / agent-integration）已比對"
+      - "3 個 open question 定案：knowledge-init 歸 skill（raw-scan 新鮮）、knowledge-generate chain 不 inline（避免大 repo context 爆）、excludeFromEntryConfig 補 _conventions 一行慣例 + mutation-verified 測試鎖住"
+      - "REQ 路由：project-setup（REQ-SETUP-017 指令 / REQ-SERVICES-028 orchestrator，US-1）、agent-integration（REQ-TYPES-030 欄位+skill 定義 / REQ-AGNT-023 entry 排除 / REQ-TEMPLATES-108 skill 模板 / REQ-TESTS-029 mutation 測試，US-2/US-3）；REQ ID 已避開 graduated 與 in-flight BL-032 reserved（TEMPLATES-104~107/TESTS-028）"
+      - "playbook 已套用：PB-001（mutation-verified 契約測試）、PB-003（claim⊆impl，無 over-claim）、PB-004（README 計數重算同步）、PB-005（觸碰每個 source 變動模組 README）；skill 計數 13→14 連動 skill-format.test.ts + startup-loading-baseline.json"
+  - skill: prospec-tasks
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "19 task（code 16 / manual 1 / verification 2），依層 Types→Services→CLI→Templates→Tests→Docs→Manual；6 REQ 全覆蓋；每個新/改模組（types/services/cli/templates）皆有測試 task；≤30 上限內"
+      - "kind 標記：T12[V] mutation-verify、T18[M] 自我 host agent sync、T19[V] 全測+覆蓋率；[P] 並行 5 個（T10/T13/T15/T16/T17）"
+      - "PB 落為 task：T12 mutation-verify（PB-001）、T15 README 計數重算（PB-004）、T16 觸碰每個 source 變動模組 README（PB-005）；T9 startup-loading-baseline 連動、T10 skill-format 計數 13→14"
+      - "Knowledge Gate 全 PASS：層序合模組依賴圖、檔案路徑皆既有或明確新增、每個變動模組有測試 task"
+  - skill: prospec-implement
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "19 task 全完成（code 16 / manual 1 / verification 2）；全測試綠 1061 passed（unit 523 + contract 484 + integration 17 + e2e 37），typecheck 0、lint 0；scale full 6 REQ 全落地"
+      - "flag 名稱定 excludeFromEntryConfig（使用者改名，棄 onboardingOnly）：SkillConfig optional boolean、absent=false；agent-sync 僅 entry-config render context 加 filter，syncSkillsDirSkills 維持完整 iterate"
+      - "PB-001 mutation-verify 實跑：移除 filter → REQ-AGNT-023 排除測試轉紅；還原 → 綠（非僅宣稱）"
+      - "PB-004 計數重算同步：skills 13→14、.hbs 51→52、services 14→15 files、cli 11→12 cmd/12→14 fmt/28→30 files、tests 1039→1061（split 523/484/17/37）、startup-loading 71→72 items；README.md + README.zh-TW.md + _index.md + 5 module READMEs 全同步（含 badge）"
+      - "PB-005 觸碰每個 source 變動模組 README（types/services/cli/templates/tests）真實註記"
+      - "自我 host 驗證（dogfood）：node dist agent sync 部署 14 SKILL.md（含 prospec-quickstart 至 .claude/skills + .agents/skills），CLAUDE.md/AGENTS.md git 未變動、grep 無洩漏；harness 已偵測到 /prospec-quickstart 可觸發"
+      - "commit 邊界依規範遞延至 verify(S/A) 後（未 commit）；下一步 /prospec-review"
+  - skill: prospec-review
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Mode A 4-lens 對抗式 review（fresh-context）：0 critical（verifier loop 無待確認項）；spec-architecture lens 全 clean（依賴方向、6 REQ intent、13→14 ripple 皆無違規）"
+      - "3 major + 1 nit 全為 drop-in 並已修（非僅 propose）：(1) 排除測試 mockClear 隔離（消除一次性 false-red，該 false-red 訊息與 mutation 簽章相同、會侵蝕 PB-001 guard）；(2) skill 模板 YAML 復原改為 snapshot-restore（原『restore prior skill_triggers』在檔案不可解析時不可行）；(3) skill 模板改 minimal in-place edit 保留註解/排序；(4) plan/delta-spec 過時『13 trigger baselines』改 count-agnostic（PB-003 防 graduate 入真相層）"
+      - "review→fix 後驗證：全測 1061/1061；reviewer 的 ad-hoc 3-file flakiness reproducer 現連跑 ×3 皆 451/451；build clean。無未解 critical/major"
+  - skill: prospec-verify
+    date: "2026-06-15"
+    result: PASS
+    warnings: []
+    notes:
+      - "Grade A（Ready to deploy）→ status: verified。5+1 維度全 PASS、0 WARN、0 FAIL；V6 design ui_scope=none 正確 skip"
+      - "drift engine 初跑 req-references FAIL（×2 dangling：templates/README REQ-TEMPLATES-108、types/README REQ-TYPES-030 引用未畢業 REQ）→ verify 階段修正：移除模組 README 的 premature REQ-ID 前向引用（REQ 於 archive Phase 3.5 畢業後由 knowledge-update 重掛）→ 重跑 5/5 PASS、fail_count 0"
+      - "V1 task-completion PASS（drift 引擎）；V2 6 REQ 全 PASS（command/service/type field/entry 排除/skill 模板/mutation 測試逐一對照實作）；V3 Constitution 全稽核 P1-P5+依賴方向全 PASS（import-direction drift PASS、Call Chain 無 layering 違規）；V4 knowledge_health 6/6 fresh 非 stale（PB-005 生效）、本變更 REQ 未畢業＝informational 不評分；V5 1061/1061 + typecheck/lint/build clean + PB-001 mutation-verified"
+      - "P4 覆蓋率：本機無 @vitest/coverage-v8 provider（全 repo 限制，非本變更），以 test-presence（每個新 public surface 皆有 unit/contract/e2e）+ 全綠 + mutation-verified 為據，未量測 %（不浮報）"
+      - "commit 邊界已達：提示使用者以單一 atomic-by-feature commit 收斂 implement+review+verify 修正（不自動 commit、不加 Co-Authored-By trailer）；出貨解開 BL-032 gate"

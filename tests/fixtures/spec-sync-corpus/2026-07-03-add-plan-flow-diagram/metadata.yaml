@@ -1,0 +1,44 @@
+name: add-plan-flow-diagram
+created_at: 2026-07-03
+status: archived
+scale: standard
+related_modules:
+  - templates
+  - tests
+description: >-
+  處理 GitHub issue #47：/prospec-plan 遇到較複雜的 user story 時，於 plan.md 產生一張
+  Mermaid 行為流程圖，輔助使用者理解分支與決策點。沿用 _diagram-conventions.md 的啟發式、
+  classDef 色盤與節點慣例，內嵌於 plan.md 新章節，與既有技術性 Call Chain 章節分工互補。
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-07-03
+    result: WARN
+    warnings:
+      - "設計選項（觸發條件=複雜度啟發式 / 位置=plan.md 內嵌 / 內容=user story 行為流程 / scale=standard）依 issue 意圖與準則自動採用，未經即時使用者確認（AskUserQuestion 逾時）——plan 前可覆寫"
+      - "User-Facing Documentation [SHOULD]：本變更改動 skill 行為，須於 plan 階段評估 root README.md 是否需同步（未決）"
+  - skill: prospec-plan
+    date: 2026-07-03
+    result: WARN
+    warnings:
+      - "User-Facing Documentation [SHOULD]：root README 若含 plan skill 產出細節則需同步——承接自 story，於 implement 複核（root README 目前多半僅列 skill 觸發/用途，預期低影響）"
+  - skill: prospec-tasks
+    date: 2026-07-03
+    result: PASS
+    warnings:
+      - "（追蹤，非新增 WARN）承接之 README SHOULD 已路由為 T9[V]；templates 由 T4–T6 測試任務覆蓋"
+  - skill: prospec-implement
+    date: 2026-07-03
+    result: PASS
+    warnings:
+      - "T9 結論：root README 僅載 plan skill 用途（未列 plan.md 章節/圖），無 documented surface 變動——承接之 README SHOULD 解除，無需改 README"
+      - "全套測試 1839 綠（contract +3）；prospec check 8/8 PASS。註記：dist 過期會使 e2e 假紅，須先 pnpm build（tests README 既有 pitfall）；曾誤引未畢業 REQ-TEMPLATES-125 於 module README，經 drift req-references 攔下並移除（REQ 於 archive 才畢業）"
+  - skill: prospec-review
+    date: 2026-07-03
+    result: PASS
+    warnings:
+      - "0 critical，review-clean 第 1 輪收斂。1 major（maintainability/DRY，PB-006 漂移風險：any-of 門檻在 plan-format Section 5 與 prospec-plan Phase 4 重複）→ 依使用者指示於 loop 內解決：新增 section-scoped 一致性契約斷言釘住兩處同一組訊號 token、mutation-verified，M1 resolved（見 review.md）。無 outstanding advisory 帶入 verify"
+  - skill: prospec-verify
+    date: 2026-07-03
+    result: PASS
+    warnings:
+      - "Grade S。6 維度全 PASS：1/5 task-completion（drift 8/8，code 6/6=100%）、2/5 delta-spec AC1–AC5 皆對應真實範本/測試、3/5 Constitution 全審每條 PASS（Atomic Commit 待 S/A 後單一原子 commit）、4/5 knowledge-health 0 stale（templates/tests README 同 commit 觸動）、5/5 測試 1840 綠、6/6 ui_scope=none 略過。REQ-TEMPLATES-125 於 archive 畢業入 specs/features/sdd-workflow.md（informational lag，不計分）。drift --json 因 harness classifier 短暫不可用未能重 dump，引用同棵樹稍早 prospec check 8/8 PASS"

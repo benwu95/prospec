@@ -1,0 +1,56 @@
+name: feature-spec-sub-modules
+created_at: 2026-08-10T03:21:47.741Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - templates
+description: 為 feature spec 實作類似 module 的 sub-module 拆分機制
+issue: "#142"
+scale: standard
+quality_log:
+  - skill: prospec-review
+    date: 2026-08-10
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-10
+    result: PASS
+    warnings:
+      - 2/5 graded in-session — fresh context unavailable
+    grade: A
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: WARN
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 08557a81a792845ec2130b5685a4e56bac96623fcbff8c552f6689467ca79e5c
+  date: 2026-08-10
+delta_spec_provenance:
+  digest: 618e255dc90770998c410d2e84db2cb92f35431f1c523d1bb33328379e03ce5b
+  date: 2026-08-10
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 08557a81a792845ec2130b5685a4e56bac96623fcbff8c552f6689467ca79e5c
+  date: 2026-08-10
+archived_at: 2026-08-10

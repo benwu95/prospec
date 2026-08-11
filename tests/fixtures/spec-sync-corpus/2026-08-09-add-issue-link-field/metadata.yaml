@@ -1,0 +1,95 @@
+name: add-issue-link-field
+created_at: 2026-08-08T16:52:04.014Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: 為變更 metadata 新增選填的 issue 連結欄位，讓「每 issue 一變更一 PR」的慣例有機械載體
+scale: standard
+quality_log:
+  - skill: prospec-ff
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+  - skill: prospec-implement
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+  - skill: prospec-review
+    date: 2026-08-08
+    result: WARN
+    warnings:
+      - F-3 (REQ-TYPES-070 應否列 MODIFIED) 經獨立 verifier 判定
+        not-found：該括號列舉本來就不窮盡、所引先例改的是受測試釘住的站點順序、route 契約事實已由 ADDED REQ-TYPES-080
+        承載；改寫反而製造 droppedBehavior 風險。已加交叉引用作補強。
+    criticals_found: 3
+    criticals_fixed: 2
+    majors: 5
+  - skill: prospec-review
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 0
+  - skill: prospec-review
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    criticals_found: 2
+    criticals_fixed: 2
+    majors: 0
+  - skill: prospec-review
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-08-08
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 27e4c4a62600da3e48a97825eb7e51f281cdc420f3de5b052246f9e8b783a1f0
+  date: 2026-08-09
+delta_spec_provenance:
+  digest: d91d7660426893e6f56a8bcdd4804a67967bae9df21be9de15bc261bf0fec0ab
+  date: 2026-08-09
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 27e4c4a62600da3e48a97825eb7e51f281cdc420f3de5b052246f9e8b783a1f0
+  date: 2026-08-09
+archived_at: 2026-08-09

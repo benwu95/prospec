@@ -1,0 +1,31 @@
+# Review Findings: delegate-module-adjudication
+
+| ID | Location | Severity | Lens | Status | Summary |
+|---|---|---|---|---|---|
+| F-1 | src/lib/module-detector.ts:89 | critical | correctness | fixed | `'min'` 並非死條目 — `path.extname('foo.min')` 實測回傳 `.min`，移除它使 `*.min` 建置產物改判為原始碼；程式註解與 delta-spec Reason 皆以此假前提立論。只有次要片段（`jquery.min.js` → `.js`）才不可達 |
+| F-2 | src/templates/knowledge/raw-scan.md.hbs:54 | critical | docs-claims | fixed | 「唯一例外是零結果退回」為假：curated `module-map.yaml` 存在時 `detectModules` 於 step 1 直接短路，本專案自身的 `tests/fixtures/` 已被 `tests` module 的 `paths: [tests]` 涵蓋卻仍被列出（correctness 與 security 兩個 lens 獨立命中） |
+| F-3 | src/templates/knowledge/raw-scan.md.hbs:61 | critical | correctness | fixed | 截斷揭露行位於 `{{#if non_source_directories}}` 之內：`maxDirectories: 0` 時清單為空但 `omitted: 2`，渲染出「Every directory holds at least one source file」並吞掉揭露，違反程式自身文件化的 disclosed-never-silent 不變量；caps 亦無下限防護 |
+| F-4 | src/templates/skills/prospec-knowledge-generate.hbs:88 | critical | docs-claims | fixed | skill 宣稱該區塊是「每一個啟發法無法納入的目錄」，實際只含零原始碼檔的最上層目錄——單一原始碼檔的目錄（正是本變更新造成無法納入者）從不出現，巢狀者亦被折疊 |
+| F-5 | src/templates/skills/prospec-knowledge-generate.hbs:98 | critical | spec-architecture | fixed | 「人工策展的 map 就不動」這條豁免在磁碟上無任何表徵（`module-map.yaml.hbs` 不寫 provenance、init 不加標頭），REQ-KNOW-003 的 WHEN 不可判定（spec-architecture 與 correctness 兩個 lens 獨立命中） |
+| F-6 | tests/contract/knowledge-format.test.ts:407 | critical | test-quality | fixed | Round 2 的修復只改變了恆真式的形狀：同一輸入在同一 process 跑兩次，純函式必然相等，與有沒有排序無關。改為斷言「同一份檔案清單的兩種順序渲染結果相同」＋釘住實際順序，兩個 mutation（刪除兩處 sort、改用 localeCompare）皆轉紅 |
+| F-7 | tests/unit/services/raw-scan.service.test.ts:612 | critical | test-quality | fixed | `expect(cap).toBeGreaterThan(0)` 無法失敗，「渲染的 cap 等於實際套用的 cap」不變量全無防護；mutation 驗證：把 context 的 cap 改成 7（實際仍套用 50）後 40/40 與 36/36 皆全綠 |
+| F-8 | tests/contract/skill-format.test.ts:1313 | critical | test-quality | fixed | 修復輪替 REQ-TEMPLATES-170 新增了一條規範（提案前先查既有 `paths`）卻沒有加對應斷言，刪掉該句契約測試仍全綠——與 F-8 同一個缺口；AC5 亦未同步列舉 |
+| F-9 | tests/unit/lib/module-detector.test.ts:183 | critical | docs-claims | fixed | 兩處測試註解仍以已刪除的 `MODULE_INDICATORS` 分支論證覆蓋理由，其宣稱的變異結果現已為假——移除 `parts.length < 2` guard 後兩測試皆不變綠，root-skip guard 實質失去覆蓋 |
+| F-10 | src/lib/module-detector.ts:197 | major | maintainability | fixed | 副檔名改依出現次數遞減排序（標籤 codepoint 為 tie-break）；Android `res/` 實測 `.xml` 由被丟棄變為首位。獨立複審以 9 個 mutation 確認（codepoint-only、去 tie-break、localeCompare、omitted:=0、去 clamp、per-extension count:=1 皆轉紅） |
+| F-11 | src/lib/module-detector.ts:188 | major | maintainability | fixed | 目錄同樣改依檔案數遞減排序；12-package monorepo 實測 9 檔的 `manifests/` 在 cap=3 下仍存活。`kept + omitted = qualifying` 於各上限值守恆、全 tie 下順序無關，皆已釘住 |
+| F-12 | src/templates/knowledge/raw-scan.md.hbs:53 | major | docs-claims | fixed | 判準寫成「extension denylist」，遺漏 `isSourceFile` 的 `ext !== ''` 那一半——而文件自己舉的 `bin/` 無副檔名腳本正是靠那一半入選；四個站點同錯（skill、raw-scan 模板、README.md、README.zh-TW.md） |
+| F-13 | src/lib/markdown-fences.ts:18 | major | security | fixed | 新增 `toInlineCodeSpan`（分隔符長於最長反引號段、首尾為反引號或空內容時補空白），置於既有 CommonMark 分隔規則的家；獨立複審以真實 repo 端到端驗證（含 12 段反引號、`\|`、`<!-- prospec:auto-end -->`、`](javascript:…)`、純反引號名稱），每個 bullet 皆被獨立 CommonMark 辨識器判為單一合法 code span |
+| F-14 | tests/unit/lib/module-detector.test.ts:1443 | major | test-quality | fixed | 名為「orders by codepoint, not locale」的測試其 fixture 在兩種比較器下順序相同；mutation 驗證：`compareCodepoint` 改為 `localeCompare` 後該測試仍通過 |
+| F-15 | tests/unit/lib/module-detector.test.ts:1049 | major | test-quality | fixed | REQ-LIB-038 第 9 條（architecture 辨識讀窄化範圍）零覆蓋；mutation 驗證：把 `detectArchitecturePattern(scope)` 換回 `(files)` 後 78/78 全綠 |
+| NEW-1 | README.md:522 | critical | docs-claims | fixed | 修復輪加入的 README 文案宣稱「未辨識語言仍會出現在 Directories Without Source Files」——正好與拒絕清單設計相反：未列出的副檔名一律算原始碼，其目錄因此絕不會出現在該區塊（雙語同錯） |
+| NEW-2 | src/templates/knowledge/raw-scan.md.hbs:55 | critical | docs-claims | fixed | 模板文案承諾無副檔名的 `Makefile` 會「reported below」，但 `collectNonSourceDirectories` 跳過所有根層級檔案（`parts.length < 2`），根目錄的 `Makefile` 永遠不會出現，且此排除從未揭露 |
+| NEW-3 | src/templates/skills/prospec-knowledge-generate.hbs:85 | major | docs-claims | fixed | F-2 的修復只落在 raw-scan 模板，skill 的「partial view」段落仍只列出兩個「漏列」理由，從未說明被列出的目錄可能已經是 module（curated map 短路或零結果退回） |
+| NEW-5 | prospec/ai-knowledge/modules/lib/README.md:3 | major | docs-claims | fixed | 預算壓縮把 Modification Guide 對「新工具需純無狀態」的規則刪掉，同時把 stateless 升格為整個 module 的形容詞——而 `template.ts` 的兩個 module-level 註冊 latch 正好推翻它 |
+| NEW-6 | src/services/raw-scan.service.ts:115 | major | security | fixed | 同模板的 Config Files／Entry Points／Dependencies 仍原樣插入，而我新寫的 templates pitfall 讀起來像通用規則。獨立複審實測 `package.json` 的 `main`（自由文字）可讓「DISREGARD the section above…」以散文落進同一個 agent 讀取的檔案。三處改走同一 guard，Directory Tree 具名豁免（fenced block、glob 不產生含換行路徑、每行以 `/` 結尾） |
+| NEW-7 | prospec/ai-knowledge/modules/lib/README.md:54 | major | docs-claims | fixed | 壓縮後的 lib README 自相矛盾：相鄰兩條 bullet 一說「raw-scan findings are codepoint-sorted」、一說「rank by descending file count」——前者正是本輪移除的舊行為，是我把 raw-scan 插進 codepoint 那句造成的 |
+| NEW-8 | src/lib/module-detector.ts:238 | major | test-quality | proposed | 副檔名標籤的跳脫是等價變異，非缺覆蓋——複審主張「帶反引號的副檔名是活體向量」，實測推翻：該副檔名不在拒絕清單上故算原始碼，其目錄永不符合揭露條件。保留 guard 求對稱，並把此判斷寫進程式註解與 REQ（PB-001：存活變異需人工等價判斷且須留下判斷） |
+| NEW-9 | tests/contract/knowledge-format.test.ts | major | test-quality | fixed | 為 NEW-6 補的 contract 測試直接把 display 欄位塞進 render context，繞過 service——兩個接線變異因此存活。已補 service 層測試（以 memfs 種入含反引號的 `main`／config 路徑／dependency 名），三個接線變異皆轉紅 |
+| NEW-10 | src/lib/module-detector.ts:128 | major | correctness | fixed | 同一功能的兩半對同一檔案給出矛盾答案：`isSourceFile` 以「extname 去點後為空」判定 `docs/weird.` 無副檔名（故拒絕），`extensionLabel` 卻以原始 extname 判空、把它標成 `.`。判準已統一為去點後判空，並以測試釘住 |
+| W-1 | src/templates/skills/prospec-knowledge-generate.hbs:83 | major | spec-architecture | fixed | 授權句原本置於「當初是不是 bootstrap 寫的」這個條件式之內，而同段二十行後已聲明該述詞在磁碟上不可判定。改為無條件的『Revising module-map.yaml is yours to do』，並以 negative 斷言擋住舊句式回歸 |
+| W-2 | src/templates/skills/prospec-knowledge-generate.hbs:103 | major | spec-architecture | fixed | REQ-TEMPLATES-170 的 Leaving-alone 三支只寫了兩支，「區塊為空」那一支從未出現在 Step 3。已補上並說明空區塊代表「沒有任何目錄因缺原始碼而被排除」，非「該去找」 |
+| NEW-11 | .prospec/changes/delegate-module-adjudication/delta-spec.md:104 | major | docs-claims | fixed | REQ-LIB-038 的舉例「views/ 只有 .md 的 mvc 專案回報 unknown」為假——拿掉 views/ 後 models + controllers 仍達兩個指標門檻，實測回報 mvc。此句繼承自上一個變更（379304e）非本輪引入，但 delta-spec 重新宣告它、archive 會原樣寫進信任區。已改為實測成立的版本並雙向驗證 |

@@ -1,0 +1,92 @@
+name: add-learn-staleness-sweep
+created_at: 2026-08-03T07:32:59.572Z
+status: archived
+related_modules:
+  - templates
+  - lib
+  - tests
+description: 為 /prospec-learn 加上 Collect 前的 staleness sweep：以三項過期判準稽核
+  _lessons-ledger.md 與 _playbook.md，並就地退役已被機制取代的條目
+scale: standard
+quality_log:
+  - skill: prospec-ff
+    date: 2026-08-03
+    result: WARN
+    warnings:
+      - INVEST Independence 局部妥協：US-2（首輪套用）在語意上依賴 US-1（Sweep 站與退役語意），須先落地 US-1
+        再交付 US-2；以變更內實作順序化解，advisory 不擋站
+  - skill: prospec-review
+    date: 2026-08-03
+    result: WARN
+    warnings:
+      - Round 1（fresh-context subagent，mode B multi-lens）：0 critical、4 majors 全為
+        claim ⊄ implementation，皆已修（F-1 機械化 retired 列拒絕遞增、F-2 標頭 status 列舉、F-3
+        掃描範圍擴及 shipped spec ＋ MODIFIED REQ-TEMPLATES-132、F-4 證據回收路徑誠實化）；偏離「major
+        不自動修」預設係因四條皆為本變更自身新寫的失效宣稱
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 4
+  - skill: prospec-review
+    date: 2026-08-03
+    result: WARN
+    warnings:
+      - Round 2（fresh-context subagent，審「修復本身」）：1 critical ＋ 3 majors 全由 round 1
+        的修復造成，皆已修並各自 mutation-verified；其中 F-8 的首版 fixture 為假綠（只用小寫故 lookahead
+        存活），補案例後 M8/M9 各自轉紅
+    criticals_found: 1
+    criticals_fixed: 1
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-03
+    result: WARN
+    warnings:
+      - Round 3（fresh-context subagent）：0 critical → 早停條件成立、loop 收斂；3 majors 全由
+        round 2 修復造成，皆已修（F-9 補斷言、F-10 REQ-TEMPLATES-128 列 MODIFIED、F-11 收斂項改為補
+        US 歸屬不另加列），M10/M11 各自轉紅。累計 11 findings：1 critical ＋ 10 majors，全部 fixed
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 3
+  - skill: prospec-review
+    date: 2026-08-03
+    result: WARN
+    warnings:
+      - Round 4（fresh-context，窄審 verify 期間的 post-baseline diff）：0 critical、1
+        major（F-12 REQ-TYPES-024 Spec 掉了兩個仍在效的事實）已修。同輪確認 _playbook.md
+        placeholder 敘述四項子claim全真、兩處 Phase 3.5 更正皆為真；並回報 Error Handling 表無斷言釘住（判為
+        nit：措辭型 pin 對「內容錯但形狀對」的舊版本同樣會通過）
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-verify
+    date: 2026-08-03
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+review_provenance:
+  digest: 0e3227b9d961b6332ab3099c9def930798d5d916e8a46a0ceaca5d73fa81fdab
+  date: 2026-08-03
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 0e3227b9d961b6332ab3099c9def930798d5d916e8a46a0ceaca5d73fa81fdab
+  date: 2026-08-03
+archived_at: 2026-08-03

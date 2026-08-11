@@ -375,8 +375,14 @@ function indexSpecInternal(content: string, options: MatchReqHeadingOptions, sli
         lines,
         i,
         content,
+        // An ACTIVE REQ heading bounds at any level — a live REQ is never part of
+        // another REQ's body. A STRUCK one only bounds through the generic rule
+        // below, so a retired REQ heading quoted DEEPER than this REQ stays body
+        // text: matching it here cut the body short at the quote and left the
+        // remainder stranded after the replacement, with nothing reported,
+        // because the shortened slice never saw the bullets it lost.
         (l) =>
-          l.any !== null ||
+          l.active !== null ||
           (l.heading !== null && l.heading <= bound) ||
           l.probe.trim() === '---',
       ),
