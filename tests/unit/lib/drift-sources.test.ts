@@ -1031,7 +1031,7 @@ describe('collectImportEdges', () => {
 
 describe('collectGitTimestamps', () => {
   it('reports unavailable outside a git work tree', () => {
-    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge', []);
     expect(r.available).toBe(false);
     expect(r.reason).toContain('not a git repository');
   });
@@ -1047,7 +1047,7 @@ describe('collectGitTimestamps', () => {
     git('add', '.');
     git('commit', '-q', '-m', 'init');
 
-    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge', []);
     expect(r.available).toBe(true);
     const types = r.modules.find((m) => m.name === 'types');
     expect(types?.readme_exists).toBe(true);
@@ -1084,7 +1084,7 @@ describe('collectGitTimestamps', () => {
     git(['add', '.']);
     git(['commit', '-q', '-m', 'sub-module'], '2026-06-12T00:00:00+00:00');
 
-    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge', []);
     const types = r.modules.find((m) => m.name === 'types');
     expect(types?.last_readme_commit).toContain('2026-06-11');
     expect(types?.last_sub_module_commit).toContain('2026-06-12');
@@ -1101,7 +1101,7 @@ describe('collectGitTimestamps', () => {
     git('add', '.');
     git('commit', '-q', '-m', 'init');
 
-    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge');
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge', []);
     expect(r.modules.find((m) => m.name === 'types')?.last_sub_module_commit).toBeNull();
   });
 
@@ -1133,20 +1133,41 @@ describe('collectGitTimestamps', () => {
     commitAt('2026-06-11T00:00:00+00:00', { 'knowledge/modules/lib/README.md': '# lib\n' });
   };
 
-  const libHealth = () =>
-    evaluateKnowledgeHealth(collectGitTimestamps(tmpDir, LIB_MAP, 'knowledge')).knowledgeHealth
+  const libHealth = (generatedArtifacts: readonly string[] = []) =>
+    evaluateKnowledgeHealth(collectGitTimestamps(tmpDir, LIB_MAP, 'knowledge', generatedArtifacts)).knowledgeHealth
       ?.modules[0];
 
-  it('does not move last_src_commit for a commit that only regenerates a generated artifact (REQ-LIB-015)', () => {
+  it('moves last_src_commit when config is empty, meaning the generated artifact is not excluded', () => {
     stagedLibRepo();
     commitAt('2026-06-12T00:00:00+00:00', {
       [BUNDLED_TEMPLATES_SOURCE]: 'export const BUNDLED_TEMPLATES = {};\n',
     });
 
-    expect(libHealth()?.last_src_commit).toContain('2026-06-10');
+    expect(libHealth([])?.last_src_commit).toContain('2026-06-12');
+    expect(libHealth([])?.stale).toBe(true);
+  });
+
+  it('does not move last_src_commit for an explicitly configured generated artifact (REQ-LIB-015)', () => {
+    stagedLibRepo();
+    commitAt('2026-06-12T00:00:00+00:00', {
+      [BUNDLED_TEMPLATES_SOURCE]: 'export const BUNDLED_TEMPLATES = {};\n',
+    });
+
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.last_src_commit).toContain('2026-06-10');
     // The whole point: no README edit could honestly clear this WARN, so it must
     // never be raised — `pnpm bundle` regenerates the file on every `.hbs` change.
-    expect(libHealth()?.stale).toBe(false);
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.stale).toBe(false);
+  });
+
+  it('falls back to the unexcluded timestamp when a configured glob covers the whole module (REQ-LIB-039)', () => {
+    stagedLibRepo();
+
+    // A user-writable glob can now cover every file a module has. The excluded
+    // query then succeeds and returns EMPTY, which — folded into null — would
+    // read as "not stale" for that module forever, silently. Fail-open is the
+    // one outcome this must never produce, so the answer degrades to the
+    // unexcluded timestamp instead: noisier, but true.
+    expect(libHealth(['src/**'])?.last_src_commit).toContain('2026-06-10');
   });
 
   it('still reports stale when authored source moves after the generated artifact (REQ-LIB-015)', () => {
@@ -1158,8 +1179,8 @@ describe('collectGitTimestamps', () => {
 
     // The exclusion buys silence for build output only — widening it to the
     // module directory would turn every real knowledge gap into a fake green.
-    expect(libHealth()?.last_src_commit).toContain('2026-06-13');
-    expect(libHealth()?.stale).toBe(true);
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.last_src_commit).toContain('2026-06-13');
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.stale).toBe(true);
   });
 
   it('counts a commit that touches a generated artifact AND authored source (REQ-LIB-015)', () => {
@@ -1171,8 +1192,8 @@ describe('collectGitTimestamps', () => {
 
     // Pathspec exclusion filters FILES, not commits — the usual shape of a
     // `.hbs` change is exactly this mixed commit.
-    expect(libHealth()?.last_src_commit).toContain('2026-06-12');
-    expect(libHealth()?.stale).toBe(true);
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.last_src_commit).toContain('2026-06-12');
+    expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.stale).toBe(true);
   });
 
   it('degrades a shallow clone to unavailable instead of fabricating staleness (REQ-LIB-015)', () => {
@@ -1194,7 +1215,7 @@ describe('collectGitTimestamps', () => {
     execFileSync('git', ['clone', '-q', '--depth', '1', `file://${originDir}`, cloneDir], {
       stdio: 'pipe',
     });
-    const r = collectGitTimestamps(cloneDir, MODULE_MAP, 'knowledge');
+    const r = collectGitTimestamps(cloneDir, MODULE_MAP, 'knowledge', []);
     expect(r.available).toBe(false);
     expect(r.reason).toContain('shallow');
     // A real `git clone` is the heaviest op in the suite (it completes, it does not
@@ -1685,6 +1706,71 @@ describe('collectMetadataCompleteness', () => {
     );
     const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c14');
     expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  it('rejects a verified change if its latest verify grade is B, even if a previous verify was S', () => {
+    write(
+      '.prospec/changes/c15/metadata.yaml',
+      'name: c15\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n' +
+        '  - skill: prospec-verify\n    date: "2026-07-06"\n    result: WARN\n    grade: B\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c15');
+    expect(c?.missing_verify_grade).toBe(true);
+  });
+
+  it('accepts an archived change if ANY verify grade was S/A (historical timeline-unaware fallback)', () => {
+    write(
+      '.prospec/changes/c16/metadata.yaml',
+      'name: c16\ncreated_at: "2026-07-05"\nstatus: archived\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n' +
+        '  - skill: prospec-verify\n    date: "2026-07-06"\n    result: WARN\n    grade: B\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c16');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  it('accepts a verified change whose only verify entry is an S grade', () => {
+    write(
+      '.prospec/changes/c17/metadata.yaml',
+      'name: c17\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
+    );
+    const c = collectMetadataCompleteness(tmpDir).changes.find((x) => x.name === 'c17');
+    expect(c?.missing_verify_grade).toBe(false);
+  });
+
+  it('rejects a verified change with an empty quality_log or no prospec-verify entries', () => {
+    write(
+      '.prospec/changes/c18/metadata.yaml',
+      'name: c18\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\nquality_log: []\n',
+    );
+    write(
+      '.prospec/changes/c19/metadata.yaml',
+      'name: c19\ncreated_at: "2026-07-05"\nstatus: verified\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-review\n    date: "2026-07-05"\n    result: PASS\n',
+    );
+    const r = collectMetadataCompleteness(tmpDir);
+    expect(r.changes.find((x) => x.name === 'c18')?.missing_verify_grade).toBe(true);
+    expect(r.changes.find((x) => x.name === 'c19')?.missing_verify_grade).toBe(true);
+  });
+
+  it('rejects an archived change with an empty quality_log or no prospec-verify entries', () => {
+    // The `archived` branch keeps the any-entry scan, which is exactly where an
+    // empty log can fail OPEN — asserting only the `verified` half leaves a
+    // `quality_log.some(...) === false ? true : ...` mutant green.
+    write(
+      '.prospec/changes/c20/metadata.yaml',
+      'name: c20\ncreated_at: "2026-07-05"\nstatus: archived\nscale: full\nquality_log: []\n',
+    );
+    write(
+      '.prospec/changes/c21/metadata.yaml',
+      'name: c21\ncreated_at: "2026-07-05"\nstatus: archived\nscale: full\n' +
+        'quality_log:\n  - skill: prospec-review\n    date: "2026-07-05"\n    result: PASS\n',
+    );
+    const r = collectMetadataCompleteness(tmpDir);
+    expect(r.changes.find((x) => x.name === 'c20')?.missing_verify_grade).toBe(true);
+    expect(r.changes.find((x) => x.name === 'c21')?.missing_verify_grade).toBe(true);
   });
 });
 

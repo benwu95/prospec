@@ -10,7 +10,7 @@
 | `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (16 checks; `artifact-language`/`spec-counters` are WARN-only) |
 | `test-runner.ts` | The ONE flag-gated, `shell: false` project-command runner — the fact `test-provenance` grades |
 | `escaped-defects.ts` / `constitution-parser.ts` | Per-gate escaped-defect aggregation; `## Principles` rule inventory + RFC-2119 severities |
-| `generated-artifacts.ts` | The build-output registry subtracted from module staleness — single-sourced with `scripts/bundle-templates.ts`, its only other consumer |
+| `generated-artifacts.ts` | `BUNDLED_TEMPLATES_SOURCE`, the templates bundler's output location — single-sourced with `scripts/bundle-templates.ts`, its only consumer |
 
 ## Public API
 
@@ -24,7 +24,7 @@
 ## Modification Guide
 
 1. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts`, then sync the root-README check enumeration (PB-009; `pnpm counts` covers numbers, not that prose list).
-2. **Add a generated artifact** — register it in `generated-artifacts.ts`; the producer resolves its output path from that constant.
+2. **Exempt a generated artifact from staleness** — declare its path or glob under `knowledge.generated_artifacts` in the project's `.prospec.yaml`; nothing is exempt by default. A producer whose output location is also a build constant (the templates bundler) still resolves that path from `generated-artifacts.ts`.
 
 ## Ripple Effects
 
@@ -42,5 +42,5 @@
 - All THREE provenance evaluators filter through `PROVENANCE_AUDITED_STATUSES` (`types/change.ts`, pinned against the lifecycle doc's audit-scope table): `implemented` **and** `verified`, so the verify→archive window is covered; `archived` is unreachable (bundle moved), not exempt. HEAD is in the digest, so the verify commit itself stales both baselines — re-record after committing (PB-016), never widen the gate.
 - `computeChangeDigest` hashes UNTRACKED contents too (fails closed) — a tool writing into the repo un-gitignored flips review/test provenance to a false red.
 - `computeDeltaSpecDigest` is its NARROW sibling and deliberately separate: the whole-tree digest excludes `.prospec/`, so the delta-spec — the one artifact archive copies verbatim into the trust zone — had no gate at all. It hashes that ONE file, is git-free (bytes, so a fresh clone judges the same), and fails closed to null on an unreadable file. Widening `computeChangeDigest` instead would red every review baseline on any artifact edit, which is why the exclusion exists. `--record-review` stamps both baselines in one document write; `evaluateDeltaSpecProvenance` skips a scale with no delta-spec and a backfill proven by `backfill-draft.md` (which never runs review, so no baseline could ever exist for it).
-- `GENERATED_SOURCE_ARTIFACTS` subtracts build output from `last_src_commit` only, never from the digest; an unparsable `:(exclude)` falls back to the unexcluded query (null reads as not-stale).
+- `knowledge.generated_artifacts` subtracts build output from `last_src_commit` only, never from the digest. An excluded query with no answer — a `:(exclude)` git cannot parse, or an exclusion covering every file the module has — falls back to the unexcluded timestamp, never to null: `isStale` reads null as not-stale, so one configured glob could otherwise silence a module forever.
 - The contained read belongs to `knowledge-reader` ([lib](./README.md) Pitfalls) — drift-sources imports FROM it, never the reverse.

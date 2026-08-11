@@ -53,6 +53,7 @@ describe('computeChangeDigest under selective git-capture failure', () => {
   beforeEach(() => {
     tmpDir = mkdtempSync(path.join(os.tmpdir(), 'drift-git-capture-'));
     state.failLsFiles = false;
+    state.failExcludePathspec = false;
     git('init', '-q');
     git('config', 'user.email', 'test@test.dev');
     git('config', 'user.name', 'test');
@@ -94,7 +95,17 @@ describe('computeChangeDigest under selective git-capture failure', () => {
 
     it('falls back to the unexcluded timestamp instead of reporting no source commit', () => {
       state.failExcludePathspec = true;
-      const r = collectGitTimestamps(tmpDir, MAP, 'knowledge');
+      // The exclusion covers the module's ONLY source file, so the unexcluded
+      // retry is the only route to a truthy answer: fold the FAILED `:(exclude)`
+      // query into null instead of retrying it and this reads as "no source
+      // commit", which `isStale` takes for "not stale" — the fail-open PB-013
+      // forbids. An empty exclude list could not detect that at all: no
+      // `:(exclude)` argv would be emitted, so the injected fault would never
+      // fire. Note the fault is no longer outcome-determining on its own —
+      // an exclusion covering every file also falls through to the unexcluded
+      // query (REQ-LIB-039) — so what this pins is specifically the
+      // capture-failure branch, and only reverting THAT reddens it.
+      const r = collectGitTimestamps(tmpDir, MAP, 'knowledge', ['src/lib/x.ts']);
 
       expect(r.available).toBe(true);
       expect(r.modules[0]?.last_src_commit).toBeTruthy();

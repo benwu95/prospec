@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-10
-story_count: 37
-req_count: 199
+last_updated: 2026-08-11
+story_count: 38
+req_count: 200
 ---
 
 # SDD Workflow
@@ -1373,6 +1373,27 @@ The line-ending family is pinned by differential assertions at each layer it cro
 
 ---
 
+
+## US-38: Spec-sync writes at the heading, never at a mention of it [P1]
+
+As a project maintainer archiving a change,
+I want the archive's section insertion points to anchor on the real heading rather than the first occurrence of its text,
+so that a feature spec which quotes its own structure — as they routinely do — is not silently cut in half when a requirement graduates into it.
+
+**Acceptance Scenarios:**
+- WHEN a spec mentions `## Edge Cases` or `## Deprecated Requirements` in prose or an inline code span before the real heading, THEN the graduating requirement still lands at the heading and the quoting passage stays byte-identical
+- WHEN a spec carries no such heading, THEN the previous fallbacks stand — appended at end of file, or a Deprecated section created
+- WHEN an anchor is reverted to a bare-substring match, THEN the regression test for that path turns red
+
+#### REQ-SERVICES-088: Spec-sync section anchors match headings, not bare strings
+`syncToFeatureSpecs` anchors its section insertion points on the **heading** — matched at line start — rather than on the first occurrence of the heading's text. This holds for the ADDED path (`## Edge Cases`) and the REMOVED path (`moveReqToDeprecated`, `## Deprecated Requirements`) alike. A feature spec routinely quotes its own structure, so those strings also appear in prose and inline code spans; matching there splices the new requirement — or the retired entry — into the middle of another requirement's bullet and truncates it, silently, because both worklists stay empty and the Change History row is still written. The function replacer is retained in every branch so untrusted title/body text carrying `$&`/`$1`/`$$` lands verbatim.
+- WHEN the heading's text occurs before the heading itself in prose or an inline code span, THEN the new requirement is still inserted immediately above the `## Edge Cases` heading and the quoting passage is left intact
+- WHEN the same holds for `## Deprecated Requirements`, THEN the retired entry is still appended under the real heading and the quoting passage is left intact
+- WHEN the spec carries neither heading, THEN the prior fallbacks stand — the requirement is appended at end of file, and a Deprecated section is created
+- WHEN either anchor is reverted to a bare-substring match, THEN mutation verification turns the corresponding regression test red
+
+---
+
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -1964,6 +1985,7 @@ The new engines and commands are covered at four layers: pure-engine unit tests 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-11 | configurable-generated-artifacts | ADDED REQ-SERVICES-088 | REQ-SERVICES-088 |
 | 2026-08-10 | unify-line-splitting | ADDED REQ-LIB-051; ADDED REQ-TESTS-083 | REQ-LIB-051, REQ-TESTS-083 |
 | 2026-08-10 | separate-review-evidence | ADDED REQ-TYPES-081; ADDED REQ-LIB-049; ADDED REQ-LIB-050; ADDED REQ-SERVICES-086; ADDED REQ-SERVICES-087; ADDED REQ-CLI-037; ADDED REQ-CLI-038; ADDED REQ-TEMPLATES-180; ADDED REQ-TEMPLATES-181; ADDED REQ-TESTS-082; MODIFIED REQ-CLI-028; MODIFIED REQ-CLI-029; MODIFIED REQ-TEMPLATES-067 | REQ-TYPES-081, REQ-LIB-049, REQ-LIB-050, REQ-SERVICES-086, REQ-SERVICES-087, REQ-CLI-037, REQ-CLI-038, REQ-TEMPLATES-180, REQ-TEMPLATES-181, REQ-TESTS-082, REQ-CLI-028, REQ-CLI-029, REQ-TEMPLATES-067 |
 | 2026-08-09 | add-issue-link-field | ADDED REQ-TYPES-080; ADDED REQ-LIB-047; ADDED REQ-LIB-048; ADDED REQ-SERVICES-085; ADDED REQ-CLI-036; ADDED REQ-TEMPLATES-178; ADDED REQ-TEMPLATES-179; ADDED REQ-TESTS-081; MODIFIED REQ-CLI-023 | REQ-TYPES-080, REQ-LIB-047, REQ-LIB-048, REQ-SERVICES-085, REQ-CLI-036, REQ-TEMPLATES-178, REQ-TEMPLATES-179, REQ-TESTS-081, REQ-CLI-023 |

@@ -17,5 +17,3 @@
  * cannot drift into hand-copied lists (REQ-LIB-039).
  */
 export const BUNDLED_TEMPLATES_SOURCE = 'src/lib/bundled-templates.ts';
-
-export const GENERATED_SOURCE_ARTIFACTS = [BUNDLED_TEMPLATES_SOURCE] as const;

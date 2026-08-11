@@ -78,6 +78,7 @@ const CTX: McpServerContext = {
   knowledgePath: '/proj/ai-knowledge',
   specsPath: '/proj/specs',
   featuresDir: '/proj/specs/features',
+  config: { version: '1.0.0', project: { name: 'test' } },
 };
 
 /** Connect a real MCP client to a server built from ctx, over an in-memory pair. */
@@ -368,6 +369,31 @@ describe('mcp.service health resource', () => {
     const payload = JSON.parse(firstText(res).text);
     expect(payload).toEqual({ stale_modules: ['cli'], coverage: 0.5 });
     expect(firstText(res).mimeType).toBe('application/json');
+  });
+
+  // The health resource is the SECOND call site of the timestamp collector, wired
+  // independently of check.service — hardcoding `[]` here alone leaves the whole
+  // suite green while `knowledge://health` silently stops honouring the project's
+  // declared build output.
+  it('passes the project generated_artifacts through to the timestamp collector (REQ-LIB-039)', async () => {
+    loadModuleMap.mockReturnValue({ modules: [{ name: 'cli' }] });
+    collectGitTimestamps.mockReturnValue({ available: true });
+    evaluateKnowledgeHealth.mockReturnValue({
+      result: { id: 'knowledge-health', status: 'pass' },
+      knowledgeHealth: { stale_modules: [], coverage: 1 },
+    });
+    const client = await connectClient({
+      ...CTX,
+      config: { ...CTX.config, knowledge: { generated_artifacts: ['src/gen/**'] } },
+    });
+
+    await client.readResource({ uri: MCP_RESOURCE_URIS.health });
+    expect(collectGitTimestamps).toHaveBeenCalledWith(
+      '/proj',
+      expect.anything(),
+      '/proj/ai-knowledge',
+      ['src/gen/**'],
+    );
   });
 
   it('falls back to the outcome reason when knowledgeHealth is absent (L261 reason present)', async () => {

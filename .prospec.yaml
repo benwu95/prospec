@@ -19,6 +19,8 @@ agents:
   - antigravity
 knowledge:
   base_path: prospec/ai-knowledge
+  generated_artifacts:
+    - src/lib/bundled-templates.ts
   token_budget:
     # Prospec's own L1 index is naturally large as it catalogs its own complex architecture.
     l1_per_file: 2500

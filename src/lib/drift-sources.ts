@@ -7,7 +7,6 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
-import { GENERATED_SOURCE_ARTIFACTS } from './generated-artifacts.js';
 import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
@@ -564,6 +563,7 @@ export function collectGitTimestamps(
   cwd: string,
   moduleMap: ModuleMap,
   knowledgePath: string,
+  generatedArtifacts: readonly string[],
 ): GitTimestampSource {
   try {
     execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
@@ -617,7 +617,7 @@ export function collectGitTimestamps(
         // describe, so regenerating one must not make the module stale — the
         // resulting WARN has no honest fix. Scoped to THIS judgment: the same
         // file stays inside computeChangeDigest (REQ-LIB-015 / REQ-LIB-039).
-        last_src_commit: gitLastCommit(cwd, entry.paths, GENERATED_SOURCE_ARTIFACTS),
+        last_src_commit: gitLastCommit(cwd, entry.paths, generatedArtifacts),
         last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
         last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
       });
@@ -1335,8 +1335,14 @@ function gitLastCommit(
 ): string | null {
   const args = ['log', '-1', '--format=%cI', '--', ...paths];
   if (excludes.length > 0) {
-    const excluded = gitCapture(cwd, [...args, ...excludes.map((p) => `:(exclude)${p}`)]);
-    if (excluded !== null) return excluded.trim() || null;
+    // Fall through on BOTH empty answers, not only on a failed capture: a
+    // pathspec git cannot parse and an exclusion covering every file the module
+    // has are the same fact here — no excluded answer exists. `isStale` reads a
+    // null last_src_commit as "not stale", so folding either into null lets one
+    // configured glob (`src/**`) silence a whole module forever. The unexcluded
+    // timestamp is noisier but true — the degradation PB-013 prescribes.
+    const excluded = gitCapture(cwd, [...args, ...excludes.map((p) => `:(exclude)${p}`)])?.trim();
+    if (excluded) return excluded;
   }
   const out = gitCapture(cwd, args);
   if (out === null) throw new Error(`git log capture failed for paths: ${paths.join(' ')}`);
@@ -1803,30 +1809,44 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
       source_path,
       status,
       missing_fields,
-      missing_verify_grade: GRADED_STATUSES.has(status) && !hasVerifyGrade(meta.quality_log),
+      missing_verify_grade: GRADED_STATUSES.has(status) && !hasVerifyGrade(meta.quality_log, status),
     });
   }
   return { available: true, changes };
 }
 
-/** True when quality_log carries a /prospec-verify entry graded S or A.
+/** True when the /prospec-verify grade that still counts is S or A.
  *  Prefers the structured `grade` field (issue #61); falls back to the legacy
  *  shape where the grade was written into `result` (pre-#61 metadata) so already
- *  archived changes still satisfy the gate. */
-function hasVerifyGrade(quality_log: unknown): boolean {
+ *  archived changes still satisfy the gate. Which entry counts depends on
+ *  `status`: `archived` keeps the historical any-entry reading so stable history
+ *  cannot flip, while every other graded status reads only the LATEST verify —
+ *  a re-verify at B/C/D must not stay green on an earlier S/A. */
+function hasVerifyGrade(quality_log: unknown, status: string): boolean {
   if (!Array.isArray(quality_log)) return false;
-  return quality_log.some((entry) => {
-    if (entry === null || typeof entry !== 'object') return false;
-    const e = entry as { skill?: unknown; result?: unknown; grade?: unknown };
-    // Trimmed like readGateResults: these rows come off raw YAML with no schema
-    // pass, and an exact match on `"A "` would flip a genuinely verified change
-    // into a FAIL-class metadata-completeness finding (#103, PB-007 sweep).
-    const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-    if (str(e.skill) !== 'prospec-verify') return false;
+
+  // Trimmed like readGateResults: these rows come off raw YAML with no schema
+  // pass, and an exact match on `"A "` would flip a genuinely verified change
+  // into a FAIL-class metadata-completeness finding (#103, PB-007 sweep).
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+  type LogEntry = { skill?: unknown; result?: unknown; grade?: unknown };
+  const asEntry = (entry: unknown): LogEntry | null =>
+    entry !== null && typeof entry === 'object' ? (entry as LogEntry) : null;
+  const isVerify = (entry: unknown): boolean => str(asEntry(entry)?.skill) === 'prospec-verify';
+  const isPass = (entry: unknown): boolean => {
+    const e = asEntry(entry);
+    if (e === null) return false;
     const grade = str(e.grade);
     const result = str(e.result);
     return grade === 'S' || grade === 'A' || result === 'S' || result === 'A';
-  });
+  };
+
+  if (status === 'archived') {
+    return quality_log.some((entry) => isVerify(entry) && isPass(entry));
+  } else {
+    const lastVerify = quality_log.findLast(isVerify);
+    return lastVerify ? isPass(lastVerify) : false;
+  }
 }
 
 // --- Artifact language (REQ-LIB-037) ---

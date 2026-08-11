@@ -2,6 +2,7 @@ import path from 'node:path';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
+import type { ProspecConfig } from '../types/config.js';
 import {
   isSafeResourceName,
   listFeatureSpecs,
@@ -66,6 +67,7 @@ export interface McpServerContext {
   knowledgePath: string;
   specsPath: string;
   featuresDir: string;
+  config: ProspecConfig;
 }
 
 /** Start the stdio server. Diagnostics belong on stderr — stdout is the protocol channel. */
@@ -81,6 +83,7 @@ export async function execute(options: McpServeOptions): Promise<McpServeResult>
     knowledgePath: paths.knowledgePath,
     specsPath: paths.specsPath,
     featuresDir,
+    config,
   });
   await server.connect(new StdioServerTransport());
 
@@ -359,7 +362,7 @@ function readHealth(uriHref: string, ctx: McpServerContext) {
     );
   }
   const outcome = evaluateKnowledgeHealth(
-    collectGitTimestamps(ctx.cwd, moduleMap, ctx.knowledgePath),
+    collectGitTimestamps(ctx.cwd, moduleMap, ctx.knowledgePath, ctx.config.knowledge?.generated_artifacts ?? []),
   );
   // An unavailable git history is an honest environment fact, not an error —
   // mirror the check engine's skip semantics instead of fabricating numbers.
