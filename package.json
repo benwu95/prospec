@@ -1,6 +1,6 @@
 {
   "name": "@benwu95/prospec",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Progressive Spec-Driven Development CLI tool",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
