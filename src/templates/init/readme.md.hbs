@@ -4,13 +4,13 @@ This `{{base_dir}}/` directory holds the **Prospec** working files for this proj
 
 ## What is Prospec?
 
-Prospec is a Skills-driven Spec-Driven Development (SDD) toolkit for AI coding agents. Day-to-day work runs through slash-command **Skills inside your AI agent** (Claude Code, Antigravity, Copilot, Codex); a thin **CLI** only bootstraps the project and regenerates Skills and Knowledge. The payoff: the agent follows a consistent `story → plan → tasks → implement → review → verify → archive` workflow, grounded in structured, version-controlled project knowledge.
+Prospec is a **CLI-first Spec-Driven Development (SDD) toolkit** for AI coding agents. Day-to-day work runs through slash-command **Skills inside your AI agent** (Claude Code, Antigravity, Copilot, Codex), and every deterministic operation those Skills perform is executed by the required **`prospec` CLI**. The payoff: the agent follows a consistent `story → plan → tasks → implement → review → verify → archive` workflow, grounded in structured, version-controlled project knowledge.
 
 Three pieces work together:
 
 - **Skills** run the workflow inside your agent — the day-to-day surface.
 - **AI Knowledge** is progressive, version-controlled project memory (modules, specs, lessons) the Skills read and grow with each change.
-- **CLI (`prospec`)** is a one-time/occasional bootstrap tool that scaffolds the project and regenerates Skills + Knowledge — it is *not* in the runtime loop.
+- **CLI (`prospec`)** is a required standalone executable in the runtime loop — every deterministic operation the Skills need (scaffolds, lifecycle transitions, structured records, drift checks, grading, archive sync) runs as reproducible code.
 
 ## Full documentation
 
