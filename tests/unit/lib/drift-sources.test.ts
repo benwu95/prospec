@@ -2419,6 +2419,45 @@ describe('collectBudgetOverrides', () => {
     }
   });
 
+  it('credits a comment written above the block\'s first key, and only to that key', () => {
+    // The YAML AST hangs a leading comment on the *collection* when the key it
+    // introduces is the block's first — so reading only `key.commentBefore`
+    // makes the most natural way to justify an override invisible.
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    # This project's L1 index catalogs a large architecture.
+    l1_per_file: 999999
+    l2_per_module: 500000
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.overrides.find((o) => o.key === 'l1_per_file')?.hasComment).toBe(true);
+      expect(res.overrides.find((o) => o.key === 'l2_per_module')?.hasComment).toBe(false);
+    }
+  });
+
+  it('credits a comment written above a later key to that key alone', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    l1_per_file: 999999
+    # Deep contextual rules need the extra room.
+    l2_per_module: 500000
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.overrides.find((o) => o.key === 'l1_per_file')?.hasComment).toBe(false);
+      expect(res.overrides.find((o) => o.key === 'l2_per_module')?.hasComment).toBe(true);
+    }
+  });
+
   it('ignores overrides less than or equal to default', () => {
     writeFileSync(
       path.join(cwd, '.prospec.yaml'),

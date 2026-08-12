@@ -818,19 +818,24 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
         if (isMap(budgetNode)) {
           hasBudgetSection = true;
           
-          for (const item of budgetNode.items) {
+          for (const [index, item] of budgetNode.items.entries()) {
             if (!isScalar(item.key) || !isScalar(item.value)) continue;
             const keyStr = String(item.key.value);
             if (!(keyStr in DEFAULT_KNOWLEDGE_TOKEN_BUDGET)) continue;
-            
+
             const defaultValue = DEFAULT_KNOWLEDGE_TOKEN_BUDGET[keyStr as keyof KnowledgeSizeBudget];
             const value = Number(item.value.value);
-            
+
             if (value > (defaultValue ?? 0)) {
               const startPos = item.key.range?.[0] ?? 0;
               const line = content.substring(0, startPos).split('\n').length;
-              const hasComment = !!item.key.commentBefore || !!item.value.comment || !!item.value.commentBefore;
-              
+              // A comment introducing the block's first key hangs on the collection,
+              // not on that key — so the most natural way to justify an override
+              // (a line above it) is invisible from `key.commentBefore` alone.
+              const leadsTheBlock = index === 0 && !!budgetNode.commentBefore;
+              const hasComment =
+                !!item.key.commentBefore || !!item.value.comment || !!item.value.commentBefore || leadsTheBlock;
+
               overrides.push({
                 key: keyStr as keyof KnowledgeSizeBudget,
                 value,
