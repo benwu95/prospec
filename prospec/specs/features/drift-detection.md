@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-11
-story_count: 19
-req_count: 67
+last_updated: 2026-08-13
+story_count: 20
+req_count: 69
 ---
 
 # Deterministic Drift Check
@@ -647,11 +647,12 @@ So that a wrong counter cannot enter the trust zone silently and stay there — 
 - WHEN the evaluator's behavior changes, THEN the per-id comment is updated with it
 
 #### REQ-LIB-042: spec-counters collector + evaluator
-`collectSpecCounters(featuresDir, cwd)` (all I/O) reads every non-archived feature spec and reports, per file, the frontmatter `story_count`/`req_count` it declares alongside the counts derived from its body through the shared `matchReqHeading` — REQ headings outside the `## Deprecated Requirements` section, stories at both `## US-` and `### US-` levels, mirroring what `archive finalize` writes. An absent features directory, a directory with no spec, a directory whose specs all fail to parse, and an unreadable enumerated file each degrade honestly: the first three return `{available:false, reason}` so the check skips rather than passing vacuously, the fourth costs its own line, not the run. A sample of zero is never reported as clean — that is the shape in which a check passes over nothing checked. Pure `evaluateSpecCounters` emits one warn finding per disagreeing counter, naming the file, the field, the declared value and the body-derived value; findings are codepoint-sorted. A missing counter field is not a disagreement — it is out of scope, since the writer's own contract is to add it.
+`collectSpecCounters(featuresDir, cwd)` (all I/O) assembles each non-archived feature spec's main file and its `features/{feature}/` slices through `loadFeatureSpecContent`, then reports, per file, the frontmatter `story_count`/`req_count` it declares alongside the counts derived from the combined body through the shared `matchReqHeading` — REQ headings outside the `## Deprecated Requirements` section, stories at both `## US-` and `### US-` levels — so the body-derived counts sum the main file and every slice, genuinely mirroring what `archive finalize` writes. An absent features directory, a directory with no spec, a directory whose specs all fail to parse, and an unreadable enumerated file each degrade honestly: the first three return `{available:false, reason}` so the check skips rather than passing vacuously, the fourth costs its own line, not the run. A sample of zero is never reported as clean — that is the shape in which a check passes over nothing checked. Pure `evaluateSpecCounters` emits one warn finding per disagreeing counter, naming the file, the field, the declared value and the body-derived value; findings are codepoint-sorted. A missing counter field is not a disagreement — it is out of scope, since the writer's own contract is to add it.
 - WHEN a spec's declared counter differs from its body-derived count, THEN the check warns naming file, field, declared and actual
 - WHEN every spec agrees, THEN the check passes
 - WHEN the features directory is absent, holds no spec, or holds no spec that parses, THEN the check skips with a reason
 - WHEN a counter field is absent from the frontmatter, THEN no finding is emitted for it
+- WHEN a spec is split into `features/{feature}/` slices, THEN its body-derived counts sum the main file and every slice, matching what `archive finalize` records
 
 #### REQ-SERVICES-077: spec-counters check wiring
 `check.service` resolves the features directory through the same canonical resolver every other collector uses — never a re-derived path — and injects `collectSpecCounters`'s result into `runChecks`. The check participates in the pure read-only path, so a `prospec check` run remains byte-reproducible and side-effect-free, and its outcome and findings appear in the `--json` report like every other id.
@@ -771,6 +772,31 @@ so that a change that re-verifies at B/C/D stops passing the gate on the strengt
 
 ---
 
+## US-20: Drift-check feature-spec collectors read slices [P1]
+
+As a developer maintaining prospec's own feature specs,
+I want the `collectReqDefinitions` / `collectSpecCounters` / `collectFeatureMapGovernance` drift collectors to see REQ definitions and US/REQ counts inside `features/{feature}/` slices,
+so that splitting an over-budget spec into slices keeps `prospec check` green and consistent with what `archive finalize` writes.
+
+**Acceptance Scenarios:**
+- WHEN a REQ referenced by a module README is defined only in a `features/{feature}/` slice, THEN `req-references` resolves it and stays PASS
+- WHEN a feature spec's stories and REQs span the main file and its slices, THEN `spec-counters` compares the main+slices sum against the frontmatter, matching what `archive finalize` writes
+- WHEN a slice REQ belongs to a feature, THEN `feature-modules` and `dangling-prefix` include it in the feature↔module and prefix checks
+- WHEN a project has no slices, THEN the three collectors' results equal the prior single-file reads
+
+#### REQ-LIB-053: Feature-spec definition and feature-map collectors assemble slices
+`collectReqDefinitions(featuresDir)` and `collectFeatureMapGovernance(featuresDir, knowledgePath, cwd, attributionMap)` enumerate active specs through `listFeatureSpecs` and assemble each one's main file and its `features/{feature}/` slices through `loadFeatureSpecContent` — the same reader `spec show` and `archive finalize` use — before indexing REQ headings through the shared `matchReqHeading`. A REQ defined only in a slice therefore registers in the definition index, so a reference to it is never a false dangling-reference FAIL, and it enters the feature↔module and REQ-prefix checks. With no slice the assembled content equals the main file, so behavior is byte-identical to the previous single-file read. A missing or unreadable slice named by the `## Slices` index costs its own skipped line, never the run — the collectors are arguments to `runChecks` and must not throw.
+- WHEN a REQ is defined only in a `features/{feature}/` slice, THEN `req-references` resolves it and reports no dangling reference
+- WHEN a slice REQ belongs to a feature, THEN `feature-modules` and `dangling-prefix` see it in the feature↔module and prefix checks
+- WHEN a feature spec has no slices, THEN the collectors' results equal reading the main file alone
+- WHEN a slice named by the `## Slices` index is missing or unreadable, THEN that spec degrades on its own line and the run continues
+
+#### REQ-TESTS-086: slice-aware feature-spec collector tests
+Unit tests pin the slice-aware behavior of all three feature-spec drift collectors: a REQ defined only in a slice makes `evaluateReqReferences` pass rather than FAIL; `collectSpecCounters` sums main+slices to match a frontmatter counter written by `archive finalize`; `collectFeatureMapGovernance` sees a slice REQ in the feature↔module and prefix checks. A no-slice regression asserts equivalence with the pre-change single-file reads. Mutation verification is part of the contract: reverting any collector to a main-only read must turn its slice case red.
+- WHEN a collector is reverted to a main-only read, THEN its slice test fails
+- WHEN a feature spec has no slices, THEN the collectors' outputs equal the pre-change single-file reads
+- WHEN the slice-defined REQ fixture runs, THEN `req-references` passes and `spec-counters` reports the summed count
+
 ## Edge Cases
 
 - `specs/features/` does not exist or is empty: req-references `skipped (source unavailable)`, not FAIL
@@ -803,6 +829,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-13 | make-spec-collectors-slice-aware | MODIFIED REQ-LIB-042; ADDED REQ-LIB-053; ADDED REQ-TESTS-086 | REQ-LIB-042, REQ-LIB-053, REQ-TESTS-086 |
 | 2026-08-11 | configurable-generated-artifacts | MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-025; MODIFIED REQ-TESTS-071; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-173; ADDED REQ-TYPES-082; ADDED REQ-TESTS-084 | REQ-LIB-039, REQ-LIB-025, REQ-TESTS-071, REQ-TEMPLATES-171, REQ-TEMPLATES-173, REQ-TYPES-082, REQ-TESTS-084 |
 | 2026-08-08 | read-specs-by-req | MODIFIED REQ-LIB-041 | REQ-LIB-041 |
 | 2026-08-08 | stop-silent-spec-body-loss | ADDED REQ-TYPES-078; ADDED REQ-LIB-045; ADDED REQ-SERVICES-082; ADDED REQ-TESTS-078; MODIFIED REQ-TYPES-052; MODIFIED REQ-SERVICES-062; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TESTS-045; MODIFIED REQ-TYPES-075; MODIFIED REQ-TEMPLATES-172; MODIFIED REQ-LIB-027; MODIFIED REQ-TYPES-034; MODIFIED REQ-LIB-014; MODIFIED REQ-TESTS-074; MODIFIED REQ-CLI-011 | REQ-TYPES-078, REQ-LIB-045, REQ-SERVICES-082, REQ-TESTS-078, REQ-TYPES-052, REQ-SERVICES-062, REQ-TEMPLATES-171, REQ-TESTS-045, REQ-TYPES-075, REQ-TEMPLATES-172, REQ-LIB-027, REQ-TYPES-034, REQ-LIB-014, REQ-TESTS-074, REQ-CLI-011 |

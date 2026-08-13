@@ -14,10 +14,11 @@ import { parseTaskLine, type TaskKind } from './task-markers.js';
 import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE } from './spec-headings.js';
 import {
   ARCHIVED_EXCLUDES,
-  isArchivedSpec,
   isContainedPath,
   isSafeResourceName,
+  listFeatureSpecs,
   loadFeatureMap,
+  loadFeatureSpecContent,
   readContainedText,
   readIndex,
   readModuleReadme,
@@ -340,21 +341,22 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   if (!existsSync(featuresDir)) {
     return { available: false, reason: `source unavailable: ${featuresDir} not found`, ids: [] };
   }
-  const files = readdirSync(featuresDir).filter(
-    (f) => f.endsWith('.md') && !isArchivedSpec(f),
-  );
-  if (files.length === 0) {
+  const features = listFeatureSpecs(featuresDir);
+  if (features.length === 0) {
     return { available: false, reason: `source unavailable: no feature specs in ${featuresDir}`, ids: [] };
   }
   const ids = new Set<string>();
-  for (const file of files.sort()) {
-    const text = readTextOrSkip(path.join(featuresDir, file));
-    if (text === null) continue;
+  for (const feature of features) {
+    // Assemble main + `features/{feature}/` slices, so a REQ defined only in a
+    // slice still registers here — otherwise its own heading, scanned as a
+    // reference, would resolve to no definition and FAIL req-references.
+    const loaded = loadFeatureSpecContent(featuresDir, feature);
+    if (loaded === null) continue;
     // The same index the narrow REQ-scoped read is built on, so a change to what
     // counts as a definition reaches this inventory and that read together.
     // A struck id is still DEFINED — this index answers "does this REQ exist
     // anywhere", so a reference to a deprecated REQ is not a dangling one.
-    for (const req of indexSpec(text, { includeStruck: true }).requirements) ids.add(req.id);
+    for (const req of indexSpec(loaded.specContent, { includeStruck: true }).requirements) ids.add(req.id);
   }
   return { available: true, ids: [...ids].sort() };
 }
@@ -389,8 +391,8 @@ export function collectSpecCounters(featuresDir: string, cwd: string): SpecCount
   if (!existsSync(featuresDir)) {
     return { available: false, reason: `source unavailable: ${featuresDir} not found`, specs: [] };
   }
-  const files = readdirSync(featuresDir).filter((f) => f.endsWith('.md') && !isArchivedSpec(f));
-  if (files.length === 0) {
+  const features = listFeatureSpecs(featuresDir);
+  if (features.length === 0) {
     return {
       available: false,
       reason: `source unavailable: no feature specs in ${featuresDir}`,
@@ -398,14 +400,17 @@ export function collectSpecCounters(featuresDir: string, cwd: string): SpecCount
     };
   }
   const specs: SpecCounterClaim[] = [];
-  for (const file of files.sort()) {
-    const text = readTextOrSkip(path.join(featuresDir, file));
-    if (text === null) continue;
-    const counters = readSpecCounters(text);
+  for (const feature of features) {
+    // Assemble main + slices, so a sliced spec's body-derived counts sum every
+    // slice — genuinely matching what `archive finalize` writes, rather than the
+    // main file alone.
+    const loaded = loadFeatureSpecContent(featuresDir, feature);
+    if (loaded === null) continue;
+    const counters = readSpecCounters(loaded.specContent);
     if (counters === null) continue;
     specs.push({
-      source_path: path.relative(cwd, path.join(featuresDir, file)).replace(/\\/g, '/'),
-      feature: file.slice(0, -'.md'.length),
+      source_path: path.relative(cwd, loaded.mainFile).replace(/\\/g, '/'),
+      feature,
       declared: counters.declared,
       actual: counters.actual,
     });
@@ -1117,23 +1122,31 @@ export function collectFeatureMapGovernance(
     return { available: false, reason: `source unavailable: ${featuresDir} not found`, ...empty };
   }
   const specs: FeatureSpecReqs[] = [];
-  const files = readdirSync(featuresDir)
-    .filter((f) => f.endsWith('.md') && !isArchivedSpec(f))
-    .sort();
-  for (const file of files) {
+  // Line-by-line so each REQ keeps its own line number for the finding anchor —
+  // deliberately NOT `indexSpec`, whose record `start` is a character offset.
+  const scanReqs = (body: string, reqs: FeatureSpecReqs['reqs']): void => {
+    body.split('\n').forEach((line, i) => {
+      const id = matchReqHeading(line)?.id;
+      if (id === undefined) return;
+      reqs.push({ id, prefix: reqIdToPrefix(id), line: i + 1 });
+    });
+  };
+  for (const feature of listFeatureSpecs(featuresDir)) {
+    const loaded = loadFeatureSpecContent(featuresDir, feature);
+    if (loaded === null) continue;
     const reqs: FeatureSpecReqs['reqs'] = [];
-    const body = readTextOrSkip(path.join(featuresDir, file));
-    if (body === null) continue;
-    body
-      .split('\n')
-      .forEach((line, i) => {
-        const id = matchReqHeading(line)?.id;
-        if (id === undefined) return;
-        reqs.push({ id, prefix: reqIdToPrefix(id), line: i + 1 });
-      });
+    const sc = loaded.specContent;
+    // A REQ defined only in a `features/{feature}/` slice enters the feature↔module
+    // and prefix checks too — main first, then each slice in a stable order.
+    if (typeof sc === 'string') {
+      scanReqs(sc, reqs);
+    } else {
+      scanReqs(sc.main, reqs);
+      for (const name of Object.keys(sc.slices).sort()) scanReqs(sc.slices[name]!, reqs);
+    }
     specs.push({
-      feature: file.slice(0, -'.md'.length),
-      source_path: path.relative(cwd, path.join(featuresDir, file)).replace(/\\/g, '/'),
+      feature,
+      source_path: path.relative(cwd, loaded.mainFile).replace(/\\/g, '/'),
       reqs,
     });
   }

@@ -186,12 +186,13 @@ describe('feature-spec REQ heading single source', () => {
         /readSpecCounters\((?:content|specContent)\)/,
       ],
       'src/lib/drift-sources.ts': [
-        // The definition inventory reads the shared INDEX now, not its own line
-        // walk — so what counts as a definition cannot change for the narrow read
-        // and stay the same here.
-        /indexSpec\(text, \{ includeStruck: true \}\)/,
+        // The definition inventory and the counter read assemble main + slices
+        // through `loadFeatureSpecContent`, then hand the SpecContent to the shared
+        // index/counter — so what counts as a definition (or a count) cannot change
+        // for the narrow read and stay the same here, slices included.
+        /indexSpec\(loaded\.specContent, \{ includeStruck: true \}\)/,
         /matchReqHeading\(line\)\?\.id/,
-        /readSpecCounters\(text\)/,
+        /readSpecCounters\(loaded\.specContent\)/,
       ],
       // The narrow REQ-scoped read: neither surface may parse a spec itself.
       'src/lib/spec-slices.ts': [/type SpecIndex/, /DEPRECATED_SECTION/],
