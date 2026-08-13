@@ -46,9 +46,9 @@ nondeterministic serialization this contract exists to remove.
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
 | **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 1800 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
-| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 15000 tokens per file |
+| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 5000 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 

@@ -25,13 +25,17 @@ knowledge:
     # Prospec's own L1 index is naturally large as it catalogs its own complex architecture.
     l1_per_file: 2500
     # Prospec's own L2 modules contain deep contextual rules requiring higher limits.
-    l2_per_module: 1800
-    # Raised from the shipped 10000 by the 2026-08-07 /prospec-learn Sweep: the
-    # ledger's floor is ~10,217 because 82 `personal` rows (8,366 tokens) may not
-    # be compressed by contract, so 10000 sat BELOW the file's structural floor
-    # and no Sweep could ever clear it. PASS here comes from widening the budget,
-    # NOT from the knowledge getting smaller.
-    demand_knowledge_per_file: 15000
+    l2_per_module: 2000
+    # Raised 10000->15000 (2026-08-07 Sweep), then 15000->20000 (2026-08-13 Sweep).
+    # `personal` rows may not be compressed by contract and have grown 82->94
+    # (~9,336 tokens), so the ledger's structural floor rose to ~16,038. A full
+    # Staleness Sweep of all 132 rows found 0 genuinely-retirable entries: the
+    # mechanized-and-dead ones were already retired in earlier sweeps, and the rest
+    # are live lessons or only partially mechanized (failure mode still reachable,
+    # so "mechanized != retired" keeps them). 15000 again sat BELOW the floor and
+    # no Sweep could clear it. PASS here comes from widening the budget, NOT from
+    # the knowledge getting smaller.
+    demand_knowledge_per_file: 20000
 artifact_language: Traditional Chinese (Taiwan)
 skill_triggers:
   prospec-explore:

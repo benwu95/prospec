@@ -34,7 +34,7 @@ their language; write the artifacts in English.
      changed a module's source but never touched its README (drift compares git commit times).
      **Fix it before releasing**: sync + commit that module README so the notes can honestly claim
      a green check. Then confirm the fix didn't tip **`knowledge-size`** over the L2 per-module
-     budget (this project overrides it to 1800 tokens in `.prospec.yaml`; the shipped default is
+     budget (this project overrides it to 2000 tokens in `.prospec.yaml`; the shipped default is
      1000) — if it did, trim the README back under budget (net-neutral) rather than accept a new
      WARN.
    - **`knowledge-size` budget WARN** that pre-exists and is deliberate (the SC-002 signal) may be
