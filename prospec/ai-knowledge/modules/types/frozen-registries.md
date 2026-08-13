@@ -7,7 +7,7 @@
 | File | Purpose |
 |------|---------|
 | `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES` |
-| `drift-report.ts` | `DRIFT_CHECK_IDS` (16, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
+| `drift-report.ts` | `DRIFT_CHECK_IDS` (18, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries the additive optional `last_sub_module_commit` (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
 | `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities`), `intersectCapabilities`, `VALID_AGENTS` |
 | `station.ts` | `VERIFY_DIMENSIONS` (+ its machine/judgment split), `VALIDATE_KINDS` — the judgment↔mechanics boundary — and `RELAYED_FIELD_MAX_CHARS`, the ceilings on what a delegated reviewer/grader RELAYS back (`evidence` is deliberately absent from the set: it goes to the artifact, never into a return payload). Adding a relayed field obliges a row in `delegated-evidence-format.hbs`, whose values `agent sync` injects — a contract test derives the expected rows from this constant's keys |
@@ -18,7 +18,7 @@
 ## Public API
 
 - `SCALE_FORBIDDEN_ARTIFACTS` / `forbiddenArtifacts` / `PROVENANCE_AUDITED_STATUSES` / `isProvenanceAudited` — per-scale artifact contract; provenance audit scope
-- `DRIFT_CHECK_IDS` — the 16 frozen drift-check ids
+- `DRIFT_CHECK_IDS` — the 18 frozen drift-check ids
 - `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `intersectCapabilities` — 17 skills + 4 agents (typed `Record<ValidAgent, …>`); harness capability flags + their conservative AND
 - `VERIFY_DIMENSIONS` / `VALIDATE_KINDS` — the 5+1 dimension registry; validate kinds
 - `SDD_STATIONS` / `STATION_SKILLS` — station order and the skill each station routes to

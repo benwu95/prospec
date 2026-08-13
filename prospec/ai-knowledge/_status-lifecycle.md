@@ -22,7 +22,7 @@ story → plan → tasks → implemented → verified → archived
 | `plan` | `tasks` | `/prospec-tasks` (or `/prospec-ff`) | `tasks.md` created |
 | — | `implemented` | `/prospec-promote-backfill` | **backfill path**: metadata `scale: backfill` — formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata; **no plan/tasks** — records existing code); the brownfield code already exists, so it enters at `implemented` (no story/plan/tasks/implement transitions run) |
 | `tasks` | `implemented` | `/prospec-implement` | all `tasks.md` **code-task** checkboxes complete (`[M]`/`[V]` kinds are reminders — see the tasks-format reference) |
-| `implemented` | `verified` | `/prospec-verify` | grade **S or A** (no FAIL, ≤ 2 WARN); machine dimensions adjudicated by `prospec check` |
+| `implemented` | `verified` | `/prospec-verify` | grade **S or A** (no FAIL, ≤ 2 WARN); its machine dimensions (task completion, Knowledge, tests) are adjudicated by `prospec check`, not by the agent |
 | `verified` | `archived` | `/prospec-archive` | only `verified` is archivable **and** affected-module Knowledge is synced (at the verify S/A commit prompt; archive Entry Gate re-confirms as backstop) |
 
 ## Station order
@@ -50,14 +50,14 @@ Which artifacts each scale's contract forbids. `SCALE_FORBIDDEN_ARTIFACTS` in `t
 - **`/prospec-implement`** sets `implemented` only when every `tasks.md` **code-task** checkbox is done (unchecked `[M]`/`[V]` tasks are reminders, not blockers) — this distinguishes "implemented, awaiting verify" from "tasks planned".
 - **`/prospec-verify`** sets `verified` ONLY at grade S/A. Grade B/C/D leaves `status` unchanged — status never regresses, so an already-`verified` change re-entering after a post-verify edit stays `verified`. `status` does not record the new grade, but `metadata-completeness` does: for a `verified` change it reads only the LATEST `/prospec-verify` entry, so a B/C/D re-verify turns it red until a fresh S/A is earned (an `archived` change keeps the any-entry reading, so stable history cannot flip). The report and that check, not the status, say the change is not archivable. Fix the WARN/FAIL items and re-run until S/A. Its machine dimensions are adjudicated by `prospec check` (verdicts adopted verbatim), its judgment dimensions in fresh context; an unavailable engine yields `not-adjudicated` (S unreachable, A attainable). Division of labour: verify's Key Difference section.
 - **`/prospec-archive`** archives ONLY `verified` changes; any earlier status is refused (verify to S/A first). Its Entry Gate is the **backstop** that re-confirms affected-module Knowledge is synced (the prevention is the verify S/A commit prompt) and still refuses to archive until affected-module READMEs reflect the change; it also refuses on any of the three provenance checks FAILing (see Provenance audit scope) — then archive sets `archived`.
-- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, with no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists — there is nothing to story/plan/tasks/implement). Under metadata `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and records pre-existing code-quality gaps as informational tech debt, and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map (feature-slug REQ IDs do not map to modules by prefix). A backfill change that has **not yet reached `implemented`** has an unfinished promotion: `prospec status` routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks — both refuse that scale.
+- **`/prospec-promote-backfill`** is the **backfill entry point**: it formalizes a reviewed `backfill-draft.md` into a light scaffold (proposal + delta-spec + metadata — `backfill` is a light scale like `quick`, no plan/tasks) and sets `status: implemented` directly (the brownfield code already exists). Under `scale: backfill`, `/prospec-verify` grades **spec-fidelity** (every delta-spec REQ's `file:line` must resolve) and `/prospec-archive` derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map. A backfill change that has **not yet reached `implemented`** has an unfinished promotion: `prospec status` routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks — both refuse that scale.
 
 ## Stations without a status transition
 
 Some workflow stations participate in the SDD order but own **no** `status` transition — they operate on the working tree and leave `status` to the stations above. Resume logic must place them by workflow order, not by `status`:
 
 - **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design. Under `scale: quick` the router does not suggest design (quick skips `plan`); run `/prospec-design` manually.
-- **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify — division of labour: verify's Key Difference); records `review_provenance` but does not change `status`. It also re-runs **after** `verified` when a post-verify edit staled that baseline — owning no status, it needs no transition to be re-enterable, and its Entry Gate status item is a floor.
+- **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `/prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`. It also re-runs **after** `verified` when a post-verify edit staled that baseline — owning no status, it needs no transition to be re-enterable, and its Entry Gate status item is a floor.
 - **`/prospec-learn`** — periodic; promotes lessons, owns no `status`.
 
 ## What each gate checks (artifact ownership)
@@ -84,15 +84,15 @@ HEAD is in the digest, so the verify S/A feature commit itself stales both basel
 
 ## Escaped-defect registration (`introduced_by`)
 
-A bug-fix change MAY name the earlier change whose gates let the defect through, making
-per-gate escaped-defect rate trackable (the only ground-truth accuracy signal) — `prospec check
---escaped-defects` aggregates it across `.prospec/changes/` and `.prospec/archive/`. In `metadata.yaml`:
+A bug-fix change MAY name the earlier change whose gates let the defect through, so
+per-gate escaped-defect rate becomes trackable — `prospec check --escaped-defects` aggregates it
+across `.prospec/changes/` and `.prospec/archive/`. In `metadata.yaml`:
 
 ```yaml
 introduced_by: <change-name>   # the change whose gates missed this defect
 ```
 
-- **Value**: the offending change's directory name (a plain string) — e.g. `introduced_by: fix-init-clobber-add-upgrade`. The aggregator resolves it against both ledgers, dated archive directories included; an unresolved or ambiguous name is reported, never dropped.
+- **Value**: the offending change's directory name (a plain string), e.g. `introduced_by: add-user-auth`. The aggregator resolves it against both ledgers, dated archive directories included; an unresolved or ambiguous name is reported, never dropped.
 - **Optional, convention-only**: absent on non-bug-fix changes; the schema neither requires it nor verifies the referenced change exists (a registration convention, not a referential-integrity check).
 - **When to set it**: once the offending change is identified — at `/prospec-new-story`, or back-filled onto the bug-fix change's metadata.
 
