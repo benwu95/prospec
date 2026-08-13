@@ -24,6 +24,7 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  computeWorkingTreeClean,
   computeDeltaSpecDigest,
   collectBudgetOverrides,
   moduleAttributor,
@@ -1557,6 +1558,58 @@ describe('computeChangeDigest', () => {
   });
 });
 
+// Shares computeChangeDigest's denylist scope on purpose — a clean signal judged
+// over a different file set than the digest it explains would be worse than none.
+describe('computeWorkingTreeClean', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('is true when everything is committed (the state a commit after --record-review leaves)', () => {
+    initRepo();
+    expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+  });
+
+  it('is false when a tracked file has an uncommitted edit', () => {
+    initRepo();
+    write('src/lib/x.ts', 'export const a = 2;\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(false);
+  });
+
+  it('is false when an untracked code file exists in scope', () => {
+    initRepo();
+    write('src/lib/new.ts', 'export const b = 3;\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(false);
+  });
+
+  it('stays clean when only out-of-scope files (workflow / report / dist) are dirty', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    write(DRIFT_REPORT_FILENAME, '{"generated_at":"now"}\n');
+    write('dist/x.js', 'x\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+  });
+
+  it('is null (unknown) outside a git work tree — never a fabricated clean', () => {
+    expect(computeWorkingTreeClean(tmpDir)).toBeNull();
+  });
+
+  // Same fail-closed branch computeChangeDigest has: an unborn-HEAD repo IS a work
+  // tree, but `git diff HEAD` fails, so the signal degrades to null, not to a clean.
+  it('is null via the capture-failure branch on an unborn-HEAD repo', () => {
+    git('init', '-q');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBeNull();
+  });
+});
+
 describe('collectReviewProvenance', () => {
   const git = (...args: string[]) =>
     execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
@@ -1611,6 +1664,13 @@ describe('collectReviewProvenance', () => {
     const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
     expect(r.changes.find((c) => c.name === 'proven')).toMatchObject({ backfill_draft_present: true });
     expect(r.changes.find((c) => c.name === 'claimed')).toMatchObject({ backfill_draft_present: false });
+  });
+
+  it('threads the explicit working_tree_clean signal onto the source', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: implemented\nscale: standard\n');
+    expect(collectReviewProvenance(tmpDir, 'DIGEST', true).working_tree_clean).toBe(true);
+    expect(collectReviewProvenance(tmpDir, 'DIGEST', null).working_tree_clean).toBeNull();
   });
 });
 

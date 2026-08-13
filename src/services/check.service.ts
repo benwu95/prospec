@@ -38,6 +38,7 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  computeWorkingTreeClean,
   collectBudgetOverrides,
   collectCanonicalDocDrift,
   isGitWorkTree,
@@ -157,6 +158,9 @@ export async function execute(
   // One digest per run, shared by both provenance collectors: it is the most
   // expensive fact the engine gathers and the two can never disagree within a run.
   const currentDigest = computeChangeDigest(cwd);
+  // The one whole-tree clean signal, computed once and shared for the same reason —
+  // it must be judged over the digest's exact scope and identically for both gates.
+  const workingTreeClean = computeWorkingTreeClean(cwd);
 
   const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
   const attributionMap = moduleMap ?? constitutionFallbackModuleMap();
@@ -195,7 +199,7 @@ export async function execute(
     mcpReadmeCounts: moduleMap
       ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
-    reviewProvenance: collectReviewProvenance(cwd, currentDigest),
+    reviewProvenance: collectReviewProvenance(cwd, currentDigest, workingTreeClean),
     // No shared digest to pass: this one fingerprints each change's own
     // delta-spec, so the collector computes them per change.
     deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
@@ -212,7 +216,13 @@ export async function execute(
     ),
     // The resolved command decides whether this check can apply at all — a project
     // with none skips honestly instead of failing a gate it can never satisfy.
-    testProvenance: collectTestProvenance(cwd, resolveTestCommand(config, cwd), currentDigest),
+    testProvenance: collectTestProvenance(
+      cwd,
+      resolveTestCommand(config, cwd),
+      currentDigest,
+      undefined,
+      workingTreeClean,
+    ),
     // The Constitution path comes from the canonical resolver, never re-derived here.
     constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
     // Scan set comes from the SAME resolver the Constitution rule is generated
