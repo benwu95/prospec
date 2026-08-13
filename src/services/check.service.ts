@@ -39,6 +39,7 @@ import {
   collectTestProvenance,
   computeChangeDigest,
   collectBudgetOverrides,
+  collectCanonicalDocDrift,
   isGitWorkTree,
 } from '../lib/drift-sources.js';
 import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
@@ -221,6 +222,7 @@ export async function execute(
     // Same resolved features directory the REQ-definition and feature-map
     // collectors read — the counters are a fact about those very files.
     specCounters: collectSpecCounters(featuresDir, cwd),
+    canonicalDocDrift: collectCanonicalDocDrift(config, cwd),
     generatedAt: new Date().toISOString(),
   });
   // Stamp the code state the verdicts describe — `verify record` refuses a

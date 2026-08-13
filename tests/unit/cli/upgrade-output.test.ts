@@ -195,8 +195,8 @@ describe('formatUpgradeOutput', () => {
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true },
-          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: false },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: false, canonical: false },
         ],
       }),
       'normal',
@@ -211,12 +211,28 @@ describe('formatUpgradeOutput', () => {
     expect(text).toContain('1 doc(s) still missing');
   });
 
+  it('tags canonical docs with [canonical] in the inventory, never user-authored ones', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          { path: 'prospec/README.md', template: 'init/readme.md.hbs', present: true, canonical: true },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
+        ],
+      }),
+      'normal',
+    );
+    const text = stdout();
+    expect(text).toContain('[canonical] prospec/README.md');
+    expect(text).not.toContain('[canonical] prospec/CONSTITUTION.md');
+  });
+
   it('lists docs it back-filled this run under a created line', () => {
     const { stdout } = captureStreams();
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: true },
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: true, canonical: false },
         ],
         createdDocs: ['prospec/ai-knowledge/_glossary.md'],
       }),
@@ -233,7 +249,7 @@ describe('formatUpgradeOutput', () => {
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
         ],
       }),
       'normal',
@@ -253,6 +269,7 @@ describe('formatUpgradeOutput', () => {
             path: 'prospec/[31mevil.md',
             template: 'init/constitution.md.hbs',
             present: false,
+            canonical: false,
           },
         ],
       }),

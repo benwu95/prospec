@@ -88,11 +88,10 @@ baseline, requires consent. Do that here:
    marks MISSING** (its back-fill failed), offer to create it by rendering its listed template.
    Creating a file risks no authored content, but still **ask before each creation** and show what
    will be written; leave declined files uncreated.
-5. **For each doc the inventory marks present**, compare it to its listed template — compare the
-   **format/structure** (severity tags, section markers), never the user's authored wording. For
-   each file whose format has drifted, **show a diff and ask the user whether to update it** —
-   migrate the FORMAT only, preserving authored content. Apply only the files the user approves;
-   leave the rest unchanged.
+5. **For each doc the inventory marks present**, compare it to its listed template:
+   - **If the line has a `[canonical]` marker** (e.g. `README.md` or core conventions), the doc has no authored wording. Compare the **full content** (CRLF normalized). If it has drifted, **show a diff and ask the user whether to overwrite it** with the template content.
+   - **If the line lacks the marker** (user-managed), compare the **format/structure** (severity tags, section markers) only, never the user's authored wording. If the format has drifted, **show a diff and ask the user whether to update it** — migrate the FORMAT only, preserving authored content.
+   Apply only the files the user approves; leave the rest unchanged.
 
 ### Step 2.5: Migrate the seeded Language Policy wording (only when flagged)
 

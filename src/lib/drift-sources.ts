@@ -28,7 +28,9 @@ import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
-import type { KnowledgeSizeBudget, KnowledgeSizeKind } from '../types/config.js';
+import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
+import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
+import { buildInitDocContexts, renderInitDoc, resolveInitDocLocation } from './init-docs.js';
 
 /**
  * Drift source collectors — ALL filesystem/git I/O for `prospec check`
@@ -161,6 +163,19 @@ export interface BudgetOverrideSource {
   reason?: string;
   source_path: string;
   overrides: BudgetOverride[];
+}
+
+export interface CanonicalDocDriftItem {
+  /** Repo-relative path of the checked document. */
+  source_path: string;
+  /** Whether the on-disk content matches the template-rendered content exactly (CRLF normalized). */
+  matches: boolean;
+}
+
+export interface CanonicalDocDriftSource {
+  available: boolean;
+  reason?: string;
+  docs: CanonicalDocDriftItem[];
 }
 
 export type { TaskKind } from './task-markers.js';
@@ -2036,4 +2051,57 @@ export function collectArtifactLanguage(
   // and would break cross-machine report byte-identity.
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { available: true, language: scope.language, files };
+}
+
+/**
+ * Collect Canonical Doc Drift - compares each present canonical/no-authored-content
+ * init doc against its template-rendered content. Resolves actual locations, reuses
+ * init's rendering path, and normalizes CRLF to LF for comparison.
+ */
+export function collectCanonicalDocDrift(
+  config: ProspecConfig,
+  cwd: string,
+): CanonicalDocDriftSource {
+  const docs: CanonicalDocDriftItem[] = [];
+  let contexts;
+  try {
+    contexts = buildInitDocContexts(config, cwd);
+  } catch (e) {
+    // Never throw out of a runChecks(...) argument (AC#3): a malformed config that
+    // still passed readConfig must degrade this one check to skipped, not abort all.
+    return {
+      available: false,
+      reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`,
+      docs: [],
+    };
+  }
+
+  for (const doc of CANONICAL_INIT_DOCS) {
+    const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
+    if (!existsSync(absPath)) continue;
+
+    const actual = readTextOrSkip(absPath);
+    if (actual === null) continue;
+    let expected: string;
+    try {
+      expected = renderInitDoc(doc, contexts);
+    } catch {
+      // The spec explicitly requires: "the collector never throws (per-doc read/render is try/skip)"
+      continue;
+    }
+
+    const normActual = actual.replace(/\r\n/g, '\n').trimEnd() + '\n';
+    const normExpected = expected.replace(/\r\n/g, '\n').trimEnd() + '\n';
+
+    docs.push({
+      source_path: label,
+      matches: normActual === normExpected,
+    });
+  }
+
+  if (docs.length === 0) {
+    return { available: false, reason: 'no canonical docs present', docs: [] };
+  }
+
+  return { available: true, docs };
 }

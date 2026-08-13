@@ -27,13 +27,16 @@ import {
   computeDeltaSpecDigest,
   collectBudgetOverrides,
   moduleAttributor,
+  collectCanonicalDocDrift,
 } from '../../../src/lib/drift-sources.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
-import type { KnowledgeSizeBudget } from '../../../src/types/config.js';
+import type { KnowledgeSizeBudget, ProspecConfig } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
+import { buildInitDocContexts, renderInitDoc } from '../../../src/lib/init-docs.js';
+import { CANONICAL_INIT_DOCS } from '../../../src/types/conventions.js';
 
 // drift-sources uses fast-glob + git, so tests run on real temp dirs
 // (same approach as scanner.test.ts — memfs is not visible to fast-glob).
@@ -2480,6 +2483,68 @@ describe('collectBudgetOverrides', () => {
     expect(res.available).toBe(false);
     if (!res.available) {
       expect(res.reason).toMatch(/failed to parse/);
+    }
+  });
+});
+
+describe('collectCanonicalDocDrift', () => {
+  const MOCK_CONFIG = {
+    project: { name: 'prospec' },
+    tech_stack: { language: 'typescript', package_manager: 'pnpm' },
+  } as unknown as ProspecConfig;
+
+  it('normalizes CRLF to LF for accurate matching', () => {
+    const contexts = buildInitDocContexts(MOCK_CONFIG, tmpDir);
+    const doc = CANONICAL_INIT_DOCS.find(d => d.output === 'README.md')!;
+    const expected = renderInitDoc(doc, contexts);
+    write('prospec/README.md', expected.replace(/\n/g, '\r\n'));
+    
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
+      expect(readme).toBeDefined();
+      expect(readme!.matches).toBe(true);
+    }
+  });
+
+  it('reports drift when content differs', () => {
+    write('prospec/README.md', '# prospec\n\nDrifted body\n');
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
+      expect(readme).toBeDefined();
+      expect(readme!.matches).toBe(false);
+    }
+  });
+
+  it('skips missing files without erroring (and returns unavailable if none exist)', () => {
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    expect(res.available).toBe(false);
+  });
+
+  it('matches exactly when contents are identical', () => {
+    const contexts = buildInitDocContexts(MOCK_CONFIG, tmpDir);
+    const doc = CANONICAL_INIT_DOCS.find(d => d.output === 'README.md')!;
+    const expected = renderInitDoc(doc, contexts);
+    
+    write('prospec/README.md', expected);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
+      expect(readme!.matches).toBe(true);
+    }
+  });
+
+  it('ignores out-of-scope files like user-managed docs', () => {
+    write('prospec/README.md', '# prospec\n\n> AI-augmented project with Prospec Skills and structured AI Knowledge\n\n## Tech Stack\n\n- **Language**: typescript\n- **Package Manager**: pnpm\n');
+    write('prospec/specs/features/some.md', '# Not a canonical doc\n');
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.docs.find((f) => f.source_path === 'prospec/specs/features/some.md')).toBeUndefined();
     }
   });
 });

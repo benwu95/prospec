@@ -101,10 +101,11 @@ export function formatUpgradeOutput(
   lines.push(pc.bold('Docs inventory:'));
   for (const doc of report.docs) {
     const suffix = `(template: ${doc.template})`;
+    const canonicalMarker = doc.canonical ? `${pc.magenta('[canonical]')} ` : '';
     lines.push(
       doc.present
-        ? `${pc.green('✓')} ${sanitizeTerminal(doc.path)} ${suffix}`
-        : `${pc.yellow('✗')} ${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
+        ? `${pc.green('✓')} ${canonicalMarker}${sanitizeTerminal(doc.path)} ${suffix}`
+        : `${pc.yellow('✗')} ${canonicalMarker}${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
     );
   }
   // Docs back-filled this run — rendered from their template (skip-if-exists).

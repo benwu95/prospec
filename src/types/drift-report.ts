@@ -123,6 +123,11 @@ export const DRIFT_CHECK_IDS = [
   // delta-spec.
   'delta-spec-provenance',
   'unjustified-budget-override',
+  // Canonical Doc Drift — a zero-LLM drift check that compares each present
+  // canonical/no-authored-content init doc against the content its template
+  // renders for this project. Resolves at actual locations and reuses init's
+  // rendering path. Warns on divergence; skips if absent.
+  'canonical-doc-drift',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

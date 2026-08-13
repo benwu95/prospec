@@ -3,6 +3,7 @@ import {
   CANONICAL_CONVENTION_DOCS,
   USER_MANAGED_CONVENTION_DOCS,
   INIT_DOC_REGISTRY,
+  CANONICAL_INIT_DOCS,
   asKnowledgeInitDoc,
 } from '../../../src/types/conventions.js';
 
@@ -30,6 +31,7 @@ describe('INIT_DOC_REGISTRY', () => {
       template: 'init/readme.md.hbs',
       root: 'base',
       output: 'README.md',
+      canonical: true,
     });
     // it must NOT be a knowledge convention doc projected via asKnowledgeInitDoc
     expect(
@@ -57,7 +59,23 @@ describe('INIT_DOC_REGISTRY', () => {
 
   it('derives the canonical convention docs instead of duplicating them', () => {
     for (const canonical of CANONICAL_CONVENTION_DOCS) {
-      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(canonical));
+      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(canonical, true));
+    }
+  });
+
+  it('defines the canonical docs subset exactly as the README + canonical conventions (contract)', () => {
+    expect(CANONICAL_INIT_DOCS.map((d) => d.output).sort()).toEqual(
+      [
+        'README.md',
+        ...CANONICAL_CONVENTION_DOCS.map((d) => d.output),
+      ].sort()
+    );
+    // Explicitly exclude these from being canonical
+    const outputs = CANONICAL_INIT_DOCS.map((d) => d.output);
+    expect(outputs).not.toContain('CONSTITUTION.md');
+    expect(outputs).not.toContain('index.md');
+    for (const userManaged of USER_MANAGED_CONVENTION_DOCS) {
+      expect(outputs).not.toContain(userManaged.output);
     }
   });
 
@@ -66,7 +84,7 @@ describe('INIT_DOC_REGISTRY', () => {
     // vice versa) was exactly the drift class behind issue #48 — bind the lists
     // (the pinned 7-doc shape test independently guards the projection itself)
     for (const doc of USER_MANAGED_CONVENTION_DOCS) {
-      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(doc));
+      expect(INIT_DOC_REGISTRY).toContainEqual(asKnowledgeInitDoc(doc, false));
     }
   });
 
