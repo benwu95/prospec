@@ -5,6 +5,7 @@ import {
   recountFeatureSpecCounters,
 } from '../../../src/services/archive.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { parseSpecSlices } from '../../../src/lib/spec-headings.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -385,8 +386,20 @@ describe('recountFeatureSpecCounters', () => {
     const realPath = await vi.importActual<typeof import('node:path')>('node:path');
     const featuresDir = realPath.resolve(__dirname, '../../../prospec/specs/features');
     for (const file of realFs.readdirSync(featuresDir).filter((f) => f.endsWith('.md'))) {
-      const content = realFs.readFileSync(realPath.join(featuresDir, file), 'utf-8');
-      const recount = recountFeatureSpecCounters(content);
+      // Recount the COMPOSED spec (main + its `features/{feature}/` slices), the
+      // same content the production archive path recounts — a spec sliced under
+      // `features/{feature}/` declares its counters as the main+slices sum, so a
+      // main-only recount would falsely under-count a split spec.
+      const main = realFs.readFileSync(realPath.join(featuresDir, file), 'utf-8');
+      const feature = file.slice(0, -'.md'.length);
+      const slices: Record<string, string> = {};
+      for (const name of parseSpecSlices(main)) {
+        const slicePath = realPath.join(featuresDir, feature, `${name}.md`);
+        if (realFs.existsSync(slicePath)) slices[name] = realFs.readFileSync(slicePath, 'utf-8');
+      }
+      const recount = recountFeatureSpecCounters(
+        Object.keys(slices).length > 0 ? { main, slices } : main,
+      );
       if (!recount) continue;
       expect({ file, ...recount.to }).toEqual({
         file,

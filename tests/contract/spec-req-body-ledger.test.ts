@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,26 +19,45 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FEATURES_DIR = path.join(REPO_ROOT, 'prospec/specs/features');
 
-/** Pre-existing body-less REQs (12), as `{spec-file}:{REQ-ID}`. Repair → delete the entry. */
+/**
+ * Pre-existing body-less REQs (12), as `{spec-path}:{REQ-ID}` relative to
+ * FEATURES_DIR. The path is the file that actually holds the heading — after the
+ * per-story slice split these REQs live in `{feature}/{slice}.md`, not the main
+ * spec. Repair → delete the entry.
+ */
 const LEGACY_BODYLESS = [
-  'ai-knowledge.md:REQ-SERVICES-029',
-  'ai-knowledge.md:REQ-TEMPLATES-113',
-  'ai-knowledge.md:REQ-TEMPLATES-114',
-  'ai-knowledge.md:REQ-TESTS-032',
-  'ai-knowledge.md:REQ-TYPES-031',
-  'drift-detection.md:REQ-LIB-018',
-  'drift-detection.md:REQ-LIB-019',
-  'drift-detection.md:REQ-TESTS-031',
-  'drift-detection.md:REQ-TYPES-027',
-  'sdd-workflow.md:REQ-SERVICES-010',
-  'sdd-workflow.md:REQ-TEMPLATES-010',
-  'sdd-workflow.md:REQ-TESTS-033',
+  'ai-knowledge/us-351.md:REQ-SERVICES-029',
+  'ai-knowledge/us-351.md:REQ-TEMPLATES-113',
+  'ai-knowledge/us-351.md:REQ-TEMPLATES-114',
+  'ai-knowledge/us-351.md:REQ-TESTS-032',
+  'ai-knowledge/us-351.md:REQ-TYPES-031',
+  'drift-detection/us-1.md:REQ-LIB-018',
+  'drift-detection/us-1.md:REQ-LIB-019',
+  'drift-detection/us-1.md:REQ-TESTS-031',
+  'drift-detection/us-1.md:REQ-TYPES-027',
+  'sdd-workflow/us-21.md:REQ-TESTS-033',
+  'sdd-workflow/us-6.md:REQ-SERVICES-010',
+  'sdd-workflow/us-6.md:REQ-TEMPLATES-010',
 ];
 
-/** Every `#### REQ-…` heading with no body, as `{file}:{REQ-ID}`. */
+/** Every `.md` under FEATURES_DIR — main files AND `{feature}/` slices — repo-relative. */
+function specFiles(): string[] {
+  const out: string[] = [];
+  const walk = (rel: string): void => {
+    for (const entry of readdirSync(path.join(FEATURES_DIR, rel), { withFileTypes: true })) {
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(childRel);
+      else if (entry.name.endsWith('.md')) out.push(childRel);
+    }
+  };
+  walk('');
+  return out;
+}
+
+/** Every `#### REQ-…` heading with no body, as `{spec-path}:{REQ-ID}`. */
 function findBodylessReqs(): string[] {
   const found: string[] = [];
-  for (const file of readdirSync(FEATURES_DIR).filter((f) => f.endsWith('.md'))) {
+  for (const file of specFiles()) {
     const lines = readFileSync(path.join(FEATURES_DIR, file), 'utf-8').split('\n');
     for (let i = 0; i < lines.length; i++) {
       const header = lines[i]!.match(/^#### ~{0,2}(REQ-[\w-]+):/);
@@ -75,9 +94,11 @@ describe('Feature Spec REQ bodies', () => {
   it('the ledger itself is well-formed (sorted, deduped, existing files)', () => {
     expect([...LEGACY_BODYLESS].sort()).toEqual(LEGACY_BODYLESS);
     expect(new Set(LEGACY_BODYLESS).size).toBe(LEGACY_BODYLESS.length);
-    const specs = new Set(readdirSync(FEATURES_DIR));
     for (const entry of LEGACY_BODYLESS) {
-      expect(specs.has(entry.split(':')[0]!), `${entry} names an existing feature spec`).toBe(true);
+      expect(
+        existsSync(path.join(FEATURES_DIR, entry.split(':')[0]!)),
+        `${entry} names an existing feature spec file`,
+      ).toBe(true);
     }
   });
 

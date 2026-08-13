@@ -55,9 +55,21 @@ function archivedDeltaSpecs(): Array<{ name: string; content: string }> {
 function featureSpecs(): Array<{ name: string; content: string }> {
   const dir = path.join(REPO, 'prospec/specs/features');
   if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => ({ name: f, content: readFileSync(path.join(dir, f), 'utf-8') }));
+  // Recurse into `features/{feature}/` slice directories: a spec split into
+  // per-story slices keeps its WHEN/THEN bullets in the slice files, so a
+  // top-level-only scan would miss most of the corpus.
+  const out: Array<{ name: string; content: string }> = [];
+  const walk = (rel: string): void => {
+    for (const entry of readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(childRel);
+      else if (entry.name.endsWith('.md')) {
+        out.push({ name: childRel, content: readFileSync(path.join(dir, childRel), 'utf-8') });
+      }
+    }
+  };
+  walk('');
+  return out;
 }
 
 describe('archived delta-spec corpus — the refusal must not fire on real history', () => {
