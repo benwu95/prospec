@@ -69,6 +69,13 @@ prospec/
   specs/
     _archived-history/
     features/
+      agent-integration/
+      ai-knowledge/
+      drift-detection/
+      feedback-promotion/
+      mcp-server/
+      project-setup/
+      sdd-workflow/
 scripts/
   counts/
   measure/
@@ -211,12 +218,12 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 167 files: `.md`, `.yaml`
+- `prospec/` — 211 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1189 |
+| Total files | 1233 |
 | Scan depth | 10 |
