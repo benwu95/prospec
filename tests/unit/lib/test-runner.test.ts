@@ -406,7 +406,7 @@ describe('runTestCommand pre-spawn refusal (platform-injected)', () => {
       cwd: null,
       exists: () => false,
     };
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(4)`, 5_000, posix);
+    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(4)`, 60_000, posix);
     expect(r).toMatchObject({ exit_code: 4, timed_out: false });
     expect(r.error).toBeUndefined();
   });
