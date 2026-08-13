@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-07
+last_updated: 2026-08-13
 story_count: 21
-req_count: 82
+req_count: 83
 ---
 
 # Agent Integration
@@ -440,10 +440,11 @@ so that the parts of the upgrade requiring judgment are AI-assisted but human-ga
 - WHEN agent sync runs, THEN each agent skill dir deploys `prospec-upgrade/SKILL.md`
 
 #### REQ-TEMPLATES-121: prospec-upgrade Skill Template
-`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline) opens with the shared required-CLI probe — a missing or too-old binary STOPs the skill, with no degrade-gracefully path — then: (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, detect format drift against the latest templates of the installed prospec package, show a per-file diff, and update only after asking the user's consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and copying the curated `Modules` table rows verbatim, then deleting the old file after a successful migration) — a later `prospec knowledge update` run is safe and now names a real command, since it backfills the curated columns into `module-map.yaml` no-clobber before regenerating the auto block; (2.5) when the report carries a `stale Language Policy wording:` line, migrate that one seeded principle — the sole authored-wording change this skill may propose — taking the replacement from the report's `Current Language Policy rule:` block (never from `print-template`, which returns an unrendered template carrying no rule text), showing a diff of that section only and rewriting just its Description/Rationale/Verify after consent; (3) per `artifact_language`, run `prospec agent triggers` for the fill-missing scaffold, translate the missing `skill_triggers` entries, and after show-and-confirm write them back with `prospec agent triggers --write <file>` → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
+`templates/skills/prospec-upgrade.hbs` (judgment skill, English-only baseline) opens with the shared required-CLI probe — a missing or too-old binary STOPs the skill, with no degrade-gracefully path — then: (1) run `prospec upgrade --no-interactive` and read the report (version already bumped, agents already synced, list of skills lacking trigger words, docs inventory); (2) use the report's `Docs inventory:` as the **sole scan scope** (the list shares its source with init via `INIT_DOC_REGISTRY` — the skill maintains no hardcoded doc list): for present files, branch on the inventory's canonical marker — a **user-managed** present file is checked for FORMAT drift against the latest template of the installed prospec package and updated on consent via a per-file diff, while a **canonical/no-authored-content** present file (the in-project README and the canonical convention docs) is compared by FULL content and offered a whole-file replacement on consent; for MISSING files, show the content to be written and create them from the latest template after asking consent (gracefully skip and report when the package template is unavailable; no docs section in the report = CLI/skill version mismatch → skip this step and prompt to re-run `prospec upgrade`); if a legacy `ai-knowledge/_index.md` is detected, propose migrating it to the root-level `{base_dir}/index.md` (preserving the `prospec:user` block and copying the curated `Modules` table rows verbatim, then deleting the old file after a successful migration) — a later `prospec knowledge update` run is safe and now names a real command, since it backfills the curated columns into `module-map.yaml` no-clobber before regenerating the auto block; (2.5) when the report carries a `stale Language Policy wording:` line, migrate that one seeded principle — the sole authored-wording change this skill may propose — taking the replacement from the report's `Current Language Policy rule:` block (never from `print-template`, which returns an unrendered template carrying no rule text), showing a diff of that section only and rewriting just its Description/Rationale/Verify after consent; (3) per `artifact_language`, run `prospec agent triggers` for the fill-missing scaffold, translate the missing `skill_triggers` entries, and after show-and-confirm write them back with `prospec agent triggers --write <file>` → then run `prospec agent sync` again. Includes an Output Contract + NEVER; Startup Loading static-first `[STABLE]/[DYNAMIC]`.
 - WHEN rendered, THEN it carries an Output Contract and a NEVER section, has no hardcoded language directives (English baseline), and Step 2 has no hardcoded convention-doc list (pinned by a negative contract assertion)
 - WHEN the report marks a file MISSING and the user consents to create it, THEN create it from the latest template; if not consented, leave it untouched
-- WHEN a present file's format does not match the latest template, THEN show a per-file diff and change it only after asking consent; if not consented, leave the file untouched
+- WHEN a present user-managed file's format does not match the latest template, THEN show a per-file diff and change it only after asking consent; if not consented, leave the file untouched
+- WHEN a present canonical/no-authored-content file's full content differs from the rendered template, THEN show a full-content diff and replace it wholesale only after asking consent; if not consented, leave the file untouched
 - WHEN `artifact_language` is non-English and there are skills lacking trigger words, THEN run `prospec agent triggers` for the scaffold, translate only the missing ones, and after confirmation write them via `prospec agent triggers --write` (which validates before writing)
 - WHEN finishing (if there were any changes), THEN run `prospec agent sync` again so the deployment reflects the latest trigger words
 - WHEN the report flags stale Language Policy wording, THEN show a diff of that section alone and rewrite it only on consent; when the report carries no rendered-rule block, skip with a note
@@ -454,6 +455,11 @@ The skill catalog table + lifecycle workflow subsection in `README.md`/`README.z
 - WHEN reading both READMEs, THEN the skill catalog + workflow both contain `prospec-upgrade`, count 17, and include the `prospec upgrade` command
 - WHEN reading `CLAUDE.md`, THEN Available Prospec Skills contains `prospec-upgrade`
 - WHEN reading the root-level `index.md`, THEN the templates module description's skill count is consistently 17
+
+#### REQ-SERVICES-089: Upgrade Docs Inventory Marks Canonical Docs
+`prospec upgrade`'s docs inventory tags each init-created doc with a `canonical` classification sourced from `INIT_DOC_REGISTRY` — the same subset the `canonical-doc-drift` check scopes over — and the report's `Docs inventory:` line surfaces the tag.
+- WHEN the upgrade report lists an init doc that is the in-project README or a canonical convention doc, THEN its inventory entry is marked canonical
+- WHEN the report lists CONSTITUTION.md, index.md, or a user-managed convention doc, THEN its entry is not marked canonical
 
 ---
 
@@ -788,6 +794,7 @@ so that a skill either performs its deterministic steps through the CLI or does 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-SERVICES-089; MODIFIED REQ-TEMPLATES-121 | REQ-SERVICES-089, REQ-TEMPLATES-121 |
 | 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
 | 2026-07-30 | add-harness-capability-flags | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-CLI-027; ADDED REQ-TEMPLATES-160; MODIFIED REQ-AGNT-012; MODIFIED REQ-TEMPLATES-158; MODIFIED REQ-TEMPLATES-108; MODIFIED REQ-TEMPLATES-121 | REQ-CLI-027, REQ-TEMPLATES-160, REQ-AGNT-012, REQ-TEMPLATES-158, REQ-TEMPLATES-108, REQ-TEMPLATES-121 |
