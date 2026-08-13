@@ -490,3 +490,21 @@ export function parseSpecSlices(content: string): string[] {
   }
   return slices;
 }
+
+/**
+ * Whether the content carries a real `## Change History` SECTION heading — the
+ * anchor the graduation writer appends its row under.
+ *
+ * Anchored at line start over the fence-masked probe, never a `content.includes`:
+ * a Feature Spec routinely quotes its own structure, so `## Change History` also
+ * appears in prose, inline code spans, and fenced examples. A substring match
+ * would call any of those the section and route a graduation row into the middle
+ * of another requirement — the same class of bug the `## Edge Cases` /
+ * `## Feature Map` anchors already guard against in `archive.service`.
+ */
+export function hasChangeHistorySection(content: string): boolean {
+  for (const line of walkLines(content, 0)) {
+    if (/^## Change History[ \t]*$/.test(line.probe)) return true;
+  }
+  return false;
+}

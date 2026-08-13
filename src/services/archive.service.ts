@@ -6,7 +6,7 @@ import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
-import { matchReqHeading, readSpecCounters, indexSpec, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
+import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
@@ -74,6 +74,9 @@ export interface ArchiveResult {
   acknowledgedDrops: DroppedBehavior[];
   /** Declared bullets that were not actually dropped — informational. Dry-run too. */
   staleDeclarations: StaleDeclaration[];
+  /** Feature specs with no `## Change History` host for the graduation row —
+   *  surfaced loudly, never blocking. Dry-run too. */
+  missingChangeHistory: MissingChangeHistory[];
   /**
    * Why the product.md Feature Map sync wrote nothing, or null when it wrote.
    * A decline is the ONLY signal that the Feature Map is not current — without it
@@ -174,6 +177,22 @@ export interface StaleDeclaration {
   bullets: string[];
 }
 
+/**
+ * A feature spec that took graduation edits but carries NO `## Change History`
+ * section anywhere — not the mother file, not any registered slice — so the
+ * graduation row had nowhere to land. The row is `appendToChangeHistory`'s only
+ * provenance write; without a host it would vanish with no trace. Reported loudly
+ * but NOT blocking: the REQ bodies still landed, so holding their write over a
+ * missing provenance section would discard real behavior to punish an authoring
+ * gap. The fix is to restore (or register a slice carrying) the section.
+ */
+export interface MissingChangeHistory {
+  feature: string;
+  changeName: string;
+  /** The REQ ids whose graduation row could not be recorded. */
+  reqIds: string[];
+}
+
 export interface SpecSyncResult {
   /** Feature Spec files created or updated. */
   files: string[];
@@ -189,6 +208,9 @@ export interface SpecSyncResult {
   staleDeclarations: StaleDeclaration[];
   /** REQs refused because their landing block was truncated; dry-run too. */
   refusedRequirements: SpecRefusal[];
+  /** Feature specs with no `## Change History` host for the graduation row —
+   *  surfaced loudly, never blocking. Dry-run too. */
+  missingChangeHistory: MissingChangeHistory[];
 }
 
 // --- Core functions ---
@@ -431,6 +453,28 @@ function determineTargetSlice(route: FeatureRoute, specIndex: SpecIndex): string
   return slice;
 }
 
+type ChangeHistoryHost = { kind: 'main' } | { kind: 'slice'; name: string } | null;
+
+/**
+ * Which file carries the `## Change History` section the graduation row is
+ * appended under — the mother file, a registered slice, or none.
+ *
+ * Mother-first, so a spec that keeps the section where it has always lived writes
+ * exactly as before; a spec that has moved it into a slice (to shed weight from an
+ * over-budget mother file) routes the row into that slice instead. `null` means no
+ * registered file carries the section, so the row has nowhere to land — the caller
+ * reports it loudly rather than letting `appendToChangeHistory` drop it silently.
+ */
+function locateChangeHistoryHost(spec: SpecContent): ChangeHistoryHost {
+  const main = typeof spec === 'string' ? spec : spec.main;
+  if (hasChangeHistorySection(main)) return { kind: 'main' };
+  if (typeof spec === 'string') return null;
+  for (const name of Object.keys(spec.slices)) {
+    if (hasChangeHistorySection(spec.slices[name]!)) return { kind: 'slice', name };
+  }
+  return null;
+}
+
 export async function syncToFeatureSpecs(
   archiveDir: string,
   featuresPath: string,
@@ -453,6 +497,7 @@ export async function syncToFeatureSpecs(
       acknowledgedDrops: [],
       staleDeclarations: [],
       refusedRequirements: [],
+      missingChangeHistory: [],
     };
   }
 
@@ -472,6 +517,7 @@ export async function syncToFeatureSpecs(
   const refusedRequirements: SpecRefusal[] = [];
   const acknowledgedDrops: DroppedBehavior[] = [];
   const staleDeclarations: StaleDeclaration[] = [];
+  const missingChangeHistory: MissingChangeHistory[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   for (const [feature, featureRoutes] of byFeature) {
@@ -571,13 +617,35 @@ export async function syncToFeatureSpecs(
       // for the same reason, and retained for the same one.
       const landed = featureRoutes.filter((r) => r.truncation === undefined);
       
+      // The Change History row follows whichever file carries the section — the
+      // mother file, or the slice it was moved into to keep an over-budget mother
+      // file within budget. No host anywhere is a loud finding, never a silent
+      // drop: `appendToChangeHistory` would return the content untouched.
+      const noHost = () =>
+        missingChangeHistory.push({ feature, changeName, reqIds: landed.map((r) => r.reqId) });
+
       if (typeof specContent === 'string') {
         specContent = updateFeatureSpecFrontmatter(specContent, today);
-        specContent = appendToChangeHistory(specContent, landed, today, changeName);
+        // A single-file spec has no slices, so `main` is the only possible host.
+        if (locateChangeHistoryHost(specContent) === null) noHost();
+        else specContent = appendToChangeHistory(specContent, landed, today, changeName);
         if (!dryRun) await atomicWrite(specFile, specContent);
       } else {
         specContent.main = updateFeatureSpecFrontmatter(specContent.main, today);
-        specContent.main = appendToChangeHistory(specContent.main, landed, today, changeName);
+        const host = locateChangeHistoryHost(specContent);
+        if (host === null) {
+          noHost();
+        } else if (host.kind === 'main') {
+          specContent.main = appendToChangeHistory(specContent.main, landed, today, changeName);
+        } else {
+          // The section lives in a slice — append there and mark it for writing,
+          // leaving the mother file's body (only its frontmatter was bumped)
+          // byte-identical.
+          specContent.slices[host.name] = appendToChangeHistory(
+            specContent.slices[host.name]!, landed, today, changeName,
+          );
+          modifiedSlices.add(host.name);
+        }
         if (!dryRun) {
           await atomicWrite(specFile, specContent.main);
           for (const sliceName of modifiedSlices) {
@@ -618,6 +686,7 @@ export async function syncToFeatureSpecs(
     acknowledgedDrops,
     staleDeclarations,
     refusedRequirements,
+    missingChangeHistory,
   };
 }
 
@@ -1221,6 +1290,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const refusedRequirements: SpecRefusal[] = [];
   const acknowledgedDrops: DroppedBehavior[] = [];
   const staleDeclarations: StaleDeclaration[] = [];
+  const missingChangeHistory: MissingChangeHistory[] = [];
   let productSpecDeclined: ProductSpecDecline | null = null;
   let specSyncWouldTouchFeaturesDir = false;
 
@@ -1321,6 +1391,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
           refusedRequirements.push(...sync.refusedRequirements);
           acknowledgedDrops.push(...sync.acknowledgedDrops);
           staleDeclarations.push(...sync.staleDeclarations);
+          missingChangeHistory.push(...sync.missingChangeHistory);
           if (dryRun) {
             for (const specFile of syncedFiles) {
               planned.push({
@@ -1455,6 +1526,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     refusedRequirements,
     acknowledgedDrops,
     staleDeclarations,
+    missingChangeHistory,
     productSpecDeclined,
   };
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { indexSpec, matchReqHeading, readSpecCounters, parseSpecSlices } from '../../../src/lib/spec-headings.js';
+import { indexSpec, matchReqHeading, readSpecCounters, parseSpecSlices, hasChangeHistorySection } from '../../../src/lib/spec-headings.js';
 
 /**
  * The ONE definition of a feature-spec REQ heading (REQ-LIB-041). It exists
@@ -295,6 +295,34 @@ describe('parseSpecSlices', () => {
   it('returns empty array if ## Slices section has no links', () => {
     const spec = '## Slices\nNo slices yet.\n## Edge Cases\n';
     expect(parseSpecSlices(spec)).toEqual([]);
+  });
+});
+
+describe('hasChangeHistorySection', () => {
+  it('matches a real ## Change History heading at line start', () => {
+    expect(hasChangeHistorySection('# Feature\n\n## Change History\n\n| Date |\n')).toBe(true);
+  });
+
+  it('returns false when no such section exists', () => {
+    expect(hasChangeHistorySection('## Edge Cases\n\n## Deprecated Requirements\n')).toBe(false);
+  });
+
+  it('does not match an inline or prose mention of the heading', () => {
+    const spec = 'The graduation row lands in the `## Change History` table below.\n';
+    expect(hasChangeHistorySection(spec)).toBe(false);
+  });
+
+  it('does not match a fenced example of the heading', () => {
+    const spec = ['# Feature', '', '```markdown', '## Change History', '```', ''].join('\n');
+    expect(hasChangeHistorySection(spec)).toBe(false);
+  });
+
+  it('does not match a longer heading that only starts with the phrase', () => {
+    expect(hasChangeHistorySection('## Change History Notes\n')).toBe(false);
+  });
+
+  it('tolerates trailing whitespace after the heading', () => {
+    expect(hasChangeHistorySection('## Change History   \n')).toBe(true);
   });
 });
 

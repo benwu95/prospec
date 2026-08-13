@@ -44,6 +44,7 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
     refusedRequirements: [],
     acknowledgedDrops: [],
     staleDeclarations: [],
+    missingChangeHistory: [],
     productSpecDeclined: null,
     ...overrides,
   };
@@ -482,5 +483,30 @@ describe('formatArchiveOutput — refusals and declarations', () => {
   it('phrases a dry-run refusal as a preview', () => {
     formatArchiveOutput(emptyResult({ dryRun: true, refusedRequirements: [refusal] }), 'normal');
     expect(stderr()).toMatch(/would/i);
+  });
+
+  it('prints the missing-Change-History finding with feature, change, and REQ ids', () => {
+    formatArchiveOutput(emptyResult({
+        missingChangeHistory: [
+          {
+            feature: 'sdd-workflow',
+            changeName: 'route-change-history-to-host',
+            reqIds: ['REQ-SERVICES-018', 'REQ-SERVICES-099'],
+          },
+        ],
+      }), 'normal');
+    const text = stderr();
+    expect(text).toMatch(/no `?## Change History/i);
+    expect(text).toContain('sdd-workflow');
+    expect(text).toContain('route-change-history-to-host');
+    expect(text).toContain('REQ-SERVICES-018');
+    expect(text).toContain('REQ-SERVICES-099');
+  });
+
+  it('says nothing about a Change History host when the finding list is empty', () => {
+    formatArchiveOutput(emptyResult({
+        archived: [{ name: 'x', sourcePath: 's', archivePath: 'a', summaryGenerated: true }],
+      }), 'normal');
+    expect(stderr()).not.toMatch(/Change History/i);
   });
 });
