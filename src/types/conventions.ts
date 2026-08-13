@@ -78,6 +78,11 @@ export interface InitDoc {
    * non-strict, so a wrong context renders empty holes, not an error).
    */
   context?: 'index';
+  /**
+   * Whether this doc is canonical/no-authored-content (README and canonical conventions).
+   * Canonical docs are checked for drift by full content and can be whole-file replaced.
+   */
+  canonical?: boolean;
 }
 
 /**
@@ -89,19 +94,22 @@ export interface InitDoc {
  * and `specs/.gitkeep` (not a document). Entries keep init's write order.
  */
 /** Project a convention-doc source into its knowledge-rooted registry entry. */
-export const asKnowledgeInitDoc = (doc: ConventionDocSource): InitDoc => ({
+export const asKnowledgeInitDoc = (doc: ConventionDocSource, canonical?: boolean): InitDoc => ({
   template: doc.template,
   root: 'knowledge',
   output: doc.output,
+  ...(canonical !== undefined ? { canonical } : {}),
 });
 
 export const INIT_DOC_REGISTRY: InitDoc[] = [
-  { template: 'init/readme.md.hbs', root: 'base', output: 'README.md' },
+  { template: 'init/readme.md.hbs', root: 'base', output: 'README.md', canonical: true },
   { template: 'init/constitution.md.hbs', root: 'base', output: 'CONSTITUTION.md' },
-  ...USER_MANAGED_CONVENTION_DOCS.map(asKnowledgeInitDoc),
+  ...USER_MANAGED_CONVENTION_DOCS.map(doc => asKnowledgeInitDoc(doc, false)),
   { template: 'knowledge/index.md.hbs', root: 'base', output: 'index.md', context: 'index' },
-  ...CANONICAL_CONVENTION_DOCS.map(asKnowledgeInitDoc),
+  ...CANONICAL_CONVENTION_DOCS.map(doc => asKnowledgeInitDoc(doc, true)),
 ];
+
+export const CANONICAL_INIT_DOCS = INIT_DOC_REGISTRY.filter(doc => doc.canonical);
 
 /**
  * Core convention files (L1) that agents must read at the start of every task.

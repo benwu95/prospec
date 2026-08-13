@@ -1,9 +1,9 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-08-09
-story_count: 2
-req_count: 2
+last_updated: 2026-08-13
+story_count: 3
+req_count: 3
 ---
 
 # drift-checks
@@ -35,6 +35,17 @@ The knowledge size check provides early warnings via a headroom band.
 
 ---
 
+### US-4
+
+#### REQ-LIB-052: Canonical Doc Drift Check
+The `canonical-doc-drift` check WARNs when a canonical/no-authored-content init doc has diverged from the installed version's template. Scope is the in-project README and the two canonical convention docs (`_status-lifecycle.md`, `_module-readme-conventions.md`), resolved at their actual locations and rendered through the shared init-doc path; user-authored docs (CONSTITUTION, index, user-managed conventions) are out of scope, and the canonical subset is the single classification `INIT_DOC_REGISTRY` carries.
+- WHEN a present canonical doc's on-disk content differs from its rendered template after normalizing line endings and a single trailing newline, THEN a WARN finding names that doc
+- WHEN a present canonical doc matches its rendered template, THEN the check passes for it
+- WHEN a canonical doc is absent, THEN it is skipped (absence is not drift)
+- WHEN a user-authored doc differs from its template, THEN this check reports nothing (out of scope)
+
+---
+
 ## Edge Cases
 
 _(TBD)_
@@ -58,4 +69,5 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-LIB-052 | REQ-LIB-052 |
 | 2026-08-09 | knowledge-budget-drift-check-and-sweep | Created from archive | REQ-LIB-001, REQ-LIB-002 |

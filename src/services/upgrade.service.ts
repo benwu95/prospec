@@ -66,6 +66,8 @@ export interface DocInventoryEntry {
   template: string;
   /** Whether the doc exists in this project. */
   present: boolean;
+  /** Whether the doc is canonical/no-authored-content (sourced from INIT_DOC_REGISTRY). */
+  canonical: boolean;
 }
 
 export interface UpgradeReport {
@@ -263,6 +265,7 @@ export function buildDocsInventory(
       path: label,
       template: doc.template,
       present: fileExists(absPath),
+      canonical: !!doc.canonical,
     };
   });
 }

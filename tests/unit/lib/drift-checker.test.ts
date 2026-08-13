@@ -20,6 +20,7 @@ import {
   evaluateSpecCounters,
   evaluateTaskCompletion,
   evaluateTestProvenance,
+  evaluateCanonicalDocDrift,
   runChecks,
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
@@ -90,6 +91,7 @@ const emptyInputs: DriftCheckInputs = {
   },
   artifactLanguage: { available: true, language: 'Traditional Chinese (Taiwan)', files: [] },
   specCounters: { available: true, specs: [] },
+  canonicalDocDrift: { available: true, docs: [] },
   constitutionRules: {
     available: true,
     source_path: 'prospec/CONSTITUTION.md',
@@ -1749,5 +1751,36 @@ describe('evaluateArtifactLanguage (REQ-LIB-037)', () => {
       '.prospec/changes/x/plan.md',
       '.prospec/changes/x/tasks.md',
     ]);
+  });
+});
+
+describe('evaluateCanonicalDocDrift', () => {
+  it('yields a WARN finding for a drifted doc', () => {
+    const r = evaluateCanonicalDocDrift({
+      available: true,
+      docs: [{ source_path: 'prospec/README.md', matches: false }],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]).toMatchObject({
+      severity: 'warn',
+      source_path: 'prospec/README.md',
+      detail: expect.stringContaining('canonical'),
+    });
+  });
+
+  it('yields no finding for a matching doc', () => {
+    const r = evaluateCanonicalDocDrift({
+      available: true,
+      docs: [{ source_path: 'prospec/README.md', matches: true }],
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes through unavailable status', () => {
+    const r = evaluateCanonicalDocDrift({ available: false, reason: 'error', docs: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.findings).toHaveLength(0);
   });
 });

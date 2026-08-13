@@ -12,6 +12,20 @@ Three pieces work together:
 - **AI Knowledge** is progressive, version-controlled project memory (modules, specs, lessons) the Skills read and grow with each change.
 - **CLI (`prospec`)** is a required standalone executable in the runtime loop — every deterministic operation the Skills need (scaffolds, lifecycle transitions, structured records, drift checks, grading, archive sync) runs as reproducible code.
 
+## Installation
+
+The `prospec` CLI is a standalone executable required for the deterministic workflow steps. Install it via the one-click installer:
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
+```
+
+**Windows:**
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
+```
+
 ## Full documentation
 
 This is a short in-project summary. For the complete guide — quickstart, CLI commands, the full list of Skills, and how the AI Knowledge base is structured — see the Prospec repository:

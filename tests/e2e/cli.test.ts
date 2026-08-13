@@ -16,11 +16,11 @@ import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
 
 // Every test here spawns a cold `node dist/cli/index.js` subprocess (full CLI
 // import graph). Under the full parallel suite, CPU contention makes an
-// occasional cold start exceed the 5s default testTimeout — a load flake, not a
-// real hang (each `runCli` still self-limits via execFile's 15s timeout below).
-// Give the whole file generous headroom above that 15s so a genuinely stuck
+// occasional cold start exceed a tight timeout — a load flake, not a
+// real hang (each `runCli` still self-limits via execFile's 60s timeout below).
+// Give the whole file generous headroom above that 60s so a genuinely stuck
 // child is caught by execFile, never by a premature vitest timeout.
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 const execFileAsync = promisify(execFile);
 
@@ -40,7 +40,7 @@ async function runCli(
   try {
     const result = await execFileAsync(NODE, [CLI_PATH, ...args], {
       cwd: options.cwd ?? tmpDir,
-      timeout: 15000,
+      timeout: 60000,
       env: { ...process.env, NO_COLOR: '1' },
     });
     return { stdout: result.stdout, stderr: result.stderr, exitCode: 0 };

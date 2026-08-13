@@ -32,6 +32,7 @@ import type {
   TaskSource,
   TestProvenanceSource,
   BudgetOverrideSource,
+  CanonicalDocDriftSource,
 } from './drift-sources.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 
@@ -70,6 +71,7 @@ export interface DriftCheckInputs {
   constitutionRules: ConstitutionRuleSource;
   artifactLanguage: ArtifactLanguageSource;
   specCounters: SpecCounterSource;
+  canonicalDocDrift: CanonicalDocDriftSource;
   generatedAt: string;
 }
 
@@ -607,6 +609,28 @@ export function evaluateBudgetOverrides(src: BudgetOverrideSource): CheckOutcome
 }
 
 /**
+ * Canonical Doc Drift — compares present canonical docs against template-rendered content.
+ * WARN-class: divergent docs should be replaced with `prospec init` or manual sync.
+ */
+export function evaluateCanonicalDocDrift(src: CanonicalDocDriftSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('canonical-doc-drift', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const doc of src.docs) {
+    if (!doc.matches) {
+      findings.push({
+        check: 'canonical-doc-drift',
+        severity: 'warn',
+        source_path: doc.source_path,
+        detail: `canonical doc drift: ${doc.source_path} diverges from its template-rendered content. Restore it using its canonical template.`,
+      });
+    }
+  }
+  return outcome('canonical-doc-drift', findings);
+}
+
+/**
  * Test provenance — an audited change must carry a recorded test run whose
  * digest still matches the current code AND whose exit code is zero (REQ-LIB-033).
  * Absent → fail (the suite was never recorded); digest mismatch → fail (code
@@ -771,6 +795,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'spec-counters': evaluateSpecCounters(inputs.specCounters),
     'delta-spec-provenance': evaluateDeltaSpecProvenance(inputs.deltaSpecProvenance),
     'unjustified-budget-override': evaluateBudgetOverrides(inputs.budgetOverrides),
+    'canonical-doc-drift': evaluateCanonicalDocDrift(inputs.canonicalDocDrift),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);
