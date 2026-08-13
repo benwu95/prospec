@@ -14,7 +14,7 @@
 
 ## Public API
 
-- `runChecks(inputs)` + every `collect*` source, `computeChangeDigest`, `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
+- `runChecks(inputs)` + every `collect*` source, `computeChangeDigest`, `computeWorkingTreeClean`, `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
 
 ## Dependencies
 

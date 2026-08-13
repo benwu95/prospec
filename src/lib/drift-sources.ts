@@ -213,6 +213,11 @@ export interface ReviewProvenanceSource {
   reason?: string;
   /** current code fingerprint to compare each recorded digest against. */
   current_digest: string | null;
+  /** Whether the working tree is clean in the digest scope (empty `git diff HEAD`,
+   *  no untracked) — the one whole-tree signal, so it sits on the source, not per
+   *  change. `null` when unknown (not git / a git capture failed). A stale finding
+   *  reads `true` as "commit-induced, re-record" and `false`/`null` as "code changed". */
+  working_tree_clean: boolean | null;
   changes: ReviewProvenanceChange[];
 }
 
@@ -300,6 +305,10 @@ export interface TestProvenanceSource {
   command_unavailable_reason: string | null;
   /** current code fingerprint to compare each recorded digest against. */
   current_digest: string | null;
+  /** Whether the working tree is clean in the digest scope — the same whole-tree
+   *  signal review-provenance carries, `null` when unknown. A stale finding reads
+   *  `true` as "commit-induced, re-record" and `false`/`null` as "code changed". */
+  working_tree_clean: boolean | null;
   changes: TestProvenanceChange[];
 }
 
@@ -1434,9 +1443,12 @@ export function computeDeltaSpecDigest(changeDir: string): string | null {
   }
 }
 
-export function computeChangeDigest(cwd: string): string | null {
-  if (!isGitWorkTree(cwd)) return null;
-  const scope = [
+/** The denylist pathspec shared by the whole-tree digest and the working-tree-clean
+ *  probe. Both MUST judge the SAME file set — a signal computed over a wider or
+ *  narrower scope than the digest it explains would be worse than none — so the
+ *  scope lives in one place rather than being duplicated at each call site. */
+function digestScope(): string[] {
+  return [
     '--',
     '.',
     ':(exclude).prospec',
@@ -1448,6 +1460,11 @@ export function computeChangeDigest(cwd: string): string | null {
     ':(exclude)package-lock.json',
     ':(exclude)yarn.lock',
   ];
+}
+
+export function computeChangeDigest(cwd: string): string | null {
+  if (!isGitWorkTree(cwd)) return null;
+  const scope = digestScope();
   const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
   if (head === null) return null;
   const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
@@ -1477,6 +1494,31 @@ export function computeChangeDigest(cwd: string): string | null {
 }
 
 /**
+ * Whether the working tree is clean in the SAME denylist scope as the digest — an
+ * empty `git diff HEAD` and no untracked files (REQ-LIB-024). This is what lets the
+ * review/test-provenance stale findings tell a commit-INDUCED stale baseline (tree
+ * clean → the recorded baseline predates the current commit, re-record) apart from a
+ * genuine code change (tree dirty → re-review / re-run), rather than always reporting
+ * the latter.
+ *
+ * Tri-state on purpose: `null` when it is not a git repository or ANY git capture
+ * fails, so a swallowed error can never masquerade as a clean tree (PB-013 — the same
+ * fail-closed rule `computeChangeDigest` follows; the evaluators read `null` as "not
+ * clean" and keep the code-changed wording). It never widens or opens the gate: a
+ * stale baseline still FAILs whatever this returns; only the finding's remedy text
+ * changes.
+ */
+export function computeWorkingTreeClean(cwd: string): boolean | null {
+  if (!isGitWorkTree(cwd)) return null;
+  const scope = digestScope();
+  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
+  if (diff === null) return null;
+  const untracked = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
+  if (untracked === null) return null;
+  return diff === '' && untracked.trim() === '';
+}
+
+/**
  * Collect review-provenance facts for every change in `.prospec/changes/`
  * (REQ-LIB-024). Mirrors collectTaskStates' change enumeration. Each change
  * carries its status/scale and the digest recorded by `--record-review`, plus
@@ -1487,12 +1529,17 @@ export function computeChangeDigest(cwd: string): string | null {
 export function collectReviewProvenance(
   cwd: string,
   digest: string | null,
+  /** The one whole-tree clean signal. Defaults to computing it (mirroring
+   *  collectTestProvenance's probe default) so any caller is correct; check.service
+   *  computes it once and passes it into both provenance collectors. */
+  workingTreeClean: boolean | null = computeWorkingTreeClean(cwd),
 ): ReviewProvenanceSource {
   if (!isGitWorkTree(cwd)) {
     return {
       available: false,
       reason: 'source unavailable: not a git repository',
       current_digest: null,
+      working_tree_clean: null,
       changes: [],
     };
   }
@@ -1502,6 +1549,7 @@ export function collectReviewProvenance(
       available: false,
       reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
       current_digest: null,
+      working_tree_clean: null,
       changes: [],
     };
   }
@@ -1511,6 +1559,7 @@ export function collectReviewProvenance(
       available: false,
       reason: 'source unavailable: could not compute the current change digest',
       current_digest: null,
+      working_tree_clean: null,
       changes: [],
     };
   }
@@ -1530,7 +1579,7 @@ export function collectReviewProvenance(
       ),
     });
   }
-  return { available: true, current_digest, changes };
+  return { available: true, current_digest, working_tree_clean: workingTreeClean, changes };
 }
 
 /**
@@ -1595,12 +1644,17 @@ export function collectTestProvenance(
    *  collector's `cwd`, which is the cwd `--record-tests` would spawn the suite in —
    *  the same directory libuv resolves a bare argv[0] against. */
   probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
+  /** The one whole-tree clean signal — placed after `probe` so existing positional
+   *  probe callers keep working. Defaults to computing it; check.service passes the
+   *  once-computed value shared with collectReviewProvenance. */
+  workingTreeClean: boolean | null = computeWorkingTreeClean(cwd),
 ): TestProvenanceSource {
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,
     reason,
     command_unavailable_reason: null,
     current_digest: null,
+    working_tree_clean: null,
     changes: [],
   });
   if (!isGitWorkTree(cwd)) return unavailable('source unavailable: not a git repository');
@@ -1645,7 +1699,13 @@ export function collectTestProvenance(
       ),
     });
   }
-  return { available: true, command_unavailable_reason, current_digest, changes };
+  return {
+    available: true,
+    command_unavailable_reason,
+    current_digest,
+    working_tree_clean: workingTreeClean,
+    changes,
+  };
 }
 
 /**

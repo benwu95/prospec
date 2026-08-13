@@ -70,7 +70,7 @@ const emptyInputs: DriftCheckInputs = {
   tasks: { available: true, changes: [] },
   featureMapGovernance: { available: true, featureMap: { features: [] }, moduleNames: [], specs: [] },
   mcpReadmeCounts: { available: true, claims: [] },
-  reviewProvenance: { available: true, current_digest: 'CUR', changes: [] },
+  reviewProvenance: { available: true, current_digest: 'CUR', working_tree_clean: true, changes: [] },
   deltaSpecProvenance: { available: true, changes: [] },
   metadataCompleteness: { available: true, changes: [] },
   knowledgeSize: {
@@ -87,6 +87,7 @@ const emptyInputs: DriftCheckInputs = {
     available: true,
     command_unavailable_reason: null,
     current_digest: 'CUR',
+    working_tree_clean: true,
     changes: [],
   },
   artifactLanguage: { available: true, language: 'Traditional Chinese (Taiwan)', files: [] },
@@ -685,9 +686,11 @@ describe('evaluateReviewProvenance', () => {
   const src = (
     over: Partial<ReviewProvenanceSource['changes'][number]>,
     current = 'CUR',
+    workingTreeClean: boolean | null = false,
   ): ReviewProvenanceSource => ({
     available: true,
     current_digest: current,
+    working_tree_clean: workingTreeClean,
     changes: [
       {
         name: 'c1',
@@ -706,6 +709,7 @@ describe('evaluateReviewProvenance', () => {
       available: false,
       reason: 'source unavailable: not a git repository',
       current_digest: null,
+      working_tree_clean: null,
       changes: [],
     });
     expect(r.result.status).toBe('skipped');
@@ -728,6 +732,26 @@ describe('evaluateReviewProvenance', () => {
     const r = evaluateReviewProvenance(src({ recorded_digest: 'OLD' }, 'CUR'));
     expect(r.result.status).toBe('fail');
     expect(r.findings[0]?.detail).toContain('stale review');
+  });
+
+  // Commit-induced staleness (HEAD moved after --record-review) on a CLEAN tree: the
+  // cheap remedy is to re-record, not to re-run the whole adversarial review.
+  it('stale + clean tree → names the commit-induced remedy (re-record, not re-review)', () => {
+    const r = evaluateReviewProvenance(src({ recorded_digest: 'OLD' }, 'CUR', true));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('stale review');
+    expect(r.findings[0]?.detail).toContain('working tree is clean');
+    expect(r.findings[0]?.detail).toContain('prospec check --record-review');
+    expect(r.findings[0]?.detail).not.toContain('code changed since the recorded review');
+  });
+
+  // Unknown signal (null: not git / a git capture failed) must NEVER read as clean —
+  // it keeps the code-changed wording, the fail-closed default.
+  it('stale + unknown clean signal (null) → keeps the code-changed wording', () => {
+    const r = evaluateReviewProvenance(src({ recorded_digest: 'OLD' }, 'CUR', null));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('code changed since the recorded review');
+    expect(r.findings[0]?.detail).not.toContain('working tree is clean');
   });
 
   it('exempts a PROVEN backfill (backfill-draft.md present) even without a review', () => {
@@ -1396,10 +1420,12 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
   const src = (
     over: Partial<TestProvenanceSource['changes'][number]>,
     current = 'CUR',
+    workingTreeClean: boolean | null = false,
   ): TestProvenanceSource => ({
     available: true,
     command_unavailable_reason: null,
     current_digest: current,
+    working_tree_clean: workingTreeClean,
     changes: [
       {
         name: 'c1',
@@ -1421,6 +1447,7 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
       reason: 'source unavailable: not a git repository',
       command_unavailable_reason: null,
       current_digest: null,
+      working_tree_clean: null,
       changes: [],
     });
     expect(r.result.status).toBe('skipped');
@@ -1447,6 +1474,24 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     const r = evaluateTestProvenance(src({ recorded_digest: 'OLD' }));
     expect(r.result.status).toBe('fail');
     expect(r.findings[0]?.detail).toContain('stale test run');
+  });
+
+  // Mirror of review-provenance: a clean tree means the recorded run predates the
+  // commit (outcome unknown, not a failure) → re-record, not "code changed".
+  it('stale + clean tree → names the commit-induced remedy (re-record the run)', () => {
+    const r = evaluateTestProvenance(src({ recorded_digest: 'OLD' }, 'CUR', true));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('stale test run');
+    expect(r.findings[0]?.detail).toContain('working tree is clean');
+    expect(r.findings[0]?.detail).toContain('prospec check --record-tests');
+    expect(r.findings[0]?.detail).not.toContain('code changed since the recorded run');
+  });
+
+  it('stale + unknown clean signal (null) → keeps the code-changed wording', () => {
+    const r = evaluateTestProvenance(src({ recorded_digest: 'OLD' }, 'CUR', null));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings[0]?.detail).toContain('code changed since the recorded run');
+    expect(r.findings[0]?.detail).not.toContain('working tree is clean');
   });
 
   it('fails when the recorded run exited non-zero, naming the command and code', () => {

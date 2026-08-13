@@ -422,9 +422,17 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
         check: 'review-provenance',
         severity: 'fail',
         source_path: c.source_path,
+        // A clean working tree means the mismatch is commit-induced (a commit landed
+        // after the baseline was recorded — HEAD is inside the digest), not a code
+        // change, so the cheap remedy is to re-record; only a dirty/unknown tree keeps
+        // the code-changed wording. The gate FAILs either way — only the remedy differs.
         detail:
-          `stale review for change "${c.name}": code changed since the recorded review — ` +
-          `re-run /prospec-review`,
+          src.working_tree_clean === true
+            ? `stale review for change "${c.name}": the working tree is clean, so the recorded ` +
+              'review predates the current commit — re-record with `prospec check --record-review` ' +
+              '(a full /prospec-review is only needed if code changed before the commit)'
+            : `stale review for change "${c.name}": code changed since the recorded review — ` +
+              `re-run /prospec-review`,
       });
     }
   }
@@ -710,9 +718,16 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
         check: 'test-provenance',
         severity: 'fail',
         source_path: c.source_path,
+        // Same clean-tree distinction as review-provenance: a clean tree means the
+        // recorded run predates the current commit (outcome unknown, not a failure),
+        // so re-record; a dirty/unknown tree keeps the code-changed wording.
         detail:
-          `stale test run for change "${c.name}": code changed since the recorded run — ` +
-          're-run `prospec check --record-tests`',
+          src.working_tree_clean === true
+            ? `stale test run for change "${c.name}": the working tree is clean, so the recorded ` +
+              'run predates the current commit — re-record with `prospec check --record-tests` ' +
+              '(the suite outcome is unknown after the commit, not a failure)'
+            : `stale test run for change "${c.name}": code changed since the recorded run — ` +
+              're-run `prospec check --record-tests`',
       });
     }
   }
