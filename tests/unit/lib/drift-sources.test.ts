@@ -29,7 +29,7 @@ import {
   moduleAttributor,
   collectCanonicalDocDrift,
 } from '../../../src/lib/drift-sources.js';
-import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
+import { evaluateKnowledgeHealth, evaluateReqReferences } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
@@ -668,6 +668,40 @@ describe('collectReqDefinitions', () => {
     write('specs/features/a.md', '```md\nopen fence, never closed\n\n#### REQ-A-001: Real\n');
     expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual(['REQ-A-001']);
   });
+
+  it('indexes a REQ defined only in a features/{feature}/ slice', () => {
+    write(
+      'specs/features/widget.md',
+      '---\nfeature: widget\n---\n\n## Slices\n\n- [Extra](./widget/extra.md)\n\n#### REQ-WIDGET-001: main\n',
+    );
+    write('specs/features/widget/extra.md', '#### REQ-WIDGET-050: only in a slice\n');
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual([
+      'REQ-WIDGET-001',
+      'REQ-WIDGET-050',
+    ]);
+  });
+
+  it('lets a reference to a slice-only REQ resolve — req-references stays PASS', () => {
+    write(
+      'specs/features/widget.md',
+      '---\nfeature: widget\n---\n\n## Slices\n\n- [Extra](./widget/extra.md)\n',
+    );
+    write('specs/features/widget/extra.md', '#### REQ-WIDGET-050: only in a slice\n');
+    write('knowledge/modules/lib/README.md', 'implements REQ-WIDGET-050\n');
+    const defs = collectReqDefinitions(path.join(tmpDir, 'specs/features'));
+    const refs = collectReqReferences(['specs', 'knowledge'], tmpDir);
+    const out = evaluateReqReferences(defs, refs);
+    expect(out.result.status).toBe('pass');
+    expect(out.findings).toEqual([]);
+  });
+
+  it('does not throw when a ## Slices link points at a missing slice file', () => {
+    write(
+      'specs/features/widget.md',
+      '---\nfeature: widget\n---\n\n## Slices\n\n- [Gone](./widget/gone.md)\n\n#### REQ-WIDGET-001: main\n',
+    );
+    expect(collectReqDefinitions(path.join(tmpDir, 'specs/features')).ids).toEqual(['REQ-WIDGET-001']);
+  });
 });
 
 describe('collectSpecCounters (REQ-LIB-042)', () => {
@@ -762,6 +796,21 @@ ${over.body ?? ''}`;
     const r = collectSpecCounters(featuresDir(), tmpDir);
     expect(r.available).toBe(true);
     expect(r.specs.map((s) => s.feature)).toEqual(['widget']);
+  });
+
+  it('sums main + slice story/req counts to match the archive writer', () => {
+    write(
+      'specs/features/widget.md',
+      '---\nfeature: widget\nstatus: active\nstory_count: 2\nreq_count: 2\n---\n\n# Widget\n\n' +
+        '## Slices\n\n- [Extra](./widget/extra.md)\n\n### US-1: main\n\n#### REQ-WIDGET-001: one\n',
+    );
+    write('specs/features/widget/extra.md', '### US-2: sliced\n\n#### REQ-WIDGET-050: two\n');
+    const r = collectSpecCounters(featuresDir(), tmpDir);
+    expect(r.specs[0]).toMatchObject({
+      feature: 'widget',
+      declared: { story_count: 2, req_count: 2 },
+      actual: { story_count: 2, req_count: 2 },
+    });
   });
 });
 
@@ -1855,6 +1904,18 @@ describe('collectFeatureMapGovernance', () => {
     write('prospec/specs/features/alpha.md', '#### REQ-LIB-001: A\n');
     const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
     expect(r.featureMap.features.map((f) => f.feature)).toEqual(['alpha']);
+  });
+
+  it('sees a REQ defined only in a slice for the feature↔module / prefix checks', () => {
+    writeMap('features:\n  - feature: alpha\n    modules: [lib]\n    req_prefixes: []\n    status: active\n');
+    write(
+      'prospec/specs/features/alpha.md',
+      '---\nfeature: alpha\n---\n\n## Slices\n\n- [Extra](./alpha/extra.md)\n\n#### REQ-LIB-001: main\n',
+    );
+    write('prospec/specs/features/alpha/extra.md', '#### REQ-LIB-050: sliced\n');
+    const r = collectFeatureMapGovernance(featuresDir(), knowledgePath(), tmpDir, KMAP);
+    const alpha = r.specs.find((s) => s.feature === 'alpha');
+    expect(alpha?.reqs.map((q) => q.id)).toEqual(['REQ-LIB-001', 'REQ-LIB-050']);
   });
 });
 
