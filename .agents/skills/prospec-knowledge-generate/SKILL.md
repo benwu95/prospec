@@ -58,7 +58,7 @@ first-ever run still needs the full init.
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
 | **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 1800 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 5000 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
@@ -72,7 +72,7 @@ first-ever run still needs the full init.
 3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤2500, L2 ≤1800 and ≤100 lines, Spec ≤5000, Demand ≤20000, Skill ≤5000, reference ≤2500. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
+**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤2500, L2 ≤2000 and ≤100 lines, Spec ≤5000, Demand ≤20000, Skill ≤5000, reference ≤2500. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
 
 ## Core Workflow
 
@@ -158,7 +158,7 @@ For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{m
 
 ### Step 4.5: Extract Sub-Modules (only when a README would overflow)
 
-If a module's README would exceed the ≤100 line / ≤1800 token budget even after reasonable trimming, AND it contains a **content-rich, functionally-independent** sub-area, extract that area into a sub-module file instead of trimming away useful detail (canonical rules: `prospec/ai-knowledge/_module-readme-conventions.md`).
+If a module's README would exceed the ≤100 line / ≤2000 token budget even after reasonable trimming, AND it contains a **content-rich, functionally-independent** sub-area, extract that area into a sub-module file instead of trimming away useful detail (canonical rules: `prospec/ai-knowledge/_module-readme-conventions.md`).
 
 - **Both conditions required** — overflow AND a self-contained sub-area (rich enough for its own Key Files / Public API / Pitfalls, understandable on its own). If only one holds, just trim.
 - **Layout**: `prospec/ai-knowledge/modules/{module}/{sub-module}.md` — a sibling of `README.md`, kebab-case, same Recipe-First structure and same budget. A sub-module that still overflows is split again the same way.

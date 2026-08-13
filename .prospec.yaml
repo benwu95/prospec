@@ -25,7 +25,7 @@ knowledge:
     # Prospec's own L1 index is naturally large as it catalogs its own complex architecture.
     l1_per_file: 2500
     # Prospec's own L2 modules contain deep contextual rules requiring higher limits.
-    l2_per_module: 1800
+    l2_per_module: 2000
     # Raised 10000->15000 (2026-08-07 Sweep), then 15000->20000 (2026-08-13 Sweep).
     # `personal` rows may not be compressed by contract and have grown 82->94
     # (~9,336 tokens), so the ledger's structural floor rose to ~16,038. A full
