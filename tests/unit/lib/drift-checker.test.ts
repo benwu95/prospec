@@ -45,6 +45,7 @@ import {
   type KnowledgeSizeBudget,
   type KnowledgeSizeKind,
 } from '../../../src/types/config.js';
+import { TOKEN_ESTIMATOR_LABEL } from '../../../src/lib/token-accounting.js';
 
 // Deliberately tighter than the shipped defaults so a fixture can bust a budget
 // with a small number; every field is present so adding a threshold is a compile
@@ -278,6 +279,78 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
     expect(detailOf('prospec/specs/features/big.md')).toContain('slices');
     expect(detailOf('prospec/ai-knowledge/_lessons-ledger.md')).toContain('/prospec-learn');
     expect(detailOf('.claude/skills/prospec-verify/SKILL.md')).toContain('on-demand reference');
+  });
+});
+
+describe('evaluateKnowledgeSize — structured knowledge_size field (REQ-LIB-054)', () => {
+  const l1 = KNOWLEDGE_SIZE_RULES.l1;
+  const l2 = KNOWLEDGE_SIZE_RULES.l2;
+
+  it('carries over-budget token facts, and keeps `detail` byte-identical', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 3118, lines: 61 },
+    ]));
+    const f = r.findings[0]!;
+    expect(f.knowledge_size).toEqual({
+      surface: l1.label,
+      budget_key: 'l1_per_file',
+      budget: 1500,
+      actual: 3118,
+      unit: 'tokens',
+      tier: 'over',
+      remedy: l1.remedy,
+    });
+    expect(f.detail).toBe(
+      `${l1.label} over token budget: 3118 tokens (${TOKEN_ESTIMATOR_LABEL}) > 1500 l1_per_file budget — ${l1.remedy}`,
+    );
+  });
+
+  it('marks the headroom tier with no remedy, and keeps `detail` byte-identical', () => {
+    const budget = { ...BASE_SIZE_BUDGET, headroom: 0.85 }; // 1500 * 0.85 = 1275
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/index.md', kind: 'l1', tokens: 1276, lines: 60 },
+    ], budget));
+    const f = r.findings[0]!;
+    expect(f.knowledge_size).toEqual({
+      surface: l1.label,
+      budget_key: 'l1_per_file',
+      budget: 1500,
+      actual: 1276,
+      unit: 'tokens',
+      tier: 'headroom',
+    });
+    expect(f.knowledge_size!.remedy).toBeUndefined();
+    expect(f.detail).toBe(
+      `${l1.label} pressure signal: 1276 tokens (${TOKEN_ESTIMATOR_LABEL}) approaches 1500 l1_per_file budget (headroom 0.85)`,
+    );
+  });
+
+  it('reports a line-budget bust in `lines`, and keeps `detail` byte-identical', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/x/README.md', kind: 'l2', tokens: 100, lines: 130 },
+    ]));
+    const f = r.findings[0]!;
+    expect(f.knowledge_size).toEqual({
+      surface: l2.label,
+      budget_key: 'readme_max_lines',
+      budget: 100,
+      actual: 130,
+      unit: 'lines',
+      tier: 'over',
+      remedy: l2.remedy,
+    });
+    expect(f.detail).toBe(
+      `${l2.label} over line budget: 130 lines > 100 readme_max_lines budget — ${l2.remedy}`,
+    );
+  });
+
+  it('attaches the field to every knowledge-size finding, token and line alike', () => {
+    const r = evaluateKnowledgeSize(sizeSrc([
+      { source_path: 'prospec/ai-knowledge/modules/x/README.md', kind: 'l2', tokens: 4683, lines: 130 },
+    ]));
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings.every((f) => f.knowledge_size !== undefined)).toBe(true);
+    expect(r.findings.map((f) => f.knowledge_size!.unit).sort()).toEqual(['lines', 'tokens']);
   });
 });
 

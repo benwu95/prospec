@@ -281,6 +281,80 @@ describe('DriftReportSchema', () => {
   });
 });
 
+describe('knowledge_size structured finding field (REQ-TYPES-083)', () => {
+  const withField = (knowledge_size: unknown) =>
+    DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        findings: [
+          {
+            check: 'knowledge-size',
+            severity: 'warn',
+            source_path: 'prospec/index.md',
+            detail: 'L1 file over token budget: 3118 tokens',
+            knowledge_size,
+          },
+        ],
+      },
+      summary: { fail_count: 0, warn_count: 1, skipped_count: 0 },
+    });
+
+  const overFacts = {
+    surface: 'L1 file',
+    budget_key: 'l1_per_file',
+    budget: 1500,
+    actual: 3118,
+    unit: 'tokens',
+    tier: 'over',
+    remedy: 'trim it, or move detail down into the L2 file that owns it',
+  };
+
+  it('accepts a knowledge-size finding carrying the structured facts', () => {
+    const r = withField(overFacts);
+    expect(r.success).toBe(true);
+    expect(r.success ? r.data.structural.findings[0]!.knowledge_size : null).toEqual(overFacts);
+  });
+
+  it('accepts the headroom tier with no remedy (remedy is optional)', () => {
+    const headroom = {
+      surface: 'L1 file',
+      budget_key: 'l1_per_file',
+      budget: 1500,
+      actual: 1276,
+      unit: 'tokens',
+      tier: 'headroom',
+    };
+    expect(withField(headroom).success).toBe(true);
+  });
+
+  it('is optional and additive — a finding without it still validates', () => {
+    const r = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        findings: [{ check: 'req-references', severity: 'fail', source_path: 'a.md', detail: 'x' }],
+      },
+      summary: { fail_count: 1, warn_count: 0, skipped_count: 0 },
+    });
+    expect(r.success).toBe(true);
+    expect(r.success ? r.data.structural.findings[0]!.knowledge_size : 'MISSING').toBeUndefined();
+  });
+
+  it('rejects an unknown tier or unit, and a missing required sub-field', () => {
+    expect(withField({ ...overFacts, tier: 'exceeded' }).success).toBe(false);
+    expect(withField({ ...overFacts, unit: 'bytes' }).success).toBe(false);
+    const noBudgetKey = {
+      surface: 'L1 file',
+      budget: 1500,
+      actual: 3118,
+      unit: 'tokens',
+      tier: 'over',
+    };
+    expect(withField(noBudgetKey).success).toBe(false);
+  });
+});
+
 describe('DriftReportInvalid', () => {
   it('carries code and an actionable suggestion', () => {
     const err = new DriftReportInvalid('prospec-report.json', 'semantic.status invalid');

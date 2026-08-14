@@ -11,6 +11,7 @@ import {
   type DriftFinding,
   type DriftReport,
   type KnowledgeHealth,
+  type KnowledgeSizeFinding,
 } from '../types/drift-report.js';
 import { DriftReportInvalid } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -559,8 +560,11 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
     return skipped('knowledge-size', src.reason ?? 'source unavailable');
   }
   const findings: DriftFinding[] = [];
-  const warn = (source_path: string, detail: string): void => {
-    findings.push({ check: 'knowledge-size', severity: 'warn', source_path, detail });
+  // The prose `detail` and the structured `knowledge_size` are two views of the
+  // same fact — kept side by side so the `detail` wording stays byte-identical
+  // (existing consumers/tests read it) while the formatter groups off the struct.
+  const warn = (source_path: string, detail: string, knowledge_size: KnowledgeSizeFinding): void => {
+    findings.push({ check: 'knowledge-size', severity: 'warn', source_path, detail, knowledge_size });
   };
   for (const item of src.items) {
     const rule: KnowledgeSizeRule = KNOWLEDGE_SIZE_RULES[item.kind];
@@ -570,6 +574,15 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
         item.source_path,
         `${rule.label} over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
           `> ${tokenBudget} ${rule.tokenKey} budget — ${rule.remedy}`,
+        {
+          surface: rule.label,
+          budget_key: rule.tokenKey,
+          budget: tokenBudget,
+          actual: item.tokens,
+          unit: 'tokens',
+          tier: 'over',
+          remedy: rule.remedy,
+        },
       );
     } else if (src.budget.headroom !== undefined) {
       const headroomThreshold = Math.floor(tokenBudget * src.budget.headroom);
@@ -578,6 +591,14 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
           item.source_path,
           `${rule.label} pressure signal: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
             `approaches ${tokenBudget} ${rule.tokenKey} budget (headroom ${src.budget.headroom})`,
+          {
+            surface: rule.label,
+            budget_key: rule.tokenKey,
+            budget: tokenBudget,
+            actual: item.tokens,
+            unit: 'tokens',
+            tier: 'headroom',
+          },
         );
       }
     }
@@ -588,6 +609,15 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
         item.source_path,
         `${rule.label} over line budget: ${item.lines} lines > ${lineBudget} ` +
           `${rule.lineKey} budget — ${rule.remedy}`,
+        {
+          surface: rule.label,
+          budget_key: rule.lineKey,
+          budget: lineBudget,
+          actual: item.lines,
+          unit: 'lines',
+          tier: 'over',
+          remedy: rule.remedy,
+        },
       );
     }
   }
