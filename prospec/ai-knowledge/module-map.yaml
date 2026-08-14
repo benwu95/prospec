@@ -250,8 +250,8 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
     last_verified: 2026-08-14T10:43:51.293Z
   - name: tests
-    description: 4-layer test suite — 154 files, 3,857 tests (unit 2890 + contract
-      835 + integration 45 + e2e 87). Validates every module — format contracts,
+    description: 4-layer test suite — 155 files, 3,880 tests (unit 2909 + contract
+      839 + integration 45 + e2e 87). Validates every module — format contracts,
       the cli-first probe + station-command contracts, the drift engine, token
       corpus, and the MCP protocol over in-memory transport.
     paths:

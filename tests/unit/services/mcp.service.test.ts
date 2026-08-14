@@ -29,6 +29,7 @@ const readModuleMapRaw = vi.fn();
 const readFeatureMapRaw = vi.fn();
 const readPlaybook = vi.fn();
 const readModuleReadme = vi.fn();
+const loadModuleKnowledge = vi.fn();
 const readFeatureSpec = vi.fn();
 const readProduct = vi.fn();
 const listFeatureSpecs = vi.fn();
@@ -44,6 +45,7 @@ vi.mock('../../../src/lib/knowledge-reader.js', () => ({
   readFeatureMapRaw: (...a: unknown[]) => readFeatureMapRaw(...a),
   readPlaybook: (...a: unknown[]) => readPlaybook(...a),
   readModuleReadme: (...a: unknown[]) => readModuleReadme(...a),
+  loadModuleKnowledge: (...a: unknown[]) => loadModuleKnowledge(...a),
   readFeatureSpec: (...a: unknown[]) => readFeatureSpec(...a),
   readProduct: (...a: unknown[]) => readProduct(...a),
   listFeatureSpecs: (...a: unknown[]) => listFeatureSpecs(...a),
@@ -266,17 +268,19 @@ describe('mcp.service knowledge resources', () => {
     );
   });
 
-  it('module template read returns the named module README', async () => {
-    readModuleReadme.mockReturnValue('# cli module');
+  it('module template read returns the module README assembled with its sub-modules', async () => {
+    // loadModuleKnowledge is the whole-module read (README + linked sub-modules);
+    // the resource wraps whatever it returns.
+    loadModuleKnowledge.mockReturnValue('# cli module\n\n# Sub-Module\ndetail');
     const client = await connectClient();
 
     const res = await client.readResource({ uri: 'knowledge://module/cli' });
-    expect(firstText(res).text).toBe('# cli module');
-    expect(readModuleReadme).toHaveBeenCalledWith(CTX.knowledgePath, 'cli');
+    expect(firstText(res).text).toBe('# cli module\n\n# Sub-Module\ndetail');
+    expect(loadModuleKnowledge).toHaveBeenCalledWith(CTX.knowledgePath, 'cli');
   });
 
   it('module template read throws not-found when README is missing', async () => {
-    readModuleReadme.mockReturnValue(null);
+    loadModuleKnowledge.mockReturnValue(null);
     const client = await connectClient();
 
     await expect(client.readResource({ uri: 'knowledge://module/ghost' })).rejects.toThrow(

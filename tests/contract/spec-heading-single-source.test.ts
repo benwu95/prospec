@@ -194,10 +194,11 @@ describe('feature-spec REQ heading single source', () => {
         /matchReqHeading\(line\)\?\.id/,
         /readSpecCounters\(loaded\.specContent\)/,
       ],
-      // The narrow REQ-scoped read: neither surface may parse a spec itself.
       'src/lib/spec-slices.ts': [/type SpecIndex/, /DEPRECATED_SECTION/],
-      'src/services/spec-show.service.ts': [/indexSpec\(content, \{ includeStruck: true \}\)/, /selectSpecSlices\(/],
-      'src/services/mcp.service.ts': [/indexSpec\(content, \{ includeStruck: true \}\)/, /selectSpecSlices\(/],
+      // The narrow REQ-scoped read: the ONE shared entry both surfaces route
+      // through is where the spec is parsed. The surfaces themselves no longer
+      // parse it — pinned by the surface-routing test below.
+      'src/lib/spec-read.ts': [/indexSpec\(content, \{ includeStruck: true \}\)/, /selectSpecSlices\(/],
     };
     for (const [rel, patterns] of Object.entries(consumers)) {
       const source = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
@@ -208,6 +209,33 @@ describe('feature-spec REQ heading single source', () => {
       for (const pattern of patterns) {
         expect(source, `${rel} must call through ${String(pattern)}`).toMatch(pattern);
       }
+    }
+  });
+
+  // The strengthening of REQ-TESTS-080: the two narrow-read surfaces answered one
+  // question two ways — the parse and messaging drifted twice under PR #149's
+  // review. Pinning that both route through the ONE shared `lib/spec-read` entry,
+  // and that neither parses a spec itself, is what the previous registry (which
+  // only pinned the two lib SELECTION calls, not the resolution layer) could not.
+  it('routes both narrow-read surfaces through the shared spec-read entry, parsing no spec themselves', () => {
+    // Positive control FIRST: a surface that parsed the spec itself would spell one
+    // of these — the detector must see that shape as text, or the ban is blind (PB-001).
+    const inlineParse =
+      'const selection = selectSpecSlices(content, indexSpec(content, { includeStruck: true }), sel);';
+    expect(/indexSpec\(|selectSpecSlices\(/.test(inlineParse)).toBe(true);
+
+    const SURFACES = ['src/services/spec-show.service.ts', 'src/services/mcp.service.ts'];
+    for (const rel of SURFACES) {
+      const source = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
+      expect(source, `${rel} must import the shared spec-read entry`).toMatch(
+        /from '\.\.\/lib\/spec-read\.js'/,
+      );
+      expect(source, `${rel} must route through readSpecSlices`).toMatch(/readSpecSlices\(/);
+      // The parse moved into spec-read: a surface calling it again would be a second
+      // answer to the same question — exactly the drift PR #149's review caught twice.
+      expect(source, `${rel} must not parse a spec itself`).not.toMatch(
+        /indexSpec\(|selectSpecSlices\(/,
+      );
     }
   });
 });

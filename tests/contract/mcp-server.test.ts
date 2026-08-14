@@ -167,6 +167,28 @@ describe('resources (REQ-MCP-002/003)', () => {
     expect(await readText(client, 'spec://feature/sdd-workflow')).toContain('REQ-SDD-001');
   });
 
+  // AI knowledge is sub-module-aware (a README `## Sub-Modules` section links
+  // sibling `{sub}.md` files, the L2 sub-layer). The module resource must serve the
+  // WHOLE module knowledge — README plus each linked sub-module — because those
+  // files have no resource of their own, so a README-only read truncated the
+  // knowledge a client sees. Symmetric with the sliced feature-spec read above.
+  it('assembles a module resource from its README plus each linked sub-module', async () => {
+    const ctx = writeFixtureProject();
+    write(
+      'prospec/ai-knowledge/modules/alpha/README.md',
+      ['# alpha', '', '## Sub-Modules', '- [Spec Reading](./spec-reading.md)', '- [Drift Engine](./drift-engine.md)', ''].join('\n'),
+    );
+    write('prospec/ai-knowledge/modules/alpha/spec-reading.md', '# Spec Reading\nreq heading rule');
+    write('prospec/ai-knowledge/modules/alpha/drift-engine.md', '# Drift Engine\ncollectors');
+    const client = await connect(ctx);
+    const text = await readText(client, 'knowledge://module/alpha');
+    expect(text).toContain('## Sub-Modules');
+    expect(text).toContain('# Spec Reading\nreq heading rule');
+    expect(text).toContain('# Drift Engine\ncollectors');
+    // a client reads the whole L2 module, not the README alone
+    expect(text.endsWith('# Drift Engine\ncollectors')).toBe(true);
+  });
+
   it('re-reads files on every request — no cache (REQ-MCP-002 AC3)', async () => {
     const ctx = writeFixtureProject();
     const client = await connect(ctx);
@@ -492,6 +514,53 @@ describe('tools (REQ-MCP-005)', () => {
     );
     expect(templates).toContain('spec://feature/{name}');
     expect(templates.some((t) => t.includes('{?'))).toBe(false);
+  });
+
+  // Feature specs are slice-aware (a `## Slices` main file linking `./{feature}/us-N.md`
+  // slice files). Both narrow-read surfaces read through `loadFeatureSpecContent`, which
+  // assembles main + slices — so a REQ that lives ONLY in a slice must still be readable
+  // over MCP, both whole and narrow. Every prior spec test used a single-file fixture.
+  function writeSlicedFixture(): McpServerContext {
+    const ctx = writeFixtureProject();
+    write(
+      'prospec/specs/features/sliced.md',
+      ['# Sliced Feature', '', '## Slices', '', '- [US-1](./sliced/us-1.md)', ''].join('\n'),
+    );
+    write(
+      'prospec/specs/features/sliced/us-1.md',
+      ['## US-1: Sliced story [P0]', '', '#### REQ-SLICED-001: only in the slice', 'Slice body.', ''].join('\n'),
+    );
+    return ctx;
+  }
+
+  it('spec://feature/{name} assembles a sliced spec — main plus each slice body', async () => {
+    const client = await connect(writeSlicedFixture());
+    const text = await readText(client, 'spec://feature/sliced');
+    // the main file (its `## Slices` section) AND the slice body both present
+    expect(text).toContain('## Slices');
+    expect(text).toContain('#### REQ-SLICED-001: only in the slice');
+    expect(text).toContain('Slice body.');
+  });
+
+  it('get_spec_requirements quotes a REQ that lives only in a slice', async () => {
+    const client = await connect(writeSlicedFixture());
+    const result = await client.callTool({
+      name: 'get_spec_requirements',
+      arguments: { feature: 'sliced', req: ['REQ-SLICED-001'] },
+    });
+    expect(result.isError ?? false).toBe(false);
+    expect(result.structuredContent).toMatchObject({
+      feature: 'sliced',
+      slices: [
+        {
+          id: 'REQ-SLICED-001',
+          kind: 'requirement',
+          story: 'US-1: Sliced story [P0]',
+          text: '#### REQ-SLICED-001: only in the slice\nSlice body.\n',
+        },
+      ],
+      misses: [],
+    });
   });
 });
 

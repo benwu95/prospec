@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (40 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (41 files)
 
 <!-- prospec:auto-start -->
 
@@ -13,8 +13,8 @@
 | `template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem |
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it |
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
-| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent, searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
-| `spec-headings.ts` / `spec-slices.ts` | THE feature-spec REQ heading rule, the index over it, and the REQ-scoped read — see the sub-module below |
+| `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent/loadModuleKnowledge (README + linked sub-modules), searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
+| `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
 | station engines (6 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators — see the sub-module below |
 
 The drift engine's 6 files are listed in the sub-module below; the station engines' 6 in theirs; the other 17 `.ts` are single-purpose helpers, with invariants in Pitfalls.
@@ -23,8 +23,8 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
-- Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`, `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
-- Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices` (the rest: see the Station Engines sub-module)
+- Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
+- Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices`, and `readSpecSlices` (the one narrow-read entry both surfaces share) (the rest: see the Station Engines sub-module)
 
 ## Dependencies
 

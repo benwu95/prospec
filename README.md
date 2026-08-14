@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3857%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3880%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -600,7 +600,7 @@ A **read-only**, stdio MCP server that exposes the project's truth — architect
 | URI | Content |
 |-----|---------|
 | `knowledge://index` | AI Knowledge module index (`prospec/index.md`) |
-| `knowledge://module/{name}` | One module's Recipe-First README |
+| `knowledge://module/{name}` | One module's Recipe-First README plus each sub-module linked from its `## Sub-Modules` section (the whole L2 module knowledge) |
 | `knowledge://module-map` | Module boundaries + `depends_on` (`module-map.yaml`) |
 | `knowledge://feature-map` | feature → module index + REQ prefixes (`feature-map.yaml`) |
 | `knowledge://playbook` | Human-approved team lessons (`_playbook.md`) |
@@ -832,7 +832,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3857 tests)
+# Run all tests (3880 tests)
 pnpm test
 
 # Watch mode
@@ -845,9 +845,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3857 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2890 tests
-- Contract tests (CLI output + Skill format): 835 tests
+**Test Coverage**: 3880 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2909 tests
+- Contract tests (CLI output + Skill format): 839 tests
 - Integration tests: 45 tests
 - E2E tests: 87 tests
 

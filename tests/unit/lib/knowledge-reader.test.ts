@@ -11,6 +11,8 @@ import {
   readModuleMapRaw,
   readFeatureMapRaw,
   readModuleReadme,
+  parseSubModuleLinks,
+  loadModuleKnowledge,
   listFeatureSpecs,
   readFeatureSpec,
   readProduct,
@@ -611,5 +613,89 @@ describe('sweepModuleReadme (Task 9: REQ-SERVICES-xxx)', () => {
     const res = sweepModuleReadme(before);
     expect(res.swept).toBe(before);
     expect(res.savings).toBe(0);
+  });
+});
+
+describe('parseSubModuleLinks', () => {
+  it('extracts the sub-module basenames from the ## Sub-Modules section, in order', () => {
+    const readme = [
+      '# Shared Kernel',
+      '',
+      '## Pitfalls',
+      '- [not a sub-module](./elsewhere.md) — outside the section, ignored',
+      '',
+      '## Sub-Modules',
+      '',
+      '- [Spec Reading](./spec-reading.md) — one line',
+      '- [Drift Engine](./drift-engine.md) — another',
+      '',
+      '## After',
+      '- [also ignored](./after.md)',
+    ].join('\n');
+    expect(parseSubModuleLinks(readme)).toEqual(['spec-reading', 'drift-engine']);
+  });
+
+  it('returns [] when there is no Sub-Modules section', () => {
+    expect(parseSubModuleLinks('# m\n\n## Pitfalls\n- none\n')).toEqual([]);
+  });
+
+  it('ignores a Sub-Modules heading or link inside a code fence (example, not declaration)', () => {
+    const readme = [
+      '# m',
+      '',
+      '```markdown',
+      '## Sub-Modules',
+      '- [fake](./fake.md)',
+      '```',
+      '',
+      '## Sub-Modules',
+      '- [real](./real.md)',
+    ].join('\n');
+    expect(parseSubModuleLinks(readme)).toEqual(['real']);
+  });
+});
+
+describe('loadModuleKnowledge (REQ-MCP-002 module read)', () => {
+  function writeModule(name: string, readme: string, subs: Record<string, string> = {}): void {
+    write(`knowledge/modules/${name}/README.md`, readme);
+    for (const [sub, body] of Object.entries(subs)) {
+      write(`knowledge/modules/${name}/${sub}.md`, body);
+    }
+  }
+
+  it('assembles the README followed by each linked sub-module body', () => {
+    writeModule(
+      'lib',
+      ['# Shared Kernel', '', '## Sub-Modules', '- [Spec Reading](./spec-reading.md)', '- [Drift Engine](./drift-engine.md)', ''].join('\n'),
+      { 'spec-reading': '# Spec Reading\nbody A', 'drift-engine': '# Drift Engine\nbody B' },
+    );
+    expect(loadModuleKnowledge(kp(), 'lib')).toBe(
+      ['# Shared Kernel', '', '## Sub-Modules', '- [Spec Reading](./spec-reading.md)', '- [Drift Engine](./drift-engine.md)', '']
+        .join('\n')
+        .concat('\n\n# Spec Reading\nbody A\n\n# Drift Engine\nbody B'),
+    );
+  });
+
+  it('reads exactly as the README when the module has no sub-modules', () => {
+    writeModule('leaf', '# Leaf\nno sub-modules here\n');
+    expect(loadModuleKnowledge(kp(), 'leaf')).toBe('# Leaf\nno sub-modules here\n');
+  });
+
+  it('returns null when the README is absent', () => {
+    expect(loadModuleKnowledge(kp(), 'ghost')).toBeNull();
+  });
+
+  it('skips an unreadable sub-module — its body costs itself, not the whole read', () => {
+    writeModule(
+      'lib',
+      ['# Shared Kernel', '', '## Sub-Modules', '- [present](./present.md)', '- [missing](./missing.md)', ''].join('\n'),
+      { present: '# Present\nhere' },
+    );
+    // the missing sub-module contributes no body; the README and the present
+    // sub-module remain, and nothing trails the last readable body.
+    const result = loadModuleKnowledge(kp(), 'lib');
+    expect(result).toContain('# Shared Kernel');
+    expect(result).toContain('# Present\nhere');
+    expect(result?.endsWith('# Present\nhere')).toBe(true);
   });
 });

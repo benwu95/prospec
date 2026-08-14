@@ -1,6 +1,6 @@
 # Spec Reading
 
-> Sub-module of [Shared Kernel](./README.md) — the ONE definition of a feature-spec REQ heading, the index derived from it, and the REQ-scoped read both the CLI and the MCP server serve from.
+> Sub-module of [Shared Kernel](./README.md) — the ONE definition of a feature-spec REQ heading, the index derived from it, the pure REQ-scoped selection, and the ONE shared read entry both the CLI and the MCP server serve from.
 
 ## Key Files
 
@@ -8,6 +8,7 @@
 |------|---------|
 | `spec-headings.ts` | `matchReqHeading` (the heading rule), `REQ_ID_SOURCE` (the id shape, exported as regex SOURCE), `readSpecCounters` (declared vs body counters), `indexSpec` (ordered REQ + story records with boundaries), `DEPRECATED_SECTION` |
 | `spec-slices.ts` | `selectSpecSlices` (pure selection by REQ id / story id → slices + misses) and `renderSpecSlices` (slices back to spec source) |
+| `spec-read.ts` | `readSpecSlices` (resolve + contained read + selector expansion + selection → a `not-found`\|`no-selector`\|`sliced` result) and `assembleWholeSpec` — the ONE entry the CLI `spec show` and MCP `get_spec_requirements` share, so resolution and messaging cannot drift |
 
 ## Public API
 
@@ -15,17 +16,18 @@
 - `readSpecCounters(content)` → what the frontmatter declares beside what the body holds
 - `indexSpec(content, {includeStruck})` → `{requirements, stories}`; each requirement carries id, level, owning story, deprecated flag and content boundaries
 - `selectSpecSlices(content, index, {req, story})` → `{slices, misses}`; `renderSpecSlices(selection)` → markdown
+- `readSpecSlices(featuresDir, feature, {req, story})` → discriminated `not-found`\|`no-selector`\|`sliced`; each surface applies its own no-selector policy. `assembleWholeSpec(content)` → the whole spec text both whole-spec surfaces render
 
 ## Dependencies
 
-**Depends on:** `markdown-fences` (the other leaf) — nothing else, so `lib/drift-sources` and `services/archive` import this without a lib→lib cycle
-**Used by:** `lib/drift-sources` (`collectReqDefinitions`, `collectSpecCounters`), `services/archive` (the merge, the REMOVED probe, `finalize`'s recount), `services/spec-show`, `services/mcp`
+**Depends on:** `markdown-fences` (the other leaf); `spec-read` additionally composes `knowledge-reader` (the contained read + available list) — a one-way lib import, so `lib/drift-sources` and `services/archive` still take this without a lib→lib cycle
+**Used by:** `lib/drift-sources` (`collectReqDefinitions`, `collectSpecCounters`), `services/archive` (the merge, the REMOVED probe, `finalize`'s recount); the narrow read the CLI `spec show` and MCP `get_spec_requirements` serve now flows through `spec-read` here, rather than each surface resolving and selecting on its own
 
 ## Modification Guide
 
 1. **Change what a REQ heading IS** — edit `matchReqHeading` only; every reader derives from it.
 2. **Change what a REQ BODY is** — edit `indexSpec`'s boundary predicate; the archive merge reads that boundary instead of recomputing it, so there is no second site.
-3. **Add a narrow-read consumer** — call `indexSpec` + `selectSpecSlices`; never parse the spec again.
+3. **Add a narrow-read consumer** — call `readSpecSlices` (the shared entry); never resolve a feature name or parse the spec in the surface itself.
 
 ## Ripple Effects
 
