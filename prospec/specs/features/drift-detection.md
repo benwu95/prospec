@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-13
+last_updated: 2026-08-14
 story_count: 20
-req_count: 69
+req_count: 72
 ---
 
 # Deterministic Drift Check
@@ -59,6 +59,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-14 | structure-check-findings | ADDED REQ-TYPES-083; ADDED REQ-LIB-054; ADDED REQ-TESTS-087; MODIFIED REQ-CLI-011 | REQ-TYPES-083, REQ-LIB-054, REQ-TESTS-087, REQ-CLI-011 |
 | 2026-08-13 | clarify-commit-staled-provenance | MODIFIED REQ-LIB-024; MODIFIED REQ-TESTS-042 | REQ-LIB-024, REQ-TESTS-042 |
 | 2026-08-13 | make-spec-collectors-slice-aware | MODIFIED REQ-LIB-042; ADDED REQ-LIB-053; ADDED REQ-TESTS-086 | REQ-LIB-042, REQ-LIB-053, REQ-TESTS-086 |
 | 2026-08-11 | configurable-generated-artifacts | MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-025; MODIFIED REQ-TESTS-071; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-173; ADDED REQ-TYPES-082; ADDED REQ-TESTS-084 | REQ-LIB-039, REQ-LIB-025, REQ-TESTS-071, REQ-TEMPLATES-171, REQ-TEMPLATES-173, REQ-TYPES-082, REQ-TESTS-084 |
