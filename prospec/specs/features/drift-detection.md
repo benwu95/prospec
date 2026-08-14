@@ -59,6 +59,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-14 | mechanize-knowledge-sync-gate | MODIFIED REQ-LIB-015; MODIFIED REQ-TYPES-073; MODIFIED REQ-TESTS-067 | REQ-LIB-015, REQ-TYPES-073, REQ-TESTS-067 |
 | 2026-08-14 | structure-check-findings | ADDED REQ-TYPES-083; ADDED REQ-LIB-054; ADDED REQ-TESTS-087; MODIFIED REQ-CLI-011 | REQ-TYPES-083, REQ-LIB-054, REQ-TESTS-087, REQ-CLI-011 |
 | 2026-08-13 | clarify-commit-staled-provenance | MODIFIED REQ-LIB-024; MODIFIED REQ-TESTS-042 | REQ-LIB-024, REQ-TESTS-042 |
 | 2026-08-13 | make-spec-collectors-slice-aware | MODIFIED REQ-LIB-042; ADDED REQ-LIB-053; ADDED REQ-TESTS-086 | REQ-LIB-042, REQ-LIB-053, REQ-TESTS-086 |
