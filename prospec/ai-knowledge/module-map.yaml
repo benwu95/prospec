@@ -287,4 +287,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-08-14T12:43:29.339Z
+    last_verified: 2026-08-14T15:43:04.408Z

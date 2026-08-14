@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-13
+last_updated: 2026-08-14
 story_count: 21
-req_count: 83
+req_count: 84
 ---
 
 # Agent Integration
@@ -55,6 +55,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-14 | enforce-group-render-merge | ADDED REQ-TYPES-085; MODIFIED REQ-TYPES-059; MODIFIED REQ-AGNT-034 | REQ-TYPES-085, REQ-TYPES-059, REQ-AGNT-034 |
 | 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-SERVICES-089; MODIFIED REQ-TEMPLATES-121 | REQ-SERVICES-089, REQ-TEMPLATES-121 |
 | 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
 | 2026-07-30 | add-harness-capability-flags | ADDED REQ-TYPES-071; ADDED REQ-AGNT-038; ADDED REQ-TEMPLATES-167; ADDED REQ-TESTS-063 | REQ-TYPES-071, REQ-AGNT-038, REQ-TEMPLATES-167, REQ-TESTS-063 |
