@@ -112,7 +112,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-08-14T10:43:51.293Z
+    last_verified: 2026-08-14T12:43:28.711Z
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge init + update, change story / plan / tasks
@@ -165,7 +165,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-08-14T05:56:53.765Z
+    last_verified: 2026-08-14T12:43:29.031Z
   - name: cli
     description: Thin CLI entry — 18 top-level Commander commands + 27 formatters
       that parse → call one service → format output; the cli-first station
@@ -287,4 +287,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-08-14T10:43:51.293Z
+    last_verified: 2026-08-14T12:43:29.339Z

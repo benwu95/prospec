@@ -1,9 +1,9 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-08-08
+last_updated: 2026-08-14
 story_count: 4
-req_count: 13
+req_count: 14
 ---
 
 # MCP Truth Layer (Project Truth Server)
@@ -51,6 +51,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-14 | unify-spec-read-resolution | ADDED REQ-LIB-056; MODIFIED REQ-MCP-009; MODIFIED REQ-MCP-002 | REQ-LIB-056, REQ-MCP-009, REQ-MCP-002 |
 | 2026-08-08 | read-specs-by-req | ADDED REQ-TYPES-079; ADDED REQ-MCP-009 | REQ-TYPES-079, REQ-MCP-009 |
 | 2026-07-31 | harden-contained-reads | ADDED REQ-TESTS-068 (contained-read failure coverage + single-source guards); MODIFIED REQ-MCP-006 (a content read past containment but unreadable is absent; a governance map is LOUD; the read reports absent/escaped/unreadable) | REQ-TESTS-068, REQ-MCP-006 |
 | 2026-06-13 | add-mcp-server | Read-only MCP server (BL-033 + read layer + OPT-A2 health consumption; converged after two rounds of adversarial review and fixing 4 criticals) | US-1~4; REQ-MCP-001~008 |
