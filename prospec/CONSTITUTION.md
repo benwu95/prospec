@@ -105,7 +105,8 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 3. **Tests & Coverage**: `pnpm run test:coverage` (with ≥ 80% coverage)
 4. **Factual Counts**: `pnpm run counts:check`
 5. **Agent Templates**: `pnpm run agents:check`
-6. **Project Drift**: `prospec check --strict`
+6. **Knowledge Sync**: `pnpm run knowledge:check`
+7. **Project Drift**: `prospec check --strict`
 
 **Rationale**: Running these checks locally or verifying them in CI prevents broken code or drifted documentation from entering the `main` branch. It ensures that all project invariants (types, linting, tests, counts, agent configurations, and knowledge health) remain strictly enforced.
 
@@ -119,7 +120,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 
 - [x] Change artifacts (`.prospec/changes/`, `.prospec/archive/`, `specs/_archived-history/`) are written in Traditional Chinese (Taiwan); the trust zone stays English (exempt, minus the named exceptions)
 - [x] Commits are atomic by feature; follow Conventional Commits; messages in English; bodies are bulleted lists; no AI co-authorship
-- [x] All changes MUST pass CI parity checks (`lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, `prospec check --strict`) before merge
+- [x] All changes MUST pass CI parity checks (`lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, `knowledge:check`, `prospec check --strict`) before merge
 - [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit
 - [x] No feature commits without tests (tests precede or accompany implementation); coverage ≥ 80%
 - [x] Dependency direction is `cli → services → lib → types` — no reverse or circular imports
@@ -133,7 +134,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 - **Testing**: All public functions have unit tests; coverage ≥ 80%
 - **Documentation**: Change artifacts and their archived summaries in Traditional Chinese (Taiwan); code, commit messages, and the trust zone (AI Knowledge base, `specs/features/`, `index.md`, `CONSTITUTION.md`) in English; both root READMEs (`README.md` + `README.zh-TW.md`) kept current and at parity with user-facing changes ([SHOULD] — verify WARNs on a gap)
 - **Commits**: Conventional Commits; atomic by feature; messages in English; bodies as bulleted lists (no prose paragraphs); no AI co-authorship attribution
-- **Pre-Merge Checks**: Code MUST pass `lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, and `prospec check --strict`
+- **Pre-Merge Checks**: Code MUST pass `lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, `knowledge:check`, and `prospec check --strict`
 - **Requirements**: User Stories satisfy INVEST with explicit acceptance criteria
 - **Counts**: `pnpm counts` for machine-owned tallies; `pnpm counts:check` in CI; hand-maintained counts (module file counts, spec frontmatter, README check enumeration) re-derived from source at each sync point
 

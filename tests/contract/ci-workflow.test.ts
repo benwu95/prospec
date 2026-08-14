@@ -12,6 +12,7 @@ interface WorkflowStep {
   uses?: string;
   if?: string;
   'continue-on-error'?: boolean;
+  with?: Record<string, unknown>;
 }
 interface WorkflowJob {
   steps?: WorkflowStep[];
@@ -46,6 +47,9 @@ const TEST_JOB_STEPS = [
   // reason the counts gate is: both check a property of the tree the earlier
   // steps produced, and neither needs to run before them.
   'pnpm run agents:check',
+  // The source→knowledge sync gate: a module whose src/** changed must bump its
+  // last_verified. Same tree-property shape as the two gates above.
+  'pnpm run knowledge:check',
   '|',
   'uses:actions/upload-artifact',
 ];
@@ -101,6 +105,15 @@ describe('ci.yml quality gates (REQ-TESTS-070)', () => {
       steps(job('test')),
       'CI step list changed — update TEST_JOB_STEPS in the same change, deliberately',
     ).toEqual(TEST_JOB_STEPS);
+  });
+
+  it('checks out full history so knowledge:check can resolve its merge-base', () => {
+    // knowledge:check runs `git merge-base origin/main HEAD`; a shallow (default
+    // depth-1) checkout has no base history and the gate cannot resolve its base.
+    // Removing this makes the gate red in CI, so it is a required part of the contract.
+    const checkout = (job('test').steps ?? []).find((s) => s.uses?.startsWith('actions/checkout'));
+    expect(checkout, 'test job has no actions/checkout step').toBeDefined();
+    expect(checkout!.with?.['fetch-depth']).toBe(0);
   });
 
   it('no gate hides inside a multi-line script', () => {

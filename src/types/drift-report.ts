@@ -189,16 +189,20 @@ export const KnowledgeHealthModuleSchema = z.object({
   /**
    * Newest git commit across the module's extracted sub-module `.md` siblings —
    * absent when the module has none, never a fabricated timestamp. Additive: the
-   * keys above keep their names and meanings.
-   *
-   * For a DOCUMENTED module, `stale` is reproducible from this report as
-   * `last_src_commit` vs the newer of the two knowledge timestamps. A module with
-   * no README is reported stale by the coverage rule instead — that verdict is
-   * carried by its `coverage gap` finding, not by these timestamps, so it is
-   * deliberately NOT recomputable from them.
+   * keys above keep their names and meanings. Since REQ-LIB-015 this and
+   * `last_readme_commit` are reported for continuity but no longer drive `stale`
+   * (see `last_verified` below) — they are NOT the freshness reference anymore.
    */
   last_sub_module_commit: z.string().optional(),
   stale: z.boolean(),
+  /**
+   * ISO timestamp the module's knowledge was last explicitly confirmed current
+   * (`module-map.yaml` `last_verified`); absent when the module declares none.
+   * Additive to the frozen keys above — since REQ-LIB-015, this is what `stale`
+   * is computed against (source commit vs `last_verified`); the two commit-time
+   * keys are reported for continuity but no longer drive the verdict.
+   */
+  last_verified: z.string().optional(),
 });
 
 export const KnowledgeHealthSchema = z.object({

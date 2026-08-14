@@ -129,7 +129,9 @@ describe('check.service execute', () => {
     write('prospec/index.md', 'index\n');
     write(
       'prospec/ai-knowledge/module-map.yaml',
-      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n',
+      // last_verified @06-11 confirms the authored 06-10 source; the exclusion under
+      // test keeps last_src_commit at 06-10, so the module is not stale (REQ-LIB-015).
+      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n    last_verified: "2026-06-11T00:00:00+00:00"\n',
     );
     write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
     git(['init', '-q']);

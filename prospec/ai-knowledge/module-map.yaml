@@ -4,10 +4,10 @@
 modules:
   - name: types
     description: Zod schemas, error hierarchy, skill definitions, Constitution rule
-      types, the station I/O contracts the cli-first skills speak (review findings,
-      verify dimension registry, lesson upsert, validate kinds), and the canonical
-      index-table column, knowledge-token-budget and escaped-defect report
-      contracts.
+      types, the station I/O contracts the cli-first skills speak (review
+      findings, verify dimension registry, lesson upsert, validate kinds), and
+      the canonical index-table column, knowledge-token-budget and
+      escaped-defect report contracts.
     paths:
       - src/types
     keywords:
@@ -49,7 +49,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-
+    last_verified: 2026-08-14T05:56:53.765Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -110,16 +110,16 @@ modules:
       - 量測計算
       - 漂移檢查
       - 知識讀取
-    rationale: Foundational infrastructure shared across services, CLI, and benchmark
-      scripts
-
+    rationale: Foundational infrastructure shared across services, CLI, and
+      benchmark scripts
+    last_verified: 2026-08-14T05:56:53.765Z
   - name: services
     description: Business logic — one `execute()` service per command — init /
-      quickstart / upgrade, knowledge init + update, change story / plan /
-      tasks / log / status / scale / progress, review merge, verify record, learn,
+      quickstart / upgrade, knowledge init + update, change story / plan / tasks
+      / log / status / scale / progress, review merge, verify record, learn,
       validate, archive + spec-sync + finalize, agent-sync, measure, drift check
-      (record-review / record-tests / escaped-defect modes), and the read-only MCP
-      server.
+      (record-review / record-tests / escaped-defect modes), and the read-only
+      MCP server.
     paths:
       - src/services
     keywords:
@@ -165,7 +165,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-
+    last_verified: 2026-08-14T05:56:53.765Z
   - name: cli
     description: Thin CLI entry — 18 top-level Commander commands + 27 formatters
       that parse → call one service → format output; the cli-first station
@@ -202,13 +202,13 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-
+    last_verified: 2026-08-14T05:56:53.765Z
   - name: templates
-    description: "Handlebars template library — 17 skills + 7 shared partials, 22
+    description: Handlebars template library — 17 skills + 7 shared partials, 22
       references, 1 agent-config, 4 change, 15 init/knowledge (67 `.hbs`
       templates) — the source of every generated skill, README, and index; every
       skill delegates its deterministic steps to the CLI behind the shared
-      `_cli-probe` partial."
+      `_cli-probe` partial.
     paths:
       - src/templates
     keywords:
@@ -248,10 +248,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-
+    last_verified: 2026-08-14T05:56:53.765Z
   - name: tests
-    description: 4-layer test suite — 151 files, 3,828 tests (unit 2868 + contract
-      830 + integration 45 + e2e 85). Validates every module — format contracts,
+    description: 4-layer test suite — 154 files, 3,853 tests (unit 2890 + contract
+      831 + integration 45 + e2e 87). Validates every module — format contracts,
       the cli-first probe + station-command contracts, the drift engine, token
       corpus, and the MCP protocol over in-memory transport.
     paths:
@@ -287,3 +287,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
+    last_verified: 2026-08-14T05:56:53.765Z

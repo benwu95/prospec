@@ -1162,8 +1162,19 @@ describe('collectGitTimestamps', () => {
   // knowledge a README could describe, so only the former may move
   // `last_src_commit` (REQ-LIB-015). The same file still counts for
   // `computeChangeDigest` — see the digest suite below for that boundary.
+  // last_verified @06-11 is the staleness reference (REQ-LIB-015 signal): these
+  // cases turn on whether the generated-artifact EXCLUSION keeps last_src_commit at
+  // the authored 06-10 commit, judged against a fixed confirmation time.
   const LIB_MAP: ModuleMap = {
-    modules: [{ name: 'lib', paths: ['src/lib'], keywords: [], relationships: { depends_on: [] } }],
+    modules: [
+      {
+        name: 'lib',
+        paths: ['src/lib'],
+        keywords: [],
+        relationships: { depends_on: [] },
+        last_verified: '2026-06-11T00:00:00+00:00',
+      },
+    ],
   };
 
   const commitAt = (date: string, files: Record<string, string>) => {

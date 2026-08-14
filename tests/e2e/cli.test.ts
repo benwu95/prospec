@@ -1052,6 +1052,39 @@ describe('CLI E2E', () => {
     });
   });
 
+  describe('prospec knowledge verify', () => {
+    const initProject = async (): Promise<string> => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'kv-test' }),
+      );
+      await runCli(['init', '--name', 'kv-test', '--agents', 'claude']);
+      const mapPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'module-map.yaml');
+      await fs.promises.mkdir(path.dirname(mapPath), { recursive: true });
+      await fs.promises.writeFile(
+        mapPath,
+        'modules:\n  - name: lib\n    paths: ["src/lib"]\n    keywords: ["lib"]\n',
+      );
+      return mapPath;
+    };
+
+    it('stamps last_verified into module-map.yaml for a named module', async () => {
+      const mapPath = await initProject();
+      const { exitCode, stdout } = await runCli(['knowledge', 'verify', 'lib']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('verified lib');
+      expect(await fs.promises.readFile(mapPath, 'utf-8')).toContain('last_verified:');
+    });
+
+    it('fails on an unknown module without writing', async () => {
+      const mapPath = await initProject();
+      const before = await fs.promises.readFile(mapPath, 'utf-8');
+      const { exitCode } = await runCli(['knowledge', 'verify', 'ghost']);
+      expect(exitCode).not.toBe(0);
+      expect(await fs.promises.readFile(mapPath, 'utf-8')).toBe(before);
+    });
+  });
+
   describe('prospec knowledge init --raw-scan-only', () => {
     it('rejects the removed `knowledge refresh` command', async () => {
       const { exitCode } = await runCli(['knowledge', 'refresh']);

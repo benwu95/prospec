@@ -13,7 +13,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 so `knowledge:check` can resolve `git merge-base origin/main HEAD`
+      # — a shallow (depth-1) checkout has no base history to diff the change against.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
 
@@ -45,6 +49,11 @@ jobs:
       # changes anything — the generated tree must be committed and current, the
       # same property `counts:check` enforces for the declared numbers.
       - run: pnpm run agents:check
+
+      # Prevention for the ledger's most-repeated lesson: a change that edits a
+      # module's src/** must bump that module's last_verified (via `prospec knowledge
+      # verify`). Diffs merge-base(origin/main, HEAD)..HEAD — needs fetch-depth: 0 above.
+      - run: pnpm run knowledge:check
 
       - name: Compose coverage comment
         if: always()

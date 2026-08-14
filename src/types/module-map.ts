@@ -26,6 +26,12 @@ const ModuleEntrySchema = z.object({
   // index.md grouping. Absent/empty = ungrouped (flat table). Single source of truth.
   category: z.array(z.string()).optional(),
   relationships: ModuleRelationshipsSchema.optional(),
+  // ISO 8601 instant the module's knowledge was last explicitly confirmed to match
+  // its source — CLI-stamped by `prospec knowledge verify`, never hand-edited. The
+  // knowledge-health staleness signal (REQ-LIB-015) compares the module's last source
+  // commit against this, and `knowledge:check` requires it to move when src changes.
+  // Optional so an existing map without it stays valid (an absent value reads as unverified).
+  last_verified: z.string().optional(),
 });
 
 export const ModuleMapSchema = z.object({

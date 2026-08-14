@@ -14,7 +14,7 @@
 | `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp) — its frozen id list and `knowledge_health` shape are in the sub-module |
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
-| `module-map.ts` | `ModuleMapSchema`, `ModuleEntry`, `ModuleRelationships` |
+| `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
 | `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema`, `LessonInputSchema`; `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 
 Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
