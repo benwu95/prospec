@@ -3,6 +3,8 @@ import {
   AGENT_CONFIGS,
   HARNESS_CAPABILITY_KEYS,
   intersectCapabilities,
+  mergeGroupRenderFlags,
+  type AgentRenderFlags,
   type HarnessCapabilities,
 } from '../../../src/types/skill.js';
 import { VALID_AGENTS } from '../../../src/types/config.js';
@@ -12,6 +14,10 @@ const caps = (overrides: Partial<HarnessCapabilities> = {}): HarnessCapabilities
   canWorktree: true,
   canBackground: true,
   ...overrides,
+});
+
+const renderFlags = (surfacesSkillFrontmatter: boolean): AgentRenderFlags => ({
+  surfacesSkillFrontmatter,
 });
 
 describe('AGENT_CONFIGS harness capabilities (REQ-TYPES-071)', () => {
@@ -74,5 +80,55 @@ describe('intersectCapabilities (REQ-TYPES-071)', () => {
       canWorktree: false,
       canBackground: false,
     });
+  });
+});
+
+describe('AGENT_CONFIGS render flags (REQ-TYPES-059)', () => {
+  it('surfacesSkillFrontmatter is declared for every agent — only claude surfaces it', () => {
+    // Survives the AgentRenderFlags extraction: the flag is still present on
+    // every AGENT_CONFIGS entry, and only claude renders the slim registry.
+    expect(AGENT_CONFIGS.claude.surfacesSkillFrontmatter).toBe(true);
+    for (const agent of VALID_AGENTS.filter((a) => a !== 'claude')) {
+      expect(AGENT_CONFIGS[agent].surfacesSkillFrontmatter, agent).toBe(false);
+    }
+  });
+});
+
+describe('mergeGroupRenderFlags (REQ-TYPES-085)', () => {
+  it('renders slim only when every member surfaces frontmatter — one false degrades to full', () => {
+    // Degrade the MIDDLE member: first-member-wins (`configs[0]`) and
+    // last-member-wins (`configs.at(-1)`) both read `true` here, so only a real
+    // group merge returns false (issue #95's middle-member lesson, issue #134).
+    expect(
+      mergeGroupRenderFlags([renderFlags(true), renderFlags(false), renderFlags(true)]),
+    ).toEqual({ surfacesSkillFrontmatter: false });
+  });
+
+  it('keeps slim only when all members surface frontmatter', () => {
+    expect(mergeGroupRenderFlags([renderFlags(true), renderFlags(true)])).toEqual({
+      surfacesSkillFrontmatter: true,
+    });
+  });
+
+  it('is order-independent — the last member never wins', () => {
+    const a = [renderFlags(false), renderFlags(true)];
+    const b = [renderFlags(true), renderFlags(false)];
+    expect(mergeGroupRenderFlags(a)).toEqual(mergeGroupRenderFlags(b));
+    expect(mergeGroupRenderFlags(a)).toEqual({ surfacesSkillFrontmatter: false });
+  });
+
+  it('returns a single member unchanged', () => {
+    expect(mergeGroupRenderFlags([renderFlags(true)])).toEqual({
+      surfacesSkillFrontmatter: true,
+    });
+    expect(mergeGroupRenderFlags([renderFlags(false)])).toEqual({
+      surfacesSkillFrontmatter: false,
+    });
+  });
+
+  it('renders the full table for an empty input', () => {
+    // `[].every()` is true; that would slim a group with no declarant and hide
+    // the skill table. The conservative default is the full table (false).
+    expect(mergeGroupRenderFlags([])).toEqual({ surfacesSkillFrontmatter: false });
   });
 });
