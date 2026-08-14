@@ -103,15 +103,14 @@ export function intersectCapabilities(
 }
 
 /**
- * Agent configuration describing a target AI CLI platform.
+ * The render-affecting flags of an `AgentConfig` — the subset a group of agents
+ * that share one entry config (same `skillPath` + `configPath`) must MERGE
+ * before rendering, because one file's bytes serve every member. Kept a
+ * dedicated interface (extended by `AgentConfig`) so `keyof AgentRenderFlags` is
+ * exactly the render-flag set the reducer registry below is mapped over — a new
+ * flag with no merge rule is then a compile error, not a latent bug.
  */
-export interface AgentConfig {
-  /** Agent identifier (e.g., 'claude', 'antigravity', 'copilot', 'codex') */
-  name: string;
-  /** Base path for Skill files relative to project root */
-  skillPath: string;
-  /** Path for the agent's entry configuration file */
-  configPath: string;
+export interface AgentRenderFlags {
   /**
    * Whether the agent's runtime auto-injects each `SKILL.md` frontmatter
    * (name + description + triggers) into the session context. When true, the
@@ -120,6 +119,77 @@ export interface AgentConfig {
    * the entry config keeps the full table (the only place the agent sees skills).
    */
   surfacesSkillFrontmatter: boolean;
+}
+
+/**
+ * Canonical enumeration of the render flags — the reducer loop and the
+ * render-context builder both derive from it, mirroring
+ * `HARNESS_CAPABILITY_KEYS`.
+ */
+export const RENDER_FLAG_KEYS = [
+  'surfacesSkillFrontmatter',
+] as const satisfies readonly (keyof AgentRenderFlags)[];
+
+/**
+ * Compile-time exhaustiveness twin of `_CapabilityKeysAreExhaustive`: a flag
+ * added to `AgentRenderFlags` but not listed above would pass `satisfies`
+ * silently and then never be visited by the reducer loop. This makes that
+ * omission a type error too.
+ */
+export type _RenderFlagKeysAreExhaustive = AssertNever<
+  Exclude<keyof AgentRenderFlags, (typeof RENDER_FLAG_KEYS)[number]>
+>;
+
+/** Reduce one render flag's values across a group's members to a single value. */
+type RenderFlagReducer = (values: readonly boolean[]) => boolean;
+
+/**
+ * Each render flag DECLARES its own group-merge semantics — never a blanket
+ * rule. The registry is mapped over `keyof AgentRenderFlags`, so adding a flag
+ * there without a reducer here is a COMPILE error (a missing property), instead
+ * of the next flag silently inheriting a default the way `surfacesSkillFrontmatter`
+ * silently took `configs[0]`'s view.
+ */
+export const GROUP_RENDER_FLAG_REDUCERS: {
+  readonly [K in keyof AgentRenderFlags]: RenderFlagReducer;
+} = {
+  // Slim only when EVERY member surfaces SKILL.md frontmatter; any member that
+  // does not keeps the full table (the conservative side — the members that need
+  // the table never lose their only skill listing). Empty declares nothing →
+  // false → full, never `[].every() === true` → slim.
+  surfacesSkillFrontmatter: (values) => values.length > 0 && values.every(Boolean),
+};
+
+/**
+ * Reduce a group's members to the single `AgentRenderFlags` its shared entry
+ * config renders, applying each flag's declared reducer.
+ *
+ * Agents that share one output signature (codex/copilot/antigravity all write
+ * `.agents/skills` + `AGENTS.md`) read the same bytes, so the shared file's
+ * render flags must reflect the whole group, never one member (`configs[0]`).
+ */
+export function mergeGroupRenderFlags(
+  members: readonly AgentRenderFlags[],
+): AgentRenderFlags {
+  // Built by looping the canonical key list (exhaustive per the type check
+  // above), so the cast is filled before it is returned.
+  const result = {} as AgentRenderFlags;
+  for (const key of RENDER_FLAG_KEYS) {
+    result[key] = GROUP_RENDER_FLAG_REDUCERS[key](members.map((m) => m[key]));
+  }
+  return result;
+}
+
+/**
+ * Agent configuration describing a target AI CLI platform.
+ */
+export interface AgentConfig extends AgentRenderFlags {
+  /** Agent identifier (e.g., 'claude', 'antigravity', 'copilot', 'codex') */
+  name: string;
+  /** Base path for Skill files relative to project root */
+  skillPath: string;
+  /** Path for the agent's entry configuration file */
+  configPath: string;
   /**
    * What this harness can do. Injected into every skill render context by
    * `agent-sync`, so the generated SKILL.md states the capability rather than

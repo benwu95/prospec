@@ -130,6 +130,52 @@ agents:
     }
   });
 
+  it('renders a shared-output group from the MERGED render flags, not any single member (REQ-AGNT-034)', async () => {
+    // codex/copilot/antigravity all write .agents/skills + AGENTS.md, so one file
+    // serves three agents. Set the first and last members to surface frontmatter
+    // and degrade the MIDDLE one: first-member-wins (`configs[0]`) and
+    // last-member-wins (`configs.at(-1)`) both read `true` here, so only a real
+    // group merge renders the full table (issue #134).
+    const originals = {
+      codex: AGENT_CONFIGS.codex.surfacesSkillFrontmatter,
+      copilot: AGENT_CONFIGS.copilot.surfacesSkillFrontmatter,
+      antigravity: AGENT_CONFIGS.antigravity.surfacesSkillFrontmatter,
+    };
+    AGENT_CONFIGS.codex.surfacesSkillFrontmatter = true;
+    AGENT_CONFIGS.copilot.surfacesSkillFrontmatter = false;
+    AGENT_CONFIGS.antigravity.surfacesSkillFrontmatter = true;
+    try {
+      vol.fromJSON({
+        '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - codex
+  - copilot
+  - antigravity
+`,
+      });
+      const rt = vi.mocked(renderTemplate);
+      rt.mockClear();
+
+      await execute({ cwd: '/project' });
+
+      const entryCall = rt.mock.calls.find(
+        ([name]) => String(name) === 'agent-configs/entry.md.hbs',
+      );
+      expect(entryCall, 'expected the shared entry-config render').toBeDefined();
+      const ctx = entryCall![1] as Record<string, unknown>;
+      // The first and last members surface frontmatter; the shared file must
+      // still render the full table because copilot reads the same bytes.
+      expect(AGENT_CONFIGS.codex.surfacesSkillFrontmatter).toBe(true);
+      expect(AGENT_CONFIGS.antigravity.surfacesSkillFrontmatter).toBe(true);
+      expect(ctx.surfaces_skill_frontmatter).toBe(false);
+    } finally {
+      AGENT_CONFIGS.codex.surfacesSkillFrontmatter = originals.codex;
+      AGENT_CONFIGS.copilot.surfacesSkillFrontmatter = originals.copilot;
+      AGENT_CONFIGS.antigravity.surfacesSkillFrontmatter = originals.antigravity;
+    }
+  });
+
   it('should generate skill files for configured agent', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

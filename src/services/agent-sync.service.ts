@@ -21,8 +21,11 @@ import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
   HARNESS_CAPABILITY_KEYS,
+  RENDER_FLAG_KEYS,
   intersectCapabilities,
+  mergeGroupRenderFlags,
   type AgentConfig,
+  type AgentRenderFlags,
   type AgentSyncResult,
   type HarnessCapabilities,
   type SkillConfig,
@@ -205,12 +208,19 @@ export async function execute(
   // 7. Generate once per unique output; report the agents it serves.
   const results: AgentSyncResult[] = [];
   for (const { configs, names } of groups.values()) {
-    // One file serves the whole group, so its capability claims must hold for
-    // EVERY member — the intersection, never the first or last member's view.
+    // One file serves the whole group, so its capability claims AND its render
+    // flags must hold for EVERY member — merged across the group, never the
+    // first or last member's view (issue #95 fixed capabilities; issue #134
+    // fixed the render flags the same way).
     const capabilities = intersectCapabilities(configs.map((c) => c.capabilities));
+    const renderFlags = mergeGroupRenderFlags(configs);
     const result = await syncAgent(
       configs[0]!,
-      { ...templateContext, ...harnessCapabilityContext(capabilities) },
+      {
+        ...templateContext,
+        ...harnessCapabilityContext(capabilities),
+        ...renderFlagContext(renderFlags),
+      },
       triggerWordsBySkill,
       cwd,
     );
@@ -267,6 +277,23 @@ function harnessCapabilityContext(
     HARNESS_CAPABILITY_KEYS.map((key) => [
       key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
       capabilities[key],
+    ]),
+  );
+}
+
+/**
+ * Expand merged render flags into the `snake_case` render keys the entry
+ * template branches on (`{{#if surfaces_skill_frontmatter}}`).
+ */
+function renderFlagContext(flags: AgentRenderFlags): Record<string, boolean> {
+  // Derived from the canonical key list, not hand-mapped — same reason as
+  // `harnessCapabilityContext`: a new flag reaches the template instead of
+  // stopping at a forgotten literal. `surfacesSkillFrontmatter` →
+  // `surfaces_skill_frontmatter`.
+  return Object.fromEntries(
+    RENDER_FLAG_KEYS.map((key) => [
+      key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
+      flags[key],
     ]),
   );
 }
@@ -411,9 +438,10 @@ async function generateEntryConfig(
   const generated = renderTemplate('agent-configs/entry.md.hbs', {
     ...templateContext,
     skill_path: agentConfig.skillPath,
-    // Slim the always-loaded skill registry for agents whose runtime already
-    // surfaces SKILL.md frontmatter (claude); keep the full table otherwise.
-    surfaces_skill_frontmatter: agentConfig.surfacesSkillFrontmatter,
+    // `surfaces_skill_frontmatter` is supplied by the caller via
+    // `renderFlagContext(mergeGroupRenderFlags(configs))` — the group-merged
+    // value, never this single member's flag. Reading `agentConfig`'s flag here
+    // would reintroduce the `configs[0]` desync (issue #134).
   });
 
   const configFilePath = path.join(cwd, agentConfig.configPath);
