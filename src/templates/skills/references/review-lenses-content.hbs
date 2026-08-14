@@ -108,17 +108,20 @@ Applies when the change adds or edits README/doc/spec prose that claims behavior
 | A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | critical (spec contradiction) / major (overclaim) |
 | A gap or non-goal left silent — what is not done / not measurable must carry explicit **deliberate-exclusion** wording ("not measured here", "left to …") so review/verify can diff claims against behavior | major |
 | A count/attribution stated in prose that the code does not back (the deterministic `mcp-readme-counts` check covers only MCP-registration counts, so general count/attribution prose still needs this lens) | major |
+| **Enforcement face** — a claim that a property is *guaranteed / enforced / cannot happen* names the mechanism but not **who runs it and when**; a checker with no executor is not a gate. A passive-voice assertion with no subject ("is enforced", "cannot happen", "is refused") is the tell — supply the subject, then confirm that subject actually runs | critical (mechanism with no executor) / major |
+| **No-enforcer face** — a doc states a **shape** nothing enforces (a commit-subject form, a naming pattern, a message template); it is dated the moment it is written. Name the enforcer, or state only what the artifact *carries* (the stable part) and send the reader to the live source (`git log`, the registry, the schema). A repeatedly-refuted claim converges by **deletion**, not by weakening | major |
 
 ---
 
 ## Parallel-Site Completeness Lens (PB-007)
 
-Applies when the change introduces or touches an invariant or a shared resolver / config / data source.
+Applies when the change introduces or touches an invariant or a shared resolver / config / data source — **or applies a fix** (remediation has the same failure mode).
 
 | Criterion | Default severity |
 |-----------|------------------|
 | An invariant (realpath containment, terminal sanitization, resource-name guard) or resolution rule applied at one site but a **parallel consumer of the same data source was missed** — grep every consumer and apply + test each | critical (the missed site is the next bug) |
 | A NEW consumer re-derives a shared path/config or re-implements the check ad hoc instead of going through the canonical resolver | major |
+| **Remediation face** — applying a **fix**: only the reported line was rechecked instead of **re-running the full lens each round**, or only the named site was patched without asking "who else is in this family" and "did I only change the failure's SHAPE". A fix carries the author's highest confidence and lowest scrutiny — fix the defect's CLASS and send the fix back as a new diff; the missed sibling or the unfixed shape-defect is the next critical | critical (the fix introduces the next defect) / major |
 
 ---
 
