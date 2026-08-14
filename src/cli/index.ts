@@ -15,6 +15,7 @@ import { registerPrintTemplateCommand } from './commands/print-template.js';
 import { registerKnowledgeCommand } from './commands/knowledge.js';
 import { registerKnowledgeInitCommand } from './commands/knowledge-init.js';
 import { registerKnowledgeUpdateCommand } from './commands/knowledge-update.js';
+import { registerKnowledgeVerifyCommand } from './commands/knowledge-verify.js';
 import { registerAgentCommand } from './commands/agent-sync.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerChangeCommand } from './commands/change-story.js';
@@ -101,6 +102,7 @@ export function createProgram(): Command {
   const knowledge = registerKnowledgeCommand(program);
   registerKnowledgeInitCommand(knowledge, program);
   registerKnowledgeUpdateCommand(knowledge, program);
+  registerKnowledgeVerifyCommand(knowledge, program);
   registerAgentCommand(program);
   registerConfigCommand(program);
   registerChangeCommand(program);

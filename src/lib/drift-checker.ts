@@ -173,11 +173,16 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
   const findings: DriftFinding[] = [];
   const healthModules: KnowledgeHealth['modules'] = [];
   for (const m of timestamps.modules) {
-    // A module's knowledge is its README plus every extracted sub-module sibling,
-    // so the source is compared against the NEWEST of them — otherwise a change
-    // that updates only a sub-module leaves the module permanently stale.
-    const newestKnowledge = newerOf(m.last_readme_commit, m.last_sub_module_commit);
-    const stale = m.readme_exists ? isStale(m.last_src_commit, newestKnowledge) : true;
+    // Staleness is judged against the module's explicit `last_verified` confirmation
+    // time (module-map.yaml), not the inferred git commit time of its knowledge files.
+    // No README, or no `last_verified`, is stale by the coverage rule regardless of
+    // timestamps. The commit-time keys stay in the report (frozen contract) but no
+    // longer drive the verdict (REQ-LIB-015).
+    const stale = !m.readme_exists
+      ? true
+      : m.last_verified === null
+        ? true
+        : isStale(m.last_src_commit, m.last_verified);
     healthModules.push({
       name: m.name,
       last_src_commit: m.last_src_commit,
@@ -186,6 +191,7 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
         ? {}
         : { last_sub_module_commit: m.last_sub_module_commit }),
       stale,
+      ...(m.last_verified === null ? {} : { last_verified: m.last_verified }),
     });
     if (!m.readme_exists) {
       findings.push({
@@ -200,8 +206,10 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
         severity: 'warn',
         source_path: m.readme_path,
         detail:
-          `stale knowledge: module "${m.name}" source last commit ${m.last_src_commit} ` +
-          `is newer than its newest knowledge commit ${newestKnowledge}`,
+          m.last_verified === null
+            ? `stale knowledge: module "${m.name}" has no last_verified — its knowledge is unconfirmed against source`
+            : `stale knowledge: module "${m.name}" source last commit ${m.last_src_commit} ` +
+              `is newer than its last_verified ${m.last_verified}`,
       });
     }
   }
@@ -883,17 +891,19 @@ function skipped(id: DriftCheckId, reason: string): CheckOutcome {
   return { result: { id, status: 'skipped', reason }, findings: [] };
 }
 
-function isStale(srcCommit: string | null, knowledgeCommit: string | null): boolean {
-  if (srcCommit === null || knowledgeCommit === null) return false;
-  // %cI carries each committer's own UTC offset — epoch comparison, not string order.
-  return Date.parse(srcCommit) > Date.parse(knowledgeCommit);
-}
-
-/** The later of two commit stamps by instant; null only when both are null. */
-function newerOf(a: string | null, b: string | null): string | null {
-  if (a === null) return b;
-  if (b === null) return a;
-  return Date.parse(b) > Date.parse(a) ? b : a;
+function isStale(srcCommit: string | null, reference: string): boolean {
+  // A null `last_verified` is intercepted as stale by the caller before this runs,
+  // so the reference is always a real timestamp here; only a null source (no source
+  // commits) short-circuits — nothing to be stale against.
+  if (srcCommit === null) return false;
+  // Compare by UTC calendar day, NOT by instant. `last_verified` is a wall-clock stamp
+  // taken moments BEFORE the co-commit that carries it, so an instant comparison would
+  // read every freshly-committed module as stale (commit time > stamp). Day granularity
+  // keeps "verified and committed the same day" fresh while still catching source that
+  // drifts to a later day. %cI carries each committer's own UTC offset — Date.parse
+  // normalizes both to the same epoch before the day floor.
+  const utcDay = (iso: string): number => Math.floor(Date.parse(iso) / 86_400_000);
+  return utcDay(srcCommit) > utcDay(reference);
 }
 
 // codepoint order, NOT localeCompare — ICU collation varies per environment

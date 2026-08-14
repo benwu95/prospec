@@ -110,6 +110,8 @@ export interface ModuleTimestamps {
   last_readme_commit: string | null;
   /** Newest commit across the module's sub-module `.md` siblings; null when it has none. */
   last_sub_module_commit: string | null;
+  /** The module's declared `last_verified` (module-map.yaml); null when it declares none. */
+  last_verified: string | null;
 }
 
 export interface GitTimestampSource {
@@ -649,6 +651,7 @@ export function collectGitTimestamps(
         last_src_commit: gitLastCommit(cwd, entry.paths, generatedArtifacts),
         last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
         last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
+        last_verified: entry.last_verified ?? null,
       });
     } catch (e) {
       return { available: false, reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`, modules: [] };

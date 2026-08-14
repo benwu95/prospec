@@ -1,6 +1,6 @@
 # CLI Surface
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (58 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (60 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,8 +9,8 @@
 | File | Purpose |
 |------|---------|
 | `index.ts` | `createProgram()` registers all 18 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `setup-color.js` first import; `.version()` from `types/version` |
-| `commands/` | 26 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress), status, spec show, archive (+`finalize`), review merge, verify record, learn, validate, measure (with projection mode), check, mcp — parse flags → call service → format |
-| `formatters/` | 27 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `review-merge-output.ts` prints the round's criticals as a bounded digest (claim line + `repro` line) and NEVER the evidence prose, which is what makes the artifact the only place it lives; `error-output.ts` also has `handleError()`; `archive-output.ts` prints each dry-run `PlannedMutation` by its action — including `skip`, a planned NON-mutation (a write the run will deliberately not perform), rendered by the same generic branch — and routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`). Two spec-loss worklists are BLOCKING-class — exit 1, feature spec left unwritten, and the wording says so: `refusedRequirements` and `droppedBehavior` (printed in full per bullet, never as a count). Six stay WARNING-class (visible under `--quiet`, never exit 1): `refusedReconciliations`, `pendingConvergence`, `acknowledgedDrops`, `staleDeclarations`, `missingChangeHistory` (no `## Change History` host for the graduation row), `productSpecDeclined` — the last being the only signal separating a deliberate non-write from a successful sync. What each one means is in `services`' Spec Sync sub-module |
+| `commands/` | 27 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update/verify), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress), status, spec show, archive (+`finalize`), review merge, verify record, learn, validate, measure (with projection mode), check, mcp — parse flags → call service → format |
+| `formatters/` | 28 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `review-merge-output.ts` prints the round's criticals as a bounded digest (claim line + `repro` line) and NEVER the evidence prose, which is what makes the artifact the only place it lives; `error-output.ts` also has `handleError()`; `archive-output.ts` prints each dry-run `PlannedMutation` by its action — including `skip`, a planned NON-mutation (a write the run will deliberately not perform), rendered by the same generic branch — and routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`). Two spec-loss worklists are BLOCKING-class — exit 1, feature spec left unwritten, and the wording says so: `refusedRequirements` and `droppedBehavior` (printed in full per bullet, never as a count). Six stay WARNING-class (visible under `--quiet`, never exit 1): `refusedReconciliations`, `pendingConvergence`, `acknowledgedDrops`, `staleDeclarations`, `missingChangeHistory` (no `## Change History` host for the graduation row), `productSpecDeclined` — the last being the only signal separating a deliberate non-write from a successful sync. What each one means is in `services`' Spec Sync sub-module |
 | `log-level.ts` | `resolveLogLevel(opts)` — root-flag → LogLevel; imported by every command |
 | `parse-options.ts` | Shared Commander parsers — `parseDepth` (positive int), `parseDate` (bare ISO 8601), `collect` (repeatable option → array) |
 | `setup-color.ts` | Sets NO_COLOR for non-TTY stdout before picocolors loads; honors NO_COLOR/FORCE_COLOR |
@@ -18,7 +18,7 @@
 ## Public API
 
 - `createProgram()` — Commander program, all 18 top-level commands; `main()` runs on load (NOT exported)
-- `registerXxxCommand(program)` — 26 registrars; `formatXxxOutput(result, logLevel)` — 27 formatters; `handleError(err, verbose)` → stderr
+- `registerXxxCommand(program)` — 27 registrars; `formatXxxOutput(result, logLevel)` — 28 formatters; `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`

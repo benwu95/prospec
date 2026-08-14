@@ -622,6 +622,24 @@ describe('updateModuleMap', () => {
     expect(content).toContain('services');
   });
 
+  it("preserves an existing module's last_verified across an add (REQ-SERVICES-090)", async () => {
+    vol.fromJSON({
+      '/project/module-map.yaml':
+        'modules:\n  - name: services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n    last_verified: "2026-08-14T00:00:00Z"\n',
+    });
+
+    const result = await updateModuleMap(
+      { added: ['auth'], removed: [] },
+      '/project/module-map.yaml',
+    );
+
+    expect(result).not.toBeNull();
+    const content = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
+    expect(content).toContain('auth');
+    // The pre-existing module's confirmation stamp must survive the sequence rebuild.
+    expect(content).toContain('2026-08-14T00:00:00Z');
+  });
+
   it('should return null when module-map.yaml does not exist', async () => {
     vol.fromJSON({});
     vol.mkdirSync('/project', { recursive: true });

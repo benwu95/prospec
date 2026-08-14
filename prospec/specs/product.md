@@ -59,7 +59,7 @@ Collects session corrections, repeated verify FAILs, and recurring review critic
 
 ### knowledge-management
 
-TBD — describe this feature and its value in 1-2 sentences.
+Keeps an existing knowledge base honest rather than generating it: a sweep that compresses mechanized and obsolete README content on update, and `prospec knowledge verify`, the CLI-owned stamp recording when each module's knowledge was last confirmed against its source. That stamp is what freshness is judged on — and what CI's sync gate requires when a module's source changes.
 → [features/knowledge-management.md](features/knowledge-management.md)
 
 ### knowledge-reader

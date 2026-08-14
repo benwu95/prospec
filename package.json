@@ -28,6 +28,7 @@
     "counts:check": "npx tsx scripts/sync-counts.ts --check",
     "bundle": "npx tsx scripts/bundle.ts",
     "agents:check": "npx tsx scripts/check-agent-sync.ts",
+    "knowledge:check": "npx tsx scripts/check-knowledge-sync.ts",
     "cli": "npx tsx src/cli/index.ts"
   },
   "keywords": [

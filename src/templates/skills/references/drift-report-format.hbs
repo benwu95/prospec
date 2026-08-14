@@ -122,7 +122,7 @@ validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `
 ```jsonc
 {
   "modules": [
-    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "last_sub_module_commit": "<ISO>", "stale": true }
+    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "last_sub_module_commit": "<ISO>", "stale": true, "last_verified": "<ISO>" }
   ],
   "coverage": { "documented": 23, "total": 23 }
 }
@@ -131,12 +131,16 @@ validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `
 - Per-module staleness lives on **each element of `modules[]`** as the boolean `stale`.
   `knowledge_health` has **no** top-level `stale[]` array — to get the stale modules, filter
   `knowledge_health.modules` by `.stale`: `knowledge_health.modules.filter(m => m.stale)`.
-- `last_sub_module_commit` is the newest commit across the module's extracted sub-module `.md`
-  siblings and is **absent** when the module has none (never null-filled). A module's knowledge is
-  its README plus those siblings, so for a **documented** module `stale` recomputes as
-  `last_src_commit` vs the newer of `last_readme_commit` / `last_sub_module_commit`. A module with
-  no README is stale by the coverage rule — that verdict rides its `coverage gap` finding and is
-  deliberately not recomputable from these timestamps.
+- `last_verified` is the module's explicit confirmation time (`module-map.yaml`, stamped by
+  `prospec knowledge verify`) and is **absent** when the module declares none. Since REQ-LIB-015 it
+  is the freshness reference: for a **documented** module `stale` recomputes as `last_src_commit`
+  vs `last_verified` **compared by UTC calendar day** (or stale when `last_verified` is absent) —
+  day granularity so a source commit made the same day it was verified reads fresh. A module with no README is stale by
+  the coverage rule — that verdict rides its `coverage gap` finding and is deliberately not
+  recomputable from these timestamps.
+- `last_readme_commit` / `last_sub_module_commit` remain in the frozen shape (the latter **absent**
+  when the module has no sub-module, never null-filled) but no longer drive `stale` — they are
+  reported for continuity of the downstream contract.
 - `coverage` is `{ documented, total }` module README counts.
 - The whole object is **optional** (absent when the module map is unavailable). Absent →
   treat as "no freshness facts", not as all-fresh.

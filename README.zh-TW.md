@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3828%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3853%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -498,6 +498,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | `prospec init [options]` | 初始化 Prospec 專案結構（`--language` 設定 AI 產出文件語言，預設英文） |
 | `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | 掃描專案 → 生成 raw-scan.md + 精選骨架（module-map.yaml / prospec/index.md / _conventions.md，僅在缺檔時）。`--raw-scan-only` **僅**重新產生 raw-scan.md（deterministic、不使用 LLM），不碰 curated 檔 — 程式碼變動後或 `/prospec-knowledge-generate` 前執行以刷新結構快照 |
 | `prospec knowledge update [--change <name>] [--module <m>...]` | 依變更 delta-spec（或指定模組）做增量機械知識同步：從 module-map 重生 index auto block、增刪 module-map 條目、為真正的新模組建 skeleton README、為 REMOVED 加棄用標記 —— 並回報 `README content pending` 清單；既有 README **絕不重寫**（auto block 承載人工撰寫的知識；內容更新是 `/prospec-knowledge-update` 的判斷工作） |
+| `prospec knowledge verify <module>...` | 為指定模組在 module-map.yaml 戳上 `last_verified`——代表該模組知識已與 source 確認一致的時間戳。當模組 `src/**` 變動時 `knowledge:check`（CI）要求它更新，`prospec check` 的知識新鮮度也據它判斷 staleness |
 | `prospec agent sync [--cli <name>]` | 同步 AI Agent 配置 + 生成 Skills（讀取 .prospec.yaml 的 `skill_triggers` 注入母語觸發詞） |
 | `prospec agent triggers [--write <file>]` | 輸出可直接翻譯的 `skill_triggers` scaffold —— 尚未在地化的 skill，每筆帶英文 baseline（來自 `SKILL_DEFINITIONS`）。翻譯後以 `--write <file>` 只插入缺少的鍵回 `.prospec.yaml`（保留註解與順序、寫入前驗證、絕不覆蓋既有條目） |
 | `prospec config example` | 輸出完整、逐欄註解的 `.prospec.yaml` 參考範例 —— 涵蓋 prospec 讀取的每個欄位，附範例值與說明。未初始化專案亦可執行 |
@@ -669,7 +670,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 | 命令 | 說明 |
 |------|------|
-| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（git commit 時間戳，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／每個模組知識檔——README **與其抽出的 `{sub-module}.md`**——對照其 token 預算，模組知識檔另有行數預算，恆 WARN 級）、review provenance（受稽核的變更——`implemented` 或 `verified`，故 verify 到 archive 之間的窗口也在範圍內——須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠，稽核範圍與 review provenance 同源）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊、artifact language（變更工件的**散文**通篇不帶專案 artifact language 的字跡——判定前先剝除 fenced code——恆 WARN 級；該語言不在名稱→書寫系統對照表中、或 scope root 不可讀／位於 repo 外時，帶原因 skip）、spec counters（feature spec 的 frontmatter `story_count`／`req_count` 對照其 body，計數用的正是 `archive finalize` 寫入時的同一個 matcher——恆 WARN 級：多數情況下一次 archive 就會校正，但當 body 會把宣稱大於零的計數歸零時 finalize 拒絕寫入，該 warn 會一直留到人工收斂該 spec；沒有可解析的 feature spec 時帶原因 skip）、delta-spec provenance（受稽核變更的 `delta-spec.md` 須仍符合 review 基線一併記下的指紋——整棵樹的 digest 排除 `.prospec/`，故 archive 唯一逐字複製進信任區的工件原本毫無閘門可言；已證明的 backfill（它不跑 review，故不可能有基線）與無 delta-spec 的 scale 皆不比對而直接 pass；只有 `.prospec/changes/` 不存在才會帶原因 skip）、預算覆寫的正當性（`knowledge.token_budget` 中每個調高於出廠預設的欄位，都必須在相鄰處留一行 YAML 註解說明理由——調高天花板是一個決策，沒有記錄的決策與「放任檔案長大」無從區分；恆 WARN 級，`.prospec.yaml` 不存在、無法解析或未宣告 `token_budget` 區塊時帶原因 skip），canonical-doc-drift（如 README.md 等 canonical 初始化文件，與其模板為本專案渲染出的結果產生分歧——恆 WARN 級，請透過 `prospec upgrade` 或手動同步來還原；檔案不存在時 skip），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
+| `prospec check [--json] [--strict]` | 確定性、零 LLM 的 spec ↔ code ↔ knowledge drift 檢查：懸空 REQ 引用、失效 markdown 連結、module-map 驅動的 import 依賴方向、知識新鮮度（各模組 `last_verified` 確認時間 vs 其最後 source commit——由 `prospec knowledge verify` 戳記，恆 WARN 級）、kind-aware 任務完成率、README 宣告計數真實性（如「registers N resources」對照其指名的程式，恆 WARN 級）、knowledge-file 大小預算（index.md／core conventions／每個模組知識檔——README **與其抽出的 `{sub-module}.md`**——對照其 token 預算，模組知識檔另有行數預算，恆 WARN 級）、review provenance（受稽核的變更——`implemented` 或 `verified`，故 verify 到 archive 之間的窗口也在範圍內——須有仍對應現行程式的 review 紀錄）、metadata 完整性、test provenance（測試紀錄存在、未過期且為綠，稽核範圍與 review provenance 同源）、Constitution 嚴重度（每條 principle 都帶 RFC-2119 標籤，恆 WARN 級）與機器解析出的規則清冊、artifact language（變更工件的**散文**通篇不帶專案 artifact language 的字跡——判定前先剝除 fenced code——恆 WARN 級；該語言不在名稱→書寫系統對照表中、或 scope root 不可讀／位於 repo 外時，帶原因 skip）、spec counters（feature spec 的 frontmatter `story_count`／`req_count` 對照其 body，計數用的正是 `archive finalize` 寫入時的同一個 matcher——恆 WARN 級：多數情況下一次 archive 就會校正，但當 body 會把宣稱大於零的計數歸零時 finalize 拒絕寫入，該 warn 會一直留到人工收斂該 spec；沒有可解析的 feature spec 時帶原因 skip）、delta-spec provenance（受稽核變更的 `delta-spec.md` 須仍符合 review 基線一併記下的指紋——整棵樹的 digest 排除 `.prospec/`，故 archive 唯一逐字複製進信任區的工件原本毫無閘門可言；已證明的 backfill（它不跑 review，故不可能有基線）與無 delta-spec 的 scale 皆不比對而直接 pass；只有 `.prospec/changes/` 不存在才會帶原因 skip）、預算覆寫的正當性（`knowledge.token_budget` 中每個調高於出廠預設的欄位，都必須在相鄰處留一行 YAML 註解說明理由——調高天花板是一個決策，沒有記錄的決策與「放任檔案長大」無從區分；恆 WARN 級，`.prospec.yaml` 不存在、無法解析或未宣告 `token_budget` 區塊時帶原因 skip），canonical-doc-drift（如 README.md 等 canonical 初始化文件，與其模板為本專案渲染出的結果產生分歧——恆 WARN 級，請透過 `prospec upgrade` 或手動同步來還原；檔案不存在時 skip），以及——`feature-map.yaml` 存在時——REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。`--json` 輸出機器可讀的 `prospec-report.json`；`--strict` 在任一 FAIL 時 exit 1（warn/skipped 永不影響 exit code） |
 | `prospec check --record-tests [--change <name>]` | 執行專案測試指令（`tech_stack.test_command`；未設時，僅當 package.json 宣告 test script 才回退 `<package_manager> test`，兩者皆無則誠實回報、絕不猜測）並把 `{command, exit_code, digest, date}` 寫進該變更的 `metadata.yaml`。這是 `/prospec-verify` 測試維度的裁決依據——測試結果成為機器事實，而非 agent 自陳。指令以 argv 切分、**不經 shell** 執行；無法誠實執行時（無指令、Windows 上的 `.cmd`／`.bat` shim —— Node 拒絕無 shell 執行之、非 git repo、逾時）不寫入任何紀錄，並各自回報原因且該 check 為 `skipped`，絕不留下任何設定都清不掉的 FAIL。唯一例外：先前**已記錄的非零退出碼即使指令事後變得不可解析仍判 FAIL** —— 已知紅燈是事實，缺指令抑制不了它 |
 | `prospec check --escaped-defects [--json]` | 依 `introduced_by` 登記聚合各 gate 的 escaped-defect 率，橫跨 `.prospec/changes/` 與 `.prospec/archive/`——目前唯一針對 gate 本身的 ground-truth 準確度訊號。屬報表模式而非檢項：不產 finding、不影響 `--strict`。無登記樣本時明說無樣本，而不是輸出 0% 漏失率 |
 | `prospec check --record-review [--change <name>]` | 記錄該變更的 review 基線（程式 digest），供 `review-provenance` 證明 review 跑過且仍對應現行程式；並在同一次寫入記下該變更 `delta-spec.md` 的指紋——那正是解除 `delta-spec-provenance` 發現的方式 |
@@ -798,7 +799,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3828 個測試）
+# 執行所有測試（3853 個測試）
 pnpm test
 
 # Watch 模式
@@ -811,11 +812,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3828 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2868 tests
-- Contract tests（CLI 輸出 + Skill 格式）：830 tests
+**測試覆蓋率**：3853 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2890 tests
+- Contract tests（CLI 輸出 + Skill 格式）：831 tests
 - Integration tests：45 tests
-- E2E tests：85 tests
+- E2E tests：87 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
@@ -864,6 +865,7 @@ pnpm lint
 pnpm counts          # 自動更新文件中的事實計數
 pnpm counts:check    # 驗證文件計數是否一致
 pnpm agents:check    # 驗證生成工件（bundle ＋ 部署的 skills）是否為當前狀態
+pnpm knowledge:check # 驗證每個 source 有變動的模組都更新了 last_verified
 ```
 
 <details>

@@ -505,12 +505,13 @@ describe('evaluateKnowledgeHealth', () => {
         last_src_commit: '2026-06-10T00:00:00+00:00',
         last_readme_commit: '2026-06-11T00:00:00+00:00',
         last_sub_module_commit: null,
+        last_verified: '2026-06-11T00:00:00+00:00',
         ...over,
       },
     ],
   });
 
-  it('warns (never fails) when source is newer than README', () => {
+  it('warns (never fails) when source is newer than last_verified', () => {
     const r = evaluateKnowledgeHealth(
       stamps({ last_src_commit: '2026-06-12T00:00:00+00:00' }),
     );
@@ -519,80 +520,108 @@ describe('evaluateKnowledgeHealth', () => {
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
   });
 
-  it('compares timestamps by instant, not by string (timezone offsets)', () => {
-    // Same instant expressed in different offsets must NOT be stale.
+  it('compares by UTC day, normalizing timezone offsets', () => {
+    // Same instant expressed in different offsets is the same UTC day → NOT stale.
     const r = evaluateKnowledgeHealth(
       stamps({
         last_src_commit: '2026-06-11T08:00:00+08:00',
-        last_readme_commit: '2026-06-11T00:00:00+00:00',
+        last_verified: '2026-06-11T00:00:00+00:00',
       }),
     );
     expect(r.result.status).toBe('pass');
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
   });
 
-  it('is not stale when only a sub-module is newer than the source', () => {
+  it('is NOT stale when source was committed later the same UTC day it was verified (co-commit)', () => {
+    // The load-bearing case: `last_verified` is stamped moments before the commit that
+    // carries both it and the source, so the source commit instant is LATER than the
+    // stamp. Same-day comparison keeps that fresh; an instant comparison would wrongly
+    // mark every freshly-committed module stale forever.
     const r = evaluateKnowledgeHealth(
       stamps({
-        last_src_commit: '2026-06-12T00:00:00+00:00',
-        last_readme_commit: '2026-06-11T00:00:00+00:00',
-        last_sub_module_commit: '2026-06-13T00:00:00+00:00',
-      }),
-    );
-    expect(r.result.status).toBe('pass');
-    expect(r.knowledgeHealth?.modules[0]).toMatchObject({
-      stale: false,
-      last_readme_commit: '2026-06-11T00:00:00+00:00',
-      last_sub_module_commit: '2026-06-13T00:00:00+00:00',
-    });
-  });
-
-  it('compares against the README when the README is the newer knowledge file', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-12T00:00:00+00:00',
-        last_readme_commit: '2026-06-13T00:00:00+00:00',
-        last_sub_module_commit: '2026-06-11T00:00:00+00:00',
+        last_src_commit: '2026-06-11T18:30:00+00:00',
+        last_verified: '2026-06-11T09:00:00+00:00',
       }),
     );
     expect(r.result.status).toBe('pass');
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
   });
 
-  it('reports a module with sub-modules but no README as a coverage gap, not a timestamp verdict', () => {
+  it('is not stale when last_verified is at or after the source commit', () => {
     const r = evaluateKnowledgeHealth(
       stamps({
-        readme_exists: false,
-        last_readme_commit: null,
+        last_src_commit: '2026-06-11T00:00:00+00:00',
+        last_verified: '2026-06-12T00:00:00+00:00',
+      }),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  });
+
+  it('is stale when a documented module has no last_verified, regardless of its knowledge commits', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
         last_src_commit: '2026-06-10T00:00:00+00:00',
-        last_sub_module_commit: '2026-06-20T00:00:00+00:00',
+        last_readme_commit: '2026-06-20T00:00:00+00:00',
+        last_verified: null,
       }),
     );
-    // the coverage rule decides here — the timestamps alone would say "not stale"
+    expect(r.result.status).toBe('warn');
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
-    expect(r.findings[0]?.detail).toContain('coverage gap');
+    expect(r.findings[0]?.detail).toContain('no last_verified');
   });
 
-  it('stays stale when the source outruns every knowledge file, naming the newest one compared', () => {
+  it('reports a documented module stale when source outruns last_verified, naming last_verified', () => {
     const r = evaluateKnowledgeHealth(
       stamps({
         last_src_commit: '2026-06-14T00:00:00+00:00',
-        last_readme_commit: '2026-06-11T00:00:00+00:00',
-        last_sub_module_commit: '2026-06-13T00:00:00+00:00',
+        last_verified: '2026-06-13T00:00:00+00:00',
       }),
     );
     expect(r.result.status).toBe('warn');
     expect(r.findings[0]?.detail).toContain('2026-06-13T00:00:00+00:00');
   });
 
-  it('omits the sub-module key entirely when the module has no sub-module', () => {
-    const r = evaluateKnowledgeHealth(stamps({}));
-    expect(Object.keys(r.knowledgeHealth!.modules[0]!)).toEqual([
+  it('reports a module with no README as a coverage gap, not a timestamp verdict', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({
+        readme_exists: false,
+        last_readme_commit: null,
+        last_src_commit: '2026-06-10T00:00:00+00:00',
+        last_verified: '2026-06-20T00:00:00+00:00',
+      }),
+    );
+    // last_verified is fresh, but a module with no README is stale by the coverage rule
+    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
+    expect(r.findings[0]?.detail).toContain('coverage gap');
+  });
+
+  it('keeps the frozen report keys and adds last_verified additively (present) / omits it (absent)', () => {
+    const present = evaluateKnowledgeHealth(stamps({}));
+    expect(Object.keys(present.knowledgeHealth!.modules[0]!)).toEqual([
+      'name',
+      'last_src_commit',
+      'last_readme_commit',
+      'stale',
+      'last_verified',
+    ]);
+    const absent = evaluateKnowledgeHealth(stamps({ last_verified: null }));
+    expect(Object.keys(absent.knowledgeHealth!.modules[0]!)).toEqual([
       'name',
       'last_src_commit',
       'last_readme_commit',
       'stale',
     ]);
+  });
+
+  it('still carries last_sub_module_commit when present (frozen contract)', () => {
+    const r = evaluateKnowledgeHealth(
+      stamps({ last_sub_module_commit: '2026-06-13T00:00:00+00:00' }),
+    );
+    expect(r.knowledgeHealth?.modules[0]).toMatchObject({
+      last_readme_commit: '2026-06-11T00:00:00+00:00',
+      last_sub_module_commit: '2026-06-13T00:00:00+00:00',
+    });
   });
 
   it('treats a missing README as a coverage gap warning', () => {
@@ -620,6 +649,7 @@ describe('evaluateKnowledgeHealth', () => {
         last_src_commit: '2026-06-12T00:00:00Z',
         last_readme_commit: null,
         last_sub_module_commit: null,
+        last_verified: null,
       })),
     });
     expect(r.result.status).toBe('warn');
@@ -946,6 +976,7 @@ describe('runChecks', () => {
             last_src_commit: '2026-06-12T00:00:00Z',
             last_readme_commit: null,
             last_sub_module_commit: null,
+            last_verified: null,
           },
         ],
       },
@@ -1049,8 +1080,8 @@ describe('evaluateImportDirection — unknown from_module', () => {
   });
 });
 
-describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => {
-  it('is never stale when the source commit is null even though a README exists (isStale L253)', () => {
+describe('evaluateKnowledgeHealth — last_verified signal edges', () => {
+  it('is never stale when the source commit is null, even with a README and a last_verified', () => {
     const r = evaluateKnowledgeHealth({
       available: true,
       modules: [
@@ -1061,6 +1092,7 @@ describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => 
           last_src_commit: null,
           last_readme_commit: '2026-06-11T00:00:00+00:00',
           last_sub_module_commit: null,
+          last_verified: '2026-06-11T00:00:00+00:00',
         },
       ],
     });
@@ -1069,7 +1101,7 @@ describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => 
     expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
   });
 
-  it('is never stale when the README commit is null even though a README exists (isStale L253)', () => {
+  it('reads only last_verified: a documented module with a fresh last_verified is not stale even when its README/sub-module commits are null', () => {
     const r = evaluateKnowledgeHealth({
       available: true,
       modules: [
@@ -1080,6 +1112,7 @@ describe('evaluateKnowledgeHealth — isStale null-commit short circuit', () => 
           last_src_commit: '2026-06-12T00:00:00+00:00',
           last_readme_commit: null,
           last_sub_module_commit: null,
+          last_verified: '2026-06-13T00:00:00+00:00',
         },
       ],
     });
