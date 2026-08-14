@@ -138,7 +138,7 @@ prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；�
 
 ```text
 🤖 Run inside your AI Agent chat:
-你 ▸ 用 prospec 幫我加一個深色模式切換
+你 ▸ 請 prospec 幫我加一個深色模式切換
 
 Agent 接手需求並執行 /prospec-ff：
   • 問幾個範圍 / 驗收問題 —— 你用自然語言回答

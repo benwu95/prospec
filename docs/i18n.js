@@ -55,7 +55,7 @@
     // ---- proof (terminal transcript) ----
     'proof.aria': '終端機對話：開發者請 agent 加上深色模式切換；Prospec 跑完整個 SDD 迴圈，變更達到 grade A 並完成歸檔。',
     'proof.bar': '你的 AI agent — prospec',
-    'proof.l1': '<span class="who">你 ▸ </span>用 prospec 幫我加一個深色模式切換',
+    'proof.l1': '<span class="who">你 ▸ </span>請 prospec 幫我加一個深色模式切換',
     'proof.l2': 'agent 接手需求並執行 <span class="hl">/prospec-ff</span> …',
     'proof.l3': '• 範圍與驗收問題 → 你用自然語言回答',
     'proof.l4': '• 寫出 <span class="hl">story → plan → tasks</span>，接著在每個階段交接：',
@@ -140,8 +140,8 @@
     'quickstart.s2.note': '在既有程式碼庫上，它會在你的第一個變更前，把你的模組讀進 AI Knowledge。',
     'quickstart.s3.h': '描述一個變更 —— agent 會驅動迴圈',
     'quickstart.s3.p': '你不需要記住每一步。用自然語言描述；agent 會跑完 SDD 迴圈，只在需要提問與確認每次交接時才停下。',
-    'quickstart.prompt': '<span class="pr">▸ </span>用 prospec 幫我加一個深色模式切換',
-    'quickstart.prompt.copy': '用 prospec 幫我加一個深色模式切換',
+    'quickstart.prompt': '<span class="pr">▸ </span>請 prospec 幫我加一個深色模式切換',
+    'quickstart.prompt.copy': '請 prospec 幫我加一個深色模式切換',
     'quickstart.s3.note': '每個階段結束時都會出現「Run /prospec-&lt;next&gt; now? (Y/n)」—— 你的 Y 才是觸發，絕不靜默自動執行。',
 
     // ---- verify (signature) ----

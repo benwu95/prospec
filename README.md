@@ -138,7 +138,7 @@ You don't have to remember the steps — **describe the change in plain language
 
 ```text
 🤖 Run inside your AI Agent chat:
-You ▸ Use prospec to add a dark-mode toggle
+You ▸ Ask prospec to add a dark-mode toggle
 
 The agent picks up the request and runs /prospec-ff:
   • asks a few scoping / acceptance questions — you answer in plain language
