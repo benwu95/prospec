@@ -1883,14 +1883,15 @@ describe('Skill Format Contract', () => {
       expect(phases).toEqual(['Sweep', 'Collect', 'Score', 'Promote', 'Govern']);
     });
 
-    it('Sweep states the three expiry tests, the evidence bar, and human approval', () => {
+    it('Sweep states the four sweep tests, the evidence bar, and human approval', () => {
       const c = render();
       const sweep = c.slice(c.indexOf('### Sweep'), c.indexOf('### Collect'));
       expect(sweep.length).toBeGreaterThan(0);
-      // the three tests the issue defines — mechanized / gone / contradicted
+      // the four tests — three expiry (mechanized / gone / contradicted) + desynchronized (issue #136)
       expect(sweep).toMatch(/mechanized/i);
       expect(sweep).toMatch(/no longer applicable/i);
       expect(sweep).toMatch(/contradicted/i);
+      expect(sweep).toMatch(/desynchronized/i);
       // evidence bar: a mechanism without an executor is not a mechanism
       expect(sweep).toMatch(/executor/i);
       expect(sweep).toMatch(/nothing runs is not a mechanism/i);
@@ -1967,8 +1968,8 @@ describe('Skill Format Contract', () => {
         '## Staleness Sweep (pre-Collect)',
       );
       expect(sweep.length).toBeGreaterThan(0);
-      // the three expiry tests, as table rows
-      for (const test of ['mechanized', 'no longer applicable', 'contradicted']) {
+      // the four sweep tests, as table rows — three expiry + desynchronized (issue #136)
+      for (const test of ['mechanized', 'no longer applicable', 'contradicted', 'desynchronized']) {
         expect(sweep).toContain(`| ${test} |`);
       }
       // ledger tier: counters are the evidence, so the row survives its rule
@@ -4301,6 +4302,104 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
     expect(lenses).toContain('docs-claims');
     expect(lenses).toContain('parallel-site');
     expect(lenses).toContain('test-quality');
+  });
+});
+
+describe('detect-inlined-gate-desync — Inlined/Mechanized annotation anchors (issue #136)', () => {
+  // Reads the REAL _playbook.md (not a rendered template): this is the governance
+  // file whose annotations the desync Sweep and this structural guard both read.
+  const playbook = fs.readFileSync(
+    path.join(process.cwd(), 'prospec/ai-knowledge/_playbook.md'),
+    'utf8',
+  );
+  const renderLenses = () => renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+
+  // An annotation line carries a DATED bold lead — `**Inlined into gate {date}**`
+  // or `**Mechanized {date}**`. Requiring the date excludes both the
+  // `## Maintenance Rules` prose that merely *names* the concept (backticked, no
+  // bold) and the `**Mechanized ≠ retired**` heading bullet (bold, but no date).
+  const annotationLines = playbook
+    .split('\n')
+    .filter((l) => /\*\*(Inlined into gate|Mechanized) \d{4}-\d{2}-\d{2}\*\*/.test(l));
+
+  // Parse a `Landing:` clause into { path, marker } pairs.
+  // Grammar: `Landing:` then one or more `` `path` (marker) `` items, comma-separated.
+  const parseLanding = (line: string): { anchorPath: string; marker: string }[] => {
+    const idx = line.indexOf('Landing:');
+    if (idx === -1) return [];
+    const pairs: { anchorPath: string; marker: string }[] = [];
+    // Sticky: consume only the CONTIGUOUS run of `path` (marker) items immediately
+    // after `Landing:`, comma-separated, and stop at the first non-anchor char. A
+    // mid-line annotation (PB-008) whose Landing clause is followed by unrelated
+    // prose cannot leak a spurious pair, because the scan halts at the closing '.'.
+    const re = /`([^`]+)`\s*\(([^)]+)\)(?:,\s*)?/y;
+    re.lastIndex = idx + 'Landing:'.length;
+    while (line[re.lastIndex] === ' ') re.lastIndex++;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(line)) !== null) {
+      const [, anchorPath, marker] = match;
+      if (anchorPath && marker) pairs.push({ anchorPath, marker });
+    }
+    return pairs;
+  };
+
+  // A Landing path is either skill-relative (`references/*.hbs`, `prospec-*.hbs` →
+  // src/templates/skills/) or a repo-relative code path (`tsconfig.typecheck.json`,
+  // `src/**`). Resolve against both roots; null when it exists at neither.
+  const resolveAnchorPath = (p: string): string | null => {
+    const candidates = [
+      path.join(process.cwd(), p),
+      path.join(process.cwd(), 'src/templates/skills', p),
+    ];
+    return candidates.find((c) => fs.existsSync(c)) ?? null;
+  };
+
+  it('every Inlined/Mechanized annotation carries a non-empty Landing: anchor', () => {
+    // Non-empty guard (PB-001 vacuous-pass shape): the filter must actually match
+    // the six live annotations (PB-001/003/006/007/008/016), never an empty set.
+    expect(annotationLines.length).toBeGreaterThanOrEqual(6);
+    for (const line of annotationLines) {
+      expect(line, `annotation missing Landing: clause → ${line.slice(0, 70)}`).toContain('Landing:');
+      expect(
+        parseLanding(line).length,
+        `empty Landing anchor list → ${line.slice(0, 70)}`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('every bold Inlined/Mechanized annotation lead is dated — no dateless annotation escapes the guard', () => {
+    // A bold `**Inlined into gate …**` / `**Mechanized …**` lead, minus the
+    // `**Mechanized ≠ retired**` maintenance-rule prose. The structural filter keys
+    // on the DATED form; asserting equality means a dateless authoring slip cannot
+    // slip past `annotationLines` and skip the Landing-anchor check unnoticed.
+    const boldLeads = playbook
+      .split('\n')
+      .filter((l) => /\*\*(Inlined into gate|Mechanized) /.test(l) && !/Mechanized ≠ retired/.test(l));
+    expect(boldLeads.length).toBeGreaterThanOrEqual(6); // non-empty guard
+    expect(boldLeads.length).toBe(annotationLines.length);
+  });
+
+  it('every Landing anchor names an existing file that contains its marker', () => {
+    const allPairs = annotationLines.flatMap(parseLanding);
+    expect(allPairs.length).toBeGreaterThanOrEqual(6); // non-empty guard
+    for (const { anchorPath, marker } of allPairs) {
+      const resolved = resolveAnchorPath(anchorPath);
+      expect(resolved, `Landing path does not resolve: ${anchorPath}`).not.toBeNull();
+      const content = fs.readFileSync(resolved as string, 'utf8');
+      expect(
+        content.includes(marker),
+        `marker "${marker}" absent from ${anchorPath}`,
+      ).toBe(true);
+    }
+  });
+
+  it('the docs-claims and parallel-site lenses carry PB-003/PB-007 CURRENT strengthened clauses', () => {
+    const lenses = renderLenses();
+    const docs = sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens (PB-003)');
+    expect(docs).toContain('who runs it and when'); // PB-003 2026-08-03 enforcement face
+    expect(docs).toContain('nothing enforces'); // PB-003 2026-08-06 no-enforcer face
+    const par = sectionOf(lenses, '## Parallel-Site Completeness Lens (PB-007)');
+    expect(par).toContain('re-running the full lens each round'); // PB-007 2026-07-31 remediation
   });
 });
 

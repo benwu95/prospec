@@ -83,6 +83,7 @@ req_count: 202
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-14 | detect-inlined-gate-desync | MODIFIED REQ-TEMPLATES-132; MODIFIED REQ-TESTS-043 | REQ-TEMPLATES-132, REQ-TESTS-043 |
 | 2026-08-14 | mechanize-knowledge-sync-gate | ADDED REQ-TESTS-088 | REQ-TESTS-088 |
 | 2026-08-11 | converge-req-body-boundary | MODIFIED REQ-SERVICES-072; ADDED REQ-TESTS-085 | REQ-SERVICES-072, REQ-TESTS-085 |
 | 2026-08-11 | configurable-generated-artifacts | ADDED REQ-SERVICES-088 | REQ-SERVICES-088 |
