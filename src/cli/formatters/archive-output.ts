@@ -143,6 +143,22 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
     }
   }
 
+  // A spec that took graduation edits but carries no `## Change History` section
+  // — in the mother file or any registered slice — had nowhere to record the row.
+  // Loud, so the lost provenance is visible; not blocking, because the REQ bodies
+  // still landed. The remedy is to restore the section (or register the slice
+  // carrying it) and re-run.
+  if (result.missingChangeHistory.length > 0) {
+    process.stderr.write(
+      `${pc.yellow('!')} ${result.missingChangeHistory.length} feature spec(s) have no \`## Change History\` section — the graduation row was NOT recorded; add the section to the mother file or a registered slice and re-run:\n`,
+    );
+    for (const m of result.missingChangeHistory) {
+      process.stderr.write(
+        `  ${pc.yellow('·')} ${sanitizeTerminal(m.feature)} (${sanitizeTerminal(m.changeName)}): ${m.reqIds.map((id) => sanitizeTerminal(id)).join(', ')}\n`,
+      );
+    }
+  }
+
   for (const name of result.skipped) {
     const reason = result.skippedReasons[name] ?? 'archive failed';
     process.stderr.write(

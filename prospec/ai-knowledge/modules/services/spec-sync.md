@@ -6,14 +6,14 @@
 
 | File | Purpose |
 |------|---------|
-| `archive.service.ts` → `syncToFeatureSpecs` | Merges delta-spec ADDED/MODIFIED/REMOVED into `specs/features/*.md` (Replace-in-Place) and appends the Change History row |
+| `archive.service.ts` → `syncToFeatureSpecs` | Merges delta-spec ADDED/MODIFIED/REMOVED into `specs/features/*.md` (Replace-in-Place) and appends the Change History row to whichever file hosts the section — mother file or a registered slice |
 | `archive.service.ts` → `generateProductSpec` | Syncs `product.md`'s `## Feature Map` — the file's ONLY machine-owned region |
 | `archive.service.ts` → `syncFeatureMap` | Bootstraps `feature-map.yaml` once (no-clobber); shares `listFeatureSpecFiles` with product.md so the two indexes cannot disagree |
 | `archive.service.ts` → `executeFinalize` | Post-judgment: `_archived-history` copy + frontmatter counter reconciliation |
 
 ## Public API
 
-- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + five worklists: `pendingConvergence`, `droppedBehavior` (undeclared, BLOCKING), `acknowledgedDrops`, `staleDeclarations`, `refusedRequirements` (BLOCKING)
+- `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + six worklists: `pendingConvergence`, `droppedBehavior` (undeclared, BLOCKING), `acknowledgedDrops`, `staleDeclarations`, `refusedRequirements` (BLOCKING), `missingChangeHistory` (loud, non-blocking — no `## Change History` host)
 - `classifyBlockTerminator` / `extractDeltaBlock` / `declaredDrops` / `whenThenBullets` — the I/O-free parsers the guards are built from
 - `generateProductSpec(featuresPath, productSpecPath, projectName)` → `{ path, declined }` — `declined` names why nothing was written
 - `inspectProductSpecSync(content, featuresExist)` → the decline reason or `null` — the ONE decision the real run and `--dry-run` both read
