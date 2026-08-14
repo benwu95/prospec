@@ -8,6 +8,7 @@ import type { SearchModulesResult, SearchMatchField } from '../types/mcp.js';
 import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 import { estimateTokens } from './token-accounting.js';
 import { parseSpecSlices, type SpecContent } from './spec-headings.js';
+import { hasUnclosedFence, withoutFencedBlocks } from './markdown-fences.js';
 
 /**
  * Knowledge content read layer (REQ-MCP-006) — whole-document reads for the
@@ -87,6 +88,54 @@ export function readFeatureMapRaw(knowledgePath: string): string | null {
 export function readModuleReadme(knowledgePath: string, moduleName: string): string | null {
   if (!isSafeResourceName(moduleName)) return null;
   return readContainedText(path.join(knowledgePath, 'modules', moduleName, 'README.md'), knowledgePath);
+}
+
+/**
+ * The sub-module basenames a module README links from its `## Sub-Modules`
+ * section — the L2 sub-layer reached only through those links (never listed in
+ * index.md). Mirrors `parseSpecSlices`: fence-masked so a `## Sub-Modules`
+ * heading or a link inside a code fence is an example, not a declaration, and an
+ * unclosed fence degrades to the raw lines rather than masking a real one away.
+ */
+export function parseSubModuleLinks(readme: string): string[] {
+  const raws = readme.split(/\r?\n/);
+  const probes = hasUnclosedFence(raws) ? raws : withoutFencedBlocks(raws);
+  const names: string[] = [];
+  let inSection = false;
+  for (const probe of probes) {
+    if (/^##\s+Sub-Modules/i.test(probe)) {
+      inSection = true;
+      continue;
+    }
+    if (inSection && /^##\s/.test(probe)) break;
+    if (inSection) {
+      const match = /\[.+?\]\(\.\/([^/]+)\.md\)/.exec(probe);
+      if (match) names.push(match[1]!);
+    }
+  }
+  return names;
+}
+
+/**
+ * A module's complete L2 knowledge — its README followed by each linked
+ * sub-module body — for the MCP `knowledge://module/{name}` resource, so a client
+ * reads the whole module the way a skill does (README PLUS its `## Sub-Modules`
+ * files) rather than the README alone. Mirrors `loadFeatureSpecContent` +
+ * `assembleWholeSpec` for feature specs and their slices. A module with no
+ * sub-modules reads exactly as its README; an unreadable sub-module costs its own
+ * body, not the whole read (the README is what the resource is named for).
+ */
+export function loadModuleKnowledge(knowledgePath: string, moduleName: string): string | null {
+  const readme = readModuleReadme(knowledgePath, moduleName);
+  if (readme === null) return null;
+  const modulesDir = path.join(knowledgePath, 'modules', moduleName);
+  const bodies: string[] = [];
+  for (const sub of parseSubModuleLinks(readme)) {
+    if (!isSafeResourceName(sub)) continue;
+    const body = readContainedText(path.join(modulesDir, `${sub}.md`), knowledgePath);
+    if (body !== null) bodies.push(body);
+  }
+  return bodies.length === 0 ? readme : `${readme}\n\n${bodies.join('\n\n')}`;
 }
 
 /** List active (non-archived) feature spec names, without the .md extension. */

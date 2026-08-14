@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-08-14
 story_count: 38
-req_count: 202
+req_count: 203
 ---
 
 # SDD Workflow
@@ -83,6 +83,7 @@ req_count: 202
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-14 | unify-spec-read-resolution | ADDED REQ-LIB-055; MODIFIED REQ-SERVICES-084; MODIFIED REQ-TESTS-080 | REQ-LIB-055, REQ-SERVICES-084, REQ-TESTS-080 |
 | 2026-08-14 | detect-inlined-gate-desync | MODIFIED REQ-TEMPLATES-132; MODIFIED REQ-TESTS-043 | REQ-TEMPLATES-132, REQ-TESTS-043 |
 | 2026-08-14 | mechanize-knowledge-sync-gate | ADDED REQ-TESTS-088 | REQ-TESTS-088 |
 | 2026-08-11 | converge-req-body-boundary | MODIFIED REQ-SERVICES-072; ADDED REQ-TESTS-085 | REQ-SERVICES-072, REQ-TESTS-085 |

@@ -19,15 +19,20 @@ The `serve` subcommand of `mcp`, the CLI's 11th command, starts a read-only serv
 - WHEN any client requests, THEN the server has no write surface that can modify files
 
 #### REQ-MCP-002: Knowledge resources (read-only, per-request, contained)
-Five kinds of read-only resources: `knowledge://index`, `knowledge://module/{name}`, `knowledge://module-map`, `knowledge://feature-map`, `knowledge://playbook`, whose content is re-read from the filesystem on every request. `knowledge://feature-map` (`application/yaml`) exposes `feature-map.yaml` (feature→module routing + status), following `knowledge://module-map`: realpath-contained via `lib/readFeatureMapRaw`, returning raw text only without parsing (validation belongs to `loadFeatureMap` governance and is unrelated to this resource).
-
-**Scenarios:**
+Five kinds of read-only resources: `knowledge://index`, `knowledge://module/{name}`, `knowledge://module-map`, `knowledge://feature-map`, `knowledge://playbook`, whose content is re-read from the filesystem on every request. The `knowledge://module/{name}` resource serves the whole L2 module knowledge — the README plus each sub-module linked from its `## Sub-Modules` section — because those sub-module files are an L2 sub-layer with no resource of their own. `knowledge://feature-map` (`application/yaml`) exposes `feature-map.yaml` (feature→module routing + status), following `knowledge://module-map`: realpath-contained via `lib/readFeatureMapRaw`, returning raw text only without parsing (validation belongs to `loadFeatureMap` governance and is unrelated to this resource).
 - WHEN resources/list, THEN it contains index, module-map, feature-map, playbook, and the README resource for every module in the map with a valid name; list and read share the same `isSafeResourceName` gatekeeping
+- WHEN reading `knowledge://module/{name}`, THEN it returns that module's README followed by each sub-module linked from the README's `## Sub-Modules` section — the whole L2 module knowledge, not the README alone; a module with no sub-modules reads as its README, and an unreadable sub-module costs its own body rather than the read
 - WHEN reading `knowledge://index`, THEN it reads the root-level `<paths.base_dir>/index.md` (sharing the same base-dir resolution as knowledge writers); a legacy project not migrated via `/prospec-upgrade` (having only `ai-knowledge/_index.md`) returns `McpResourceNotFound`
 - WHEN reading `knowledge://feature-map` and `feature-map.yaml` exists, THEN it returns raw text (`application/yaml`), re-read per request; a missing file returns `McpResourceNotFound`, and the server stays alive
 - WHEN reading a nonexistent module/file, THEN it returns an MCP error (resource not found), and the server process is not interrupted
 - WHEN a resource parameter contains a path separator or `..`, THEN it is always rejected
 - WHEN the realpath of any resource file (including module-map.yaml and its derived surfaces: listing, health, dependency queries) escapes the served root, THEN it is always treated as not found—a committed symlink must not become an oracle for reading files outside the repo or for existence probing; symlinks within root are served as usual
+
+#### REQ-LIB-056: Assemble a module's README with its linked sub-modules
+`lib/knowledge-reader` assembles a module's whole L2 knowledge for the MCP module resource: `parseSubModuleLinks(readme)` lists the sub-module basenames the README links from its `## Sub-Modules` section, and `loadModuleKnowledge(knowledgePath, name)` returns the README followed by each linked sub-module body — the module-knowledge analog of the sliced feature-spec read.
+- WHEN a README's `## Sub-Modules` section links sibling `./{sub}.md` files, THEN `parseSubModuleLinks` returns their basenames in document order, fence-masked so a heading or link inside a code fence is an example rather than a declaration
+- WHEN `loadModuleKnowledge` reads a module, THEN it returns the README followed by each linked, realpath-contained sub-module body; a module with no sub-modules reads exactly as its README, and an absent README reads as null
+- WHEN a linked sub-module is missing or unreadable, THEN its body is skipped and the rest of the read still lands, and a sub-module name is passed through the resource-name guard before it is read
 
 #### REQ-MCP-006: Knowledge read layer (missing→graceful / unreadable→graceful for content, loud for a governance map / invalid→loud)
 `lib/knowledge-reader` is the content read layer; module-map loading and path clamp are the shared implementation for check and MCP. Its contained read is the ONE implementation of that invariant — `drift-sources` delegates to it rather than carrying a second copy, which is how the two drifted into disagreeing about read failures in the first place.
@@ -124,7 +129,7 @@ The MCP contract types carry the REQ-scoped read: `MCP_TOOL_NAMES` gains `get_sp
 - WHEN the result schema is declared, THEN it carries both the selected slices and the selectors that matched nothing, so an unmatched selector is part of the contract rather than an empty success
 
 #### REQ-MCP-009: `get_spec_requirements` tool exposes the same narrow read
-The MCP server exposes the REQ-granular read as a tool, `get_spec_requirements`, taking a feature plus optional REQ and story selectors and returning the same slices and misses the CLI does — from the same library functions, so the two surfaces cannot drift.
+The MCP server exposes the REQ-granular read as a tool, `get_spec_requirements`, taking a feature plus optional REQ and story selectors and returning the same slices and misses the CLI does — from the same shared `lib/spec-read` resolution entry (feature resolution, contained read, selector expansion and selection), so the two surfaces cannot drift.
 - WHEN the tool is called with selectors, THEN it returns the selected slices and the unmatched selectors as structured output
 - WHEN the tool is called with no selector at all, THEN it refuses and points at the `spec://feature/{name}` resource: this result carries no whole-spec field, so an empty selection would read as "this feature specifies nothing"
 - WHEN the tool is called for a feature that does not resolve, THEN it returns a tool error listing the specs that DO exist and does not echo the requested name back — the name is caller-supplied text and a service cannot reach the CLI's terminal sanitizer

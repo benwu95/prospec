@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3857%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3880%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -583,7 +583,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | URI | 內容 |
 |-----|------|
 | `knowledge://index` | AI Knowledge 模組索引（`prospec/index.md`） |
-| `knowledge://module/{name}` | 單一模組的 Recipe-First README |
+| `knowledge://module/{name}` | 單一模組的 Recipe-First README，加上其 `## Sub-Modules` 區塊連結的每個 sub-module 檔（完整的 L2 模組知識） |
 | `knowledge://module-map` | 模組邊界 + `depends_on`（`module-map.yaml`） |
 | `knowledge://feature-map` | feature → module 索引 + REQ prefixes（`feature-map.yaml`） |
 | `knowledge://playbook` | 人工核可的團隊 lessons（`_playbook.md`） |
@@ -799,7 +799,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3857 個測試）
+# 執行所有測試（3880 個測試）
 pnpm test
 
 # Watch 模式
@@ -812,9 +812,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3857 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2890 tests
-- Contract tests（CLI 輸出 + Skill 格式）：835 tests
+**測試覆蓋率**：3880 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2909 tests
+- Contract tests（CLI 輸出 + Skill 格式）：839 tests
 - Integration tests：45 tests
 - E2E tests：87 tests
 

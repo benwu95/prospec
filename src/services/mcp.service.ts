@@ -7,12 +7,12 @@ import {
   isSafeResourceName,
   listFeatureSpecs,
   loadFeatureSpecContent,
+  loadModuleKnowledge,
   loadModuleMap,
   parseIndexModules,
   readFeatureMapRaw,
   readIndex,
   readModuleMapRaw,
-  readModuleReadme,
   readPlaybook,
   readProduct,
   searchModules,
@@ -35,8 +35,7 @@ import {
   SpecRequirementsResultSchema,
   type DependencyDirectionResult,
 } from '../types/mcp.js';
-import { indexSpec } from '../lib/spec-headings.js';
-import { selectSpecSlices } from '../lib/spec-slices.js';
+import { assembleWholeSpec, readSpecSlices } from '../lib/spec-read.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import { McpResourceNotFound } from '../types/errors.js';
 
@@ -194,14 +193,17 @@ function registerKnowledgeResources(server: McpServer, ctx: McpServerContext): v
     }),
     {
       title: 'Module Knowledge',
-      description: 'Recipe-First README for one module',
+      description: 'Recipe-First README plus its linked sub-modules for one module',
       mimeType: 'text/markdown',
     },
+    // README plus each linked `## Sub-Modules` file — the whole L2 module
+    // knowledge a skill reads, not the README alone (the sub-module files have no
+    // resource of their own, so a README-only read truncated the knowledge).
     (uri, variables) =>
       textResource(
         uri.href,
         'text/markdown',
-        readModuleReadme(ctx.knowledgePath, String(variables.name)),
+        loadModuleKnowledge(ctx.knowledgePath, String(variables.name)),
       ),
   );
 }
@@ -243,8 +245,10 @@ function registerSpecResources(server: McpServer, ctx: McpServerContext): void {
       mimeType: 'text/markdown',
     },
     (uri, variables) => {
+      // Whole spec assembled by the shared helper — the same one the CLI whole-spec
+      // fallback uses, so the two surfaces cannot disagree on what "the whole spec" is.
       const loaded = loadFeatureSpecContent(ctx.featuresDir, String(variables.name));
-      const content = loaded ? (typeof loaded.specContent === 'string' ? loaded.specContent : loaded.specContent.main + '\n\n' + Object.values(loaded.specContent.slices).join('\n\n')) : null;
+      const content = loaded ? assembleWholeSpec(loaded.specContent) : null;
       return textResource(uri.href, 'text/markdown', content);
     }
   );
@@ -308,24 +312,22 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       annotations: { readOnlyHint: true },
     },
     ({ feature, req, story }) => {
-      // Same two lib functions the CLI command calls, so the two surfaces cannot
-      // answer one question two ways. A resource read stays whole-spec: this is a
-      // query, and the SDK cannot express an optional one in a URI template.
-      const loaded = loadFeatureSpecContent(ctx.featuresDir, feature);
-      const content = loaded ? loaded.specContent : null;
-      if (content === null) {
+      // Same shared entry the CLI command routes through — feature resolution,
+      // contained read, selector expansion and selection — so the two surfaces
+      // cannot answer one question two ways. Only the no-selector policy differs:
+      // this tool refuses, because its result carries no whole-spec field. A resource
+      // read stays whole-spec because the SDK cannot express an optional query in a
+      // URI template.
+      const result = readSpecSlices(ctx.featuresDir, feature, { req, story });
+      if (result.status === 'not-found') {
         // The requested name is deliberately NOT echoed: it is caller-supplied text
         // and this result travels as JSON to a client that may print it. The list is
         // the actionable half anyway.
         return toolError(
-          `feature spec not found — active feature specs: ${
-            listFeatureSpecs(ctx.featuresDir).filter(isSafeResourceName).join(', ') || 'none'
-          }`,
+          `feature spec not found — active feature specs: ${result.available.join(', ') || 'none'}`,
         );
       }
-      const wantedReq = (req ?? []).flatMap((value) => value.split(',')).filter((v) => v.trim() !== '');
-      const wantedStory = (story ?? []).flatMap((value) => value.split(',')).filter((v) => v.trim() !== '');
-      if (wantedReq.length === 0 && wantedStory.length === 0) {
+      if (result.status === 'no-selector') {
         // Refused rather than answered with an empty selection: this tool's result
         // has no whole-spec field, and `{slices: [], misses: []}` reads exactly like
         // "this feature specifies nothing". The whole spec has its own address.
@@ -334,20 +336,16 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
             'spec://feature/{name} resource for a whole spec',
         );
       }
-      const selection = selectSpecSlices(content, indexSpec(content, { includeStruck: true }), {
-        req: wantedReq,
-        story: wantedStory,
-      });
       return structuredResult({
         feature,
-        slices: selection.slices.map(({ id, kind, story: owner, deprecated, text }) => ({
+        slices: result.selection.slices.map(({ id, kind, story: owner, deprecated, text }) => ({
           id,
           kind,
           story: owner,
           deprecated,
           text,
         })),
-        misses: selection.misses,
+        misses: result.selection.misses,
       });
     },
   );
