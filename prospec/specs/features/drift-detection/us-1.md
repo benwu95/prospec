@@ -99,7 +99,11 @@ so that drift checks are enforced in the CI main pipeline without burning any to
 `execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the workflow template (rerun-safe, does not overwrite); the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
 
 #### REQ-CLI-011: `prospec check` command
-Flags `--json`/`--strict`/`--init-ci`; the human-readable output lists each of the sixteen checks with its own status (skipped explicitly attaches a reason); untrusted repo strings are output after `sanitizeTerminal()` filters C0/C1 control characters.
+`prospec check`'s human-readable output lists every check in `DRIFT_CHECK_IDS` with its own status (a skipped check attaches its reason) and renders the `Findings:` block grouped by finding type; untrusted repo strings pass through `sanitizeTerminal()` (C0/C1 control-character filtering) before output. Flags: `--json` / `--strict` / `--init-ci`.
+- WHEN findings exist, THEN they are grouped under a per-`check` heading in `DRIFT_CHECK_IDS` order, each heading carrying its severity tally, and a check with no finding shows no heading
+- WHEN the `knowledge-size` group is rendered, THEN it is split into an over-budget sub-section shown first and an approaching-headroom sub-section, and within each the findings are grouped by surface and budget key so the shared threshold and remedy appear once in the heading while each finding line shows only its path and measured token/line count
+- WHEN an untrusted path or detail carries control characters, THEN they are filtered by `sanitizeTerminal()` before printing
+- WHEN `--strict` is set and a FAIL exists, THEN the exit code is unchanged by the grouped rendering — display grouping never alters which findings or severities are reported
 
 #### REQ-TEMPLATES-091: CI Workflow template
 Two jobs: check (checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` enables pipefail, tee must not mask the exit code) → report artifact) + comment (**no checkout**, only downloads the artifact, an off-the-shelf sticky action posts a 4-space-indented code block — no fence can escape, `head -c 60000` cap). Supply-chain hardening is the default: third-party actions are pinned to full commit SHAs, minimal-privilege `permissions:`.
@@ -118,5 +122,29 @@ Two jobs: check (checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` 
 
 
 #### REQ-TESTS-031: feature-map drift collector/evaluator tests
+
+---
+
+#### REQ-TYPES-083: knowledge-size structured finding field
+The Drift Report schema's `DriftFinding` carries an OPTIONAL `knowledge_size` object — `{ surface, budget_key, budget, actual, unit, tier, remedy? }` — populated only for `knowledge-size` findings; it is additive and optional, so a report without it still validates and existing consumers are unaffected.
+- WHEN a `knowledge-size` finding is serialized, THEN it carries a `knowledge_size` object whose `surface` is the load-surface label, `budget_key`/`budget` name the threshold, `actual`/`unit` (`tokens`|`lines`) the measurement, `tier` (`over`|`headroom`) the band, and `remedy` the convergence hint (absent for the headroom band)
+- WHEN any other check's finding is serialized, THEN `knowledge_size` is absent and the finding validates unchanged
+- WHEN an older report without `knowledge_size` is parsed, THEN it still validates because the field is optional
+
+---
+
+#### REQ-LIB-054: knowledge-size evaluator emits structured fields
+`evaluateKnowledgeSize` populates each finding's `knowledge_size` structured fields from `KNOWLEDGE_SIZE_RULES` and the measured item. The human-readable `detail` string is the canonical prose rendering of the finding, and the structured fields are strictly additive to it — never a replacement — so consumers can group by surface/tier without parsing the prose.
+- WHEN a file exceeds a token or line budget, THEN its finding's `knowledge_size.tier` is `over`, with `surface`/`budget_key`/`budget`/`actual`/`unit`/`remedy` taken from the rule and measurement
+- WHEN a file is within budget but past the headroom band, THEN its finding's `knowledge_size.tier` is `headroom` and `remedy` is absent
+- WHEN a knowledge-size finding is produced, THEN its `detail` prose and its `knowledge_size` fields describe the same measurement
+
+---
+
+#### REQ-TESTS-087: knowledge-size structured-finding coverage
+The knowledge-size structured-finding behavior is pinned by unit tests: the schema accepts and round-trips `knowledge_size`, the evaluator emits the correct `tier`/`surface`/`budget_key`/`budget`/`actual`/`unit`/`remedy` for over-budget and headroom cases, and each finding's `detail` prose is asserted against a fixed expected string.
+- WHEN the evaluator's structured emission is reverted, THEN a test turns red
+- WHEN a finding's `detail` wording changes, THEN its byte-identity assertion turns red
+- WHEN the optional schema field is removed, THEN a schema test turns red
 
 ---

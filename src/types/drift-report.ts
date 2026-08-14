@@ -135,12 +135,38 @@ export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const
 /** Findings only exist for problems — pass/skipped never produce findings. */
 export const DRIFT_FINDING_SEVERITIES = ['warn', 'fail'] as const;
 
+/** A knowledge-size finding is either strictly over its budget, or within budget
+ *  but past the headroom band (a pressure signal). */
+export const KNOWLEDGE_SIZE_FINDING_TIERS = ['over', 'headroom'] as const;
+export const KNOWLEDGE_SIZE_FINDING_UNITS = ['tokens', 'lines'] as const;
+
+/**
+ * The structured facts behind a `knowledge-size` finding's prose `detail`, so a
+ * consumer can group by surface/tier without parsing the sentence. Present ONLY
+ * on knowledge-size findings, and optional/additive — an absent value never
+ * invalidates a report, so older reports still parse.
+ */
+export const KnowledgeSizeFindingSchema = z.object({
+  /** The load-surface label (KNOWLEDGE_SIZE_RULES.label), e.g. "skill reference". */
+  surface: z.string().min(1),
+  /** The budget key graded against, e.g. "reference_per_file" / "readme_max_lines". */
+  budget_key: z.string().min(1),
+  budget: z.number().int().positive(),
+  actual: z.number().int().nonnegative(),
+  unit: z.enum(KNOWLEDGE_SIZE_FINDING_UNITS),
+  tier: z.enum(KNOWLEDGE_SIZE_FINDING_TIERS),
+  /** Convergence hint — absent for the headroom (pressure) tier. */
+  remedy: z.string().min(1).optional(),
+});
+
 export const DriftFindingSchema = z.object({
   check: z.enum(DRIFT_CHECK_IDS),
   severity: z.enum(DRIFT_FINDING_SEVERITIES),
   source_path: z.string().min(1),
   line: z.number().int().positive().optional(),
   detail: z.string().min(1),
+  /** knowledge-size findings only — structured facts behind `detail` (additive, optional). */
+  knowledge_size: KnowledgeSizeFindingSchema.optional(),
 });
 
 export const DriftCheckResultSchema = z
@@ -240,6 +266,7 @@ export const DriftReportSchema = z.object({
 export type DriftCheckId = (typeof DRIFT_CHECK_IDS)[number];
 export type DriftCheckStatus = (typeof DRIFT_CHECK_STATUSES)[number];
 export type DriftFinding = z.infer<typeof DriftFindingSchema>;
+export type KnowledgeSizeFinding = z.infer<typeof KnowledgeSizeFindingSchema>;
 export type DriftCheckResult = z.infer<typeof DriftCheckResultSchema>;
 export type KnowledgeHealthModule = z.infer<typeof KnowledgeHealthModuleSchema>;
 export type KnowledgeHealth = z.infer<typeof KnowledgeHealthSchema>;

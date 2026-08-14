@@ -8,7 +8,13 @@ import type {
   RecordReviewResult,
   RecordTestsResult,
 } from '../../services/check.service.js';
-import { DRIFT_CHECK_IDS, type DriftCheckResult, type DriftReport } from '../../types/drift-report.js';
+import {
+  DRIFT_CHECK_IDS,
+  type DriftCheckResult,
+  type DriftFinding,
+  type DriftReport,
+  type KnowledgeSizeFinding,
+} from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 // Shared terminal sanitiser, re-exported so existing importers (and the
@@ -98,11 +104,18 @@ export function formatCheckOutput(
   if (report.structural.findings.length > 0) {
     console.log('');
     console.log(pc.bold('Findings:'));
-    for (const f of report.structural.findings) {
-      const where = f.line === undefined ? f.source_path : `${f.source_path}:${f.line}`;
-      const sev = f.severity === 'fail' ? pc.red('fail') : pc.yellow('warn');
-      console.log(`  [${sev}] ${sanitizeTerminal(where)}`);
-      console.log(`         ${sanitizeTerminal(f.detail)}`);
+    // Grouped by check id in DRIFT_CHECK_IDS order — the same order the status
+    // list above uses — so each finding sits under its own type heading rather
+    // than interleaved with unrelated checks.
+    for (const id of DRIFT_CHECK_IDS) {
+      const group = report.structural.findings.filter((f) => f.check === id);
+      if (group.length === 0) continue;
+      console.log(`  ${pc.bold(id)} ${groupCountLabel(group)}`);
+      if (id === 'knowledge-size') {
+        printKnowledgeSizeTiers(group);
+      } else {
+        for (const f of group) printFinding(f, '    ');
+      }
     }
   }
 
@@ -206,6 +219,77 @@ function formatEscapedDefects(result: EscapedDefectsResult): void {
   if (result.reportPath) {
     console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
   }
+}
+
+function printFinding(f: DriftFinding, indent: string): void {
+  const where = f.line === undefined ? f.source_path : `${f.source_path}:${f.line}`;
+  const sev = f.severity === 'fail' ? pc.red('fail') : pc.yellow('warn');
+  console.log(`${indent}[${sev}] ${sanitizeTerminal(where)}`);
+  console.log(`${indent}       ${sanitizeTerminal(f.detail)}`);
+}
+
+/**
+ * Split the knowledge-size group into an over-budget sub-section (shown first —
+ * a real violation to converge) and an approaching-headroom one (a pressure
+ * signal), each further grouped by surface + budget so the shared threshold and
+ * remedy print once as a heading and each finding line stays terse. Tiers read
+ * off the structured `knowledge_size` field, not the prose; a finding without it
+ * (an older report) falls back to a flat listing.
+ */
+function printKnowledgeSizeTiers(group: DriftFinding[]): void {
+  const structured = group.filter((f) => f.knowledge_size !== undefined);
+  const bare = group.filter((f) => f.knowledge_size === undefined);
+
+  const tiers: Array<[string, 'over' | 'headroom']> = [
+    ['over budget', 'over'],
+    ['approaching budget (headroom)', 'headroom'],
+  ];
+  for (const [label, tier] of tiers) {
+    const inTier = structured.filter((f) => f.knowledge_size!.tier === tier);
+    if (inTier.length === 0) continue;
+    console.log(`    ${pc.bold(label)} (${inTier.length})`);
+    for (const { meta: m, findings: surfaceGroup } of groupBySurface(inTier)) {
+      const cmp = tier === 'over' ? '>' : 'approaching';
+      console.log(
+        `      ${pc.bold(m.surface)} ${pc.dim(`· ${cmp} ${m.budget} ${m.budget_key} (${surfaceGroup.length})`)}`,
+      );
+      if (m.remedy !== undefined) console.log(`        ${pc.dim(m.remedy)}`);
+      for (const f of surfaceGroup) {
+        const meta = f.knowledge_size!;
+        console.log(
+          `        [${pc.yellow('warn')}] ${sanitizeTerminal(f.source_path)} ${pc.dim(`— ${meta.actual} ${meta.unit}`)}`,
+        );
+      }
+    }
+  }
+  for (const f of bare) printFinding(f, '    ');
+}
+
+/** Group knowledge-size findings by (surface, budget_key), preserving first-seen order.
+ *  Each group carries the shared meta (its findings share surface/budget/remedy). */
+function groupBySurface(
+  findings: DriftFinding[],
+): Array<{ meta: KnowledgeSizeFinding; findings: DriftFinding[] }> {
+  const groups = new Map<string, { meta: KnowledgeSizeFinding; findings: DriftFinding[] }>();
+  for (const f of findings) {
+    const m = f.knowledge_size!;
+    const key = `${m.surface} ${m.budget_key}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.findings.push(f);
+    else groups.set(key, { meta: m, findings: [f] });
+  }
+  return [...groups.values()];
+}
+
+/** Per-check finding tally, e.g. "(2 fail)", "(3 warn)", "(1 fail, 2 warn)". */
+function groupCountLabel(group: DriftFinding[]): string {
+  const fail = group.filter((f) => f.severity === 'fail').length;
+  const warn = group.length - fail;
+  const parts = [
+    fail > 0 ? pc.red(`${fail} fail`) : '',
+    warn > 0 ? pc.yellow(`${warn} warn`) : '',
+  ].filter(Boolean);
+  return `(${parts.join(', ')})`;
 }
 
 function staleSuffix(modules: Array<{ stale: boolean }>): string {

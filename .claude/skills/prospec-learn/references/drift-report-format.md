@@ -109,10 +109,13 @@ a `skipped` machine check makes its dimension `not-adjudicated`, never `pass`.
 
 ## `structural.findings[]` — problems only
 
-`{ check, severity, source_path, line?, detail }`. Findings exist **only** for `warn`/`fail`
+`{ check, severity, source_path, line?, detail, knowledge_size? }`. Findings exist **only** for `warn`/`fail`
 outcomes — a `pass` or `skipped` check produces none. `severity` ∈ `warn` | `fail`. For
 `check: 'task-completion'`, each finding carries the `source_path` + `line` of one unchecked
-code task — use these instead of recounting tasks.md by hand.
+code task — use these instead of recounting tasks.md by hand. For `check: 'knowledge-size'`, each
+finding also carries an optional `knowledge_size` object — `{ surface, budget_key, budget, actual, unit, tier, remedy? }`,
+the structured facts behind its prose `detail` (additive and optional, so a report without it still
+validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `remedy` is absent for the `headroom` tier.
 
 ## `structural.knowledge_health` (optional) — module freshness + coverage
 
