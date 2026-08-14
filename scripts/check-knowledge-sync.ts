@@ -3,7 +3,7 @@
  * confirming that module's knowledge.
  *
  * The recurring failure it prevents (`archive/knowledge-sync-touched-module-readme`,
- * the ledger's most-repeated lesson): a change touches a module's `src/**`, the
+ * the ledger's most-repeated lesson): a change touches a module's source, the
  * agent syncs some modules' knowledge and misses one, and `knowledge-health` only
  * WARNs after the fact. This gate makes prevention mechanical, in the shape of
  * `counts:check` / `agents:check`: over the change's own diff it requires that any
@@ -29,7 +29,7 @@ const MODULE_MAP_REL = `${KNOWLEDGE_PATH}/module-map.yaml`;
 const BASE_CANDIDATES = ['origin/main', 'main'] as const;
 
 export interface SyncPartition {
-  /** Modules whose `src/**` paths changed in the range. */
+  /** Modules whose declared source paths changed in the range. */
   srcModules: string[];
   /** Modules whose `last_verified` changed in the range. */
   bumped: string[];
@@ -40,7 +40,9 @@ export interface SyncPartition {
 /**
  * Pure core (injected, git-free): which source-touched modules failed to move
  * their `last_verified` between the base and head module maps. `moduleAttributor`
- * maps only `src/**` paths to a module, so knowledge/doc/script edits never count
+ * maps a changed path to a module by the `paths` that module DECLARES in the head
+ * map — `tests` declares `tests/`, not a `src/**` prefix — and a path no module
+ * declares is nobody's source, which is why knowledge/doc/script edits never count
  * a module as source-touched. A module absent from the base map compares its head
  * `last_verified` against `undefined`, so a newly-added stamped module counts as
  * bumped and an added-but-unstamped one is flagged.
@@ -156,7 +158,7 @@ function main(): void {
       );
     }
     console.error(
-      `  base ${base.slice(0, 12)}: a module whose src/** changed must bump its last_verified in the same change.`,
+      `  base ${base.slice(0, 12)}: a module whose declared source paths changed must bump its last_verified in the same change.`,
     );
     process.exit(1);
   }

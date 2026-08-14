@@ -47,8 +47,8 @@ const TEST_JOB_STEPS = [
   // reason the counts gate is: both check a property of the tree the earlier
   // steps produced, and neither needs to run before them.
   'pnpm run agents:check',
-  // The source→knowledge sync gate: a module whose src/** changed must bump its
-  // last_verified. Same tree-property shape as the two gates above.
+  // The source→knowledge sync gate: a module whose declared source paths changed
+  // must bump its last_verified. Same tree-property shape as the two gates above.
   'pnpm run knowledge:check',
   '|',
   'uses:actions/upload-artifact',
