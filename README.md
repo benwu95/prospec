@@ -12,11 +12,44 @@
 
 *Slash-command Skills · structured AI Knowledge · MCP server — for Claude Code, Copilot, Codex*
 
-[繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How it works](#how-it-works)
+[繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How It Works](#how-it-works) • [AI Skills](#ai-skills) • [CLI Commands](#cli-commands)
 
 **This project is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec)**
 
 </div>
+
+---
+
+## Table of Contents
+
+- [What is Prospec?](#what-is-prospec)
+- [Why Prospec?](#why-prospec)
+- [Quickstart](#quickstart)
+  - [Prerequisites](#prerequisites)
+  - [1. Installation](#1-installation)
+  - [2. Bootstrap Project Scaffold](#2-bootstrap-project-scaffold)
+  - [3. Run Your First Change](#3-run-your-first-change-inside-your-ai-agent)
+- [How It Works](#how-it-works)
+  - [Skill and CLI Collaboration Model](#skill-and-cli-collaboration-model-judgment-vs-deterministic-execution)
+  - [Core Principles](#core-principles)
+- [AI Skills](#ai-skills)
+  - [Available Skills Inventory](#ai-skills)
+  - [Quality Gates & Self-Improvement](#quality-gates-and-self-improvement)
+  - [Scale-Aware Workflow (Scale)](#scale-aware-workflow-scale)
+- [CLI Commands](#cli-commands)
+  - [Infrastructure Commands](#infrastructure-commands)
+  - [Change Management Commands](#change-management-commands)
+  - [MCP Server](#mcp-server)
+  - [Advanced Commands & Tooling (Token / Drift / Mutation)](#token-measurement--make-the-token-efficiency-claim-verifiable)
+- [Configuration](#configuration)
+- [Advanced Workflows](#advanced-workflows)
+  - [Backfill: Bringing Brownfield Code into the Trust Zone](#backfill-bringing-brownfield-code-into-the-trust-zone)
+  - [Upgrading Prospec](#upgrading-prospec)
+- [Architecture & Development](#architecture)
+  - [System Architecture](#architecture)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+- [License & Acknowledgements](#license)
 
 ---
 
@@ -69,15 +102,17 @@ From zero to your first AI-driven change in about five minutes.
 
 ### Prerequisites
 
-- **Node.js** >= 22.13.0
 - An **AI CLI** (one or more): [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended), [Codex CLI](https://developers.openai.com/codex/cli), [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli), or [Antigravity CLI](https://antigravity.google/)
+- **Node.js** >= 22.13.0 (**not required** if using Option A Standalone Binary; only needed when using npm/pnpm/npx or developing from source)
 
 ### 1. Install
 
-Prospec is a **bootstrap/update CLI** — once `prospec quickstart` has run (it chains `init` + `agent sync`), your agent works from the committed Skills and Knowledge (Markdown); the binary isn't needed again until you regenerate.
+The `prospec` CLI is the **essential deterministic engine** driving the SDD workflow runtime loop. Skills running inside your AI Agent (e.g. `/prospec-new-story`, `/prospec-plan`, `/prospec-verify`, `/prospec-archive`) automatically invoke `prospec` commands under the hood for scaffolding, lifecycle status transitions, quality_log recording, drift validation, and Feature Spec synchronization.
+
+Ensure the `prospec` executable is available on your system `PATH`:
 
 **Option A: Standalone Binary (Recommended & No Node.js Required)**
-For macOS and Linux, run the one-click installer script:
+For macOS and Linux, run the one-click installer script (installs to `~/.prospec/bin` and configures `PATH`):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
 ```
@@ -87,30 +122,27 @@ For Windows, run the one-click PowerShell installer script:
 powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
 ```
 
-Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page:
+Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page and place it in your `PATH`:
 
 - **Linux (x64)**: `prospec-linux-x64.tar.gz`
 - **macOS (Apple Silicon)**: `prospec-macos-arm64.tar.gz`
 - **macOS (Intel)**: `prospec-macos-x64.tar.gz`
 - **Windows (x64)**: `prospec-windows-x64.zip`
 
-(For manual installation, extract the `prospec` or `prospec.exe` file from the archive and move it to your executable PATH).
-
-
-**Option B: Run on demand with npx (Node.js environments)**
-Run without installing globally:
-```bash
-npx github:benwu95/prospec <command>
-```
-
-**Option C: Pin as devDependency (Node.js projects)**
+**Option B: Pin as devDependency (Node.js projects)**
 Install as a local project dependency:
 ```bash
 npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
 ```
 
+**Option C: Run on demand with npx (Node.js environments)**
+Run one-off commands without global installation:
+```bash
+npx github:benwu95/prospec <command>
+```
+
 > [!WARNING]
-> We do **NOT** recommend installing globally via `npm install -g` as global compiling of unpublished forks can fail depending on your local Node/compile environment.
+> We **do not recommend** global installation via `npm install -g` because global compilation of an unpublished fork may fail depending on your local Node/build environment. Use **Option A Standalone Binary** instead.
 
 
 ### 2. Bootstrap your project
@@ -374,55 +406,6 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 
 ---
 
-## Backfill: document existing code into the trust zone
-
-Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
-
-```mermaid
-flowchart TD
-    CODE[("existing<br/>brownfield code")] --> BF([Backfill]) -- "draft + human review" --> PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify]) -- "spec-fidelity → S/A" --> A([Archive])
-
-    A -- Spec Sync --> FS[("Feature Specs<br/>graduate into trust zone")]
-
-    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
-    class CODE,FS asset;
-```
-
-1. **Extract** — `/prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
-2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
-3. **Promote** — `/prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
-4. **Verify** — `/prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
-5. **Archive** — `/prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
-
----
-
-## Upgrading Prospec
-
-When a new prospec version ships, re-run the install to pull the latest (it's an unpublished GitHub fork, so this re-clones + rebuilds the current commit):
-
-```bash
-npm install -g github:benwu95/prospec     # or: pnpm add -g github:benwu95/prospec
-# pinned per-project devDependency: npm install -D github:benwu95/prospec
-```
-
-Then bring an existing project up to date in two steps — a deterministic CLI step, then a consent-gated AI step:
-
-```bash
-prospec upgrade                  # CLI (zero-LLM): record the new version, re-sync agents + create any missing init docs
-```
-
-```text
-🤖 Run inside your AI Agent chat:
-/prospec-upgrade                 # in your AI agent: enrich created docs + migrate drifted init-doc formats + localize new-skill triggers (asks before each change)
-```
-
-- **`prospec upgrade` (CLI)** records the running prospec version in `.prospec.yaml` `version` (merged in place, so your comments and formatting survive), re-runs `agent sync` so your per-agent config and Skills match the new templates, refreshes the deterministic `raw-scan.md` to the new version's scanner, and prints a migration report (version delta; a **docs inventory** listing every doc `prospec init` creates as present or missing — derived from the same registry init itself uses, so it can never miss a file; then either a nudge to set an `artifact_language` when the project never chose one — e.g. a project scaffolded by a pre-feature CLI — or any newly-added skills missing native-language triggers). On an interactive terminal it prompts you to fill each nudge (like `prospec init`); piped/CI runs — and the `/prospec-upgrade` skill — pass `--no-interactive` and just get the report. It **back-fills any missing init-created doc**, rendering it from the same template `prospec init` uses (skip-if-exists) — so a doc a newer prospec added lands without re-running `prospec init` (which is blocked once `.prospec.yaml` exists) — but it **never overwrites or reformats an existing doc**: `CONSTITUTION.md`, `_conventions.md`, `prospec/index.md`, the canonical convention docs, and module READMEs stay byte-for-byte (migrating an existing doc's format is the skill's job; the only other `ai-knowledge/` write is the always-regenerable `raw-scan.md`).
-- **`/prospec-upgrade` (Skill)** finishes the judgment work the CLI can't do safely: it works through the report's docs inventory — comparing each present doc to its latest template and offering to update any whose **format** has drifted, **enriching** the docs the CLI just back-filled that need more than a baseline (e.g. `index.md`'s real module table, or migrating a legacy `_index.md`'s curated columns), and, as a safety net, offering to create any doc still marked missing (a back-fill that failed) — **asking for your confirmation per file** (it never overwrites your authored content). It then localizes triggers for any newly-added skills into your `artifact_language` (filling only the missing ones) and re-runs `agent sync`.
-
-> `.prospec.yaml` `version` is the prospec version the project last upgraded to (a legacy `version: "1.0"` is treated as stale and bumped on first `prospec upgrade`). Need to (re-)localize triggers after adding a skill? Just re-run `prospec agent sync` — it names any skill missing a `skill_triggers` entry, so you fill only the gap. You never need to delete `.prospec.yaml`.
-
----
-
 ## AI Skills
 
 Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `/prospec-quickstart` (onboarding) and `/prospec-upgrade` (version upgrade):
@@ -510,16 +493,72 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 | Command | Description |
 |---------|-------------|
-| `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync` (skipping completed steps), then hands off to `/prospec-quickstart` in your AI agent for trigger localization + Knowledge generation. Same `--name`/`--agents`/`--language` options as `init` |
-| `prospec upgrade [--cwd <dir>]` | After a prospec version bump: record the prospec `version` in `.prospec.yaml` (merged in place, preserving comments), re-run `agent sync`, **create any missing init-created doc** (rendered from its template, skip-if-exists), and print a migration report with a docs inventory + the docs it created, then hand off to `/prospec-upgrade`. Never overwrites an existing doc — format migration + enriching created docs are the consent-gated skill's job |
-| `prospec init [options]` | Initialize Prospec project structure (`--language` sets the AI-generated document language; default English) |
-| `prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]` | Scan project → generate raw-scan.md + curated skeletons (module-map.yaml / prospec/index.md / _conventions.md, only if absent). `--raw-scan-only` regenerates **only** raw-scan.md (deterministic, no LLM), leaving curated files untouched — run after code changes or before `/prospec-knowledge-generate` to refresh the structure snapshot |
-| `prospec knowledge update [--change <name>] [--module <m>...]` | Incremental mechanical knowledge sync from a change's delta-spec (or named modules): regenerates the index auto block from module-map, adds/removes module-map entries, scaffolds skeleton READMEs for genuinely NEW modules, banners REMOVED ones — and reports the `README content pending` list; an existing README is **never rewritten** (its auto block carries authored knowledge; `/prospec-knowledge-update` does that judgment work) |
-| `prospec knowledge verify <module>...` | Stamp `last_verified` for the named modules in module-map.yaml — the dated confirmation that a module's knowledge is current against its source. It is what `knowledge:check` (CI) requires when a module's `src/**` changes, and what `prospec check`'s knowledge-freshness reads for staleness |
-| `prospec agent sync [--cli <name>]` | Sync AI agent configs + generate Skills (reads `skill_triggers` from .prospec.yaml for native-language trigger words) |
-| `prospec agent triggers [--write <file>]` | Print a ready-to-translate `skill_triggers` scaffold — the skills still missing a native-language entry, each with its English baseline (from `SKILL_DEFINITIONS`). Translate the values, then `--write <file>` inserts ONLY the missing keys back into `.prospec.yaml` (comment/order-preserving, validated before writing, existing entries never overwritten) |
-| `prospec config example` | Print a complete, annotated `.prospec.yaml` reference — every field prospec reads, with an example value and note. Runs without an initialized project |
-| `prospec print-template <path>` | Print the raw content of a bundled template (Offline, Node.js-free template retrieval) |
+| `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync`, then hands off to `/prospec-quickstart` |
+| `prospec upgrade [--cwd <dir>]` | After a version bump: record version in `.prospec.yaml`, re-run `agent sync`, and create missing init docs |
+| `prospec init [options]` | Initialize Prospec project structure (sets language and agents) |
+| `prospec knowledge init [options]` | Static project scan to generate `raw-scan.md` and module boundary skeletons |
+| `prospec knowledge update [options]` | Mechanical incremental knowledge sync from `delta-spec.md` into `module-map` and `index.md` |
+| `prospec knowledge verify <modules>` | Stamp `last_verified` for named modules in `module-map.yaml` for CI staleness checks |
+| `prospec agent sync [--cli <name>]` | Sync AI agent configs and generate Skills across configured harnesses |
+| `prospec agent triggers [--write <file>]` | Print ready-to-translate `skill_triggers` scaffold and optionally write back |
+| `prospec config example` | Print complete annotated `.prospec.yaml` reference with example values |
+| `prospec print-template <path>` | Print raw content of bundled template (offline, node-free) |
+
+#### Infrastructure Commands Breakdown
+
+- **`prospec quickstart [options]`**
+  - **Purpose**: Fast, streamlined onboarding by chaining `init` and `agent sync`.
+  - **Behavior**: Automatically runs initialization steps (skipping completed ones), then prompts to trigger `/prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
+  - **Options**: Accepts the same `--name`, `--agents`, and `--language` options as `init`.
+
+- **`prospec upgrade [--cwd <dir>]`**
+  - **Purpose**: Deterministic project and template upgrade following a Prospec version bump.
+  - **Behavior**:
+    - Updates the `version` field in `.prospec.yaml` (merged in place, preserving comments and formatting).
+    - Re-runs `agent sync` to align agent configurations and Skill templates with the latest release.
+    - Scaffolds any missing init-created files from templates (`skip-if-exists`, never overwriting or reordering existing files).
+    - Prints a migration report with a docs inventory, handing off to `/prospec-upgrade` for consent-gated format migrations.
+
+- **`prospec init [options]`**
+  - **Purpose**: Initialize Prospec project structure and baseline configuration.
+  - **Options**: `--language <lang>` (sets document language, default English), `--name <name>`, `--agents <list>`.
+
+- **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**
+  - **Purpose**: Statically scan project source code to generate structure snapshots and module skeletons.
+  - **Behavior**:
+    - Scans the repository to generate `raw-scan.md` and initial curated skeletons (`module-map.yaml`, `prospec/index.md`, `_conventions.md`, only if absent).
+    - `--raw-scan-only`: Regenerates **only** `raw-scan.md` (deterministic, zero LLM, leaving curated files untouched) to refresh snapshots before `/prospec-knowledge-generate`.
+
+- **`prospec knowledge update [--change <name>] [--module <m>...]`**
+  - **Purpose**: Incrementally sync knowledge boundaries from a change's `delta-spec.md` or named modules.
+  - **Behavior**:
+    - Regenerates the `prospec/index.md` auto block from `module-map.yaml`.
+    - Creates skeleton READMEs for genuinely new modules and adds deprecation banners for removed ones.
+    - Never rewrites existing README content (preserving authored knowledge) and reports a `README content pending` worklist.
+
+- **`prospec knowledge verify <module>...`**
+  - **Purpose**: Stamp `last_verified` timestamp for named modules in `module-map.yaml`.
+  - **Behavior**: Records when module knowledge was confirmed current against its source code; used by CI and `prospec check` to detect stale documentation.
+
+- **`prospec agent sync [--cli <name>]`**
+  - **Purpose**: Synchronize AI agent configurations and generate Skills.
+  - **Behavior**:
+    - Writes `CLAUDE.md` and `.claude/skills/` for Claude Code.
+    - Writes shared `AGENTS.md` and `.agents/skills/` for Antigravity, Codex, and GitHub Copilot.
+    - Injects localized trigger words from `.prospec.yaml` `skill_triggers`.
+    - Only refreshes `prospec:auto` sections in entry configs, preserving whatever is written in `prospec:user`.
+
+- **`prospec agent triggers [--write <file>]`**
+  - **Purpose**: Generate a ready-to-translate `skill_triggers` scaffold for localization.
+  - **Behavior**:
+    - Lists unlocalized skills with their English baselines (from `SKILL_DEFINITIONS`).
+    - `--write <file>`: Safely inserts only missing keys back into `.prospec.yaml` without overwriting existing entries.
+
+- **`prospec config example`**
+  - **Purpose**: Output a fully annotated `.prospec.yaml` reference with comments and example values.
+
+- **`prospec print-template <path>`**
+  - **Purpose**: Output raw bundled template contents without requiring Node.js runtime execution.
 
 > **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
 > - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
@@ -566,24 +605,109 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 ### Change Management Commands
 
+#### Lifecycle & Scaffolding Commands
+
 | Command | Description |
 |---------|-------------|
-| `prospec change story <name> [--description <d>] [--related-module <m>...] [--introduced-by <c>] [--issue <ref>]` | Create change story (scaffold + metadata.yaml; explicit modules override keyword auto-match; `--issue` registers the tracker item this change belongs to — free-form single line, no shape check) |
-| `prospec change plan [--change <name>] [--force]` | Generate implementation plan (scaffold); refuses to overwrite an existing plan/delta-spec unless `--force`, and refuses outright for a scale whose contract forbids a plan (`quick` → run `change tasks`; `backfill` → `/prospec-promote-backfill`) |
-| `prospec change tasks [--change <name>] [--force]` | Break down tasks (scaffold); refuses to overwrite an existing tasks.md unless `--force`. The plan.md prerequisite is scale-conditional — `quick` decomposes straight from proposal.md (`story → tasks`), `backfill` is refused (it has no task list) |
-| `prospec status` | **Read-only** deterministic SDD routing — reports each in-flight change's current node, suggested next station, blocking gates, reasons, and its registered `issue` when it has one. The executable copy of `_status-lifecycle.md` (quick's story→tasks skip, backfill's `implemented` entry — routed to the `promote` station until it lands there — and the no-status-transition design/review stations included); malformed metadata is reported per change, never fatal |
-| `prospec spec show <feature> [--req <ids>] [--story <ids>]` | **Read-only** REQ-scoped read of a permanent Feature Spec: prints just the requirements you name (`--req`, repeatable and comma-tolerant) or whole User Stories (`--story`), each under the heading that owns it, so the output is a valid slice of spec source. With no selector it prints the whole spec. verify's Startup Loading and archive's graduation phase read through it instead of loading a spec whole — one spec can be tens of thousands of tokens of unrelated capability record, and a station only ever judges the requirements a change touches. An unmatched selector is named on stderr and exits 1 (visible under `--quiet`): asking for a REQ that does not exist must not read as "no such behaviour is specified". The same read is exposed to agents as the MCP tool `get_spec_requirements` |
-| `prospec archive <name...> [--dry-run]` | Execute the deterministic archive mutations for a **verified** change: move the bundle to `.prospec/archive/{date}-{name}/`, generate the summary scaffold, run the mechanical Feature Spec sync, set `status: archived`, sync the `## Feature Map` section of `product.md` (its only machine-owned region — authored frontmatter keys and every other section survive byte for byte; a missing file is bootstrapped to the shipped product-spec format), and bootstrap `feature-map.yaml` (no-clobber / non-fatal semantics unchanged). On an **existing** `product.md` that sync **refuses rather than guesses**, and always says why: a near-miss heading (`## Feature Map (34 active)` — appending past it would grow a second feature map beside yours), an unclosed code fence, or an absent `specs/features/` each leave the file byte-identical and report the reason with its remedy (a **missing** `product.md` is bootstrapped instead, and reports nothing). `--dry-run` prints every planned mutation without writing; a named target that is not archivable is reported `refused`/`not found` (exit 1), never silently skipped. The spec sync never blanks an authored REQ body — only a delta-spec `**Spec:**` block replaces one — and it lists TWO worklists on stderr (visible under `--quiet`, never exit 1): every REQ whose body it deliberately kept (converge it by hand), and every REQ whose body a `**Spec:**` block replaced along with the existing `WHEN/THEN` bullets that block omits — because replacing a body silently drops whatever the new one fails to restate. The separate `product.md` sync reports a refusal on its own: a real run prints it as its own stderr line (visible under `--quiet`, never exit 1), `--dry-run` previews it as a planned `skip` — either way it is the only signal separating a file left untouched on purpose from one that synced. `/prospec-archive` drives it and keeps the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation) |
-| `prospec archive finalize <name> [--dry-run]` | The POST-judgment archive step (runs after the summary overwrite + REQ graduation): copies the finalized summary.md into `specs/_archived-history/` (the committed audit trail) and reconciles every feature spec's frontmatter `story_count`/`req_count` against its final body; refuses while summary.md still looks like the scaffold |
+| `prospec status` | Read-only check of in-flight changes, lifecycle station, next steps, and blocking gates |
+| `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) |
+| `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
+| `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
+| `prospec spec show <feature> [options]` | Read-only targeted REQ or Story slice from Feature Specs for token efficiency |
+| `prospec archive <name...> [--dry-run]` | Archive verified changes: move directory, generate summary, and mechanically sync specs |
+| `prospec archive finalize <name> [--dry-run]` | Post-archive finalization: copy final summary to audit trail and reconcile spec counters |
 
-| `prospec change scale <quick\|standard\|full\|backfill> [--change <name>]` | Write the user-confirmed complexity scale (comment-preserving in-place edit) |
-| `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition; a backward/invalid jump is refused with the legal targets listed |
-| `prospec change log --skill <station> --result <PASS\|WARN\|FAIL> [--warning <w>...] [--grade <g>] [--dimension n=r...] [--criticals-found <n>] ...` | Append one structured `quality_log` entry (canonical key order, escaping by construction) |
-| `prospec change progress [--complete <task>] [--change <name>]` | Code-task progress (X/Y, `[M]`/`[V]` excluded) + next task; `--complete` flips exactly one checkbox |
-| `prospec review merge --findings <file> [--change <name>]` | Merge one review round's findings JSON into the cumulative review.md table (identity-keyed, severity max, carry-forward), land each finding's `repro` column and `evidence` prose in the artifact, and report the round's counts plus a bounded digest of its criticals |
-| `prospec verify record --dimension <name>=<result>... \| --dimensions <file> [--warning <w>...]` | Compute the S/A/B/C/D grade — machine dimensions self-sourced from the `prospec-report.json` drift report (whose `test-provenance` check carries the recorded test run), judgment dimensions from the flags or from a `--dimensions` JSON file that may also carry each dimension's evidence (appended to `verify.md`) — record the structured quality_log entry, and advance `status: verified` on S/A |
-| `prospec learn upsert --lesson <file> [--today <date>]` | Keyed idempotent lessons-ledger upsert + the explicit `freq≥3 ∧ modules≥2` scoring rule (auditable detail) + playbook TTL scan |
-| `prospec validate <kind> [target] [--change <name>]` | Machine verdicts for artifact structure: `slug` / `promote-scaffold` (complete) and `backfill-draft` / `design-spec` (structural subset — sections, headers, NC locations); FAIL exits 1 |
+#### State, Tracking & Validation Commands
+
+| Command | Description |
+|---------|-------------|
+| `prospec change scale <scale> [--change <name>]` | Set complexity scale (`quick` / `standard` / `full` / `backfill`) |
+| `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition (refuses backward or invalid transitions) |
+| `prospec change progress [options]` | Calculate code-task progress (excluding `[M]` / `[V]`) and flip checkboxes |
+| `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml` |
+| `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table |
+| `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
+| `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
+| `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
+
+#### Change Management Commands Breakdown
+
+- **`prospec status`**
+  - **Purpose**: Read-only deterministic routing for all active in-flight changes.
+  - **Key Details**:
+    - Reports current lifecycle node, suggested next station, blocking gates, and specific reasons.
+    - Supports scale-specific routes (`quick` skipping plan to tasks, `backfill` entering at promote).
+    - Displays registered `issue` trackers; reports malformed metadata per change without crashing.
+
+- **`prospec change story <name> [options]`**
+  - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`).
+  - **Options**:
+    - `--description <d>`: One-line summary of the change.
+    - `--related-module <m>...`: Explicitly associate modules (overrides auto-matching).
+    - `--issue <ref>`: Register associated Issue / Ticket tracking identifier.
+    - `--introduced-by <c>`: Record introducing change source (for escaped-defect analysis).
+
+- **`prospec change plan [--change <name>] [--force]`**
+  - **Purpose**: Scaffold `plan.md` and `delta-spec.md`, advancing status to `plan`.
+  - **Safety Rules**: Refuses to overwrite existing files unless `--force` is passed; refuses outright for scales where plans are forbidden (`quick` routes to `change tasks`, `backfill` to `/prospec-promote-backfill`).
+
+- **`prospec change tasks [--change <name>] [--force]`**
+  - **Purpose**: Scaffold `tasks.md`, advancing status to `tasks`.
+  - **Key Details**: `quick` changes decompose directly from `proposal.md` (`story → tasks`); refuses to overwrite without `--force`; rejected for `backfill`.
+
+- **`prospec spec show <feature> [--req <ids>] [--story <ids>]`**
+  - **Purpose**: Read-only, targeted slice reading of Feature Specs (token-efficient reading).
+  - **Key Details**:
+    - `--req <ids>`: Quotes only specified requirement IDs (comma-separated or repeated).
+    - `--story <ids>`: Quotes complete User Story blocks.
+    - Prints full spec when no selector is given; exits 1 on unmatched selectors to prevent false "unspecified" assumptions.
+    - Used by verify and archive stations to avoid loading entire multi-thousand-token specifications.
+
+- **`prospec archive <name...> [--dry-run]`**
+  - **Purpose**: Execute deterministic archiving mutations for verified changes.
+  - **Behavior**:
+    - Moves change directory to `.prospec/archive/{date}-{name}/`, generates summary scaffold, and sets `status: archived`.
+    - Performs mechanical Feature Spec sync: merges delta-spec `**Spec:**` blocks into feature specs and emits two worklists on stderr (kept bodies requiring convergence, and replaced bodies omitting prior bullets).
+    - Syncs `product.md` `## Feature Map` (refusing safely on ambiguous headers, unclosed code blocks, or missing directories).
+    - `--dry-run`: Previews all planned file modifications without writing; exits 1 if change is not verified.
+
+- **`prospec archive finalize <name> [--dry-run]`**
+  - **Purpose**: Post-judgment archive finalization (runs after human summary edits and REQ convergence).
+  - **Key Details**:
+    - Copies finalized `summary.md` to `specs/_archived-history/` for version-controlled audit trails.
+    - Reconciles `story_count` and `req_count` in feature spec frontmatter against final spec bodies.
+    - Refuses to execute if `summary.md` is still an unmodified template scaffold.
+
+- **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
+  - **Purpose**: Write user-confirmed complexity scale to `metadata.yaml` (in-place edit preserving comments).
+
+- **`prospec change status <to> [--change <name>]`**
+  - **Purpose**: Forward-only lifecycle state advancement (refuses illegal jumps and lists valid targets).
+
+- **`prospec change log --skill <station> --result <PASS|WARN|FAIL> [options]`**
+  - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
+  - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering and automatic character escaping.
+
+- **`prospec change progress [--complete <task>] [--change <name>]`**
+  - **Purpose**: Track and update code-task progress in `tasks.md`.
+  - **Key Details**:
+    - Reports ratio (X/Y, automatically excluding `[M]` manual and `[V]` verification tasks) and next task.
+    - `--complete <task>`: Toggles exactly one specified task checkbox.
+
+- **`prospec review merge --findings <file> [--change <name>]`**
+  - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
+  - **Key Details**: Deduplicates by identity key, keeps maximum severity, preserves findings across rounds, and logs reproduction steps and evidence.
+
+- **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
+  - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.
+  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade.
+
+- **`prospec learn upsert --lesson <file> [--today <date>]`**
+  - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
+  - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
+
+- **`prospec validate <kind> [target] [--change <name>]`**
+  - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`). Exits 1 on failure.
 
 > **Note**: These commands ARE the workflow's deterministic layer (issue #107 restored the cli-first posture): the Skills (`/prospec-new-story`, `/prospec-ff`, …) call them for every scaffold, transition, and record instead of hand-writing artifacts, and each Skill STOPs when the CLI is missing or older than its probe floor. They remain equally available for manual or scripted use.
 
@@ -662,8 +786,17 @@ deliberately not included in this version.
 
 | Command | Description |
 |---------|-------------|
-| `pnpm measure:tokens [-- --provider <p>] [-- --budget <usd>] [-- --offline]` | Assemble full-dump / naive-rag / prospec contexts from the live repo and record real provider API usage (requires an API key; default budget US$10 per provider). `--offline` skips all provider calls and writes a keyless char-based **size estimate** to `size-report.json` — cache behavior and $ cost still need an API key |
-| `prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]` | Display the measurement report (read-only — never calls an API, never burns tokens). `--offline` displays the keyless `size-report.json` size estimate instead. Use `--project-workflow` to project the context budget of a change workflow (combines L1, L2, SKILLs, references, and feature specs) |
+| `pnpm measure:tokens [options]` | Assemble contexts from live repo and record real provider API token usage and cost |
+| `prospec measure [options]` | Read-only display of measurement report or context budget projection (zero API calls) |
+
+#### Token Measurement Commands Breakdown
+
+- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
+  - **Purpose**: Assembles full-dump / naive-rag / prospec contexts and measures real usage and cache hit rates via Provider APIs.
+  - **Options**: `--provider` sets provider model; `--budget` sets cost cap (default US$10); `--offline` skips API calls and outputs char-based size estimate in `size-report.json`.
+
+- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
+  - **Purpose**: Read-only display of token measurement reports or projected baseline workflow context budget.
 
 The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
 (`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
@@ -699,11 +832,45 @@ model provider, not the agent harness itself):
 
 | Command | Description |
 |---------|-------------|
-| `prospec check [--json] [--strict]` | Deterministic, zero-LLM drift check across spec ↔ code ↔ knowledge: dangling REQ references, broken markdown links, module-map-driven import direction, knowledge freshness (each module's `last_verified` confirmation time vs its last source commit — stamped by `prospec knowledge verify`, WARN-only), kind-aware task completion, README declared-count veracity (e.g. "registers N resources" vs the code it names, WARN-only), knowledge-file size budgets (index.md / core conventions / every module knowledge file — each README **and each extracted `{sub-module}.md` sibling** — vs their token budget, with a line budget on the module files too, WARN-only), review provenance (an audited change — `implemented` or `verified`, so the window between verify and archive is covered — must carry a review that still matches the code), metadata completeness, test provenance (a recorded test run that is current and green, over the same audited statuses), Constitution severity (every principle carries an RFC-2119 tag, WARN-only) plus the machine-parsed rule inventory, artifact language (a change artifact whose prose carries no character of the project's artifact language — fenced code is stripped first — WARN-only; skips, with the reason, when the language is absent from its name→script table or a scope root is unreadable/outside the repo), spec counters (a feature spec's frontmatter `story_count`/`req_count` against its own body, counted with the same matcher `archive finalize` writes with — WARN-only, since the next archive usually corrects it, except where that recount refuses to zero a declared counter and the warn stands until a human converges the spec; skips when no feature spec is present or parseable), delta-spec provenance (an audited change's `delta-spec.md` must still match the fingerprint recorded with the review baseline — the whole-tree digest excludes `.prospec/`, so the one artifact archive copies VERBATIM into the trust zone would otherwise have no gate at all; a proven backfill — which never runs review, so no baseline could exist — and a scale with no delta-spec both pass without comparing; only a missing `.prospec/changes/` skips), budget-override justification (every `knowledge.token_budget` field raised above the shipped default must carry an adjacent YAML comment saying why — a raised ceiling is a decision, and an undocumented one is indistinguishable from a file that was simply allowed to grow; WARN-only, and skips when `.prospec.yaml` is absent, unparseable, or declares no `token_budget` block), canonical-doc-drift (a canonical initialization document like README.md diverges from what its template renders for this project — WARN-only, replace via `prospec upgrade` or manual sync; skips when absent), and — when `feature-map.yaml` is present — REQ-prefix legality (WARN) and the feature→module edge (FAIL). `--json` writes machine-readable `prospec-report.json`; `--strict` exits 1 on any FAIL (warn/skipped never affect the exit code) |
-| `prospec check --record-tests [--change <name>]` | Run the project's test command (`tech_stack.test_command`, else `<package_manager> test` when package.json declares a test script — a project with neither is reported honestly, never guessed at) and record `{command, exit_code, digest, date}` into the change's `metadata.yaml`. This is the fact `/prospec-verify`'s test dimension is graded on — the suite's outcome becomes a machine verdict instead of an agent's self-report. The command is run **without a shell** (argv-tokenized), and nothing is written when it cannot run honestly (no command, a Windows `.cmd`/`.bat` shim Node refuses to spawn shell-free, not a git repo, timeout) — each case reports the reason and the check `skipped`, never a FAIL no configuration could clear. One exception: a previously **recorded non-zero exit still FAILs** even when the command has since become unresolvable — a known-red run is a fact no missing command can suppress |
-| `prospec check --escaped-defects [--json]` | Per-gate escaped-defect rate from the `introduced_by` registration, aggregated across `.prospec/changes/` and `.prospec/archive/` — the only ground-truth accuracy signal for the gates themselves. A reporting mode, not a check: no findings, no effect on `--strict`. With no registered samples it says so rather than printing a 0% escape rate |
-| `prospec check --record-review [--change <name>]` | Record the change's review baseline (code digest) so `review-provenance` can prove review ran and is still current, and — in the same write — the change's `delta-spec.md` fingerprint, which is what clears a `delta-spec-provenance` finding |
-| `prospec check --init-ci` | Scaffold a supply-chain-hardened GitHub Actions gate (`.github/workflows/prospec-check.yml`): SHA-pinned actions, least-privilege permissions, report artifact upload, and a sticky PR comment posted from a job that never checks out source |
+| `prospec check [--json] [--strict]` | Zero-LLM deterministic check: verify specs, code, dependencies, and knowledge integrity |
+| `prospec check --record-tests [options]` | Run test suite and record command, exit code, and digest into `metadata.yaml` |
+| `prospec check --record-review [options]` | Record code digest and `delta-spec.md` fingerprint as review baseline |
+| `prospec check --escaped-defects [options]` | Report aggregate escaped-defect rates across lifecycle gates |
+| `prospec check --init-ci` | Scaffold hardened GitHub Actions CI workflow (`.github/workflows/prospec-check.yml`) |
+
+#### Drift Check Commands Breakdown
+
+- **`prospec check [--json] [--strict]`**
+  - **Purpose**: Zero-token machine verification of reference integrity and architectural boundaries across spec ↔ code ↔ knowledge.
+  - **Audit Dimensions**:
+    - **Specs & Links**: Dangling REQ references, broken Markdown links, Feature Spec frontmatter count reconciliation (`story_count`/`req_count`).
+    - **Architecture & Dependencies**: Import directions enforced by `module-map.yaml`, REQ-prefix legality (WARN), feature→module boundaries (FAIL).
+    - **Knowledge Health**: Module freshness (`last_verified` vs source commit, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN).
+    - **Review & Test Provenance**:
+      - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
+      - `test-provenance`: Changes must have a recorded current, passing (green) test run.
+      - `delta-spec-provenance`: Change's `delta-spec.md` fingerprint must match the recorded review baseline.
+    - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN).
+  - **Execution & Exit Codes**:
+    - `--json`: Outputs machine-readable `prospec-report.json`.
+    - `--strict`: Exits 1 on any FAIL (WARN and SKIPPED never affect exit codes).
+    - Missing or unavailable sources gracefully degrade to `skipped` with explicit reasons, never fabricating a PASS.
+
+- **`prospec check --record-tests [--change <name>]`**
+  - **Purpose**: Runs project test suite and records `{command, exit_code, digest, date}` in change's `metadata.yaml`.
+  - **Key Details**:
+    - Serves as the objective oracle for `/prospec-verify` test dimension, preventing agent hallucination.
+    - Executed via argv directly without shell; degrades to `skipped` when unable to execute honestly.
+    - Previously recorded non-zero exit codes remain FAIL even if command subsequently becomes unresolvable.
+
+- **`prospec check --record-review [--change <name>]`**
+  - **Purpose**: Records code digest and `delta-spec.md` fingerprint to satisfy `review-provenance` and `delta-spec-provenance`.
+
+- **`prospec check --escaped-defects [--json]`**
+  - **Purpose**: Aggregates escaped-defect metrics grouped by `introduced_by` (reporting mode, no findings, does not affect `--strict`).
+
+- **`prospec check --init-ci`**
+  - **Purpose**: Scaffolds supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) with SHA pinning, least privilege, and sticky PR comments.
 
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
 never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
@@ -746,7 +913,18 @@ Two of these deserve their own note. **Feature Specs grow monotonically** — ev
 
 | Command | Description |
 |---------|-------------|
-| `pnpm mutate <path>` | **On-demand deep audit, deliberately not a gate and not in CI.** Runs Stryker mutation testing over that path (a path is required) and reports its mutation score plus the surviving mutants — the one signal a test suite cannot give itself, since the mutations a suite is verified against are otherwise chosen by whoever wrote the assertions. Measured here: `src/lib/date-utils.ts` = 2 mutants over a 57-test dependent suite (net 0.08s) → **4s**; `src/lib/task-markers.ts` = 57 mutants over a 416-test dependent suite (net 54.2s) → **9m09s**, score 89.47. Cost is the **product** of two things, and neither alone predicts it: how many mutants are **static** (26 of 57 here — they sit in module-level code, so the module reloads and `coverageAnalysis` cannot narrow them), times **how big the module's dependent suite is** (what one un-narrowed run costs). `--ignoreStatic` takes that same run to **63.8s, 8.6× faster** — but it is not a free win: those 26 mutants then go untested and report as survived, dropping the score to 45.61, so use it to iterate, not to quote a number. The 11 timeouts are not margin: Stryker's ceiling is `timeoutFactor`(1.5) × netTime + `timeoutMS` + overhead, and a static mutant's netTime is the whole suite, so the ceiling here is ~144s against a ~54s normal run. All 11 are regex mutants that **widen** what the pattern accepts, so `parseTaskLine` starts accepting lines it should reject and the fixture-driven consumers do enough extra work to exceed it. Stryker scores a timeout as *killed*, so a loaded machine reports a **higher** score — never compare scores across machines. Budget by *module-level constants × how much of the suite reaches the module*. Surviving mutants are a signal to read, not a defect list — equivalence is a human judgment the tool cannot make |
+| `pnpm mutate <path>` | On-demand deep audit: run Stryker mutation testing and report mutation score and surviving mutants |
+
+#### Mutation Testing Breakdown
+
+- **`pnpm mutate <path>`**
+  - **Purpose**: On-demand deep audit evaluating test suite effectiveness against subtle code mutations (not a CI gate).
+  - **Characteristics & Cost**:
+    - Execution cost is the product of static module-level mutants and the size of the dependent test suite.
+    - `--ignoreStatic` provides substantial speedups for fast iteration but skips testing module-level constants.
+    - Surviving mutants highlight potential test blind spots for human inspection.
+
+Measured here: `src/lib/date-utils.ts` = 2 mutants over a 57-test dependent suite (net 0.08s) → **4s**; `src/lib/task-markers.ts` = 57 mutants over a 416-test dependent suite (net 54.2s) → **9m09s**, score 89.47. Cost is the **product** of two things, and neither alone predicts it: how many mutants are **static** (26 of 57 here — they sit in module-level code, so the module reloads and `coverageAnalysis` cannot narrow them), times **how big the module's dependent suite is** (what one un-narrowed run costs). `--ignoreStatic` takes that same run to **63.8s, 8.6× faster** — but it is not a free win: those 26 mutants then go untested and report as survived, dropping the score to 45.61, so use it to iterate, not to quote a number. The 11 timeouts are not margin: Stryker's ceiling is `timeoutFactor`(1.5) × netTime + `timeoutMS` + overhead, and a static mutant's netTime is the whole suite, so the ceiling here is ~144s against a ~54s normal run. All 11 are regex mutants that **widen** what the pattern accepts, so `parseTaskLine` starts accepting lines it should reject and the fixture-driven consumers do enough extra work to exceed it. Stryker scores a timeout as *killed*, so a loaded machine reports a **higher** score — never compare scores across machines. Budget by *module-level constants × how much of the suite reaches the module*. Surviving mutants are a signal to read, not a defect list — equivalence is a human judgment the tool cannot make
 
 </details>
 
@@ -800,6 +978,69 @@ skill_triggers:
     - explore
     - 探索
 ```
+
+---
+
+## Advanced Workflows
+
+### Backfill: Bringing Brownfield Code into the Trust Zone
+
+Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
+
+```mermaid
+flowchart TD
+    CODE[("existing<br/>brownfield code")] --> BF([Backfill]) -- "draft + human review" --> PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify]) -- "spec-fidelity → S/A" --> A([Archive])
+
+    A -- Spec Sync --> FS[("Feature Specs<br/>graduate into trust zone")]
+
+    classDef asset fill:#eef7ff,stroke:#2b6cb0,stroke-width:2px;
+    class CODE,FS asset;
+```
+
+1. **Extract** — `/prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
+2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
+3. **Promote** — `/prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
+4. **Verify** — `/prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
+5. **Archive** — `/prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
+
+### Upgrading Prospec
+
+When a new prospec version is available, update the binary first:
+
+```bash
+# If using standalone binary (recommended): re-run the install script
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash
+
+# If pinned as a project devDependency:
+npm install -D github:benwu95/prospec     # or: pnpm add -D github:benwu95/prospec
+```
+
+Then upgrade existing projects in two seamless steps — a deterministic CLI pass followed by a consent-gated AI migration pass:
+
+```bash
+prospec upgrade                  # Step 1: CLI (zero-LLM) syncs infrastructure and audits docs inventory
+```
+
+```text
+🤖 Run inside your AI Agent chat:
+/prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats, enriches scaffolds, and localizes triggers (asks per change)
+```
+
+#### Step 1: `prospec upgrade` (CLI Deterministic Pass)
+- **Version Tracking**: Merges the running prospec version into `.prospec.yaml` `version` in place, preserving existing comments and formatting.
+- **Agent & Template Sync**: Re-runs `agent sync` to align all agent configurations and Skills with latest bundled templates.
+- **Scanner Refresh**: Regenerates `ai-knowledge/raw-scan.md` using the updated scanner logic.
+- **Backfill Missing Docs**: Creates newly introduced init files using baseline templates (skip-if-exists; never overwrites or mutates existing files).
+- **Migration Report**: Outputs version deltas, a docs inventory listing present/missing files, and any skill trigger gaps.
+
+#### Step 2: `/prospec-upgrade` (AI Agent Judgment Pass)
+- **Format Migration**: Compares existing files against the latest templates and proposes formatting upgrades, **asking for explicit confirmation per file** (never overwrites authored prose).
+- **Scaffold Enrichment**: Populates newly backfilled baseline docs with real project context (e.g. `index.md` module table).
+- **Trigger Localization**: Localizes missing trigger phrases for newly added skills into the project's configured `artifact_language`.
+- **Final Sync**: Re-runs `agent sync` so all changes immediately take effect across all configured agents.
+
+> [!TIP]
+> `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
 ---
 
