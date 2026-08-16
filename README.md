@@ -39,8 +39,9 @@
 - [CLI Commands](#cli-commands)
   - [Infrastructure Commands](#infrastructure-commands)
   - [Change Management Commands](#change-management-commands)
+  - [Drift Check (CI Gate)](#drift-check-ci-gate)
+  - [Token Measurement](#token-measurement)
   - [MCP Server](#mcp-server)
-  - [Advanced Commands & Tooling (Token / Drift / Mutation)](#token-measurement--make-the-token-efficiency-claim-verifiable)
 - [Configuration](#configuration)
 - [Advanced Workflows](#advanced-workflows)
   - [Backfill: Bringing Brownfield Code into the Trust Zone](#backfill-bringing-brownfield-code-into-the-trust-zone)
@@ -430,7 +431,8 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 | **Quickstart** | `/prospec-quickstart` | After `prospec quickstart` runs init + agent sync, localize skill triggers into your artifact language, prepare the Knowledge scan, and chain into `/prospec-knowledge-generate` to seed AI Knowledge; never writes the trust zone |
 | **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` records the version, re-syncs agents, and back-fills missing init docs, work through the report's docs inventory: migrate drifted init-doc formats + enrich the docs it created, and localize triggers for newly-added skills (fill-missing only) — each with confirmation + a diff/content preview; never overwrites your authored content |
 
-> **Periodic finishers** — `/prospec-quickstart` (run once after `prospec quickstart`) and `/prospec-upgrade` (run after `prospec upgrade` on a version bump) finish the judgment steps the CLI cannot do deterministically. Both are deployed as Skills on disk but kept out of the always-loaded entry config, so they add no recurring token cost.
+> [!NOTE]
+> **Periodic Finisher Skills**: `/prospec-quickstart` (runs once after `prospec quickstart`) and `/prospec-upgrade` (runs during version upgrades after `prospec upgrade`) finish the judgment steps the CLI cannot handle deterministically. Both deploy to disk as Skills but are excluded from active entry config, so they add zero ongoing token cost.
 
 ### Quality Gates & Self-Improvement
 
@@ -560,15 +562,16 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 - **`prospec print-template <path>`**
   - **Purpose**: Output raw bundled template contents without requiring Node.js runtime execution.
 
-> **Agent config layout** — `agent sync` writes each detected agent's entry config + Skills:
-> - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
-> - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (the shared [agents.md](https://agents.md) open standard; written once even when several are enabled)
->
-> Skills whose workflow depends on the harness — today `/prospec-review` and `/prospec-verify` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it states the **intersection** of their capabilities, never promising something one of them lacks.
->
-> Your edits are safe: entry configs carry `prospec:auto` / `prospec:user` blocks. `agent sync` (and `init` for `AGENTS.md`) refresh only the auto block and preserve whatever you write in the user block; a pre-existing hand-written `CLAUDE.md` / `AGENTS.md` is migrated into the user block on first sync rather than clobbered.
->
-> Upgrading from an older Prospec? After re-syncing, remove the now-unused `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
+#### Agent Configuration Layout & Safety
+
+`prospec agent sync` writes entry configs and Skills for each enabled agent:
+- **Claude Code** → `CLAUDE.md` + `.claude/skills/`
+- **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (shared [agents.md](https://agents.md) open standard; written once when multiple agents are enabled)
+
+Skills whose workflow depends on the harness — today `/prospec-review` and `/prospec-verify` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
+
+> [!NOTE]
+> **Editing Safety**: Entry configs carry `prospec:auto` and `prospec:user` blocks. `agent sync` (and `init` on `AGENTS.md`) only refreshes the `auto` block and preserves whatever you write in the `user` block; existing hand-written `CLAUDE.md` / `AGENTS.md` files are migrated into the `user` block on first sync rather than overwritten.
 
 
 #### Project-scan language support
@@ -709,7 +712,8 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`). Exits 1 on failure.
 
-> **Note**: These commands ARE the workflow's deterministic layer (issue #107 restored the cli-first posture): the Skills (`/prospec-new-story`, `/prospec-ff`, …) call them for every scaffold, transition, and record instead of hand-writing artifacts, and each Skill STOPs when the CLI is missing or older than its probe floor. They remain equally available for manual or scripted use.
+> [!IMPORTANT]
+> **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`/prospec-new-story`, `/prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
 
 ### MCP Server
 
@@ -781,54 +785,7 @@ per process (the root given by `--cwd`), and is a pure add-on — no Skill or CL
 so everything works unchanged when it is not running. Transport is stdio only; HTTP/SSE is
 deliberately not included in this version.
 
-<details>
-<summary>Token Measurement — make the token-efficiency claim verifiable</summary>
-
-| Command | Description |
-|---------|-------------|
-| `pnpm measure:tokens [options]` | Assemble contexts from live repo and record real provider API token usage and cost |
-| `prospec measure [options]` | Read-only display of measurement report or context budget projection (zero API calls) |
-
-#### Token Measurement Commands Breakdown
-
-- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
-  - **Purpose**: Assembles full-dump / naive-rag / prospec contexts and measures real usage and cache hit rates via Provider APIs.
-  - **Options**: `--provider` sets provider model; `--budget` sets cost cap (default US$10); `--offline` skips API calls and outputs char-based size estimate in `size-report.json`.
-
-- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
-  - **Purpose**: Read-only display of token measurement reports or projected baseline workflow context budget.
-
-The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task
-(`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled
-at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
-
-**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their
-model provider, not the agent harness itself):
-
-| Agent | Provider API | Default model |
-|-------|-------------|---------------|
-| claude | Anthropic | `claude-haiku-4-5` |
-| codex, copilot | OpenAI | `gpt-4.1-mini` |
-| antigravity | Google | `gemini-2.5-flash` |
-
-**How to read the numbers (honest boundaries):**
-
-- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is
-  always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
-- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on
-  whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable
-  prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly
-  records a 0% hit rate even though the mechanism works at production context sizes.
-- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini
-  automatic prefix caching) — numbers are **comparable only within the same provider**, never across
-  providers or repo snapshots (the report records the git commit it measured).
-- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
-- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
-
-</details>
-
-<details>
-<summary>Drift Check (CI gate) — deterministic spec ↔ code ↔ knowledge integrity</summary>
+### Drift Check (CI Gate)
 
 | Command | Description |
 |---------|-------------|
@@ -872,19 +829,9 @@ model provider, not the agent harness itself):
 - **`prospec check --init-ci`**
   - **Purpose**: Scaffolds supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) with SHA pinning, least privilege, and sticky PR comments.
 
-Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason —
-never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report
-permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so
-the developer and the CI gate always see the same facts, token-free.
+Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason — never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so the developer and the CI gate always see the same facts, token-free.
 
-**Who decides what at verify** — the report is not advisory there. `/prospec-verify`'s task-completion,
-Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status
-verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The
-dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic
-and are graded in **fresh context** (an independent reviewer that did not write the code), while the
-Constitution audit is split: severities and the rule list come from the machine inventory, judging a
-violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported
-`not-adjudicated` (never PASS) and grade S becomes unreachable.
+**Who decides what at verify** — the report is not advisory there. `/prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
 
 **Tuning the `knowledge-size` budgets** — `knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
@@ -906,8 +853,6 @@ A freshly initialized project's `.prospec.yaml` carries no `token_budget` block,
 
 Two of these deserve their own note. **Feature Specs grow monotonically** — every archived change appends graduated REQs and nothing ever removes them — so the surface that dominates a mature project's load is the one that had no budget at all before; slices under `specs/features/{feature}/` are measured against the same `spec_per_file`, so splitting a spec cannot move it out of the budget's sight. **Skill files are measured only in authoring projects**, detected by the presence of the skill template sources: a project that merely consumes generated skills cannot act on a finding about one, and an unactionable WARN is exactly what this check exists to avoid.
 
-</details>
-
 <details>
 <summary>Mutation testing (on-demand audit — NOT a gate)</summary>
 
@@ -924,9 +869,41 @@ Two of these deserve their own note. **Feature Specs grow monotonically** — ev
     - `--ignoreStatic` provides substantial speedups for fast iteration but skips testing module-level constants.
     - Surviving mutants highlight potential test blind spots for human inspection.
 
-Measured here: `src/lib/date-utils.ts` = 2 mutants over a 57-test dependent suite (net 0.08s) → **4s**; `src/lib/task-markers.ts` = 57 mutants over a 416-test dependent suite (net 54.2s) → **9m09s**, score 89.47. Cost is the **product** of two things, and neither alone predicts it: how many mutants are **static** (26 of 57 here — they sit in module-level code, so the module reloads and `coverageAnalysis` cannot narrow them), times **how big the module's dependent suite is** (what one un-narrowed run costs). `--ignoreStatic` takes that same run to **63.8s, 8.6× faster** — but it is not a free win: those 26 mutants then go untested and report as survived, dropping the score to 45.61, so use it to iterate, not to quote a number. The 11 timeouts are not margin: Stryker's ceiling is `timeoutFactor`(1.5) × netTime + `timeoutMS` + overhead, and a static mutant's netTime is the whole suite, so the ceiling here is ~144s against a ~54s normal run. All 11 are regex mutants that **widen** what the pattern accepts, so `parseTaskLine` starts accepting lines it should reject and the fixture-driven consumers do enough extra work to exceed it. Stryker scores a timeout as *killed*, so a loaded machine reports a **higher** score — never compare scores across machines. Budget by *module-level constants × how much of the suite reaches the module*. Surviving mutants are a signal to read, not a defect list — equivalence is a human judgment the tool cannot make
-
 </details>
+
+### Token Measurement
+
+| Command | Description |
+|---------|-------------|
+| `pnpm measure:tokens [options]` | Assemble contexts from live repo and record real provider API token usage and cost |
+| `prospec measure [options]` | Read-only display of measurement report or context budget projection (zero API calls) |
+
+#### Token Measurement Commands Breakdown
+
+- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
+  - **Purpose**: Assembles full-dump / naive-rag / prospec contexts and measures real usage and cache hit rates via Provider APIs.
+  - **Options**: `--provider` sets provider model; `--budget` sets cost cap (default US$10); `--offline` skips API calls and outputs char-based size estimate in `size-report.json`.
+
+- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
+  - **Purpose**: Read-only display of token measurement reports or projected baseline workflow context budget.
+
+The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task (`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
+
+**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their model provider, not the agent harness itself):
+
+| Agent | Provider API | Default model |
+|-------|-------------|---------------|
+| claude | Anthropic | `claude-haiku-4-5` |
+| codex, copilot | OpenAI | `gpt-4.1-mini` |
+| antigravity | Google | `gemini-2.5-flash` |
+
+**How to read the numbers (honest boundaries):**
+
+- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
+- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly records a 0% hit rate even though the mechanism works at production context sizes.
+- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini automatic prefix caching) — numbers are **comparable only within the same provider**, never across providers or repo snapshots (the report records the git commit it measured).
+- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
+- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
 
 
 ---
@@ -1040,7 +1017,8 @@ prospec upgrade                  # Step 1: CLI (zero-LLM) syncs infrastructure a
 - **Final Sync**: Re-runs `agent sync` so all changes immediately take effect across all configured agents.
 
 > [!TIP]
-> `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
+> - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
+> - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
 ---
 
@@ -1156,10 +1134,10 @@ pnpm run build
 pnpm uninstall -g prospec
 ```
 
-> First-time global install needs `pnpm setup` run once (configures the global bin directory).
->
-> The single lockfile is `pnpm-lock.yaml`; after changing dependencies run `pnpm install`
-> and commit it. See [CONTRIBUTING.md](./CONTRIBUTING.md#dependency-management).
+> [!NOTE]
+> - First-time global install requires running `pnpm setup` once (to configure the global bin directory).
+> - The sole lockfile is `pnpm-lock.yaml`; update dependencies with `pnpm install` and commit.
+> - See [CONTRIBUTING.md](./CONTRIBUTING.md#dependency-management) for details.
 
 </details>
 

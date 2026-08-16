@@ -39,8 +39,9 @@
 - [CLI 命令](#cli-命令)
   - [基礎設施命令](#基礎設施命令)
   - [變更管理命令](#變更管理命令)
+  - [Drift 檢查（CI 閘門）](#drift-檢查ci-閘門)
+  - [Token 量測](#token-量測)
   - [MCP Server](#mcp-server)
-  - [進階指令與量測工具](#進階指令與量測工具)
 - [設定 (Configuration)](#設定-configuration)
 - [進階工作流](#進階工作流)
   - [Backfill：把既有程式碼納進信任區](#backfill把既有程式碼納進信任區)
@@ -428,7 +429,8 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | **快速開始** | `/prospec-quickstart` | `prospec quickstart` 執行 init + agent sync 後，依 artifact language 在地化 skill 觸發詞、準備 Knowledge 掃描，並串接 `/prospec-knowledge-generate` 生成 AI Knowledge;絕不直寫信任區 |
 | **升級** | `/prospec-upgrade` | `prospec upgrade` 記錄版本、重新同步 agents 並補建缺少的 init 檔案後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 檔案格式 + 補齊已建檔案，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不覆寫你撰寫的內容 |
 
-> **週期性收尾** —— `/prospec-quickstart`（`prospec quickstart` 後執行一次）與 `/prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
+> [!NOTE]
+> **週期性收尾 Skills**：`/prospec-quickstart`（`prospec quickstart` 後執行一次）與 `/prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
 
 ### 品質閘門與自我改進
 
@@ -543,15 +545,16 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 - **`prospec print-template <path>`**
   - **核心用途**：輸出內建樣板的原始內容（離線、免 Node.js 環境即可讀取）。
 
-> **Agent 配置佈局** — `agent sync` 為每個偵測到的 agent 生成 entry 配置 + Skills：
-> - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
-> - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
->
-> 工作流程取決於 harness 的 Skills——目前是 `/prospec-review` 與 `/prospec-verify`——會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
->
-> 你的編輯是安全的：entry 配置帶有 `prospec:auto` / `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只更新 auto 區塊，並保留你寫在 user 區塊的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時遷入 user 區塊，而非被覆蓋。
->
-> 從舊版 Prospec 升級？重新 sync 後請移除不再使用的 `GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
+#### Agent 配置佈局與安全機制
+
+`prospec agent sync` 會為每個啟用的 AI Agent 生成專屬的 entry 配置與 Skills：
+- **Claude Code** → `CLAUDE.md` + `.claude/skills/`
+- **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
+
+工作流程取決於 harness 的 Skills（如 `/prospec-review` 與 `/prospec-verify`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+
+> [!NOTE]
+> **編輯安全性**：Entry 配置文件皆包含 `prospec:auto` 與 `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只會更新 `auto` 區塊，並完整保留你在 `user` 區塊手寫的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時自動遷入 `user` 區塊，而非被覆蓋。
 
 
 #### 專案掃描支援語言
@@ -692,7 +695,8 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec` 等）。校驗失敗時 exit 1。
 
-> **注意**：這些命令**就是**工作流的確定性層（issue #107 恢復了 cli-first 姿態）：Skills（`/prospec-new-story`、`/prospec-ff` 等）的每一次 scaffold、轉換與記錄都改為呼叫它們，不再手寫產物；CLI 缺失或版本低於探針門檻時，每個 Skill 都會 STOP。它們同樣可供手動或腳本化使用。
+> [!IMPORTANT]
+> **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`/prospec-new-story`、`/prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
 
 ### MCP Server
 
@@ -761,45 +765,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；HTTP/SSE
 刻意不納入本版。
 
-<details>
-<summary>Token 量測 —— 讓 token 效率主張可驗證</summary>
-
-| 命令 | 說明 |
-|------|------|
-| `pnpm measure:tokens [options]` | 在活的 repo 上組裝三種 context，記錄 provider API 真實 Token 消耗與費用 |
-| `prospec measure [options]` | 唯讀顯示量測報告或上下文預算投影（不呼叫 API、不消耗 Token） |
-
-#### Token 量測命令詳解
-
-- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
-  - **核心用途**：組裝 full-dump / naive-rag / prospec 三種 context，向 Provider API 發送並記錄真實 usage。
-  - **選項**：`--provider` 指定模型來源；`--budget` 設定預算上限（預設 US$10）；`--offline` 跳過 API 呼叫，改以字元數估算輸出 `size-report.json`。
-
-- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
-  - **核心用途**：唯讀檢視 Token 報告或計算單次變更工作流程的基準上下文預算（含 L1、L2、Skills、references 與 feature specs）。
-
-harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
-
-**Agent → 量測 provider 對應**（copilot/codex 無公開 benchmark API，量測其模型來源而非 agent harness 本身）：
-
-| Agent | Provider API | 預設 model |
-|-------|-------------|-----------|
-| claude | Anthropic | `claude-haiku-4-5` |
-| codex、copilot | OpenAI | `gpt-4.1-mini` |
-| antigravity | Google | `gemini-2.5-flash` |
-
-**如何誠實解讀數字：**
-
-- 效率主張 = **vs full-dump baseline 的 input-token 成本**；naive-rag baseline 一律並列（差距較小）。output token 不受影響、誠實列出。
-- **warm\*** 為合成命中（連送兩次）；production 命中率取決於觸發是否落在 cache TTL 內。各 provider 另有最小可 cache 前綴（如 `claude-haiku-4-5` 為 4,096 tokens）——低於地板值的小型 prospec 組裝會誠實記錄 0% 命中率，機制在 production 規模的 context 下才生效。
-- 各 provider 的 cache 折扣結構不同（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）—— 數字**僅同 provider 內可比**，不可跨 provider 或跨 repo 快照（報告記錄量測當下的 git commit）。
-- 不設門檻、不進 CI：報告供人解讀，不判定通過與否。
-- 本專案任何「節省 token」數字只能引用本 harness 產出 —— 估算不是資料。
-
-</details>
-
-<details>
-<summary>Drift 檢查（CI 閘門）—— 確定性 spec ↔ code ↔ knowledge 完整性</summary>
+### Drift 檢查（CI 閘門）
 
 | 命令 | 說明 |
 |------|------|
@@ -843,15 +809,9 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 - **`prospec check --init-ci`**
   - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。
 
-誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code
-一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，
-開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
+誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code 一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
-**verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度
-**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械
-oracle 的兩個維度——delta-spec 合規與設計一致性——維持機率判斷，並在 **fresh context**（未寫過這段程式的
-獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的
-判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
+**verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械 oracle 的兩個維度——delta-spec 合規與設計一致性——維持機率判斷，並在 **fresh context**（未寫過這段程式的獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
 
 **調整 `knowledge-size` 預算** —— `knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
 
@@ -873,10 +833,8 @@ knowledge:
 
 其中兩項值得單獨說明。**Feature Spec 是單調成長的** —— 每次歸檔都會 append 畢業的 REQ，而沒有任何機制會移除 —— 所以在成熟專案裡支配載入量的那一層，正是先前完全沒有預算的那一層；切出來的 slice 以同一個 `spec_per_file` 量測，因此分割不可能把它移出預算視線。**skill 檔只在 authoring 專案量測**，以 skill 樣板原始碼是否存在來偵測：純消費生成 skill 的專案對這種 finding 無法行動，而「無法行動的 WARN」正是這個檢查存在要避免的東西。
 
-</details>
-
 <details>
-<summary>Mutation testing（隨選稽核——非閘門）</summary>
+<summary>隨選變異測試（Mutation Testing）</summary>
 
 | 指令 | 說明 |
 |------|------|
@@ -888,12 +846,44 @@ knowledge:
   - **核心用途**：隨選深度稽核，評估測試套件對程式碼變異的捕捉能力（刻意不做 CI 閘門）。
   - **特性與成本**：
     - 成本取決於模組層級常數（static mutants）與依賴該模組的測試套件大小之乘積。
-    - `--ignoreStatic` 可大幅加快執行速度（適用於快速迭代），但會略過靜態變異的測試。
+    - `--ignoreStatic` 可大幅加快執行速度（適用於快速迭代），但會略過模組層級的靜態變異測試。
     - 存活的 mutant 代表測試可能存在的盲點，需由工程師進行人工判斷。
 
-本 repo 實測：`src/lib/date-utils.ts` ＝ 2 個 mutant、依賴套件 57 個測試（net 0.08 秒）→ **4 秒**；`src/lib/task-markers.ts` ＝ 57 個 mutant、依賴套件 416 個測試（net 54.2 秒）→ **9 分 09 秒**，score 89.47。成本是兩者的**乘積**，任一項單獨都無法預測：有多少 mutant 是 **static**（此處 57 個中 26 個——它們位於模組層級程式碼，故模組必須重載，`coverageAnalysis` 無法收斂），乘以**該模組依賴套件有多大**（一次未收斂的執行要多久）。`--ignoreStatic` 可把同一次執行壓到 **63.8 秒、快 8.6 倍**——但不是免費的：那 26 個 mutant 隨即未被測試且回報為存活，score 掉到 45.61，故它適合用來迭代，不適合用來引用數字。11 個逾時**不是**餘裕不足：Stryker 的上限為 `timeoutFactor`(1.5) × netTime ＋ `timeoutMS` ＋ overhead，而 static mutant 的 netTime 是整個未收斂套件，故此處上限約 144 秒，正常執行約 54 秒遠低於它。11 個全是**放寬**匹配範圍的 regex mutant（去掉錨點、`\s+`→`\s`、`{0,3}`→`{}`），使 `parseTaskLine` 開始接受本該拒絕的行，下游以真實 fixture 驅動的消費者因而多做到超過上限。而 Stryker 將逾時計為 *killed*，故負載較重的機器回報的 score 反而**較高**——切勿跨機器比較 score。估算請以「模組層級常數 × 有多少套件觸及該模組」為準。存活 mutant 是待讀的訊號而非缺陷清單——等價性是工具做不到的人工判斷
-
 </details>
+
+### Token 量測
+
+| 命令 | 說明 |
+|------|------|
+| `pnpm measure:tokens [options]` | 在活的 repo 上組裝三種 context，記錄 provider API 真實 Token 消耗與費用 |
+| `prospec measure [options]` | 唯讀顯示量測報告或上下文預算投影（不呼叫 API、不消耗 Token） |
+
+#### Token 量測命令詳解
+
+- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
+  - **核心用途**：組裝 full-dump / naive-rag / prospec 三種 context，向 Provider API 發送並記錄真實 usage。
+  - **選項**：`--provider` 指定模型來源；`--budget` 設定預算上限（預設 US$10）；`--offline` 跳過 API 呼叫，改以字元數估算輸出 `size-report.json`。
+
+- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
+  - **核心用途**：唯讀檢視 Token 報告或計算單次變更工作流程的基準上下文預算（含 L1、L2、Skills、references 與 feature specs）。
+
+harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
+
+**Agent → 量測 provider 對應**（copilot/codex 無公開 benchmark API，量測其模型來源而非 agent harness 本身）：
+
+| Agent | Provider API | 預設 model |
+|-------|-------------|-----------|
+| claude | Anthropic | `claude-haiku-4-5` |
+| codex、copilot | OpenAI | `gpt-4.1-mini` |
+| antigravity | Google | `gemini-2.5-flash` |
+
+**如何誠實解讀數字：**
+
+- 效率主張 = **vs full-dump baseline 的 input-token 成本**；naive-rag baseline 一律並列（差距較小）。output token 不受影響、誠實列出。
+- **warm\*** 為合成命中（連送兩次）；production 命中率取決於觸發是否落在 cache TTL 內。各 provider 另有最小可 cache 前綴（如 `claude-haiku-4-5` 為 4,096 tokens）——低於地板值的小型 prospec 組裝會誠實記錄 0% 命中率，機制在 production 規模的 context 下才生效。
+- 各 provider 的 cache 折扣結構不同（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）—— 數字**僅同 provider 內可比**，不可跨 provider 或跨 repo 快照（報告記錄量測當下的 git commit）。
+- 不設門檻、不進 CI：報告供人解讀，不判定通過與否。
+- 本專案任何「節省 token」數字只能引用本 harness 產出 —— 估算不是資料。
 
 
 ---
@@ -1007,7 +997,8 @@ prospec upgrade                  # 步驟 1：CLI（zero-LLM）自動同步基�
 - **二次同步**：完成調整後自動重跑 `agent sync`，確保所有 Agent 立即生效。
 
 > [!TIP]
-> `.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
+> - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
+> - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
 ---
 
@@ -1123,10 +1114,10 @@ pnpm run build
 pnpm uninstall -g prospec
 ```
 
-> 首次全域安裝需執行一次 `pnpm setup`（設定全域 bin 目錄）。
->
-> 唯一的 lockfile 是 `pnpm-lock.yaml`；變更依賴後執行 `pnpm install` 並 commit。
-> 詳見 [CONTRIBUTING.md](./CONTRIBUTING.md#dependency-management)。
+> [!NOTE]
+> - 首次全域安裝需執行一次 `pnpm setup`（設定全域 bin 目錄）。
+> - 唯一的 lockfile 是 `pnpm-lock.yaml`；變更依賴後請執行 `pnpm install` 並 commit。
+> - 詳見 [CONTRIBUTING.md](./CONTRIBUTING.md#dependency-management)。
 
 </details>
 
