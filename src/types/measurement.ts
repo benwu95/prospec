@@ -26,8 +26,11 @@ export const AGENT_PROVIDER_MAP = {
   antigravity: 'google',
 } as const;
 
+export const MEASUREMENT_SOURCES = ['antigravity', 'claude', 'copilot', 'codex'] as const;
+
 export const TokenUsageSchema = z.object({
   provider: z.enum(MEASUREMENT_PROVIDERS),
+  source: z.enum(MEASUREMENT_SOURCES).optional(),
   /** Uncached input tokens billed at base rate. */
   input: z.number().int().nonnegative(),
   output: z.number().int().nonnegative(),
@@ -92,6 +95,7 @@ export const ProviderSummarySchema = z.object({
 
 export const ProviderRunSchema = z.object({
   provider: z.enum(MEASUREMENT_PROVIDERS),
+  source: z.enum(MEASUREMENT_SOURCES).optional(),
   model: z.string(),
   pricing: PricingSchema,
   aborted: z.boolean(),
@@ -171,6 +175,7 @@ export const ProjectionReportSchema = z.object({
 
 
 export type MeasurementProvider = (typeof MEASUREMENT_PROVIDERS)[number];
+export type MeasurementSource = (typeof MEASUREMENT_SOURCES)[number];
 export type AssemblyStrategy = (typeof ASSEMBLY_STRATEGIES)[number];
 export type MeasurementBaseline = (typeof MEASUREMENT_BASELINES)[number];
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;

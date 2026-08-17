@@ -43,8 +43,9 @@ describe('measure-output terminal sanitization (B13)', () => {
       generated_at: `2026-01-01${BEL}`,
       runs: [
         {
+          source: `cli${BEL}-source`,
           provider: 'anthropic',
-          model: `claude${BEL}-x`,
+          model: 'claude-x',
           pricing: {},
           aborted: true,
           aborted_reason: `budget${BEL} gone`,
@@ -68,7 +69,7 @@ describe('measure-output terminal sanitization (B13)', () => {
     expect(out.includes(BEL)).toBe(false);
     // legible content is preserved — only the control byte is removed
     expect(out).toContain('corpusx');
-    expect(out).toContain('claude-x');
+    expect(out).toContain('cli-source');
   });
 });
 
