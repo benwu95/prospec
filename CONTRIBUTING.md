@@ -203,11 +203,10 @@ A completed change lands as **two commits**, in this order:
    one six-week span — so take the wording from `git log` and treat the *contents* listed above as
    the stable part.
 
-The message rules live in `prospec/CONSTITUTION.md` → `[MUST] Atomic Commits by Feature`, in its
-**Verify** clause: conventional prefix; subject and body in English; body as a bulleted list, never
-prose paragraphs; one concern per commit; **no AI co-authorship attribution**. The allowed prefix
-vocabulary is wider than the examples given there — `prospec/ai-knowledge/_conventions.md` → Git
-Conventions carries the full list, adding `perf:` and `ci:`.
+The message rules live in `prospec/CONSTITUTION.md` → `[MUST] Atomic Commits and Format Requirements`,
+in its **Verify** clause: conventional prefix; subject and body in English; body as a bulleted list, never
+prose paragraphs; one concern per commit; **no AI co-authorship attribution**. The allowed types are
+`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, and `ci`.
 
 ### 5. Submit a Pull Request
 

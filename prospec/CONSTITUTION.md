@@ -27,15 +27,18 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 ---
 ### [MUST] Atomic Commits and Format Requirements
 
-**Description**: Each independent functional unit is committed on completion. A commit contains exactly one feature or one fix — never unrelated changes mixed together. Furthermore, every commit message MUST adhere to these strict formatting requirements:
-- Follow Conventional Commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
-- Both subject and body MUST be written in English.
-- The commit body MUST be formatted as a bulleted list; prose paragraphs are prohibited.
-- Do NOT include AI co-authorship attribution (e.g., `Co-authored-by:`).
+**Description**: Each independent functional unit is committed on completion. A commit contains exactly one feature, fix, or refactor — never unrelated changes mixed together. Standard change delivery follows a two-stage commit lifecycle (the feature commit upon reaching `/prospec-verify` grade S/A folding implementation, review/verify fixes, module READMEs, and factual counts; followed by the archive commit after `/prospec-archive`). Furthermore, every commit message MUST adhere to the Conventional Commits specification and repository conventions:
+- **Header format**: `<type>(<scope>): <description>` or `<type>: <description>`.
+- **Allowed types**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`, `perf:`, `ci:`.
+- **Scope**: Optional but encouraged; specifies the touched module or subsystem in lowercase (e.g., `feat(measure):`, `docs(specs):`, `fix(cli):`).
+- **Subject line**: Written in English, imperative mood, concise, lowercase, with no trailing period.
+- **Breaking changes**: Indicated by `!` before `:` (e.g., `feat(api)!: ...`) or `BREAKING CHANGE: <description>` in the footer.
+- **Body**: Separated from header by a blank line; MUST be formatted as a bulleted list (`- ...`); prose paragraphs are prohibited; written entirely in English explaining "what" and "why".
+- **Footers & Attribution**: Standard footer tokens (e.g., issue references `Closes #NN`); AI co-authorship attribution (e.g., `Co-authored-by:`) is strictly prohibited.
 
-**Rationale**: Atomic commits keep version history clean and traceable. A strict, predictable commit format ensures uniform changelogs, avoids prose bloat in `git log`, and keeps the focus entirely on the technical "what" and "why".
+**Rationale**: Atomic commits keep version history clean, bisectable, and traceable. Adhering strictly to Conventional Commits with bulleted bodies ensures uniform automated changelogs, prevents prose clutter in `git log`, and keeps commit metadata focused purely on technical changes.
 
-**Verify**: Each commit holds one concern; follows Conventional Commits; messages are entirely in English; bodies are bulleted lists; no AI co-authorship attribution.
+**Verify**: Each commit holds one concern; follows Conventional Commits syntax (`<type>(<scope>): <description>`); uses allowed types (`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`); messages are entirely in English; bodies are bulleted lists; footers follow conventional tokens; no AI co-authorship attribution.
 
 ---
 ### [MUST] User Stories Follow INVEST
