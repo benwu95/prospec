@@ -70,7 +70,7 @@
     {
       "@type":"Question",
       "name":"Is the token-saving claim real or marketing?",
-      "acceptedAnswer":{"@type":"Answer","text":"It's measured, not asserted. Prospec ships a benchmark harness (pnpm measure:tokens / prospec measure) that assembles real contexts and records actual provider usage. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data. Numbers are comparable only within the same provider and repo snapshot."}
+      "acceptedAnswer":{"@type":"Answer","text":"It's measured, not asserted. Prospec ships a token measurement command (prospec measure) that parses your local AI CLI session logs to record actual context usage and theoretical baseline savings. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data."}
     },
     {
       "@type":"Question",
@@ -558,7 +558,7 @@
       </details>
       <details>
         <summary><span class="q">Q3</span><span data-i18n="faq.q3.q">Is the token-saving claim real or marketing?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q3.a">It's measured, not asserted. Prospec ships a benchmark harness (<code>pnpm measure:tokens</code> / <code>prospec measure</code>) that assembles real contexts and records actual provider usage. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data. Numbers are comparable only within the same provider and repo snapshot.</div>
+        <div data-i18n="faq.q3.a">It's measured, not asserted. Prospec ships a token measurement command (<code>prospec measure</code>) that parses your local AI CLI session logs to record actual context usage and theoretical baseline savings. The project's rule is explicit: any token figure quoted must come from that harness — estimates are not data.</div>
       </details>
       <details>
         <summary><span class="q">Q4</span><span data-i18n="faq.q4.q">What does it deliberately <em>not</em> do?</span><span class="pm" aria-hidden="true">+</span></summary>

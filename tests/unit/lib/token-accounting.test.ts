@@ -184,3 +184,101 @@ describe('selectWithinBudget', () => {
     expect(selectWithinBudget([{ id: 'x', text: 'abcd' }], 0)).toEqual([]);
   });
 });
+
+import {
+  parseAntigravityLogs,
+  parseClaudeLogs,
+  parseCodexLogs,
+  parseCopilotLogs,
+  calculateTheoreticalBaseline,
+  parseLocalLogs
+} from '../../../src/lib/token-accounting.js';
+
+describe('calculateTheoreticalBaseline', () => {
+  it('sums estimateTokens for all given files content', () => {
+    const contents = ['a'.repeat(40), 'a'.repeat(80)]; // 10 tokens + 20 tokens = 30
+    expect(calculateTheoreticalBaseline(contents)).toBe(30);
+  });
+});
+
+describe('parseAntigravityLogs', () => {
+  it('extracts input and output tokens per turn correctly', () => {
+    const jsonl = `{"created_at":"2023-01-01T00:00:00Z","type":"PLANNER_RESPONSE","content":"hmm","tool_calls":[],"source":"MODEL","usage":{"input_tokens":100,"output_tokens":20}}
+{"created_at":"2023-01-01T00:00:01Z","type":"USER_INPUT","content":"hi"}
+{"created_at":"2023-01-01T00:00:02Z","type":"PLANNER_RESPONSE","content":"ho","tool_calls":[],"source":"MODEL","usage":{"input_tokens":150,"output_tokens":30,"cached_tokens":50,"cache_write_tokens":0}}`;
+    const entries = parseAntigravityLogs(jsonl, 'sess1');
+    expect(entries).toHaveLength(2);
+    expect(entries[0]?.rawInput).toBe(100);
+    expect(entries[0]?.output).toBe(20);
+    expect(entries[1]?.rawInput).toBe(150);
+    expect(entries[1]?.cachedInput).toBe(50);
+    expect(entries[1]?.source).toBe('antigravity');
+    expect(entries[1]?.sessionId).toBe('sess1');
+  });
+
+  it('infers missing input tokens by character length of concatenated history', () => {
+    const jsonl = `{"created_at":"2023-01-01T00:00:00Z","type":"USER_INPUT","content":"${'a'.repeat(400)}","source":"USER"}
+{"created_at":"2023-01-01T00:00:01Z","type":"PLANNER_RESPONSE","content":"${'b'.repeat(20)}","tool_calls":[],"source":"MODEL"}`; // 100 in, 5 out
+    const entries = parseAntigravityLogs(jsonl, 'sess2');
+    expect(entries[0]?.rawInput).toBe(2614); // BASE 2500 + 400/3.5
+    expect(entries[0]?.output).toBe(5);
+  });
+});
+
+describe('parseClaudeLogs', () => {
+  it('deduplicates turns by reqId and aggregates write tokens in 5m windows', () => {
+    const jsonl = `{"requestId":"r1","message":{"id":"m1","usage":{"input_tokens":100,"output_tokens":20,"cache_creation_input_tokens":10}}}
+{"requestId":"r1","message":{"id":"m1","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":10}}}
+{"requestId":"r2","message":{"id":"m2","usage":{"input_tokens":200,"output_tokens":10,"cache_read_input_tokens":30}}}`;
+    const entries = parseClaudeLogs([{ sessionId: 'c1', content: jsonl }]);
+    expect(entries).toHaveLength(2); // two msg/req pairs
+    expect(entries[0]?.rawInput).toBe(100);
+    expect(entries[0]?.output).toBe(50); // takes max output
+    expect(entries[0]?.cacheWrite).toBe(10); // from cache_creation
+    expect(entries[1]?.rawInput).toBe(200);
+    expect(entries[1]?.cachedInput).toBe(30);
+    expect(entries[1]?.source).toBe('claude');
+  });
+});
+
+describe('parseCodexLogs', () => {
+  it('extracts tokens from token_count events', () => {
+    const jsonl = `{"type":"turn_context","payload":{"model":"gpt-4"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"prompt_tokens":30,"completion_tokens":5}}}}
+{"usage":{"input_tokens":100,"output_tokens":10}}`;
+    const entries = parseCodexLogs([{ sessionId: 'codex1', content: jsonl }]);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]?.rawInput).toBe(30);
+    expect(entries[0]?.output).toBe(5);
+    expect(entries[0]?.model).toBe('gpt-4');
+    expect(entries[1]?.rawInput).toBe(100);
+    expect(entries[1]?.output).toBe(10);
+    expect(entries[1]?.source).toBe('codex');
+  });
+});
+
+describe('parseCopilotLogs', () => {
+  it('extracts gen_ai.usage attributes', () => {
+    const jsonl = `{"attributes":{"gen_ai.usage.input_tokens":50,"gen_ai.usage.output_tokens":10,"gen_ai.response.model":"gpt-3.5"}}
+{"attributes":{"other":1}}`;
+    const entries = parseCopilotLogs([{ filename: 'copilot1', content: jsonl }]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.rawInput).toBe(50);
+    expect(entries[0]?.output).toBe(10);
+    expect(entries[0]?.model).toBe('gpt-3.5');
+    expect(entries[0]?.source).toBe('copilot');
+  });
+});
+
+describe('parseLocalLogs', () => {
+  it('aggregates all sources and sorts by timestamp', () => {
+    const sources = {
+      antigravity: [{ sessionId: 'a', logContent: '{"created_at":"2023-01-02T00:00:00Z","type":"PLANNER_RESPONSE","content":"x","source":"MODEL","usage":{"input_tokens":10,"output_tokens":1}}' }],
+      claude: [{ sessionId: 'c', content: '{"timestamp":"2023-01-01T00:00:00Z","requestId":"1","message":{"id":"1","usage":{"input_tokens":20,"output_tokens":2}}}' }]
+    };
+    const entries = parseLocalLogs(sources);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]?.source).toBe('claude'); // earlier date
+    expect(entries[1]?.source).toBe('antigravity'); // later date
+  });
+});

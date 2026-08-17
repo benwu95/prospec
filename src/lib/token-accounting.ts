@@ -129,3 +129,360 @@ export function selectWithinBudget(
   }
   return selected;
 }
+
+export interface LocalTokenEntry {
+  timestamp: string;
+  sessionId: string;
+  model: string;
+  rawInput: number;
+  cachedInput: number;
+  cacheWrite: number;
+  output: number;
+  source: string;
+}
+
+const BASE_SYSTEM_PROMPT_TOKENS = 2500;
+
+export function parseAntigravityLogs(
+  logContent: string,
+  sessionId: string,
+  modelName: string = 'unknown'
+): LocalTokenEntry[] {
+  const entries: LocalTokenEntry[] = [];
+  let sessionHistoryChars = 0;
+  
+  const lines = logContent.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('{')) continue;
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+    try {
+      data = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    
+    const tsRaw = data.created_at;
+    if (!tsRaw) continue;
+    let ts: string;
+    try {
+      ts = new Date(tsRaw).toISOString();
+    } catch {
+      ts = new Date().toISOString();
+    }
+    
+    const content = typeof data.content === 'string' ? data.content : '';
+    const src = data.source;
+    const toolCalls = Array.isArray(data.tool_calls) ? data.tool_calls : [];
+    
+    let stepLen = content.length;
+    for (const tc of toolCalls) {
+      stepLen += JSON.stringify(tc).length;
+    }
+    
+    let inTok = 0;
+    let outTok = 0;
+    let cachedTok = 0;
+    
+    if (src === 'MODEL') {
+      const explicitInMatch = trimmed.match(/"(?:input_tokens|prompt_tokens)"\s*:\s*(\d+)/);
+      if (explicitInMatch) {
+        inTok = parseInt(explicitInMatch[1] ?? '0', 10);
+        const outMatch = trimmed.match(/"(?:output_tokens|completion_tokens)"\s*:\s*(\d+)/);
+        if (outMatch) outTok = parseInt(outMatch[1] ?? '0', 10);
+        const cacheMatch = trimmed.match(/"(?:cache_read_input_tokens|cached_tokens)"\s*:\s*(\d+)/);
+        if (cacheMatch) cachedTok = parseInt(cacheMatch[1] ?? '0', 10);
+      } else {
+        inTok = BASE_SYSTEM_PROMPT_TOKENS + Math.max(0, Math.floor(sessionHistoryChars / 3.5));
+        outTok = Math.max(1, Math.floor(stepLen / 3.5));
+      }
+      
+      if (inTok > 0 || outTok > 0) {
+        entries.push({
+          timestamp: ts,
+          sessionId,
+          model: modelName,
+          rawInput: inTok,
+          cachedInput: cachedTok,
+          cacheWrite: 0,
+          output: outTok,
+          source: 'antigravity',
+        });
+      }
+      sessionHistoryChars += stepLen;
+    } else {
+      sessionHistoryChars += stepLen;
+    }
+  }
+  return entries;
+}
+
+export interface ClaudeLogContent {
+  sessionId: string;
+  content: string;
+}
+
+export function parseClaudeLogs(logs: ClaudeLogContent[]): LocalTokenEntry[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const best = new Map<string, any>();
+
+  for (const log of logs) {
+    const lines = log.content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.includes('"usage"')) continue;
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+      try {
+        data = JSON.parse(trimmed);
+      } catch {
+        continue;
+      }
+      
+      const message = data.message;
+      if (!message || typeof message !== 'object') continue;
+      
+      const usage = message.usage;
+      if (!usage || typeof usage !== 'object') continue;
+      
+      const model = message.model || 'unknown';
+      if (typeof model === 'string' && model.startsWith('<')) continue;
+      
+      const msgId = message.id || '';
+      const reqId = data.requestId || '';
+      const key = `${msgId}::${reqId}`;
+      
+      const prev = best.get(key);
+      const currentOutput = usage.output_tokens || 0;
+      if (prev && (prev.usage.output_tokens || 0) >= currentOutput) {
+        continue;
+      }
+      
+      best.set(key, {
+        usage,
+        model,
+        timestamp: data.timestamp,
+        sessionId: data.sessionId || log.sessionId,
+      });
+    }
+  }
+
+  const entries: LocalTokenEntry[] = [];
+  for (const record of best.values()) {
+    const usage = record.usage;
+    const creation = usage.cache_creation || {};
+    let write5m = creation.ephemeral_5m_input_tokens || 0;
+    const write1h = creation.ephemeral_1h_input_tokens || 0;
+    if (write5m === 0 && write1h === 0) {
+      write5m = usage.cache_creation_input_tokens || 0;
+    }
+    
+    let ts: string;
+    try {
+      ts = record.timestamp ? new Date(record.timestamp).toISOString() : new Date().toISOString();
+    } catch {
+      ts = new Date().toISOString();
+    }
+    
+    entries.push({
+      timestamp: ts,
+      sessionId: record.sessionId,
+      model: record.model,
+      rawInput: usage.input_tokens || 0,
+      cachedInput: usage.cache_read_input_tokens || 0,
+      cacheWrite: write5m + write1h,
+      output: usage.output_tokens || 0,
+      source: 'claude',
+    });
+  }
+  return entries;
+}
+
+export interface CodexLogContent {
+  sessionId: string;
+  content: string;
+}
+
+export function parseCodexLogs(logs: CodexLogContent[]): LocalTokenEntry[] {
+  const entries: LocalTokenEntry[] = [];
+  
+  for (const log of logs) {
+    let currentModel = 'unknown';
+    const lines = log.content.split('\n');
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+      try {
+        data = JSON.parse(trimmed);
+      } catch {
+        continue;
+      }
+      
+      if (data.type === 'turn_context') {
+        const payload = data.payload || {};
+        if (payload.model) currentModel = payload.model;
+        continue;
+      }
+      
+      if (data.type === 'event_msg') {
+        const payload = data.payload || {};
+        if (payload.type === 'token_count') {
+          const info = payload.info || {};
+          const usage = info.last_token_usage;
+          if (!usage) continue;
+          
+          const inTok = usage.input_tokens || usage.prompt_tokens || 0;
+          const outTok = usage.output_tokens || usage.completion_tokens || 0;
+          const cacheRead = usage.cache_read_input_tokens || 0;
+          
+          let ts = new Date().toISOString();
+          if (data.timestamp) {
+            try { ts = new Date(data.timestamp).toISOString(); } catch { /* ignore */ }
+          }
+          
+          entries.push({
+            timestamp: ts,
+            sessionId: log.sessionId,
+            model: currentModel,
+            rawInput: inTok,
+            cachedInput: cacheRead,
+            cacheWrite: 0,
+            output: outTok,
+            source: 'codex'
+          });
+        }
+        continue;
+      }
+      
+      const usage = data.usage || (data.data && data.data.usage) || (data.result && data.result.usage);
+      if (usage && typeof usage === 'object') {
+        const inTok = usage.input_tokens || usage.prompt_tokens || 0;
+        const outTok = usage.output_tokens || usage.completion_tokens || 0;
+        const cacheRead = usage.cache_read_input_tokens || 0;
+        
+        let ts = new Date().toISOString();
+        if (data.timestamp) {
+          try { ts = new Date(data.timestamp).toISOString(); } catch { /* ignore */ }
+        }
+        
+        entries.push({
+          timestamp: ts,
+          sessionId: log.sessionId,
+          model: data.model || currentModel,
+          rawInput: inTok,
+          cachedInput: cacheRead,
+          cacheWrite: 0,
+          output: outTok,
+          source: 'codex'
+        });
+      }
+    }
+  }
+  return entries;
+}
+
+export interface CopilotLogContent {
+  filename: string;
+  content: string;
+}
+
+export function parseCopilotLogs(logs: CopilotLogContent[]): LocalTokenEntry[] {
+  const entries: LocalTokenEntry[] = [];
+  
+  for (const log of logs) {
+    const lines = log.content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.includes('"attributes"')) continue;
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+      try {
+        data = JSON.parse(trimmed);
+      } catch {
+        continue;
+      }
+      
+      const attrs = data.attributes;
+      if (!attrs || typeof attrs !== 'object') continue;
+      
+      const inTok = attrs['gen_ai.usage.input_tokens'] || 0;
+      const outTok = attrs['gen_ai.usage.output_tokens'] || 0;
+      const cacheRead = attrs['gen_ai.usage.cache_read.input_tokens'] || 0;
+      
+      if (inTok === 0 && outTok === 0) continue;
+      
+      let ts = new Date().toISOString();
+      const tsRaw = data.endTime || data.time || data.timestamp;
+      try {
+        if (Array.isArray(tsRaw) && tsRaw.length > 0) {
+          ts = new Date(tsRaw[0] * 1000).toISOString();
+        } else if (typeof tsRaw === 'number') {
+          if (tsRaw > 1e16) ts = new Date(tsRaw / 1e6).toISOString();
+          else if (tsRaw > 1e12) ts = new Date(tsRaw).toISOString();
+          else ts = new Date(tsRaw * 1000).toISOString();
+        } else if (typeof tsRaw === 'string') {
+          ts = new Date(tsRaw).toISOString();
+        }
+      } catch { /* ignore */ }
+      
+      const sessionId = attrs['gen_ai.conversation.id'] || attrs['copilot_chat.session_id'] || data.traceId || 'unknown';
+      const model = attrs['gen_ai.response.model'] || attrs['gen_ai.request.model'] || 'unknown';
+      
+      entries.push({
+        timestamp: ts,
+        sessionId: String(sessionId),
+        model: String(model),
+        rawInput: inTok,
+        cachedInput: cacheRead,
+        cacheWrite: 0,
+        output: outTok,
+        source: 'copilot'
+      });
+    }
+  }
+  return entries;
+}
+
+export function calculateTheoreticalBaseline(filesContent: string[]): number {
+  let total = 0;
+  for (const content of filesContent) {
+    total += estimateTokens(content);
+  }
+  return total;
+}
+
+export interface LocalLogSources {
+  antigravity?: { logContent: string; sessionId: string; modelName?: string }[];
+  claude?: ClaudeLogContent[];
+  codex?: CodexLogContent[];
+  copilot?: CopilotLogContent[];
+}
+
+export function parseLocalLogs(sources: LocalLogSources): LocalTokenEntry[] {
+  const allEntries: LocalTokenEntry[] = [];
+  
+  if (sources.antigravity) {
+    for (const log of sources.antigravity) {
+      allEntries.push(...parseAntigravityLogs(log.logContent, log.sessionId, log.modelName));
+    }
+  }
+  if (sources.claude) {
+    allEntries.push(...parseClaudeLogs(sources.claude));
+  }
+  if (sources.codex) {
+    allEntries.push(...parseCodexLogs(sources.codex));
+  }
+  if (sources.copilot) {
+    allEntries.push(...parseCopilotLogs(sources.copilot));
+  }
+  
+  return allEntries.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
+}

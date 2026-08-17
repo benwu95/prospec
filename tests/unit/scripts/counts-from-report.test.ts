@@ -12,7 +12,8 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const SCRIPT = path.join(REPO_ROOT, 'scripts/sync-counts.ts');
 
 function run(...args: string[]): { status: number | null; out: string } {
-  const r = spawnSync('npx', ['tsx', SCRIPT, ...args], {
+  const tsxPath = path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const r = spawnSync(process.execPath, [tsxPath, SCRIPT, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf-8',
     shell: false,

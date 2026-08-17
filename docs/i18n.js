@@ -214,7 +214,7 @@
     'faq.q2.q': '它會把我鎖進單一 AI 供應商嗎？',
     'faq.q2.a': '不會。Prospec 不綁定 AI agent。<code>agent sync</code> 會寫出 Claude Code（<code>CLAUDE.md</code> + <code>.claude/skills/</code>）以及給 Antigravity / Codex / Copilot 的 agents.md 標準（<code>AGENTS.md</code> + <code>.agents/skills/</code>）。知識是通用的 Markdown —— 切換 agent 不會讓你的專案記憶卡住。',
     'faq.q3.q': '省 token 的主張是真的，還是行銷話術？',
-    'faq.q3.a': '是量測出來的，不是空口宣稱。Prospec 附帶一套 benchmark harness（<code>pnpm measure:tokens</code> / <code>prospec measure</code>），會組裝真實的 context 並記錄 provider 的真實用量。專案的規則很明確：引用的任何 token 數字都必須來自這套 harness —— 估算不是資料。數字僅在同一 provider 與 repo 快照內可比較。',
+    'faq.q3.a': '是量測出來的，不是空口宣稱。Prospec 的量測指令（<code>prospec measure</code>）能直接解析本地 AI CLI 的 session logs，顯示真實的 context 用量與相對於基線的節省比。專案的規則很明確：引用的任何 token 數字都必須來自這套量測機制 —— 估算不是資料。',
     'faq.q4.q': '它刻意<em>不</em>做什麼？',
     'faq.q4.a': 'MCP server 是唯讀的（沒有任何工具能改檔案），每個 process 只服務單一專案，且僅支援 stdio —— HTTP/SSE 刻意不納入。drift 檢查是確定性的，從不宣稱能判斷語意層的 spec↔code 一致性 —— 那仍屬於對抗式審查。而且沒有任何 scale 會跳過工程紀律：TDD、審查與 Constitution 稽核在每個地方都照常執行。',
     'faq.q5.q': 'Greenfield 還是 brownfield？',

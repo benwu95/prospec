@@ -41,7 +41,7 @@ async function runCli(
     const result = await execFileAsync(NODE, [CLI_PATH, ...args], {
       cwd: options.cwd ?? tmpDir,
       timeout: 60000,
-      env: { ...process.env, NO_COLOR: '1' },
+      env: { ...process.env, NO_COLOR: '1', PROSPEC_MOCK_HOME: tmpDir },
     });
     return { stdout: result.stdout, stderr: result.stderr, exitCode: 0 };
   } catch (err) {
@@ -1269,57 +1269,6 @@ describe('CLI E2E', () => {
   });
 
   describe('prospec measure', () => {
-    const measureReport = {
-      corpus: 'sdd-tasks-v1',
-      git_commit: 'abc1234def5678',
-      generated_at: '2026-06-11T00:00:00.000Z',
-      runs: [
-        {
-          provider: 'anthropic',
-          model: 'claude-haiku-4-5',
-          pricing: {
-            input_usd_per_mtok: 1,
-            output_usd_per_mtok: 5,
-            cache_read_multiplier: 0.1,
-            cache_write_multiplier: 1.25,
-          },
-          aborted: false,
-          spent_usd: 1.2,
-          tasks: [],
-          summary: {
-            measured_tasks: 12,
-            skipped_tasks: 0,
-            failed_tasks: 0,
-            prospec_cache_hit_rate: 0.91,
-            comparisons: [
-              {
-                baseline: 'full-dump',
-                baseline_input_cold: 142_000,
-                prospec_input_cold: 18_400,
-                input_saving_ratio: 0.87,
-                baseline_output: 34_000,
-                prospec_output: 33_500,
-                baseline_effective_cost_usd: 0.426,
-                prospec_effective_cost_usd: 0.011,
-                effective_cost_saving_ratio: 0.974,
-              },
-              {
-                baseline: 'naive-rag',
-                baseline_input_cold: 41_000,
-                prospec_input_cold: 18_400,
-                input_saving_ratio: 0.551,
-                baseline_output: 33_800,
-                prospec_output: 33_500,
-                baseline_effective_cost_usd: 0.123,
-                prospec_effective_cost_usd: 0.011,
-                effective_cost_saving_ratio: 0.91,
-              },
-            ],
-          },
-        },
-      ],
-    };
-
     beforeEach(async () => {
       await fs.promises.writeFile(
         path.join(tmpDir, '.prospec.yaml'),
@@ -1327,30 +1276,29 @@ describe('CLI E2E', () => {
       );
     });
 
-    it('displays per-provider sections with both baselines and warm asterisk note', async () => {
+    it('displays local token measurement report', async () => {
+      const claudeProjDir = path.join(tmpDir, '.claude', 'projects');
+      await fs.promises.mkdir(claudeProjDir, { recursive: true });
       await fs.promises.writeFile(
-        path.join(tmpDir, 'measurement-report.json'),
-        JSON.stringify(measureReport),
+        path.join(claudeProjDir, 'test.jsonl'),
+        `{"requestId":"r1","message":{"id":"m1","usage":{"input_tokens":100,"output_tokens":20}}}`
       );
 
       const { stdout, exitCode } = await runCli(['measure']);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('anthropic');
-      expect(stdout).toContain('claude-haiku-4-5');
+      expect(stdout).toContain('Source: claude');
       expect(stdout).toContain('full-dump');
-      expect(stdout).toContain('naive-rag');
-      expect(stdout).toContain('warm*');
-      expect(stdout).toContain('comparable only within the same provider');
-      expect(stdout).toContain('Snapshot: abc1234def56');
+      expect(stdout).toContain('input tokens');
+      expect(stdout).toContain('output tokens');
     });
 
-    it('guides to the runner via stderr when the report is missing, without calling any API', async () => {
+    it('guides the user via stderr when no local logs are found', async () => {
       const { stderr, exitCode } = await runCli(['measure']);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('Measurement report not found');
-      expect(stderr).toContain('measure:tokens');
+      expect(stderr).toContain('No local logs found');
+      expect(stderr).toContain('Use an AI CLI to generate some logs first');
     });
 
     it('projects offline budget when --project-workflow is used', async () => {

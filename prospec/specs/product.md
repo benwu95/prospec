@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 1.0.0
-last_updated: 2026-08-14
+last_updated: 2026-08-16
 ---
 
 # prospec — Progressive Spec-Driven Development for AI agents
@@ -71,6 +71,11 @@ Centralizes the reading and parsing logic for AI Knowledge and Feature Specs, en
 
 `prospec mcp serve` exposes project truth over stdio as read-only MCP resources, so an agent in any harness — with no prospec skills installed — can query architecture, specs, dependency direction, and knowledge freshness. Realpath-contained, re-read per request.
 → [features/mcp-server.md](features/mcp-server.md)
+
+### measure
+
+TBD — describe this feature and its value in 1-2 sentences.
+→ [features/measure.md](features/measure.md)
 
 ### project-setup
 
