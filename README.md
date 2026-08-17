@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3887%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3875%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -876,7 +876,7 @@ Two of these deserve their own note. **Feature Specs grow monotonically** — ev
 | Command | Description |
 |---------|-------------|
 | `pnpm measure:tokens [options]` | Assemble contexts from live repo and record real provider API token usage and cost |
-| `prospec measure [options]` | Read-only display of measurement report or context budget projection (zero API calls) |
+| `prospec measure [options]` | Parse local session logs for token measurements, or project context budget (zero API calls) |
 
 #### Token Measurement Commands Breakdown
 
@@ -884,8 +884,8 @@ Two of these deserve their own note. **Feature Specs grow monotonically** — ev
   - **Purpose**: Assembles full-dump / naive-rag / prospec contexts and measures real usage and cache hit rates via Provider APIs.
   - **Options**: `--provider` sets provider model; `--budget` sets cost cap (default US$10); `--offline` skips API calls and outputs char-based size estimate in `size-report.json`.
 
-- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
-  - **Purpose**: Read-only display of token measurement reports or projected baseline workflow context budget.
+- **`prospec measure [--project-workflow <scale>] [--change <name>]`**
+  Parses your local AI CLI session logs to display actual context usage and theoretical baseline savings. Also supports projecting the token floor for a workflow scale.
 
 The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task (`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
 
@@ -1051,7 +1051,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3887 tests)
+# Run all tests (3875 tests)
 pnpm test
 
 # Watch mode
@@ -1064,8 +1064,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3887 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2916 tests
+**Test Coverage**: 3875 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 2904 tests
 - Contract tests (CLI output + Skill format): 839 tests
 - Integration tests: 45 tests
 - E2E tests: 87 tests

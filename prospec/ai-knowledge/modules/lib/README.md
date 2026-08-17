@@ -24,6 +24,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
 - Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
+- Token Accounting — `parseAllLogFiles` (JSONL transcript parsing), `calculateCodebaseBaselineTokens` (`git ls-files` based theoretical baseline)
 - Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices`, and `readSpecSlices` (the one narrow-read entry both surfaces share) (the rest: see the Station Engines sub-module)
 
 ## Dependencies

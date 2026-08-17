@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3887%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3875%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -856,7 +856,7 @@ knowledge:
 | 命令 | 說明 |
 |------|------|
 | `pnpm measure:tokens [options]` | 在活的 repo 上組裝三種 context，記錄 provider API 真實 Token 消耗與費用 |
-| `prospec measure [options]` | 唯讀顯示量測報告或上下文預算投影（不呼叫 API、不消耗 Token） |
+| `prospec measure [options]` | 解析本地 session log 以呈現量測數據，或進行上下文預算投影（不呼叫 API、不消耗 Token） |
 
 #### Token 量測命令詳解
 
@@ -864,8 +864,8 @@ knowledge:
   - **核心用途**：組裝 full-dump / naive-rag / prospec 三種 context，向 Provider API 發送並記錄真實 usage。
   - **選項**：`--provider` 指定模型來源；`--budget` 設定預算上限（預設 US$10）；`--offline` 跳過 API 呼叫，改以字元數估算輸出 `size-report.json`。
 
-- **`prospec measure [--report <path>] [--project-workflow <scale>] [--change <name>] [--offline]`**
-  - **核心用途**：唯讀檢視 Token 報告或計算單次變更工作流程的基準上下文預算（含 L1、L2、Skills、references 與 feature specs）。
+- **`prospec measure [--project-workflow <scale>] [--change <name>]`**
+  解析本地 AI CLI 的 session logs，顯示實際 Token 消耗與相對於基線的節省比。亦支援單一變更的上下文預算投影。
 
 harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
 
@@ -1031,7 +1031,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3887 個測試）
+# 執行所有測試（3875 個測試）
 pnpm test
 
 # Watch 模式
@@ -1044,8 +1044,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3887 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2916 tests
+**測試覆蓋率**：3875 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：2904 tests
 - Contract tests（CLI 輸出 + Skill 格式）：839 tests
 - Integration tests：45 tests
 - E2E tests：87 tests
