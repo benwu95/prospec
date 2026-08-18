@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-14
+last_updated: 2026-08-18
 story_count: 21
-req_count: 84
+req_count: 85
 ---
 
 # Agent Integration
@@ -19,6 +19,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 - [US-431–US-433](./agent-integration/us-431.md)
 - [US-434–US-438](./agent-integration/us-434.md)
 - [US-439–US-442](./agent-integration/us-439.md)
+
 
 ## Edge Cases
 
@@ -55,6 +56,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-18 | plan-shift-left-verifier | ADDED REQ-AGNT-039 | REQ-AGNT-039 |
 | 2026-08-14 | enforce-group-render-merge | ADDED REQ-TYPES-085; MODIFIED REQ-TYPES-059; MODIFIED REQ-AGNT-034 | REQ-TYPES-085, REQ-TYPES-059, REQ-AGNT-034 |
 | 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-SERVICES-089; MODIFIED REQ-TEMPLATES-121 | REQ-SERVICES-089, REQ-TEMPLATES-121 |
 | 2026-08-07 | measure-all-load-surfaces | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
