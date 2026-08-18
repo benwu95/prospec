@@ -92,9 +92,10 @@ so that I clearly know which modules to change, what the steps are, and the REQ 
 - WHEN added, THEN includes Description, Acceptance Criteria, Priority
 - WHEN modified, THEN includes Before, After, Reason
 
-#### REQ-TEMPLATES-059: Plan Call Chain and Layering Check
+#### REQ-TEMPLATES-059: Plan Call Chain and Architecture Verification
+Plan Call Chain and architecture verification in `/prospec-plan` and plan-format.
 - WHEN prospec-plan produces plan.md, THEN include a Call Chain section (and plan-format.hbs defines it)
-- WHEN Plan Phase 6 runs, THEN check the call chain's layering against the Constitution's dependency rule
+- WHEN Plan Phase 6 runs, THEN an independent Architecture Verifier audits the plan and delta-spec against project architecture principles and the orthogonal rubric
 - WHEN verify dimension 3/5 runs, THEN re-check layering against the Constitution
 
 #### REQ-TEMPLATES-125: Plan Conditional User Story Flow Diagram
@@ -103,6 +104,27 @@ so that I clearly know which modules to change, what the steps are, and the REQ 
 - WHEN a user story is a single linear happy path or a single-step CRUD, THEN do not produce a flow diagram
 - WHEN producing a flow diagram, THEN follow the `_diagram-conventions.md` classDef/node conventions, and the diagram block does not count toward the 120-line standard cap
 - WHEN describing the diagram-production step, THEN prospec-plan Phase 4 reads `_diagram-conventions.md` on-demand, and never adds it to Startup Loading (cache stability)
+
+#### REQ-TEMPLATES-182: Plan Architecture Verifier Rubric Reference
+A structured architecture verification rubric template (`plan-verifier-rubric.md`) defining downstream-agnostic orthogonal criteria decomposition for plan-stage review.
+- WHEN `plan-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Project Layering & Dependency Direction, Blast Radius & Ripple Effects, State Safety & Reversibility, and Delta-Spec Completeness
+- WHEN evaluating downstream projects, THEN the rubric instructs dynamic inspection against the downstream project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
+- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+
+#### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
+Phase 6 of `/prospec-plan` performs independent architecture verification against plan.md and delta-spec.md using orthogonal criteria decomposition.
+- WHEN Phase 6 begins, THEN `prospec-plan` loads `references/plan-verifier-rubric.md` on-demand in-phase without placing it in Startup Loading
+- WHEN the environment supports subagents (`can_spawn_subagent: yes`), THEN an independent fresh-context Architecture Verifier subagent is spawned to audit `plan.md` and `delta-spec.md`
+- WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
+- WHEN the verifier discovers architectural flaws or warnings, THEN findings are recorded to `plan.md` Risk Assessment and appended to `metadata.yaml` `quality_log`
+- WHEN false positives occur, THEN the developer may exercise Break-Glass Override by providing a manual bypass rationale
+- WHEN `/prospec-ff` executes Plan phase verification, THEN it aligns with the same architecture verification gate and degradation policy
+
+#### REQ-TESTS-089: Contract Tests for Plan Verifier and Rubric
+Contract test suite asserts the invariants of the Plan Architecture Verifier and its rubric.
+- WHEN contract tests execute, THEN they assert `plan-verifier-rubric.md` is cited on-demand in Phase 6 and excluded from Startup Loading
+- WHEN measuring reference size, THEN `plan-verifier-rubric.md` satisfies the $\le 2500$ tokens budget
+- WHEN verifying reference deployment, THEN `getSkillReferences` contains `plan-verifier-rubric.md` for both `prospec-plan` and `prospec-ff`
 
 ---
 
@@ -184,5 +206,3 @@ tasks.md ends with a Summary section (total tasks, total lines, parallelizable c
 #### REQ-CHNG-016: Plan Status Update
 - WHEN plan complete, THEN metadata status → `plan`
 - WHEN tasks complete, THEN metadata status → `tasks`
-
----

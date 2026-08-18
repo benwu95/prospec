@@ -37,7 +37,7 @@ nondeterministic serialization this contract exists to remove.
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
 2. [DYNAMIC] Read `prospec/index.md` — identify related modules
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## What Makes FF Unique
 
@@ -103,7 +103,7 @@ Loading is still read). Status advances `story → tasks` directly
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Scaffold | Run `prospec change plan` (Bash) — CLI scaffolds `plan.md` + `delta-spec.md` and advances status → `plan` |
 | Populate | Read [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) on demand, then write to those formats |
-| Check | Site-specific Constitution check (this phase's rule: dependency-direction/layering) → PASS continue / FAIL pause |
+| Check | Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) on demand. Run site-specific Architecture Verification (dependency-direction/layering & orthogonal rubric; support harness degradation & manual bypass) → PASS continue / WARN log / FLAW pause |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
@@ -166,7 +166,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
