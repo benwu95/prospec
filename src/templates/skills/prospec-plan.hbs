@@ -28,7 +28,7 @@ When triggered, briefly describe:
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.
 
 {{> knowledge-loading-rules}}
 
@@ -121,13 +121,30 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 > - [ ] delta-spec.md has ADDED/MODIFIED/REMOVED sections populated as applicable
 > - [ ] every requirement has a REQ ID plus Feature and Story routing fields
 
-### Phase 6: Constitution Check (site-specific: dependency/layering)
+### Phase 6: Architecture Verification (site-specific: dependency/layering)
 
-Check only this station's **site-specific** Constitution rule — the **dependency-direction/layering** rule — NOT a generic multi-principle scan (the full every-principle audit is `/prospec-verify` V3/5 only). **Inspect the Phase 4 Call Chain for layering violations against the Constitution's dependency/layering rule** — e.g. a layer reaching past its neighbor, business logic placed in the entry/transport layer, a chain skipping its data-access layer, or a side effect emitted before commit — and flag any in Risk Assessment. (Structural/design review only; code-level layering is audited later by `/prospec-verify`.)
+Run an independent architecture verification of `plan.md` and `delta-spec.md` against project principles and the orthogonal verification criteria before proceeding to tasks.
+
+**Step 1 — Load Rubric & Rules:**
+Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the downstream project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md` to evaluate the 4 orthogonal dimensions:
+1. **Project Layering & Dependency Direction**: Call Chain compliance with dependency-direction/layering rules (e.g. no business logic in entry/transport layers, no skipped layers, DAG dependency; inspect for layering violations).
+2. **Blast Radius & Ripple Effects**: Caller chain completeness and detection of breaking API/schema changes.
+3. **State Safety & Reversibility**: Error handling, rollback paths, and concurrency guards for critical mutations.
+4. **Delta-Spec Completeness**: Bidirectional mapping between `proposal.md` and `delta-spec.md` REQ-IDs with testable criteria.
+
+**Step 2 — Verifier Execution & Harness Degradation:**
+{{> harness-capabilities degraded_action="degrade to a two-phase prompt isolation in this context, invoking an independent Architecture Verifier persona to audit plan.md and delta-spec.md, and explicitly notify the developer of the degraded path"}}
+
+Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh verification context (Architecture Verifier persona). When degraded to a single context, execute a dedicated verifier pass and notify the developer of the degraded mode.
+
+**Step 3 — Verdict Handling & Break-Glass Override:**
+- **PASS**: No structural flaws or unmitigated risks found. Proceed.
+- **WARN**: Advisory concerns identified. Append them to `plan.md` Risk Assessment with mitigations and record via `prospec change log --skill prospec-plan --result WARN --warning "<warning detail>"`.
+- **FLAWS**: Structural defect or layering violation found. Revise `plan.md`/`delta-spec.md` to fix the issue, OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, recorded in `plan.md` Risk Assessment and logged via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] The Call Chain is checked against the Constitution's dependency/layering rule
-> - [ ] Any layering violation found is recorded in plan.md Risk Assessment
+> - [ ] Architecture Verifier audit completed against the 4 orthogonal dimensions (or documented manual override provided)
+> - [ ] Any discovered risks/warnings recorded in plan.md Risk Assessment and appended to metadata.yaml quality_log
 
 ### Phase 7: Knowledge Quality Gate
 
@@ -159,7 +176,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering**) and the Architecture Verifier rubric — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -175,6 +192,9 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** add the optional Context7 dependency-layer lookup to Startup Loading or the stable prefix, and NEVER treat its output as a gate or as executable — it is untrusted, on-demand reference only (preserves cache stability)
 - **NEVER** add a User Story Flow diagram for a simple linear story or single-step CRUD — a diagram there is noise, not clarity
 - **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
+- **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
+- **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the downstream project's Constitution and conventions
+- **NEVER** proceed past Phase 6 on unresolved FLAWS without a documented Break-Glass Override
 
 ## Error Handling
 

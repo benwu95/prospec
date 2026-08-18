@@ -30,6 +30,7 @@ import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
 import { withoutFencedBlocks, hasUnclosedFence } from '../../src/lib/markdown-fences.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 import { bootstrapProductSpec } from '../../src/services/archive.service.js';
+import { estimateTokens } from '../../src/lib/token-accounting.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
@@ -1373,6 +1374,7 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('references/proposal-format.md');
       expect(content).toContain('references/plan-format.md');
       expect(content).toContain('references/delta-spec-format.md');
+      expect(content).toContain('references/plan-verifier-rubric.md');
       expect(content).toContain('references/tasks-format.md');
       // must NOT reach into sibling skill directories (dangling in the
       // skills-dir layout shared by every agent)
@@ -3977,6 +3979,8 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
       const c = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
       expect(sectionOf(c, '### Phase 2: Story Generation')).toContain('references/proposal-format.md');
       expect(sectionOf(c, '### Phase 3: Plan Generation (skipped when `scale: quick`)')).toContain('references/plan-format.md');
+      expect(sectionOf(c, '### Phase 3: Plan Generation (skipped when `scale: quick`)')).toContain('references/delta-spec-format.md');
+      expect(sectionOf(c, '### Phase 3: Plan Generation (skipped when `scale: quick`)')).toContain('references/plan-verifier-rubric.md');
       expect(sectionOf(c, '### Phase 4: Tasks Generation')).toContain('references/tasks-format.md');
       expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
     });
@@ -3985,6 +3989,7 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, 
       const c = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
       expect(sectionOf(c, '### Phase 4: Design plan.md')).toContain('references/plan-format.md');
       expect(sectionOf(c, '### Phase 5: Generate delta-spec.md')).toContain('references/delta-spec-format.md');
+      expect(sectionOf(c, '### Phase 6: Architecture Verification (site-specific: dependency/layering)')).toContain('references/plan-verifier-rubric.md');
       expect(sectionOf(c, '## Startup Loading')).not.toContain('**MANDATORY**');
     });
 
@@ -4434,7 +4439,7 @@ describe('converge-constitution-audit — single full Constitution audit at veri
       sectionOf(render('prospec-new-story'), '### Phase 6: Constitution Check (site-specific: INVEST)'),
     ).toContain('INVEST');
     expect(
-      sectionOf(render('prospec-plan'), '### Phase 6: Constitution Check (site-specific: dependency/layering)'),
+      sectionOf(render('prospec-plan'), '### Phase 6: Architecture Verification (site-specific: dependency/layering)'),
     ).toContain('dependency-direction/layering');
     expect(
       sectionOf(render('prospec-tasks'), '### Phase 6: Constitution Test Check (site-specific: TDD)'),
@@ -5329,3 +5334,56 @@ describe('Delegated payload contract (issue #142 E)', () => {
     expect(flat(record)).toMatch(/never enters `metadata\.yaml`/);
   });
 });
+
+describe('Shift-Left Architecture Verifier in /prospec-plan (issue #179)', () => {
+  const REF = 'plan-verifier-rubric.md';
+
+  it('plan-verifier-rubric.md is registered exactly for prospec-plan and prospec-ff', () => {
+    const registeredSkills = SKILL_DEFINITIONS.filter((s) =>
+      getSkillReferences(s.name).some((r) => r.outputName === REF),
+    )
+      .map((s) => s.name)
+      .sort();
+    expect(registeredSkills).toEqual(['prospec-ff', 'prospec-plan']);
+  });
+
+  it('plan-verifier-rubric.md is rendered and satisfies token budget <= 2500', () => {
+    const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    const tokens = estimateTokens(content);
+    expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  });
+
+  it('plan-verifier-rubric.md defines 4 orthogonal criteria without hardcoding CLI layers', () => {
+    const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Project Layering & Dependency Direction');
+    expect(content).toContain('Blast Radius & Ripple Effects');
+    expect(content).toContain('State Safety & Reversibility');
+    expect(content).toContain('Delta-Spec Completeness');
+    expect(content).toContain('Break-Glass Override');
+    expect(content).toContain('Universal Downstream Compatibility Principle');
+    // Must NOT hardcode CLI internal layers as universal rule
+    expect(content).not.toContain('`cli → services → lib → types`');
+  });
+
+  it('prospec-plan Phase 6 instructs independent Architecture Verifier with degradation and override', () => {
+    const plan = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+    const phase6 = sectionOf(plan, '### Phase 6: Architecture Verification (site-specific: dependency/layering)');
+    expect(phase6).toContain('references/plan-verifier-rubric.md');
+    expect(phase6).toContain('can_spawn_subagent');
+    expect(phase6).toContain('Break-Glass Override');
+    expect(phase6).toContain('quality_log');
+  });
+
+  it('no skill preloads plan-verifier-rubric in Startup Loading items (Prompt Prefix Cache protection)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const rendered = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+      const startup = sectionOf(rendered, '## Startup Loading');
+      const items = startup
+        .split('\n')
+        .filter((l) => /^\d+\./.test(l.trim()))
+        .join('\n');
+      expect(items, `${skill.name} must not preload ${REF} in startup items`).not.toContain(REF);
+    }
+  });
+});
+

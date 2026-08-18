@@ -494,6 +494,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'delta-spec-format.md',
         title: 'Delta Spec Format',
       },
+      {
+        templateName: 'plan-verifier-rubric.hbs',
+        outputName: 'plan-verifier-rubric.md',
+        title: 'Architecture Verifier Rubric',
+      },
     ],
     'prospec-design': [
       {
@@ -549,6 +554,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'delta-spec-format.hbs',
         outputName: 'delta-spec-format.md',
         title: 'Delta Spec Format',
+      },
+      {
+        templateName: 'plan-verifier-rubric.hbs',
+        outputName: 'plan-verifier-rubric.md',
+        title: 'Architecture Verifier Rubric',
       },
       {
         templateName: 'tasks-format.hbs',
