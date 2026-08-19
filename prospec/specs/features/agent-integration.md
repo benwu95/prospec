@@ -3,7 +3,7 @@ feature: agent-integration
 status: active
 last_updated: 2026-08-19
 story_count: 21
-req_count: 87
+req_count: 88
 ---
 
 # Agent Integration
@@ -70,6 +70,7 @@ Contract tests in `skill-format.test.ts` for candidate evaluation reference and 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-19 | tasks-contract-dag-verification | ADDED REQ-AGNT-041 | REQ-AGNT-041 |
 | 2026-08-19 | select-plan-candidates | ADDED REQ-AGNT-040; ADDED REQ-TESTS-084 | REQ-AGNT-040, REQ-TESTS-084 |
 | 2026-08-18 | plan-shift-left-verifier | ADDED REQ-AGNT-039 | REQ-AGNT-039 |
 | 2026-08-14 | enforce-group-render-merge | ADDED REQ-TYPES-085; MODIFIED REQ-TYPES-059; MODIFIED REQ-AGNT-034 | REQ-TYPES-085, REQ-TYPES-059, REQ-AGNT-034 |
