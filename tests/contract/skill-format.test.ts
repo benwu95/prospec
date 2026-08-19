@@ -1535,6 +1535,24 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  describe('knowledge-update verify stamping contract (REQ-TEMPLATES-162, REQ-TESTS-090)', () => {
+    const knowledgeUpdate = () =>
+      renderTemplate('skills/prospec-knowledge-update.hbs', TEMPLATE_CONTEXT);
+
+    it('prospec-knowledge-update instructs running prospec knowledge verify in Phase 3e', () => {
+      const phase3 = sectionOf(knowledgeUpdate(), '### Phase 3:');
+      expect(phase3).toContain('prospec knowledge verify');
+      expect(phase3).toContain('3e:');
+      expect(phase3).toMatch(/prospec knowledge verify <modules\.\.\.>/);
+      expect(phase3).toContain('last_verified');
+    });
+
+    it('prospec-knowledge-update includes knowledge freshness stamped in output contract', () => {
+      const successCriteria = sectionOf(knowledgeUpdate(), '### Success Criteria');
+      expect(successCriteria).toContain('prospec knowledge verify');
+    });
+  });
+
   describe('Agent config skill registry (per-agent frontmatter split)', () => {
     it('full table (non-frontmatter agent) renders skills-dir references for .agents/skills', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', {
@@ -4214,6 +4232,16 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(status).toContain('into the feature commit');
     // framed as prevention with archive as backstop, not archive-deferred
     expect(status).toContain('backstop');
+  });
+
+  it('verify commit prompt instructs running prospec knowledge verify to stamp freshness', () => {
+    const status = flat(sectionOf(verify(), '## Record & Status Update'));
+    expect(status).toContain('prospec knowledge verify');
+    expect(status).toContain('prospec knowledge verify <modules...>');
+    expect(status).toContain('scale: backfill');
+    expect(status).toContain(
+      'sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`',
+    );
   });
 
   it('verify commit prompt stays generic — no repo-specific count command hardcoded', () => {
