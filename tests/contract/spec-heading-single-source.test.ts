@@ -48,8 +48,8 @@ const HEADING_REGEX = /\/\^?(#\{[0-9,]+\}|#{2}(?!#)|#{4,6}(?!#))[^/\n]*REQ-/i;
  * converging a second grammar under a fix for the first.
  */
 const DELTA_SPEC_PARSERS = [
+  'src/lib/delta-spec-parser.ts',
   'src/services/archive.service.ts',
-  'src/services/knowledge-update.service.ts',
 ];
 const DELTA_SPEC_HEADING = /\/\^###\\s\+\(?~?~?\(?REQ-/;
 

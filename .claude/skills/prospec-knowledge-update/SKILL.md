@@ -231,3 +231,15 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Auto/user marker conflict while editing | Prefer your new auto content, always preserve user sections |
 | Source scan returns 0 files | Generate minimal README with module name only, warn user |
 | README exceeds 100 lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls |
+
+## Next-Step Handoff
+
+After the Output Summary, recommend the next step in the SDD workflow order
+(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+`metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
+status transition, so follow this order, not status alone). Provide the direct, actionable slash
+command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
+flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
+offering the next skill.

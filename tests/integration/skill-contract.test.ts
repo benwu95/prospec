@@ -40,6 +40,7 @@ const EXPECTED_STATUS_LIFECYCLE_SKILLS = [
   'prospec-design',
   'prospec-ff',
   'prospec-implement',
+  'prospec-knowledge-update',
   'prospec-new-story',
   'prospec-plan',
   'prospec-promote-backfill',

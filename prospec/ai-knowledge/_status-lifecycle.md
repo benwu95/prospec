@@ -29,7 +29,7 @@ story → plan → tasks → implemented → verified → archived
 
 The stations `prospec status` routes between, in canonical order. Wider than the six statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`. `SDD_STATIONS` in `types/status.ts` is the **executable copy**, pinned against this line by a contract test.
 
-`story → plan → design → tasks → promote → implement → review → verify → archive`
+`story → plan → design → tasks → promote → implement → review → verify → knowledge-update → archive`
 
 (The periodic `/prospec-learn` is not a linear station and is absent from this order.)
 
@@ -58,6 +58,7 @@ Some workflow stations participate in the SDD order but own **no** `status` tran
 
 - **`/prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `/prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design. Under `scale: quick` the router does not suggest design (quick skips `plan`); run `/prospec-design` manually.
 - **`/prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `/prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`. It also re-runs **after** `verified` when a post-verify edit staled that baseline — owning no status, it needs no transition to be re-enterable, and its Entry Gate status item is a floor.
+- **`/prospec-knowledge-update`** — sits **between `verify` and `archive`** (Recipe-First sync of affected-module READMEs and `module-map.yaml` `last_verified` before feature commit and archiving; owns no status transition — status remains `verified`).
 - **`/prospec-learn`** — periodic; promotes lessons, owns no `status`.
 
 ## What each gate checks (artifact ownership)

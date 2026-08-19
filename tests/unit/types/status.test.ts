@@ -8,7 +8,7 @@ import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
  * no skill would print `undefined` at the one place the user is told what to run.
  */
 describe('SDD_STATIONS (REQ-TYPES-070)', () => {
-  it('is the canonical order, with both non-status stations in place', () => {
+  it('is the canonical order, with non-status stations in place', () => {
     expect(SDD_STATIONS).toEqual([
       'story',
       'plan',
@@ -18,12 +18,18 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
       'implement',
       'review',
       'verify',
+      'knowledge-update',
       'archive',
     ]);
   });
 
   it('places promote immediately before implement — the status its promotion lands at', () => {
     expect(SDD_STATIONS.indexOf('promote')).toBe(SDD_STATIONS.indexOf('implement') - 1);
+  });
+
+  it('places knowledge-update immediately between verify and archive', () => {
+    expect(SDD_STATIONS.indexOf('knowledge-update')).toBe(SDD_STATIONS.indexOf('verify') + 1);
+    expect(SDD_STATIONS.indexOf('archive')).toBe(SDD_STATIONS.indexOf('knowledge-update') + 1);
   });
 
   it('maps every station to a skill that actually exists', () => {
@@ -40,6 +46,10 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
 
   it('routes the promote station at the backfill entry skill', () => {
     expect(STATION_SKILLS.promote).toBe('/prospec-promote-backfill');
+  });
+
+  it('routes the knowledge-update station at the knowledge update skill', () => {
+    expect(STATION_SKILLS['knowledge-update']).toBe('/prospec-knowledge-update');
   });
 
   it('declares the three ui_scope values design engages on', () => {

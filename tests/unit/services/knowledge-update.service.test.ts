@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { vol } from 'memfs';
+import { parseDeltaSpec } from '../../../src/lib/delta-spec-parser.js';
 import {
-  parseDeltaSpec,
   updateModuleReadme,
   markModuleDeprecated,
   updateModuleMap,
