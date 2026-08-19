@@ -265,3 +265,35 @@ Contract test suite asserts the invariants of the Task Verifier and its rubric.
 - WHEN verifying reference deployment, THEN `getSkillReferences` contains `tasks-verifier-rubric.md` for both `prospec-tasks` and `prospec-ff`
 
 ---
+
+#### REQ-TEMPLATES-189: Draft-First Protocol in prospec-new-story Skill
+The `prospec-new-story` skill template operates under a Draft-First protocol by default to minimize cognitive interruption and context switching.
+- WHEN activated without `--interactive`, THEN the skill autonomously infers a kebab-case change name and `metadata.scale` (with explicit reasoning) based on user prompt and `index.md` module keywords
+- WHEN scaffolding and generating `proposal.md`, THEN the skill appends all inferred assumptions to a `## Stated Assumptions` section in the project's configured `artifact_language`
+- WHEN intent ambiguity is high (key context/constraints missing and cannot be derived from code/specs), THEN the skill asks at most one targeted question at a time (Action: Question)
+- WHEN `--interactive` is specified or requested, THEN the skill falls back to step-by-step interview and confirmation mode
+- WHEN advisory checks (INVEST advisory check, knowledge single-line check) produce warnings, THEN they are silently recorded to `metadata.yaml` `quality_log` without blocking the workflow or cluttering the conversation
+
+---
+
+#### REQ-TEMPLATES-190: Stated Assumptions Section in Proposal Format Reference
+The proposal format reference (`references/proposal-format.md`) includes a structured `## Stated Assumptions` section.
+- WHEN rendering `references/proposal-format.md`, THEN it defines the `## Stated Assumptions` section for capturing autonomous inferences (change name, scale, default constraints, boundary assumptions) for human review
+- WHEN written in downstream projects, THEN the section is authored in the downstream project's configured `artifact_language`
+
+---
+
+#### REQ-TEMPLATES-191: Streamlined Next-Step Handoff Partial
+The `_next-step-handoff.hbs` partial provides non-blocking, direct next-step guidance across all SDD skill templates.
+- WHEN a skill completes and renders the Next-Step Handoff section, THEN it recommends the successor skill and command directly without asking blocking `Run <next-step> now? (Y/n)` questions
+- WHEN the lifecycle reaches a terminal or non-advancing state, THEN it directs the user to the appropriate review, corrective, or periodic skill (e.g. `/prospec-learn`)
+
+---
+
+#### REQ-TESTS-092: Contract Tests for Draft-First Protocol and Streamlined Handoff
+Contract tests verify that generated skill templates conform to the Draft-First protocol and streamlined handoff rules.
+- WHEN verifying `prospec-new-story`, THEN contract tests assert Draft-First instructions, Stated Assumptions requirements, `--interactive` fallback, and silence-aware quality logging
+- WHEN verifying `_next-step-handoff.hbs` and rendered skills, THEN contract tests assert the absence of blocking `(Y/n)` prompts
+- WHEN verifying `references/proposal-format.md`, THEN contract tests assert the presence of `## Stated Assumptions`
+
+---
