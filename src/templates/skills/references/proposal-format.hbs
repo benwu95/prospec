@@ -55,7 +55,26 @@ So that [value].
 
 ---
 
-### 3. Edge Cases
+### 3. Stated Assumptions
+
+Explicitly list any assumptions inferred during autonomous/Draft-First generation (e.g., derived change name, proposed scale, boundary conditions, defaults):
+
+```markdown
+## Stated Assumptions
+
+- [Assumption 1: e.g., Target scope and module boundaries inferred from keywords]
+- [Assumption 2: e.g., Scale selected as standard based on touched modules]
+- [Assumption 3: e.g., Default behavior or fallback mechanisms assumed]
+```
+
+**Guidelines:**
+- Every autonomous inference not confirmed in prior interaction MUST be listed here
+- Authored in the project's configured `artifact_language`
+- Enables one-pass human review without requiring multiple rounds of interview
+
+---
+
+### 4. Edge Cases
 
 Known boundary conditions and error scenarios:
 
@@ -68,7 +87,7 @@ Known boundary conditions and error scenarios:
 
 ---
 
-### 4. Functional Requirements
+### 5. Functional Requirements
 
 Numbered requirements for traceability (mapped to delta-spec REQ IDs later):
 
@@ -81,7 +100,7 @@ Numbered requirements for traceability (mapped to delta-spec REQ IDs later):
 
 ---
 
-### 5. Success Criteria
+### 6. Success Criteria
 
 Measurable indicators of completion:
 
@@ -94,7 +113,7 @@ Measurable indicators of completion:
 
 ---
 
-### 6. Related Modules
+### 7. Related Modules
 
 List related modules based on keyword matching from `{{base_dir}}/index.md`:
 
@@ -107,7 +126,7 @@ List related modules based on keyword matching from `{{base_dir}}/index.md`:
 
 ---
 
-### 7. Open Questions (Optional)
+### 8. Open Questions (Optional)
 
 Items that need clarification before or during implementation:
 
@@ -120,7 +139,7 @@ Items that need clarification before or during implementation:
 
 ---
 
-### 8. Constitution Check
+### 9. Constitution Check
 
 Quick verification against project principles:
 
@@ -133,7 +152,7 @@ Quick verification against project principles:
 
 ---
 
-### 9. UI Scope (Optional)
+### 10. UI Scope (Optional)
 
 Indicate the extent of UI work in this Story. Used by the **prospec-design** Skill to determine the design workflow.
 

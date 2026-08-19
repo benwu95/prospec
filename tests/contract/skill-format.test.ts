@@ -491,6 +491,7 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('## Standard Format');
       expect(content).toContain('Background');
       expect(content).toContain('User Stories');
+      expect(content).toContain('Stated Assumptions');
       expect(content).toContain('Edge Cases');
       expect(content).toContain('Functional Requirements');
       expect(content).toContain('Success Criteria');
@@ -2973,9 +2974,10 @@ describe('scale adapter — new-story complexity assessment (BL-004)', () => {
     expect(phase).toContain('`/prospec-archive` Entry Gate re-checks');
   });
 
-  it('Phase 3.5 requires user confirmation, then writes scale via `prospec change scale` (issue #107)', () => {
+  it('Phase 3.5 determines scale autonomously in Draft-First or with user confirmation in interactive mode', () => {
     const phase = sectionOf(render(), '### Phase 3.5: Complexity Assessment (Scale)');
-    expect(phase).toContain('**never write `scale` without user confirmation**');
+    expect(phase).toContain('Draft-First mode (default)');
+    expect(phase).toContain('Interactive mode (`--interactive`)');
     // the confirmed value is CLI-written — the skill never hand-serializes metadata.yaml
     expect(phase).toContain('prospec change scale quick|standard|full');
     expect(phase).toContain('never edit metadata.yaml by hand');
@@ -2988,10 +2990,10 @@ describe('scale adapter — new-story complexity assessment (BL-004)', () => {
     expect(phase).toContain('2-3 WHEN/THEN');
   });
 
-  it('NEVER section guards unconfirmed scale writes and quick-with-spec-impact', () => {
+  it('NEVER section guards quick-with-spec-impact and requires explicit Stated Assumptions', () => {
     const never = sectionOf(render(), '## NEVER');
-    expect(never).toContain('without explicit user confirmation');
     expect(never).toContain('spec-covered behavior');
+    expect(never).toContain('## Stated Assumptions');
   });
 });
 
@@ -3849,10 +3851,10 @@ describe('US-19: status-aware handoff + session detection', () => {
     'prospec-archive',
   ];
   for (const name of HANDOFF_SKILLS) {
-    it(`${name} ends with a status-aware (Y/n) next-step handoff`, () => {
+    it(`${name} ends with a streamlined status-aware next-step handoff`, () => {
       const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
       expect(content).toContain('Next-Step Handoff');
-      expect(content).toContain('(Y/n)');
+      expect(content).not.toContain('(Y/n)');
       expect(content).toContain('_status-lifecycle.md');
     });
   }
@@ -5539,5 +5541,44 @@ describe('Shift-Left Task Contract & DAG Dependency Verifier in /prospec-tasks (
     expect(content).toContain('Backward Plan Traceability');
   });
 });
+
+describe('Action Space Reform — Draft-First Protocol and Silence-Aware Logging (REQ-TEMPLATES-189..191, REQ-TESTS-092)', () => {
+  const renderNewStory = () => renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+  const renderProposalFormat = () => renderTemplate('skills/references/proposal-format.hbs', TEMPLATE_CONTEXT);
+  const renderHandoff = () => renderTemplate('skills/_next-step-handoff.hbs', TEMPLATE_CONTEXT);
+
+  it('prospec-new-story defines Action Space Spectrum with Draft-First default and --interactive fallback', () => {
+    const content = renderNewStory();
+    expect(content).toContain('## Action Space Spectrum (Draft-First Protocol)');
+    expect(content).toContain('Action: Draft (Default)');
+    expect(content).toContain('Action: Question');
+    expect(content).toContain('Action: Stay Silent');
+    expect(content).toContain('Action: Notify / Deliver');
+    expect(content).toContain('Escape Hatch (`--interactive`)');
+    expect(content).toContain('one question at a time');
+  });
+
+  it('proposal-format.md includes ## Stated Assumptions section', () => {
+    const content = renderProposalFormat();
+    expect(content).toContain('### 3. Stated Assumptions');
+    expect(content).toContain('## Stated Assumptions');
+    expect(content).toContain('Every autonomous inference not confirmed in prior interaction MUST be listed here');
+    expect(content).toContain('artifact_language');
+  });
+
+  it('next-step handoff provides direct command recommendation without blocking (Y/n)', () => {
+    const content = renderHandoff();
+    expect(content).toContain('recommend the next step in the SDD workflow order');
+    expect(content).not.toContain('(Y/n)');
+    expect(content).toContain('without blocking on a separate confirmation turn');
+  });
+
+  it('prospec-new-story silences advisory checks to quality_log', () => {
+    const phase6 = sectionOf(renderNewStory(), '### Phase 6: Constitution Check (site-specific: INVEST)');
+    expect(phase6).toContain('silently via `prospec change log');
+    expect(phase6).toContain('quality_log');
+  });
+});
+
 
 
