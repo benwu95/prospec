@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3880%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-3885%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1012,7 +1012,7 @@ src/
 ├── services/     — 業務邏輯（14 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（68 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（69 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 22 個 reference 範本
 ```
 
@@ -1031,7 +1031,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3880 個測試）
+# 執行所有測試（3885 個測試）
 pnpm test
 
 # Watch 模式
@@ -1044,9 +1044,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3880 個測試橫跨 4 大類：
+**測試覆蓋率**：3885 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：2904 tests
-- Contract tests（CLI 輸出 + Skill 格式）：844 tests
+- Contract tests（CLI 輸出 + Skill 格式）：849 tests
 - Integration tests：45 tests
 - E2E tests：87 tests
 

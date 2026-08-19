@@ -92,9 +92,10 @@ so that I clearly know which modules to change, what the steps are, and the REQ 
 - WHEN added, THEN includes Description, Acceptance Criteria, Priority
 - WHEN modified, THEN includes Before, After, Reason
 
-#### REQ-TEMPLATES-059: Plan Call Chain and Architecture Verification
-Plan Call Chain and architecture verification in `/prospec-plan` and plan-format.
+#### REQ-TEMPLATES-059: Plan Call Chain, Architecture Verification, and Multi-Candidate Selection
+Plan Call Chain, architecture verification, and multi-candidate selection in `/prospec-plan` and plan-format.
 - WHEN prospec-plan produces plan.md, THEN include a Call Chain section (and plan-format.hbs defines it)
+- WHEN metadata.scale is full, THEN Phase 4 performs Best-of-N candidate architecture generation and pairwise tournament selection
 - WHEN Plan Phase 6 runs, THEN an independent Architecture Verifier audits the plan and delta-spec against project architecture principles and the orthogonal rubric
 - WHEN verify dimension 3/5 runs, THEN re-check layering against the Constitution
 
@@ -206,3 +207,21 @@ tasks.md ends with a Summary section (total tasks, total lines, parallelizable c
 #### REQ-CHNG-016: Plan Status Update
 - WHEN plan complete, THEN metadata status → `plan`
 - WHEN tasks complete, THEN metadata status → `tasks`
+
+#### REQ-TEMPLATES-184: Candidate Evaluation Reference Template
+A structured candidate evaluation rubric template (`candidate-evaluation.md`) defining orthogonal architecture generation and symmetric pairwise tournament selection.
+- WHEN `candidate-evaluation.md` is rendered, THEN it defines orthogonal candidate generation guidelines (Option A Pragmatic/Minimal Surface vs Option B Decoupled/Clean Architecture)
+- WHEN evaluating candidates, THEN it instructs dynamic anchoring to downstream project manifests and `_conventions.md`
+- WHEN conducting tournament comparison, THEN it uses position-swapped pairwise comparison across Blast Radius & Complexity, Constitution & Layering Adherence, and Extensibility vs Simplicity
+- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+
+---
+
+#### REQ-TEMPLATES-185: Multi-Candidate Architecture Selection in prospec-plan
+Phase 4 of `/prospec-plan` performs multi-candidate architecture selection and tournament evaluation for `scale: full` changes.
+- WHEN `metadata.scale` is `full` (or requested on-demand), THEN Phase 4 loads `references/candidate-evaluation.md` in-phase on-demand without preloading into Startup Loading
+- WHEN generating candidate architectures, THEN generate 2-3 orthogonal options and execute symmetric pairwise tournament selection
+- WHEN running in a subagent-capable environment, THEN parallelize candidate generation and tournament judging; degrade to sequential prompt isolation in single-context environments
+- WHEN finalizing plan.md, THEN record trade-off analysis, winning option rationale, and non-selected candidate summaries in Technical Summary and Risk Assessment
+
+---

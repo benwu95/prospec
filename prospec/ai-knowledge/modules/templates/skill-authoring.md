@@ -1,6 +1,6 @@
 # Skill Authoring
 
-> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 7 partials, 23 references) and what `agent sync` deploys from it.
+> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 7 partials, 24 references) and what `agent sync` deploys from it.
 
 ## Key Files
 
@@ -8,7 +8,7 @@
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; every skill carries `{{> cli-probe}}` and delegates its deterministic steps to `prospec` commands (phase wording pinned by skill-format contract tests) |
 | `skills/_*.hbs` (7) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules` |
-| `skills/references/*.hbs` (23) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 7-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
+| `skills/references/*.hbs` (24) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 7-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
 
 ## Public API
 

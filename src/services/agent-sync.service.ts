@@ -499,6 +499,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'plan-verifier-rubric.md',
         title: 'Architecture Verifier Rubric',
       },
+      {
+        templateName: 'candidate-evaluation.hbs',
+        outputName: 'candidate-evaluation.md',
+        title: 'Candidate Architecture Evaluation',
+      },
     ],
     'prospec-design': [
       {
