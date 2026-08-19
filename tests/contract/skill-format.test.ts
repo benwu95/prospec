@@ -4470,7 +4470,7 @@ describe('converge-constitution-audit — single full Constitution audit at veri
       sectionOf(render('prospec-plan'), '### Phase 6: Architecture Verification (site-specific: dependency/layering)'),
     ).toContain('dependency-direction/layering');
     expect(
-      sectionOf(render('prospec-tasks'), '### Phase 6: Constitution Test Check (site-specific: TDD)'),
+      sectionOf(render('prospec-tasks'), '### Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)'),
     ).toContain('TDD');
     expect(render('prospec-implement')).toContain('site-specific');
   });
@@ -5388,7 +5388,7 @@ describe('Shift-Left Architecture Verifier in /prospec-plan (issue #179)', () =>
     expect(content).toContain('State Safety & Reversibility');
     expect(content).toContain('Delta-Spec Completeness');
     expect(content).toContain('Break-Glass Override');
-    expect(content).toContain('Universal Downstream Compatibility Principle');
+    expect(content).toContain('Language- and Architecture-Agnostic Principle');
     // Must NOT hardcode CLI internal layers as universal rule
     expect(content).not.toContain('`cli → services → lib → types`');
   });
@@ -5435,7 +5435,7 @@ describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)',
 
   it('candidate-evaluation.md defines orthogonal candidate guidelines and symmetric tournament criteria', () => {
     const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
-    expect(content).toContain('Universal Downstream Compatibility Principle');
+    expect(content).toContain('Language- and Architecture-Agnostic Principle');
     expect(content).toContain('Option A: Pragmatic / Minimal Surface');
     expect(content).toContain('Option B: Decoupled / Clean Architecture');
     expect(content).toContain('Blast Radius & Complexity');
@@ -5469,6 +5469,74 @@ describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)',
         .join('\n');
       expect(items, `${skill.name} must not preload ${REF} in startup items`).not.toContain(REF);
     }
+  });
+});
+
+describe('Shift-Left Task Contract & DAG Dependency Verifier in /prospec-tasks (issue #181)', () => {
+  const REF = 'tasks-verifier-rubric.md';
+
+  it('tasks-verifier-rubric.md is registered exactly for prospec-tasks and prospec-ff', () => {
+    const registeredSkills = SKILL_DEFINITIONS.filter((s) =>
+      getSkillReferences(s.name).some((r) => r.outputName === REF),
+    )
+      .map((s) => s.name)
+      .sort();
+    expect(registeredSkills).toEqual(['prospec-ff', 'prospec-tasks']);
+  });
+
+  it('tasks-verifier-rubric.md is rendered and satisfies token budget <= 2500', () => {
+    const content = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    const tokens = estimateTokens(content);
+    expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  });
+
+  it('tasks-verifier-rubric.md defines 4 orthogonal criteria without hardcoding CLI layers', () => {
+    const content = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Bidirectional Contract Coverage');
+    expect(content).toContain('DAG Dependency & Layering Topological Order');
+    expect(content).toContain('TDD Module Test Closure');
+    expect(content).toContain('Task Sizing & Schema Compliance');
+    expect(content).toContain('Break-Glass Override');
+    expect(content).toContain('Language- and Architecture-Agnostic Principle');
+    // Must NOT hardcode CLI internal layers as universal rule
+    expect(content).not.toContain('`cli → services → lib → types`');
+  });
+
+  it('prospec-tasks Phase 6 instructs independent Task Verifier with degradation and override', () => {
+    const tasks = renderTemplate('skills/prospec-tasks.hbs', TEMPLATE_CONTEXT);
+    const phase6 = sectionOf(tasks, '### Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)');
+    expect(phase6).toContain('references/tasks-verifier-rubric.md');
+    expect(phase6).toContain('can_spawn_subagent');
+    expect(phase6).toContain('Break-Glass Override');
+    expect(phase6).toContain('quality_log');
+  });
+
+  it('no skill preloads tasks-verifier-rubric in Startup Loading items (Prompt Prefix Cache protection)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const rendered = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+      const startup = sectionOf(rendered, '## Startup Loading');
+      const items = startup
+        .split('\n')
+        .filter((l) => /^\d+\./.test(l.trim()))
+        .join('\n');
+      expect(items, `${skill.name} must not preload ${REF} in startup items`).not.toContain(REF);
+    }
+  });
+
+  it('prospec-ff Phase 4 references and checks include tasks-verifier-rubric.md', () => {
+    const ff = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+    const startup = sectionOf(ff, '## Startup Loading');
+    expect(startup).toContain('references/tasks-verifier-rubric.md');
+    const phase4 = sectionOf(ff, '### Phase 4: Tasks Generation');
+    expect(phase4).toContain('references/tasks-verifier-rubric.md');
+    expect(phase4).toContain('Task Contract Verification');
+  });
+
+  it('tasks-format.hbs includes bidirectional contract traceability and verifier guidelines', () => {
+    const content = renderTemplate('skills/references/tasks-format.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Bidirectional Contract Traceability');
+    expect(content).toContain('Forward REQ-ID Coverage');
+    expect(content).toContain('Backward Plan Traceability');
   });
 });
 

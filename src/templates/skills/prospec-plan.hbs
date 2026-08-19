@@ -91,7 +91,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 **Scale=Full Multi-Candidate Architecture Selection (In-Phase On-Demand):**
 When `metadata.scale` is `full` (or requested by the user under `standard`), execute **Best-of-N Candidate Generation & Symmetric Pairwise Tournament Selection** before writing the final plan:
 1. Read [`references/candidate-evaluation.md`](references/candidate-evaluation.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading).
-2. Generate $N \le 3$ (default 2) orthogonal candidate architectures dynamically anchored to downstream project manifests and `_conventions.md`:
+2. Generate $N \le 3$ (default 2) orthogonal candidate architectures dynamically anchored to the project's manifests and `_conventions.md`:
    - **Option A (Pragmatic / Minimal Surface)**: Minimal diff, maximize reuse of existing modules.
    - **Option B (Decoupled / Clean Architecture)**: Explicit boundaries, modular abstraction.
 3. Conduct **Symmetric Pairwise Tournament** (Position-Swapped A vs B and B vs A) across Blast Radius & Complexity, Constitution Adherence, and Extensibility vs Simplicity.
@@ -140,7 +140,7 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 Run an independent architecture verification of `plan.md` and `delta-spec.md` against project principles and the orthogonal verification criteria before proceeding to tasks.
 
 **Step 1 — Load Rubric & Rules:**
-Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the downstream project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md` to evaluate the 4 orthogonal dimensions:
+Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md` to evaluate the 4 orthogonal dimensions:
 1. **Project Layering & Dependency Direction**: Call Chain compliance with dependency-direction/layering rules (e.g. no business logic in entry/transport layers, no skipped layers, DAG dependency; inspect for layering violations).
 2. **Blast Radius & Ripple Effects**: Caller chain completeness and detection of breaking API/schema changes.
 3. **State Safety & Reversibility**: Error handling, rollback paths, and concurrency guards for critical mutations.
@@ -207,7 +207,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** add a User Story Flow diagram for a simple linear story or single-step CRUD — a diagram there is noise, not clarity
 - **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
 - **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
-- **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the downstream project's Constitution and conventions
+- **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
 - **NEVER** proceed past Phase 6 on unresolved FLAWS without a documented Break-Glass Override
 
 ## Error Handling

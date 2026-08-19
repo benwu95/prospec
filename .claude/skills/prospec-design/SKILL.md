@@ -182,7 +182,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** include platform-specific references in design-spec.md — downstream Implement/Verify Skills read spec not tools; platform refs break portability
+- **NEVER** include platform-specific references in design-spec.md — subsequent Implement and Verify skills read spec not tools; platform refs break portability
 - **NEVER** skip user confirmation on detected mode — wrong mode wastes entire phase; Generate overwrites existing design, Extract on empty tool produces garbage
 - **NEVER** hardcode color values without defining tokens — tokens enable consistent theming and design system reuse across components
 - **NEVER** skip interaction states — incomplete states cause runtime visual bugs (missing loading/error/empty states are the #1 UI implementation gap)

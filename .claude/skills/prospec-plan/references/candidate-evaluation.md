@@ -10,8 +10,8 @@ Complex, architectural changes (`scale: full`) are prone to the *Single Trajecto
 
 Grounded in the *LLM-as-a-Verifier* methodology (Best-of-N Candidate Generation + Probabilistic Pivot Tournament / Pairwise Comparison), this protocol forces orthogonal solution divergence, eliminates positional bias via position-swapped tournament comparisons, and records transparent trade-off rationale in `plan.md`.
 
-> **Universal Downstream Compatibility Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. Candidate generation and tournament judging must dynamically anchor to the downstream project's actual tech stack (detected from manifests such as `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.), existing design patterns (L2 Module READMEs), and `prospec/ai-knowledge/_conventions.md`. It **never** presumes specific language idioms or hardcodes internal framework assumptions.
+> **Language- and Architecture-Agnostic Principle**:
+> Prospec is a language-agnostic and architecture-agnostic SDD framework. Candidate generation and tournament judging must dynamically anchor to the project's actual tech stack (detected from manifests such as `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.), existing design patterns (L2 Module READMEs), and `prospec/ai-knowledge/_conventions.md`. It **never** presumes specific language idioms or hardcodes internal framework assumptions.
 
 ---
 

@@ -22,7 +22,7 @@ When triggered, briefly describe:
 1. [STABLE] Read `{{constitution_path}}` — prepare Constitution check
 2. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## What Makes FF Unique
 
@@ -100,7 +100,7 @@ Loading is still read). Status advances `story → tasks` directly
 |------|--------|
 | Scaffold | Run `prospec change tasks` (Bash) — CLI scaffolds `tasks.md` and advances status → `tasks` (including the quick `story → tasks` transition) |
 | Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
-| Check | Test coverage check → PASS complete / WARN supplement |
+| Check | Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) on demand. Run site-specific Task Contract Verification (bidirectional coverage, DAG dependency layering, TDD closure; support harness degradation & manual bypass) → PASS continue / WARN log / FLAW pause |
 
 ### Completion: Summary Report
 
@@ -142,7 +142,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage and task verifier rubric for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
