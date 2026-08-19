@@ -9,9 +9,9 @@ description: "{{skill_description}} Triggers: {{trigger_words}}"
 ## Activation
 
 When triggered, briefly describe:
-- That you'll guide them through defining a User Story with acceptance criteria
-- The interview will take 3-4 questions to converge
-- A proposal.md will be created in `.prospec/changes/`
+- Operating under the Draft-First protocol (Type III) by default — automatically inferring change name, scale, and scaffolding proposal.md
+- Supporting `--interactive` mode for guided step-by-step interview and confirmation
+- A proposal.md with `## Stated Assumptions` will be created in `.prospec/changes/`
 
 {{> language-policy}}
 
@@ -32,37 +32,46 @@ When triggered, briefly describe:
 - Constitution exists and is non-empty (not just placeholder text).
 - First stage of the lifecycle — no prior `quality_log` to read.
 
+## Action Space Spectrum (Draft-First Protocol)
+
+To protect developer focus and maintain flow, this skill defaults to the **Draft-First** protocol:
+- **Action: Draft (Default)**: When developer intent is clear or knowledge base (`{{base_dir}}/index.md`, `specs/features/`) provides sufficient context, infer change name & scale, scaffold the change directory, and draft `proposal.md` with explicit `## Stated Assumptions`.
+- **Action: Question**: ONLY when critical boundary conditions or goals are severely ambiguous and cannot be derived from code/specs, ask at most **one targeted question** at a time.
+- **Action: Stay Silent**: Advisory checks (Phase 6 INVEST check, Phase 7 Knowledge check) are silently recorded to `metadata.yaml` `quality_log` rather than cluttering the conversation.
+- **Action: Notify / Deliver**: Deliver the completed `proposal.md` and concise Output Summary for single-pass human review.
+- **Escape Hatch (`--interactive`)**: If the user passes `--interactive` (or explicitly requests step-by-step interview), fall back to guided interview mode.
+
 ## Core Workflow
 
 > Note: Phase 3.5 (Complexity Assessment) is an intentional semantic insertion between Phase 3 and Phase 4, not a numbering bug.
 
-### Phase 1: Requirements Interview (3-4 questions to converge)
+### Phase 1: Requirements Gathering (Draft-First vs Interactive)
 
-Collect: Background (why), Role (who), Feature (what), Value (why it matters), Constraints (limitations).
+- **Draft-First mode (default)**: Parse user prompt, match terms against `{{base_dir}}/index.md` keywords, and examine existing feature specs under `{{base_dir}}/specs/features/`. Infer Background (why), Role (who), Feature (what), Value (why it matters), and Constraints without interactive friction. If a key boundary is severely ambiguous, ask **one question at a time**.
+- **Interactive mode (`--interactive`)**: Guide the user through 3-4 focused questions to collect Background, Role, Feature, Value, and Constraints.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] Background, Role, Feature, and Value are captured from the interview
+> - [ ] Background, Role, Feature, and Value are captured (inferred in Draft-First, or collected via interview)
 > - [ ] Known Constraints recorded (or explicitly noted as none)
 
 ### Phase 2: Derive Change Name
 
-Derive a kebab-case name from interview results (verb-first, 2-4 words). STOP. Ask the user to confirm
-the change name and, in the same question, which tracker item this change belongs to (**optional** —
-accept "none"). The answer is free-form (a reference, a URL, another tracker's id) and is written by
-`prospec change story --issue` in Phase 3 — prospec judges nothing about its shape and calls no API
-(runs of whitespace, line breaks included, collapse to one space). No
-answer means the field is simply absent; never invent one, and never derive one from the branch name.
+Derive a kebab-case name from requirements (verb-first, 2-4 words).
+- **Draft-First mode (default)**: Automatically adopt the derived kebab-case name. If the user prompt provided a tracker reference/URL, extract it for `--issue <ref>`.
+- **Interactive mode (`--interactive`)**: STOP. Ask the user to confirm the change name and, in the same question, which tracker item this change belongs to (**optional** — accept "none").
+
+The tracker answer is free-form (a reference, a URL, another tracker's id) and is written by `prospec change story --issue` in Phase 3 — prospec judges nothing about its shape and calls no API (runs of whitespace, line breaks included, collapse to one space). No answer means the field is simply absent; never invent one, and never derive one from the branch name.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
-> - [ ] User confirmed the name
-> - [ ] Tracker item asked for alongside the name — answered, or explicitly declined
+> - [ ] Change name confirmed (auto-adopted in Draft-First, or confirmed in `--interactive`)
+> - [ ] Tracker item captured if provided, or omitted
 
 ### Phase 3: Create Scaffolding
 
 | Scenario | Action |
 |----------|--------|
-| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md`. Pass `--issue` only when Phase 2 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
+| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md`. Pass `--issue` only when a tracker item was provided in the prompt or Phase 2; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
 | Already exists | Read existing files, proceed to populate |
 
 > **Phase 3 Gate** — proceed when:
@@ -71,8 +80,7 @@ answer means the field is simply absent; never invent one, and never derive one 
 
 ### Phase 3.5: Complexity Assessment (Scale)
 
-Assess the change's complexity and propose a scale. The scale drives process weight in subsequent SDD stages
-(ff/plan/review/verify/archive all read `metadata.scale`).
+Assess the change's complexity and determine scale (`quick` / `standard` / `full`). The scale drives process weight in subsequent SDD stages (ff/plan/review/verify/archive all read `metadata.scale`).
 
 **Assessment criteria:**
 
@@ -82,34 +90,26 @@ Assess the change's complexity and propose a scale. The scale drives process wei
 | Spec-covered behavior (existing REQs in `{{base_dir}}/specs/features/`) | none expected | may modify | adds/reshapes requirements |
 | Nature | small fix, typo, config tweak | bounded feature work | architectural / cross-cutting |
 
-**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick`
-— at least `standard`. (Prediction may still be wrong; the `/prospec-archive` Entry Gate re-checks
-against the actual diff.)
+**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick` — at least `standard`. (Prediction may still be wrong; the `/prospec-archive` Entry Gate re-checks against the actual diff.)
 
 **Flow:**
-
-1. Read `{{base_dir}}/specs/features/` on demand to check whether existing REQs cover the affected behavior
-2. Present the proposed scale WITH reasoning against the criteria table
-3. Ask the user to confirm or override — **never write `scale` without user confirmation**
-4. Write the confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand
+1. Read `{{base_dir}}/specs/features/` on demand to check whether existing REQs cover the affected behavior.
+2. **Draft-First mode (default)**: Autonomously select scale based on criteria table; document reasoning in `## Stated Assumptions`; write via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
+3. **Interactive mode (`--interactive`)**: Present proposed scale WITH reasoning against criteria table. STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
 
 > **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
 > `/prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
 > brownfield behavior) — never proposed here for new work. New work picks `quick`/`standard`/`full`.
 
-**Quick slim proposal:** when `quick` is confirmed, Phase 4/5 produce a slim proposal — a single
-User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration
-(FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases and
-Related Modules stay. `standard`/`full` keep the full format.
+**Quick slim proposal:** when `quick` is selected, Phase 4/5 produce a slim proposal — a single User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration (FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases, Related Modules, and Stated Assumptions stay. `standard`/`full` keep the full format.
 
 > **Phase 3.5 Gate** — proceed when:
-> - [ ] A scale (`quick`/`standard`/`full`) is proposed with reasoning against the criteria table
-> - [ ] User confirmed or overrode the scale
-> - [ ] Confirmed `scale` written to `metadata.yaml`
+> - [ ] A scale (`quick`/`standard`/`full`) is determined with reasoning against the criteria table
+> - [ ] Scale written to `metadata.yaml` via `prospec change scale` (and documented in `Stated Assumptions` if in Draft-First mode)
 
-### Phase 4: Collect INVEST User Stories
+### Phase 4: Collect INVEST User Stories & Stated Assumptions
 
-Guide the user to define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
+Define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
 
 1. **Background**: 1-3 sentences on problem context
 2. **User Stories**: For each story:
@@ -117,14 +117,16 @@ Guide the user to define one or more INVEST User Stories (slim form when `scale:
    - **Priority**: P1 (must-have), P2 (should-have), P3 (nice-to-have)
    - **Acceptance Scenarios**: 2-5 WHEN/THEN pairs per story
    - **Independent Test**: How to verify this story in isolation
-3. **Edge Cases**: Known boundary conditions and error scenarios
-4. **Functional Requirements**: Numbered FR-001, FR-002... for traceability
-5. **Success Criteria**: Measurable SC-001, SC-002...
-6. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `{{base_dir}}/index.md` module keywords. List matched modules with relevance reasoning.
-7. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
+3. **Stated Assumptions**: 100% list all autonomous inferences (derived name, scale selection reasoning, default boundaries, constraint assumptions) in the project's configured `artifact_language`
+4. **Edge Cases**: Known boundary conditions and error scenarios
+5. **Functional Requirements**: Numbered FR-001, FR-002... for traceability
+6. **Success Criteria**: Measurable SC-001, SC-002...
+7. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `{{base_dir}}/index.md` module keywords. List matched modules with relevance reasoning.
+8. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] >= 1 INVEST User Story defined, each with >= 2 WHEN/THEN acceptance scenarios
+> - [ ] `## Stated Assumptions` explicitly captures all autonomous decisions
 > - [ ] Related Modules cross-referenced against `{{base_dir}}/index.md`
 > - [ ] Edge Cases captured (FR/SC enumerated unless `scale: quick`)
 
@@ -134,27 +136,27 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] `proposal.md` written following `references/proposal-format.md`
-> - [ ] All Phase 4 sections present (no empty Background/Why)
+> - [ ] All Phase 4 sections present (including `## Stated Assumptions`, no empty Background/Why)
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
-Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
+Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it silently via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
 - **PASS**: the Story satisfies INVEST
-- **WARN**: partially satisfies — record suggestions, proceed
+- **WARN**: partially satisfies — record suggestions to `quality_log`, proceed
 
 > **Phase 6 Gate** — proceed when:
 > - [ ] An advisory INVEST self-check was run and any concern noted to `quality_log` (advisory — never blocks)
 
 ### Phase 7: Knowledge Quality Gate
 
-Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `{{base_dir}}/index.md` (by module keywords), and existing Feature Specs checked for overlap. Any gap → WARN, noted in the Open Questions section (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `{{base_dir}}/index.md` (by module keywords), and existing Feature Specs checked for overlap. Any gap → WARN, noted in the Open Questions section and logged to `quality_log` (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
 
 > **Phase 7 Gate** — proceed when:
 > - [ ] the one-line Knowledge check is recorded PASS or WARN (WARNs noted in Open Questions)
 
 ### Phase 8: Summary + Next Steps
 
-Save proposal.md.
+Save proposal.md. Present the completed proposal summary to the user for single-pass review.
 
 {{> next-step-handoff}}
 
@@ -165,6 +167,7 @@ Save proposal.md.
 ### Success Criteria
 - [ ] proposal.md has >= 1 INVEST User Story
 - [ ] each Story has >= 2 WHEN/THEN acceptance scenarios
+- [ ] Stated Assumptions section present and enumerates all autonomous inferences
 - [ ] Constitution Check section present
 - [ ] Related Modules cross-referenced against {{base_dir}}/index.md (>= 1 when Knowledge exists)
 
@@ -187,11 +190,12 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md
 - **NEVER** hand-edit metadata.yaml — scaffold, `scale`, and `quality_log` writes go through `prospec change story` / `change scale` / `change log` (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`)
-- **NEVER** ask more than 4 questions at once
+- **NEVER** ask multiple questions at once when in Question mode — ask at most **one question at a time**
+- **NEVER** omit autonomous inferences from `## Stated Assumptions` — 100% of inferred decisions must be explicit
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
-- **NEVER** run `prospec change scale` without explicit user confirmation — a misjudged `quick` skips plan entirely
 - **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
-- **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
+- **NEVER** use passive voice for confirmation wait points in interactive mode (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
+- **NEVER** ignore `--interactive` when requested by the developer — always provide the interactive escape hatch
 
 ## Error Handling
 
