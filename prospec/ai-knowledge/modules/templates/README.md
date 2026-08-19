@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 68 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 69 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 
 <!-- prospec:auto-start -->
 
@@ -47,7 +47,7 @@
 
 ## Sub-Modules
 
-- [Skill Authoring](./skill-authoring.md) — the 17 skills + 7 partials + 23 references contract and its `agent sync` deployment
+- [Skill Authoring](./skill-authoring.md) — the 17 skills + 7 partials + 24 references contract and its `agent sync` deployment
 
 <!-- prospec:auto-end -->
 

@@ -43,7 +43,7 @@ nondeterministic serialization this contract exists to remove.
 
 **Do NOT** load all module AI Knowledge at once. Load on demand.
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) and [`references/candidate-evaluation.md`](references/candidate-evaluation.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## Progressive Knowledge Loading Strategy
 
@@ -121,6 +121,19 @@ Auto-identify the current change (from directory context or ask user), read and 
 - `standard` (or absent): concise plan, keep under 120 lines — the current default
 - `full`: complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, explicit trade-off notes in Risk Assessment
 
+**Scale=Full Multi-Candidate Architecture Selection (In-Phase On-Demand):**
+When `metadata.scale` is `full` (or requested by the user under `standard`), execute **Best-of-N Candidate Generation & Symmetric Pairwise Tournament Selection** before writing the final plan:
+1. Read [`references/candidate-evaluation.md`](references/candidate-evaluation.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading).
+2. Generate $N \le 3$ (default 2) orthogonal candidate architectures dynamically anchored to downstream project manifests and `_conventions.md`:
+   - **Option A (Pragmatic / Minimal Surface)**: Minimal diff, maximize reuse of existing modules.
+   - **Option B (Decoupled / Clean Architecture)**: Explicit boundaries, modular abstraction.
+3. Conduct **Symmetric Pairwise Tournament** (Position-Swapped A vs B and B vs A) across Blast Radius & Complexity, Constitution Adherence, and Extensibility vs Simplicity.
+4. **Harness Execution & Degradation**:
+   - When `can_spawn_subagent` is available, parallelize candidate generation (Subagent A, Subagent B) and tournament judging.
+   - In single-context environments (or on spawn failure), degrade to sequential candidate generation and isolated prompt tournament evaluation, and notify the developer of the degraded path.
+5. **Human Choice Override & Synthesis**: Present the tournament matrix and recommendation. Developer may override or select a hybrid synthesis.
+6. **Record Trade-offs in `plan.md`**: Embed candidate evaluation rationale in Technical Summary and record trade-off analysis / non-selected option summaries in Risk Assessment.
+
 Follow `references/plan-format.md` (read it on demand at this step — not a Startup Loading item):
 - **Overview**: Implementation strategy summary
 - **Technical Summary** (Brownfield) or **Technical Context** (Greenfield): Auto-synthesized from Phase 2 — see `references/plan-format.md` Section 2
@@ -138,6 +151,7 @@ When a User Story is structurally complex — **any-of**: >= 2 branching decisio
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] plan.md contains Technical Summary/Context, a Call Chain per entry point, and 4-8 Implementation Steps
+> - [ ] for `scale: full` (or requested): multi-candidate evaluation and pairwise tournament completed (with candidate trade-offs recorded)
 > - [ ] a User Story Flow diagram is present for each structurally-complex story (Section 5 heuristic), or the story is simple enough to omit it
 > - [ ] Risk Assessment lists each risk with a mitigation strategy
 

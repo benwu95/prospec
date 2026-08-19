@@ -5387,3 +5387,61 @@ describe('Shift-Left Architecture Verifier in /prospec-plan (issue #179)', () =>
   });
 });
 
+describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)', () => {
+  const REF = 'candidate-evaluation.md';
+
+  it('candidate-evaluation.md is registered exactly for prospec-plan', () => {
+    const registeredSkills = SKILL_DEFINITIONS.filter((s) =>
+      getSkillReferences(s.name).some((r) => r.outputName === REF),
+    )
+      .map((s) => s.name)
+      .sort();
+    expect(registeredSkills).toEqual(['prospec-plan']);
+  });
+
+  it('candidate-evaluation.md is rendered and satisfies token budget <= 2500', () => {
+    const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+    const tokens = estimateTokens(content);
+    expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  });
+
+  it('candidate-evaluation.md defines orthogonal candidate guidelines and symmetric tournament criteria', () => {
+    const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+    expect(content).toContain('Universal Downstream Compatibility Principle');
+    expect(content).toContain('Option A: Pragmatic / Minimal Surface');
+    expect(content).toContain('Option B: Decoupled / Clean Architecture');
+    expect(content).toContain('Blast Radius & Complexity');
+    expect(content).toContain('Constitution & Layering Adherence');
+    expect(content).toContain('Extensibility vs. Simplicity');
+    expect(content).toContain('Symmetric Pairwise Tournament Protocol');
+    expect(content).toContain('Position-Swapped Evaluation');
+    expect(content).toContain('Human Choice Override');
+    // Must NOT hardcode CLI internal layers as universal rule
+    expect(content).not.toContain('`cli → services → lib → types`');
+  });
+
+  it('prospec-plan Phase 4 instructs multi-candidate generation and tournament selection for scale: full', () => {
+    const plan = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+    const phase4 = sectionOf(plan, '### Phase 4: Design plan.md');
+    expect(phase4).toContain('references/candidate-evaluation.md');
+    expect(phase4).toContain('Best-of-N Candidate Generation');
+    expect(phase4).toContain('Symmetric Pairwise Tournament');
+    expect(phase4).toContain('can_spawn_subagent');
+    expect(phase4).toContain('Human Choice Override');
+    expect(phase4).toContain('Record Trade-offs in `plan.md`');
+  });
+
+  it('no skill preloads candidate-evaluation in Startup Loading items (Prompt Prefix Cache protection)', () => {
+    for (const skill of SKILL_DEFINITIONS) {
+      const rendered = renderTemplate(`skills/${skill.name}.hbs`, TEMPLATE_CONTEXT);
+      const startup = sectionOf(rendered, '## Startup Loading');
+      const items = startup
+        .split('\n')
+        .filter((l) => /^\d+\./.test(l.trim()))
+        .join('\n');
+      expect(items, `${skill.name} must not preload ${REF} in startup items`).not.toContain(REF);
+    }
+  });
+});
+
+
