@@ -225,3 +225,10 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection and t
 - WHEN finalizing plan.md, THEN record trade-off analysis, winning option rationale, and non-selected candidate summaries in Technical Summary and Risk Assessment
 
 ---
+
+#### REQ-TESTS-090: Contract Tests Pin prospec knowledge verify Guidance
+Contract tests assert that both `prospec-knowledge-update` and `prospec-verify` contain explicit instructions to run `prospec knowledge verify`.
+- `tests/contract/skill-format.test.ts` asserts `skills/prospec-knowledge-update.hbs` instructs running `prospec knowledge verify <modules...>` after README content review/update.
+- `tests/contract/skill-format.test.ts` asserts `skills/prospec-verify.hbs` S/A commit prompt instructs running `prospec knowledge verify <modules...>`.
+
+---

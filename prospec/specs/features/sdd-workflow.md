@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-08-19
 story_count: 38
-req_count: 208
+req_count: 209
 ---
 
 # SDD Workflow
@@ -83,6 +83,7 @@ req_count: 208
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-19 | instruct-prospec-knowledge-verify | ADDED REQ-TESTS-090; MODIFIED REQ-TEMPLATES-129 | REQ-TESTS-090, REQ-TEMPLATES-129 |
 | 2026-08-19 | select-plan-candidates | ADDED REQ-TEMPLATES-184; ADDED REQ-TEMPLATES-185; MODIFIED REQ-TEMPLATES-059 | REQ-TEMPLATES-184, REQ-TEMPLATES-185, REQ-TEMPLATES-059 |
 | 2026-08-18 | plan-shift-left-verifier | ADDED REQ-TEMPLATES-182; ADDED REQ-TEMPLATES-183; ADDED REQ-TESTS-089; MODIFIED REQ-TEMPLATES-059 | REQ-TEMPLATES-182, REQ-TEMPLATES-183, REQ-TESTS-089, REQ-TEMPLATES-059 |
 | 2026-08-14 | unify-spec-read-resolution | ADDED REQ-LIB-055; MODIFIED REQ-SERVICES-084; MODIFIED REQ-TESTS-080 | REQ-LIB-055, REQ-SERVICES-084, REQ-TESTS-080 |

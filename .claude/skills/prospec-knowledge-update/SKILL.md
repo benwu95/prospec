@@ -187,6 +187,10 @@ After the re-run, verify (read, don't write):
 - ADDED modules appear as Active; REMOVED modules are GONE from the table (their README keeps the deprecation banner)
 - the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
 
+#### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
+
+After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `prospec/ai-knowledge/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified` (REQ-SERVICES-090), ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. Passing all affected module names (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh and avoids `knowledge:check` CI failures.
+
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
@@ -194,6 +198,7 @@ After the re-run, verify (read, don't write):
 ### Success Criteria
 - [ ] every affected module README updated
 - [ ] prospec/index.md and module-map.yaml synced
+- [ ] knowledge freshness stamped via `prospec knowledge verify` for reviewed modules
 - [ ] REMOVED requirements marked deprecated (not deleted)
 
 ### Failure Conditions
