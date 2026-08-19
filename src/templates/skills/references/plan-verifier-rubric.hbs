@@ -8,8 +8,8 @@ This document defines the **orthogonal criteria decomposition** and verification
 
 The Architecture Verifier provides an independent, adversarial audit of `plan.md` and `delta-spec.md` before implementation begins. Grounded in the *LLM-as-a-Verifier* methodology (Criteria Decomposition + Independent Verification), it eliminates single-pass confirmation bias and catches structural flaws, layering violations, and ripple effects early.
 
-> **Universal Downstream Compatibility Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Architecture Verifier dynamically reads the downstream project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md`. It **never** hardcodes any specific framework layering (e.g. Prospec's CLI layer structure).
+> **Language- and Architecture-Agnostic Principle**:
+> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Architecture Verifier dynamically reads the project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md`. It **never** hardcodes any specific framework layering (e.g. Prospec's CLI layer structure).
 
 ---
 
@@ -18,16 +18,16 @@ The Architecture Verifier provides an independent, adversarial audit of `plan.md
 The Verifier audits the planning artifacts across four orthogonal dimensions:
 
 ### 1. Project Layering & Dependency Direction
-- **Rule Source**: Downstream project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md`.
+- **Rule Source**: The project's `{{constitution_path}}` and `{{knowledge_base_path}}/_conventions.md`.
 - **Checks**:
   - Does the `plan.md` Call Chain respect the project's defined dependency direction (e.g., `adapter → domain`, `controller → service → repository`, or unidirectional DAG)?
   - Is there business logic leaking into entry-point, CLI, controller, or transport layers?
   - Does any layer bypass its adjacent neighbor or create cyclic dependencies?
 
 ### 2. Blast Radius & Ripple Effects
-- **Rule Source**: Downstream `{{base_dir}}/index.md` and module map.
+- **Rule Source**: `{{base_dir}}/index.md` and module map.
 - **Checks**:
-  - Are all impacted callers and downstream consumers identified in the Call Chain and Affected Modules table?
+  - Are all impacted callers and dependent modules / consumers identified in the Call Chain and Affected Modules table?
   - Does the plan introduce breaking API changes, uncoordinated global state mutations, or database schema migration risks without backward-compatibility strategies?
   - Are cross-module side effects explicitly sequenced (e.g. after-commit hooks)?
 

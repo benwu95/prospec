@@ -107,9 +107,9 @@ Plan Call Chain, architecture verification, and multi-candidate selection in `/p
 - WHEN describing the diagram-production step, THEN prospec-plan Phase 4 reads `_diagram-conventions.md` on-demand, and never adds it to Startup Loading (cache stability)
 
 #### REQ-TEMPLATES-182: Plan Architecture Verifier Rubric Reference
-A structured architecture verification rubric template (`plan-verifier-rubric.md`) defining downstream-agnostic orthogonal criteria decomposition for plan-stage review.
+A structured architecture verification rubric template (`plan-verifier-rubric.md`) defining architecture-agnostic orthogonal criteria decomposition for plan-stage review.
 - WHEN `plan-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Project Layering & Dependency Direction, Blast Radius & Ripple Effects, State Safety & Reversibility, and Delta-Spec Completeness
-- WHEN evaluating downstream projects, THEN the rubric instructs dynamic inspection against the downstream project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
+- WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
@@ -211,7 +211,7 @@ tasks.md ends with a Summary section (total tasks, total lines, parallelizable c
 #### REQ-TEMPLATES-184: Candidate Evaluation Reference Template
 A structured candidate evaluation rubric template (`candidate-evaluation.md`) defining orthogonal architecture generation and symmetric pairwise tournament selection.
 - WHEN `candidate-evaluation.md` is rendered, THEN it defines orthogonal candidate generation guidelines (Option A Pragmatic/Minimal Surface vs Option B Decoupled/Clean Architecture)
-- WHEN evaluating candidates, THEN it instructs dynamic anchoring to downstream project manifests and `_conventions.md`
+- WHEN evaluating candidates, THEN it instructs dynamic anchoring to the project's manifests and `_conventions.md`
 - WHEN conducting tournament comparison, THEN it uses position-swapped pairwise comparison across Blast Radius & Complexity, Constitution & Layering Adherence, and Extensibility vs Simplicity
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
 
@@ -230,5 +230,38 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection and t
 Contract tests assert that both `prospec-knowledge-update` and `prospec-verify` contain explicit instructions to run `prospec knowledge verify`.
 - `tests/contract/skill-format.test.ts` asserts `skills/prospec-knowledge-update.hbs` instructs running `prospec knowledge verify <modules...>` after README content review/update.
 - `tests/contract/skill-format.test.ts` asserts `skills/prospec-verify.hbs` S/A commit prompt instructs running `prospec knowledge verify <modules...>`.
+
+---
+
+#### REQ-TEMPLATES-186: Task Architecture & Contract Verifier Rubric Reference
+A structured task verification rubric template (`tasks-verifier-rubric.md`) defining architecture-agnostic orthogonal criteria decomposition for tasks-stage contract review.
+- WHEN `tasks-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Bidirectional Contract Coverage, DAG Dependency & Layering Topological Order, TDD Module Test Closure, and Task Sizing & Marker Schema Compliance
+- WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md`, `_conventions.md`, and `module-map.yaml` without hardcoding CLI-specific layers
+- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+
+---
+
+#### REQ-TEMPLATES-187: Shift-Left Task Contract & DAG Dependency Verifier in prospec-tasks and prospec-ff
+Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependency verification against `tasks.md`, `delta-spec.md`, and `plan.md` using orthogonal criteria decomposition.
+- WHEN Phase 6 begins, THEN `prospec-tasks` loads `references/tasks-verifier-rubric.md` on-demand in-phase without placing it in Startup Loading
+- WHEN the environment supports subagents (`can_spawn_subagent: yes`), THEN an independent fresh-context Task Verifier subagent is spawned to audit `tasks.md` against `delta-spec.md` and `plan.md`
+- WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
+- WHEN the verifier discovers defects or layering violations, THEN findings are recorded to `metadata.yaml` `quality_log` (FLAWS block progression unless a Break-Glass Override is provided)
+- WHEN `/prospec-ff` executes Tasks phase verification, THEN it aligns with the same task verification gate and degradation policy
+
+---
+
+#### REQ-TEMPLATES-188: tasks-format.hbs Bidirectional Contract & Verifier Self-Check Enhancement
+The `tasks-format.md` reference specifies bidirectional traceability self-checking guidelines and verifier compliance for tasks generation.
+- WHEN referencing `tasks-format.md`, THEN it includes guidelines for forward REQ-ID coverage and backward traceability to plan steps
+- WHEN explaining layer ordering, THEN it specifies dynamic adaptation to project conventions (e.g. Domain → Ports → Adapters or Types → Lib → Services → CLI)
+
+---
+
+#### REQ-TESTS-091: Contract Tests for Task Verifier and Rubric
+Contract test suite asserts the invariants of the Task Verifier and its rubric.
+- WHEN contract tests execute, THEN they assert `tasks-verifier-rubric.md` is cited on-demand in Phase 6 of `prospec-tasks` and Phase 4 of `prospec-ff`, and excluded from Startup Loading
+- WHEN measuring reference size, THEN `tasks-verifier-rubric.md` satisfies the $\le 2500$ tokens budget
+- WHEN verifying reference deployment, THEN `getSkillReferences` contains `tasks-verifier-rubric.md` for both `prospec-tasks` and `prospec-ff`
 
 ---

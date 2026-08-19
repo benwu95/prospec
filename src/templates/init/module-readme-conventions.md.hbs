@@ -41,7 +41,7 @@ The order is fixed. Keep each section concise; the whole README stays within its
 | `## Public API` | ✅ | The module's public surface — exported functions/classes (or HTTP endpoints / events for service modules). Signature + 1-line description, max ~8 entries. The agent reads source (L2) for full detail. |
 | `## Dependencies` | ✅ | `**Depends on:**` (with WHY) / `**Used by:**` for internal modules; list external systems where relevant. |
 | `## Modification Guide` | ✅ | Numbered "to change X, edit Y → Z" recipes for the common edits. This is more valuable than an API dump — tell agents HOW to change. |
-| `## Ripple Effects` | ⬜ | Larger modules only: what downstream breaks when you touch a shared piece. Omit for small leaf modules. |
+| `## Ripple Effects` | ⬜ | Larger modules only: what dependent modules or consumers break when you touch a shared piece. Omit for small leaf modules. |
 | `## Pitfalls` | ✅ | Known traps, surprising names, non-obvious invariants, anti-patterns. |
 | `## Sub-Modules` | ⬜ | Only when this module has extracted sub-module files (see "Sub-Modules" below): a link list to each `{sub-module}.md`. Omit otherwise. |
 

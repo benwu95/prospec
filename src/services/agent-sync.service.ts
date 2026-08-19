@@ -543,6 +543,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'tasks-format.md',
         title: 'Tasks Format',
       },
+      {
+        templateName: 'tasks-verifier-rubric.hbs',
+        outputName: 'tasks-verifier-rubric.md',
+        title: 'Task Verifier Rubric',
+      },
     ],
     'prospec-ff': [
       {
@@ -569,6 +574,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'tasks-format.hbs',
         outputName: 'tasks-format.md',
         title: 'Tasks Format',
+      },
+      {
+        templateName: 'tasks-verifier-rubric.hbs',
+        outputName: 'tasks-verifier-rubric.md',
+        title: 'Task Verifier Rubric',
       },
       {
         templateName: 'metadata-format.hbs',

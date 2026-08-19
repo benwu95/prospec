@@ -64,7 +64,7 @@ Types → Lib → Services → CLI → Tests
 
 Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` parallelization marker are **optional** — no skill or service *gates* on them (nothing reads `~lines`; `/prospec-implement` treats `[P]` only as a best-effort "could parallelize" reminder that degrades cleanly when absent). Add them only when they aid the reader; never gate on their presence.
 
-**Task kind tagging:** mark each non-code task with its kind — `[M]` (manual) or `[V]` (verification); leave code tasks unmarked. The kind schema is frozen in `references/tasks-format.md` (Task Kind Markers) — cite it, do not restate. This is the one **required** marker class: downstream, verify counts only code tasks in the completion rate and archive warns on unchecked tasks by kind.
+**Task kind tagging:** mark each non-code task with its kind — `[M]` (manual) or `[V]` (verification); leave code tasks unmarked. The kind schema is frozen in `references/tasks-format.md` (Task Kind Markers) — cite it, do not restate. This is the one **required** marker class: in subsequent stages, verify counts only code tasks in the completion rate and archive warns on unchecked tasks by kind.
 
 **Decomposition principles:**
 - Single responsibility: one task does one thing
@@ -96,13 +96,30 @@ Add a Total Tasks count at end of file; Parallelizable Tasks / Total Estimated L
 > - [ ] a Total Tasks count is appended at end of `tasks.md`
 > - [ ] Total Tasks count reconciles with the checkboxes in the file
 
-### Phase 6: Constitution Test Check (site-specific: TDD)
+### Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)
 
-Check only this station's **site-specific** Constitution rule — **TDD / test coverage** — NOT a generic multi-principle scan (the full every-principle audit is `/prospec-verify` V3/5 only). Ensure each new/modified module has corresponding test tasks. If coverage is insufficient, add test tasks or raise a warning.
+Run an independent task contract verification of `tasks.md` against `delta-spec.md` (or `proposal.md` under `scale: quick`) and `plan.md` before proceeding to implementation.
+
+**Step 1 — Load Rubric & Rules:**
+Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `{{constitution_path}}`, `{{knowledge_base_path}}/_conventions.md`, and `module-map.yaml` to evaluate the 4 orthogonal dimensions:
+1. **Bidirectional Contract Coverage**: 100% forward coverage of `delta-spec.md` REQ-IDs (or `proposal.md` acceptance scenarios for `scale: quick`) in `tasks.md`, and 100% backward traceability of tasks to `plan.md` steps.
+2. **DAG Dependency & Layering Topological Order**: Tasks strictly sequenced from lowest dependency (core domain, models, shared libs) to highest dependency (services, handlers, entry points, CLI, UI).
+3. **TDD Module Test Closure**: Every modified or added module in `plan.md` (or `delta-spec.md`) has at least 1 corresponding test task in the `Tests` section.
+4. **Task Sizing & Schema Compliance**: `[M]`/`[V]` kind markers on non-code tasks, granularity 20–100 lines.
+
+**Step 2 — Verifier Execution & Harness Degradation:**
+{{> harness-capabilities degraded_action="degrade to a two-phase prompt isolation in this context, invoking an independent Task Verifier persona to audit tasks.md against delta-spec.md and plan.md, and explicitly notify the developer of the degraded path"}}
+
+Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh verification context (Task Verifier persona). When degraded to a single context, execute a dedicated verifier pass and notify the developer of the degraded mode.
+
+**Step 3 — Verdict Handling & Break-Glass Override:**
+- **PASS**: All 4 dimensions satisfied. Proceed.
+- **WARN**: Advisory concerns identified (e.g. minor sizing note). Record to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --result WARN --warning "<warning detail>"`.
+- **FLAWS**: Missing REQ coverage, inverted dependency ordering, missing test tasks for affected modules, or missing kind markers. Revise `tasks.md` to fix the issue, OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, logged via `prospec change log --skill prospec-tasks --result WARN --warning "Manual override: <rationale>"`.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] every new/modified module has a corresponding test task in `tasks.md`
-> - [ ] any test-coverage gap is resolved by added test tasks or a recorded warning
+> - [ ] Task Verifier audit completed against the 4 orthogonal dimensions (or documented manual override provided)
+> - [ ] Any discovered warnings/overrides recorded in metadata.yaml quality_log
 
 ### Phase 7: Knowledge Quality Gate
 
@@ -134,7 +151,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) and the Task Verifier rubric — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -146,6 +163,9 @@ Verify the output against this skill's **site-specific** Constitution rule (**TD
 - **NEVER** skip test tasks — Constitution requires test coverage; untested modules are deployment blockers in Verify phase
 - **NEVER** gate on `[P]` or `~lines` — both are optional reader aids that no skill gates on (nothing reads `~lines`; implement's `[P]` reminder is best-effort and executes sequentially anyway); if you do add an estimate, use `~{lines} lines`, not S/M/L
 - **NEVER** omit a non-code task's `[M]`/`[V]` kind marker — verify's completion rate and archive's unchecked-task warnings depend on it (this is the one required marker)
+- **NEVER** add `references/tasks-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
+- **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
+- **NEVER** proceed past Phase 6 on unresolved FLAWS without a documented Break-Glass Override
 
 ## Error Handling
 

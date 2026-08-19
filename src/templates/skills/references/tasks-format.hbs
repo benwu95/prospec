@@ -25,7 +25,10 @@ Use Markdown checkbox syntax:
 
 ### 2. Architecture-Layer Grouping
 
-Group tasks by architecture layer in recommended order:
+Group tasks by architecture layer in bottom-up dependency order (lowest dependency first).
+
+> **Dynamic Architecture Adaptation**:
+> Layer grouping dynamically adapts to the project's conventions (e.g. `Types → Lib → Services → CLI → Tests`, `Domain → Ports → Adapters → Tests`, or `Models → Services → Controllers → Tests`). Never hardcode a fixed framework layer topology.
 
 ```markdown
 ## Types
@@ -124,7 +127,7 @@ Every task has exactly one kind. Mark non-code tasks; an unmarked task **is** co
 
 ### 5. Complexity Estimate Format (Optional)
 
-`~{lines} lines` is an **optional** estimate — nothing downstream reads it, so never gate on it. When you do include one, use this format (not S/M/L):
+`~{lines} lines` is an **optional** estimate — no subsequent skill or tool reads it, so never gate on it. When you do include one, use this format (not S/M/L):
 
 ```markdown
 - [ ] Simple task ~20 lines
@@ -155,6 +158,15 @@ Add a summary at the end of the file:
 - **Parallelizable Tasks:** 4
 - **Total Estimated Lines:** ~640 lines
 ```
+
+---
+
+## Bidirectional Contract Traceability
+
+Before finalizing `tasks.md`, verify bidirectional contract integrity against `delta-spec.md` and `plan.md`:
+
+- **Forward REQ-ID Coverage**: Ensure every REQ-ID in `delta-spec.md` (or acceptance scenario in `proposal.md` under `scale: quick`) is explicitly covered or referenced in task descriptions.
+- **Backward Plan Traceability**: Ensure every task maps directly to an Implementation Step in `plan.md`. No orphan, speculative, or out-of-scope tasks.
 
 ---
 
