@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 story_count: 21
-req_count: 85
+req_count: 87
 ---
 
 # Agent Integration
@@ -20,6 +20,20 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 - [US-434–US-438](./agent-integration/us-434.md)
 - [US-439–US-442](./agent-integration/us-439.md)
 
+
+
+#### REQ-AGNT-040: Register Candidate Evaluation Reference in Agent Sync
+Register `candidate-evaluation.hbs` reference template in `agent-sync.service.ts` for `prospec-plan`.
+- WHEN `agent-sync` runs, THEN `candidate-evaluation.hbs` is rendered to `references/candidate-evaluation.md` under `prospec-plan`
+
+---
+
+
+#### REQ-TESTS-084: Contract Tests for Candidate Architecture Selection
+Contract tests in `skill-format.test.ts` for candidate evaluation reference and prospec-plan integration.
+- WHEN contract tests run, THEN verify `candidate-evaluation.md` registration, token budget $\le 2500$, Startup Loading cache isolation, and prospec-plan Phase 4 candidate selection instructions
+
+---
 
 ## Edge Cases
 
@@ -56,6 +70,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-19 | select-plan-candidates | ADDED REQ-AGNT-040; ADDED REQ-TESTS-084 | REQ-AGNT-040, REQ-TESTS-084 |
 | 2026-08-18 | plan-shift-left-verifier | ADDED REQ-AGNT-039 | REQ-AGNT-039 |
 | 2026-08-14 | enforce-group-render-merge | ADDED REQ-TYPES-085; MODIFIED REQ-TYPES-059; MODIFIED REQ-AGNT-034 | REQ-TYPES-085, REQ-TYPES-059, REQ-AGNT-034 |
 | 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-SERVICES-089; MODIFIED REQ-TEMPLATES-121 | REQ-SERVICES-089, REQ-TEMPLATES-121 |
