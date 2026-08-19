@@ -31,6 +31,7 @@ export const SDD_STATIONS = [
   'implement',
   'review',
   'verify',
+  'knowledge-update',
   'archive',
 ] as const;
 
@@ -46,6 +47,7 @@ export const STATION_SKILLS: Record<SddStation, string> = {
   implement: '/prospec-implement',
   review: '/prospec-review',
   verify: '/prospec-verify',
+  'knowledge-update': '/prospec-knowledge-update',
   archive: '/prospec-archive',
 };
 
@@ -73,6 +75,8 @@ export interface ChangeRouteFacts {
   hasReviewProvenance: boolean;
   /** Latest `prospec-verify` quality_log grade, null when never verified. */
   lastVerifyGrade: VerifyGrade | null;
+  /** Whether affected-module Knowledge is confirmed synced for this change. */
+  hasKnowledgeSync: boolean;
   /** Registered external-tracker reference (metadata `issue`), absent when the
    *  change registered none. Display data, NOT a routing fact — every station
    *  verdict is computed as if it were not here. */

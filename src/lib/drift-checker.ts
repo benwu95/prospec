@@ -891,19 +891,22 @@ function skipped(id: DriftCheckId, reason: string): CheckOutcome {
   return { result: { id, status: 'skipped', reason }, findings: [] };
 }
 
-function isStale(srcCommit: string | null, reference: string): boolean {
+export function isStale(srcCommit: string | null, reference: string): boolean {
   // A null `last_verified` is intercepted as stale by the caller before this runs,
   // so the reference is always a real timestamp here; only a null source (no source
   // commits) short-circuits — nothing to be stale against.
   if (srcCommit === null) return false;
+  const srcTs = Date.parse(srcCommit);
+  const refTs = Date.parse(reference);
+  if (isNaN(srcTs) || isNaN(refTs)) return true;
   // Compare by UTC calendar day, NOT by instant. `last_verified` is a wall-clock stamp
   // taken moments BEFORE the co-commit that carries it, so an instant comparison would
   // read every freshly-committed module as stale (commit time > stamp). Day granularity
   // keeps "verified and committed the same day" fresh while still catching source that
   // drifts to a later day. %cI carries each committer's own UTC offset — Date.parse
   // normalizes both to the same epoch before the day floor.
-  const utcDay = (iso: string): number => Math.floor(Date.parse(iso) / 86_400_000);
-  return utcDay(srcCommit) > utcDay(reference);
+  const utcDay = (ts: number): number => Math.floor(ts / 86_400_000);
+  return utcDay(srcTs) > utcDay(refTs);
 }
 
 // codepoint order, NOT localeCompare — ICU collation varies per environment

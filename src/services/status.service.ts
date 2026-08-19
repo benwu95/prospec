@@ -1,7 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
+import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { isStale } from '../lib/drift-checker.js';
+import { collectGitTimestamps } from '../lib/drift-sources.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
+import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { routeChange } from '../lib/status-router.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import type { VerifyGrade } from '../types/change.js';
@@ -12,6 +16,7 @@ import type {
   StatusReport,
   UiScope,
 } from '../types/status.js';
+import { parseDeltaSpec } from '../lib/delta-spec-parser.js';
 
 /**
  * `prospec status` — deterministic SDD routing over `.prospec/changes/`.
@@ -55,7 +60,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
-        changes.push(routeChange(await collectFacts(changeDir, name, metadata)));
+        changes.push(routeChange(await collectFacts(changeDir, name, metadata, cwd)));
       } catch (err) {
         errors.push({ name, error: err instanceof Error ? err.message : String(err) });
       }
@@ -70,6 +75,7 @@ async function collectFacts(
   changeDir: string,
   name: string,
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
+  cwd: string,
 ): Promise<ChangeRouteFacts> {
   const issue = normalizeIssueRef(metadata.issue);
   const tasksText = await readFileIfExists(path.join(changeDir, 'tasks.md'));
@@ -89,8 +95,73 @@ async function collectFacts(
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
+    hasKnowledgeSync:
+      metadata.status === 'verified'
+        ? await checkKnowledgeSync(changeDir, metadata, cwd)
+        : true,
     ...(issue === undefined ? {} : { issue }),
   };
+}
+
+/**
+ * Check whether affected-module Knowledge is confirmed synced for this change.
+ * Reads metadata.related_modules (falling back to delta-spec.md if present) and
+ * confirms that every affected module exists in module-map.yaml with a valid
+ * README, last_verified timestamp, and not stale vs source commits.
+ */
+async function checkKnowledgeSync(
+  changeDir: string,
+  metadata: ReturnType<typeof readChangeMetadata>['metadata'],
+  cwd: string,
+): Promise<boolean> {
+  let affectedModules = metadata.related_modules ?? [];
+  if (affectedModules.length === 0) {
+    const deltaSpecText = await readFileIfExists(path.join(changeDir, 'delta-spec.md'));
+    if (deltaSpecText) {
+      const delta = parseDeltaSpec(deltaSpecText);
+      affectedModules = [
+        ...new Set([...delta.added, ...delta.modified, ...delta.removed].map((e) => e.module)),
+      ];
+    }
+  }
+
+  if (affectedModules.length === 0) return true;
+
+  const config = await readConfig(cwd).catch(() => null);
+  const knowledgePath = config
+    ? resolveBasePaths(config, cwd).knowledgePath
+    : path.resolve(cwd, 'prospec/ai-knowledge');
+
+  let moduleMap: ReturnType<typeof loadModuleMap> = null;
+  try {
+    moduleMap = loadModuleMap(knowledgePath, cwd);
+  } catch {
+    return false;
+  }
+  if (moduleMap === null) return true;
+
+  const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
+  const timestamps = collectGitTimestamps(cwd, moduleMap, knowledgePath, generatedArtifacts);
+
+  for (const modName of affectedModules) {
+    const norm = modName.toLowerCase();
+    const entry = moduleMap.modules.find((m) => m.name.toLowerCase() === norm);
+    if (!entry) return false;
+    if (!entry.last_verified || isNaN(Date.parse(entry.last_verified))) return false;
+
+    const readmePath = path.join(knowledgePath, 'modules', entry.name, 'README.md');
+    if (!fs.existsSync(readmePath)) return false;
+
+    if (timestamps.available) {
+      const modTs = timestamps.modules.find((m) => m.name.toLowerCase() === norm);
+      if (!modTs || !modTs.readme_exists || !modTs.last_verified) return false;
+      if (modTs.last_src_commit && isStale(modTs.last_src_commit, modTs.last_verified)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 /**

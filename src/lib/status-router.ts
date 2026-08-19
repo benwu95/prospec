@@ -193,6 +193,18 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     }
 
     case 'verified': {
+      if (!facts.hasKnowledgeSync) {
+        return {
+          ...base,
+          next: 'knowledge-update',
+          blockingGates: [
+            'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or /prospec-knowledge-update)',
+          ],
+          reasons: [
+            'status `verified` — knowledge is not yet synced for affected modules; /prospec-knowledge-update is the next station',
+          ],
+        };
+      }
       return {
         ...base,
         next: 'archive',

@@ -22,6 +22,7 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     codeTasksDone: 0,
     hasReviewProvenance: false,
     lastVerifyGrade: null,
+    hasKnowledgeSync: true,
     ...overrides,
   };
 }
@@ -120,8 +121,16 @@ describe('status-router — lifecycle edges', () => {
     expect(route.reasons.join(' ')).not.toContain('did not advance');
   });
 
-  it('verified → archive with the Knowledge-sync gate', () => {
-    const route = routeChange(facts({ status: 'verified' }));
+  it('verified without knowledge sync → knowledge-update with sync gate', () => {
+    const route = routeChange(facts({ status: 'verified', hasKnowledgeSync: false }));
+    expect(route.current).toBe('verify');
+    expect(route.next).toBe('knowledge-update');
+    expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
+    expect(route.reasons.join(' ')).toContain('/prospec-knowledge-update is the next station');
+  });
+
+  it('verified with knowledge sync → archive with the Knowledge-sync gate', () => {
+    const route = routeChange(facts({ status: 'verified', hasKnowledgeSync: true }));
     expect(route.current).toBe('verify');
     expect(route.next).toBe('archive');
     expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
@@ -132,7 +141,7 @@ describe('status-router — lifecycle edges', () => {
   // for exactly the state that widening the audit scope exists to guard, and the
   // verify S/A commit stales both by construction.
   it('verified declares the provenance gates and names the re-record remedy', () => {
-    const gates = routeChange(facts({ status: 'verified' })).blockingGates.join(' ');
+    const gates = routeChange(facts({ status: 'verified', hasKnowledgeSync: true })).blockingGates.join(' ');
     expect(gates).toContain('provenance');
     expect(gates).toContain('re-record');
   });
@@ -233,6 +242,14 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
         expect(route.reasons.length).toBeGreaterThan(0);
       });
     }
+  }
+
+  for (const scale of CHANGE_SCALES) {
+    it(`verified × ${scale} routes to knowledge-update when hasKnowledgeSync is false`, () => {
+      const route = routeChange(facts({ status: 'verified', scale, hasKnowledgeSync: false }));
+      expect(route.next).toBe('knowledge-update');
+      expect(route.reasons.join(' ')).toContain('/prospec-knowledge-update is the next station');
+    });
   }
 
   // Both light scales skip plan, for different reasons: quick still has a tasks

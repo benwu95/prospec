@@ -3078,7 +3078,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
   describe('station order ↔ SDD_STATIONS', () => {
     const parseOrder = (doc: string): string[] => {
       const section = sectionOf(doc, '## Station order');
-      const chain = /^`([a-z]+(?: → [a-z]+)+)`$/m.exec(section)?.[1];
+      const chain = /^`([a-z-]+(?: → [a-z-]+)+)`$/m.exec(section)?.[1];
       expect(chain, 'no backticked station chain in the Station order section').toBeDefined();
       return chain!.split(' → ');
     };

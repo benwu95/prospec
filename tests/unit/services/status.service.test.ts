@@ -30,6 +30,16 @@ vi.mock('../../../src/lib/status-router.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/drift-sources.js')>();
+  return {
+    ...actual,
+    collectGitTimestamps: vi.fn((...args: Parameters<typeof actual.collectGitTimestamps>) =>
+      actual.collectGitTimestamps(...args),
+    ),
+  };
+});
+
 beforeEach(() => {
   vol.reset();
   vi.clearAllMocks();
@@ -336,4 +346,186 @@ describe('status.service — issue registration (issue #131)', () => {
       expect(Object.hasOwn(routedFacts[0] as object, 'issue')).toBe(false);
     },
   );
+});
+
+describe('status.service — knowledge-aware routing at verified', () => {
+  it('routes verified to archive when change has no affected modules', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('archive');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+  });
+
+  it('routes verified to knowledge-update when affected module is missing in module-map.yaml', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - missing-module\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('routes verified to knowledge-update when affected module lacks last_verified', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('routes verified to knowledge-update when affected module README is missing', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('routes verified to archive when all affected modules are verified with README', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('archive');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+  });
+
+  it('derives affected modules from delta-spec.md when related_modules is omitted', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+      }),
+      [`${CWD}/.prospec/changes/a-change/delta-spec.md`]: [
+        '# Delta Spec',
+        '## ADDED',
+        '### REQ-TYPES-099: New Type Requirement',
+        '**Feature:** types',
+        '**Story:** US-1',
+        '**Spec:** New type contract.',
+      ].join('\n'),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('archive');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+  });
+
+  it('routes verified to knowledge-update when git timestamp indicates stale module knowledge', async () => {
+    const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
+    vi.mocked(collectGitTimestamps).mockReturnValueOnce({
+      available: true,
+      modules: [
+        {
+          name: 'types',
+          readme_path: 'prospec/ai-knowledge/modules/types/README.md',
+          readme_exists: true,
+          last_src_commit: '2026-01-05T00:00:00Z',
+          last_readme_commit: '2026-01-01T00:00:00Z',
+          last_sub_module_commit: null,
+          last_verified: '2026-01-01T00:00:00Z',
+        },
+      ],
+    });
+
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('routes verified to archive when git timestamps confirm module knowledge is fresh', async () => {
+    const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
+    vi.mocked(collectGitTimestamps).mockReturnValueOnce({
+      available: true,
+      modules: [
+        {
+          name: 'types',
+          readme_path: 'prospec/ai-knowledge/modules/types/README.md',
+          readme_exists: true,
+          last_src_commit: '2026-01-01T00:00:00Z',
+          last_readme_commit: '2026-01-01T00:00:00Z',
+          last_sub_module_commit: null,
+          last_verified: '2026-01-01T00:00:00Z',
+        },
+      ],
+    });
+
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('archive');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+  });
+
+  it('routes verified to knowledge-update when last_verified is an unparseable date', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "not-a-date"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+    });
+
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
 });

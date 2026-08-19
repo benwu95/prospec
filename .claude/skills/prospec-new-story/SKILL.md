@@ -176,7 +176,7 @@ Save proposal.md. Present the completed proposal summary to the user for single-
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable slash
 command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation

@@ -7,7 +7,7 @@
 | File | Purpose |
 |------|---------|
 | `mcp.service.ts` | `buildMcpServer(ctx)` — resources + tools over the SDK; `execute()` wires stdio |
-| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts, route via `lib/status-router` |
+| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts (incl. knowledge sync status), route via `lib/status-router` |
 | `spec-show.service.ts` | `execute({cwd, feature, req, story})` — route through the shared `lib/spec-read` entry, then apply only this surface's no-selector policy (whole spec vs refuse) |
 
 ## Public API
