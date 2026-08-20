@@ -10,7 +10,7 @@ description: "Break Down Tasks - Decompose implementation plan into an actionabl
 
 When triggered, briefly describe:
 - That you'll read plan.md and delta-spec.md to understand the implementation scope
-- Tasks will be organized by architecture layer (Types → Lib → Services → CLI → Tests)
+- Tasks will be organized by architecture layer following the project's conventions (see [`references/tasks-format.md`](references/tasks-format.md))
 - Non-code tasks carry a `[M]`/`[V]` kind marker; complexity estimates and `[P]` markers are optional
 
 ## Language Policy
@@ -71,11 +71,7 @@ Auto-identify current change, read plan.md and delta-spec.md, summarize implemen
 
 ### Phase 3: Decompose by Architecture Layer
 
-Organize tasks following the layer order defined in `references/tasks-format.md`:
-
-```
-Types → Lib → Services → CLI → Tests
-```
+Organize tasks following the layer order the project defines — see [`references/tasks-format.md`](references/tasks-format.md), whose Dynamic Architecture Adaptation note lists examples (e.g. `Domain → Ports → Adapters → Tests`, `Models → Services → Controllers → Tests`) and forbids hardcoding a fixed framework topology.
 
 Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` parallelization marker are **optional** — no skill or service *gates* on them (nothing reads `~lines`; `/prospec-implement` treats `[P]` only as a best-effort "could parallelize" reminder that degrades cleanly when absent). Add them only when they aid the reader; never gate on their presence.
 
@@ -85,7 +81,7 @@ Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` para
 - Single responsibility: one task does one thing
 - Verifiable: clear completion criteria
 - Right-sized: ideal 15-25 tasks, each 20-100 lines
-- Dependency direction: follow `cli → services → lib → types` order from `_conventions.md` — implement lower layers first
+- Dependency direction: follow the layer order the project's `_conventions.md` defines — implement lower layers first
 
 **UI task decomposition** (when design-spec.md exists):
 - Reference specific component names from design-spec.md in each UI task description
@@ -93,7 +89,7 @@ Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` para
 - This ensures the implement phase knows which components to look up and which MCP tools to use
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] tasks written to `tasks.md`, grouped by architecture layer (Types → Lib → Services → CLI → Tests)
+> - [ ] tasks written to `tasks.md`, grouped by architecture layer per the project's conventions (see [`references/tasks-format.md`](references/tasks-format.md))
 > - [ ] non-code tasks carry `[M]`/`[V]` kind markers (the one required marker class; `~lines`/`[P]` are optional)
 
 ### Phase 4 (Optional): Mark Parallelization Opportunities

@@ -19,7 +19,7 @@ Three levels only — the same PASS/WARN/FAIL-family vocabulary used across pros
 A finding is critical only if it is one of:
 
 1. **Real defect**: not fixing it causes a genuine bug, security hole, data loss, or production incident. (Do not inflate criticals — speculative or "could theoretically" risks are not critical.)
-2. **Dependency-direction violation**: an import or call that breaks `cli → services → lib → types` (never upward).
+2. **Dependency-direction violation**: an import or call that breaks the project's declared dependency direction — from its Constitution / `_conventions.md` (never upward).
 3. **Spec contradiction**: the implementation logically contradicts a `delta-spec` REQ's stated intent.
 
 > REQ *completeness* ("this REQ is only partially covered") is **not** a review critical — it is left to `/prospec-verify` dimension 1–2. Review checks correctness and spec-*contradiction*, not coverage.

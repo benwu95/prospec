@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
+import { BUNDLED_TEMPLATES } from '../../src/lib/bundled-templates.js';
 import {
   AGENT_CONFIGS,
   SKILL_DEFINITIONS,
@@ -1295,6 +1296,62 @@ describe('Skill Format Contract', () => {
     }
   });
 
+  // issue #196 — templates render into ANY target project (non-prospec, non-TS,
+  // any harness), so guidance must not hardcode prospec's own stack, layer
+  // topology, or base-dir path. Guards the three regressions H1/M1/M2 + the LOW
+  // pre-existing sibling, and prevents their reintroduction.
+  describe('Project-agnostic template guidance (issue #196 — no prospec-specific hardcoding)', () => {
+    const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
+
+    it('prospec-review Success Criteria uses the project test command, not a hardcoded `pnpm test` (H1)', () => {
+      const criteria = sectionOf(render('skills/prospec-review.hbs'), '### Success Criteria');
+      expect(criteria).not.toContain('pnpm test');
+      expect(flat(criteria)).toContain('project-test-runner');
+    });
+
+    // PB-007 repo-wide sweep: no skill/reference body may prescribe prospec's own
+    // layer topology or dependency direction as THE order — the very leak class
+    // this change fixes. `tasks-format.hbs` is allowlisted: it deliberately shows
+    // `Types → Lib → Services → CLI → Tests` as ONE of several `e.g.` examples,
+    // paired with an explicit "Never hardcode a fixed framework layer topology" note.
+    it('no skill or reference body hardcodes prospec-specific layer topology/direction (M1/LOW, sweep)', () => {
+      // `tasks-format.hbs` deliberately shows `Types → Lib → Services → CLI → Tests`
+      // as ONE of several `e.g.` examples, paired with an explicit "Never hardcode a
+      // fixed framework layer topology" note — that is the single legitimate site.
+      const TOPOLOGY_ALLOWLIST = new Set(['skills/references/tasks-format.hbs']);
+      const templates = Object.keys(BUNDLED_TEMPLATES).filter(
+        (k) =>
+          (/^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k)) &&
+          !TOPOLOGY_ALLOWLIST.has(k),
+      );
+      // Non-empty guard: an empty list would make this test vacuously pass.
+      expect(templates.length).toBeGreaterThan(20);
+      for (const key of templates) {
+        const content = render(key);
+        expect(content, `${key} hardcodes forward layer topology`).not.toContain(
+          'Types → Lib → Services → CLI',
+        );
+        expect(content, `${key} hardcodes dependency direction`).not.toContain(
+          'cli → services → lib → types',
+        );
+      }
+    });
+
+    it('project-test-runner references the resolved constitution path, never a literal prospec/CONSTITUTION.md (M2)', () => {
+      // Rendered against a RELOCATED base dir: a literal survives verbatim, while
+      // the resolved `{{constitution_path}}` follows the relocation. Only the
+      // relocated render can tell a hardcoded string apart from the variable.
+      const relocated = renderTemplate('skills/references/project-test-runner.hbs', {
+        ...TEMPLATE_CONTEXT,
+        constitution_path: 'docs/CONSTITUTION.md',
+        base_dir: 'docs',
+        knowledge_base_path: 'docs/ai-knowledge',
+      });
+      expect(relocated).not.toContain('prospec/CONSTITUTION.md');
+      expect(relocated).toContain('docs/CONSTITUTION.md');
+    });
+  });
+
   describe('Status lifecycle alignment', () => {
     it('plan-format should contain a Call Chain section before Implementation Steps', () => {
       const content = renderTemplate(
@@ -1806,7 +1863,7 @@ describe('Skill Format Contract', () => {
       const c = render();
       expect(c).toContain('spec-architecture');
       expect(c).toContain('delta-spec');
-      expect(c).toContain('cli → services → lib → types');
+      expect(c).toContain('dependency direction');
     });
 
     it('loops with verifier-confirmed criticals, a hard cap, and human escalation', () => {

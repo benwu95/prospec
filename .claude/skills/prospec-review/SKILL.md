@@ -57,7 +57,7 @@ nondeterministic serialization this contract exists to remove.
 Must-run every round:
 - **correctness & edge cases**
 - **security & data integrity**
-- **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation **contradicting** a `delta-spec` REQ, dependency direction `cli → services → lib → types`, module conventions, and unhandled ripple effects. Whether every REQ is *fully satisfied* is `/prospec-verify` 2/5's contract check, not this lens — that station's `## Key Difference from Other Skills` states the review/verify division once; do not restate or re-audit it here.
+- **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation **contradicting** a `delta-spec` REQ, the project's declared dependency direction (per its Constitution / `_conventions.md`), module conventions, and unhandled ripple effects. Whether every REQ is *fully satisfied* is `/prospec-verify` 2/5's contract check, not this lens — that station's `## Key Difference from Other Skills` states the review/verify division once; do not restate or re-audit it here.
   - **Quick degradation** (`metadata.scale: quick`): the delta-spec REQ comparison is `not-applicable` (there is no delta-spec — never report it as PASS); dependency direction, module conventions, and ripple checks still run in full. Additionally, when the diff appears to touch behavior covered by existing `prospec/specs/features/` REQs, raise an early warning — the `/prospec-archive` Entry Gate re-checks this, but catching it at review is cheaper.
 
 Conditional: **security & data integrity** (untrusted input, auth, external integrations), efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions), **docs-claims** (the change adds/edits README or doc claims about behavior — check claim ⊆ implementation, PB-003), **parallel-site completeness** (the change touches a shared resolver / invariant / data source — grep EVERY consumer, PB-007), and **test-quality** (the change adds/edits tests — section-scoped + structural + negative + mutation-verified, PB-001). When any conditional lens applies, load [`references/review-lenses-content.md`](references/review-lenses-content.md) **on demand** for its concrete, severity-pre-mapped criteria (OWASP/IDOR/SSRF/injection/secrets; N+1/CWV/blocking I/O; DRY/complexity/Rule-of-N; docs-claims/parallel-site/test-quality) — severity vocabulary stays defined in `review-format.md`, the lens-content reference only maps onto it. This reference is on-demand only — it is NOT a Startup Loading item. A pluggable language-specific engine may add further language lenses; the spec-architecture lens is always added by prospec and is never replaced by the vendored lens criteria.
@@ -102,7 +102,7 @@ Because the digest is code-computed, editing the change's code after this point 
 
 ### Success Criteria
 - [ ] no unresolved critical (loop converged, or escalated to the human with the list)
-- [ ] every fix round left `pnpm test` green
+- [ ] every fix round left the project test suite (per [`references/project-test-runner.md`](references/project-test-runner.md)) green
 - [ ] `review.md` written with the findings table
 - [ ] a `prospec-review` `quality_log` entry recorded (every round, incl. review-clean) and the review baseline stamped via `prospec check --record-review`
 - [ ] every auto-fixed critical was verifier-confirmed before the fix (manual)
