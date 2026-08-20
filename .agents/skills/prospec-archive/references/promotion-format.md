@@ -60,7 +60,7 @@ The single definition of which **conversational** corrections are worth capturin
 
 - **Capture** only a rule with cross-file generality: an architecture/layering boundary, a type-contract rule, a testing-discipline rule, or a security rule — the kinds that recur and would re-bite a different file or a later session.
 - **Exclude** the one-off: a hard-coded test mock/workaround, a one-off business-string or copy tweak, a temporary hack, or a pure business/requirement change. These never generalize, so capturing them only poisons and bloats the ledger.
-- A captured lesson names the downstream project's modules (`module-map.yaml`) and domain terms (`_glossary.md`), and its `description` is written in the language of the original correction (the ledger exception above).
+- A captured lesson names this project's modules (`module-map.yaml`) and domain terms (`_glossary.md`), and its `description` is written in the language of the original correction (the ledger exception above).
 - A recurring pattern is unioned by `prospec learn upsert`'s distinct-source `frequency`, never appended as a duplicate row — the same dedup that keeps the ledger within budget.
 
 ---

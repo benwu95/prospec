@@ -9,7 +9,7 @@ What follows documents the shape those commands emit, so a skill reading the fil
 composing structured CLI input) knows what each field means.
 
 > **Scope: format only.** Field *semantics*, types, and optionality are defined by the
-> `ChangeMetadataSchema` in `src/types/change.ts`; `status` values and their transitions
+> `ChangeMetadataSchema` (owned by the prospec CLI); `status` values and their transitions
 > by `prospec/ai-knowledge/_status-lifecycle.md`; the required-field floor is enforced by
 > the `metadata-completeness` drift check (`prospec check`). This reference does **not**
 > restate any of them. When in doubt about a value's meaning, read those sources.
@@ -172,4 +172,4 @@ issue: "#412"
 
 - Project name: `prospec`
 - AI Knowledge path: `prospec/ai-knowledge`
-- Schema authority: `src/types/change.ts` · Status authority: `prospec/ai-knowledge/_status-lifecycle.md`
+- Schema authority: the prospec CLI's `ChangeMetadataSchema` · Status authority: `prospec/ai-knowledge/_status-lifecycle.md`

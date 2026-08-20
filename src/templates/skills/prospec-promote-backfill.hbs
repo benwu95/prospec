@@ -12,7 +12,7 @@ When triggered, briefly describe:
 - That you'll formalize a **reviewed** `backfill-draft.md` into the backfill change scaffold — `proposal.md` + `delta-spec.md` + `metadata.yaml` — so it can graduate through `/prospec-verify` (backfill mode) → `/prospec-archive`
 - That this is the single, repeatable draft→scaffold step — it replaces ad-hoc hand conversion and is where the `scale: backfill` marker is set
 - That `backfill` is a **light scale** like `quick`: it records *existing* behavior, so there is **no `plan.md` and no `tasks.md`** (nothing to plan, no work to schedule). The scaffold enters the lifecycle directly at `status: implemented`
-- That it **never** writes the trust zone (`{{base_dir}}/specs/features/`) — `archive.service.ts` stays the sole writer
+- That it **never** writes the trust zone (`{{base_dir}}/specs/features/`) — `prospec archive` (the CLI) stays the sole writer
 
 {{> language-policy}}
 
@@ -96,7 +96,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** write under `{{base_dir}}/specs/features/` — promotion only stages the change scaffold under `.prospec/changes/[name]/`; `archive.service.ts` stays the sole writer of the trust zone
+- **NEVER** write under `{{base_dir}}/specs/features/` — promotion only stages the change scaffold under `.prospec/changes/[name]/`; `prospec archive` (the CLI) stays the sole writer of the trust zone
 - **NEVER** carry an unresolved `[NEEDS CLARIFICATION]` into the scaffold — a backfill change records *confirmed* behavior; send the user back to the draft's review gate instead
 - **NEVER** add a behavior, count, or cross-module flow the draft did not already ground in `file:line` — promotion reshapes the fidelity-checked draft, it does not re-extract or fabricate
 - **NEVER** leave `related_modules` empty — archive's backfill knowledge-sync derives affected modules from it; an empty set would silently pass the gate

@@ -1414,6 +1414,23 @@ describe('Skill Format Contract', () => {
         expect(content, `${skill} must carry the capability line`).toContain(CAPABILITY_LINE_LABEL);
       }
     });
+
+    it('no shipped reference footer hardcodes the upstream project name — footers render {{project_name}} (issue #196 project-agnostic-leak class)', () => {
+      const refs = Object.keys(BUNDLED_TEMPLATES).filter((k) =>
+        /^skills\/references\/[^/]+\.hbs$/.test(k),
+      );
+      expect(refs.length).toBeGreaterThan(20);
+      for (const key of refs) {
+        // render with a non-prospec project name: a footer that describes the
+        // CONSUMING project must take its name from {{project_name}}, so it
+        // renders "test-project" here — never the hardcoded upstream literal
+        // that reads wrong in every downstream project.
+        const content = renderTemplate(key, { ...TEMPLATE_CONTEXT, project_name: 'test-project' });
+        expect(content, `${key} footer hardcodes the upstream project name`).not.toContain(
+          'Project name: `prospec`',
+        );
+      }
+    });
   });
 
   // issue #184 — passive checkpoint capture of session corrections. The entry
@@ -1487,6 +1504,12 @@ describe('Skill Format Contract', () => {
       // structured sources are NOT re-filtered (so REQ-094 is untouched).
       expect(section).toContain('conversational');
       expect(section).toContain('NOT re-filtered');
+      // project-agnostic: this reference renders verbatim into every downstream
+      // project's promotion-format.md, so the heuristic must speak from THAT
+      // project's own vantage — "this project's modules", never the upstream
+      // "the downstream project's …" leak (issue #196 class).
+      expect(section).toContain("this project's modules");
+      expect(section).not.toContain('downstream project');
     });
 
     it('the Generalizability Heuristic reaches both the prospec-learn and prospec-archive reference copies', () => {

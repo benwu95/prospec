@@ -32,7 +32,7 @@ nondeterministic serialization this contract exists to remove.
 ## Startup Loading
 
 1. [STABLE] **MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines
-2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_conventions.md` — follow project patterns (execute(), atomicWrite(), ContentMerger)
+2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_conventions.md` — follow the project's own conventions
 3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
 4. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — understand design intent
 5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
@@ -97,7 +97,7 @@ Load relevant module AI Knowledge (Layer 2).
 ### Phase 3: Execute Implementation
 
 Implement code based on delta-spec specifications (quick: proposal.md acceptance scenarios) and module design patterns.
-Follow `prospec/ai-knowledge/_conventions.md` patterns: Service `execute()`, `atomicWrite()` for file operations, `ContentMerger` for preserving user sections.
+Follow the patterns in `prospec/ai-knowledge/_conventions.md` — the project's own service, file-write, and content-preservation conventions.
 
 **For UI tasks — MCP-first approach:**
 Before writing any UI code, use the platform adapter's Implement Phase guidelines to read precise design values from the design tool via MCP (exact colors, spacing, font sizes, component structure). MCP-read values are more precise than design-spec.md markdown descriptions — always prefer MCP data for visual properties. Use design-spec.md as the structural blueprint, and MCP as the measurement source.
@@ -107,7 +107,7 @@ When the current task touches a third-party library **and** a Context7 MCP is av
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] current task's code implemented against delta-spec (quick: proposal.md acceptance scenarios)
-> - [ ] `_conventions.md` patterns applied where applicable (execute()/atomicWrite()/ContentMerger)
+> - [ ] `_conventions.md` patterns applied where applicable
 
 ### Phase 4: Verify Implementation
 
@@ -150,7 +150,7 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 
 ## Knowledge Quality Gate
 
-After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed (execute()/atomicWrite()/ContentMerger where applicable), the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
 
 ## Output Contract
 
