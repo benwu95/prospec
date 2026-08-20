@@ -1416,6 +1416,108 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  // issue #184 — passive checkpoint capture of session corrections. The entry
+  // config gains a Checkpoint Correction Capture Protocol (harness-neutral,
+  // resolved {{skill_path}}, ledger write kept out of the feature commit), and
+  // promotion-format gains the single-source Generalizability Heuristic that
+  // both the L0 protocol and Collect follow. Section-scoped + a negative
+  // source-level harness-neutral guard, per PB-001.
+  describe('Checkpoint correction capture (issue #184)', () => {
+    const HARNESS_TOOLS = ['view_file', 'invoke_subagent'];
+
+    const workingSection = () =>
+      sectionOf(
+        renderTemplate('agent-configs/entry.md.hbs', {
+          ...TEMPLATE_CONTEXT,
+          skill_path: '.claude/skills',
+          surfaces_skill_frontmatter: true,
+        }),
+        '## Working with This Project',
+      );
+
+    it('entry.md renders a Checkpoint Correction Capture Protocol wired to learn upsert + downstream vocab (REQ-TEMPLATES-197)', () => {
+      const section = workingSection();
+      expect(section).toContain('Checkpoint Correction Capture Protocol');
+      // reflection points are session end / before archive — NOT "before a
+      // feature commit" (that would collide with Atomic Commits).
+      expect(section).toContain('session end');
+      expect(section).toContain('before archiving');
+      expect(section).not.toContain('before a feature commit');
+      // the CLI recorder + downstream vocab pointers + original-language desc.
+      expect(section).toContain('prospec learn upsert');
+      expect(section).toContain('module-map.yaml');
+      expect(section).toContain('_glossary.md');
+      expect(section).toContain('language the correction was given');
+      // the Atomic-Commits separation clause.
+      expect(section).toMatch(/never fold it into a feature commit/);
+    });
+
+    it('the checkpoint protocol is harness-neutral and hardcodes no skills-dir literal (REQ-TEMPLATES-197, negative, source-level)', () => {
+      // Assert on the TEMPLATE source (not the resolved render) so a hardcoded
+      // path or harness tool is caught even though THIS project resolves
+      // {{skill_path}} to .claude/skills.
+      const raw = BUNDLED_TEMPLATES['agent-configs/entry.md.hbs'];
+      expect(raw, 'entry.md.hbs must be bundled').toBeTruthy();
+      const protoStart = raw!.indexOf('**Checkpoint Correction Capture Protocol**');
+      expect(protoStart, 'protocol not in template source').toBeGreaterThan(-1);
+      const protoEnd = raw!.indexOf('\n\n1. **Before starting**', protoStart);
+      expect(protoEnd, 'protocol paragraph boundary not found').toBeGreaterThan(protoStart);
+      const proto = raw!.slice(protoStart, protoEnd);
+      // uses the resolved variable, never a hardcoded harness dir.
+      expect(proto).toContain('{{skill_path}}');
+      expect(proto).not.toContain('.claude/skills');
+      expect(proto).not.toContain('.agents/skills');
+      for (const t of HARNESS_TOOLS) expect(proto).not.toContain(t);
+    });
+
+    it('promotion-format defines the single-source Generalizability Heuristic — capture + exclude, conversational scope (REQ-TEMPLATES-198 / REQ-TESTS-024)', () => {
+      const ref = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+      const start = ref.indexOf('## Generalizability Heuristic');
+      expect(start, 'Generalizability Heuristic section not found').toBeGreaterThan(-1);
+      const nextHeading = ref.indexOf('\n## ', start + 1);
+      const section = ref.slice(start, nextHeading === -1 ? undefined : nextHeading);
+      // both sides of the filter live in the same section.
+      expect(section).toContain('Capture');
+      expect(section).toContain('Exclude');
+      expect(section).toMatch(/architecture|layering/);
+      expect(section).toMatch(/type-contract/);
+      expect(section).toMatch(/mock/);
+      expect(section).toMatch(/business/);
+      // scoped to conversational capture; the section itself states Harvest's
+      // structured sources are NOT re-filtered (so REQ-094 is untouched).
+      expect(section).toContain('conversational');
+      expect(section).toContain('NOT re-filtered');
+    });
+
+    it('the Generalizability Heuristic reaches both the prospec-learn and prospec-archive reference copies', () => {
+      // One .hbs source; both skills self-contain promotion-format, so the
+      // single render proves the content each deployed copy carries.
+      const ref = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+      expect(ref).toContain('## Generalizability Heuristic');
+      for (const skill of ['prospec-learn', 'prospec-archive']) {
+        const carries = getSkillReferences(skill).some((r) =>
+          r.outputName.includes('promotion-format'),
+        );
+        expect(carries, `${skill} must self-contain promotion-format`).toBe(true);
+      }
+    });
+
+    it('prospec-learn Collect routes session-correction folding through the Generalizability Heuristic, and its Startup read names it (REQ-TEMPLATES-198)', () => {
+      const skill = renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+      // Collect's session-correction folding must ROUTE THROUGH the heuristic,
+      // not merely inherit it via the whole-file read — this pins the claim
+      // REQ-198 makes ("followed by Collect's session-correction folding"), so
+      // the manual /prospec-learn path applies the same filter the L0 protocol does.
+      const collect = sectionOf(skill, '### Collect');
+      expect(collect).toContain('Generalizability Heuristic');
+      expect(collect).toContain('session corrections');
+      // and the Startup Loading read of promotion-format names the heuristic
+      // among its stated purposes, so the read is framed for capture-filtering.
+      const startup = sectionOf(skill, '## Startup Loading');
+      expect(startup).toContain('Generalizability Heuristic');
+    });
+  });
+
   describe('Status lifecycle alignment', () => {
     it('plan-format should contain a Call Chain section before Implementation Steps', () => {
       const content = renderTemplate(
