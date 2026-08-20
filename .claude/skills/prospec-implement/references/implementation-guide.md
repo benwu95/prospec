@@ -21,18 +21,14 @@ If `prospec/CONSTITUTION.md` requires TDD (Test-Driven Development):
 
 ### 2. Task Execution Order
 
-Follow the architecture layer sequence in `tasks.md`:
-
-```
-Types → Lib → Services → CLI → Tests
-```
+Follow the architecture-layer sequence defined in `tasks.md` — the project's own layers, lowest-dependency first (e.g. `Domain → Ports → Adapters → Tests`, or `Models → Services → Controllers → Tests`).
 
 **Dependency rules:**
-- Complete depended-upon modules first (e.g., Types, Lib)
-- Then implement modules that depend on others (e.g., Services, CLI)
+- Complete depended-upon (lower) layers first
+- Then implement the layers that depend on them
 - `[P]` marked tasks can be executed simultaneously (no dependencies)
 
-**Example execution order:**
+**Example execution order** (illustrative only — a layered example project; substitute your project's own layers):
 
 ```
 1. Types/Define ErrorType enum

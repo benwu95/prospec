@@ -143,7 +143,7 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 
 ## Task Execution Rules
 
-- **Execute in order**: Follow tasks.md architecture layer sequence (Types → Lib → Services → CLI → Tests)
+- **Execute in order**: Follow the architecture-layer sequence in `tasks.md` — the project's own layers, lowest-dependency first
 - **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
 - **Immediate marking**: Run `prospec change progress --complete <task-id>` immediately after completing each task
 - **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.

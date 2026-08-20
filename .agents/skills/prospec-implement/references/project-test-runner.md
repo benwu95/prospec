@@ -35,7 +35,7 @@ When executing project test suites (`check --record-tests`, implement verificati
 ## Project Constitution & Commit Invariants
 
 1. **Constitution Obedience**:
-   - All code, tests, and commit messages produced during cascading MUST adhere strictly to the target project's `prospec/CONSTITUTION.md`.
+   - All code, tests, and commit messages produced during cascading MUST adhere strictly to the project's `prospec/CONSTITUTION.md`.
 2. **Language Policy**:
    - Change artifacts (`.prospec/changes/**`, `.prospec/archive/**`) follow the project's configured `artifact_language`.
    - Technical trust zone documentation and commit messages follow standard English conventions (or the project's declared policy).
