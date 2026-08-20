@@ -344,3 +344,54 @@ The test suite validates pipeline cascading components, oscillation breakers, pr
 - WHEN running unit and contract tests, THEN oscillation detection, project test command resolution, and template contracts pass without regressions
 
 ---
+
+#### REQ-TEMPLATES-195: Per-station Execution Loop in cascade protocol
+The cascading protocol reference defines a per-station Execution Loop whose first step reloads the station's skill.
+- WHEN a station is entered during cascading, THEN the loop runs Step 1 [LOAD] (read the station's `SKILL.md`) → Step 2 [ENTRY] (station entry gates) → Step 3 [EXEC] (per SKILL.md and its references) → Step 4 [GATE] (machine verifiers; FAIL trips the Oscillation Breaker) → Step 5 [NEXT] (`prospec status`, then back to Step 1)
+- WHEN the loop names the skill read, THEN it uses harness-neutral wording and a relative reference to the station skill, not an absolute or hardcoded path
+
+---
+
+#### REQ-TEMPLATES-196: Standardized fresh-context delegation without named agents
+Heavy stations delegate to fresh context through the shared harness-capabilities partial, never through named agents or tools.
+- WHEN review or verify requires fresh context, THEN it resolves the sub-agent-vs-degradation path from the `can_spawn_subagent` capability flag via the harness-capabilities partial
+- WHEN any skill or reference body describes delegation, THEN it names no harness-specific tool (`view_file`, `invoke_subagent`) and no plugin agent type (`code-reviewer`, `security-auditor`, `test-engineer`)
+
+---
+
+#### REQ-TYPES-087: ChangeRoute carries the next station's skill path
+The `ChangeRoute` contract carries an optional `nextSkillPath` string for the next station's skill file.
+- WHEN a next station and a configured agent both resolve, THEN `nextSkillPath` is the resolved skill file path
+- WHEN the change is terminal or no agent is configured, THEN `nextSkillPath` is absent
+
+---
+
+#### REQ-LIB-059: Pure resolver for the next station's skill path
+A pure resolver derives the next station's skill file path from the configured agents and the target station.
+- WHEN given a non-empty agent list and a non-null station, THEN it returns `{canonicalSkillPath}/{STATION_SKILLS[station] without leading slash}/SKILL.md`, where the canonical skill path comes from the first configured agent's registry entry
+- WHEN the agent list is empty or the station is null, THEN it returns null
+- WHEN resolving, THEN it performs no I/O (agent names and station are passed in)
+
+---
+
+#### REQ-SERVICES-092: status service attaches the resolved skill path
+The status service enriches each routed change with its next station's resolved skill path.
+- WHEN the service routes a change, THEN it calls the pure resolver with the project's configured agents and the routed next station and sets `nextSkillPath` on the route
+- WHEN config cannot be read or declares no agents, THEN the route's `nextSkillPath` stays absent and routing is otherwise unchanged
+
+---
+
+#### REQ-CLI-039: status output surfaces the actionable skill target
+`prospec status` surfaces the next station's skill file as an actionable target.
+- WHEN a routed change has a `nextSkillPath`, THEN the output prints, below `next:`, an `action:` line naming that path and instructing the agent to read the skill file before executing station checks
+- WHEN `nextSkillPath` is absent, THEN the output is unchanged (slash-command `next:` only), never a hardcoded skills directory
+
+---
+
+#### REQ-TESTS-094: Contract, unit, and e2e coverage for station-transition awareness
+The test suite pins the station-transition awareness contracts.
+- WHEN contract tests run, THEN they assert `entry.md.hbs` renders a Station Transition Protocol using `{{skill_path}}` with no harness tool name, `cascade-protocol.hbs` defines the Step 1 [LOAD] per-station loop, and a repo-wide sweep finds no named plugin agent type or harness tool name in any skill/reference body
+- WHEN unit tests run, THEN they assert `resolveNextSkillPath` returns the composed path for a configured agent and null otherwise, and that `status.service` sets `nextSkillPath` from config
+- WHEN an e2e test runs `prospec status` on a change with a configured agent, THEN the output contains the resolved skill path and the read-first action line
+
+---
