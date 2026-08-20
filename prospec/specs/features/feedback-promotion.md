@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-14
+last_updated: 2026-08-20
 story_count: 4
-req_count: 13
+req_count: 14
 ---
 
 # Feedback Promotion Pipeline
@@ -52,6 +52,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-198; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-198, REQ-TEMPLATES-072, REQ-TESTS-024 |
 | 2026-08-14 | detect-inlined-gate-desync | MODIFIED REQ-TEMPLATES-174; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-174, REQ-TEMPLATES-072, REQ-TESTS-024 |
 | 2026-08-10 | unify-line-splitting | MODIFIED REQ-CLI-030 | REQ-CLI-030 |
 | 2026-08-03 | add-learn-staleness-sweep | ADDED REQ-TEMPLATES-174; MODIFIED REQ-TEMPLATES-071; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-CLI-030; MODIFIED REQ-TESTS-024; MODIFIED REQ-TEMPLATES-128; MODIFIED REQ-TYPES-024 | US-4 (MODIFIED), REQ-TEMPLATES-174, REQ-TEMPLATES-071, REQ-TEMPLATES-072, REQ-CLI-030, REQ-TESTS-024, REQ-TEMPLATES-128, REQ-TYPES-024 |

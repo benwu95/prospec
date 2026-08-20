@@ -2,8 +2,8 @@
 feature: agent-integration
 status: active
 last_updated: 2026-08-20
-story_count: 21
-req_count: 89
+story_count: 22
+req_count: 91
 ---
 
 # Agent Integration
@@ -18,7 +18,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 - [US-410–US-430](./agent-integration/us-410.md)
 - [US-431–US-433](./agent-integration/us-431.md)
 - [US-434–US-438](./agent-integration/us-434.md)
-- [US-439–US-442](./agent-integration/us-439.md)
+- [US-439–US-444](./agent-integration/us-439.md)
 
 
 
@@ -79,6 +79,7 @@ The generated agent entry config states a Station Transition Protocol: on advanc
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-197; ADDED REQ-TESTS-095 | REQ-TEMPLATES-197, REQ-TESTS-095 |
 | 2026-08-20 | situationally-aware-station-transitions | ADDED REQ-TEMPLATES-194 | REQ-TEMPLATES-194 |
 | 2026-08-19 | tasks-contract-dag-verification | ADDED REQ-AGNT-041 | REQ-AGNT-041 |
 | 2026-08-19 | select-plan-candidates | ADDED REQ-AGNT-040; ADDED REQ-TESTS-084 | REQ-AGNT-040, REQ-TESTS-084 |
