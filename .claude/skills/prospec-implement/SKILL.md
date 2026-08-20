@@ -113,7 +113,7 @@ When the current task touches a third-party library **and** a Context7 MCP is av
 
 After completion, perform quick quality check:
 - Specification compliance (against delta-spec.md; quick: against proposal.md acceptance scenarios)
-- Type safety
+- Type safety & test execution: Run the project's test suite via the dynamic test command (see [`references/project-test-runner.md`](references/project-test-runner.md) on demand; `check --record-tests` or detected runner)
 - Error handling
 - Constitution **site-specific** rules for this station: TDD (test-first) and atomic-commit discipline — NOT a full every-principle audit (that is `/prospec-verify` V3/5's job)
 

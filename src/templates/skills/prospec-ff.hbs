@@ -9,9 +9,10 @@ description: "{{skill_description}} Triggers: {{trigger_words}}"
 ## Activation
 
 When triggered, briefly describe:
-- That you'll generate all planning artifacts in one pass (Story → Plan → Tasks)
-- A quick 3-question interview will be conducted first
+- That you'll generate planning artifacts (Story → Plan → Tasks) and can autonomously cascade through implementation, review, and verification
+- A quick 3-question interview will be conducted first (or Draft-First inference if intent is clear)
 - The metadata status will progress through story → plan → tasks (`scale: quick` skips plan: story → tasks)
+- When cascading mode is active, execution continues until Verify Grade S/A is reached, halting for Tastemaker sign-off
 
 {{> language-policy}}
 
@@ -22,7 +23,7 @@ When triggered, briefly describe:
 1. [STABLE] Read `{{constitution_path}}` — prepare Constitution check
 2. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4. Read each when entering its phase; do not preload them into the stable prefix.
+> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4, [`references/cascade-protocol.md`](references/cascade-protocol.md) + [`references/circuit-breaker.md`](references/circuit-breaker.md) + [`references/project-test-runner.md`](references/project-test-runner.md) for cascading execution. Read each when entering its phase; do not preload them into the stable prefix.
 
 ## What Makes FF Unique
 
@@ -32,6 +33,7 @@ FF is not just "run three Skills sequentially." Its expert knowledge lies in:
 2. **Status lifecycle management**: metadata.yaml status progresses `story → plan → tasks` in sequence (`scale: quick`: `story → tasks`, plan skipped)
 3. **Error recovery**: When any phase fails, preserve completed parts and offer recovery options
 4. **Quick interview**: Only 3 core questions (goal, role, acceptance criteria) — no deep exploration
+5. **Autonomous Pipeline Cascading**: In cascading mode, advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off
 
 ## Entry Gate
 
@@ -102,9 +104,26 @@ Loading is still read). Status advances `story → tasks` directly
 | Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
 | Check | Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) on demand. Run site-specific Task Contract Verification (bidirectional coverage, DAG dependency layering, TDD closure; support harness degradation & manual bypass) → PASS continue / WARN log / FLAW pause |
 
+> **Phase 4 Gate** — proceed when:
+> - [ ] tasks.md created with layer-ordered tasks and kind markers, status → `tasks`
+> - [ ] Task Contract Verification passed (or documented Break-Glass override)
+
+### Phase 5: Autonomous Execution & Cascading (when cascading active)
+
+Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
+1. **Implementation**: Execute code tasks sequentially by layer (Types → Lib → Services → CLI → Tests). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.
+2. **Adversarial Review Loop**: Run review pass, auto-fixing verifier-confirmed criticals. Guarded by Oscillation Breaker (red-green-red detector) and 3-5 round limit.
+3. **Verify Audit**: Execute 5+1 dimension audit until Grade S/A is reached (`status: verified`).
+4. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
+
+> **Phase 5 Gate** — proceed when:
+> - [ ] all code tasks implemented and test suite green (status: implemented)
+> - [ ] review loop clean (0 unresolved criticals) and verify 5+1 audit achieves Grade S/A
+> - [ ] Tastemaker summary presented for human review without automated commit or archive
+
 ### Completion: Summary Report
 
-List all produced files and task statistics.
+List all produced files and task statistics. If planning only, suggest `/prospec-implement`. If cascading completed, present the Tastemaker summary for human sign-off.
 
 {{> next-step-handoff}}
 
@@ -115,16 +134,18 @@ List all produced files and task statistics.
 | Story fails | Change directory | Retry / switch to `/prospec-new-story` |
 | Plan fails | proposal.md | Retry / switch to `/prospec-plan` |
 | Tasks fails | proposal.md (+ plan.md + delta-spec.md for standard/full) | Retry / switch to `/prospec-tasks` |
+| Implement / Review fails | working tree + tasks.md | Resolve blocker or switch to single-station skill |
+| Circuit breaker tripped | state & diagnostics | Escalate to human with trade-off options |
 | Severe Constitution violation | All parts completed before failure | Pause FF, switch to single-phase Skill |
 
 ## When to Use vs. Not to Use
 
-| Suitable for FF | Not suitable for FF |
-|----------------|-------------------|
+| Suitable for FF / Cascading | Not suitable for FF |
+|-----------------------------|-------------------|
 | Requirements clear, well-explored | Requirements vague, need discussion |
-| Similar feature done before | Major architectural changes |
-| Independent scope, low risk | Uncertain tech choices |
-| Tight schedule | First time with project |
+| Verifier gates in place | Major architectural uncertainty |
+| Independent scope, low-to-medium risk | Untracked legacy codebase without tests |
+| Tight schedule / high autonomy | First time with project |
 
 ## Output Contract
 
@@ -133,9 +154,11 @@ List all produced files and task statistics.
 ### Success Criteria
 - [ ] proposal and tasks produced; plan produced unless `scale: quick` (quick: plan.md/delta-spec.md absent by contract)
 - [ ] each stage's own Output Contract is satisfied (manual)
+- [ ] cascading halts strictly at Tastemaker Sign-off (Verify S/A) without automated commit or archive
 
 ### Failure Conditions
 - any stage artifact missing or failing its Output Contract (quick: plan artifacts are not missing — they are skipped by contract)
+- auto-committing or archiving during cascading without explicit human sign-off
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
@@ -149,11 +172,13 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** use FF when requirements are vague — guide user to `/prospec-explore` first
 - **NEVER** run a generic multi-principle Constitution scan per phase — each phase checks only its site-specific rule (INVEST / dependency-direction / TDD); the full every-principle audit is `/prospec-verify`'s job (single-full-audit convergence)
 - **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `/prospec-explore` for depth
-- **NEVER** inline full format prose into this skill body — load this skill's `references/` files (proposal / plan / delta-spec / tasks formats) directly
+- **NEVER** inline full format prose into this skill body — load this skill's `references/` files directly
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks (or story → tasks under `scale: quick`); the `prospec change` commands own every transition — never hand-edit metadata.yaml
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
+- **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
+- **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
 - **NEVER** proceed into Phase 2 without the user's explicit reply to the change name, nor proceed past the Scale step without the user's explicit reply to the scale.
 
@@ -164,3 +189,4 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 | Constitution severe violation at any phase | Pause FF, preserve completed parts, switch to single-phase Skill |
 | User changes requirements mid-flow | Restart from Phase 1 with new requirements |
 | Module Knowledge insufficient | Proceed with available info, note gaps in plan.md Risk Assessment |
+| Circuit breaker tripped | Halt cascading, emit EscalationReport to human |

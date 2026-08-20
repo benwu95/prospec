@@ -1,6 +1,6 @@
 # Command Services
 
-> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (30 files)
+> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (31 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,6 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `init.service.ts` / `upgrade.service.ts` | Scaffold config + Constitution + AI Knowledge (per-file skip-if-exists, `.prospec.yaml` last); upgrade records `version`, re-syncs, back-fills missing init docs (never overwrite) + migration report (stale-Language-Policy, canonical docs marker) |
+| `cascade.service.ts` | `evaluateCascadeTransition` (autonomous pipeline cascading transitions per scale & verifiers), `generateTastemakerSummary`, `formatTastemakerPresentation` (Tastemaker presentation gate) |
 | `archive.service.ts` | Archive + spec-sync (Feature Spec / product.md / `feature-map.yaml`) — writer contracts in the Spec Sync sub-module; `syncToFeatureSpecs` takes the change name as a REQUIRED arg (both Change History writers name it through `escapeTableCell`); `dryRun` short-circuits every write and returns `planned` |
 | `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs; triggers; sweep orphans; merge user blocks; per-group capability intersection + render-flag merge (`mergeGroupRenderFlags` → `renderFlagContext`, never `configs[0]`) |
 | `knowledge-init` + `raw-scan` / `knowledge-update` / `knowledge-verify.service.ts` | Initial scan → raw-scan.md (11-lang manifests + the non-source-directory disclosure the skill overrules the draft map with) + module-map.yaml + skeletons; delta-spec-driven index/module-map refresh (`executeForChange`); README skeleton for NEW modules only (`readmePending` flags the rest). `knowledge-verify` is the SOLE writer of `last_verified` (injected `now`; comment-preserving Document write) — update preserves but never stamps, init leaves a new module's absent; the `knowledge:check` gate and knowledge-health staleness both read it |
@@ -23,6 +24,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 - `execute(options)` per service → typed `Result`
 - `executeFinalize` / `executeForChange` / `executeWrite` — archive post-judgment; change-driven knowledge update; trigger write-back
+- `evaluateCascadeTransition` / `generateTastemakerSummary` / `formatTastemakerPresentation` — cascading station evaluation and human sign-off formatting
 - `resolveChange(...)` — change selector (zero/ambiguous → `PrerequisiteError`; traversal names refused pre-probe)
 - `computeUnlocalizedSkills(config)` — fill-missing skill set (agent-sync hint + agent-triggers)
 - `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + the worklists; `droppedBehavior` and `refusedRequirements` are BLOCKING (spec left unwritten, non-zero exit), the rest advisory — see the Spec Sync sub-module
@@ -42,12 +44,12 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 ## Pitfalls
 
 - Use `atomicWrite()` (never `writeFileSync`) + `ContentMerger` for files with user sections.
-- Spec-layer writes (Feature Specs / `product.md` / `feature-map.yaml` / `finalize`) have their own contract — see the Spec Sync sub-module. The short version: they merge or refuse, they never regenerate an authored file. Writing and reading feature specs is slice-aware, utilizing `loadFeatureSpecContent`.
-- metadata.yaml is built + serialized, never templated; status advances forward-only via `isStatusBefore`; metadata I/O ONLY via `lib/change-metadata` (never re-cast `doc.toJS()`). `archive.service` skips it deliberately: the terminal station absorbs pre-schema records earlier stations reject (floor: the archive Entry Gate).
-- `updateModuleReadme` is CREATE-ONLY: module knowledge lives in the `prospec:auto` block, so re-rendering from the mechanical scan guts authored content. `updateModuleMap` merges through the yaml Document (comments + untouched descriptions survive) and no-ops when unchanged — never reflows the curated file.
-- Refuse before writing, never after (file stays byte-identical): `verify record` self-reads machine dimensions from `prospec-report.json` and REFUSES a stale `change_digest`; `change status` refuses gate-owned targets (`GATE_OWNED_STATUSES`) and backward jumps (error lists the legal forward set); `change plan`/`change tasks` refuse a station the scale's contract closes (`--force` overwrites, never overrides the contract); `agent triggers --write` inserts only MISSING keys, re-validating BEFORE any byte reaches disk; both evidence-landing stations refuse an over-ceiling or multi-line relayed field, and any raw-line field carrying the evidence marker, BEFORE their first write (`review merge` adds `critical`-needs-`repro`); `verify record` writes `metadata.yaml` first and `verify.md` second, so a failed artifact write loses evidence for a run that IS recorded, never the reverse.
-- `raw-scan.service` classifies through `lib/module-detector`'s exported `isSourceFile`, never its own copy; its disclosure is a fact about the file list, so `--raw-scan-only` reports it without detection. EVERY code-span value goes through `toInlineCodeSpan`: `raw-scan.md` is agent-read, and a manifest value is arbitrary text, not a path.
-- check.service keeps every side effect behind a flag (pure path: read-only, byte-reproducible); one change digest serves the review/test provenance collectors, while `collectDeltaSpecProvenance` deliberately takes none — it fingerprints each change's OWN delta-spec, which is the point of it being separate; a collector needing config-derived policy takes it as a REQUIRED argument so an omission is a compile error, not a silent behaviour difference; `--record-tests` checks preconditions BEFORE spawning, records the POST-run digest, then merges `test_provenance` into a FRESHLY re-read document (a mid-run edit survives; one that stops validating records nothing).
+- Spec writes (Feature Specs / `product.md` / `feature-map.yaml` / `finalize`) follow the Spec Sync contract — merge or refuse, never regenerate authored text; slice-aware via `loadFeatureSpecContent`.
+- metadata.yaml is built + serialized, never templated; status advances forward-only; metadata I/O ONLY via `lib/change-metadata`. `archive.service` absorbs pre-schema records at the archive Entry Gate.
+- `updateModuleReadme` is CREATE-ONLY: module knowledge lives in `prospec:auto`, so re-rendering from scan guts authored content. `updateModuleMap` merges Document comments/descriptions without clobbering.
+- Refuse before writing (file stays byte-identical): `verify record` refuses stale `change_digest`; `change status` refuses gate-owned targets (`GATE_OWNED_STATUSES`) and backward jumps; `agent triggers --write` inserts only missing keys; evidence stations refuse over-ceiling or multi-line relayed fields before disk write.
+- `raw-scan.service` classifies through `lib/module-detector`'s `isSourceFile`. Code-span values pass through `toInlineCodeSpan` to prevent raw newline injection.
+- `check.service` keeps side effects behind flags; provenance collectors take required config policies to prevent silent behavior drift; `--record-tests` checks preconditions before spawning, records post-run digest, and merges into freshly re-read document.
 
 ## Sub-Modules
 

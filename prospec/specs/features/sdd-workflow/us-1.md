@@ -297,3 +297,50 @@ Contract tests verify that generated skill templates conform to the Draft-First 
 - WHEN verifying `references/proposal-format.md`, THEN contract tests assert the presence of `## Stated Assumptions`
 
 ---
+
+#### REQ-TYPES-086: Cascade and Circuit Breaker Types
+The types module exports type definitions and Zod schemas for pipeline cascading orchestration, oscillation detection, and circuit breaker states.
+- WHEN cascade types are imported, THEN `CascadeScale`, `CircuitBreakerState`, `OscillationRecord`, and `EscalationReport` are available
+- WHEN validating cascading configuration or state, THEN Zod schemas enforce type constraints and default thresholds (3-5 max rounds)
+
+---
+
+#### REQ-LIB-057: Oscillation Breaker and Circuit Breaker Logic
+The lib module provides an `OscillationBreaker` utility to guard against runaway loops and flip-flop defect oscillations.
+- WHEN a defect or test flips from FAIL to PASS to FAIL, THEN `detectOscillation` returns true and identifies the oscillating signature
+- WHEN the iteration count exceeds the configured maximum rounds (default 3, max 5) or oscillation is detected, THEN `checkCircuitBreaker` trips and returns an `EscalationReport`
+
+---
+
+#### REQ-LIB-058: Dynamic Multi-Language Project Test Command Detection
+The lib module dynamically detects and resolves test commands across multiple programming ecosystems (`src/lib/project-runner.ts`).
+- WHEN `tech_stack.test_command` is set in `.prospec.yaml`, THEN that command is returned verbatim
+- WHEN `tech_stack.test_command` is unset, THEN `detectTestCommand` checks project manifests (`Cargo.toml` -> `cargo test`, `pytest.ini`/`pyproject.toml` -> `pytest`, `go.mod` -> `go test ./...`, `package.json` -> package manager test script) and returns the matching test command or null
+
+---
+
+#### REQ-SERVICES-091: Cascade Orchestration Service and Transition Evaluator
+The services module provides cascading workflow state transition evaluation and Tastemaker delivery generation.
+- WHEN evaluating a transition with all verifiers passing, THEN the next valid lifecycle station for the change's scale is returned
+- WHEN a change achieves Verify Grade S/A, THEN a Tastemaker presentation is generated and status transitions to awaiting human sign-off without performing automated git commit or push
+
+---
+
+#### REQ-TEMPLATES-192: Cascade Protocol, Circuit Breaker, and Project Test Runner References
+The template library includes skill references for cascading execution, circuit breakers, and project test runner adapters.
+- WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
+
+---
+
+#### REQ-TEMPLATES-193: Autonomous Pipeline Cascading Integration in Prospec Skills
+Prospec skill templates instruct AI agents to perform autonomous pipeline cascading gated on machine verifiers and human sign-off.
+- WHEN cascading mode is triggered, THEN the agent advances sequentially through planning, implementation, review, and verification whenever verifiers pass
+- WHEN Grade S/A is reached in verification, THEN the agent presents the Tastemaker summary and halts for human sign-off before any commit or archive
+
+---
+
+#### REQ-TESTS-093: Unit, Contract, and E2E Tests for Pipeline Cascading
+The test suite validates pipeline cascading components, oscillation breakers, project test runner resolvers, and skill template contracts.
+- WHEN running unit and contract tests, THEN oscillation detection, project test command resolution, and template contracts pass without regressions
+
+---
