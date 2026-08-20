@@ -92,6 +92,11 @@ export interface ChangeRoute {
   current: SddStation;
   /** Suggested next station; null only at the terminal `archived`. */
   next: SddStation | null;
+  /** Resolved skill file path for `next` (e.g. `.claude/skills/prospec-verify/SKILL.md`),
+   *  so `prospec status` can hand the agent an actionable read target. Absent when the
+   *  change is terminal (`next` is null) or the project configures no agent — never a
+   *  hardcoded skills directory. Filled by the service; the router leaves it unset. */
+  nextSkillPath?: string;
   /** Gate/precondition text for the edge to `next`, from the lifecycle table. */
   blockingGates: string[];
   /** Why the router placed the change here (quick skip, backfill entry, …). */

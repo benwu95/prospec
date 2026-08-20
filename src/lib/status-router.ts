@@ -3,7 +3,10 @@ import type {
   ChangeRouteFacts,
   SddStation,
 } from '../types/status.js';
+import { STATION_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
+import { AGENT_CONFIGS } from '../types/skill.js';
+import type { ValidAgent } from '../types/config.js';
 
 /**
  * The executable copy of `prospec/ai-knowledge/_status-lifecycle.md` — a pure,
@@ -230,4 +233,31 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       };
     }
   }
+}
+
+/**
+ * Resolve the skill file path for a change's next station, so `prospec status`
+ * can hand the agent an actionable read target (Station Transition Protocol).
+ *
+ * Pure — no I/O. The caller passes the project's configured agent names (from
+ * `config.agents`) and the routed next station. The canonical skill path is the
+ * FIRST configured agent's registry `skillPath` (every agent's per-station
+ * subdirectory is identically named, so the choice is only which root to show);
+ * the slash command in `next:` stays the primary trigger, this path is a hint.
+ * The skill DIRECTORY name is `STATION_SKILLS[station]` without its leading `/`
+ * (so `story` → `prospec-new-story`, not `prospec-story`).
+ *
+ * Returns null — never a hardcoded directory — when there is no next station
+ * (terminal) or no agent is configured, so the formatter can fall back to the
+ * bare slash command.
+ */
+export function resolveNextSkillPath(
+  agentNames: readonly string[],
+  station: SddStation | null,
+): string | null {
+  if (station === null || agentNames.length === 0) return null;
+  const config = AGENT_CONFIGS[agentNames[0] as ValidAgent];
+  if (!config) return null;
+  const skillDir = STATION_SKILLS[station].replace(/^\//, '');
+  return `${config.skillPath}/${skillDir}/SKILL.md`;
 }

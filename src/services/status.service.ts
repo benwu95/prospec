@@ -6,7 +6,7 @@ import { isStale } from '../lib/drift-checker.js';
 import { collectGitTimestamps } from '../lib/drift-sources.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
-import { routeChange } from '../lib/status-router.js';
+import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import type { VerifyGrade } from '../types/change.js';
 import type {
@@ -43,6 +43,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   const changes: ChangeRoute[] = [];
   const errors: ChangeRouteError[] = [];
 
+  // The next station's skill path is resolved from the project's configured
+  // agents (Station Transition Protocol). Read once here — the router stays
+  // I/O-free and collectFacts keeps its own config read for other facts.
+  const agentNames = (await readConfig(cwd).catch(() => null))?.agents ?? [];
+
   if (fs.existsSync(changesDir)) {
     const dirs = fs
       .readdirSync(changesDir, { withFileTypes: true })
@@ -60,7 +65,10 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
-        changes.push(routeChange(await collectFacts(changeDir, name, metadata, cwd)));
+        const route = routeChange(await collectFacts(changeDir, name, metadata, cwd));
+        const skillPath = resolveNextSkillPath(agentNames, route.next);
+        if (skillPath) route.nextSkillPath = skillPath;
+        changes.push(route);
       } catch (err) {
         errors.push({ name, error: err instanceof Error ? err.message : String(err) });
       }
