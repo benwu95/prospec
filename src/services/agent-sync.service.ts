@@ -585,12 +585,32 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         outputName: 'metadata-format.md',
         title: 'Metadata (metadata.yaml) Format',
       },
+      {
+        templateName: 'cascade-protocol.hbs',
+        outputName: 'cascade-protocol.md',
+        title: 'Autonomous Pipeline Cascading Protocol',
+      },
+      {
+        templateName: 'circuit-breaker.hbs',
+        outputName: 'circuit-breaker.md',
+        title: 'Circuit Breakers & Runaway Cost Protection',
+      },
+      {
+        templateName: 'project-test-runner.hbs',
+        outputName: 'project-test-runner.md',
+        title: 'Project Test Runner & Ecosystem Adapter',
+      },
     ],
     'prospec-implement': [
       {
         templateName: 'implementation-guide.hbs',
         outputName: 'implementation-guide.md',
         title: 'Implementation Guide',
+      },
+      {
+        templateName: 'project-test-runner.hbs',
+        outputName: 'project-test-runner.md',
+        title: 'Project Test Runner & Ecosystem Adapter',
       },
     ],
     'prospec-review': [
@@ -608,6 +628,16 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'delegated-evidence-format.hbs',
         outputName: 'delegated-evidence-format.md',
         title: 'Delegated Payload Contract and Evidence Landing Format',
+      },
+      {
+        templateName: 'circuit-breaker.hbs',
+        outputName: 'circuit-breaker.md',
+        title: 'Circuit Breakers & Runaway Cost Protection',
+      },
+      {
+        templateName: 'project-test-runner.hbs',
+        outputName: 'project-test-runner.md',
+        title: 'Project Test Runner & Ecosystem Adapter',
       },
     ],
     'prospec-verify': [
@@ -628,6 +658,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'delegated-evidence-format.hbs',
         outputName: 'delegated-evidence-format.md',
         title: 'Delegated Payload Contract and Evidence Landing Format',
+      },
+      {
+        templateName: 'cascade-protocol.hbs',
+        outputName: 'cascade-protocol.md',
+        title: 'Autonomous Pipeline Cascading Protocol',
       },
     ],
     'prospec-archive': [

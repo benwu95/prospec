@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (41 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (44 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,6 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language |
+| `oscillation-breaker.ts` / `project-runner.ts` | `OscillationBreaker` tracking flip transitions & 3-5 iteration ceiling; multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`) |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem |
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it |
@@ -24,6 +25,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
 - Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
+- Oscillation/runner — `countFlips`/`isOscillating`/`OscillationBreaker`, `resolveProjectTestCommand`/`detectTestCommand`
 - Token Accounting — `parseAllLogFiles` (JSONL transcript parsing), `calculateCodebaseBaselineTokens` (`git ls-files` based theoretical baseline)
 - Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices`, and `readSpecSlices` (the one narrow-read entry both surfaces share) (the rest: see the Station Engines sub-module)
 
@@ -46,15 +48,13 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 
 ## Pitfalls
 
-- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; noEscape YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
-- The module gate lives in `module-detector.ts`, not `scanDir()` (`raw-scan.md` must still show doc/asset dirs), and DENIES non-code extensions — an allowlist erases unlisted languages' dirs. Admission is a pure 2-source-file gate: no name exemption, LAST extension only, matching TERMINAL segments (`min` denies `app.min`, not `jquery.min.js`) — none is dead for looking secondary. `isSourceFile` is THE classifier; whole-directory rejects (topmost, non-root) surface in `raw-scan.md` for the skill layer to overrule, never a second copy. Both disclosure lists rank by descending file count (codepoint tie-break): the caps discard the tail, so alphabetical order hid that evidence.
-- `markdown-fences` owns markdown TEXT mechanics — both directions of CommonMark delimiters plus the whole-text primitives document assemblers share (`toInlineCodeSpan`, and `trimTrailingNewlines`, whose regex form backtracks quadratically on an interior newline run): `withoutFencedBlocks` + `hasUnclosedFence` for scanners (ONE internal scanner backs both, so they cannot disagree; an open fence masks the whole tail, and a scanner that trusts that mask reads a truncated document — degrade to raw lines instead), `toInlineCodeSpan` for emitters, which COLLAPSES line breaks (a span lives in one paragraph; manifest text, unlike a glob path, can carry one).
-- knowledge-reader owns THE contained read (`readContained` → `absent`/`escaped`/`unreadable`; `isContainedPath` shared with drift-sources) — drift-sources imports FROM it, never the reverse (lib→lib cycle; same for `constitution-parser`/`markdown-fences`). An unreadable content read is absent, but `loadModuleMap`/`loadFeatureMap` stay LOUD (else dependency-direction silently falls back); missing→null, invalid→throw. Enumerated-file reads use `readTextOrSkip`: one unreadable entry costs its line, not the run.
-- The REQ-heading rule, the counters and the narrow read share ONE walk, which now traverses slice links seamlessly — invariants in [Spec Reading](./spec-reading.md).
-- `text-lines.ts` owns the line-ending strip for per-line MATCHING: patterns match `stripTrailingCr(line)`'s VIEW, callers keep the raw line — `$` without `m` anchors the string END and `.` never matches `\r`, so a Windows CRLF checkout matched nothing at all. Outside it because none needs an implementation of its own: a pattern already tolerant via its own `\r?`/`\s` class or an upstream `.trim()` (which does remove the CR — it just needs no code here), a `\r?` that CAPTURES the CR for write-back, an `m`-flagged pattern, and a whole-document `\r\n`→`\n` normalisation of a comparison-only copy. A split→edit→join path must leave untouched lines' endings byte-identical, so strip for the COMPARISON, not into the array you write back — `delegated-evidence`'s block body is the one deliberate exception (stored CR-normalised so `render → split → render` is idempotent).
-- `token-accounting.ts` takes pricing as a PARAMETER; task grammar lives ONLY in `task-markers.ts`; `resolveBasePaths()` falls back to `DEFAULT_BASE_DIR`; `language-policy.ts` is the ONE language-scope source (Constitution rule + entry config render from it, both directions).
-- `change-metadata.ts` validates but never rewrites; `archive.service`/`drift-sources` bypass it — a scanner reports a bad record, not throws.
-- Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and the evidence round-trip are in [Station Engines](./station-engines.md).
+- `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
+- `module-detector.ts` admission is a pure 2-source-file gate; `isSourceFile` is the single classifier.
+- `markdown-fences.ts` owns markdown parsing and `toInlineCodeSpan` (which collapses line breaks to prevent raw newline header forging).
+- `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`). Drift-sources imports from it, never the reverse.
+- `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
+- `token-accounting.ts` takes pricing as a parameter; `language-policy.ts` is the single language-scope source.
+- Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and evidence round-trip are in [Station Engines](./station-engines.md).
 
 ## Sub-Modules
 

@@ -1,0 +1,55 @@
+# Circuit Breakers & Runaway Cost Protection Reference
+
+This document defines the **Circuit Breaker & Escalation Protocol** used by Prospec execution loops (`/prospec-implement`, `/prospec-review`, and autonomous cascading).
+
+---
+
+## Purpose
+
+Unattended autonomous execution carries the risk of runaway token consumption, infinite retry loops, and flip-flop defect oscillations. Grounded in Site Reliability Engineering (SRE) circuit breaker patterns, this mechanism establishes deterministic stopping boundaries to protect developer budgets and surface actionable choices when loops fail to converge.
+
+---
+
+## Circuit Breaker Dimensions
+
+### 1. Maximum Iteration Ceiling (Round Limit)
+- **Review / Fix Loop Limit**: Default **3 rounds** (maximum **5 rounds**).
+- **Rule**: If unresolved `CRITICAL` findings remain after reaching the iteration cap, the loop MUST NOT continue.
+- **Action**: Trip the breaker, halt automated execution, and emit an `EscalationReport`.
+
+### 2. Oscillation Breaker (Flip-Flop Defect Detection)
+- **Mechanism**: The system tracks the trial history of each unique test identifier (`test_file:test_name`) and Review defect ID.
+- **Oscillation Pattern**: A signature that alternates states (e.g. `FAIL → PASS → FAIL` or `PASS → FAIL → PASS`, $\ge 2$ flips) indicates an oscillating fix (fixing one bug reintroduces another).
+- **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
+- **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
+
+### 3. Early-Stop Conditions
+- **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
+- **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red. The fix is immediately reverted rather than piling additional edits on a red suite.
+
+---
+
+## Escalation Protocol (Human Hand-off)
+
+When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a resolution. Instead, it emits a structured escalation block:
+
+```markdown
+### 🚨 Circuit Breaker Tripped: Escalation Required
+
+- **Trigger**: [oscillation | max_rounds_exceeded | persistent_test_failure]
+- **Diagnostic Details**: [Summary of signatures, failing tests, or round counts]
+- **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
+
+#### Trade-off Options for Developer:
+1. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
+2. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
+3. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
+```
+
+---
+
+## Reference Information
+
+- Project name: `{{project_name}}`
+- AI Knowledge path: `{{knowledge_base_path}}`
+- Constitution file: `{{constitution_path}}`

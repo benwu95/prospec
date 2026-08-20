@@ -5580,5 +5580,65 @@ describe('Action Space Reform — Draft-First Protocol and Silence-Aware Logging
   });
 });
 
+describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
+  it("cascade-protocol.md, circuit-breaker.md, project-test-runner.md are registered in SKILL_REFERENCE_MAP", () => {
+    const ffRefs = getSkillReferences("prospec-ff").map((r) => r.outputName);
+    expect(ffRefs).toContain("cascade-protocol.md");
+    expect(ffRefs).toContain("circuit-breaker.md");
+    expect(ffRefs).toContain("project-test-runner.md");
 
+    const implementRefs = getSkillReferences("prospec-implement").map((r) => r.outputName);
+    expect(implementRefs).toContain("project-test-runner.md");
+
+    const reviewRefs = getSkillReferences("prospec-review").map((r) => r.outputName);
+    expect(reviewRefs).toContain("circuit-breaker.md");
+    expect(reviewRefs).toContain("project-test-runner.md");
+  });
+
+  it("cascade references render and satisfy token budget <= 2500", () => {
+    for (const refTemplate of ["cascade-protocol.hbs", "circuit-breaker.hbs", "project-test-runner.hbs"]) {
+      const content = renderTemplate(`skills/references/${refTemplate}`, TEMPLATE_CONTEXT);
+      const tokens = estimateTokens(content);
+      expect(tokens, `${refTemplate} must be under budget`).toBeLessThanOrEqual(
+        DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file,
+      );
+    }
+  });
+
+  it("cascade-protocol.md defines scale-driven paths, transition gates, and Tastemaker sign-off", () => {
+    const content = renderTemplate("skills/references/cascade-protocol.hbs", TEMPLATE_CONTEXT);
+    expect(content).toContain("Scale: Quick");
+    expect(content).toContain("Scale: Standard");
+    expect(content).toContain("Scale: Full");
+    expect(content).toContain("Tastemaker Presentation & Human Gate");
+    expect(content).toContain("NEVER");
+    expect(content).toContain("Human Escape Hatch");
+  });
+
+  it("circuit-breaker.md defines 3-5 round limit, oscillation detection, and escalation protocol", () => {
+    const content = renderTemplate("skills/references/circuit-breaker.hbs", TEMPLATE_CONTEXT);
+    expect(content).toContain("Maximum Iteration Ceiling");
+    expect(content).toContain("Oscillation Breaker");
+    expect(content).toContain("FAIL → PASS → FAIL");
+    expect(content).toContain("Escalation Protocol");
+    expect(content).toContain("Trade-off Options for Developer");
+  });
+
+  it("project-test-runner.md defines multi-language test command resolution hierarchy", () => {
+    const content = renderTemplate("skills/references/project-test-runner.hbs", TEMPLATE_CONTEXT);
+    expect(content).toContain("Test Command Resolution Hierarchy");
+    expect(content).toContain("Cargo.toml");
+    expect(content).toContain("pytest");
+    expect(content).toContain("go test");
+    expect(content).toContain("Constitution Obedience");
+  });
+
+  it("prospec-ff integrates autonomous pipeline cascading and Tastemaker sign-off gate", () => {
+    const content = renderTemplate("skills/prospec-ff.hbs", TEMPLATE_CONTEXT);
+    expect(content).toContain("Autonomous Pipeline Cascading");
+    expect(content).toContain("references/cascade-protocol.md");
+    expect(content).toContain("references/circuit-breaker.md");
+    expect(content).toContain("automatically commit, push, or archive");
+  });
+});
 

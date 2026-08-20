@@ -11,6 +11,7 @@ import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/c
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
+import { resolveProjectTestCommand } from './project-runner.js';
 
 const CONFIG_FILENAME = '.prospec.yaml';
 
@@ -99,33 +100,12 @@ export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSiz
 /**
  * Resolve the project's test command for `check --record-tests` (REQ-LIB-033).
  *
- * `tech_stack.test_command` wins; otherwise a project whose package.json declares
- * a `test` script falls back to `<package_manager> test` (npm when unset). A
- * project with neither returns null — the caller then skips honestly instead of
- * inventing a command. The canonical resolver, alongside `resolveBasePaths` /
- * `resolveKnowledgeTokenBudget`, so no consumer re-derives it (PB-007).
+ * `tech_stack.test_command` wins; otherwise package.json test script falls back
+ * to `<package_manager> test` (npm when unset), or auto-detects ecosystem manifests
+ * (pytest, cargo test, go test, make test). A project with none returns null.
  */
 export function resolveTestCommand(config: ProspecConfig, cwd: string): string | null {
-  const declared = config.tech_stack?.test_command?.trim();
-  if (declared !== undefined && declared.length > 0) return declared;
-  if (!hasPackageJsonTestScript(cwd)) return null;
-  const pm = config.tech_stack?.package_manager?.trim();
-  return `${pm !== undefined && pm.length > 0 ? pm : 'npm'} test`;
-}
-
-function hasPackageJsonTestScript(cwd: string): boolean {
-  try {
-    const raw = fs.readFileSync(path.resolve(cwd, 'package.json'), 'utf-8');
-    const pkg: unknown = JSON.parse(raw);
-    if (typeof pkg !== 'object' || pkg === null) return false;
-    const scripts = (pkg as { scripts?: unknown }).scripts;
-    if (typeof scripts !== 'object' || scripts === null) return false;
-    const test = (scripts as { test?: unknown }).test;
-    return typeof test === 'string' && test.trim().length > 0;
-  } catch {
-    // absent or malformed package.json — no fallback command to offer
-    return false;
-  }
+  return resolveProjectTestCommand(config, cwd);
 }
 
 /**
