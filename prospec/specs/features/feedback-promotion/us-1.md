@@ -33,7 +33,7 @@ The promotion-format Harvest and the `_lessons-ledger.md` header both state wher
 #### REQ-TEMPLATES-198: Generalizability Heuristic in promotion-format
 `references/promotion-format.md` defines a Generalizability Heuristic — the single definition of which conversational corrections are worth capturing — followed by Collect's session-correction folding and the L0 Checkpoint Correction Capture protocol.
 - WHEN a conversational correction is filtered, THEN only a cross-file generalizable rule — architecture or layering, a type contract, testing discipline, or security — is captured, and a one-off mock workaround, a one-off business-string tweak, a temporary hack, or a pure business change is excluded
-- WHEN the heuristic is rendered, THEN both the prospec-learn and prospec-archive copies of `promotion-format.md` carry it, and it states that a captured lesson uses the downstream project's module names from `module-map.yaml` and domain terms from `_glossary.md`
+- WHEN the heuristic is rendered, THEN both the prospec-learn and prospec-archive copies of `promotion-format.md` carry it, and it states that a captured lesson uses this project's module names from `module-map.yaml` and domain terms from `_glossary.md`
 - WHEN a captured pattern recurs, THEN it is unioned by `prospec learn upsert`'s distinct-source frequency rather than added as a new row, so the ledger does not bloat
 
 ---

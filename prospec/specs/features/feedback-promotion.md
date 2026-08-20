@@ -52,6 +52,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-20 | make-templates-project-agnostic | MODIFIED REQ-TEMPLATES-198 | REQ-TEMPLATES-198 |
 | 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-198; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-198, REQ-TEMPLATES-072, REQ-TESTS-024 |
 | 2026-08-14 | detect-inlined-gate-desync | MODIFIED REQ-TEMPLATES-174; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-174, REQ-TEMPLATES-072, REQ-TESTS-024 |
 | 2026-08-10 | unify-line-splitting | MODIFIED REQ-CLI-030 | REQ-CLI-030 |
