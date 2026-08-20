@@ -1352,6 +1352,70 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  // issue #195 — situational awareness across station transitions: the entry
+  // config must instruct a per-station skill reload, the cascade protocol must
+  // define the LOAD-first execution loop, and NO skill/reference may name a
+  // harness-specific tool or a plugin agent type (which a target project's
+  // harness won't have). All harness-neutral / project-agnostic.
+  describe('Situationally-aware station transitions (issue #195)', () => {
+    const HARNESS_TOOLS = ['view_file', 'invoke_subagent'];
+    const PLUGIN_AGENTS = ['code-reviewer', 'security-auditor', 'test-engineer'];
+
+    it('entry.md renders a Station Transition Protocol using {{skill_path}}, no harness tool name (A, REQ-TEMPLATES-194)', () => {
+      const content = renderTemplate('agent-configs/entry.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.claude/skills',
+        surfaces_skill_frontmatter: true,
+      });
+      const section = sectionOf(content, '## Working with This Project');
+      expect(section).toContain('Station Transition Protocol');
+      // uses the resolved {{skill_path}} (renders to .claude/skills), never a
+      // hardcoded dir; and ties the exact path to `prospec status`'s action line
+      // (the authoritative source) rather than a per-station literal that is wrong
+      // for story/promote (prospec-new-story / prospec-promote-backfill).
+      expect(section).toContain('.claude/skills/');
+      expect(section).toContain('prospec status');
+      // also forbid reintroducing the per-station literal that is wrong for
+      // story/promote (prospec-new-story / prospec-promote-backfill).
+      expect(section).not.toContain('prospec-{station}');
+      for (const t of HARNESS_TOOLS) expect(section).not.toContain(t);
+    });
+
+    it('cascade-protocol defines the per-station Step 1 [LOAD] loop, harness-neutral (C, REQ-TEMPLATES-195)', () => {
+      const section = sectionOf(
+        renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT),
+        '## Per-Station Execution Loop',
+      );
+      for (const step of ['Step 1 [LOAD]', 'Step 2 [ENTRY]', 'Step 3 [EXEC]', 'Step 4 [GATE]', 'Step 5 [NEXT]']) {
+        expect(section).toContain(step);
+      }
+      for (const t of HARNESS_TOOLS) expect(section).not.toContain(t);
+    });
+
+    it('no skill/reference body names a plugin agent type or a harness tool (D, REQ-TEMPLATES-196, PB-007 sweep)', () => {
+      const templates = Object.keys(BUNDLED_TEMPLATES).filter(
+        (k) => /^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k),
+      );
+      expect(templates.length).toBeGreaterThan(20);
+      for (const key of templates) {
+        const content = renderTemplate(key, TEMPLATE_CONTEXT);
+        for (const a of PLUGIN_AGENTS) {
+          expect(content, `${key} names plugin agent type "${a}"`).not.toContain(a);
+        }
+        for (const t of HARNESS_TOOLS) {
+          expect(content, `${key} names harness tool "${t}"`).not.toContain(t);
+        }
+      }
+    });
+
+    it('review and verify still delegate fresh context via the harness-capabilities partial (D)', () => {
+      for (const skill of ['prospec-review', 'prospec-verify']) {
+        const content = renderTemplate(`skills/${skill}.hbs`, TEMPLATE_CONTEXT);
+        expect(content, `${skill} must carry the capability line`).toContain(CAPABILITY_LINE_LABEL);
+      }
+    });
+  });
+
   describe('Status lifecycle alignment', () => {
     it('plan-format should contain a Call Chain section before Implementation Steps', () => {
       const content = renderTemplate(

@@ -38,6 +38,11 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
         ? pc.dim('— terminal (periodic /prospec-learn)')
         : pc.cyan(STATION_SKILLS[change.next]);
     console.log(`  next:    ${next}`);
+    if (change.nextSkillPath !== undefined) {
+      console.log(
+        `  action:  read ${pc.cyan(change.nextSkillPath)} before executing station checks`,
+      );
+    }
     for (const gate of change.blockingGates) {
       console.log(`  gate:    ${sanitizeTerminal(gate)}`);
     }

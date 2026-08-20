@@ -529,3 +529,30 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
   });
 });
+
+describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
+  it('sets nextSkillPath from the first configured agent', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('tasks');
+    expect(report.changes[0]?.nextSkillPath).toBe('.claude/skills/prospec-tasks/SKILL.md');
+  });
+
+  it('leaves nextSkillPath absent when no agent is configured (never a hardcoded dir)', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.nextSkillPath).toBeUndefined();
+  });
+});

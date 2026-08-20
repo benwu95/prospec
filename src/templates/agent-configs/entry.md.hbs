@@ -71,6 +71,8 @@ the standalone executable before running any skill — never substitute manual s
 
 **Constraint**: Follow the L0-L3 progressive loading model. Always read `{{base_dir}}/index.md` (L1) first. Never load L2 (Module READMEs) or L3 (Source Code) proactively before identifying the required modules.
 
+**Station Transition Protocol**: The SDD workflow advances through stations (`prospec status` reports the current node and the next). On advancing to ANY new station — whether `prospec status` routed you there or you cascaded to it autonomously — read that station's skill file under `{{skill_path}}/` with your file-reading tool BEFORE taking any station action; `prospec status`'s `action:` line prints the exact path for the station it routes you to. Do not rely on accumulated context to guess a station's entry gates or micro-rules — a long session's diffs and logs dilute the initial instructions, so re-read the station's skill on every transition.
+
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture
 3. **Coding standards**: Follow the style guide in the Conventions document

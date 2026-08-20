@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { routeChange } from '../../../src/lib/status-router.js';
+import { routeChange, resolveNextSkillPath } from '../../../src/lib/status-router.js';
 import type { ChangeRouteFacts } from '../../../src/types/status.js';
 import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
 
@@ -318,5 +318,37 @@ describe('status-router — issue registration pass-through', () => {
         expect(withIssue).toEqual(without);
       }
     }
+  });
+});
+
+describe('resolveNextSkillPath — actionable skill target (REQ-LIB-059)', () => {
+  it('composes {skillPath}/{station skill dir}/SKILL.md for the first configured agent', () => {
+    expect(resolveNextSkillPath(['claude'], 'verify')).toBe(
+      '.claude/skills/prospec-verify/SKILL.md',
+    );
+  });
+
+  it('maps the station to its skill directory name, not prospec-{station} (story → prospec-new-story)', () => {
+    expect(resolveNextSkillPath(['claude'], 'story')).toBe(
+      '.claude/skills/prospec-new-story/SKILL.md',
+    );
+  });
+
+  it('uses the first agent as canonical and its registry skillPath (codex → .agents/skills)', () => {
+    expect(resolveNextSkillPath(['codex', 'claude'], 'tasks')).toBe(
+      '.agents/skills/prospec-tasks/SKILL.md',
+    );
+  });
+
+  it('returns null when no agent is configured', () => {
+    expect(resolveNextSkillPath([], 'verify')).toBeNull();
+  });
+
+  it('returns null at a terminal change (station is null)', () => {
+    expect(resolveNextSkillPath(['claude'], null)).toBeNull();
+  });
+
+  it('returns null for an unknown agent name (never a hardcoded directory)', () => {
+    expect(resolveNextSkillPath(['bogus-agent'], 'verify')).toBeNull();
   });
 });

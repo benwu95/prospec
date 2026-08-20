@@ -406,6 +406,11 @@ describe('CLI E2E', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('add-feature');
       expect(stdout).toContain('/prospec-plan');
+      // Solution B (REQ-CLI-039): the next station is surfaced as an actionable
+      // skill target — the resolved path (from the configured `claude` agent),
+      // plus the read-first instruction — never a hardcoded skills directory.
+      expect(stdout).toContain('.claude/skills/prospec-plan/SKILL.md');
+      expect(stdout).toContain('before executing station checks');
     });
 
     it('should fail without .prospec.yaml', async () => {

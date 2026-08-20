@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 story_count: 21
-req_count: 88
+req_count: 89
 ---
 
 # Agent Integration
@@ -32,6 +32,15 @@ Register `candidate-evaluation.hbs` reference template in `agent-sync.service.ts
 #### REQ-TESTS-084: Contract Tests for Candidate Architecture Selection
 Contract tests in `skill-format.test.ts` for candidate evaluation reference and prospec-plan integration.
 - WHEN contract tests run, THEN verify `candidate-evaluation.md` registration, token budget $\le 2500$, Startup Loading cache isolation, and prospec-plan Phase 4 candidate selection instructions
+
+---
+
+
+#### REQ-TEMPLATES-194: L0 Station Transition Protocol in entry config
+The generated agent entry config states a Station Transition Protocol: on advancing to any new SDD station, the agent reads that station's skill file before taking any station action.
+- WHEN `prospec agent sync` renders `entry.md.hbs`, THEN `## Working with This Project` contains a Station Transition Protocol instructing the agent to read the newly-entered station's skill file under `{{skill_path}}/` before acting, and to take the exact path from `prospec status`'s `action:` line
+- WHEN the protocol names the read action, THEN it uses harness-neutral wording (no harness-specific tool name such as `view_file` or `invoke_subagent`) and the resolved `{{skill_path}}`, never a hardcoded skills directory
+- WHEN the agent relies on prior-context memory to guess a station's constraints, THEN the protocol forbids it and requires re-reading the station skill
 
 ---
 
@@ -70,6 +79,7 @@ Contract tests in `skill-format.test.ts` for candidate evaluation reference and 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-20 | situationally-aware-station-transitions | ADDED REQ-TEMPLATES-194 | REQ-TEMPLATES-194 |
 | 2026-08-19 | tasks-contract-dag-verification | ADDED REQ-AGNT-041 | REQ-AGNT-041 |
 | 2026-08-19 | select-plan-candidates | ADDED REQ-AGNT-040; ADDED REQ-TESTS-084 | REQ-AGNT-040, REQ-TESTS-084 |
 | 2026-08-18 | plan-shift-left-verifier | ADDED REQ-AGNT-039 | REQ-AGNT-039 |
