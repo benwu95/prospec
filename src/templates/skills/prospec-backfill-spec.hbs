@@ -71,7 +71,7 @@ Write the draft to `.prospec/changes/[name]/backfill-draft.md`, route-compatible
 
 ### Phase 3: Trust-zone invariant & candidate slug
 
-Backfill extraction **never writes** to `{{base_dir}}/specs/features/` (`archive.service.ts` stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `{{base_dir}}/specs/features/` slug when one fits. Check the proposed slug with `prospec validate slug <candidate>` (Bash) — the executable `isSafeResourceName` guard (rejects separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
+Backfill extraction **never writes** to `{{base_dir}}/specs/features/` (`prospec archive` (the CLI) stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `{{base_dir}}/specs/features/` slug when one fits. Check the proposed slug with `prospec validate slug <candidate>` (Bash) — the executable `isSafeResourceName` guard (rejects separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] nothing written under `{{base_dir}}/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `prospec validate slug` PASSes
@@ -102,7 +102,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** write the backfill draft into `{{base_dir}}/specs/features/` — backfill only stages `.prospec/changes/[name]/backfill-draft.md`; `archive.service.ts` stays the sole writer of the trust zone, and promotion is manual via the forward path
+- **NEVER** write the backfill draft into `{{base_dir}}/specs/features/` — backfill only stages `.prospec/changes/[name]/backfill-draft.md`; `prospec archive` (the CLI) stays the sole writer of the trust zone, and promotion is manual via the forward path
 - **NEVER** treat a module as a feature target — a feature is a vertical slice across **contributing modules**; cluster behavior by capability, not by where the code lives
 - **NEVER** make an infrastructure module (serialization, persistence, event-bus, composition root, and the like) a feature slice — its behavior is recorded as REQs hung under the **feature that consumes it**, never as its own feature
 - **NEVER** assert a cross-module event/outbound flow whose handler/sink you did not trace to a concrete callsite — mark it `[NEEDS CLARIFICATION]`/Deferred instead

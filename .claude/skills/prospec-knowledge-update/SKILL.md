@@ -189,7 +189,7 @@ After the re-run, verify (read, don't write):
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
 
-After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `prospec/ai-knowledge/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified` (REQ-SERVICES-090), ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. Passing all affected module names (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh and avoids `knowledge:check` CI failures.
+After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `prospec/ai-knowledge/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified`, ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. Passing all affected module names (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh and avoids `knowledge:check` CI failures.
 
 ## Output Contract
 

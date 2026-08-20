@@ -5,8 +5,8 @@ output of the deterministic, zero-LLM drift engine. It exists so skills that con
 report (`/prospec-verify`, `/prospec-learn`) read the right fields instead of hand-writing
 field paths that drift from the schema.
 
-> **Scope: shape only.** The authoritative schema is `DriftReportSchema` in
-> `src/types/drift-report.ts` (Zod). The `structural.knowledge_health` field is a **frozen
+> **Scope: shape only.** The authoritative schema is the prospec CLI's `DriftReportSchema`
+> (Zod). The `structural.knowledge_health` field is a **frozen
 > contract** consumed downstream (Knowledge Flywheel, MCP server) — changing it is a breaking
 > change. When in doubt about a field's type or optionality, read that schema; this reference
 > only maps where each fact lives.
@@ -132,7 +132,7 @@ validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `
   `knowledge_health` has **no** top-level `stale[]` array — to get the stale modules, filter
   `knowledge_health.modules` by `.stale`: `knowledge_health.modules.filter(m => m.stale)`.
 - `last_verified` is the module's explicit confirmation time (`module-map.yaml`, stamped by
-  `prospec knowledge verify`) and is **absent** when the module declares none. Since REQ-LIB-015 it
+  `prospec knowledge verify`) and is **absent** when the module declares none. It
   is the freshness reference: for a **documented** module `stale` recomputes as `last_src_commit`
   vs `last_verified` **compared by UTC calendar day** (or stale when `last_verified` is absent) —
   day granularity so a source commit made the same day it was verified reads fresh. A module with no README is stale by
@@ -167,8 +167,7 @@ validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `
 
 ## Sibling report — `escaped-defect-report.json`
 
-`prospec check --escaped-defects [--json]` writes a **separate** report (schema authority:
-`src/types/escaped-defect.ts`): `{ version, generated_at, archive_available, ledger_available, sample_count, gates[], samples[], unresolved_references[] }`,
+`prospec check --escaped-defects [--json]` writes a **separate** report (schema authority: the prospec CLI's escaped-defect schema): `{ version, generated_at, archive_available, ledger_available, sample_count, gates[], samples[], unresolved_references[] }`,
 where each `gates[]` entry is `{ gate, passed, escaped, escaped_rate }`. It aggregates `introduced_by`
 across `.prospec/changes/` **and** `.prospec/archive/` to give per-gate escaped-defect rate. It is a
 historical aggregate, not a drift check: it produces no findings and never affects `--strict`'s exit
@@ -195,6 +194,6 @@ being attributed to an arbitrary winner.
 
 ## Reference Information
 
-- Project name: `prospec`
-- Schema authority: `src/types/drift-report.ts` (`DriftReportSchema`, `DRIFT_CHECK_IDS`)
+- Project name: `{{project_name}}`
+- Schema authority: the prospec CLI's `DriftReportSchema` / `DRIFT_CHECK_IDS`
 - Produced by: `prospec check --json` (writes `prospec-report.json`)
