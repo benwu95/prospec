@@ -54,6 +54,17 @@ Keyed by a deterministic signature so counting is reproducible:
 
 ---
 
+## Generalizability Heuristic (what to capture)
+
+The single definition of which **conversational** corrections are worth capturing — followed by `/prospec-learn` Collect's session-correction folding and the L0 Checkpoint Correction Capture protocol. Harvest's structured sources below (`quality_log`/`review.md`/tasks×kind) are already curated and are NOT re-filtered by this heuristic.
+
+- **Capture** only a rule with cross-file generality: an architecture/layering boundary, a type-contract rule, a testing-discipline rule, or a security rule — the kinds that recur and would re-bite a different file or a later session.
+- **Exclude** the one-off: a hard-coded test mock/workaround, a one-off business-string or copy tweak, a temporary hack, or a pure business/requirement change. These never generalize, so capturing them only poisons and bloats the ledger.
+- A captured lesson names the downstream project's modules (`module-map.yaml`) and domain terms (`_glossary.md`), and its `description` is written in the language of the original correction (the ledger exception above).
+- A recurring pattern is unioned by `prospec learn upsert`'s distinct-source `frequency`, never appended as a duplicate row — the same dedup that keeps the ledger within budget.
+
+---
+
 ## Harvest (archive-time auto-extraction)
 
 `/prospec-archive` Phase 4.5 feeds this ledger automatically when a change is archived — the one moment the change's `quality_log` and `review.md` still exist before the worktree workflow can discard them. This is the **single definition** both `/prospec-archive` (producer) and `/prospec-learn` Collect (consumer) follow; neither restates the ledger table elsewhere.

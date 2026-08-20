@@ -19,7 +19,7 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. [STABLE] **MANDATORY** — Read [`references/promotion-format.md`](references/promotion-format.md) for the explicit promotion rule, lessons-ledger format, playbook entry format, approval record, and TTL/conflict fields
+1. [STABLE] **MANDATORY** — Read [`references/promotion-format.md`](references/promotion-format.md) for the explicit promotion rule, the Generalizability Heuristic (what to capture), lessons-ledger format, playbook entry format, approval record, and TTL/conflict fields
 2. [STABLE] Read `{{constitution_path}}` — the promotion target (Constitution rules) and the duplicate-check baseline
 3. [DYNAMIC] Read `{{knowledge_base_path}}/module-map.yaml` — to compute each lesson's impact-module count
 4. [DYNAMIC] Read the existing lessons ledger `{{knowledge_base_path}}/_lessons-ledger.md` (if present) — carry-forward anchor (version-controlled, survives worktrees)
@@ -47,7 +47,7 @@ Runs FIRST — audit the two governed files for entries the project has outgrown
 ### Collect
 
 Build/refresh the version-controlled lessons ledger (`{{knowledge_base_path}}/_lessons-ledger.md`):
-- Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in session corrections the user raised.
+- Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in the session corrections the user raised that pass the **Generalizability Heuristic** (`references/promotion-format.md` → what to capture) — a one-off mock, business-string tweak or temporary hack is not folded in, so a manual `/prospec-learn` run applies the same capture filter the L0 Checkpoint Correction Capture protocol does.
 - Assign each finding a **deterministic key** (a normalized signature — e.g. the rule/REQ it relates to, or a file/pattern), so the same lesson maps to the same key every run. Semantic matching ("are these the same lesson?" → reuse the existing key) is the **only LLM step**.
 - For each keyed finding, emit a lesson JSON (`{key, description, kind, source_change, impact_modules}` — `impact_modules` looked up from `module-map.yaml`) to a temp file and run `prospec learn upsert --lesson <file>` (Bash). The CLI owns the mechanics: keyed idempotent upsert, `frequency` incremented only for a DISTINCT source change (never recomputed by re-scanning), `source_changes[]`/`impact_modules[]` union, and the canonical table render.
 
