@@ -22,7 +22,13 @@ import {
 // timeout is raised with it: the real-host block copies `node.exe` (~110 MB, freshly
 // written and therefore Defender-scanned on a Windows runner) in `beforeAll`, and the 10 s
 // hook default would kill all three real-host cases at once (PB-010).
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+// 90s, not 30s: most cases here are pure (tokenizeCommand, and classifyExecutable
+// through an injected probe), but the ones that matter for this ceiling spawn a
+// real process via runTestCommand. 30s held for a bare `pnpm test` but not when
+// the suite is itself nested inside another node process — which is what
+// `prospec check --record-tests` does, so the one run whose result is RECORDED was
+// the likeliest to time out. A genuinely hung test still fails here, just later.
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 const NODE = process.execPath;
 

@@ -27,7 +27,12 @@ import {
 // which is intolerable for THIS change specifically: `--record-tests` stamps the
 // suite's exit code into `test_provenance`, so a flaky suite makes the
 // `test-provenance` verdict non-deterministic. Same precedent as tests/e2e/cli.test.ts.
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+// 90s, not 30s: the `--record-tests` cases run the project's real test command in
+// a child process. 30s held for a bare `pnpm test` but not when the suite is
+// itself nested inside another node process — which is what
+// `prospec check --record-tests` does, so the one run whose result is RECORDED was
+// the likeliest to time out. A genuinely hung test still fails here, just later.
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 let tmpDir: string;
 

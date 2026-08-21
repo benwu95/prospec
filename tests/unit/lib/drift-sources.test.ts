@@ -48,7 +48,12 @@ import { CANONICAL_INIT_DOCS } from '../../../src/types/conventions.js';
 // which is intolerable for THIS change specifically: `--record-tests` stamps the
 // suite's exit code into `test_provenance`, so a flaky suite makes the
 // `test-provenance` verdict non-deterministic. Same precedent as tests/e2e/cli.test.ts.
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+// 90s, not 30s: fast-glob and git do not see memfs, so the git-backed collectors
+// here build real temp repos and shell out to `git`. 30s held for a bare
+// `pnpm test` but not when the suite is itself nested inside another node process
+// — which is what `prospec check --record-tests` does, so the one run whose result
+// is RECORDED was the likeliest to time out. A hung test still fails, just later.
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 let tmpDir: string;
 

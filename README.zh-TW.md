@@ -1020,11 +1020,11 @@ Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 
 ```
 src/
 ├── cli/          — Commander.js 命令 + 格式化輸出
-├── services/     — 業務邏輯（14 個 service）
+├── services/     — 業務邏輯（30 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
 └── templates/    — Handlebars 範本（74 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 22 個 reference 範本
+    └── skills/   — 17 個 Skill 範本 + 28 個 reference 範本
 ```
 
 ### Tech Stack

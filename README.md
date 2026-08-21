@@ -1040,11 +1040,11 @@ Prospec uses **Pragmatic Layered Architecture** for CLI development best practic
 ```
 src/
 ├── cli/          — Commander.js commands + formatters
-├── services/     — Business logic (14 services)
+├── services/     — Business logic (30 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
 └── templates/    — Handlebars templates (74 .hbs files)
-    └── skills/   — 17 Skill templates + 22 reference templates
+    └── skills/   — 17 Skill templates + 28 reference templates
 ```
 
 ### Tech Stack
