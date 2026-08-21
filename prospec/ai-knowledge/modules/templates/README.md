@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 73 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 74 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 
 <!-- prospec:auto-start -->
 
@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md` (incl. the `Directories Without Source Files` evidence block), `module-map.yaml`, `feature-map.yaml` |
-| `change/*.hbs` (4) | proposal / plan / delta-spec / tasks scaffolds (metadata.yaml is serialized in `change-story.service`, not templated) |
+| `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
 | `agent-configs/entry.md.hbs` (1) | Shared entry config; renders the skill registry per agent via `surfaces_skill_frontmatter`; Session Start requires `prospec status` at the `{{minimum_cli_version}}` floor, never manual substitutes; auto/user marker blocks |
 | `references/config-example.yaml.hbs` (1) | The complete annotated `.prospec.yaml` printed by `prospec config example` — top-level, not a per-skill reference |

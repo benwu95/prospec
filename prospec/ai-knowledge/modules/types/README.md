@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (18 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (19 files)
 
 <!-- prospec:auto-start -->
 
@@ -18,7 +18,7 @@
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
 | `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema`, `LessonInputSchema`; `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 
-Also: `escaped-defect.ts`, `feature-map.ts`, `measurement.ts`, `spec.ts`, `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
+Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipped | failed` per-group outcome), `conventions.ts`, `escaped-defect.ts`, `feature-map.ts`, `mcp.ts`, `measurement.ts`, `skill.ts`, `spec.ts`, `status.ts` (`ChangeRoute`, `StatusReport`, and `DriftSignal` — the two-state drift verdict `prospec status` reports), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
 
 ## Public API
 

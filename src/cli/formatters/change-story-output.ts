@@ -18,9 +18,11 @@ export function formatChangeStoryOutput(
 
   const lines: string[] = [];
 
-  // 1. Created files
+  // 1. Created files — worded by what actually happened: `createdFiles` lists
+  // the change's artifacts, and under a dry run none of them are on disk.
+  const verb = result.dryRun ? 'Would create' : 'Created';
   for (const file of result.createdFiles) {
-    lines.push(`${pc.green('✓')} Created ${file}`);
+    lines.push(`${pc.green('✓')} ${verb} ${file}`);
   }
 
   // 2. Description (if provided)

@@ -201,7 +201,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks (or story → tasks under `scale: quick`); the `prospec change` commands own every transition — never hand-edit metadata.yaml
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
-- **NEVER** skip Phase 3 without a user-confirmed `scale: quick` in metadata.yaml — skipping plan is an explicit contract, not a shortcut
+- **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
 - **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").

@@ -3,7 +3,8 @@ import * as path from 'node:path';
 import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { isStale } from '../lib/drift-checker.js';
-import { collectGitTimestamps } from '../lib/drift-sources.js';
+import { isDraftableFinding } from '../lib/draftable-findings.js';
+import { collectGitTimestamps, computeChangeDigest } from '../lib/drift-sources.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
@@ -13,10 +14,14 @@ import type {
   ChangeRoute,
   ChangeRouteError,
   ChangeRouteFacts,
+  DriftSignal,
   StatusReport,
   UiScope,
 } from '../types/status.js';
 import { parseDeltaSpec } from '../lib/delta-spec-parser.js';
+
+import type { DriftReport } from '../types/drift-report.js';
+import { DRIFT_REPORT_FILENAME, DriftReportSchema } from '../types/drift-report.js';
 
 /**
  * `prospec status` — deterministic SDD routing over `.prospec/changes/`.
@@ -75,7 +80,63 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
     }
   }
 
-  return { clean: changes.length === 0 && errors.length === 0, changes, errors };
+  const isClean = changes.length === 0 && errors.length === 0;
+  // Only nudge when the desk is clear. Under this guard nothing is in progress,
+  // so nothing can be addressing a finding — which is why there is no
+  // "already addressed" suppression here: it would have nothing to suppress.
+  const drift = isClean ? readDriftSignal(cwd) : undefined;
+
+  return {
+    clean: isClean,
+    changes,
+    errors,
+    ...(drift !== undefined ? { drift } : {}),
+  };
+}
+
+/**
+ * What `prospec-report.json` says about drift right now — or that it cannot say.
+ *
+ * Report state, not finding attribution: `check` computes findings freshly and
+ * correctly, so status re-deriving them from a gitignored file that may predate
+ * the working tree only invents a second, staler answer. A report that is
+ * absent, unreadable, off-schema, or generated against different code is
+ * reported AS THAT — staleness is the message, never a silent pass.
+ */
+function readDriftSignal(cwd: string): DriftSignal | undefined {
+  const reportPath = path.join(cwd, DRIFT_REPORT_FILENAME);
+  const unusable = (reason: 'unreadable' | 'stale' | 'unprovable'): DriftSignal => ({
+    state: 'unusable',
+    reason,
+    recommendation: 'prospec check --json',
+  });
+
+  if (!fs.existsSync(reportPath)) return undefined;
+
+  let parsed: DriftReport;
+  try {
+    parsed = DriftReportSchema.parse(JSON.parse(fs.readFileSync(reportPath, 'utf-8')));
+  } catch {
+    return unusable('unreadable');
+  }
+
+  // Same freshness rule `verify record` applies: a digest that cannot be
+  // computed (no git worktree) proves nothing, so it does not condemn.
+  const currentDigest = computeChangeDigest(cwd);
+  if (currentDigest !== null && parsed.change_digest !== currentDigest) {
+    // A report from an older engine carries no digest at all. That is freshness
+    // UNPROVEN, not freshness disproven — saying "generated against different
+    // code" would assert something nobody measured.
+    return unusable(
+      parsed.change_digest === null || parsed.change_digest === undefined ? 'unprovable' : 'stale',
+    );
+  }
+
+  // The SAME predicate `--auto-draft` applies. Counting raw findings here would
+  // name a number the recommended command then refuses to act on.
+  const count = parsed.structural.findings.filter(isDraftableFinding).length;
+  if (count === 0) return undefined;
+  return { state: 'findings', count, recommendation: 'prospec check --auto-draft' };
 }
 
 /** Gather the on-disk facts one change's routing depends on. */

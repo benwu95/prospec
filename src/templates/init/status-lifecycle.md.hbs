@@ -18,7 +18,7 @@ story → plan → tasks → implemented → verified → archived
 |------|----|--------------|---------------------|
 | — | `story` | `/prospec-new-story` (or `/prospec-ff`) | change scaffolding + `proposal.md` created |
 | `story` | `plan` | `/prospec-plan` (or `/prospec-ff`) | `plan.md` + `delta-spec.md` created |
-| `story` | `tasks` | `/prospec-ff` (or `/prospec-tasks`) | **quick path**: metadata `scale: quick` (user-confirmed) — no plan.md/delta-spec.md; spec & knowledge impact re-checked at the `/prospec-archive` Entry Gate |
+| `story` | `tasks` | `/prospec-ff` (or `/prospec-tasks`) | **quick path**: metadata `scale: quick` (user-confirmed, or machine-assigned by `prospec change auto-draft` from the drift check that triggered the change) — no plan.md/delta-spec.md; spec & knowledge impact re-checked at the `/prospec-archive` Entry Gate |
 | `plan` | `tasks` | `/prospec-tasks` (or `/prospec-ff`) | `tasks.md` created |
 | — | `implemented` | `/prospec-promote-backfill` | **backfill path**: metadata `scale: backfill` — formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata; **no plan/tasks** — records existing code); the brownfield code already exists, so it enters at `implemented` (no story/plan/tasks/implement transitions run) |
 | `tasks` | `implemented` | `/prospec-implement` | all `tasks.md` **code-task** checkboxes complete (`[M]`/`[V]` kinds are reminders — see the tasks-format reference) |
@@ -100,5 +100,5 @@ introduced_by: <change-name>   # the change whose gates missed this defect
 ## Rules
 
 - The skill that owns a transition MUST update `metadata.yaml` `status` when it completes its phase.
-- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change). The only legal skip is `story → tasks` under a user-confirmed `scale: quick`. Separately, `/prospec-promote-backfill` is a lifecycle **entry** (not a skip): it enters at `implemented` under metadata `scale: backfill` (the brownfield code it records already exists).
+- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change). The only legal skip is `story → tasks` under a `scale: quick` — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for. Separately, `/prospec-promote-backfill` is a lifecycle **entry** (not a skip): it enters at `implemented` under metadata `scale: backfill` (the brownfield code it records already exists).
 - These six are the only valid statuses. Adding one requires updating this file **and** every consuming skill. (`scale: backfill` is a metadata **scale** value, not a new status — it routes verify/archive, like `scale: quick`.)

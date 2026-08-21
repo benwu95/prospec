@@ -7,7 +7,7 @@
 | File | Purpose |
 |------|---------|
 | `mcp.service.ts` | `buildMcpServer(ctx)` — resources + tools over the SDK; `execute()` wires stdio |
-| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts (incl. knowledge sync status), route via `lib/status-router` |
+| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts (incl. knowledge sync status), route via `lib/status-router`. With NOTHING in flight it also reads `prospec-report.json` and reports that report's STATE (`DriftSignal`): the draftable finding count when the file parses through `DriftReportSchema` and its `change_digest` matches the working tree, or `unusable` naming `stale` / `unprovable` / `unreadable`. It never re-derives finding attribution — `check` computes that freshly — and it still writes nothing |
 | `spec-show.service.ts` | `execute({cwd, feature, req, story})` — route through the shared `lib/spec-read` entry, then apply only this surface's no-selector policy (whole spec vs refuse) |
 
 ## Public API
@@ -17,7 +17,7 @@
 
 ## Dependencies
 
-**Depends on:** `lib` (`knowledge-reader` contained reads, `spec-headings` + `spec-slices`, `status-router`, `drift-checker`/`drift-sources` for health), `types` (MCP + status contracts)
+**Depends on:** `lib` (`knowledge-reader` contained reads, `spec-headings` + `spec-slices`, `status-router`, `drift-checker`/`drift-sources` for health and the working-tree digest), `types` (MCP + status contracts), and — within `services` — `auto-draft.service`'s `isDraftableFinding`, so the count `status` nudges with and the set `--auto-draft` acts on can never diverge
 **Used by:** `cli` (`mcp serve`, `status`, `spec show`)
 
 ## Modification Guide

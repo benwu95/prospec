@@ -146,3 +146,60 @@ describe('status-output — issue registration (issue #131)', () => {
     expect(text).toContain('#131');
   });
 });
+
+describe('status-output drift signal', () => {
+  const CLEAN: StatusReport = { clean: true, changes: [], errors: [] };
+
+  it('names the draftable count and the drafting command', () => {
+    formatStatusOutput(
+      { ...CLEAN, drift: { state: 'findings', count: 3, recommendation: 'prospec check --auto-draft' } },
+      'normal',
+    );
+    const out = output();
+    expect(out).toContain('3 drift finding(s)');
+    expect(out).toContain('prospec check --auto-draft');
+  });
+
+  it('says WHY an unusable report cannot be trusted, and how to regenerate it', () => {
+    formatStatusOutput(
+      { ...CLEAN, drift: { state: 'unusable', reason: 'stale', recommendation: 'prospec check --json' } },
+      'normal',
+    );
+    const stale = output();
+    expect(stale).toContain('generated against different code');
+    expect(stale).toContain('prospec check --json');
+
+    logSpy.mockClear();
+    formatStatusOutput(
+      { ...CLEAN, drift: { state: 'unusable', reason: 'unreadable', recommendation: 'prospec check --json' } },
+      'normal',
+    );
+    expect(output()).toContain('could not be read');
+
+    logSpy.mockClear();
+    formatStatusOutput(
+      { ...CLEAN, drift: { state: 'unusable', reason: 'unprovable', recommendation: 'prospec check --json' } },
+      'normal',
+    );
+    const unprovable = output();
+    expect(unprovable).toContain('records no code fingerprint');
+    // Never the stale wording: nobody measured this report's freshness.
+    expect(unprovable).not.toContain('generated against different code');
+  });
+
+  it('prints only the clean line when there is no drift signal', () => {
+    formatStatusOutput(CLEAN, 'normal');
+    const out = output();
+    expect(out).toContain('No in-progress changes');
+    expect(out).not.toContain('drift finding');
+    expect(out).not.toContain('prospec check');
+  });
+
+  it('stays silent under --quiet even with a drift signal', () => {
+    formatStatusOutput(
+      { ...CLEAN, drift: { state: 'findings', count: 3, recommendation: 'prospec check --auto-draft' } },
+      'quiet',
+    );
+    expect(output()).toBe('');
+  });
+});

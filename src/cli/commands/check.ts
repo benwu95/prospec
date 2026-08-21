@@ -33,6 +33,11 @@ export function registerCheckCommand(program: Command): void {
     .option('--record-review', "Record the active change's review baseline and exit")
     .option('--record-tests', "Run the project's test command, record the outcome, and exit")
     .option('--escaped-defects', 'Report per-gate escaped-defect rate from `introduced_by` and exit')
+    .option('--auto-draft', 'Auto-draft fix changes for detected FAIL/WARN findings')
+    .option(
+      '--auto-draft-dry-run',
+      'With --auto-draft, report what would be drafted without writing it',
+    )
     .option(
       '--change <name>',
       'Target change for --record-review/--record-tests (disambiguates when several are in flight)',
@@ -46,6 +51,8 @@ export function registerCheckCommand(program: Command): void {
         recordTests?: boolean;
         escapedDefects?: boolean;
         change?: string;
+        autoDraft?: boolean;
+        autoDraftDryRun?: boolean;
       }) => {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
@@ -58,9 +65,20 @@ export function registerCheckCommand(program: Command): void {
             recordTests: options.recordTests,
             escapedDefects: options.escapedDefects,
             change: options.change,
+            autoDraft: options.autoDraft,
+            autoDraftDryRun: options.autoDraftDryRun,
           });
           formatCheckOutput(result, logLevel);
           if (options.strict && result.kind === 'report' && result.hasFail) {
+            process.exitCode = 1;
+          }
+          // Drafting cannot change the CHECK's verdict, but a run that failed to
+          // write what it was asked to write is not a success. Without this a
+          // caller cannot tell "nothing to draft" from "every scaffold failed".
+          if (
+            result.kind === 'report' &&
+            (result.autoDraftError !== undefined || (result.autoDraftResult?.failedCount ?? 0) > 0)
+          ) {
             process.exitCode = 1;
           }
         } catch (err) {

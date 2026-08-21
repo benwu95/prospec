@@ -1,6 +1,6 @@
 # Contract Guards
 
-> Sub-module of [Verification Suite](./README.md) — the 19 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
+> Sub-module of [Verification Suite](./README.md) — the 21 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
 
 ## Key Files
 
@@ -11,11 +11,12 @@
 | `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, and each generated-artifact registry entry ≡ the path its producer actually writes. |
 | `own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell living only in the generated file is a pending revert); and a shrink-only set-equality ledger of the legacy body-less REQs — repairing one requires deleting its `LEGACY_BODYLESS` entry. |
 | `mcp-server.test.ts`, `language-policy-scope.test.ts`, `spec-heading-single-source.test.ts`, `spec-sync-corpus.test.ts` | Protocol + cross-document agreement — MCP over the SDK in-memory linked transport (never a spawned daemon), cross-document language-scope agreement, the ONE REQ-heading definition, and the two spec-format references' agreement on the `**Spec:**` boundary. |
+| `auto-draft-proposal-format.test.ts`, `change-auto-draft.contract.test.ts` | The drift-drafting surface: `auto-draft-proposal-format` renders the real `change/auto-draft-proposal.md.hbs` and pins the section set the canonical proposal format requires, the `## UI Scope` / `**Scope:**` block `status`'s `parseUiScope` reads, `## Related Modules` in both the attributed and unattributed shapes, one bullet per finding carrying its own `source_path`, every distinct remedy, and that drift text renders verbatim rather than HTML-escaped; `change-auto-draft.contract` pins the command's flag surface, including `--scale` constrained to `CHANGE_SCALES` and the scope-named `--auto-draft-dry-run`. |
 | `typecheck-config.test.ts`, `agent-triggers-*.test.ts`, `lessons-harvest-fixtures.test.ts` | The typecheck config's `exclude` guard, trigger scaffolding, and the synthetic archived corpus the harvest reads. |
 
 ## Public API
 
-- No exports — `pnpm vitest run tests/contract/` (19 files, 820 tests).
+- No exports — `pnpm vitest run tests/contract/` (21 files).
 
 ## Dependencies
 

@@ -3,7 +3,7 @@
 This document is a **reader's guide** to a change's `metadata.yaml`
 (`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read** (issue
 #107): every mutation goes through a `prospec` command — `change story` (create),
-`change scale`, `change status`, `change log` (quality_log append), `verify record`,
+`change scale`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
 `check --record-review` / `--record-tests`, `archive` — so skills never hand-serialize it.
 What follows documents the shape those commands emit, so a skill reading the file (or
 composing structured CLI input) knows what each field means.
@@ -41,14 +41,14 @@ finds itself about to WRITE this shape by hand has taken a wrong turn — run th
 | `name` | yes | `prospec change story` (create) | change dir name (kebab-case) |
 | `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
 | `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
-| `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment | one of the schema's `CHANGE_SCALES` values |
-| `related_modules` | no | `prospec change story` (auto-match or `--related-module`) | bare module names |
+| `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment; also `change auto-draft` at create time, from the drift check that triggered it | one of the schema's `CHANGE_SCALES` values |
+| `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
 | `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
-| `issue` | no | `prospec change story --issue` | external-tracker registration — see below |
+| `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
 
 ### `test_provenance` — the recorded test run
 
