@@ -1780,4 +1780,195 @@ describe('prospec upgrade E2E', () => {
       expect(stderr).toContain('Template file not found');
     });
   });
+
 });
+
+describe('prospec change auto-draft and check --auto-draft E2E', () => {
+  const changeDir = (name: string): string =>
+    path.join(tmpDir, '.prospec', 'changes', name);
+
+  async function initProject(): Promise<void> {
+    await fs.promises.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'e2e-autodraft' }),
+    );
+    await runCli(['init', '--name', 'e2e-autodraft', '--agents', 'claude']);
+  }
+
+  it('creates a complete fix change directory via change auto-draft', async () => {
+    await initProject();
+
+    const { stdout, exitCode } = await runCli([
+      'change',
+      'auto-draft',
+      '--target',
+      'services',
+      '--check',
+      'knowledge-size',
+      '--reason',
+      'README exceeds token budget',
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Drafted fix');
+    expect(stdout).toContain('fix-services-knowledge-size');
+
+    const dir = changeDir('fix-services-knowledge-size');
+    expect(fs.existsSync(path.join(dir, 'proposal.md'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'metadata.yaml'))).toBe(true);
+
+    const proposalText = await fs.promises.readFile(path.join(dir, 'proposal.md'), 'utf-8');
+    expect(proposalText).toContain('Fix services drift (knowledge-size)');
+    expect(proposalText).toContain('README exceeds token budget');
+  });
+
+  it('rejects an unknown --scale instead of writing it to disk', async () => {
+    await initProject();
+
+    const { exitCode, stderr } = await runCli([
+      'change',
+      'auto-draft',
+      '--target',
+      'services',
+      '--check',
+      'knowledge-size',
+      '--reason',
+      'x',
+      '--scale',
+      'gigantic',
+    ]);
+
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain('gigantic');
+    expect(fs.existsSync(changeDir('fix-services-knowledge-size'))).toBe(false);
+  });
+
+  it('exits non-zero and writes nothing when no drift source is given', async () => {
+    await initProject();
+
+    const { exitCode } = await runCli(['change', 'auto-draft']);
+
+    expect(exitCode).not.toBe(0);
+    expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes'))).toBe(false);
+  });
+
+  it('check --auto-draft still writes the report and grades the run', async () => {
+    await initProject();
+
+    const { exitCode, stdout } = await runCli(['check', '--json', '--auto-draft']);
+
+    expect(exitCode).toBe(0);
+    const reportPath = path.join(tmpDir, 'prospec-report.json');
+    expect(fs.existsSync(reportPath)).toBe(true);
+    // The report the run graded, not just a file: its verdicts must survive the
+    // drafting step that runs after it.
+    const report = JSON.parse(await fs.promises.readFile(reportPath, 'utf-8'));
+    expect(report.structural.checks.length).toBeGreaterThan(0);
+    expect(report.summary.fail_count).toBe(0);
+
+    // Whatever was drafted exists on disk under exactly the reported names.
+    const drafted = [...stdout.matchAll(/Drafted fix: (\S+)/g)].map((m) => m[1]!);
+    const changes = path.join(tmpDir, '.prospec', 'changes');
+    const onDisk = fs.existsSync(changes) ? await fs.promises.readdir(changes) : [];
+    // Without this the two empty arrays would compare equal and the case would
+    // pass on a run that drafted nothing at all.
+    expect(drafted.length).toBeGreaterThan(0);
+    expect(onDisk.sort()).toEqual(drafted.sort());
+    for (const name of onDisk) {
+      expect(fs.existsSync(path.join(changes, name, 'proposal.md'))).toBe(true);
+      expect(fs.existsSync(path.join(changes, name, 'metadata.yaml'))).toBe(true);
+    }
+  });
+
+  it('refuses --auto-draft in a mode that returns before the drift run', async () => {
+    await initProject();
+
+    const { exitCode, stderr } = await runCli(['check', '--record-tests', '--auto-draft']);
+
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain('--record-tests');
+    expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes'))).toBe(false);
+  });
+
+  it('defaults --from-report to the canonical report filename', async () => {
+    await initProject();
+    await runCli(['check', '--json']);
+
+    // Bare flag, no value: it must find `prospec-report.json` on its own.
+    const { exitCode, stdout } = await runCli(['change', 'auto-draft', '--from-report']);
+
+    expect(exitCode).toBe(0);
+    expect([...stdout.matchAll(/Drafted fix: (\S+)/g)].length).toBeGreaterThan(0);
+  });
+
+  it('exits 1 when a group could not be written, while reporting the run', async () => {
+    await initProject();
+    await runCli(['check', '--json']);
+    // Read-only changes directory: every scaffold write fails, but the service
+    // reports each group rather than throwing.
+    const changes = path.join(tmpDir, '.prospec', 'changes');
+    await fs.promises.mkdir(changes, { recursive: true });
+    await fs.promises.chmod(changes, 0o555);
+    try {
+      const { exitCode, stdout } = await runCli(['change', 'auto-draft', '--from-report']);
+
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('✗ Failed:');
+      expect(stdout).toMatch(/\d+ failed/);
+    } finally {
+      await fs.promises.chmod(changes, 0o755);
+    }
+  });
+
+  it('check --auto-draft exits non-zero when a scaffold could not be written', async () => {
+    await initProject();
+    const changes = path.join(tmpDir, '.prospec', 'changes');
+    await fs.promises.mkdir(changes, { recursive: true });
+    await fs.promises.chmod(changes, 0o555);
+    try {
+      const { exitCode, stderr } = await runCli(['check', '--json', '--auto-draft', '--quiet']);
+      // The CHECK passed; the drafting it was asked to do did not.
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('auto-draft failed');
+    } finally {
+      await fs.promises.chmod(changes, 0o755);
+    }
+  });
+
+  it('refuses a report source combined with an explicit target', async () => {
+    await initProject();
+    await runCli(['check', '--json']);
+
+    const { exitCode, stderr } = await runCli([
+      'change',
+      'auto-draft',
+      '--from-report',
+      '--target',
+      'services',
+    ]);
+
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toMatch(/--target/);
+  });
+
+  it('check --auto-draft-dry-run writes the report but no change directory', async () => {
+    await initProject();
+
+    const { exitCode, stdout } = await runCli([
+      'check',
+      '--json',
+      '--auto-draft',
+      '--auto-draft-dry-run',
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(fs.existsSync(path.join(tmpDir, 'prospec-report.json'))).toBe(true);
+    // It must have had something to preview, or "wrote nothing" is vacuous.
+    expect(stdout).toContain('[dry-run]');
+    expect([...stdout.matchAll(/Would draft fix: (\S+)/g)].length).toBeGreaterThan(0);
+    const changes = path.join(tmpDir, '.prospec', 'changes');
+    const entries = fs.existsSync(changes) ? await fs.promises.readdir(changes) : [];
+    expect(entries).toEqual([]);
+  });
+});
+

@@ -172,3 +172,25 @@ export function normalizeIssueRef(value: unknown): string | undefined {
   const collapsed = value.replace(/\s+/g, ' ').trim();
   return collapsed === '' ? undefined : collapsed;
 }
+
+/**
+ * Sanitize a string into a clean kebab-case slug for change directory naming.
+ */
+export function sanitizeChangeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[\\/.]+/g, '-')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Derive a standard auto-draft fix change name: `fix-<target>-<check-id>`.
+ */
+export function deriveFixChangeName(target: string, checkId: string): string {
+  const cleanTarget = sanitizeChangeSlug(target) || 'general';
+  const cleanCheck = sanitizeChangeSlug(checkId) || 'drift';
+  return `fix-${cleanTarget}-${cleanCheck}`;
+}
+

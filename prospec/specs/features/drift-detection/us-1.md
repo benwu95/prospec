@@ -148,3 +148,69 @@ The knowledge-size structured-finding behavior is pinned by unit tests: the sche
 - WHEN the optional schema field is removed, THEN a schema test turns red
 
 ---
+
+#### REQ-TYPES-088: Auto-draft type contracts
+The type layer defines the auto-draft contract and the status drift signal.
+- WHEN `AutoDraftOptions` is built, THEN it carries a drift source — in-memory findings, a report path, or an explicit target/reason — plus optional scale, issue and dry-run flags, and the service REFUSES a report source combined with an explicit target/reason/check rather than silently preferring one
+- WHEN `AutoDraftResult` is returned, THEN it reports each processed group as `created`, `skipped` or `failed` with its target, check id, scale, every distinct reported remedy, and the skip-or-error reason, alongside the created/skipped/failed counts and whether the run was a dry run
+- WHEN `DriftSignal` is produced, THEN it is either `findings` with a count, or `unusable` naming which of three things went wrong — `unreadable` (malformed or off-schema), `stale` (its digest names a different working tree), `unprovable` (it records no digest, so freshness was never measured) — and there is no state meaning "clean", which is expressed by omitting the signal
+
+---
+
+#### REQ-LIB-060: Auto-draft proposal renders from a bundled template
+The auto-drafted proposal body is rendered from a bundled Handlebars template, never from a template literal in code, and change names are derived so that distinct subjects stay distinct.
+- WHEN a proposal body is built, THEN it renders `change/auto-draft-proposal.md.hbs` through `renderTemplate`, so the bundled-template sync contract covers it like every other shipped template
+- WHEN the project's `artifact_language` is not English, THEN the rendered proposal states that it is machine-drafted in English and must be rewritten in that language before leaving the story station, rather than hardcoding any single language's prose
+- WHEN the group could not be attributed to a module, THEN `## Related Modules` says so instead of presenting the grouping subject as a module name
+- WHEN drift text carries `&`, `<`, or quotes, THEN it renders verbatim: the output is markdown, and HTML escaping would corrupt it
+- WHEN a change name is derived, THEN `deriveFixChangeName` produces `fix-<target-slug>-<check-slug>` with path separators and dots collapsed by `sanitizeChangeSlug`, so a `source_path` can never escape `.prospec/changes/`
+- WHEN a target does not survive slugging unchanged, THEN a short suffix derived from that target alone is appended, so two different targets can never resolve to one directory — and the name stays the same across runs regardless of what else the report contained, so re-drafting the same drift skips instead of creating a second change
+- WHEN the slug of a target or check id would be empty, THEN `general` / `drift` stand in, and the suffix rule above keeps two such targets apart
+
+---
+
+#### REQ-SERVICES-093: Auto-draft delegates scaffolding to the change creator
+The auto-draft service turns drift findings into change scaffolds without owning the creation of them.
+- WHEN a group is scaffolded, THEN creation goes through `change-story.service`, so the change carries the same guards as `prospec change story` (collision refusal, issue normalization, excess-property-checked metadata) and no second creator exists
+- WHEN a change directory for the derived name already exists, THEN `AlreadyExistsError` is caught and the group is reported as skipped — the directory is never read, matched by prefix, or written into
+- WHEN a finding's `source_path` is attributed, THEN it resolves through `module-map.yaml` and the configured `knowledge.base_path` / `paths.base_dir`; a path under the configured feature-spec root groups under that feature's name, and a path matching neither groups under `general` — never under an arbitrary file basename, which produced one bogus subject per file
+- WHEN a group's target is not a module declared in `module-map.yaml`, THEN an EMPTY explicit module list is passed rather than the key omitted — omitting it re-enables the creator's `index.md` keyword matching, which would attach guessed modules to a change whose subject could not be attributed
+- WHEN a knowledge-tree path yields a directory segment, THEN it is claimed as a module only when `module-map.yaml` declares that name: the segment is raw report text, and an undeclared one would be refused at the metadata write after `proposal.md` was already on disk
+- WHEN a finding carries the `headroom` knowledge-size tier, or its `source_path` lies under `.prospec/`, THEN it is not draftable: the first reports budget pressure rather than a violation, and the second is an SDD process gate ON a change, so drafting it would create a change whose job is another change's paperwork — and which trips the same gates the moment it exists. Nothing else is dropped or capped
+- WHEN one group's scaffold cannot be written, THEN that group is reported with `action: 'failed'` and the remaining groups still run — throwing would discard the result and leave directories on disk that nothing names
+- WHEN a group merges findings that could not be attributed, THEN the proposal carries EVERY finding with its own `source_path` and every DISTINCT reported remedy, and says the group may need splitting
+- WHEN no drift source is given at all, THEN the service throws `PrerequisiteError` instead of returning an empty, clean-looking result
+- WHEN `dryRun` is set, THEN no change directory is created — not merely no `proposal.md`, since a metadata-only directory would suppress every later draft for the same finding
+- WHEN an explicit `--target` is given, THEN that name is used verbatim instead of being re-derived by path attribution, and combining it with a report source is refused rather than silently ignoring one of them
+- WHEN the report cannot be used, THEN absent-or-empty, invalid JSON, and off-schema are reported as three different sentences naming the offending fields, never as a raw validator dump
+
+---
+
+#### REQ-SERVICES-094: Drafting never affects the check's report or verdict
+Auto-drafting is a convenience layered on the check, and cannot compromise it.
+- WHEN `execute` runs with `autoDraft` and `json`, THEN `prospec-report.json` is written before drafting starts
+- WHEN drafting throws, THEN the failure is recorded on the result as `autoDraftError` and reported, never propagated — the report is still returned and `hasFail` still derives from `summary.fail_count`, so `--strict`'s exit code is unchanged
+- WHEN `autoDraftDryRun` is set, THEN only drafting is simulated; the flag is named for that scope because the command's other writes are unaffected by it
+- WHEN `--auto-draft` is combined with a mode that returns before the drift run (`--init-ci`, `--record-review`, `--record-tests`, `--escaped-defects`), or `--auto-draft-dry-run` is given without `--auto-draft`, THEN the command exits non-zero naming the conflict rather than accepting a flag it will not honour
+
+---
+
+#### REQ-CLI-041: `prospec check --auto-draft` flag
+`prospec check` can draft from the run it just reported.
+- WHEN `prospec check --auto-draft` runs, THEN drafted and skipped changes are reported after the check summary, with every free-form value sanitized
+- WHEN drafting failed, THEN the output states that the check verdicts above are unaffected
+- WHEN `--quiet` is set, THEN the names of change directories that were actually created are still printed, because what was written must stay visible
+- WHEN `--auto-draft-dry-run` is set, THEN the block is marked as a dry run and no follow-up action is suggested
+
+---
+
+#### REQ-TESTS-096: Auto-draft behavior is pinned by tests, not by shape assertions
+Each guarantee below is pinned by a test that fails if the behavior is removed — asserted on the drafted result and on disk, not on the shape of a returned object.
+- WHEN the knowledge root is relocated via `knowledge.base_path`, THEN a test asserts findings still group under their real module name
+- WHEN a finding is unattributable, THEN a test asserts the change is named `general` and writes no `related_modules`
+- WHEN a dry run completes, THEN a test asserts no change directory exists at all
+- WHEN drafting runs twice against a hand-edited proposal, THEN a test asserts the second run skips and the edited bytes are unchanged
+- WHEN drafting throws, THEN a test asserts the JSON report is still written and `hasFail` still derives from the summary
+- WHEN the CLI is invoked with no drift source or an invalid `--scale`, THEN E2E tests assert a non-zero exit and an empty `.prospec/changes/`
+
+---

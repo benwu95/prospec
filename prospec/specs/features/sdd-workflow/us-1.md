@@ -21,6 +21,9 @@ Generate a proposal.md in INVEST User Story format.
 - WHEN completes, THEN contains multiple INVEST User Stories + acceptance scenarios
 - WHEN `--description` provided, THEN written to Notes section
 - WHEN referencing proposal-format, THEN includes Why, User Stories, Edge Cases, FR, SC, Open Questions
+- WHEN the caller supplies a pre-rendered proposal body, THEN it is written verbatim and the template is not rendered — one creation procedure, whichever body it writes
+- WHEN the caller supplies a `scale`, THEN it is written into `metadata.yaml` at creation, so a change whose scale is known up front needs no second command to record it
+- WHEN the caller asks for a dry run, THEN every resolution and validation still runs — the collision refusal and the metadata schema check included — and nothing is written; the result says `dryRun`, and its file list is what WOULD be written rather than a claim that it exists
 
 #### REQ-CHNG-003: Auto-Identify Related Modules
 Identify related modules by keyword-matching against the root-level `{base_dir}/index.md`, taking the **bare** module name from the Module cell.
@@ -29,9 +32,10 @@ Identify related modules by keyword-matching against the root-level `{base_dir}/
 - WHEN parsing the `{base_dir}/index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Progressive Knowledge Loading Strategy table) are skipped by column count
 - WHEN the Module cell carries display emphasis (`**types**`), THEN the emphasis is stripped via the shared `stripCellEmphasis` before the value is used as a module name — one source shared with `parseIndexModules`, so the two never disagree on a module's identity
 - WHEN the name reaches `related_modules` or the proposal, THEN it is bare: metadata holds `types`, and the proposal template applies the single layer of bolding
+- WHEN the caller passes an explicit module list — INCLUDING an empty one — THEN keyword matching is not run: an empty list is the caller's answer, not the absence of one
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
-Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the single source of truth: `story` → `plan` → `tasks` → `implemented` → `verified` → `archived`; `scale: quick` (after user confirmation) permits `story` → `tasks`, a legal skip of plan.
+Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the single source of truth: `story` → `plan` → `tasks` → `implemented` → `verified` → `archived`; `scale: quick` permits `story` → `tasks`, a legal skip of plan.
 - WHEN each workflow skill completes, THEN advance status per the canonical lifecycle: new-story → `story`, plan → `plan`, tasks → `tasks`, implement → `implemented`
 - WHEN metadata `scale: quick`, THEN `story → tasks` is the single legal skip (no plan.md/delta-spec.md produced; spec and knowledge impact are re-checked by the archive Entry Gate against the actual diff)
 - WHEN verify reaches grade S/A, THEN status → `verified`; WHEN grade B/C/D, THEN status unchanged (re-run after fixing)
@@ -39,6 +43,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
 - WHEN gating artifacts, THEN Feature Specs are updated ONLY by `/prospec-archive` (Phase 3.5 graduation); `/prospec-verify` gates on Knowledge↔code and does NOT gate on Feature Spec freshness — preventing a verify↔archive deadlock
 - WHEN reaching the S/A commit boundary, THEN module-README Knowledge is synced at the verify S/A commit prompt (the prevention point) and the archive Entry Gate is the backstop that still FAILs when unsynced; Feature Specs remain archive-Phase-3.5-only (the deadlock-avoidance line above is unchanged)
+- WHEN `prospec change auto-draft` creates a change, THEN its `scale` is assigned from the drift check that triggered it rather than confirmed by a user — a machine-assigned scale is as legal as a confirmed one, and the lifecycle document says so rather than stating a blanket "user-confirmed"
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit

@@ -11,6 +11,7 @@ function makeResult(overrides: Partial<ChangeStoryResult> = {}): ChangeStoryResu
       '.prospec/changes/add-login/metadata.yaml',
     ],
     relatedModules: [],
+    dryRun: false,
     ...overrides,
   };
 }
@@ -24,6 +25,19 @@ function captureStdout(): { calls: () => string; restore: () => void } {
 }
 
 describe('formatChangeStoryOutput', () => {
+
+  it('says what a dry run WOULD create, never that it did', () => {
+    // `change story` exposes no --dry-run today, but `dryRun` is a required
+    // field on the result: a formatter that ignored it would claim files exist
+    // the moment any caller passes one.
+    const cap = captureStdout();
+    formatChangeStoryOutput(makeResult({ dryRun: true }), 'normal');
+    const out = cap.calls();
+    cap.restore();
+    expect(out).toContain('Would create .prospec/changes/add-login/proposal.md');
+    expect(out).toContain('Would create .prospec/changes/add-login/metadata.yaml');
+    expect(out).not.toContain('✓ Created');
+  });
   afterEach(() => {
     vi.restoreAllMocks();
   });

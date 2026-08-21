@@ -570,3 +570,83 @@ describe('issue registration (--issue)', () => {
     expect('issue' in metadata).toBe(false);
   });
 });
+
+describe('change-story.service metadata validation ordering', () => {
+  const cwd = '/proj';
+
+  beforeEach(() => {
+    vol.reset();
+    vol.fromJSON(
+      {
+        '.prospec.yaml': [
+          'version: "1.0"',
+          'project:',
+          '  name: p',
+          'paths:',
+          '  base_dir: prospec',
+          'tech_stack:',
+          '  language: typescript',
+          '',
+        ].join('\n'),
+        'prospec/index.md': '# Index\n',
+      },
+      cwd,
+    );
+  });
+
+  it('refuses invalid metadata BEFORE writing anything, leaving no half a change', async () => {
+    // `BareModuleNameSchema` rejects markdown emphasis. Validating inside the
+    // write helper would refuse this too — but only after proposal.md landed,
+    // leaving a directory the scan reports as an error and the idempotency
+    // guard then refuses to re-draft.
+    await expect(
+      execute({ cwd, name: 'bad-change', relatedModules: ['**types**'] }),
+    ).rejects.toThrow();
+
+    // Not just the files — the DIRECTORY too. An empty husk is reported as
+    // "already exists" by the collision check, so every later attempt is
+    // refused and the change can never be created.
+    expect(fs.existsSync(`${cwd}/.prospec/changes/bad-change`)).toBe(false);
+  });
+
+  it('applies the same validation under dryRun, so a preview cannot pass what the run refuses', async () => {
+    await expect(
+      execute({ cwd, name: 'bad-change', relatedModules: ['**types**'], dryRun: true }),
+    ).rejects.toThrow();
+    expect(fs.existsSync(`${cwd}/.prospec/changes/bad-change`)).toBe(false);
+  });
+
+  it('unwinds the directory when a write fails midway, so the change stays re-creatable', async () => {
+    // Each write is atomic on its own; the SEQUENCE is not. A leftover directory
+    // is reported as "already exists" by presence alone, so the half-change
+    // could never be repaired — and one husk silences status's drift signal.
+    const realWrite = fs.promises.writeFile.bind(fs.promises);
+    const spy = vi.spyOn(fs.promises, 'writeFile').mockImplementation(((
+      file: Parameters<typeof realWrite>[0],
+      data: Parameters<typeof realWrite>[1],
+      options?: Parameters<typeof realWrite>[2],
+    ) => {
+      if (String(file).includes('metadata.yaml')) {
+        return Promise.reject(
+          Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' }),
+        );
+      }
+      return realWrite(file, data, options);
+    }) as typeof fs.promises.writeFile);
+
+    await expect(execute({ cwd, name: 'half-change', relatedModules: [] })).rejects.toThrow();
+    spy.mockRestore();
+
+    expect(fs.existsSync(`${cwd}/.prospec/changes/half-change`)).toBe(false);
+    // And the name is still available — the whole point of unwinding.
+    await expect(execute({ cwd, name: 'half-change', relatedModules: [] })).resolves.toBeTruthy();
+  });
+
+  it('writes both artifacts when the metadata is valid', async () => {
+    const result = await execute({ cwd, name: 'good-change', relatedModules: [] });
+
+    expect(result.dryRun).toBe(false);
+    expect(fs.existsSync(`${cwd}/.prospec/changes/good-change/proposal.md`)).toBe(true);
+    expect(fs.existsSync(`${cwd}/.prospec/changes/good-change/metadata.yaml`)).toBe(true);
+  });
+});

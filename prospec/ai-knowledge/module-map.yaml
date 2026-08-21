@@ -29,6 +29,7 @@ modules:
       - conventions
       - language-scope
       - station
+      - auto-draft
       - verify-dimensions
       - cascade
       - circuit-breaker
@@ -51,7 +52,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-08-20T04:49:42.778Z
+    last_verified: 2026-08-21T16:18:06.346Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -66,6 +67,7 @@ modules:
       - fs
       - config
       - template
+      - auto-draft
       - scanner
       - merger
       - yaml
@@ -116,14 +118,14 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-08-20T10:56:23.798Z
+    last_verified: 2026-08-21T16:18:06.346Z
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge init + update, change story / plan / tasks
       / log / status / scale / progress, review merge, verify record, learn,
       validate, archive + spec-sync + finalize, agent-sync, measure, drift check
-      (record-review / record-tests / escaped-defect modes), and the read-only
-      MCP server.
+      (record-review / record-tests / escaped-defect / auto-draft modes),
+      auto-draft, and the read-only MCP server.
     paths:
       - src/services
     keywords:
@@ -153,6 +155,7 @@ modules:
       - spec-show
       - upgrade
       - cascade
+      - auto-draft
     relationships:
       depends_on:
         - types
@@ -170,9 +173,9 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-08-20T04:49:42.778Z
+    last_verified: 2026-08-21T16:18:06.346Z
   - name: cli
-    description: Thin CLI entry — 18 top-level Commander commands + 27 formatters
+    description: Thin CLI entry — 18 top-level Commander commands + 29 formatters
       that parse → call one service → format output; the cli-first station
       commands each add one command/formatter pair, never logic.
     paths:
@@ -193,6 +196,7 @@ modules:
       - station-commands
       - finalize
       - sanitize
+      - auto-draft
     relationships:
       depends_on:
         - types
@@ -207,10 +211,10 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-08-20T04:49:42.778Z
+    last_verified: 2026-08-21T16:18:06.346Z
   - name: templates
     description: Handlebars template library — 17 skills + 7 shared partials, 28
-      references, 1 agent-config, 4 change, 15 init/knowledge (73 `.hbs`
+      references, 1 agent-config, 5 change, 15 init/knowledge (74 `.hbs`
       templates) — the source of every generated skill, README, and index; every
       skill delegates its deterministic steps to the CLI behind the shared
       `_cli-probe` partial.
@@ -218,6 +222,7 @@ modules:
       - src/templates
     keywords:
       - handlebars
+      - auto-draft
       - hbs
       - skills
       - agent-configs
@@ -253,10 +258,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-08-20T10:56:23.798Z
+    last_verified: 2026-08-21T16:18:06.346Z
   - name: tests
-    description: 4-layer test suite — 159 files, 3,978 tests (unit 2964 + contract
-      882 + integration 45 + e2e 87). Validates every module — format contracts,
+    description: 4-layer test suite — 166 files, 4,077 tests (unit 3040 + contract
+      895 + integration 45 + e2e 97). Validates every module — format contracts,
       the cli-first probe + station-command contracts, the drift engine, token
       corpus, and the MCP protocol over in-memory transport.
     paths:
@@ -292,4 +297,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-08-20T10:56:23.798Z
+    last_verified: 2026-08-21T16:18:06.346Z

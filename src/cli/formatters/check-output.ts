@@ -46,7 +46,28 @@ export function formatCheckOutput(
     | EscapedDefectsResult,
   logLevel: LogLevel,
 ): void {
-  if (logLevel === 'quiet') return;
+  if (logLevel === 'quiet') {
+    // What was WRITTEN stays visible under --quiet (cli README): a run that
+    // silently created change directories is the one thing quiet must not hide.
+    // A drafting FAILURE is the other — it goes to stderr, so the success
+    // stream stays a clean list of directories that now exist.
+    if (result.kind === 'report' && result.autoDraftResult && !result.autoDraftResult.dryRun) {
+      for (const c of result.autoDraftResult.changes) {
+        if (c.action === 'created') console.log(sanitizeTerminal(c.name));
+      }
+      for (const c of result.autoDraftResult.changes) {
+        if (c.action === 'failed') {
+          console.error(
+            `auto-draft failed: ${sanitizeTerminal(c.name)} — ${sanitizeTerminal(c.skipReason ?? 'unknown error')}`,
+          );
+        }
+      }
+    }
+    if (result.kind === 'report' && result.autoDraftError !== undefined) {
+      console.error(`auto-draft failed: ${sanitizeTerminal(result.autoDraftError)}`);
+    }
+    return;
+  }
 
   if (result.kind === 'record-tests') {
     formatRecordTests(result);
@@ -142,6 +163,52 @@ export function formatCheckOutput(
   console.log(pc.dim(`Semantic consistency: ${report.semantic.status} (run /prospec-review)`));
   if (result.reportPath) {
     console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
+  }
+
+  if (result.autoDraftError) {
+    console.log('');
+    console.log(
+      `${pc.yellow('●')} Auto-draft failed (the check verdicts above are unaffected): ${sanitizeTerminal(result.autoDraftError)}`,
+    );
+  }
+
+  if (result.autoDraftResult) {
+    const draft = result.autoDraftResult;
+    console.log('');
+    if (draft.changes.length === 0) {
+      // Findings existed — none of them were draftable. Saying so matches what
+      // `prospec change auto-draft` prints for the same state; a bare heading
+      // over an empty list reads as a rendering bug.
+      console.log(`${pc.green('✓')} No draftable drift findings`);
+      return;
+    }
+    console.log(
+      pc.bold(draft.dryRun ? 'Auto-Draft Fix Proposals [dry-run]:' : 'Auto-Draft Fix Proposals:'),
+    );
+    const verb = draft.dryRun ? 'Would draft fix' : 'Drafted fix';
+    for (const c of draft.changes) {
+      if (c.action === 'created') {
+        console.log(
+          `  ${pc.green('✓')} ${verb}: ${pc.bold(sanitizeTerminal(c.name))} (${sanitizeTerminal(c.target)})`,
+        );
+        for (const remedy of c.remedies) {
+          console.log(`    ${pc.dim(`Remedy: ${sanitizeTerminal(remedy)}`)}`);
+        }
+      } else if (c.action === 'failed') {
+        console.log(
+          `  ${pc.red('✗')} Failed: ${sanitizeTerminal(c.name)} (${sanitizeTerminal(c.skipReason ?? 'unknown error')})`,
+        );
+      } else {
+        console.log(
+          `  ${pc.yellow('↷')} Skipped: ${sanitizeTerminal(c.name)} (${sanitizeTerminal(c.skipReason ?? 'idempotent')})`,
+        );
+      }
+    }
+    if (draft.createdCount > 0 && !draft.dryRun) {
+      console.log(
+        pc.cyan('\n→ Run `prospec status` — it routes each drafted change to its next station.'),
+      );
+    }
   }
 }
 

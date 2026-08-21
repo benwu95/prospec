@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { StatusReport } from '../../types/status.js';
 import { STATION_SKILLS } from '../../types/status.js';
+import { DRIFT_REPORT_FILENAME } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /**
@@ -19,6 +20,26 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
 
   if (report.clean) {
     console.log(`${pc.green('✓')} No in-progress changes — \`.prospec/changes/\` is clean`);
+    if (report.drift) {
+      console.log('');
+      if (report.drift.state === 'findings') {
+        console.log(
+          `${pc.yellow('●')} ${report.drift.count} drift finding(s) in the current report`,
+        );
+        console.log(
+          `  action:  run ${pc.cyan(report.drift.recommendation)} to draft fix changes`,
+        );
+      } else {
+        const why =
+          report.drift.reason === 'stale'
+            ? 'was generated against different code'
+            : report.drift.reason === 'unprovable'
+              ? 'records no code fingerprint, so its freshness cannot be checked'
+              : 'could not be read';
+        console.log(`${pc.yellow('●')} \`${DRIFT_REPORT_FILENAME}\` ${why}`);
+        console.log(`  action:  run ${pc.cyan(report.drift.recommendation)} to regenerate it`);
+      }
+    }
     return;
   }
 

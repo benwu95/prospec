@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 159 test files, 3,978 tests (unit 2964, contract 882, integration 45, e2e 87)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 166 test files, 4,077 tests (unit 3040, contract 895, integration 45, e2e 97)).
 
 <!-- prospec:auto-start -->
 
@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`), service and formatter; heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
-| `tests/contract/*.test.ts` (19) | Format, registry and trust-zone pins rendered from the real templates — see [Contract Guards](./contract-guards.md). |
+| `tests/contract/*.test.ts` (21) | Format, registry and trust-zone pins rendered from the real templates — see [Contract Guards](./contract-guards.md). |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
 | `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure incl. projection, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |
 | `tests/fixtures/` | `startup-loading-baseline.json` (71 loading items), `token-corpus/` (12 task descriptions), `lessons-harvest/` (synthetic archived corpus). |
@@ -38,7 +38,7 @@
 
 ## Pitfalls
 
-- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares `vi.setConfig({ testTimeout: 30_000 })` at FILE level (PB-010): full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
+- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares a FILE-level `vi.setConfig({ testTimeout })` (PB-010) — 90_000 where the file shells out to a real subprocess (`drift-sources`, `check.service`, `test-runner`, `counts-from-report`, `e2e/cli`), since `prospec check --record-tests` nests the whole suite inside another node process and 30 s did not hold there: full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
 - E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
 - A fixture encoding a POSIX assumption (chmod `0o000` revoking read, signal-based kill) is unbuildable on Windows, where windows-smoke runs the same suite: gate it with `it.skipIf`/`describe.runIf` on `process.platform` and state inline which condition loses coverage there — the product behavior itself still holds.
 - `pnpm mutate <path>` runs Stryker as an on-demand audit — never a gate, never in CI (a contract test pins that by enumerating every workflow file). A path is required. Cost = (static mutants) × (dependent-suite runtime); neither predicts it alone — `date-utils` 2 mutants/57 tests → 4s, `task-markers` 57 (26 static: module-level regex constants defeat `coverageAnalysis`)/416 tests → 9m09s. `--ignoreStatic` → 63.8s (8.6×) but scores those 26 as survived (89.47 → 45.61). Timeouts score as KILLED, so a loaded machine reports a higher score; `tests per mutant` is bistable (5.00 vs 1.00, identical runs) — never argue from it. Surviving mutants need human equivalence judgment.
@@ -48,7 +48,7 @@
 
 ## Sub-Modules
 
-- [Contract Guards](./contract-guards.md) — the 19 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
+- [Contract Guards](./contract-guards.md) — the 21 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
 
 <!-- prospec:auto-end -->
 

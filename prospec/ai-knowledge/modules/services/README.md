@@ -1,6 +1,6 @@
 # Command Services
 
-> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (31 files)
+> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (32 files)
 
 <!-- prospec:auto-start -->
 
@@ -15,8 +15,9 @@
 | `knowledge-init` + `raw-scan` / `knowledge-update` / `knowledge-verify.service.ts` | Initial scan → raw-scan.md (11-lang manifests + the non-source-directory disclosure the skill overrules the draft map with) + module-map.yaml + skeletons; delta-spec-driven index/module-map refresh (`executeForChange`); README skeleton for NEW modules only (`readmePending` flags the rest). `knowledge-verify` is the SOLE writer of `last_verified` (injected `now`; comment-preserving Document write) — update preserves but never stamps, init leaves a new module's absent; the `knowledge:check` gate and knowledge-health staleness both read it |
 | `change-*.service.ts` + `change-resolver.ts` | Scaffold proposal/plan/delta-spec/tasks (forward-only) plus `log`/`status`/`scale`/`progress` bookkeeping; metadata I/O via `lib/change-metadata` (story writes `--issue`; blank=absent); plan/tasks read metadata FIRST and gate on `forbiddenArtifacts(scale)` (progress's missing-tasks hint reads it too) |
 | `verify-record` / `review-merge` / `learn` / `validate.service.ts` | Station bookkeeping — S/A/B/C/D grade (S/A appends quality_log AND advances `status: verified` in one write) plus the judgment evidence appended to `verify.md` when `--dimensions` carries it; cumulative review.md table plus each finding's evidence block; ledger upsert + scoring + TTL; artifact verdicts |
-| `check.service.ts` | Drift-check orchestration — collectors → evaluators → report (stamps `change_digest`); non-check modes (json/init-ci/record-review/record-tests/escaped-defects); every collector goes through a canonical resolver, never a re-derived path |
-| `mcp.service.ts` / `status.service.ts` / `spec-show.service.ts` | The read-only surfaces — `src/services/mcp.service.ts` registers 8 resources + 3 tools (full path so `mcp-readme-counts` audits the line); SDD routing and the REQ-scoped Feature Spec read sit beside it. See the Read-only Queries sub-module |
+| `auto-draft.service.ts` | Attribute drift findings to a module via `module-map.yaml` (never a guessed path shape), group them by target/check, and delegate each scaffold to `change-story.service` — so its `AlreadyExistsError` is the idempotency signal and an existing change is never overwritten |
+| `check.service.ts` | Drift-check orchestration — collectors → evaluators → report (stamps `change_digest`); non-check modes (init-ci/record-review/record-tests/escaped-defects) return before the run; `--json` writes the report and `--auto-draft` drafts AFTER it, so drafting can neither discard the report nor move the exit code; every collector goes through a canonical resolver, never a re-derived path |
+| `mcp.service.ts` / `status.service.ts` / `spec-show.service.ts` | The read-only surfaces — `src/services/mcp.service.ts` registers 8 resources + 3 tools (full path so `mcp-readme-counts` audits the line); SDD routing and the REQ-scoped Feature Spec read sit beside it. `status.service` also reads `prospec-report.json` when the workspace is clean — through `DriftReportSchema` and a `change_digest` comparison, so an unusable or stale report is reported as that rather than as no drift, and it counts only what `--auto-draft` would draft (`isDraftableFinding`). See the Read-only Queries sub-module |
 
 Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`, `measure` (local session log parsing + baseline estimation, or projects context budget via `--project-workflow`), `print-template`, `config-example`. README/index **content** is skill judgment (`/prospec-knowledge-generate`) — no service generates it.
 

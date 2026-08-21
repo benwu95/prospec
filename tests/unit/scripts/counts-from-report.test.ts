@@ -6,7 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Spawns `tsx` per case (PB-010: a spawn-bound file declares its own timeout).
-vi.setConfig({ testTimeout: 30_000 });
+// 90s, not 30s: the cases that drive `scripts/sync-counts.ts` shell out to a real
+// vitest run. 30s held for a bare `pnpm test` but not when the suite is itself
+// nested inside another node process — which is what `prospec check --record-tests`
+// does, so the one run whose result is RECORDED was the likeliest to time out.
+// A genuinely hung test still fails here, just later.
+vi.setConfig({ testTimeout: 90_000 });
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SCRIPT = path.join(REPO_ROOT, 'scripts/sync-counts.ts');

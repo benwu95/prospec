@@ -105,6 +105,29 @@ export interface ChangeRoute {
   issue?: string;
 }
 
+/**
+ * What the drift report says, reported only when no change is in progress.
+ *
+ * Two states and no third: either the report can be trusted and carries
+ * findings, or it cannot be trusted and says why. There is deliberately no
+ * "clean" state — nothing to report is reported by omitting this entirely.
+ */
+export type DriftSignal =
+  | {
+      state: 'findings';
+      count: number;
+      recommendation: string;
+    }
+  | {
+      state: 'unusable';
+      /** `unreadable`: absent from disk it is simply omitted; this is malformed or off-schema.
+       *  `stale`: its recorded digest names a different working tree than the one on disk.
+       *  `unprovable`: it records no digest at all (an older engine wrote it), so its
+       *  freshness is unmeasured — which is not the same as measured and wrong. */
+      reason: 'unreadable' | 'stale' | 'unprovable';
+      recommendation: string;
+    };
+
 /** A change whose metadata could not be routed — reported, never dropped. */
 export interface ChangeRouteError {
   name: string;
@@ -117,4 +140,7 @@ export interface StatusReport {
   clean: boolean;
   changes: ChangeRoute[];
   errors: ChangeRouteError[];
+  /** Drift report state — present only when no change is in progress and there
+   *  is something to say (findings, or a report that cannot be trusted). */
+  drift?: DriftSignal;
 }

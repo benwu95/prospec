@@ -1,0 +1,78 @@
+# Fix {{target}} drift ({{check_id}})
+
+{{#unless language_is_english}}
+> **Drafted by machine, in English.** Complete and rewrite this proposal in {{artifact_language}} before advancing past the story station — only the drift facts below are authoritative; every heading and sentence is scaffolding.
+{{else}}
+> **Drafted by machine.** Complete this proposal before advancing past the story station — only the drift facts below are authoritative; every heading and sentence is scaffolding.
+{{/unless}}
+
+## Background
+
+The `{{check_id}}` drift check reported findings against {{#if module}}the `{{module}}` module{{else}}`{{target}}`{{/if}}. This change was scaffolded by `{{drafted_by}}` so the findings can be worked without hand-copying the report.
+
+{{#unless module}}
+> The findings below could not be attributed to a module declared in `module-map.yaml`, so they are grouped only by the check that produced them. Confirm they belong in ONE change before planning — if they do not, split it.
+{{/unless}}
+
+**Findings:**
+
+{{#each items}}
+- `{{{this.sourcePath}}}` — {{{this.detail}}}
+{{/each}}
+{{#if remedies}}
+
+**Reported remedies:**
+
+{{#each remedies}}
+- {{{this}}}
+{{/each}}
+{{/if}}
+
+## User Stories
+
+### US-1: Resolve the {{check_id}} findings in {{target}} [P1]
+
+As a [role/user type],
+I want [what resolving this drift gives them],
+So that [why it matters beyond satisfying the check].
+
+**Acceptance Scenarios:**
+
+- WHEN `prospec check` runs after the fix, THEN `{{check_id}}` reports no finding against `{{target}}`.
+- WHEN the diff is reviewed, THEN it touches only what the findings above require.
+
+**Independent Test:**
+Run `prospec check` and confirm `{{check_id}}` is clean for `{{target}}`.
+
+## Stated Assumptions
+
+- [what you are assuming about the cause — the check reports the symptom, not the reason]
+
+## Edge Cases
+
+- [what else the fix could break]
+
+## Functional Requirements
+
+- **FR-001**: [what must change, stated as behavior]
+
+## Success Criteria
+
+- **SC-001**: `{{check_id}}` reports no finding against `{{target}}`.
+
+## Related Modules
+
+{{#if module}}
+- **{{module}}**: [why this module owns the fix]
+{{else}}
+_No module could be attributed from the findings' paths. Name the owning module here once you have identified it. `metadata.yaml` is CLI-written and must not be hand-edited: to record the module there as well, delete this change and re-draft it with `prospec change auto-draft --target <module>`._
+{{/if}}
+
+## Constitution Check
+
+- [ ] Reviewed against `{{constitution_path}}`
+- [ ] No violations identified / Violations noted: [details]
+
+## UI Scope
+
+**Scope:** none

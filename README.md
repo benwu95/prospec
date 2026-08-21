@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-3978%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4077%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -612,10 +612,11 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 | Command | Description |
 |---------|-------------|
-| `prospec status` | Read-only check of in-flight changes, lifecycle station, next steps, and blocking gates |
+| `prospec status` | Read-only check of in-flight changes, lifecycle station, next steps, and blocking gates; on a clean workspace, reports the drift report's state |
 | `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) |
 | `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
+| `prospec change auto-draft [options]` | Scaffold fix changes from drift findings (or an explicit `--target`) without hand-copying the report |
 | `prospec spec show <feature> [options]` | Read-only targeted REQ or Story slice from Feature Specs for token efficiency |
 | `prospec archive <name...> [--dry-run]` | Archive verified changes: move directory, generate summary, and mechanically sync specs |
 | `prospec archive finalize <name> [--dry-run]` | Post-archive finalization: copy final summary to audit trail and reconcile spec counters |
@@ -641,6 +642,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Reports current lifecycle node, suggested next station, blocking gates, and specific reasons.
     - Supports scale-specific routes (`quick` skipping plan to tasks, `backfill` entering at promote).
     - Displays registered `issue` trackers; reports malformed metadata per change without crashing.
+    - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
 
 - **`prospec change story <name> [options]`**
   - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`).
@@ -794,6 +796,7 @@ deliberately not included in this version.
 | `prospec check --record-review [options]` | Record code digest and `delta-spec.md` fingerprint as review baseline |
 | `prospec check --escaped-defects [options]` | Report aggregate escaped-defect rates across lifecycle gates |
 | `prospec check --init-ci` | Scaffold hardened GitHub Actions CI workflow (`.github/workflows/prospec-check.yml`) |
+| `prospec check --auto-draft [--auto-draft-dry-run]` | After reporting, scaffold a fix change per finding group (never overwrites; a drafting failure never changes the check's own exit code, but combining the flag with a non-check mode is refused up front) |
 
 #### Drift Check Commands Breakdown
 
@@ -810,8 +813,16 @@ deliberately not included in this version.
     - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN).
   - **Execution & Exit Codes**:
     - `--json`: Outputs machine-readable `prospec-report.json`.
-    - `--strict`: Exits 1 on any FAIL (WARN and SKIPPED never affect exit codes).
+    - `--strict`: Exits 1 on any FAIL (WARN and SKIPPED never affect exit codes). `--auto-draft` cannot change this: drafting runs after the report is written and a drafting failure is reported, never thrown.
+    - `--auto-draft` is REFUSED (exit 1, nothing written) alongside `--init-ci` / `--record-review` / `--record-tests` / `--escaped-defects`, which all return before any drift check runs, and `--auto-draft-dry-run` is refused without `--auto-draft` — a flag that cannot be honoured is rejected rather than silently ignored.
     - Missing or unavailable sources gracefully degrade to `skipped` with explicit reasons, never fabricating a PASS.
+
+- **`prospec change auto-draft [--from-report [file]] [--target <name>] [--reason <text>] [--check <id>] [--scale <scale>] [--issue <ref>] [--dry-run]`**
+  - **Purpose**: Turn drift findings into change scaffolds so an agent can start fixing without transcribing the report. Also available as `prospec check --auto-draft`, which drafts from the run it just reported.
+  - **Grouping**: One change per `<target>:<check>` pair, named `fix-<target>-<check>` — with a short stable suffix when the target does not survive slugging unchanged, so two different targets can never land on one directory. The target comes from `module-map.yaml` attribution and the configured `knowledge.base_path` / `paths.base_dir` — never a guessed path shape. A finding under a feature spec groups under that feature's name; one that maps to neither a module nor a feature groups under `general`. Only a name `module-map.yaml` declares is written to `related_modules` — a feature name and `general` are subjects, not modules.
+  - **Scope**: two kinds of finding are not drafted — `knowledge-size` findings in the `headroom` (pressure) tier (budget pressure, not a violation), and findings whose `source_path` is under `.prospec/` (SDD process gates ON a change, so drafting one would create a change whose job is another change's paperwork). Nothing else is dropped.
+  - **Safety**: Creation goes through the same service as `prospec change story`, so an existing change directory is skipped, never overwritten, and a run is idempotent. `--dry-run` reports what would be drafted and writes nothing at all (on `check` the flag is `--auto-draft-dry-run`, because `check`'s other writes are unaffected by it).
+  - **Requires**: exactly one drift source. With none of `--from-report` / `--target` / `--reason` / `--check`, the command exits non-zero rather than reporting a clean verdict; combining a report source with an explicit target is refused rather than silently dropping one.
 
 - **`prospec check --record-tests [--change <name>]`**
   - **Purpose**: Runs project test suite and records `{command, exit_code, digest, date}` in change's `metadata.yaml`.
@@ -1029,11 +1040,11 @@ Prospec uses **Pragmatic Layered Architecture** for CLI development best practic
 ```
 src/
 ├── cli/          — Commander.js commands + formatters
-├── services/     — Business logic (14 services)
+├── services/     — Business logic (30 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (73 .hbs files)
-    └── skills/   — 17 Skill templates + 22 reference templates
+└── templates/    — Handlebars templates (74 .hbs files)
+    └── skills/   — 17 Skill templates + 28 reference templates
 ```
 
 ### Tech Stack
@@ -1051,7 +1062,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (3978 tests)
+# Run all tests (4077 tests)
 pnpm test
 
 # Watch mode
@@ -1064,11 +1075,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 3978 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 2964 tests
-- Contract tests (CLI output + Skill format): 882 tests
+**Test Coverage**: 4077 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 3040 tests
+- Contract tests (CLI output + Skill format): 895 tests
 - Integration tests: 45 tests
-- E2E tests: 87 tests
+- E2E tests: 97 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

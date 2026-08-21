@@ -3269,16 +3269,22 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     // every status transition goes through the prospec change commands, never a hand edit
     expect(never).toContain('the `prospec change` commands own every transition');
     expect(never).toContain('never hand-edit metadata.yaml');
-    expect(never).toContain('without a user-confirmed `scale: quick`');
+    // The scale may be user-confirmed OR machine-assigned by `change auto-draft`
+    // — both lifecycle copies say so, and this skill must not contradict them.
+    expect(never).toContain('without a `scale: quick`');
+    expect(never).toContain('assigned by `prospec change auto-draft`');
     expect(never).toContain('quick skips Plan and loads none');
   });
 
   it('lifecycle template records the quick story → tasks transition with archive backstop', () => {
     const content = renderLifecycle();
     expect(content).toContain('skipped when metadata `scale: quick`');
-    expect(content).toContain('**quick path**: metadata `scale: quick` (user-confirmed)');
+    expect(content).toContain('**quick path**: metadata `scale: quick` (user-confirmed');
     expect(content).toContain('re-checked at the `/prospec-archive` Entry Gate');
-    expect(content).toContain('The only legal skip is `story → tasks` under a user-confirmed `scale: quick`');
+    expect(content).toContain('The only legal skip is `story → tasks` under a `scale: quick`');
+    // A machine-assigned scale is as legal as a confirmed one — the document
+    // must not state a blanket "user-confirmed" that `change auto-draft` breaks.
+    expect(content).toContain('machine-assigned by `prospec change auto-draft`');
   });
 
   it('lifecycle template and ai-knowledge copy stay in sync on the quick path', () => {
@@ -3289,8 +3295,9 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     );
     for (const marker of [
       'skipped when metadata `scale: quick`',
-      '**quick path**: metadata `scale: quick` (user-confirmed)',
-      'The only legal skip is `story → tasks` under a user-confirmed `scale: quick`',
+      '**quick path**: metadata `scale: quick` (user-confirmed',
+      'The only legal skip is `story → tasks` under a `scale: quick`',
+      'machine-assigned by `prospec change auto-draft`',
       // REQ-TEMPLATES-158 AC3: the executable-router pointer stays in both copies.
       '**Executable copy**: `prospec status` computes',
       // Review F4 ruling: the router does not suggest design under quick.

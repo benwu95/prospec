@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-3978%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4077%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -595,10 +595,11 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 | 命令 | 說明 |
 |------|------|
-| `prospec status` | 唯讀查詢進行中變更的當前階段、建議下一步與阻擋閘門 |
+| `prospec status` | 唯讀查詢進行中變更的當前階段、建議下一步與阻擋閘門；工作區乾淨時回報漂移報告的狀態 |
 | `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
+| `prospec change auto-draft [options]` | 從漂移 findings（或指定 `--target`）建立修復變更骨架，免去手動轉抄報告 |
 | `prospec spec show <feature> [options]` | 唯讀且精確讀取 Feature Spec 的指定 REQ 或 Story 區段 |
 | `prospec archive <name...> [--dry-run]` | 封存 verified 變更：搬移目錄、生成摘要並機械式同步 Feature Spec |
 | `prospec archive finalize <name> [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄並對帳 spec 計數 |
@@ -624,6 +625,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 回報各變更的目前階段（node）、建議的下一個站點、阻擋的閘門（blocking gates）與具體理由。
     - 支援不同的 scale 路由（如 `quick` 跳過 plan 直接進入 tasks、`backfill` 路由至 promote 站）。
     - 呈現登記的 `issue` 參照；中繼資料格式錯誤會逐變更回報，絕不中斷整體執行。
+    - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
 
 - **`prospec change story <name> [options]`**
   - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`）。
@@ -774,6 +776,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 | `prospec check --record-review [options]` | 記錄程式碼 digest 與 `delta-spec.md` 指紋作為審查比對基準 |
 | `prospec check --escaped-defects [options]` | 依 `introduced_by` 統計各階段閘門的缺陷漏失率報表 |
 | `prospec check --init-ci` | 生成 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`） |
+| `prospec check --auto-draft [--auto-draft-dry-run]` | 報告產出後，依 finding 分組建立修復變更（絕不覆寫既有變更；起草失敗不改變 check 自身的退出碼，但與非檢查模式併用會在執行前被拒絕） |
 
 #### Drift 檢查命令詳解
 
@@ -790,8 +793,16 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）。
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
-    - `--strict`：任一檢項出現 FAIL 時以 exit 1 退出（WARN 與 SKIPPED 永不影響退出碼）。
+    - `--strict`：任一檢項出現 FAIL 時以 exit 1 退出（WARN 與 SKIPPED 永不影響退出碼）。`--auto-draft` 無法改變這件事：起草在報告寫出之後才執行，起草失敗只會被回報、不會被拋出。
+    - `--auto-draft` 與 `--init-ci` / `--record-review` / `--record-tests` / `--escaped-defects` 併用會被**拒絕**（exit 1、不寫入任何檔案），因為那四種模式都在漂移檢查執行前就返回；`--auto-draft-dry-run` 缺少 `--auto-draft` 時同樣被拒——無法被履行的旗標會被拒絕，而不是靜默忽略。
     - 料源不可用時自動降級為 `skipped` 並說明具體原因，絕不偽裝 PASS。
+
+- **`prospec change auto-draft [--from-report [file]] [--target <name>] [--reason <text>] [--check <id>] [--scale <scale>] [--issue <ref>] [--dry-run]`**
+  - **用途**：把漂移 findings 轉成變更骨架，讓 agent 不必轉抄報告即可著手修復。亦可透過 `prospec check --auto-draft` 直接就當次報告起草。
+  - **分組**：每個 `<target>:<check>` 組合產生一個變更，命名為 `fix-<target>-<check>`——當 target 無法原樣通過 slug 化時附加一段穩定字尾，使兩個不同的 target 絕不會落到同一個目錄。target 來自 `module-map.yaml` 歸屬與專案設定的 `knowledge.base_path` / `paths.base_dir`，絕不猜測路徑形狀；位於 feature spec 底下的 finding 歸入該 feature 名稱，兩者都歸不到的才落入 `general`。只有 `module-map.yaml` 宣告過的名稱會寫進 `related_modules`——feature 名稱與 `general` 是主體，不是模組。
+  - **範圍**：兩類 finding 不起草——`headroom`（壓力）層級的 `knowledge-size`（回報預算壓力而非違規），以及 `source_path` 位於 `.prospec/` 者（那是針對某個變更的 SDD 流程閘門，起草它等於建立一個「修別的變更的文書」的變更）。除此之外不丟棄任何 finding。
+  - **安全性**：建立骨架走的是與 `prospec change story` 相同的服務，因此既有變更目錄只會被跳過、絕不覆寫，重複執行具冪等性。`--dry-run` 只回報將建立什麼、完全不寫入任何檔案（在 `check` 上旗標名為 `--auto-draft-dry-run`，因為 `check` 的其他寫入不受它影響）。
+  - **前提**：必須有且僅有一個漂移來源。`--from-report` / `--target` / `--reason` / `--check` 全缺時，指令以非零碼結束，而不是回報一個乾淨的判定；報告來源與顯式 target 併用會被拒絕，而不是靜默丟棄其一。
 
 - **`prospec check --record-tests [--change <name>]`**
   - **核心用途**：執行專案測試指令並將結果（指令、退出碼、digest、日期）寫入變更的 `metadata.yaml`。
@@ -1009,11 +1020,11 @@ Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 
 ```
 src/
 ├── cli/          — Commander.js 命令 + 格式化輸出
-├── services/     — 業務邏輯（14 個 service）
+├── services/     — 業務邏輯（30 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（73 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 22 個 reference 範本
+└── templates/    — Handlebars 範本（74 個 .hbs 檔案）
+    └── skills/   — 17 個 Skill 範本 + 28 個 reference 範本
 ```
 
 ### Tech Stack
@@ -1031,7 +1042,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（3978 個測試）
+# 執行所有測試（4077 個測試）
 pnpm test
 
 # Watch 模式
@@ -1044,11 +1055,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：3978 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：2964 tests
-- Contract tests（CLI 輸出 + Skill 格式）：882 tests
+**測試覆蓋率**：4077 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3040 tests
+- Contract tests（CLI 輸出 + Skill 格式）：895 tests
 - Integration tests：45 tests
-- E2E tests：87 tests
+- E2E tests：97 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

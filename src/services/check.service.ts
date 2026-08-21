@@ -51,6 +51,9 @@ import {
   ESCAPED_DEFECT_REPORT_FILENAME,
   type EscapedDefectReport,
 } from '../types/escaped-defect.js';
+import { PrerequisiteError } from '../types/errors.js';
+import type { AutoDraftResult } from '../types/auto-draft.js';
+import { execute as autoDraftExecute } from './auto-draft.service.js';
 
 export interface CheckOptions {
   cwd?: string;
@@ -66,6 +69,12 @@ export interface CheckOptions {
   escapedDefects?: boolean;
   /** Disambiguate which change `--record-review`/`--record-tests` targets when several are in flight. */
   change?: string;
+  /** Auto-draft fix proposals for detected drift findings. */
+  autoDraft?: boolean;
+  /** Preview the drafting only. Named for its scope: `check`'s other writes
+   *  (`--json`, the record modes) are unaffected, so a bare `dryRun` here would
+   *  read as a whole-command promise this flag does not keep. */
+  autoDraftDryRun?: boolean;
 }
 
 export interface CheckResult {
@@ -75,6 +84,11 @@ export interface CheckResult {
   hasFail: boolean;
   /** Absolute report path when --json was requested. */
   reportPath?: string;
+  /** Result of auto-drafting fix changes if --auto-draft was requested. */
+  autoDraftResult?: AutoDraftResult;
+  /** Why drafting produced nothing, when it was requested and failed. The check
+   *  verdicts and the report are unaffected — this is reported, never thrown. */
+  autoDraftError?: string;
 }
 
 export interface InitCiResult {
@@ -134,6 +148,27 @@ export async function execute(
 > {
   const cwd = options.cwd ?? process.cwd();
   const config = await readConfig(cwd);
+
+  // Named modes return before the drift run, so drafting could never happen in
+  // them. Refusing beats silently ignoring the flag the caller typed.
+  if (options.autoDraft || options.autoDraftDryRun) {
+    const conflicting = (
+      [
+        ['--init-ci', options.initCi],
+        ['--record-review', options.recordReview],
+        ['--record-tests', options.recordTests],
+        ['--escaped-defects', options.escapedDefects],
+      ] as const
+    ).find(([, on]) => on);
+    if (conflicting) {
+      throw new PrerequisiteError(
+        `--auto-draft cannot be combined with ${conflicting[0]} — that mode returns before any drift check runs`,
+      );
+    }
+  }
+  if (options.autoDraftDryRun && !options.autoDraft) {
+    throw new PrerequisiteError('--auto-draft-dry-run has no effect without --auto-draft');
+  }
 
   if (options.initCi) {
     return initCiWorkflow(cwd, config.tech_stack?.package_manager);
@@ -249,6 +284,22 @@ export async function execute(
     const reportPath = path.resolve(cwd, DRIFT_REPORT_FILENAME);
     await atomicWrite(reportPath, `${JSON.stringify(report, null, 2)}\n`);
     result.reportPath = reportPath;
+  }
+
+  // Drafting runs LAST and cannot fail the check. It is a convenience built on
+  // top of the verdicts, so a change directory that could not be written must
+  // not discard the report or flip `--strict`'s exit code — the failure is
+  // reported instead of thrown.
+  if (options.autoDraft && report.structural.findings.length > 0) {
+    try {
+      result.autoDraftResult = await autoDraftExecute({
+        cwd,
+        findings: report.structural.findings,
+        dryRun: options.autoDraftDryRun,
+      });
+    } catch (err) {
+      result.autoDraftError = err instanceof Error ? err.message : String(err);
+    }
   }
 
   return result;
