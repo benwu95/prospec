@@ -34,19 +34,21 @@ Thumbs.db
 # Task scratch (per-branch todo / lessons)
 .tasks/
 
-# Agents — track prospec-* skills + the release/submit-pr maintainer skills; ignore the rest.
+# Agents — track prospec-* skills + the release/submit-pr/submit-issue maintainer skills; ignore the rest.
 .claude/*
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/prospec-*
 !.claude/skills/release/
 !.claude/skills/submit-pr/
+!.claude/skills/submit-issue/
 .agents/*
 !.agents/skills/
 .agents/skills/*
 !.agents/skills/prospec-*
 !.agents/skills/release/
 !.agents/skills/submit-pr/
+!.agents/skills/submit-issue/
 
 # Prospec
 .prospec/
