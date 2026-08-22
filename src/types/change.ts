@@ -35,12 +35,32 @@ export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable', 'not-adjudi
  *  verdict from a judgment call instead of guessing. */
 export const DIMENSION_ADJUDICATORS = ['machine', 'judgment'] as const;
 
+/** The context a judgment dimension was graded in — a fresh subagent that does
+ *  not share the implementation's context, or the same in-session context that
+ *  produced the change. Self-declared: the CLI cannot detect it. `in-session`
+ *  makes grade S mechanically unattainable (see `lib/verify-grade`), because a
+ *  grader validating its own reasoning is not independent evidence. */
+export const DIMENSION_GRADED_BY = ['fresh-subagent', 'in-session'] as const;
+
 /** One /prospec-verify dimension outcome, for machine-aggregatable quality trends. */
 export const QualityDimensionSchema = z.looseObject({
   name: z.string(),
   result: z.enum(DIMENSION_RESULTS),
   /** Optional keeps every pre-existing entry valid. */
   adjudicator: z.enum(DIMENSION_ADJUDICATORS).optional(),
+  /** The grading context of a judgment dimension. Optional at the schema level so
+   *  every pre-existing entry and every machine dimension stays valid; the
+   *  "required for a judgment dimension" rule is enforced by `verify record`, not
+   *  here. `in-session` caps the grade below S. */
+  graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
+  /** Free-string self-report of who graded it (model / harness description). Not
+   *  validated — prospec detects no model; it is a data source for `/prospec-learn`
+   *  per-executor statistics, absent when the grader did not declare one. */
+  executor: z.string().optional(),
+  /** Self-reported tokens spent on this verdict — the detection-per-cost
+   *  denominator (`lib/token-accounting` gives an offline estimate). Optional and
+   *  non-blocking; absent when the grader did not declare one. */
+  spend: z.number().int().nonnegative().optional(),
 });
 
 /** Field shape shared by the strict (build) and loose (read) entry views below. */
@@ -77,10 +97,13 @@ export const NewQualityLogEntrySchema = z.object(QualityLogEntryShape);
 export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
- *  code state; `date` is the ISO 8601 record date. */
+ *  code state; `date` is the ISO 8601 record date. `graded_by` is the reviewer's
+ *  self-declaration of the grading context (`fresh-subagent`|`in-session`),
+ *  optional so every pre-existing baseline stays valid. */
 export const ReviewProvenanceSchema = z.looseObject({
   digest: z.string(),
   date: z.string(), // ISO 8601 date
+  graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
 });
 
 /** Machine-written test baseline (written by `prospec check --record-tests`).
@@ -280,4 +303,5 @@ export type ReviewProvenance = z.infer<typeof ReviewProvenanceSchema>;
 export type TestProvenance = z.infer<typeof TestProvenanceSchema>;
 export type DeltaSpecProvenance = z.infer<typeof DeltaSpecProvenanceSchema>;
 export type DimensionAdjudicator = (typeof DIMENSION_ADJUDICATORS)[number];
+export type DimensionGradedBy = (typeof DIMENSION_GRADED_BY)[number];
 export type GateResult = (typeof GATE_RESULTS)[number];

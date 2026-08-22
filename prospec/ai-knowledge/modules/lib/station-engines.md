@@ -9,7 +9,7 @@
 | `markdown-table.ts` | THE pipe-table engine — escaped-pipe-aware split, table location (blank-line-spanning), render, prose-preserving replace |
 | `delegated-evidence.ts` | THE evidence-block grammar both `review.md` and `verify.md` are written with — one marker prefix (so one collision guard), section located by MARKER not heading, `after` returned so nothing below the section is lost, `findUnsafeBlockField` for the raw-line fields, CR-normalised body, EOF closes an unterminated block |
 | `review-merge.ts` | Identity-keyed findings merge — severity max, carry-forward, the `Repro` column, cumulative evidence; `parseReviewDocument` reads the table AND re-attaches each row's evidence block |
-| `verify-grade.ts` | The S/A/B/C/D decision table as code, plus `resultForGrade` / `gradeAdvancesStatus` |
+| `verify-grade.ts` | The S/A/B/C/D decision table as code, plus `resultForGrade` / `gradeAdvancesStatus`, and the self-verification cap (`isSelfVerified`/`applySelfVerifiedCap`: any judgment dimension graded `in-session` makes S unattainable — capped to A without spending the WARN budget) |
 | `lessons-ledger.ts` | Ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped) |
 | `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids) |
 
@@ -18,7 +18,7 @@
 - `findTable` / `renderMarkdownTable` / `replaceTableInDocument` / `splitTableRow` / `escapeTableCell`
 - `renderEvidenceBlock` / `renderEvidenceSection` (heading is a parameter) / `splitEvidenceSection` (→ `{before, blocks, after}`) / `containsEvidenceMarker` / `findUnsafeBlockField`
 - `parseReviewRows` / `parseReviewDocument` / `mergeFindings` / `roundCounts` / `renderReviewDocument` / `evidenceBlocksFor`
-- `computeGrade` / `resultForGrade` / `gradeAdvancesStatus`; `upsertLesson`; `validateSlug` / `validate*`
+- `computeGrade` / `resultForGrade` / `gradeAdvancesStatus` / `isSelfVerified` / `applySelfVerifiedCap`; `upsertLesson`; `validateSlug` / `validate*`
 
 ## Modification Guide
 

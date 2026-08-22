@@ -36,6 +36,11 @@ When generating architecture options ($N \le 3$, default 2 orthogonal options):
 
 ## Tournament Evaluation Criteria
 
+> **Route the Tournament Judge to the strongest model / agent tier the harness makes available** — a
+> judgment gate's discrimination is bounded by its judge, so the strongest available tier is the goal
+> (named abstractly — never a specific model or vendor; "strongest available" is resolved by the
+> harness). In single-context degraded mode, disclose that the judge shares the generation context.
+
 The Tournament Judge evaluates each candidate across three orthogonal dimensions:
 
 ### 1. Blast Radius & Complexity

@@ -1,5 +1,6 @@
-import type { Command } from 'commander';
+import { Option, type Command } from 'commander';
 import { execute } from '../../services/check.service.js';
+import { DIMENSION_GRADED_BY, type DimensionGradedBy } from '../../types/change.js';
 import { formatCheckOutput } from '../formatters/check-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -42,6 +43,12 @@ export function registerCheckCommand(program: Command): void {
       '--change <name>',
       'Target change for --record-review/--record-tests (disambiguates when several are in flight)',
     )
+    .addOption(
+      new Option(
+        '--graded-by <context>',
+        "With --record-review: the reviewer's self-declared grading context",
+      ).choices([...DIMENSION_GRADED_BY]),
+    )
     .action(
       async (options: {
         json?: boolean;
@@ -51,6 +58,7 @@ export function registerCheckCommand(program: Command): void {
         recordTests?: boolean;
         escapedDefects?: boolean;
         change?: string;
+        gradedBy?: DimensionGradedBy;
         autoDraft?: boolean;
         autoDraftDryRun?: boolean;
       }) => {
@@ -65,6 +73,7 @@ export function registerCheckCommand(program: Command): void {
             recordTests: options.recordTests,
             escapedDefects: options.escapedDefects,
             change: options.change,
+            gradedBy: options.gradedBy,
             autoDraft: options.autoDraft,
             autoDraftDryRun: options.autoDraftDryRun,
           });

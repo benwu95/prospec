@@ -184,7 +184,7 @@ Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) 
 
 Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — degrade to a two-phase prompt isolation in this context, invoking an independent Architecture Verifier persona to audit plan.md and delta-spec.md, and explicitly notify the developer of the degraded path — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
-Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh verification context (Architecture Verifier persona). When degraded to a single context, execute a dedicated verifier pass and notify the developer of the degraded mode.
+Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh verification context (Architecture Verifier persona). **Route this verification to the strongest model / agent tier the harness makes available** — a verifier's detection power is bounded by its grader, so the strongest available tier is the goal (named abstractly — never a specific model or vendor; "strongest available" is resolved by the harness). When degraded to a single context, execute a dedicated verifier pass, disclose that the verification shares the planning context, and notify the developer of the degraded mode.
 
 **Step 3 — Verdict Handling & Break-Glass Override:**
 - **PASS**: No structural flaws or unmitigated risks found. Proceed.

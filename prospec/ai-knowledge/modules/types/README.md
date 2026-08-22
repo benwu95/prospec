@@ -16,7 +16,7 @@
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
-| `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema`, `LessonInputSchema`; `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
+| `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema` (each entry declares `graded_by`, optional `executor`/`spend` self-reports), `LessonInputSchema`; `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 
 Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipped | failed` per-group outcome), `conventions.ts`, `escaped-defect.ts`, `feature-map.ts`, `mcp.ts`, `measurement.ts`, `skill.ts`, `spec.ts`, `status.ts` (`ChangeRoute`, `StatusReport`, and `DriftSignal` — the two-state drift verdict `prospec status` reports), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
 

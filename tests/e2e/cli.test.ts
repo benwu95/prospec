@@ -784,6 +784,38 @@ describe('CLI E2E', () => {
       expect(bad.exitCode).not.toBe(0);
     });
 
+    it('change log refuses a judgment dimension without graded_by and records one that carries it', async () => {
+      const changeDir = await initChange();
+      // the parallel quality_log write path must enforce the same honesty
+      // invariant as `verify record` (review DP-7)
+      const refused = await runCli([
+        'change', 'log',
+        '--skill', 'prospec-plan',
+        '--result', 'PASS',
+        '--dimension', 'architecture=PASS:judgment',
+      ]);
+      expect(refused.exitCode).not.toBe(0);
+      expect(refused.stderr).toContain('grading context');
+      const ok = await runCli([
+        'change', 'log',
+        '--skill', 'prospec-plan',
+        '--result', 'PASS',
+        '--dimension', 'architecture=PASS:judgment:fresh-subagent',
+      ]);
+      expect(ok.exitCode).toBe(0);
+      const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+      expect(metadata).toContain('graded_by: fresh-subagent');
+      // graded_by stays a judgment-only field on this grammar too
+      const machine = await runCli([
+        'change', 'log',
+        '--skill', 'prospec-plan',
+        '--result', 'PASS',
+        '--dimension', 'tests=PASS:machine:fresh-subagent',
+      ]);
+      expect(machine.exitCode).not.toBe(0);
+      expect(machine.stderr).toContain('judgment dimensions only');
+    });
+
     it('change progress reports code-task X/Y and flips exactly one checkbox', async () => {
       const changeDir = await initChange();
       await fs.promises.writeFile(
@@ -869,9 +901,153 @@ describe('CLI E2E', () => {
         '--dimension', 'delta-spec-compliance=PASS',
         '--dimension', 'constitution=PASS',
         '--dimension', 'design=not-applicable',
+        '--graded-by', 'fresh-subagent',
       ]);
       expect(exitCode).not.toBe(0);
       expect(stderr).toContain('prospec-report.json not found');
+    });
+
+    it('verify record refuses a judgment set with no graded_by declared', async () => {
+      await initChange();
+      const { exitCode, stderr } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
+      ]);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain('missing graded_by');
+    });
+
+    it('verify record rejects a --graded-by outside the two-value enum (parser layer)', async () => {
+      await initChange();
+      const { exitCode, stderr } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
+        '--graded-by', 'myself',
+      ]);
+      expect(exitCode).not.toBe(0);
+      expect(stderr.toLowerCase()).toContain('graded-by');
+    });
+
+    it('verify record caps the grade below S and prints the remedy when graded in-session', async () => {
+      await initChange();
+      // A hand-written all-pass report; the tmpdir is not a git repo, so the
+      // freshness guard is unadjudicable and skips honestly (no digest needed).
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec-report.json'),
+        JSON.stringify({
+          version: 1,
+          generated_at: '2026-08-22T00:00:00.000Z',
+          structural: {
+            checks: [
+              { id: 'task-completion', status: 'pass' },
+              { id: 'knowledge-health', status: 'pass' },
+              { id: 'test-provenance', status: 'pass' },
+            ],
+            findings: [],
+          },
+          semantic: { status: 'not-checked' },
+          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
+        }),
+      );
+      const { exitCode, stdout } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
+        '--graded-by', 'in-session',
+      ]);
+      expect(exitCode).toBe(0);
+      // the cap must land in the GRADE, not only in the narration (review TQ-1)
+      expect(stdout).toContain('Quality Grade: A');
+      expect(stdout).toContain('Grade capped below S');
+      expect(stdout).toContain('fresh context');
+      const metadata = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'my-change', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(metadata).toContain('graded_by: in-session');
+      expect(metadata).toContain('grade: A');
+    });
+
+    it('verify record carries run-level --executor/--spend onto each judgment dimension (flag form)', async () => {
+      await initChange();
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec-report.json'),
+        JSON.stringify({
+          version: 1,
+          generated_at: '2026-08-22T00:00:00.000Z',
+          structural: {
+            checks: [
+              { id: 'task-completion', status: 'pass' },
+              { id: 'knowledge-health', status: 'pass' },
+              { id: 'test-provenance', status: 'pass' },
+            ],
+            findings: [],
+          },
+          semantic: { status: 'not-checked' },
+          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
+        }),
+      );
+      const { exitCode, stdout } = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
+        '--graded-by', 'fresh-subagent',
+        '--executor', 'strongest-tier',
+        '--spend', '12345',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Quality Grade: S');
+      const metadata = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'my-change', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(metadata).toContain('executor: strongest-tier');
+      expect(metadata).toContain('spend: 12345');
+    });
+
+    it('verify record refuses the run-level context flags alongside --dimensions (usage error)', async () => {
+      await initChange();
+      const dims = path.join(tmpDir, 'verdicts.json');
+      await fs.promises.writeFile(
+        dims,
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        ]),
+      );
+      const { exitCode, stderr } = await runCli([
+        'verify', 'record',
+        '--dimensions', dims,
+        '--graded-by', 'fresh-subagent',
+      ]);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain("cannot be used with option '--dimensions <file>'");
+      expect(stderr).not.toContain('unexpected error');
+    });
+
+    it('verify record refuses an empty --executor and a negative --spend at the parser', async () => {
+      await initChange();
+      const empty = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--graded-by', 'fresh-subagent',
+        '--executor', '',
+      ]);
+      expect(empty.exitCode).not.toBe(0);
+      expect(empty.stderr).toContain('non-empty executor');
+      const negative = await runCli([
+        'verify', 'record',
+        '--dimension', 'delta-spec-compliance=PASS',
+        '--graded-by', 'fresh-subagent',
+        '--spend=-3',
+      ]);
+      expect(negative.exitCode).not.toBe(0);
+      expect(negative.stderr).toContain('non-negative integer');
     });
 
     it('verify record refuses --dimension and --dimensions together', async () => {
@@ -1422,6 +1598,29 @@ describe('prospec check E2E', () => {
     expect(stdout).toContain('SKIP  knowledge-health');
     expect(stdout).toContain('module boundaries unknown');
     expect(stdout).toContain('not-checked');
+  });
+
+  it('check --record-review --graded-by records the grading context inside review_provenance', async () => {
+    scaffoldProject();
+    writeFixture(
+      '.prospec/changes/done/metadata.yaml',
+      ['name: done', 'created_at: 2026-08-01T00:00:00.000Z', 'status: implemented'].join('\n') + '\n',
+    );
+    gitInitFixture();
+    const recorded = await runCli([
+      'check', '--record-review', '--graded-by', 'in-session', '--change', 'done',
+    ]);
+    expect(recorded.exitCode).toBe(0);
+    const metadata = fs.readFileSync(
+      path.join(tmpDir, '.prospec', 'changes', 'done', 'metadata.yaml'),
+      'utf-8',
+    );
+    // nested under review_provenance, not a stray top-level key (review TQ-2/TQ-4)
+    expect(metadata).toMatch(/review_provenance:\n(?:[ \t]+\S[^\n]*\n)*?[ \t]+graded_by: in-session/);
+    // the flag is enum-validated at the parser layer (REQ-CLI-012)
+    const refused = await runCli(['check', '--record-review', '--graded-by', 'myself']);
+    expect(refused.exitCode).not.toBe(0);
+    expect(refused.stderr).toContain('graded-by');
   });
 
   it('lists the two adjudication checks and the parsed Constitution inventory', async () => {

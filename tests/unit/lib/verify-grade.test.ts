@@ -3,6 +3,8 @@ import {
   computeGrade,
   resultForGrade,
   gradeAdvancesStatus,
+  isSelfVerified,
+  applySelfVerifiedCap,
   GRADE_A_WARN_BUDGET,
   GRADE_C_FAIL_CEILING,
 } from '../../../src/lib/verify-grade.js';
@@ -74,6 +76,68 @@ describe('computeGrade', () => {
       Array.from({ length: 5 }, () => computeGrade(dims, ['one warning'])),
     );
     expect(runs.size).toBe(1);
+  });
+});
+
+describe('isSelfVerified / in-session grade cap', () => {
+  const inSession = (name: string): QualityDimension => ({
+    ...dim(name, 'PASS'),
+    graded_by: 'in-session',
+  });
+  const freshSubagent = (name: string): QualityDimension => ({
+    ...dim(name, 'PASS'),
+    graded_by: 'fresh-subagent',
+  });
+
+  it('isSelfVerified is true only when a dimension is graded in-session', () => {
+    expect(isSelfVerified(allPass)).toBe(false);
+    expect(isSelfVerified(allPass.map((d) => freshSubagent(d.name)))).toBe(false);
+    expect(
+      isSelfVerified(allPass.map((d) => (d.name === 'constitution' ? inSession(d.name) : d))),
+    ).toBe(true);
+  });
+
+  it('caps an otherwise-S run at A when any judgment dimension is graded in-session', () => {
+    const dims = allPass.map((d) => (d.name === 'delta-spec-compliance' ? inSession(d.name) : d));
+    expect(computeGrade(dims, [])).toBe('A');
+  });
+
+  it('keeps S reachable when every judgment dimension is graded fresh-subagent', () => {
+    const dims = allPass.map((d) =>
+      ['delta-spec-compliance', 'constitution'].includes(d.name) ? freshSubagent(d.name) : d,
+    );
+    expect(computeGrade(dims, [])).toBe('S');
+  });
+
+  it('does not push an already-warned run below A — the cap only blocks S', () => {
+    // 2 real WARNs → A; adding in-session grading must not tip it to B.
+    const dims = allPass.map((d) => (d.name === 'constitution' ? inSession(d.name) : d));
+    expect(computeGrade(dims, ['w1', 'w2'])).toBe('A');
+    // machine dimensions never carry graded_by, so they never trip the cap
+    expect(isSelfVerified(allPass.map((d) => (d.name === 'tests' ? { ...d, graded_by: undefined } : d)))).toBe(false);
+  });
+});
+
+describe('applySelfVerifiedCap', () => {
+  const judgmentDim = (graded_by: QualityDimension['graded_by']): QualityDimension => ({
+    name: 'constitution',
+    result: 'PASS',
+    adjudicator: 'judgment',
+    graded_by,
+  });
+
+  it('caps S at A when the full judgment set carries an in-session dimension the grade inputs excluded', () => {
+    expect(applySelfVerifiedCap('S', [judgmentDim('in-session')])).toBe('A');
+  });
+
+  it('leaves S untouched when every judgment dimension is fresh-subagent', () => {
+    expect(applySelfVerifiedCap('S', [judgmentDim('fresh-subagent')])).toBe('S');
+  });
+
+  it('never moves a non-S grade — the cap only blocks the top grade', () => {
+    expect(applySelfVerifiedCap('A', [judgmentDim('in-session')])).toBe('A');
+    expect(applySelfVerifiedCap('B', [judgmentDim('in-session')])).toBe('B');
+    expect(applySelfVerifiedCap('D', [judgmentDim('in-session')])).toBe('D');
   });
 });
 

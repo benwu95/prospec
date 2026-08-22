@@ -127,6 +127,9 @@ quality_log:
       - name: delta-spec-compliance
         result: WARN
         adjudicator: judgment
+        graded_by: fresh-subagent  # judgment only: fresh-subagent | in-session
+        executor: "strongest-tier model, fresh subagent"  # optional self-report
+        spend: 18500               # optional self-reported tokens
 ```
 
 - **`result` is always the gate three-state `PASS` / `WARN` / `FAIL`.** The `/prospec-verify`
@@ -144,6 +147,14 @@ quality_log:
 - **`adjudicator`** (optional, verify only) records who decided the dimension: `machine` for the
   engine-adjudicated ones (task completion, knowledge, tests) and `judgment` for the ones a
   fresh-context reviewer grades. Absent on entries written before the field existed.
+- **`graded_by` / `executor` / `spend`** (optional, judgment dimensions only) record the grading
+  context, so a PASS is attributable. `graded_by` is `fresh-subagent` or `in-session` — required for a
+  judgment dimension at the `verify record` write path (refused when absent), but optional at the
+  schema level so machine dimensions and pre-existing entries stay valid; `in-session` mechanically
+  caps the grade below S. `executor` is a free-string self-report (model / harness) and `spend` a
+  self-reported token count — both optional and non-blocking; they are recorded so a per-executor
+  statistic can be aggregated later, and no station consumes them yet. prospec detects no model:
+  all three are self-declared.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.
 

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
+import type { DimensionGradedBy } from '../types/change.js';
 import {
   readConfig,
   resolveBasePaths,
@@ -70,6 +71,9 @@ export interface CheckOptions {
   escapedDefects?: boolean;
   /** Disambiguate which change `--record-review`/`--record-tests` targets when several are in flight. */
   change?: string;
+  /** With `--record-review`: the reviewer's self-declared grading context,
+   *  recorded into `review_provenance.graded_by`. Absent leaves the field unwritten. */
+  gradedBy?: DimensionGradedBy;
   /** Auto-draft fix proposals for detected drift findings. */
   autoDraft?: boolean;
   /** Preview the drafting only. Named for its scope: `check`'s other writes
@@ -176,7 +180,7 @@ export async function execute(
   }
 
   if (options.recordReview) {
-    return recordReviewProvenance(cwd, options.change);
+    return recordReviewProvenance(cwd, options.change, options.gradedBy);
   }
 
   if (options.recordTests) {
@@ -337,6 +341,7 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
 async function recordReviewProvenance(
   cwd: string,
   explicitChange?: string,
+  gradedBy?: DimensionGradedBy,
 ): Promise<RecordReviewResult> {
   // quiet=true keeps `check` non-interactive; with several in-flight changes it
   // errors with "use --change <name>", so --change is the disambiguation path.
@@ -352,7 +357,10 @@ async function recordReviewProvenance(
   }
   const { doc } = readChangeMetadata(metadataPath, change);
   const date = new Date().toISOString().slice(0, 10);
-  doc.set('review_provenance', doc.createNode({ digest, date }));
+  doc.set(
+    'review_provenance',
+    doc.createNode({ digest, date, ...(gradedBy !== undefined ? { graded_by: gradedBy } : {}) }),
+  );
   // The delta-spec baseline is stamped in the SAME write (REQ-SERVICES-082). Two
   // separate writes could record two different moments, and the whole point of
   // this fingerprint is to prove the landing blocks are the ones review saw.

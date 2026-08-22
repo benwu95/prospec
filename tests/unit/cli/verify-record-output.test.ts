@@ -84,6 +84,39 @@ describe('verify-record-output', () => {
     expect(out).toContain('warntext');
     expect(out).toContain('excldim');
   });
+
+  it('prints the self-verification cap with its dimensions and remedy', () => {
+    const out = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({
+          grade: 'A',
+          selfVerifiedCap: {
+            dimensions: ['delta-spec-compliance'],
+            remedy: 'Re-grade in fresh context, then re-run `prospec verify record`.',
+          },
+        }),
+        'normal',
+      ),
+    );
+    expect(out).toContain('Grade capped below S');
+    expect(out).toContain('delta-spec-compliance');
+    expect(out).toContain('Re-grade in fresh context');
+  });
+
+  it('omits the cap line when there is no self-verification, and sanitizes it when present', () => {
+    expect(captureStdout(() => formatVerifyRecordOutput(baseResult(), 'normal'))).not.toContain(
+      'Grade capped below S',
+    );
+    const out = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ selfVerifiedCap: { dimensions: [`d${BEL}im`], remedy: `fix${BEL}it` } }),
+        'normal',
+      ),
+    );
+    expect(out.includes(BEL)).toBe(false);
+    expect(out).toContain('dim');
+    expect(out).toContain('fixit');
+  });
 });
 
 describe('status line honesty (already-verified vs grade-too-low)', () => {

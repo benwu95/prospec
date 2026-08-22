@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DIMENSION_ADJUDICATORS, DIMENSION_RESULTS } from './change.js';
+import { DIMENSION_ADJUDICATORS, DIMENSION_GRADED_BY, DIMENSION_RESULTS } from './change.js';
 
 /**
  * Station I/O contracts for the cli-first delegation commands (issue #107).
@@ -183,6 +183,19 @@ export const JudgmentDimensionInputSchema = z.object({
    *  caller looking for a field its payload does not have. */
   name: relayedString('id', 'name'),
   result: z.enum(DIMENSION_RESULTS),
+  /** The grading context, REQUIRED for a judgment verdict: `fresh-subagent` or
+   *  `in-session`. Self-declared — the CLI cannot detect it — and load-bearing:
+   *  `in-session` caps the grade below S. Required here (not `.optional()`) so a
+   *  file-form entry omitting it is refused at the schema layer, matching the
+   *  flag form's service-layer refusal. */
+  graded_by: z.enum(DIMENSION_GRADED_BY),
+  /** Free-string self-report of the grading executor (model / harness). Optional
+   *  and non-blocking — recorded for future per-executor statistics (no station
+   *  consumes it yet), not a gate. */
+  executor: z.string().min(1).optional(),
+  /** Self-reported tokens spent on this verdict — the detection-per-cost
+   *  denominator. Optional and non-blocking. */
+  spend: z.number().int().nonnegative().optional(),
   /** One-line verdict rationale — relayed, so bounded. */
   summary: relayedString('summary').optional(),
   /** The command that re-establishes this verdict. */

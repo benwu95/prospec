@@ -51,10 +51,13 @@ function report(
   });
 }
 
-const judgment = (over: Partial<Record<'delta' | 'constitution' | 'design', QualityDimension['result']>> = {}): QualityDimension[] => [
-  { name: 'delta-spec-compliance', result: over.delta ?? 'PASS' },
-  { name: 'constitution', result: over.constitution ?? 'PASS' },
-  { name: 'design', result: over.design ?? 'not-applicable' },
+const judgment = (
+  over: Partial<Record<'delta' | 'constitution' | 'design', QualityDimension['result']>> = {},
+  gradedBy: QualityDimension['graded_by'] = 'fresh-subagent',
+): QualityDimension[] => [
+  { name: 'delta-spec-compliance', result: over.delta ?? 'PASS', graded_by: gradedBy },
+  { name: 'constitution', result: over.constitution ?? 'PASS', graded_by: gradedBy },
+  { name: 'design', result: over.design ?? 'not-applicable', graded_by: gradedBy },
 ];
 
 function seed(opts: { scale?: string; status?: string; reportJson?: string; draft?: boolean } = {}): void {
@@ -167,6 +170,21 @@ describe('verify-record service', () => {
     expect(twoWarns.grade).toBe('A');
   });
 
+  it('proven backfill: an in-session grade on a scale-excluded dimension still caps S at A (review CS-1)', async () => {
+    seed({ scale: 'backfill', draft: true });
+    const dims: QualityDimension[] = [
+      { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+      { name: 'constitution', result: 'PASS', graded_by: 'in-session' },
+      { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+    ];
+    const result = await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
+    expect(result.excludedFromGrade).toContain('constitution');
+    expect(result.grade).toBe('A');
+    expect(result.selfVerifiedCap).toBeDefined();
+    expect(result.selfVerifiedCap!.dimensions).toEqual(['constitution']);
+    expect(result.warnings).toEqual([]);
+  });
+
   it('unproven scale:backfill grades as standard and records the honesty WARN', async () => {
     seed({ scale: 'backfill', reportJson: report({ tp: 'fail' }) });
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
@@ -189,6 +207,52 @@ describe('verify-record service', () => {
     // (unwrap YAML's line folding before matching)
     const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
     expect(written).toContain('module-map.yaml not found — module boundaries unknown');
+  });
+
+  it('refuses a judgment verdict missing graded_by — nothing written (flag form)', async () => {
+    seed();
+    const before = vol.readFileSync(META, 'utf-8') as string;
+    // build the exact judgment set but strip graded_by from one dimension
+    const dims: QualityDimension[] = judgment().map((d) =>
+      d.name === 'constitution' ? { name: d.name, result: d.result } : d,
+    );
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [] });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    expect((caught as Error).message).toContain('missing graded_by: constitution');
+    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+  });
+
+  it('caps the grade at A and reports the self-verification when a judgment dim is graded in-session', async () => {
+    seed();
+    const result = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({}, 'in-session'),
+      warnings: [],
+      date: '2026-08-22',
+    });
+    expect(result.grade).toBe('A');
+    expect(result.selfVerifiedCap).toBeDefined();
+    expect(result.selfVerifiedCap!.dimensions).toContain('delta-spec-compliance');
+    expect(result.selfVerifiedCap!.remedy).toContain('fresh context');
+    // S/A still graduates — the cap only blocks S, not graduation
+    expect(result.statusAdvanced).toBe(true);
+    // the cap is NOT recorded as a budget WARN (it must not push A→B)
+    expect(result.warnings).toEqual([]);
+    expect(vol.readFileSync(META, 'utf-8')).toContain('graded_by: in-session');
+  });
+
+  it('records executor and spend from the run-level flag form', async () => {
+    seed();
+    const dims = judgment().map((d) => ({ ...d, executor: 'opus-tier fresh subagent', spend: 12000 }));
+    await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
+    const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
+    expect(written).toContain('executor: opus-tier fresh subagent');
+    expect(written).toContain('spend: 12000');
   });
 });
 
@@ -228,9 +292,9 @@ describe('report freshness guard', () => {
     const DIMS = '/repo/verdicts.json';
 
     const verdicts = (over: Record<string, unknown>[] = []): unknown[] => [
-      { name: 'delta-spec-compliance', result: 'PASS', summary: '16 REQ 全數對上程式碼', repro: 'prospec spec show sdd-workflow --req REQ-LIB-049', evidence: 'REQ-LIB-049 對應 src/lib/delegated-evidence.ts。\n\n每條 AC 逐一核對。' },
-      { name: 'constitution', result: 'PASS' },
-      { name: 'design', result: 'not-applicable' },
+      { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent', summary: '16 REQ 全數對上程式碼', repro: 'prospec spec show sdd-workflow --req REQ-LIB-049', evidence: 'REQ-LIB-049 對應 src/lib/delegated-evidence.ts。\n\n每條 AC 逐一核對。' },
+      { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+      { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
       ...over,
     ];
 
@@ -275,9 +339,9 @@ describe('report freshness guard', () => {
       vol.writeFileSync(
         DIMS,
         JSON.stringify([
-          { name: 'delta-spec-compliance', result: 'WARN', evidence: '第二輪：一條 AC 仍缺證據' },
-          { name: 'constitution', result: 'PASS' },
-          { name: 'design', result: 'not-applicable' },
+          { name: 'delta-spec-compliance', result: 'WARN', graded_by: 'fresh-subagent', evidence: '第二輪：一條 AC 仍缺證據' },
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
         ]),
       );
       await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-11' });
@@ -292,9 +356,9 @@ describe('report freshness guard', () => {
       vol.writeFileSync(
         DIMS,
         JSON.stringify([
-          { name: 'delta-spec-compliance', result: 'PASS' },
-          { name: 'constitution', result: 'PASS' },
-          { name: 'design', result: 'not-applicable' },
+          { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
         ]),
       );
       const result = await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [] });
@@ -311,6 +375,7 @@ describe('report freshness guard', () => {
           {
             name: 'delta-spec-compliance',
             result: 'PASS',
+            graded_by: 'fresh-subagent',
             summary: 's'.repeat(RELAYED_FIELD_MAX_CHARS.summary + 1),
           },
         ]),
@@ -318,7 +383,11 @@ describe('report freshness guard', () => {
       ],
       [
         'a marker inside evidence',
-        JSON.stringify([{ name: 'constitution', result: 'PASS', evidence: '<!-- prospec:evidence-end -->' }]),
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent', evidence: '<!-- prospec:evidence-end -->' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+        ]),
         /evidence-block grammar/,
       ],
     ] as const)('refuses %s before writing anything', async (_name, body, message) => {
@@ -340,10 +409,11 @@ describe('report freshness guard', () => {
           {
             name: 'delta-spec-compliance',
             result: 'PASS',
+            graded_by: 'fresh-subagent',
             evidence: '引用上一輪的報告：\n\n## 2026-01-01 — grade S\n\n（以上為引文）',
           },
-          { name: 'constitution', result: 'PASS' },
-          { name: 'design', result: 'not-applicable' },
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
         ]),
       );
       await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
@@ -375,6 +445,43 @@ describe('report freshness guard', () => {
       await expect(
         execute({ cwd: CWD, judgmentDimensions: judgment(), dimensionsPath: DIMS, warnings: [] }),
       ).rejects.toThrow(PrerequisiteError);
+    });
+
+    it('refuses a file entry missing graded_by at the schema layer — nothing written', async () => {
+      seed();
+      const before = vol.readFileSync(META, 'utf-8');
+      vol.writeFileSync(
+        DIMS,
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'PASS' }, // no graded_by
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+        ]),
+      );
+      await expect(
+        execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [] }),
+      ).rejects.toThrow(/graded_by/);
+      expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+    });
+
+    it('carries per-entry graded_by / executor / spend from the file form into metadata', async () => {
+      seed();
+      vol.writeFileSync(
+        DIMS,
+        JSON.stringify([
+          { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'in-session', executor: 'sonnet in-session', spend: 8000 },
+          { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+          { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+        ]),
+      );
+      const result = await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-22' });
+      // one in-session judgment dim → grade capped at A with the self-verify note
+      expect(result.grade).toBe('A');
+      expect(result.selfVerifiedCap?.dimensions).toContain('delta-spec-compliance');
+      const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
+      expect(written).toContain('graded_by: in-session');
+      expect(written).toContain('executor: sonnet in-session');
+      expect(written).toContain('spend: 8000');
     });
   });
 });

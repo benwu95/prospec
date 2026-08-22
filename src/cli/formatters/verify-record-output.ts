@@ -25,6 +25,13 @@ export function formatVerifyRecordOutput(
       pc.dim(`Excluded from grade (scale policy, recorded as informational): ${excluded}`),
     );
   }
+  // The self-verification grade cap: a separate signal from the WARN ledger, so
+  // it is surfaced on its own line with the remedy the developer needs.
+  if (result.selfVerifiedCap !== undefined) {
+    const dims = result.selfVerifiedCap.dimensions.map((n) => sanitizeTerminal(n)).join(', ');
+    lines.push(pc.yellow(`Grade capped below S — graded in-session: ${dims}`));
+    lines.push(pc.dim(`  ${sanitizeTerminal(result.selfVerifiedCap.remedy)}`));
+  }
   if (result.warnings.length > 0) {
     lines.push(`Warnings (${result.warnings.length}):`);
     for (const w of result.warnings) lines.push(`  - ${sanitizeTerminal(w)}`);

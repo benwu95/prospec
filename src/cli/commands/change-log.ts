@@ -5,6 +5,7 @@ import {
   VERIFY_GRADES,
   DIMENSION_RESULTS,
   DIMENSION_ADJUDICATORS,
+  DIMENSION_GRADED_BY,
   type QualityDimension,
 } from '../../types/change.js';
 import { formatChangeLogOutput } from '../formatters/change-log-output.js';
@@ -13,13 +14,13 @@ import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { collect, parseDate } from '../parse-options.js';
 
-/** `name=result[:adjudicator]` → a QualityDimension, validated against the closed vocabularies. */
+/** `name=result[:adjudicator[:graded_by]]` → a QualityDimension, validated against the closed vocabularies. */
 function parseDimension(value: string, previous: QualityDimension[]): QualityDimension[] {
-  const match = /^([^=]+)=([^:]+)(?::(.+))?$/.exec(value);
+  const match = /^([^=]+)=([^:]+)(?::([^:]+))?(?::([^:]+))?$/.exec(value);
   if (!match) {
-    throw new InvalidArgumentError('expected name=result[:adjudicator]');
+    throw new InvalidArgumentError('expected name=result[:adjudicator[:graded_by]]');
   }
-  const [, name, result, adjudicator] = match;
+  const [, name, result, adjudicator, gradedBy] = match;
   if (!(DIMENSION_RESULTS as readonly string[]).includes(result!)) {
     throw new InvalidArgumentError(
       `result must be one of: ${DIMENSION_RESULTS.join(', ')}`,
@@ -30,12 +31,29 @@ function parseDimension(value: string, previous: QualityDimension[]): QualityDim
       `adjudicator must be one of: ${DIMENSION_ADJUDICATORS.join(', ')}`,
     );
   }
+  if (gradedBy !== undefined && !(DIMENSION_GRADED_BY as readonly string[]).includes(gradedBy)) {
+    throw new InvalidArgumentError(
+      `graded_by must be one of: ${DIMENSION_GRADED_BY.join(', ')}`,
+    );
+  }
+  if (gradedBy !== undefined && adjudicator !== 'judgment') {
+    throw new InvalidArgumentError('graded_by applies to judgment dimensions only');
+  }
+  // The same honesty invariant `verify record` enforces: a judgment verdict is
+  // never recorded without its grading context — this parallel write path must
+  // not become the bypass.
+  if (adjudicator === 'judgment' && gradedBy === undefined) {
+    throw new InvalidArgumentError(
+      `a judgment dimension requires its grading context: name=result:judgment:<${DIMENSION_GRADED_BY.join('|')}>`,
+    );
+  }
   return [
     ...previous,
     {
       name: name!.trim(),
       result: result as QualityDimension['result'],
       ...(adjudicator ? { adjudicator: adjudicator as QualityDimension['adjudicator'] } : {}),
+      ...(gradedBy ? { graded_by: gradedBy as QualityDimension['graded_by'] } : {}),
     },
   ];
 }
@@ -72,7 +90,7 @@ export function registerChangeLogCommand(program: Command): void {
     .addOption(new Option('--grade <grade>', 'Verify quality grade').choices(VERIFY_GRADES))
     .option(
       '--dimension <spec>',
-      'Verify dimension as name=result[:adjudicator] (repeatable)',
+      'Verify dimension as name=result[:adjudicator[:graded_by]] (repeatable; judgment requires graded_by)',
       parseDimension,
       [] as QualityDimension[],
     )

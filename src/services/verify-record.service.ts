@@ -29,7 +29,13 @@ import {
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
 import { computeChangeDigest } from '../lib/drift-sources.js';
-import { computeGrade, resultForGrade, gradeAdvancesStatus } from '../lib/verify-grade.js';
+import {
+  computeGrade,
+  resultForGrade,
+  gradeAdvancesStatus,
+  isSelfVerified,
+  applySelfVerifiedCap,
+} from '../lib/verify-grade.js';
 import { todayIso } from '../lib/date-utils.js';
 import { resolveChange } from './change-resolver.js';
 
@@ -67,6 +73,14 @@ export interface VerifyRecordResult {
   excludedFromGrade: string[];
   /** Repo-relative `verify.md` path, when this run recorded judgment evidence. */
   evidencePath?: string;
+  /**
+   * Present when at least one grade-input judgment dimension was graded
+   * `in-session`: grade S is then mechanically unattainable. Carries the
+   * dimension names and the remedy so the CLI can surface both. A separate
+   * channel from `warnings` on purpose — the cap prevents the top grade without
+   * ever consuming grade A's WARN budget.
+   */
+  selfVerifiedCap?: { dimensions: string[]; remedy: string };
 }
 
 /**
@@ -93,11 +107,29 @@ function readJudgmentInput(dimensionsPath: string): JudgmentDimensionInput[] {
   }
   const parsed = JudgmentDimensionsInputSchema.safeParse(json);
   if (!parsed.success) {
+    // Name the dimension, not its array index: the refusal names the dimension
+    // and the failing field (REQ-CLI-029), and "constitution.graded_by" is
+    // actionable where "0.graded_by" is not.
+    const entries = Array.isArray(json) ? (json as unknown[]) : [];
+    const issueLabel = (issuePath: PropertyKey[]): string => {
+      const [head, ...rest] = issuePath;
+      if (typeof head === 'number') {
+        const entry = entries[head];
+        const name =
+          entry !== null &&
+          typeof entry === 'object' &&
+          typeof (entry as { name?: unknown }).name === 'string'
+            ? (entry as { name: string }).name
+            : undefined;
+        if (name !== undefined) return [name, ...rest].map(String).join('.');
+      }
+      return issuePath.map(String).join('.');
+    };
     throw new PrerequisiteError(
       `Judgment dimensions failed validation: ${parsed.error.issues
-        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .map((i) => `${issueLabel(i.path)}: ${i.message}`)
         .join('; ')}`,
-      'Each entry needs name and result (PASS|WARN|FAIL|not-applicable|not-adjudicated); summary and repro are bounded, evidence is not',
+      'Each entry needs name, result (PASS|WARN|FAIL|not-applicable|not-adjudicated) and graded_by (fresh-subagent|in-session); executor/spend are optional; summary and repro are bounded, evidence is not',
     );
   }
   // Guard the block AS IT WILL BE RENDERED, not field by field: the anchor, the
@@ -171,7 +203,13 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const judgmentVerdicts: QualityDimension[] =
     options.dimensionsPath === undefined
       ? options.judgmentDimensions
-      : judgmentInput.map((d) => ({ name: d.name, result: d.result }));
+      : judgmentInput.map((d) => ({
+          name: d.name,
+          result: d.result,
+          graded_by: d.graded_by,
+          ...(d.executor !== undefined ? { executor: d.executor } : {}),
+          ...(d.spend !== undefined ? { spend: d.spend } : {}),
+        }));
 
   // Judgment input must cover exactly the judgment dimensions — no relays of
   // machine dimensions, no missing verdicts.
@@ -182,6 +220,18 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     throw new PrerequisiteError(
       `Judgment dimensions must be exactly [${expected.join(', ')}] (got: ${judgmentNames.join(', ') || 'none'})`,
       'Pass one --dimension per judgment dimension; a dimension that does not apply is result not-applicable, never omitted. Machine dimensions are read from the report — do not pass them',
+    );
+  }
+
+  // A judgment verdict MUST declare its grading context — the honesty layer that
+  // makes the in-session grade cap enforceable. Refused before any byte reaches
+  // disk, the same stance as refusing a stale report. The `--dimensions <file>`
+  // form already requires it at the schema layer; this covers the flag form.
+  const ungraded = judgmentVerdicts.filter((d) => d.graded_by === undefined).map((d) => d.name);
+  if (ungraded.length > 0) {
+    throw new PrerequisiteError(
+      `Judgment dimension(s) missing graded_by: ${ungraded.join(', ')}`,
+      'Declare the grading context: pass --graded-by <fresh-subagent|in-session> (flag form), or set each entry\'s graded_by (--dimensions file). Nothing was written',
     );
   }
 
@@ -284,8 +334,26 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   ];
 
   const gradeInputs = dimensions.filter((d) => !excludedFromGrade.includes(d.name));
-  const grade = computeGrade(gradeInputs, warnings);
+  // The cap scans the FULL judgment set, not only the grade inputs: a scale
+  // policy (proven backfill) excludes a dimension's VERDICT from the grade, but
+  // its grading context is still a self-verification — REQ-CLI-029 caps on ANY
+  // judgment dimension graded in-session.
+  const judgmentDimensions = dimensions.filter((d) => d.adjudicator === 'judgment');
+  const grade = applySelfVerifiedCap(computeGrade(gradeInputs, warnings), judgmentDimensions);
   const gateResult = resultForGrade(grade);
+  // A separate signal from the WARN ledger: naming the in-session dimensions and
+  // the remedy, surfaced whenever a judgment dimension was self-verified — which
+  // is exactly when the cap put S out of reach.
+  const inSessionDimensions = judgmentDimensions
+    .filter((d) => d.graded_by === 'in-session')
+    .map((d) => d.name);
+  const selfVerifiedCap = isSelfVerified(judgmentDimensions)
+    ? {
+        dimensions: inSessionDimensions,
+        remedy:
+          'Grade S is unattainable while a judgment dimension is graded in-session. Re-grade it in fresh context, then re-run `prospec verify record`.',
+      }
+    : undefined;
   const date = options.date ?? todayIso();
 
   appendQualityLogEntry(doc, {
@@ -360,5 +428,6 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     gradeGraduates: gradeAdvancesStatus(grade),
     excludedFromGrade,
     evidencePath,
+    ...(selfVerifiedCap !== undefined ? { selfVerifiedCap } : {}),
   };
 }
