@@ -13,6 +13,31 @@ import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
 import { normalizeIssueRef } from '../lib/change-metadata.js';
+import {
+  assessDrops,
+  classifyBlockTerminator,
+  declaredDrops,
+  DELTA_TEMPLATE_FIELDS,
+  extractDeltaBlock,
+  iterateDeltaEntries,
+  whenThenBullets,
+  type BlockTerminator,
+  type Bullet,
+  type DeltaBlock,
+  type DeltaBlockTruncation,
+} from '../lib/landing-fidelity.js';
+// Re-exported so `services/archive.service` stays the documented import site for
+// the landing-fidelity parsers, even though their single implementation now lives
+// in `lib/landing-fidelity` — shared verbatim with the delta-spec-landing-fidelity
+// drift check so the two comparisons can never diverge.
+export {
+  classifyBlockTerminator,
+  declaredDrops,
+  DELTA_TEMPLATE_FIELDS,
+  extractDeltaBlock,
+  whenThenBullets,
+};
+export type { BlockTerminator, Bullet, DeltaBlock, DeltaBlockTruncation };
 import type { ChangeStatus } from '../types/change.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -1638,271 +1663,38 @@ function calculateTaskStats(tasksContent: string): string {
  */
 function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
   const routes: FeatureRoute[] = [];
-  const lines = deltaContent.split('\n');
-
-  let currentSection = '';
-  let currentReqId = '';
-  let currentDescription = '';
-  let currentFeature = '';
-  let currentStory = '';
-  let currentBody: string[] = [];
-
-  const pushCurrent = () => {
-    if (currentReqId && currentFeature) {
-      const spec = extractDeltaBlock(currentBody, 'Spec');
-      const descriptionBody = buildDescriptionBody(currentBody);
-      const declared = declaredDrops(currentBody);
-      // The truncation that matters is the one on whichever block actually lands.
-      // For MODIFIED that is always the Spec block; for ADDED without one, the
-      // Description/Acceptance-Criteria fallback IS the landing body, so a foreign
-      // label cutting THAT short loses trust-zone text just the same.
-      // The fallback's truncation counts ONLY where the fallback can actually
-      // land — an ADDED entry with no Spec block. For MODIFIED those blocks are
-      // change narrative that never reaches the trust zone, so refusing on them
-      // would deny the REQ the preserve-body + pendingConvergence path
-      // REQ-SERVICES-072 guarantees, and swallow its worklist entry.
-      const truncation =
-        spec.truncation ??
-        (currentSection === 'ADDED' && spec.content === ''
-          ? (extractDeltaBlock(currentBody, 'Description').truncation ??
-            extractDeltaBlock(currentBody, 'Acceptance Criteria').truncation)
-          : null);
-      routes.push({
-        reqId: currentReqId,
-        feature: currentFeature,
-        story: currentStory,
-        status: currentSection as FeatureRoute['status'],
-        description: currentDescription,
-        ...(spec.content === '' ? {} : { specBody: spec.content }),
-        ...(descriptionBody === '' ? {} : { descriptionBody }),
-        ...(truncation === null ? {} : { truncation }),
-        ...(declared.length === 0 ? {} : { declaredDrops: declared }),
-      });
-    }
-  };
-
-  for (const line of lines) {
-    const sectionMatch = line.match(/^##\s+(ADDED|MODIFIED|REMOVED)/i);
-    if (sectionMatch) {
-      pushCurrent();
-      currentSection = sectionMatch[1]!.toUpperCase();
-      currentReqId = '';
-      currentFeature = '';
-      currentStory = '';
-      currentBody = [];
-      continue;
-    }
-
-    const reqMatch = line.match(/^###\s+(REQ-[\w-]+):\s*(.*)/);
-    if (reqMatch) {
-      pushCurrent();
-      currentReqId = reqMatch[1]!;
-      currentDescription = reqMatch[2]!.trim();
-      currentFeature = '';
-      currentStory = '';
-      currentBody = [];
-      continue;
-    }
-
-    const featureMatch = line.match(/^\*\*Feature:\*\*\s*(.+)/);
-    if (featureMatch) {
-      currentFeature = featureMatch[1]!.trim();
-      continue;
-    }
-
-    const storyMatch = line.match(/^\*\*Story:\*\*\s*(.+)/);
-    if (storyMatch) {
-      currentStory = storyMatch[1]!.trim();
-      continue;
-    }
-
-    currentBody.push(line);
+  for (const entry of iterateDeltaEntries(deltaContent)) {
+    if (!entry.reqId || !entry.feature) continue;
+    const spec = extractDeltaBlock(entry.body, 'Spec');
+    const descriptionBody = buildDescriptionBody(entry.body);
+    const declared = declaredDrops(entry.body);
+    // The truncation that matters is the one on whichever block actually lands.
+    // For MODIFIED that is always the Spec block; for ADDED without one, the
+    // Description/Acceptance-Criteria fallback IS the landing body, so a foreign
+    // label cutting THAT short loses trust-zone text just the same. It counts ONLY
+    // where the fallback can land — an ADDED entry with no Spec block; for MODIFIED
+    // those blocks are change narrative that never reaches the trust zone, so
+    // refusing on them would deny the REQ the preserve-body + pendingConvergence
+    // path REQ-SERVICES-072 guarantees.
+    const truncation =
+      spec.truncation ??
+      (entry.section === 'ADDED' && spec.content === ''
+        ? (extractDeltaBlock(entry.body, 'Description').truncation ??
+          extractDeltaBlock(entry.body, 'Acceptance Criteria').truncation)
+        : null);
+    routes.push({
+      reqId: entry.reqId,
+      feature: entry.feature,
+      story: entry.story,
+      status: entry.section as FeatureRoute['status'],
+      description: entry.description,
+      ...(spec.content === '' ? {} : { specBody: spec.content }),
+      ...(descriptionBody === '' ? {} : { descriptionBody }),
+      ...(truncation === null ? {} : { truncation }),
+      ...(declared.length === 0 ? {} : { declaredDrops: declared }),
+    });
   }
-
-  pushCurrent();
   return routes;
-}
-
-/** A `**Label:**` line — the boundary between delta-spec blocks. */
-const DELTA_BLOCK_LABEL = /^\*\*([A-Za-z][\w \-/]*):\*\*/;
-
-/** Any ATX heading — a block never swallows one (see extractDeltaBlock). */
-const ATX_HEADING = /^#{1,6}\s/;
-
-/**
- * The delta-spec template's OWN field labels — the registry that tells a normal
- * block boundary apart from a truncation (REQ-SERVICES-081).
- *
- * Every one of these is a field the delta-spec format itself writes after a
- * `**Spec:**` block, so meeting one means the block ended where the template says
- * it ends. Any OTHER label is part of the body the author wrote — most importantly
- * `**Scenarios:**`, which is exactly what the Feature Spec scaffold puts inside a
- * REQ body, so a landing block written to the documented shape used to land as its
- * opening sentence and nothing else.
- *
- * `Dropped` is in here for a second reason: it is where an author declares a
- * deliberate removal (REQ-SERVICES-083). Leaving it out would make every
- * declaration truncate the very block it accompanies — the registry has to know
- * about the feature that depends on it.
- */
-export const DELTA_TEMPLATE_FIELDS = [
-  'Feature',
-  'Story',
-  'Before',
-  'After',
-  'Reason',
-  'Description',
-  'Acceptance Criteria',
-  'Spec',
-  'Dropped',
-  'Priority',
-] as const;
-
-const TEMPLATE_FIELD_LOOKUP = new Set<string>(DELTA_TEMPLATE_FIELDS.map((f) => f.toLowerCase()));
-
-/** What (if anything) ends a delta-spec block at this line. */
-export type BlockTerminator =
-  | { kind: 'none' }
-  | { kind: 'template-field'; label: string }
-  | { kind: 'foreign-label'; label: string }
-  | { kind: 'heading' }
-  | { kind: 'rule' };
-
-/**
- * Classify one line as a block boundary (REQ-SERVICES-081).
- *
- * Headings and rules keep the meaning they always had. The split that matters is
- * between a template field — a real boundary — and a foreign label, which is body
- * text the author wrote and which cutting there would silently discard.
- *
- * `alreadySeen` carries the template fields that appeared EARLIER in the same
- * entry, and a repeat of one of those is body text rather than a boundary. Plain
- * membership was a silent-truncation allowlist: `**Reason:**` written inside a
- * `**Spec:**` body read as a legitimate boundary, so every bullet after it was
- * dropped with no truncation, no refusal and exit 0 — the very failure this guard
- * exists to close, narrowed rather than removed. The drop diff cannot cover that
- * case either, because the lost bullets are NEW text absent from the superseded
- * body, so the set difference sees nothing missing.
- *
- * First-occurrence, NOT a fixed field order: the real corpus writes
- * `**Acceptance Criteria:**` after `**Spec:**` in MODIFIED entries and before it in
- * ADDED ones, so any single canonical order refuses legitimate history (four such
- * refusals in this repo's own archive, caught by the corpus regression).
- *
- * Case-insensitive against the registry: matching `**priority:**` costs nothing
- * (no foreign label collides with a template field name) and spares a downstream
- * project a refusal it could not act on.
- */
-export function classifyBlockTerminator(
-  line: string,
-  alreadySeen: ReadonlySet<string> = new Set(),
-): BlockTerminator {
-  if (ATX_HEADING.test(line)) return { kind: 'heading' };
-  const trimmed = line.trim();
-  if (trimmed === '---') return { kind: 'rule' };
-  const label = DELTA_BLOCK_LABEL.exec(trimmed)?.[1];
-  if (label === undefined) return { kind: 'none' };
-  const key = label.toLowerCase();
-  return TEMPLATE_FIELD_LOOKUP.has(key) && !alreadySeen.has(key)
-    ? { kind: 'template-field', label }
-    : { kind: 'foreign-label', label };
-}
-
-/** Does this line carry content of its own after the closing `**`? */
-function labelLineHasInlineContent(line: string): boolean {
-  const m = /^\*\*[A-Za-z][\w \-/]*:\*\*(.*)$/.exec(line.trim());
-  return m !== null && m[1]!.trim() !== '';
-}
-
-/** Where a block was cut short by a label the template does not own. */
-export interface DeltaBlockTruncation {
-  /** Which block was cut short — `Spec`, `Description` or `Acceptance Criteria`.
-   *  Without it the remediation can only guess, and it guessed `**Spec:**` for an
-   *  ADDED entry that has no such block. */
-  block: string;
-  /** The interrupting label, so the report can name it. */
-  label: string;
-  /** The label line as written — what the author looks for to find the spot. */
-  firstSwallowedLine: string;
-  /**
-   * Lines of CONTENT lost. A bare label line contributes nothing (ending at one
-   * loses no behaviour); a label carrying text after its closing `**` contributes
-   * itself, because that text IS the behaviour. Counting lines instead let
-   * `**Scenarios:** WHEN x, THEN y` — label and content on one line — score 1 and
-   * slip under the threshold, silently dropping the very thing this guard exists
-   * to protect.
-   */
-  swallowedCount: number;
-}
-
-export interface DeltaBlock {
-  content: string;
-  truncation: DeltaBlockTruncation | null;
-}
-
-/**
- * Content of one `**Label:**` block: the remainder of the label line plus every
- * following line up to the block's end. `content` is `''` when the block is
- * absent — the caller decides what that means.
- *
- * A block ends at one of the delta-spec template's OWN field labels, at any
- * heading, at an entry-separating `---`, or at the end of the entry. Meeting
- * anything else that merely LOOKS like a label — `**Scenarios:**` above all, which
- * is what the Feature Spec scaffold puts inside a REQ body — is not a boundary but
- * a truncation: the author's body continues, and cutting it there is how a
- * correctly-written landing block came to land as its opening sentence alone. Such
- * a cut is reported in `truncation` so the caller can refuse the REQ rather than
- * write the remainder (REQ-SERVICES-081).
- *
- * The heading boundary matters for a different reason and is unchanged: a
- * delta-spec whose last block is `**Spec:**` followed by any heading (a
- * traceability table, a closing note, an unfilled `### REQ-[MODULE]-001`
- * template line) would otherwise land that foreign section inside the REQ body —
- * where a later sync can no longer remove it, since the injected heading becomes
- * the in-place replacement's own stop boundary.
- */
-export function extractDeltaBlock(bodyLines: string[], label: string): DeltaBlock {
-  const labelRe = new RegExp(`^\\*\\*${label}:\\*\\*\\s*(.*)$`);
-  const start = bodyLines.findIndex((l) => labelRe.test(l.trim()));
-  if (start === -1) return { content: '', truncation: null };
-
-  const first = bodyLines[start]!.trim().match(labelRe)![1]!.trim();
-  const collected = first === '' ? [] : [first];
-  let truncation: DeltaBlockTruncation | null = null;
-
-  // Template fields consumed BEFORE this block — a repeat of one of them further
-  // down is the author's body text, not the template's next field.
-  const seen = new Set<string>([label.toLowerCase()]);
-  for (let i = 0; i < start; i++) {
-    const m = DELTA_BLOCK_LABEL.exec(bodyLines[i]!.trim());
-    if (m) seen.add(m[1]!.toLowerCase());
-  }
-
-  for (let i = start + 1; i < bodyLines.length; i++) {
-    const line = bodyLines[i]!;
-    const boundary = classifyBlockTerminator(line, seen);
-    if (boundary.kind === 'foreign-label') {
-      // Everything from here to the REAL boundary is body the author wrote and
-      // this block would drop. Count the CONTENT, not the lines: the label line
-      // itself only counts when it carries text of its own.
-      let swallowedCount = labelLineHasInlineContent(line) ? 1 : 0;
-      for (let j = i + 1; j < bodyLines.length; j++) {
-        const kind = classifyBlockTerminator(bodyLines[j]!, seen).kind;
-        if (kind === 'template-field' || kind === 'heading' || kind === 'rule') break;
-        if (bodyLines[j]!.trim() !== '') swallowedCount++;
-      }
-      if (swallowedCount > 0) {
-        truncation = { block: label, label: boundary.label, firstSwallowedLine: line, swallowedCount };
-        break;
-      }
-      // A bare label with nothing under it loses no behaviour — it ends the block
-      // exactly as a template field would, which is what it did before this guard.
-      break;
-    }
-    if (boundary.kind !== 'none') break;
-    collected.push(line);
-  }
-  return { content: collected.join('\n').trim(), truncation };
 }
 
 /**
@@ -1951,125 +1743,6 @@ function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConver
 }
 
 /**
- * One `- WHEN … THEN …` bullet: `key` is whitespace-normalised for comparison,
- * `text` is the source lines exactly as written. Comparing on the key means a
- * re-indented or reflowed bullet is not a false drop; reporting the text means
- * what the author is asked to restore is what their file actually said.
- */
-export interface Bullet {
-  key: string;
-  text: string;
-}
-
-/**
- * The comparison key, never the report: trim, drop the list marker, drop emphasis
- * around the keywords, then collapse whitespace runs.
- *
- * The marker MUST come out. `delta-spec-format` mandates `- WHEN …, THEN …` in a
- * landing block, so a project whose feature spec is written with `*` or `1.`
- * markers compares its own unchanged behaviour against the mandated shape and sees
- * a difference — a FALSE drop, which now holds the write and tells the author to
- * "restore" a bullet that is already there. Keeping the marker in the key was a
- * defensible call while the report was advisory; once it began blocking, it turned
- * the widening into a wall for exactly the projects the widening was added for.
- */
-function normalizeBullet(line: string): string {
-  return line
-    .trim()
-    .replace(/^(?:[-*]|\d+\.)\s+/, '')
-    .replace(/\*\*(WHEN|THEN)\*\*/gi, '$1')
-    .replace(/\s+/g, ' ');
-}
-
-/** Any Markdown list marker: `-`, `*`, or an ordered `N.`. */
-const LIST_MARKER = /^(?:[-*]|\d+\.)\s/;
-
-/**
- * A `WHEN … THEN …` bullet's opening line, in any list style a project might use.
- *
- * Recognising only `- WHEN` meant a project writing `* WHEN`, `1. WHEN` or
- * `- **WHEN**` got an EMPTY drop report while its behavior was being replaced —
- * the worklist was not wrong, it was silent. The emphasis run is optional and
- * unanchored on the right so `**WHEN**` and `WHEN` both match; `\b` still keeps
- * `WHENEVER` out.
- */
-const WHEN_BULLET = /^(?:[-*]|\d+\.)\s+\*{0,2}WHEN\b/i;
-
-/**
- * `WHEN … THEN …` bullets of a REQ body, each joined with its indented
- * continuation lines: a wrapped bullet whose first line is unchanged but whose
- * `THEN` clause was rewritten is a total behavior swap, and comparing first
- * lines alone would report nothing.
- *
- * The comparison key normalises the marker and the keyword emphasis away (see
- * `normalizeBullet`), so a bullet restyled from `- WHEN` to `* WHEN` is the SAME
- * behaviour and is not reported. That reverses an earlier call to treat a restyle
- * as a reportable edit: it was defensible while the report was advisory, but once
- * a drop began holding the write it turned the mandated `- WHEN …` landing shape
- * into a false block against any project whose spec uses another marker.
- */
-export function whenThenBullets(body: string): Bullet[] {
-  return collectBullets(body, WHEN_BULLET);
-}
-
-/**
- * List items of `body` whose opening line matches `opens`, each joined with its
- * indented continuation lines.
- *
- * Shared by the drop diff and the deliberate-loss declaration so the two produce
- * IDENTICAL keys for identical text. If the declaration parsed differently, a
- * declaration copied straight out of the CLI's own dry-run report could fail to
- * match the drop it names, and the author would have no way to clear the gate.
- */
-function collectBullets(body: string, opens: RegExp): Bullet[] {
-  const bullets: Bullet[] = [];
-  let open = false;
-  for (const raw of body.split('\n')) {
-    const line = raw.trim();
-    if (opens.test(line)) {
-      bullets.push({ key: normalizeBullet(line), text: raw });
-      open = true;
-      continue;
-    }
-    // A continuation must be INDENTED relative to the bullet. Without that, a
-    // fenced code block, a table row or a trailing prose sentence sitting at
-    // column 0 gets absorbed and the bullet no longer matches its unchanged
-    // twin — a FALSE drop report, which costs the worklist its credibility
-    // faster than a missed one. The "not another bullet" guard tracks the widened
-    // marker set: leaving it at `-` would let a `*` sibling be swallowed as the
-    // previous bullet's continuation, merging two behaviors into one key.
-    if (
-      open &&
-      line !== '' &&
-      /^\s/.test(raw) &&
-      !LIST_MARKER.test(line) &&
-      !line.startsWith('#')
-    ) {
-      const last = bullets[bullets.length - 1]!;
-      last.key = normalizeBullet(`${last.key} ${line}`);
-      last.text += `\n${raw}`;
-      continue;
-    }
-    open = false;
-  }
-  return bullets;
-}
-
-/**
- * The bullets an entry's `**Dropped:**` block declares it does not carry into the new body
- * (REQ-SERVICES-083).
- *
- * Every list item is captured, not just the `WHEN`-shaped ones: a declaration that
- * matches no computed drop must be reported as stale, and it can only be reported
- * if it was parsed in the first place. Keys come from the same collector the drop
- * diff uses, so a bullet copied out of `--dry-run` output matches the drop it names
- * even after re-indentation or re-wrapping.
- */
-export function declaredDrops(bodyLines: string[]): Bullet[] {
-  return collectBullets(extractDeltaBlock(bodyLines, 'Dropped').content, LIST_MARKER);
-}
-
-/**
  * Behavior the replacement body leaves behind — a SET difference, never a count.
  * The failure this exists to catch replaced three authored bullets with three
  * unrelated ones, so any count-based check would have passed it.
@@ -2079,25 +1752,18 @@ function droppedFor(
   existingBody: string,
   landing: string,
 ): DropAssessment {
-  const kept = new Set(whenThenBullets(landing).map((b) => b.key));
-  const dropped = whenThenBullets(existingBody).filter((b) => !kept.has(b.key));
-  const declared = route.declaredDrops ?? [];
-  const declaredKeys = new Set(declared.map((b) => b.key));
-  const droppedKeys = new Set(dropped.map((b) => b.key));
-
-  const list = (bullets: Bullet[]): DroppedBehavior | undefined =>
+  const sets = assessDrops(existingBody, landing, route.declaredDrops ?? []);
+  const behavior = (bullets: Bullet[]): DroppedBehavior | undefined =>
     bullets.length === 0
       ? undefined
       : { feature: route.feature, reqId: route.reqId, bullets: bullets.map((b) => b.text) };
-
-  const stale = declared.filter((b) => !droppedKeys.has(b.key));
   return {
-    undeclared: list(dropped.filter((b) => !declaredKeys.has(b.key))),
-    acknowledged: list(dropped.filter((b) => declaredKeys.has(b.key))),
+    undeclared: behavior(sets.undeclared),
+    acknowledged: behavior(sets.acknowledged),
     stale:
-      stale.length === 0
+      sets.stale.length === 0
         ? undefined
-        : { feature: route.feature, reqId: route.reqId, bullets: stale.map((b) => b.text) },
+        : { feature: route.feature, reqId: route.reqId, bullets: sets.stale.map((b) => b.text) },
   };
 }
 

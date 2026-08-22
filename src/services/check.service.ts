@@ -34,6 +34,7 @@ import {
   collectReqReferences,
   collectReviewProvenance,
   collectDeltaSpecProvenance,
+  collectDeltaSpecLandingFidelity,
   computeDeltaSpecDigest,
   collectTaskStates,
   collectTestProvenance,
@@ -238,6 +239,9 @@ export async function execute(
     // No shared digest to pass: this one fingerprints each change's own
     // delta-spec, so the collector computes them per change.
     deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
+    // Not audit-scoped: reads every in-progress change's delta-spec so an undeclared
+    // landing-block drop surfaces before archive, sharing archive's comparison logic.
+    deltaSpecLandingFidelity: collectDeltaSpecLandingFidelity(featuresDir, cwd),
     metadataCompleteness: collectMetadataCompleteness(cwd),
     budgetOverrides: collectBudgetOverrides(cwd),
     knowledgeSize: collectKnowledgeSize(

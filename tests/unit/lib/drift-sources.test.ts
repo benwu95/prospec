@@ -20,6 +20,7 @@ import {
   scriptPatternFor,
   collectQualityLedger,
   collectDeltaSpecProvenance,
+  collectDeltaSpecLandingFidelity,
   collectReviewProvenance,
   collectTaskStates,
   collectTestProvenance,
@@ -2683,5 +2684,167 @@ describe('collectCanonicalDocDrift', () => {
     if (res.available) {
       expect(res.docs.find((f) => f.source_path === 'prospec/specs/features/some.md')).toBeUndefined();
     }
+  });
+});
+
+describe('collectDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
+  const featuresDir = () => path.join(tmpDir, 'prospec/specs/features');
+  const FEATURE_SPEC = [
+    '# drift-checks',
+    '',
+    '### US-1',
+    '',
+    '#### REQ-LIB-900: Sample',
+    'The sample requirement.',
+    '- WHEN a, THEN x',
+    '- WHEN b, THEN y',
+    '',
+    '## Edge Cases',
+    '',
+  ].join('\n');
+  const modifiedEntry = (over: { spec?: string; dropped?: string } = {}) =>
+    [
+      '## MODIFIED',
+      '',
+      '### REQ-LIB-900: Sample',
+      '',
+      '**Feature:** drift-checks',
+      '**Story:** US-1',
+      '',
+      '**Spec:**',
+      over.spec ?? 'The sample requirement.\n- WHEN a, THEN x',
+      ...(over.dropped ? ['', '**Dropped:**', over.dropped] : []),
+      '',
+      '**Priority:** High',
+      '',
+      '---',
+      '',
+    ].join('\n');
+
+  it('is unavailable — never an empty pass — when .prospec/changes/ is absent', () => {
+    const src = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir);
+    expect(src.available).toBe(false);
+    expect(src.reason).toMatch(/\.prospec\/changes/);
+    expect(src.entries).toEqual([]);
+  });
+
+  it('resolves the trust-zone body, landing block and declarations for a MODIFIED entry', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write('.prospec/changes/x/delta-spec.md', modifiedEntry());
+    const src = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir);
+    expect(src.available).toBe(true);
+    expect(src.entries).toHaveLength(1);
+    const e = src.entries[0]!;
+    expect(e).toMatchObject({ change: 'x', reqId: 'REQ-LIB-900', feature: 'drift-checks' });
+    expect(e.source_path).toContain('delta-spec.md');
+    expect(e.landing).toContain('WHEN a, THEN x');
+    expect(e.existingBody).toContain('WHEN b, THEN y');
+  });
+
+  it('carries the **Dropped:** declaration and its presence flag', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write('.prospec/changes/x/delta-spec.md', modifiedEntry({ dropped: '- WHEN b, THEN y' }));
+    const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries[0]!;
+    expect(e.droppedBlockPresent).toBe(true);
+    expect(e.declared.map((b) => b.text)).toEqual(['- WHEN b, THEN y']);
+  });
+
+  it('flags a prose **Dropped:** block as present but declaring nothing (M1 input)', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write('.prospec/changes/x/delta-spec.md', modifiedEntry({ dropped: 'none — every bullet is carried through' }));
+    const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries[0]!;
+    expect(e.droppedBlockPresent).toBe(true);
+    expect(e.declared).toHaveLength(0);
+  });
+
+  it('excludes ADDED entries and entries with no **Spec:** block from resolution', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write(
+      '.prospec/changes/x/delta-spec.md',
+      [
+        '## ADDED',
+        '',
+        '### REQ-LIB-901: New',
+        '**Feature:** drift-checks',
+        '**Spec:**',
+        '- WHEN z, THEN w',
+        '',
+        '---',
+        '',
+        '## MODIFIED',
+        '',
+        '### REQ-LIB-900: Sample',
+        '**Feature:** drift-checks',
+        '',
+        '**Before:**',
+        'old',
+        '',
+        '**After:**',
+        'new',
+        '',
+        '**Reason:**',
+        'body preserved, converge by hand',
+        '',
+        '**Priority:** High',
+        '',
+        '---',
+        '',
+      ].join('\n'),
+    );
+    const src = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir);
+    // ADDED is excluded (MODIFIED-only); the MODIFIED entry has no Spec block so its
+    // landing is '' and existingBody is left unresolved (null).
+    expect(src.entries).toHaveLength(1);
+    expect(src.entries[0]!.reqId).toBe('REQ-LIB-900');
+    expect(src.entries[0]!.landing).toBe('');
+    expect(src.entries[0]!.existingBody).toBeNull();
+  });
+
+  it('leaves existingBody null when the feature spec has no such REQ', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write(
+      '.prospec/changes/x/delta-spec.md',
+      modifiedEntry({ spec: 'The other requirement.\n- WHEN a, THEN x' }).replace('REQ-LIB-900', 'REQ-LIB-999'),
+    );
+    const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries[0]!;
+    expect(e.reqId).toBe('REQ-LIB-999');
+    expect(e.existingBody).toBeNull();
+  });
+
+  it('resolves the existing body from a slice file, not only the mother spec', () => {
+    write(
+      'prospec/specs/features/wf.md',
+      ['# wf', '', '## Slices', '', '- [US-1](./wf/us-1.md)', '', '## Edge Cases', ''].join('\n'),
+    );
+    write(
+      'prospec/specs/features/wf/us-1.md',
+      ['## US-1', '', '#### REQ-WF-001: Sliced', 'A sliced req.', '- WHEN a, THEN x', '- WHEN b, THEN y', ''].join('\n'),
+    );
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write(
+      '.prospec/changes/x/delta-spec.md',
+      [
+        '## MODIFIED',
+        '',
+        '### REQ-WF-001: Sliced',
+        '**Feature:** wf',
+        '',
+        '**Spec:**',
+        'A sliced req.',
+        '- WHEN a, THEN x',
+        '',
+        '**Priority:** High',
+        '',
+        '---',
+        '',
+      ].join('\n'),
+    );
+    const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries.find((x) => x.reqId === 'REQ-WF-001')!;
+    expect(e.existingBody).toContain('WHEN b, THEN y');
   });
 });

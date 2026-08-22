@@ -128,6 +128,24 @@ export const DRIFT_CHECK_IDS = [
   // renders for this project. Resolves at actual locations and reuses init's
   // rendering path. Warns on divergence; skips if absent.
   'canonical-doc-drift',
+  // Delta-spec landing fidelity — a MODIFIED delta-spec entry whose `**Spec:**`
+  // landing block would drop an authored trust-zone `WHEN/THEN` bullet WITHOUT
+  // declaring it under `**Dropped:**` fails (fail), naming the REQ and the bullet.
+  // The `**Spec:**` block replaces the WHOLE REQ body verbatim at archive, so an
+  // un-restated, undeclared bullet leaves the trust zone. archive already refuses
+  // such a write fail-closed (REQ-CLI-034), but ONLY at the last station, after the
+  // feature commit; this surfaces the SAME loss at every `prospec check` (plan,
+  // review, verify, CI), deriving the undeclared set from the SAME `lib/landing-fidelity`
+  // comparison archive uses — never a second implementation that could drift from it.
+  // A declared drop passes (deliberate); a declaration matching no computed drop is a
+  // stale declaration (warn), reusing archive's semantics; a non-empty `**Dropped:**`
+  // block that parses to zero list items warns so a prose "none" is not mistaken for a
+  // verified assertion. ADDED entries, entries with no `**Spec:**` block, and REQs with
+  // no resolvable existing trust-zone body are excluded (nothing to overwrite). Unlike
+  // the provenance gates this is NOT audit-scoped — it runs on every in-progress
+  // change's delta-spec so the loss is caught before archive, and skips only when
+  // `.prospec/changes/` is absent.
+  'delta-spec-landing-fidelity',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

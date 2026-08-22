@@ -1,4 +1,5 @@
 import { isProvenanceAudited } from '../types/change.js';
+import { assessDrops } from './landing-fidelity.js';
 import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
 import {
   DRIFT_CHECK_IDS,
@@ -29,6 +30,7 @@ import type {
   ReqReference,
   ReviewProvenanceSource,
   DeltaSpecProvenanceSource,
+  DeltaSpecLandingFidelitySource,
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
@@ -65,6 +67,7 @@ export interface DriftCheckInputs {
   mcpReadmeCounts: McpReadmeCountSource;
   reviewProvenance: ReviewProvenanceSource;
   deltaSpecProvenance: DeltaSpecProvenanceSource;
+  deltaSpecLandingFidelity: DeltaSpecLandingFidelitySource;
   metadataCompleteness: MetadataCompletenessSource;
   knowledgeSize: KnowledgeSizeSource;
   budgetOverrides: BudgetOverrideSource;
@@ -515,6 +518,67 @@ export function evaluateDeltaSpecProvenance(src: DeltaSpecProvenanceSource): Che
 }
 
 /**
+ * Delta-spec landing fidelity — surfaces at every `prospec check` the trust-zone
+ * bullet loss that archive catches fail-closed only at graduation, after the
+ * feature commit (REQ-CLI-034). For each MODIFIED entry whose `**Spec:**` block
+ * replaces an existing REQ body, the undeclared drops are computed from the SAME
+ * `assessDrops` the archive write path uses (issue #202), so a finding here and
+ * archive's refusal can never disagree.
+ *
+ * Undeclared drop → fail (naming the REQ and the bullet); a stale declaration and a
+ * prose `**Dropped:**` block that declares nothing → warn; a declared drop and an
+ * excluded entry (ADDED-like or no Spec block) produce nothing.
+ */
+export function evaluateDeltaSpecLandingFidelity(
+  src: DeltaSpecLandingFidelitySource,
+): CheckOutcome {
+  if (!src.available) {
+    return skipped('delta-spec-landing-fidelity', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const e of src.entries) {
+    // A non-empty `**Dropped:**` block that parsed to zero declarations is prose,
+    // not an assertion the tool can act on — warn so a "none" is not mistaken for a
+    // verified claim (issue #202 M1).
+    if (e.droppedBlockPresent && e.declared.length === 0) {
+      findings.push({
+        check: 'delta-spec-landing-fidelity',
+        severity: 'warn',
+        source_path: e.source_path,
+        detail:
+          `${e.reqId} in change "${e.change}": its \`**Dropped:**\` block carries text but no list ` +
+          `item, so nothing is declared — write each dropped bullet as a \`- \` item, or remove the block`,
+      });
+    }
+    // Excluded from the drop comparison: no Spec block, or no resolvable existing body (ADDED-like).
+    if (e.landing === '' || e.existingBody === null) continue;
+    const sets = assessDrops(e.existingBody, e.landing, e.declared);
+    for (const bullet of sets.undeclared) {
+      findings.push({
+        check: 'delta-spec-landing-fidelity',
+        severity: 'fail',
+        source_path: e.source_path,
+        detail:
+          `${e.reqId} in change "${e.change}": the \`**Spec:**\` landing block drops an authored ` +
+          `trust-zone bullet without declaring it — restore it into the body or list it under ` +
+          `\`**Dropped:**\`: ${bullet.text.trim()}`,
+      });
+    }
+    for (const bullet of sets.stale) {
+      findings.push({
+        check: 'delta-spec-landing-fidelity',
+        severity: 'warn',
+        source_path: e.source_path,
+        detail:
+          `${e.reqId} in change "${e.change}": \`**Dropped:**\` declares a bullet the landing block ` +
+          `did not drop (stale declaration — the delta-spec may describe an older body): ${bullet.text.trim()}`,
+      });
+    }
+  }
+  return outcome('delta-spec-landing-fidelity', findings);
+}
+
+/**
  * Metadata completeness — a change whose metadata.yaml is missing a required
  * field (name/created_at/status/scale), or that is verified/archived yet records
  * no /prospec-verify S/A grade in quality_log, fails (FAIL-class). Backs the
@@ -849,6 +913,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'delta-spec-provenance': evaluateDeltaSpecProvenance(inputs.deltaSpecProvenance),
     'unjustified-budget-override': evaluateBudgetOverrides(inputs.budgetOverrides),
     'canonical-doc-drift': evaluateCanonicalDocDrift(inputs.canonicalDocDrift),
+    'delta-spec-landing-fidelity': evaluateDeltaSpecLandingFidelity(inputs.deltaSpecLandingFidelity),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

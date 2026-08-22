@@ -45,6 +45,10 @@ const SCALE_BY_CHECK: Record<DriftCheckId, ChangeScale> = {
   'delta-spec-provenance': 'standard',
   'unjustified-budget-override': 'quick',
   'canonical-doc-drift': 'quick',
+  // Never actually drafted: its findings anchor to a `.prospec/changes/**/delta-spec.md`
+  // path, which `isDraftableFinding` excludes (the fix is editing that same change's
+  // delta-spec, not opening a new one). The value is a placeholder the total Record demands.
+  'delta-spec-landing-fidelity': 'quick',
 };
 
 /**

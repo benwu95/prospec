@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4077%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4105%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -790,6 +790,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。
       - `delta-spec-provenance`：變更的 `delta-spec.md` 指紋必須與 review 基線一致（防止審查後私自修改規格）。
+      - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。
     - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）。
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
@@ -1042,7 +1043,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4077 個測試）
+# 執行所有測試（4105 個測試）
 pnpm test
 
 # Watch 模式
@@ -1055,8 +1056,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4077 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3040 tests
+**測試覆蓋率**：4105 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3068 tests
 - Contract tests（CLI 輸出 + Skill 格式）：895 tests
 - Integration tests：45 tests
 - E2E tests：97 tests

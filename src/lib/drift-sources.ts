@@ -11,7 +11,14 @@ import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
-import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE } from './spec-headings.js';
+import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE, type SpecContent } from './spec-headings.js';
+import { stripTrailingCr } from './text-lines.js';
+import {
+  declaredDrops,
+  extractDeltaBlock,
+  iterateDeltaEntries,
+  type Bullet,
+} from './landing-fidelity.js';
 import {
   ARCHIVED_EXCLUDES,
   isContainedPath,
@@ -1626,6 +1633,114 @@ export function collectDeltaSpecProvenance(cwd: string): DeltaSpecProvenanceSour
     });
   }
   return { available: true, changes };
+}
+
+/** One MODIFIED delta-spec entry the landing-fidelity check assesses. */
+export interface LandingFidelityEntry {
+  change: string;
+  /** repo-relative delta-spec.md path — the finding anchor. */
+  source_path: string;
+  reqId: string;
+  feature: string;
+  /** `**Spec:**` landing body; `''` when the entry carries no Spec block. */
+  landing: string;
+  /** The current trust-zone REQ body the landing would overwrite verbatim; null
+   *  when the REQ has no resolvable existing body (ADDED-like) or no Spec block —
+   *  either way the entry is excluded from the drop comparison. */
+  existingBody: string | null;
+  /** Bullets declared under `**Dropped:**`, parsed with the same collector the
+   *  drop diff uses so keys match. */
+  declared: Bullet[];
+  /** True when `**Dropped:**` carries non-empty content — drives the prose-"none"
+   *  warning when it nonetheless parses to zero list items. */
+  droppedBlockPresent: boolean;
+}
+
+/** Unlike its provenance sibling there is no per-change digest here: the check
+ *  compares each MODIFIED entry's landing block against the body it would replace. */
+export interface DeltaSpecLandingFidelitySource {
+  available: boolean;
+  reason?: string;
+  entries: LandingFidelityEntry[];
+}
+
+/** The current trust-zone REQ body a landing block would overwrite — resolved the
+ *  same way `archive.service`'s in-place merge resolves it (`indexSpec` boundaries,
+ *  the title line stripped), across the main file and any slice, so the check and
+ *  archive compare against byte-identical text. */
+function resolveExistingReqBody(
+  featuresDir: string,
+  feature: string,
+  reqId: string,
+): string | null {
+  if (!isSafeResourceName(feature)) return null;
+  const loaded = loadFeatureSpecContent(featuresDir, feature);
+  if (!loaded) return null;
+  const specContent: SpecContent = loaded.specContent;
+  const rec = indexSpec(specContent, { includeStruck: true }).requirements.find(
+    (r) => r.id === reqId,
+  );
+  if (!rec) return null;
+  const source = rec.slice
+    ? typeof specContent === 'string'
+      ? undefined
+      : specContent.slices[rec.slice]
+    : typeof specContent === 'string'
+      ? specContent
+      : specContent.main;
+  if (source === undefined) return null;
+  const oldLines = stripTrailingCr(source.slice(rec.start, rec.end)).split('\n');
+  return oldLines.slice(1).join('\n');
+}
+
+/**
+ * Collect landing-fidelity facts for every change in `.prospec/changes/`.
+ *
+ * Deliberately NOT audit-scoped like the provenance gates: the whole point is to
+ * surface an undeclared landing-block drop at plan/review/verify — before archive,
+ * the only station that catches it today — so every in-progress change's delta-spec
+ * is read regardless of status. Only a missing `.prospec/changes/` makes the source
+ * unavailable; a change with no delta-spec, no MODIFIED entry, or no `**Feature:**`
+ * simply contributes no entries. Per-change I/O is guarded so one unreadable file
+ * costs its own entry, never the other eighteen verdicts.
+ */
+export function collectDeltaSpecLandingFidelity(
+  featuresDir: string,
+  cwd: string,
+): DeltaSpecLandingFidelitySource {
+  const changesDir = path.resolve(cwd, '.prospec/changes');
+  if (!existsSync(changesDir)) {
+    return {
+      available: false,
+      reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      entries: [],
+    };
+  }
+  const entries: LandingFidelityEntry[] = [];
+  for (const change of enumerateChangeMetadata(changesDir, cwd)) {
+    // The delta-spec read goes through the non-throwing wrapper (null = absent or
+    // unreadable), so one bad file skips its change rather than aborting all 19 checks.
+    const deltaContent = readTextOrSkip(path.join(changesDir, change.name, 'delta-spec.md'));
+    if (deltaContent === null) continue;
+    const sourcePath = change.source_path.replace(/metadata\.yaml$/, 'delta-spec.md');
+    for (const entry of iterateDeltaEntries(deltaContent)) {
+      if (entry.section !== 'MODIFIED' || !entry.feature) continue;
+      const landing = extractDeltaBlock(entry.body, 'Spec').content;
+      const droppedContent = extractDeltaBlock(entry.body, 'Dropped').content;
+      entries.push({
+        change: change.name,
+        source_path: sourcePath,
+        reqId: entry.reqId,
+        feature: entry.feature,
+        landing,
+        existingBody:
+          landing === '' ? null : resolveExistingReqBody(featuresDir, entry.feature, entry.reqId),
+        declared: declaredDrops(entry.body),
+        droppedBlockPresent: droppedContent.trim() !== '',
+      });
+    }
+  }
+  return { available: true, entries };
 }
 
 /**

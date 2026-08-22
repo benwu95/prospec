@@ -181,12 +181,13 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the eighteen frozen check ids', () => {
+  it('exposes exactly the nineteen frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual(
       [
         'artifact-language',
         'constitution-severity',
         'dangling-prefix',
+        'delta-spec-landing-fidelity',
         'delta-spec-provenance',
         'feature-modules',
         'file-paths',
@@ -204,7 +205,7 @@ describe('DriftReportSchema', () => {
         'canonical-doc-drift',
       ].sort(),
     );
-    expect(DRIFT_CHECK_IDS).toHaveLength(18);
+    expect(DRIFT_CHECK_IDS).toHaveLength(19);
   });
 
   // The registry is FROZEN: report `checks[]` order and the CLI's status-line order
@@ -232,6 +233,7 @@ describe('DriftReportSchema', () => {
       'delta-spec-provenance',
       'unjustified-budget-override',
       'canonical-doc-drift',
+      'delta-spec-landing-fidelity',
     ]);
   });
 

@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (46 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (47 files)
 
 <!-- prospec:auto-start -->
 
@@ -19,7 +19,7 @@
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
 | station engines (6 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators — see the sub-module below |
 
-The drift engine's 6 files are listed in the sub-module below; the station engines' 6 in theirs; the other 18 `.ts` are single-purpose helpers, with invariants in Pitfalls.
+The drift engine's 6 files are listed in the sub-module below; the station engines' 6 in theirs; the other 19 `.ts` are single-purpose helpers, with invariants in Pitfalls.
 
 ## Public API
 
@@ -54,6 +54,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - `markdown-fences.ts` owns markdown parsing and `toInlineCodeSpan` (which collapses line breaks to prevent raw newline header forging).
 - `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`). Drift-sources imports from it, never the reverse.
 - `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
+- `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check both call it; never re-implement the drop diff (that divergence is the drift the check guards).
 - `token-accounting.ts` takes pricing as a parameter; `language-policy.ts` is the single language-scope source.
 - Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and evidence round-trip are in [Station Engines](./station-engines.md).
 

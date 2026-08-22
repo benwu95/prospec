@@ -52,7 +52,8 @@ position. Each entry: `{ id, status, reason? }`.
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
   `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
-  `delta-spec-provenance`, `unjustified-budget-override`, `canonical-doc-drift`.
+  `delta-spec-provenance`, `unjustified-budget-override`, `canonical-doc-drift`,
+  `delta-spec-landing-fidelity`.
 
 `artifact-language` reports change artifacts whose PROSE carries no character in the project's
 artifact language (fenced code blocks are stripped before the test, so a quoted sample does not
@@ -94,6 +95,8 @@ rather than a finding.
 `unjustified-budget-override` reports `token_budget` values configured in `.prospec.yaml` that exceed their default threshold without an adjacent YAML comment explaining the reason. Every finding is `fail`-class, ensuring that knowledge thresholds are only raised with documented justification. It skips when no `knowledge.token_budget` section is configured.
 
 `canonical-doc-drift` reports a canonical initialization document (e.g., README.md or core conventions) whose current on-disk content diverges from what its template renders for this project. Every finding is `warn`-class — divergent docs should be replaced with their canonical templates via `prospec upgrade` (which hands off to the skill) or manual sync. It skips when the file is absent.
+
+`delta-spec-landing-fidelity` reports a MODIFIED delta-spec entry whose `**Spec:**` landing block would drop an authored trust-zone `WHEN/THEN` bullet WITHOUT declaring it under `**Dropped:**` — `fail`-class, naming the REQ and the bullet. Because the landing block replaces the whole REQ body verbatim at archive, an un-restated, undeclared bullet leaves the trust zone; archive already refuses that write fail-closed, but only at the last station, after the feature commit. This surfaces the SAME loss at every `prospec check`, deriving the undeclared set from the exact comparison the archive write path uses (never a second implementation that could drift from it). A declared drop passes; a declaration matching no computed drop is a stale declaration (`warn`); a non-empty `**Dropped:**` block that parses to zero list items `warn`s so a prose "none" is not mistaken for a verified assertion. ADDED entries, entries with no `**Spec:**` block, and REQs with no resolvable existing body are excluded. Unlike the provenance gates it is NOT audit-scoped — it reads every in-progress change's delta-spec so the loss is caught before archive, and skips only when `.prospec/changes/` is absent.
 
 
 Gates skills read by id: `review-provenance` (review recorded and not stale), `delta-spec-provenance` (the landing blocks archive graduates match what review saw),
