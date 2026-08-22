@@ -52,6 +52,8 @@ nondeterministic serialization this contract exists to remove.
 - **B — single reviewer, multi-lens (default)**: one fresh-context reviewer covers every must-run lens in a single pass. Token-friendly; independence from the implementer is already satisfied.
 - **A — parallel lenses (opt-in)**: N independent lens agents run concurrently — available only when the capability line below resolves `can_spawn_subagent` to yes; it has no single-context equivalent. Use for large or high-risk diffs, or Scale=Full. Higher first-round cost buys maximum inter-lens independence.
 
+**Route the reviewer to the strongest model / agent tier the harness makes available** — a review gate's detection power is bounded by its reviewer, so the strongest available tier on a fresh context is the goal (named abstractly — never a specific model or vendor; "strongest available" is resolved by the harness). When you record the review baseline (`prospec check --record-review`), declare the grading context honestly with `--graded-by`: `fresh-subagent` for an independent context, `in-session` when the same session that implemented the change also reviewed it — recorded into `review_provenance.graded_by` as the honest grading-context record that informs the downstream verify station (the verify grade cap itself keys on each verify dimension's own `graded_by`).
+
 ### Review Lenses
 
 Must-run every round:
@@ -92,7 +94,7 @@ Emit this round's findings as a JSON array — `{id?, location, severity (minor|
 Review must leave a machine-queryable record so `/prospec-verify`'s Entry Gate can prove it ran and is still current:
 
 1. **Every round** — including a **review-clean** round (0 critical / 0 major) — record the round via `prospec change log --skill prospec-review --result PASS|WARN --criticals-found <n> --criticals-fixed <n> --majors <n> [--warning "<unresolved item>"]` (Bash; result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward). The counts come straight from `prospec review merge`'s round report. A clean review that records nothing is indistinguishable from a review that never ran — a round that finds nothing records the counts as `0`.
-2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review` — it code-computes the reviewed change's digest and writes `review_provenance` to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
+2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review --graded-by <fresh-subagent|in-session>` — it code-computes the reviewed change's digest and writes `review_provenance` (with the declared grading context) to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
 
 Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `/prospec-verify` will then require a fresh review round before it runs.
 
@@ -104,7 +106,7 @@ Because the digest is code-computed, editing the change's code after this point 
 - [ ] no unresolved critical (loop converged, or escalated to the human with the list)
 - [ ] every fix round left the project test suite (per [`references/project-test-runner.md`](references/project-test-runner.md)) green
 - [ ] `review.md` written with the findings table
-- [ ] a `prospec-review` `quality_log` entry recorded (every round, incl. review-clean) and the review baseline stamped via `prospec check --record-review`
+- [ ] a `prospec-review` `quality_log` entry recorded (every round, incl. review-clean) and the review baseline stamped via `prospec check --record-review --graded-by <context>`
 - [ ] every auto-fixed critical was verifier-confirmed before the fix (manual)
 
 ### Failure Conditions
@@ -116,7 +118,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering** — the spec-architecture lens's concern), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. **Always** record a `prospec-review` entry to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) — **every round, including review-clean** (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward) — so `/prospec-verify` can machine-verify review ran and surface any majors; majors are advisory and do not block. Then record the review baseline (`prospec check --record-review`, see Review Provenance) and suggest `/prospec-verify`.
+Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering** — the spec-architecture lens's concern), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. **Always** record a `prospec-review` entry to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) — **every round, including review-clean** (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward) — so `/prospec-verify` can machine-verify review ran and surface any majors; majors are advisory and do not block. Then record the review baseline (`prospec check --record-review --graded-by <context>`, see Review Provenance) and suggest `/prospec-verify`.
 
 ## NEVER
 

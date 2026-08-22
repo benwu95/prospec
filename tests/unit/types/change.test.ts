@@ -398,6 +398,74 @@ describe('QualityDimensionSchema adjudicator', () => {
   });
 });
 
+describe('QualityDimensionSchema grading context (graded_by / executor / spend, REQ-TYPES-022)', () => {
+  const dim = (extra: Record<string, unknown>) => ({
+    ...base,
+    quality_log: [
+      {
+        skill: 'prospec-verify',
+        date: '2026-08-22',
+        result: 'PASS',
+        warnings: [],
+        grade: 'A',
+        dimensions: [{ name: 'delta-spec-compliance', result: 'PASS', adjudicator: 'judgment', ...extra }],
+      },
+    ],
+  });
+
+  it.each(['fresh-subagent', 'in-session'])('accepts graded_by %s', (g) => {
+    const r = ChangeMetadataSchema.safeParse(dim({ graded_by: g }));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.quality_log?.[0]?.dimensions?.[0]?.graded_by).toBe(g);
+  });
+
+  it('rejects an invented graded_by', () => {
+    expect(ChangeMetadataSchema.safeParse(dim({ graded_by: 'myself' })).success).toBe(false);
+  });
+
+  it('accepts optional executor (free string) and spend (non-negative int)', () => {
+    const r = ChangeMetadataSchema.safeParse(
+      dim({ graded_by: 'fresh-subagent', executor: 'opus-tier, fresh subagent', spend: 18500 }),
+    );
+    expect(r.success).toBe(true);
+    if (r.success) {
+      const d = r.data.quality_log?.[0]?.dimensions?.[0];
+      expect(d?.executor).toBe('opus-tier, fresh subagent');
+      expect(d?.spend).toBe(18500);
+    }
+  });
+
+  it('rejects a negative or non-integer spend', () => {
+    expect(ChangeMetadataSchema.safeParse(dim({ spend: -1 })).success).toBe(false);
+    expect(ChangeMetadataSchema.safeParse(dim({ spend: 1.5 })).success).toBe(false);
+  });
+
+  it('accepts a dimension omitting all three (machine dimensions, pre-existing entries)', () => {
+    expect(ChangeMetadataSchema.safeParse(dim({})).success).toBe(true);
+  });
+});
+
+describe('ReviewProvenanceSchema graded_by (REQ-TYPES-053)', () => {
+  const withProvenance = (rp: Record<string, unknown>) => ({
+    ...base,
+    review_provenance: { digest: 'abc', date: '2026-08-22', ...rp },
+  });
+
+  it.each(['fresh-subagent', 'in-session'])('accepts review_provenance.graded_by %s', (g) => {
+    const r = ChangeMetadataSchema.safeParse(withProvenance({ graded_by: g }));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.review_provenance?.graded_by).toBe(g);
+  });
+
+  it('accepts review_provenance without graded_by (backward-compatible)', () => {
+    expect(ChangeMetadataSchema.safeParse(withProvenance({})).success).toBe(true);
+  });
+
+  it('rejects an invented review_provenance.graded_by', () => {
+    expect(ChangeMetadataSchema.safeParse(withProvenance({ graded_by: 'nope' })).success).toBe(false);
+  });
+});
+
 describe('TestProvenanceSchema (REQ-TYPES-066)', () => {
   const withProvenance = (over: Record<string, unknown>) => ({
     ...base,

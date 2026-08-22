@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import {
   DriftReportSchema,
   DRIFT_CHECK_IDS,
@@ -387,6 +388,27 @@ describe('check.service review-provenance', () => {
     expect(meta).toContain('review_provenance:');
     expect(meta).toMatch(/digest:/);
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
+  it('records review_provenance.graded_by when --graded-by is supplied', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true, gradedBy: 'in-session' });
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    // structural, not substring: the field must sit INSIDE review_provenance —
+    // a mutation writing it to the document root would satisfy a whole-file
+    // toContain (review TQ-4)
+    const parsed = parseYaml<{ review_provenance?: { graded_by?: string } }>(meta);
+    expect(parsed.review_provenance?.graded_by).toBe('in-session');
+  });
+
+  it('omits review_provenance.graded_by when --graded-by is absent (backward-compatible)', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true });
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    const parsed = parseYaml<{ review_provenance?: Record<string, unknown> }>(meta);
+    expect(parsed.review_provenance).toBeDefined();
+    expect(parsed.review_provenance).not.toHaveProperty('graded_by');
+    expect(meta).not.toContain('graded_by:');
   });
 
   it('goes stale when code changes after the recorded review', async () => {

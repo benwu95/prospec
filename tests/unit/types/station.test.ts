@@ -174,6 +174,7 @@ describe('JudgmentDimensionsInputSchema', () => {
   const dimension = {
     name: 'delta-spec-compliance',
     result: 'PASS' as const,
+    graded_by: 'fresh-subagent' as const,
   };
 
   it('parses a bare verdict — evidence and repro are optional', () => {
@@ -183,6 +184,24 @@ describe('JudgmentDimensionsInputSchema', () => {
       expect(r.data.evidence).toBeUndefined();
       expect(r.data.repro).toBeUndefined();
     }
+  });
+
+  it('requires graded_by and constrains it to the two-value enum (issue #203)', () => {
+    const noContext = { name: dimension.name, result: dimension.result };
+    expect(JudgmentDimensionInputSchema.safeParse(noContext).success).toBe(false);
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, graded_by: 'in-session' }).success).toBe(true);
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, graded_by: 'myself' }).success).toBe(false);
+  });
+
+  it('accepts optional executor (non-empty string) and spend (non-negative int)', () => {
+    const r = JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: 'fresh subagent', spend: 12000 });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.executor).toBe('fresh subagent');
+      expect(r.data.spend).toBe(12000);
+    }
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, spend: -1 }).success).toBe(false);
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: '' }).success).toBe(false);
   });
 
   it('accepts the non-adjudicated dimension results verify reports', () => {

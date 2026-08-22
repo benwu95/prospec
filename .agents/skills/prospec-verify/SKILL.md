@@ -165,14 +165,23 @@ share the implementation's context**: run it by the mechanism the capability blo
 with only the delta-spec, the code, and this contract as its inputs. A grader that just implemented
 the change is validating its own reasoning, not the change against the spec.
 
-The grader **writes** its verdicts — `{name, result, summary?, repro?, evidence?}` per dimension — as a
+**Route the grading to the strongest model / agent tier the harness makes available** — the detection
+power of a judgment gate is bounded by its grader, so a fresh subagent on the strongest available tier
+is the goal (never a specific model or vendor — "strongest available" is resolved by the harness).
+Record the grading context honestly on `prospec verify record` via `--graded-by`: `fresh-subagent`
+when a fresh context graded it, `in-session` when the same session that implemented the change also
+graded it. `in-session` is not merely disclosed — it **mechanically caps the grade below S** (S asserts
+independent verification), and `verify record` prints the remedy: re-grade in fresh context, then
+re-record.
+
+The grader **writes** its verdicts — `{name, result, graded_by, executor?, spend?, summary?, repro?, evidence?}` per dimension — as a
 JSON array to a file and **returns only that path plus the one-line verdicts**; the evidence never
 travels back, and `verify record --dimensions` lands it in `verify.md` (contract:
 [`references/delegated-evidence-format.md`](references/delegated-evidence-format.md), on demand).
 
 **Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
 
-Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record the WARN "2/5 graded in-session — fresh context unavailable" (that WARN states in-session grading, so it belongs to that branch alone) — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
+Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record it honestly with `--graded-by in-session` — which mechanically caps the grade below S (not merely a disclosure WARN), the remedy being to re-grade in fresh context and re-record — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
 **`metadata.scale: quick`**: this dimension is `not-applicable` — there is no delta-spec to
 compare against. Report it as `not-applicable` (NEVER as PASS — an unchecked dimension must not
@@ -296,8 +305,9 @@ When a test FAILs, load [`references/debug-recovery-format.md`](references/debug
 Like 2/5, no mechanical oracle decides whether an implementation honors a design intent, so this
 dimension is graded in **fresh context** — an independent reviewer that does not share the
 implementation's context — and 2/5's harness-degradation contract applies unchanged (take its
-degraded path, record its disclosure WARN on the same branch 2/5 does, never grade it silently
-in-session).
+degraded path, record it honestly with `--graded-by in-session` on the same branch 2/5 does —
+the mechanical grade cap below S and its remedy follow, per 2/5's disclosure — never grade it
+silently in-session).
 
 When applicable, verify implementation matches design specifications:
 
@@ -330,7 +340,7 @@ Judgment ledger:                 2/5 PASS (fresh context) · 3/5 PASS (12/12 rul
 
 Quality Grade: [S / A / B / C / D]  ← computed by `prospec verify record`, never by hand
 
-S (Excellent): All PASS, and every machine dimension actually adjudicated
+S (Excellent): All PASS, every machine dimension actually adjudicated, and no judgment dimension self-verified in-session
 A (Good): Mostly PASS, <= 2 WARN, no FAIL
 B (Fair): WARNs over the budget, no FAIL
 C (Needs Improvement): Has FAIL (<= 2)
@@ -348,6 +358,10 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
 - **A `not-adjudicated` machine dimension makes S unreachable AND consumes A's ≤ 2 WARN budget**
   like every other WARN — there is no exemption class (the CLI is required; see "When a machine
   check skips").
+- **A judgment dimension graded `in-session` caps the grade below S** — S asserts independent
+  verification, so a judgment the implementing session graded itself can reach at most A. The cap is a
+  separate signal from the WARN budget (it never pushes an already-warned run lower — it only blocks
+  the top grade), and `verify record` prints the remedy: re-grade in fresh context, then re-record.
 - **Judgment WARN/FAIL is not offset by machine PASSes** — the ledgers merge, they do not net out.
 
 > **Condensed report (`metadata.scale: quick`)**: present the grade + a single dimension table
@@ -358,10 +372,12 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
 ## Record & Status Update (CLI-executed)
 
 Run `prospec verify record` (Bash) with ONLY the judgment verdicts — as `--dimensions <file>` (the
-grader's JSON array, evidence included) or as one `--dimension <name>=<result>` each when there is no
-prose to record; the two are **alternatives**, supplying both is refused. Either way cover exactly
-`delta-spec-compliance`, `constitution`, `design` (one that does not apply is reported
-`not-applicable` — `=not-applicable`, never omitted), plus one `--warning "<detail>"` per
+grader's JSON array, `graded_by` and optional `executor`/`spend` per entry, evidence included) or as
+one `--dimension <name>=<result>` each with a run-level `--graded-by <fresh-subagent|in-session>`
+(and optional `--executor`/`--spend`) when there is no prose to record; the two are **alternatives**,
+supplying both is refused. Either way cover exactly `delta-spec-compliance`, `constitution`, `design`
+(one that does not apply is reported `not-applicable` — `=not-applicable`, never omitted), and declare
+each judgment verdict's `graded_by` (refused when absent), plus one `--warning "<detail>"` per
 budget-counted WARN. The CLI:
 
 - **self-sources the machine dimensions** (1/5 `task-completion`, 4/5 `knowledge`, 5/5 `tests`) from
@@ -456,7 +472,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 - **NEVER** overturn a machine dimension's verdict (1/5, 4/5, 5/5) — the engine adjudicates, you interpret; re-grading its FAIL as WARN/PASS (or its PASS as FAIL) puts the judgment noise back into the one place that was free of it
 - **NEVER** adjudicate a machine dimension yourself or relay one into `prospec verify record` — the CLI reads them from the report; and NEVER report `not-adjudicated` as PASS (reading tasks.md or re-running tests by hand and calling it PASS re-creates the generator-is-its-own-validator problem this split removes)
 - **NEVER** return evidence prose to this context — a delegated grader writes it to the dimensions file and returns the path; an unbounded relay costs the very context delegation was meant to save
-- **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; on 2/5's degraded path, say so and record the WARN
+- **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; on 2/5's degraded path, say so and record it with `--graded-by in-session`, accepting the mechanical grade cap (S unattainable) it brings
 - **NEVER** treat a drift-report `skipped` check as PASS — skipped means unchecked; present the skip reason instead
 - **NEVER** compute the grade or hand-write the verify `quality_log` entry yourself — `prospec verify record` owns the decision table, the entry serialization, and the S/A status advance
 - **NEVER** make subjective assessments — subjective grades vary between sessions; evidence-based scoring ensures consistency across verifications
@@ -473,7 +489,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity (
 | Planning documents missing | Confirm change has gone through Story → Plan → Tasks → Implement workflow |
 | `prospec verify record` refuses (report missing / wrong judgment set) | Run `prospec check --record-tests` then `prospec check --json` first; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
 | `--record-tests` skips (no test command / not a git repo / timeout) | Carry its reason into 5/5 as `not-adjudicated`; point at `tech_stack.test_command` in `.prospec.yaml` when the command is what is missing |
-| No fresh context available (capability line says no sub-agents, or a spawn fails) | Take 2/5's degraded path for both 2/5 and 6, record the disclosure WARN, and continue — never grade them silently in-session |
+| No fresh context available (capability line says no sub-agents, or a spawn fails) | Take 2/5's degraded path for both 2/5 and 6, record them with `--graded-by in-session` — `verify record` then mechanically caps the grade below S and prints the remedy — and continue; never grade them silently in-session |
 | Constitution file read fails | Skip Constitution audit, but clearly mark in report |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 

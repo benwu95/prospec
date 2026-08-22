@@ -5102,9 +5102,14 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       // the harness question is answered by the shared partial's injected flags…
       expect(spec).toContain(CAPABILITY_LINE_LABEL);
       expect(spec).toContain(DEGRADE_FLOOR);
-      // …while verify's own degraded action (the disclosure WARN) stays verify's
-      expect(spec).toContain('2/5 graded in-session');
-      expect(spec).toContain('WARN');
+      // …while verify's own degraded action stays verify's: grading in-session is
+      // recorded honestly via `--graded-by in-session`, which is a mechanical
+      // grade cap (below S), not merely a disclosure WARN
+      expect(spec).toContain('--graded-by in-session');
+      expect(flat(spec)).toContain('caps the grade below S');
+      // the judgment grading routes to the strongest available tier, named
+      // abstractly — never a specific model or harness (REQ-TEMPLATES-155/199)
+      expect(flat(spec)).toContain('strongest model / agent tier');
       const design = sectionOf(content, '### Verification 6 (Conditional): Design Consistency — `[judgment]`');
       expect(design).toContain('fresh context');
       // dimension 6 cross-references 2/5 rather than carrying a third copy
@@ -5168,6 +5173,50 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(lifecycle).toContain('adjudicated by `prospec check`');
       expect(lifecycle).toContain('not-adjudicated');
       expect(lifecycle).toContain('--escaped-defects');
+    });
+  });
+
+  describe('judgment-station grading context + model-tier routing (issue #203)', () => {
+    it('metadata-format documents the judgment grading-context fields', () => {
+      const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+      const log = sectionOf(ref, '## `quality_log` entry shape');
+      expect(flat(log)).toContain('`graded_by` / `executor` / `spend`');
+      expect(log).toContain('fresh-subagent');
+      expect(log).toContain('in-session');
+      // it states the where-required and the S-cap consequence
+      expect(flat(log)).toContain('caps the grade below S');
+    });
+
+    // AC-3: the routing guidance is model/harness-agnostic — no vendor names.
+    const JUDGMENT_STATION_TEMPLATES = [
+      'skills/prospec-review.hbs',
+      'skills/prospec-verify.hbs',
+      'skills/prospec-plan.hbs',
+      'skills/references/candidate-evaluation.hbs',
+    ];
+    // A grep guard, not a whitelist — model/vendor/harness names that must never
+    // be hard-coded into a shipped template. `claude` legitimately appears only
+    // as the `CLAUDE.md` entry-config filename, so that literal is masked before
+    // scanning instead of exempting the name outright — a blanket exemption left
+    // the likeliest leaks (claude/codex/copilot) unguarded (review SA-5/TQ-3).
+    const FORBIDDEN_MODEL_NAMES = [
+      'gpt', 'gemini', 'llama', 'mistral', 'anthropic', 'openai',
+      'opus', 'sonnet', 'haiku', 'fable', 'cursor', 'windsurf',
+      'codex', 'copilot',
+    ];
+
+    it.each(JUDGMENT_STATION_TEMPLATES)('%s routes to the strongest available tier, named abstractly', (tpl) => {
+      const content = renderTemplate(tpl, TEMPLATE_CONTEXT);
+      expect(flat(content)).toContain('strongest');
+      const lower = content.toLowerCase();
+      for (const name of FORBIDDEN_MODEL_NAMES) {
+        expect(lower, `${tpl} must not name model/vendor "${name}"`).not.toContain(name);
+      }
+      const masked = lower.replaceAll('claude.md', '');
+      expect(
+        masked,
+        `${tpl} must not name model/vendor "claude" (the CLAUDE.md filename is masked before this scan)`,
+      ).not.toContain('claude');
     });
   });
 });

@@ -6,7 +6,7 @@
 
 | File | Purpose |
 |------|---------|
-| `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES` |
+| `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES`, `DIMENSION_GRADED_BY` (judgment grading context: `fresh-subagent`/`in-session`) |
 | `drift-report.ts` | `DRIFT_CHECK_IDS` (19, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries two additive optional keys — `last_sub_module_commit` and `last_verified`, the confirmation time `stale` is now computed against (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
 | `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities` + `AgentRenderFlags`), `intersectCapabilities`, `mergeGroupRenderFlags`, `VALID_AGENTS` |

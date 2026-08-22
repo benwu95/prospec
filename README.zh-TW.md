@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4106%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4148%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1043,7 +1043,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4106 個測試）
+# 執行所有測試（4148 個測試）
 pnpm test
 
 # Watch 模式
@@ -1056,11 +1056,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4106 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3068 tests
-- Contract tests（CLI 輸出 + Skill 格式）：896 tests
+**測試覆蓋率**：4148 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3097 tests
+- Contract tests（CLI 輸出 + Skill 格式）：901 tests
 - Integration tests：45 tests
-- E2E tests：97 tests
+- E2E tests：105 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

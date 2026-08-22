@@ -21,6 +21,31 @@ export const GRADE_A_WARN_BUDGET = 2;
 /** Grade C tolerates at most this many FAILed dimensions; more is D. */
 export const GRADE_C_FAIL_CEILING = 2;
 
+/**
+ * Whether any judgment dimension was graded in the same context that produced
+ * the change (`graded_by: in-session`). A grader validating its own reasoning is
+ * not independent evidence, so this caps the grade below S (see `computeGrade`).
+ * Machine dimensions never carry `graded_by`, so they never trip it.
+ */
+export function isSelfVerified(dimensions: QualityDimension[]): boolean {
+  return dimensions.some((d) => d.graded_by === 'in-session');
+}
+
+/**
+ * Re-applies the in-session cap over the FULL judgment set — including
+ * dimensions a scale policy excluded from the grade inputs (e.g. a proven
+ * backfill's constitution). REQ-CLI-029 caps on ANY judgment dimension graded
+ * in-session, so an excluded dimension's grading context still blocks S even
+ * though its verdict never reaches `computeGrade`. The caller passes judgment
+ * dimensions only (a machine dimension's stray `graded_by` never caps).
+ */
+export function applySelfVerifiedCap(
+  grade: VerifyGrade,
+  judgmentDimensions: QualityDimension[],
+): VerifyGrade {
+  return grade === 'S' && isSelfVerified(judgmentDimensions) ? 'A' : grade;
+}
+
 export function computeGrade(
   dimensions: QualityDimension[],
   warnings: string[],
@@ -39,8 +64,11 @@ export function computeGrade(
   if (effectiveWarnCount === 0) {
     // All grade-input dimensions PASS (or genuinely not-applicable), and every
     // machine dimension was actually adjudicated — S asserts that everything
-    // mechanically checkable was mechanically checked.
-    return 'S';
+    // mechanically checkable was mechanically checked. But an in-session
+    // judgment grade is a self-verification, not independent evidence, so it
+    // caps at A: the cap is applied HERE (not as a WARN) so it can never push an
+    // already-warned run below A — it only prevents the top grade.
+    return isSelfVerified(dimensions) ? 'A' : 'S';
   }
   return effectiveWarnCount <= GRADE_A_WARN_BUDGET ? 'A' : 'B';
 }
