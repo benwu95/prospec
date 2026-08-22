@@ -73,33 +73,10 @@ This helps track progress and avoid duplicate work.
 
 ### 5. Commit Strategy
 
-**Recommended commit strategy:**
+**Do not commit during implement.** The commit boundary is after `/prospec-verify` reaches Grade S/A: implement, review, and verify all operate on the working tree, and the change is then committed **once** as a single atomic-by-feature commit.
 
-- **Logical grouping:** Commit after completing a group of related tasks
-- **Commit message format:**
-  ```
-  feat: [brief description] (Task ID)
-  ```
-  or
-  ```
-  test: [test description] (Task ID)
-  ```
-
-**Example:**
-
-```bash
-# After completing Types tasks
-git add src/types/error.ts
-git commit -m "feat: define error types and interfaces (T001-T002)"
-
-# After completing Lib tasks
-git add src/lib/error-handler.ts src/lib/error-formatter.ts
-git commit -m "feat: implement error handler core logic (T003-T005)"
-
-# After completing Tests
-git add tests/error-handler.test.ts
-git commit -m "test: add unit tests for error handler (T011-T012)"
-```
+- **Why defer:** committing after each task group breaks atomic-by-feature the moment review or verify requires a fix, and it inverts the provenance order (content finalized → commit → record → archive).
+- **At the boundary:** follow the commit rules in `{{constitution_path}}` for message format and grouping — this guide does not restate them. prospec prompts the user to commit; it never auto-commits.
 
 ---
 

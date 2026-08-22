@@ -2128,6 +2128,30 @@ describe('Skill Format Contract', () => {
       expect(c).toMatch(/do not commit|defer commit|not commit during/i);
     });
 
+    it('implementation-guide reference defers commit to the verify(S/A) boundary — no in-implement commit example (issue #207)', () => {
+      const guide = renderTemplate('skills/references/implementation-guide.hbs', TEMPLATE_CONTEXT);
+      const commit = sectionOf(guide, '### 5. Commit Strategy');
+      // the contradiction (issue #207): the guide's §5 no longer instructs an
+      // in-implement commit or ships a `git commit` worked example that a model
+      // (weak ones especially) would follow, breaking atomic-by-feature + PB-016.
+      expect(commit).not.toMatch(/git commit/i);
+      expect(commit).not.toMatch(/git add/i);
+      expect(commit).not.toMatch(/commit after completing/i);
+      expect(commit).not.toMatch(/recommended commit strategy/i);
+      // the actual boundary: defer to verify S/A, then one atomic-by-feature commit
+      expect(commit).toMatch(/do not commit during implement/i);
+      expect(commit).toContain('/prospec-verify');
+      expect(commit).toMatch(/S\/A/);
+      expect(commit).toMatch(/atomic-by-feature/i);
+      // downstream-adaptive: message format defers to the target Constitution,
+      // never this repo's own commit-convention details.
+      expect(commit).toContain('CONSTITUTION.md');
+      // consistency: the guide is the implement SKILL's MANDATORY reference, and
+      // the SKILL states the same deferred-commit boundary.
+      const skill = renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+      expect(skill).toMatch(/do not commit during implement/i);
+    });
+
     it('prospec-verify prompts the user to commit after S/A and never auto-commits', () => {
       const c = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
       const tail = c.slice(c.indexOf('## Record & Status Update'));
