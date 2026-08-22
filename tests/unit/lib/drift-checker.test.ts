@@ -17,6 +17,7 @@ import {
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
   evaluateDeltaSpecProvenance,
+  evaluateDeltaSpecLandingFidelity,
   evaluateSpecCounters,
   evaluateTaskCompletion,
   evaluateTestProvenance,
@@ -35,10 +36,13 @@ import type {
   MetadataCompletenessSource,
   ReviewProvenanceSource,
   DeltaSpecProvenanceSource,
+  DeltaSpecLandingFidelitySource,
+  LandingFidelityEntry,
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
 } from '../../../src/lib/drift-sources.js';
+import { whenThenBullets } from '../../../src/lib/landing-fidelity.js';
 import {
   KNOWLEDGE_SIZE_KINDS,
   KNOWLEDGE_SIZE_RULES,
@@ -73,6 +77,7 @@ const emptyInputs: DriftCheckInputs = {
   mcpReadmeCounts: { available: true, claims: [] },
   reviewProvenance: { available: true, current_digest: 'CUR', working_tree_clean: true, changes: [] },
   deltaSpecProvenance: { available: true, changes: [] },
+  deltaSpecLandingFidelity: { available: true, entries: [] },
   metadataCompleteness: { available: true, changes: [] },
   knowledgeSize: {
     available: true,
@@ -1933,5 +1938,142 @@ describe('evaluateCanonicalDocDrift', () => {
     const r = evaluateCanonicalDocDrift({ available: false, reason: 'error', docs: [] });
     expect(r.result.status).toBe('skipped');
     expect(r.findings).toHaveLength(0);
+  });
+});
+
+describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
+  const landingEntry = (over: Partial<LandingFidelityEntry> = {}): LandingFidelityEntry => ({
+    change: 'my-change',
+    source_path: '.prospec/changes/my-change/delta-spec.md',
+    reqId: 'REQ-LIB-001',
+    feature: 'drift-checks',
+    landing: '',
+    existingBody: null,
+    declared: [],
+    droppedBlockPresent: false,
+    ...over,
+  });
+  const src = (entries: LandingFidelityEntry[]): DeltaSpecLandingFidelitySource => ({
+    available: true,
+    entries,
+  });
+
+  it('skips honestly when the source is unavailable', () => {
+    const r = evaluateDeltaSpecLandingFidelity({ available: false, reason: 'no changes dir', entries: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toBe('no changes dir');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('fails an undeclared drop, naming the REQ and the bullet source text', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ existingBody: '- WHEN a, THEN x\n- WHEN b, THEN y', landing: '- WHEN a, THEN x' })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('fail');
+    expect(r.findings[0]!.source_path).toBe('.prospec/changes/my-change/delta-spec.md');
+    expect(r.findings[0]!.detail).toContain('REQ-LIB-001');
+    expect(r.findings[0]!.detail).toContain('WHEN b, THEN y');
+  });
+
+  it('passes a drop that is declared under **Dropped:** (deliberate)', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({
+          existingBody: '- WHEN a, THEN x\n- WHEN b, THEN y',
+          landing: '- WHEN a, THEN x',
+          declared: whenThenBullets('- WHEN b, THEN y'),
+          droppedBlockPresent: true,
+        }),
+      ]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes when the landing block restates every trust-zone bullet', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({
+          existingBody: '- WHEN a, THEN x\n- WHEN b, THEN y',
+          landing: '- WHEN a, THEN x\n- WHEN b, THEN y',
+        }),
+      ]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns a stale declaration — a declared bullet that was not dropped', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({
+          existingBody: '- WHEN a, THEN x\n- WHEN b, THEN y',
+          landing: '- WHEN a, THEN x\n- WHEN b, THEN y',
+          declared: whenThenBullets('- WHEN c, THEN z'),
+          droppedBlockPresent: true,
+        }),
+      ]),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('warn');
+    expect(r.findings[0]!.detail).toContain('stale');
+    expect(r.findings[0]!.detail).toContain('WHEN c, THEN z');
+  });
+
+  it('excludes an entry with no **Spec:** block and one with no resolvable body', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({ landing: '', existingBody: '- WHEN a, THEN x' }),
+        landingEntry({ reqId: 'REQ-LIB-002', landing: '- WHEN a, THEN x', existingBody: null }),
+      ]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns a **Dropped:** block that is present but declares no list item (M1)', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ droppedBlockPresent: true, declared: [] })]),
+    );
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('warn');
+    expect(r.findings[0]!.detail).toContain('REQ-LIB-001');
+    expect(r.findings[0]!.detail).toContain('Dropped');
+  });
+
+  it('does not warn M1 when the **Dropped:** block declares a list item', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ droppedBlockPresent: true, declared: whenThenBullets('- WHEN b, THEN y') })]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('reports the full set difference — one finding per undeclared bullet', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({
+          existingBody: '- WHEN a, THEN x\n- WHEN b, THEN y\n- WHEN c, THEN z',
+          landing: '- WHEN a, THEN x',
+        }),
+      ]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings.map((f) => f.detail).join('\n')).toContain('WHEN b, THEN y');
+    expect(r.findings.map((f) => f.detail).join('\n')).toContain('WHEN c, THEN z');
+  });
+
+  it('an equal-count-different-content replacement still reports the drop (set, not count)', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ existingBody: '- WHEN a, THEN x', landing: '- WHEN q, THEN r' })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('WHEN a, THEN x');
   });
 });

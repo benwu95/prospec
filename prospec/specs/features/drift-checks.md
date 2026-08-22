@@ -1,9 +1,9 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-08-13
-story_count: 3
-req_count: 3
+last_updated: 2026-08-22
+story_count: 4
+req_count: 4
 ---
 
 # drift-checks
@@ -46,6 +46,20 @@ The `canonical-doc-drift` check WARNs when a canonical/no-authored-content init 
 
 ---
 
+### US-5
+
+#### REQ-LIB-061: Delta-Spec Landing Fidelity Check
+The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing block would drop an authored trust-zone `WHEN/THEN` bullet it has not declared, surfacing at every `prospec check` the loss the archive write path otherwise catches only after the feature commit. It derives the undeclared-drop set from the same shared implementation the archive write path uses, so the two cannot diverge.
+- WHEN a MODIFIED entry's `**Spec:**` block omits a `WHEN/THEN` bullet present in the trust-zone REQ body it replaces, and `**Dropped:**` does not declare that bullet, THEN the check fails and the finding names the REQ id and the omitted bullet's source text
+- WHEN the omitted bullet is declared as a `**Dropped:**` list item, THEN the check passes for it as a deliberate, acknowledged drop
+- WHEN the landing block restates every existing trust-zone bullet, THEN the check passes
+- WHEN a `**Dropped:**` declaration names a bullet the landing block did not drop, THEN it is reported with the archive write path's stale-declaration semantics
+- WHEN an entry is ADDED, carries no `**Spec:**` block, or its REQ has no resolvable existing trust-zone body, THEN it is excluded from the comparison
+- WHEN a `**Dropped:**` block carries non-empty content but no parseable list item, THEN a non-fail warning names the entry so the author sees the declaration was not registered
+- WHEN this check and the archive write path assess the same landing block and trust-zone body, THEN both derive the undeclared-drop set from one shared implementation and report the identical set
+
+---
+
 ## Edge Cases
 
 _(TBD)_
@@ -69,5 +83,6 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-22 | add-landing-fidelity-check | ADDED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-LIB-052 | REQ-LIB-052 |
 | 2026-08-09 | knowledge-budget-drift-check-and-sweep | Created from archive | REQ-LIB-001, REQ-LIB-002 |

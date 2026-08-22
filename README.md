@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4077%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4105%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -810,6 +810,7 @@ deliberately not included in this version.
       - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.
       - `delta-spec-provenance`: Change's `delta-spec.md` fingerprint must match the recorded review baseline.
+      - `delta-spec-landing-fidelity`: A MODIFIED delta-spec `**Spec:**` landing block must not drop an authored trust-zone `WHEN/THEN` bullet without declaring it under `**Dropped:**` (FAIL) — surfaces the loss at every check, sharing the archive write path's comparison, not only at archive after the commit.
     - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN).
   - **Execution & Exit Codes**:
     - `--json`: Outputs machine-readable `prospec-report.json`.
@@ -1062,7 +1063,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4077 tests)
+# Run all tests (4105 tests)
 pnpm test
 
 # Watch mode
@@ -1075,8 +1076,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4077 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 3040 tests
+**Test Coverage**: 4105 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 3068 tests
 - Contract tests (CLI output + Skill format): 895 tests
 - Integration tests: 45 tests
 - E2E tests: 97 tests
