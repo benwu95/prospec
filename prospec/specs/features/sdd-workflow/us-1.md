@@ -152,12 +152,15 @@ so that existing projects leverage Knowledge to produce precise plans, and brand
 - WHEN Greenfield, THEN guide compensatory collection + suggest Knowledge generation
 - WHEN delta-spec generated, THEN each REQ includes Feature/Story routing fields
 - WHEN Phase ends, THEN execute Knowledge Quality Gate
+- WHEN delta-spec generated, THEN each MODIFIED/REMOVED REQ's `**Feature**` header is checked mechanically by `prospec check` to resolve to the feature that hosts the REQ id, while the ADDED `**Story**` follows the delta-spec-format reference's trust-zone numbering as an authoring rule rather than a mechanical check
 
 #### REQ-SPEC-012: Delta-Spec Feature Routing Metadata
-Each REQ in delta-spec.md adds Feature/Story routing fields, specifying which Feature Spec to write to at archive time.
+Each REQ in delta-spec.md adds Feature/Story routing fields, specifying which Feature Spec to write to at archive time. The `**Story**` value is a trust-zone story number, not a proposal.md number: archive routes an ADDED REQ to the slice owning that story, while a MODIFIED or REMOVED REQ is located by its REQ id and the field stays a human-read, auditable pointer to where the REQ already lives.
 - WHEN ADDED/MODIFIED REQ, THEN includes `**Feature**: {feature-name}` field
 - WHEN ADDED/MODIFIED REQ, THEN includes `**Story**: US-{N}` field
 - WHEN Plan Skill generates delta-spec, THEN routing fields auto-populated
+- WHEN an ADDED REQ lands under an existing trust-zone story, THEN its `**Story**` is that story's number in the target Feature Spec; opening a new story uses the feature's current highest story number plus one
+- WHEN a MODIFIED or REMOVED REQ carries `**Story**`, THEN it names the trust-zone story the REQ currently lives under, and archive resolves the REQ by its id regardless
 
 #### REQ-TEMPLATES-041: Plan Brownfield/Greenfield Detection
 - WHEN >= 2 modules with README.md, THEN Brownfield Mode
