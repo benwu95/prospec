@@ -1947,6 +1947,7 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     source_path: '.prospec/changes/my-change/delta-spec.md',
     reqId: 'REQ-LIB-001',
     feature: 'drift-checks',
+    resolution: { kind: 'resolved' },
     landing: '',
     existingBody: null,
     declared: [],
@@ -2075,5 +2076,37 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     expect(r.result.status).toBe('fail');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]!.detail).toContain('WHEN a, THEN x');
+  });
+
+  // issue #211 — a mis-pointing `**Feature:**` header fails loudly instead of
+  // slipping into the excluded (pass-by-skip) set.
+  it('fails a wrong-feature routing header, naming the REQ home', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ feature: 'drift-detection', resolution: { kind: 'wrong-feature', home: 'sdd-workflow' } })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('fail');
+    expect(r.findings[0]!.detail).toContain('REQ-LIB-001');
+    expect(r.findings[0]!.detail).toContain('sdd-workflow');
+  });
+
+  it('does NOT fail a not-found routing header — a create-and-deprecate shape, not a mis-route', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ resolution: { kind: 'not-found' } })]),
+    );
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  // The wrong-feature failure fires even with no Spec block (a REMOVED entry or a
+  // Spec-less MODIFIED), so it cannot dodge the check via the drop-diff exclusion.
+  it('fails a wrong-feature header even when the entry carries no landing block', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ landing: '', existingBody: null, resolution: { kind: 'wrong-feature', home: 'archive-service' } })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('archive-service');
   });
 });

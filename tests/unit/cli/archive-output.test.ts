@@ -420,6 +420,7 @@ describe('formatArchiveFinalizeOutput — refused reconciliations are visible', 
  */
 describe('formatArchiveOutput — refusals and declarations', () => {
   const refusal = {
+    kind: 'truncation' as const,
     feature: 'content-library',
     reqId: 'REQ-CONTENT-LIBRARY-013',
     block: 'Spec',

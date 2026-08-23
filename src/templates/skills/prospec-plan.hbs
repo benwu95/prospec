@@ -134,6 +134,7 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 > **Phase 5 Gate** — proceed when:
 > - [ ] delta-spec.md has ADDED/MODIFIED/REMOVED sections populated as applicable
 > - [ ] every requirement has a REQ ID plus Feature and Story routing fields
+> - [ ] routing headers RESOLVE against the trust zone — not topic inference: every MODIFIED/REMOVED `**Feature:**` names the feature that actually hosts the REQ id, checked mechanically by `prospec check` (the `delta-spec-landing-fidelity` check fails a mis-pointing header, which archive then refuses); the ADDED `**Story:**` is a trust-zone story number per the delta-spec-format reference (an existing story, or the feature's next number) that archive routes by — an authoring rule, not a mechanical check
 
 ### Phase 6: Architecture Verification (site-specific: dependency/layering)
 
