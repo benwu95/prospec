@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { vol } from 'memfs';
 import {
   assessDrops,
+  classifyRoutingResolution,
   whenThenBullets,
   declaredDrops,
   extractDeltaBlock,
   iterateDeltaEntries,
 } from '../../../src/lib/landing-fidelity.js';
 import { collectDeltaSpecLandingFidelity } from '../../../src/lib/drift-sources.js';
+import { buildReqHomeIndex } from '../../../src/lib/spec-read.js';
 import { syncToFeatureSpecs } from '../../../src/services/archive.service.js';
 
 vi.mock('node:fs', async () => {
@@ -204,5 +206,199 @@ describe('the drift check and the archive write path share one comparison (REQ-L
 
     expect(archiveSet.size).toBe(2);
     expect(checkSet).toEqual(archiveSet);
+  });
+});
+
+describe('classifyRoutingResolution — the shared routing verdict (REQ-SPEC-012, issue #211)', () => {
+  const homes = new Map<string, Set<string>>([
+    ['REQ-LIB-900', new Set(['drift-checks'])],
+    ['REQ-DUP-001', new Set(['beta', 'alpha'])],
+  ]);
+
+  it('resolves when the declared feature hosts the REQ id', () => {
+    expect(classifyRoutingResolution('REQ-LIB-900', 'drift-checks', homes)).toEqual({ kind: 'resolved' });
+  });
+
+  it('reports wrong-feature, naming the REQ home, when the declared feature does not host it', () => {
+    expect(classifyRoutingResolution('REQ-LIB-900', 'sdd-workflow', homes)).toEqual({
+      kind: 'wrong-feature',
+      home: 'drift-checks',
+    });
+  });
+
+  it('reports not-found when no feature defines the REQ id', () => {
+    expect(classifyRoutingResolution('REQ-LIB-999', 'drift-checks', homes)).toEqual({ kind: 'not-found' });
+  });
+
+  it('picks a stable sorted-first home when an id (pathologically) lives in >1 feature', () => {
+    expect(classifyRoutingResolution('REQ-DUP-001', 'gamma', homes)).toEqual({
+      kind: 'wrong-feature',
+      home: 'alpha',
+    });
+    // Membership still resolves either carrier.
+    expect(classifyRoutingResolution('REQ-DUP-001', 'beta', homes)).toEqual({ kind: 'resolved' });
+  });
+});
+
+describe('routing-header resolution — check fails and archive refuses from one verdict (issue #211)', () => {
+  beforeEach(() => vol.reset());
+
+  const spec = (feature: string, reqId: string): string =>
+    [
+      '---',
+      `feature: ${feature}`,
+      'status: active',
+      'last_updated: 2026-01-01',
+      'story_count: 1',
+      'req_count: 1',
+      '---',
+      '',
+      `# ${feature}`,
+      '',
+      '## User Stories & Behavior Specifications',
+      '',
+      '### US-1',
+      '',
+      `#### ${reqId}: Sample`,
+      'The sample requirement.',
+      '- WHEN a, THEN x',
+      '',
+      '---',
+      '',
+      '## Change History',
+      '',
+      '| Date | Change | Impact | Stories/REQs |',
+      '|------|--------|--------|-------------|',
+      '',
+    ].join('\n');
+
+  // REQ-LIB-900 lives in drift-checks, but the delta-spec MODIFIES it while
+  // declaring **Feature:** sdd-workflow — the exact #203 misplacement shape.
+  const MISROUTED_DELTA = [
+    '# Delta',
+    '',
+    '## MODIFIED',
+    '',
+    '### REQ-LIB-900: Sample',
+    '',
+    '**Feature:** sdd-workflow',
+    '**Story:** US-1',
+    '',
+    '**Before:**',
+    'old',
+    '',
+    '**After:**',
+    'new',
+    '',
+    '**Spec:**',
+    'The sample requirement.',
+    '- WHEN a, THEN x',
+    '',
+    '**Priority:** High',
+    '',
+    '---',
+    '',
+  ].join('\n');
+
+  const METADATA = [
+    'name: x',
+    'created_at: 2026-01-01T00:00:00.000Z',
+    'status: implemented',
+    'scale: standard',
+    '',
+  ].join('\n');
+
+  const seed = (delta: string) =>
+    vol.fromJSON({
+      '/repo/prospec/specs/features/drift-checks.md': spec('drift-checks', 'REQ-LIB-900'),
+      '/repo/prospec/specs/features/sdd-workflow.md': spec('sdd-workflow', 'REQ-SERVICES-900'),
+      '/repo/.prospec/changes/x/delta-spec.md': delta,
+      '/repo/.prospec/changes/x/metadata.yaml': METADATA,
+    });
+
+  it('buildReqHomeIndex maps each REQ id to the feature that defines it', () => {
+    seed(MISROUTED_DELTA);
+    const homes = buildReqHomeIndex('/repo/prospec/specs/features');
+    expect([...(homes.get('REQ-LIB-900') ?? [])]).toEqual(['drift-checks']);
+    expect([...(homes.get('REQ-SERVICES-900') ?? [])]).toEqual(['sdd-workflow']);
+    expect(homes.has('REQ-LIB-999')).toBe(false);
+  });
+
+  it('the check collector attaches a wrong-feature resolution naming the home', () => {
+    seed(MISROUTED_DELTA);
+    const src = collectDeltaSpecLandingFidelity('/repo/prospec/specs/features', '/repo');
+    const entry = src.entries.find((e) => e.reqId === 'REQ-LIB-900');
+    expect(entry?.resolution).toEqual({ kind: 'wrong-feature', home: 'drift-checks' });
+  });
+
+  it('archive refuses the misrouted REQ instead of appending it to the wrong feature', async () => {
+    seed(MISROUTED_DELTA);
+    const before = vol.readFileSync('/repo/prospec/specs/features/sdd-workflow.md', 'utf-8');
+    const sync = await syncToFeatureSpecs('/repo/.prospec/changes/x', '/repo/prospec/specs/features', 'x', false);
+    expect(sync.refusedRequirements).toHaveLength(1);
+    const refusal = sync.refusedRequirements[0]!;
+    expect(refusal.kind).toBe('unresolved-feature');
+    if (refusal.kind !== 'unresolved-feature') throw new Error('expected an unresolved-feature refusal');
+    expect(refusal).toMatchObject({ reqId: 'REQ-LIB-900', feature: 'sdd-workflow', home: 'drift-checks' });
+    // The wrong feature spec is left byte-identical — no stale duplicate appended.
+    expect(vol.readFileSync('/repo/prospec/specs/features/sdd-workflow.md', 'utf-8')).toBe(before);
+    expect(vol.readFileSync('/repo/prospec/specs/features/sdd-workflow.md', 'utf-8')).not.toContain('REQ-LIB-900');
+  });
+
+  it('a dry run reports the identical refusal and writes nothing', async () => {
+    seed(MISROUTED_DELTA);
+    const before = vol.readFileSync('/repo/prospec/specs/features/sdd-workflow.md', 'utf-8');
+    const sync = await syncToFeatureSpecs('/repo/.prospec/changes/x', '/repo/prospec/specs/features', 'x', true);
+    expect(sync.refusedRequirements).toHaveLength(1);
+    expect(sync.refusedRequirements[0]).toMatchObject({
+      kind: 'unresolved-feature',
+      reqId: 'REQ-LIB-900',
+      home: 'drift-checks',
+    });
+    expect(vol.readFileSync('/repo/prospec/specs/features/sdd-workflow.md', 'utf-8')).toBe(before);
+  });
+
+  // The create path (declared feature has NO spec file) is a SECOND refusal site:
+  // a MODIFIED whose REQ lives in an existing feature must not be fabricated into a
+  // brand-new spec. Deleting the `misrouted`-set guard leaves this green otherwise.
+  const MISROUTED_TO_NEW_FEATURE = [
+    '# Delta',
+    '',
+    '## MODIFIED',
+    '',
+    '### REQ-LIB-900: Sample',
+    '',
+    '**Feature:** brand-new',
+    '**Story:** US-1',
+    '',
+    '**Before:**',
+    'old',
+    '',
+    '**After:**',
+    'new',
+    '',
+    '**Spec:**',
+    'The sample requirement.',
+    '- WHEN a, THEN x',
+    '',
+    '**Priority:** High',
+    '',
+    '---',
+    '',
+  ].join('\n');
+
+  it('refuses a MODIFIED routed to a NON-existent feature whose REQ lives elsewhere, writing no new spec', async () => {
+    seed(MISROUTED_TO_NEW_FEATURE);
+    expect(vol.existsSync('/repo/prospec/specs/features/brand-new.md')).toBe(false);
+    const sync = await syncToFeatureSpecs('/repo/.prospec/changes/x', '/repo/prospec/specs/features', 'x', false);
+    expect(sync.refusedRequirements).toHaveLength(1);
+    expect(sync.refusedRequirements[0]).toMatchObject({
+      kind: 'unresolved-feature',
+      reqId: 'REQ-LIB-900',
+      feature: 'brand-new',
+      home: 'drift-checks',
+    });
+    // No brand-new spec is fabricated — the REQ lives in drift-checks.
+    expect(vol.existsSync('/repo/prospec/specs/features/brand-new.md')).toBe(false);
   });
 });

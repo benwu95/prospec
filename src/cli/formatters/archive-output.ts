@@ -77,17 +77,24 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
   if (result.refusedRequirements.length > 0) {
     const verb = result.dryRun ? 'would be refused' : 'refused';
     process.stderr.write(
-      `${pc.red('✗')} ${result.refusedRequirements.length} REQ(s) ${verb} — a landing block was cut short by a label the delta-spec template does not own; the feature spec was left unchanged:\n`,
+      `${pc.red('✗')} ${result.refusedRequirements.length} REQ(s) ${verb} — the feature spec was left unchanged:\n`,
     );
     for (const r of result.refusedRequirements) {
-      process.stderr.write(
-        `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
-          `\`**${sanitizeTerminal(r.label)}:**\` ends the \`**${sanitizeTerminal(r.block)}:**\` block, swallowing ${r.swallowedCount} line(s) from:\n` +
-          `      ${sanitizeTerminal(r.firstSwallowedLine)}\n`,
-      );
+      if (r.kind === 'unresolved-feature') {
+        process.stderr.write(
+          `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
+            `its \`**Feature:**\` header does not host this REQ id; the REQ lives in \`${sanitizeTerminal(r.home)}\`\n`,
+        );
+      } else {
+        process.stderr.write(
+          `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
+            `\`**${sanitizeTerminal(r.label)}:**\` ends the \`**${sanitizeTerminal(r.block)}:**\` block, swallowing ${r.swallowedCount} line(s) from:\n` +
+            `      ${sanitizeTerminal(r.firstSwallowedLine)}\n`,
+        );
+      }
     }
     process.stderr.write(
-      `  fix the block each refusal names — inline the labelled section as bullets; a \`**Dropped:**\` declaration does NOT release a refusal\n`,
+      `  fix the routing header or landing block each refusal names — for a truncation, inline the labelled section as bullets (a \`**Dropped:**\` declaration does NOT release it); for an unresolved header, route the REQ to the feature that hosts it\n`,
     );
   }
 

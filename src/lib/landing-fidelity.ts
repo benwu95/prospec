@@ -350,3 +350,44 @@ export function iterateDeltaEntries(deltaContent: string): DeltaEntry[] {
   push();
   return entries;
 }
+
+/**
+ * reqId → the set of feature slugs whose spec currently defines that REQ id
+ * (main file plus slices). The one cross-feature REQ-location index the
+ * routing-header resolution reads. Built by `spec-read`'s `buildReqHomeIndex`
+ * over the SAME `indexSpec(..., { includeStruck: true })` walk `collectReqDefinitions`
+ * uses, so a deprecated REQ still counts as defined.
+ */
+export type ReqHomeIndex = ReadonlyMap<string, ReadonlySet<string>>;
+
+/**
+ * Whether a MODIFIED/REMOVED delta-spec entry's declared `**Feature:**` actually
+ * hosts its REQ id — the routing check that keeps a mis-pointing header from
+ * silently appending a duplicate REQ (archive write path) or skipping the drop
+ * comparison (the `delta-spec-landing-fidelity` check). Route-agnostic and pure:
+ * archive shapes a non-`resolved` verdict into a `refusedRequirements` entry, the
+ * drift check into a `fail` finding, but both derive the SAME verdict here, so a
+ * mis-routed header can never be caught by one path and missed by the other.
+ */
+export type RoutingResolution =
+  | { kind: 'resolved' }
+  | { kind: 'wrong-feature'; home: string }
+  | { kind: 'not-found' };
+
+/**
+ * Classify a delta-spec routing header against the trust zone. `not-found` when no
+ * feature defines the REQ id; `resolved` when the declared feature is among those
+ * that do; `wrong-feature` otherwise, naming a home. The home pick is the
+ * sorted-first slug so the verdict is stable when an id (pathologically) lives in
+ * more than one feature — the same set-membership test either way.
+ */
+export function classifyRoutingResolution(
+  reqId: string,
+  declaredFeature: string,
+  homes: ReqHomeIndex,
+): RoutingResolution {
+  const carriers = homes.get(reqId);
+  if (carriers === undefined || carriers.size === 0) return { kind: 'not-found' };
+  if (carriers.has(declaredFeature)) return { kind: 'resolved' };
+  return { kind: 'wrong-feature', home: [...carriers].sort()[0]! };
+}

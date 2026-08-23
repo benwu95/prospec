@@ -16,6 +16,7 @@ import { normalizeIssueRef } from '../lib/change-metadata.js';
 import {
   assessDrops,
   classifyBlockTerminator,
+  classifyRoutingResolution,
   declaredDrops,
   DELTA_TEMPLATE_FIELDS,
   extractDeltaBlock,
@@ -26,6 +27,7 @@ import {
   type DeltaBlock,
   type DeltaBlockTruncation,
 } from '../lib/landing-fidelity.js';
+import { buildReqHomeIndex } from '../lib/spec-read.js';
 // Re-exported so `services/archive.service` stays the documented import site for
 // the landing-fidelity parsers, even though their single implementation now lives
 // in `lib/landing-fidelity` — shared verbatim with the delta-spec-landing-fidelity
@@ -151,26 +153,45 @@ export interface FeatureRoute {
 }
 
 /**
- * A REQ the sync REFUSED to land because its delta-spec landing block was cut
- * short by a label the template does not own (REQ-SERVICES-081).
+ * A REQ the sync REFUSED to land, rather than corrupting the trust zone. Two
+ * authoring errors in the delta-spec, each fixed in the delta-spec and never in the
+ * feature spec, both left the feature spec byte-identical and drive the non-zero
+ * exit (REQ-CLI-034):
  *
- * Distinct from `PendingConvergence` (body kept because there was nothing to
- * land — normal, expected) and from `DroppedBehavior` (body replaced, some
- * behavior not restated — a judgment call). This one is an authoring error in the
- * delta-spec: the block itself is incomplete, so no comparison against the current
- * body would mean anything. The fix is in the block, never in the feature spec.
+ * - `truncation` — the landing block was cut short by a label the template does not
+ *   own (REQ-SERVICES-081): the block is incomplete, so no comparison against the
+ *   current body would mean anything.
+ * - `unresolved-feature` — a MODIFIED/REMOVED REQ whose `**Feature:**` header names
+ *   a feature that does not host that REQ id while the REQ demonstrably lives in
+ *   ANOTHER feature (REQ-SERVICES-096): landing it would append a stale duplicate in
+ *   the wrong feature. `home` names the feature that actually carries the REQ id. A
+ *   REQ that lives in no feature yet is NOT refused — that is a legitimate
+ *   create-and-deprecate shape, not a mis-route.
+ *
+ * Distinct from `PendingConvergence` (body kept because there was nothing to land —
+ * normal, expected) and from `DroppedBehavior` (body replaced, some behavior not
+ * restated — a judgment call).
  */
-export interface SpecRefusal {
-  feature: string;
-  reqId: string;
-  /** Which delta-spec block was cut short — the one the author must fix. */
-  block: string;
-  /** The label that interrupted the block. */
-  label: string;
-  /** The interrupting line as written, so the author can find the spot. */
-  firstSwallowedLine: string;
-  swallowedCount: number;
-}
+export type SpecRefusal =
+  | {
+      kind: 'truncation';
+      feature: string;
+      reqId: string;
+      /** Which delta-spec block was cut short — the one the author must fix. */
+      block: string;
+      /** The label that interrupted the block. */
+      label: string;
+      /** The interrupting line as written, so the author can find the spot. */
+      firstSwallowedLine: string;
+      swallowedCount: number;
+    }
+  | {
+      kind: 'unresolved-feature';
+      feature: string;
+      reqId: string;
+      /** The feature that actually carries the REQ id (a wrong-feature mis-route). */
+      home: string;
+    };
 
 /** A REQ whose Feature-Spec body the sync did NOT replace — a human must converge it. */
 export interface PendingConvergence {
@@ -528,6 +549,12 @@ export async function syncToFeatureSpecs(
 
   if (!dryRun) await ensureDir(featuresPath);
 
+  // The one cross-feature REQ-location index, built once from the trust zone as it
+  // stands before this run. Every MODIFIED/REMOVED route is resolved against it
+  // through the SAME classifier the `delta-spec-landing-fidelity` check uses, so a
+  // mis-pointing `**Feature:**` header is refused here exactly as the check fails it.
+  const reqHomes = buildReqHomeIndex(featuresPath);
+
   // Group routes by feature slug
   const byFeature = new Map<string, FeatureRoute[]>();
   for (const route of routes) {
@@ -574,6 +601,25 @@ export async function syncToFeatureSpecs(
       const modifiedSlices = new Set<string>();
 
       for (const route of featureRoutes) {
+        // A MODIFIED/REMOVED route whose `**Feature:**` names this feature while the
+        // REQ demonstrably lives in ANOTHER feature is refused BEFORE any merge —
+        // landing it would fall through to the ADDED append path and write a stale
+        // duplicate REQ here (REQ-SERVICES-096). The verdict comes from the shared
+        // classifier, so it matches the `delta-spec-landing-fidelity` finding for
+        // the same entry. `not-found` (the REQ lives nowhere yet) is NOT a mis-route
+        // — a create-and-deprecate REMOVED lands its deprecation record as before.
+        if (route.status === 'MODIFIED' || route.status === 'REMOVED') {
+          const resolution = classifyRoutingResolution(route.reqId, feature, reqHomes);
+          if (resolution.kind === 'wrong-feature') {
+            fileRefusals.push({
+              kind: 'unresolved-feature',
+              feature,
+              reqId: route.reqId,
+              home: resolution.home,
+            });
+            continue;
+          }
+        }
         const targetSlice = determineTargetSlice(route, specIndex);
         let targetContent = targetSlice
           ? (specContent as { main: string; slices: Record<string, string> }).slices[targetSlice]!
@@ -690,9 +736,31 @@ export async function syncToFeatureSpecs(
       // file, minus the chance of noticing it in a diff.
       const refused = featureRoutes.filter((r) => r.truncation !== undefined);
       refusedRequirements.push(
-        ...refused.map((r) => ({ feature: r.feature, reqId: r.reqId, ...r.truncation! })),
+        ...refused.map(
+          (r) =>
+            ({ kind: 'truncation', feature: r.feature, reqId: r.reqId, ...r.truncation! }) as SpecRefusal,
+        ),
       );
-      const landable = featureRoutes.filter((r) => r.truncation === undefined);
+      // A MODIFIED/REMOVED route whose REQ demonstrably lives in ANOTHER existing
+      // feature is refused rather than fabricated into this brand-new spec
+      // (REQ-SERVICES-096, wrong-feature). A REQ that lives nowhere yet is NOT a
+      // mis-route — a create-and-deprecate REMOVED, or a first-cut MODIFIED, still
+      // lands here, so the create path keeps working exactly as before.
+      const misrouted = new Set<FeatureRoute>();
+      for (const r of featureRoutes) {
+        if (r.truncation !== undefined || (r.status !== 'MODIFIED' && r.status !== 'REMOVED')) continue;
+        const resolution = classifyRoutingResolution(r.reqId, feature, reqHomes);
+        if (resolution.kind === 'wrong-feature') {
+          misrouted.add(r);
+          refusedRequirements.push({
+            kind: 'unresolved-feature',
+            feature,
+            reqId: r.reqId,
+            home: resolution.home,
+          });
+        }
+      }
+      const landable = featureRoutes.filter((r) => r.truncation === undefined && !misrouted.has(r));
       // Every route refused → there is nothing to write. Creating the scaffold
       // anyway would claim the feature is documented when none of it landed.
       if (landable.length === 0) continue;
@@ -1815,7 +1883,7 @@ function mergeRequirementInPlace(
   if (route.truncation !== undefined) {
     return {
       content,
-      refused: { feature: route.feature, reqId: route.reqId, ...route.truncation },
+      refused: { kind: 'truncation', feature: route.feature, reqId: route.reqId, ...route.truncation },
     };
   }
   const body = landingBody(route);

@@ -733,6 +733,37 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('specs/features/');
       expect(content).toContain('Spec Sync');
     });
+
+    // REQ-SPEC-012 (issue #211): `**Story**` semantics must match determineTargetSlice —
+    // a trust-zone story number, never the proposal.md number that produced the
+    // #203 misplacement. This is the PB-003 docs-claim pin: template prose that
+    // describes CLI routing behavior is a tested assertion.
+    it('documents `**Story**` as a TRUST-ZONE story number, not a proposal.md number (REQ-SPEC-012, issue #211)', () => {
+      const content = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('trust-zone');
+      expect(content).toContain('highest story number plus one');
+      expect(content).toContain('archive resolves the REQ by its id');
+      // Negative: the old, misleading semantics that caused the #211 misplacement
+      // must be gone — an author following it routes an ADDED REQ by proposal number.
+      expect(content).not.toContain('links this REQ to the User Story in proposal.md');
+    });
+
+    it('says a MODIFIED/REMOVED Feature header that does not host the REQ id is refused (REQ-SPEC-012 / REQ-SERVICES-096)', () => {
+      const content = renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('a header that resolves to a different feature');
+    });
+
+    // REQ-TEMPLATES-033 (issue #211): the plan-station gate is a RESOLUTION check
+    // run mechanically, not a presence check an LLM passes by topic inference.
+    it('prospec-plan Phase 5 Gate mechanizes MODIFIED/REMOVED Feature resolution but keeps ADDED Story an honest authoring rule (REQ-TEMPLATES-033, issue #211)', () => {
+      const content = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('routing headers RESOLVE against the trust zone');
+      expect(content).toContain('delta-spec-landing-fidelity');
+      // PB-003: the gate must NOT overclaim — ADDED Story is not mechanically
+      // checked (the check assesses MODIFIED/REMOVED only), so it is stated as an
+      // authoring rule, and the old "checked mechanically ... ADDED" overclaim is gone.
+      expect(content).toContain('an authoring rule, not a mechanical check');
+    });
   });
 
   describe('Archive skill Feature Spec references', () => {

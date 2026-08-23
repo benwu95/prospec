@@ -54,7 +54,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - `markdown-fences.ts` owns markdown parsing and `toInlineCodeSpan` (which collapses line breaks to prevent raw newline header forging).
 - `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`). Drift-sources imports from it, never the reverse.
 - `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
-- `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check both call it; never re-implement the drop diff (that divergence is the drift the check guards).
+- `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`) — and the ONE routing-header verdict, `classifyRoutingResolution` (over the `buildReqHomeIndex` map from `spec-read`). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check both call both; never re-implement the drop diff or the routing verdict (that divergence is the drift the check guards).
 - `token-accounting.ts` takes pricing as a parameter; `language-policy.ts` is the single language-scope source.
 - Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and evidence round-trip are in [Station Engines](./station-engines.md).
 

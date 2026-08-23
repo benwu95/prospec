@@ -61,8 +61,8 @@ New requirements with full details:
 ---
 ```
 
-> **Feature** routes this REQ to `specs/features/{feature-slug}.md` (or its automatically resolved sub-module slice) during archive Spec Sync.
-> **Story** links this REQ to the User Story in proposal.md it implements.
+> **Feature** routes this REQ to `specs/features/{feature-slug}.md` (or its resolved sub-module slice) at archive Spec Sync. A MODIFIED/REMOVED header MUST name the feature that already hosts the REQ id: archive locates the REQ by its id and **refuses** a header that resolves to a different feature rather than appending a stale duplicate.
+> **Story** is a **trust-zone** story number, not a proposal.md number. An ADDED REQ uses the target Feature Spec's story it lands under — an existing story's number, or that feature's current highest story number plus one for a new story (archive routes it to that story's slice). A MODIFIED/REMOVED REQ names the trust-zone story it already lives under; archive resolves the REQ by its id regardless, so the field is a human-read pointer.
 
 **Example:**
 

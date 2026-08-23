@@ -278,6 +278,7 @@ describe('syncToFeatureSpecs refuses a truncated landing block (REQ-SERVICES-081
     const r = await syncToFeatureSpecs('/c', '/f', 'my-change', false);
     expect(r.refusedRequirements).toEqual([
       {
+        kind: 'truncation',
         feature: 'content-library',
         reqId: 'REQ-CONTENT-LIBRARY-013',
         block: 'Spec',
@@ -733,8 +734,10 @@ The library exposes saved views.
     });
     const r = await syncToFeatureSpecs('/c', '/f', 'my-change', false);
     expect(r.refusedRequirements).toHaveLength(1);
-    expect(r.refusedRequirements[0]!.block).toBe('Description');
-    expect(r.refusedRequirements[0]!.label).toBe('Scenarios');
+    const refused = r.refusedRequirements[0]!;
+    if (refused.kind !== 'truncation') throw new Error('expected a truncation refusal');
+    expect(refused.block).toBe('Description');
+    expect(refused.label).toBe('Scenarios');
   });
 
   // A REMOVED route in a file held back by an undeclared drop must NOT surface a

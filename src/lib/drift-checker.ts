@@ -525,9 +525,11 @@ export function evaluateDeltaSpecProvenance(src: DeltaSpecProvenanceSource): Che
  * `assessDrops` the archive write path uses (issue #202), so a finding here and
  * archive's refusal can never disagree.
  *
- * Undeclared drop → fail (naming the REQ and the bullet); a stale declaration and a
- * prose `**Dropped:**` block that declares nothing → warn; a declared drop and an
- * excluded entry (ADDED-like or no Spec block) produce nothing.
+ * A mis-pointing routing header (`**Feature:**` naming a feature that does not host
+ * the REQ id) → fail, so it can no longer pass by skipping the comparison (issue
+ * #211). Undeclared drop → fail (naming the REQ and the bullet); a stale declaration
+ * and a prose `**Dropped:**` block that declares nothing → warn; a declared drop and
+ * an excluded entry (ADDED-like or no Spec block) produce nothing.
  */
 export function evaluateDeltaSpecLandingFidelity(
   src: DeltaSpecLandingFidelitySource,
@@ -537,6 +539,27 @@ export function evaluateDeltaSpecLandingFidelity(
   }
   const findings: DriftFinding[] = [];
   for (const e of src.entries) {
+    // Routing-header resolution comes FIRST — a MODIFIED/REMOVED entry whose
+    // `**Feature:**` names a feature that does not host the REQ id, while the REQ
+    // demonstrably lives in ANOTHER feature, fails regardless of whether it carries
+    // a Spec block (so a REMOVED or a Spec-less MODIFIED cannot dodge it). This is
+    // the reproducible #211 misplacement: landing it would append a stale duplicate
+    // in the wrong feature. `not-found` (the REQ lives nowhere yet) is left to the
+    // existing exclusion below — it is a legitimate create-and-deprecate shape, not
+    // a mis-route. Archive refuses the SAME wrong-feature entry from the SAME
+    // classifier, so a finding here and its refusal agree.
+    if (e.resolution.kind === 'wrong-feature') {
+      findings.push({
+        check: 'delta-spec-landing-fidelity',
+        severity: 'fail',
+        source_path: e.source_path,
+        detail:
+          `${e.reqId} in change "${e.change}": its \`**Feature:**\` names "${e.feature}", but ` +
+          `the REQ lives in "${e.resolution.home}" — route it to that feature, or express a ` +
+          `cross-feature move explicitly (a mis-pointing header would append a stale duplicate)`,
+      });
+      continue;
+    }
     // A non-empty `**Dropped:**` block that parsed to zero declarations is prose,
     // not an assertion the tool can act on — warn so a "none" is not mistaken for a
     // verified claim (issue #202 M1).
@@ -550,7 +573,8 @@ export function evaluateDeltaSpecLandingFidelity(
           `item, so nothing is declared — write each dropped bullet as a \`- \` item, or remove the block`,
       });
     }
-    // Excluded from the drop comparison: no Spec block, or no resolvable existing body (ADDED-like).
+    // Excluded from the drop comparison — resolution already passed above, so this
+    // is a REMOVED entry or a MODIFIED with no `**Spec:**` block (nothing to diff).
     if (e.landing === '' || e.existingBody === null) continue;
     const sets = assessDrops(e.existingBody, e.landing, e.declared);
     for (const bullet of sets.undeclared) {

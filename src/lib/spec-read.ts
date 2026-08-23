@@ -84,3 +84,26 @@ export function assembleWholeSpec(content: SpecContent): string {
   if (typeof content === 'string') return content;
   return content.main + '\n\n' + Object.values(content.slices).join('\n\n');
 }
+
+/**
+ * reqId → the feature slugs whose spec defines it, across every feature spec
+ * (main file plus slices). The cross-feature REQ-location index
+ * `classifyRoutingResolution` reads to decide whether a delta-spec's `**Feature:**`
+ * routing header actually hosts its REQ id. Struck REQs are included
+ * (`includeStruck`) so a deprecated REQ still counts as defined — the same walk and
+ * rule `collectReqDefinitions` and the narrow REQ read build on, so the routing
+ * verdict never disagrees with what those surfaces consider a definition.
+ */
+export function buildReqHomeIndex(featuresDir: string): Map<string, Set<string>> {
+  const homes = new Map<string, Set<string>>();
+  for (const feature of listFeatureSpecs(featuresDir)) {
+    const loaded = loadFeatureSpecContent(featuresDir, feature);
+    if (loaded === null) continue;
+    for (const req of indexSpec(loaded.specContent, { includeStruck: true }).requirements) {
+      const carriers = homes.get(req.id) ?? new Set<string>();
+      carriers.add(feature);
+      homes.set(req.id, carriers);
+    }
+  }
+  return homes;
+}

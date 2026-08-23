@@ -14,11 +14,14 @@ import { parseTaskLine, type TaskKind } from './task-markers.js';
 import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE, type SpecContent } from './spec-headings.js';
 import { stripTrailingCr } from './text-lines.js';
 import {
+  classifyRoutingResolution,
   declaredDrops,
   extractDeltaBlock,
   iterateDeltaEntries,
   type Bullet,
+  type RoutingResolution,
 } from './landing-fidelity.js';
+import { buildReqHomeIndex } from './spec-read.js';
 import {
   ARCHIVED_EXCLUDES,
   isContainedPath,
@@ -1635,13 +1638,17 @@ export function collectDeltaSpecProvenance(cwd: string): DeltaSpecProvenanceSour
   return { available: true, changes };
 }
 
-/** One MODIFIED delta-spec entry the landing-fidelity check assesses. */
+/** One MODIFIED or REMOVED delta-spec entry the landing-fidelity check assesses. */
 export interface LandingFidelityEntry {
   change: string;
   /** repo-relative delta-spec.md path — the finding anchor. */
   source_path: string;
   reqId: string;
   feature: string;
+  /** Whether the declared `**Feature:**` actually hosts this REQ id. A non-`resolved`
+   *  verdict is a routing-header misplacement the check fails on (issue #211) — the
+   *  same verdict the archive write path refuses on, from one shared classifier. */
+  resolution: RoutingResolution;
   /** `**Spec:**` landing body; `''` when the entry carries no Spec block. */
   landing: string;
   /** The current trust-zone REQ body the landing would overwrite verbatim; null
@@ -1697,12 +1704,14 @@ function resolveExistingReqBody(
  * Collect landing-fidelity facts for every change in `.prospec/changes/`.
  *
  * Deliberately NOT audit-scoped like the provenance gates: the whole point is to
- * surface an undeclared landing-block drop at plan/review/verify — before archive,
- * the only station that catches it today — so every in-progress change's delta-spec
- * is read regardless of status. Only a missing `.prospec/changes/` makes the source
- * unavailable; a change with no delta-spec, no MODIFIED entry, or no `**Feature:**`
- * simply contributes no entries. Per-change I/O is guarded so one unreadable file
- * costs its own entry, never the other eighteen verdicts.
+ * surface an undeclared landing-block drop OR a mis-pointing routing header at
+ * plan/review/verify — before archive, the only station that catches them today —
+ * so every in-progress change's delta-spec is read regardless of status. Only a
+ * missing `.prospec/changes/` makes the source unavailable; a change with no
+ * delta-spec, no MODIFIED/REMOVED entry, or no `**Feature:**` simply contributes no
+ * entries. Per-change I/O is guarded so one unreadable file costs its own entry,
+ * never the other eighteen verdicts. The reqId→home index is built once per run and
+ * shared across every entry's routing resolution.
  */
 export function collectDeltaSpecLandingFidelity(
   featuresDir: string,
@@ -1716,6 +1725,7 @@ export function collectDeltaSpecLandingFidelity(
       entries: [],
     };
   }
+  const reqHomes = buildReqHomeIndex(featuresDir);
   const entries: LandingFidelityEntry[] = [];
   for (const change of enumerateChangeMetadata(changesDir, cwd)) {
     // The delta-spec read goes through the non-throwing wrapper (null = absent or
@@ -1724,7 +1734,10 @@ export function collectDeltaSpecLandingFidelity(
     if (deltaContent === null) continue;
     const sourcePath = change.source_path.replace(/metadata\.yaml$/, 'delta-spec.md');
     for (const entry of iterateDeltaEntries(deltaContent)) {
-      if (entry.section !== 'MODIFIED' || !entry.feature) continue;
+      // REMOVED joins MODIFIED here: both carry a `**Feature:**` the archive write
+      // path routes by, so a mis-pointing one must fail the same way (issue #211).
+      // A REMOVED entry has no landing block, so only its routing header is assessed.
+      if ((entry.section !== 'MODIFIED' && entry.section !== 'REMOVED') || !entry.feature) continue;
       const landing = extractDeltaBlock(entry.body, 'Spec').content;
       const droppedContent = extractDeltaBlock(entry.body, 'Dropped').content;
       entries.push({
@@ -1732,6 +1745,7 @@ export function collectDeltaSpecLandingFidelity(
         source_path: sourcePath,
         reqId: entry.reqId,
         feature: entry.feature,
+        resolution: classifyRoutingResolution(entry.reqId, entry.feature, reqHomes),
         landing,
         existingBody:
           landing === '' ? null : resolveExistingReqBody(featuresDir, entry.feature, entry.reqId),
