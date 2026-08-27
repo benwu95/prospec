@@ -118,7 +118,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-08-23T03:50:22.346Z
+    last_verified: 2026-08-27T04:49:50.737Z
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge init + update, change story / plan / tasks
