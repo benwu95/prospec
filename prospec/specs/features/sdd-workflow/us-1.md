@@ -113,7 +113,9 @@ Plan Call Chain, architecture verification, and multi-candidate selection in `/p
 
 #### REQ-TEMPLATES-182: Plan Architecture Verifier Rubric Reference
 A structured architecture verification rubric template (`plan-verifier-rubric.md`) defining architecture-agnostic orthogonal criteria decomposition for plan-stage review.
-- WHEN `plan-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Project Layering & Dependency Direction, Blast Radius & Ripple Effects, State Safety & Reversibility, and Delta-Spec Completeness
+- WHEN `plan-verifier-rubric.md` is rendered, THEN it defines five orthogonal evaluation dimensions: Project Layering & Dependency Direction, Blast Radius & Ripple Effects, State Safety & Reversibility, Delta-Spec Completeness, and Reuse & Single-Source
+- WHEN the Reuse & Single-Source dimension is applied, THEN for every new writer / creator / parser / formatter surface the plan introduces, the verifier either names the target project's existing owner with retrieval evidence (module README Modification Guide, conventions, module map, grep) or confirms the plan argues the rewrite explicitly; a plan with no new surface states a vacuous PASS, an owner search that finds nothing records that negative evidence, evidence collection may be delegated to a fast executor while the verifier only adjudicates, and a `standard` plan missing its `Simpler Alternative` counts as an unargued rewrite
+- WHEN an existing owner is bypassed without a stated rationale, or a `standard` plan lacks its Simpler Alternative, THEN the Verdict table grades it FLAWS regardless of the path the surface sits on (Break-Glass Override unchanged); the rubric names the single-source bypass criterion in `review-format.md` only as the review-stage counterpart — whose two-condition threshold is deliberately narrower — and never restates its definition
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
 
@@ -337,6 +339,7 @@ The services module provides cascading workflow state transition evaluation and 
 #### REQ-TEMPLATES-192: Cascade Protocol, Circuit Breaker, and Project Test Runner References
 The template library includes skill references for cascading execution, circuit breakers, and project test runner adapters.
 - WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
+- WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires Architecture Verifier PASS on five orthogonal dimensions (or a documented Break-Glass override), matching the rubric's dimension count
 
 ---
 
