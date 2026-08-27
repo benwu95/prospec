@@ -840,6 +840,61 @@ describe('CLI E2E', () => {
       expect(stderr).toContain('delta-spec.md not found');
     });
 
+    it('knowledge update --change reports a diff-attributed generated module as stamp-only (REQ-SERVICES-097)', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'stamp-only-test' }),
+      );
+      await runCli(['init', '--name', 'stamp-only-test', '--agents', 'claude']);
+      // module-map so paths attribute to lib / templates
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec', 'ai-knowledge', 'module-map.yaml'),
+        'modules:\n' +
+          '  - name: lib\n    paths: ["src/lib"]\n    keywords: ["lib"]\n' +
+          '  - name: templates\n    paths: ["src/templates"]\n    keywords: ["tpl"]\n',
+      );
+      // an existing templates README → the REQ-named module lands readme-pending, not a skeleton
+      const tplReadme = path.join(
+        tmpDir, 'prospec', 'ai-knowledge', 'modules', 'templates', 'README.md',
+      );
+      await fs.promises.mkdir(path.dirname(tplReadme), { recursive: true });
+      await fs.promises.writeFile(
+        tplReadme,
+        '# Templates\n\n<!-- prospec:auto-start -->\ncontent\n<!-- prospec:auto-end -->\n',
+      );
+      await runCli(['change', 'story', 'my-change', '--description', 'x']);
+      const changeDir = path.join(tmpDir, '.prospec', 'changes', 'my-change');
+      // delta-spec names ONLY a templates REQ (module-prefix → templates)
+      await fs.promises.writeFile(
+        path.join(changeDir, 'delta-spec.md'),
+        '# Delta\n\n## MODIFIED\n\n### REQ-TEMPLATES-001: wording\n\n**Before:** a\n\n**After:** b\n',
+      );
+
+      // commit a baseline so HEAD exists, THEN create working-tree edits: a templates
+      // source (REQ-attributed) and a generated lib artifact (diff-attributed only).
+      const git = (...a: string[]) => execFileSync('git', a, { cwd: tmpDir, stdio: 'pipe' });
+      git('init', '-q');
+      git('config', 'user.email', 't@t.dev');
+      git('config', 'user.name', 't');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'base');
+      await fs.promises.mkdir(path.join(tmpDir, 'src', 'templates', 'skills'), { recursive: true });
+      await fs.promises.writeFile(path.join(tmpDir, 'src', 'templates', 'skills', 'x.hbs'), 'edited\n');
+      await fs.promises.mkdir(path.join(tmpDir, 'src', 'lib'), { recursive: true });
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'src', 'lib', 'bundled-templates.ts'),
+        'export const B = {};\n',
+      );
+
+      const { exitCode, stdout } = await runCli(['knowledge', 'update', '--change', 'my-change']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('stamp-only');
+      expect(stdout).toContain('- lib');
+      // templates is REQ-acknowledged (readme-pending), so it is NOT in the stamp-only list
+      const stampSection = stdout.slice(stdout.indexOf('stamp-only'));
+      expect(stampSection).not.toContain('templates');
+    });
+
     it('review merge builds the cumulative table and reports round counts', async () => {
       const changeDir = await initChange();
       const findings = path.join(tmpDir, 'round.json');

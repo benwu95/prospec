@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-08-27
 story_count: 40
-req_count: 238
+req_count: 239
 ---
 
 # SDD Workflow
@@ -87,6 +87,7 @@ req_count: 238
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-27 | align-knowledge-check-attribution | ADDED REQ-TESTS-098; MODIFIED REQ-TEMPLATES-129 | REQ-TESTS-098, REQ-TEMPLATES-129 |
 | 2026-08-27 | add-reuse-single-source-gate | ADDED REQ-TEMPLATES-200; ADDED REQ-TEMPLATES-201; ADDED REQ-TESTS-097; MODIFIED REQ-TEMPLATES-182; MODIFIED REQ-TEMPLATES-067; MODIFIED REQ-TEMPLATES-192 | REQ-TEMPLATES-200, REQ-TEMPLATES-201, REQ-TESTS-097, REQ-TEMPLATES-182, REQ-TEMPLATES-067, REQ-TEMPLATES-192 |
 | 2026-08-27 | strip-governance-ids-from-templates | MODIFIED REQ-TEMPLATES-132; MODIFIED REQ-TESTS-043 (inlined rules grep-hittable by rule text, shipped templates name no playbook id, per-template negative guard; US-24 scenario aligned) | REQ-TEMPLATES-132, REQ-TESTS-043 |
 | 2026-08-23 | validate-routing-headers-before-landing | ADDED REQ-SERVICES-096; MODIFIED REQ-SPEC-012; MODIFIED REQ-TEMPLATES-033 | REQ-SERVICES-096, REQ-SPEC-012, REQ-TEMPLATES-033 |

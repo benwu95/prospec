@@ -3,7 +3,11 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
-import { collectGitTimestamps, computeChangeDigest } from '../../../src/lib/drift-sources.js';
+import {
+  collectGitTimestamps,
+  computeChangeDigest,
+  changedPathsFromWorkTree,
+} from '../../../src/lib/drift-sources.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 
 // Real git per test — the house timeout for git-bound suites (the 5s default is
@@ -109,6 +113,26 @@ describe('computeChangeDigest under selective git-capture failure', () => {
 
       expect(r.available).toBe(true);
       expect(r.modules[0]?.last_src_commit).toBeTruthy();
+    });
+  });
+
+  // REQ-LIB-062 AC-2 — changedPathsFromWorkTree fails CLOSED on either capture
+  // failing, never fabricating an empty (or partial) change set from a swallowed
+  // error. Same fail-closed contract as computeChangeDigest above (PB-013).
+  describe('changedPathsFromWorkTree fails closed on a git-capture failure', () => {
+    it('sanity: returns [] on a clean tree when every capture succeeds', () => {
+      expect(changedPathsFromWorkTree(tmpDir)).toEqual([]);
+    });
+
+    it('returns null when the tracked-diff capture fails', () => {
+      // the diff carries `:(exclude)` pathspecs, so this fault trips its capture
+      state.failExcludePathspec = true;
+      expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
+    });
+
+    it('returns null when the untracked listing capture fails', () => {
+      state.failLsFiles = true;
+      expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
     });
   });
 });

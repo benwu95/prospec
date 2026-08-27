@@ -43,9 +43,11 @@ and stays; the `module-map.yaml` entry is removed, so the module drops out of th
 index table), adding new `module-map.yaml` entries, and regenerating the `{{base_dir}}/index.md`
 auto block from module-map.
 
-Read its report: `created` (skeletons to fill), `deprecated`, and **`README content pending`** — the
-judgment worklist this skill exists for. The CLI never rewrites an existing README: its
-`prospec:auto` block carries authored knowledge that a mechanical re-render would gut.
+Read its report: `created` (skeletons to fill), `deprecated`, **`README content pending`** — the
+judgment worklist this skill exists for — and **`stamp-only (diff-attributed)`**: modules a
+working-tree diff attributes but no delta-spec REQ named (typically a generated artifact pulling in
+its module), which need only a freshness stamp, not a README edit. The CLI never rewrites an existing
+README: its `prospec:auto` block carries authored knowledge that a mechanical re-render would gut.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] `prospec knowledge update` ran (change mode or `--module` mode)
@@ -156,7 +158,7 @@ After the re-run, verify (read, don't write):
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
 
-After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `{{knowledge_base_path}}/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified`, ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. Passing all affected module names (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh and avoids `knowledge:check` CI failures.
+After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `{{knowledge_base_path}}/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified`, ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. The affected modules to stamp are the delta-spec REQ-prefix modules ∪ the modules a working-tree diff attributes through the module map (generated artifacts included); of that union, the diff-attributed modules that no REQ named are the subset Phase 1's report flags as `stamp-only`. Passing all of them (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh. If the project has a knowledge-sync mechanical gate, re-run it after the feature commit and before pushing — before the commit it sees only an empty range.
 
 ## Output Contract
 

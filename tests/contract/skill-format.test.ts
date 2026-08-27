@@ -407,6 +407,47 @@ describe('Skill Format Contract', () => {
     });
   });
 
+  // align-knowledge-check-attribution: the two affected-module derivation sites must
+  // agree on the definition (REQ-prefix ∪ diff-path, generated included) and defer
+  // the concrete gate to project docs — no repo-internal script/filename/CI token.
+  describe('affected-module attribution wording (REQ-TEMPLATES-129, REQ-TEMPLATES-162)', () => {
+    const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
+
+    it('verify commit prompt scopes affected modules to REQ-prefix ∪ diff-path (generated included)', () => {
+      const content = render('skills/prospec-verify.hbs');
+      const start = content.indexOf('Commit prompt (S/A only)');
+      expect(start, 'verify commit prompt not found').toBeGreaterThan(-1);
+      const section = content.slice(start, content.indexOf('## Knowledge Quality Gate', start));
+      expect(section, 'commit prompt section sliced empty').not.toBe('');
+      expect(section).toContain('REQ-prefix modules');
+      expect(section).toContain('working-tree diff');
+      expect(section).toContain('generated artifacts included');
+      // post-commit gate re-run, worded project-agnostically
+      expect(section).toContain('before pushing');
+      expect(section).toContain("project's knowledge-sync mechanical gate");
+    });
+
+    it('knowledge-update 3e defines affected modules as REQ-prefix ∪ diff-path; Phase 1 surfaces stamp-only', () => {
+      const content = render('skills/prospec-knowledge-update.hbs');
+      const section = sectionOf(content, '#### 3e:');
+      expect(section).toContain('REQ-prefix modules');
+      expect(section).toContain('working-tree diff');
+      expect(section).toContain('knowledge-sync mechanical gate');
+      const phase1 = sectionOf(content, '### Phase 1');
+      expect(phase1).toContain('stamp-only');
+      expect(phase1).toContain('diff-attributed');
+    });
+
+    it('neither shipped skill leaks a repo-internal script, filename, or CI token', () => {
+      for (const t of ['skills/prospec-verify.hbs', 'skills/prospec-knowledge-update.hbs']) {
+        const content = render(t);
+        for (const token of ['knowledge:check', 'check-knowledge-sync', 'bundled-templates']) {
+          expect(content, `${t} must not name repo-internal token "${token}"`).not.toContain(token);
+        }
+      }
+    });
+  });
+
   describe('Skill definitions', () => {
     it('should have 17 skill definitions', () => {
       expect(SKILL_DEFINITIONS).toHaveLength(17);

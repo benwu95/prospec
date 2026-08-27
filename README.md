@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4224%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4247%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1063,7 +1063,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4224 tests)
+# Run all tests (4247 tests)
 pnpm test
 
 # Watch mode
@@ -1076,11 +1076,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4224 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 3109 tests
-- Contract tests (CLI output + Skill format): 965 tests
+**Test Coverage**: 4247 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 3128 tests
+- Contract tests (CLI output + Skill format): 968 tests
 - Integration tests: 45 tests
-- E2E tests: 105 tests
+- E2E tests: 106 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

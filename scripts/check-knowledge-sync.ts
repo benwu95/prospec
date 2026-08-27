@@ -79,6 +79,76 @@ export function partitionMissingSync(
   return { srcModules: [...srcModules].sort(), bumped: [...bumped].sort(), missing };
 }
 
+/** The three outcomes `main` renders, decided without touching git. */
+export type GateOutcome =
+  | { kind: 'empty-range' }
+  | { kind: 'confirmed'; srcModules: string[] }
+  | { kind: 'violation'; missing: string[] };
+
+/**
+ * Classify the gate's outcome. An EMPTY commit range (`changed` is empty because
+ * HEAD is the merge-base — the state before the feature commit) is a DISTINCT skip,
+ * not a pass: pre-commit the range is always empty, so printing the "all confirmed"
+ * line there is a false green that trained "0 modules confirmed" to read as success.
+ * A non-empty range is partitioned as before — a source-touched module that did not
+ * bump its stamp is a violation; otherwise all are confirmed. Pure (git-free) so all
+ * three states are unit-tested.
+ */
+export function evaluateSyncGate(
+  changed: readonly string[],
+  baseMap: ModuleMap,
+  headMap: ModuleMap,
+): GateOutcome {
+  if (changed.length === 0) return { kind: 'empty-range' };
+  const { missing, srcModules } = partitionMissingSync(changed, baseMap, headMap);
+  if (missing.length > 0) return { kind: 'violation', missing };
+  return { kind: 'confirmed', srcModules };
+}
+
+export interface GateRender {
+  stream: 'stdout' | 'stderr';
+  message: string;
+  exitCode: number;
+}
+
+/**
+ * Render a gate outcome to its message, stream, and exit code — pure, so the exact
+ * user-facing wording and exit semantics of all three states (crucially the
+ * empty-range SKIP, which must never share the "all confirmed" shape) are unit-tested
+ * without spawning a subprocess. `main` only wires this to console + process.exit.
+ */
+export function renderOutcome(outcome: GateOutcome, base: string): GateRender {
+  const short = base.slice(0, 12);
+  if (outcome.kind === 'empty-range') {
+    return {
+      stream: 'stdout',
+      message:
+        `✓ knowledge:check skipped — nothing to check: HEAD is the merge-base (${short}). ` +
+        `Commit the change first, then re-run.`,
+      exitCode: 0,
+    };
+  }
+  if (outcome.kind === 'violation') {
+    const lines = [
+      `✗ ${outcome.missing.length} module(s) changed source without confirming knowledge:`,
+    ];
+    for (const m of outcome.missing) {
+      lines.push(
+        `    ${m} — run \`prospec knowledge verify ${m}\` (after updating its knowledge if needed) and commit module-map.yaml`,
+      );
+    }
+    lines.push(
+      `  base ${short}: a module whose declared source paths changed must bump its last_verified in the same change.`,
+    );
+    return { stream: 'stderr', message: lines.join('\n'), exitCode: 1 };
+  }
+  return {
+    stream: 'stdout',
+    message: `✓ knowledge:check — ${outcome.srcModules.length} source-touched module(s) all confirmed since ${short}`,
+    exitCode: 0,
+  };
+}
+
 function git(args: string[]): string {
   return execFileSync('git', args, { cwd: REPO_ROOT, stdio: 'pipe', encoding: 'utf-8' }).trim();
 }
@@ -149,22 +219,13 @@ function main(): void {
     console.log('✓ knowledge:check skipped — no module-map.yaml');
     return;
   }
-  const { missing, srcModules } = partitionMissingSync(changedPaths(base), mapAtBase(base), headMap);
-  if (missing.length > 0) {
-    console.error(`✗ ${missing.length} module(s) changed source without confirming knowledge:`);
-    for (const m of missing) {
-      console.error(
-        `    ${m} — run \`prospec knowledge verify ${m}\` (after updating its knowledge if needed) and commit module-map.yaml`,
-      );
-    }
-    console.error(
-      `  base ${base.slice(0, 12)}: a module whose declared source paths changed must bump its last_verified in the same change.`,
-    );
-    process.exit(1);
-  }
-  console.log(
-    `✓ knowledge:check — ${srcModules.length} source-touched module(s) all confirmed since ${base.slice(0, 12)}`,
-  );
+  const outcome = evaluateSyncGate(changedPaths(base), mapAtBase(base), headMap);
+  // The empty-range branch (HEAD == merge-base, nothing committed yet) renders a
+  // distinct SKIP — never the "all confirmed" line — so an empty range no longer
+  // reads as a pass; renderOutcome owns that decision and is unit-tested.
+  const { stream, message, exitCode } = renderOutcome(outcome, base);
+  (stream === 'stderr' ? console.error : console.log)(message);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 if (process.argv[1] !== undefined && import.meta.url.endsWith(path.basename(process.argv[1]))) {

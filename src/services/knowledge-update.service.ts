@@ -12,7 +12,8 @@ import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
-import { isSafeResourceName, loadFeatureMap, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import { isSafeResourceName, loadFeatureMap, loadModuleMap, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import { changedPathsFromWorkTree, partitionDiffAttributedModules } from '../lib/drift-sources.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { buildIndexTemplateContext } from '../lib/index-template.js';
@@ -557,6 +558,14 @@ export interface KnowledgeUpdateForChangeOptions {
 export interface KnowledgeUpdateForChangeResult extends KnowledgeUpdateResult {
   /** The change whose delta-spec drove the update (absent in manual mode). */
   changeName?: string;
+  /**
+   * Modules a working-tree diff attributes but no delta-spec REQ named — typically
+   * a generated artifact (a bundled template regenerated under a lib path) pulling
+   * in its module. They need only a `knowledge verify` freshness stamp, not a README
+   * edit. Always present (empty when nothing qualifies, in manual mode, or when the
+   * working tree / module map is unavailable) so the field is a total `string[]`.
+   */
+  stampOnly: string[];
 }
 
 /**
@@ -571,7 +580,9 @@ export async function executeForChange(
   const cwd = options.cwd ?? process.cwd();
 
   if (options.modules && options.modules.length > 0) {
-    return await execute({ cwd, manualModules: options.modules });
+    // Manual mode performs no diff attribution (there is no change context to diff);
+    // stampOnly is empty so the return type stays a total KnowledgeUpdateForChangeResult.
+    return { ...(await execute({ cwd, manualModules: options.modules })), stampOnly: [] };
   }
 
   const changeName = await resolveChange(
@@ -600,7 +611,45 @@ export async function executeForChange(
     deltaSpecPath,
     relatedModules: metadata.related_modules ?? [],
   });
-  return { ...result, changeName };
+
+  // Diff-path attribution (union with the REQ-prefix modules `execute` resolved):
+  // a change's working tree may touch a module's source that no delta-spec REQ named
+  // — typically a generated artifact (e.g. `pnpm bundle` rewriting a bundled template
+  // under a lib path). Those modules need a freshness stamp but no README edit, so
+  // report them separately as stamp-only candidates. Advisory: it must never turn the
+  // mechanical update into a new failure mode (the CI committed-range gate is the
+  // backstop), but the degradation is SCOPED — only the two environmental failures
+  // below (git unavailable, module map present-but-unreadable) fall back to an empty
+  // list; a logic error in the pure partition is NOT swallowed, it propagates.
+  let stampOnly: string[] = [];
+  const changed = changedPathsFromWorkTree(cwd); // null (fail-closed) on any git failure
+  if (changed && changed.length > 0) {
+    // Resolve the knowledge path once for this advisory read. It is deliberately
+    // independent of execute()'s own config resolution above — one extra parse on a
+    // cold, non-hot CLI path is cheaper than widening execute()'s public result
+    // contract just to hand the resolved map back.
+    const { knowledgePath } = resolveBasePaths(await readConfig(cwd), cwd);
+    // loadModuleMap fails LOUD on a present-but-unreadable map; scope the fallback to
+    // exactly that so an advisory feature cannot break a good run — without also
+    // hiding a genuine bug in partitionDiffAttributedModules below.
+    let moduleMap: ModuleMap | null = null;
+    try {
+      moduleMap = loadModuleMap(knowledgePath, cwd);
+    } catch {
+      moduleMap = null;
+    }
+    if (moduleMap) {
+      const reqAcknowledged = [
+        ...result.created,
+        ...result.updated,
+        ...result.readmePending,
+        ...result.deprecated,
+      ];
+      stampOnly = partitionDiffAttributedModules(changed, moduleMap, reqAcknowledged).stampOnly;
+    }
+  }
+
+  return { ...result, changeName, stampOnly };
 }
 
 // --- Internal helpers ---
