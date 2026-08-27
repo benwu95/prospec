@@ -5740,12 +5740,13 @@ describe('Shift-Left Architecture Verifier in /prospec-plan (issue #179)', () =>
     expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
   });
 
-  it('plan-verifier-rubric.md defines 4 orthogonal criteria without hardcoding CLI layers', () => {
+  it('plan-verifier-rubric.md defines 5 orthogonal criteria without hardcoding CLI layers', () => {
     const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
     expect(content).toContain('Project Layering & Dependency Direction');
     expect(content).toContain('Blast Radius & Ripple Effects');
     expect(content).toContain('State Safety & Reversibility');
     expect(content).toContain('Delta-Spec Completeness');
+    expect(content).toContain('Reuse & Single-Source');
     expect(content).toContain('Break-Glass Override');
     expect(content).toContain('Language- and Architecture-Agnostic Principle');
     // Must NOT hardcode CLI internal layers as universal rule
@@ -5999,3 +6000,260 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
   });
 });
 
+
+describe('reuse-and-single-source gate (issue #204)', () => {
+  // Shared title strings — the rubric's own headings are the source the other sites
+  // are compared against (PB-006 drift guard), so a rename in one place turns red.
+  const REUSE_DIM = 'Reuse & Single-Source';
+  const SIMPLER = 'Simpler Alternative';
+  // Fragments of the two-condition definition. They are allowed in review-format.md
+  // ONLY (the severity contract's single home); every other shipped template cites
+  // the criterion BY NAME and never restates the conditions.
+  const DEFINITION_FRAGMENTS = ['both conditions required', 'autonomous or write path'];
+  // prospec-internal identifiers a project-agnostic shipped reference must never name.
+  const PROSPEC_INTERNAL_NAMES = [
+    'change-story.service',
+    'normalizeIssueRef',
+    'sanitizeTerminal',
+    'attributionMap',
+    'AlreadyExistsError',
+  ];
+  const renderRubric = () =>
+    renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+  const renderPlanFormat = () =>
+    renderTemplate('skills/references/plan-format.hbs', TEMPLATE_CONTEXT);
+  const renderReviewFormat = () =>
+    renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+  const renderLenses = () =>
+    renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+  const renderPlanSkill = () => renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+  const renderReviewSkill = () => renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+  const renderCascade = () =>
+    renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
+  // Every shipped surface this change touches, plus the review skill that mirrors the
+  // lens trigger — the scan set for the negative invariants below.
+  const allTouched = (): [string, string][] => [
+    ['plan-verifier-rubric', renderRubric()],
+    ['plan-format', renderPlanFormat()],
+    ['review-format', renderReviewFormat()],
+    ['review-lenses-content', renderLenses()],
+    ['prospec-plan', renderPlanSkill()],
+    ['prospec-review', renderReviewSkill()],
+    ['cascade-protocol', renderCascade()],
+  ];
+  const rubricDimensionTitles = (): string[] =>
+    renderRubric()
+      .split('\n')
+      .filter((l) => /^### \d\. /.test(l))
+      .map((l) => l.replace(/^### \d\. /, ''));
+  const findRow = (rows: string[], prefix: string): string => {
+    const row = rows.find((l) => l.startsWith(prefix));
+    expect(row, `row not found: ${prefix}`).toBeDefined();
+    return row!;
+  };
+
+  it('rubric counts five orthogonal dimensions and the fifth is Reuse & Single-Source', () => {
+    const intro = sectionOf(renderRubric(), '## Evaluation Dimensions');
+    expect(intro).toContain('five orthogonal dimensions');
+    expect(intro).not.toContain('four orthogonal dimensions');
+    const titles = rubricDimensionTitles();
+    expect(titles).toHaveLength(5);
+    expect(titles[4]).toBe(REUSE_DIM);
+  });
+
+  it('rubric dimension 5 adjudicates existing owners from the TARGET project knowledge base', () => {
+    const dim5 = flat(sectionOf(renderRubric(), `### 5. ${REUSE_DIM}`));
+    // Rule Source: the target project's own knowledge, never a prospec file name
+    expect(dim5).toMatch(/Modification Guide/);
+    expect(dim5).toMatch(/_conventions\.md/);
+    expect(dim5).toMatch(/module map/i);
+    // the surface classes, then the (a)/(b) disjunction pinned clause by clause
+    for (const surface of ['writer', 'creator', 'parser', 'formatter']) expect(dim5).toContain(surface);
+    expect(dim5).toMatch(/\(a\) name the existing owner/);
+    expect(dim5).toMatch(/retrieval evidence that the verifier's own search confirms/);
+    expect(dim5).toMatch(/\(b\) explicitly argue the rewrite/);
+    // no new surface / no owner found are stated outcomes, never blanks
+    expect(dim5).toMatch(/vacuous PASS/);
+    expect(dim5).toMatch(/negative evidence/);
+    // evidence collection is mechanical and delegable; only the verdict is the verifier's
+    expect(dim5).toMatch(/fast executor/);
+    expect(dim5).toMatch(/adjudicat/);
+    // a standard (or absent-scale) plan without its Simpler Alternative is an unargued rewrite
+    expect(dim5).toContain(`## ${SIMPLER}`);
+    expect(dim5).toMatch(/`scale: standard` \(or absent/);
+  });
+
+  it('rubric Verdict table grades an unargued owner bypass FLAWS on its own terms, naming review-format only as the review-stage counterpart', () => {
+    const verdict = sectionOf(renderRubric(), '## Verdict & Severity Contract');
+    const rows = verdict.split('\n');
+    expect(findRow(rows, '| **PASS**')).toContain('All 5 dimensions');
+    expect(verdict).not.toContain('All 4 dimensions');
+    const flaws = findRow(rows, '| **FLAWS**');
+    expect(flaws).toMatch(/existing owner bypassed without a stated rationale/);
+    expect(flaws).toContain(SIMPLER);
+    // the plan-stage trigger is self-contained (any path); review-format is a pointer, not the rule
+    expect(flat(verdict)).toMatch(/single-source bypass criterion/);
+    expect(flat(verdict)).toMatch(/review-stage counterpart/);
+    for (const fragment of DEFINITION_FRAGMENTS) expect(flat(verdict)).not.toContain(fragment);
+  });
+
+  it('plan-format Section 6 tells the author to name the owner or argue the rewrite (authoring counterpart of dimension 5)', () => {
+    const s6 = flat(sectionOf(renderPlanFormat(), '### 6. Implementation Steps'));
+    expect(s6).toMatch(/name the existing owner you delegate to/);
+    expect(s6).toMatch(/found none/);
+    expect(s6).toMatch(/argue the rewrite/);
+    expect(s6).toContain(REUSE_DIM);
+  });
+
+  it('plan-format Section 8 Simpler Alternative sits after Risk Assessment with alternative-or-concede, a files/lines estimate, and the fenced skeleton', () => {
+    const pf = renderPlanFormat();
+    const s8Raw = sectionOf(pf, `### 8. ${SIMPLER}`);
+    const s8 = flat(s8Raw);
+    expect(s8).toMatch(/`standard`/);
+    expect(s8).toMatch(/concede/);
+    expect(s8).toMatch(/\bfiles\b/);
+    expect(s8).toMatch(/\blines\b/);
+    expect(s8).toMatch(/after Risk Assessment/);
+    expect(s8).toMatch(/tournament/);
+    // the concede branch is coherent: the Alternative row names the nearest alternative or is omitted with a reason
+    expect(s8).toMatch(/nearest alternative/);
+    // the fenced skeleton is pinned structurally, not by prose vocabulary
+    expect(s8Raw.split('\n')).toContain(`## ${SIMPLER}`);
+    const table = findTable(s8Raw.split('\n'), { isTarget: (h) => h[0] === 'approach' });
+    expect(table, 'estimate table missing from the §8 skeleton').not.toBeNull();
+    expect(table!.headers).toEqual(['Approach', 'Files', 'Lines (order of magnitude)']);
+    expect(table!.rows.map((r) => r[0]?.split(':')[0])).toEqual(['Chosen', 'Alternative']);
+    // §7 precedes §8 in the document, so the section numbering is honest
+    expect(pf.indexOf('### 7. Risk Assessment')).toBeGreaterThanOrEqual(0);
+    expect(pf.indexOf('### 7. Risk Assessment')).toBeLessThan(pf.indexOf(`### 8. ${SIMPLER}`));
+  });
+
+  it('plan-format Scale Tiers requires Simpler Alternative under standard and lets the tournament record stand in under full', () => {
+    const rows = sectionOf(renderPlanFormat(), '## Scale Tiers').split('\n');
+    expect(findRow(rows, '| `standard` (or absent) |')).toContain(SIMPLER);
+    const full = findRow(rows, '| `full` |');
+    expect(full).toMatch(/tournament/);
+    // pre-existing pin kept intact
+    expect(full).toContain('the 120-line cap does not apply');
+  });
+
+  it('plan-format.md stays within the reference token budget', () => {
+    const tokens = estimateTokens(renderPlanFormat());
+    expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  });
+
+  it('prospec-plan Phase 4 carries the reuse gate on the authoring side: section list, owner-naming instruction, scale summary, and gate', () => {
+    const lines = sectionOf(renderPlanSkill(), '### Phase 4: Design plan.md').split('\n');
+    const riskIdx = lines.findIndex((l) => l.startsWith('- **Risk Assessment**'));
+    const simplerIdx = lines.findIndex((l) => l.startsWith(`- **${SIMPLER}**`));
+    expect(riskIdx).toBeGreaterThanOrEqual(0);
+    expect(simplerIdx).toBe(riskIdx + 1);
+    expect(lines[simplerIdx]).toContain('references/plan-format.md');
+    const steps = findRow(lines, '- **Implementation Steps**');
+    expect(steps).toMatch(/name the existing owner/);
+    expect(steps).toMatch(/argue the rewrite/);
+    expect(steps).toContain('Section 6');
+    const standardTier = findRow(lines, '- `standard` (or absent):');
+    expect(standardTier).toContain('keep under 120 lines');
+    expect(standardTier).toContain(SIMPLER);
+    expect(findRow(lines, '- `full`:')).toMatch(/tournament/);
+    const gate = lines.filter((l) => l.startsWith('> - [ ]'));
+    expect(gate.length).toBeGreaterThan(0);
+    expect(gate.some((l) => l.includes(SIMPLER) && l.includes('`standard` (or absent)'))).toBe(true);
+  });
+
+  it('prospec-plan Phase 6 enumerates the five dimensions in the rubric order with byte-identical titles', () => {
+    const p6 = sectionOf(
+      renderPlanSkill(),
+      '### Phase 6: Architecture Verification (site-specific: dependency/layering)',
+    );
+    expect(p6).toContain('the 5 orthogonal dimensions');
+    expect(p6).not.toMatch(/\b4 orthogonal/);
+    const items = p6
+      .split('\n')
+      .filter((l) => /^\d\. \*\*/.test(l))
+      .map((l) => l.replace(/^\d\. \*\*(.+?)\*\*.*$/, '$1'));
+    expect(items).toEqual(rubricDimensionTitles());
+    const gate = p6.split('\n').filter((l) => l.startsWith('> - [ ]'));
+    expect(gate.some((l) => l.includes('5 orthogonal dimensions'))).toBe(true);
+  });
+
+  it('cascade-protocol plan→tasks gate requires five orthogonal dimensions', () => {
+    const rows = sectionOf(renderCascade(), '## Station Transition Gates').split('\n');
+    const planRow = findRow(rows, '| **plan** |');
+    expect(planRow).toMatch(/five orthogonal dimensions/);
+    expect(planRow).not.toMatch(/\b4 orthogonal/);
+  });
+
+  it('review-format critical list carries the two-condition single-source bypass criterion as its fourth and last item, with both terms defined', () => {
+    const critRaw = sectionOf(renderReviewFormat(), '### critical — blocks the loop, auto-fixed (when drop-in)');
+    const items = critRaw.split('\n').filter((l) => /^\d\. \*\*/.test(l));
+    expect(items).toHaveLength(4);
+    const crit = flat(critRaw);
+    expect(crit).toMatch(/4\. \*\*Single-source bypass on an autonomous or write path\*\*/);
+    expect(crit).toMatch(/documents as the single source/);
+    expect(crit).toMatch(/existing service already provides/);
+    for (const fragment of DEFINITION_FRAGMENTS) expect(crit).toContain(fragment);
+    // the decisive second condition is operational: both of its terms are defined in place
+    expect(crit).toMatch(/without a human in the loop/);
+    expect(crit).toMatch(/creates or mutates an artifact/);
+    expect(crit).toMatch(/stays major/);
+  });
+
+  it('review-format and prospec-review both trigger the maintainability lens on a re-implemented helper, not only on new abstractions', () => {
+    const rows = sectionOf(renderReviewFormat(), '## Reviewer Lenses').split('\n');
+    const cells = splitTableRow(findRow(rows, '| maintainability / DRY |'));
+    expect(cells[1]).toContain('new abstractions introduced');
+    expect(cells[1]).toContain('existing helper / guard / writer re-implemented');
+    expect(cells[2]).toContain('documented single-source bypass');
+    // parallel site: the skill body names the same trigger (both move together)
+    const lenses = sectionOf(renderReviewSkill(), '### Review Lenses');
+    expect(lenses).toContain('existing helper / guard / writer re-implemented');
+  });
+
+  it('review-lenses Maintainability table maps the bypass onto the review-format criterion by name — no PB id, no second definition', () => {
+    const maint = sectionOf(renderLenses(), '## Maintainability / DRY Lens');
+    // Locate the row by its CRITERION cell, never by the severity cell: a row found
+    // through the phrase it is supposed to carry in the severity column would stay
+    // green with its criterion blanked and its severity flipped (review R3-1).
+    const row = maint
+      .split('\n')
+      .filter((l) => l.startsWith('| '))
+      .find((l) => splitTableRow(l)[0]?.includes('documents as the single source'));
+    expect(row, 'single-source bypass row not found by its criterion cell').toBeDefined();
+    const [criterion, severity] = splitTableRow(row!);
+    expect(criterion).toMatch(/delegate to the owner/);
+    expect(severity).toMatch(/^critical\b/);
+    expect(severity).not.toMatch(/^major/);
+    expect(severity).toContain('single-source bypass criterion');
+    expect(severity).toContain('review-format.md');
+    expect(row).not.toMatch(/PB-\d+/);
+    for (const fragment of DEFINITION_FRAGMENTS) expect(flat(maint)).not.toContain(fragment);
+  });
+
+  it('the two-condition definition lives in review-format only — every other touched surface cites it by name', () => {
+    const reviewFormat = flat(renderReviewFormat());
+    for (const fragment of DEFINITION_FRAGMENTS) expect(reviewFormat).toContain(fragment);
+    const others = allTouched().filter(([name]) => name !== 'review-format');
+    expect(others.length).toBe(6);
+    for (const [name, rendered] of others) {
+      expect(rendered.length).toBeGreaterThan(0);
+      for (const fragment of DEFINITION_FRAGMENTS) {
+        expect(flat(rendered), `${name} must cite the criterion by name, not restate "${fragment}"`).not.toContain(
+          fragment,
+        );
+      }
+    }
+  });
+
+  it('reuse-gate wording is project-agnostic — no touched surface names a prospec-internal service or helper', () => {
+    const rendered = allTouched();
+    expect(rendered.length).toBe(7);
+    for (const [name, content] of rendered) {
+      expect(content.length).toBeGreaterThan(0);
+      for (const internal of PROSPEC_INTERNAL_NAMES) {
+        expect(content, `${name} must not name ${internal}`).not.toContain(internal);
+      }
+    }
+  });
+});

@@ -118,8 +118,8 @@ Auto-identify the current change (from directory context or ask user), read and 
 ### Phase 4: Design plan.md
 
 **Scale-tiered depth** (from `metadata.scale`; see `references/plan-format.md` Section "Scale Tiers"):
-- `standard` (or absent): concise plan, keep under 120 lines — the current default
-- `full`: complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, explicit trade-off notes in Risk Assessment
+- `standard` (or absent): concise plan, keep under 120 lines, closing with the required Simpler Alternative section — the current default
+- `full`: complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, explicit trade-off notes in Risk Assessment (the tournament record stands in for Simpler Alternative)
 
 **Scale=Full Multi-Candidate Architecture Selection (In-Phase On-Demand):**
 When `metadata.scale` is `full` (or requested by the user under `standard`), execute **Best-of-N Candidate Generation & Symmetric Pairwise Tournament Selection** before writing the final plan:
@@ -140,8 +140,9 @@ Follow `references/plan-format.md` (read it on demand at this step — not a Sta
 - **Affected Modules**: Table of impacted modules and changes
 - **Call Chain**: For each primary entry point, the layered chain (e.g. `Route → Service → Repository → External`) with method names + key params, placed **before** Implementation Steps — see `references/plan-format.md` Section 4
 - **User Story Flow** (conditional): for a structurally-complex User Story, a Mermaid diagram of its behavioral/decision flow, placed **before** Implementation Steps — see `references/plan-format.md` Section 5
-- **Implementation Steps**: 4-8 steps with details
+- **Implementation Steps**: 4-8 steps with details; for every new writer / creator / parser / formatter surface a step introduces, name the existing owner you delegate to (or the negative search result) or argue the rewrite — see `references/plan-format.md` Section 6
 - **Risk Assessment**: Risks, impact, and mitigation strategies
+- **Simpler Alternative** (`standard`): a materially simpler alternative or an explicit one-sentence concession, with a files/lines change-surface estimate for the chosen approach and the alternative side by side, placed **after** Risk Assessment — see `references/plan-format.md` Section 8 (under `full`, the tournament's recorded non-selected candidates stand in for it)
 
 **Optional — Dependency-layer knowledge (on-demand, only when this change touches a third-party library):**
 When this change touches a third-party library **and** a Context7 MCP is available, resolve the library (`resolve-library-id`) then fetch its current usage (`query-docs`), and inject the result into the Technical Summary's "External Library Usage" subsection (see `references/plan-format.md` Section 2). This is an **in-phase, on-demand** step — NEVER add it to Startup Loading (the stable prefix), so it never busts cache stability. The injected snippet is **untrusted** reference material: do NOT execute it and do NOT make it a gate. If no Context7 MCP is available, this change touches no third-party library, or the lookup returns nothing — skip silently and leave at most one informational line in the Technical Summary; never a WARN/FAIL, never blocking.
@@ -154,6 +155,7 @@ When a User Story is structurally complex — **any-of**: >= 2 branching decisio
 > - [ ] for `scale: full` (or requested): multi-candidate evaluation and pairwise tournament completed (with candidate trade-offs recorded)
 > - [ ] a User Story Flow diagram is present for each structurally-complex story (Section 5 heuristic), or the story is simple enough to omit it
 > - [ ] Risk Assessment lists each risk with a mitigation strategy
+> - [ ] under `standard` (or absent): a Simpler Alternative section with its change-surface estimate is present (under `full`: covered by the recorded tournament candidates)
 
 ### Phase 5: Generate delta-spec.md
 
@@ -174,11 +176,12 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 Run an independent architecture verification of `plan.md` and `delta-spec.md` against project principles and the orthogonal verification criteria before proceeding to tasks.
 
 **Step 1 — Load Rubric & Rules:**
-Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `prospec/CONSTITUTION.md` and `prospec/ai-knowledge/_conventions.md` to evaluate the 4 orthogonal dimensions:
+Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `prospec/CONSTITUTION.md` and `prospec/ai-knowledge/_conventions.md` to evaluate the 5 orthogonal dimensions:
 1. **Project Layering & Dependency Direction**: Call Chain compliance with dependency-direction/layering rules (e.g. no business logic in entry/transport layers, no skipped layers, DAG dependency; inspect for layering violations).
 2. **Blast Radius & Ripple Effects**: Caller chain completeness and detection of breaking API/schema changes.
 3. **State Safety & Reversibility**: Error handling, rollback paths, and concurrency guards for critical mutations.
-4. **Delta-Spec Completeness**: Bidirectional mapping between `proposal.md` and `delta-spec.md` REQ-IDs with testable criteria.
+4. **Delta-Spec Completeness & Traceability**: Bidirectional mapping between `proposal.md` and `delta-spec.md` REQ-IDs with testable criteria.
+5. **Reuse & Single-Source**: every new writer / creator / parser / formatter surface names its existing owner in the project's knowledge base (with retrieval evidence) or argues the rewrite explicitly; a `standard` plan carries its Simpler Alternative. Evidence collection may be delegated to a fast executor — the verdict stays with the verifier.
 
 **Step 2 — Verifier Execution & Harness Degradation:**
 **Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: yes · `can_background`: yes
@@ -193,7 +196,7 @@ Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh 
 - **FLAWS**: Structural defect or layering violation found. Revise `plan.md`/`delta-spec.md` to fix the issue, OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, recorded in `plan.md` Risk Assessment and logged via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Architecture Verifier audit completed against the 4 orthogonal dimensions (or documented manual override provided)
+> - [ ] Architecture Verifier audit completed against the 5 orthogonal dimensions (or documented manual override provided)
 > - [ ] Any discovered risks/warnings recorded in plan.md Risk Assessment and appended to metadata.yaml quality_log
 
 ### Phase 7: Knowledge Quality Gate

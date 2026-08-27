@@ -21,6 +21,7 @@ A finding is critical only if it is one of:
 1. **Real defect**: not fixing it causes a genuine bug, security hole, data loss, or production incident. (Do not inflate criticals — speculative or "could theoretically" risks are not critical.)
 2. **Dependency-direction violation**: an import or call that breaks the project's declared dependency direction — from its Constitution / `_conventions.md` (never upward).
 3. **Spec contradiction**: the implementation logically contradicts a `delta-spec` REQ's stated intent.
+4. **Single-source bypass on an autonomous or write path**: the change re-implements a guard, normalizer, or writer that the project's knowledge base documents as the single source (or that an existing service already provides), AND the duplicate sits on an autonomous or write path — *autonomous*: executed without a human in the loop (a scheduled, CI, hook, or agent-driven job); *write path*: code that creates or mutates an artifact, record, or configuration — both conditions required; a duplicate off those paths stays major (DRY). This two-condition definition lives here only — the plan rubric and the lens reference cite it by name.
 
 > REQ *completeness* ("this REQ is only partially covered") is **not** a review critical — it is left to `/prospec-verify` dimension 1–2. Review checks correctness and spec-*contradiction*, not coverage.
 
@@ -110,7 +111,7 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 | security & data integrity | always | injection, auth gaps, unsafe writes, data loss |
 | **spec-architecture** | always (prospec) | vs `delta-spec` REQ intent, dependency direction, module conventions, ripple effects |
 | efficiency / performance | hot-path or data-layer change | N+1, needless allocation, blocking I/O |
-| maintainability / DRY | new abstractions introduced | duplication, leaky abstraction, dead branches |
+| maintainability / DRY | new abstractions introduced, or an existing helper / guard / writer re-implemented | duplication, leaky abstraction, dead branches, documented single-source bypass |
 
 A pluggable language-specific engine may add language lenses; the **spec-architecture** lens is always layered on by prospec — it is what a generic code-review tool cannot provide.
 

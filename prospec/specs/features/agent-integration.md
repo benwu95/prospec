@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-20
+last_updated: 2026-08-27
 story_count: 22
 req_count: 91
 ---
@@ -79,6 +79,7 @@ The generated agent entry config states a Station Transition Protocol: on advanc
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-27 | add-reuse-single-source-gate | MODIFIED REQ-TEMPLATES-084 | REQ-TEMPLATES-084 |
 | 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-197; ADDED REQ-TESTS-095 | REQ-TEMPLATES-197, REQ-TESTS-095 |
 | 2026-08-20 | situationally-aware-station-transitions | ADDED REQ-TEMPLATES-194 | REQ-TEMPLATES-194 |
 | 2026-08-19 | tasks-contract-dag-verification | ADDED REQ-AGNT-041 | REQ-AGNT-041 |

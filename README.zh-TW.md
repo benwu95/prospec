@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4163%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4178%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -451,8 +451,8 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | Scale | 流程差異 |
 |-------|---------|
 | `quick` | 精簡 proposal（單 Story、免 FR/SC 枚舉）、**完全跳過 plan 階段**（`story → tasks`）、不載入模組 README；review/verify 的 delta-spec 維度標示 `not-applicable`（絕不偽裝 PASS） |
-| `standard`（預設；既有變更無欄位即此級） | 現行精簡流程 —— plan ≤ 120 行 |
-| `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain |
+| `standard`（預設；既有變更無欄位即此級） | 現行精簡流程 —— plan ≤ 120 行，結尾必含 **Simpler Alternative** 段落（實質更簡單的替代方案或明文 concede，附檔數/行數變更表面估算） |
+| `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain、Best-of-N 候選架構錦標賽（其非選中候選記錄替代 Simpler Alternative 段落） |
 
 兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`/prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。工程紀律不隨 scale 縮減：TDD、對抗式審查、Constitution 稽核在每個級別照常執行。
 
@@ -1043,7 +1043,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4163 個測試）
+# 執行所有測試（4178 個測試）
 pnpm test
 
 # Watch 模式
@@ -1056,9 +1056,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4163 個測試橫跨 4 大類：
+**測試覆蓋率**：4178 個測試橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：3109 tests
-- Contract tests（CLI 輸出 + Skill 格式）：904 tests
+- Contract tests（CLI 輸出 + Skill 格式）：919 tests
 - Integration tests：45 tests
 - E2E tests：105 tests
 

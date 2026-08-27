@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-23
-story_count: 39
-req_count: 235
+last_updated: 2026-08-27
+story_count: 40
+req_count: 238
 ---
 
 # SDD Workflow
@@ -39,6 +39,7 @@ req_count: 235
 - [US-27–US-28](./sdd-workflow/us-27.md)
 - [US-29: Deterministic Station Work Belongs to the CLI](./sdd-workflow/us-29.md)
 - [US-39: Judgment Grading Routes to the Strongest Available Tier](./sdd-workflow/us-39.md)
+- [US-40: Reuse Is Adjudicated Before a New Implementation Is Planned](./sdd-workflow/us-40.md)
 
 ---
 
@@ -86,6 +87,7 @@ req_count: 235
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-27 | add-reuse-single-source-gate | ADDED REQ-TEMPLATES-200; ADDED REQ-TEMPLATES-201; ADDED REQ-TESTS-097; MODIFIED REQ-TEMPLATES-182; MODIFIED REQ-TEMPLATES-067; MODIFIED REQ-TEMPLATES-192 | REQ-TEMPLATES-200, REQ-TEMPLATES-201, REQ-TESTS-097, REQ-TEMPLATES-182, REQ-TEMPLATES-067, REQ-TEMPLATES-192 |
 | 2026-08-23 | validate-routing-headers-before-landing | ADDED REQ-SERVICES-096; MODIFIED REQ-SPEC-012; MODIFIED REQ-TEMPLATES-033 | REQ-SERVICES-096, REQ-SPEC-012, REQ-TEMPLATES-033 |
 | 2026-08-22 | record-judgment-gate-executor | MODIFIED REQ-TYPES-022; MODIFIED REQ-CLI-029; MODIFIED REQ-CLI-038; MODIFIED REQ-TEMPLATES-155; MODIFIED REQ-TEMPLATES-157; MODIFIED REQ-TYPES-053; ADDED REQ-TEMPLATES-199 | REQ-TYPES-022, REQ-CLI-029, REQ-CLI-038, REQ-TEMPLATES-155, REQ-TEMPLATES-157, REQ-TYPES-053, REQ-TEMPLATES-199 |
 | 2026-08-21 | autonomous-drift-draft | ADDED REQ-SERVICES-095; ADDED REQ-CLI-040; MODIFIED REQ-CHNG-002; MODIFIED REQ-CHNG-003; MODIFIED REQ-SERVICES-070; MODIFIED REQ-CLI-023; MODIFIED REQ-CHNG-004; MODIFIED REQ-CLI-025; MODIFIED REQ-TYPES-070 | REQ-SERVICES-095, REQ-CLI-040, REQ-CHNG-002, REQ-CHNG-003, REQ-SERVICES-070, REQ-CLI-023, REQ-CHNG-004, REQ-CLI-025, REQ-TYPES-070 |

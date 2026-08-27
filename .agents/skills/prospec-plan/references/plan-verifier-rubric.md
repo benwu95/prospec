@@ -15,7 +15,7 @@ The Architecture Verifier provides an independent, adversarial audit of `plan.md
 
 ## Evaluation Dimensions (Criteria Decomposition)
 
-The Verifier audits the planning artifacts across four orthogonal dimensions:
+The Verifier audits the planning artifacts across five orthogonal dimensions:
 
 ### 1. Project Layering & Dependency Direction
 - **Rule Source**: The project's `prospec/CONSTITUTION.md` and `prospec/ai-knowledge/_conventions.md`.
@@ -44,15 +44,25 @@ The Verifier audits the planning artifacts across four orthogonal dimensions:
   - **Delta Clarity**: For MODIFIED requirements, are Before, After, Reason, and `**Spec:**` blocks clearly articulated and testable?
   - **No Orphaned Scope**: Does `delta-spec.md` contain ungrounded requirements outside the proposal's scope?
 
+### 5. Reuse & Single-Source
+- **Rule Source**: The target project's own knowledge base — each module README's Modification Guide, `prospec/ai-knowledge/_conventions.md`, and its module map — plus a grep of the codebase.
+- **Checks**:
+  - For every NEW writer, creator, parser, or formatter surface the plan introduces (an entry point that writes an artifact class, creates a record, parses a format, or renders output), does the plan either (a) name the existing owner of that artifact class — the service or helper that already writes, parses, or guards it — with retrieval evidence that the verifier's own search confirms, or (b) explicitly argue the rewrite?
+  - A plan that introduces no new surface states so as a vacuous PASS; an owner search that finds nothing records the negative evidence ("searched module map / READMEs / grep — no owner") rather than leaving the dimension blank.
+  - Under `scale: standard` (or absent — an absent scale reads as `standard`), is the plan's `## Simpler Alternative` section present with its change-surface estimate? A missing section counts as an unargued rewrite.
+- **Division of labour**: collecting the evidence (module-map entries, README hits, grep results) is mechanical and may be delegated to a fast executor; only the verdict — owner named, rewrite argued, or neither — is the verifier's to adjudicate.
+
 ---
 
 ## Verdict & Severity Contract
 
 | Verdict | Condition | Action |
 |---------|-----------|--------|
-| **PASS** | All 4 dimensions satisfied; no critical flaws. | Advance to `/prospec-tasks` or manual review. |
+| **PASS** | All 5 dimensions satisfied; no critical flaws. | Advance to `/prospec-tasks` or manual review. |
 | **WARN** | Advisory concerns (e.g. missing edge-case mitigation, non-critical performance note). | Append to `plan.md` Risk Assessment and log to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
-| **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
+| **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story, an existing owner bypassed without a stated rationale, or a `standard` plan missing its Simpler Alternative). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
+
+> The Reuse & Single-Source trigger above is self-contained: any unargued bypass is FLAWS here, whatever path the new surface sits on — a plan page is cheap to widen. Its review-stage counterpart, the single-source bypass criterion in `review-format.md`, is deliberately narrower and is only named here, not restated.
 
 ---
 
