@@ -32,6 +32,7 @@ function baseResult(
     generatedFiles: [],
     warnings: [],
     sweptFiles: [],
+    stampOnly: [],
     ...overrides,
   };
 }
@@ -63,6 +64,28 @@ describe('knowledge-update-output', () => {
     expect(out).toContain('created: prospec/ai-knowledge/services/README.md');
     expect(out).toContain('deprecated: old-module');
     expect(out).toContain('non-canonical REQ id skipped');
+  });
+
+  it('prints the stamp-only (diff-attributed) section distinct from README-pending', () => {
+    const out = captureStdout(() =>
+      formatKnowledgeUpdateOutput(
+        baseResult({ readmePending: ['services'], stampOnly: ['lib'] }),
+        'normal',
+      ),
+    );
+    expect(out).toContain('stamp-only');
+    expect(out).toContain('diff-attributed');
+    expect(out).toContain('- lib');
+    // distinct section from README-pending, not folded into it
+    expect(out).toContain('README content pending');
+    expect(out.indexOf('stamp-only')).toBeGreaterThan(out.indexOf('README content pending'));
+  });
+
+  it('omits the stamp-only section when empty', () => {
+    const out = captureStdout(() =>
+      formatKnowledgeUpdateOutput(baseResult({ readmePending: ['services'] }), 'normal'),
+    );
+    expect(out).not.toContain('stamp-only');
   });
 
   it('prints the nothing-to-update fallback', () => {

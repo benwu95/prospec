@@ -41,6 +41,13 @@ export function formatKnowledgeUpdateOutput(
     );
     for (const mod of result.readmePending) lines.push(`  - ${sanitizeTerminal(mod)}`);
   }
+  if (result.stampOnly.length > 0) {
+    lines.push('');
+    lines.push(
+      `${pc.yellow('●')} stamp-only (diff-attributed, e.g. generated files — knowledge verify, no README edit):`,
+    );
+    for (const mod of result.stampOnly) lines.push(`  - ${sanitizeTerminal(mod)}`);
+  }
   for (const warning of result.warnings) {
     lines.push(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}`);
   }

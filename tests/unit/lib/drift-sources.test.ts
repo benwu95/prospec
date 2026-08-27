@@ -30,6 +30,8 @@ import {
   collectBudgetOverrides,
   moduleAttributor,
   collectCanonicalDocDrift,
+  changedPathsFromWorkTree,
+  partitionDiffAttributedModules,
 } from '../../../src/lib/drift-sources.js';
 import { evaluateKnowledgeHealth, evaluateReqReferences } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
@@ -2846,5 +2848,81 @@ describe('collectDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     );
     const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries.find((x) => x.reqId === 'REQ-WF-001')!;
     expect(e.existingBody).toContain('WHEN b, THEN y');
+  });
+});
+
+describe('partitionDiffAttributedModules (REQ-LIB-062)', () => {
+  const MAP: ModuleMap = {
+    modules: [
+      { name: 'lib', paths: ['src/lib'], keywords: [] },
+      { name: 'templates', paths: ['src/templates'], keywords: [] },
+      { name: 'tests', paths: ['tests'], keywords: [] },
+    ],
+  };
+
+  it('splits diff-attributed modules into acknowledged and stamp-only (generated-artifact case)', () => {
+    // A pure `.hbs` change: templates named by a REQ, bundled-templates.ts pulls in lib.
+    const r = partitionDiffAttributedModules(
+      ['src/templates/skills/x.hbs', 'src/lib/bundled-templates.ts'],
+      MAP,
+      ['templates'],
+    );
+    expect(r.diffAttributed).toEqual(['lib', 'templates']);
+    expect(r.stampOnly).toEqual(['lib']); // only lib is diff-attributed without a REQ naming it
+  });
+
+  it('treats the acknowledged set case-insensitively', () => {
+    expect(partitionDiffAttributedModules(['src/lib/a.ts'], MAP, ['LIB']).stampOnly).toEqual([]);
+  });
+
+  it('a path no module claims contributes to neither set', () => {
+    const r = partitionDiffAttributedModules(['scripts/x.ts', 'README.md'], MAP, []);
+    expect(r.diffAttributed).toEqual([]);
+    expect(r.stampOnly).toEqual([]);
+  });
+
+  it('empty changed paths yields empty sets', () => {
+    const r = partitionDiffAttributedModules([], MAP, ['lib']);
+    expect(r.diffAttributed).toEqual([]);
+    expect(r.stampOnly).toEqual([]);
+  });
+});
+
+describe('changedPathsFromWorkTree (REQ-LIB-062)', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/base.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('returns null when not a git work tree', () => {
+    expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
+  });
+
+  it('lists tracked + untracked working-tree paths over the digest denylist scope', () => {
+    initRepo();
+    write('src/lib/base.ts', 'export const a = 2;\n'); // tracked modification
+    write('src/lib/bundled-templates.ts', 'export const B = {};\n'); // untracked generated artifact
+    write('.prospec/changes/x/delta-spec.md', '# x\n'); // excluded by scope
+    write('dist/out.js', 'x\n'); // excluded by scope
+    write('pnpm-lock.yaml', 'lockfileVersion: 9\n'); // excluded by scope
+
+    const changed = changedPathsFromWorkTree(tmpDir);
+    expect(changed).not.toBeNull();
+    expect(changed).toContain('src/lib/base.ts');
+    expect(changed).toContain('src/lib/bundled-templates.ts');
+    expect(changed).not.toContain('.prospec/changes/x/delta-spec.md');
+    expect(changed).not.toContain('dist/out.js');
+    expect(changed).not.toContain('pnpm-lock.yaml');
+  });
+
+  it('returns an empty list (not null) when the working tree is clean', () => {
+    initRepo();
+    expect(changedPathsFromWorkTree(tmpDir)).toEqual([]);
   });
 });

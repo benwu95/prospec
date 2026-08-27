@@ -1216,6 +1216,32 @@ export function moduleAttributor(moduleMap: ModuleMap): (relPath: string) => str
 }
 
 /**
+ * Split the modules a change's diff touches into those a requirement already
+ * acknowledged and those only a file-path diff attributes — the stamp-only
+ * candidates, typically a generated artifact pulling in its module (a bundled
+ * template regenerated under `src/lib/**`). `acknowledged` names the REQ-prefix
+ * modules the caller already resolved; the comparison is case-insensitive. A path
+ * no module claims contributes to neither set, exactly as `moduleAttributor`
+ * returns null for it. Pure — the git read that feeds `changedPaths` lives in
+ * `changedPathsFromWorkTree`, so the split itself is unit-tested without git.
+ */
+export function partitionDiffAttributedModules(
+  changedPaths: readonly string[],
+  moduleMap: ModuleMap,
+  acknowledged: readonly string[],
+): { diffAttributed: string[]; stampOnly: string[] } {
+  const attribute = moduleAttributor(moduleMap);
+  const diffAttributed = new Set<string>();
+  for (const p of changedPaths) {
+    const mod = attribute(p);
+    if (mod !== null) diffAttributed.add(mod);
+  }
+  const ack = new Set(acknowledged.map((m) => m.toLowerCase()));
+  const stampOnly = [...diffAttributed].filter((m) => !ack.has(m.toLowerCase())).sort();
+  return { diffAttributed: [...diffAttributed].sort(), stampOnly };
+}
+
+/**
  * Existence check that refuses to follow a symlink out of the repo. A target
  * whose lexical path stays inside cwd but whose real (symlink-resolved) path
  * lands outside is reported as non-existent, closing the existence oracle.
@@ -1529,6 +1555,38 @@ export function computeWorkingTreeClean(cwd: string): boolean | null {
   const untracked = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
   if (untracked === null) return null;
   return diff === '' && untracked.trim() === '';
+}
+
+/**
+ * The repo-relative paths a change has touched in the working tree — tracked
+ * (`git diff --name-only HEAD`) plus untracked (`git ls-files --others`) — over the
+ * SAME denylist scope as the change digest, so a generated `src/**` artifact counts
+ * while `.prospec`/`.claude`/`dist`/lockfiles do not.
+ *
+ * This is the pre-commit counterpart of the `knowledge:check` gate's committed-range
+ * diff. The gate runs in CI after the commit and can diff a base branch; the
+ * knowledge-update station runs at the verify S/A commit prompt, BEFORE the feature
+ * commit, when every edit still sits in the working tree — so this, not a base
+ * branch the shipped tool cannot assume downstream, is how the station sees what the
+ * change touched. Both attribute those paths through the one `moduleAttributor`.
+ *
+ * Tri-state fail-closed, exactly like `computeChangeDigest`/`computeWorkingTreeClean`
+ * (PB-013): null when it is not a git repository or ANY git capture fails, so a
+ * swallowed error can never masquerade as an empty change set.
+ */
+export function changedPathsFromWorkTree(cwd: string): string[] | null {
+  if (!isGitWorkTree(cwd)) return null;
+  const scope = digestScope();
+  const tracked = gitCapture(cwd, ['diff', '--name-only', 'HEAD', ...scope]);
+  if (tracked === null) return null;
+  const untracked = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
+  if (untracked === null) return null;
+  const paths = new Set<string>();
+  for (const line of [...tracked.split('\n'), ...untracked.split('\n')]) {
+    const p = line.trim();
+    if (p.length > 0) paths.add(p);
+  }
+  return [...paths].sort();
 }
 
 /**

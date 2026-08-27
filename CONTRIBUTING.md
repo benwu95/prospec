@@ -79,6 +79,17 @@ pnpm counts
 # CI instead runs `pnpm run counts:check --from vitest-report.json`, reusing
 # the report `pnpm run test:coverage` wrote — so a stale count fails the PR.
 pnpm counts:check
+
+# Deployed agent artifacts fresh vs their source templates.
+pnpm agents:check
+
+# Module knowledge synced with source. IMPORTANT: run this AFTER the feature
+# commit and before pushing — it diffs `git merge-base origin/main HEAD`..HEAD,
+# so before the commit the range is empty and it prints a "commit first, then
+# re-run" skip, never a real pass. Editing a shipped `.hbs` + `pnpm bundle` also
+# makes `lib` source-touched via the regenerated `src/lib/bundled-templates.ts`,
+# so stamp `lib` too — `prospec knowledge update --change` lists it as stamp-only.
+pnpm knowledge:check
 ```
 
 ## Project Structure
