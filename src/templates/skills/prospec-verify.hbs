@@ -424,7 +424,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against the Constitution. When rules carry RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Fold each WARN/FAIL into the same `prospec-verify` `quality_log` entry written in Status Update (`skill` / `date` / `result` / `warnings`, plus the structured `grade` / `dimensions`) — one entry per verify run, not a second one. Advisory — surface issues, do not hard-block.
+Verify the output against the Constitution. When rules carry RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Fold each WARN/FAIL into the same `prospec-verify` `quality_log` entry written in Status Update (`skill` / `date` / `result` / `warnings`, plus the structured `grade` / `dimensions`) — one entry per verify run, not a second one. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

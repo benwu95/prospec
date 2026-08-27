@@ -2564,7 +2564,7 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
     expect(findingFormat).toMatch(/indistinguishable from none/i);
 
     const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
-    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+    const section = sectionOf(lens, '## Test-Quality Lens');
 
     // Freeze the ROW SET, not one phrasing. A negative grep for "name the
     // mutations" is escaped by rewording it to "list the mutations" — the
@@ -2593,7 +2593,7 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
 
   it('the test-quality lens names the vacuous-pass shape at major', () => {
     const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
-    const section = sectionOf(lens, '## Test-Quality Lens (PB-001)');
+    const section = sectionOf(lens, '## Test-Quality Lens');
     const row = section.split('\n').find((l) => /vacuously/i.test(l));
     expect(row, 'vacuous-pass row not found in the criteria table').toBeDefined();
     expect(row).toMatch(/\|\s*major/i);
@@ -4625,19 +4625,19 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
 
   it('residual playbook rules fall back to gates — PB-001 & PB-007 inline in prospec-implement NEVER', () => {
     const never = sectionOf(renderImplement(), '## NEVER');
-    expect(never).toContain('PB-001');
+    expect(never).toContain('content-presence only');
     expect(never).toContain('mutation-verify');
-    expect(never).toContain('PB-007');
+    expect(never).toContain('re-implement an invariant ad hoc');
     expect(never).toContain('grep EVERY consumer');
   });
 
   it('residual playbook rules fall back to lenses — PB-001/003/006/007 grep-hittable in review-lenses-content', () => {
     const lenses = renderLenses();
-    expect(sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens (PB-003)')).toContain('claim ⊆ implementation');
-    expect(sectionOf(lenses, '## Parallel-Site Completeness Lens (PB-007)')).toContain('parallel consumer');
-    expect(sectionOf(lenses, '## Test-Quality Lens (PB-001)')).toContain('mutation-verified');
+    expect(sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens')).toContain('claim ⊆ implementation');
+    expect(sectionOf(lenses, '## Parallel-Site Completeness Lens')).toContain('parallel consumer');
+    expect(sectionOf(lenses, '## Test-Quality Lens')).toContain('mutation-verified');
     // PB-006 strengthened the existing DRY lens with the parallel-module clause
-    expect(sectionOf(lenses, '## Maintainability / DRY Lens')).toContain('PB-006');
+    expect(sectionOf(lenses, '## Maintainability / DRY Lens')).toContain('parallel module');
   });
 
   it('prospec-review Review Lenses reference the new docs-claims / parallel-site / test-quality lenses', () => {
@@ -4738,10 +4738,10 @@ describe('detect-inlined-gate-desync — Inlined/Mechanized annotation anchors (
 
   it('the docs-claims and parallel-site lenses carry PB-003/PB-007 CURRENT strengthened clauses', () => {
     const lenses = renderLenses();
-    const docs = sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens (PB-003)');
+    const docs = sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens');
     expect(docs).toContain('who runs it and when'); // PB-003 2026-08-03 enforcement face
     expect(docs).toContain('nothing enforces'); // PB-003 2026-08-06 no-enforcer face
-    const par = sectionOf(lenses, '## Parallel-Site Completeness Lens (PB-007)');
+    const par = sectionOf(lenses, '## Parallel-Site Completeness Lens');
     expect(par).toContain('re-running the full lens each round'); // PB-007 2026-07-31 remediation
   });
 });
@@ -6256,4 +6256,36 @@ describe('reuse-and-single-source gate (issue #204)', () => {
       }
     }
   });
+});
+
+describe('shipped templates carry no prospec-internal governance identifiers', () => {
+  // A shipped skill or reference renders verbatim into every downstream project. A
+  // playbook id (PB-006), a backlog id (BL-031), an issue number, or one of THIS
+  // repo's module-prefixed REQ ids is meaningless noise there — the rule must stand
+  // on its own words. Generic format examples (REQ-AUTH-001) and the playbook id
+  // FORMAT token (`PB-{NNN}`, digits unbound) are the downstream project's own.
+  // `\s+` after "issue" catches a reference split across a line wrap; `(#nnn)` a bare
+  // parenthesised issue number; the REQ alternative also catches a `-*` wildcard.
+  const GOVERNANCE_ID =
+    /\bPB-\d{3}\b|\bBL-\d{3}\b|\bissue\s+#\d+\b|\(#\d{2,4}\)|\bREQ-(?:TYPES|LIB|SERVICES|CLI|TEMPLATES|TESTS|CHNG|AGNT|SPEC|DSGN|MCP)-(?:\d+|\*)/gi;
+  const shipped = Object.keys(BUNDLED_TEMPLATES).filter(
+    (name) => name.startsWith('skills/') && !name.includes('/_'),
+  );
+
+  it('scans exactly the shipped set: every skill plus every registered reference template', () => {
+    const expected =
+      SKILL_DEFINITIONS.length +
+      new Set(SKILL_DEFINITIONS.flatMap((s) => getSkillReferences(s.name).map((r) => r.templateName)))
+        .size;
+    expect(shipped.length).toBe(expected);
+  });
+
+  for (const name of shipped) {
+    it(`${name} names no PB/BL/issue/prospec-module REQ id`, () => {
+      const rendered = renderTemplate(name, TEMPLATE_CONTEXT);
+      expect(rendered.length).toBeGreaterThan(0);
+      const hits = [...new Set(rendered.match(GOVERNANCE_ID) ?? [])];
+      expect(hits, `${name} leaks governance ids: ${hits.join(', ')}`).toEqual([]);
+    });
+  }
 });

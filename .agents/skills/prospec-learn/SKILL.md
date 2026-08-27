@@ -78,7 +78,7 @@ The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule fro
 ### Promote
 
 **lessons ledger → team `prospec/ai-knowledge/_playbook.md` → Constitution**, gated stricter at each step. Routing by the lesson's **kind** (see `references/promotion-format.md`):
-- **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (BL-031 severity form) that `/prospec-verify` grades.
+- **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (RFC-2119 severity form) that `/prospec-verify` grades.
 - **convention** / **playbook** → `prospec/ai-knowledge/_playbook.md` — the single governed team tier (L2 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is an L1 Core Convention read on every task and not TTL-governed).
 
 - A suggestion is **never written** to `_playbook.md` or the Constitution without **explicit human approval**. Present the score detail, ask, and only on approval write the entry.
@@ -113,7 +113,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** rule (**promotion-approval discipline** — nothing reaches the team playbook or Constitution without explicit human approval), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record any WARN/FAIL (e.g. a promotion blocked, an unresolved conflict) to the change's `metadata.yaml` `quality_log` (`skill: prospec-learn` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** rule (**promotion-approval discipline** — nothing reaches the team playbook or Constitution without explicit human approval), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record any WARN/FAIL (e.g. a promotion blocked, an unresolved conflict) to the change's `metadata.yaml` `quality_log` (`skill: prospec-learn` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

@@ -70,8 +70,8 @@ List all REQ IDs from `delta-spec.md`:
 
 | REQ ID | Status | Description |
 |--------|--------|-------------|
-| REQ-TYPES-010 | ADDED | ChangeStatus archived support |
-| REQ-SERVICES-010 | ADDED | Archive Service implementation |
+| REQ-AUTH-010 | ADDED | Session token rotation |
+| REQ-API-011 | MODIFIED | Login endpoint returns the rotated token |
 ```
 
 ---

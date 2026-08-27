@@ -93,7 +93,7 @@ Backfill extraction **never writes** to `prospec/specs/features/` (`prospec arch
 
 ### Phase 4: WHAT-layer coverage scoping (optional)
 
-To choose targets, read `prospec/specs/features/` and list candidate **features** (cross-module behavior slices) whose **WHAT-layer** behavior no existing Feature Spec REQ covers — scope by uncovered **feature/capability**, never by uncovered module (a module already covered ≠ the feature is covered). Coverage source: (a) with `feature-map.yaml` present (BL-040) = deterministic set-difference `all features − covered features`; (b) without it = take the existing `prospec/specs/features/` slugs as the capability inventory and derive slice participation from the module list, judged in prose. An uncovered feature already covered is excluded (avoid re-extracting). Output is **informational only** — it does not block and **does not auto-trigger** extraction.
+To choose targets, read `prospec/specs/features/` and list candidate **features** (cross-module behavior slices) whose **WHAT-layer** behavior no existing Feature Spec REQ covers — scope by uncovered **feature/capability**, never by uncovered module (a module already covered ≠ the feature is covered). Coverage source: (a) with `feature-map.yaml` present = deterministic set-difference `all features − covered features`; (b) without it = take the existing `prospec/specs/features/` slugs as the capability inventory and derive slice participation from the module list, judged in prose. An uncovered feature already covered is excluded (avoid re-extracting). Output is **informational only** — it does not block and **does not auto-trigger** extraction.
 
 ### Phase 5: User-review gate
 

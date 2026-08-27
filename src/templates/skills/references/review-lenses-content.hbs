@@ -83,7 +83,7 @@ SOFTWARE.
 | Criterion | Default severity |
 |-----------|------------------|
 | Removing an error-handling path "for cleanliness" | critical (hides bugs) |
-| Duplicated logic > ~5 lines, or repeated conditionals — extract a named function; logic needed in a **parallel module** must be extracted to ONE shared leaf helper and imported, never hand-copied (PB-006 — mind dependency direction, no lib→lib cycle) | major (DRY) |
+| Duplicated logic > ~5 lines, or repeated conditionals — extract a named function; logic needed in a **parallel module** must be extracted to ONE shared leaf helper and imported, never hand-copied (mind dependency direction — never a cycle between leaf modules) | major (DRY) |
 | Re-implementing a helper or guard the project's knowledge base documents as the single source (or that an existing service already provides) — delegate to the owner instead | critical when the single-source bypass criterion in `review-format.md` holds (its path condition and both-conditions rule live there); otherwise major (DRY) |
 | Deep nesting > 3 levels, or functions > ~50 lines — guard clauses / split by responsibility | major |
 | Dead code (unreachable branches, unused vars, commented-out blocks) | major |
@@ -100,7 +100,7 @@ test changed likely changed behavior — treat as suspect.
 
 ---
 
-## Docs-Claims / Measurement-Attribution Lens (PB-003)
+## Docs-Claims / Measurement-Attribution Lens
 
 Applies when the change adds or edits README/doc/spec prose that claims behavior.
 
@@ -114,7 +114,7 @@ Applies when the change adds or edits README/doc/spec prose that claims behavior
 
 ---
 
-## Parallel-Site Completeness Lens (PB-007)
+## Parallel-Site Completeness Lens
 
 Applies when the change introduces or touches an invariant or a shared resolver / config / data source — **or applies a fix** (remediation has the same failure mode).
 
@@ -126,7 +126,7 @@ Applies when the change introduces or touches an invariant or a shared resolver 
 
 ---
 
-## Test-Quality Lens (PB-001)
+## Test-Quality Lens
 
 Applies when the change adds or edits tests (esp. contract/structural assertions).
 
