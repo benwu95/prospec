@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-08-19
+last_updated: 2026-08-27
 story_count: 15
-req_count: 65
+req_count: 68
 ---
 
 # AI Knowledge
@@ -58,6 +58,7 @@ Serves developers and AI Agents using Prospec. AI Knowledge is a structured proj
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-27 | align-knowledge-check-attribution | ADDED REQ-LIB-062; ADDED REQ-SERVICES-097; ADDED REQ-CLI-042; MODIFIED REQ-TEMPLATES-162 | REQ-LIB-062, REQ-SERVICES-097, REQ-CLI-042, REQ-TEMPLATES-162 |
 | 2026-08-19 | instruct-prospec-knowledge-verify | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-08-14 | mechanize-knowledge-sync-gate | ADDED REQ-TYPES-084 | REQ-TYPES-084 |
 | 2026-08-09 | fix-index-category-grouping | MODIFIED REQ-KNOW-018 | REQ-KNOW-018 |
