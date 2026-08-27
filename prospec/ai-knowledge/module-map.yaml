@@ -258,10 +258,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-08-23T03:50:22.346Z
+    last_verified: 2026-08-27T03:23:16.141Z
   - name: tests
-    description: 4-layer test suite — 167 files, 4,163 tests (unit 3109 + contract
-      904 + integration 45 + e2e 105). Validates every module — format
+    description: 4-layer test suite — 167 files, 4,178 tests (unit 3109 + contract
+      919 + integration 45 + e2e 105). Validates every module — format
       contracts, the cli-first probe + station-command contracts, the drift
       engine, token corpus, and the MCP protocol over in-memory transport.
     paths:
@@ -297,4 +297,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-08-23T03:50:22.346Z
+    last_verified: 2026-08-27T03:23:16.141Z

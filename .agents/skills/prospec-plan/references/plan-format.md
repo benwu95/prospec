@@ -24,16 +24,6 @@ A 1-2 paragraph summary describing the overall implementation strategy:
 [Paragraph 2: The implementation strategy and key design decisions]
 ```
 
-**Example:**
-
-```markdown
-## Overview
-
-This story implements a unified error handling mechanism for prospec. Currently, errors are handled inconsistently across different modules, making debugging difficult.
-
-We will create a centralized error handler module that defines standard error types, response formats, and logging strategies. This follows the error handling conventions specified in prospec/CONSTITUTION.md.
-```
-
 ---
 
 ### 2. Technical Summary (Context-Dependent)
@@ -114,18 +104,6 @@ Use a table to list affected modules:
 | [module name] | [High/Medium/Low] | [Brief description of changes] |
 ```
 
-**Example:**
-
-```markdown
-## Affected Modules
-
-| Module | Impact | Changes |
-|--------|--------|---------|
-| error-handler | High | New module creation |
-| api-middleware | Medium | Integrate centralized error handler |
-| logger | Low | Add error-specific log formatting |
-```
-
 ---
 
 ### 4. Call Chain
@@ -179,7 +157,7 @@ flowchart TD
 
 ### 6. Implementation Steps
 
-Use an ordered numbered list with details for each step:
+Use an ordered numbered list with details for each step. For every new writer, creator, parser, or formatter surface a step introduces, name the existing owner you delegate to — or state that you searched the module map and READMEs and found none — or argue the rewrite explicitly; the Architecture Verifier's Reuse & Single-Source dimension grades exactly this.
 
 ```markdown
 ## Implementation Steps
@@ -205,18 +183,7 @@ Use an ordered numbered list with details for each step:
 
 2. **Integrate with existing modules**
    - Update api-middleware to use centralized error handler
-   - Refactor existing error handling code
    - Ensure backward compatibility
-
-3. **Add logging and monitoring**
-   - Integrate with logger module
-   - Add error tracking hooks
-   - Configure log levels per error type
-
-4. **Update documentation**
-   - Document error codes in prospec/ai-knowledge
-   - Add usage examples for developers
-   - Update API documentation
 ```
 
 ---
@@ -242,7 +209,25 @@ Use a table to list risks, impacts, and mitigation strategies:
 |------|--------|------------|
 | Breaking existing error handling | High | Implement gradual migration, maintain backward compatibility |
 | Performance overhead | Low | Optimize error handler, benchmark critical paths |
-| Incomplete error coverage | Medium | Conduct thorough code review, add integration tests |
+```
+
+---
+
+### 8. Simpler Alternative (required under `standard`)
+
+Placed **after Risk Assessment**. A `standard` plan MUST carry this section; under `full` the tournament's recorded non-selected candidates (Risk Assessment) stand in for it, so it is not repeated.
+
+Either propose a **materially simpler** alternative to the chosen approach, or concede in one sentence that none exists and say why. Attach a change-surface estimate of the chosen approach in files and lines order of magnitude, so "simpler" is a comparable downstream review/verify cost claim, not an adjective. When you propose an alternative, estimate it side by side; when you concede, the Alternative row names the nearest alternative you considered and shows it is not smaller — or is omitted, with the reason in the concession sentence. The Architecture Verifier's Reuse & Single-Source dimension (`plan-verifier-rubric.md`) treats a missing section as an unargued rewrite.
+
+```markdown
+## Simpler Alternative
+
+[Alternative in 1-2 sentences — OR — None: <why the chosen approach is already the minimal surface>]
+
+| Approach | Files | Lines (order of magnitude) |
+|----------|-------|----------------------------|
+| Chosen: [name] | [n] | ~[n] |
+| Alternative: [name] (nearest considered when conceding; omit only with the reason above) | [n] | ~[n] |
 ```
 
 ---
@@ -254,8 +239,8 @@ Plan depth follows the change's `metadata.scale`:
 | Scale | Plan output |
 |-------|-------------|
 | `quick` | No plan at all — `/prospec-plan` exits at its Entry Gate; proceed to tasks |
-| `standard` (or absent) | Concise plan, keep under **120 lines** (the conditional Section 5 User Story Flow diagram block is excluded from the count) — the default below |
-| `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment; the 120-line cap does not apply |
+| `standard` (or absent) | Concise plan, keep under **120 lines** (the conditional Section 5 User Story Flow diagram block is excluded from the count), including the required Section 8 Simpler Alternative — the default below |
+| `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment (the tournament record stands in for Simpler Alternative); the 120-line cap does not apply |
 
 ---
 

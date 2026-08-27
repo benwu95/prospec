@@ -84,6 +84,7 @@ SOFTWARE.
 |-----------|------------------|
 | Removing an error-handling path "for cleanliness" | critical (hides bugs) |
 | Duplicated logic > ~5 lines, or repeated conditionals — extract a named function; logic needed in a **parallel module** must be extracted to ONE shared leaf helper and imported, never hand-copied (PB-006 — mind dependency direction, no lib→lib cycle) | major (DRY) |
+| Re-implementing a helper or guard the project's knowledge base documents as the single source (or that an existing service already provides) — delegate to the owner instead | critical when the single-source bypass criterion in `review-format.md` holds (its path condition and both-conditions rule live there); otherwise major (DRY) |
 | Deep nesting > 3 levels, or functions > ~50 lines — guard clauses / split by responsibility | major |
 | Dead code (unreachable branches, unused vars, commented-out blocks) | major |
 | Speculative/premature abstraction not yet used; over-engineered patterns (factory-of-factory) | major / nit (generalize at the 3rd use, not the 1st) |

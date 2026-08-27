@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4163%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4178%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -453,8 +453,8 @@ Not every change deserves the full ceremony. At story time, `/prospec-new-story`
 | Scale | What changes |
 |-------|--------------|
 | `quick` | Slim proposal (single story, no FR/SC enumeration), **plan phase skipped entirely** (`story → tasks`), no module-README loading; review/verify report their delta-spec dimensions as `not-applicable` (never a fake PASS) |
-| `standard` (default; absent on existing changes) | The current concise flow — plan ≤ 120 lines |
-| `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains |
+| `standard` (default; absent on existing changes) | The current concise flow — plan ≤ 120 lines, closing with a required **Simpler Alternative** section (a materially simpler alternative or an explicit concession, plus a files/lines change-surface estimate) |
+| `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains, Best-of-N candidate tournament (its recorded non-selected candidates stand in for Simpler Alternative) |
 
 Two honest backstops keep `quick` from becoming a spec-drift hole: a change expected to touch spec-covered behavior is **vetoed out of quick** at assessment time, and the `/prospec-archive` Entry Gate re-checks the **actual diff** — spec impact blocks archiving until a minimal Spec Impact section is added, and the knowledge-sync gate derives affected modules from diff paths instead of the absent delta-spec. Engineering discipline is not scaled down: TDD, adversarial review, and Constitution audits run at every scale.
 
@@ -1063,7 +1063,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4163 tests)
+# Run all tests (4178 tests)
 pnpm test
 
 # Watch mode
@@ -1076,9 +1076,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4163 tests across 4 categories:
+**Test Coverage**: 4178 tests across 4 categories:
 - Unit tests (types + lib + services + cli): 3109 tests
-- Contract tests (CLI output + Skill format): 904 tests
+- Contract tests (CLI output + Skill format): 919 tests
 - Integration tests: 45 tests
 - E2E tests: 105 tests
 

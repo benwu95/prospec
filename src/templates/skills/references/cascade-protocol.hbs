@@ -51,7 +51,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
 | **story** | `plan` (or `tasks` for quick) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed. |
-| **plan** | `tasks` | Architecture Verifier PASS on 4 orthogonal dimensions (or documented Break-Glass override). |
+| **plan** | `tasks` | Architecture Verifier PASS on five orthogonal dimensions (or documented Break-Glass override). |
 | **tasks** | `implement` | Task Contract Verifier PASS (bidirectional coverage, DAG layering, TDD closure). |
 | **implement** | `review` | 100% of code tasks checked off; `prospec change status implemented` executed. |
 | **review** | `verify` | 0 unresolved critical findings; tests pass; review baseline stamped via `prospec check --record-review`. |
