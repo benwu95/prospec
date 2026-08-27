@@ -6,6 +6,7 @@ import {
   renderReviewTable,
   renderReviewDocument,
   parseReviewDocument,
+  parseReviewMetrics,
   type ReviewRow,
 } from '../../../src/lib/review-merge.js';
 import type { ReviewFinding } from '../../../src/types/station.js';
@@ -256,7 +257,7 @@ describe('parse / render round trip', () => {
     const updated = renderReviewDocument(original, rows, 'c');
     expect(updated).toContain('Round 1 notes.');
     expect(updated).toContain('Trailing notes.');
-    expect(updated).toContain('| F-1 | a.ts:1 | major | correctness | fixed | first |');
+    expect(updated).toContain('| F-1 | a.ts:1 | major | correctness | fixed | 1 | first |  |');
   });
 
   it('escapes pipes in summaries so the table stays parseable', () => {
@@ -432,3 +433,152 @@ describe('content below the evidence section survives a rebuild', () => {
     expect(b.match(/TAIL/g)).toHaveLength(1);
   });
 });
+
+describe('origin_round tracking and Origin column (REQ-LIB-064, REQ-CLI-028)', () => {
+  it('stamps new findings with the current round number (default 1)', () => {
+    const round1 = [finding({ id: 'F-1', location: 'a.ts:1', summary: 'initial' })];
+    const merged1 = mergeFindings([], round1, 1);
+    expect(merged1[0]!.origin_round).toBe(1);
+  });
+
+  it('preserves existing origin_round when carrying forward or updating findings in subsequent rounds', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'critical', lens: 'correctness', status: 'open', origin_round: 1, summary: 'bug' },
+    ];
+    // Round 2 fixes F-1 and introduces F-2
+    const round2 = [
+      finding({ id: 'F-1', location: 'a.ts:1', status: 'fixed', summary: 'bug fixed' }),
+      finding({ id: 'F-2', location: 'b.ts:10', severity: 'major', summary: 'new issue in r2' }),
+    ];
+    const merged2 = mergeFindings(existing, round2, 2);
+    expect(merged2).toHaveLength(2);
+    expect(merged2[0]!.id).toBe('F-1');
+    expect(merged2[0]!.origin_round).toBe(1); // preserved from round 1
+    expect(merged2[0]!.status).toBe('fixed');
+    expect(merged2[1]!.id).toBe('F-2');
+    expect(merged2[1]!.origin_round).toBe(2); // assigned round 2
+  });
+
+  it('stamps current round on newly incoming findings regardless of finding payload', () => {
+    const round = [
+      finding({ id: 'F-1', location: 'a.ts:1', summary: 'new finding' }),
+    ];
+    const merged = mergeFindings([], round, 5);
+    expect(merged[0]!.origin_round).toBe(5);
+  });
+
+  it('parses Origin column from 8-column markdown table', () => {
+    const doc = [
+      '# Review Findings: x',
+      '',
+      '| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |',
+      '|---|---|---|---|---|---|---|---|',
+      '| F-1 | a.ts:1 | critical | correctness | open | 2 | defect | pnpm test |',
+      '',
+    ].join('\n');
+    const rows = parseReviewRows(doc);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.origin_round).toBe(2);
+    expect(rows[0]!.summary).toBe('defect');
+    expect(rows[0]!.repro).toBe('pnpm test');
+  });
+
+  it.each(['Round', 'origin_round', 'Origin Round'])('parses the %s header alias as origin_round', (header) => {
+    const doc = [
+      '# Review Findings: x',
+      '',
+      `| ID | Location | Severity | Lens | Status | ${header} | Summary |`,
+      '|---|---|---|---|---|---|---|',
+      '| F-1 | a.ts:1 | critical | correctness | open | 3 | defect |',
+      '',
+    ].join('\n');
+    expect(parseReviewRows(doc)[0]!.origin_round).toBe(3);
+  });
+
+  it('round-trips Origin column through render and parse', () => {
+    const initial: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', origin_round: 1, summary: 's1' },
+      { id: 'F-2', location: 'b.ts:2', severity: 'critical', lens: 'security', status: 'open', origin_round: 3, summary: 's2' },
+    ];
+    const rendered = renderReviewTable(initial);
+    expect(rendered).toContain('| F-1 | a.ts:1 | major | correctness | open | 1 | s1 |  |');
+    expect(rendered).toContain('| F-2 | b.ts:2 | critical | security | open | 3 | s2 |  |');
+    const reparsed = parseReviewRows(rendered);
+    expect(reparsed[0]!.origin_round).toBe(1);
+    expect(reparsed[1]!.origin_round).toBe(3);
+  });
+
+  it('round-trips extended review metrics comment (spend, loop_base, provenance, signatures, lenses)', () => {
+    const doc = renderReviewDocument(
+      '',
+      [{ id: 'F-1', location: 'a.ts:1', severity: 'critical', lens: 'correctness', status: 'open', origin_round: 2, summary: 'bug' }],
+      'test-change',
+      {
+        round: 2,
+        spendBefore: 1000,
+        lastRoundSpend: 500,
+        cumulativeSpend: 1500,
+        loopBase: 1,
+        provenanceDigest: 'abc1234',
+        lenses: ['correctness', 'security'],
+        trials: {
+          'F-1': [false, true, false],
+        },
+      },
+    );
+
+    expect(doc).toContain('<!-- prospec:review-metrics round="2" spend_before="1000" round_spend="500" cumulative_spend="1500" loop_base="1" provenance="abc1234" lenses="correctness,security" signatures="F-1:FPF" -->');
+    const parsed = parseReviewMetrics(doc);
+    expect(parsed.round).toBe(2);
+    expect(parsed.spendBefore).toBe(1000);
+    expect(parsed.lastRoundSpend).toBe(500);
+    expect(parsed.cumulativeSpend).toBe(1500);
+    expect(parsed.loopBase).toBe(1);
+    expect(parsed.provenanceDigest).toBe('abc1234');
+    expect(parsed.lenses).toEqual(['correctness', 'security']);
+    expect(parsed.trials?.['F-1']).toEqual([false, true, false]);
+  });
+
+  it('a pre-existing row without Origin is stamped 1, never the current round (legacy-table upgrade)', () => {
+    const legacy = parseReviewRows(
+      '| ID | Location | Severity | Lens | Status | Summary | Repro |\n|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | open | bug1 | pnpm a |\n',
+    );
+    const merged = mergeFindings(
+      legacy,
+      [
+        {
+          id: 'F-1',
+          location: 'src/a.ts:1',
+          severity: 'critical',
+          lens: 'correctness',
+          status: 'fixed',
+          summary: 'bug1',
+          repro: 'pnpm a',
+        },
+      ],
+      3,
+    );
+    expect(merged[0]!.origin_round).toBe(1);
+  });
+
+  it('encodes and decodes special characters in signatures and lenses without breaking syntax', () => {
+    const doc = renderReviewDocument('', [], 'test', {
+      round: 1,
+      lenses: ['correctness, edge cases', 'security'],
+      trials: {
+        'F-1" round="99': [false, true],
+        'F-2 --> <b>': [true, false],
+        'C:1': [true],
+      },
+    });
+    expect(doc).toContain('prospec:review-metrics');
+    expect(doc).not.toContain('round="99"');
+    const parsed = parseReviewMetrics(doc);
+    expect(parsed.round).toBe(1);
+    expect(parsed.lenses).toEqual(['correctness, edge cases', 'security']);
+    expect(parsed.trials?.['F-1" round="99']).toEqual([false, true]);
+    expect(parsed.trials?.['F-2 --> <b>']).toEqual([true, false]);
+    expect(parsed.trials?.['C:1']).toEqual([true]);
+  });
+});
+

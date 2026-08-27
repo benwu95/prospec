@@ -908,7 +908,7 @@ describe('CLI E2E', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('criticals_found=1');
       const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
-      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | bug | pnpm vitest run a |');
+      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug | pnpm vitest run a |');
       const bad = await runCli(['review', 'merge', '--findings', path.join(tmpDir, 'missing.json')]);
       expect(bad.exitCode).not.toBe(0);
     });
@@ -947,6 +947,44 @@ describe('CLI E2E', () => {
       expect(refused.exitCode).not.toBe(0);
       expect(refused.stderr).toContain('repro');
       expect(await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8')).toBe(before);
+    });
+
+    it('review merge tracks round, spend, and renders circuit breaker escalation (REQ-CLI-042, REQ-TESTS-099)', async () => {
+      await initChange();
+      const findingsR1 = path.join(tmpDir, 'round1.json');
+      await fs.promises.writeFile(
+        findingsR1,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+        ]),
+      );
+      // Round 1 with spend 4000 and budget 6000
+      const r1 = await runCli(['review', 'merge', '--findings', findingsR1, '--spend', '4000', '--budget', '6000']);
+      expect(r1.exitCode).toBe(0);
+      expect(r1.stdout).toContain('round=1');
+      expect(r1.stdout).toContain('spend: 4,000, cumulative: 4,000');
+      expect(r1.stdout).not.toContain('🚨 Circuit Breaker Tripped');
+
+      // Round 2 introduces fix-induced defect with spend 3000 -> cumulative 7000 > budget 6000
+      const findingsR2 = path.join(tmpDir, 'round2.json');
+      await fs.promises.writeFile(
+        findingsR2,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+          { id: 'F-2', location: 'src/b.ts:2', severity: 'critical', lens: 'correctness', summary: 'bug2', repro: 'pnpm b' },
+        ]),
+      );
+      const r2 = await runCli(['review', 'merge', '--findings', findingsR2, '--spend', '3000', '--budget', '6000']);
+      expect(r2.exitCode).toBe(0);
+      expect(r2.stdout).toContain('round=2');
+      expect(r2.stdout).toContain('spend: 3,000, cumulative: 7,000');
+      expect(r2.stdout).toContain('🚨 Circuit Breaker Tripped');
+      expect(r2.stdout).toContain('spend_budget_exceeded');
+
+      // Invalid option values are rejected with UsageError
+      const invalid = await runCli(['review', 'merge', '--findings', findingsR2, '--max-fix-induced-ratio', '1.5']);
+      expect(invalid.exitCode).not.toBe(0);
+      expect(invalid.stderr).toContain('must be a number between 0.0 and 1.0');
     });
 
     it('verify record refuses without the drift report, naming the prerequisite', async () => {

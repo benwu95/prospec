@@ -102,6 +102,8 @@ export const ReviewFindingSchema = z
     status: z.string().min(1).default('open'),
     /** One-line description shown in the review.md table. */
     summary: relayedString('summary'),
+    /** Review round in which this finding was first surfaced. */
+    origin_round: z.number().int().positive().optional(),
     /** A re-runnable command that shows the defect — a failing-test invocation,
      *  or a read/grep probe that displays the cited code. Re-run after the fix,
      *  it is also what shows the fix worked. */

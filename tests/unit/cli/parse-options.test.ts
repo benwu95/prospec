@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { InvalidArgumentError } from 'commander';
-import { collect, parseDate, parseDepth } from '../../../src/cli/parse-options.js';
+import {
+  collect,
+  parseDate,
+  parseDepth,
+  parseIntOption,
+  parseBoundedInt,
+  parseRatio,
+} from '../../../src/cli/parse-options.js';
 
 describe('parseDepth', () => {
   it('parses a positive integer', () => {
@@ -39,5 +46,58 @@ describe('parseDate', () => {
       expect(() => parseDate(bad)).toThrow(InvalidArgumentError);
       expect(() => parseDate(bad)).toThrow('expected a bare ISO 8601 date (YYYY-MM-DD)');
     }
+  });
+});
+
+describe('parseIntOption', () => {
+  it('parses positive integers for min=1', () => {
+    const parser = parseIntOption('test', 1);
+    expect(parser('3')).toBe(3);
+    expect(() => parser('0')).toThrow(InvalidArgumentError);
+    expect(() => parser('-1')).toThrow(InvalidArgumentError);
+    expect(() => parser('abc')).toThrow(InvalidArgumentError);
+    expect(() => parser('1.5')).toThrow(InvalidArgumentError);
+  });
+
+  it('parses non-negative integers for min=0', () => {
+    const parser = parseIntOption('test', 0);
+    expect(parser('0')).toBe(0);
+    expect(parser('500')).toBe(500);
+    expect(() => parser('-1')).toThrow(InvalidArgumentError);
+  });
+});
+
+describe('parseBoundedInt', () => {
+  it('accepts integer within bounds', () => {
+    const parser = parseBoundedInt('rounds', 1, 5);
+    expect(parser('1')).toBe(1);
+    expect(parser('3')).toBe(3);
+    expect(parser('5')).toBe(5);
+  });
+
+  it('rejects values outside bounds or non-integer', () => {
+    const parser = parseBoundedInt('rounds', 1, 5);
+    expect(() => parser('0')).toThrow(InvalidArgumentError);
+    expect(() => parser('6')).toThrow(InvalidArgumentError);
+    expect(() => parser('2.5')).toThrow(InvalidArgumentError);
+    expect(() => parser('xyz')).toThrow(InvalidArgumentError);
+  });
+});
+
+describe('parseRatio', () => {
+  it('accepts numbers between 0.0 and 1.0', () => {
+    const parser = parseRatio('ratio');
+    expect(parser('0')).toBe(0);
+    expect(parser('0.5')).toBe(0.5);
+    expect(parser('1.0')).toBe(1);
+  });
+
+  it('rejects numbers outside [0, 1] or non-numeric', () => {
+    const parser = parseRatio('ratio');
+    expect(() => parser('-0.1')).toThrow(InvalidArgumentError);
+    expect(() => parser('1.1')).toThrow(InvalidArgumentError);
+    expect(() => parser('abc')).toThrow(InvalidArgumentError);
+    expect(() => parser('0.5abc')).toThrow(InvalidArgumentError);
+    expect(() => parser('0.5%')).toThrow(InvalidArgumentError);
   });
 });

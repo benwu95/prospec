@@ -23,9 +23,20 @@ Unattended autonomous execution carries the risk of runaway token consumption, i
 - **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
 - **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
 
-### 3. Early-Stop Conditions
+### 3. Fix-Induced Defect Ratio (Dual-Axis #1)
+- **Mechanism**: In round $R > 1$, the CLI computes `fixInducedRatio` as the proportion of active findings with `origin_round > 1` (findings created by previous fix rounds).
+- **Rule**: When `fixInducedRatio` exceeds the threshold (default **0.5** / 50%), the fix attempts are generating defects faster than resolving them.
+- **Action**: Trip the circuit breaker immediately and emit an `EscalationReport` recommending **revert-and-redesign** rather than continued iterative patching.
+
+### 4. Spend Budget Ceiling (Dual-Axis #2)
+- **Mechanism**: The CLI accumulates per-round token spend (`--spend`) across review iterations.
+- **Rule**: When cumulative spend exceeds the declared budget limit (`--budget`), the circuit breaker trips immediately to prevent runaway cost.
+- **Action**: Trip the breaker, halt automated review iterations, and emit an `EscalationReport` with cumulative spend metrics.
+
+### 5. Early-Stop Conditions & Regression Pin Gate
 - **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
-- **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red. The fix is immediately reverted rather than piling additional edits on a red suite.
+- **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red (immediately reverted).
+- **Per-Critical Regression Pin Gate**: Confirmed criticals require a fail-then-pass mutation-verified test pin before fix application to guard against subsequent regressions.
 
 ---
 
@@ -36,14 +47,15 @@ When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a 
 ```markdown
 ### 🚨 Circuit Breaker Tripped: Escalation Required
 
-- **Trigger**: [oscillation | max_rounds_exceeded | persistent_test_failure]
-- **Diagnostic Details**: [Summary of signatures, failing tests, or round counts]
+- **Trigger**: [oscillation | max_rounds_exceeded | persistent_test_failure | fix_induced_threshold_exceeded | spend_budget_exceeded]
+- **Diagnostic Details**: [Summary of signatures, failing tests, round counts, fix-induced ratio, or spend budget]
 - **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
 
 #### Trade-off Options for Developer:
-1. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
-2. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
-3. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
+1. **Revert and Redesign**: Roll back recent fix attempts and redesign implementation strategy (revert-and-redesign).
+2. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
+3. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
+4. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
 ```
 
 ---

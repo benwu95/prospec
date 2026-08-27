@@ -12,9 +12,13 @@ import {
   mergeFindings,
   roundCounts,
   renderReviewDocument,
+  parseReviewMetrics,
   evidenceBlocksFor,
   type ReviewRoundCounts,
 } from '../lib/review-merge.js';
+import { readChangeMetadata } from '../lib/change-metadata.js';
+import { OscillationBreaker } from '../lib/oscillation-breaker.js';
+import type { CircuitBreakerState } from '../types/cascade.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ReviewMergeOptions {
@@ -24,6 +28,18 @@ export interface ReviewMergeOptions {
   quiet?: boolean;
   /** Path to this round's findings JSON (an array of findings). */
   findingsPath: string;
+  /** Current review round number (inferred from history if omitted). */
+  round?: number;
+  /** Self-reported token spend for this review round. */
+  spend?: number;
+  /** Total token spend budget for review loop. */
+  budget?: number;
+  /** Maximum allowed fix-induced ratio in round > 1 before tripping (default 0.5). */
+  maxFixInducedRatio?: number;
+  /** Maximum allowed review rounds before hard cap tripping (default 3). */
+  maxRounds?: number;
+  /** Maximum allowed oscillation flips before tripping (default 2). */
+  maxFlips?: number;
 }
 
 /**
@@ -40,6 +56,13 @@ export interface ReviewCriticalDigest {
   repro?: string;
 }
 
+export interface ReviewRoundStats extends ReviewRoundCounts {
+  roundNumber: number;
+  spend?: number;
+  cumulativeSpend?: number;
+  fixInducedRatio?: number;
+}
+
 export interface ReviewMergeResult {
   changeName: string;
   reviewPath: string;
@@ -49,8 +72,10 @@ export interface ReviewMergeResult {
   evidenceBlocks: number;
   /** This ROUND's criticals as a bounded digest — the caller's whole intake. */
   criticals: ReviewCriticalDigest[];
-  /** This ROUND's structured counts — the `change log` review fields. */
-  round: ReviewRoundCounts;
+  /** This ROUND's structured counts and metrics — the `change log` review fields. */
+  round: ReviewRoundStats;
+  /** Dual-axis circuit breaker evaluation state. */
+  circuitBreaker?: CircuitBreakerState;
 }
 
 /**
@@ -114,10 +139,75 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   }
 
   const reviewPath = path.join(cwd, '.prospec', 'changes', changeName, 'review.md');
+  const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
+  let priorReviewRounds = 0;
+  let priorSpend = 0;
+  if (fs.existsSync(metadataPath)) {
+    try {
+      const { metadata } = readChangeMetadata(metadataPath, changeName);
+      const reviewEntries = (metadata.quality_log ?? []).filter((e) => e.skill === 'prospec-review');
+      priorReviewRounds = reviewEntries.length;
+      for (const entry of reviewEntries) {
+        const spend = (entry as Record<string, unknown>).spend;
+        if (typeof spend === 'number') {
+          priorSpend += spend;
+        }
+      }
+    } catch {
+      // Ignore metadata read errors for non-existent or test fixture setups
+    }
+  }
+
   const existingContent = await readFileIfExists(reviewPath);
+  const docMetrics = parseReviewMetrics(existingContent);
+  if (docMetrics.cumulativeSpend !== undefined && docMetrics.cumulativeSpend > priorSpend) {
+    priorSpend = docMetrics.cumulativeSpend;
+  }
   const { rows } = parseReviewDocument(existingContent);
-  const merged = mergeFindings(rows, findings);
-  await atomicWrite(reviewPath, renderReviewDocument(existingContent, merged, changeName));
+
+  let roundNumber = options.round;
+  if (roundNumber === undefined) {
+    if (docMetrics.round !== undefined) {
+      roundNumber = docMetrics.round + 1;
+    } else if (priorReviewRounds > 0) {
+      roundNumber = priorReviewRounds + 1;
+    } else if (rows.length > 0) {
+      const maxOrigin = Math.max(...rows.map((r) => r.origin_round ?? 1), 1);
+      roundNumber = maxOrigin + 1;
+    } else {
+      roundNumber = 1;
+    }
+  }
+
+  const finalRoundNumber = roundNumber ?? 1;
+  const merged = mergeFindings(rows, findings, finalRoundNumber);
+
+  // Evaluate Circuit Breaker
+  const breaker = new OscillationBreaker({
+    maxReviewRounds: options.maxRounds,
+    maxOscillationFlips: options.maxFlips,
+    maxFixInducedRatio: options.maxFixInducedRatio,
+    maxSpend: options.budget,
+  });
+  breaker.setReviewRound(finalRoundNumber);
+  if (priorSpend > 0) {
+    breaker.recordSpend(priorSpend);
+  }
+  const circuitBreaker = breaker.checkCircuitBreaker({
+    round: finalRoundNumber,
+    findings: merged,
+    spend: options.spend,
+  });
+
+  const cumulativeSpend = breaker.getCumulativeSpend();
+
+  await atomicWrite(
+    reviewPath,
+    renderReviewDocument(existingContent, merged, changeName, {
+      round: finalRoundNumber,
+      cumulativeSpend: options.spend !== undefined || docMetrics.cumulativeSpend !== undefined ? cumulativeSpend : undefined,
+    }),
+  );
 
   return {
     changeName,
@@ -133,6 +223,13 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
         summary: f.summary,
         repro: f.repro,
       })),
-    round: roundCounts(findings),
+    round: {
+      ...roundCounts(findings),
+      roundNumber: finalRoundNumber,
+      spend: options.spend,
+      cumulativeSpend: circuitBreaker.cumulativeSpend,
+      fixInducedRatio: circuitBreaker.fixInducedRatio,
+    },
+    circuitBreaker,
   };
 }

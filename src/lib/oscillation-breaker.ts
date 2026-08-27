@@ -34,15 +34,30 @@ export function isOscillating(
 /**
  * In-memory circuit breaker and oscillation tracker to guard against runaway loops.
  */
+export function calculateFixInducedRatio(
+  findings: readonly { origin_round?: number }[],
+  roundNumber: number = 1,
+): number {
+  if (roundNumber <= 1 || findings.length === 0) return 0;
+  const fixInduced = findings.filter(
+    (f) => f.origin_round !== undefined && f.origin_round > 1,
+  ).length;
+  return fixInduced / findings.length;
+}
+
 export class OscillationBreaker {
   private readonly config: CircuitBreakerConfig;
   private readonly records = new Map<string, OscillationRecord>();
   private currentReviewRounds = 0;
+  private cumulativeSpend = 0;
+  private currentFixInducedRatio = 0;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = {
       maxReviewRounds: config?.maxReviewRounds ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxReviewRounds,
       maxOscillationFlips: config?.maxOscillationFlips ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxOscillationFlips,
+      maxFixInducedRatio: config?.maxFixInducedRatio ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxFixInducedRatio,
+      maxSpend: config?.maxSpend,
     };
   }
 
@@ -88,6 +103,42 @@ export class OscillationBreaker {
   }
 
   /**
+   * Set or get the current review round number.
+   */
+  setReviewRound(round: number): void {
+    this.currentReviewRounds = round;
+  }
+
+  getReviewRound(): number {
+    return this.currentReviewRounds;
+  }
+
+  /**
+   * Record token spend for a round and return new cumulative spend.
+   */
+  recordSpend(tokens: number): number {
+    if (tokens > 0) {
+      this.cumulativeSpend += tokens;
+    }
+    return this.cumulativeSpend;
+  }
+
+  getCumulativeSpend(): number {
+    return this.cumulativeSpend;
+  }
+
+  /**
+   * Record the fix-induced ratio for the current round.
+   */
+  recordFixInducedRatio(ratio: number): void {
+    this.currentFixInducedRatio = ratio;
+  }
+
+  getFixInducedRatio(): number {
+    return this.currentFixInducedRatio;
+  }
+
+  /**
    * Get all signatures currently flagged as oscillating.
    */
   getOscillatingSignatures(): string[] {
@@ -101,45 +152,82 @@ export class OscillationBreaker {
   }
 
   /**
-   * Evaluate the circuit breaker state across all signatures and review rounds.
+   * Evaluate the circuit breaker state across all signatures, review rounds,
+   * fix-induced ratios, and cumulative token spend.
    */
-  checkCircuitBreaker(): CircuitBreakerState {
+  checkCircuitBreaker(options?: {
+    round?: number;
+    findings?: readonly { origin_round?: number }[];
+    spend?: number;
+  }): CircuitBreakerState {
+    const roundNumber = options?.round ?? this.currentReviewRounds;
+    if (options?.spend !== undefined) {
+      this.recordSpend(options.spend);
+    }
+    if (options?.findings) {
+      const ratio = calculateFixInducedRatio(options.findings, roundNumber);
+      this.recordFixInducedRatio(ratio);
+    }
+
     const oscillating = this.getOscillatingSignatures();
+    let escalationReport: EscalationReport | undefined;
 
     // 1. Check oscillation breaker
     if (oscillating.length > 0) {
-      const details = oscillating.map((sig) => {
-        const r = this.records.get(sig);
-        return { signature: sig, trials: r?.trials ?? [] };
-      });
-
-      const escalationReport: EscalationReport = {
+      escalationReport = {
         type: 'oscillation',
         message: `Oscillation detected across ${oscillating.length} signature(s): ${oscillating.join(', ')}`,
-        diagnostics: { oscillating: details },
+        diagnostics: {
+          oscillating: oscillating.map((sig) => ({
+            signature: sig,
+            trials: this.records.get(sig)?.trials ?? [],
+          })),
+        },
         tradeoffOptions: [
           'Halt automated cascading and escalate to human developer for manual resolution',
-          'Roll back latest fix attempt and re-evaluate implementation strategy',
+          'Roll back latest fix attempt and re-evaluate implementation strategy (revert-and-redesign)',
           'Mark unresolved findings as advisory tech-debt if non-critical',
         ],
       };
-
-      return {
-        tripped: true,
-        reason: escalationReport.message,
-        reviewRounds: this.currentReviewRounds,
-        oscillatingSignatures: oscillating,
-        escalationReport,
+    }
+    // 2. Check fix-induced ratio (dual-axis #1) in round > 1
+    else if (roundNumber > 1 && this.currentFixInducedRatio > this.config.maxFixInducedRatio) {
+      escalationReport = {
+        type: 'fix_induced_threshold_exceeded',
+        message: `Fix-induced defect ratio (${(this.currentFixInducedRatio * 100).toFixed(1)}%) exceeded threshold (${(this.config.maxFixInducedRatio * 100).toFixed(1)}%) in round ${roundNumber}.`,
+        diagnostics: {
+          round: roundNumber,
+          fixInducedRatio: this.currentFixInducedRatio,
+          threshold: this.config.maxFixInducedRatio,
+        },
+        tradeoffOptions: [
+          'Revert recent fixes and redesign implementation strategy (revert-and-redesign)',
+          'Escalate remaining critical findings to human developer for manual intervention',
+        ],
       };
     }
-
-    // 2. Check maximum iteration rounds
-    if (this.currentReviewRounds >= this.config.maxReviewRounds) {
-      const escalationReport: EscalationReport = {
+    // 3. Check cumulative spend budget (dual-axis #2)
+    else if (this.config.maxSpend !== undefined && this.cumulativeSpend > this.config.maxSpend) {
+      escalationReport = {
+        type: 'spend_budget_exceeded',
+        message: `Cumulative review spend (${this.cumulativeSpend} tokens) exceeded declared budget limit (${this.config.maxSpend} tokens).`,
+        diagnostics: {
+          cumulativeSpend: this.cumulativeSpend,
+          maxSpend: this.config.maxSpend,
+        },
+        tradeoffOptions: [
+          'Halt automated review and escalate to human developer for sign-off or budget adjustment',
+          'Revert-and-redesign to avoid runaway token expenditure',
+        ],
+      };
+    }
+    // 4. Check maximum iteration rounds
+    else if (roundNumber >= this.config.maxReviewRounds) {
+      escalationReport = {
         type: 'max_rounds_exceeded',
         message: `Review/Fix loop reached hard cap of ${this.config.maxReviewRounds} rounds without convergence.`,
         diagnostics: {
-          currentRounds: this.currentReviewRounds,
+          currentRounds: roundNumber,
           maxAllowed: this.config.maxReviewRounds,
         },
         tradeoffOptions: [
@@ -147,20 +235,16 @@ export class OscillationBreaker {
           'Review diff manually and determine if automated loop should be bypassed',
         ],
       };
-
-      return {
-        tripped: true,
-        reason: escalationReport.message,
-        reviewRounds: this.currentReviewRounds,
-        oscillatingSignatures: [],
-        escalationReport,
-      };
     }
 
     return {
-      tripped: false,
-      reviewRounds: this.currentReviewRounds,
-      oscillatingSignatures: [],
+      tripped: !!escalationReport,
+      reason: escalationReport?.message,
+      reviewRounds: roundNumber,
+      oscillatingSignatures: escalationReport?.type === 'oscillation' ? oscillating : [],
+      fixInducedRatio: this.currentFixInducedRatio,
+      cumulativeSpend: this.cumulativeSpend,
+      escalationReport,
     };
   }
 
@@ -170,5 +254,7 @@ export class OscillationBreaker {
   reset(): void {
     this.records.clear();
     this.currentReviewRounds = 0;
+    this.cumulativeSpend = 0;
+    this.currentFixInducedRatio = 0;
   }
 }

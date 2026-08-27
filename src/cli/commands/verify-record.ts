@@ -10,7 +10,7 @@ import { formatVerifyRecordOutput } from '../formatters/verify-record-output.js'
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
-import { collect, parseDate } from '../parse-options.js';
+import { collect, parseDate, parseIntOption } from '../parse-options.js';
 
 /** `name=result` → a judgment QualityDimension (adjudicator is always judgment here). */
 function parseJudgmentDimension(
@@ -33,15 +33,6 @@ function parseJudgmentDimension(
       adjudicator: 'judgment',
     },
   ];
-}
-
-/** `--spend` → a non-negative integer token count (self-reported). */
-function parseSpend(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
-    throw new InvalidArgumentError('expected a non-negative integer (tokens)');
-  }
-  return n;
 }
 
 /** `--executor` → a non-empty self-report; an empty value must be omitted, never written. */
@@ -115,7 +106,7 @@ export function registerVerifyCommand(program: Command): void {
     )
     .addOption(
       new Option('--spend <tokens>', 'Self-reported tokens spent grading (flag form)')
-        .argParser(parseSpend)
+        .argParser(parseIntOption('spend', 0))
         .conflicts('dimensions'),
     )
     .option('--warning <text>', 'Budget-counted WARN detail (repeatable)', collect, [])
