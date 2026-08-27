@@ -1,6 +1,6 @@
 # Review Format Reference
 
-This document defines the **severity contract** (review's Output Contract, aligned with BL-019), the `review.md` persistence format, and the reviewer lenses used by the **prospec-review** Skill.
+This document defines the **severity contract** (review's Output Contract), the `review.md` persistence format, and the reviewer lenses used by the **prospec-review** Skill.
 
 ---
 
@@ -45,7 +45,7 @@ Only a critical that is **confirmed to exist** — by running its `repro` and re
 
 Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The table is
 **CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file>`
-— never hand-edit the table (issue #107). Canonical shape the CLI renders:
+— never hand-edit the table. Canonical shape the CLI renders:
 
 ```markdown
 # Review Findings: {change-name}

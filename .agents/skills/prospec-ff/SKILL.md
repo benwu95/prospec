@@ -190,7 +190,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage and task verifier rubric for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity (BL-031), grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage and task verifier rubric for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

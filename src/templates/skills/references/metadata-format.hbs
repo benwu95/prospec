@@ -1,8 +1,7 @@
 # Metadata (metadata.yaml) Format Reference
 
 This document is a **reader's guide** to a change's `metadata.yaml`
-(`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read** (issue
-#107): every mutation goes through a `prospec` command — `change story` (create),
+(`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read**: every mutation goes through a `prospec` command — `change story` (create),
 `change scale`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
 `check --record-review` / `--record-tests`, `archive` — so skills never hand-serialize it.
 What follows documents the shape those commands emit, so a skill reading the file (or
