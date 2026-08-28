@@ -146,6 +146,16 @@ export const DRIFT_CHECK_IDS = [
   // change's delta-spec so the loss is caught before archive, and skips only when
   // `.prospec/changes/` is absent.
   'delta-spec-landing-fidelity',
+  // REQ id uniqueness — a REQ id defined (as a heading) in more than one place
+  // across the Feature Specs fails (fail), naming the id and every definition's
+  // source_path and line. REQ ids are module-scoped but authored per feature, so
+  // two features can independently number REQ-LIB-001 for different requirements;
+  // req-references only proves a cited id is defined SOMEWHERE, never that it is
+  // defined exactly once, so a collision entered the trust zone silently. Slices
+  // are grouped with their parent feature (a REQ defined once, in main OR a slice,
+  // is not a duplicate). Skips — never a vacuous pass — when the features
+  // directory is absent or holds no parseable spec.
+  'req-id-uniqueness',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;

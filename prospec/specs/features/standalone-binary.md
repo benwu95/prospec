@@ -36,7 +36,7 @@ When a Release is published on GitHub, automatically trigger the build pipeline 
 - WHEN running the macOS binary, THEN the ad-hoc codesign signature has been completed, allowing it to run on macOS systems.
 - WHEN running any binary, THEN it can run standalone without an external Node.js runtime environment.
 
-#### REQ-LIB-001: Template Embedded Compilation
+#### REQ-LIB-066: Template Embedded Compilation
 To solve the problem that a standalone binary cannot access templates in the external file system, all `.hbs` template contents must be aggregated into an in-memory lookup dictionary before packaging and compilation, and read preferentially from that dictionary at runtime.
 
 **Scenarios:**
@@ -110,7 +110,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-001, REQ-TYPES-001, REQ-DOCS-001 |
+| 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-066, REQ-TYPES-001, REQ-DOCS-001 |
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |
 | 2026-07-08 | compress-release-binaries | Package binaries in .zip and .tar.gz archives and update installers | REQ-CLI-001 |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |

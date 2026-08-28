@@ -188,7 +188,7 @@ describe('formatSizeOutput — offline size estimate', () => {
     expect(out).toContain('est. input tokens (cold)');
   });
 
-  it('shows no cache/cost columns and no threshold-style verdict (REQ-MEASURE-006 honesty)', () => {
+  it('shows no cache/cost columns and no threshold-style verdict (REQ-MEASURE-015 honesty)', () => {
     const { out } = captureSize(makeSizeResult());
     expect(out).not.toContain('Cache hit rate');
     expect(out).not.toMatch(/\$\d/); // no dollar-cost figures

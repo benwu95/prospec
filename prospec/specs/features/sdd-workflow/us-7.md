@@ -56,7 +56,7 @@ so that the AI produces more precise artifacts.
 
 ### Behavior Specifications
 
-#### REQ-TEMPLATES-040: Knowledge Quality Gate Table
+#### REQ-TEMPLATES-205: Knowledge Quality Gate Table
 The 5 Planning Skills show a three-state gate table at the end of the Core Workflow, with different check items per Skill.
 
 ---

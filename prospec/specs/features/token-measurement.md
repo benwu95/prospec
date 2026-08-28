@@ -32,7 +32,7 @@ So that G4's savings claim has an LLM-external, repeatably runnable, honest data
 #### REQ-MEASURE-001: Version-controlled task-description corpus (live-reference assembly)
 `tests/fixtures/token-corpus/` version-controls ≥10 task descriptions (frontmatter annotates the referenced modules); context is assembled from the repo on the fly at measurement time, with no pre-assembled context inside the corpus.
 
-#### REQ-MEASURE-002: Three-assembly benchmark runner
+#### REQ-MEASURE-014: Three-assembly benchmark runner
 **Scenarios:**
 - WHEN a task is measured, THEN each of the three assemblies is sent twice in a row (cold/warm share the same assembly result), and spend is accounted per call
 - WHEN a provider's cumulative cost exceeds the limit (default US$10, checked per strategy within a task), THEN that provider is stopped and marked aborted
@@ -41,7 +41,7 @@ So that G4's savings claim has an LLM-external, repeatably runnable, honest data
 #### REQ-MEASURE-003: Deterministic cost-calculation pure functions
 Savings ratio, cache hit rate, and effective cost are computed by pure functions in `lib/token-accounting.ts`; pricing (discount rate / write multiplier) is an input parameter with no hardcoded constants; naive-rag scoring includes a lexicographic tie-break, so identical inputs always yield identical outputs.
 
-#### REQ-MEASURE-007: Multi-provider coverage
+#### REQ-MEASURE-016: Multi-provider coverage
 Three provider adapters (client, caching enablement, usage mapping, pricing table, low-cost default model), covering claude→Anthropic, codex/copilot→OpenAI, antigravity→Google; `--provider` can select a single one or, by default, measures all providers that have a key; for providers that do not meter cache writes, cache_write is recorded as 0.
 
 #### REQ-MEASURE-009: glossary assembly variant and cost comparison
@@ -68,7 +68,7 @@ So that I can learn prospec's actual input-token savings ratio and cache hit rat
 #### REQ-MEASURE-005: `prospec measure` read-only report display
 Read-only reading of `measurement-report.json`; section headers include the provider + model and the corresponding agent; includes a "numbers are only comparable within the same provider" note; when there are zero measured tasks, the comparison table is omitted and the reason is stated explicitly.
 
-#### REQ-MEASURE-006: Honesty-boundary constraints
+#### REQ-MEASURE-015: Honesty-boundary constraints
 No hard threshold on savings ratio / hit rate is set, and no CI workflow is added; the wording states explicitly that "G4 = input-token cost vs the full-dump baseline", output tokens are honestly listed, warm is a synthetic hit, each provider's cache discount structure differs, and copilot is measured by proxy via its model origin (OpenAI).
 
 ---
@@ -109,7 +109,7 @@ So that a keyless environment can also track context-assembly scale, and is no l
 **Scenarios:**
 - WHEN parsing a valid size report, THEN it passes; a missing `corpus`/`git_commit` causes validation to fail
 - WHEN inspecting `MeasurementReportSchema`, THEN its fields and behavior are unchanged (the online contract is unaffected)
-- Honesty boundary (deliberate exclusion): the size report contains no provider/pricing/cache/threshold fields (mirroring REQ-MEASURE-006)
+- Honesty boundary (deliberate exclusion): the size report contains no provider/pricing/cache/threshold fields (mirroring REQ-MEASURE-015)
 
 #### REQ-MEASURE-011: harness offline size production (no API key)
 `scripts/measure-tokens.ts` `--offline`: skips all provider adapters, reuses the API-free `measure/assemble.ts` to assemble the three strategies, computes size with `estimateTokens` (char/4 heuristic), and produces `size-report.json`; the existing keyless hard-exit message is extended with `--offline` guidance.
@@ -175,7 +175,7 @@ _(None)_
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
 | 2026-08-09 | add-per-change-context-report-to-measure | ADDED REQ-MEASURE-013 | REQ-MEASURE-013 |
-| 2026-06-11 | add-token-measurement-harness | New Feature: multi-provider token measurement harness + read-only report CLI | US-1~3, REQ-MEASURE-001~007 |
+| 2026-06-11 | add-token-measurement-harness | New Feature: multi-provider token measurement harness + read-only report CLI | US-1~3, REQ-MEASURE-001, REQ-MEASURE-003~005, REQ-MEASURE-014~016 |
 | 2026-06-11 | reorder-stable-prefix-loading | before/after comparison procedure (including the attribution deliberate-exclusion boundary) + glossary assembly variant | REQ-MEASURE-008~009 (ADDED) |
 | 2026-07-05 | unlock-measurement | Offline size-estimation mode: context-assembly scale can be tracked even without an API key (SizeReportSchema independent of MeasurementReport, harness `--offline` produces size-report.json, `prospec measure --offline` read-only display, honesty boundary with no threshold; LiteLLM evaluated but not adopted, continuing with the char/4 heuristic) (issue #61) | US-4; REQ-MEASURE-010~012 (ADDED) |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |

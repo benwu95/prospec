@@ -4296,7 +4296,7 @@ describe('US-19: status-aware handoff + session detection', () => {
   });
 });
 
-describe('vendored engineering-heuristic references (REQ-TEMPLATES-083/084/085, REQ-AGNT-022)', () => {
+describe('vendored engineering-heuristic references (REQ-TEMPLATES-084, REQ-TEMPLATES-208, REQ-TEMPLATES-210, REQ-AGNT-022)', () => {
   // Full MIT permission + warranty text, not a one-line credit — each rendered
   // references/ copy is a redistributed copy that must carry the notice.
   const MIT_PERMISSION = 'Permission is hereby granted, free of charge';

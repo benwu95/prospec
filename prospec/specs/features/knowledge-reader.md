@@ -24,7 +24,7 @@ As an AI Agent or Developer,
 I want 能夠在不破壞 REQ ID 與關聯的前提下，將 feature spec 拆分成多個 slice，
 So that 載入知識的 token 花費可以減少，提高 agent 執行效率並降低成本。
 
-#### REQ-LIB-025: Feature Spec Slice Parsing
+#### REQ-LIB-067: Feature Spec Slice Parsing
 Feature specs support a sub-module slice mechanism. 
 - WHEN a main feature spec contains links to `{slice}.md`, THEN the REQs in those slices are indexed as part of the feature.
 - WHEN aggregating counters, THEN totals reflect the sum across the main file and all slices.
@@ -54,4 +54,4 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
-| 2026-08-10 | feature-spec-sub-modules | Created from archive | REQ-LIB-025 |
+| 2026-08-10 | feature-spec-sub-modules | Created from archive | REQ-LIB-067 |

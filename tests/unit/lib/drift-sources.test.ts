@@ -12,6 +12,7 @@ import {
   collectMcpReadmeCounts,
   collectMetadataCompleteness,
   collectReqDefinitions,
+  collectReqIdUniqueness,
   collectSpecCounters,
   collectReqReferences,
   collectArtifactLanguage,
@@ -641,6 +642,50 @@ describe('collectReqDefinitions', () => {
     mkdirSync(path.join(tmpDir, 'empty'));
     const empty = collectReqDefinitions(path.join(tmpDir, 'empty'));
     expect(empty.available).toBe(false);
+  });
+});
+
+describe('collectReqIdUniqueness (REQ-LIB-068)', () => {
+  it('records every definition site of an id defined in two features, with path and line', () => {
+    write('specs/features/drift-checks.md', '#### REQ-LIB-001: Token Budget\n');
+    write('specs/features/standalone-binary.md', '\n\n#### REQ-LIB-001: Template Compilation\n');
+    const r = collectReqIdUniqueness(path.join(tmpDir, 'specs/features'), tmpDir);
+    expect(r.available).toBe(true);
+    const defs = r.definitions.get('REQ-LIB-001');
+    expect(defs).toHaveLength(2);
+    expect(defs!.map((d) => `${d.source_path}:${d.line}`).sort()).toEqual([
+      'specs/features/drift-checks.md:1',
+      'specs/features/standalone-binary.md:3',
+    ]);
+    expect(defs!.map((d) => d.feature).sort()).toEqual(['drift-checks', 'standalone-binary']);
+  });
+
+  it('records a single site for an id defined exactly once', () => {
+    write('specs/features/a.md', '#### REQ-A-001: only here\n');
+    const r = collectReqIdUniqueness(path.join(tmpDir, 'specs/features'), tmpDir);
+    expect(r.definitions.get('REQ-A-001')).toHaveLength(1);
+  });
+
+  it('locates a slice-defined REQ at its slice file and line, not the main file', () => {
+    write(
+      'specs/features/widget.md',
+      '---\nfeature: widget\n---\n\n## Slices\n\n- [Extra](./widget/extra.md)\n\n#### REQ-WIDGET-001: main\n',
+    );
+    write('specs/features/widget/extra.md', '\n#### REQ-WIDGET-050: only in a slice\n');
+    const r = collectReqIdUniqueness(path.join(tmpDir, 'specs/features'), tmpDir);
+    expect(r.definitions.get('REQ-WIDGET-050')).toEqual([
+      { feature: 'widget', source_path: 'specs/features/widget/extra.md', line: 2 },
+    ]);
+    // main + slice of the SAME feature is one definition each, not a collision
+    expect(r.definitions.get('REQ-WIDGET-001')).toHaveLength(1);
+  });
+
+  it('reports unavailable when the features dir is missing or empty', () => {
+    const missing = collectReqIdUniqueness(path.join(tmpDir, 'nope'), tmpDir);
+    expect(missing.available).toBe(false);
+    expect(missing.reason).toContain('source unavailable');
+    mkdirSync(path.join(tmpDir, 'empty2'));
+    expect(collectReqIdUniqueness(path.join(tmpDir, 'empty2'), tmpDir).available).toBe(false);
   });
 
   it('does not index inline (non-heading) REQ mentions as definitions', () => {

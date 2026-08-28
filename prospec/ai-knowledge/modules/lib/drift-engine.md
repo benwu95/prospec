@@ -7,7 +7,7 @@
 | File | Purpose |
 |------|---------|
 | `drift-sources.ts` | Drift collectors — ALL filesystem/git I/O; an unavailable source returns `{available:false, reason}` so its check skips. Also the git timestamp collector and `computeChangeDigest` |
-| `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (19 checks; `artifact-language`/`spec-counters` are WARN-only) |
+| `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (20 checks; `artifact-language`/`spec-counters` are WARN-only) |
 | `test-runner.ts` | The ONE flag-gated, `shell: false` project-command runner — the fact `test-provenance` grades |
 | `escaped-defects.ts` / `constitution-parser.ts` | Per-gate escaped-defect aggregation; `## Principles` rule inventory + RFC-2119 severities |
 | `generated-artifacts.ts` | `BUNDLED_TEMPLATES_SOURCE`, the templates bundler's output location — single-sourced with `scripts/bundle-templates.ts`, its only consumer |

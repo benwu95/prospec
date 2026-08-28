@@ -13,6 +13,7 @@ import {
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
+  evaluateReqIdUniqueness,
   evaluateArtifactLanguage,
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
@@ -67,6 +68,7 @@ const BASE_SIZE_BUDGET: KnowledgeSizeBudget = {
 
 const emptyInputs: DriftCheckInputs = {
   reqDefinitions: { available: true, ids: [] },
+  reqIdUniqueness: { available: true, definitions: new Map() },
   reqReferences: [],
   links: { available: true, links: [] },
   importEdges: { available: true, edges: [] },
@@ -419,6 +421,56 @@ describe('evaluateReqReferences', () => {
 
   it('skips with reason when the definition source is unavailable', () => {
     const r = evaluateReqReferences({ available: false, reason: 'source unavailable: x', ids: [] }, []);
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('source unavailable');
+  });
+});
+
+describe('evaluateReqIdUniqueness (REQ-LIB-068)', () => {
+  it('fails once per definition site when an id is defined in more than one place, naming all sites', () => {
+    const r = evaluateReqIdUniqueness({
+      available: true,
+      definitions: new Map([
+        [
+          'REQ-LIB-001',
+          [
+            { feature: 'drift-checks', source_path: 'drift-checks.md', line: 23 },
+            { feature: 'standalone-binary', source_path: 'standalone-binary.md', line: 39 },
+          ],
+        ],
+        ['REQ-LIB-002', [{ feature: 'drift-checks', source_path: 'drift-checks.md', line: 32 }]],
+      ]),
+    });
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(2); // one per site of the single colliding id; the unique id yields none
+    expect(r.findings.map((f) => `${f.source_path}:${f.line}`).sort()).toEqual([
+      'drift-checks.md:23',
+      'standalone-binary.md:39',
+    ]);
+    expect(r.findings.every((f) => f.severity === 'fail' && f.detail.includes('REQ-LIB-001'))).toBe(true);
+    // the detail names every collision site (with its feature), not just the anchored one
+    expect(r.findings[0]?.detail).toContain('drift-checks.md:23 (drift-checks)');
+    expect(r.findings[0]?.detail).toContain('standalone-binary.md:39 (standalone-binary)');
+  });
+
+  it('passes when every id is defined exactly once', () => {
+    const r = evaluateReqIdUniqueness({
+      available: true,
+      definitions: new Map([
+        ['REQ-LIB-001', [{ feature: 'drift-checks', source_path: 'drift-checks.md', line: 23 }]],
+        ['REQ-LIB-002', [{ feature: 'standalone-binary', source_path: 'standalone-binary.md', line: 39 }]],
+      ]),
+    });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('skips with reason when the source is unavailable', () => {
+    const r = evaluateReqIdUniqueness({
+      available: false,
+      reason: 'source unavailable: no feature specs in dir',
+      definitions: new Map(),
+    });
     expect(r.result.status).toBe('skipped');
     expect(r.result.reason).toContain('source unavailable');
   });

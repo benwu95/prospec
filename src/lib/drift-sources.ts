@@ -382,6 +382,69 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   return { available: true, ids: [...ids].sort() };
 }
 
+/** One definition site of a REQ id (heading location). */
+export interface ReqIdDefinition {
+  feature: string;
+  /** repo-relative path of the main or slice file the heading lives in. */
+  source_path: string;
+  /** 1-based line of the heading within that file. */
+  line: number;
+}
+
+export interface ReqIdUniquenessSource {
+  available: boolean;
+  reason?: string;
+  /** reqId → every place it is defined as a heading (main + slices, all features). */
+  definitions: Map<string, ReqIdDefinition[]>;
+}
+
+/**
+ * Collect every REQ id's definition site(s), so the `req-id-uniqueness` check can
+ * flag an id defined in more than one place. Reuses the same `indexSpec` walk as
+ * `collectReqDefinitions` (slices grouped with their parent feature, struck ids
+ * included), but keeps each definition's path + line so the finding can name it —
+ * `buildReqHomeIndex` gives only feature slugs and cannot. A REQ defined once (in
+ * main OR one slice) yields one site; the check flags ids with two or more.
+ */
+export function collectReqIdUniqueness(featuresDir: string, cwd: string): ReqIdUniquenessSource {
+  if (!existsSync(featuresDir)) {
+    return { available: false, reason: `source unavailable: ${featuresDir} not found`, definitions: new Map() };
+  }
+  const features = listFeatureSpecs(featuresDir);
+  if (features.length === 0) {
+    return {
+      available: false,
+      reason: `source unavailable: no feature specs in ${featuresDir}`,
+      definitions: new Map(),
+    };
+  }
+  const definitions = new Map<string, ReqIdDefinition[]>();
+  for (const feature of features) {
+    const loaded = loadFeatureSpecContent(featuresDir, feature);
+    if (loaded === null) continue;
+    const { specContent, mainFile } = loaded;
+    const isMulti = typeof specContent !== 'string';
+    for (const req of indexSpec(specContent, { includeStruck: true }).requirements) {
+      // `start` is the offset within the content indexSpec walked for this
+      // requirement — the slice's content if it lives in a slice, else main.
+      const content = req.slice
+        ? (isMulti ? ((specContent as { slices: Record<string, string> }).slices[req.slice] ?? '') : '')
+        : (isMulti ? (specContent as { main: string }).main : (specContent as string));
+      const line = content.slice(0, req.start).split('\n').length;
+      const filePath = req.slice ? path.join(featuresDir, feature, `${req.slice}.md`) : mainFile;
+      const entry: ReqIdDefinition = {
+        feature,
+        source_path: path.relative(cwd, filePath).replace(/\\/g, '/'),
+        line,
+      };
+      const list = definitions.get(req.id);
+      if (list) list.push(entry);
+      else definitions.set(req.id, [entry]);
+    }
+  }
+  return { available: true, definitions };
+}
+
 /** One feature spec's declared counters beside the counts its body yields. */
 export interface SpecCounterClaim {
   /** repo-relative spec path. */

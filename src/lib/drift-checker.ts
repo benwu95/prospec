@@ -27,6 +27,7 @@ import type {
   McpReadmeCountSource,
   MetadataCompletenessSource,
   ReqDefinitionIndex,
+  ReqIdUniquenessSource,
   ReqReference,
   ReviewProvenanceSource,
   DeltaSpecProvenanceSource,
@@ -57,6 +58,7 @@ export const CONSTITUTION_LAYERS = ['cli', 'services', 'lib', 'types'] as const;
 
 export interface DriftCheckInputs {
   reqDefinitions: ReqDefinitionIndex;
+  reqIdUniqueness: ReqIdUniquenessSource;
   reqReferences: ReqReference[];
   links: LinkSource;
   importEdges: ImportEdgeSource;
@@ -129,6 +131,33 @@ export function evaluateReqReferences(
       detail: `dangling reference: ${r.id} is not defined in any feature spec`,
     }));
   return outcome('req-references', findings);
+}
+
+export function evaluateReqIdUniqueness(src: ReqIdUniquenessSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('req-id-uniqueness', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  for (const [id, defs] of src.definitions) {
+    // A REQ id must be defined exactly once. Two or more definition sites is a
+    // collision — cross-feature (the common case) or a duplicate within one
+    // feature's main + slice; either breaks the id as a stable requirement key.
+    if (defs.length < 2) continue;
+    const where = defs.map((d) => `${d.source_path}:${d.line} (${d.feature})`).join(', ');
+    // One finding per definition site, so every location is anchored; the detail
+    // names all sites (with their feature) so a reader sees the full collision
+    // from any one of them.
+    for (const d of defs) {
+      findings.push({
+        check: 'req-id-uniqueness' as const,
+        severity: 'fail' as const,
+        source_path: d.source_path,
+        line: d.line,
+        detail: `duplicate REQ id: ${id} is defined in ${defs.length} places (${where})`,
+      });
+    }
+  }
+  return outcome('req-id-uniqueness', findings);
 }
 
 export function evaluateFilePaths(links: LinkSource): CheckOutcome {
@@ -938,6 +967,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'unjustified-budget-override': evaluateBudgetOverrides(inputs.budgetOverrides),
     'canonical-doc-drift': evaluateCanonicalDocDrift(inputs.canonicalDocDrift),
     'delta-spec-landing-fidelity': evaluateDeltaSpecLandingFidelity(inputs.deltaSpecLandingFidelity),
+    'req-id-uniqueness': evaluateReqIdUniqueness(inputs.reqIdUniqueness),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

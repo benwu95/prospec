@@ -164,7 +164,7 @@ Each REQ in delta-spec.md adds Feature/Story routing fields, specifying which Fe
 - WHEN an ADDED REQ lands under an existing trust-zone story, THEN its `**Story**` is that story's number in the target Feature Spec; opening a new story uses the feature's current highest story number plus one
 - WHEN a MODIFIED or REMOVED REQ carries `**Story**`, THEN it names the trust-zone story the REQ currently lives under, and archive resolves the REQ by its id regardless
 
-#### REQ-TEMPLATES-041: Plan Brownfield/Greenfield Detection
+#### REQ-TEMPLATES-206: Plan Brownfield/Greenfield Detection
 - WHEN >= 2 modules with README.md, THEN Brownfield Mode
 - WHEN < 2, THEN Greenfield Mode + suggest `prospec knowledge init`
 

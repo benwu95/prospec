@@ -31,6 +31,7 @@ import {
   collectMetadataCompleteness,
   collectQualityLedger,
   collectReqDefinitions,
+  collectReqIdUniqueness,
   collectSpecCounters,
   collectReqReferences,
   collectReviewProvenance,
@@ -220,6 +221,7 @@ export async function execute(
 
   const report = runChecks({
     reqDefinitions: collectReqDefinitions(featuresDir),
+    reqIdUniqueness: collectReqIdUniqueness(featuresDir, cwd),
     reqReferences: collectReqReferences(markdownRoots, cwd),
     links: collectMarkdownLinks(markdownRoots, cwd),
     importEdges: collectImportEdges(cwd, attributionMap),
