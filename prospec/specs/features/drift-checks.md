@@ -1,9 +1,9 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-08-23
-story_count: 4
-req_count: 4
+last_updated: 2026-08-28
+story_count: 5
+req_count: 5
 ---
 
 # drift-checks
@@ -63,6 +63,16 @@ The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing
 
 ---
 
+### US-6
+
+#### REQ-LIB-068: REQ Id Uniqueness Drift Check
+The `req-id-uniqueness` check fails when any REQ id is defined (as a heading) in more than one place across the Feature Specs, so a cross-feature id collision cannot silently enter the trust zone. Definition detection reuses the shared REQ-heading matcher and groups a feature's slices with its parent; a mention that is not a heading is a reference, not a definition. It is appended to the frozen `DRIFT_CHECK_IDS` set without changing existing ids or their order.
+- WHEN a REQ id has a defining heading in two or more feature specs, THEN the check fails and the finding names the id and every definition's `source_path` and line
+- WHEN every REQ id is defined exactly once across the Feature Specs, THEN the check passes
+- WHEN the features directory is absent or holds no parseable spec, THEN the check is skipped (never a vacuous pass)
+
+---
+
 ## Edge Cases
 
 _(TBD)_
@@ -86,6 +96,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-28 | add-req-id-uniqueness-check | ADDED REQ-LIB-068 | REQ-LIB-068 |
 | 2026-08-23 | validate-routing-headers-before-landing | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-08-22 | add-landing-fidelity-check | ADDED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-08-13 | guard-canonical-doc-drift | ADDED REQ-LIB-052 | REQ-LIB-052 |
