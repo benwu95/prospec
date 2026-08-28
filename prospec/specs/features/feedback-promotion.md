@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-20
-story_count: 4
-req_count: 14
+last_updated: 2026-08-28
+story_count: 5
+req_count: 20
 ---
 
 # Feedback Promotion Pipeline
@@ -22,6 +22,9 @@ req_count: 14
 
 - [US-1–US-2](./feedback-promotion/us-1.md)
 - [US-3–US-4](./feedback-promotion/us-3.md)
+- [US-5](./feedback-promotion/us-5.md)
+
+---
 
 ## Edge Cases
 
@@ -52,6 +55,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-28 | add-lens-yield-statistics | ADDED REQ-TYPES-090; ADDED REQ-LIB-065; ADDED REQ-SERVICES-099; ADDED REQ-CLI-044; ADDED REQ-TEMPLATES-204; ADDED REQ-TESTS-100 | REQ-TYPES-090, REQ-LIB-065, REQ-SERVICES-099, REQ-CLI-044, REQ-TEMPLATES-204, REQ-TESTS-100 |
 | 2026-08-20 | make-templates-project-agnostic | MODIFIED REQ-TEMPLATES-198 | REQ-TEMPLATES-198 |
 | 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-198; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-198, REQ-TEMPLATES-072, REQ-TESTS-024 |
 | 2026-08-14 | detect-inlined-gate-desync | MODIFIED REQ-TEMPLATES-174; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-024 | REQ-TEMPLATES-174, REQ-TEMPLATES-072, REQ-TESTS-024 |
