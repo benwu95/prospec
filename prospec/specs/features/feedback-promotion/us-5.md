@@ -32,7 +32,7 @@ Implement business service `executeYield` in `services/learn.service.ts` to scan
 
 #### REQ-CLI-044: prospec learn yield CLI Command
 Add CLI subcommand and output formatter for lens yield statistics under `prospec learn yield`.
-- WHEN `prospec learn yield` is executed, THEN display a formatted table of lens yield statistics sorted by yield ascending with recommended actions and color-coded status badges
+- WHEN `prospec learn yield` is executed, THEN display a formatted table of lens yield statistics sorted by yield ascending with recommended actions, color-coded status badges, and each lens's invocation source (`declared` vs `rows` proxy) so a proxy-protected keep is distinguishable from a healthy one
 - WHEN `--json` flag is provided, THEN output the raw JSON `LensYieldReport` payload to stdout
 - WHEN `--corpus <dir>` is provided (repeatable), THEN include each directory in historical review scanning
 
