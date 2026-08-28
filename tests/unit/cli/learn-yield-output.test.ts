@@ -62,6 +62,46 @@ describe('learn yield output formatter', () => {
     expect(out).toContain('dead-lens: Consecutive zero confirmed findings for 5 changes');
   });
 
+  it('shows the invocation source column, distinguishing declared from rows-proxy keeps', () => {
+    const report: LensYieldReport = {
+      ...baseReport,
+      stats: [
+        {
+          // Lens names deliberately carry NO 'declared'/'rows' token, so the
+          // per-row assertions below can only pass if the Source column actually
+          // renders each row's invocation_source value.
+          lens: 'lens-a',
+          invocations: 5,
+          confirmed_findings: 8,
+          yield_ratio: 0.8,
+          consecutive_zero_changes: 0,
+          action: 'keep',
+          reason: 'Yield meets criteria',
+          invocation_source: 'declared',
+        },
+        {
+          lens: 'lens-b',
+          invocations: 2,
+          confirmed_findings: 1,
+          yield_ratio: 0.5,
+          consecutive_zero_changes: 0,
+          action: 'keep',
+          reason: 'Invocation count is a proxy (rows only)',
+          invocation_source: 'rows',
+        },
+      ],
+    };
+    const out = captureStdout(() => formatLensYieldOutput(report));
+    expect(out).toContain('Source');
+    const declaredLine = out.split('\n').find((l) => l.includes('lens-a'));
+    const rowsLine = out.split('\n').find((l) => l.includes('lens-b'));
+    // Both rows are `keep`, but the Source column tells a healthy declared keep
+    // apart from a proxy-protected one — and the lens names carry no source token,
+    // so these assertions fail if the column stops rendering per-row values.
+    expect(declaredLine).toContain('declared');
+    expect(rowsLine).toContain('rows');
+  });
+
   it('outputs raw JSON when json option is true', () => {
     const out = captureStdout(() => formatLensYieldOutput(baseReport, { json: true }));
     const parsed = JSON.parse(out);

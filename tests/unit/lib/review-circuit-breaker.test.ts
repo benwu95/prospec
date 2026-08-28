@@ -143,12 +143,30 @@ describe('ReviewCircuitBreaker', () => {
     breaker.recordSpend(6000);
     expect(breaker.checkCircuitBreaker({ round: 1 }).tripped).toBe(false);
 
-    // Add spend taking cumulative to 11,000 > 10,000
-    const state = breaker.checkCircuitBreaker({ round: 2, spend: 5000 });
+    // The caller records spend (cumulative 11,000 > 10,000); checkCircuitBreaker
+    // is a pure query that reads the recorded spend read-only.
+    breaker.recordSpend(5000);
+    const state = breaker.checkCircuitBreaker({ round: 2 });
     expect(state.tripped).toBe(true);
     expect(state.escalationReport?.type).toBe('spend_budget_exceeded');
     expect(state.reason).toContain('11000 tokens');
     expect(state.cumulativeSpend).toBe(11000);
+  });
+
+  it('checkCircuitBreaker is a pure query — repeated calls do not mutate recorded state (REQ-LIB-063)', () => {
+    const breaker = new ReviewCircuitBreaker({ maxFixInducedRatio: 0.5, maxSpend: 10000 });
+    breaker.recordSpend(6000);
+    const findings = [{ origin_round: 1 }, { origin_round: 2 }, { origin_round: 2 }];
+
+    const first = breaker.checkCircuitBreaker({ round: 2, findings });
+    const second = breaker.checkCircuitBreaker({ round: 2, findings });
+
+    // Identical inputs -> identical output, and the query never accumulates spend.
+    expect(second).toEqual(first);
+    expect(breaker.getCumulativeSpend()).toBe(6000);
+    expect(first.cumulativeSpend).toBe(6000);
+    expect(first.fixInducedRatio).toBeCloseTo(2 / 3);
+    expect(first.escalationReport?.type).toBe('fix_induced_threshold_exceeded');
   });
 
   it('trips circuit breaker when review rounds reach hard cap with unresolved criticals', () => {
