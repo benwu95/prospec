@@ -1,6 +1,6 @@
 # Station Engines
 
-> The I/O-free engines the cli-first stations delegate their deterministic half to — table mechanics, the S/A/B/C/D grade, the review findings merge, the shared evidence-block grammar, the lessons ledger, and the artifact validators. Reached from [lib](./README.md).
+> The I/O-free engines the cli-first stations delegate their deterministic half to — table mechanics, the S/A/B/C/D grade, the review findings merge, the shared evidence-block grammar, the lessons ledger, the artifact validators, the dual-axis review circuit breaker, and the lens yield statistics. Reached from [lib](./README.md).
 
 ## Key Files
 
@@ -10,8 +10,10 @@
 | `delegated-evidence.ts` | THE evidence-block grammar both `review.md` and `verify.md` are written with — one marker prefix (so one collision guard), section located by MARKER not heading, `after` returned so nothing below the section is lost, `findUnsafeBlockField` for the raw-line fields, CR-normalised body, EOF closes an unterminated block |
 | `review-merge.ts` | Identity-keyed findings merge — severity max, carry-forward, the `Origin` round tracking and `Repro` columns, cumulative evidence, round metrics parser (`parseReviewMetrics`); `parseReviewDocument` reads the table AND re-attaches each row's evidence block |
 | `verify-grade.ts` | The S/A/B/C/D decision table as code, plus `resultForGrade` / `gradeAdvancesStatus`, and the self-verification cap (`isSelfVerified`/`applySelfVerifiedCap`: any judgment dimension graded `in-session` makes S unattainable — capped to A without spending the WARN budget) |
+| `review-circuit-breaker.ts` | `ReviewCircuitBreaker` — oscillation flips, 3-5 round ceiling, fix-induced ratio and cumulative spend budget (dual-axis) |
 | `lessons-ledger.ts` | Ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped) |
 | `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids) |
+| `lens-yield.ts` | Calculate confirmed yield per lens, recommend lens retirement (`calculateLensYield`, `recommendLensRetirement`, `buildLensYieldReport`) |
 
 ## Public API
 
@@ -19,6 +21,7 @@
 - `renderEvidenceBlock` / `renderEvidenceSection` (heading is a parameter) / `splitEvidenceSection` (→ `{before, blocks, after}`) / `containsEvidenceMarker` / `findUnsafeBlockField`
 - `parseReviewRows` / `parseReviewDocument` / `parseReviewMetrics` / `mergeFindings` / `roundCounts` / `renderReviewDocument` / `evidenceBlocksFor`
 - `computeGrade` / `resultForGrade` / `gradeAdvancesStatus` / `isSelfVerified` / `applySelfVerifiedCap`; `upsertLesson`; `validateSlug` / `validate*`
+- `normalizeLens` / `isConfirmedFinding` / `calculateLensYield` / `recommendLensRetirement` / `buildLensYieldReport`
 
 ## Modification Guide
 

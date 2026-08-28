@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 167 test files, 4,261 tests (unit 3140, contract 969, integration 45, e2e 107)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 170 test files, 4,322 tests (unit 3195, contract 973, integration 45, e2e 109)).
 
 <!-- prospec:auto-start -->
 
@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`), service and formatter; heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
+| `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), service and formatter (incl. `learn-yield.service` / `learn-yield-output`); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` (21) | Format, registry and trust-zone pins rendered from the real templates — see [Contract Guards](./contract-guards.md). |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
 | `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure incl. projection, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |

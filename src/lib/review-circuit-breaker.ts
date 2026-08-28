@@ -1,10 +1,16 @@
-import type {
-  CircuitBreakerConfig,
-  CircuitBreakerState,
-  EscalationReport,
-  OscillationRecord,
+import {
+  CircuitBreakerConfigSchema,
+  DEFAULT_CIRCUIT_BREAKER_CONFIG,
+  type CircuitBreakerConfig,
+  type CircuitBreakerState,
+  type EscalationReport,
+  type OscillationRecord,
 } from '../types/cascade.js';
-import { DEFAULT_CIRCUIT_BREAKER_CONFIG } from '../types/cascade.js';
+import {
+  REVIEW_DISMISSED_STATUSES,
+  REVIEW_RESOLVED_STATUSES,
+  hasReviewStatus,
+} from '../types/station.js';
 
 /**
  * Count the number of state flips (transitions between true and false) in a trial history.
@@ -35,17 +41,22 @@ export function isOscillating(
  * In-memory circuit breaker and oscillation tracker to guard against runaway loops.
  */
 export function calculateFixInducedRatio(
-  findings: readonly { origin_round?: number }[],
+  findings: readonly { origin_round?: number; status?: string }[],
   roundNumber: number = 1,
+  baseRound: number = 1,
 ): number {
   if (roundNumber <= 1 || findings.length === 0) return 0;
-  const fixInduced = findings.filter(
-    (f) => f.origin_round !== undefined && f.origin_round > 1,
+  const active = findings.filter(
+    (f) => !hasReviewStatus(REVIEW_DISMISSED_STATUSES, f.status),
+  );
+  if (active.length === 0) return 0;
+  const fixInduced = active.filter(
+    (f) => (f.origin_round ?? baseRound) > baseRound,
   ).length;
-  return fixInduced / findings.length;
+  return fixInduced / active.length;
 }
 
-export class OscillationBreaker {
+export class ReviewCircuitBreaker {
   private readonly config: CircuitBreakerConfig;
   private readonly records = new Map<string, OscillationRecord>();
   private currentReviewRounds = 0;
@@ -53,12 +64,7 @@ export class OscillationBreaker {
   private currentFixInducedRatio = 0;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
-    this.config = {
-      maxReviewRounds: config?.maxReviewRounds ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxReviewRounds,
-      maxOscillationFlips: config?.maxOscillationFlips ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxOscillationFlips,
-      maxFixInducedRatio: config?.maxFixInducedRatio ?? DEFAULT_CIRCUIT_BREAKER_CONFIG.maxFixInducedRatio,
-      maxSpend: config?.maxSpend,
-    };
+    this.config = CircuitBreakerConfigSchema.parse(config ?? {});
   }
 
   /**
@@ -157,17 +163,24 @@ export class OscillationBreaker {
    */
   checkCircuitBreaker(options?: {
     round?: number;
-    findings?: readonly { origin_round?: number }[];
+    findings?: readonly { origin_round?: number; severity?: string; status?: string }[];
     spend?: number;
+    baseRound?: number;
   }): CircuitBreakerState {
     const roundNumber = options?.round ?? this.currentReviewRounds;
     if (options?.spend !== undefined) {
       this.recordSpend(options.spend);
     }
     if (options?.findings) {
-      const ratio = calculateFixInducedRatio(options.findings, roundNumber);
+      const ratio = calculateFixInducedRatio(options.findings, roundNumber, options.baseRound ?? 1);
       this.recordFixInducedRatio(ratio);
     }
+
+    const unresolvedCriticals = (options?.findings ?? []).filter(
+      (f) =>
+        f.severity === 'critical' &&
+        !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
+    ).length;
 
     const oscillating = this.getOscillatingSignatures();
     let escalationReport: EscalationReport | undefined;
@@ -221,14 +234,15 @@ export class OscillationBreaker {
         ],
       };
     }
-    // 4. Check maximum iteration rounds
-    else if (roundNumber >= this.config.maxReviewRounds) {
+    // 4. Check maximum iteration rounds — only when unresolved criticals remain
+    else if (roundNumber >= this.config.maxReviewRounds && unresolvedCriticals > 0) {
       escalationReport = {
         type: 'max_rounds_exceeded',
         message: `Review/Fix loop reached hard cap of ${this.config.maxReviewRounds} rounds without convergence.`,
         diagnostics: {
           currentRounds: roundNumber,
           maxAllowed: this.config.maxReviewRounds,
+          unresolvedCriticals,
         },
         tradeoffOptions: [
           'Escalate remaining critical findings to human developer for decision',

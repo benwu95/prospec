@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4261%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4322%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -615,6 +615,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec review merge --findings <file> [options]` | 將審查 JSON 發現合併進累積 `review.md` 表格 |
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），達標時推進 verified |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
+| `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
 
 #### 變更管理命令詳解
@@ -682,9 +683,9 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 回報任務進度比例（X/Y，自動排除 `[M]` 手動與 `[V]` 驗證任務）及下一項待辦任務。
     - `--complete <task>`：精確勾選指定的一項任務 checkbox。
 
-- **`prospec review merge --findings <file> [--change <name>]`**
+- **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
-  - **重點條列**：依識別碼去重、嚴重度取最大值、跨輪次保留記錄，自動填入重現方式（repro）與佐證（evidence），並輸出 critical 摘要與統計。
+  - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **核心用途**：計算驗證評級（S/A/B/C/D）並記錄結果。
@@ -693,6 +694,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。
   - **重點條列**：依 `頻率 ≥ 3 且影響模組 ≥ 2` 規則自動評分是否晉升至 Playbook，並自動掃描 Playbook 條目的 TTL 狀態。
+
+- **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
+  - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。
+  - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec` 等）。校驗失敗時 exit 1。
@@ -1043,7 +1048,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4261 個測試）
+# 執行所有測試（4322 個測試）
 pnpm test
 
 # Watch 模式
@@ -1056,11 +1061,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4261 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3140 tests
-- Contract tests（CLI 輸出 + Skill 格式）：969 tests
+**測試覆蓋率**：4322 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3195 tests
+- Contract tests（CLI 輸出 + Skill 格式）：973 tests
 - Integration tests：45 tests
-- E2E tests：107 tests
+- E2E tests：109 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

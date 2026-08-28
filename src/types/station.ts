@@ -16,6 +16,26 @@ import { DIMENSION_ADJUDICATORS, DIMENSION_GRADED_BY, DIMENSION_RESULTS } from '
 export const REVIEW_SEVERITIES = ['minor', 'major', 'critical'] as const;
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
 
+/** Canonical review finding status groups. */
+export const REVIEW_DISMISSED_STATUSES = ['not-found', 'dropped', 'invalid'] as const;
+export const REVIEW_RESOLVED_STATUSES = [
+  'fixed',
+  'verified',
+  ...REVIEW_DISMISSED_STATUSES,
+] as const;
+export const REVIEW_CONFIRMED_STATUSES = ['confirmed', 'fixed', 'verified'] as const;
+
+export function normalizeReviewStatus(status: string | undefined | null): string {
+  return (status ?? 'open').trim().toLowerCase();
+}
+
+export function hasReviewStatus(
+  set: readonly string[],
+  status: string | undefined | null,
+): boolean {
+  return set.includes(normalizeReviewStatus(status));
+}
+
 /**
  * Ceilings on the fields a delegated reviewer or grader RELAYS back to the
  * orchestrating context. `evidence` is deliberately absent from this set: it is
@@ -102,8 +122,6 @@ export const ReviewFindingSchema = z
     status: z.string().min(1).default('open'),
     /** One-line description shown in the review.md table. */
     summary: relayedString('summary'),
-    /** Review round in which this finding was first surfaced. */
-    origin_round: z.number().int().positive().optional(),
     /** A re-runnable command that shows the defect — a failing-test invocation,
      *  or a read/grep probe that displays the cited code. Re-run after the fix,
      *  it is also what shows the fix worked. */
@@ -249,3 +267,40 @@ export const VALIDATE_KINDS = [
   'design-spec',
 ] as const;
 export type ValidateKind = (typeof VALIDATE_KINDS)[number];
+
+// --- learn lens yield (`prospec learn yield`) ---
+
+export const LENS_RETIREMENT_ACTIONS = ['retire', 'review', 'keep'] as const;
+export type LensRetirementAction = (typeof LENS_RETIREMENT_ACTIONS)[number];
+
+export const LensYieldThresholdsSchema = z.object({
+  consecutive_zero_threshold: z.number().int().positive().default(5),
+  min_invocations: z.number().int().positive().default(3),
+  min_yield: z.number().min(0).max(1).default(0.1),
+});
+export type LensYieldThresholds = z.infer<typeof LensYieldThresholdsSchema>;
+
+export const LensYieldStatSchema = z.object({
+  lens: z.string().min(1),
+  invocations: z.number().int().nonnegative(),
+  /** Runs recorded via `--lenses`; the retirement evidence bar counts only these. */
+  declared_invocations: z.number().int().nonnegative().optional(),
+  confirmed_findings: z.number().int().nonnegative(),
+  yield_ratio: z.number().min(0).max(1),
+  confirmed_per_invocation: z.number().nonnegative().optional(),
+  consecutive_zero_changes: z.number().int().nonnegative(),
+  last_yield_change: z.string().optional(),
+  action: z.enum(LENS_RETIREMENT_ACTIONS),
+  reason: z.string().optional(),
+  invocation_source: z.enum(['declared', 'rows']).default('declared'),
+});
+export type LensYieldStat = z.infer<typeof LensYieldStatSchema>;
+
+export const LensYieldReportSchema = z.object({
+  generated_at: z.string(),
+  total_changes_analyzed: z.number().int().nonnegative(),
+  thresholds: LensYieldThresholdsSchema,
+  stats: z.array(LensYieldStatSchema),
+});
+export type LensYieldReport = z.infer<typeof LensYieldReportSchema>;
+

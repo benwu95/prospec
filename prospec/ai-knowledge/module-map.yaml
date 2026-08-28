@@ -52,7 +52,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -97,7 +97,7 @@ modules:
       - lessons-ledger
       - artifact-validators
       - date-utils
-      - oscillation-breaker
+      - review-circuit-breaker
       - project-runner
     relationships:
       depends_on:
@@ -118,7 +118,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z
   - name: services
     description: Business logic — one `execute()` service per command — init /
       quickstart / upgrade, knowledge init + update, change story / plan / tasks
@@ -173,7 +173,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z
   - name: cli
     description: Thin CLI entry — 18 top-level Commander commands + 29 formatters
       that parse → call one service → format output; the cli-first station
@@ -211,7 +211,7 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z
   - name: templates
     description: Handlebars template library — 17 skills + 7 shared partials, 28
       references, 1 agent-config, 5 change, 15 init/knowledge (74 `.hbs`
@@ -258,10 +258,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z
   - name: tests
-    description: 4-layer test suite — 167 files, 4,261 tests (unit 3140 + contract
-      969 + integration 45 + e2e 107). Validates every module — format
+    description: 4-layer test suite — 170 files, 4,277 tests (unit 3155 + contract
+      969 + integration 45 + e2e 108). Validates every module — format
       contracts, the cli-first probe + station-command contracts, the drift
       engine, token corpus, and the MCP protocol over in-memory transport.
     paths:
@@ -297,4 +297,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-08-27T15:42:38.249Z
+    last_verified: 2026-08-27T23:32:11.065Z

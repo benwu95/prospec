@@ -32,3 +32,84 @@ export function formatLearnUpsertOutput(
   }
   process.stdout.write(lines.join('\n') + '\n');
 }
+
+/** Format the LensYieldReport: statistics table, JSON mode, and retirement recommendations. */
+export function formatLensYieldOutput(
+  report: import('../../types/station.js').LensYieldReport,
+  options: { json?: boolean; logLevel?: LogLevel } = {},
+): void {
+  if (options.json) {
+    process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    return;
+  }
+
+  if (options.logLevel === 'quiet') return;
+
+  const lines: string[] = [];
+  lines.push(
+    `${pc.bold('Review Lens Confirmed Yield Statistics')} (${report.total_changes_analyzed} changes analyzed)`,
+  );
+  lines.push('');
+
+  if (report.stats.length === 0) {
+    lines.push(pc.dim('No review findings found across analyzed changes.'));
+    process.stdout.write(lines.join('\n') + '\n');
+    return;
+  }
+
+  // Format table rows
+  const headers = ['Lens', 'Invocations', 'Confirmed', 'Yield', 'Consecutive Zero', 'Action'];
+  const rawRows = report.stats.map((s) => {
+    const yieldPct = `${(s.yield_ratio * 100).toFixed(1)}%`;
+    return [
+      sanitizeTerminal(s.lens),
+      String(s.invocations),
+      String(s.confirmed_findings),
+      yieldPct,
+      String(s.consecutive_zero_changes),
+      s.action,
+    ];
+  });
+
+  const rows = report.stats.map((s, idx) => {
+    const raw = rawRows[idx]!;
+    const actionColor =
+      s.action === 'retire' ? pc.red : s.action === 'review' ? pc.yellow : pc.green;
+    return [raw[0]!, raw[1]!, raw[2]!, raw[3]!, raw[4]!, actionColor(raw[5]!)];
+  });
+
+  // Calculate column widths using uncolored raw strings
+  const colWidths = headers.map((h, i) =>
+    Math.max(h.length, ...rawRows.map((r) => r[i]?.length ?? 0)),
+  );
+
+  const formatRow = (cells: string[], rawCells: string[]) =>
+    cells
+      .map((c, i) => {
+        const rawLen = rawCells[i]?.length ?? 0;
+        const pad = ' '.repeat(Math.max(0, colWidths[i]! - rawLen));
+        return c + pad;
+      })
+      .join('  ');
+
+  lines.push(pc.dim(formatRow(headers, headers)));
+  lines.push(pc.dim(colWidths.map((w) => '─'.repeat(w)).join('  ')));
+  for (let i = 0; i < rows.length; i++) {
+    lines.push(formatRow(rows[i]!, rawRows[i]!));
+  }
+
+
+  const retirementCandidates = report.stats.filter((s) => s.action === 'retire');
+  if (retirementCandidates.length > 0) {
+    lines.push('');
+    lines.push(pc.yellow(pc.bold('Staleness Retirement Recommendations:')));
+    for (const r of retirementCandidates) {
+      lines.push(
+        `  ${pc.red('●')} ${pc.bold(sanitizeTerminal(r.lens))}: ${sanitizeTerminal(r.reason ?? '')}`,
+      );
+    }
+  }
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+

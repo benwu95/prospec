@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (47 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (48 files)
 
 <!-- prospec:auto-start -->
 
@@ -9,7 +9,7 @@
 | File | Purpose |
 |------|---------|
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language |
-| `oscillation-breaker.ts` / `project-runner.ts` | `OscillationBreaker` tracking flip transitions & 3-5 iteration ceiling; multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`) |
+| `project-runner.ts` | Multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`): declared `test_command` → declared package manager + `scripts.test` → manifest detection (Rust, Python, Go, Node lockfile, Makefile) → honest `null`; the review circuit breaker is a station engine — see the sub-module below |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `template.ts` / `auto-draft-template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem; `buildAutoDraftProposal` is a pure context builder over `change/auto-draft-proposal.md.hbs` — it collapses report-supplied text to one line, so a multi-line `detail` cannot forge the `## UI Scope` heading `status` parses as a routing fact |
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it; `sanitizeChangeSlug` / `deriveFixChangeName` — the `fix-<target>-<check>` naming used by drafting, collapsing path separators and dots so a report's `source_path` can never escape `.prospec/changes/` |
@@ -17,16 +17,16 @@
 | `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent/loadModuleKnowledge (README + linked sub-modules), searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
 | `draftable-findings.ts` | `isDraftableFinding` — the ONE predicate deciding whether a drift finding can be drafted into a fix change (excludes the `headroom` pressure tier and anything under `.prospec/`); pure, so the read-only `status` surface shares it with the drafter without importing the change-creation path |
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
-| station engines (6 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators — see the sub-module below |
+| station engines (8 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators, the dual-axis review circuit breaker, the lens yield statistics — see the sub-module below |
 
-The drift engine's 6 files are listed in the sub-module below; the station engines' 6 in theirs; the other 19 `.ts` are single-purpose helpers, with invariants in Pitfalls.
+The drift engine's 6 files are listed in the sub-module below; the station engines' 8 in theirs; the other 18 `.ts` are single-purpose helpers, with invariants in Pitfalls.
 
 ## Public API
 
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
 - Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry` (drift exports: see the sub-module)
-- Oscillation/runner — `countFlips`/`isOscillating`/`OscillationBreaker`, `resolveProjectTestCommand`/`detectTestCommand`
+- Circuit breaker/runner — `countFlips`/`isOscillating`/`calculateFixInducedRatio`/`ReviewCircuitBreaker` (a station engine), `resolveProjectTestCommand`/`detectTestCommand`
 - Token Accounting — `parseAllLogFiles` (JSONL transcript parsing), `calculateCodebaseBaselineTokens` (`git ls-files` based theoretical baseline)
 - Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices`, and `readSpecSlices` (the one narrow-read entry both surfaces share) (the rest: see the Station Engines sub-module)
 
