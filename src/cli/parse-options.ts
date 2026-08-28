@@ -27,3 +27,39 @@ export function parseDate(value: string): string {
   }
   return value;
 }
+
+/** Commander option parser for non-negative or positive integers. */
+export function parseIntOption(name: string, min: 0 | 1) {
+  return (v: string): number => {
+    const parsed = parseInt(v, 10);
+    if (Number.isNaN(parsed) || parsed < min || String(parsed) !== v.trim()) {
+      const type = min === 1 ? 'positive' : 'non-negative';
+      throw new InvalidArgumentError(`--${name} must be a ${type} integer, got "${v}"`);
+    }
+    return parsed;
+  };
+}
+
+/** Commander option parser for integer within bounds [min, max]. */
+export function parseBoundedInt(name: string, min: number, max: number) {
+  return (v: string): number => {
+    const parsed = parseInt(v, 10);
+    if (Number.isNaN(parsed) || parsed < min || parsed > max || String(parsed) !== v.trim()) {
+      throw new InvalidArgumentError(`--${name} must be an integer between ${min} and ${max}, got "${v}"`);
+    }
+    return parsed;
+  };
+}
+
+/** Commander option parser for ratio between 0.0 and 1.0. */
+export function parseRatio(name: string) {
+  return (v: string): number => {
+    const trimmed = v.trim();
+    const parsed = trimmed === '' ? NaN : Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+      throw new InvalidArgumentError(`--${name} must be a number between 0.0 and 1.0, got "${v}"`);
+    }
+    return parsed;
+  };
+}
+

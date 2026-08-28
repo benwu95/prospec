@@ -39,7 +39,7 @@ nondeterministic serialization this contract exists to remove.
 3. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — to compute each lesson's impact-module count
 4. [DYNAMIC] Read the existing lessons ledger `prospec/ai-knowledge/_lessons-ledger.md` (if present) — carry-forward anchor (version-controlled, survives worktrees)
 5. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) **in full** — the Sweep's team-tier input and Promote's duplicate-check baseline. This is the one skill that reads the whole playbook; every other reader loads only the entries relevant to its change
-6. [DYNAMIC] Read `.prospec/lessons.yaml`-config or `.prospec.yaml` promotion thresholds (if set; threshold config only — the ledger itself is `prospec/ai-knowledge/_lessons-ledger.md`, not this file); otherwise use the reference defaults
+6. [DYNAMIC] Read `.prospec.yaml` `learn.thresholds` (promotion) and `learn.lens_thresholds` (yield sweep) if set; otherwise use the reference defaults (the ledger itself is `prospec/ai-knowledge/_lessons-ledger.md`, not a config file)
 
 ## Entry Gate
 
@@ -55,9 +55,11 @@ nondeterministic serialization this contract exists to remove.
 
 Runs FIRST — audit the two governed files for entries the project has outgrown, so this run keys new occurrences against a current ledger instead of adding evidence to a dead rule. Tests, evidence bar and removal semantics: `references/promotion-format.md` → **Staleness Sweep**.
 
-- The mechanical half is already computed: `prospec learn upsert` reports playbook entries past their TTL review-by date (entries already retired are excluded). The judgment half is the four tests — **mechanized** (a gate/test/type/check now enforces it), **no longer applicable** (the artifact, station, command or config it governs is gone), **contradicted** (it conflicts with a Constitution rule, a shipped spec, or a newer entry), and **desynchronized** (an entry annotated `Inlined into gate`/`Mechanized` whose later `Strengthened` clauses never reached the gate its `Landing:` anchor names). The first three propose retirement; **desynchronized** proposes re-syncing the gate or re-annotating, never retiring the still-valid entry.
+- The mechanical half is already computed: `prospec learn upsert` reports playbook entries past their TTL review-by date (entries already retired are excluded). In addition, run `prospec learn yield`: a lens whose consecutive zero-yield changes reach the threshold (with enough invocations) is recommended `retire`; a lens whose yield ratio falls below the minimum is recommended `review`; a lens becomes eligible only once it has at least `min_invocations` **declared** runs (`--lenses` at merge time); a lens never declared stays `keep` (its invocation count is a rows proxy).
+- The judgment half is the four tests — **mechanized** (a gate/test/type/check now enforces it), **no longer applicable** (the artifact, station, command or config it governs is gone), **contradicted** (it conflicts with a Constitution rule, a shipped spec, or a newer entry), and **desynchronized** (an entry annotated `Inlined into gate`/`Mechanized` whose later `Strengthened` clauses never reached the gate its `Landing:` anchor names). The first three propose retirement; **desynchronized** proposes re-syncing the gate or re-annotating, never retiring the still-valid entry.
 - Evidence, not memory: name the mechanism (`file:line`, a `DRIFT_CHECK_IDS` id, a test name) **and its executor**, then confirm no occurrence postdates it. A checker nothing runs is not a mechanism, and a mechanized root cause does not by itself retire the entry that still states WHY — annotate that one instead. For **desynchronized**, read the entry's `Landing:` anchor, open each named gate, and point at the `file:line` where the strengthened clause is absent — a bare "looks synced" is not evidence.
 - Present every finding on the **needs-review list** with its evidence and a proposed action, then stop for **explicit human approval** — retirement is a shared-tier write and carries the same approval discipline as promotion. Apply only what was approved; the rest stays listed.
+
 
 ### Collect
 
@@ -72,7 +74,7 @@ The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule fro
 `references/promotion-format.md`, defaults overridable in `.prospec.yaml` `learn.thresholds`:
 - **suggest promote** WHEN `frequency ≥ 3` AND `|impact_modules| ≥ 2` (a `kind: constitution` lesson routes to the Constitution tier; otherwise to `_playbook.md`).
 - Below either threshold → stays personal, not suggested (avoids early noise when samples are few).
-- The command emits the **auditable score detail** per suggestion (`frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`) — quote it verbatim when presenting; never re-derive the score by hand. Same ledger input ⇒ same output — the SC-002 reproducibility guarantee, by construction.
+- The command emits the **auditable score detail** per suggestion (`frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`) — quote it verbatim when presenting; never re-derive the score by hand. Same ledger input ⇒ same output — the reproducibility guarantee, by construction.
 - **Prioritize the review queue by knowledge freshness** (see promotion-format "Review-Queue Prioritization"): read the `prospec-report.json` file (`prospec check`) — its stale modules are `structural.knowledge_health.modules[]` filtered by `.stale` (there is no top-level `stale[]` array; shape: [`references/drift-report-format.md`](references/drift-report-format.md)); raise a `convention`-kind suggestion whose `impact_modules` intersect a stale module and annotate "this module's knowledge is also stale — refresh on hand-move". No report present → default order (non-blocking). Prioritization only — never auto-writes `_conventions.md`.
 
 ### Promote

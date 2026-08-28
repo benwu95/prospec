@@ -1,6 +1,6 @@
 # Circuit Breakers & Runaway Cost Protection Reference
 
-This document defines the **Circuit Breaker & Escalation Protocol** used by Prospec execution loops (`/prospec-implement`, `/prospec-review`, and autonomous cascading).
+This document defines the **Circuit Breaker & Escalation Protocol** used by `/prospec-review` — the CLI evaluates it on every `prospec review merge` — and by autonomous cascading (`/prospec-ff`).
 
 ---
 
@@ -18,14 +18,25 @@ Unattended autonomous execution carries the risk of runaway token consumption, i
 - **Action**: Trip the breaker, halt automated execution, and emit an `EscalationReport`.
 
 ### 2. Oscillation Breaker (Flip-Flop Defect Detection)
-- **Mechanism**: The system tracks the trial history of each unique test identifier (`test_file:test_name`) and Review defect ID.
-- **Oscillation Pattern**: A signature that alternates states (e.g. `FAIL → PASS → FAIL` or `PASS → FAIL → PASS`, $\ge 2$ flips) indicates an oscillating fix (fixing one bug reintroduces another).
+- **Mechanism**: `prospec review merge` records, in `review.md`'s metrics comment, each finding `id`'s per-round resolved/unresolved history and evaluates it on every merge — this half is CLI-owned. Test-identifier oscillation (`test_file:test_name` flipping across fix rounds) is observed by you from the suite output and MUST be reported as a finding (so it enters the CLI-tracked set); it is not machine-tracked on its own.
+- **Oscillation Pattern**: A signature that alternates states (e.g. `FAIL → PASS → FAIL` or `PASS → FAIL → PASS`, `>= 2` flips) indicates an oscillating fix (fixing one bug reintroduces another).
 - **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
 - **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
 
-### 3. Early-Stop Conditions
+### 3. Fix-Induced Defect Ratio (Dual-Axis #1)
+- **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (findings created by this loop's earlier fix rounds).
+- **Rule**: When `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%), the fix attempts are generating defects faster than resolving them.
+- **Action**: Trip the circuit breaker immediately and emit an `EscalationReport` recommending **revert-and-redesign** rather than continued iterative patching.
+
+### 4. Spend Budget Ceiling (Dual-Axis #2)
+- **Mechanism**: The CLI accumulates per-round token spend (`--spend`) across review iterations.
+- **Rule**: When cumulative spend exceeds the declared budget limit (`--budget`), the circuit breaker trips immediately to prevent runaway cost.
+- **Action**: Trip the breaker, halt automated review iterations, and emit an `EscalationReport` with cumulative spend metrics.
+
+### 5. Early-Stop Conditions & Regression Pin Gate
 - **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
-- **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red. The fix is immediately reverted rather than piling additional edits on a red suite.
+- **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red (immediately reverted).
+- **Per-Critical Regression Pin Gate**: Confirmed criticals require a fail-then-pass mutation-verified test pin before fix application to guard against subsequent regressions.
 
 ---
 
@@ -36,14 +47,15 @@ When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a 
 ```markdown
 ### 🚨 Circuit Breaker Tripped: Escalation Required
 
-- **Trigger**: [oscillation | max_rounds_exceeded | persistent_test_failure]
-- **Diagnostic Details**: [Summary of signatures, failing tests, or round counts]
+- **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | spend_budget_exceeded]
+- **Diagnostic Details**: [Summary of signatures, failing tests, round counts, fix-induced ratio, or spend budget]
 - **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
 
 #### Trade-off Options for Developer:
-1. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
-2. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
-3. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
+1. **Revert and Redesign**: Roll back recent fix attempts and redesign implementation strategy (revert-and-redesign).
+2. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
+3. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
+4. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
 ```
 
 ---

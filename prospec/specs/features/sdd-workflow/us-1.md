@@ -316,9 +316,9 @@ The types module exports type definitions and Zod schemas for pipeline cascading
 ---
 
 #### REQ-LIB-057: Oscillation Breaker and Circuit Breaker Logic
-The lib module provides an `OscillationBreaker` utility to guard against runaway loops and flip-flop defect oscillations.
+The lib module provides a `ReviewCircuitBreaker` utility to guard against runaway loops and flip-flop defect oscillations.
 - WHEN a defect or test flips from FAIL to PASS to FAIL, THEN `detectOscillation` returns true and identifies the oscillating signature
-- WHEN the iteration count exceeds the configured maximum rounds (default 3, max 5) or oscillation is detected, THEN `checkCircuitBreaker` trips and returns an `EscalationReport`
+- WHEN the in-loop round count reaches the configured maximum (default 3, max 5) while unresolved criticals remain, or oscillation is detected, THEN `checkCircuitBreaker` trips and returns an `EscalationReport`
 
 ---
 

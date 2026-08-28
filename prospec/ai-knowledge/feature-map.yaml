@@ -40,6 +40,8 @@ features:
   - feature: feedback-promotion
     modules:
       - cli
+      - lib
+      - services
       - templates
       - tests
       - types

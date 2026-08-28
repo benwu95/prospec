@@ -79,7 +79,7 @@
   },
   "prospec-learn": {
     "items": [
-      ".prospec/lessons.yaml",
+      ".prospec.yaml",
       "references/promotion-format.md",
       "{{constitution_path}}",
       "{{knowledge_base_path}}/_lessons-ledger.md",

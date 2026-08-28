@@ -37,23 +37,23 @@ A finding is critical only if it is one of:
 
 ## Auto-Fix Boundary
 
-Only a critical that is **confirmed to exist** — by running its `repro` and reading the cited code, with an independent verifier's `[confirmed]` verdict — **and** has a **concrete, local, drop-in** fix is auto-applied to the working tree. A `critical` therefore always carries a `repro`: the confirmation is an execution, not a reading of relayed prose. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
+Only a critical that is **confirmed to exist** — by running its `repro` and reading the cited code, with an independent verifier's `[confirmed]` verdict — **and** has a **fail-then-pass mutation-verified regression test (pin)** and a **concrete, local, drop-in** fix is auto-applied to the working tree. The regression pin serves as the mechanical receipt guarding against regression in subsequent rounds. Where the project has no mutation tool, "mutation-verified" means the pin was observed red on the unfixed code and green after the fix — the fail-then-pass run itself is the receipt. A `critical` therefore always carries a `repro` and a regression test. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
 
 ---
 
 ## review.md Format
 
 Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The table is
-**CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file>`
+**CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file> --lenses <lens,lens,…> [--round <n>] [--spend <tokens>] [--budget <tokens>]`
 — never hand-edit the table. Canonical shape the CLI renders:
 
 ```markdown
 # Review Findings: {change-name}
 
-| ID | Location | Severity | Lens | Status | Summary | Repro |
-|---|---|---|---|---|---|---|
-| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | off-by-one in loop bound | pnpm vitest run tests/unit/lib/foo.test.ts -t 'bound' |
-| F-2 | src/services/bar.ts:88 | major | maintainability | proposed | duplicated matcher |  |
+| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |
+|---|---|---|---|---|---|---|---|
+| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | 1 | off-by-one in loop bound | <project test command> <pin selector> |
+| F-2 | src/services/bar.ts:88 | major | maintainability | proposed | 1 | duplicated matcher |  |
 
 <!-- prospec:evidence-section -->
 ## Evidence
@@ -66,6 +66,10 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 <!-- prospec:evidence-section-end -->
 ```
 
+- **`Repro` uses the project's own test command** — the one
+  [`project-test-runner.md`](project-test-runner.md) resolves; `<project test command>` in the
+  example above is a placeholder, never literal text; `<pin selector>` stands for that runner's own
+  test-selection syntax (a name filter, a path, a marker) — the example commits to no framework's flags.
 - **Two surfaces carry the finding's evidence half.** `Repro` is a table column — one command, so it
   rides the same `\|` escaping the table already round-trips exactly. The prose lives in the
   marker-anchored `## Evidence` section below, keyed by finding `id`. Both are cumulative across
@@ -75,6 +79,12 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
   behind all of this are in [`delegated-evidence-format.md`](delegated-evidence-format.md) — this
   document does not restate the numbers, so there is one set of them.
 
+- **Origin column** records the integer round (`origin_round`) in which the finding was first detected.
+  When an existing row is carried forward or updated, its `Origin` round is preserved. In round > 1,
+  findings whose `Origin` is later than the current loop's first round quantify fix-induced defect density feeding the dual-axis circuit breaker.
+- **Full-Lens Re-Review Default**: Re-review is executed as a full-lens pass over the cumulative diff
+  in a fresh minimal context (cumulative diff + lenses + pinned findings list). Pinned findings are
+  mechanically guarded by their regression tests rather than consuming judgment tokens.
 - **Summary and evidence prose follow the artifact language** the Constitution's Language Policy
   assigns to `.prospec/changes/**` — the same rule the change's other artifacts obey. Keep file paths,
   identifiers, API names, the `Repro` command, and the Severity/Lens/Status enums in English; write
@@ -95,11 +105,12 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
   row you name by id elsewhere in the same round. Withholding an id costs cross-round tracking,
   never the finding's own row, so **two id-less findings you file at one Location in one round stay
   two rows**.
-- The CLI's deterministic bookkeeping: merge by identity, **severity taken as the maximum**, rows
+- The CLI's deterministic bookkeeping: merge by identity, **origin round tracking**, **severity taken as the maximum**, rows
   **carried forward** across rounds as the anchor (resolved items are not re-raised), prose around
   the table preserved.
-- Round counting and convergence stay the skill's narration; the structured round counts come from
-  the merge command's report (`criticals_found` / `criticals_fixed` / `majors`).
+- Round counting, spend tracking, and dual-axis circuit breaker checks run inside the CLI — the stopping
+  rules are in [`circuit-breaker.md`](circuit-breaker.md); the structured round metrics come from
+  the merge command's report (`round`, `criticals_found` / `criticals_fixed` / `majors`, `fix_induced_ratio`, `spend`).
 
 ---
 

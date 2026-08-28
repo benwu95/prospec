@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
-import { execute } from '../../../src/services/learn.service.js';
+import { execute, executeYield } from '../../../src/services/learn.service.js';
+import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -143,5 +144,44 @@ describe('learn service', () => {
     await expect(execute({ cwd: CWD, lessonPath: LESSON })).rejects.toThrow(
       /Lesson failed validation/,
     );
+  });
+});
+
+describe('learn yield service', () => {
+  it('computes lens yield report across archived reviews', async () => {
+    vol.fromJSON({
+      '/repo/.prospec/archive/2026-01-01-feat-a/review.md': `
+# Review Findings: feat-a
+| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |
+|---|---|---|---|---|---|---|---|
+| F-1 | a.ts:1 | critical | correctness | fixed | 1 | bug |  |
+`,
+      '/repo/.prospec/archive/2026-01-02-feat-b/review.md': `
+# Review Findings: feat-b
+| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |
+|---|---|---|---|---|---|---|---|
+| F-2 | b.ts:1 | major | security | not-found | 1 | fp |  |
+`,
+    });
+
+    const report = await executeYield({ cwd: CWD });
+    expect(report.total_changes_analyzed).toBe(2);
+    expect(report.stats.length).toBe(2);
+    const correctness = report.stats.find((s) => s.lens === 'correctness');
+    expect(correctness?.invocations).toBe(1);
+    expect(correctness?.confirmed_findings).toBe(1);
+  });
+
+  it('rejects invalid learn.lens_thresholds in .prospec.yaml with PrerequisiteError', async () => {
+    globalThis.__learnTestConfig = {
+      project: { name: 'demo' },
+      learn: {
+        lens_thresholds: {
+          min_invocations: -1, // invalid negative number
+        },
+      },
+    };
+
+    await expect(executeYield({ cwd: CWD })).rejects.toThrow(PrerequisiteError);
   });
 });

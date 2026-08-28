@@ -16,17 +16,18 @@ When executing project test suites (`check --record-tests`, implement verificati
 
 1. **Explicit Config (`.prospec.yaml`)**:
    - `tech_stack.test_command` (e.g. `pytest -q`, `cargo test`, `pnpm test`) — highest priority.
-2. **Node.js Package Manager**:
-   - If `package.json` contains a `scripts.test` entry, invokes `<package_manager> test` (`pnpm`, `yarn`, `bun`, or `npm`).
-3. **Dynamic Ecosystem Manifest Detection**:
-   - **Rust**: `Cargo.toml` $\rightarrow$ `cargo test`
+2. **Declared Package Manager**:
+   - `tech_stack.package_manager` set in `.prospec.yaml` **and** `package.json` has a `scripts.test` entry → `<package_manager> test`. Without the declared package manager this step is skipped — a Node project then falls under dynamic detection below, after Rust, Python and Go.
+3. **Dynamic Ecosystem Manifest Detection** (first match wins, in this order):
+   - **Rust**: `Cargo.toml` → `cargo test`
    - **Python**:
-     - `poetry.lock` $\rightarrow$ `poetry run pytest`
-     - `pdm.lock` $\rightarrow$ `pdm run pytest`
-     - `uv.lock` $\rightarrow$ `uv run pytest`
-     - `pytest.ini` / `pyproject.toml` / `setup.py` / `requirements.txt` $\rightarrow$ `pytest`
-   - **Go**: `go.mod` $\rightarrow$ `go test ./...`
-   - **Make**: `Makefile` with `test:` target $\rightarrow$ `make test`
+     - `poetry.lock` → `poetry run pytest`
+     - `pdm.lock` → `pdm run pytest`
+     - `uv.lock` → `uv run pytest`
+     - `pytest.ini` / `pyproject.toml` / `setup.py` / `requirements.txt` → `pytest`
+   - **Go**: `go.mod` → `go test ./...`
+   - **Node.js**: `package.json` with a `scripts.test` entry → `pnpm test` / `yarn test` / `bun test` by lockfile, else `npm test`
+   - **Make**: `Makefile` with `test:` target → `make test`
 4. **Honest Fallback**:
    - If no test command can be resolved, tests are marked as `not-adjudicated` (skipped honestly) and the developer is guided to configure `tech_stack.test_command` in `.prospec.yaml`.
 

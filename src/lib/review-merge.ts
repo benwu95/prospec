@@ -1,4 +1,9 @@
-import { REVIEW_SEVERITIES, type ReviewFinding, type ReviewSeverity } from '../types/station.js';
+import {
+  REVIEW_SEVERITIES,
+  normalizeReviewStatus,
+  type ReviewFinding,
+  type ReviewSeverity,
+} from '../types/station.js';
 import {
   renderEvidenceSection,
   splitEvidenceSection,
@@ -40,6 +45,8 @@ export interface ReviewRow {
   severity: ReviewSeverity;
   lens: string;
   status: string;
+  /** Review round in which this finding was first detected. */
+  origin_round?: number;
   summary: string;
   /** The command that shows the defect — a table column, so it round-trips. */
   repro?: string;
@@ -59,6 +66,7 @@ const CANONICAL_HEADER = [
   'Severity',
   'Lens',
   'Status',
+  'Origin',
   'Summary',
   'Repro',
 ] as const;
@@ -70,6 +78,10 @@ const COLUMN_ALIASES: Record<string, keyof ReviewRow> = {
   severity: 'severity',
   lens: 'lens',
   status: 'status',
+  origin: 'origin_round',
+  'origin round': 'origin_round',
+  origin_round: 'origin_round',
+  round: 'origin_round',
   summary: 'summary',
   description: 'summary',
   note: 'summary',
@@ -91,7 +103,7 @@ function toSeverity(value: string): ReviewSeverity {
 }
 
 /** Parse the cumulative table out of an existing review.md (empty file → []).
- *  Tolerates the legacy hand-written shapes: a missing ID / Summary / Repro
+ *  Tolerates the legacy hand-written shapes: a missing ID / Summary / Repro / Origin
  *  column simply leaves that field unset. */
 export function parseReviewRows(content: string): ReviewRow[] {
   const table = findTable(content.split('\n'), FINDINGS_TABLE);
@@ -104,6 +116,10 @@ export function parseReviewRows(content: string): ReviewRow[] {
         const key = columnFor[i];
         if (!key) return;
         if (key === 'severity') row.severity = toSeverity(cell);
+        else if (key === 'origin_round') {
+          const n = parseInt(cell.trim(), 10);
+          if (!Number.isNaN(n) && n > 0) row.origin_round = n;
+        }
         else if (key === 'id' || key === 'repro') row[key] = cell || undefined;
         else if (key !== 'evidence') row[key] = cell;
       });
@@ -158,7 +174,11 @@ function fallbackKey(location: string, lens: string): string {
  * them, so re-reporting a finding as fixed cannot blank the evidence recorded
  * when it was raised.
  */
-export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]): ReviewRow[] {
+export function mergeFindings(
+  existing: ReviewRow[],
+  incoming: ReviewFinding[],
+  currentRound: number = 1,
+): ReviewRow[] {
   const merged = existing.map((r) => ({ ...r }));
   const byId = new Map<string, ReviewRow>();
   const byFallback = new Map<string, ReviewRow[]>();
@@ -204,6 +224,7 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
       target.location = finding.location;
       target.status = status;
       target.summary = finding.summary;
+      target.origin_round = target.origin_round ?? 1;
       if (finding.repro !== undefined) target.repro = finding.repro;
       if (finding.evidence !== undefined) target.evidence = finding.evidence;
       if (finding.id && !target.id) {
@@ -217,6 +238,7 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
         severity: finding.severity,
         lens: finding.lens,
         status,
+        origin_round: currentRound,
         summary: finding.summary,
         repro: finding.repro,
         evidence: finding.evidence,
@@ -231,12 +253,18 @@ export function mergeFindings(existing: ReviewRow[], incoming: ReviewFinding[]):
 /** One round's structured counts (for `prospec change log` review fields) —
  *  computed from the ROUND's findings, not the cumulative table. */
 export function roundCounts(incoming: ReviewFinding[]): ReviewRoundCounts {
-  const criticals = incoming.filter((f) => f.severity === 'critical');
-  return {
-    criticals_found: criticals.length,
-    criticals_fixed: criticals.filter((f) => (f.status ?? 'open') === 'fixed').length,
-    majors: incoming.filter((f) => f.severity === 'major').length,
-  };
+  let criticals_found = 0;
+  let criticals_fixed = 0;
+  let majors = 0;
+  for (const f of incoming) {
+    if (f.severity === 'critical') {
+      criticals_found++;
+      if (normalizeReviewStatus(f.status) === 'fixed') criticals_fixed++;
+    } else if (f.severity === 'major') {
+      majors++;
+    }
+  }
+  return { criticals_found, criticals_fixed, majors };
 }
 
 /** Render the canonical cumulative table (stable row order = merge order). */
@@ -249,6 +277,7 @@ export function renderReviewTable(rows: ReviewRow[]): string {
       r.severity,
       r.lens,
       r.status,
+      r.origin_round !== undefined ? String(r.origin_round) : '1',
       r.summary,
       r.repro ?? '',
     ]),
@@ -263,6 +292,81 @@ export function evidenceBlocksFor(rows: readonly ReviewRow[]): EvidenceBlock[] {
       ? [{ key: r.id, body: r.evidence }]
       : [],
   );
+}
+
+const encodeToken = (s: string): string => encodeURIComponent(s);
+const decodeToken = (s: string): string => {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+};
+
+export interface ReviewMetrics {
+  round?: number;
+  spendBefore?: number;
+  lastRoundSpend?: number;
+  cumulativeSpend?: number;
+  loopBase?: number;
+  provenanceDigest?: string;
+  lenses?: string[];
+  trials?: Record<string, (boolean | undefined)[]>;
+}
+
+/** Parse cumulative review metrics embedded in review.md comments. */
+export function parseReviewMetrics(content: string): ReviewMetrics {
+  const match = content.match(/<!--\s*prospec:review-metrics\s+((?:\w+="[^"]*"\s*)*)-->/);
+  if (!match) return {};
+  const attrs = Object.fromEntries(
+    [...match[1]!.matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k!, v!]),
+  );
+
+  let trials: Record<string, (boolean | undefined)[]> | undefined;
+  if (attrs.signatures) {
+    trials = {};
+    for (const part of attrs.signatures.split(',')) {
+      const sep = part.lastIndexOf(':');
+      if (sep <= 0) continue;
+      const id = decodeToken(part.slice(0, sep).trim());
+      const history = part.slice(sep + 1);
+      if (id && /^[PF_]+$/i.test(history)) {
+        trials[id] = history.split('').map((c) => {
+          const upper = c.toUpperCase();
+          return upper === 'P' ? true : upper === 'F' ? false : undefined;
+        });
+      }
+    }
+  }
+
+  const round = attrs.round ? parseInt(attrs.round, 10) : undefined;
+  const spendBefore = attrs.spend_before !== undefined ? parseInt(attrs.spend_before, 10) : undefined;
+  const lastRoundSpend = attrs.round_spend !== undefined ? parseInt(attrs.round_spend, 10) : undefined;
+  const cumulativeSpend =
+    attrs.cumulative_spend !== undefined
+      ? parseInt(attrs.cumulative_spend, 10)
+      : spendBefore !== undefined && lastRoundSpend !== undefined
+        ? spendBefore + lastRoundSpend
+        : undefined;
+  const loopBase = attrs.loop_base !== undefined ? parseInt(attrs.loop_base, 10) : undefined;
+  const provenanceDigest = attrs.provenance || undefined;
+  const lenses = attrs.lenses
+    ? attrs.lenses
+        .split(',')
+        .map((s) => decodeToken(s.trim()))
+        .filter(Boolean)
+    : undefined;
+
+  return {
+    round: !isNaN(round as number) ? round : undefined,
+    spendBefore: spendBefore !== undefined && !isNaN(spendBefore) ? spendBefore : undefined,
+    lastRoundSpend: lastRoundSpend !== undefined && !isNaN(lastRoundSpend) ? lastRoundSpend : undefined,
+    cumulativeSpend: cumulativeSpend !== undefined && !isNaN(cumulativeSpend) ? cumulativeSpend : undefined,
+    loopBase: loopBase !== undefined && !isNaN(loopBase) ? loopBase : undefined,
+    provenanceDigest,
+    lenses,
+    trials,
+  };
 }
 
 /**
@@ -280,14 +384,67 @@ export function renderReviewDocument(
   content: string,
   rows: ReviewRow[],
   changeName: string,
+  metrics?: ReviewMetrics,
 ): string {
   const { before, after } = splitEvidenceSection(content);
-  const table = replaceTableInDocument(before, renderReviewTable(rows), {
+  const existingMetrics = parseReviewMetrics(before);
+  const effectiveMetrics: ReviewMetrics = metrics
+    ? {
+        round: metrics.round ?? existingMetrics.round,
+        spendBefore: metrics.spendBefore ?? existingMetrics.spendBefore,
+        lastRoundSpend: metrics.lastRoundSpend,
+        cumulativeSpend: metrics.cumulativeSpend,
+        loopBase: metrics.loopBase ?? existingMetrics.loopBase,
+        provenanceDigest: metrics.provenanceDigest ?? existingMetrics.provenanceDigest,
+        lenses: metrics.lenses ?? existingMetrics.lenses,
+        trials: metrics.trials ?? existingMetrics.trials,
+      }
+    : existingMetrics;
+  const cleanedBefore = before.replace(/<!--\s*prospec:review-metrics[\s\S]*?-->\n?/g, '');
+
+  const attrs: string[] = [];
+  if (effectiveMetrics.round !== undefined) {
+    attrs.push(`round="${effectiveMetrics.round}"`);
+  }
+  if (effectiveMetrics.spendBefore !== undefined) {
+    attrs.push(`spend_before="${effectiveMetrics.spendBefore}"`);
+  }
+  if (effectiveMetrics.lastRoundSpend !== undefined) {
+    attrs.push(`round_spend="${effectiveMetrics.lastRoundSpend}"`);
+  }
+  if (effectiveMetrics.cumulativeSpend !== undefined) {
+    attrs.push(`cumulative_spend="${effectiveMetrics.cumulativeSpend}"`);
+  }
+  if (effectiveMetrics.loopBase !== undefined && effectiveMetrics.loopBase > 0) {
+    attrs.push(`loop_base="${effectiveMetrics.loopBase}"`);
+  }
+  if (effectiveMetrics.provenanceDigest) {
+    attrs.push(`provenance="${effectiveMetrics.provenanceDigest}"`);
+  }
+  if (effectiveMetrics.lenses && effectiveMetrics.lenses.length > 0) {
+    attrs.push(`lenses="${effectiveMetrics.lenses.map(encodeToken).join(',')}"`);
+  }
+  if (effectiveMetrics.trials && Object.keys(effectiveMetrics.trials).length > 0) {
+    const sigStr = Object.entries(effectiveMetrics.trials)
+      .filter(([, hist]) => hist.length > 0)
+      .map(
+        ([id, hist]) =>
+          `${encodeToken(id)}:${Array.from(hist).map((p) => (p === true ? 'P' : p === false ? 'F' : '_')).join('')}`,
+      )
+      .join(',');
+    if (sigStr) {
+      attrs.push(`signatures="${sigStr}"`);
+    }
+  }
+
+  const metricsComment = attrs.length > 0 ? `<!-- prospec:review-metrics ${attrs.join(' ')} -->\n` : '';
+  const table = replaceTableInDocument(cleanedBefore, renderReviewTable(rows), {
     ...FINDINGS_TABLE,
     scaffoldTitle: `# Review Findings: ${changeName}`,
   });
   const section = renderEvidenceSection(evidenceBlocksFor(rows));
   const tail = [section, after].filter((part) => part !== '').join('\n\n');
-  if (tail === '') return table;
-  return `${trimTrailingNewlines(table)}\n\n${tail}\n`;
+  const tableWithMetrics = metricsComment ? `${metricsComment}${table}` : table;
+  if (tail === '') return tableWithMetrics;
+  return `${trimTrailingNewlines(tableWithMetrics)}\n\n${tail}\n`;
 }

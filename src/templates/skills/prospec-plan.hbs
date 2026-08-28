@@ -91,7 +91,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 **Scale=Full Multi-Candidate Architecture Selection (In-Phase On-Demand):**
 When `metadata.scale` is `full` (or requested by the user under `standard`), execute **Best-of-N Candidate Generation & Symmetric Pairwise Tournament Selection** before writing the final plan:
 1. Read [`references/candidate-evaluation.md`](references/candidate-evaluation.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading).
-2. Generate $N \le 3$ (default 2) orthogonal candidate architectures dynamically anchored to the project's manifests and `_conventions.md`:
+2. Generate `N <= 3` (default 2) orthogonal candidate architectures dynamically anchored to the project's manifests and `_conventions.md`:
    - **Option A (Pragmatic / Minimal Surface)**: Minimal diff, maximize reuse of existing modules.
    - **Option B (Decoupled / Clean Architecture)**: Explicit boundaries, modular abstraction.
 3. Conduct **Symmetric Pairwise Tournament** (Position-Swapped A vs B and B vs A) across Blast Radius & Complexity, Constitution Adherence, and Extensibility vs Simplicity.

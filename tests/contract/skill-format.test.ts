@@ -20,6 +20,7 @@ import {
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
+import { EscalationReportSchema } from '../../src/types/cascade.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
   CHANGE_STATUSES,
@@ -2191,6 +2192,54 @@ describe('Skill Format Contract', () => {
       expect(degraded).toMatch(/harness'?s own reviewer/i);
       expect(degraded).toContain(DEGRADE_FLOOR);
     });
+
+    it('mandates full-lens re-review default in fresh minimal context and per-critical regression pins (REQ-TEMPLATES-202)', () => {
+      const c = render();
+      const flow = sectionOf(c, '### The Loop');
+      expect(flow.length).toBeGreaterThan(0);
+      // Step 2: regression pin gate with mutation verification
+      expect(flow).toMatch(/regression test \(pin\)|regression pin/i);
+      expect(flow).toMatch(/mutation verification/i);
+      // Step 4: full-lens re-review default, fresh minimal context
+      expect(flow).toMatch(/full-lens re-review/i);
+      expect(flow).toMatch(/fresh minimal context/i);
+      expect(flow).toMatch(/cumulative diff/i);
+      // must NOT recommend narrow pass
+      expect(flow).not.toMatch(/mode B narrow pass/i);
+      // Step 5: dual-axis circuit breaker
+      expect(flow).toMatch(/dual-axis/i);
+      expect(flow).toMatch(/fix-induced/i);
+      expect(flow).toMatch(/spend/i);
+    });
+
+    it('pins prospec review merge flags and origin_round CLI-stamped semantics (REQ-TEMPLATES-203)', () => {
+      const c = render();
+      const persist = sectionOf(c, '### Persistence');
+      expect(persist).toContain('prospec review merge --findings <file> --lenses <lens,lens,…>');
+      expect(persist).toContain('--round <n>');
+      expect(persist).toContain('--spend <tokens>');
+      expect(persist).toContain('--budget <tokens>');
+      expect(persist).toContain('origin_round');
+      expect(persist).toMatch(/stamped by the CLI|CLI stamps/i);
+      expect(persist).toMatch(/in-loop round|this review loop's round counter/i);
+      // omitted --round re-runs the recorded round; a round is closed by `change log`, not by the merge
+      expect(persist).toContain('until `prospec change log` has closed it');
+      expect(persist).toMatch(/byte-idempotent/);
+    });
+
+    it('PB-007 wording is aligned between the SKILL loop and the lens reference, and review-format commits to no test framework (REQ-TESTS-099, REQ-TEMPLATES-067)', () => {
+      const loop = sectionOf(render(), '### The Loop');
+      const lens = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+      expect(loop).toMatch(/full-lens re-review/i);
+      expect(lens).toContain('re-running the full lens each round');
+      const fmt = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+      expect(fmt).toContain('<project test command> <pin selector>');
+      expect(fmt).not.toMatch(/ -t '/);
+      expect(fmt).not.toContain('pnpm vitest');
+      // the pin gate is satisfiable without a mutation tool, and the stopping rules live in one place
+      expect(fmt).toContain('no mutation tool');
+      expect(fmt).toContain('[`circuit-breaker.md`](circuit-breaker.md)');
+    });
   });
 
   describe('Commit boundary after verify(S/A) (BL-037)', () => {
@@ -2235,6 +2284,21 @@ describe('Skill Format Contract', () => {
 
   describe('prospec-learn skill — feedback promotion pipeline (BL-036)', () => {
     const render = () => renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+
+    it('integrates lens yield into the Sweep and names the config key it reads (REQ-TEMPLATES-204, REQ-TESTS-100)', () => {
+      const c = render();
+      const sweep = sectionOf(c, '### Sweep');
+      expect(sweep).toContain('prospec learn yield');
+      expect(sweep).toContain('`retire`');
+      expect(sweep).toContain('`review`');
+      expect(sweep).toMatch(/declared/);
+      expect(c).toContain('learn.lens_thresholds');
+      // the ledger is a knowledge file, not a config file — no phantom config path
+      expect(c).not.toContain('lessons.yaml');
+      const fmt = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+      expect(fmt).toContain('| zero-yield lens |');
+      expect(fmt).toContain('Lens retirement');
+    });
 
     it('has the five pipeline phases under Core Workflow, Sweep first', () => {
       const c = render();
@@ -2376,12 +2440,15 @@ describe('Skill Format Contract', () => {
       }
     });
 
-    it('learn carries forward the durable ledger; the threshold config file is intentionally kept', () => {
+    it('learn carries forward the durable ledger; thresholds come from .prospec.yaml, not a phantom config file', () => {
       const loading = sectionOf(renderLearn(), '## Startup Loading');
       expect(loading).toContain('_lessons-ledger.md');
       expect(loading).not.toContain('.prospec/lessons.md');
-      // .prospec/lessons.yaml is threshold config (also offered via git-tracked .prospec.yaml), not the ledger
-      expect(loading).toContain('.prospec/lessons.yaml');
+      // the only threshold config the CLI reads is `.prospec.yaml` (`learn.thresholds` / `learn.lens_thresholds`);
+      // no code ever read `.prospec/lessons.yaml`, so the skill must not send readers there
+      expect(loading).toContain('`.prospec.yaml` `learn.thresholds`');
+      expect(loading).toContain('learn.lens_thresholds');
+      expect(loading).not.toContain('.prospec/lessons.yaml');
     });
 
     // T9 — Phase 4.5 is an idempotent, non-fatal auto-harvest, not a passive pointer
@@ -5722,7 +5789,7 @@ describe('Delegated payload contract (issue #142 E)', () => {
     const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(format, '## review.md Format');
     // the table header is the structural claim, not just the word "Repro"
-    expect(section).toContain('| ID | Location | Severity | Lens | Status | Summary | Repro |');
+    expect(section).toContain('| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |');
     expect(section).toContain('<!-- prospec:evidence-section -->');
     expect(section).toContain('<!-- prospec:evidence-end -->');
     // Pin the CLAIM, not the word. `/cumulative across rounds|cumulative/` was a
@@ -6021,11 +6088,23 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
     expect(content).toContain("FAIL → PASS → FAIL");
     expect(content).toContain("Escalation Protocol");
     expect(content).toContain("Trade-off Options for Developer");
+    // dual-axis sections and the escalation enum, kept in step with EscalationReportSchema
+    expect(content).toContain("Fix-Induced Defect Ratio (Dual-Axis #1)");
+    expect(content).toContain("Spend Budget Ceiling (Dual-Axis #2)");
+    for (const type of EscalationReportSchema.shape.type.options) {
+      expect(content, `escalation type ${type} missing from the Trigger line`).toContain(type);
+    }
+    // the protocol names its real integration points only
+    expect(content).not.toContain("/prospec-implement");
   });
 
   it("project-test-runner.md defines multi-language test command resolution hierarchy", () => {
     const content = renderTemplate("skills/references/project-test-runner.hbs", TEMPLATE_CONTEXT);
     expect(content).toContain("Test Command Resolution Hierarchy");
+    // the documented order is the code's: declared command → declared package manager → manifests with Node AFTER Go
+    expect(content).toContain("Declared Package Manager");
+    expect(content.indexOf("**Go**")).toBeGreaterThan(0);
+    expect(content.indexOf("**Go**")).toBeLessThan(content.indexOf("**Node.js**"));
     expect(content).toContain("Cargo.toml");
     expect(content).toContain("pytest");
     expect(content).toContain("go test");

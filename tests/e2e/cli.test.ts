@@ -908,7 +908,7 @@ describe('CLI E2E', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('criticals_found=1');
       const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
-      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | bug | pnpm vitest run a |');
+      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug | pnpm vitest run a |');
       const bad = await runCli(['review', 'merge', '--findings', path.join(tmpDir, 'missing.json')]);
       expect(bad.exitCode).not.toBe(0);
     });
@@ -947,6 +947,91 @@ describe('CLI E2E', () => {
       expect(refused.exitCode).not.toBe(0);
       expect(refused.stderr).toContain('repro');
       expect(await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8')).toBe(before);
+    });
+
+    it('review merge tracks round, spend, and renders circuit breaker escalation (REQ-CLI-043, REQ-TESTS-099)', async () => {
+      await initChange();
+      const findingsR1 = path.join(tmpDir, 'round1.json');
+      await fs.promises.writeFile(
+        findingsR1,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+        ]),
+      );
+      // Round 1 with spend 4000 and budget 6000
+      const r1 = await runCli(['review', 'merge', '--findings', findingsR1, '--spend', '4000', '--budget', '6000']);
+      expect(r1.exitCode).toBe(0);
+      expect(r1.stdout).toContain('round=1');
+      expect(r1.stdout).toContain('spend: 4,000, cumulative: 4,000 / 6,000');
+      expect(r1.stdout).not.toContain('🚨 Circuit Breaker Tripped');
+
+      // Round 2 introduces fix-induced defect with spend 3000 -> cumulative 7000 > budget 6000
+      const findingsR2 = path.join(tmpDir, 'round2.json');
+      await fs.promises.writeFile(
+        findingsR2,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+          { id: 'F-2', location: 'src/b.ts:2', severity: 'critical', lens: 'correctness', summary: 'bug2', repro: 'pnpm b' },
+        ]),
+      );
+      const r2 = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '2', '--spend', '3000', '--budget', '6000', '--lenses', 'correctness,security']);
+      expect(r2.exitCode).toBe(0);
+      expect(r2.stdout).toContain('round=2');
+      expect(r2.stdout).toContain('spend: 3,000, cumulative: 7,000 / 6,000');
+      expect(r2.stdout).toContain('🚨 Circuit Breaker Tripped');
+      expect(r2.stdout).toContain('spend_budget_exceeded');
+      const reviewMd = await fs.promises.readFile(path.join(tmpDir, '.prospec', 'changes', 'my-change', 'review.md'), 'utf-8');
+      expect(reviewMd).toContain('lenses="correctness,security"');
+      expect(reviewMd).toContain('round="2"');
+
+      // Invalid option values are rejected with UsageError
+      const invalid = await runCli(['review', 'merge', '--findings', findingsR2, '--max-fix-induced-ratio', '1.5']);
+      expect(invalid.exitCode).not.toBe(0);
+      expect(invalid.stderr).toContain('must be a number between 0.0 and 1.0');
+    });
+
+    it('review merge is idempotent without --round, trips the fix-induced axis in round 2, and refuses an out-of-sequence round (REQ-CLI-043, REQ-TESTS-099)', async () => {
+      const changeDir = await initChange();
+      const reviewMd = path.join(changeDir, 'review.md');
+      const findingsR1 = path.join(tmpDir, 'fi-round1.json');
+      await fs.promises.writeFile(
+        findingsR1,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+        ]),
+      );
+      const r1 = await runCli(['review', 'merge', '--findings', findingsR1, '--round', '1', '--lenses', 'correctness']);
+      expect(r1.exitCode).toBe(0);
+      expect(r1.stdout).toContain('round=1');
+      const afterR1 = await fs.promises.readFile(reviewMd, 'utf-8');
+      // the same round merged again without --round: no `change log` closed it, so it stays round 1, byte-identical
+      const again = await runCli(['review', 'merge', '--findings', findingsR1, '--lenses', 'correctness']);
+      expect(again.exitCode).toBe(0);
+      expect(again.stdout).toContain('round=1');
+      expect(await fs.promises.readFile(reviewMd, 'utf-8')).toBe(afterR1);
+
+      // round 2: two new criticals against one carried-forward fixed → 2/3 fix-induced > 0.5
+      const findingsR2 = path.join(tmpDir, 'fi-round2.json');
+      await fs.promises.writeFile(
+        findingsR2,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
+          { id: 'F-2', location: 'src/b.ts:2', severity: 'critical', lens: 'correctness', summary: 'bug2', repro: 'pnpm b' },
+          { id: 'F-3', location: 'src/c.ts:3', severity: 'critical', lens: 'correctness', summary: 'bug3', repro: 'pnpm c' },
+        ]),
+      );
+      const r2 = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '2', '--lenses', 'correctness']);
+      expect(r2.exitCode).toBe(0);
+      expect(r2.stdout).toContain('fix_induced_ratio=66.7%');
+      expect(r2.stdout).toContain('🚨 Circuit Breaker Tripped');
+      expect(r2.stdout).toContain('fix_induced_threshold_exceeded');
+
+      // an out-of-sequence explicit round is refused before the first byte
+      const afterR2 = await fs.promises.readFile(reviewMd, 'utf-8');
+      const bad = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '1', '--lenses', 'correctness']);
+      expect(bad.exitCode).not.toBe(0);
+      expect(bad.stderr).toContain('out of sequence');
+      expect(await fs.promises.readFile(reviewMd, 'utf-8')).toBe(afterR2);
     });
 
     it('verify record refuses without the drift report, naming the prerequisite', async () => {
@@ -1174,6 +1259,42 @@ describe('CLI E2E', () => {
       // idempotent for the same source change
       const second = await runCli(['learn', 'upsert', '--lesson', lesson]);
       expect(second.stdout).toContain('Ledger entry unchanged');
+    });
+
+    it('learn yield analyzes archived reviews and outputs formatted table and json (REQ-CLI-044, REQ-TESTS-100)', async () => {
+      await initChange();
+      const archiveDir = path.join(tmpDir, '.prospec', 'archive', '2026-01-01-old-change');
+      await fs.promises.mkdir(archiveDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(archiveDir, 'review.md'),
+        '# Review Findings: old-change\n\n| ID | Location | Severity | Lens | Status | Summary |\n|---|---|---|---|---|---|\n| C-1 | src/a.ts:1 | critical | correctness | fixed | bug |\n| M-1 | src/b.ts:1 | major | security | not-found | false positive |\n',
+      );
+
+      const tableRes = await runCli(['learn', 'yield']);
+      expect(tableRes.exitCode).toBe(0);
+      expect(tableRes.stdout).toContain('Review Lens Confirmed Yield Statistics');
+      expect(tableRes.stdout).toContain('correctness');
+      expect(tableRes.stdout).toContain('security');
+
+      const jsonRes = await runCli(['learn', 'yield', '--json']);
+      expect(jsonRes.exitCode).toBe(0);
+      const parsed = JSON.parse(jsonRes.stdout);
+      expect(parsed.total_changes_analyzed).toBe(1);
+      expect(parsed.stats.length).toBe(2);
+
+      // --corpus adds another archive directory; a path that is not a directory is refused
+      const otherCorpus = path.join(tmpDir, 'other-corpus');
+      await fs.promises.mkdir(path.join(otherCorpus, '2026-02-01-newer-change'), { recursive: true });
+      await fs.promises.writeFile(
+        path.join(otherCorpus, '2026-02-01-newer-change', 'review.md'),
+        '<!-- prospec:review-metrics round="1" lenses="correctness,security" -->\n# Review Findings: newer-change\n\n| ID | Location | Severity | Lens | Status | Summary |\n|---|---|---|---|---|---|\n',
+      );
+      const withCorpus = await runCli(['learn', 'yield', '--json', '--corpus', otherCorpus]);
+      expect(withCorpus.exitCode).toBe(0);
+      expect(JSON.parse(withCorpus.stdout).total_changes_analyzed).toBe(2);
+      const missing = await runCli(['learn', 'yield', '--corpus', path.join(tmpDir, 'no-such-dir')]);
+      expect(missing.exitCode).not.toBe(0);
+      expect(missing.stderr).toContain('--corpus');
     });
 
     it('validate slug exits 0 on PASS and 1 on FAIL (machine gate)', async () => {

@@ -28,7 +28,7 @@ function baseResult(overrides: Partial<ReviewMergeResult> = {}): ReviewMergeResu
     totalRows: 4,
     evidenceBlocks: 0,
     criticals: [],
-    round: { criticals_found: 1, criticals_fixed: 1, majors: 2 },
+    round: { criticals_found: 1, criticals_fixed: 1, majors: 2, roundNumber: 1 },
     ...overrides,
   };
 }
@@ -38,7 +38,7 @@ describe('review-merge-output', () => {
   // its `criticals_found=` shape is a parse contract for the review skill.
   it('pins the round-counts parse contract', () => {
     const out = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
-    expect(out).toContain('round: criticals_found=1 · criticals_fixed=1 · majors=2');
+    expect(out).toContain('round: round=1 · criticals_found=1 · criticals_fixed=1 · majors=2');
   });
 
   it('prints the cumulative merge summary', () => {
@@ -105,4 +105,65 @@ describe('review-merge-output', () => {
     expect(out.includes(BEL)).toBe(false);
     expect(out).toContain('a.ts:1');
   });
+
+  it('formats round metrics with fix_induced_ratio and spend (REQ-CLI-043)', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({
+          round: {
+            roundNumber: 2,
+            criticals_found: 2,
+            criticals_fixed: 1,
+            majors: 0,
+            fixInducedRatio: 0.667,
+            spend: 3500,
+            cumulativeSpend: 6000,
+          },
+        }),
+        'normal',
+      ),
+    );
+    expect(out).toContain('round: round=2 · criticals_found=2 · criticals_fixed=1 · majors=0 · fix_induced_ratio=66.7% · (spend: 3,500, cumulative: 6,000)');
+  });
+
+  it('prints cumulative spend against the declared budget when one is set (REQ-CLI-043)', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({
+          round: { roundNumber: 1, criticals_found: 0, criticals_fixed: 0, majors: 0, spend: 4000, cumulativeSpend: 4000, budget: 6000 },
+        }),
+        'normal',
+      ),
+    );
+    expect(out).toContain('(spend: 4,000, cumulative: 4,000 / 6,000)');
+  });
+
+  it('renders prominent EscalationReport when circuit breaker trips (REQ-CLI-043)', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({
+          circuitBreaker: {
+            tripped: true,
+            reason: 'Fix-induced defect ratio exceeded',
+            reviewRounds: 2,
+            oscillatingSignatures: [],
+            escalationReport: {
+              type: 'fix_induced_threshold_exceeded',
+              message: 'Fix-induced defect ratio (66.7%) exceeded threshold (50.0%) in round 2.',
+              tradeoffOptions: [
+                'Revert recent fixes and redesign implementation strategy (revert-and-redesign)',
+                'Escalate remaining critical findings to human developer for manual intervention',
+              ],
+            },
+          },
+        }),
+        'normal',
+      ),
+    );
+    expect(out).toContain('🚨 Circuit Breaker Tripped');
+    expect(out).toContain('Fix-induced defect ratio (66.7%) exceeded threshold');
+    expect(out).toContain('fix_induced_threshold_exceeded');
+    expect(out).toContain('revert-and-redesign');
+  });
 });
+

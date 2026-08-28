@@ -93,6 +93,16 @@ knowledge:
 # Defaults to English when absent.
 artifact_language: Traditional Chinese (Taiwan)
 
+# Feedback promotion (`prospec learn`) — both blocks optional; the defaults are shown.
+learn:
+  thresholds:                       # `prospec learn upsert` promotion rule
+    frequency: 3                    # suggest promote when frequency >= this ...
+    impact_modules: 2               # ... AND |impact_modules| >= this
+  lens_thresholds:                  # `prospec learn yield` retirement recommendations
+    consecutive_zero_threshold: 5   # zero-yield changes in a row before `retire`
+    min_invocations: 3              # declared runs (`--lenses`) required before any recommendation
+    min_yield: 0.1                  # yield_ratio below this recommends `review`
+
 # Native-language activation keywords per skill (skill-name -> list of strings),
 # merged onto each skill's English trigger baseline. Run `prospec agent triggers`
 # to get a ready-to-translate scaffold of the skills still missing an entry.

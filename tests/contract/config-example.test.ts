@@ -10,6 +10,13 @@ describe('config example completeness contract', () => {
     expect(result.success).toBe(true);
   });
 
+  it('documents the `learn` thresholds the CLI reads (outside the loose schema shape, so pinned by name)', async () => {
+    const { content } = await execute();
+    const obj = parse(content) as { learn?: { thresholds?: Record<string, unknown>; lens_thresholds?: Record<string, unknown> } };
+    expect(obj.learn?.thresholds).toEqual({ frequency: 3, impact_modules: 2 });
+    expect(obj.learn?.lens_thresholds).toEqual({ consecutive_zero_threshold: 5, min_invocations: 3, min_yield: 0.1 });
+  });
+
   it('documents every top-level schema field (drift guard: a new field un-added turns this red)', async () => {
     const { content } = await execute();
     const obj = parse(content) as Record<string, unknown>;

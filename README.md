@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4247%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4322%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -632,6 +632,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table |
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
+| `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
 
 #### Change Management Commands Breakdown
@@ -699,9 +700,9 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Reports ratio (X/Y, automatically excluding `[M]` manual and `[V]` verification tasks) and next task.
     - `--complete <task>`: Toggles exactly one specified task checkbox.
 
-- **`prospec review merge --findings <file> [--change <name>]`**
+- **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
-  - **Key Details**: Deduplicates by identity key, keeps maximum severity, preserves findings across rounds, and logs reproduction steps and evidence.
+  - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, tracks cumulative token spend, records invoked lenses, and evaluates the dual-axis circuit breaker (fix-induced ratio / spend budget / oscillation flips / hard cap) to emit an EscalationReport when tripped.
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.
@@ -710,6 +711,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
   - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
+
+- **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
+  - **Purpose**: Calculate confirmed yield statistics per review lens and recommend retirements from archived reviews.
+  - **Key Details**: Tracks consecutive zero-yield changes and yield ratio per lens; outputs recommendations (`keep`, `review`, `retire`).
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`). Exits 1 on failure.
@@ -1063,7 +1068,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4247 tests)
+# Run all tests (4322 tests)
 pnpm test
 
 # Watch mode
@@ -1076,11 +1081,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4247 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 3128 tests
-- Contract tests (CLI output + Skill format): 968 tests
+**Test Coverage**: 4322 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 3195 tests
+- Contract tests (CLI output + Skill format): 973 tests
 - Integration tests: 45 tests
-- E2E tests: 106 tests
+- E2E tests: 109 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

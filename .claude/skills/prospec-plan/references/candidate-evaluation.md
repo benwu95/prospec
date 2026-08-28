@@ -17,7 +17,7 @@ Grounded in the *LLM-as-a-Verifier* methodology (Best-of-N Candidate Generation 
 
 ## Candidate Generation Protocol
 
-When generating architecture options ($N \le 3$, default 2 orthogonal options):
+When generating architecture options (`N <= 3`, default 2 orthogonal options):
 
 ### Option A: Pragmatic / Minimal Surface
 - **Focus**: Minimal blast radius, high simplicity, direct integration.
