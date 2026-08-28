@@ -49,6 +49,9 @@ const SCALE_BY_CHECK: Record<DriftCheckId, ChangeScale> = {
   // path, which `isDraftableFinding` excludes (the fix is editing that same change's
   // delta-spec, not opening a new one). The value is a placeholder the total Record demands.
   'delta-spec-landing-fidelity': 'quick',
+  // A fix renumbers a colliding REQ id in the trust zone and sweeps its
+  // references — spec-touching, cross-file work like req-references.
+  'req-id-uniqueness': 'standard',
 };
 
 /**

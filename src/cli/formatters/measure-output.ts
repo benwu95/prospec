@@ -85,7 +85,7 @@ export function formatMeasureOutput(
 /**
  * Format an offline SizeReport for terminal output.
  *
- * Honesty rules (REQ-MEASURE-006): size estimates only — no cache/cost columns,
+ * Honesty rules (REQ-MEASURE-015): size estimates only — no cache/cost columns,
  * no threshold-style verdicts, numbers only. States plainly that it is a
  * deterministic estimate and that cache/cost require a live API key.
  */

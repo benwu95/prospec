@@ -181,7 +181,7 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the nineteen frozen check ids', () => {
+  it('exposes exactly the twenty frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual(
       [
         'artifact-language',
@@ -196,6 +196,7 @@ describe('DriftReportSchema', () => {
         'knowledge-size',
         'mcp-readme-counts',
         'metadata-completeness',
+        'req-id-uniqueness',
         'req-references',
         'review-provenance',
         'spec-counters',
@@ -205,7 +206,7 @@ describe('DriftReportSchema', () => {
         'canonical-doc-drift',
       ].sort(),
     );
-    expect(DRIFT_CHECK_IDS).toHaveLength(19);
+    expect(DRIFT_CHECK_IDS).toHaveLength(20);
   });
 
   // The registry is FROZEN: report `checks[]` order and the CLI's status-line order
@@ -234,6 +235,7 @@ describe('DriftReportSchema', () => {
       'unjustified-budget-override',
       'canonical-doc-drift',
       'delta-spec-landing-fidelity',
+      'req-id-uniqueness',
     ]);
   });
 
