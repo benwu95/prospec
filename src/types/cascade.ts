@@ -36,11 +36,19 @@ export const OscillationRecordSchema = z.object({
 export type OscillationRecord = z.infer<typeof OscillationRecordSchema>;
 
 /**
+ * The inclusive bound on review/fix rounds. Single source shared by the config
+ * schema, the CLI `--max-rounds` parser and its help text, and the circuit-breaker
+ * skill template (coupled by a contract test) — so the ceiling cannot drift apart.
+ */
+export const REVIEW_ROUNDS_MIN = 1;
+export const REVIEW_ROUNDS_MAX = 5;
+
+/**
  * Configuration thresholds for circuit breakers and runaway cost protection.
  */
 export const CircuitBreakerConfigSchema = z.object({
-  /** Maximum review/fix rounds allowed before tripping (default 3, max 5). */
-  maxReviewRounds: z.number().int().min(1).max(5).default(3),
+  /** Maximum review/fix rounds allowed before tripping (default 3, max REVIEW_ROUNDS_MAX). */
+  maxReviewRounds: z.number().int().min(REVIEW_ROUNDS_MIN).max(REVIEW_ROUNDS_MAX).default(3),
   /** Maximum allowed alternating flips before tripping (default 2, e.g. fail -> pass -> fail). */
   maxOscillationFlips: z.number().int().min(1).default(2),
   /** Maximum allowed fix-induced ratio before tripping in rounds > 1 (default 0.5). */

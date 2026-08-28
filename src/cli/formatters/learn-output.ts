@@ -58,12 +58,16 @@ export function formatLensYieldOutput(
   }
 
   // Format table rows
-  const headers = ['Lens', 'Invocations', 'Confirmed', 'Yield', 'Consecutive Zero', 'Action'];
+  // `Source` distinguishes a declared invocation from a rows-proxy one: a
+  // rows-proxy lens is force-kept and can never be retired, so without this
+  // column its `keep` is indistinguishable from a healthy declared `keep`.
+  const headers = ['Lens', 'Invocations', 'Source', 'Confirmed', 'Yield', 'Consecutive Zero', 'Action'];
   const rawRows = report.stats.map((s) => {
     const yieldPct = `${(s.yield_ratio * 100).toFixed(1)}%`;
     return [
       sanitizeTerminal(s.lens),
       String(s.invocations),
+      s.invocation_source,
       String(s.confirmed_findings),
       yieldPct,
       String(s.consecutive_zero_changes),
@@ -75,7 +79,7 @@ export function formatLensYieldOutput(
     const raw = rawRows[idx]!;
     const actionColor =
       s.action === 'retire' ? pc.red : s.action === 'review' ? pc.yellow : pc.green;
-    return [raw[0]!, raw[1]!, raw[2]!, raw[3]!, raw[4]!, actionColor(raw[5]!)];
+    return [raw[0]!, raw[1]!, raw[2]!, raw[3]!, raw[4]!, raw[5]!, actionColor(raw[6]!)];
   });
 
   // Calculate column widths using uncolored raw strings

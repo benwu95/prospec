@@ -5,6 +5,7 @@ import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { parseIntOption, parseBoundedInt, parseRatio } from '../parse-options.js';
+import { REVIEW_ROUNDS_MIN, REVIEW_ROUNDS_MAX } from '../../types/cascade.js';
 
 /**
  * Register the `review` command group with the `merge` subcommand.
@@ -24,7 +25,7 @@ export function registerReviewCommand(program: Command): void {
     .option('--spend <tokens>', 'Self-reported token spend for this round', parseIntOption('spend', 0))
     .option('--budget <tokens>', 'Maximum token spend budget for the review loop', parseIntOption('budget', 1))
     .option('--max-fix-induced-ratio <ratio>', 'Maximum fix-induced ratio threshold (0.0-1.0)', parseRatio('max-fix-induced-ratio'))
-    .option('--max-rounds <number>', 'Maximum review rounds before hard cap (1-5)', parseBoundedInt('max-rounds', 1, 5))
+    .option('--max-rounds <number>', `Maximum review rounds before hard cap (${REVIEW_ROUNDS_MIN}-${REVIEW_ROUNDS_MAX})`, parseBoundedInt('max-rounds', REVIEW_ROUNDS_MIN, REVIEW_ROUNDS_MAX))
     .option('--max-flips <number>', 'Maximum oscillation flips before tripping', parseIntOption('max-flips', 1))
     .option('--lenses <list>', 'Comma-separated list of lenses invoked this round', (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean))
     .action(

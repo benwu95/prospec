@@ -61,7 +61,6 @@ export class ReviewCircuitBreaker {
   private readonly records = new Map<string, OscillationRecord>();
   private currentReviewRounds = 0;
   private cumulativeSpend = 0;
-  private currentFixInducedRatio = 0;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = CircuitBreakerConfigSchema.parse(config ?? {});
@@ -134,17 +133,6 @@ export class ReviewCircuitBreaker {
   }
 
   /**
-   * Record the fix-induced ratio for the current round.
-   */
-  recordFixInducedRatio(ratio: number): void {
-    this.currentFixInducedRatio = ratio;
-  }
-
-  getFixInducedRatio(): number {
-    return this.currentFixInducedRatio;
-  }
-
-  /**
    * Get all signatures currently flagged as oscillating.
    */
   getOscillatingSignatures(): string[] {
@@ -164,17 +152,15 @@ export class ReviewCircuitBreaker {
   checkCircuitBreaker(options?: {
     round?: number;
     findings?: readonly { origin_round?: number; severity?: string; status?: string }[];
-    spend?: number;
     baseRound?: number;
   }): CircuitBreakerState {
     const roundNumber = options?.round ?? this.currentReviewRounds;
-    if (options?.spend !== undefined) {
-      this.recordSpend(options.spend);
-    }
-    if (options?.findings) {
-      const ratio = calculateFixInducedRatio(options.findings, roundNumber, options.baseRound ?? 1);
-      this.recordFixInducedRatio(ratio);
-    }
+    // Pure query: the ratio is derived from the findings passed in, and spend is
+    // read from state the caller recorded — neither is written back here, so a
+    // repeated call (or one that never happens) cannot double-count.
+    const fixInducedRatio = options?.findings
+      ? calculateFixInducedRatio(options.findings, roundNumber, options.baseRound ?? 1)
+      : 0;
 
     const unresolvedCriticals = (options?.findings ?? []).filter(
       (f) =>
@@ -204,13 +190,13 @@ export class ReviewCircuitBreaker {
       };
     }
     // 2. Check fix-induced ratio (dual-axis #1) in round > 1
-    else if (roundNumber > 1 && this.currentFixInducedRatio > this.config.maxFixInducedRatio) {
+    else if (roundNumber > 1 && fixInducedRatio > this.config.maxFixInducedRatio) {
       escalationReport = {
         type: 'fix_induced_threshold_exceeded',
-        message: `Fix-induced defect ratio (${(this.currentFixInducedRatio * 100).toFixed(1)}%) exceeded threshold (${(this.config.maxFixInducedRatio * 100).toFixed(1)}%) in round ${roundNumber}.`,
+        message: `Fix-induced defect ratio (${(fixInducedRatio * 100).toFixed(1)}%) exceeded threshold (${(this.config.maxFixInducedRatio * 100).toFixed(1)}%) in round ${roundNumber}.`,
         diagnostics: {
           round: roundNumber,
-          fixInducedRatio: this.currentFixInducedRatio,
+          fixInducedRatio,
           threshold: this.config.maxFixInducedRatio,
         },
         tradeoffOptions: [
@@ -256,7 +242,7 @@ export class ReviewCircuitBreaker {
       reason: escalationReport?.message,
       reviewRounds: roundNumber,
       oscillatingSignatures: escalationReport?.type === 'oscillation' ? oscillating : [],
-      fixInducedRatio: this.currentFixInducedRatio,
+      fixInducedRatio,
       cumulativeSpend: this.cumulativeSpend,
       escalationReport,
     };
@@ -269,6 +255,5 @@ export class ReviewCircuitBreaker {
     this.records.clear();
     this.currentReviewRounds = 0;
     this.cumulativeSpend = 0;
-    this.currentFixInducedRatio = 0;
   }
 }
