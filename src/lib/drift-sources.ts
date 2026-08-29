@@ -591,6 +591,28 @@ export function collectMarkdownLinks(roots: string[], cwd: string): LinkSource {
   return { available: true, links };
 }
 
+/** Byte offsets of every `\n` in `content`, ascending — the index for line lookups. */
+function buildNewlineOffsets(content: string): number[] {
+  const offsets: number[] = [];
+  for (let i = content.indexOf('\n'); i !== -1; i = content.indexOf('\n', i + 1)) {
+    offsets.push(i);
+  }
+  return offsets;
+}
+
+/** 1-based line number of `offset`, equivalent to `content.slice(0, offset).split('\n').length`
+ *  but O(log lines): the count of newlines strictly before `offset`, plus one. */
+function lineNumberAt(newlineOffsets: number[], offset: number): number {
+  let lo = 0;
+  let hi = newlineOffsets.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((newlineOffsets[mid] as number) < offset) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo + 1;
+}
+
 /**
  * Collect cross-module static import edges, attributed via module-map paths.
  * Deliberately JS/TS-only: it parses ES-module `import … from` / side-effect
@@ -604,9 +626,14 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   const toModule = moduleAttributor(moduleMap);
   // Whole-content matching so multi-line `import { … }\nfrom 'x'` statements are
   // caught. `from` is mandatory except for bare side-effect imports — otherwise
-  // `export const X = './path'` string constants would register as edges.
+  // `export const X = './path'` string constants would register as edges. The
+  // statement head is anchored to the start of a line (`^[ \t]*` + `m`) rather
+  // than `(?:^|\n)\s*`: the old prefix let `\s*` re-enter at every newline, so a
+  // file of `export … ;` statements drove super-linear backtracking (82ms → 6ms
+  // on this repo). The captured edge set is identical — an import head always
+  // begins its line.
   const importPattern =
-    /(?:^|\n)\s*(?:(?:import|export)\s+[^;'"`]*?from\s*|import\s*)['"]([^'"]+)['"]/g;
+    /^[ \t]*(?:(?:import|export)\s+[^;'"`]*?from\s*|import\s*)['"]([^'"]+)['"]/gm;
   const edges: ImportEdge[] = [];
   let anyJsTsSource = false;
   for (const entry of moduleMap.modules) {
@@ -633,6 +660,10 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
         const content = raw
           .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
           .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '));
+        // One newline-offset table per file, so the line number of each match is a
+        // binary search instead of re-slicing and re-splitting the whole prefix per
+        // match (O(matches × length) → O(matches × log lines)).
+        const newlineOffsets = buildNewlineOffsets(content);
         for (const m of content.matchAll(importPattern)) {
           const specifier = m[1];
           if (specifier === undefined || !specifier.startsWith('.')) continue;
@@ -645,7 +676,7 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
             from_module: fromModule,
             to_module: target,
             specifier,
-            line: content.slice(0, matchOffset).split('\n').length,
+            line: lineNumberAt(newlineOffsets, matchOffset),
           });
         }
       }
@@ -662,16 +693,98 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   return { available: true, edges };
 }
 
+/** Newest commits the batched timestamp walk scans. A path-group untouched within
+ *  this window falls back to its own `git log -1`, so the number only trades spawn
+ *  count against nothing — never byte-identical correctness. */
+const TIMESTAMP_BATCH_WINDOW = 400;
+
+/** A literal pathspec carries no git glob magic, so the batch walk can match it with
+ *  exact/prefix rules identical to git's default pathspec; a glob spec is left to
+ *  `git log -1` (git's own matching) rather than reimplemented here. */
+function isLiteralPathspec(spec: string): boolean {
+  return !/[*?[\]]/.test(spec);
+}
+
+/** git default pathspec over a literal spec: a file matches its exact self or
+ *  anything beneath it as a directory prefix. */
+function pathspecCovers(spec: string, file: string): boolean {
+  return file === spec || file.startsWith(`${spec}/`);
+}
+
+/** One path-group's last-commit query for the batched walk. */
+interface TimestampGroup {
+  includes: readonly string[];
+  excludes: readonly string[];
+}
+
+/**
+ * Resolve each group's newest touching commit (its `%cI`) in ONE `git log
+ * --name-only` pass. Returns a parallel array: the ISO date for a group matched
+ * within the scan window, or `undefined` for a group not matched — the caller then
+ * falls back to a per-group `git log -1`, so an out-of-window (or capture-failed)
+ * group resolves byte-identically to the un-batched form. The newest-first scan
+ * order mirrors `git log -1`'s default, so a matched group's commit is the same one
+ * that per-group query would return; the exclude test reproduces `:(exclude)` in-walk.
+ *
+ * `-c` (combined diff) is what makes a MERGE commit list files in `--name-only`: git
+ * omits merge diffs by default, but `git log -1 -- <path>`'s pathspec simplification
+ * DOES return a merge whose tree differs from all parents for that path. Combined diff
+ * lists exactly those files (differ from all parents) — so a combining or evil merge is
+ * attributed to the merge (matching the per-module query), while a clean merge that is
+ * TREESAME to a parent lists nothing and is correctly skipped. Without `-c` a module
+ * last touched by a merge resolved to an older commit — a fail-open staleness bug.
+ */
+function batchGroupTimestamps(cwd: string, groups: TimestampGroup[]): (string | undefined)[] {
+  const result: (string | undefined)[] = groups.map(() => undefined);
+  if (groups.length === 0) return result;
+  const out = gitCapture(cwd, [
+    'log',
+    '-c',
+    '--format=%x00%cI',
+    '--name-only',
+    '-n',
+    String(TIMESTAMP_BATCH_WINDOW),
+  ]);
+  if (out === null) return result; // capture failed — every group falls back below
+  const pending = new Set(groups.map((_, i) => i));
+  // Records are NUL-delimited (%x00): each chunk is `<ISO>\n<changed files…>`.
+  for (const chunk of out.split('\0')) {
+    if (pending.size === 0) break;
+    const nl = chunk.indexOf('\n');
+    if (nl === -1) continue; // the empty lead chunk before the first record
+    const iso = chunk.slice(0, nl).trim();
+    if (iso === '') continue;
+    const files = chunk
+      .slice(nl + 1)
+      .split('\n')
+      .filter((line) => line.length > 0);
+    for (const gi of [...pending]) {
+      const group = groups[gi] as TimestampGroup;
+      const hit = files.some(
+        (file) =>
+          group.includes.some((inc) => pathspecCovers(inc, file)) &&
+          !group.excludes.some((exc) => pathspecCovers(exc, file)),
+      );
+      if (hit) {
+        result[gi] = iso;
+        pending.delete(gi);
+      }
+    }
+  }
+  return result;
+}
+
 /** Collect per-module last-commit timestamps for sources and READMEs. */
 export function collectGitTimestamps(
   cwd: string,
   moduleMap: ModuleMap,
   knowledgePath: string,
   generatedArtifacts: readonly string[],
+  /** The one work-tree probe. Defaults to probing so any caller is correct;
+   *  check.service shares its once-computed value so the whole run probes once. */
+  inWorkTree: boolean = isGitWorkTree(cwd),
 ): GitTimestampSource {
-  try {
-    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
-  } catch {
+  if (!inWorkTree) {
     return { available: false, reason: 'source unavailable: not a git repository', modules: [] };
   }
   try {
@@ -692,7 +805,25 @@ export function collectGitTimestamps(
   } catch {
     // very old git without --is-shallow-repository — proceed with best effort
   }
-  const modules: ModuleTimestamps[] = [];
+
+  // Gather every module's three path-groups, then resolve them ALL in ONE
+  // `git log --name-only` walk instead of a `git log -1` per group (17 spawns → 1
+  // on this repo). A group whose pathspecs carry git glob magic — or that the walk
+  // window does not reach — is left to `gitLastCommit` below, so the batched result
+  // is byte-identical to the per-module queries it replaces.
+  interface PreparedModule {
+    entry: ModuleMap['modules'][number];
+    readmeRel: string;
+    readmeExists: boolean;
+    subModuleRels: string[];
+    srcBatch?: number;
+    readmeBatch?: number;
+    subBatch?: number;
+  }
+  const prepared: PreparedModule[] = [];
+  const batchGroups: TimestampGroup[] = [];
+  const register = (group: TimestampGroup): number => batchGroups.push(group) - 1;
+
   for (const entry of moduleMap.modules) {
     // a module name is one path segment, never a traversal — a crafted name
     // (e.g. "../../etc") must not turn health into an existence oracle for
@@ -711,23 +842,52 @@ export function collectGitTimestamps(
     )
       .filter((file) => file !== 'README.md')
       .map((file) => path.join(path.dirname(readmeRel), file));
-    
+
+    const pm: PreparedModule = { entry, readmeRel, readmeExists, subModuleRels };
+    // Generated artifacts carry code but no knowledge a README could describe, so
+    // regenerating one must not make the module stale (REQ-LIB-015 / REQ-LIB-039);
+    // the same file stays inside computeChangeDigest. The src group batches only
+    // when every include AND exclude is literal — a glob exclude keeps git's own
+    // matching (and its unexcluded fallback) via gitLastCommit.
+    if (entry.paths.every(isLiteralPathspec) && generatedArtifacts.every(isLiteralPathspec)) {
+      pm.srcBatch = register({ includes: entry.paths, excludes: generatedArtifacts });
+    }
+    if (readmeExists) pm.readmeBatch = register({ includes: [readmeRel], excludes: [] });
+    if (subModuleRels.length > 0) pm.subBatch = register({ includes: subModuleRels, excludes: [] });
+    prepared.push(pm);
+  }
+
+  const batched = batchGroupTimestamps(cwd, batchGroups);
+  // A batched hit is the answer; a batch miss (glob group or out-of-window) falls
+  // back to the per-group query, so both paths return the same commit.
+  const resolve = (idx: number | undefined, fallback: () => string | null): string | null =>
+    idx !== undefined && batched[idx] !== undefined ? (batched[idx] as string) : fallback();
+
+  const modules: ModuleTimestamps[] = [];
+  for (const pm of prepared) {
     try {
       modules.push({
-        name: entry.name,
-        readme_path: readmeRel.replace(/\\/g, '/'),
-        readme_exists: readmeExists,
-        // Generated artifacts carry code but no knowledge a README could
-        // describe, so regenerating one must not make the module stale — the
-        // resulting WARN has no honest fix. Scoped to THIS judgment: the same
-        // file stays inside computeChangeDigest (REQ-LIB-015 / REQ-LIB-039).
-        last_src_commit: gitLastCommit(cwd, entry.paths, generatedArtifacts),
-        last_readme_commit: readmeExists ? gitLastCommit(cwd, [readmeRel]) : null,
-        last_sub_module_commit: subModuleRels.length > 0 ? gitLastCommit(cwd, subModuleRels) : null,
-        last_verified: entry.last_verified ?? null,
+        name: pm.entry.name,
+        readme_path: pm.readmeRel.replace(/\\/g, '/'),
+        readme_exists: pm.readmeExists,
+        last_src_commit: resolve(pm.srcBatch, () =>
+          gitLastCommit(cwd, pm.entry.paths, generatedArtifacts),
+        ),
+        last_readme_commit: pm.readmeExists
+          ? resolve(pm.readmeBatch, () => gitLastCommit(cwd, [pm.readmeRel]))
+          : null,
+        last_sub_module_commit:
+          pm.subModuleRels.length > 0
+            ? resolve(pm.subBatch, () => gitLastCommit(cwd, pm.subModuleRels))
+            : null,
+        last_verified: pm.entry.last_verified ?? null,
       });
     } catch (e) {
-      return { available: false, reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`, modules: [] };
+      return {
+        available: false,
+        reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`,
+        modules: [],
+      };
     }
   }
   return { available: true, modules };
@@ -1564,20 +1724,36 @@ function digestScope(): string[] {
   ];
 }
 
-export function computeChangeDigest(cwd: string): string | null {
-  if (!isGitWorkTree(cwd)) return null;
+/** The change's code state from ONE capture: the content fingerprint and the
+ *  whole-tree-clean signal, both over the shared denylist scope. */
+export interface ChangeState {
+  /** Content fingerprint of the change's code state; null on any capture failure. */
+  digest: string | null;
+  /** Whether the working tree is clean in the same scope; null on any capture failure. */
+  clean: boolean | null;
+}
+
+/**
+ * Compute the digest AND the clean signal from a SINGLE `git diff HEAD` +
+ * `ls-files` capture. `computeChangeDigest` and `computeWorkingTreeClean` are thin
+ * wrappers over this, so a caller that needs both (check.service) pays for one
+ * capture instead of two near-identical ones. No `isGitWorkTree` probe: `git
+ * rev-parse HEAD` and the diff already fail outside a work tree and on an unborn
+ * HEAD, so both fields fall closed to null there — the same tri-state PB-013
+ * requires, one spawn cheaper. A capture failure (buffer overrun, unborn HEAD)
+ * yields null for BOTH, never a constant that would certify stale code as current.
+ */
+export function computeChangeState(cwd: string): ChangeState {
   const scope = digestScope();
   const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
-  if (head === null) return null;
+  if (head === null) return { digest: null, clean: null };
   const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
-  // A capture failure (e.g. a diff past gitCapture's buffer) must NOT collapse
-  // into a constant digest — that would silently certify stale code as current.
-  if (diff === null) return null;
-  // Same rule for the untracked listing: `?? ''` here would silently drop the
-  // untracked dimension from the digest — fail-open, the pattern issue #103
-  // removed. Fail closed to an honest skip instead.
+  if (diff === null) return { digest: null, clean: null };
+  // `?? ''` here would silently drop the untracked dimension — fail-open, the
+  // pattern issue #103 removed. Fail closed to null for both instead.
   const untrackedOut = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
-  if (untrackedOut === null) return null;
+  if (untrackedOut === null) return { digest: null, clean: null };
+  const clean = diff === '' && untrackedOut.trim() === '';
   const untracked = untrackedOut
     .split('\n')
     .filter((l) => l.length > 0)
@@ -1592,7 +1768,11 @@ export function computeChangeDigest(cwd: string): string | null {
       // unreadable untracked file — fold in only its path (already hashed above)
     }
   }
-  return hash.digest('hex');
+  return { digest: hash.digest('hex'), clean };
+}
+
+export function computeChangeDigest(cwd: string): string | null {
+  return computeChangeState(cwd).digest;
 }
 
 /**
@@ -1611,13 +1791,7 @@ export function computeChangeDigest(cwd: string): string | null {
  * changes.
  */
 export function computeWorkingTreeClean(cwd: string): boolean | null {
-  if (!isGitWorkTree(cwd)) return null;
-  const scope = digestScope();
-  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
-  if (diff === null) return null;
-  const untracked = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
-  if (untracked === null) return null;
-  return diff === '' && untracked.trim() === '';
+  return computeChangeState(cwd).clean;
 }
 
 /**
@@ -1667,8 +1841,11 @@ export function collectReviewProvenance(
    *  collectTestProvenance's probe default) so any caller is correct; check.service
    *  computes it once and passes it into both provenance collectors. */
   workingTreeClean: boolean | null = computeWorkingTreeClean(cwd),
+  /** The one work-tree probe. Defaults to probing so any caller is correct;
+   *  check.service computes it once and shares it across the git-backed collectors. */
+  inWorkTree: boolean = isGitWorkTree(cwd),
 ): ReviewProvenanceSource {
-  if (!isGitWorkTree(cwd)) {
+  if (!inWorkTree) {
     return {
       available: false,
       reason: 'source unavailable: not a git repository',
@@ -1901,6 +2078,10 @@ export function collectTestProvenance(
    *  probe callers keep working. Defaults to computing it; check.service passes the
    *  once-computed value shared with collectReviewProvenance. */
   workingTreeClean: boolean | null = computeWorkingTreeClean(cwd),
+  /** The one work-tree probe — placed after `workingTreeClean` so existing positional
+   *  callers keep working. Defaults to probing; check.service shares its once-computed
+   *  value across the git-backed collectors. */
+  inWorkTree: boolean = isGitWorkTree(cwd),
 ): TestProvenanceSource {
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,
@@ -1910,7 +2091,7 @@ export function collectTestProvenance(
     working_tree_clean: null,
     changes: [],
   });
-  if (!isGitWorkTree(cwd)) return unavailable('source unavailable: not a git repository');
+  if (!inWorkTree) return unavailable('source unavailable: not a git repository');
   const changesDir = path.resolve(cwd, '.prospec/changes');
   if (!existsSync(changesDir)) {
     return unavailable(

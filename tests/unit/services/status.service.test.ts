@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/status.service.js';
+import { collectGitTimestamps } from '../../../src/lib/drift-sources.js';
 import type { ChangeRouteFacts } from '../../../src/types/status.js';
 
 vi.mock('node:fs', async () => {
@@ -405,6 +406,28 @@ describe('status.service — knowledge-aware routing at verified', () => {
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
     expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('gathers git timestamps for only the affected modules, not the whole map (REQ-LIB-070)', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n' +
+        '  - name: types\n    paths: [src/types]\n    keywords: [types]\n    last_verified: "2026-01-01T00:00:00Z"\n' +
+        '  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
+      [`${CWD}/prospec/ai-knowledge/modules/lib/README.md`]: '# Lib\n',
+    });
+    await execute({ cwd: CWD });
+    const mock = vi.mocked(collectGitTimestamps);
+    expect(mock).toHaveBeenCalled();
+    // The map handed to the collector carries the affected module ONLY — the sibling
+    // `lib` in the map must not be walked for a change that never touched it.
+    expect(mock.mock.calls[0]?.[1].modules.map((m) => m.name)).toEqual(['types']);
   });
 
   it('routes verified to archive when all affected modules are verified with README', async () => {

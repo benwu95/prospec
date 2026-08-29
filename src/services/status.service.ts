@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
+import type { ProspecConfig } from '../types/config.js';
 import { isStale } from '../lib/drift-checker.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { collectGitTimestamps, computeChangeDigest } from '../lib/drift-sources.js';
@@ -49,9 +50,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   const errors: ChangeRouteError[] = [];
 
   // The next station's skill path is resolved from the project's configured
-  // agents (Station Transition Protocol). Read once here — the router stays
-  // I/O-free and collectFacts keeps its own config read for other facts.
-  const agentNames = (await readConfig(cwd).catch(() => null))?.agents ?? [];
+  // agents (Station Transition Protocol). Read config ONCE here and thread it into
+  // collectFacts — knowledge-sync would otherwise re-read it per verified change.
+  // The router stays I/O-free.
+  const config = await readConfig(cwd).catch(() => null);
+  const agentNames = config?.agents ?? [];
 
   if (fs.existsSync(changesDir)) {
     const dirs = fs
@@ -70,7 +73,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
-        const route = routeChange(await collectFacts(changeDir, name, metadata, cwd));
+        const route = routeChange(await collectFacts(changeDir, name, metadata, cwd, config));
         const skillPath = resolveNextSkillPath(agentNames, route.next);
         if (skillPath) route.nextSkillPath = skillPath;
         changes.push(route);
@@ -145,6 +148,7 @@ async function collectFacts(
   name: string,
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
   cwd: string,
+  config: ProspecConfig | null,
 ): Promise<ChangeRouteFacts> {
   const issue = normalizeIssueRef(metadata.issue);
   const tasksText = await readFileIfExists(path.join(changeDir, 'tasks.md'));
@@ -166,7 +170,7 @@ async function collectFacts(
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
     hasKnowledgeSync:
       metadata.status === 'verified'
-        ? await checkKnowledgeSync(changeDir, metadata, cwd)
+        ? await checkKnowledgeSync(changeDir, metadata, cwd, config)
         : true,
     ...(issue === undefined ? {} : { issue }),
   };
@@ -182,6 +186,7 @@ async function checkKnowledgeSync(
   changeDir: string,
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
   cwd: string,
+  config: ProspecConfig | null,
 ): Promise<boolean> {
   let affectedModules = metadata.related_modules ?? [];
   if (affectedModules.length === 0) {
@@ -196,7 +201,6 @@ async function checkKnowledgeSync(
 
   if (affectedModules.length === 0) return true;
 
-  const config = await readConfig(cwd).catch(() => null);
   const knowledgePath = config
     ? resolveBasePaths(config, cwd).knowledgePath
     : path.resolve(cwd, 'prospec/ai-knowledge');
@@ -210,7 +214,14 @@ async function checkKnowledgeSync(
   if (moduleMap === null) return true;
 
   const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
-  const timestamps = collectGitTimestamps(cwd, moduleMap, knowledgePath, generatedArtifacts);
+  // Only this change's affected modules need timestamps, and collectGitTimestamps
+  // gathers exactly the module set it is handed — so narrow the map before the walk
+  // instead of computing every module's git history and discarding most of it.
+  const affectedSet = new Set(affectedModules.map((m) => m.toLowerCase()));
+  const affectedMap = {
+    modules: moduleMap.modules.filter((m) => affectedSet.has(m.name.toLowerCase())),
+  };
+  const timestamps = collectGitTimestamps(cwd, affectedMap, knowledgePath, generatedArtifacts);
 
   for (const modName of affectedModules) {
     const norm = modName.toLowerCase();

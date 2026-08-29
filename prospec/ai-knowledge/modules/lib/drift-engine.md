@@ -14,7 +14,7 @@
 
 ## Public API
 
-- `runChecks(inputs)` + every `collect*` source, `computeChangeDigest`, `computeWorkingTreeClean`, `changedPathsFromWorkTree` (working-tree changed paths over the digest scope — the pre-commit counterpart of the committed-range knowledge-sync gate) + `partitionDiffAttributedModules` (splits diff-attributed modules into REQ-acknowledged vs stamp-only via `moduleAttributor`), `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
+- `runChecks(inputs)` + every `collect*` source, `computeChangeState` (one `git diff HEAD` yielding both the digest and the clean signal; `computeChangeDigest`/`computeWorkingTreeClean` are thin wrappers so a caller needing both pays one capture), `changedPathsFromWorkTree` (working-tree changed paths over the digest scope — the pre-commit counterpart of the committed-range knowledge-sync gate) + `partitionDiffAttributedModules` (splits diff-attributed modules into REQ-acknowledged vs stamp-only via `moduleAttributor`), `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
 
 ## Dependencies
 

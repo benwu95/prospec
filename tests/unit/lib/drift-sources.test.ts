@@ -26,6 +26,7 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
+  computeChangeState,
   computeWorkingTreeClean,
   computeDeltaSpecDigest,
   collectBudgetOverrides,
@@ -1120,6 +1121,32 @@ describe('collectImportEdges', () => {
     expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).not.toContain('alpha->beta');
   });
 
+  it('numbers a multi-line import by its from-line even after blank lines (newline-offset table)', () => {
+    // The binary-search line lookup must agree with the old `slice().split('\n')`:
+    // three blank lines, then `import {` (l4), `helper,` (l5), `} from …` (l6).
+    write('src/cli/b.ts', "\n\n\nimport {\n  helper,\n} from '../services/a.js';\n");
+    write('src/services/a.ts', '');
+    const edge = collectImportEdges(tmpDir, MODULE_MAP).edges.find(
+      (e) => e.specifier === '../services/a.js',
+    );
+    expect(edge?.line).toBe(6);
+  });
+
+  it('attributes the edge correctly in a file dominated by `export … ;` statements (anchoring, no backtracking)', () => {
+    // Exactly the shape whose per-newline retry made the old `(?:^|\n)\s*` pattern
+    // super-linear: 200 `export const … ;` lines then one real import. The anchored
+    // `^[ \t]*` + `m` pattern must still emit the one edge, on its true line.
+    const decls = Array.from({ length: 200 }, (_, i) => `export const V${i} = ${i};`).join('\n');
+    write('src/services/big.ts', `${decls}\nimport { X } from '../types/x.js';\n`);
+    write('src/types/x.ts', '');
+    const edge = collectImportEdges(tmpDir, MODULE_MAP).edges.find(
+      (e) => e.specifier === '../types/x.js',
+    );
+    expect(edge).toBeDefined();
+    expect(`${edge?.from_module}->${edge?.to_module}`).toBe('services->types');
+    expect(edge?.line).toBe(201);
+  });
+
   it('honors the explicit dir-glob form (`src/x/**`) so existing glob paths keep working', () => {
     const GLOB_MAP: ModuleMap = {
       modules: [
@@ -1337,6 +1364,128 @@ describe('collectGitTimestamps', () => {
     expect(r.reason).toContain('shallow');
     // A real `git clone` is the heaviest op in the suite (it completes, it does not
     // hang) — covered by this file's timeout, declared once at the top.
+  });
+});
+
+describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
+  const git = (args: string[], date?: string) =>
+    execFileSync('git', args, {
+      cwd: tmpDir,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      env: date ? { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } : process.env,
+    });
+  const commit = (date: string, files: Record<string, string>) => {
+    for (const [p, c] of Object.entries(files)) write(p, c);
+    git(['add', '.']);
+    git(['commit', '-q', '-m', date], date);
+  };
+  /** Independent per-module `git log -1` — the byte-identical reference the batch replaces. */
+  const logOne = (paths: string[], excludes: string[] = []): string | null => {
+    const base = ['log', '-1', '--format=%cI', '--', ...paths];
+    if (excludes.length > 0) {
+      const out = execFileSync('git', [...base, ...excludes.map((p) => `:(exclude)${p}`)], {
+        cwd: tmpDir,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      }).trim();
+      if (out) return out;
+    }
+    return (
+      execFileSync('git', base, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' }).trim() || null
+    );
+  };
+
+  it('stays byte-identical to per-module git log across excludes, sub-modules and later commits', () => {
+    git(['init', '-q']);
+    git(['config', 'user.email', 't@t.dev']);
+    git(['config', 'user.name', 't']);
+    commit('2026-05-01T00:00:00+00:00', {
+      'src/types/x.ts': 'a',
+      'knowledge/modules/types/README.md': '# t',
+    });
+    commit('2026-05-02T00:00:00+00:00', {
+      'src/services/s.ts': 'a',
+      'knowledge/modules/services/README.md': '# s',
+      'knowledge/modules/services/sub.md': '# sub',
+    });
+    commit('2026-05-03T00:00:00+00:00', {
+      'src/cli/c.ts': 'a',
+      'knowledge/modules/cli/README.md': '# c',
+      'src/cli/generated.ts': 'gen',
+    });
+    // A LATER commit touching ONLY cli's generated artifact — it must not move cli's
+    // last_src_commit off 05-03 (the exclude reproduced in-walk, REQ-LIB-039).
+    commit('2026-05-04T00:00:00+00:00', { 'src/cli/generated.ts': 'gen2' });
+
+    const generated = ['src/cli/generated.ts'];
+    const MAP: ModuleMap = {
+      modules: [
+        { name: 'types', paths: ['src/types'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'services', paths: ['src/services'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'cli', paths: ['src/cli'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    const r = collectGitTimestamps(tmpDir, MAP, 'knowledge', generated);
+    expect(r.available).toBe(true);
+    for (const m of r.modules) {
+      const entry = MAP.modules.find((e) => e.name === m.name);
+      expect(m.last_src_commit).toBe(logOne(entry?.paths ?? [], generated));
+      expect(m.last_readme_commit).toBe(
+        m.readme_exists ? logOne([`knowledge/modules/${m.name}/README.md`]) : null,
+      );
+    }
+    const services = r.modules.find((m) => m.name === 'services');
+    expect(services?.last_sub_module_commit).toBe(logOne(['knowledge/modules/services/sub.md']));
+    expect(services?.last_sub_module_commit).toContain('2026-05-02');
+    // The generated-only 05-04 commit is excluded — cli src stays at 05-03.
+    expect(r.modules.find((m) => m.name === 'cli')?.last_src_commit).toContain('2026-05-03');
+  });
+
+  it('attributes a module to a merge commit that combined edits from both parents (REQ-LIB-070)', () => {
+    // Regression pin (issue #223 review F-1): `git log --name-only` omits merge diffs
+    // by default, so a module whose newest source change is a combining merge would
+    // resolve to the OLDER branch commit — fail-open staleness. The batch must use
+    // combined-diff (`-c`) so it matches `git log -1 -- <path>` (which returns the merge).
+    git(['init', '-q']);
+    git(['config', 'user.email', 't@t.dev']);
+    git(['config', 'user.name', 't']);
+    write('src/lib/foo.ts', 'l1\nl2\nl3\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'base'], '2026-02-01T00:00:00+00:00');
+    const base = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    }).trim();
+    git(['checkout', '-q', '-b', 'feat']);
+    write('src/lib/foo.ts', 'HEAD\nl2\nl3\n'); // edits the head
+    git(['commit', '-qam', 'feat'], '2026-02-02T00:00:00+00:00');
+    git(['checkout', '-q', base]);
+    write('src/lib/foo.ts', 'l1\nl2\nTAIL\n'); // edits the tail — non-conflicting
+    git(['commit', '-qam', 'main'], '2026-02-03T00:00:00+00:00');
+    // Auto-merge: the merge tree combines both edits, differing from BOTH parents,
+    // so `git log -1 -- src/lib` returns the merge (02-04), not either branch commit.
+    git(['merge', '--no-ff', '-q', 'feat', '-m', 'merge'], '2026-02-04T00:00:00+00:00');
+
+    const MAP: ModuleMap = {
+      modules: [{ name: 'lib', paths: ['src/lib'], keywords: [], relationships: { depends_on: [] } }],
+    };
+    const ref = execFileSync('git', ['log', '-1', '--format=%cI', '--', 'src/lib'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    }).trim();
+    expect(ref).toContain('2026-02-04'); // sanity: the merge is the last touch per git
+    const r = collectGitTimestamps(tmpDir, MAP, 'knowledge', []);
+    expect(r.modules.find((m) => m.name === 'lib')?.last_src_commit).toBe(ref);
+  });
+
+  it('short-circuits on the shared inWorkTree=false even inside a real repo', () => {
+    // Init a repo so the DEFAULT probe would PASS — proving the passed flag wins,
+    // which is what lets check.service probe once and share the result.
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+    const r = collectGitTimestamps(tmpDir, MODULE_MAP, 'knowledge', [], false);
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not a git repository');
   });
 });
 
@@ -1674,6 +1823,42 @@ describe('computeWorkingTreeClean', () => {
   });
 });
 
+describe('computeChangeState (REQ-LIB-070)', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+
+  it('yields a digest and clean signal equal to the two wrappers, from one capture', () => {
+    initRepo();
+    const clean = computeChangeState(tmpDir);
+    expect(clean.digest).toBe(computeChangeDigest(tmpDir));
+    expect(clean.clean).toBe(computeWorkingTreeClean(tmpDir));
+    expect(clean.clean).toBe(true);
+
+    write('src/lib/x.ts', 'export const a = 2;\n'); // uncommitted edit
+    const dirty = computeChangeState(tmpDir);
+    expect(dirty.clean).toBe(false);
+    expect(dirty.digest).not.toBe(clean.digest);
+    expect(dirty.digest).toBe(computeChangeDigest(tmpDir));
+  });
+
+  it('falls closed to null digest AND null clean outside a work tree and on an unborn HEAD', () => {
+    // No isGitWorkTree probe any more: rev-parse HEAD / diff HEAD fail here, so
+    // BOTH fields must degrade to null — never a constant that certifies stale code.
+    expect(computeChangeState(tmpDir)).toEqual({ digest: null, clean: null });
+    git('init', '-q'); // unborn HEAD — a work tree, but `git rev-parse HEAD` fails
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    expect(computeChangeState(tmpDir)).toEqual({ digest: null, clean: null });
+  });
+});
+
 describe('collectReviewProvenance', () => {
   const git = (...args: string[]) =>
     execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
@@ -1688,6 +1873,16 @@ describe('collectReviewProvenance', () => {
 
   it('reports unavailable outside a git work tree', () => {
     const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir));
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not a git repository');
+  });
+
+  it('honors the shared inWorkTree=false even inside a real repo (REQ-LIB-070)', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    // The default probe would find a work tree here; passing false must still
+    // short-circuit — this is the seam check.service uses to probe git only once.
+    const r = collectReviewProvenance(tmpDir, computeChangeDigest(tmpDir), true, false);
     expect(r.available).toBe(false);
     expect(r.reason).toContain('not a git repository');
   });
@@ -2163,6 +2358,23 @@ describe('collectTestProvenance (REQ-LIB-033)', () => {
     expect(r.available).toBe(false);
     expect(r.reason).toContain('not a git repository');
     expect(r.current_digest).toBeNull();
+  });
+
+  it('honors the shared inWorkTree=false even inside a real repo (REQ-LIB-070)', () => {
+    initRepo();
+    write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    // probe=undefined keeps the real default; workingTreeClean=true; inWorkTree=false
+    // must still short-circuit — check.service's single-probe seam.
+    const r = collectTestProvenance(
+      tmpDir,
+      'pnpm test',
+      computeChangeDigest(tmpDir),
+      undefined,
+      true,
+      false,
+    );
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not a git repository');
   });
 
   it('reports unavailable when .prospec/changes is missing', () => {
