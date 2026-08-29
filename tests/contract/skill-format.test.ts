@@ -744,6 +744,10 @@ describe('Skill Format Contract', () => {
       expect(section).toContain('skip');
       // negative: refusing must not be described as taking the section over
       expect(section).not.toMatch(/splices? (over|into) (it|that section)/i);
+      // issue #226 / REQ-TEMPLATES-213: the exact lexical near-miss rule lives in the
+      // CLI (archive spec-sync) — this reference cites that authority rather than
+      // restating the rule, so the copy here and archive Phase 3.6 cannot drift apart.
+      expect(section).toContain('spec-sync');
     });
   });
 
@@ -1382,31 +1386,40 @@ describe('Skill Format Contract', () => {
       expect(flat(criteria)).toContain('project-test-runner');
     });
 
-    // PB-007 repo-wide sweep: no skill/reference body may prescribe prospec's own
-    // layer topology or dependency direction as THE order — the very leak class
-    // this change fixes. `tasks-format.hbs` is allowlisted: it deliberately shows
-    // `Types → Lib → Services → CLI → Tests` as ONE of several `e.g.` examples,
-    // paired with an explicit "Never hardcode a fixed framework layer topology" note.
-    it('no skill or reference body hardcodes prospec-specific layer topology/direction (M1/LOW, sweep)', () => {
-      // `tasks-format.hbs` deliberately shows `Types → Lib → Services → CLI → Tests`
-      // as ONE of several `e.g.` examples, paired with an explicit "Never hardcode a
-      // fixed framework layer topology" note — that is the single legitimate site.
-      const TOPOLOGY_ALLOWLIST = new Set(['skills/references/tasks-format.hbs']);
+    // issue #226: no shipped skill/reference body may present prospec's own layer
+    // topology or dependency direction as an example — a leak that reads as
+    // prescriptive to a downstream (esp. weak) model. `tasks-format.hbs` used to be
+    // allowlisted for showing `Types → Lib → Services → CLI → Tests` as one `e.g.`;
+    // that example is now neutral, so the sweep covers every shipped template with
+    // no allowlist (REQ-TEMPLATES-188 / REQ-TEMPLATES-213).
+    it('no skill or reference body hardcodes prospec-specific layer topology/direction (issue #226, sweep)', () => {
       const templates = Object.keys(BUNDLED_TEMPLATES).filter(
-        (k) =>
-          (/^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k)) &&
-          !TOPOLOGY_ALLOWLIST.has(k),
+        (k) => /^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k),
       );
       // Non-empty guard: an empty list would make this test vacuously pass.
       expect(templates.length).toBeGreaterThan(20);
       for (const key of templates) {
         const content = render(key);
         expect(content, `${key} hardcodes forward layer topology`).not.toContain(
-          'Types → Lib → Services → CLI',
+          'Types → Lib → Services',
         );
         expect(content, `${key} hardcodes dependency direction`).not.toContain(
           'cli → services → lib → types',
         );
+      }
+    });
+
+    // issue #226: no shipped skill/reference body may name this repo's own package.
+    // `prospec-upgrade.hbs` used to carry a source-repo `@benwu95/prospec` dogfood
+    // short-circuit; a downstream project is never the prospec package, so the
+    // clause was pure leak (REQ-TEMPLATES-213).
+    it('no skill or reference body names the prospec package (issue #226, sweep)', () => {
+      const templates = Object.keys(BUNDLED_TEMPLATES).filter(
+        (k) => /^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k),
+      );
+      expect(templates.length).toBeGreaterThan(20);
+      for (const key of templates) {
+        expect(render(key), `${key} names the prospec package`).not.toContain('@benwu95');
       }
     });
 
@@ -1422,6 +1435,33 @@ describe('Skill Format Contract', () => {
       });
       expect(relocated).not.toContain('prospec/CONSTITUTION.md');
       expect(relocated).toContain('docs/CONSTITUTION.md');
+    });
+
+    // issue #226 / REQ-TEMPLATES-212: implementation-guide reflects the CLI-owned
+    // implement workflow — CLI task completion, unconditional TDD deferring severity
+    // to the Constitution, and verification resolved via the project-test-runner
+    // hierarchy — not manual bookkeeping or a hardcoded toolchain.
+    it('implementation-guide reflects cli-first task completion, TDD, and verification (REQ-TEMPLATES-212)', () => {
+      const content = render('skills/references/implementation-guide.hbs');
+      // AC-1: task completion via the CLI, never a manual tasks.md edit
+      expect(content).toContain('change progress --complete');
+      expect(content).not.toMatch(/update `tasks\.md` to mark as/i);
+      // AC-2: TDD stated unconditionally, no "If ... requires TDD" conditional
+      expect(content).not.toMatch(/If .{0,40}requires TDD/i);
+      // AC-3: verification defers to the project-test-runner hierarchy, no hardcoded scripts
+      expect(content).toContain('project-test-runner');
+      expect(content).not.toContain('run lint');
+      expect(content).not.toContain('run type-check');
+    });
+
+    // issue #226 / REQ-TEMPLATES-213: knowledge-update no longer inlines the module
+    // README skeleton — it cites the canonical conventions, matching knowledge-generate
+    // (which already stopped inlining it, us-434). The inlined skeleton's signature was
+    // an annotated `## Key Files (top 10 ...)` roster inside a fenced block.
+    it('knowledge-update cites the canonical README conventions and inlines no skeleton (issue #226)', () => {
+      const content = render('skills/prospec-knowledge-update.hbs');
+      expect(content).toContain('_module-readme-conventions.md');
+      expect(content).not.toMatch(/## Key Files\s+\(top 10/);
     });
   });
 
@@ -5438,6 +5478,13 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
     expect(flat(phase36)).toContain('Feature Inventory');
     expect(flat(phase36)).toContain('lexical');
     expect(flat(phase36)).toContain('## Feature Map (draft) (2024)');
+    // issue #226 / REQ-TEMPLATES-213 (B-alt): Phase 3.6 keeps the human-catch
+    // guidance and examples (F-5) but no longer RESTATES the CLI's precise lexical
+    // mechanics — that rule lives in archive spec-sync and its contract test, so the
+    // two template copies (here and product-spec-format) cannot drift apart.
+    expect(flat(phase36)).not.toMatch(
+      /one leading ordinal|one trailing colon|bracketed suffix|one-ordinal|one-colon|one-suffix/i,
+    );
 
     const gate = sectionOf(rendered, '> **Phase 3.6 Gate**');
     expect(gate.trim().length).toBeGreaterThan(0);

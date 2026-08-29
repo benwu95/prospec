@@ -59,12 +59,8 @@ user to run `prospec init` first.
 touches an EXISTING one — updating a present doc's format, or enriching a freshly-created doc beyond its
 baseline, requires consent. Do that here:
 
-1. **Retrieve the latest templates** shipped with the installed prospec version. **Source-repo
-   short-circuit first**: if the project's own `package.json` `name` equals the prospec package name
-   (`@benwu95/prospec`), the working directory IS the package root — read the templates directly from
-   `src/templates/` and skip the CLI call below (dogfooding case). Otherwise, retrieve the template
-   content directly by running the CLI command:
-   `prospec print-template <template_path>` (Bash).
+1. **Retrieve the latest templates** shipped with the installed prospec version by running the CLI
+   command `prospec print-template <template_path>` (Bash).
    For example, to get the template for `init/constitution.md.hbs`, run `prospec print-template init/constitution.md.hbs`.
    If the template cannot be retrieved, say so and SKIP this step (do not guess the latest format).
 2. **Take the scan scope from Step 1's `Docs inventory:` section** — every line names an init-created

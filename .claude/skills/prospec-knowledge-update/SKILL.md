@@ -125,23 +125,10 @@ silently — do not prompt.
 #### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format
 
 For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
-- Fill `prospec/ai-knowledge/modules/{module}/README.md` with real content in Recipe-First format:
-
-```
-# {module_name}
-> One-line description
-
-<!-- prospec:auto-start -->
-## Key Files         (top 10 most important files)
-## Public API        (signature + 1-line, max 8 entries)
-## Dependencies      (depends_on with WHY, used_by)
-## Modification Guide (step-by-step for common changes)
-## Ripple Effects    (what breaks when this changes)
-## Pitfalls          (common mistakes, non-obvious constraints)
-<!-- prospec:auto-end -->
-<!-- prospec:user-start -->
-<!-- prospec:user-end -->
-```
+- Fill `prospec/ai-knowledge/modules/{module}/README.md` with real content in the **canonical
+  Recipe-First structure** defined in `prospec/ai-knowledge/_module-readme-conventions.md` (the
+  sole authority for section order, the `# {ProperName}` title, and the `prospec:auto`/`prospec:user`
+  marker contract — do not restate the skeleton here, matching `prospec-knowledge-generate`).
 
 For README-PENDING modules (the CLI's judgment worklist):
 - Read the existing README.md
