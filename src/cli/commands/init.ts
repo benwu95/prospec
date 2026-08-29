@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/init.service.js';
 import { formatInitOutput } from '../formatters/init-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -33,6 +32,7 @@ export function registerInitCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute } = await import('../../services/init.service.js');
         const result = await execute({
           name: options.name,
           agents: options.agents,

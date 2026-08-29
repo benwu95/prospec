@@ -218,6 +218,16 @@ export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
 export type NewChangeMetadata = z.infer<typeof NewChangeMetadataSchema>;
 export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
 
+/** Statuses a dedicated gate mints — never reachable via `change status`:
+ *  `verified` is `prospec verify record`'s grade-S/A output and `archived` is
+ *  `prospec archive`'s; a direct write would bypass the quality gate. */
+export const GATE_OWNED_STATUSES: readonly ChangeStatus[] = ['verified', 'archived'];
+
+/** The `<to>` values `prospec change status` accepts. */
+export const STATION_SETTABLE_STATUSES: readonly ChangeStatus[] = CHANGE_STATUSES.filter(
+  (s) => !GATE_OWNED_STATUSES.includes(s),
+);
+
 /**
  * True when `current` precedes `target` in the lifecycle order. Used to keep
  * status advances forward-only — re-running a planning command on an already

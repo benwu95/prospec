@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "bin": {
-    "prospec": "dist/cli/index.js"
+    "prospec": "dist/cli-bundle.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "src/templates/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && pnpm run bundle",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=vitest-report.json",
@@ -22,7 +22,7 @@
     "mutate": "stryker run stryker.config.json --mutate",
     "lint": "eslint src/ tests/",
     "typecheck": "tsc -p tsconfig.typecheck.json",
-    "prepare": "tsc",
+    "prepare": "tsc && pnpm run bundle",
     "measure:tokens": "npx tsx scripts/measure-tokens.ts",
     "counts": "npx tsx scripts/sync-counts.ts",
     "counts:check": "npx tsx scripts/sync-counts.ts --check",

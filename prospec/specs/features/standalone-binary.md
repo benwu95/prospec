@@ -1,9 +1,9 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-07-08
-story_count: 1
-req_count: 8
+last_updated: 2026-08-29
+story_count: 2
+req_count: 10
 ---
 
 # Standalone Binary Compilation
@@ -84,6 +84,30 @@ Modify `src/lib/template.ts` to publicly export `readTemplateSource`.
 **Scenarios:**
 - WHEN another module needs to read template source code, THEN it can directly call the exported `readTemplateSource` function.
 
+
+### US-2: Fast, command-scoped CLI startup [P1]
+
+As a developer invoking the prospec CLI (including skills that shell out to it many times per station),
+I want each command to load only the dependencies it actually uses, and the `bin` to run a prebuilt bundle with the compile cache on,
+So that everyday read commands no longer pay the module-load and fixed startup cost of dependencies unrelated to them.
+
+**Acceptance Scenarios:**
+- WHEN running a read command such as `prospec status` or `prospec check`, THEN command-irrelevant heavy dependencies (MCP SDK, @inquirer, manifest parsers) are absent from its startup module set.
+- WHEN running the `bin`-installed `prospec --version`, THEN it starts from the prebuilt bundle with the Node module compile cache enabled.
+
+#### REQ-CLI-045: Command-scoped Startup Loading
+Each CLI command lazy-loads its service and formatter inside the action handler; command registration imports only the `types` layer. A command's startup module set excludes dependencies that command does not use.
+- WHEN running `prospec status`, `prospec check`, `prospec change log`, or `prospec verify record` on the unbundled `dist/cli/index.js`, THEN the loaded module set (counted via `module.registerHooks`) contains none of `@modelcontextprotocol/sdk`, `@inquirer/*`, `fast-xml-parser`, or `smol-toml`.
+- WHEN running `prospec status`, `prospec change log`, or `prospec verify record` (none of which render a template), THEN the loaded module set also excludes `handlebars`; `prospec check` legitimately loads `handlebars` only through the canonical-doc-drift collector it actually runs.
+- WHEN running `prospec --version` or `prospec change log`, THEN the loaded `node_modules` module count is at most 200 (down from a 530 baseline); WHEN running `prospec status` or `prospec verify record`, which transitively import the drift engine and its fast-glob dependency tree, THEN the count is at most 250 — still more than halved from the 530 baseline.
+- WHEN running `prospec mcp serve`, `prospec init`, or `prospec knowledge init`, THEN each command's required dependency (MCP SDK, inquirer, manifest parsers) is imported on demand within the action and observable behavior is unchanged.
+
+#### REQ-CLI-046: Bundled bin and Startup Compile Cache
+`package.json` `bin.prospec` points to the built esbuild bundle, `pnpm build` emits that bundle at the path `bin` references, and the Node compile cache is enabled at process start via a first-imported module that runs ahead of the picocolors import.
+- WHEN `pnpm build` completes, THEN the file referenced by `bin.prospec` exists and is the bundle the build emits.
+- WHEN the bundled CLI starts under Node, THEN `module.enableCompileCache()` has been invoked before any picocolors import, and the non-TTY color-disable side effect (`setup-color`) still runs before picocolors loads.
+- WHEN the Release Binaries workflow compiles the bundle with `bun build --compile`, THEN the multi-platform binaries build and the Windows smoke check still pass.
+
 ## Edge Cases
 
 - **Template-not-found error**: When running commands that involve file generation (such as `prospec init`) in the Standalone Binary, the Handlebars template-reading mechanism will crash if it expects to access the external `src/templates` directory. Expected behavior: template content must be embedded in the binary at packaging time, ensuring it can be read normally without external physical template files.
@@ -110,6 +134,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-29 | lazy-load-cli-startup | ADDED REQ-CLI-045; ADDED REQ-CLI-046 | REQ-CLI-045, REQ-CLI-046 |
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-066, REQ-TYPES-001, REQ-DOCS-001 |
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |
 | 2026-07-08 | compress-release-binaries | Package binaries in .zip and .tar.gz archives and update installers | REQ-CLI-001 |

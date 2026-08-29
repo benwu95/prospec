@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/change-story.service.js';
 import { formatChangeStoryOutput } from '../formatters/change-story-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -52,6 +51,7 @@ export function registerChangeCommand(program: Command): void {
         const logLevel = resolveLogLevel(globalOpts);
 
         try {
+          const { execute } = await import('../../services/change-story.service.js');
           const result = await execute({
             name,
             description: options.description,

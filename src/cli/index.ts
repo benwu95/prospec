@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Enable the V8 compile cache before anything else loads (its own module so it
+// runs ahead of the hoisted imports below). It touches no picocolors, so the
+// setup-color-before-picocolors ordering still holds.
+import './enable-compile-cache.js';
 // Must precede any picocolors import — disables color for non-TTY stdout.
 import './setup-color.js';
 import * as fs from 'node:fs';

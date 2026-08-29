@@ -1,9 +1,5 @@
 import { Argument, type Command } from 'commander';
-import {
-  execute,
-  STATION_SETTABLE_STATUSES,
-} from '../../services/change-status.service.js';
-import type { ChangeStatus } from '../../types/change.js';
+import { STATION_SETTABLE_STATUSES, type ChangeStatus } from '../../types/change.js';
 import { formatChangeStatusOutput } from '../formatters/change-status-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -31,6 +27,7 @@ export function registerChangeStatusCommand(program: Command): void {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { execute } = await import('../../services/change-status.service.js');
         const result = await execute({
           change: options.change,
           quiet: globalOpts.quiet,

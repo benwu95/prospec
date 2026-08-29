@@ -1,8 +1,6 @@
 import type { Command } from 'commander';
-import { execute, executeProjection } from '../../services/measure.service.js';
 import { formatMeasureOutput, formatProjectionOutput } from '../formatters/measure-output.js';
 import { handleError } from '../formatters/error-output.js';
-import { resolveChange } from '../../services/change-resolver.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 
@@ -28,7 +26,9 @@ export function registerMeasureCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute, executeProjection } = await import('../../services/measure.service.js');
         if (options.projectWorkflow) {
+          const { resolveChange } = await import('../../services/change-resolver.js');
           const cwd = process.cwd();
           const changeName = await resolveChange(cwd, options.change, logLevel === 'quiet', 'Select a change to project token budget:');
           const result = await executeProjection({

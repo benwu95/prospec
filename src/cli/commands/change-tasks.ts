@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/change-tasks.service.js';
 import { formatChangeTasksOutput } from '../formatters/change-tasks-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -30,6 +29,7 @@ export function registerChangeTasksCommand(program: Command): void {
         const logLevel = resolveLogLevel(globalOpts);
 
         try {
+          const { execute } = await import('../../services/change-tasks.service.js');
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,

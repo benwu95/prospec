@@ -1,7 +1,11 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { InitResult, TechStackResult } from '../../services/init.service.js';
-import { isDefaultArtifactLanguage } from '../../services/init.service.js';
+// From its canonical home in the leaf `types` layer (not via init.service),
+// so this always-static formatter drags neither init.service's @inquirer /
+// template → handlebars chain into the registration graph nor a forbidden
+// cli→lib import.
+import { isDefaultArtifactLanguage } from '../../types/config.js';
 
 /**
  * Format the InitResult for terminal output with proper styling.

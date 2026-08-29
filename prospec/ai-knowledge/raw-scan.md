@@ -15,7 +15,7 @@
 ## Entry Points
 
 - `dist/index.js`
-- `dist/cli/index.js`
+- `dist/cli-bundle.js`
 - `src/cli/index.ts`
 
 ## Dependencies
@@ -218,12 +218,12 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 246 files: `.md`, `.yaml`
+- `prospec/` — 247 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1314 |
+| Total files | 1320 |
 | Scan depth | 10 |

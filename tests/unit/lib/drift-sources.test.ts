@@ -41,7 +41,14 @@ import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
 import type { KnowledgeSizeBudget, ProspecConfig } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
-import { buildInitDocContexts, renderInitDoc } from '../../../src/lib/init-docs.js';
+import {
+  buildInitDocContexts,
+  renderInitDoc,
+  resolveInitDocLocation,
+} from '../../../src/lib/init-docs.js';
+
+/** The init-doc rendering surface injected into `collectCanonicalDocDrift`. */
+const INIT_DOCS = { buildInitDocContexts, renderInitDoc, resolveInitDocLocation };
 import { CANONICAL_INIT_DOCS } from '../../../src/types/conventions.js';
 
 // drift-sources uses fast-glob + git, so tests run on real temp dirs
@@ -2896,7 +2903,7 @@ describe('collectCanonicalDocDrift', () => {
     const expected = renderInitDoc(doc, contexts);
     write('prospec/README.md', expected.replace(/\n/g, '\r\n'));
     
-    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
     expect(res.available).toBe(true);
     if (res.available) {
       const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
@@ -2907,7 +2914,7 @@ describe('collectCanonicalDocDrift', () => {
 
   it('reports drift when content differs', () => {
     write('prospec/README.md', '# prospec\n\nDrifted body\n');
-    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
     expect(res.available).toBe(true);
     if (res.available) {
       const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
@@ -2917,7 +2924,7 @@ describe('collectCanonicalDocDrift', () => {
   });
 
   it('skips missing files without erroring (and returns unavailable if none exist)', () => {
-    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
     expect(res.available).toBe(false);
   });
 
@@ -2927,7 +2934,7 @@ describe('collectCanonicalDocDrift', () => {
     const expected = renderInitDoc(doc, contexts);
     
     write('prospec/README.md', expected);
-    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
     expect(res.available).toBe(true);
     if (res.available) {
       const readme = res.docs.find((f) => f.source_path === 'prospec/README.md');
@@ -2938,7 +2945,7 @@ describe('collectCanonicalDocDrift', () => {
   it('ignores out-of-scope files like user-managed docs', () => {
     write('prospec/README.md', '# prospec\n\n> AI-augmented project with Prospec Skills and structured AI Knowledge\n\n## Tech Stack\n\n- **Language**: typescript\n- **Package Manager**: pnpm\n');
     write('prospec/specs/features/some.md', '# Not a canonical doc\n');
-    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir);
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
     expect(res.available).toBe(true);
     if (res.available) {
       expect(res.docs.find((f) => f.source_path === 'prospec/specs/features/some.md')).toBeUndefined();

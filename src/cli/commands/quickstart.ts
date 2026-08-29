@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/quickstart.service.js';
 import { formatQuickstartOutput } from '../formatters/quickstart-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -37,6 +36,7 @@ export function registerQuickstartCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute } = await import('../../services/quickstart.service.js');
         const result = await execute({
           name: options.name,
           agents: options.agents,

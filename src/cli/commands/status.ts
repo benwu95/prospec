@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/status.service.js';
 import { formatStatusOutput } from '../formatters/status-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -25,6 +24,7 @@ export function registerStatusCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute } = await import('../../services/status.service.js');
         const result = await execute({});
         formatStatusOutput(result, logLevel);
       } catch (err) {

@@ -54,13 +54,10 @@ export function resolveArtifactLanguage(config: ProspecConfig): string {
   return raw || DEFAULT_ARTIFACT_LANGUAGE;
 }
 
-/**
- * Whether the given artifact language is the default English — compared
- * case-insensitively, since the value is free-form user input ("english").
- */
-export function isDefaultArtifactLanguage(language: string): boolean {
-  return language.trim().toLowerCase() === DEFAULT_ARTIFACT_LANGUAGE.toLowerCase();
-}
+// Re-exported from its canonical home in `types/config` so existing lib/service
+// callers keep importing it from here, while cli formatters import it straight
+// from `types` (a cli→lib import is forbidden by the layer lint rule).
+export { isDefaultArtifactLanguage } from '../types/config.js';
 
 /**
  * Whether `.prospec.yaml` carries no artifact-language choice at all — the

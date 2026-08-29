@@ -41,7 +41,17 @@ import type { FeatureMap } from '../types/feature-map.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
-import { buildInitDocContexts, renderInitDoc, resolveInitDocLocation } from './init-docs.js';
+
+/**
+ * The init-doc rendering surface `collectCanonicalDocDrift` needs. Injected by
+ * the caller (which `await import`s `./init-docs.js`) so this module — loaded on
+ * nearly every read path via `computeChangeDigest` — never statically pulls the
+ * Handlebars template chain (`init-docs → template → handlebars`).
+ */
+export type InitDocRenderer = Pick<
+  typeof import('./init-docs.js'),
+  'buildInitDocContexts' | 'renderInitDoc' | 'resolveInitDocLocation'
+>;
 
 /**
  * Drift source collectors — ALL filesystem/git I/O for `prospec check`
@@ -2568,11 +2578,12 @@ export function collectArtifactLanguage(
 export function collectCanonicalDocDrift(
   config: ProspecConfig,
   cwd: string,
+  initDocs: InitDocRenderer,
 ): CanonicalDocDriftSource {
   const docs: CanonicalDocDriftItem[] = [];
   let contexts;
   try {
-    contexts = buildInitDocContexts(config, cwd);
+    contexts = initDocs.buildInitDocContexts(config, cwd);
   } catch (e) {
     // Never throw out of a runChecks(...) argument (AC#3): a malformed config that
     // still passed readConfig must degrade this one check to skipped, not abort all.
@@ -2584,14 +2595,14 @@ export function collectCanonicalDocDrift(
   }
 
   for (const doc of CANONICAL_INIT_DOCS) {
-    const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
+    const { absPath, label } = initDocs.resolveInitDocLocation(doc, config, cwd);
     if (!existsSync(absPath)) continue;
 
     const actual = readTextOrSkip(absPath);
     if (actual === null) continue;
     let expected: string;
     try {
-      expected = renderInitDoc(doc, contexts);
+      expected = initDocs.renderInitDoc(doc, contexts);
     } catch {
       // The spec explicitly requires: "the collector never throws (per-doc read/render is try/skip)"
       continue;

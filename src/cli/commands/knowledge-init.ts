@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/knowledge-init.service.js';
 import { formatKnowledgeInitOutput } from '../formatters/knowledge-init-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -35,6 +34,7 @@ export function registerKnowledgeInitCommand(
         const logLevel = resolveLogLevel(globalOpts);
 
         try {
+          const { execute } = await import('../../services/knowledge-init.service.js');
           const result = await execute({
             dryRun: options.dryRun,
             depth: options.depth,

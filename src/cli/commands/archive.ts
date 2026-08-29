@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute, executeFinalize } from '../../services/archive.service.js';
 import {
   formatArchiveOutput,
   formatArchiveFinalizeOutput,
@@ -31,6 +30,7 @@ export function registerArchiveCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute } = await import('../../services/archive.service.js');
         const result = await execute({ names, dryRun: opts.dryRun ?? false });
         formatArchiveOutput(result, logLevel);
         // A spec-loss verdict is an unhonored request too: the caller asked for a
@@ -67,6 +67,7 @@ export function registerArchiveCommand(program: Command): void {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { executeFinalize } = await import('../../services/archive.service.js');
         const { dryRun } = this.optsWithGlobals<{ dryRun?: boolean }>();
         const result = await executeFinalize({ name, dryRun: dryRun ?? false });
         formatArchiveFinalizeOutput(result, logLevel);
