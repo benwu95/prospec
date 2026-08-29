@@ -97,6 +97,7 @@ src/
 tests/
   contract/
   e2e/
+    helpers/
   fixtures/
     lessons-harvest/
       2026-05-01-alpha/
@@ -218,12 +219,12 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 247 files: `.md`, `.yaml`
+- `prospec/` — 248 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1320 |
+| Total files | 1331 |
 | Scan depth | 10 |

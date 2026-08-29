@@ -1,6 +1,6 @@
 # CLI Surface
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (63 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (64 files)
 
 <!-- prospec:auto-start -->
 
@@ -8,8 +8,9 @@
 
 | File | Purpose |
 |------|---------|
-| `index.ts` | `createProgram()` registers all 18 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `main()` entry; `enable-compile-cache.js` then `setup-color.js` are its first two imports; registration imports only `types` (services load lazily per action); `.version()` from `types/version` |
-| `enable-compile-cache.ts` | Enables the Node module compile cache (guarded); MUST be the first import in `index.ts`, ahead of `setup-color` (touches no picocolors) |
+| `index.ts` | Shebang entry only: imports `enable-compile-cache.js` → `setup-color.js` → `program.js`, then `void runProgram(process.argv)`; declares `GlobalOptions` (type-only import by the command layer, so the entry's run is never pulled into a consumer) |
+| `program.ts` | `createProgram()` registers all 18 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against `mcp serve --cwd`, else cwd); `runProgram(argv)` parses + dispatches errors (exit status on `process.exitCode`, never `process.exit`); registration imports only `types` (services load lazily per action); `.version()` from `types/version`. Importable with NO side effects (no argv parse / no output on load) so the e2e suite drives it in-process |
+| `enable-compile-cache.ts` | Enables the Node module compile cache (guarded); MUST be the first import in `index.ts`, ahead of `setup-color` and `program` (touches no picocolors) |
 | `commands/` | 28 `registerXxxCommand(program)` files: init, quickstart, upgrade, print-template, knowledge (init/update/verify), agent (sync/triggers), config, change (story/plan/tasks/log/status/scale/progress/auto-draft), status, spec show, archive (+`finalize`), review merge, verify record, learn (upsert/yield), validate, measure (local session logs, projection mode), check, mcp — parse flags → **`await import()` the service/formatter inside the action** → format (registration stays service-free so unused commands' deps never load) |
 | `formatters/` | 29 `formatXxxOutput(result, logLevel)` modules (+ `sanitize.ts`) — stdout success, stderr errors; `review-merge-output.ts` prints the round's criticals as a bounded digest (claim line + `repro` line) and NEVER the evidence prose, which is what makes the artifact the only place it lives; `error-output.ts` also has `handleError()`; `archive-output.ts` prints each dry-run `PlannedMutation` by its action — including `skip`, a planned NON-mutation (a write the run will deliberately not perform), rendered by the same generic branch — and routes skipped/refused/not-found to stderr (each drives exit 1, visible under `--quiet`). Two spec-loss worklists are BLOCKING-class — exit 1, feature spec left unwritten, and the wording says so: `refusedRequirements` and `droppedBehavior` (printed in full per bullet, never as a count). Six stay WARNING-class (visible under `--quiet`, never exit 1): `refusedReconciliations`, `pendingConvergence`, `acknowledgedDrops`, `staleDeclarations`, `missingChangeHistory` (no `## Change History` host for the graduation row), `productSpecDeclined` — the last being the only signal separating a deliberate non-write from a successful sync. What each one means is in `services`' Spec Sync sub-module |
 | `log-level.ts` | `resolveLogLevel(opts)` — root-flag → LogLevel; imported by every command |
@@ -18,7 +19,7 @@
 
 ## Public API
 
-- `createProgram()` — Commander program, all 18 top-level commands; `main()` runs on load (NOT exported)
+- `createProgram()` / `runProgram(argv)` — in `program.ts`: the Commander program (all 18 commands) and the parse+error-dispatch loop; both importable with no side effects. `index.ts` is the shebang entry that calls `runProgram(process.argv)` and exports `GlobalOptions`
 - `registerXxxCommand(program)` — 28 registrars; `formatXxxOutput(result, logLevel)` — 29 formatters; `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` / `parseIntOption` / `parseBoundedInt` / `parseRatio` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
@@ -27,7 +28,7 @@
 ## Dependencies
 
 **Depends on:** `services` (every command calls one `execute()`), `types` (errors, config, LogLevel, `PROSPEC_VERSION`), `lib` (shared picocolors singleton via `logger`)
-**Used by:** `tests` (E2E spawn the compiled `dist/cli/index.js`) — entry point, no internal consumers
+**Used by:** `tests` (E2E drive `createProgram`/`runProgram` from `program.ts` in-process; a handful of subprocess smokes still spawn the compiled `dist/cli/index.js`) — entry point, no internal consumers
 
 ## Modification Guide
 
