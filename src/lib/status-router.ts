@@ -145,7 +145,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         ? 'tasks.md not found — /prospec-tasks owns its creation'
         : facts.codeTasksTotal === 0
           ? 'no code tasks found in tasks.md — nothing measurable to complete'
-          : `all code-task checkboxes complete — currently ${facts.codeTasksDone}/${facts.codeTasksTotal} ([M]/[V] tasks are reminders, not blockers)`;
+          : `\`prospec change status implemented\` refuses until all code-task checkboxes are complete — currently ${facts.codeTasksDone}/${facts.codeTasksTotal} ([M]/[V] tasks are reminders, not blockers)`;
       return {
         ...base,
         next: 'implement',
@@ -189,7 +189,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         ...base,
         next: 'verify',
         blockingGates: [
-          'grade S or A required (no FAIL, ≤ 2 WARN); machine dimensions adjudicated by `prospec check`',
+          'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` and refuses a non-backfill verdict when review-provenance FAILs',
         ],
         reasons,
       };
@@ -212,13 +212,14 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         ...base,
         next: 'archive',
         blockingGates: [
-          'only `verified` changes are archivable',
-          'affected-module Knowledge synced (verify S/A commit prompt; the archive Entry Gate re-confirms as backstop)',
-          // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these two are live
-          // gates on this edge, not just on the one before it — and the verify S/A
-          // commit stales both by construction (HEAD is in the digest). Declared,
-          // not evaluated: the router is I/O-free and never reads the drift report.
-          'review/test provenance current for the final code (`prospec check` — re-record both after the verify S/A commit)',
+          '`prospec archive` refuses unless the change is `verified`',
+          'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
+          // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these are live gates
+          // on this edge, not just on the one before it — and the verify S/A commit
+          // stales them by construction (HEAD is in the digest). Declared, not
+          // evaluated: the router is I/O-free and never reads the drift report — the
+          // station CLI (`prospec archive`) is the adjudicator that refuses on them.
+          'review/test provenance current for the final code — `prospec archive` refuses on any FAIL (`prospec check` — re-record after the verify S/A commit)',
         ],
         reasons: ['status `verified` — next station per lifecycle order'],
       };

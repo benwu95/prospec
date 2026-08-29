@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (48 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (50 files)
 
 <!-- prospec:auto-start -->
 
@@ -16,6 +16,7 @@
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
 | `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent/loadModuleKnowledge (README + linked sub-modules), searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — executable copy of `_status-lifecycle.md`; `issue` is display-only |
 | `draftable-findings.ts` | `isDraftableFinding` — the ONE predicate deciding whether a drift finding can be drafted into a fix change (excludes the `headroom` pressure tier and anything under `.prospec/`); pure, so the read-only `status` surface shares it with the drafter without importing the change-creation path |
+| `knowledge-sync.ts` / `archive-gate.ts` | `checkKnowledgeSync` — the ONE affected-module knowledge-sync derivation (`status` routes on it, `archive` refuses on it); `evaluateArchiveEntryGate` — the pure archive Entry-Gate verdict over the drift report (metadata-completeness / three provenance / knowledge-sync; `--allow-incomplete` exempts completeness only) |
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
 | station engines (8 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators, the dual-axis review circuit breaker, the lens yield statistics — see the sub-module below |
 

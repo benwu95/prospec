@@ -1,6 +1,8 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   CHANGE_STATUSES,
+  forbiddenArtifacts,
   GATE_OWNED_STATUSES,
   isStatusBefore,
   type ChangeStatus,
@@ -8,6 +10,7 @@ import {
 import { InvalidTransitionError, PrerequisiteError } from '../types/errors.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
+import { execute as reportChangeProgress } from './change-progress.service.js';
 
 // Re-exported from their canonical home in `types/change` so a command's
 // registration can import the accepted `<to>` values without loading this
@@ -74,6 +77,30 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
         (s) => !GATE_OWNED_STATUSES.includes(s),
       ),
     );
+  }
+
+  // Gate C — `implemented` requires every code task checked, so the status
+  // cannot be advanced past an unfinished implementation. Reuses change-progress
+  // (report-only) rather than re-parsing tasks.md. A scale whose contract has no
+  // tasks.md (backfill) is exempt, as is a non-backfill change with no tasks.md
+  // yet (the tasks station gates that upstream).
+  if (
+    options.to === 'implemented' &&
+    !forbiddenArtifacts(metadata.scale).includes('tasks.md') &&
+    fs.existsSync(path.join(cwd, '.prospec', 'changes', changeName, 'tasks.md'))
+  ) {
+    const progress = await reportChangeProgress({ change: changeName, cwd, quiet: true });
+    // Refuse only when there ARE code tasks left unchecked. A tasks.md with zero
+    // code tasks (only [M]/[V]) is vacuously complete — `allCodeDone` is false in
+    // that case (it requires codeTasks.length > 0), so gate on the count directly.
+    if (progress.progress.total > 0 && progress.progress.checked < progress.progress.total) {
+      throw new PrerequisiteError(
+        `implementation is not complete — ${progress.progress.checked}/${progress.progress.total} code tasks checked`,
+        progress.nextTask
+          ? `Finish the code tasks (next: ${progress.nextTask}), marking each with \`prospec change progress --complete\`, before setting status: implemented`
+          : 'Complete the code tasks before setting status: implemented',
+      );
+    }
   }
 
   doc.set('status', options.to);

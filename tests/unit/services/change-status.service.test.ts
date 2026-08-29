@@ -162,3 +162,72 @@ describe('change-scale service', () => {
     });
   });
 });
+
+describe('change-status Gate C — implemented requires all code tasks checked', () => {
+  const DIR = '/repo/.prospec/changes/add-widget';
+  function seedWithTasks(opts: { scale?: string; status?: string; tasks?: string }): void {
+    const files: Record<string, string> = {
+      [PATH]: `name: add-widget
+created_at: 2026-07-13T09:51:00.000Z
+status: ${opts.status ?? 'tasks'}
+scale: ${opts.scale ?? 'standard'}
+`,
+    };
+    if (opts.tasks !== undefined) files[`${DIR}/tasks.md`] = opts.tasks;
+    vol.fromJSON(files);
+  }
+
+  it('refuses when a code task is unchecked, naming checked/total and the next task', async () => {
+    seedWithTasks({ tasks: '- [x] T1 first ~5 lines\n- [ ] T2 second ~5 lines\n' });
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, to: 'implemented' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    expect((caught as PrerequisiteError).message).toMatch(/1\/2 code tasks/);
+    expect((caught as PrerequisiteError).suggestion).toContain('T2 second');
+    // refuse-before-write
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('status: tasks');
+  });
+
+  it('proceeds when every code task is checked', async () => {
+    seedWithTasks({ tasks: '- [x] T1 first ~5 lines\n- [x] T2 second ~5 lines\n' });
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.changed).toBe(true);
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('status: implemented');
+  });
+
+  it('ignores [M]/[V] tasks in the completion denominator', async () => {
+    seedWithTasks({ tasks: '- [x] T1 code ~5 lines\n- [ ] T2 [M] run a command ~1 lines\n- [ ] T3 [V] verify ~1 lines\n' });
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.changed).toBe(true);
+  });
+
+  it('exempts a backfill (no tasks.md by contract)', async () => {
+    seedWithTasks({ scale: 'backfill', status: 'story' });
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.changed).toBe(true);
+  });
+
+  it('applies to quick (which does have a tasks.md)', async () => {
+    seedWithTasks({ scale: 'quick', tasks: '- [ ] T1 code ~5 lines\n' });
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(PrerequisiteError);
+  });
+
+  it('does not gate a non-implemented transition', async () => {
+    seedWithTasks({ status: 'plan', tasks: '- [ ] T1 code ~5 lines\n' });
+    const result = await execute({ cwd: CWD, to: 'tasks' });
+    expect(result.changed).toBe(true);
+  });
+
+  // F-1 regression pin: a tasks.md with ONLY [M]/[V] tasks (zero code tasks) is
+  // vacuously complete — the gate must not deadlock it at "0/0 code tasks".
+  it('treats zero code tasks (only [M]/[V]) as vacuously complete', async () => {
+    seedWithTasks({ tasks: '- [ ] T1 [M] run migration ~1 lines\n- [ ] T2 [V] confirm ~1 lines\n' });
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.changed).toBe(true);
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('status: implemented');
+  });
+});

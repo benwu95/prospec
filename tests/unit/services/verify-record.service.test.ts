@@ -27,23 +27,28 @@ const CWD = '/repo';
 const META = '/repo/.prospec/changes/add-widget/metadata.yaml';
 
 function report(
-  statuses: { tc?: string; kh?: string; tp?: string } = {},
+  statuses: { tc?: string; kh?: string; tp?: string; rp?: string; cs?: string } = {},
   extra: { digest?: string | null; skipReason?: string } = {},
 ): string {
   const check = (id: string, status: string) =>
     status === 'skipped'
       ? { id, status, reason: extra.skipReason ?? 'source unavailable' }
       : { id, status };
+  const checks: Array<{ id: string; status: string; reason?: string }> = [
+    check('task-completion', statuses.tc ?? 'pass'),
+    check('knowledge-health', statuses.kh ?? 'pass'),
+    check('test-provenance', statuses.tp ?? 'pass'),
+  ];
+  // review-provenance / constitution-severity are added ONLY when a test asks for
+  // them, so the shared fixtures do not trip Gate A / Gate D1 by default.
+  if (statuses.rp !== undefined) checks.push(check('review-provenance', statuses.rp));
+  if (statuses.cs !== undefined) checks.push(check('constitution-severity', statuses.cs));
   return JSON.stringify({
     version: 1,
     generated_at: '2026-07-30T00:00:00.000Z',
     ...(extra.digest !== undefined ? { change_digest: extra.digest } : {}),
     structural: {
-      checks: [
-        check('task-completion', statuses.tc ?? 'pass'),
-        check('knowledge-health', statuses.kh ?? 'pass'),
-        check('test-provenance', statuses.tp ?? 'pass'),
-      ],
+      checks,
       findings: [],
     },
     semantic: { status: 'not-checked' },
@@ -483,5 +488,110 @@ describe('report freshness guard', () => {
       expect(written).toContain('executor: sonnet in-session');
       expect(written).toContain('spend: 8000');
     });
+  });
+});
+
+describe('verify-record Gate A — review-provenance', () => {
+  it('refuses to record when review-provenance FAILs, before any write', async () => {
+    seed({ reportJson: report({ rp: 'fail' }) });
+    const err = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment(),
+      warnings: [],
+      date: '2026-08-29',
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+    expect(err.message).toMatch(/review-provenance FAILs/);
+    expect(err.suggestion).toContain('/prospec-review');
+    // refuse-before-write: metadata untouched
+    expect(vol.readFileSync(META, 'utf-8') as string).toContain('status: implemented');
+  });
+
+  it('records normally when review-provenance is skipped (proven backfill / no review)', async () => {
+    seed({ reportJson: report({ rp: 'skipped' }) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-29' });
+    expect(result.grade).toBe('S');
+  });
+
+  it('records normally when review-provenance PASSes', async () => {
+    seed({ reportJson: report({ rp: 'pass' }) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-29' });
+    expect(result.grade).toBe('S');
+  });
+
+  it('records normally when review-provenance is absent (older engine)', async () => {
+    seed(); // default report has no review-provenance check
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-29' });
+    expect(result.grade).toBe('S');
+  });
+});
+
+describe('verify-record Gate D1 — judgment may not undercut its machine counterpart', () => {
+  it('refuses a PASS constitution when constitution-severity FAILs', async () => {
+    seed({ reportJson: report({ cs: 'fail' }) });
+    const err = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({ constitution: 'PASS' }),
+      warnings: [],
+      date: '2026-08-29',
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+    expect(err.message).toMatch(/constitution.*constitution-severity/);
+    expect(vol.readFileSync(META, 'utf-8') as string).toContain('status: implemented');
+  });
+
+  it('refuses a PASS constitution when constitution-severity WARNs', async () => {
+    seed({ reportJson: report({ cs: 'warn' }) });
+    const err = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({ constitution: 'PASS' }),
+      warnings: [],
+      date: '2026-08-29',
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+  });
+
+  it('refuses a not-adjudicated constitution when constitution-severity FAILs', async () => {
+    seed({ reportJson: report({ cs: 'fail' }) });
+    const err = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({ constitution: 'not-adjudicated' }),
+      warnings: [],
+      date: '2026-08-29',
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+  });
+
+  it('allows a FAIL judgment when the machine also FAILs (meets the floor)', async () => {
+    seed({ reportJson: report({ cs: 'fail' }) });
+    const result = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({ constitution: 'FAIL' }),
+      warnings: [],
+      date: '2026-08-29',
+    });
+    // a FAIL judgment dimension lowers the grade but is recorded, not refused
+    expect(result.grade).not.toBe('S');
+  });
+
+  it('allows a stricter judgment than the machine (reverse is legitimate)', async () => {
+    seed({ reportJson: report({ cs: 'pass' }) });
+    const result = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment({ constitution: 'FAIL' }),
+      warnings: [],
+      date: '2026-08-29',
+    });
+    expect(result.grade).not.toBe('S'); // recorded, not refused
+  });
+
+  it('sets no floor when constitution-severity passes/absent', async () => {
+    seed({ reportJson: report({ cs: 'pass' }) });
+    const pass = await execute({ cwd: CWD, judgmentDimensions: judgment({ constitution: 'PASS' }), warnings: [], date: '2026-08-29' });
+    expect(pass.grade).toBe('S');
+
+    seed(); // constitution-severity absent
+    const absent = await execute({ cwd: CWD, judgmentDimensions: judgment({ constitution: 'PASS' }), warnings: [], date: '2026-08-29' });
+    expect(absent.grade).toBe('S');
   });
 });

@@ -30,10 +30,24 @@ vi.mock('../../../src/services/knowledge-update.service.js', () => ({
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
 import { execute as executeKnowledgeUpdate } from '../../../src/services/knowledge-update.service.js';
 
+// A fresh, all-passing drift report so archive's mechanized Entry Gate lets the
+// candidate through — these tests exercise the archive mechanics, not the gate
+// (the gate's own refusals are covered in archive-gate-entry.service.test.ts).
+// vol.fromJSON is additive, so each test's own fromJSON adds its change files on
+// top of this. No module-map is seeded here, so checkKnowledgeSync returns true.
+const PASSING_REPORT = JSON.stringify({
+  version: 1,
+  generated_at: '2026-08-29T00:00:00.000Z',
+  structural: { checks: [{ id: 'req-references', status: 'pass' }], findings: [] },
+  semantic: { status: 'not-checked' },
+  summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
+});
+
 beforeEach(() => {
   vol.reset();
   vi.mocked(generateRawScan).mockClear();
   vi.mocked(executeKnowledgeUpdate).mockClear();
+  vol.fromJSON({ '/project/prospec-report.json': PASSING_REPORT });
 });
 
 // --- scanChanges ---
