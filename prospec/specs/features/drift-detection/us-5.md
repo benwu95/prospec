@@ -92,7 +92,8 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 `check.service` injects `collectMetadataCompleteness` into `runChecks`, wired the same way as `collectReviewProvenance`; the pure check path stays read-only and deterministic.
 
 #### REQ-TEMPLATES-142: archive Entry Gate consumes metadata-completeness
-The `/prospec-archive` Entry Gate adds a machine check: run `prospec check --json` and read `metadata-completeness`, FAIL → refuse archiving (when the CLI is absent, fall back to reading that change's metadata directly); prevents incomplete/ungraded metadata from entering the permanent record.
+`prospec archive` reads the drift report's `metadata-completeness` and refuses on FAIL, so incomplete or ungraded metadata cannot enter the permanent record; the `--allow-incomplete` flag exempts this condition only, for pre-schema records. The `prospec-archive` Entry Gate defers to that CLI refusal in one line.
+- WHEN `metadata-completeness` is FAIL and `--allow-incomplete` is not set, THEN archive refuses; WHEN the flag is set, THEN a completeness FAIL alone no longer blocks
 
 #### REQ-TESTS-045: metadata-completeness engine tests
 `evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 16 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language, spec-counters and delta-spec-provenance) — the S/A clause and the skill clause mutation-verified.
