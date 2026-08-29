@@ -264,7 +264,7 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 #### REQ-TEMPLATES-188: tasks-format.hbs Bidirectional Contract & Verifier Self-Check Enhancement
 The `tasks-format.md` reference specifies bidirectional traceability self-checking guidelines and verifier compliance for tasks generation.
 - WHEN referencing `tasks-format.md`, THEN it includes guidelines for forward REQ-ID coverage and backward traceability to plan steps
-- WHEN explaining layer ordering, THEN it specifies dynamic adaptation to project conventions (e.g. Domain → Ports → Adapters or Types → Lib → Services → CLI)
+- WHEN explaining layer ordering, THEN it specifies dynamic adaptation to project conventions with neutral examples only (e.g. `Domain → Ports → Adapters` or `Models → Services → Controllers`), never the host project's own dependency direction
 
 ---
 

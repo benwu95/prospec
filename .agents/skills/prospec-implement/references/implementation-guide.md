@@ -6,9 +6,9 @@ This document provides implementation guidelines for the **prospec-implement** S
 
 ## Implementation Principles
 
-### 1. TDD Approach (If Required by Constitution)
+### 1. TDD Approach
 
-If `prospec/CONSTITUTION.md` requires TDD (Test-Driven Development):
+`prospec/CONSTITUTION.md` governs TDD and carries its RFC-2119 severity — follow the workflow to the extent it mandates (a `[MUST]` rule is not optional):
 
 1. **Write tests first:** Write corresponding unit tests before implementing functionality
 2. **Red-Green-Refactor cycle:**
@@ -31,12 +31,12 @@ Follow the architecture-layer sequence defined in `tasks.md` — the project's o
 **Example execution order** (illustrative only — a layered example project; substitute your project's own layers):
 
 ```
-1. Types/Define ErrorType enum
-2. Types/Create ErrorResponse interface
-3. [P] Lib/Implement BaseError class (parallelizable)
-   [P] Lib/Implement ErrorFormatter utility (parallelizable)
-4. Lib/Create error factory functions (depends on BaseError)
-5. Services/Integrate with API middleware (depends on BaseError, ErrorFormatter)
+1. Domain/Define ErrorType enum
+2. Domain/Create ErrorResponse interface
+3. [P] Ports/Implement BaseError class (parallelizable)
+   [P] Ports/Implement ErrorFormatter utility (parallelizable)
+4. Ports/Create error factory functions (depends on BaseError)
+5. Adapters/Integrate with API middleware (depends on BaseError, ErrorFormatter)
 ```
 
 ---
@@ -59,15 +59,16 @@ When executing task `Implement BaseError class`:
 
 ### 4. Task Completion Marking
 
-**Mark complete immediately:**
+**Mark complete immediately via the CLI:**
 
-After completing each task, immediately update `tasks.md` to mark as `[x]`:
+After completing each task, run `prospec change progress --complete <task-id>` — the CLI owns the
+checkbox state; never hand-flip a task's checkbox:
 
-```markdown
-- [x] Implement BaseError class with error code mapping ~50 lines
+```bash
+prospec change progress --complete <task-id>
 ```
 
-This helps track progress and avoid duplicate work.
+This keeps progress accurate and avoids duplicate work.
 
 ---
 
@@ -100,22 +101,15 @@ This helps track progress and avoid duplicate work.
 
 ### 7. Code Quality Checks
 
-**After completing implementation:**
+**After completing implementation, run the project's own quality gates — do not assume a fixed set
+of scripts exists:**
 
-1. **Lint:** Run linter to ensure consistent code style
-   ```bash
-   pnpm run lint
-   ```
+1. **Tests:** resolve the command via the `project-test-runner` reference's hierarchy
+   (`.prospec.yaml` `tech_stack.test_command` → declared package manager → ecosystem detection) —
+   never a hardcoded script name.
 
-2. **Type Check:** Run TypeScript type checking
-   ```bash
-   pnpm run type-check
-   ```
-
-3. **Tests:** Run tests to verify functionality
-   ```bash
-   pnpm test
-   ```
+2. **Other gates (lint, type-check, coverage, …):** run whatever `prospec/CONSTITUTION.md` and
+   `.prospec.yaml` define for this project; skip a gate the project does not declare.
 
 ---
 

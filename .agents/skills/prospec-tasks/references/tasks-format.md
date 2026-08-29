@@ -28,7 +28,7 @@ Use Markdown checkbox syntax:
 Group tasks by architecture layer in bottom-up dependency order (lowest dependency first).
 
 > **Dynamic Architecture Adaptation**:
-> Layer grouping dynamically adapts to the project's conventions (e.g. `Types → Lib → Services → CLI → Tests`, `Domain → Ports → Adapters → Tests`, or `Models → Services → Controllers → Tests`). Never hardcode a fixed framework layer topology.
+> Layer grouping dynamically adapts to the project's conventions (e.g. `Domain → Ports → Adapters → Tests`, `Models → Services → Controllers → Tests`, or `Core → Application → Interface → Tests`). Never hardcode a fixed framework layer topology.
 
 ```markdown
 ## Types
