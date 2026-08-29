@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/print-template.service.js';
 import { formatPrintTemplateOutput } from '../formatters/print-template-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -20,6 +19,7 @@ export function registerPrintTemplateCommand(program: Command): void {
     .action(async (templatePath: string) => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
+        const { execute } = await import('../../services/print-template.service.js');
         const result = await execute({ templatePath });
         formatPrintTemplateOutput(result);
       } catch (err) {

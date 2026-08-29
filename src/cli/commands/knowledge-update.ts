@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { executeForChange } from '../../services/knowledge-update.service.js';
 import { formatKnowledgeUpdateOutput } from '../formatters/knowledge-update-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -24,6 +23,7 @@ export function registerKnowledgeUpdateCommand(knowledge: Command, program: Comm
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { executeForChange } = await import('../../services/knowledge-update.service.js');
         const result = await executeForChange({
           change: options.change,
           modules: options.module,

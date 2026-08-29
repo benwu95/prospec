@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/knowledge-verify.service.js';
 import { formatKnowledgeVerifyOutput } from '../formatters/knowledge-verify-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -23,6 +22,7 @@ export function registerKnowledgeVerifyCommand(knowledge: Command, program: Comm
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { execute } = await import('../../services/knowledge-verify.service.js');
         const result = await execute({ modules });
         formatKnowledgeVerifyOutput(result, logLevel);
       } catch (err) {

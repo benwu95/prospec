@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/upgrade.service.js';
 import { formatUpgradeOutput } from '../formatters/upgrade-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -36,6 +35,7 @@ export function registerUpgradeCommand(program: Command): void {
       const interactive = options.interactive !== false && Boolean(process.stdin.isTTY);
 
       try {
+        const { execute } = await import('../../services/upgrade.service.js');
         const result = await execute({ cwd: options.cwd, interactive });
         formatUpgradeOutput(result, logLevel);
       } catch (err) {

@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/config-example.service.js';
 import { formatConfigExampleOutput } from '../formatters/config-example-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -26,6 +25,7 @@ export function registerConfigCommand(program: Command): void {
     .action(async () => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
+        const { execute } = await import('../../services/config-example.service.js');
         const result = await execute();
         formatConfigExampleOutput(result);
       } catch (err) {

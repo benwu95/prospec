@@ -1,5 +1,4 @@
 import { InvalidArgumentError, Option, type Command } from 'commander';
-import { execute } from '../../services/change-log.service.js';
 import {
   GATE_RESULTS,
   VERIFY_GRADES,
@@ -115,6 +114,7 @@ export function registerChangeLogCommand(program: Command): void {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
         try {
+          const { execute } = await import('../../services/change-log.service.js');
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,

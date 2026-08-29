@@ -1,5 +1,4 @@
 import { InvalidArgumentError, Option, type Command } from 'commander';
-import { execute } from '../../services/verify-record.service.js';
 import {
   DIMENSION_GRADED_BY,
   DIMENSION_RESULTS,
@@ -135,6 +134,7 @@ export function registerVerifyCommand(program: Command): void {
           ...(options.spend !== undefined ? { spend: options.spend } : {}),
         }));
         try {
+          const { execute } = await import('../../services/verify-record.service.js');
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,

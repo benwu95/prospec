@@ -1,5 +1,4 @@
 import { Option, type Command } from 'commander';
-import { execute } from '../../services/auto-draft.service.js';
 import { formatChangeAutoDraftOutput } from '../formatters/change-auto-draft-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -57,6 +56,7 @@ export function registerChangeAutoDraftCommand(program: Command): void {
               : undefined;
 
         try {
+          const { execute } = await import('../../services/auto-draft.service.js');
           const result = await execute({
             target: options.target,
             reason: options.reason,

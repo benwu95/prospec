@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute, executeYield } from '../../services/learn.service.js';
 import { formatLearnUpsertOutput, formatLensYieldOutput } from '../formatters/learn-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -27,6 +26,7 @@ export function registerLearnCommand(program: Command): void {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { execute } = await import('../../services/learn.service.js');
         const result = await execute({
           lessonPath: options.lesson,
           today: options.today,
@@ -75,6 +75,7 @@ export function registerLearnCommand(program: Command): void {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
         try {
+          const { executeYield } = await import('../../services/learn.service.js');
           const result = await executeYield({
             consecutiveZeroThreshold: options.consecutiveZero,
             minInvocations: options.minInvocations,

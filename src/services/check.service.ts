@@ -221,6 +221,10 @@ export async function execute(
       ...extra,
     });
 
+  // Loaded here (not statically by drift-sources) so read paths that never run
+  // the canonical-doc collector — `status`, `verify record` — stay clear of the
+  // Handlebars template chain.
+  const initDocs = await import('../lib/init-docs.js');
   const report = runChecks({
     reqDefinitions: collectReqDefinitions(featuresDir),
     reqIdUniqueness: collectReqIdUniqueness(featuresDir, cwd),
@@ -286,7 +290,7 @@ export async function execute(
     // Same resolved features directory the REQ-definition and feature-map
     // collectors read — the counters are a fact about those very files.
     specCounters: collectSpecCounters(featuresDir, cwd),
-    canonicalDocDrift: collectCanonicalDocDrift(config, cwd),
+    canonicalDocDrift: collectCanonicalDocDrift(config, cwd, initDocs),
     generatedAt: new Date().toISOString(),
   });
   // Stamp the code state the verdicts describe — `verify record` refuses a

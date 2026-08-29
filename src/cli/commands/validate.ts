@@ -1,5 +1,4 @@
 import { Argument, type Command } from 'commander';
-import { execute } from '../../services/validate.service.js';
 import { VALIDATE_KINDS, type ValidateKind } from '../../types/station.js';
 import { formatValidateOutput } from '../formatters/validate-output.js';
 import { handleError } from '../formatters/error-output.js';
@@ -28,6 +27,7 @@ export function registerValidateCommand(program: Command): void {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { execute } = await import('../../services/validate.service.js');
         const result = await execute({
           kind,
           target,

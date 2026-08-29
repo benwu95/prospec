@@ -1,5 +1,4 @@
 import { Option, type Command } from 'commander';
-import { execute } from '../../services/check.service.js';
 import { DIMENSION_GRADED_BY, type DimensionGradedBy } from '../../types/change.js';
 import { formatCheckOutput } from '../formatters/check-output.js';
 import { handleError } from '../formatters/error-output.js';
@@ -66,6 +65,7 @@ export function registerCheckCommand(program: Command): void {
         const logLevel = resolveLogLevel(globalOpts);
 
         try {
+          const { execute } = await import('../../services/check.service.js');
           const result = await execute({
             json: options.json,
             initCi: options.initCi,

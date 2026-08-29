@@ -9,8 +9,9 @@
  * lib/logger share the one picocolors singleton).
  *
  * This MUST be imported before any module that imports picocolors — keep it
- * the first import in the CLI entry point. An explicit NO_COLOR / FORCE_COLOR
- * from the user always wins.
+ * ahead of every picocolors consumer in the CLI entry point (only the
+ * picocolors-free `./enable-compile-cache.js` may precede it). An explicit
+ * NO_COLOR / FORCE_COLOR from the user always wins.
  */
 if (
   process.stdout.isTTY !== true &&

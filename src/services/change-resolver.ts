@@ -1,6 +1,5 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { select } from '@inquirer/prompts';
 import { isSafeResourceName } from '../lib/knowledge-reader.js';
 import { PrerequisiteError } from '../types/errors.js';
 
@@ -70,6 +69,10 @@ export async function resolveChange(
     );
   }
 
+  // Deferred so the many non-interactive services that share this resolver
+  // (check / change-log / verify-record / …) never pull @inquirer into their
+  // startup graph — it loads only when an interactive pick actually happens.
+  const { select } = await import('@inquirer/prompts');
   return select({
     message: promptMessage,
     choices: changeNames.map((name) => ({ name, value: name })),

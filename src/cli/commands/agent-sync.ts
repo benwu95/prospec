@@ -1,9 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/agent-sync.service.js';
-import {
-  execute as agentTriggersExecute,
-  executeWrite as agentTriggersWrite,
-} from '../../services/agent-triggers.service.js';
 import { formatAgentSyncOutput } from '../formatters/agent-sync-output.js';
 import {
   formatAgentTriggersOutput,
@@ -40,6 +35,7 @@ export function registerAgentCommand(program: Command): void {
         const logLevel = resolveLogLevel(globalOpts);
 
         try {
+          const { execute } = await import('../../services/agent-sync.service.js');
           const result = await execute({
             cli: options.cli,
           });
@@ -64,6 +60,9 @@ export function registerAgentCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
+        const { execute: agentTriggersExecute, executeWrite: agentTriggersWrite } = await import(
+          '../../services/agent-triggers.service.js'
+        );
         if (options.write) {
           const result = await agentTriggersWrite({ from: options.write });
           formatAgentTriggersWriteOutput(result, logLevel);

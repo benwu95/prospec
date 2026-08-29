@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/review-merge.service.js';
 import { formatReviewMergeOutput } from '../formatters/review-merge-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -43,6 +42,7 @@ export function registerReviewCommand(program: Command): void {
         const globalOpts = program.opts<GlobalOptions>();
         const logLevel = resolveLogLevel(globalOpts);
         try {
+          const { execute } = await import('../../services/review-merge.service.js');
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,

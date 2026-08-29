@@ -180,6 +180,16 @@ export const DEFAULT_BASE_DIR = 'prospec';
 /** Artifact language assumed when `.prospec.yaml` has no `artifact_language`. */
 export const DEFAULT_ARTIFACT_LANGUAGE = 'English';
 
+/**
+ * Whether a resolved artifact language collapses to the built-in default
+ * (case-insensitive). Lives in this leaf module — its only input is the
+ * constant above — so both `lib` and the `cli` formatters can reach it without
+ * a cli→lib import (lib/config re-exports it for existing callers).
+ */
+export function isDefaultArtifactLanguage(language: string): boolean {
+  return language.trim().toLowerCase() === DEFAULT_ARTIFACT_LANGUAGE.toLowerCase();
+}
+
 export const VALID_AGENTS = ['claude', 'codex', 'copilot', 'antigravity'] as const;
 
 /** The canonical supported-agent vocabulary. */

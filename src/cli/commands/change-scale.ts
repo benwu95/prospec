@@ -1,5 +1,4 @@
 import { Argument, type Command } from 'commander';
-import { execute } from '../../services/change-scale.service.js';
 import { CHANGE_SCALES, type ChangeScale } from '../../types/change.js';
 import { formatChangeScaleOutput } from '../formatters/change-scale-output.js';
 import { handleError } from '../formatters/error-output.js';
@@ -25,6 +24,7 @@ export function registerChangeScaleCommand(program: Command): void {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
+        const { execute } = await import('../../services/change-scale.service.js');
         const result = await execute({
           change: options.change,
           quiet: globalOpts.quiet,

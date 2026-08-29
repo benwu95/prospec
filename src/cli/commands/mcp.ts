@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/mcp.service.js';
 import { formatMcpServeOutput } from '../formatters/mcp-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -31,6 +30,7 @@ export function registerMcpCommand(program: Command): void {
     .action(async (options: { cwd?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
+        const { execute } = await import('../../services/mcp.service.js');
         const result = await execute({ cwd: options.cwd });
         formatMcpServeOutput(result);
       } catch (err) {

@@ -1,18 +1,18 @@
 import * as path from 'node:path';
-import { CHANGE_STATUSES, isStatusBefore, type ChangeStatus } from '../types/change.js';
+import {
+  CHANGE_STATUSES,
+  GATE_OWNED_STATUSES,
+  isStatusBefore,
+  type ChangeStatus,
+} from '../types/change.js';
 import { InvalidTransitionError, PrerequisiteError } from '../types/errors.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
 
-/** Statuses a dedicated gate mints — never reachable via `change status`:
- *  `verified` is `prospec verify record`'s grade-S/A output and `archived` is
- *  `prospec archive`'s; a direct write would bypass the quality gate. */
-export const GATE_OWNED_STATUSES: readonly ChangeStatus[] = ['verified', 'archived'];
-
-/** The `<to>` values `prospec change status` accepts. */
-export const STATION_SETTABLE_STATUSES: readonly ChangeStatus[] = CHANGE_STATUSES.filter(
-  (s) => !GATE_OWNED_STATUSES.includes(s),
-);
+// Re-exported from their canonical home in `types/change` so a command's
+// registration can import the accepted `<to>` values without loading this
+// service (and its transitive deps); consumers/tests keep their import path.
+export { GATE_OWNED_STATUSES, STATION_SETTABLE_STATUSES } from '../types/change.js';
 
 export interface ChangeStatusOptions {
   /** Explicit change name; resolved interactively when omitted. */

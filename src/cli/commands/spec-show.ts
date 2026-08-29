@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-import { execute } from '../../services/spec-show.service.js';
 import { formatSpecShowOutput } from '../formatters/spec-show-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -23,6 +22,7 @@ export function registerSpecCommand(program: Command): void {
     .action(async (feature: string, options: { req: string[]; story: string[] }) => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
+        const { execute } = await import('../../services/spec-show.service.js');
         const result = await execute({ feature, req: options.req, story: options.story });
         formatSpecShowOutput(result);
       } catch (err) {
