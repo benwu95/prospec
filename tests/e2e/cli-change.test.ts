@@ -345,6 +345,34 @@ describe('CLI E2E — change & spec', () => {
     });
   });
 
+  describe('prospec change status — Gate C (implemented requires code tasks)', () => {
+    async function setup(): Promise<void> {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'gatec-test' }),
+      );
+      await runCli(['init', '--name', 'gatec-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'feat-c', '--description', 'x']);
+    }
+    const tasksPath = (): string =>
+      path.join(tmpDir, '.prospec', 'changes', 'feat-c', 'tasks.md');
+
+    it('refuses `change status implemented` while a code task is unchecked', async () => {
+      await setup();
+      await fs.promises.writeFile(tasksPath(), '- [x] T1 done ~5 lines\n- [ ] T2 pending ~5 lines\n');
+      const { exitCode, stderr } = await runCli(['change', 'status', 'implemented']);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('1/2 code tasks');
+    });
+
+    it('allows it once every code task is checked', async () => {
+      await setup();
+      await fs.promises.writeFile(tasksPath(), '- [x] T1 done ~5 lines\n- [x] T2 done ~5 lines\n');
+      const { exitCode } = await runCli(['change', 'status', 'implemented']);
+      expect(exitCode).toBe(0);
+    });
+  });
+
   describe('prospec archive', () => {
     async function writeVerifiedChange(name: string): Promise<void> {
       const changeDir = path.join(tmpDir, '.prospec', 'changes', name);
@@ -370,6 +398,31 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'archive-test' }),
       );
       await runCli(['init', '--name', 'archive-test', '--agents', 'claude']);
+      // Satisfy archive's mechanized Entry Gate so these tests reach the archive
+      // mechanics (the gate's own refusals are unit-tested): a fresh all-passing
+      // report + a stamped `lib` module-map/README (the delta-spec's REQ-LIB module)
+      // so knowledge-sync passes. tmpDir is not a git repo, so freshness skips.
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec-report.json'),
+        JSON.stringify({
+          version: 1,
+          generated_at: '2026-08-29T00:00:00.000Z',
+          structural: { checks: [{ id: 'req-references', status: 'pass' }], findings: [] },
+          semantic: { status: 'not-checked' },
+          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
+        }),
+      );
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec', 'ai-knowledge', 'module-map.yaml'),
+        'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords: []\n    last_verified: 2026-07-01T00:00:00.000Z\n',
+      );
+      await fs.promises.mkdir(path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'lib'), {
+        recursive: true,
+      });
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'lib', 'README.md'),
+        '# lib\n',
+      );
     });
 
     it('previews every mutation with --dry-run and writes nothing', async () => {

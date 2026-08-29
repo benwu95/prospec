@@ -146,3 +146,23 @@ Tests pin both the fix and the damage it already did. Fixture-driven unit tests 
 - WHEN either escape is removed, THEN the column-count assertion fails
 
 ---
+
+#### REQ-LIB-071: archive Entry-Gate evaluator + shared knowledge-sync helper
+The knowledge-sync currency derivation moves from `status.service` into a shared `lib` helper (`checkKnowledgeSync`), so `status` and `archive` call one owner; its behavior is unchanged. A new pure `evaluateArchiveEntryGate(report, { knowledgeSynced, allowIncomplete })` returns `{ blocked, reasons }` from the drift report's `metadata-completeness`, `review-provenance`, `test-provenance` and `delta-spec-provenance` check statuses plus the knowledge-sync flag; `metadata-completeness` is exempted only when `allowIncomplete` is set.
+- WHEN any of completeness / the three provenance checks is FAIL, or `knowledgeSynced` is false, THEN `evaluateArchiveEntryGate` reports blocked with one named reason per cause
+- WHEN `allowIncomplete` is set, THEN a `metadata-completeness` FAIL alone does not block
+
+---
+
+#### REQ-SERVICES-102: prospec archive refuses on failed Entry-Gate conditions
+`prospec archive` reads the latest `prospec-report.json` and computes its freshness before moving any change: a missing or stale report is refused with a request to re-run `prospec check`. For each target change it derives knowledge-sync via the shared helper and calls `evaluateArchiveEntryGate`; a blocked verdict refuses that change with the evaluator's named reasons instead of archiving it. The gate reads the drift report's conclusions only and does not re-validate metadata schema, so pre-schema records still archive under `--allow-incomplete`. `--dry-run` prints the same gate outcome and writes nothing.
+- WHEN the report is missing or stale, THEN archive refuses and asks for a fresh `prospec check`
+- WHEN completeness / any provenance is FAIL or knowledge-sync is false, THEN the target change is refused with a named reason per cause; WHEN `--dry-run`, THEN the same refusal prints and nothing is written
+
+---
+
+#### REQ-CLI-047: archive --allow-incomplete flag
+The `prospec archive` command exposes an `--allow-incomplete` flag, threaded through `ArchiveOptions` into the Entry-Gate evaluator, that exempts the `metadata-completeness` condition only; every other gate condition still blocks. It composes with `--dry-run`.
+- WHEN `--allow-incomplete` is passed, THEN a `metadata-completeness` FAIL no longer blocks while provenance / knowledge-sync / staleness still do
+
+---

@@ -1,13 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { readConfig } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
-import { isStale } from '../lib/drift-checker.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
-import { collectGitTimestamps, computeChangeDigest } from '../lib/drift-sources.js';
+import { computeChangeDigest } from '../lib/drift-sources.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
-import { loadModuleMap } from '../lib/knowledge-reader.js';
+import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
 import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import type { VerifyGrade } from '../types/change.js';
@@ -19,7 +18,6 @@ import type {
   StatusReport,
   UiScope,
 } from '../types/status.js';
-import { parseDeltaSpec } from '../lib/delta-spec-parser.js';
 
 import type { DriftReport } from '../types/drift-report.js';
 import { DRIFT_REPORT_FILENAME, DriftReportSchema } from '../types/drift-report.js';
@@ -174,74 +172,6 @@ async function collectFacts(
         : true,
     ...(issue === undefined ? {} : { issue }),
   };
-}
-
-/**
- * Check whether affected-module Knowledge is confirmed synced for this change.
- * Reads metadata.related_modules (falling back to delta-spec.md if present) and
- * confirms that every affected module exists in module-map.yaml with a valid
- * README, last_verified timestamp, and not stale vs source commits.
- */
-async function checkKnowledgeSync(
-  changeDir: string,
-  metadata: ReturnType<typeof readChangeMetadata>['metadata'],
-  cwd: string,
-  config: ProspecConfig | null,
-): Promise<boolean> {
-  let affectedModules = metadata.related_modules ?? [];
-  if (affectedModules.length === 0) {
-    const deltaSpecText = await readFileIfExists(path.join(changeDir, 'delta-spec.md'));
-    if (deltaSpecText) {
-      const delta = parseDeltaSpec(deltaSpecText);
-      affectedModules = [
-        ...new Set([...delta.added, ...delta.modified, ...delta.removed].map((e) => e.module)),
-      ];
-    }
-  }
-
-  if (affectedModules.length === 0) return true;
-
-  const knowledgePath = config
-    ? resolveBasePaths(config, cwd).knowledgePath
-    : path.resolve(cwd, 'prospec/ai-knowledge');
-
-  let moduleMap: ReturnType<typeof loadModuleMap> = null;
-  try {
-    moduleMap = loadModuleMap(knowledgePath, cwd);
-  } catch {
-    return false;
-  }
-  if (moduleMap === null) return true;
-
-  const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
-  // Only this change's affected modules need timestamps, and collectGitTimestamps
-  // gathers exactly the module set it is handed — so narrow the map before the walk
-  // instead of computing every module's git history and discarding most of it.
-  const affectedSet = new Set(affectedModules.map((m) => m.toLowerCase()));
-  const affectedMap = {
-    modules: moduleMap.modules.filter((m) => affectedSet.has(m.name.toLowerCase())),
-  };
-  const timestamps = collectGitTimestamps(cwd, affectedMap, knowledgePath, generatedArtifacts);
-
-  for (const modName of affectedModules) {
-    const norm = modName.toLowerCase();
-    const entry = moduleMap.modules.find((m) => m.name.toLowerCase() === norm);
-    if (!entry) return false;
-    if (!entry.last_verified || isNaN(Date.parse(entry.last_verified))) return false;
-
-    const readmePath = path.join(knowledgePath, 'modules', entry.name, 'README.md');
-    if (!fs.existsSync(readmePath)) return false;
-
-    if (timestamps.available) {
-      const modTs = timestamps.modules.find((m) => m.name.toLowerCase() === norm);
-      if (!modTs || !modTs.readme_exists || !modTs.last_verified) return false;
-      if (modTs.last_src_commit && isStale(modTs.last_src_commit, modTs.last_verified)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
 }
 
 /**

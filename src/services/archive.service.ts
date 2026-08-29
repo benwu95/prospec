@@ -5,7 +5,9 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
-import { reqIdToPrefix } from '../lib/drift-sources.js';
+import { reqIdToPrefix, computeChangeDigest } from '../lib/drift-sources.js';
+import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
+import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
 import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
@@ -41,6 +43,8 @@ export {
 };
 export type { BlockTerminator, Bullet, DeltaBlock, DeltaBlockTruncation };
 import type { ChangeStatus } from '../types/change.js';
+import type { ProspecConfig } from '../types/config.js';
+import { DRIFT_REPORT_FILENAME, DriftReportSchema, type DriftReport } from '../types/drift-report.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
@@ -57,6 +61,8 @@ export interface ArchiveOptions {
   cwd?: string;
   /** Compute and report every mutation without writing anything */
   dryRun?: boolean;
+  /** Exempt the `metadata-completeness` Entry-Gate condition only (pre-schema records) */
+  allowIncomplete?: boolean;
 }
 
 export interface ChangeEntry {
@@ -1393,8 +1399,10 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   let productSpecPath: string | null = null;
   let knowledgePath: string | null = null;
   let projectName = 'project';
+  let configObj: ProspecConfig | null = null;
   try {
     const config = await readConfig(cwd);
+    configObj = config;
     const basePaths = resolveBasePaths(config, cwd);
     featuresPath = path.join(basePaths.specsPath, 'features');
     productSpecPath = path.join(basePaths.specsPath, 'product.md');
@@ -1404,9 +1412,60 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     // Config not available — skip Feature Spec sync
   }
 
+  // --- Entry Gate (mechanized) ---
+  // The archive skill used to run `prospec check --json` and read these
+  // conclusions by hand; the CLI now refuses on them, so the skill text converges.
+  // Read the drift report ONCE (it is repo-wide) and check its freshness the same
+  // way `verify record` and `status` do — a missing, unreadable, or stale report
+  // is refused per target rather than silently trusted. Decision only: no write.
+  const allowIncomplete = options.allowIncomplete ?? false;
+  let gateReport: DriftReport | null = null;
+  let gateReportProblem: string | null = null;
+  const reportPath = path.join(cwd, DRIFT_REPORT_FILENAME);
+  if (!fs.existsSync(reportPath)) {
+    gateReportProblem = 'no prospec-report.json — run `prospec check --json` before archiving';
+  } else {
+    try {
+      gateReport = DriftReportSchema.parse(JSON.parse(fs.readFileSync(reportPath, 'utf-8')));
+    } catch {
+      gateReportProblem = 'prospec-report.json is unreadable — re-run `prospec check --json`';
+    }
+    if (gateReport) {
+      const currentDigest = computeChangeDigest(cwd);
+      if (currentDigest !== null && gateReport.change_digest !== currentDigest) {
+        gateReport = null;
+        gateReportProblem =
+          'prospec-report.json is stale (generated against different code) — re-run `prospec check --json`';
+      }
+    }
+  }
+
   for (const change of candidates) {
     try {
       const createdDate = String(change.metadata.created ?? change.metadata.created_at ?? 'unknown');
+
+      // Entry Gate B — refuse a change the drift report says is not archivable,
+      // before PREFLIGHT and before anything moves. --dry-run prints the same
+      // refusal (this runs regardless of dryRun).
+      if (gateReportProblem !== null) {
+        refused.push({ name: change.name, status: change.status, reason: gateReportProblem });
+        continue;
+      }
+      const relatedRaw = change.metadata.related_modules;
+      const relatedModules = Array.isArray(relatedRaw)
+        ? relatedRaw.filter((m): m is string => typeof m === 'string')
+        : undefined;
+      const knowledgeSynced = await checkKnowledgeSync(
+        change.dir,
+        { related_modules: relatedModules },
+        cwd,
+        configObj,
+      );
+      const gate = evaluateArchiveEntryGate(gateReport!, { knowledgeSynced, allowIncomplete });
+      if (gate.blocked) {
+        refused.push({ name: change.name, status: change.status, reason: gate.reasons.join('; ') });
+        continue;
+      }
 
       // PREFLIGHT — decide before anything moves (REQ-CLI-034).
       //

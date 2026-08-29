@@ -25,13 +25,21 @@ export function registerArchiveCommand(program: Command): void {
     .description("Archive verified changes: move to .prospec/archive/, sync Feature Specs, sync product.md's Feature Map + feature-map.yaml")
     .argument('<names...>', 'change name(s) under .prospec/changes/ to archive')
     .option('--dry-run', 'compute and print every planned mutation without writing anything')
-    .action(async (names: string[], opts: { dryRun?: boolean }) => {
+    .option(
+      '--allow-incomplete',
+      'exempt the metadata-completeness Entry-Gate condition only (for a pre-schema record); every other gate still applies',
+    )
+    .action(async (names: string[], opts: { dryRun?: boolean; allowIncomplete?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
         const { execute } = await import('../../services/archive.service.js');
-        const result = await execute({ names, dryRun: opts.dryRun ?? false });
+        const result = await execute({
+          names,
+          dryRun: opts.dryRun ?? false,
+          allowIncomplete: opts.allowIncomplete ?? false,
+        });
         formatArchiveOutput(result, logLevel);
         // A spec-loss verdict is an unhonored request too: the caller asked for a
         // sync and one or more feature specs were deliberately left unwritten. It

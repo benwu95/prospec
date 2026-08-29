@@ -23,12 +23,28 @@ function write(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 
+// A fresh all-passing drift report so archive's mechanized Entry Gate lets the
+// candidate through — these tests exercise dry-run mechanics, not the gate. Seeded
+// as part of the fixture (before the zero-write snapshot), so it never reads as a
+// write execute() performed.
+const PASSING_REPORT = JSON.stringify({
+  version: 1,
+  generated_at: '2026-08-29T00:00:00.000Z',
+  structural: { checks: [{ id: 'req-references', status: 'pass' }], findings: [] },
+  semantic: { status: 'not-checked' },
+  summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
+});
+
 function verifiedChangeFixture(name = 'feat-x'): void {
   write('.prospec.yaml', 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n');
+  write('prospec-report.json', PASSING_REPORT);
+  // module-map carries last_verified + a README so the Entry Gate's knowledge-sync
+  // check passes (git staleness is skipped — tmp is not a git repo).
   write(
     'prospec/ai-knowledge/module-map.yaml',
-    'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords: []\n',
+    'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords: []\n    last_verified: 2026-07-01T00:00:00.000Z\n',
   );
+  write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
   write(
     `.prospec/changes/${name}/metadata.yaml`,
     `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\n`,

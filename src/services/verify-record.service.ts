@@ -171,6 +171,23 @@ const MACHINE_CHECK_FOR_DIMENSION: Record<string, string> = {
 };
 
 /**
+ * Judgment dimension → the drift check that machine-grades the same subject.
+ * A judgment verdict may not be more lenient than its machine counterpart's
+ * finding (Gate D1): a machine FAIL/WARN floors the judgment, since a
+ * deterministically-detected violation cannot be hand-waved to PASS. The reverse
+ * (machine PASS, judgment stricter) is legitimate — a judgment sees what the
+ * machine cannot. Only `constitution` has a clean counterpart today.
+ */
+const JUDGMENT_MACHINE_COUNTERPART: Record<string, string> = {
+  constitution: 'constitution-severity',
+};
+
+/** Strictness rank; not-applicable/not-adjudicated read as below PASS (ungraded). */
+function verdictRank(result: string): number {
+  return result === 'FAIL' ? 2 : result === 'WARN' ? 1 : result === 'PASS' ? 0 : -1;
+}
+
+/**
  * `prospec verify record` — the S/A/B/C/D decision table executed as code.
  *
  * Machine dimensions (1/5, 4/5, 5/5) are SELF-SOURCED from `prospec-report.json`
@@ -283,6 +300,17 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     );
   }
 
+  // Gate A — the review-provenance Entry Gate, enforced here so the verify skill
+  // no longer checks it by hand: a non-backfill change whose report review-provenance
+  // FAILs (review absent or stale) is refused before any write. A proven backfill's
+  // check is `skipped`, so this never fires for it; a `pass` or absent check records.
+  if (report.structural.checks.find((c) => c.id === 'review-provenance')?.status === 'fail') {
+    throw new PrerequisiteError(
+      'review-provenance FAILs — this change has no current review baseline',
+      'Run `/prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
+    );
+  }
+
   const machineSkipReasons = new Map<string, string>();
   const machineDimensions: QualityDimension[] = MACHINE_DIMENSION_NAMES.map((name) => {
     if (notApplicableMachine.includes(name)) {
@@ -307,6 +335,23 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
             : ('not-adjudicated' as const);
     return { name, result, adjudicator: 'machine' as const };
   });
+
+  // Gate D1 — a judgment dimension may not be graded more leniently than its
+  // machine counterpart's finding. A report FAIL/WARN floors the judgment; a
+  // report pass/skipped/absent sets no floor (a judgment may still be stricter).
+  for (const d of judgmentVerdicts) {
+    const checkId = JUDGMENT_MACHINE_COUNTERPART[d.name];
+    if (checkId === undefined) continue;
+    const check = report.structural.checks.find((c) => c.id === checkId);
+    if (!check || (check.status !== 'fail' && check.status !== 'warn')) continue;
+    const floor = check.status === 'fail' ? 2 : 1;
+    if (verdictRank(d.result) < floor) {
+      throw new PrerequisiteError(
+        `judgment dimension "${d.name}" is declared "${d.result}" but the report's ${checkId} check reports "${check.status}" — a judgment cannot be more lenient than a machine finding`,
+        `Grade "${d.name}" at least ${check.status === 'fail' ? 'FAIL' : 'WARN'}, or fix the violation and regenerate the report before recording`,
+      );
+    }
+  }
 
   const dimensions: QualityDimension[] = [
     ...machineDimensions,
