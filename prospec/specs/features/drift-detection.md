@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-08-29
 story_count: 20
-req_count: 78
+req_count: 80
 ---
 
 # Deterministic Drift Check
@@ -59,6 +59,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-29 | dedupe-drift-git-subprocesses | ADDED REQ-LIB-069; ADDED REQ-LIB-070 | REQ-LIB-069, REQ-LIB-070 |
 | 2026-08-22 | record-judgment-gate-executor | MODIFIED REQ-SERVICES-062; MODIFIED REQ-CLI-012 | REQ-SERVICES-062, REQ-CLI-012 |
 | 2026-08-21 | autonomous-drift-draft | ADDED REQ-TYPES-088; ADDED REQ-LIB-060; ADDED REQ-SERVICES-093; ADDED REQ-SERVICES-094; ADDED REQ-CLI-041; ADDED REQ-TESTS-096 | REQ-TYPES-088, REQ-LIB-060, REQ-SERVICES-093, REQ-SERVICES-094, REQ-CLI-041, REQ-TESTS-096 |
 | 2026-08-14 | mechanize-knowledge-sync-gate | MODIFIED REQ-LIB-015; MODIFIED REQ-TYPES-073; MODIFIED REQ-TESTS-067 | REQ-LIB-015, REQ-TYPES-073, REQ-TESTS-067 |
