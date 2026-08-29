@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { formatStatusOutput } from '../formatters/status-output.js';
+import { formatStatusOutput, formatStatusJson } from '../formatters/status-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
@@ -19,14 +19,19 @@ export function registerStatusCommand(program: Command): void {
   program
     .command('status')
     .description('Show each in-progress change and its suggested next SDD station')
-    .action(async () => {
+    .option('--json', 'Emit the full status report as JSON to stdout instead of the human view')
+    .action(async (options: { json?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
       try {
         const { execute } = await import('../../services/status.service.js');
         const result = await execute({});
-        formatStatusOutput(result, logLevel);
+        if (options.json === true) {
+          formatStatusJson(result);
+        } else {
+          formatStatusOutput(result, logLevel);
+        }
       } catch (err) {
         handleError(err, globalOpts.verbose ?? false);
       }

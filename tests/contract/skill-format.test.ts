@@ -2079,6 +2079,19 @@ describe('Skill Format Contract', () => {
         expect(exit).not.toContain('INFO');
       });
     }
+
+    it('the four station Entry Gates surface prior WARNs via `prospec status`, not a hand-read of quality_log (issue #228)', () => {
+      for (const name of ['prospec-plan', 'prospec-tasks', 'prospec-review', 'prospec-verify']) {
+        const entry = sectionOf(
+          renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT),
+          '## Entry Gate',
+        );
+        expect(entry, name).toContain('prospec status');
+        expect(entry, name).toContain('warn:');
+        // mechanization: the prior-WARN precondition no longer hand-reads quality_log
+        expect(entry, name).not.toContain('quality_log');
+      }
+    });
   });
 
   describe('knowledge sync gates at archive (BL-038)', () => {

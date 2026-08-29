@@ -15,6 +15,10 @@ import { sanitizeTerminal } from './sanitize.js';
  *    reasons
  * 3. Unroutable records (malformed metadata) — reported, never dropped
  */
+export function formatStatusJson(report: StatusReport): void {
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+}
+
 export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): void {
   if (logLevel === 'quiet') return;
 
@@ -69,6 +73,9 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     }
     for (const reason of change.reasons) {
       console.log(`  reason:  ${sanitizeTerminal(reason)}`);
+    }
+    for (const w of change.unresolvedWarnings ?? []) {
+      console.log(`  warn:    ${sanitizeTerminal(`${w.skill}: ${w.warning}`)}`);
     }
   }
 

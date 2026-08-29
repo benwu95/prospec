@@ -56,6 +56,18 @@ export const UI_SCOPES = ['full', 'partial', 'none'] as const;
 export type UiScope = (typeof UI_SCOPES)[number];
 
 /**
+ * One unresolved WARN surfaced from a change's `quality_log`: a single warning
+ * string from the latest entry, per skill, whose `result` is `WARN`. Display
+ * data only — `prospec status` lists it so a station skill need not re-read the
+ * `quality_log` itself.
+ */
+export interface UnresolvedWarning {
+  skill: string;
+  warning: string;
+  date: string;
+}
+
+/**
  * The facts `routeChange` consumes — gathered by `status.service.ts` so the
  * router itself stays I/O-free (drift-checker precedent: collectors do I/O,
  * evaluators are pure).
@@ -77,6 +89,10 @@ export interface ChangeRouteFacts {
   lastVerifyGrade: VerifyGrade | null;
   /** Whether affected-module Knowledge is confirmed synced for this change. */
   hasKnowledgeSync: boolean;
+  /** Unresolved WARNs computed from this change's `quality_log` (empty when
+   *  none). Display data, NOT a routing fact; the router forwards it to the
+   *  route only when non-empty (see `ChangeRoute.unresolvedWarnings`). */
+  unresolvedWarnings?: UnresolvedWarning[];
   /** Registered external-tracker reference (metadata `issue`), absent when the
    *  change registered none. Display data, NOT a routing fact — every station
    *  verdict is computed as if it were not here. */
@@ -101,6 +117,9 @@ export interface ChangeRoute {
   blockingGates: string[];
   /** Why the router placed the change here (quick skip, backfill entry, …). */
   reasons: string[];
+  /** Unresolved WARNs surfaced from `quality_log`, carried through for display
+   *  only (absent when none) — like `issue`, never a routing input. */
+  unresolvedWarnings?: UnresolvedWarning[];
   /** The registered tracker reference, carried through for display only. */
   issue?: string;
 }

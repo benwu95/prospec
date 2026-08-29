@@ -150,6 +150,20 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
 }
 
 /**
+ * Every rule name `prospec init` may seed — the stack example rules across all
+ * stacks plus the always-seeded Language Policy. The single source the drift
+ * engine subtracts from a parsed Constitution to decide whether any
+ * project-authored principle remains (`constitution-severity`). Aggregating all
+ * stacks is deliberate: a rule the owner kept verbatim from any starter set is
+ * still boilerplate, and the Constitution does not record which stack seeded it.
+ */
+export const SEEDED_CONSTITUTION_RULE_NAMES: ReadonlySet<string> = new Set(
+  [...PYTHON_RULES, ...TYPESCRIPT_RULES, ...GENERIC_RULES]
+    .map((r) => r.name)
+    .concat('Language Policy'),
+);
+
+/**
  * Return 3-5 starter Constitution rules appropriate to the detected stack.
  * Unknown or undetected languages fall back to language-neutral rules.
  */

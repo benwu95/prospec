@@ -4,7 +4,7 @@
 > (`.prospec/changes/{name}/metadata.yaml`). All prospec skills MUST follow this — do not
 > introduce statuses or transitions outside this file.
 >
-> **Executable copy**: `prospec status` computes current/next station and blocking gates from these rules.
+> **Executable copy**: `prospec status` computes current/next station and blocking gates from these rules, and lists each change's unresolved `quality_log` WARNs under `warn:`.
 
 ## States and transitions
 

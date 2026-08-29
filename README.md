@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4410%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4419%20passing-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -612,7 +612,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 | Command | Description |
 |---------|-------------|
-| `prospec status` | Read-only check of in-flight changes, lifecycle station, next steps, and blocking gates; on a clean workspace, reports the drift report's state |
+| `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; on a clean workspace, reports the drift report's state. `--json` emits the full report to stdout |
 | `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) |
 | `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
@@ -643,6 +643,8 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Reports current lifecycle node, suggested next station, blocking gates, and specific reasons.
     - Supports scale-specific routes (`quick` skipping plan to tasks, `backfill` entering at promote).
     - Displays registered `issue` trackers; reports malformed metadata per change without crashing.
+    - Lists each change's unresolved `quality_log` WARNs under `warn:` — the latest entry per skill still at WARN — so a station's Entry Gate surfaces prior warnings without re-reading the log itself.
+    - `--json` emits the whole status report (including each change's `unresolvedWarnings`) to stdout for machine consumption.
     - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
 
 - **`prospec change story <name> [options]`**
@@ -1068,7 +1070,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4410 tests)
+# Run all tests (4419 tests)
 pnpm test
 
 # Watch mode
@@ -1081,11 +1083,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4410 tests across 4 categories:
-- Unit tests (types + lib + services + cli): 3255 tests
-- Contract tests (CLI output + Skill format): 980 tests
+**Test Coverage**: 4419 tests across 4 categories:
+- Unit tests (types + lib + services + cli): 3262 tests
+- Contract tests (CLI output + Skill format): 981 tests
 - Integration tests: 45 tests
-- E2E tests: 130 tests
+- E2E tests: 131 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

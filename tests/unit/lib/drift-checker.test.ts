@@ -27,6 +27,9 @@ import {
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
+import { parseConstitutionRules } from '../../../src/lib/constitution-parser.js';
+import { exampleRulesFor } from '../../../src/lib/constitution-rules.js';
+import type { TechStackResult } from '../../../src/lib/detector.js';
 import type {
   ArtifactLanguageSource,
   ConstitutionRuleSource,
@@ -1881,6 +1884,63 @@ describe('evaluateConstitutionSeverity (REQ-LIB-032)', () => {
     ];
     const r = evaluateConstitutionSeverity(src(rules));
     expect(r.constitution?.rules).toEqual(rules);
+  });
+
+  it('warns when the Constitution declares only seeded example rules (issue #228)', () => {
+    // Every name here is a seeded starter rule — no project-authored principle
+    // remains, so verify and the gates have nothing real to grade.
+    const r = evaluateConstitutionSeverity(
+      src([
+        { name: 'Language Policy', severity: 'MUST', has_verify_hint: true, line: 10 },
+        { name: 'Tested public functions', severity: 'MUST', has_verify_hint: true, line: 20 },
+        { name: 'No committed secrets', severity: 'MUST', has_verify_hint: true, line: 30 },
+      ]),
+    );
+    expect(r.result.status).toBe('warn');
+    const finding = r.findings.find((f) => f.detail.includes('no project-authored principles'));
+    expect(finding).toMatchObject({
+      check: 'constitution-severity',
+      severity: 'warn',
+      source_path: 'prospec/CONSTITUTION.md',
+    });
+    // whole-document finding — never anchored to one rule's line
+    expect(finding?.line).toBeUndefined();
+  });
+
+  it('does not flag no-project-authored when at least one authored rule exists (issue #228)', () => {
+    const r = evaluateConstitutionSeverity(
+      src([
+        { name: 'Language Policy', severity: 'MUST', has_verify_hint: true, line: 10 },
+        { name: 'Atomic commit boundaries', severity: 'MUST', has_verify_hint: true, line: 20 },
+      ]),
+    );
+    expect(r.findings.some((f) => f.detail.includes('no project-authored principles'))).toBe(false);
+  });
+
+  // Round-trip guard for the seed-name coupling: a freshly-seeded Constitution
+  // (init renders the SAME rule arrays SEEDED_CONSTITUTION_RULE_NAMES is built
+  // from) must, once parsed back, leave zero project-authored principles and
+  // fire the finding. Goes red if a seeded rule's name stops round-tripping
+  // through the parser into the seed set. Covers all three stack branches.
+  it('fires on a freshly-seeded Constitution parsed back through the real init rules (issue #228)', () => {
+    for (const language of ['typescript', 'python', 'go']) {
+      const seeded = exampleRulesFor({ language } satisfies TechStackResult);
+      const markdown =
+        '## Principles\n\n' +
+        '### [MUST] Language Policy\n\n' +
+        seeded.map((r) => `### [${r.severity}] ${r.name}\n`).join('\n');
+      const rules = parseConstitutionRules(markdown);
+      const r = evaluateConstitutionSeverity({
+        available: true,
+        source_path: 'prospec/CONSTITUTION.md',
+        rules,
+      });
+      expect(r.result.status, language).toBe('warn');
+      expect(
+        r.findings.some((f) => f.detail.includes('no project-authored principles')),
+        language,
+      ).toBe(true);
+    }
   });
 });
 

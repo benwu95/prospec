@@ -39,6 +39,7 @@ import type {
   CanonicalDocDriftSource,
 } from './drift-sources.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
+import { SEEDED_CONSTITUTION_RULE_NAMES } from './constitution-rules.js';
 
 /**
  * Drift evaluators — zero-LLM pure functions over collector data
@@ -916,6 +917,24 @@ export function evaluateConstitutionSeverity(src: ConstitutionRuleSource): Check
         `untagged principle: "${r.name}" carries no [MUST]/[SHOULD]/[MAY] severity — ` +
         'verify cannot grade its violation by weight',
     }));
+  // A Constitution that parsed rules but only the seeded starter set — no
+  // project-authored principle survives subtracting the seed names — leaves
+  // verify's audit and the Entry/Exit gates with nothing real to grade. The
+  // empty/absent Constitution is a separate `skipped` outcome (collector).
+  const hasProjectAuthored = src.rules.some(
+    (r) => !SEEDED_CONSTITUTION_RULE_NAMES.has(r.name),
+  );
+  if (!hasProjectAuthored) {
+    findings.push({
+      check: 'constitution-severity',
+      severity: 'warn',
+      source_path: src.source_path,
+      detail:
+        'no project-authored principles: the Constitution declares only the seeded example ' +
+        'rules and the Language Policy — verify and the Entry/Exit gates stay no-ops until ' +
+        'real principles exist',
+    });
+  }
   return {
     ...outcome('constitution-severity', findings),
     constitution: { rules: src.rules },
