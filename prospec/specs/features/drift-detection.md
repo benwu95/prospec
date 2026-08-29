@@ -3,7 +3,7 @@ feature: drift-detection
 status: active
 last_updated: 2026-08-29
 story_count: 20
-req_count: 80
+req_count: 81
 ---
 
 # Deterministic Drift Check
@@ -59,6 +59,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-29 | surface-warns-and-empty-constitution | ADDED REQ-LIB-072 | REQ-LIB-072 |
 | 2026-08-29 | mechanize-lifecycle-entry-gates | MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-142; MODIFIED REQ-TEMPLATES-173 | REQ-TEMPLATES-171, REQ-TEMPLATES-142, REQ-TEMPLATES-173 |
 | 2026-08-29 | dedupe-drift-git-subprocesses | ADDED REQ-LIB-069; ADDED REQ-LIB-070 | REQ-LIB-069, REQ-LIB-070 |
 | 2026-08-22 | record-judgment-gate-executor | MODIFIED REQ-SERVICES-062; MODIFIED REQ-CLI-012 | REQ-SERVICES-062, REQ-CLI-012 |
