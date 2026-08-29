@@ -41,7 +41,7 @@ import {
   collectTaskStates,
   collectTestProvenance,
   computeChangeDigest,
-  computeWorkingTreeClean,
+  computeChangeState,
   collectBudgetOverrides,
   collectCanonicalDocDrift,
   isGitWorkTree,
@@ -196,12 +196,14 @@ export async function execute(
   const featuresDir = path.join(paths.specsPath, 'features');
   const markdownRoots = [paths.specsPath, paths.knowledgePath, paths.baseDir];
 
-  // One digest per run, shared by both provenance collectors: it is the most
-  // expensive fact the engine gathers and the two can never disagree within a run.
-  const currentDigest = computeChangeDigest(cwd);
-  // The one whole-tree clean signal, computed once and shared for the same reason —
-  // it must be judged over the digest's exact scope and identically for both gates.
-  const workingTreeClean = computeWorkingTreeClean(cwd);
+  // The one work-tree probe for the whole run, shared across every git-backed
+  // collector so none re-probes (also disambiguates the digest's null cause below).
+  const inWorkTree = isGitWorkTree(cwd);
+  // One digest AND clean signal per run from a single capture, shared by both
+  // provenance collectors: the digest is the most expensive fact the engine gathers,
+  // the two can never disagree within a run, and clean must be judged over the
+  // digest's exact scope. computeChangeState computes both from one `git diff HEAD`.
+  const { digest: currentDigest, clean: workingTreeClean } = computeChangeState(cwd);
 
   const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
   const attributionMap = moduleMap ?? constitutionFallbackModuleMap();
@@ -227,7 +229,13 @@ export async function execute(
     importEdges: collectImportEdges(cwd, attributionMap),
     dependencyRules,
     timestamps: moduleMap
-      ? collectGitTimestamps(cwd, moduleMap, paths.knowledgePath, config.knowledge?.generated_artifacts ?? [])
+      ? collectGitTimestamps(
+          cwd,
+          moduleMap,
+          paths.knowledgePath,
+          config.knowledge?.generated_artifacts ?? [],
+          inWorkTree,
+        )
       : moduleMapMissing({ modules: [] }),
     tasks: collectTaskStates(cwd),
     // feature-map.yaml is the optional index; the collector reports it
@@ -241,7 +249,7 @@ export async function execute(
     mcpReadmeCounts: moduleMap
       ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
       : moduleMapMissing({ claims: [] }),
-    reviewProvenance: collectReviewProvenance(cwd, currentDigest, workingTreeClean),
+    reviewProvenance: collectReviewProvenance(cwd, currentDigest, workingTreeClean, inWorkTree),
     // No shared digest to pass: this one fingerprints each change's own
     // delta-spec, so the collector computes them per change.
     deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
@@ -267,6 +275,7 @@ export async function execute(
       currentDigest,
       undefined,
       workingTreeClean,
+      inWorkTree,
     ),
     // The Constitution path comes from the canonical resolver, never re-derived here.
     constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),

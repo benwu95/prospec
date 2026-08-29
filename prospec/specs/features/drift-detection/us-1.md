@@ -214,3 +214,20 @@ Each guarantee below is pinned by a test that fails if the behavior is removed �
 - WHEN the CLI is invoked with no drift source or an invalid `--scale`, THEN E2E tests assert a non-zero exit and an empty `.prospec/changes/`
 
 ---
+
+#### REQ-LIB-069: Anchored, bounded import-edge scan
+The cross-module import-edge scan is line-anchored: it matches `import`/`export … from` and bare side-effect imports with a start-of-line-anchored multiline (`gm`) pattern, and derives each edge's line number from a precomputed newline-offset table rather than re-splitting the file per match. The produced edge set is identical to the unanchored scan; only super-linear backtracking on files with many `export … ;` statements is removed.
+- WHEN a source file contains a multi-line `import { … }` followed on a later line by `from '…'`, THEN the edge is still captured
+- WHEN a source file contains `export const X = './path'` (a string constant with no `from`), THEN no edge is registered
+- WHEN the same repository is scanned before and after, THEN the produced edge set (from_path, from_module, to_module, specifier, line) is identical
+
+---
+
+#### REQ-LIB-070: Single git-fact gather per drift run
+Within one drift run, git facts are gathered once and reused. The git work-tree probe is computed a single time and shared across the digest, clean, timestamp, and provenance collectors instead of each re-probing. The change digest and the whole-tree-clean signal are produced from a single `git diff HEAD` capture over the identical denylist scope — `computeChangeState` returns both, and `computeChangeDigest` / `computeWorkingTreeClean` become thin wrappers over it, the latter preserving its export and tri-state (`true` / `false` / `null`) semantics. Per-module last-commit timestamps are resolved from a single `git log -c --name-only` walk — newest to oldest, assigning each path-group its first touching non-excluded commit and reproducing the generated-artifact exclusion in-walk, the combined diff (`-c`) attributing a merge commit exactly as `git log -1 -- <path>` does — with a per-group fallback to the individual `git log -1` only for a path-group untouched within the walk window; the batched result is byte-identical to the per-module query. `collectGitTimestamps` honors a caller-narrowed module set. A full `prospec check` on this repository issues no more than six git subprocesses.
+- WHEN `prospec check` runs on this repository, THEN it issues at most six git subprocesses and reports the same findings as the per-call implementation
+- WHEN the batched timestamp walk covers a repository with excluded generated artifacts, extra sub-module knowledge files, and a module untouched within the walk window, THEN each module's last_src_commit / last_readme_commit / last_sub_module_commit is byte-identical to the per-module `git log -1` result
+- WHEN any git capture backing the digest or the clean signal fails, THEN the result stays fail-closed (null digest / non-clean) rather than a fabricated constant
+- WHEN a caller passes an already-filtered module set to `collectGitTimestamps`, THEN only those modules' timestamps are gathered
+
+---
