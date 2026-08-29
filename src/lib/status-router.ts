@@ -60,8 +60,12 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         : STATUS_STATION[facts.status],
     // Display-only pass-through, spread conditionally: writing `issue:
     // facts.issue` would put the key on every route, and the formatter's
-    // print-only-when-registered branch reads absence, not falsiness.
+    // print-only-when-registered branch reads absence, not falsiness. The same
+    // shape carries unresolved WARNs — absent when there are none.
     ...(facts.issue === undefined ? {} : { issue: facts.issue }),
+    ...(facts.unresolvedWarnings === undefined || facts.unresolvedWarnings.length === 0
+      ? {}
+      : { unresolvedWarnings: facts.unresolvedWarnings }),
   } satisfies Omit<ChangeRoute, 'next' | 'blockingGates' | 'reasons'>;
 
   // A scale with neither a plan nor a task list has NO forward planning station:

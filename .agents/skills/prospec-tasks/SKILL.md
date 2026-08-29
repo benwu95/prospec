@@ -46,7 +46,7 @@ nondeterministic serialization this contract exists to remove.
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
 - plan.md and delta-spec.md exist. **Exception — `metadata.scale: quick`**: only proposal.md is required (a quick change legitimately has no plan/delta-spec); decompose directly from proposal.md and advance status `story → tasks` (the legal quick transition — see `prospec/ai-knowledge/_status-lifecycle.md`).
-- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+- Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change.
 
 ## Core Workflow
 

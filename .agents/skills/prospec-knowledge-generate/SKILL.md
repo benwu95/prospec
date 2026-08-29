@@ -219,11 +219,11 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 
 ### Step 8: Constitution Emptiness Check
 
-After Knowledge is generated, read `prospec/CONSTITUTION.md`. If it is absent, contains only blank
-lines or comments, or holds only the
-seeded example rules and the Language Policy (no project-authored rules), it is
-**substantively empty** — tell the user that `/prospec-verify` and the Entry/Exit gates stay no-ops
-until real principles exist, and point them to edit `prospec/CONSTITUTION.md`. Advisory — do not block.
+After Knowledge is generated, run `prospec check --json` and read its `constitution-severity` check.
+If it reports a "no project-authored principles" finding — the Constitution holds only the
+seeded example rules and the Language Policy — or is skipped because the Constitution declares none at all,
+it is **substantively empty** — tell the user that `/prospec-verify` and the Entry/Exit gates stay
+no-ops until real principles exist, and point them to edit `prospec/CONSTITUTION.md`. Advisory — do not block.
 
 ## Output Contract
 

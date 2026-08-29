@@ -50,12 +50,12 @@ Constitution Check:
   [Principle Z]: Potential violation — suggest adjustment
 ```
 
-**Constitution emptiness check (before converging):** read `{{constitution_path}}`. If it is absent,
-contains only blank lines or comments, or holds only
-the seeded example rules and the Language Policy (no project-authored rules), it is
-**substantively empty** — `/prospec-verify`'s Constitution audit and the Entry/Exit gates are no-ops
-until real principles exist. Tell the user this and point them to edit `{{constitution_path}}` to add
-project principles. Advisory — do not block exploration.
+**Constitution emptiness check (before converging):** run `prospec check --json` and read its
+`constitution-severity` check. If it reports a "no project-authored principles" finding — the
+Constitution holds only the seeded example rules and the Language Policy — or is skipped because the
+Constitution declares none at all, it is **substantively empty**: `/prospec-verify`'s Constitution
+audit and the Entry/Exit gates are no-ops until real principles exist. Tell the user this and point
+them to edit `{{constitution_path}}` to add project principles. Advisory — do not block exploration.
 
 ## Convergence Criteria
 

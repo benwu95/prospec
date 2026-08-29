@@ -164,6 +164,10 @@ validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` | `headroom`, and `
 - One entry per `###` heading in the Constitution's `## Principles` section, in file order.
 - `severity` ∈ `MUST` | `SHOULD` | `MAY` | `null`. `null` means the heading carries no RFC-2119 tag —
   it is **never** defaulted to a severity, and `constitution-severity` warns on it.
+- When the inventory has rules but **no project-authored** principle — only the seeded example rules
+  and the Language Policy remain after subtracting the starter set — `constitution-severity` also
+  warns with a single whole-document finding (no `line`): the starter set leaves verify and the
+  Entry/Exit gates nothing real to grade.
 - `/prospec-verify` 3/5 audits **1:1 against this list** (statement count ≥ entry count) and takes
   each severity from here rather than re-reading the file — so no rule is skipped and no severity is
   reassigned. Judging whether the code violates a rule is not mechanizable and stays with the agent.

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4410%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4419%20通過-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -595,7 +595,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 | 命令 | 說明 |
 |------|------|
-| `prospec status` | 唯讀查詢進行中變更的當前階段、建議下一步與阻擋閘門；工作區乾淨時回報漂移報告的狀態 |
+| `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。`--json` 將完整報告輸出至 stdout |
 | `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
@@ -626,6 +626,8 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 回報各變更的目前階段（node）、建議的下一個站點、阻擋的閘門（blocking gates）與具體理由。
     - 支援不同的 scale 路由（如 `quick` 跳過 plan 直接進入 tasks、`backfill` 路由至 promote 站）。
     - 呈現登記的 `issue` 參照；中繼資料格式錯誤會逐變更回報，絕不中斷整體執行。
+    - 於 `warn:` 列出各變更未解的 `quality_log` WARN（每個 skill 最後一筆仍為 WARN 者）——讓各站的 Entry Gate 不必自行翻閱 log 即可浮現先前的警告。
+    - `--json` 將整份 status 報告（含各變更的 `unresolvedWarnings`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
 
 - **`prospec change story <name> [options]`**
@@ -1048,7 +1050,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4410 個測試）
+# 執行所有測試（4419 個測試）
 pnpm test
 
 # Watch 模式
@@ -1061,11 +1063,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4410 個測試橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3255 tests
-- Contract tests（CLI 輸出 + Skill 格式）：980 tests
+**測試覆蓋率**：4419 個測試橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3262 tests
+- Contract tests（CLI 輸出 + Skill 格式）：981 tests
 - Integration tests：45 tests
-- E2E tests：130 tests
+- E2E tests：131 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

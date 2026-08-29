@@ -74,7 +74,7 @@ nondeterministic serialization this contract exists to remove.
 
 - proposal.md exists and is non-empty.
 - `metadata.scale` is not `quick` — a quick change needs no plan: tell the user to proceed to `/prospec-tasks` directly and produce NO plan.md/delta-spec.md. (Absent `scale` reads as `standard` and proceeds.)
-- Prior unresolved WARN: read `metadata.yaml` `quality_log` and surface any unresolved WARN from earlier stages.
+- Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change.
 
 ## Core Workflow
 

@@ -66,6 +66,38 @@ describe('CLI E2E — station commands', () => {
       expect(bad.exitCode).not.toBe(0);
     });
 
+    it('status surfaces unresolved warnings on the terminal and in --json, cleared by a later PASS (issue #228)', async () => {
+      await initChange();
+      await runCli([
+        'change', 'log',
+        '--skill', 'prospec-plan',
+        '--result', 'WARN',
+        '--warning', 'sizing note',
+      ]);
+
+      const human = await runCli(['status']);
+      expect(human.stdout).toContain('warn:');
+      expect(human.stdout).toContain('sizing note');
+
+      const json = await runCli(['status', '--json']);
+      const report = JSON.parse(json.stdout) as {
+        changes: Array<{ name: string; unresolvedWarnings?: Array<{ skill: string; warning: string }> }>;
+      };
+      const change = report.changes.find((c) => c.name === 'my-change');
+      expect(change?.unresolvedWarnings).toEqual([
+        { skill: 'prospec-plan', warning: 'sizing note', date: expect.any(String) },
+      ]);
+
+      // a later same-skill PASS supersedes the WARN
+      await runCli(['change', 'log', '--skill', 'prospec-plan', '--result', 'PASS']);
+      const json2 = await runCli(['status', '--json']);
+      const report2 = JSON.parse(json2.stdout) as {
+        changes: Array<{ name: string; unresolvedWarnings?: unknown }>;
+      };
+      const change2 = report2.changes.find((c) => c.name === 'my-change');
+      expect(change2?.unresolvedWarnings).toBeUndefined();
+    });
+
     it('change log refuses a judgment dimension without graded_by and records one that carries it', async () => {
       const changeDir = await initChange();
       // the parallel quality_log write path must enforce the same honesty

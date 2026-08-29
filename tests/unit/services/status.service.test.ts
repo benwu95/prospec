@@ -250,6 +250,75 @@ describe('status.service — routing in-flight changes', () => {
   });
 });
 
+describe('status.service — unresolved warnings (issue #228)', () => {
+  it('surfaces each warning of a skill whose latest quality_log entry is WARN', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+        extra:
+          'quality_log:\n' +
+          '  - skill: prospec-plan\n    date: 2026-01-02\n    result: WARN\n' +
+          '    warnings:\n      - sizing note\n      - dep risk\n',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.unresolvedWarnings).toEqual([
+      { skill: 'prospec-plan', warning: 'sizing note', date: '2026-01-02' },
+      { skill: 'prospec-plan', warning: 'dep risk', date: '2026-01-02' },
+    ]);
+    expect(report.changes[0]?.unresolvedWarnings).toHaveLength(2);
+  });
+
+  it('drops a WARN once the same skill later records a non-WARN result', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+        extra:
+          'quality_log:\n' +
+          '  - skill: prospec-plan\n    date: 2026-01-02\n    result: WARN\n' +
+          '    warnings:\n      - sizing note\n' +
+          '  - skill: prospec-plan\n    date: 2026-01-03\n    result: PASS\n    warnings: []\n',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.unresolvedWarnings).toEqual([]);
+    // empty is stripped by the router (like `issue`), so the route omits the key
+    expect(report.changes[0]?.unresolvedWarnings).toBeUndefined();
+  });
+
+  it('surfaces WARNs per skill independently', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'implemented',
+        extra:
+          'review_provenance:\n  digest: abc\n  date: 2026-01-02\n' +
+          'quality_log:\n' +
+          '  - skill: prospec-tasks\n    date: 2026-01-02\n    result: PASS\n    warnings: []\n' +
+          '  - skill: prospec-review\n    date: 2026-01-03\n    result: WARN\n' +
+          '    warnings:\n      - major left\n',
+      }),
+    });
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.unresolvedWarnings).toEqual([
+      { skill: 'prospec-review', warning: 'major left', date: '2026-01-03' },
+    ]);
+  });
+
+  it('is empty when there is no quality_log', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+      }),
+    });
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.unresolvedWarnings).toEqual([]);
+  });
+});
+
 describe('status.service — malformed records are reported, never fatal', () => {
   it('names a change whose metadata fails the schema and still routes the rest', async () => {
     vol.fromJSON({

@@ -17,6 +17,7 @@ import type {
   DriftSignal,
   StatusReport,
   UiScope,
+  UnresolvedWarning,
 } from '../types/status.js';
 
 import type { DriftReport } from '../types/drift-report.js';
@@ -166,12 +167,39 @@ async function collectFacts(
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
+    unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     hasKnowledgeSync:
       metadata.status === 'verified'
         ? await checkKnowledgeSync(changeDir, metadata, cwd, config)
         : true,
     ...(issue === undefined ? {} : { issue }),
   };
+}
+
+/**
+ * Unresolved WARNs: the latest `quality_log` entry per skill whose `result` is
+ * `WARN`, expanded to one item per warning string. A later same-skill entry
+ * (any result) supersedes the earlier one, so a WARN cleared by a subsequent
+ * PASS no longer surfaces. Mirrors `lastVerifyGrade`'s last-entry-per-skill read.
+ */
+function unresolvedWarnings(
+  qualityLog:
+    | Array<{ skill: string; date: string; result: string; warnings?: string[] }>
+    | undefined,
+): UnresolvedWarning[] {
+  if (qualityLog === undefined) return [];
+  const latest = new Map<string, { date: string; result: string; warnings?: string[] }>();
+  for (const entry of qualityLog) {
+    latest.set(entry.skill, entry);
+  }
+  const out: UnresolvedWarning[] = [];
+  for (const [skill, entry] of latest) {
+    if (entry.result !== 'WARN') continue;
+    for (const warning of entry.warnings ?? []) {
+      out.push({ skill, warning, date: entry.date });
+    }
+  }
+  return out;
 }
 
 /**
