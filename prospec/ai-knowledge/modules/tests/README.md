@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 173 test files, 4,358 tests (unit 3217, contract 977, integration 45, e2e 119)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 181 test files, 4,369 tests (unit 3219, contract 977, integration 45, e2e 128)).
 
 <!-- prospec:auto-start -->
 
@@ -11,7 +11,8 @@
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), service and formatter (incl. `learn-yield.service` / `learn-yield-output`); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` (21) | Format, registry and trust-zone pins rendered from the real templates — see [Contract Guards](./contract-guards.md). |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
-| `tests/e2e/cli.test.ts` | Real compiled CLI in tmpdir (quickstart, upgrade, measure incl. projection, check, mcp serve), plus the cli-first station commands — incl. the `archive finalize --dry-run` pin that NOTHING is written, and the removal of `knowledge generate`. |
+| `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
+| `tests/e2e/cli-subprocess-smoke.test.ts` · `startup-modules.test.ts` | Real-subprocess coverage that lives outside the JS module boundary — shebang + bundled bin, exit-code propagation, non-TTY color (setup-color), mcp stdio startup; and the startup module-graph guard (REQ-CLI-045). Spawn `dist/cli/index.js`, so need `pnpm build`. |
 | `tests/fixtures/` | `startup-loading-baseline.json` (71 loading items), `token-corpus/` (12 task descriptions), `lessons-harvest/` (synthetic archived corpus). |
 
 ## Public API
@@ -28,7 +29,7 @@
 1. **Add a unit test** — `tests/unit/{layer}/{name}.test.ts`; mock `node:fs` with memfs, `vol.reset()` in `beforeEach`.
 2. **Add a contract test** — see [Contract Guards](./contract-guards.md).
 3. **Add an integration test** — `tests/integration/{flow}.test.ts`; drive multiple services over memfs.
-4. **Add an E2E case** — extend `tests/e2e/cli.test.ts`; spawn `dist/cli/index.js` (run `pnpm build` first).
+4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
 6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
 
@@ -38,8 +39,8 @@
 
 ## Pitfalls
 
-- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares a FILE-level `vi.setConfig({ testTimeout })` (PB-010) — 90_000 where the file shells out to a real subprocess (`drift-sources`, `check.service`, `test-runner`, `counts-from-report`, `e2e/cli`), since `prospec check --record-tests` nests the whole suite inside another node process and 30 s did not hold there: full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
-- E2E spawns the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or the suite fails.
+- fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares a FILE-level `vi.setConfig({ testTimeout })` (PB-010) — 90_000 where the file shells out to a real subprocess or runs git-bound services (`drift-sources`, `check.service`, `test-runner`, `counts-from-report`, and every `tests/e2e/*` file — the in-process `cli-*` files still drive git via check/archive/status, and the smoke/startup files spawn node), since `prospec check --record-tests` nests the whole suite inside another node process and 30 s did not hold there: full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
+- The subprocess smokes and the startup-modules guard spawn the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or they fail; the in-process `cli-*` e2e files run against `src` and need no build. The in-process runner (`helpers/run-cli.ts`) patches BOTH `process.stdout/stderr.write` AND `console.*` (vitest intercepts `console`, so a stream patch alone misses formatter output) and restores every global in a `finally` — its `run-cli-helper.test.ts` pins that contract.
 - A fixture encoding a POSIX assumption (chmod `0o000` revoking read, signal-based kill) is unbuildable on Windows, where windows-smoke runs the same suite: gate it with `it.skipIf`/`describe.runIf` on `process.platform` and state inline which condition loses coverage there — the product behavior itself still holds.
 - `pnpm mutate <path>` runs Stryker as an on-demand audit — never a gate, never in CI (a contract test pins that by enumerating every workflow file). A path is required. Cost = (static mutants) × (dependent-suite runtime); neither predicts it alone — `date-utils` 2 mutants/57 tests → 4s, `task-markers` 57 (26 static: module-level regex constants defeat `coverageAnalysis`)/416 tests → 9m09s. `--ignoreStatic` → 63.8s (8.6×) but scores those 26 as survived (89.47 → 45.61). Timeouts score as KILLED, so a loaded machine reports a higher score; `tests per mutant` is bistable (5.00 vs 1.00, identical runs) — never argue from it. Surviving mutants need human equivalence judgment.
 - v8 instrumentation slows the real-temp-dir git suites past vitest's 5s default: bare `pnpm test:coverage` times out ~7 passing tests. Raise `--testTimeout`; a plain `pnpm test` is the authority on pass/fail.

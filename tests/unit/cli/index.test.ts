@@ -103,7 +103,7 @@ vi.mock('../../../src/cli/formatters/error-output.js', () => ({
   handleError: (...args: unknown[]) => handleErrorMock(...args),
 }));
 
-import { createProgram } from '../../../src/cli/index.js';
+import { createProgram } from '../../../src/cli/program.js';
 
 beforeEach(() => {
   vol.reset();

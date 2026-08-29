@@ -74,7 +74,19 @@ export interface StartupMeasurement {
   heavy: Heavy[];
 }
 
+// A measurement is a pure function of (cliPath, args) against a fixed dist, so
+// repeated identical measurements — the contract check and the per-path it.each
+// blocks all measure the same paths within one test process — reuse the first
+// spawn instead of paying a fresh node startup each time. In the one-shot
+// `--check` CLI run every path is measured once, so the cache is never re-hit
+// there; it only collapses the test suite's redundant re-spawns.
+const measurementCache = new Map<string, StartupMeasurement>();
+
 export function measureStartupModules(args: string[], cliPath: string = DEFAULT_CLI): StartupMeasurement {
+  const cacheKey = JSON.stringify([cliPath, args]);
+  const cached = measurementCache.get(cacheKey);
+  if (cached) return cached;
+
   // spawnSync returns stderr on both success and non-zero exit (a
   // nonexistent-change path exits 1 by design); the counter prints on exit.
   const { stderr } = spawnSync(process.execPath, ['--import', HOOK, cliPath, ...args], {
@@ -89,7 +101,9 @@ export function measureStartupModules(args: string[], cliPath: string = DEFAULT_
   if (!line) {
     throw new Error(`no PROSPEC_STARTUP line for args [${args.join(' ')}]; stderr:\n${stderr}`);
   }
-  return JSON.parse(line.slice('PROSPEC_STARTUP '.length)) as StartupMeasurement;
+  const measurement = JSON.parse(line.slice('PROSPEC_STARTUP '.length)) as StartupMeasurement;
+  measurementCache.set(cacheKey, measurement);
+  return measurement;
 }
 
 export interface Violation {

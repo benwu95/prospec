@@ -9,12 +9,18 @@
  * Requires a prior `pnpm build` (like the sibling cli e2e suite, which spawns
  * the same compiled entry).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   STARTUP_PATHS,
   measureStartupModules,
   checkStartupContract,
 } from '../../scripts/measure-startup-modules.js';
+
+// This file spawns the compiled CLI once per measured path; under the parallel
+// suite that contends with the other spawn-bound files, so a single test can
+// exceed vitest's 5s default (PB-010). Give it the same generous file-level
+// timeout the sibling spawn-bound e2e files use.
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 describe('startup module graph (REQ-CLI-045)', () => {
   it('satisfies the whole startup contract with no violations', () => {

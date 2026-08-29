@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createProgram } from '../../src/cli/index.js';
+import { createProgram } from '../../src/cli/program.js';
 import { CHANGE_SCALES } from '../../src/types/change.js';
 
 let stdoutOutput: string[] = [];

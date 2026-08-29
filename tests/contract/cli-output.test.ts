@@ -7,7 +7,7 @@
  * Uses Commander.js exitOverride to capture output without process.exit().
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createProgram } from '../../src/cli/index.js';
+import { createProgram } from '../../src/cli/program.js';
 import { VALID_AGENTS } from '../../src/types/config.js';
 
 // Capture stdout/stderr
