@@ -642,6 +642,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
     ],
     'prospec-verify': [
       {
+        templateName: 'verify-backfill.hbs',
+        outputName: 'verify-backfill.md',
+        title: 'Backfill Verification Reference',
+      },
+      {
         templateName: 'debug-recovery-format.hbs',
         outputName: 'debug-recovery-format.md',
         title: 'Debug & Recovery Triage Reference',
@@ -670,6 +675,11 @@ export function getSkillReferences(skillName: string): SkillReference[] {
         templateName: 'archive-format.hbs',
         outputName: 'archive-format.md',
         title: 'Archive Summary Format',
+      },
+      {
+        templateName: 'spec-graduation.hbs',
+        outputName: 'spec-graduation.md',
+        title: 'Feature Spec Graduation Reference',
       },
       {
         templateName: 'feature-spec-format.hbs',

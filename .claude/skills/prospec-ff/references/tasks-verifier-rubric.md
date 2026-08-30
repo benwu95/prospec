@@ -36,7 +36,7 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 ### 4. Task Sizing & Schema Compliance
 - **Rule Source**: `references/tasks-format.md`.
 - **Checks**:
-  - **Kind Markers**: Non-code tasks must carry their required `[M]` (manual) or `[V]` (verification) marker; code tasks remain unmarked.
+  - **Kind Markers**: Non-code tasks must carry their required `[M]` (manual) or `[V]` (verification) marker; code tasks remain unmarked (citing `references/tasks-format.md §4` as the single frozen definition).
   - **Granularity**: Tasks should be right-sized (ideally 20–100 lines each, 15–25 tasks total; avoid micro-tasks <10 lines and monolithic tasks >200 lines).
 
 ---
@@ -51,18 +51,23 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 
 ---
 
+> **Language- and Architecture-Agnostic Principle**:
+> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Verifier dynamically reads the project's `prospec/CONSTITUTION.md`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml`. It **never** hardcodes any specific framework layering or test runner.
+
+---
+
 ## Break-Glass Override (Manual Bypass)
 
 If the Verifier produces a false positive or the project requires a deliberate, documented exception:
 1. The developer provides an explicit rationale explaining why the flagged item is acceptable.
 2. The orchestrator records the exception in `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --result WARN --warning "Manual override: <rationale>"`.
-3. Progression may then proceed to `/prospec-implement`.
+3. Progression may then proceed.
 
 ---
 
 ## Language Policy
 
-Verifier audit reports and warning entries must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers and REQ IDs remain in English.
+Verifier audit reports, warnings, and risk entries must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers and REQ IDs remain in English.
 
 ---
 

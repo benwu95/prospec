@@ -66,12 +66,17 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
 
 ---
 
+> **Language- and Architecture-Agnostic Principle**:
+> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Verifier dynamically reads the project's `prospec/CONSTITUTION.md`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml`. It **never** hardcodes any specific framework layering or test runner.
+
+---
+
 ## Break-Glass Override (Manual Bypass)
 
 If the Verifier produces a false positive or the project requires a deliberate, documented exception:
 1. The developer provides an explicit rationale explaining why the flagged item is acceptable.
-2. The orchestrator records the exception in `plan.md` Risk Assessment and appends the rationale to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`.
-3. Planning may then proceed to `/prospec-tasks`.
+2. The orchestrator records the exception in `metadata.yaml` `quality_log` via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`.
+3. Progression may then proceed.
 
 ---
 

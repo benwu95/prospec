@@ -63,17 +63,23 @@ An autonomous transition to the next station occurs **only** when all preconditi
 
 ## Tastemaker Presentation & Human Gate
 
-When the pipeline completes Knowledge Update following Verify Grade S/A, automated cascading **strictly halts**:
+When the pipeline completes Verification with Grade S/A (and subsequent Knowledge Update), reaching this boundary marks the **single commit point** for the change:
 
-1. **Presentation Payload**: The Agent presents a structured Tastemaker summary:
+1. **Commit Boundary & Preparation (S/A only)**:
+   - **Sync affected-module Knowledge**: Run `/prospec-knowledge-update` for the modules this change touched into the feature commit (delta-spec REQ-prefix modules $\cup$ working-tree diff modules via module map, generated artifacts included). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`. (`scale: backfill`: sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`).
+   - **Re-derive factual counts**: If the project has a factual count generator (e.g. `pnpm counts`), run it to synchronize documentation counts; otherwise re-derive from source.
+2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
-   - **Delta-Spec Summary**: Brief overview of added/modified/removed requirements.
-   - **Knowledge Sync Summary**: Confirmation of updated module READMEs.
+   - **Delta-Spec Summary**: Overview of added/modified/removed requirements.
+   - **Knowledge Sync Summary**: Confirmation of updated module READMEs and stamped freshness.
    - **Git Diff Summary**: Clean summary of modified/added files.
-2. **Strict Invariant**: The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
-3. **Sign-off Options for Developer**:
-   - **Approve**: Proceed with git commit (`feat: ...`) and run `/prospec-archive`.
-   - **Steer / Adjust**: Request additional changes or refinements.
+3. **Strict Invariant — Human Commit Prompt**:
+   - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
+   - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
+   - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared.
+4. **Sign-off Options for Developer**:
+   - **Approve**: Run the git commit command and advance to `/prospec-archive`.
+   - **Steer / Adjust**: Request additional changes, refinements, or re-verification.
 
 ---
 

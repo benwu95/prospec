@@ -63,15 +63,11 @@ Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` para
 **Task kind tagging:** mark each non-code task with its kind — `[M]` (manual) or `[V]` (verification); leave code tasks unmarked. The kind schema is frozen in `references/tasks-format.md` (Task Kind Markers) — cite it, do not restate. This is the one **required** marker class: in subsequent stages, verify counts only code tasks in the completion rate and archive warns on unchecked tasks by kind.
 
 **Decomposition principles:**
-- Single responsibility: one task does one thing
-- Verifiable: clear completion criteria
-- Right-sized: ideal 15-25 tasks, each 20-100 lines
-- Dependency direction: follow the layer order the project's `_conventions.md` defines — implement lower layers first
-
-**UI task decomposition** (when design-spec.md exists):
-- Reference specific component names from design-spec.md in each UI task description
-- Annotate each UI task with: "Read precise design values from design tool via adapter MCP before implementing"
-- This ensures the implement phase knows which components to look up and which MCP tools to use
+- Single responsibility (one task does one thing)
+- Verifiable with clear completion criteria
+- Right-sized (ideal 15-25 tasks, 20-100 lines each)
+- Dependency direction: follow project conventions (lower layers first)
+- UI tasks (when `design-spec.md` exists): reference component names and annotate with adapter MCP measurement instructions
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] tasks written to `tasks.md`, grouped by architecture layer per the project's conventions (see [`references/tasks-format.md`](references/tasks-format.md))

@@ -1,0 +1,67 @@
+# Feature Spec Graduation Reference
+
+This document defines the semantic graduation protocol and CLI worklist interpretations used during `/prospec-archive` Phase 3.5.
+
+---
+
+## Purpose
+
+`/prospec-archive` is the sole writer of Feature Specs. Requirements graduate into the permanent capability record (`specs/features/*.md`). While `prospec archive` performs the mechanical file mutations, Phase 3.5 performs the **semantic judgment** work to ensure graduated specs remain coherent, complete, and behavior-focused.
+
+---
+
+## The Five CLI Worklists
+
+`prospec archive` reports five distinct worklists. Each covers a different failure mode:
+
+### 1. Graduation Worklist (`pendingConvergence`)
+- **Meaning**: REQs whose body the CLI did NOT replace (e.g. no `**Spec:**` block in delta-spec, or no body at all).
+- **Action**: These REQs still carry their pre-change body or title only. Converge their wording against the final code.
+
+### 2. Dropped Behavior (`droppedBehavior`, BLOCKING)
+- **Meaning**: REQs where a `**Spec:**` block replaced the body, but omitted existing `WHEN/THEN` bullets that were NOT declared in `**Dropped:**`.
+- **Action**: The landing block replaces the WHOLE body. Restore missing bullets into `**Spec:**` or explicitly declare them under `**Dropped:**`. The CLI holds the write until all drops are resolved.
+
+### 3. Refused Requirements (`refusedRequirements`, BLOCKING)
+- **Meaning**: REQs whose landing block was cut short by an unowned label or invalid syntax.
+- **Action**: Fix the named block (`**Spec:**` for MODIFIED, `**Description:**`/`**Acceptance Criteria:**` for ADDED). Inline labeled sections as bullet lists. No declaration bypasses a refusal.
+
+### 4. Acknowledged Drops (`acknowledgedDrops`)
+- **Meaning**: Bullets that the delta-spec explicitly declared as dropped (both retired behaviors and rewrites).
+- **Action**: Verify against the merged file on disk to confirm no unintended behavior was lost.
+
+### 5. Stale Declarations (`staleDeclarations`)
+- **Meaning**: Declared dropped bullets that were not found in the original spec (the delta-spec described an older version).
+- **Action**: Re-read the merged file before graduating to ensure consistency.
+
+---
+
+## Graduation Key by Scale
+
+- **`standard` / `full`**: Graduate all REQ IDs defined in `delta-spec.md`.
+- **`backfill`**: Graduate all REQ IDs defined in `delta-spec.md` (feature-slug REQ IDs route by `**Feature:**`).
+- **`quick`**: Apply spec changes manually from proposal's **Spec Impact** section (no `delta-spec.md` exists by contract). If no spec impact was diagnosed, skip graduation entirely.
+
+---
+
+## Block-Replaces-Whole-Body Rule
+
+A `**Spec:**` landing block in `delta-spec.md` replaces the **entire requirement body** in `specs/features/`. 
+- Any existing behavior not restated in the new block is considered removed.
+- Always review the merged spec on disk via `prospec spec show <feature> --req <ids>` rather than relying on memory or raw diffs.
+
+---
+
+## Semantic Convergence Guidelines
+
+1. **Voice & Language**: Write in English, behavior-first voice (`- WHEN ..., THEN ...`). Strip transient change narrative.
+2. **Story Placement**: Ensure newly ADDED REQs are placed under the appropriate `## US-{N}` section (the mechanical merge appends before `## Edge Cases`).
+3. **Context Enrichment**: Ensure User Story context (`As a ... / I want ... / So that ...`) is present.
+
+---
+
+## Reference Information
+
+- Project name: `prospec`
+- AI Knowledge path: `prospec/ai-knowledge`
+- Constitution file: `prospec/CONSTITUTION.md`

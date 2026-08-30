@@ -15,21 +15,6 @@ composing structured CLI input) knows what each field means.
 
 ---
 
-## Serialization conventions (what the CLI emits)
-
-- **Block style**, 2-space indent; arrays are block sequences (`- item` on their own lines).
-- **Key order is canonical and fixed** (see below).
-- **Minimal quoting** — a scalar is quoted only when YAML requires it; user text is
-  serialized as data, so escaping is by construction.
-- **No Markdown inside values** — `related_modules` entries are bare module names
-  (`- lib`), never `- "**lib**"`; descriptions are plain text.
-- **`created_at` is a full ISO 8601 timestamp** (`2026-07-13T09:51:00.000Z`) — not a bare `YYYY-MM-DD`.
-- **No document markers** (`---`/`...`) and exactly one trailing newline.
-
-This is what `stringifyYaml` (the `yaml` library, default options) emits. A skill that
-finds itself about to WRITE this shape by hand has taken a wrong turn — run the owning
-`prospec` command instead.
-
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
