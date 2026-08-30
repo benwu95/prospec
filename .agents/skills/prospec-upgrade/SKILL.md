@@ -50,20 +50,17 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
 (b) re-run `agent sync`. Parse the **Upgrade report**:
 - `version <from> → <to>` — the prospec version delta
 - `no artifact_language set …` — the project predates the artifact-language feature and never chose a
-  language (Step 3). Mutually exclusive with the line below: an unset language resolves to English, so
-  no triggers are reported missing.
+  language (Step 3).
 - `skills missing triggers: …` — newly-added skills with no localized triggers (Step 4)
 - `Docs inventory:` — one line per init-created doc, `✓ <path> (template: <hbs>)` when present or
   `✗ <path> — MISSING (template: <hbs>)` when absent, reported AFTER `prospec upgrade` back-filled the
   missing ones (so most read present), then a `created N missing doc(s): …` line naming what it just
-  wrote. This section is Step 2's authoritative scan scope: it is derived from the same registry
-  `prospec init` creates from, so it can never miss a file init would create. A line still marked
-  MISSING means its back-fill failed — Step 2's safety net.
+  wrote. This section is Step 2's authoritative scan scope. A line still marked MISSING means its
+  back-fill failed — Step 2's safety net.
 - `stale Language Policy wording: …` — the seeded Language Policy rule in `prospec/CONSTITUTION.md` still
-  carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). Absent when the
-  rule was already rewritten (by a newer init or by the user). It is immediately followed by a
-  `Current Language Policy rule:` block holding the replacement wording — **carry that block forward
-  verbatim**; Step 2.5 has no other source for it.
+  carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). It is immediately
+  followed by a `Current Language Policy rule:` block holding the replacement wording — **carry that
+  block forward verbatim**; Step 2.5 has no other source for it.
 
 If `prospec upgrade` fails with `ConfigNotFound`, the project is not initialized — STOP and tell the
 user to run `prospec init` first.
@@ -108,9 +105,7 @@ baseline, requires consent. Do that here:
 
 Run this ONLY when Step 1's report carries the `stale Language Policy wording:` line. It is the one
 authored-wording change this skill may propose, because that wording is a **seed** `prospec init` wrote,
-not something the owner authored: the old seed put the AI Knowledge base under the artifact-language
-requirement while the entry config declares it permanently English, so verify's Constitution audit
-(`[MUST]` → FAIL) turns the project against itself whichever document the agent obeys.
+not something the owner authored.
 
 1. Take the replacement wording from the report's `Current Language Policy rule:` block — the CLI renders
    it from THIS project's resolved paths and language, so it is ready to paste. Do NOT try
@@ -201,13 +196,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Scenario | Action |
 |----------|--------|
 | `prospec` CLI unavailable | Stop; tell the user to install/rebuild prospec, then re-run — do not proceed silently |
-| `prospec upgrade` reports `ConfigNotFound` | Project not initialized — stop and instruct the user to run `prospec init` first |
-| `prospec print-template` fails to retrieve a template | Skip Step 2 with a note; still do Step 3 (artifact language) and Step 4 (trigger localization) |
-| report has no `Docs inventory:` section | CLI/skill version mismatch — skip Step 2 with a note telling the user to re-run `prospec upgrade` (it re-syncs this skill), then re-run `/prospec-upgrade` |
-| User declines creating a still-MISSING doc | Leave it uncreated; the next `prospec upgrade` will attempt to back-fill it again |
 | `prospec agent sync` reports no configured agent | Stop and instruct the user to re-run `prospec init` or add an agent to `.prospec.yaml` |
 | `.prospec.yaml` fails to parse after writing `artifact_language` | Restore the captured pre-write snapshot verbatim, then report the malformed write (triggers go through `prospec agent triggers --write`, which validates before writing) |
-| User declines setting an artifact language | Leave `.prospec.yaml` unchanged and skip Step 4; the next upgrade will offer again |
-| User declines a doc-format update | Leave the file unchanged; record it as declined in the Output Summary |
-| User declines the Language Policy rewrite | Leave `prospec/CONSTITUTION.md` unchanged and record it as declined; the next upgrade offers again |
-| report flags stale wording but carries no `Current Language Policy rule:` block | Installed CLI predates the block — skip Step 2.5 with a note; never hand-author replacement wording |

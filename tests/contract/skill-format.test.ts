@@ -114,10 +114,11 @@ const flat = (text: string): string => text.replace(/\s+/g, ' ');
 const KNOWLEDGE_LOADING_SKILLS = [
   'prospec-knowledge-generate',
   'prospec-knowledge-update',
-  'prospec-plan',
-  'prospec-implement',
-  'prospec-verify',
 ];
+// verify/plan/implement no longer embed the knowledge-budget loading partial (issue #229,
+// REQ-TEMPLATES-214): they write no README, so its budget table was irrelevant there. The
+// negative guard below asserts they render no budget table and no injected sentinel.
+const NO_BUDGET_PARTIAL_SKILLS = ['prospec-verify', 'prospec-plan', 'prospec-implement'];
 
 describe('Knowledge budget rendering (no leaked symbol, values from injected context)', () => {
   // Sentinel budgets distinct from DEFAULT_KNOWLEDGE_TOKEN_BUDGET prove the rendered
@@ -135,7 +136,7 @@ describe('Knowledge budget rendering (no leaked symbol, values from injected con
   const ctx = { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS, l1_per_file: 4242, l2_per_module: 2424, readme_max_lines: 77 };
 
   it('the shared loading-rules partial renders EVERY budget field', () => {
-    const content = renderTemplate('skills/prospec-plan.hbs', { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS });
+    const content = renderTemplate('skills/prospec-knowledge-generate.hbs', { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS });
     const table = content.slice(content.indexOf('## Progressive Knowledge Loading Strategy'));
     for (const [field, sentinel] of Object.entries(BUDGET_SENTINELS)) {
       expect(table, `${field} has no row in the loading-rules table`).toContain(String(sentinel));
@@ -159,6 +160,20 @@ describe('Knowledge budget rendering (no leaked symbol, values from injected con
     expect(content).toContain('2424');
     expect(content).toContain('77');
   });
+
+  // issue #229 / REQ-TEMPLATES-214: the three non-README stations carry no budget partial.
+  for (const name of NO_BUDGET_PARTIAL_SKILLS) {
+    it(`${name}: embeds no knowledge-budget loading partial`, () => {
+      const content = renderTemplate(`skills/${name}.hbs`, ctx);
+      // no rendered Progressive-Knowledge-Loading budget table
+      expect(content).not.toContain('## Progressive Knowledge Loading Strategy');
+      // and no injected budget sentinel reaches these stations
+      expect(content).not.toContain('4242');
+      for (const sentinel of Object.values(BUDGET_SENTINELS)) {
+        expect(content).not.toContain(String(sentinel));
+      }
+    });
+  }
 });
 
 describe('Skill Format Contract', () => {
@@ -1892,6 +1907,16 @@ describe('Skill Format Contract', () => {
         const content = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
         expect(content).toContain('sub-module');
       }
+    });
+  });
+
+  describe('issue #229 preserved anchors (AC-2, REQ-TESTS-102)', () => {
+    // The prose-slimming change deliberately KEEPS this weak-model reinforcement for
+    // confirmation wait points (R6); it was previously unpinned, so pin it in its
+    // canonical home so a future slim cannot drop it silently.
+    it('new-story keeps the passive-voice STOP-and-ask rule', () => {
+      const content = renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+      expect(content).toContain('use passive voice for confirmation wait points');
     });
   });
 

@@ -38,31 +38,7 @@ nondeterministic serialization this contract exists to remove.
 5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
 6. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
 
-**Do NOT** load all module AI Knowledge at once. Load on demand.
-
-## Progressive Knowledge Loading Strategy
-
-| Layer | Files | When to Load | Token Budget |
-|-------|-------|-------------|-------------|
-| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
-| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
-| **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
-| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
-| **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 5000 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
-| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
-
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (the numbers reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` (warnings start at 0.85 of the limit to provide a pressure signal before drift), never a build breaker — and each finding names the convergence path for its surface. L0 is agent-injected config, out of the check's scope.
-
-**Principles:**
-1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
-2. Each layer must NOT duplicate information available in a lower layer
-3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
-4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
-
-**Principles (Implement-specific):**
-- **L2** is loaded per-module as needed **when starting a task** to understand APIs, modification patterns, and ripple effects.
-- (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source).
+**Do NOT** load all module AI Knowledge at once — load L2 per-module **when starting a task** (each README and any linked `{sub-module}.md`: APIs, modification patterns, ripple effects), following `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table). (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source.)
 
 ## Core Workflow
 
@@ -146,11 +122,10 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 - **Execute in order**: Follow the architecture-layer sequence in `tasks.md` — the project's own layers, lowest-dependency first
 - **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
 - **Immediate marking**: Run `prospec change progress --complete <task-id>` immediately after completing each task
-- **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.
 
 ## Knowledge Quality Gate
 
-After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
 
 ## Output Contract
 

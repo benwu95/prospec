@@ -58,7 +58,7 @@ Auto-identify current change, read plan.md and delta-spec.md, summarize implemen
 
 Organize tasks following the layer order the project defines — see [`references/tasks-format.md`](references/tasks-format.md), whose Dynamic Architecture Adaptation note lists examples (e.g. `Domain → Ports → Adapters → Tests`, `Models → Services → Controllers → Tests`) and forbids hardcoding a fixed framework topology.
 
-Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` parallelization marker are **optional** — no skill or service *gates* on them (nothing reads `~lines`; `/prospec-implement` treats `[P]` only as a best-effort "could parallelize" reminder that degrades cleanly when absent). Add them only when they aid the reader; never gate on their presence.
+Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` parallelization marker are **optional** — no skill or service *gates* on them. Add them only when they aid the reader; never gate on their presence.
 
 **Task kind tagging:** mark each non-code task with its kind — `[M]` (manual) or `[V]` (verification); leave code tasks unmarked. The kind schema is frozen in `references/tasks-format.md` (Task Kind Markers) — cite it, do not restate. This is the one **required** marker class: in subsequent stages, verify counts only code tasks in the completion rate and archive warns on unchecked tasks by kind.
 
@@ -79,7 +79,7 @@ Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` para
 
 ### Phase 4 (Optional): Mark Parallelization Opportunities
 
-Optionally mark dependency-free tasks with `[P]` when it helps a human split the work. No skill or service consumes `[P]` (implement executes sequentially), so this is a reader aid, not a requirement — skip it freely.
+Optionally mark dependency-free tasks with `[P]` when it helps a human split the work.
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] (if any `[P]` markers were added) none sits on a task that depends on a lower layer
@@ -106,7 +106,7 @@ Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md
 **Step 2 — Verifier Execution & Harness Degradation:**
 {{> harness-capabilities degraded_action="degrade to a two-phase prompt isolation in this context, invoking an independent Task Verifier persona to audit tasks.md against delta-spec.md and plan.md, and explicitly notify the developer of the degraded path"}}
 
-Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh verification context (Task Verifier persona). When degraded to a single context, execute a dedicated verifier pass and notify the developer of the degraded mode.
+Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh verification context (Task Verifier persona).
 
 **Step 3 — Verdict Handling & Break-Glass Override:**
 - **PASS**: All 4 dimensions satisfied. Proceed.
@@ -119,7 +119,7 @@ Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh 
 
 ### Phase 7: Knowledge Quality Gate
 
-Confirm the decomposition against Knowledge in **one line**: layer order matches the module dependency graph, task file paths exist or are clearly new, and every new/modified module has a test task. Any gap → WARN with a clarification note on the affected task (non-blocking); record to `metadata.yaml` `quality_log`. (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+Confirm the decomposition against Knowledge in **one line**: layer order matches the module dependency graph, task file paths exist or are clearly new, and every new/modified module has a test task. Any gap → WARN with a clarification note on the affected task (non-blocking); record to `metadata.yaml` `quality_log`. (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
 
 > **Phase 7 Gate** — proceed when:
 > - [ ] the one-line Knowledge check is recorded PASS or WARN (with a clarification note per WARN)
