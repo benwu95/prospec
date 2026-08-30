@@ -90,8 +90,8 @@ User Stories are the **primary organizational unit**. REQ IDs appear as sub-item
 > template's own field labels, so `**Scenarios:**` inside it is not a boundary but a truncation:
 > `prospec archive` refuses the REQ, leaves this file byte-identical and exits non-zero, naming the
 > label and the first line it swallowed. Write the bullets directly under the statement instead. See
-> `references/delta-spec-format.md`, "The `**Spec:**` Block", which states the same rule from the
-> authoring side — the two references must agree.
+> the Delta Spec's "**Spec:**" block format, which states the same rule from the authoring side —
+> the two references must agree.
 
 ### 4. Edge Cases
 

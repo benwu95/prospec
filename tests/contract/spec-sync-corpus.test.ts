@@ -246,8 +246,8 @@ describe('format references agree on the `**Spec:**` block boundary', () => {
     expect(s).toMatch(/refuses the REQ/i);
   });
 
-  it('feature-spec-format points at the reference that states the same rule', () => {
-    expect(featureScaffold()).toContain('references/delta-spec-format.md');
+  it('feature-spec-format points at the format contract that states the same rule', () => {
+    expect(featureScaffold()).toMatch(/Delta Spec's "\*\*Spec:\*\*" block format/);
   });
 
   // The agreement itself, asserted as a property rather than as two independent

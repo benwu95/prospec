@@ -6550,5 +6550,103 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     expect(driftContent).toContain('| `delta-spec-provenance` |');
     expect(driftContent).toContain('| `delta-spec-landing-fidelity` |');
   });
+
+  describe('No dangling cross-station reference pointers (REQ-TEMPLATES-221, REQ-TESTS-103)', () => {
+    // Whitelist of project-wide known documents and valid patterns:
+    // (a) Global trust-zone & knowledge convention files
+    // (b) Standard change artifacts produced during the SDD lifecycle
+    // (c) Generic pattern placeholders (e.g. {feature-slug}.md, {slice}.md)
+    const GLOBAL_KNOWN_DOCS = new Set([
+      // Trust zone & config
+      'CONSTITUTION.md',
+      'product.md',
+      'index.md',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'README.md',
+      'README.zh-TW.md',
+      // AI Knowledge conventions
+      '_conventions.md',
+      '_diagram-conventions.md',
+      '_glossary.md',
+      '_status-lifecycle.md',
+      '_playbook.md',
+      '_lessons-ledger.md',
+      '_module-readme-conventions.md',
+      // Generated scan & core files
+      'raw-scan.md',
+      'SKILL.md',
+      // Standard change artifacts across stations
+      'proposal.md',
+      'plan.md',
+      'delta-spec.md',
+      'tasks.md',
+      'design-spec.md',
+      'interaction-spec.md',
+      'review.md',
+      'verify.md',
+      'summary.md',
+      'backfill-draft.md',
+      // Generic pattern placeholders
+      '{feature-slug}.md',
+      '{feature}.md',
+      '{slice}.md',
+      '{sub-module}.md',
+      '{YYYY-MM-DD}-{change-name}.md',
+      // Shipped feature specs cited in examples
+      'sdd-workflow.md',
+      'ai-knowledge.md',
+      'project-setup.md',
+      'agent-integration.md',
+      'design-phase.md',
+    ]);
+
+    const extractReferencedMdFiles = (content: string): string[] => {
+      const matches = Array.from(
+        content.matchAll(/(?:\b|[`/])([a-zA-Z0-9_{}-]+(?:\.[a-zA-Z0-9_{}-]+)*\.md)\b/g),
+        (m) => m[1]!,
+      );
+      return Array.from(new Set(matches));
+    };
+
+    for (const skill of SKILL_DEFINITIONS) {
+      if (!skill.hasReferences) continue;
+
+      describe(`${skill.name} deployed references`, () => {
+        const refs = getSkillReferences(skill.name);
+        const localRefs = new Set(refs.map((r) => r.outputName));
+
+        for (const ref of refs) {
+          it(`${ref.outputName} contains only local or global known .md references`, () => {
+            const content = renderTemplate(
+              `skills/references/${ref.templateName}`,
+              TEMPLATE_CONTEXT,
+            );
+            const referencedFiles = extractReferencedMdFiles(content);
+            const dangling = referencedFiles.filter(
+              (file) => !localRefs.has(file) && !GLOBAL_KNOWN_DOCS.has(file),
+            );
+
+            expect(
+              dangling,
+              `Skill ${skill.name} reference ${ref.outputName} contains dangling reference pointers: ${dangling.join(', ')}`,
+            ).toEqual([]);
+          });
+        }
+      });
+    }
+
+    it('guard detects synthetic dangling reference pointers (mutation-verified)', () => {
+      const syntheticContent = 'Please see `references/spec-graduation.md` and [unknown](unknown-ref.md) for details.';
+      const localRefs = new Set(['proposal-format.md', 'metadata-format.md']);
+      const referencedFiles = extractReferencedMdFiles(syntheticContent);
+      const dangling = referencedFiles.filter(
+        (file) => !localRefs.has(file) && !GLOBAL_KNOWN_DOCS.has(file),
+      );
+      expect(dangling).toContain('spec-graduation.md');
+      expect(dangling).toContain('unknown-ref.md');
+    });
+  });
 });
+
 
