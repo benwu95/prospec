@@ -20,12 +20,12 @@ to split, and where read/query behavior belongs.
 
 ## Decision 1 — Splitting signals are binding; line-count / 40% are soft "re-examine" signals
 
-The Feature Spec format ships size governance (`feature-spec-format.md`: under **300 lines** per spec;
+The Feature Spec format ships size governance (size governance limit: under **300 lines** per spec;
 beyond that **consider** splitting into sub-features; the User Stories section should occupy **40%+**).
 Treat those numbers as **soft signals** — they trigger "look again at whether this should split", they do
 **not** decide it. The **binding** verdict is the three splitting signals below. A spec can exceed 300 lines
 and still be one feature (e.g. a single lifecycle whose stories share acceptance criteria). To make 300
-lines a hard cap instead, you would have to change `feature-spec-format.hbs` in the same change — this
+lines a hard cap instead, you would have to change the Feature Spec format in the same change — this
 reference keeps it a guideline and names it a soft signal.
 
 **Split into sibling slugs when ANY signal holds** (→ propose the split, mark `[NEEDS CLARIFICATION]` for
@@ -65,4 +65,4 @@ exact anti-pattern feature-first extraction exists to kill.
 
 - Project name: `prospec`
 - Skill: `prospec-backfill-spec`
-- Companion: `feature-spec-format.md` (size governance), Constitution (trust-zone invariant)
+- Companion: Feature Spec size governance, Constitution (trust-zone invariant)

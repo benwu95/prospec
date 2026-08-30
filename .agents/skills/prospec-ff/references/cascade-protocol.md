@@ -39,7 +39,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 1. **Step 1 [LOAD]** — Read the station's `SKILL.md` (the skill `prospec status` names for the station you are entering) with your file-reading tool. Re-read it on every transition — a long session's accumulated diff and logs dilute the station's initial instructions.
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand.
-4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (see `circuit-breaker.md`) — never loop unbounded.
+4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
 5. **Step 5 [NEXT]** — Run `prospec status` for the next station, then return to Step 1.
 
 ---

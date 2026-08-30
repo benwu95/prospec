@@ -62,7 +62,8 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
 | **WARN** | Advisory concerns (e.g. missing edge-case mitigation, non-critical performance note). | Append to `plan.md` Risk Assessment and log to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
 | **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story, an existing owner bypassed without a stated rationale, or a `standard` plan missing its Simpler Alternative). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
 
-> The Reuse & Single-Source trigger above is self-contained: any unargued bypass is FLAWS here, whatever path the new surface sits on — a plan page is cheap to widen. Its review-stage counterpart, the single-source bypass criterion in `review-format.md`, is deliberately narrower and is only named here, not restated.
+{{!-- Single Source of Truth: The two-condition single-source bypass critical definition is owned by review-format.hbs §Severity Criteria. Referenced semantically here without pointing to review-format.md. --}}
+> The Reuse & Single-Source trigger above is self-contained: any unargued bypass is FLAWS here, whatever path the new surface sits on — a plan page is cheap to widen. Its review-stage counterpart, the single-source bypass criterion during adversarial code review, is deliberately narrower and is only named here, not restated.
 
 ---
 
