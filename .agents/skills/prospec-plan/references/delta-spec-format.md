@@ -203,52 +203,23 @@ behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Sp
 change-artifact language (a project whose change artifacts are non-English still lands English spec
 bodies when its Feature Specs are English).
 
-**Write the resulting requirement, not the delta.** For a **MODIFIED** REQ the block replaces the
-WHOLE body, so any existing behavior it does not restate is a drop. Start from the current body in
-`specs/features/` and fold the change into it; the archive CLI reports the `WHEN/THEN` bullets your
-block drops and **holds the write** until each is restored or declared (see `**Dropped:**` below).
-That report covers the MODIFIED path only: an **ADDED** entry appends, so reusing a REQ id that
-already exists lands a second section with the same heading and is reported by neither worklist —
-check the id is free before writing an ADDED entry.
+**Write the resulting requirement, not the delta.** For a **MODIFIED** REQ, the `**Spec:**` block replaces the WHOLE body in the feature spec. What the block omits leaves the trust zone; the archive CLI reports omitted bullets on the MODIFIED path only (an ADDED entry replacing a pre-existing body is reported by neither worklist). Any existing behavior not restated must be declared under `**Dropped:**` (see [`references/spec-graduation.md`](spec-graduation.md) for full graduation mechanics and CLI worklist interpretations).
 
 | Entry | `**Spec:**` | Without it |
 |-------|-------------|------------|
-| **MODIFIED** | REQUIRED | The existing body is **preserved unchanged** (only the title line is refreshed) and the REQ is reported as pending convergence — the archive skill's graduation phase must converge it by hand |
-| **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as the body (numbered criteria become `-` bullets); with neither, the REQ lands as a title only and is reported |
+| **MODIFIED** | REQUIRED | Existing body is preserved unchanged; reported as pending convergence |
+| **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as body; title only (bare title) if neither |
 
-Before/After/Reason stay **narrative for the reviewer** — they are never copied into the Feature
-Spec. So a MODIFIED entry writes the change twice on purpose: Before/After explains *why* it changed,
-`**Spec:**` is the text that *becomes* the spec.
+Fields outside the block (like Before, After, Reason) are narrative explanation and never copied into the Feature Spec.
 
-**Where the block ends** (so "verbatim" has an edge): at one of this template's OWN field labels —
+**Where the block ends**: at one of this template's OWN field labels —
 `**Feature:**`, `**Story:**`, `**Description:**`, `**Acceptance Criteria:**`, `**Before:**`,
-`**After:**`, `**Reason:**`, `**Spec:**`, `**Dropped:**`, `**Priority:**` — **appearing for the first
-time in the entry**, at any Markdown heading, at an entry-separating `---`, or at the end of the
-entry, whichever comes first.
-
-First occurrence, not mere membership: a field the entry already used is body text you wrote, so a
-second `**Reason:**` inside a landing block does not end it. (Membership alone was itself a silent
-truncation — everything after that second label vanished, and the drop diff could not see it because
-the lost bullets were new text.) It is not a fixed field ORDER either: real entries write
-`**Acceptance Criteria:**` after the landing block in one shape and before it in another.
-
-A label that is not a first-occurrence template field is **not** a boundary — it is body text the
-block would cut off, and `prospec archive` **refuses that REQ** rather than landing the fragment.
-The refusal names the interrupting label and the first line it swallowed, leaves the feature spec
-byte-identical, and exits non-zero. This matters most for `**Scenarios:**`, which the Feature Spec
-scaffold puts inside a REQ body: writing a landing block to that scaffold used to land its opening
-sentence alone and destroy every bullet under it, without a word. Inline such a section as plain
-`- ` bullets instead — a landed body reads the same without the label. A `**Dropped:**` declaration
-does NOT release a refusal; the block itself is what needs fixing.
+`**After:**`, `**Reason:**`, `**Spec:**`, `**Dropped:**`, `**Priority:**` — appearing for the first
+time in the entry, at any Markdown heading, or at `---`. Any other label causes `prospec archive` to refuse it: `prospec archive` refuses that REQ leaving the feature spec byte-identical.
 
 ### `**Dropped:**` — declaring a deliberate removal
 
-Because a MODIFIED block replaces the whole body, a bullet the block does not restate is a drop, and
-an **undeclared** drop holds the write: the feature spec is left unchanged and the command exits
-non-zero. So list under a `**Dropped:**` block, placed after `**Spec:**`, every bullet whose exact text the
-new body does not carry — whether you retired the behaviour or only rewrote the sentence. The sync
-cannot tell those apart, and the point of the declaration is not to classify your intent but to
-record that you looked at each bullet before it left the body:
+When a `**Spec:**` block omits an existing `WHEN/THEN` bullet, declare it under `**Dropped:**` immediately following `**Spec:**`:
 
 ```markdown
 **Spec:**
@@ -261,20 +232,7 @@ The library filters items by tag and owner.
 **Priority:** High
 ```
 
-The archive compares what you declared against what it computed, as SETS:
-
-| Declared vs computed | Result |
-|---|---|
-| identical | the REQ lands; the removal is reported as deliberate |
-| a computed drop is missing from the declaration | the write is held and that bullet is named |
-| a declared bullet was not dropped | reported as a **stale declaration** (the delta-spec may describe an older body); not blocking |
-
-Copy the bullets out of `prospec archive --dry-run`, which prints each one in full — matching is
-whitespace-insensitive, so re-indenting or re-wrapping a copied bullet is safe.
-
-> Why the fallback preserves instead of replacing: a mechanical sync that rewrote a REQ from its
-> title alone silently deleted authored WHEN/THEN behavior from the trust zone. Preserving and
-> reporting makes the gap auditable; blanking made it invisible.
+Undeclared dropped bullets cause the CLI to refuse spec sync (the CLI holds the write until declared). A declared bullet not dropped is reported as a **stale declaration**. A `**Dropped:**` declaration does NOT release a refusal. Copy dropped bullets directly from `prospec archive --dry-run`. See [`references/spec-graduation.md`](spec-graduation.md).
 
 ---
 

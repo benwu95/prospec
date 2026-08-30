@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-27
+last_updated: 2026-08-30
 story_count: 22
-req_count: 91
+req_count: 98
 ---
 
 # Agent Integration
@@ -44,6 +44,62 @@ The generated agent entry config states a Station Transition Protocol: on advanc
 
 ---
 
+
+#### REQ-TEMPLATES-215: verify-backfill Reference Extraction and On-Demand Loading
+`prospec-verify.hbs` delegates `scale: backfill` logic to `references/verify-backfill.hbs` on demand.
+- WHEN `metadata.scale: backfill` is verified, THEN the skill instructs the agent to read `references/verify-backfill.md` before Verification
+- WHEN `metadata.scale` is standard, full, or quick, THEN the skill loads no backfill variant logic
+- WHEN the skill body would otherwise inline a `scale: backfill` rule, THEN that rule lives only in `references/verify-backfill.md` and the skill keeps a single pointer
+
+---
+
+
+#### REQ-TEMPLATES-216: spec-graduation Reference Extraction for Archive Phase 3.5
+`prospec-archive.hbs` delegates Phase 3.5 worklist semantics and graduation rules to `references/spec-graduation.hbs`.
+- WHEN `prospec-archive` enters Phase 3.5, THEN it instructs reading `references/spec-graduation.md`
+- WHEN Phase 3.5 worklist semantics or graduation rules are needed, THEN they live only in `references/spec-graduation.md`, not inlined in the skill body
+
+---
+
+
+#### REQ-TEMPLATES-217: Consolidated Tastemaker Commit Prompt Single Source
+`cascade-protocol.hbs` serves as the single source for the Tastemaker commit prompt.
+- WHEN verify or ff prompts for feature commit, THEN it cites `references/cascade-protocol.md`
+- WHEN the commit prompt definition is grepped across templates, THEN it exists in exactly one template
+
+---
+
+
+#### REQ-TEMPLATES-218: Trimming and Table Simplification for Over-Budget References
+The over-budget references this change trims render within the 2,500 token budget.
+- WHEN `promotion-format.md`, `drift-report-format.md`, `metadata-format.md`, or `delta-spec-format.md` is rendered, THEN its token count satisfies $\le 2,500$
+- WHEN `prospec check` runs, THEN `knowledge-size` introduces no new reference-budget WARN (the pre-existing MIT-vendored `review-lenses-content.md` is out of scope)
+
+---
+
+
+#### REQ-TEMPLATES-219: Verifier Rubric Scaffold Partial and Kind Definition Freeze Citation
+Verifier rubrics share a common partial scaffold and respect frozen kind definitions.
+- WHEN `plan-verifier-rubric.md` and `tasks-verifier-rubric.md` are rendered, THEN both include `_verifier-rubric-base`
+- WHEN `tasks-verifier-rubric.md` audits task kinds, THEN it cites `references/tasks-format.md §4`
+
+---
+
+
+#### REQ-TEMPLATES-220: Skill Body Chapter Outlines Reduced to Headings
+Skill bodies maintain concise chapter title outlines pointing to format references.
+- WHEN `prospec-plan.md`, `prospec-tasks.md`, and `prospec-new-story.md` are rendered, THEN format sections are bullet titles citing their format references
+
+---
+
+
+#### REQ-AGNT-042: Register New References in Agent Sync and Sync Factual Counts
+Agent sync registers all deployed references and maintains factual count integrity.
+- WHEN `prospec agent sync` runs, THEN `references/verify-backfill.md` and `references/spec-graduation.md` are deployed under their respective skill directories
+- WHEN `pnpm counts:check` runs, THEN all template and reference counts are in sync
+
+---
+
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -79,6 +135,7 @@ The generated agent entry config states a Station Transition Protocol: on advanc
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-30 | split-and-trim-references | ADDED REQ-TEMPLATES-215; ADDED REQ-TEMPLATES-216; ADDED REQ-TEMPLATES-217; ADDED REQ-TEMPLATES-218; ADDED REQ-TEMPLATES-219; ADDED REQ-TEMPLATES-220; ADDED REQ-AGNT-042 | REQ-TEMPLATES-215, REQ-TEMPLATES-216, REQ-TEMPLATES-217, REQ-TEMPLATES-218, REQ-TEMPLATES-219, REQ-TEMPLATES-220, REQ-AGNT-042 |
 | 2026-08-27 | add-reuse-single-source-gate | MODIFIED REQ-TEMPLATES-084 | REQ-TEMPLATES-084 |
 | 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-197; ADDED REQ-TESTS-095 | REQ-TEMPLATES-197, REQ-TESTS-095 |
 | 2026-08-20 | situationally-aware-station-transitions | ADDED REQ-TEMPLATES-194 | REQ-TEMPLATES-194 |

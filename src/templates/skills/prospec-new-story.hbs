@@ -111,18 +111,14 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 
 Define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
 
-1. **Background**: 1-3 sentences on problem context
-2. **User Stories**: For each story:
-   - As a [specific role] / I want [feature] / So that [value]
-   - **Priority**: P1 (must-have), P2 (should-have), P3 (nice-to-have)
-   - **Acceptance Scenarios**: 2-5 WHEN/THEN pairs per story
-   - **Independent Test**: How to verify this story in isolation
-3. **Stated Assumptions**: 100% list all autonomous inferences (derived name, scale selection reasoning, default boundaries, constraint assumptions) in the project's configured `artifact_language`
-4. **Edge Cases**: Known boundary conditions and error scenarios
-5. **Functional Requirements**: Numbered FR-001, FR-002... for traceability
-6. **Success Criteria**: Measurable SC-001, SC-002...
-7. **Related Modules**: Cross-reference proposal terms (feature names, domain concepts) against `{{base_dir}}/index.md` module keywords. List matched modules with relevance reasoning.
-8. **Open Questions**: Mark `NEEDS CLARIFICATION` for ambiguities
+1. **Background**: Context and problem statement
+2. **User Stories**: INVEST stories with Priority (P1/P2/P3), Acceptance Scenarios (WHEN/THEN), and Independent Test
+3. **Stated Assumptions**: 100% list of autonomous inferences in artifact language
+4. **Edge Cases**: Boundary conditions and error scenarios
+5. **Functional Requirements**: Traceable numbered requirements (`FR-001...`)
+6. **Success Criteria**: Measurable verification criteria (`SC-001...`)
+7. **Related Modules**: Cross-referenced modules from `index.md`
+8. **Open Questions**: Ambiguities marked `NEEDS CLARIFICATION`
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] >= 1 INVEST User Story defined, each with >= 2 WHEN/THEN acceptance scenarios

@@ -123,6 +123,10 @@ function ensureBuiltinPartials(): void {
     readTemplateSource('skills/_harness-capabilities.hbs'),
   );
   Handlebars.registerPartial(
+    'verifier-rubric-base',
+    readTemplateSource('skills/_verifier-rubric-base.hbs'),
+  );
+  Handlebars.registerPartial(
     'index-auto-block',
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );

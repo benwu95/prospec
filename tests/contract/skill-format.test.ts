@@ -429,11 +429,11 @@ describe('Skill Format Contract', () => {
   describe('affected-module attribution wording (REQ-TEMPLATES-129, REQ-TEMPLATES-162)', () => {
     const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
 
-    it('verify commit prompt scopes affected modules to REQ-prefix ∪ diff-path (generated included)', () => {
-      const content = render('skills/prospec-verify.hbs');
-      const start = content.indexOf('Commit prompt (S/A only)');
-      expect(start, 'verify commit prompt not found').toBeGreaterThan(-1);
-      const section = content.slice(start, content.indexOf('## Knowledge Quality Gate', start));
+    it('cascade-protocol commit prompt scopes affected modules to REQ-prefix ∪ diff-path (generated included)', () => {
+      const content = render('skills/references/cascade-protocol.hbs');
+      const start = content.indexOf('Commit Boundary & Preparation');
+      expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
+      const section = content.slice(start, content.indexOf('## Reference Information', start));
       expect(section, 'commit prompt section sliced empty').not.toBe('');
       expect(section).toContain('REQ-prefix modules');
       expect(section).toContain('working-tree diff');
@@ -3792,72 +3792,62 @@ describe('scale adapter — plan tiered depth (OPT-B5)', () => {
 describe('backfill graduation — verify spec-fidelity contract (scale: backfill)', () => {
   const renderVerify = () =>
     renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+  const renderVerifyBackfill = () =>
+    renderTemplate('skills/references/verify-backfill.hbs', TEMPLATE_CONTEXT);
 
   it('2/5 becomes the primary graded fidelity dimension under scale: backfill', () => {
-    const v2 = sectionOf(renderVerify(), '### Verification 2/5');
-    expect(v2).toContain('`metadata.scale: backfill`');
-    expect(v2).toContain('primary graded dimension');
-    expect(v2).toContain('spec-fidelity');
+    const v2 = sectionOf(renderVerifyBackfill(), '### Dimension 2/5: Specification Compliance (Primary Graded Dimension)');
+    expect(v2).toContain('`delta-spec.md`');
     expect(v2).toContain('file:line');
+    // an AC with no evidence to check must never be an empty PASS (unverifiable fidelity is not fidelity)
     expect(v2).toContain('NEVER an empty PASS');
   });
 
+  it('backfill NEVER rules are single-sourced in verify-backfill.md, not re-inlined in the verify skill body', () => {
+    const verify = renderVerify();
+    const backfill = renderVerifyBackfill();
+    // the three inlined restatements were converged into the reference; the skill keeps only a pointer
+    expect(verify).not.toContain('not a new-code quality gate');
+    expect(verify).not.toContain('self-attested, hand-editable metadata');
+    expect(verify).toContain('single-sourced in [`references/verify-backfill.md`]');
+    // the reference remains the one place the rules live
+    expect(backfill).toContain('does NOT lower the grade');
+    expect(backfill).toContain('graded as standard');
+  });
+
   it('3/5 records pre-existing code-quality MUST violations as informational under backfill', () => {
-    const v3 = sectionOf(renderVerify(), '### Verification 3/5');
-    expect(v3).toContain('`metadata.scale: backfill`');
+    const v3 = sectionOf(renderVerifyBackfill(), '### Dimension 3/5: Constitution & Conventions');
     expect(v3).toContain('informational tech-debt note');
     expect(v3).toContain('not introduced by this backfill');
     expect(v3).toContain('does NOT lower the grade');
-    expect(v3).toContain('not a new-code quality gate');
   });
 
   it('5/5 treats missing backfill tests as informational but a failing existing test as real FAIL', () => {
-    const v5 = sectionOf(renderVerify(), '### Verification 5/5');
-    expect(v5).toContain('`metadata.scale: backfill`');
+    const v5 = sectionOf(renderVerifyBackfill(), '### Dimension 5/5: Tests');
     expect(v5).toContain('informational');
-    expect(v5).toContain('real FAIL');
-    expect(v5).toContain('never exempt a genuinely failing test');
+    expect(v5).toContain('FAIL');
   });
 
   it('Record & Status Update notes backfill S/A means fidelity, not code quality', () => {
-    const status = sectionOf(renderVerify(), '## Record & Status Update');
-    expect(status).toContain('`metadata.scale: backfill`');
-    expect(status).toContain('faithful to the code');
-  });
-
-  it('NEVER guards: pre-existing debt cannot lower grade; fidelity + failing tests stay hard', () => {
-    const never = sectionOf(renderVerify(), '## NEVER');
-    expect(never).toContain('pre-existing code-quality violation');
-    expect(never).toContain('not a new-code quality gate');
-    expect(never).toContain('fidelity and real test failures stay hard');
+    const status = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
+    expect(status).toContain('faithful to the');
   });
 
   it('Entry Gate binds the backfill quality relaxations to backfill-draft.md provenance', () => {
-    const gate = sectionOf(renderVerify(), '## Entry Gate');
-    expect(gate).toContain('`metadata.scale: backfill` provenance');
+    const gate = sectionOf(renderVerifyBackfill(), '## 1. Provenance Gate (`backfill-draft.md`)');
     expect(gate).toContain('`.prospec/changes/[name]/backfill-draft.md` exists');
     expect(gate).toContain('graded as standard');
-    expect(gate).toContain('hand-editable metadata');
-  });
-
-  it('NEVER guards: backfill relaxations require the provenance check (marker alone is self-attested)', () => {
-    const never = sectionOf(renderVerify(), '## NEVER');
-    expect(never).toContain('without the Entry Gate\'s provenance check');
-    expect(never).toContain('self-attested');
   });
 
   it('Entry Gate requires only proposal + delta-spec for backfill (no hollow plan/tasks)', () => {
-    const gate = sectionOf(renderVerify(), '## Entry Gate');
-    expect(gate).toContain('Exception — `metadata.scale: backfill`');
-    expect(gate).toContain('only proposal.md + delta-spec.md');
-    expect(gate).toContain('no forward plan and no task list');
+    const gate = sectionOf(renderVerifyBackfill(), '## 2. Planning Artifacts & Review Exemption');
+    expect(gate).toContain('Only `proposal.md` and `delta-spec.md` are required');
+    expect(gate).toContain('forward planning is hollow make-work');
   });
 
   it('1/5 task-completion is not-applicable for backfill (no tasks.md)', () => {
-    const v1 = sectionOf(renderVerify(), '### Verification 1/5');
-    expect(v1).toContain('`metadata.scale: backfill`');
-    expect(v1).toContain('not-applicable');
-    expect(v1).toContain('NEVER as PASS');
+    const v1 = sectionOf(renderVerifyBackfill(), '### Dimension 1/5: Task Execution');
+    expect(v1).toContain('`not-applicable`');
   });
 });
 
@@ -4716,22 +4706,21 @@ describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEM
   });
 });
 
-describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES-129, REQ-CHNG-004)', () => {
+describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES-129, REQ-CHNG-004, REQ-TEMPLATES-216)', () => {
   const verify = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+  const cascade = () => renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
   const archive = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
 
-  it('verify commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
-    const status = sectionOf(verify(), '## Record & Status Update');
+  it('cascade-protocol commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
+    const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
     expect(status).toMatch(/Sync affected-module Knowledge/);
     expect(status).toContain('/prospec-knowledge-update');
     expect(status).toMatch(/Re-derive factual counts/);
     expect(status).toContain('into the feature commit');
-    // framed as prevention with archive as backstop, not archive-deferred
-    expect(status).toContain('backstop');
   });
 
-  it('verify commit prompt instructs running prospec knowledge verify to stamp freshness', () => {
-    const status = flat(sectionOf(verify(), '## Record & Status Update'));
+  it('cascade-protocol commit prompt instructs running prospec knowledge verify to stamp freshness', () => {
+    const status = flat(sectionOf(cascade(), '## Tastemaker Presentation & Human Gate'));
     expect(status).toContain('prospec knowledge verify');
     expect(status).toContain('prospec knowledge verify <modules...>');
     expect(status).toContain('scale: backfill');
@@ -4740,9 +4729,11 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     );
   });
 
-  it('verify commit prompt stays generic — no repo-specific count command hardcoded', () => {
+  it('verify commit prompt cites cascade-protocol and stays generic — no repo-specific count command hardcoded', () => {
     // the template ships to every prospec project; `pnpm counts` is this repo's own
     expect(verify()).not.toContain('pnpm counts');
+    expect(verify()).toContain('references/cascade-protocol.md §Tastemaker Presentation & Human Gate');
+    expect(verify()).toContain('backstop');
   });
 
   it('verify commit-prep avoids citing not-yet-graduated REQ ids (no req-references trip)', () => {
@@ -6494,3 +6485,70 @@ describe('shipped templates carry no prospec-internal governance identifiers', (
     });
   }
 });
+
+describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-042)', () => {
+  it('registers verify-backfill.hbs for prospec-verify and spec-graduation.hbs for prospec-archive', () => {
+    const verifyRefs = getSkillReferences('prospec-verify');
+    expect(verifyRefs.some((r) => r.templateName === 'verify-backfill.hbs' && r.outputName === 'verify-backfill.md')).toBe(true);
+
+    const archiveRefs = getSkillReferences('prospec-archive');
+    expect(archiveRefs.some((r) => r.templateName === 'spec-graduation.hbs' && r.outputName === 'spec-graduation.md')).toBe(true);
+  });
+
+  it('enforces mandatory routing to verify-backfill.md in prospec-verify.hbs (AC-3 positive & negative assertions)', () => {
+    const verifyContent = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    // Positive assertions: STOP-read alert
+    expect(verifyContent).toContain('> **SCALE: BACKFILL MANDATORY ROUTING**:');
+    expect(verifyContent).toMatch(/STOP immediately and read `references\/verify-backfill\.md`/);
+    // Negative assertions: must not contain weak optional routing words
+    expect(verifyContent).not.toMatch(/optionally read `references\/verify-backfill\.md`/i);
+    expect(verifyContent).not.toMatch(/can read `references\/verify-backfill\.md`/i);
+    expect(verifyContent).not.toMatch(/if you wish.*read `references\/verify-backfill\.md`/i);
+  });
+
+  it('enforces mandatory routing to spec-graduation.md in prospec-archive.hbs (AC-3 positive & negative assertions)', () => {
+    const archiveContent = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+    // Positive assertions: STOP-read alert
+    expect(archiveContent).toContain('> **PHASE 3.5 SPEC GRADUATION CONTRACT**:');
+    expect(archiveContent).toMatch(/STOP immediately and read `references\/spec-graduation\.md`/);
+    // Negative assertions: must not contain weak optional routing words
+    expect(archiveContent).not.toMatch(/optionally read `references\/spec-graduation\.md`/i);
+    expect(archiveContent).not.toMatch(/can read `references\/spec-graduation\.md`/i);
+  });
+
+  it('renders verifier-rubric-base partial correctly in plan and tasks verifier rubrics', () => {
+    const planRubric = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    expect(planRubric).toContain('## Break-Glass Override (Manual Bypass)');
+    expect(planRubric).toContain('prospec change log --skill prospec-plan');
+    expect(planRubric).toContain('## Language Policy');
+
+    const tasksRubric = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+    expect(tasksRubric).toContain('## Break-Glass Override (Manual Bypass)');
+    expect(tasksRubric).toContain('prospec change log --skill prospec-tasks');
+    expect(tasksRubric).toContain('references/tasks-format.md §4');
+  });
+
+  it('consolidates Tastemaker feature commit prompt into cascade-protocol.hbs and cites it in prospec-verify.hbs', () => {
+    const cascadeContent = renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
+    expect(cascadeContent).toContain('## Tastemaker Presentation & Human Gate');
+    expect(cascadeContent).toContain('Sync affected-module Knowledge');
+    expect(cascadeContent).toContain('Re-derive factual counts');
+    expect(cascadeContent).toContain('Strict Invariant — Human Commit Prompt');
+
+    const verifyContent = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    expect(verifyContent).toContain('references/cascade-protocol.md §Tastemaker Presentation & Human Gate');
+  });
+
+  it('renders trimmed promotion-format and drift-report-format without verbose discourse', () => {
+    const promoContent = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+    expect(promoContent).not.toContain('Scope of the guarantee');
+    expect(promoContent).toContain('## Promotion Rule (explicit, reproducible)');
+
+    const driftContent = renderTemplate('skills/references/drift-report-format.hbs', TEMPLATE_CONTEXT);
+    expect(driftContent).toContain('### Key Check Interpretations');
+    expect(driftContent).toContain('| `artifact-language` |');
+    expect(driftContent).toContain('| `delta-spec-provenance` |');
+    expect(driftContent).toContain('| `delta-spec-landing-fidelity` |');
+  });
+});
+
