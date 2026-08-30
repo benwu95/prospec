@@ -3,7 +3,7 @@ feature: agent-integration
 status: active
 last_updated: 2026-08-30
 story_count: 22
-req_count: 98
+req_count: 100
 ---
 
 # Agent Integration
@@ -135,6 +135,7 @@ Agent sync registers all deployed references and maintains factual count integri
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-30 | eliminate-dangling-reference-pointers | ADDED REQ-TEMPLATES-221; ADDED REQ-TESTS-103 | REQ-TEMPLATES-221, REQ-TESTS-103 |
 | 2026-08-30 | split-and-trim-references | ADDED REQ-TEMPLATES-215; ADDED REQ-TEMPLATES-216; ADDED REQ-TEMPLATES-217; ADDED REQ-TEMPLATES-218; ADDED REQ-TEMPLATES-219; ADDED REQ-TEMPLATES-220; ADDED REQ-AGNT-042 | REQ-TEMPLATES-215, REQ-TEMPLATES-216, REQ-TEMPLATES-217, REQ-TEMPLATES-218, REQ-TEMPLATES-219, REQ-TEMPLATES-220, REQ-AGNT-042 |
 | 2026-08-27 | add-reuse-single-source-gate | MODIFIED REQ-TEMPLATES-084 | REQ-TEMPLATES-084 |
 | 2026-08-20 | capture-session-corrections | ADDED REQ-TEMPLATES-197; ADDED REQ-TESTS-095 | REQ-TEMPLATES-197, REQ-TESTS-095 |
