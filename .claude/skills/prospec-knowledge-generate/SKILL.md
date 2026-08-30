@@ -44,13 +44,9 @@ nondeterministic serialization this contract exists to remove.
 
 ## Prerequisite
 
-Run `prospec knowledge init` first to generate `raw-scan.md`, `module-map.yaml`, and empty
-scaffolding. On re-runs, Startup Loading keeps `raw-scan.md` current via
-`prospec knowledge init --raw-scan-only` (deterministic, no LLM). The CLI is a required file
-(see CLI Prerequisite) — there is no fallback ladder and no approximate working-tree scan.
-
-`module-map.yaml` is only produced by a full `prospec knowledge init` (bootstrap), never by `--raw-scan-only` — so a
-first-ever run still needs the full init.
+A full `prospec knowledge init` (bootstrap) must run first to produce `raw-scan.md`, `module-map.yaml`, and
+scaffolding — there is no fallback ladder and no approximate working-tree scan. `module-map.yaml` comes only
+from the full init, never `--raw-scan-only`, so a first-ever run needs it.
 
 ## Progressive Knowledge Loading Strategy
 
@@ -72,7 +68,7 @@ first-ever run still needs the full init.
 3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-**Why budgets matter:** AI agents load L1 on every task. Bloated L1 wastes tokens on irrelevant context. L2 is loaded per-module — concise READMEs mean more modules fit in context. The token/line thresholds come from `.prospec.yaml` `knowledge.token_budget` (read at Startup step 6) — this project's settings are L1 ≤2500, L2 ≤2000 and ≤100 lines, Spec ≤5000, Demand ≤20000, Skill ≤5000, reference ≤2500. `index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
+`index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
 
 ## Core Workflow
 
@@ -113,22 +109,14 @@ Apply the chosen strategy to split the project into modules. Guidelines:
 - **Split**: Large modules with >30 files into sub-domains if clear boundaries exist
 - Each module must have a clear, distinct responsibility
 
-**Revising `module-map.yaml` is yours to do.** Whatever is on disk may be a bootstrap draft, and
-`prospec knowledge init` writes that draft from a deterministic heuristic with no idea what this
-project is: a directory is admitted only on 2+ files that each carry an extension which is not on a
-global non-source denylist. You are the layer that can read the project. Judge what is on disk; do
-not assume it was decided.
+**Revising `module-map.yaml` is yours to do.** Whatever is on disk may be a bootstrap draft. You are
+the layer that can read the project. Judge what is on disk; do not assume it was decided.
 
 One piece of evidence is raw-scan.md's **`## Directories Without Source Files`** section: the
-topmost directories in which NO file passed that test, with file counts and extensions. A
-`manifests/` of Kubernetes YAML, a `chapters/` of LaTeX, an Android `res/layout/` of XML, a `bin/`
-of extensionless scripts — each can be a real module the heuristic cannot see. It is a partial
-view in both directions. Left out of it: a directory holding a single source file is admitted by
-neither the heuristic nor this section, nested directories fold into their topmost ancestor, and
-root-level files are never listed. Over-inclusive too: a listed directory may already BE a module —
-a curated `module-map.yaml` short-circuits detection entirely, and the no-module fallback re-runs
-detection over the unfiltered list when the narrowed pass finds nothing. Read the Directory Tree
-and the current `module-map.yaml` alongside it.
+topmost directories in which NO file passed that test, with file counts and extensions. Such a
+directory can be a real module the heuristic cannot see. It is a partial view in both directions: a
+listed directory may already BE a module — a curated `module-map.yaml` short-circuits detection
+entirely. Read the Directory Tree and the current `module-map.yaml` alongside it.
 
 - **Adding**: when a directory is this project's substance and `module-map.yaml` does not already
   cover it, propose it as a module. STOP. Ask the user to confirm the addition before writing. Check the existing

@@ -44,29 +44,7 @@ nondeterministic serialization this contract exists to remove.
 
 > **Scale-aware execution (`metadata.scale: quick`)** — a quick change is genuinely lighter here, not just relabeled: skip Startup Loading items 3, 4, and 7 (plan/delta-spec/Feature-Spec-comparison — absent or moot by contract), run dimension 2/5 as `not-applicable` (spec impact is re-checked against the actual diff at the `/prospec-archive` Entry Gate), and emit the **condensed report** below (omit the `not-applicable` dimension's detail block). The dimensions that genuinely apply to a quick change (1/5 tasks, 3/5 Constitution, 4/5 Knowledge, 5/5 tests) still run in full — this trims ceremony, never a dimension that applies. `standard`/`full` run every item above.
 
-## Progressive Knowledge Loading Strategy
-
-| Layer | Files | When to Load | Token Budget |
-|-------|-------|-------------|-------------|
-| **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
-| **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
-| **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
-| **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
-| **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 5000 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
-| **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
-
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (the numbers reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` (warnings start at 0.85 of the limit to provide a pressure signal before drift), never a build breaker — and each finding names the convergence path for its surface. L0 is agent-injected config, out of the check's scope.
-
-**Principles:**
-1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
-2. Each layer must NOT duplicate information available in a lower layer
-3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
-4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
-
-**Principles (Verify-specific):**
-- **L2** loads more modules than other skills (all affected modules, not just the current task's module), specifically **during Verification 2/5 and 4/5** to perform a comprehensive cross-module check and compare spec against knowledge.
-- **L3** is loaded **during Verification 2/5** to verify implementation matches spec and find evidence for PASS/FAIL judgments.
+> Load knowledge per `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table). Verify loads L2 broadly — all affected modules (each README and its linked `{sub-module}.md`), not just the current task's — during 2/5 and 4/5 (cross-module check; spec vs knowledge), and L3 during 2/5 (evidence for PASS/FAIL).
 
 ## Key Difference from Other Skills
 
@@ -272,8 +250,7 @@ If AI Knowledge has no modules yet, skip this dimension with a note.
 ### Verification 5/5: Test Verification — `[machine]`
 
 **Adjudicator: the `test-provenance` check.** The suite's outcome is a recorded fact, not a claim:
-`prospec check --record-tests` (Core Workflow Step 0) runs the project's test command and stamps
-`{command, exit_code, digest, date}` into `metadata.yaml`, and the check fails when no run is
+`prospec check --record-tests` (Core Workflow Step 0) records the run, and the check fails when no run is
 recorded, when the recorded run predates the current code (stale), or when its exit code is non-zero.
 Read the check, cite the recorded command and exit code, and explain what failed — do **not** report
 5/5 from your own memory of having run the tests, and do not re-grade a recorded failure as a WARN.
@@ -362,7 +339,6 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
   verification, so a judgment the implementing session graded itself can reach at most A. The cap is a
   separate signal from the WARN budget (it never pushes an already-warned run lower — it only blocks
   the top grade), and `verify record` prints the remedy: re-grade in fresh context, then re-record.
-- **Judgment WARN/FAIL is not offset by machine PASSes** — the ledgers merge, they do not net out.
 
 > **Condensed report (`metadata.scale: quick`)**: present the grade + a single dimension table
 > (one row per applicable dimension: 1/5, 3/5, 4/5, 5/5, plus a `2/5 — not-applicable` row and
@@ -421,8 +397,6 @@ The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` acc
 After the feature commit lands and **before pushing**, re-run the project's knowledge-sync mechanical gate if it has one — before the commit that gate sees only an empty range (nothing committed yet), so running it earlier proves nothing. Its concrete name lives in the project's contributor docs, not here.
 
 Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `/prospec-archive` Entry Gate re-confirms this as a **backstop**.
-
-> The **grade** still does not gate on Feature Spec freshness or this change's Knowledge lag — 4/5 stays informational; grading and the commit-prep sync above are separate axes. Feature Specs still graduate only at `/prospec-archive` Phase 3.5 (verify never writes them — deadlock avoidance); module-README Knowledge is synced at the commit prompt above, with the archive Entry Gate as backstop. Verify gates on code↔delta-spec (2/5), Constitution (3/5), and pre-existing Knowledge↔code drift (4/5).
 
 ## Knowledge Quality Gate
 
@@ -488,11 +462,8 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 
 | Scenario | Action |
 |----------|--------|
-| Planning documents missing | Confirm change has gone through Story → Plan → Tasks → Implement workflow |
 | `prospec verify record` refuses (report missing / wrong judgment set) | Run `prospec check --record-tests` then `prospec check --json` first; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
 | `--record-tests` skips (no test command / not a git repo / timeout) | Carry its reason into 5/5 as `not-adjudicated`; point at `tech_stack.test_command` in `.prospec.yaml` when the command is what is missing |
-| No fresh context available (capability line says no sub-agents, or a spawn fails) | Take 2/5's degraded path for both 2/5 and 6, record them with `--graded-by in-session` — `verify record` then mechanically caps the grade below S and prints the remedy — and continue; never grade them silently in-session |
-| Constitution file read fails | Skip Constitution audit, but clearly mark in report |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 
 ## Next-Step Handoff

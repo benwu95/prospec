@@ -40,16 +40,6 @@ nondeterministic serialization this contract exists to remove.
 
 > Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4, [`references/cascade-protocol.md`](references/cascade-protocol.md) + [`references/circuit-breaker.md`](references/circuit-breaker.md) + [`references/project-test-runner.md`](references/project-test-runner.md) for cascading execution. Read each when entering its phase; do not preload them into the stable prefix.
 
-## What Makes FF Unique
-
-FF is not just "run three Skills sequentially." Its expert knowledge lies in:
-
-1. **Chained derivation**: Output of each phase automatically feeds the next — no manual handoff needed
-2. **Status lifecycle management**: metadata.yaml status progresses `story → plan → tasks` in sequence (`scale: quick`: `story → tasks`, plan skipped)
-3. **Error recovery**: When any phase fails, preserve completed parts and offer recovery options
-4. **Quick interview**: Only 3 core questions (goal, role, acceptance criteria) — no deep exploration
-5. **Autonomous Pipeline Cascading**: In cascading mode, advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off
-
 ## Entry Gate
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
@@ -124,6 +114,8 @@ Loading is still read). Status advances `story → tasks` directly
 > - [ ] Task Contract Verification passed (or documented Break-Glass override)
 
 ### Phase 5: Autonomous Execution & Cascading (when cascading active)
+
+**Autonomous Pipeline Cascading**: in cascading mode, execution advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off.
 
 Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
 1. **Implementation**: Execute code tasks sequentially in the project's dependency-layer order (as grouped in `tasks.md` per [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.

@@ -67,7 +67,7 @@ Never hand-serialize metadata.yaml. Finally run `prospec validate promote-scaffo
 (Bash) — the complete machine verdict for this scaffold: draft + proposal present, **no
 plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitted trust-zone writes.
 
-> **No `plan.md` and no `tasks.md`.** Backfill records existing code: there is no forward implementation to plan and no work to schedule, so producing them would be hollow make-work that exists only to satisfy a forward-path gate. `verify`/`review`/`archive` are scale-aware for `backfill` (Entry Gate requires only proposal + delta-spec; verify 1/5 task-completion is `not-applicable`). The draft's traced architecture/call-chain already lives in `backfill-draft.md` and the delta-spec AC `file:line` citations — it is not re-presented here.
+> **No `plan.md` and no `tasks.md`.** `prospec validate promote-scaffold` refuses a scaffold that carries them — the absence is intentional, not laziness: backfill records existing code, so a `plan.md`/`tasks.md` produced only to satisfy a forward-path gate would be hollow make-work.
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] `prospec validate promote-scaffold` reports PASS (scale/status/artifact set/trust-zone all machine-verified)

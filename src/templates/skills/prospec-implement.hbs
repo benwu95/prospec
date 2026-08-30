@@ -24,13 +24,7 @@ When triggered, briefly describe:
 5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
 6. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
 
-**Do NOT** load all module AI Knowledge at once. Load on demand.
-
-{{> knowledge-loading-rules}}
-
-**Principles (Implement-specific):**
-- **L2** is loaded per-module as needed **when starting a task** to understand APIs, modification patterns, and ripple effects.
-- (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source).
+**Do NOT** load all module AI Knowledge at once — load L2 per-module **when starting a task** (each README and any linked `{sub-module}.md`: APIs, modification patterns, ripple effects), following `{{base_dir}}/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table). (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source.)
 
 ## Core Workflow
 
@@ -114,11 +108,10 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 - **Execute in order**: Follow the architecture-layer sequence in `tasks.md` — the project's own layers, lowest-dependency first
 - **`[P]` marked tasks**: Can be parallelized but AI still executes sequentially; remind user they can assign to other developers
 - **Immediate marking**: Run `prospec change progress --complete <task-id>` immediately after completing each task
-- **Commit strategy**: Do not commit during implement. The commit boundary is after `/prospec-verify` reaches S/A — implement, review, and verify all operate on the working tree, then the change is committed once as a single atomic-by-feature commit. prospec prompts the user to commit; it does not auto-commit.
 
 ## Knowledge Quality Gate
 
-After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
 
 ## Output Contract
 

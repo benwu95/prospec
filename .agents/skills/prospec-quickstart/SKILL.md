@@ -36,7 +36,7 @@ nondeterministic serialization this contract exists to remove.
 ## Core Workflow
 
 > This skill shells out to the `prospec` CLI (Bash) throughout. The CLI probe is the shared
-> CLI Prerequisite above — quickstart pioneered that required-CLI posture and now simply uses it.
+> CLI Prerequisite above.
 
 ### Step 1: Localize Skill Triggers (non-English only, fill-missing)
 

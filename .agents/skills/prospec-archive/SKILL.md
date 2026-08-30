@@ -10,7 +10,7 @@ description: "Archive Changes - Archive completed changes, generate summary, syn
 
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
-- The deterministic mutations (move to `.prospec/archive/`, summary scaffold, mechanical Feature Spec sync, product.md + feature-map.yaml) are executed by `prospec archive <name>` (previewed with `--dry-run`); this skill keeps the judgment work — the Entry Gate, the Review & Verify summary, and REQ semantic graduation
+- The deterministic mutations are executed by `prospec archive <name>` (previewed with `--dry-run`); this skill keeps the judgment work — the Entry Gate, the Review & Verify summary, and REQ semantic graduation
 - Knowledge sync for affected modules is folded into the verify S/A commit prompt; the Entry Gate re-confirms it (backstop) before archiving
 
 ## Language Policy
@@ -53,11 +53,9 @@ nondeterministic serialization this contract exists to remove.
   - Diff affects spec-covered behavior → **FAIL**: require a minimal **Spec Impact** section appended to proposal.md (REQ ID + ADDED/MODIFIED per affected requirement), then re-run. Phase 3.5 graduates from that section.
   - No spec impact → pass; record the diagnostic conclusion in summary.md and skip graduation.
 
-> **Scale note**: a quick change's genuine process reduction lands at `/prospec-verify` (fewer Startup Loading reads + a condensed report — no plan/delta-spec to audit). At archive it runs the **same** phases as standard; the two `quick`-only items above are the diff-sourced substitutes for the delta-spec standard carries (parity of purpose), not net-added ceremony.
 
 ## Core Workflow
 
-> Phases 3.5 (Feature Spec Sync), 3.6 (Product Spec Sync), and 4.5 (Auto-Harvest Recurring Lessons) are intentional insertions added by later changes — kept on purpose, not a numbering gap.
 
 ### Phase 1: Scan and Confirm Targets
 
@@ -67,7 +65,7 @@ Display a table of archivable changes:
 | Change Name | Status | Created | Modules |
 |-------------|--------|---------|---------|
 
-If a change is not `verified`, do NOT archive it — tell the user to run `/prospec-verify` and reach grade S/A first (that is what sets `status: verified`). Confirm with user before proceeding.
+Confirm the set with the user before proceeding.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] Archivable-changes table listed only `status: verified` changes
@@ -91,8 +89,8 @@ For each change to archive:
 ### Phase 3: Execute Archive
 
 The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
-1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations (move destination, summary scaffold, Feature Spec targets, metadata update, product.md/feature-map actions).
-2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, writes the scaffold summary.md, runs the mechanical Feature Spec sync, sets `status: archived` + `archived_at`, syncs the `## Feature Map` section of product.md (the rest of that file is authored and is preserved; a missing one is bootstrapped), and bootstraps feature-map.yaml (no-clobber). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
+1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations.
+2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, sets `status: archived` + `archived_at`, and runs the mechanical Feature Spec / product.md `## Feature Map` / feature-map.yaml syncs (detailed in Phases 3.5–3.6). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
 3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record.
 The `_archived-history` copy and the feature-spec counter reconciliation happen AFTER the judgment
 work, via `prospec archive finalize` in Phase 3.7 — running them here would copy the scaffold and
@@ -195,7 +193,7 @@ The Entry Gate already required Knowledge to be synced — this phase re-confirm
 
 ### Phase 4.5: Auto-Harvest Recurring Lessons
 
-Archiving is the **one moment** this change's `quality_log` and `review.md` still exist before the worktree workflow can discard them — so harvest them into the version-controlled ledger now, rather than only pointing the user at `/prospec-learn` later (which, in a fresh worktree, would find the archive already gone).
+Harvest this change's `quality_log` and `review.md` into the version-controlled ledger now — a fresh worktree may no longer have them.
 
 Follow the **Harvest** definition in [`references/promotion-format.md`](references/promotion-format.md) (read it on demand; do not restate the ledger table here):
 
@@ -226,7 +224,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 - **NEVER** archive without user confirmation — accidental archiving moves active work out of changes/; recovery requires manual file moves. The explicit change name passed to `prospec archive <name>` is that confirmation's carrier — never archive unnamed
 - **NEVER** hand-execute the deterministic mutations — `prospec archive` owns the move, scaffold summary, mechanical spec sync, and the product Feature-Map/feature-map writes; `prospec archive finalize` owns the `_archived-history` copy and the counter reconciliation; hand-running any of them re-introduces the drift the CLI entry exists to prevent (preview with `--dry-run` instead)
-- **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; archiving `story` / `plan` / `tasks` / `implemented` bypasses the verification gate and risks meaningless summaries, broken Spec Sync, or unverified work entering the permanent record. Tell the user to verify to S/A first (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
+- **NEVER** archive a change that is not `status: verified` — only `/prospec-verify` at grade S/A produces `verified`; tell the user to verify to S/A first (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** skip summary.md generation — summary is the permanent record in the archive directory; without it, the change has no audit trail
 - **NEVER** emit a summary.md that lacks the `## Review & Verify` section — the review/verify evidence (grade, criticals/majors, `quality_log`) lives only in the gitignored bundle otherwise, and the `_archived-history` copy is the sole durable record; when a source is absent record `Unverified`/`no review round`, never fabricate
 - **NEVER** delete original files instead of moving — deletion is irreversible; archive preserves all artifacts for future reference and debugging

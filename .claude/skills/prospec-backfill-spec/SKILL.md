@@ -65,7 +65,7 @@ Work the unit of extraction as a **feature vertical slice**, in two passes:
 
 **Cross-module flows are a first-class Acceptance-Criteria source (conditioned on grounding):** an emitted event → handler callback, or an outbound integration edge, is the end-to-end behavior module-first extraction misses most. Promote such a **cross-module** edge to an AC **only when both ends — emitter and handler/sink — are traced to a concrete callsite**. If only one end resolves, record it as a `[NEEDS CLARIFICATION]` candidate edge or keep it Deferred — **never assert a cross-module flow whose handler/sink you did not locate**.
 
-**Verify countable facts** against the source — enum/format/mapping sizes, supported-value counts: never state an exact count you did not count; if unverified, write `~N` or mark `[NEEDS CLARIFICATION]`. This extends to integration edges: never assert a cross-module flow whose handler/sink you did not locate. Fabricating a precise number is a behavior-fidelity defect, distinct from the intent guardrail below.
+**Verify countable facts** against the source — enum/format/mapping sizes, supported-value counts: never state an exact count you did not count; if unverified, write `~N` or mark `[NEEDS CLARIFICATION]`. Fabricating a precise number is a behavior-fidelity defect, distinct from the intent guardrail below.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] every behavior enumerated (Pass 1) then clustered into feature vertical slices (Pass 2); each behavior maps to **exactly one** feature slice or is listed as explicitly Deferred (no behavior dropped or double-assigned)

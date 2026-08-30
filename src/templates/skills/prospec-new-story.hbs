@@ -140,7 +140,7 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
-Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it silently via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]` — its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit; this station's per-criterion walk is a quality nudge, not a gate (21/21 historical stories passed it, never once blocked, so a blocking gate here does not pay for itself).
+Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it silently via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]`.
 - **PASS**: the Story satisfies INVEST
 - **WARN**: partially satisfies — record suggestions to `quality_log`, proceed
 
@@ -185,7 +185,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 ## NEVER
 
 - **NEVER** create non-kebab-case change names — all lowercase, hyphen-separated, verb-first
-- **NEVER** hard-block a Story on the INVEST check here — it is **advisory** at new-story: record concerns to `quality_log` and proceed. INVEST stays a Constitution `[MUST]`; its authoritative enforcement is the Constitution + `/prospec-verify`'s every-principle audit, not a new-story gate
+- **NEVER** hard-block a Story on the INVEST check here — it is **advisory** at new-story: record concerns to `quality_log` and proceed.
 - **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md
@@ -193,7 +193,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** ask multiple questions at once when in Question mode — ask at most **one question at a time**
 - **NEVER** omit autonomous inferences from `## Stated Assumptions` — 100% of inferred decisions must be explicit
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)
-- **NEVER** propose `quick` for a change expected to affect spec-covered behavior — the veto criterion is part of the assessment, not advisory
+- **NEVER** propose `quick` for a change expected to affect spec-covered behavior
 - **NEVER** use passive voice for confirmation wait points in interactive mode (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
 - **NEVER** ignore `--interactive` when requested by the developer — always provide the interactive escape hatch
 

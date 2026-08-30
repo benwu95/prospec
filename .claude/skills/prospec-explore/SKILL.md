@@ -85,7 +85,7 @@ Convergence options:
 
 ## Visualization
 
-Use ASCII diagrams to aid thinking (architecture relationships, decision trees, sequence diagrams) only when they **help clarify the problem** — never for decoration.
+Use ASCII diagrams to aid thinking (architecture relationships, decision trees, sequence diagrams) only when they **help clarify the problem**.
 
 ## Output Contract
 

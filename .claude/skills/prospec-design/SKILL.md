@@ -185,8 +185,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 - **NEVER** include platform-specific references in design-spec.md — subsequent Implement and Verify skills read spec not tools; platform refs break portability
 - **NEVER** skip user confirmation on detected mode — wrong mode wastes entire phase; Generate overwrites existing design, Extract on empty tool produces garbage
-- **NEVER** hardcode color values without defining tokens — tokens enable consistent theming and design system reuse across components
-- **NEVER** skip interaction states — incomplete states cause runtime visual bugs (missing loading/error/empty states are the #1 UI implementation gap)
+- **NEVER** hardcode color values without defining tokens
+- **NEVER** skip interaction states — incomplete states cause runtime visual bugs
 - **NEVER** proceed with `ui_scope: none` — Design Phase has no value for backend-only changes; wasted tokens and user confusion
 - **NEVER** generate design specs without reading the adapter reference — each platform has unique MCP tools and capabilities; blind generation produces unusable specs
 - **NEVER** leave `[NEEDS CLARIFICATION]` unresolved — unresolved items propagate ambiguity to Tasks and Implement, causing inconsistent UI implementation
