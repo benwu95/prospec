@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-08-29
-story_count: 40
-req_count: 258
+last_updated: 2026-08-30
+story_count: 41
+req_count: 260
 ---
 
 # SDD Workflow
@@ -40,8 +40,10 @@ req_count: 258
 - [US-29: Deterministic Station Work Belongs to the CLI](./sdd-workflow/us-29.md)
 - [US-39: Judgment Grading Routes to the Strongest Available Tier](./sdd-workflow/us-39.md)
 - [US-40: Reuse Is Adjudicated Before a New Implementation Is Planned](./sdd-workflow/us-40.md)
+- [US-41: Shipped Skill Prose Is Single-Source and Lean](./sdd-workflow/us-41.md)
 
 ---
+
 
 ## Edge Cases
 
@@ -87,6 +89,7 @@ req_count: 258
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-30 | strip-redundant-skill-prose | ADDED REQ-TEMPLATES-214; ADDED REQ-TESTS-102 | REQ-TEMPLATES-214, REQ-TESTS-102 |
 | 2026-08-29 | surface-warns-and-empty-constitution | ADDED REQ-TYPES-091; ADDED REQ-SERVICES-104; ADDED REQ-CLI-048; MODIFIED REQ-TEMPLATES-064; MODIFIED REQ-TEMPLATES-096 | REQ-TYPES-091, REQ-SERVICES-104, REQ-CLI-048, REQ-TEMPLATES-064, REQ-TEMPLATES-096 |
 | 2026-08-29 | mechanize-lifecycle-entry-gates | ADDED REQ-SERVICES-100; ADDED REQ-SERVICES-101; ADDED REQ-LIB-071; ADDED REQ-SERVICES-102; ADDED REQ-CLI-047; ADDED REQ-SERVICES-103; MODIFIED REQ-TEMPLATES-131; MODIFIED REQ-LIB-035 | REQ-SERVICES-100, REQ-SERVICES-101, REQ-LIB-071, REQ-SERVICES-102, REQ-CLI-047, REQ-SERVICES-103, REQ-TEMPLATES-131, REQ-LIB-035 |
 | 2026-08-29 | correct-stale-template-instructions | MODIFIED REQ-TEMPLATES-188; ADDED REQ-TEMPLATES-212; ADDED REQ-TEMPLATES-213 | REQ-TEMPLATES-188, REQ-TEMPLATES-212, REQ-TEMPLATES-213 |
