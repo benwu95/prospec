@@ -86,10 +86,10 @@ describe('Skill generation contract (verify-skills.sh port)', () => {
     it('AGENTS.md keeps the full table; CLAUDE.md registry is slim', () => {
       // AGENTS.md (non-frontmatter agents) keeps the full per-skill table + reference paths
       expect(read('AGENTS.md')).toContain('.agents/skills/prospec-archive/references/');
-      expect(read('AGENTS.md')).toContain('### /prospec-archive');
+      expect(read('AGENTS.md')).toContain('### prospec-archive');
       // CLAUDE.md is slim — Claude Code surfaces SKILL.md frontmatter, so no per-skill table
       expect(read('CLAUDE.md')).not.toContain('.claude/skills/prospec-archive/references/');
-      expect(read('CLAUDE.md')).not.toContain('### /prospec-archive');
+      expect(read('CLAUDE.md')).not.toContain('### prospec-archive');
     });
   });
 

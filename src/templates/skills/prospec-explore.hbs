@@ -53,7 +53,7 @@ Constitution Check:
 **Constitution emptiness check (before converging):** run `prospec check --json` and read its
 `constitution-severity` check. If it reports a "no project-authored principles" finding — the
 Constitution holds only the seeded example rules and the Language Policy — or is skipped because the
-Constitution declares none at all, it is **substantively empty**: `/prospec-verify`'s Constitution
+Constitution declares none at all, it is **substantively empty**: `prospec-verify`'s Constitution
 audit and the Entry/Exit gates are no-ops until real principles exist. Tell the user this and point
 them to edit `{{constitution_path}}` to add project principles. Advisory — do not block exploration.
 
@@ -65,8 +65,8 @@ Proactively suggest convergence when:
 - Impact scope is identified
 
 Convergence options:
-1. `/prospec-new-story` — create a formal User Story
-2. `/prospec-ff` — fast-forward full planning (when requirements are clear)
+1. `prospec-new-story` — create a formal User Story
+2. `prospec-ff` — fast-forward full planning (when requirements are clear)
 3. Continue exploring — if questions remain
 
 ## Visualization
@@ -91,7 +91,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** suggest `/prospec-ff` when requirements are vague — exploration exists to clarify first
+- **NEVER** suggest `prospec-ff` when requirements are vague — exploration exists to clarify first
 - **NEVER** converge without a Constitution check — principles must inform the decision
 - **NEVER** ask yes/no questions only — use open-ended questions to guide deeper thinking
 - **NEVER** ask more than 3 questions at once — maintain conversational rhythm
@@ -105,4 +105,4 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | Constitution file not found | Note it and continue exploration without Constitution checks |
 | {{base_dir}}/index.md not found | Explore without module context, suggest running `prospec knowledge init` |
-| User wants to jump to implementation | Suggest at least creating a Story first via `/prospec-new-story` |
+| User wants to jump to implementation | Suggest at least creating a Story first via `prospec-new-story` |

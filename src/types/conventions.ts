@@ -14,7 +14,7 @@ export interface ConventionDocSource {
  * Canonical / shipped convention docs — tracked but never user-customized.
  *
  * `prospec init` seeds these. The CLI never re-renders them on upgrade; refreshing
- * an init-created doc to the latest template is the consent-gated `/prospec-upgrade`
+ * an init-created doc to the latest template is the consent-gated `prospec-upgrade`
  * skill's job. This const is the single source for *which* docs are canonical.
  */
 export const CANONICAL_CONVENTION_DOCS: ConventionDocSource[] = [

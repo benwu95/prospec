@@ -40,13 +40,23 @@ Project glossary and domain terms: [`{{knowledge_base_path}}/_glossary.md`]({{kn
 
 ## Available Prospec Skills
 
+Prospec Skills use bare `prospec-<name>` as their canonical identity. Use the host-specific guidance below only when you want to invoke a Skill explicitly; descriptions and trigger words continue to support implicit discovery.
+
+## Invoking a Prospec Skill
+
+| Host | Explicit invocation |
+|------|---------------------|
+{{#each invocation_guidance}}
+| {{label}} | {{#if invocationPrefix}}`{{invocationPrefix}}prospec-<name>`{{else}}{{invocationInstruction}} `prospec-<name>`{{/if}} |
+{{/each}}
+
 {{#if surfaces_skill_frontmatter}}
-Prospec Skills are invoked via `/prospec-*` slash commands — each skill's description and trigger words are surfaced automatically from its `SKILL.md` frontmatter, so run the matching `/prospec-<name>` command to trigger one.
+Each Skill's description and trigger words are surfaced automatically from its `SKILL.md` frontmatter, so identify the matching bare `prospec-<name>` Skill.
 {{else}}
-This project ships with the following Prospec Skills, triggered via slash commands:
+This project ships with the following Prospec Skills:
 
 {{#each skills}}
-### /{{name}}
+### {{name}}
 
 {{description}}
 
@@ -73,12 +83,12 @@ the standalone executable before running any skill — never substitute manual s
 
 **Station Transition Protocol**: The SDD workflow advances through stations (`prospec status` reports the current node and the next). On advancing to ANY new station — whether `prospec status` routed you there or you cascaded to it autonomously — read that station's skill file under `{{skill_path}}/` with your file-reading tool BEFORE taking any station action; `prospec status`'s `action:` line prints the exact path for the station it routes you to. Do not rely on accumulated context to guess a station's entry gates or micro-rules — a long session's diffs and logs dilute the initial instructions, so re-read the station's skill on every transition.
 
-**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `/prospec-learn` skill's promotion-format reference under `{{skill_path}}/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `{{knowledge_base_path}}/module-map.yaml` and terms from `{{knowledge_base_path}}/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
+**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `prospec-learn` Skill's promotion-format reference under `{{skill_path}}/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `{{knowledge_base_path}}/module-map.yaml` and terms from `{{knowledge_base_path}}/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
 
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture
 3. **Coding standards**: Follow the style guide in the Conventions document
-4. **Use Skills**: Trigger dedicated workflows via `/skill-name` commands
+4. **Use Skills**: Trigger dedicated workflows via their bare `prospec-<name>` identity
 5. **Module dependencies**: Check `{{knowledge_base_path}}/module-map.yaml` before modifying
 
 ## Notes

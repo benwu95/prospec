@@ -5,7 +5,7 @@ import { z } from 'zod';
  *
  * The report is layered: `structural` carries the deterministic check
  * results; `semantic` is permanently `not-checked` — semantic consistency
- * belongs to /prospec-review and must never be presented as PASS here.
+ * belongs to prospec-review and must never be presented as PASS here.
  *
  * The knowledge_health field shape is a FROZEN contract consumed by
  * downstream features (Knowledge Flywheel, MCP server) — changing it is
@@ -43,8 +43,8 @@ export const DRIFT_CHECK_IDS = [
   'review-provenance',
   // Change metadata completeness — a change whose metadata.yaml is missing a
   // required field (name/created_at/status/scale), or that is verified/archived
-  // yet records no /prospec-verify S/A grade in quality_log, fails (fail). Backs
-  // the /prospec-archive Entry Gate so incomplete metadata cannot enter the
+  // yet records no prospec-verify S/A grade in quality_log, fails (fail). Backs
+  // the prospec-archive Entry Gate so incomplete metadata cannot enter the
   // permanent record; in-progress changes are exempt from the grade rule.
   'metadata-completeness',
   // Knowledge size budget — an L1 file (index.md or a core convention) over the
@@ -254,7 +254,7 @@ export const ConstitutionRuleEntrySchema = z.object({
 });
 
 /**
- * The machine-parsed Constitution rule inventory `/prospec-verify` grades against.
+ * The machine-parsed Constitution rule inventory `prospec-verify` grades against.
  * Verify must account for every entry (its audit is 1:1 with this list) and takes
  * each severity from here rather than re-reading the file, so no rule is skipped
  * and no severity is reassigned. Judging whether the code violates a rule is NOT
@@ -284,7 +284,7 @@ export const DriftReportSchema = z.object({
     constitution: ConstitutionInventorySchema.optional(),
   }),
   semantic: z.object({
-    /** Semantic consistency is /prospec-review's job — never graded here. */
+    /** Semantic consistency is prospec-review's job — never graded here. */
     status: z.literal('not-checked'),
     note: z.string().optional(),
   }),

@@ -86,7 +86,7 @@ Write the draft to `.prospec/changes/[name]/backfill-draft.md`, route-compatible
 
 ### Phase 3: Trust-zone invariant & candidate slug
 
-Backfill extraction **never writes** to `prospec/specs/features/` (`prospec archive` (the CLI) stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `prospec/specs/features/` slug when one fits. Check the proposed slug with `prospec validate slug <candidate>` (Bash) — the executable `isSafeResourceName` guard (rejects separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `/prospec-verify` → `/prospec-archive` (the existing forward path; no second writer).
+Backfill extraction **never writes** to `prospec/specs/features/` (`prospec archive` (the CLI) stays the sole writer). Propose a candidate feature slug but do not self-decide it: mark the candidate feature slug `[NEEDS CLARIFICATION]` for human confirmation, because a **feature boundary is a human-confirmable design decision** — under feature-first extraction the slug is the slice's identity, chosen up front, not a name patched on afterward; align to an existing `prospec/specs/features/` slug when one fits. Check the proposed slug with `prospec validate slug <candidate>` (Bash) — the executable `isSafeResourceName` guard (rejects separators / `..`). Promotion is manual — a human turns the draft into a delta-spec → `prospec-verify` → `prospec-archive` (the existing forward path; no second writer).
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] nothing written under `prospec/specs/features/`; candidate slug marked `[NEEDS CLARIFICATION]` and `prospec validate slug` PASSes
@@ -133,5 +133,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | `[NEEDS CLARIFICATION]` ratio > 50% (story-level denominator) | Abort; suggest the forward path — source behavior too thin to reverse intent |
 | Feature/slice already covered by an existing Feature Spec REQ | Exclude from scope; do not re-extract |
-| No change directory yet | Guide user to run `/prospec-new-story` first (the draft stages under `.prospec/changes/[name]/`) |
+| No change directory yet | Guide user to run `prospec-new-story` first (the draft stages under `.prospec/changes/[name]/`) |
 | Candidate feature slug fails `isSafeResourceName` | Reject the slug; propose a safe one marked `[NEEDS CLARIFICATION]` |

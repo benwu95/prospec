@@ -32,7 +32,7 @@ export interface UpgradeOptions {
   /**
    * When true, prompt the user to fill each fired nudge in the terminal (like
    * `prospec init`). The command sets this only for an interactive TTY and never
-   * when `--no-interactive` is passed — so the /prospec-upgrade skill and CI,
+   * when `--no-interactive` is passed — so the prospec-upgrade skill and CI,
    * which invoke `prospec upgrade` non-interactively, never block on a prompt.
    */
   interactive?: boolean;
@@ -41,7 +41,7 @@ export interface UpgradeOptions {
 /**
  * A reminder that a pre-feature project lacks an optional `.prospec.yaml` field
  * whose default silently picks a behavior the user may not want. The CLI prints
- * `message`; the /prospec-upgrade skill keys off the stable `field` id.
+ * `message`; the prospec-upgrade skill keys off the stable `field` id.
  */
 export interface UpgradeNudge {
   /** Stable config-field id (e.g. 'artifact_language') the skill acts on. */
@@ -54,7 +54,7 @@ export interface UpgradeNudge {
  * One init-created curated doc's existence status, derived from
  * `INIT_DOC_REGISTRY` — the same single source `init.service` creates from.
  * `prospec upgrade` now back-fills the docs this marks MISSING, so the
- * /prospec-upgrade skill consumes this list to diff PRESENT docs against their
+ * prospec-upgrade skill consumes this list to diff PRESENT docs against their
  * template (a consent-gated FORMAT migration) and to enrich docs the CLI just
  * created; a doc still MISSING here (back-fill failed) is the skill's safety-net
  * to offer creating. It never keeps a parallel hardcoded file list.
@@ -75,11 +75,11 @@ export interface UpgradeReport {
   versionFrom: string;
   /** prospec version after this upgrade (the running CLI version). */
   versionTo: string;
-  /** Skills with no skill_triggers entry — what /prospec-upgrade localizes (non-English only). */
+  /** Skills with no skill_triggers entry — what prospec-upgrade localizes (non-English only). */
   missingTriggers: string[];
   /**
    * Config-field nudges that fired for this project — absent curated fields a
-   * pre-feature CLI never wrote (see UPGRADE_NUDGE_RULES). The /prospec-upgrade
+   * pre-feature CLI never wrote (see UPGRADE_NUDGE_RULES). The prospec-upgrade
    * skill offers to fill each. A project that explicitly chose a value is NOT
    * flagged, so a deliberate choice is never nagged.
    */
@@ -100,7 +100,7 @@ export interface UpgradeReport {
   /**
    * Whether the project's Constitution still carries the pre-fix seeded Language
    * Policy, whose scope contradicted the entry config's. Report-only: this
-   * command never edits `CONSTITUTION.md` — the `/prospec-upgrade` skill shows a
+   * command never edits `CONSTITUTION.md` — the `prospec-upgrade` skill shows a
    * diff and rewrites the section only with the user's consent.
    */
   staleLanguagePolicy: boolean;
@@ -122,7 +122,7 @@ export interface ResolvedNudge {
 }
 
 export interface UpgradeResult {
-  /** Version delta + trigger gaps consumed by the /prospec-upgrade skill. */
+  /** Version delta + trigger gaps consumed by the prospec-upgrade skill. */
   report: UpgradeReport;
   /** The agent-sync result — carries hints (missing triggers) and warnings. */
   agentSync: AgentSyncFullResult;
@@ -155,7 +155,7 @@ export interface UpgradeResult {
  *    where an already-initialized project could not obtain a newly-added init doc
  *    (`prospec init` is blocked once `.prospec.yaml` exists).
  * 7. Build a report (version delta, skills missing triggers, remaining nudges,
- *    docs inventory + the docs just created) for the `/prospec-upgrade` skill,
+ *    docs inventory + the docs just created) for the `prospec-upgrade` skill,
  *    which handles the consent-gated work the CLI cannot: ENRICHING a created doc
  *    (e.g. index.md's real module table / a legacy _index.md migration) and
  *    migrating an existing doc's FORMAT.
@@ -240,7 +240,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
   return {
     report,
     agentSync,
-    nextStep: '/prospec-upgrade',
+    nextStep: 'prospec-upgrade',
     resolvedNudges,
     rawScanRefreshed,
   };
@@ -329,13 +329,13 @@ export async function detectStaleLanguagePolicy(
     // Report-phase step, like the docs inventory and the raw-scan refresh: the
     // version bump, agent sync and doc back-fill have already hit disk, so an
     // unreadable Constitution (EISDIR/EACCES) must not abort the upgrade and
-    // swallow the report the /prospec-upgrade skill parses.
+    // swallow the report the prospec-upgrade skill parses.
     return false;
   }
 }
 
 /**
- * Skills with no `skill_triggers` entry — what `/prospec-upgrade` localizes for a
+ * Skills with no `skill_triggers` entry — what `prospec-upgrade` localizes for a
  * non-English project. English projects use the English baseline, so nothing is
  * "missing"; the concept applies only to a non-default artifact language.
  */
@@ -379,7 +379,7 @@ const UPGRADE_NUDGE_RULES: readonly NudgeRule[] = [
       'no artifact_language set — AI-generated docs default to English. To author them in another language, set artifact_language in .prospec.yaml (then skill triggers can be localized).',
     // Mirrors `prospec init`'s language prompt: a text input defaulting to English.
     // Accepting the default writes `English` (the nudge self-terminates); typing
-    // another language records it (triggers then localize via /prospec-upgrade).
+    // another language records it (triggers then localize via prospec-upgrade).
     prompt: async () => {
       const language =
         (

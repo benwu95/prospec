@@ -1,7 +1,7 @@
 /**
  * Constitution rule types.
  *
- * A Constitution rule carries an RFC-2119 severity so `/prospec-verify` can
+ * A Constitution rule carries an RFC-2119 severity so `prospec-verify` can
  * grade violations by weight (MUST → FAIL, SHOULD → WARN, MAY → INFO) instead
  * of treating every principle equally.
  */

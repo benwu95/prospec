@@ -160,7 +160,7 @@ export function formatCheckOutput(
 
   console.log('');
   console.log(summaryLine(report));
-  console.log(pc.dim(`Semantic consistency: ${report.semantic.status} (run /prospec-review)`));
+  console.log(pc.dim(`Semantic consistency: ${report.semantic.status} (run prospec-review)`));
   if (result.reportPath) {
     console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
   }

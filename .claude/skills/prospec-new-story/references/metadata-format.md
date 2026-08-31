@@ -44,7 +44,7 @@ test_provenance:
   date: 2026-07-28                # bare ISO 8601 date
 ```
 
-Written by the CLI, never by hand: it is what makes `/prospec-verify` 5/5 a machine verdict rather
+Written by the CLI, never by hand: it is what makes `prospec-verify` 5/5 a machine verdict rather
 than a self-report. The `test-provenance` drift check fails when this block is absent, when its
 `digest` no longer matches the code, or when `exit_code` is non-zero. It is deliberately **not** part
 of the `metadata-completeness` required-field floor — requiring it would retroactively fail every
@@ -116,7 +116,7 @@ quality_log:
         spend: 18500               # optional self-reported tokens
 ```
 
-- **`result` is always the gate three-state `PASS` / `WARN` / `FAIL`.** The `/prospec-verify`
+- **`result` is always the gate three-state `PASS` / `WARN` / `FAIL`.** The `prospec-verify`
   quality grade (`S`/`A`/`B`/`C`/`D`) is written to the separate `grade` key and is **never in
   `result`** — `result: A` is malformed.
 - **A `dimensions` entry's `result` has a wider vocabulary than the gate's**: `PASS` / `WARN` /

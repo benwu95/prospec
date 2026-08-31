@@ -12,7 +12,7 @@ import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
  * enough literal context to match its intended line only (or, for a
  * field-scoped occurrence, its intended YAML value only).
  *
- * SCOPE (v1): test counts (total + per-layer + file count) and the `.hbs`
+ * SCOPE (v1): test counts (total + outcomes + per-layer + file count) and the `.hbs`
  * template inventory (total + the 6 category sub-counts, at their canonical
  * index.md inventory sentence — each paired with its `module-map.yaml` source via
  * `moduleMapTwin`, since index.md is GENERATED from it). Deliberately NOT covered — module per-file
@@ -70,6 +70,44 @@ export const COUNT_REGISTRY: CountEntry[] = [
       { doc: INDEX, anchor: /files, ([\d,]+) tests \(unit /, format: 'comma' },
       moduleMapTwin('tests', /files, ([\d,]+) tests \(unit /, 'comma'),
       { doc: TESTS_README, anchor: /test files, ([\d,]+) tests \(unit /, format: 'comma' },
+    ],
+  },
+  {
+    key: 'tests.passed',
+    source: { kind: 'test-suite', layer: 'passed' },
+    occurrences: [
+      {
+        doc: README,
+        anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \((\d+) passed; \d+ skipped\) across/,
+        format: 'plain',
+      },
+      {
+        doc: README_ZH,
+        anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（(\d+) 個通過；\d+ 個略過）(?:，)?橫跨/,
+        format: 'plain',
+      },
+    ],
+  },
+  {
+    key: 'tests.skipped',
+    source: { kind: 'test-suite', layer: 'skipped' },
+    occurrences: [
+      { doc: README, anchor: /Run all tests \(\d+ (?:tests|total); (\d+) skipped\)/, format: 'plain' },
+      {
+        doc: README,
+        anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \(\d+ passed; (\d+) skipped\) across/,
+        format: 'plain',
+      },
+      {
+        doc: README_ZH,
+        anchor: /執行所有測試（(?:共 )?\d+ 個(?:測試)?；(\d+) 個略過）/,
+        format: 'plain',
+      },
+      {
+        doc: README_ZH,
+        anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（\d+ 個通過；(\d+) 個略過）(?:，)?橫跨/,
+        format: 'plain',
+      },
     ],
   },
   {

@@ -9,7 +9,7 @@
 | `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES`, `DIMENSION_GRADED_BY` (judgment grading context: `fresh-subagent`/`in-session`) |
 | `drift-report.ts` | `DRIFT_CHECK_IDS` (20, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries two additive optional keys — `last_sub_module_commit` and `last_verified`, the confirmation time `stale` is now computed against (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
-| `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities` + `AgentRenderFlags`), `intersectCapabilities`, `mergeGroupRenderFlags`, `VALID_AGENTS` |
+| `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities`, `AgentRenderFlags`, and a closed `InvocationProfile`), `intersectCapabilities`, `mergeGroupRenderFlags`, `mergeGroupInvocationGuidance`, `VALID_AGENTS` |
 | `station.ts` | `VERIFY_DIMENSIONS` (+ its machine/judgment split), `VALIDATE_KINDS` — the judgment↔mechanics boundary — and `RELAYED_FIELD_MAX_CHARS`, the ceilings on what a delegated reviewer/grader RELAYS back (`evidence` is deliberately absent from the set: it goes to the artifact, never into a return payload). Adding a relayed field obliges a row in `delegated-evidence-format.hbs`, whose values `agent sync` injects — a contract test derives the expected rows from this constant's keys |
 | `status.ts` | `SDD_STATIONS` order, incl. the `knowledge-update` station, the no-status design station, and the `promote` backfill entry; `STATION_SKILLS` |
 | `conventions.ts` | `CORE_CONVENTIONS` (the L1 set), `INIT_DOC_REGISTRY` |
@@ -19,7 +19,7 @@
 
 - `SCALE_FORBIDDEN_ARTIFACTS` / `forbiddenArtifacts` / `PROVENANCE_AUDITED_STATUSES` / `isProvenanceAudited` — per-scale artifact contract; provenance audit scope
 - `DRIFT_CHECK_IDS` — the 20 frozen drift-check ids
-- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `intersectCapabilities` / `mergeGroupRenderFlags` — 17 skills + 4 agents (typed `Record<ValidAgent, …>`); harness capability flags + their conservative AND, and group render flags (`AgentRenderFlags`) merged by a per-flag reducer registry (`GROUP_RENDER_FLAG_REDUCERS`, mapped over `keyof AgentRenderFlags` so a flag without a reducer is a compile error)
+- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `InvocationProfile` / `mergeGroupInvocationGuidance` — 17 skills + 4 agents (typed `Record<ValidAgent, …>`); host invocation data is rendered in frozen agent order, deduplicated per agent, and never changes the bare canonical Skill identity
 - `VERIFY_DIMENSIONS` / `VALIDATE_KINDS` — the 5+1 dimension registry; validate kinds
 - `SDD_STATIONS` / `STATION_SKILLS` — station order and the skill each station routes to
 - `MCP_RESOURCE_URIS` / `MCP_TOOL_NAMES` — the frozen MCP surface
@@ -36,7 +36,7 @@
 2. **Add a drift check id** — append to `DRIFT_CHECK_IDS` (frozen, additive) → wire it in the drift services.
 3. **Add a scale** — `CHANGE_SCALES` + its `SCALE_FORBIDDEN_ARTIFACTS` row (`satisfies` forces it) + the lifecycle doc's matrix (BOTH copies).
 4. **Change what the provenance gates audit** — `PROVENANCE_AUDITED_STATUSES` + the lifecycle doc's audit-scope table (both copies); the evaluators read the registry, never a literal.
-5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces a matching entry, `capabilities` AND `AgentRenderFlags` (e.g. `surfacesSkillFrontmatter`) included (survey the vendor docs and record the source inline).
+5. **Add an agent** — add to `VALID_AGENTS`; the typed `AGENT_CONFIGS` map forces `capabilities`, `AgentRenderFlags`, and an explicit `InvocationProfile` (survey the vendor docs and record the source inline).
 6. **Add a verify dimension** — extend `VERIFY_DIMENSIONS` with its `adjudicator`; `MACHINE_/JUDGMENT_DIMENSION_NAMES` derive from it, so never hand-list either set.
 7. **Add a group render flag** — add it to `AgentRenderFlags`, its reducer to `GROUP_RENDER_FLAG_REDUCERS` (the mapped type forces it), and its key to `RENDER_FLAG_KEYS` (the `AssertNever` twin forces it) — a group-shared entry config renders the MERGED value, never a single member's.
 

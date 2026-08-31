@@ -176,6 +176,63 @@ agents:
     }
   });
 
+  it('injects the complete shared-output invocation matrix, never configs[0] guidance (REQ-AGNT-034)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - codex
+  - copilot
+  - antigravity
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+
+    await execute({ cwd: '/project' });
+
+    const entryCall = rt.mock.calls.find(
+      ([name]) => String(name) === 'agent-configs/entry.md.hbs',
+    );
+    expect(entryCall, 'expected the shared entry-config render').toBeDefined();
+    const ctx = entryCall![1] as Record<string, unknown>;
+    expect(ctx.invocation_guidance).toEqual([
+      { agent: 'codex', label: 'Codex', invocationPrefix: '$' },
+      { agent: 'copilot', label: 'GitHub Copilot', invocationPrefix: '/' },
+      {
+        agent: 'antigravity',
+        label: 'Antigravity',
+        invocationInstruction: 'Mention the bare Skill name or select it from the Skills browser.',
+      },
+    ]);
+  });
+
+  it('keeps invocation guidance order-invariant and supports a single-member group (REQ-AGNT-034)', async () => {
+    const yaml = (agents: string) =>
+      `project:\n  name: test-project\nagents:\n${agents}\n`;
+    const entryGuidance = async (agents: string) => {
+      vol.reset();
+      vol.fromJSON({ '/project/.prospec.yaml': yaml(agents) });
+      const rt = vi.mocked(renderTemplate);
+      rt.mockClear();
+      await execute({ cwd: '/project' });
+      const entryCall = rt.mock.calls.find(
+        ([name]) => String(name) === 'agent-configs/entry.md.hbs',
+      );
+      expect(entryCall, 'expected entry-config render').toBeDefined();
+      return (entryCall![1] as Record<string, unknown>).invocation_guidance;
+    };
+
+    const forward = await entryGuidance('  - codex\n  - copilot\n  - antigravity');
+    const reverse = await entryGuidance('  - antigravity\n  - copilot\n  - codex');
+    const claude = await entryGuidance('  - claude');
+
+    expect(forward).toEqual(reverse);
+    expect(claude).toEqual([
+      { agent: 'claude', label: 'Claude Code', invocationPrefix: '/' },
+    ]);
+  });
+
   it('should generate skill files for configured agent', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

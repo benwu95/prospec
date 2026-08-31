@@ -54,7 +54,7 @@ nondeterministic serialization this contract exists to remove.
 ### Phase 1: Parse Proposal + Detect Mode
 
 1. Extract `UI Scope` from proposal.md (full/partial/none)
-   - If `none` → inform user Design Phase is not needed, suggest `/prospec-tasks`
+   - If `none` → inform user Design Phase is not needed, suggest `prospec-tasks`
 2. Detect mode:
 
 | Condition | Mode |
@@ -66,7 +66,7 @@ nondeterministic serialization this contract exists to remove.
 3. STOP. Ask the user to confirm the detected mode before proceeding; do not proceed to Phase 2 until a reply is received.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
+> - [ ] UI Scope extracted from proposal.md (and halted with a `prospec-tasks` suggestion if `none`)
 > - [ ] Mode resolved to Generate or Extract per the detection table
 > - [ ] User has confirmed the detected mode
 
@@ -158,10 +158,10 @@ Display completion summary:
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.
 
@@ -196,7 +196,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| proposal.md not found | Guide user to run `/prospec-new-story` first |
+| proposal.md not found | Guide user to run `prospec-new-story` first |
 | No `UI Scope` in proposal | Assume `full` and confirm with user |
 | `design.platform` not in .prospec.yaml | Default to `html` adapter, inform user |
 | MCP tool unavailable for platform | Fall back to `html` adapter, warn user |

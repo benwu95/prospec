@@ -15,6 +15,9 @@ export interface VitestFileResult {
 }
 export interface VitestJsonReport {
   testResults?: VitestFileResult[];
+  numPassedTests?: number;
+  numPendingTests?: number;
+  numTodoTests?: number;
 }
 
 const TEST_LAYERS = ['unit', 'contract', 'integration', 'e2e'] as const;
@@ -45,8 +48,21 @@ export function deriveTestCounts(report: VitestJsonReport): Record<string, numbe
     if (layer !== undefined) perLayer[layer] += n;
   }
 
+  // Vitest exposes outcome totals separately from the per-file assertion list.
+  // Preserve the assertion-derived total/layer buckets (which are the stable
+  // source for the docs' category breakdown), but use the summary for the two
+  // outcome facts when it is available. Older/minimal reports retain the
+  // conservative all-passing fallback rather than making `pnpm counts` unable
+  // to maintain its own README wording.
+  const passed = typeof report.numPassedTests === 'number' ? report.numPassedTests : total;
+  const skipped =
+    (typeof report.numPendingTests === 'number' ? report.numPendingTests : 0) +
+    (typeof report.numTodoTests === 'number' ? report.numTodoTests : 0);
+
   return {
     'tests.total': total,
+    'tests.passed': passed,
+    'tests.skipped': skipped,
     'tests.unit': perLayer.unit,
     'tests.contract': perLayer.contract,
     'tests.integration': perLayer.integration,

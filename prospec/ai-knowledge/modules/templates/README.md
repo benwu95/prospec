@@ -11,7 +11,7 @@
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md` (incl. the `Directories Without Source Files` evidence block), `module-map.yaml`, `feature-map.yaml` |
 | `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
-| `agent-configs/entry.md.hbs` (1) | Shared entry config; renders the skill registry per agent via `surfaces_skill_frontmatter`; Session Start requires `prospec status` at the `{{minimum_cli_version}}` floor, never manual substitutes; auto/user marker blocks |
+| `agent-configs/entry.md.hbs` (1) | Shared entry config; renders host-labelled explicit-invocation guidance from `invocation_guidance` while keeping `prospec-<name>` canonical and implicit discovery separate; registry shape follows `surfaces_skill_frontmatter` |
 | `references/config-example.yaml.hbs` (1) | The complete annotated `.prospec.yaml` printed by `prospec config example` — top-level, not a per-skill reference |
 
 ## Public API
@@ -25,7 +25,7 @@
 
 ## Modification Guide
 
-1. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}`.
+1. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}`. Keep shared Skill prose bare; only the labelled host matrix may render a sigil.
 2. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`.
 3. **Add or change a skill / reference** — see [Skill Authoring](./skill-authoring.md).
 4. **Change a delegated-receipt gate** — keep the five consuming skills and four delegated references aligned; each output is a readable, non-empty, schema-valid regular file, pending output is lifecycle-/transcript-checked and awaited, terminal failure uses disclosed degradation, and mock records are forbidden.

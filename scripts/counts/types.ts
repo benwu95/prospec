@@ -9,7 +9,10 @@
 /** How a count's truth is obtained. */
 export type CountSource =
   /** Bucketed from a `vitest run` report by `tests/<layer>/` path. */
-  | { kind: 'test-suite'; layer: 'total' | 'unit' | 'contract' | 'integration' | 'e2e' | 'files' }
+  | {
+      kind: 'test-suite';
+      layer: 'total' | 'passed' | 'skipped' | 'unit' | 'contract' | 'integration' | 'e2e' | 'files';
+    }
   /** Counted from the filesystem; the truth is keyed by the entry's `key`. */
   | { kind: 'fs-glob'; describe: string };
 

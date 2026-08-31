@@ -37,7 +37,7 @@ export function formatKnowledgeUpdateOutput(
   if (result.readmePending.length > 0) {
     lines.push('');
     lines.push(
-      `${pc.yellow('●')} README content pending (judgment — update via /prospec-knowledge-update):`,
+      `${pc.yellow('●')} README content pending (judgment — update via prospec-knowledge-update):`,
     );
     for (const mod of result.readmePending) lines.push(`  - ${sanitizeTerminal(mod)}`);
   }

@@ -153,7 +153,7 @@ export const KNOWLEDGE_SIZE_RULES = {
   'demand-knowledge': {
     tokenKey: 'demand_knowledge_per_file',
     label: 'load-on-demand knowledge file',
-    remedy: "run /prospec-learn's Staleness Sweep to retire entries that are mechanized, no longer applicable, or contradicted",
+    remedy: "run prospec-learn's Staleness Sweep to retire entries that are mechanized, no longer applicable, or contradicted",
   },
   skill: {
     tokenKey: 'skill_per_file',

@@ -278,7 +278,7 @@ export interface DeltaSpecProvenanceSource {
  *  (non-empty), stricter than ChangeMetadataSchema (which makes `scale` optional). */
 export const REQUIRED_METADATA_FIELDS = ['name', 'created_at', 'status', 'scale'] as const;
 
-/** Statuses at/after which a /prospec-verify S/A grade must be recorded. */
+/** Statuses at/after which a prospec-verify S/A grade must be recorded. */
 const GRADED_STATUSES = new Set(['verified', 'archived']);
 
 export interface MetadataCompletenessChange {
@@ -311,7 +311,7 @@ export interface TestProvenanceChange {
   /** the recorded command, for a finding that has to name what failed. */
   recorded_command: string;
   /** True when `backfill-draft.md` sits beside the metadata — proof the change
-   *  came through `/prospec-promote-backfill` and really does record pre-existing
+   *  came through `prospec-promote-backfill` and really does record pre-existing
    *  code. `scale` alone is hand-editable, so the backfill relaxation is gated on
    *  this, exactly as the verify skill's Entry Gate requires. */
   backfill_draft_present: boolean;
@@ -1668,7 +1668,7 @@ function gitLastCommit(
  * (REQ-LIB-024). The commit boundary is after verify S/A, so review/verify run
  * pre-commit and commit timestamps would all point at the branch base. Hash the
  * working-tree code delta instead: HEAD sha + `git diff HEAD` + untracked
- * contents, covering the WHOLE first-party change (everything `/prospec-review`
+ * contents, covering the WHOLE first-party change (everything `prospec-review`
  * reviews) via a denylist — excluding only workflow state (`.prospec/`) and
  * check-written reports, generated artifacts (deployed `.claude/`/`.agents/`
  * skills, `dist/`), and lockfiles. This fails CLOSED (over-review), never open:
@@ -2308,7 +2308,7 @@ function enumerateChangeMetadata(
 /**
  * Collect metadata-completeness facts for every change in `.prospec/changes/`.
  * Each change reports which REQUIRED_METADATA_FIELDS are absent/empty and, for a
- * verified/archived change, whether quality_log records a /prospec-verify S/A
+ * verified/archived change, whether quality_log records a prospec-verify S/A
  * grade. Mirrors collectTaskStates' change enumeration; needs no git. Unparseable
  * metadata is reported as fully incomplete (a corrupt file must not slip through),
  * never skipped. Unavailable (no `.prospec/changes/`) → the check skips.
@@ -2352,7 +2352,7 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
   return { available: true, changes };
 }
 
-/** True when the /prospec-verify grade that still counts is S or A.
+/** True when the prospec-verify grade that still counts is S or A.
  *  Prefers the structured `grade` field (issue #61); falls back to the legacy
  *  shape where the grade was written into `result` (pre-#61 metadata) so already
  *  archived changes still satisfy the gate. Which entry counts depends on

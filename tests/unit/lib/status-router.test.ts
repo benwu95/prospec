@@ -126,7 +126,7 @@ describe('status-router — lifecycle edges', () => {
     expect(route.current).toBe('verify');
     expect(route.next).toBe('knowledge-update');
     expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
-    expect(route.reasons.join(' ')).toContain('/prospec-knowledge-update is the next station');
+    expect(route.reasons.join(' ')).toContain('prospec-knowledge-update is the next station');
   });
 
   it('verified with knowledge sync → archive with the Knowledge-sync gate', () => {
@@ -149,7 +149,7 @@ describe('status-router — lifecycle edges', () => {
   it('archived is terminal — next is null, periodic learn applies', () => {
     const route = routeChange(facts({ status: 'archived' }));
     expect(route.next).toBeNull();
-    expect(route.reasons.join(' ')).toContain('/prospec-learn');
+    expect(route.reasons.join(' ')).toContain('prospec-learn');
   });
 });
 
@@ -248,7 +248,7 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
     it(`verified × ${scale} routes to knowledge-update when hasKnowledgeSync is false`, () => {
       const route = routeChange(facts({ status: 'verified', scale, hasKnowledgeSync: false }));
       expect(route.next).toBe('knowledge-update');
-      expect(route.reasons.join(' ')).toContain('/prospec-knowledge-update is the next station');
+      expect(route.reasons.join(' ')).toContain('prospec-knowledge-update is the next station');
     });
   }
 

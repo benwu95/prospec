@@ -50,7 +50,7 @@ nondeterministic serialization this contract exists to remove.
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
 - proposal.md exists and is non-empty.
-- `metadata.scale` is not `quick` — `prospec change plan` refuses to scaffold under `scale: quick` (produces NO plan.md/delta-spec.md); proceed to `/prospec-tasks` instead. (Absent `scale` reads as `standard`.)
+- `metadata.scale` is not `quick` — `prospec change plan` refuses to scaffold under `scale: quick` (produces NO plan.md/delta-spec.md); proceed to `prospec-tasks` instead. (Absent `scale` reads as `standard`.)
 - Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change.
 
 ## Core Workflow
@@ -75,7 +75,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 **Step 2 — Load Knowledge by Mode:**
 
 - **Brownfield**: Load related module READMEs (and any `{sub-module}.md` they link) + `prospec/ai-knowledge/_conventions.md`. Prepare to synthesize Technical Summary in Phase 4.
-- **Greenfield**: Skip module loading. Scan project root for tech stack indicators (`package.json`, `pyproject.toml`, `.prospec.yaml`), top-level directory structure, and 2-3 core source files. Recommend `prospec knowledge init` + `/prospec-knowledge-generate`.
+- **Greenfield**: Skip module loading. Scan project root for tech stack indicators (`package.json`, `pyproject.toml`, `.prospec.yaml`), top-level directory structure, and 2-3 core source files. Recommend `prospec knowledge init` + `prospec-knowledge-generate`.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] Context Mode is determined (Brownfield or Greenfield)
@@ -183,14 +183,14 @@ Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh 
 
 ### Phase 7: Knowledge Quality Gate
 
-Confirm Knowledge-loading completeness in **one line**: Context mode detected (Brownfield/Greenfield), related module READMEs read, Technical Summary synthesized, and existing Feature Specs checked. Any gap → WARN, noted in plan.md Risk Assessment (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
+Confirm Knowledge-loading completeness in **one line**: Context mode detected (Brownfield/Greenfield), related module READMEs read, Technical Summary synthesized, and existing Feature Specs checked. Any gap → WARN, noted in plan.md Risk Assessment (non-blocking). (The full per-station Quality-Gate table lives only in `prospec-verify`.)
 
 > **Phase 7 Gate** — proceed when:
 > - [ ] the one-line Knowledge check is recorded PASS or WARN (WARNs noted in Risk Assessment)
 
 ### Phase 8: Summary + Next Steps
 
-Suggest: `/prospec-tasks` or manual review.
+Suggest: `prospec-tasks` or manual review.
 
 ## Output Contract
 
@@ -211,7 +211,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering**) and the Architecture Verifier rubric — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering**) and the Architecture Verifier rubric — not the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -237,7 +237,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 
 | Scenario | Action |
 |----------|--------|
-| proposal.md not found | Guide user to run `/prospec-new-story` first |
+| proposal.md not found | Guide user to run `prospec-new-story` first |
 | Insufficient module info | Offer options: continue with available info / pause to supplement Knowledge / load source code |
 | Constitution conflict | Modify plan to comply (preferred) / document exception reasoning |
 
@@ -246,9 +246,9 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.

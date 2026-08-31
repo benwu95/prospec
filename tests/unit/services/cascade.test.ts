@@ -187,6 +187,6 @@ describe('generateTastemakerSummary & formatTastemakerPresentation', () => {
     expect(formatted).toContain('Grade:** **S**');
     expect(formatted).toContain('ADDED REQ-AUTH-001');
     expect(formatted).toContain('+ 150 lines in 3 files');
-    expect(formatted).toContain('/prospec-archive');
+    expect(formatted).toContain('prospec-archive');
   });
 });

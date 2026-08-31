@@ -66,7 +66,7 @@ scan fresh for the next step.
 
 ### Step 4: Generate AI Knowledge
 
-Chain directly into the `/prospec-knowledge-generate` workflow — read `raw-scan.md`,
+Chain directly into the `prospec-knowledge-generate` workflow — read `raw-scan.md`,
 decide module boundaries, and write the module READMEs and `prospec/index.md`. Do NOT inline a
 copy of that workflow here; hand off to it so large repositories get their own context
 budget.
@@ -79,7 +79,7 @@ budget.
 - [ ] `.prospec.yaml` exists and parses as valid YAML
 - [ ] when non-English, `skill_triggers` is populated (or the user declined)
 - [ ] `raw-scan.md` exists after `prospec knowledge init`
-- [ ] the `/prospec-knowledge-generate` workflow was entered
+- [ ] the `prospec-knowledge-generate` workflow was entered
 
 ### Failure Conditions
 - wrote malformed `skill_triggers` to `.prospec.yaml`
@@ -93,7 +93,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** proceed silently when the `prospec` CLI is unavailable — stop and tell the user to install prospec (they are adopting it for this project), then re-run
 - **NEVER** overwrite an existing `skill_triggers` entry — localize only the skills missing an entry (fill-missing)
 - **NEVER** hand-edit `.prospec.yaml` for triggers — `prospec agent triggers --write` owns the fill-missing insertion and validates before writing
-- **NEVER** inline the `/prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
+- **NEVER** inline the `prospec-knowledge-generate` workflow — chain to it so large repos get a fresh context budget
 - **NEVER** translate triggers without showing the user the proposed words first
 
 ## Error Handling

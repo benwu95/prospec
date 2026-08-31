@@ -110,7 +110,7 @@ export function formatPathList(paths: string[]): string {
  * write, scoped to the Language Policy section. A project owner who already
  * reworded the rule — or who quotes the old phrasing in another principle — is
  * never nagged, and `prospec upgrade` only ever reports this; rewriting the
- * section needs the consent the `/prospec-upgrade` skill asks for.
+ * section needs the consent the `prospec-upgrade` skill asks for.
  *
  * `language` is the project's CURRENT artifact language. Only the combination
  * "English project whose seed also said English" has nothing to migrate: an

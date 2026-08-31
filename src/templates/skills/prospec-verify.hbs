@@ -24,11 +24,11 @@ When triggered, briefly describe:
 4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — file specifications (**skip for `scale: quick`** — no delta-spec by contract; 2/5 is `not-applicable`)
 5. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — acceptance scenarios
 6. [DYNAMIC] Read `.prospec/changes/[name]/metadata.yaml` — current status (updated on pass; see Status Update)
-7. [DYNAMIC] Load the Feature Spec requirements this change touches — for each REQ id the delta-spec names, run `prospec spec show <feature> --req <ids>` (Bash), the `**Feature:**` field giving the feature. Quote them for the 2/5 comparison; **never read the whole `{{base_dir}}/specs/features/` directory or a whole spec file** — 2/5 compares this change against the REQs it touches, and one spec can run to tens of thousands of tokens of unrelated capability record. Add `--story <US-N>` when a REQ's surrounding story matters. **An ADDED REQ is expected to be missing here**: requirements graduate into the trust zone at `/prospec-archive` Phase 3.5, so the command reports every ADDED id as unmatched and exits non-zero — that is the designed state, never a 2/5 finding. Read the MODIFIED/REMOVED ids from the spec (they exist), and take each ADDED REQ's text from the delta-spec entry itself; `--story <US-N>` is what shows you the section an ADDED REQ will land in. (**skip for `scale: quick`** — no delta-spec REQs to compare)
+7. [DYNAMIC] Load the Feature Spec requirements this change touches — for each REQ id the delta-spec names, run `prospec spec show <feature> --req <ids>` (Bash), the `**Feature:**` field giving the feature. Quote them for the 2/5 comparison; **never read the whole `{{base_dir}}/specs/features/` directory or a whole spec file** — 2/5 compares this change against the REQs it touches, and one spec can run to tens of thousands of tokens of unrelated capability record. Add `--story <US-N>` when a REQ's surrounding story matters. **An ADDED REQ is expected to be missing here**: requirements graduate into the trust zone at `prospec-archive` Phase 3.5, so the command reports every ADDED id as unmatched and exits non-zero — that is the designed state, never a 2/5 finding. Read the MODIFIED/REMOVED ids from the spec (they exist), and take each ADDED REQ's text from the delta-spec entry itself; `--story <US-N>` is what shows you the section an ADDED REQ will land in. (**skip for `scale: quick`** — no delta-spec REQs to compare)
 8. [DYNAMIC] Read `{{base_dir}}/specs/product.md` — understand product-level overview
 9. [DYNAMIC] Run `prospec check --json` (Bash), then **read the `prospec-report.json` file** — the deterministic verdicts for Verification 1/5, 4/5 and 5/5, plus the Constitution rule inventory 3/5 audits against (the same engine the CI gate runs). `--json` **writes the file**; stdout is a human-readable summary, **not JSON** — take structured facts from the file. Its shape (checks keyed by `id` under `structural.checks[]`, problems under `structural.findings[]`, freshness under `structural.knowledge_health.modules[]`, rules under `structural.constitution.rules[]`) is documented in [`references/drift-report-format.md`](references/drift-report-format.md) — consult it instead of reverse-engineering the JSON. The CLI is a required file (see CLI Prerequisite — a missing engine is a STOP at the probe, never a gradable state); never adjudicate a machine dimension yourself
 
-> **Scale-aware execution (`metadata.scale: quick`)** — a quick change is genuinely lighter here, not just relabeled: skip Startup Loading items 3, 4, and 7 (plan/delta-spec/Feature-Spec-comparison — absent or moot by contract), run dimension 2/5 as `not-applicable` (spec impact is re-checked against the actual diff at the `/prospec-archive` Entry Gate), and emit the **condensed report** below (omit the `not-applicable` dimension's detail block). The dimensions that genuinely apply to a quick change (1/5 tasks, 3/5 Constitution, 4/5 Knowledge, 5/5 tests) still run in full — this trims ceremony, never a dimension that applies. `standard`/`full` run every item above.
+> **Scale-aware execution (`metadata.scale: quick`)** — a quick change is genuinely lighter here, not just relabeled: skip Startup Loading items 3, 4, and 7 (plan/delta-spec/Feature-Spec-comparison — absent or moot by contract), run dimension 2/5 as `not-applicable` (spec impact is re-checked against the actual diff at the `prospec-archive` Entry Gate), and emit the **condensed report** below (omit the `not-applicable` dimension's detail block). The dimensions that genuinely apply to a quick change (1/5 tasks, 3/5 Constitution, 4/5 Knowledge, 5/5 tests) still run in full — this trims ceremony, never a dimension that applies. `standard`/`full` run every item above.
 
 > **SCALE: BACKFILL MANDATORY ROUTING**:
 > When `metadata.scale` is `backfill`, **STOP immediately and read `references/verify-backfill.md`** BEFORE Phase 1. Do NOT proceed with standard verification rules — backfill follows the spec-fidelity contract and quality relaxations defined in that reference.
@@ -41,7 +41,7 @@ Verify is the **sole** station that performs a Constitution **full audit** (ever
 
 ### Where verify ends and review begins
 
-`/prospec-review` is **open-ended defect discovery** — an unbounded search over code that could be wrong anywhere, which is why it must be probabilistic and adversarial. `/prospec-verify` is **closed-ended contract checking** — a bounded comparison of the change against artifacts that already state what it must satisfy (tasks.md, delta-spec, the Constitution, the Knowledge base, the test suite), which is why it is mechanical wherever an oracle exists. This is the single statement of that division: no other skill restates it, and verify never re-runs review's search (a defect review missed is not verify's to find; an unmet contract is not review's to grade).
+`prospec-review` is **open-ended defect discovery** — an unbounded search over code that could be wrong anywhere, which is why it must be probabilistic and adversarial. `prospec-verify` is **closed-ended contract checking** — a bounded comparison of the change against artifacts that already state what it must satisfy (tasks.md, delta-spec, the Constitution, the Knowledge base, the test suite), which is why it is mechanical wherever an oracle exists. This is the single statement of that division: no other skill restates it, and verify never re-runs review's search (a defect review missed is not verify's to find; an unmet contract is not review's to grade).
 
 ### Two adjudicators, two ledgers
 
@@ -77,16 +77,16 @@ dimension is **`not-adjudicated`**, a distinct state from both PASS and `not-app
 
 ### Why the full audit converges here
 
-Every other **SDD-pipeline** skill (new-story → plan → tasks → implement → review → archive, plus periodic learn) checks only its **site-specific** rule — new-story→INVEST, plan→dependency/layering, tasks→TDD coverage, implement→TDD/commit, review→dependency/layering, learn→promotion-approval — never a generic multi-principle scan. (The pre-SDD `/prospec-explore` thinking-partner keeps its own advisory multi-principle Constitution Checkpoint — it is a decision aid, not a verification gate.) Converging the every-principle audit to this one station is why verify's Constitution audit is the one that gates.
+Every other **SDD-pipeline** skill (new-story → plan → tasks → implement → review → archive, plus periodic learn) checks only its **site-specific** rule — new-story→INVEST, plan→dependency/layering, tasks→TDD coverage, implement→TDD/commit, review→dependency/layering, learn→promotion-approval — never a generic multi-principle scan. (The pre-SDD `prospec-explore` thinking-partner keeps its own advisory multi-principle Constitution Checkpoint — it is a decision aid, not a verification gate.) Converging the every-principle audit to this one station is why verify's Constitution audit is the one that gates.
 
 ## Entry Gate
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
 - All planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md. (**Exception — `metadata.scale: quick`**: only proposal.md + tasks.md are required; **`metadata.scale: backfill`**: see [`references/verify-backfill.md`](references/verify-backfill.md)).
-- Implementation is done: metadata status is `implemented` **or later** (status is a floor, not a ceiling) and tasks.md **code-task** checkboxes are complete (unchecked `[M]`/`[V]` tasks do not block; kind schema: tasks-format reference); if still `tasks`, FAIL and point to `/prospec-implement` (`scale: backfill` has no tasks.md; see [`references/verify-backfill.md`](references/verify-backfill.md)).
-- Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change (including `/prospec-review` majors).
-- **Review provenance (blocking, non-backfill)**: `prospec verify record` refuses to record when the `review-provenance` check is **FAIL** (review absent or stale) for a non-backfill change — so **do not proceed**; run `/prospec-review` on the current code first, then re-record (`scale: backfill` review exemption: see `references/verify-backfill.md`).
+- Implementation is done: metadata status is `implemented` **or later** (status is a floor, not a ceiling) and tasks.md **code-task** checkboxes are complete (unchecked `[M]`/`[V]` tasks do not block; kind schema: tasks-format reference); if still `tasks`, FAIL and point to `prospec-implement` (`scale: backfill` has no tasks.md; see [`references/verify-backfill.md`](references/verify-backfill.md)).
+- Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change (including `prospec-review` majors).
+- **Review provenance (blocking, non-backfill)**: `prospec verify record` refuses to record when the `review-provenance` check is **FAIL** (review absent or stale) for a non-backfill change — so **do not proceed**; run `prospec-review` on the current code first, then re-record (`scale: backfill` review exemption: see `references/verify-backfill.md`).
 - **`scale: backfill` provenance**: see [`references/verify-backfill.md`](references/verify-backfill.md).
 
 ## Core Workflow
@@ -148,7 +148,7 @@ travels back, and `verify record --dimensions` lands it in `verify.md` (contract
 **`metadata.scale: quick`**: this dimension is `not-applicable` — there is no delta-spec to
 compare against. Report it as `not-applicable` (NEVER as PASS — an unchecked dimension must not
 look checked); it does not enter the grade. Spec impact is re-checked against the actual diff
-at the `/prospec-archive` Entry Gate.
+at the `prospec-archive` Entry Gate.
 
 **`metadata.scale: backfill`**: this dimension is the **primary graded dimension** (spec-fidelity contract); see [`references/verify-backfill.md`](references/verify-backfill.md).
 
@@ -193,7 +193,7 @@ semantic observations (a README describing behavior the code does not have) as W
 never overturn the check's verdict, and you never grade freshness yourself. A `skipped` check →
 `not-adjudicated`.
 
-This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs graduate at `/prospec-archive` Phase 3.5; module-README Knowledge is synced at the `/prospec-verify` S/A commit prompt (the archive Entry Gate re-confirms it as a **backstop**). Lag behind this change during grading is normal — it is synced at the S/A commit prompt that follows — **not drift**, and must NOT lower the grade.
+This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs graduate at `prospec-archive` Phase 3.5; module-README Knowledge is synced at the `prospec-verify` S/A commit prompt (the archive Entry Gate re-confirms it as a **backstop**). Lag behind this change during grading is normal — it is synced at the S/A commit prompt that follows — **not drift**, and must NOT lower the grade.
 
 **The verdict comes from the drift engine**: `structural.knowledge_health` carries git-timestamp
 staleness per module (each entry in `structural.knowledge_health.modules[]` has a `stale` flag) plus
@@ -204,15 +204,15 @@ never PASS.
 **Graded — pre-existing Knowledge vs current code** (`{{knowledge_base_path}}/modules/`):
 - **PASS**: each affected module's README.md accurately describes the code this change did not touch (no stale APIs, no wrong descriptions)
 - **WARN**: README exists but is vague or outdated vs code outside this change's scope
-- **FAIL**: README describes behavior the codebase does not have, beyond this change's lag — or a module that existed before this change has no README at all (remediate: `/prospec-knowledge-update`, or `/prospec-knowledge-generate` for the missing README)
+- **FAIL**: README describes behavior the codebase does not have, beyond this change's lag — or a module that existed before this change has no README at all (remediate: `prospec-knowledge-update`, or `prospec-knowledge-generate` for the missing README)
 
 **This change's Knowledge lag — informational only (does NOT affect the grade):**
-- A delta-spec ADDED/MODIFIED REQ not yet described — or a REMOVED REQ's behavior still described — in the affected module's README → informational note listing the affected modules; synced at the S/A commit prompt below (run `/prospec-knowledge-update`, folded into the feature commit) — the archive Entry Gate re-confirms as backstop
+- A delta-spec ADDED/MODIFIED REQ not yet described — or a REMOVED REQ's behavior still described — in the affected module's README → informational note listing the affected modules; synced at the S/A commit prompt below (run `prospec-knowledge-update`, folded into the feature commit) — the archive Entry Gate re-confirms as backstop
 - Implementation changed but the module README not yet updated → same informational note; expected pre-archive state
-- A module introduced by this change has no README yet → same informational note; its README is created at the S/A commit prompt below via `/prospec-knowledge-update` (or `/prospec-knowledge-generate`), folded into the feature commit; the archive Entry Gate re-confirms as backstop
+- A module introduced by this change has no README yet → same informational note; its README is created at the S/A commit prompt below via `prospec-knowledge-update` (or `prospec-knowledge-generate`), folded into the feature commit; the archive Entry Gate re-confirms as backstop
 
 **Feature Spec — informational only (does NOT affect the grade):**
-- A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `/prospec-archive`"); expected, not drift
+- A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `prospec-archive`"); expected, not drift
 - A regression in an already-archived capability (the change breaks behavior the Feature Spec records as shipped) → informational note for the developer to weigh; raise it, but do not gate the grade here
 - Feature Spec Health (Density ≥ 40% Stories, `last_updated` freshness, internal Consistency) → informational quality signal
 
@@ -345,12 +345,12 @@ budget-counted WARN. The CLI:
 - computes the S/A/B/C/D grade per the decision table above (bit-identical on rerun);
 - appends the structured `skill: prospec-verify` `quality_log` entry (`grade`, `dimensions` with
   adjudicators, gate three-state `result`, `warnings`) — never hand-write this entry;
-- on **S/A** atomically advances `status: verified` (the gate `/prospec-archive` looks for); on
+- on **S/A** atomically advances `status: verified` (the gate `prospec-archive` looks for); on
   **B/C/D** leaves `status` unchanged — state in the report that the change is NOT verified, list
-  the WARN/FAIL items to resolve, then re-run `/prospec-verify` after fixing. **On a re-entering
+  the WARN/FAIL items to resolve, then re-run `prospec-verify` after fixing. **On a re-entering
   already-`verified` change, "unchanged" means it stays `verified`** — status never regresses, and
   `quality_log` keeps the earlier S/A entry, so `status` does not record this grade — but
-  `metadata-completeness` does: for a `verified` change it reads only the LATEST `/prospec-verify`
+  `metadata-completeness` does: for a `verified` change it reads only the LATEST `prospec-verify`
   entry, so it stays red until a fresh S/A is earned. That combination is NOT archivable: say so in the report and resolve the WARN/FAIL
   items until a re-run reaches S/A. Reading `status: verified` as a pass here archives a change
   whose latest verify graded B/C/D;
@@ -365,7 +365,7 @@ The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` acc
 
 **Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (sync affected-module Knowledge updating descriptions only without citing not-yet-graduated REQ ids). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
 
-Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `/prospec-archive` Entry Gate re-confirms this as a **backstop**.
+Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `prospec-archive` Entry Gate re-confirms this as a **backstop**.
 
 ## Knowledge Quality Gate
 
@@ -373,12 +373,12 @@ Final Knowledge consistency summary:
 
 | Check Item | PASS | WARN |
 |------------|------|------|
-| No pre-existing Knowledge drift | Module READMEs accurate for code outside this change's scope | Drift identified in Verification 4/5 — suggest `/prospec-knowledge-update` |
+| No pre-existing Knowledge drift | Module READMEs accurate for code outside this change's scope | Drift identified in Verification 4/5 — suggest `prospec-knowledge-update` |
 | No undocumented features | Knowledge entries trace to a delta-spec REQ or shipped behavior | Features in Knowledge without any requirement |
 | This change's Knowledge sync | Informational — synced at the verify S/A commit prompt (archive Entry Gate re-confirms as backstop); not gated here | — |
-| Feature Spec graduation | Informational — Feature Specs update at `/prospec-archive`; not gated here | — |
+| Feature Spec graduation | Informational — Feature Specs update at `prospec-archive`; not gated here | — |
 
-WARN items are deployment risks — recommend resolving before `/prospec-archive`.
+WARN items are deployment risks — recommend resolving before `prospec-archive`.
 
 ## Output Contract
 
@@ -411,7 +411,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 - **NEVER** give PASS without supporting evidence — unsubstantiated PASS creates false confidence; evidence ensures the assessment is reproducible
 - **NEVER** give FAIL without remediation steps — a FAIL without fix guidance blocks the user; they need actionable next steps to resolve
 - **NEVER** skip any verification dimension — each dimension catches different defect classes; skipping one leaves a blind spot in quality assurance
-- **NEVER** proceed on a non-backfill change whose `review-provenance` check FAILs (review absent or stale) — the review gate keeps an S/A grade from resting on unreviewed code; send the user to `/prospec-review` instead of grading
+- **NEVER** proceed on a non-backfill change whose `review-provenance` check FAILs (review absent or stale) — the review gate keeps an S/A grade from resting on unreviewed code; send the user to `prospec-review` instead of grading
 - **NEVER** continue verification when planning documents are missing — verifying against incomplete specs produces meaningless results and wastes tokens (`scale: quick` legitimately omits plan/delta-spec and 2/5 reports `not-applicable`; `scale: backfill` legitimately omits plan/tasks and 1/5 reports `not-applicable` — these are the only exceptions)
 - **NEVER** report a `not-applicable` dimension as PASS — quick's missing delta-spec dimension stays visibly unchecked
 - **NEVER** overturn a machine dimension's verdict (1/5, 4/5, 5/5) — the engine adjudicates, you interpret; re-grading its FAIL as WARN/PASS (or its PASS as FAIL) puts the judgment noise back into the one place that was free of it
@@ -424,7 +424,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 - **NEVER** compute the grade or hand-write the verify `quality_log` entry yourself — `prospec verify record` owns the decision table, the entry serialization, and the S/A status advance
 - **NEVER** make subjective assessments — subjective grades vary between sessions; evidence-based scoring ensures consistency across verifications
 - **NEVER** ignore FAIL items and give "ready to deploy" — FAIL items represent unmet specifications that will surface as production bugs
-- **NEVER** set `status: verified` by hand or for grade B / C / D — `prospec verify record` advances it on S/A only; a lower gate lets unmet WARN/FAIL items reach `/prospec-archive`
+- **NEVER** set `status: verified` by hand or for grade B / C / D — `prospec verify record` advances it on S/A only; a lower gate lets unmet WARN/FAIL items reach `prospec-archive`
 - **NEVER** apply a `scale: backfill` grade relaxation from memory — the backfill NEVER rules (pre-existing-debt tolerance, fidelity + real-test-failure hardness, the `backfill-draft.md` provenance gate) are single-sourced in [`references/verify-backfill.md`](references/verify-backfill.md); when `metadata.scale: backfill`, read them there rather than any inlined restatement here
 
 ## Error Handling

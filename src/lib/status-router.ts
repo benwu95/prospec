@@ -100,7 +100,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           next: 'tasks',
           blockingGates: ['tasks.md created (decomposed directly from proposal.md)'],
           reasons: [
-            `scale: ${facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the /prospec-archive Entry Gate)`,
+            `scale: ${facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the prospec-archive Entry Gate)`,
           ],
         };
       }
@@ -146,7 +146,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       // Honest gate state, never a vacuous pass: a missing tasks.md or an
       // empty code-task set is surfaced instead of reading as "all done".
       const gate = !facts.hasTasks
-        ? 'tasks.md not found — /prospec-tasks owns its creation'
+        ? 'tasks.md not found — prospec-tasks owns its creation'
         : facts.codeTasksTotal === 0
           ? 'no code tasks found in tasks.md — nothing measurable to complete'
           : `\`prospec change status implemented\` refuses until all code-task checkboxes are complete — currently ${facts.codeTasksDone}/${facts.codeTasksTotal} ([M]/[V] tasks are reminders, not blockers)`;
@@ -184,7 +184,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         facts.lastVerifyGrade !== 'A'
       ) {
         reasons.push(
-          `previous verify grade ${facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run /prospec-verify`,
+          `previous verify grade ${facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run prospec-verify`,
         );
       } else {
         reasons.push('review_provenance recorded — verify is the next station');
@@ -205,10 +205,10 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           ...base,
           next: 'knowledge-update',
           blockingGates: [
-            'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or /prospec-knowledge-update)',
+            'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
           ],
           reasons: [
-            'status `verified` — knowledge is not yet synced for affected modules; /prospec-knowledge-update is the next station',
+            'status `verified` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station',
           ],
         };
       }
@@ -234,7 +234,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         ...base,
         next: null,
         blockingGates: [],
-        reasons: ['terminal — linear flow complete; periodic /prospec-learn applies'],
+        reasons: ['terminal — linear flow complete; periodic prospec-learn applies'],
       };
     }
   }
@@ -247,10 +247,11 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
  * Pure — no I/O. The caller passes the project's configured agent names (from
  * `config.agents`) and the routed next station. The canonical skill path is the
  * FIRST configured agent's registry `skillPath` (every agent's per-station
- * subdirectory is identically named, so the choice is only which root to show);
- * the slash command in `next:` stays the primary trigger, this path is a hint.
- * The skill DIRECTORY name is `STATION_SKILLS[station]` without its leading `/`
- * (so `story` → `prospec-new-story`, not `prospec-story`).
+ * subdirectory is identically named, so the choice is only which root to show).
+ * The host-neutral canonical Skill name in `next:` stays the primary reference;
+ * this path is an actionable read-target hint. `STATION_SKILLS[station]` is
+ * already the Skill directory name (so `story` → `prospec-new-story`, not
+ * `prospec-story`).
  *
  * Returns null — never a hardcoded directory — when there is no next station
  * (terminal) or no agent is configured, so the formatter can fall back to the
@@ -263,6 +264,6 @@ export function resolveNextSkillPath(
   if (station === null || agentNames.length === 0) return null;
   const config = AGENT_CONFIGS[agentNames[0] as ValidAgent];
   if (!config) return null;
-  const skillDir = STATION_SKILLS[station].replace(/^\//, '');
+  const skillDir = STATION_SKILLS[station];
   return `${config.skillPath}/${skillDir}/SKILL.md`;
 }

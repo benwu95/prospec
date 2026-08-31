@@ -39,7 +39,7 @@ When triggered, briefly describe:
 ### Phase 1: Parse Proposal + Detect Mode
 
 1. Extract `UI Scope` from proposal.md (full/partial/none)
-   - If `none` → inform user Design Phase is not needed, suggest `/prospec-tasks`
+   - If `none` → inform user Design Phase is not needed, suggest `prospec-tasks`
 2. Detect mode:
 
 | Condition | Mode |
@@ -51,7 +51,7 @@ When triggered, briefly describe:
 3. STOP. Ask the user to confirm the detected mode before proceeding; do not proceed to Phase 2 until a reply is received.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] UI Scope extracted from proposal.md (and halted with a `/prospec-tasks` suggestion if `none`)
+> - [ ] UI Scope extracted from proposal.md (and halted with a `prospec-tasks` suggestion if `none`)
 > - [ ] Mode resolved to Generate or Extract per the detection table
 > - [ ] User has confirmed the detected mode
 
@@ -171,7 +171,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| proposal.md not found | Guide user to run `/prospec-new-story` first |
+| proposal.md not found | Guide user to run `prospec-new-story` first |
 | No `UI Scope` in proposal | Assume `full` and confirm with user |
 | `design.platform` not in .prospec.yaml | Default to `html` adapter, inform user |
 | MCP tool unavailable for platform | Fall back to `html` adapter, warn user |

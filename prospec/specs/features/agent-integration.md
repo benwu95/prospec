@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-08-30
+last_updated: 2026-08-31
 story_count: 22
-req_count: 100
+req_count: 103
 ---
 
 # Agent Integration
@@ -100,6 +100,36 @@ Agent sync registers all deployed references and maintains factual count integri
 
 ---
 
+
+#### REQ-TYPES-092: Host Invocation Profile and Shared Guidance Reducer
+`AgentConfig` declares a closed `InvocationProfile` for each `ValidAgent`, while `prospec-<name>` remains the canonical Skill identity.
+
+- WHEN a new valid agent is registered, THEN its invocation profile is required and type-exhaustively handled
+- WHEN agents share an output signature, THEN `mergeGroupInvocationGuidance` produces their complete, deduplicated, canonical-order guidance
+- WHEN the reducer receives no agents, THEN it produces no assumed host-specific invocation guidance
+
+---
+
+
+#### REQ-TEMPLATES-225: Canonical Skill References and Host Invocation Matrix
+Shipped workflow prose uses bare `prospec-<name>` for canonical Skill references.
+
+- WHEN rendered prose presents a host-specific explicit invocation example, THEN it labels the applicable host and may render that host's supported syntax
+- WHEN an entry config is generated, THEN it renders the complete host invocation matrix from `invocation_guidance`
+- WHEN documentation describes invocation, THEN both root READMEs present equivalent host guidance and preserve implicit discovery through Skill descriptions and triggers
+
+---
+
+
+#### REQ-TESTS-109: Invocation Syntax and Implicit Discovery Contract Coverage
+The test suite protects canonical identity, host-specific explicit invocation, and implicit Skill discovery as separate contracts.
+
+- WHEN an invocation profile, group reducer, ordering rule, or empty-input fallback regresses, THEN a unit or service test fails
+- WHEN an unclassified sigil enters shared prose, or a concrete host example is lost, THEN a section-scoped contract test fails
+- WHEN templates, bundled templates, deployed artifacts, descriptions, or localized triggers drift, THEN the corresponding artifact or contract guard fails
+
+---
+
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -135,6 +165,7 @@ Agent sync registers all deployed references and maintains factual count integri
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-08-31 | decouple-skill-invocation-syntax | ADDED REQ-TYPES-092; ADDED REQ-TEMPLATES-225; ADDED REQ-TESTS-109; MODIFIED REQ-AGNT-034 | REQ-TYPES-092, REQ-TEMPLATES-225, REQ-TESTS-109, REQ-AGNT-034 |
 | 2026-08-30 | eliminate-dangling-reference-pointers | ADDED REQ-TEMPLATES-221; ADDED REQ-TESTS-103 | REQ-TEMPLATES-221, REQ-TESTS-103 |
 | 2026-08-30 | split-and-trim-references | ADDED REQ-TEMPLATES-215; ADDED REQ-TEMPLATES-216; ADDED REQ-TEMPLATES-217; ADDED REQ-TEMPLATES-218; ADDED REQ-TEMPLATES-219; ADDED REQ-TEMPLATES-220; ADDED REQ-AGNT-042 | REQ-TEMPLATES-215, REQ-TEMPLATES-216, REQ-TEMPLATES-217, REQ-TEMPLATES-218, REQ-TEMPLATES-219, REQ-TEMPLATES-220, REQ-AGNT-042 |
 | 2026-08-27 | add-reuse-single-source-gate | MODIFIED REQ-TEMPLATES-084 | REQ-TEMPLATES-084 |

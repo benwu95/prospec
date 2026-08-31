@@ -64,8 +64,8 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
     expect(new Set(remedies).size).toBe(KNOWLEDGE_SIZE_KINDS.length);
   });
 
-  it('points a load-on-demand knowledge file at /prospec-learn\'s Staleness Sweep (issue #135)', () => {
-    expect(KNOWLEDGE_SIZE_RULES['demand-knowledge'].remedy).toContain('/prospec-learn');
+  it('points a load-on-demand knowledge file at prospec-learn\'s Staleness Sweep (issue #135)', () => {
+    expect(KNOWLEDGE_SIZE_RULES['demand-knowledge'].remedy).toContain('prospec-learn');
     expect(KNOWLEDGE_SIZE_RULES['demand-knowledge'].remedy).toContain('Staleness Sweep');
   });
 

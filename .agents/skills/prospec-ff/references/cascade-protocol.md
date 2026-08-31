@@ -1,6 +1,6 @@
 # Autonomous Pipeline Cascading Protocol Reference
 
-This document defines the **Autonomous Pipeline Cascading Protocol** used by `/prospec-ff` and cascading execution workflows.
+This document defines the **Autonomous Pipeline Cascading Protocol** used by `prospec-ff` and cascading execution workflows.
 
 ---
 
@@ -66,7 +66,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 When the pipeline completes Verification with Grade S/A (and subsequent Knowledge Update), reaching this boundary marks the **single commit point** for the change:
 
 1. **Commit Boundary & Preparation (S/A only)**:
-   - **Sync affected-module Knowledge**: Run `/prospec-knowledge-update` for the modules this change touched into the feature commit (delta-spec REQ-prefix modules $\cup$ working-tree diff modules via module map, generated artifacts included). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`. (`scale: backfill`: sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`).
+   - **Sync affected-module Knowledge**: Run `prospec-knowledge-update` for the modules this change touched into the feature commit (delta-spec REQ-prefix modules $\cup$ working-tree diff modules via module map, generated artifacts included). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`. (`scale: backfill`: sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`).
    - **Re-derive factual counts**: If the project has a factual count generator (e.g. `pnpm counts`), run it to synchronize documentation counts; otherwise re-derive from source.
 2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
@@ -78,14 +78,14 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
    - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared.
 4. **Sign-off Options for Developer**:
-   - **Approve**: Run the git commit command and advance to `/prospec-archive`.
+   - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.
 
 ---
 
 ## Human Escape Hatch
 
-- Developers may pass `--no-cascade` or invoke individual station skills (e.g. `/prospec-plan`, `/prospec-review`) at any point to step manually.
+- Developers may pass `--no-cascade` or invoke individual station skills (e.g. `prospec-plan`, `prospec-review`) at any point to step manually.
 - If execution is interrupted, running `prospec status` indicates the current node and suggested next step for seamless resumption.
 
 ---

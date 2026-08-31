@@ -18,7 +18,7 @@ import {
 import { trimTrailingNewlines } from './markdown-fences.js';
 
 /**
- * Deterministic bookkeeping for the /prospec-review cumulative findings table
+ * Deterministic bookkeeping for the prospec-review cumulative findings table
  * (`.prospec/changes/<name>/review.md`).
  *
  * The reviewer's JUDGMENT stays upstream: which findings exist, their severity,

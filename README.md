@@ -4,13 +4,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4586%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4606%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
 **Progressive Spec-Driven Development (SDD) toolkit for AI coding agents**
 
-*Slash-command Skills · structured AI Knowledge · MCP server — for Claude Code, Copilot, Codex*
+*Host-aware Skills · structured AI Knowledge · MCP server — for Claude Code, Copilot, Codex*
 
 [繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How It Works](#how-it-works) • [AI Skills](#ai-skills) • [CLI Commands](#cli-commands)
 
@@ -56,7 +56,7 @@
 
 ## What is Prospec?
 
-Prospec is a **CLI-first Spec-Driven Development (SDD) toolkit** for AI coding agents. You drive day-to-day work through slash-command **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex), and every **deterministic operation** those Skills perform — scaffolding, status transitions, quality-log writes, spec sync, grading — is executed by the **`prospec` CLI** (a required, standalone executable), so the same repo state always produces the same bytes. Skills keep the judgment: interviews, prose, reviews, verdicts. The payoff: your agent follows a consistent `story → plan → tasks → implement → review → verify → archive` workflow, grounded in structured, version-controlled project knowledge, with the nondeterministic LLM kept out of the bookkeeping.
+Prospec is a **CLI-first Spec-Driven Development (SDD) toolkit** for AI coding agents. You drive day-to-day work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex), and every **deterministic operation** those Skills perform — scaffolding, status transitions, quality-log writes, spec sync, grading — is executed by the **`prospec` CLI** (a required, standalone executable), so the same repo state always produces the same bytes. Skills keep the judgment: interviews, prose, reviews, verdicts. The payoff: your agent follows a consistent `story → plan → tasks → implement → review → verify → archive` workflow, grounded in structured, version-controlled project knowledge, with the nondeterministic LLM kept out of the bookkeeping.
 
 Three pieces work together:
 
@@ -84,14 +84,14 @@ Three pieces work together:
 
 | Challenge | How Prospec helps |
 |-----------|-------------------|
-| AI doesn't know your codebase | `prospec knowledge init` + `/prospec-knowledge-generate` auto-scan and generate AI-readable docs |
+| AI doesn't know your codebase | `prospec knowledge init` + `prospec-knowledge-generate` auto-scan and generate AI-readable docs |
 | Context window limits | Progressive disclosure: load a summary first, details on-demand (70%+ token saving vs full-dump) |
 | Inconsistent AI workflows | Structured Skills enforce `story → plan → tasks → implement → review → verify → archive` |
 | Vendor lock-in | Works with 4+ AI CLIs; knowledge stored as universal Markdown |
-| No design-to-code bridge | `/prospec-design` generates visual + interaction specs with MCP tool integration |
+| No design-to-code bridge | `prospec-design` generates visual + interaction specs with MCP tool integration |
 | Knowledge becomes stale | The verify S/A commit prompt folds a Knowledge Update into the feature commit; the archive Entry Gate re-confirms it as a backstop |
-| Verify passes but subtle bugs ship | `/prospec-review` — independent adversarial review between implement and verify |
-| Lessons don't persist across sessions | `/prospec-learn` — recurring fixes promote (human-gated) into versioned team rules |
+| Verify passes but subtle bugs ship | `prospec-review` — independent adversarial review between implement and verify |
+| Lessons don't persist across sessions | `prospec-learn` — recurring fixes promote (human-gated) into versioned team rules |
 
 > Each row maps to a Skill or command below — see [AI Skills](#ai-skills) and [CLI Commands](#cli-commands).
 
@@ -108,7 +108,7 @@ From zero to your first AI-driven change in about five minutes.
 
 ### 1. Install
 
-The `prospec` CLI is the **essential deterministic engine** driving the SDD workflow runtime loop. Skills running inside your AI Agent (e.g. `/prospec-new-story`, `/prospec-plan`, `/prospec-verify`, `/prospec-archive`) automatically invoke `prospec` commands under the hood for scaffolding, lifecycle status transitions, quality_log recording, drift validation, and Feature Spec synchronization.
+The `prospec` CLI is the **essential deterministic engine** driving the SDD workflow runtime loop. Skills running inside your AI Agent (e.g. `prospec-new-story`, `prospec-plan`, `prospec-verify`, `prospec-archive`) automatically invoke `prospec` commands under the hood for scaffolding, lifecycle status transitions, quality_log recording, drift validation, and Feature Spec synchronization.
 
 Ensure the `prospec` executable is available on your system `PATH`:
 
@@ -160,10 +160,23 @@ prospec quickstart            # → select AI assistants, choose doc language; c
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-quickstart           # localize skill triggers, re-sync config, generate AI Knowledge
+prospec-quickstart           # localize skill triggers, re-sync config, generate AI Knowledge
 ```
 
 This one-time finisher is re-runnable and self-terminating; on an existing codebase it reads your modules into AI Knowledge so the agent understands them before your first change.
+
+### Skill invocation
+
+`prospec-<name>` is the canonical Skill identity. The spelling used to invoke a Skill manually belongs to the host, not to the Skill name:
+
+| Host | Explicit invocation |
+|------|---------------------|
+| Claude Code | `/prospec-<name>` |
+| Codex | `$prospec-<name>` |
+| GitHub Copilot | `/prospec-<name>` |
+| Antigravity | Mention the bare Skill name or select it from the Skills browser: `prospec-<name>` |
+
+Use these forms only for explicit invocation. Skill descriptions and triggers still enable implicit discovery, so no workflow becomes manual-only.
 
 ### 3. Run your first change (inside your AI agent)
 
@@ -173,49 +186,49 @@ You don't have to remember the steps — **describe the change in plain language
 🤖 Run inside your AI Agent chat:
 You ▸ Ask prospec to add a dark-mode toggle
 
-The agent picks up the request and runs /prospec-ff:
+The agent picks up the request and runs prospec-ff:
   • asks a few scoping / acceptance questions — you answer in plain language
   • writes story → plan → tasks, then hands off at each stage:
 
-  "Run /prospec-implement now? (Y/n)"             → Y
-  implement → "Run /prospec-review now? (Y/n)"    → Y
-  review    → "Run /prospec-verify now? (Y/n)"    → Y
+  "Run prospec-implement now? (Y/n)"             → Y
+  implement → "Run prospec-review now? (Y/n)"    → Y
+  review    → "Run prospec-verify now? (Y/n)"    → Y
   verify reaches grade A → prompts you to commit  → Y
-         → "Run /prospec-archive now? (Y/n)"      → Y   ✓ archived
+         → "Run prospec-archive now? (Y/n)"      → Y   ✓ archived
 ```
 
-Every stage ends by telling you what's next and waiting for your `Y` — answer `n` to stop and the suggestion stays, so you can resume later without tracking where you left off. `/prospec-verify` is the commit boundary: at grade S/A it prompts you to commit (it never commits for you), then offers to archive.
+Every stage ends by telling you what's next and waiting for your `Y` — answer `n` to stop and the suggestion stays, so you can resume later without tracking where you left off. `prospec-verify` is the commit boundary: at grade S/A it prompts you to commit (it never commits for you), then offers to archive.
 
 Prefer to drive each step yourself? Run them explicitly:
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-explore                   # (optional) clarify the requirement first
-/prospec-new-story add-my-feature  # capture it as a structured story
-/prospec-design                    # (optional) UI / interaction specs
-/prospec-plan                      # design the implementation (a `quick`-scale change skips this)
-/prospec-tasks                     # break the plan into an ordered task checklist
-#   ↑ collapse story → plan → tasks in one pass with: /prospec-ff add-my-feature
-/prospec-implement                 # implement task-by-task (no commit yet)
-/prospec-review                    # adversarial review → fix loop
-/prospec-verify                    # validate; prompts you to commit at grade S/A
-/prospec-archive                   # archive + sync specs & knowledge
-/prospec-learn                     # (periodic) promote recurring lessons → team rules
+prospec-explore                   # (optional) clarify the requirement first
+prospec-new-story add-my-feature  # capture it as a structured story
+prospec-design                    # (optional) UI / interaction specs
+prospec-plan                      # design the implementation (a `quick`-scale change skips this)
+prospec-tasks                     # break the plan into an ordered task checklist
+#   ↑ collapse story → plan → tasks in one pass with: prospec-ff add-my-feature
+prospec-implement                 # implement task-by-task (no commit yet)
+prospec-review                    # adversarial review → fix loop
+prospec-verify                    # validate; prompts you to commit at grade S/A
+prospec-archive                   # archive + sync specs & knowledge
+prospec-learn                     # (periodic) promote recurring lessons → team rules
 ```
 
-That's the full SDD loop. Because `/prospec-quickstart` already seeded AI Knowledge, the agent starts from an understanding of your modules. The full greenfield &amp; brownfield walkthroughs below break down every step `prospec quickstart` automates.
+That's the full SDD loop. Because `prospec-quickstart` already seeded AI Knowledge, the agent starts from an understanding of your modules. The full greenfield &amp; brownfield walkthroughs below break down every step `prospec quickstart` automates.
 
 <details>
 <summary>Greenfield vs. brownfield bootstrap — what the two commands expand to</summary>
 
 #### Greenfield (new projects)
-`prospec quickstart` → `/prospec-quickstart` is the whole bootstrap:
+`prospec quickstart` → `prospec-quickstart` is the whole bootstrap:
 
 ```bash
 mkdir my-project && cd my-project
 prospec quickstart --name my-project   # init + agent sync (interactive assistant + language selection)
 # then, inside your AI agent:
-/prospec-quickstart                     # localize triggers · re-sync · generate AI Knowledge
+prospec-quickstart                     # localize triggers · re-sync · generate AI Knowledge
 ```
 
 Those two commands expand to:
@@ -233,23 +246,23 @@ prospec agent sync               # → per-agent config + Skills (Claude Code �
                                  #   .claude/skills/; Antigravity / Codex / Copilot →
                                  #   AGENTS.md + .agents/skills/)
 
-# `/prospec-quickstart` then, inside your AI agent:
+# `prospec-quickstart` then, inside your AI agent:
 #   • non-English doc language? proposes native trigger words for `skill_triggers`
 #     in .prospec.yaml and re-runs agent sync once you confirm — skills then match
 #     requests phrased in your language
-#   • prospec knowledge init → /prospec-knowledge-generate (seeds AI Knowledge)
+#   • prospec knowledge init → prospec-knowledge-generate (seeds AI Knowledge)
 ```
 
-On a fresh repo, `/prospec-knowledge-generate` produces a minimal Knowledge base that fills in as you ship changes. Then run your first change exactly as in step 3 above.
+On a fresh repo, `prospec-knowledge-generate` produces a minimal Knowledge base that fills in as you ship changes. Then run your first change exactly as in step 3 above.
 
 #### Brownfield (existing projects)
-same two commands; `/prospec-quickstart` reads your existing code into AI Knowledge:
+same two commands; `prospec-quickstart` reads your existing code into AI Knowledge:
 
 ```bash
 cd existing-project
 prospec quickstart                      # auto-detects tech stack; runs init + agent sync
 # then, inside your AI agent:
-/prospec-quickstart                     # localize triggers · re-sync · knowledge init · /prospec-knowledge-generate
+prospec-quickstart                     # localize triggers · re-sync · knowledge init · prospec-knowledge-generate
 ```
 
 Those two commands expand to:
@@ -260,20 +273,20 @@ prospec init          # → auto-detect tech stack; select AI assistants; choose
                       #   language (default: English; --language to skip the prompt)
 prospec agent sync    # → per-agent config + Skills
 
-# `/prospec-quickstart` then, inside your AI agent:
+# `prospec-quickstart` then, inside your AI agent:
 prospec knowledge init       # → generates raw-scan.md + empty skeletons (prospec/index.md, _conventions.md, module-map.yaml)
-/prospec-knowledge-generate  # → AI reads raw-scan.md, decides module partitioning,
+prospec-knowledge-generate  # → AI reads raw-scan.md, decides module partitioning,
                              #   creates modules/*/README.md + fills prospec/index.md
 ```
 
-Here `knowledge init` reads your existing code, so `/prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
+Here `knowledge init` reads your existing code, so `prospec-knowledge-generate` produces a rich Knowledge base up front. Then run your first change exactly as in step 3 above — the develop loop is identical to greenfield.
 
 `knowledge init` captures *how* your code is structured, but brownfield modules usually still lack a Feature Spec describing *what* they do. Closing that WHAT-layer gap is its own first-class flow — see **[Backfill: document existing code into the trust zone](#backfill-document-existing-code-into-the-trust-zone)** below. It is not part of bootstrap, so run it whenever you choose.
 
 </details>
 
 <details>
-<summary>Directory layout after completing the Quickstart (<code>prospec quickstart</code> + <code>/prospec-quickstart</code>)</summary>
+<summary>Directory layout after completing the Quickstart (<code>prospec quickstart</code> + <code>prospec-quickstart</code>)</summary>
 
 ```
 your-project/
@@ -289,7 +302,7 @@ your-project/
 │   │   └── features/          # Living Feature Specs (accumulated)
 │   └── ai-knowledge/
 │       ├── _conventions.md    # Project conventions
-│       ├── _playbook.md       # Team lessons promoted by /prospec-learn (human-gated)
+│       ├── _playbook.md       # Team lessons promoted by prospec-learn (human-gated)
 │       ├── _lessons-ledger.md # Accumulating lessons ledger, auto-fed at Archive (version-controlled)
 │       ├── raw-scan.md        # Auto-generated project scan data
 │       ├── module-map.yaml    # Module dependencies
@@ -366,7 +379,7 @@ The flow is also **scale-aware**: a user-confirmed `quick` change skips the Plan
 
 ### Skill ↔ CLI Cooperation Model
 
-Prospec includes a feature-rich CLI with 17+ top-level commands, but **developers rarely execute CLI commands directly**. Day-to-day SDD work is driven through slash-command **Skills** inside your AI Agent interface (`/prospec-ff`, `/prospec-implement`, `/prospec-verify`, etc.).
+Prospec includes a feature-rich CLI with 17+ top-level commands, but **developers rarely execute CLI commands directly**. Day-to-day SDD work is driven through host-aware **Skills** inside your AI Agent interface (`prospec-ff`, `prospec-implement`, `prospec-verify`, etc.).
 
 The interaction between Skills and CLI follows a clear division of labor:
 
@@ -374,7 +387,7 @@ The interaction between Skills and CLI follows a clear division of labor:
 - **CLI (`prospec` - The Deterministic Execution Layer)**: Called by Skills under the hood via background subshell probes (`_cli-probe`). The CLI handles all byte-reproducible state mutations — creating change scaffolds, validating YAML metadata, updating lifecycle status transitions, recording structured quality logs, calculating drift reports, running mechanical spec sync, and archiving completed changes.
 
 ```
-  User ⇄ AI Agent (Slash-Command Skills)
+  User ⇄ AI Agent (Skills)
          │
          │  (1) Asks questions & guides SDD workflow
          │  (2) Executes high-level judgment (prose, review, code)
@@ -409,30 +422,30 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 
 ## AI Skills
 
-Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `/prospec-quickstart` (onboarding) and `/prospec-upgrade` (version upgrade):
+Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `prospec-quickstart` (onboarding) and `prospec-upgrade` (version upgrade):
 
-| Skill | Slash Command | Description |
+| Skill | Canonical Skill | Description |
 |-------|---------------|-------------|
-| **Explore** | `/prospec-explore` | Think partner for requirement clarification |
-| **New Story** | `/prospec-new-story` | Create structured change story |
-| **Design** | `/prospec-design` | Generate visual + interaction specs (Generate/Extract modes) |
-| **Plan** | `/prospec-plan` | Generate implementation plan + delta-spec |
-| **Tasks** | `/prospec-tasks` | Break down into executable tasks |
-| **Fast-Forward** | `/prospec-ff` | Generate story → plan → tasks in one go |
-| **Implement** | `/prospec-implement` | Implement tasks one-by-one with MCP-first design reading |
-| **Review** | `/prospec-review` | Adversarial review → fix loop; verifier-confirmed criticals auto-fixed, spec-aware lens |
-| **Verify** | `/prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D); prompts commit at S/A |
-| **Archive** | `/prospec-archive` | Archive changes + Spec Sync + Knowledge sync Entry Gate |
-| **Learn** | `/prospec-learn` | Feedback promotion: recurring lessons → team `_playbook` / Constitution (auditable, human-gated) |
-| **Knowledge Generate** | `/prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
-| **Knowledge Update** | `/prospec-knowledge-update` | Incremental knowledge update from delta-spec |
-| **Backfill Spec** | `/prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
-| **Promote Backfill** | `/prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
-| **Quickstart** | `/prospec-quickstart` | After `prospec quickstart` runs init + agent sync, localize skill triggers into your artifact language, prepare the Knowledge scan, and chain into `/prospec-knowledge-generate` to seed AI Knowledge; never writes the trust zone |
-| **Upgrade** | `/prospec-upgrade` | After `prospec upgrade` records the version, re-syncs agents, and back-fills missing init docs, work through the report's docs inventory: migrate drifted init-doc formats + enrich the docs it created, and localize triggers for newly-added skills (fill-missing only) — each with confirmation + a diff/content preview; never overwrites your authored content |
+| **Explore** | `prospec-explore` | Think partner for requirement clarification |
+| **New Story** | `prospec-new-story` | Create structured change story |
+| **Design** | `prospec-design` | Generate visual + interaction specs (Generate/Extract modes) |
+| **Plan** | `prospec-plan` | Generate implementation plan + delta-spec |
+| **Tasks** | `prospec-tasks` | Break down into executable tasks |
+| **Fast-Forward** | `prospec-ff` | Generate story → plan → tasks in one go |
+| **Implement** | `prospec-implement` | Implement tasks one-by-one with MCP-first design reading |
+| **Review** | `prospec-review` | Adversarial review → fix loop; verifier-confirmed criticals auto-fixed, spec-aware lens |
+| **Verify** | `prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D); prompts commit at S/A |
+| **Archive** | `prospec-archive` | Archive changes + Spec Sync + Knowledge sync Entry Gate |
+| **Learn** | `prospec-learn` | Feedback promotion: recurring lessons → team `_playbook` / Constitution (auditable, human-gated) |
+| **Knowledge Generate** | `prospec-knowledge-generate` | AI-driven module analysis and knowledge creation |
+| **Knowledge Update** | `prospec-knowledge-update` | Incremental knowledge update from delta-spec |
+| **Backfill Spec** | `prospec-backfill-spec` | Reverse-extract a Feature Spec draft from existing brownfield code (stages a draft, never writes the trust zone) |
+| **Promote Backfill** | `prospec-promote-backfill` | Formalize a reviewed backfill draft into the backfill change scaffold (proposal + delta-spec + metadata, `scale: backfill`, `status: implemented`; a light scale — no plan/tasks); never writes the trust zone |
+| **Quickstart** | `prospec-quickstart` | After `prospec quickstart` runs init + agent sync, localize skill triggers into your artifact language, prepare the Knowledge scan, and chain into `prospec-knowledge-generate` to seed AI Knowledge; never writes the trust zone |
+| **Upgrade** | `prospec-upgrade` | After `prospec upgrade` records the version, re-syncs agents, and back-fills missing init docs, work through the report's docs inventory: migrate drifted init-doc formats + enrich the docs it created, and localize triggers for newly-added skills (fill-missing only) — each with confirmation + a diff/content preview; never overwrites your authored content |
 
 > [!NOTE]
-> **Periodic Finisher Skills**: `/prospec-quickstart` (runs once after `prospec quickstart`) and `/prospec-upgrade` (runs during version upgrades after `prospec upgrade`) finish the judgment steps the CLI cannot handle deterministically. Both deploy to disk as Skills but are excluded from active entry config, so they add zero ongoing token cost.
+> **Periodic Finisher Skills**: `prospec-quickstart` (runs once after `prospec quickstart`) and `prospec-upgrade` (runs during version upgrades after `prospec upgrade`) finish the judgment steps the CLI cannot handle deterministically. Both deploy to disk as Skills but are excluded from active entry config, so they add zero ongoing token cost.
 
 ### Quality Gates & Self-Improvement
 
@@ -440,15 +453,15 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 
 - **Output Contract** — each Skill self-reports `Met N/M | Overall: PASS|WARN|FAIL` against objective criteria, so you don't hand-check artifacts.
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
-- **Skill instruction quality** — per-phase gate checklists (finer-grained than the skill-level Entry/Exit gates); a status-aware **next-step handoff** at the end of each linear-flow Skill (plan→tasks→implement→review→verify→archive) (`Run <next-step> now? (Y/n)` — your Y is the trigger, never a silent auto-run); new-session detection of in-progress changes to resume; `/prospec-implement` re-anchors `Progress X/Y | Goal | Next` after each task; and `/prospec-explore` / `/prospec-knowledge-generate` warn when the Constitution is still substantively empty (its gates would otherwise be no-ops).
-- **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `/prospec-verify` grades against them.
-- **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `/prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. With an optional `feature-map.yaml` (feature→module index, bootstrapped at archive) it adds two governance checks: REQ-prefix legality (WARN) and the feature→module edge (FAIL).
-- **Adversarial review** — `/prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
-- **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons into a **version-controlled** ledger (`_lessons-ledger.md`); `/prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution. Before each collection it **sweeps both files for entries the project has outgrown** — a rule some gate now enforces, one whose subject is gone, or one that contradicts the Constitution — and surfaces each with its evidence for human retirement; expiry retires in place (a ledger row keeps every counter, a playbook id is never reused), so the audit trail survives the cleanup.
+- **Skill instruction quality** — per-phase gate checklists (finer-grained than the skill-level Entry/Exit gates); a status-aware **next-step handoff** at the end of each linear-flow Skill (plan→tasks→implement→review→verify→archive) (`Run <next-step> now? (Y/n)` — your Y is the trigger, never a silent auto-run); new-session detection of in-progress changes to resume; `prospec-implement` re-anchors `Progress X/Y | Goal | Next` after each task; and `prospec-explore` / `prospec-knowledge-generate` warn when the Constitution is still substantively empty (its gates would otherwise be no-ops).
+- **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `prospec-verify` grades against them.
+- **Deterministic drift gate** — `prospec check` machine-verifies spec ↔ code ↔ knowledge referential integrity with zero tokens; `prospec-verify` consumes its report at dev time and the scaffolded CI workflow enforces it on every PR. With an optional `feature-map.yaml` (feature→module index, bootstrapped at archive) it adds two governance checks: REQ-prefix legality (WARN) and the feature→module edge (FAIL).
+- **Adversarial review** — `prospec-review` sits between implement and verify: an independent fresh-context reviewer audits the whole change diff; only verifier-confirmed, drop-in criticals are auto-fixed, the rest escalate to you. The **commit boundary** is *after* verify reaches grade S/A, so implement + review + verify fixes land in one atomic commit (prospec prompts; it never auto-commits).
+- **Feedback promotion** — every **Archive** auto-harvests a change's recurring lessons into a **version-controlled** ledger (`_lessons-ledger.md`); `prospec-learn` then scores them with an explicit reproducible rule (frequency + impact modules) and — only with explicit human approval — promotes them into the team `_playbook.md` or the Constitution. Before each collection it **sweeps both files for entries the project has outgrown** — a rule some gate now enforces, one whose subject is gone, or one that contradicts the Constitution — and surfaces each with its evidence for human retirement; expiry retires in place (a ledger row keeps every counter, a playbook id is never reused), so the audit trail survives the cleanup.
 
 ### Right-Sized Process (Scale)
 
-Not every change deserves the full ceremony. At story time, `/prospec-new-story` (or `/prospec-ff`) assesses complexity against explicit criteria and proposes a scale — **you confirm before it is written** to `metadata.yaml`:
+Not every change deserves the full ceremony. At story time, `prospec-new-story` (or `prospec-ff`) assesses complexity against explicit criteria and proposes a scale — **you confirm before it is written** to `metadata.yaml`:
 
 | Scale | What changes |
 |-------|--------------|
@@ -456,7 +469,7 @@ Not every change deserves the full ceremony. At story time, `/prospec-new-story`
 | `standard` (default; absent on existing changes) | The current concise flow — plan ≤ 120 lines, closing with a required **Simpler Alternative** section (a materially simpler alternative or an explicit concession, plus a files/lines change-surface estimate) |
 | `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains, Best-of-N candidate tournament (its recorded non-selected candidates stand in for Simpler Alternative) |
 
-Two honest backstops keep `quick` from becoming a spec-drift hole: a change expected to touch spec-covered behavior is **vetoed out of quick** at assessment time, and the `/prospec-archive` Entry Gate re-checks the **actual diff** — spec impact blocks archiving until a minimal Spec Impact section is added, and the knowledge-sync gate derives affected modules from diff paths instead of the absent delta-spec. Engineering discipline is not scaled down: TDD, adversarial review, and Constitution audits run at every scale.
+Two honest backstops keep `quick` from becoming a spec-drift hole: a change expected to touch spec-covered behavior is **vetoed out of quick** at assessment time, and the `prospec-archive` Entry Gate re-checks the **actual diff** — spec impact blocks archiving until a minimal Spec Impact section is added, and the knowledge-sync gate derives affected modules from diff paths instead of the absent delta-spec. Engineering discipline is not scaled down: TDD, adversarial review, and Constitution audits run at every scale.
 
 Tasks also carry a **kind** marker (`[M]` manual, `[V]` verification, unmarked = code): completion rates count code tasks only, so an unchecked "run this command manually" reminder never blocks or distorts a gate.
 
@@ -495,7 +508,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 | Command | Description |
 |---------|-------------|
-| `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync`, then hands off to `/prospec-quickstart` |
+| `prospec quickstart [options]` | One-command onboarding: runs `init` + `agent sync`, then hands off to `prospec-quickstart` |
 | `prospec upgrade [--cwd <dir>]` | After a version bump: record version in `.prospec.yaml`, re-run `agent sync`, and create missing init docs |
 | `prospec init [options]` | Initialize Prospec project structure (sets language and agents) |
 | `prospec knowledge init [options]` | Static project scan to generate `raw-scan.md` and module boundary skeletons |
@@ -510,7 +523,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 - **`prospec quickstart [options]`**
   - **Purpose**: Fast, streamlined onboarding by chaining `init` and `agent sync`.
-  - **Behavior**: Automatically runs initialization steps (skipping completed ones), then prompts to trigger `/prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
+  - **Behavior**: Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
   - **Options**: Accepts the same `--name`, `--agents`, and `--language` options as `init`.
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -519,7 +532,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
     - Updates the `version` field in `.prospec.yaml` (merged in place, preserving comments and formatting).
     - Re-runs `agent sync` to align agent configurations and Skill templates with the latest release.
     - Scaffolds any missing init-created files from templates (`skip-if-exists`, never overwriting or reordering existing files).
-    - Prints a migration report with a docs inventory, handing off to `/prospec-upgrade` for consent-gated format migrations.
+    - Prints a migration report with a docs inventory, handing off to `prospec-upgrade` for consent-gated format migrations.
 
 - **`prospec init [options]`**
   - **Purpose**: Initialize Prospec project structure and baseline configuration.
@@ -529,7 +542,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
   - **Purpose**: Statically scan project source code to generate structure snapshots and module skeletons.
   - **Behavior**:
     - Scans the repository to generate `raw-scan.md` and initial curated skeletons (`module-map.yaml`, `prospec/index.md`, `_conventions.md`, only if absent).
-    - `--raw-scan-only`: Regenerates **only** `raw-scan.md` (deterministic, zero LLM, leaving curated files untouched) to refresh snapshots before `/prospec-knowledge-generate`.
+    - `--raw-scan-only`: Regenerates **only** `raw-scan.md` (deterministic, zero LLM, leaving curated files untouched) to refresh snapshots before `prospec-knowledge-generate`.
 
 - **`prospec knowledge update [--change <name>] [--module <m>...]`**
   - **Purpose**: Incrementally sync knowledge boundaries from a change's `delta-spec.md` or named modules.
@@ -568,7 +581,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (shared [agents.md](https://agents.md) open standard; written once when multiple agents are enabled)
 
-Skills whose workflow depends on the harness — `/prospec-review`, `/prospec-verify`, `/prospec-plan`, `/prospec-tasks`, and `/prospec-ff` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
+Skills whose workflow depends on the harness — `prospec-review`, `prospec-verify`, `prospec-plan`, `prospec-tasks`, and `prospec-ff` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
 
 > [!NOTE]
 > **Editing Safety**: Entry configs carry `prospec:auto` and `prospec:user` blocks. `agent sync` (and `init` on `AGENTS.md`) only refreshes the `auto` block and preserves whatever you write in the `user` block; existing hand-written `CLAUDE.md` / `AGENTS.md` files are migrated into the `user` block on first sync rather than overwritten.
@@ -594,9 +607,9 @@ Skills whose workflow depends on the harness — `/prospec-review`, `/prospec-ve
 
 ¹ Java dependencies are read from Maven `pom.xml` only — the Gradle Groovy/Kotlin DSL is not statically parsed. ² Ruby dependencies are not parsed (`Gemfile` is a Ruby DSL). ³ C vs C++ is inferred from source-file extensions; set `tech_stack` in `.prospec.yaml` to override. ⁴ C/C++ dependencies are read from declarative manifests only — `CMakeLists.txt` and `conanfile.py` are imperative and not parsed. ⁵ Swift dependencies are not parsed (`Package.swift` is imperative Swift). Any unrecognized language still appears in the Directory Tree and File Stats sections — and, because an unlisted extension counts as source, its code directories stay OUT of Directories Without Source Files.
 
-**Directories the scan cannot classify as code.** `raw-scan.md` also carries a `Directories Without Source Files` section: each topmost directory in which no file counts as source — the module detector requires a file to carry an extension AND for that extension not to be on its non-source denylist, so a directory whose only content is extensionless files (a `bin/` of scripts) lands here too. Root-level files belong to no directory and are never listed. It is a scan fact, not a detection verdict: a curated `module-map.yaml` (which detection always prefers) or the no-module fallback can still make such a directory a module. The section is the evidence `/prospec-knowledge-generate` weighs when deciding whether one of them — a `manifests/` of Kubernetes YAML, a `chapters/` of LaTeX — is really this project's substance and belongs in `module-map.yaml`.
+**Directories the scan cannot classify as code.** `raw-scan.md` also carries a `Directories Without Source Files` section: each topmost directory in which no file counts as source — the module detector requires a file to carry an extension AND for that extension not to be on its non-source denylist, so a directory whose only content is extensionless files (a `bin/` of scripts) lands here too. Root-level files belong to no directory and are never listed. It is a scan fact, not a detection verdict: a curated `module-map.yaml` (which detection always prefers) or the no-module fallback can still make such a directory a module. The section is the evidence `prospec-knowledge-generate` weighs when deciding whether one of them — a `manifests/` of Kubernetes YAML, a `chapters/` of LaTeX — is really this project's substance and belongs in `module-map.yaml`.
 
-**A language outside this table?** It still scans — the Directory Tree and File Stats sections are always populated, and `/prospec-knowledge-generate` reads the source directly. The Tech Stack line falls back to `unknown`; declare it authoritatively in `.prospec.yaml` `tech_stack` (free-form — it overrides auto-detection and is reported with `Source: config`):
+**A language outside this table?** It still scans — the Directory Tree and File Stats sections are always populated, and `prospec-knowledge-generate` reads the source directly. The Tech Stack line falls back to `unknown`; declare it authoritatively in `.prospec.yaml` `tech_stack` (free-form — it overrides auto-detection and is reported with `Source: config`):
 
 ```yaml
 tech_stack:
@@ -657,7 +670,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec change plan [--change <name>] [--force]`**
   - **Purpose**: Scaffold `plan.md` and `delta-spec.md`, advancing status to `plan`.
-  - **Safety Rules**: Refuses to overwrite existing files unless `--force` is passed; refuses outright for scales where plans are forbidden (`quick` routes to `change tasks`, `backfill` to `/prospec-promote-backfill`).
+  - **Safety Rules**: Refuses to overwrite existing files unless `--force` is passed; refuses outright for scales where plans are forbidden (`quick` routes to `change tasks`, `backfill` to `prospec-promote-backfill`).
 
 - **`prospec change tasks [--change <name>] [--force]`**
   - **Purpose**: Scaffold `tasks.md`, advancing status to `tasks`.
@@ -722,7 +735,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`). Exits 1 on failure.
 
 > [!IMPORTANT]
-> **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`/prospec-new-story`, `/prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
+> **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`prospec-new-story`, `prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
 
 ### MCP Server
 
@@ -835,7 +848,7 @@ deliberately not included in this version.
 - **`prospec check --record-tests [--change <name>]`**
   - **Purpose**: Runs project test suite and records `{command, exit_code, digest, date}` in change's `metadata.yaml`.
   - **Key Details**:
-    - Serves as the objective oracle for `/prospec-verify` test dimension, preventing agent hallucination.
+    - Serves as the objective oracle for `prospec-verify` test dimension, preventing agent hallucination.
     - Executed via argv directly without shell; degrades to `skipped` when unable to execute honestly.
     - Previously recorded non-zero exit codes remain FAIL even if command subsequently becomes unresolvable.
 
@@ -848,9 +861,9 @@ deliberately not included in this version.
 - **`prospec check --init-ci`**
   - **Purpose**: Scaffolds supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) with SHA pinning, least privilege, and sticky PR comments.
 
-Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason — never a fake PASS — and semantic spec↔code consistency stays with `/prospec-review` (the report permanently marks it `not-checked`). `/prospec-verify` consumes the same report at dev time, so the developer and the CI gate always see the same facts, token-free.
+Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason — never a fake PASS — and semantic spec↔code consistency stays with `prospec-review` (the report permanently marks it `not-checked`). `prospec-verify` consumes the same report at dev time, so the developer and the CI gate always see the same facts, token-free.
 
-**Who decides what at verify** — the report is not advisory there. `/prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
+**Who decides what at verify** — the report is not advisory there. `prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
 
 **Tuning the `knowledge-size` budgets** — `knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
@@ -868,7 +881,7 @@ knowledge:
     headroom: 0.85                  # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
 ```
 
-A freshly initialized project's `.prospec.yaml` carries no `token_budget` block, so every threshold resolves from the shipped default above; run `prospec config example` for the fully annotated block to copy the fields you want to change. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code), and each finding names the convergence path for its surface rather than a generic "please compress": slice a Feature Spec under `specs/features/{feature}/`, run `/prospec-learn`'s Staleness Sweep on a governance file, extract a sub-module from an L2 file.
+A freshly initialized project's `.prospec.yaml` carries no `token_budget` block, so every threshold resolves from the shipped default above; run `prospec config example` for the fully annotated block to copy the fields you want to change. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code), and each finding names the convergence path for its surface rather than a generic "please compress": slice a Feature Spec under `specs/features/{feature}/`, run `prospec-learn`'s Staleness Sweep on a governance file, extract a sub-module from an L2 file.
 
 Two of these deserve their own note. **Feature Specs grow monotonically** — every archived change appends graduated REQs and nothing ever removes them — so the surface that dominates a mature project's load is the one that had no budget at all before; slices under `specs/features/{feature}/` are measured against the same `spec_per_file`, so splitting a spec cannot move it out of the budget's sight. **Skill files are measured only in authoring projects**, detected by the presence of the skill template sources: a project that merely consumes generated skills cannot act on a finding about one, and an unactionable WARN is exactly what this check exists to avoid.
 
@@ -993,11 +1006,11 @@ flowchart TD
     class CODE,FS asset;
 ```
 
-1. **Extract** — `/prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
+1. **Extract** — `prospec-backfill-spec` reads the code (and tests, git history, docs) and stages a route-compatible `backfill-draft.md`; intent it cannot infer from code is marked `[NEEDS CLARIFICATION]`, never fabricated.
 2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
-3. **Promote** — `/prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
-4. **Verify** — `/prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
-5. **Archive** — `/prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
+3. **Promote** — `prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
+4. **Verify** — `prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code.
+5. **Archive** — `prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
 
 ### Upgrading Prospec
 
@@ -1019,7 +1032,7 @@ prospec upgrade                  # Step 1: CLI (zero-LLM) syncs infrastructure a
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats, enriches scaffolds, and localizes triggers (asks per change)
+prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats, enriches scaffolds, and localizes triggers (asks per change)
 ```
 
 #### Step 1: `prospec upgrade` (CLI Deterministic Pass)
@@ -1029,7 +1042,7 @@ prospec upgrade                  # Step 1: CLI (zero-LLM) syncs infrastructure a
 - **Backfill Missing Docs**: Creates newly introduced init files using baseline templates (skip-if-exists; never overwrites or mutates existing files).
 - **Migration Report**: Outputs version deltas, a docs inventory listing present/missing files, and any skill trigger gaps.
 
-#### Step 2: `/prospec-upgrade` (AI Agent Judgment Pass)
+#### Step 2: `prospec-upgrade` (AI Agent Judgment Pass)
 - **Format Migration**: Compares existing files against the latest templates and proposes formatting upgrades, **asking for explicit confirmation per file** (never overwrites authored prose).
 - **Scaffold Enrichment**: Populates newly backfilled baseline docs with real project context (e.g. `index.md` module table).
 - **Trigger Localization**: Localizes missing trigger phrases for newly added skills into the project's configured `artifact_language`.
@@ -1070,7 +1083,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4586 total; 4 skipped)
+# Run all tests (4606 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1083,9 +1096,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4586 total tests (4582 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3269 tests
-- Contract tests (CLI output + Skill format): 1141 tests
+**Test Coverage**: 4606 total tests (4602 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3282 tests
+- Contract tests (CLI output + Skill format): 1148 tests
 - Integration tests: 45 tests
 - E2E tests: 131 tests
 

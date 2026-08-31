@@ -23,6 +23,7 @@ import {
   HARNESS_CAPABILITY_KEYS,
   RENDER_FLAG_KEYS,
   intersectCapabilities,
+  mergeGroupInvocationGuidance,
   mergeGroupRenderFlags,
   type AgentConfig,
   type AgentRenderFlags,
@@ -214,12 +215,14 @@ export async function execute(
     // fixed the render flags the same way).
     const capabilities = intersectCapabilities(configs.map((c) => c.capabilities));
     const renderFlags = mergeGroupRenderFlags(configs);
+    const invocationGuidance = mergeGroupInvocationGuidance(configs);
     const result = await syncAgent(
       configs[0]!,
       {
         ...templateContext,
         ...harnessCapabilityContext(capabilities),
         ...renderFlagContext(renderFlags),
+        invocation_guidance: invocationGuidance,
       },
       triggerWordsBySkill,
       cwd,

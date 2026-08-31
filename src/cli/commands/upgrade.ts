@@ -16,14 +16,14 @@ import { resolveLogLevel } from '../log-level.js';
  * NOT in INIT_COMMANDS — so the config-existence gate blocks it on an
  * uninitialized project (ConfigNotFound → run `prospec init`). The judgment steps
  * (refresh init-created doc formats with consent, translate new-skill triggers)
- * are deferred to the /prospec-upgrade skill, never written here.
+ * are deferred to the prospec-upgrade skill, never written here.
  */
 export function registerUpgradeCommand(program: Command): void {
   program
     .command('upgrade')
-    .description('Refresh canonical docs + agent config to the current prospec version, then hand off to /prospec-upgrade')
+    .description('Refresh canonical docs + agent config to the current prospec version, then hand off to prospec-upgrade')
     .option('--cwd <dir>', 'Project root to upgrade (default: current directory)')
-    .option('--no-interactive', 'Never prompt; just print the migration report (for CI and the /prospec-upgrade skill)')
+    .option('--no-interactive', 'Never prompt; just print the migration report (for CI and the prospec-upgrade skill)')
     .action(async (options: { cwd?: string; interactive?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);

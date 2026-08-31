@@ -74,7 +74,7 @@ This section is **auto-synthesized** based on the project's Knowledge state. Inc
 - (List key dependencies from package.json/requirements.txt)
 
 ### [To Be Supplemented]
-- Recommend running `prospec knowledge init` + `/prospec-knowledge-generate` for full Knowledge
+- Recommend running `prospec knowledge init` + `prospec-knowledge-generate` for full Knowledge
 ```
 
 **Optional — External Library Usage (both modes, additive):**
@@ -238,7 +238,7 @@ Plan depth follows the change's `metadata.scale`:
 
 | Scale | Plan output |
 |-------|-------------|
-| `quick` | No plan at all — `/prospec-plan` exits at its Entry Gate; proceed to tasks |
+| `quick` | No plan at all — `prospec-plan` exits at its Entry Gate; proceed to tasks |
 | `standard` (or absent) | Concise plan, keep under **120 lines** (the conditional Section 5 User Story Flow diagram block is excluded from the count), including the required Section 8 Simpler Alternative — the default below |
 | `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment (the tournament record stands in for Simpler Alternative); the 120-line cap does not apply |
 

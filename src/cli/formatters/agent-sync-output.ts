@@ -91,9 +91,8 @@ export function formatAgentSyncOutput(
   // 4. Next steps
   lines.push('');
   lines.push(
-    `${pc.dim('→')} AI agent configurations are ready. Use ${pc.cyan('`/prospec-explore`')} to start exploring.`,
+    `${pc.dim('→')} AI agent configurations are ready. Use ${pc.cyan('`prospec-explore`')} to start exploring.`,
   );
 
   process.stdout.write(lines.join('\n') + '\n');
 }
-

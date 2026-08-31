@@ -1,12 +1,12 @@
 # Feature Spec Graduation Reference
 
-This document defines the semantic graduation protocol and CLI worklist interpretations used during `/prospec-archive` Phase 3.5.
+This document defines the semantic graduation protocol and CLI worklist interpretations used during `prospec-archive` Phase 3.5.
 
 ---
 
 ## Purpose
 
-`/prospec-archive` is the sole writer of Feature Specs. Requirements graduate into the permanent capability record (`specs/features/*.md`). While `prospec archive` performs the mechanical file mutations, Phase 3.5 performs the **semantic judgment** work to ensure graduated specs remain coherent, complete, and behavior-focused.
+`prospec-archive` is the sole writer of Feature Specs. Requirements graduate into the permanent capability record (`specs/features/*.md`). While `prospec archive` performs the mechanical file mutations, Phase 3.5 performs the **semantic judgment** work to ensure graduated specs remain coherent, complete, and behavior-focused.
 
 ---
 

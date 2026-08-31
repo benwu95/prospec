@@ -74,7 +74,7 @@ This keeps progress accurate and avoids duplicate work.
 
 ### 5. Commit Strategy
 
-**Do not commit during implement.** The commit boundary is after `/prospec-verify` reaches Grade S/A: implement, review, and verify all operate on the working tree, and the change is then committed **once** as a single atomic-by-feature commit.
+**Do not commit during implement.** The commit boundary is after `prospec-verify` reaches Grade S/A: implement, review, and verify all operate on the working tree, and the change is then committed **once** as a single atomic-by-feature commit.
 
 - **Why defer:** committing after each task group breaks atomic-by-feature the moment review or verify requires a fix, and it inverts the provenance order (content finalized → commit → record → archive).
 - **At the boundary:** follow the commit rules in `prospec/CONSTITUTION.md` for message format and grouping — this guide does not restate them. prospec prompts the user to commit; it never auto-commits.

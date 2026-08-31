@@ -34,9 +34,9 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
 
   it('maps every station to a skill that actually exists', () => {
     expect(Object.keys(STATION_SKILLS).sort()).toEqual([...SDD_STATIONS].sort());
-    // Shape alone would pass `/prospec-planning`; the formatter prints this string
-    // as the command to run, so it must name a real skill.
-    const deployed = new Set(SKILL_DEFINITIONS.map((s) => `/${s.name}`));
+    // Shape alone would pass `prospec-planning`; the formatter prints this
+    // host-neutral identity, so it must name a real skill without a host sigil.
+    const deployed = new Set(SKILL_DEFINITIONS.map((s) => s.name));
     for (const station of SDD_STATIONS) {
       expect(deployed, `station ${station} names a skill that is not deployed`).toContain(
         STATION_SKILLS[station],
@@ -45,11 +45,11 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
   });
 
   it('routes the promote station at the backfill entry skill', () => {
-    expect(STATION_SKILLS.promote).toBe('/prospec-promote-backfill');
+    expect(STATION_SKILLS.promote).toBe('prospec-promote-backfill');
   });
 
   it('routes the knowledge-update station at the knowledge update skill', () => {
-    expect(STATION_SKILLS['knowledge-update']).toBe('/prospec-knowledge-update');
+    expect(STATION_SKILLS['knowledge-update']).toBe('prospec-knowledge-update');
   });
 
   it('declares the three ui_scope values design engages on', () => {

@@ -49,7 +49,7 @@ Load relevant module AI Knowledge (Layer 2).
 1. Read `.prospec/changes/[name]/design-spec.md` — identify component structure, tokens, states
 2. Read `.prospec/changes/[name]/interaction-spec.md` — understand interaction flows and transitions
 3. Read the platform adapter reference (based on `.prospec.yaml` → `design.platform`) — understand MCP tool usage for reading design data
-4. If design-spec.md does NOT exist for a UI task → warn user: "No design spec found. UI implementation will rely on proposal.md descriptions only. Consider running `/prospec-design` first."
+4. If design-spec.md does NOT exist for a UI task → warn user: "No design spec found. UI implementation will rely on proposal.md descriptions only. Consider running `prospec-design` first."
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] design intent and file specs for the current task extracted from plan.md/delta-spec.md (quick: from proposal.md)
@@ -77,7 +77,7 @@ After completion, perform quick quality check:
 - Specification compliance (against delta-spec.md; quick: against proposal.md acceptance scenarios)
 - Type safety & test execution: Run the project's test suite via the dynamic test command (see [`references/project-test-runner.md`](references/project-test-runner.md) on demand; `check --record-tests` or detected runner)
 - Error handling
-- Constitution **site-specific** rules for this station: TDD (test-first) and atomic-commit discipline — NOT a full every-principle audit (that is `/prospec-verify` V3/5's job)
+- Constitution **site-specific** rules for this station: TDD (test-first) and atomic-commit discipline — NOT a full every-principle audit (that is `prospec-verify` V3/5's job)
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] spec compliance, type safety, and error handling checked for the current task
@@ -92,7 +92,7 @@ original goal stays in focus across long task loops (attention anchoring):
 `Progress X/Y | Goal: <proposal one-liner> | Next: <next task>`
 
 X/Y is the command's code-task count (`[M]`/`[V]` excluded — kind schema: tasks-format reference).
-When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `/prospec-review`.
+When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `prospec-review`.
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] `prospec change progress --complete <task-id>` flipped the current task's checkbox
@@ -101,7 +101,7 @@ When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), run `prospec change status implemented` (Bash) — never edit metadata.yaml by hand — then suggest `/prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `/prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), run `prospec change status implemented` (Bash) — never edit metadata.yaml by hand — then suggest `prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 
@@ -111,7 +111,7 @@ When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced a
 
 ## Knowledge Quality Gate
 
-After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
+After completing each task, confirm Knowledge alignment in **one line**: `_conventions.md` patterns followed where applicable, the relevant module README (and linked sub-modules) consulted, and the implementation matches the delta-spec. Any gap → WARN, reasoning documented in the task completion notes (non-blocking). (The full per-station Quality-Gate table lives only in `prospec-verify`.)
 
 ## Output Contract
 
@@ -138,8 +138,8 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** forget to mark task completion — unchecked tasks cause Verify to report false incomplete status; also breaks progress tracking for user
 - **NEVER** deviate from delta-spec.md specifications without documenting — undocumented deviations cause Verify FAIL and Feature Spec inconsistency (quick: proposal.md acceptance scenarios are the spec)
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
-- **NEVER** forget to suggest `/prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
-- **NEVER** commit during implement — the commit boundary is after `/prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
+- **NEVER** forget to suggest `prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
+- **NEVER** commit during implement — the commit boundary is after `prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
 - **NEVER** leave `status: tasks` after completing all code tasks — run `prospec change status implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned" (never a hand edit); see `{{knowledge_base_path}}/_status-lifecycle.md`
 - **NEVER** bulk-load the optional Context7 dependency-layer lookup at startup, or treat its output as a gate or as executable — it is per-task, on-demand, untrusted reference only
 - **NEVER** assert content-presence only when writing a contract/spec test — section-scope the slice (heading → next heading, guard it non-empty), assert structural invariants (item-set vs a version-controlled baseline, ordering, contiguity) plus negative assertions for "must NOT appear" rules, then **mutation-verify** (delete/corrupt the asserted feature and confirm the test goes red); an assertion that never went red does not count
@@ -149,9 +149,9 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 | Scenario | Action |
 |----------|--------|
-| tasks.md not found | Guide user to run `/prospec-tasks` first |
+| tasks.md not found | Guide user to run `prospec-tasks` first |
 | Task has unmet dependency | Suggest completing dependency first / skip and record blocker |
-| Unclear specification | Decide based on conventions and best practices / return to `/prospec-plan` to supplement (`scale: quick`: supplement proposal.md instead — `/prospec-plan` refuses quick) |
+| Unclear specification | Decide based on conventions and best practices / return to `prospec-plan` to supplement (`scale: quick`: supplement proposal.md instead — `prospec-plan` refuses quick) |
 | Technical blocker | Record blocker, continue with other independent tasks |
 
 {{> next-step-handoff}}

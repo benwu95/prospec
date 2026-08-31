@@ -1,6 +1,6 @@
 # Candidate Architecture Evaluation Reference
 
-This document defines the **orthogonal candidate generation** and **symmetric pairwise tournament selection** protocol used by `/prospec-plan` (Phase 4) for `metadata.scale: full` (or on-demand standard) changes.
+This document defines the **orthogonal candidate generation** and **symmetric pairwise tournament selection** protocol used by `prospec-plan` (Phase 4) for `metadata.scale: full` (or on-demand standard) changes.
 
 ---
 

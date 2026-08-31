@@ -105,7 +105,7 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 | Spec-covered behavior (existing REQs in `prospec/specs/features/`) | none expected | may modify | adds/reshapes requirements |
 | Nature | small fix, typo, config tweak | bounded feature work | architectural / cross-cutting |
 
-**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick` — at least `standard`. (Prediction may still be wrong; the `/prospec-archive` Entry Gate re-checks against the actual diff.)
+**Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick` — at least `standard`. (Prediction may still be wrong; the `prospec-archive` Entry Gate re-checks against the actual diff.)
 
 **Flow:**
 1. Read `prospec/specs/features/` on demand to check whether existing REQs cover the affected behavior.
@@ -113,7 +113,7 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 3. **Interactive mode (`--interactive`)**: Present proposed scale WITH reasoning against criteria table. STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
 
 > **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
-> `/prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
+> `prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
 > brownfield behavior) — never proposed here for new work. New work picks `quick`/`standard`/`full`.
 
 **Quick slim proposal:** when `quick` is selected, Phase 4/5 produce a slim proposal — a single User Story with 2-3 WHEN/THEN scenarios plus an Independent Test; skip the FR/SC enumeration (FRs exist to map delta-spec REQs, which a quick change does not produce). Edge Cases, Related Modules, and Stated Assumptions stay. `standard`/`full` keep the full format.
@@ -151,7 +151,7 @@ Follow `references/proposal-format.md` format with all sections from Phase 4.
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
-Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `/prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it silently via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]`.
+Run an **advisory** INVEST self-check on the Story — only this station's site-specific rule (**User Stories Follow INVEST**), NOT a generic multi-principle scan (the every-principle audit is `prospec-verify` V3/5 only). Surface any INVEST concern as a note/WARN and record it silently via `prospec change log --skill prospec-new-story --result WARN --warning "<concern>"` (Bash); **do not hard-block** the Story on it. INVEST stays a Constitution `[MUST]`.
 - **PASS**: the Story satisfies INVEST
 - **WARN**: partially satisfies — record suggestions to `quality_log`, proceed
 
@@ -160,7 +160,7 @@ Run an **advisory** INVEST self-check on the Story — only this station's site-
 
 ### Phase 7: Knowledge Quality Gate
 
-Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `prospec/index.md` (by module keywords), and existing Feature Specs checked for overlap. Any gap → WARN, noted in the Open Questions section and logged to `quality_log` (non-blocking). (The full per-station Quality-Gate table lives only in `/prospec-verify` — the SDD stations no longer each restate it.)
+Confirm Knowledge awareness in **one line**: ≥ 1 Related Module matched from `prospec/index.md` (by module keywords), and existing Feature Specs checked for overlap. Any gap → WARN, noted in the Open Questions section and logged to `quality_log` (non-blocking). (The full per-station Quality-Gate table lives only in `prospec-verify` — the SDD stations no longer each restate it.)
 
 > **Phase 7 Gate** — proceed when:
 > - [ ] the one-line Knowledge check is recorded PASS or WARN (WARNs noted in Open Questions)
@@ -174,10 +174,10 @@ Save proposal.md. Present the completed proposal summary to the user for single-
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.
 
@@ -201,7 +201,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**INVEST**) — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**INVEST**) — not the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -224,4 +224,4 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 |----------|--------|
 | Scaffolding creation fails | Check if .prospec.yaml exists, prompt user to confirm project root |
 | Constitution FAIL | Provide adjustment suggestions, or document exception reasoning |
-| Module identification unclear | Suggest returning to `/prospec-explore` or continue, deepen in Plan phase |
+| Module identification unclear | Suggest returning to `prospec-explore` or continue, deepen in Plan phase |

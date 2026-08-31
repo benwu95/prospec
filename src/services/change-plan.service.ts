@@ -74,7 +74,7 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
       // A scale with no task list either has no forward planning station at all;
       // sending it to `change tasks` would just bounce off that station's gate.
       forbidden.includes('tasks.md')
-        ? 'Formalize the reviewed draft with `/prospec-promote-backfill`; a plan.md would fail `prospec validate promote-scaffold`'
+        ? 'Formalize the reviewed draft with `prospec-promote-backfill`; a plan.md would fail `prospec validate promote-scaffold`'
         : 'Run `prospec change tasks` — a quick change decomposes straight from proposal.md (`story → tasks`)',
     );
   }

@@ -1,6 +1,6 @@
 # Circuit Breakers & Runaway Cost Protection Reference
 
-This document defines the **Circuit Breaker & Escalation Protocol** used by `/prospec-review` — the CLI evaluates it on every `prospec review merge` — and by autonomous cascading (`/prospec-ff`).
+This document defines the **Circuit Breaker & Escalation Protocol** used by `prospec-review` — the CLI evaluates it on every `prospec review merge` — and by autonomous cascading (`prospec-ff`).
 
 ---
 

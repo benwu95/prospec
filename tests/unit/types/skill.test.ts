@@ -3,11 +3,13 @@ import {
   AGENT_CONFIGS,
   HARNESS_CAPABILITY_KEYS,
   intersectCapabilities,
+  mergeGroupInvocationGuidance,
   mergeGroupRenderFlags,
+  type AgentConfig,
   type AgentRenderFlags,
   type HarnessCapabilities,
 } from '../../../src/types/skill.js';
-import { VALID_AGENTS } from '../../../src/types/config.js';
+import { VALID_AGENTS, type ValidAgent } from '../../../src/types/config.js';
 
 const caps = (overrides: Partial<HarnessCapabilities> = {}): HarnessCapabilities => ({
   canSpawnSubagent: true,
@@ -19,6 +21,9 @@ const caps = (overrides: Partial<HarnessCapabilities> = {}): HarnessCapabilities
 const renderFlags = (surfacesSkillFrontmatter: boolean): AgentRenderFlags => ({
   surfacesSkillFrontmatter,
 });
+
+const invocationMember = (agent: ValidAgent): Pick<AgentConfig, 'name' | 'invocation'> =>
+  AGENT_CONFIGS[agent];
 
 describe('AGENT_CONFIGS harness capabilities (REQ-TYPES-071)', () => {
   it('declares every capability flag for every valid agent', () => {
@@ -130,5 +135,63 @@ describe('mergeGroupRenderFlags (REQ-TYPES-085)', () => {
     // `[].every()` is true; that would slim a group with no declarant and hide
     // the skill table. The conservative default is the full table (false).
     expect(mergeGroupRenderFlags([])).toEqual({ surfacesSkillFrontmatter: false });
+  });
+});
+
+describe('AGENT_CONFIGS invocation profiles (REQ-TYPES-086)', () => {
+  it('declares one closed invocation mode for every valid agent', () => {
+    expect(VALID_AGENTS.map((agent) => AGENT_CONFIGS[agent].invocation.mode)).toEqual([
+      'sigil',
+      'sigil',
+      'sigil',
+      'name-or-browser',
+    ]);
+  });
+});
+
+describe('mergeGroupInvocationGuidance (REQ-TYPES-086)', () => {
+  it('returns no assumed host guidance for an empty group', () => {
+    expect(mergeGroupInvocationGuidance([])).toEqual([]);
+  });
+
+  it('deduplicates members and returns every guidance mode in canonical host order', () => {
+    expect(
+      mergeGroupInvocationGuidance([
+        invocationMember('antigravity'),
+        invocationMember('copilot'),
+        invocationMember('codex'),
+        invocationMember('claude'),
+        invocationMember('codex'),
+      ]),
+    ).toEqual([
+      { agent: 'claude', label: 'Claude Code', invocationPrefix: '/' },
+      { agent: 'codex', label: 'Codex', invocationPrefix: '$' },
+      { agent: 'copilot', label: 'GitHub Copilot', invocationPrefix: '/' },
+      {
+        agent: 'antigravity',
+        label: 'Antigravity',
+        invocationInstruction: 'Mention the bare Skill name or select it from the Skills browser.',
+      },
+    ]);
+  });
+
+  it('is input-order independent and does not omit the middle shared-output member', () => {
+    const forward = mergeGroupInvocationGuidance([
+      invocationMember('codex'),
+      invocationMember('copilot'),
+      invocationMember('antigravity'),
+    ]);
+    const reverse = mergeGroupInvocationGuidance([
+      invocationMember('antigravity'),
+      invocationMember('copilot'),
+      invocationMember('codex'),
+    ]);
+
+    expect(forward).toEqual(reverse);
+    expect(forward.map((guidance) => guidance.agent)).toEqual([
+      'codex',
+      'copilot',
+      'antigravity',
+    ]);
   });
 });

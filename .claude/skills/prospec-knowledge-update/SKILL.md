@@ -166,7 +166,7 @@ description, guessed paths). What remains is curation (judgment):
 On a project that curated in index.md, the first run **backfills** the curated content columns
 (Keywords/Aliases/Rationale/Description) into `module-map.yaml` (no-clobber) before regenerating.
 **Depends On** derives from `relationships.depends_on`; a module-map lacking it renders `—` until
-populated (re-run `/prospec-knowledge-generate`).
+populated (re-run `prospec-knowledge-generate`).
 
 After the re-run, verify (read, don't write):
 - ADDED modules appear as Active; REMOVED modules are GONE from the table (their README keeps the deprecation banner)
@@ -222,9 +222,9 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.

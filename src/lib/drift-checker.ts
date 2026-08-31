@@ -457,7 +457,7 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
         severity: 'fail',
         source_path: c.source_path,
         detail:
-          `no review recorded for change "${c.name}" — run /prospec-review before /prospec-verify`,
+          `no review recorded for change "${c.name}" — run prospec-review before prospec-verify`,
       });
     } else if (c.recorded_digest !== src.current_digest) {
       findings.push({
@@ -472,9 +472,9 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
           src.working_tree_clean === true
             ? `stale review for change "${c.name}": the working tree is clean, so the recorded ` +
               'review predates the current commit — re-record with `prospec check --record-review` ' +
-              '(a full /prospec-review is only needed if code changed before the commit)'
+              '(a full prospec-review is only needed if code changed before the commit)'
             : `stale review for change "${c.name}": code changed since the recorded review — ` +
-              `re-run /prospec-review`,
+              `re-run prospec-review`,
       });
     }
   }
@@ -635,8 +635,8 @@ export function evaluateDeltaSpecLandingFidelity(
 /**
  * Metadata completeness — a change whose metadata.yaml is missing a required
  * field (name/created_at/status/scale), or that is verified/archived yet records
- * no /prospec-verify S/A grade in quality_log, fails (FAIL-class). Backs the
- * /prospec-archive Entry Gate so incomplete metadata cannot enter the permanent
+ * no prospec-verify S/A grade in quality_log, fails (FAIL-class). Backs the
+ * prospec-archive Entry Gate so incomplete metadata cannot enter the permanent
  * record. In-progress changes (story/plan/tasks/implemented) are exempt from the
  * grade rule — the collector only sets missing_verify_grade for graded statuses.
  * An unavailable source (no `.prospec/changes/`) skips, never a fabricated pass.
@@ -664,7 +664,7 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
         source_path: c.source_path,
         detail:
           `change "${c.name}" is ${c.status} but quality_log records no ` +
-          `/prospec-verify S/A grade`,
+          `prospec-verify S/A grade`,
       });
     }
   }
@@ -863,7 +863,7 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
         source_path: c.source_path,
         detail:
           `no test run recorded for change "${c.name}" — run ` +
-          '`prospec check --record-tests` before /prospec-verify',
+          '`prospec check --record-tests` before prospec-verify',
       });
     } else if (c.recorded_digest !== src.current_digest) {
       // Stale with a GREEN record means "current outcome unknown", which for proven
@@ -1001,7 +1001,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     },
     semantic: {
       status: 'not-checked',
-      note: 'Semantic spec↔code consistency is /prospec-review territory — never graded here.',
+      note: 'Semantic spec↔code consistency is prospec-review territory — never graded here.',
     },
     summary: {
       fail_count: checks.filter((c) => c.status === 'fail').length,

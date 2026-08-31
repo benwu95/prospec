@@ -2,7 +2,7 @@
 
 This document describes the **shape of `prospec-report.json`** — the machine-readable
 output of the deterministic, zero-LLM drift engine. It exists so skills that consume the
-report (`/prospec-verify`, `/prospec-learn`) read the right fields instead of hand-writing
+report (`prospec-verify`, `prospec-learn`) read the right fields instead of hand-writing
 field paths that drift from the schema.
 
 > **Scope: shape only.** The authoritative schema is the prospec CLI's `DriftReportSchema`
@@ -68,7 +68,7 @@ position. Each entry: `{ id, status, reason? }`, adopted **verbatim**.
 | `knowledge-health` | `warn`/`fail` | Tracks module README git timestamp staleness and documentation coverage. | Module map unavailable. |
 | `test-provenance` | `fail` | Validates test execution record, freshness, and exit code. | No test command configured (skips honestly). |
 
-**Verdicts are definitive**: `/prospec-verify` machine dimensions adopt check results verbatim; `skipped` maps to `not-adjudicated`, never `pass`.
+**Verdicts are definitive**: `prospec-verify` machine dimensions adopt check results verbatim; `skipped` maps to `not-adjudicated`, never `pass`.
 
 ## `structural.findings[]` — problems only
 
@@ -121,7 +121,7 @@ structured facts behind its `detail` (additive, so a report without it still val
 - When the inventory has rules but **no project-authored** principle (only the seeded examples +
   Language Policy remain after subtracting the starter set), `constitution-severity` warns with one
   whole-document finding (no `line`): nothing real to grade.
-- `/prospec-verify` 3/5 audits **1:1 against this list** (statement count ≥ entry count), taking each
+- `prospec-verify` 3/5 audits **1:1 against this list** (statement count ≥ entry count), taking each
   severity from here, not re-reading the file — so no rule is skipped or reassigned. Judging a
   violation stays with the agent.
 - The whole object is **optional** (absent when the Constitution is missing or declares no
@@ -141,7 +141,7 @@ Three honesty flags, each a different question — never collapse them:
 
 ## `semantic` and `summary`
 
-- `semantic.status` is **always** `not-checked` — semantic consistency is `/prospec-review`'s
+- `semantic.status` is **always** `not-checked` — semantic consistency is `prospec-review`'s
   job and must never be presented as `pass` from this report.
 - `summary` carries `fail_count` / `warn_count` / `skipped_count` (aggregates over `checks`).
 

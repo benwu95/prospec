@@ -43,7 +43,7 @@ describe('formatKnowledgeInitOutput', () => {
     const out = output();
     expect(out).toContain('Scanned 7 files (depth: 4)');
     expect(out).toContain('Run');
-    expect(out).toContain('/prospec-knowledge-generate');
+    expect(out).toContain('prospec-knowledge-generate');
     // No entry points / deps / created files in this minimal result.
     expect(out).not.toContain('Entry points:');
     expect(out).not.toContain('Dependencies:');
@@ -223,7 +223,7 @@ describe('formatKnowledgeInitOutput', () => {
     formatKnowledgeInitOutput(baseResult(), 'normal');
     const out = output();
     expect(out).toContain('Run');
-    expect(out).toContain('/prospec-knowledge-generate');
+    expect(out).toContain('prospec-knowledge-generate');
     expect(out).toContain('to analyze and generate module knowledge');
     expect(out.endsWith('\n')).toBe(true);
   });

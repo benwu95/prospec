@@ -44,7 +44,7 @@ export interface InitDocLocation {
  * The `index` context passes no `modulesTable` — the same baseline `prospec
  * init` writes (an empty module table). `prospec upgrade` therefore backfills a
  * baseline `index.md`; enriching it with the real module table (and migrating a
- * legacy `_index.md`'s curated columns) stays the `/prospec-upgrade` skill's job.
+ * legacy `_index.md`'s curated columns) stays the `prospec-upgrade` skill's job.
  */
 export function buildInitDocContexts(
   config: ProspecConfig,

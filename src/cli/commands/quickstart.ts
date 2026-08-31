@@ -20,7 +20,7 @@ import { resolveLogLevel } from '../log-level.js';
 export function registerQuickstartCommand(program: Command): void {
   program
     .command('quickstart')
-    .description('One-command onboarding: init + agent sync, then hand off to /prospec-quickstart')
+    .description('One-command onboarding: init + agent sync, then hand off to prospec-quickstart')
     .option('--name <name>', 'Specify the project name')
     .option(
       '--agents <list>',

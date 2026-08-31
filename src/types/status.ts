@@ -16,7 +16,7 @@ import type { ChangeScale, ChangeStatus, VerifyGrade } from './change.js';
  * no `status` transition, so resume logic places them by this order — never
  * by `status` alone.
  *
- * `promote` is the backfill lifecycle ENTRY (`/prospec-promote-backfill`), not a
+ * `promote` is the backfill lifecycle ENTRY (`prospec-promote-backfill`), not a
  * step every change walks: a scale whose contract has neither a plan nor a task
  * list has no forward planning station, so its only route until it reaches
  * `implemented` is finishing its promotion. It sits immediately before
@@ -39,16 +39,16 @@ export type SddStation = (typeof SDD_STATIONS)[number];
 
 /** The skill that runs each station (what the formatter suggests to invoke). */
 export const STATION_SKILLS: Record<SddStation, string> = {
-  story: '/prospec-new-story',
-  plan: '/prospec-plan',
-  design: '/prospec-design',
-  tasks: '/prospec-tasks',
-  promote: '/prospec-promote-backfill',
-  implement: '/prospec-implement',
-  review: '/prospec-review',
-  verify: '/prospec-verify',
-  'knowledge-update': '/prospec-knowledge-update',
-  archive: '/prospec-archive',
+  story: 'prospec-new-story',
+  plan: 'prospec-plan',
+  design: 'prospec-design',
+  tasks: 'prospec-tasks',
+  promote: 'prospec-promote-backfill',
+  implement: 'prospec-implement',
+  review: 'prospec-review',
+  verify: 'prospec-verify',
+  'knowledge-update': 'prospec-knowledge-update',
+  archive: 'prospec-archive',
 };
 
 /** proposal.md `## UI Scope` values (design engages only on full/partial). */

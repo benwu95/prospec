@@ -169,6 +169,6 @@ export function formatTastemakerPresentation(
     'Autonomous cascading has halted successfully for human sign-off.',
     '- Please review the working tree changes and verify findings.',
     '- To accept and commit, proceed with standard atomic git commit.',
-    '- To archive the change, run `/prospec-archive`.',
+    '- To archive the change, run `prospec-archive`.',
   ].join('\n');
 }

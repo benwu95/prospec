@@ -7,6 +7,8 @@ import type { TruthMap } from '../../../scripts/counts/types.js';
 
 const TRUTH: TruthMap = {
   'tests.total': 1865,
+  'tests.passed': 1861,
+  'tests.skipped': 4,
   'tests.unit': 1204,
   'tests.contract': 580,
   'tests.integration': 38,
@@ -27,8 +29,8 @@ const HISTORICAL = '> 測試數 1800→1860→1862 逐層重導（歷史，勿�
 const README_STALE = [
   '[![Tests](https://img.shields.io/badge/tests-1800%20passing-success)](tests/)',
   HISTORICAL,
-  '# Run all tests (1800 tests)',
-  '**Test Coverage**: 1800 tests across 4 categories:',
+  '# Run all tests (1800 tests; 2 skipped)',
+  '**Test Coverage**: 1800 tests (1798 passed; 2 skipped) across 4 categories:',
   '- Unit tests (types + lib + services + cli): 1200 tests',
   '- Contract tests (CLI output + Skill format): 500 tests',
   '- Integration tests: 30 tests',
@@ -92,8 +94,8 @@ describe('syncCounts write mode', () => {
     await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
     const readme = read('README.md');
     expect(readme).toContain('badge/tests-1865%20passing');
-    expect(readme).toContain('# Run all tests (1865 tests)');
-    expect(readme).toContain('**Test Coverage**: 1865 tests across');
+    expect(readme).toContain('# Run all tests (1865 tests; 4 skipped)');
+    expect(readme).toContain('**Test Coverage**: 1865 tests (1861 passed; 4 skipped) across');
     expect(readme).toContain('Unit tests (types + lib + services + cli): 1204 tests');
     expect(readme).toContain('Integration tests: 38 tests');
     expect(readme).toContain('Handlebars templates (58 .hbs files)');
@@ -229,7 +231,7 @@ describe('syncCounts honest skip', () => {
     // inventory fixed…
     expect(read('README.md')).toContain('Handlebars templates (58 .hbs files)');
     // …but every test count stays stale (no fabricated write)
-    expect(read('README.md')).toContain('# Run all tests (1800 tests)');
+    expect(read('README.md')).toContain('# Run all tests (1800 tests; 2 skipped)');
     expect(report.changes.every((c) => c.key.startsWith('templates.'))).toBe(true);
     expect(report.skipped).toEqual([{ key: 'tests.total', reason: 'vitest unavailable' }]);
   });

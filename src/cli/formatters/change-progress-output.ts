@@ -37,7 +37,7 @@ export function formatChangeProgressOutput(
   }
   if (result.allCodeDone) {
     lines.push(
-      `${pc.dim('→')} All code tasks done — run ${pc.cyan('`prospec change status implemented`')}, then ${pc.cyan('/prospec-review')}`,
+      `${pc.dim('→')} All code tasks done — run ${pc.cyan('`prospec change status implemented`')}, then ${pc.cyan('prospec-review')}`,
     );
   }
   process.stdout.write(lines.join('\n') + '\n');

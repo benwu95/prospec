@@ -70,9 +70,8 @@ export function formatKnowledgeInitOutput(
   // 6. Next steps
   lines.push('');
   lines.push(
-    `${pc.dim('→')} Run ${pc.cyan('`/prospec-knowledge-generate`')} to analyze and generate module knowledge`,
+    `${pc.dim('→')} Run ${pc.cyan('`prospec-knowledge-generate`')} to analyze and generate module knowledge`,
   );
 
   process.stdout.write(lines.join('\n') + '\n');
 }
-

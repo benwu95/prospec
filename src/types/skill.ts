@@ -3,7 +3,7 @@
  *
  * Describes the structure of generated Skills and Agent configurations.
  */
-import type { ValidAgent } from './config.js';
+import { VALID_AGENTS, type ValidAgent } from './config.js';
 
 /**
  * Skill type categorization.
@@ -181,11 +181,104 @@ export function mergeGroupRenderFlags(
 }
 
 /**
+ * A host's supported explicit way to invoke a Skill. Skill names themselves
+ * stay sigil-free (`prospec-<name>`); the profile only describes the host UI.
+ */
+export type InvocationProfile =
+  | {
+      readonly mode: 'sigil';
+      readonly label: string;
+      readonly invocationPrefix: '$' | '/';
+    }
+  | {
+      readonly mode: 'name-or-browser';
+      readonly label: string;
+      readonly invocationInstruction: string;
+    };
+
+/** Every invocation mode must be accounted for by the shared renderer. */
+export const INVOCATION_PROFILE_MODES = [
+  'sigil',
+  'name-or-browser',
+] as const satisfies readonly InvocationProfile['mode'][];
+
+/** A new InvocationProfile mode without a registry entry is a type error. */
+export type _InvocationProfileModesAreExhaustive = AssertNever<
+  Exclude<InvocationProfile['mode'], (typeof INVOCATION_PROFILE_MODES)[number]>
+>;
+
+/**
+ * Host-labelled, template-ready guidance derived from an InvocationProfile.
+ * The entry template owns the canonical `prospec-<name>` literal so its bare
+ * identity cannot be accidentally coupled to one host's invocation syntax.
+ */
+export type InvocationGuidance =
+  | {
+      readonly agent: ValidAgent;
+      readonly label: string;
+      readonly invocationPrefix: '$' | '/';
+    }
+  | {
+      readonly agent: ValidAgent;
+      readonly label: string;
+      readonly invocationInstruction: string;
+    };
+
+/** The minimal registry shape required by the shared guidance reducer. */
+export interface InvocationProfileMember {
+  readonly name: ValidAgent;
+  readonly invocation: InvocationProfile;
+}
+
+function toInvocationGuidance(
+  agent: ValidAgent,
+  profile: InvocationProfile,
+): InvocationGuidance {
+  switch (profile.mode) {
+    case 'sigil':
+      return {
+        agent,
+        label: profile.label,
+        invocationPrefix: profile.invocationPrefix,
+      };
+    case 'name-or-browser':
+      return {
+        agent,
+        label: profile.label,
+        invocationInstruction: profile.invocationInstruction,
+      };
+    default: {
+      const unreachable: never = profile;
+      return unreachable;
+    }
+  }
+}
+
+/**
+ * Merge invocation guidance for one output-signature group. It is deliberately
+ * conservative for empty input, removes repeated members, and iterates the
+ * frozen ValidAgent order rather than trusting the caller's config order.
+ */
+export function mergeGroupInvocationGuidance(
+  members: readonly InvocationProfileMember[],
+): InvocationGuidance[] {
+  const profilesByAgent = new Map<ValidAgent, InvocationProfile>();
+  for (const member of members) {
+    profilesByAgent.set(member.name, member.invocation);
+  }
+
+  return VALID_AGENTS.flatMap((agent) => {
+    const profile = profilesByAgent.get(agent);
+    return profile ? [toInvocationGuidance(agent, profile)] : [];
+  });
+}
+
+/**
  * Agent configuration describing a target AI CLI platform.
  */
-export interface AgentConfig extends AgentRenderFlags {
+export interface AgentConfig extends AgentRenderFlags, InvocationProfileMember {
   /** Agent identifier (e.g., 'claude', 'antigravity', 'copilot', 'codex') */
-  name: string;
+  name: ValidAgent;
   /** Base path for Skill files relative to project root */
   skillPath: string;
   /** Path for the agent's entry configuration file */
@@ -349,6 +442,12 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     // Claude Code auto-injects each .claude/skills/*/SKILL.md frontmatter into
     // the session's available-skills reminder → the entry registry is redundant.
     surfacesSkillFrontmatter: true,
+    // Source: https://code.claude.com/docs/en/agent-sdk/slash-commands
+    invocation: {
+      mode: 'sigil',
+      label: 'Claude Code',
+      invocationPrefix: '/',
+    },
     // Source: Claude Code tool reference (Agent + Bash tool schemas).
     capabilities: {
       // Agent tool spawns an independent sub-agent with its own context.
@@ -365,6 +464,12 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: https://learn.chatgpt.com/docs/build-skills
+    invocation: {
+      mode: 'sigil',
+      label: 'Codex',
+      invocationPrefix: '$',
+    },
     // Source: learn.chatgpt.com/docs/agent-configuration/subagents + Codex CLI docs.
     capabilities: {
       // `/spawn` subagents (default/worker/explorer), GA March 2026.
@@ -380,6 +485,12 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: https://docs.github.com/en/copilot/concepts/agents/copilot-cli/comparing-cli-features
+    invocation: {
+      mode: 'sigil',
+      label: 'GitHub Copilot',
+      invocationPrefix: '/',
+    },
     // Source: docs.github.com/en/copilot/how-tos/copilot-cli (custom agents,
     // sub-agent orchestration) + code.visualstudio.com/docs/agents/agent-types/copilot-cli.
     capabilities: {
@@ -397,6 +508,12 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+    // Source: https://antigravity.google/docs/skills
+    invocation: {
+      mode: 'name-or-browser',
+      label: 'Antigravity',
+      invocationInstruction: 'Mention the bare Skill name or select it from the Skills browser.',
+    },
     // Source: antigravity.google/docs/cli/subagents.
     capabilities: {
       // `invoke_subagent` for custom agents declaring `subagent: true`.
