@@ -6,6 +6,7 @@ import type { InitResult, TechStackResult } from '../../services/init.service.js
 // template → handlebars chain into the registration graph nor a forbidden
 // cli→lib import.
 import { isDefaultArtifactLanguage } from '../../types/config.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the InitResult for terminal output with proper styling.
@@ -31,7 +32,7 @@ export function formatInitOutput(
 
   // 1. Created files section
   for (const file of result.createdFiles) {
-    lines.push(`${pc.green('✓')} Created ${file}`);
+    lines.push(`${pc.green('✓')} Created ${sanitizeTerminal(file)}`);
   }
 
   // 2. Tech stack section (only if detected)
@@ -50,7 +51,7 @@ export function formatInitOutput(
   // 4. Selected agents summary (only if agents were selected)
   if (result.selectedAgents.length > 0) {
     lines.push(''); // Empty line separator
-    lines.push(`Selected agents: ${result.selectedAgents.join(', ')}`);
+    lines.push(`Selected agents: ${result.selectedAgents.map(sanitizeTerminal).join(', ')}`);
   }
 
   // 5. Document language (Language Policy seeded into CONSTITUTION.md). The
@@ -62,7 +63,7 @@ export function formatInitOutput(
     ? ''
     : ' for change artifacts; the trust zone (Knowledge base, specs/features, index.md, Constitution) stays English';
   lines.push(
-    `Document language: ${pc.cyan(result.artifactLanguage)}${languageScopeNote} (Language Policy added to CONSTITUTION.md)`,
+    `Document language: ${pc.cyan(sanitizeTerminal(result.artifactLanguage))}${languageScopeNote} (Language Policy added to CONSTITUTION.md)`,
   );
 
   // 6. Next steps suggestion
@@ -72,7 +73,7 @@ export function formatInitOutput(
   );
   if (!isDefaultArtifactLanguage(result.artifactLanguage)) {
     lines.push(
-      `${pc.dim('→')} After syncing, you can add ${pc.cyan(result.artifactLanguage)} trigger words via ${pc.cyan('skill_triggers')} in .prospec.yaml (agent sync will show a tip)`,
+      `${pc.dim('→')} After syncing, you can add ${pc.cyan(sanitizeTerminal(result.artifactLanguage))} trigger words via ${pc.cyan('skill_triggers')} in .prospec.yaml (agent sync will show a tip)`,
     );
   }
 
@@ -88,15 +89,15 @@ function formatTechStackLine(techStack: TechStackResult): string {
   const parts: string[] = [];
 
   if (techStack.language) {
-    parts.push(capitalizeFirst(techStack.language));
+    parts.push(capitalizeFirst(sanitizeTerminal(techStack.language)));
   }
   if (techStack.framework) {
-    parts.push(capitalizeFirst(techStack.framework));
+    parts.push(capitalizeFirst(sanitizeTerminal(techStack.framework)));
   }
   if (techStack.package_manager) {
     // Only add package manager if no framework (avoid clutter)
     if (!techStack.framework) {
-      parts.push(capitalizeFirst(techStack.package_manager));
+      parts.push(capitalizeFirst(sanitizeTerminal(techStack.package_manager)));
     }
   }
 
@@ -114,10 +115,11 @@ function formatAgentLine(agent: {
   id: string;
   detected: boolean;
 }): string {
+  const name = sanitizeTerminal(agent.name);
   if (agent.detected) {
-    return `  ${pc.green('✓')} ${agent.name} (detected)`;
+    return `  ${pc.green('✓')} ${name} (detected)`;
   } else {
-    return `  ${pc.dim('○')} ${agent.name} (not installed)`;
+    return `  ${pc.dim('○')} ${name} (not installed)`;
   }
 }
 
@@ -135,3 +137,4 @@ function capitalizeFirst(str: string): string {
   if (!str) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+

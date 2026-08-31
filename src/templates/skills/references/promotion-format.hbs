@@ -77,6 +77,14 @@ Emit a `ConstitutionRule` (RFC-2119 format): `{ severity: MUST|SHOULD|MAY, name,
 
 ---
 
+## Regression Pin Promotion to Contract Tests
+
+Review fix-loops introduce regression pins in tests. When adjudicating pins during archive / learn:
+- **Promote to Contract Test**: If the pin enforces a structural, architectural, or security invariant across a whole component family or directory (e.g. all formatters sanitize terminal output, all issue metadata sinks normalize input, all CLI commands declare flags). The promoted contract test dynamically enumerates the family (e.g. `fs.readdirSync`), asserts structural compliance, and includes mutation verification.
+- **Keep in Unit/Integration Test**: If the pin is local to a single service's specific business logic, string formatting, or transient edge case.
+
+---
+
 ## Approval Record
 
 Mandatory for team/Constitution writes: capture **source changes**, **criteria fired**, **approver**, and **date**.

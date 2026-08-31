@@ -1,5 +1,6 @@
 import * as path from 'node:path';
-import { deriveFixChangeName, sanitizeChangeSlug } from '../lib/change-metadata.js';
+import { deriveFixChangeName, normalizeIssueRef, sanitizeChangeSlug } from '../lib/change-metadata.js';
+
 import {
   isDefaultArtifactLanguage,
   readConfig,
@@ -367,8 +368,9 @@ export async function execute(options: AutoDraftOptions = {}): Promise<AutoDraft
         relatedModules: module !== undefined ? [module] : [],
         scale,
         proposalBody: proposalContent,
-        ...(options.issue !== undefined ? { issue: options.issue } : {}),
+        ...(options.issue !== undefined ? { issue: normalizeIssueRef(options.issue) } : {}),
         ...(options.dryRun ? { dryRun: true } : {}),
+
       });
     } catch (err) {
       if (err instanceof AlreadyExistsError) {

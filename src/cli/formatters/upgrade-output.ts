@@ -30,7 +30,7 @@ export function formatUpgradeOutput(
 ): void {
   // Warnings are diagnostics: always emitted, on stderr, even in quiet mode
   for (const warning of result.agentSync.warnings) {
-    process.stderr.write(`${pc.yellow('⚠')} ${warning}\n`);
+    process.stderr.write(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}\n`);
   }
 
   if (logLevel === 'quiet') return;
@@ -40,7 +40,7 @@ export function formatUpgradeOutput(
 
   // 1. Version delta + agent sync
   lines.push(
-    `${pc.green('✓')} version ${report.versionFrom} ${pc.dim('→')} ${report.versionTo}`,
+    `${pc.green('✓')} version ${sanitizeTerminal(report.versionFrom)} ${pc.dim('→')} ${sanitizeTerminal(report.versionTo)}`,
   );
   lines.push(`${pc.green('✓')} agent sync (${result.agentSync.totalFiles} files)`);
   if (result.rawScanRefreshed) {
@@ -49,7 +49,7 @@ export function formatUpgradeOutput(
 
   // Confirm any nudges the user filled in interactively this run.
   for (const resolved of result.resolvedNudges) {
-    lines.push(`${pc.green('✓')} ${resolved.field} set to ${resolved.value}`);
+    lines.push(`${pc.green('✓')} ${sanitizeTerminal(resolved.field)} set to ${sanitizeTerminal(resolved.value)}`);
   }
 
   // 2. Upgrade report — what /prospec-upgrade should act on (with confirmation).
@@ -61,11 +61,11 @@ export function formatUpgradeOutput(
   lines.push('');
   lines.push(pc.bold('Upgrade report:'));
   for (const nudge of report.nudges) {
-    lines.push(`${pc.yellow('•')} ${nudge.message}`);
+    lines.push(`${pc.yellow('•')} ${sanitizeTerminal(nudge.message)}`);
   }
   if (report.missingTriggers.length > 0) {
     lines.push(
-      `${pc.yellow('•')} skills missing triggers: ${report.missingTriggers.join(', ')}`,
+      `${pc.yellow('•')} skills missing triggers: ${report.missingTriggers.map(sanitizeTerminal).join(', ')}`,
     );
   } else if (report.nudges.length === 0) {
     lines.push(`${pc.dim('•')} skill triggers up to date`);
@@ -75,13 +75,13 @@ export function formatUpgradeOutput(
   // (the rule body is built in lib/constitution-rules, not in the .hbs).
   if (report.staleLanguagePolicy) {
     lines.push(
-      `${pc.yellow('•')} stale Language Policy wording: the seeded rule still claims the AI Knowledge base follows the artifact language, which contradicts the entry config — ${result.nextStep} will show a diff and ask before rewriting that section`,
+      `${pc.yellow('•')} stale Language Policy wording: the seeded rule still claims the AI Knowledge base follows the artifact language, which contradicts the entry config — ${sanitizeTerminal(result.nextStep)} will show a diff and ask before rewriting that section`,
     );
     const rule = report.currentLanguagePolicy;
     if (rule) {
       lines.push('');
       lines.push(pc.bold('Current Language Policy rule:'));
-      lines.push(`### [${rule.severity}] ${rule.name}`);
+      lines.push(`### [${rule.severity}] ${sanitizeTerminal(rule.name)}`);
       lines.push('');
       lines.push(`**Description**: ${sanitizeTerminal(rule.description)}`);
       lines.push('');
@@ -100,7 +100,7 @@ export function formatUpgradeOutput(
   lines.push('');
   lines.push(pc.bold('Docs inventory:'));
   for (const doc of report.docs) {
-    const suffix = `(template: ${doc.template})`;
+    const suffix = `(template: ${sanitizeTerminal(doc.template)})`;
     const canonicalMarker = doc.canonical ? `${pc.magenta('[canonical]')} ` : '';
     lines.push(
       doc.present
@@ -118,21 +118,22 @@ export function formatUpgradeOutput(
   const missingCount = report.docs.filter((d) => !d.present).length;
   if (missingCount > 0) {
     lines.push(
-      `${pc.yellow('•')} ${missingCount} doc(s) still missing — ${result.nextStep} will offer to create them`,
+      `${pc.yellow('•')} ${missingCount} doc(s) still missing — ${sanitizeTerminal(result.nextStep)} will offer to create them`,
     );
   }
 
   // 4. Agent-sync hints
   for (const hint of result.agentSync.hints) {
     lines.push('');
-    lines.push(`${pc.cyan('ℹ')} ${hint}`);
+    lines.push(`${pc.cyan('ℹ')} ${sanitizeTerminal(hint)}`);
   }
 
   // 5. Next step — the AI-agent hand-off (consent-gated doc review needs an LLM)
   lines.push('');
   lines.push(
-    `${pc.dim('→')} .prospec.yaml upgraded, agents synced, and any missing init docs created. In your AI agent, run ${pc.cyan(`\`${result.nextStep}\``)} to review init-created doc formats (with your confirmation), enrich created docs, and localize any new-skill triggers.`,
+    `${pc.dim('→')} .prospec.yaml upgraded, agents synced, and any missing init docs created. In your AI agent, run ${pc.cyan(`\`${sanitizeTerminal(result.nextStep)}\``)} to review init-created doc formats (with your confirmation), enrich created docs, and localize any new-skill triggers.`,
   );
 
   process.stdout.write(lines.join('\n') + '\n');
+
 }

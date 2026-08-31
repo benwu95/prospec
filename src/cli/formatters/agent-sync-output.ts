@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { AgentSyncFullResult } from '../../services/agent-sync.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the AgentSyncFullResult for terminal output with tree-style layout.
@@ -19,7 +20,7 @@ export function formatAgentSyncOutput(
 ): void {
   // Warnings are diagnostics: always emitted, on stderr, even in quiet mode
   for (const warning of result.warnings) {
-    process.stderr.write(`${pc.yellow('⚠')} ${warning}\n`);
+    process.stderr.write(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}\n`);
   }
 
   if (logLevel === 'quiet') return;
@@ -39,11 +40,11 @@ export function formatAgentSyncOutput(
     const childPrefix = isLast ? '    ' : '│   ';
 
     lines.push('');
-    lines.push(`${prefix}${pc.cyan(agent.agent)}`);
+    lines.push(`${prefix}${pc.cyan(sanitizeTerminal(agent.agent))}`);
 
     // Config file
     lines.push(
-      `${childPrefix}${pc.green('✓')} ${agent.configFile}`,
+      `${childPrefix}${pc.green('✓')} ${sanitizeTerminal(agent.configFile)}`,
     );
 
     // Skill files
@@ -51,12 +52,12 @@ export function formatAgentSyncOutput(
       // Verbose: show all individual files
       for (const skillFile of agent.skillFiles) {
         lines.push(
-          `${childPrefix}${pc.green('✓')} ${skillFile}`,
+          `${childPrefix}${pc.green('✓')} ${sanitizeTerminal(skillFile)}`,
         );
       }
       for (const refFile of agent.referenceFiles) {
         lines.push(
-          `${childPrefix}${pc.green('✓')} ${pc.dim(refFile)}`,
+          `${childPrefix}${pc.green('✓')} ${pc.dim(sanitizeTerminal(refFile))}`,
         );
       }
     } else {
@@ -76,7 +77,7 @@ export function formatAgentSyncOutput(
     // Orphan skill dirs swept (renamed/removed shipped skills)
     if (agent.removedSkills.length > 0) {
       lines.push(
-        `${childPrefix}${pc.yellow('−')} removed ${agent.removedSkills.length} orphan skill(s): ${agent.removedSkills.join(', ')}`,
+        `${childPrefix}${pc.yellow('−')} removed ${agent.removedSkills.length} orphan skill(s): ${agent.removedSkills.map(sanitizeTerminal).join(', ')}`,
       );
     }
   }
@@ -84,7 +85,7 @@ export function formatAgentSyncOutput(
   // 3. Hints (next-step suggestions)
   for (const hint of result.hints) {
     lines.push('');
-    lines.push(`${pc.cyan('ℹ')} ${hint}`);
+    lines.push(`${pc.cyan('ℹ')} ${sanitizeTerminal(hint)}`);
   }
 
   // 4. Next steps
@@ -95,3 +96,4 @@ export function formatAgentSyncOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
+

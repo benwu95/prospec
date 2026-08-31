@@ -82,6 +82,7 @@ The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule fro
 **lessons ledger → team `prospec/ai-knowledge/_playbook.md` → Constitution**, gated stricter at each step. Routing by the lesson's **kind** (see `references/promotion-format.md`):
 - **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (RFC-2119 severity form) that `/prospec-verify` grades.
 - **convention** / **playbook** → `prospec/ai-knowledge/_playbook.md` — the single governed team tier (L2 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is an L1 Core Convention read on every task and not TTL-governed).
+- **contract test promotion** (generalizable invariant pin) → propose promoting review fix-loop regression pins that enforce structural, sanitization, or boundary invariants across an entire component family into permanent directory-enumerated contract tests in `tests/contract/`.
 
 - A suggestion is **never written** to `_playbook.md` or the Constitution without **explicit human approval**. Present the score detail, ask, and only on approval write the entry.
 - Every written entry is **version controlled** and records `source change(s)`, the `promotion criteria` that fired, the `kind`, and the `approver`.

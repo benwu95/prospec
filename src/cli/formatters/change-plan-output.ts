@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangePlanResult } from '../../services/change-plan.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the ChangePlanResult for terminal output.
@@ -21,7 +22,7 @@ export function formatChangePlanOutput(
 
   // 1. Created files
   for (const file of result.createdFiles) {
-    lines.push(`${pc.green('✓')} Created ${file}`);
+    lines.push(`${pc.green('✓')} Created ${sanitizeTerminal(file)}`);
   }
 
   // 2. Status update
@@ -32,17 +33,17 @@ export function formatChangePlanOutput(
     lines.push('');
     lines.push('Related modules:');
     for (const mod of result.relatedModules) {
-      lines.push(`  ${pc.green('●')} ${mod}`);
+      lines.push(`  ${pc.green('●')} ${sanitizeTerminal(mod)}`);
     }
   }
 
   // 4. Next steps
   lines.push('');
   lines.push(
-    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${result.changeName}/plan.md\``)} to fill in the implementation plan`,
+    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${sanitizeTerminal(result.changeName)}/plan.md\``)} to fill in the implementation plan`,
   );
   lines.push(
-    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${result.changeName}/delta-spec.md\``)} to define requirement changes`,
+    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${sanitizeTerminal(result.changeName)}/delta-spec.md\``)} to define requirement changes`,
   );
   lines.push(
     `${pc.dim('→')} Then run ${pc.cyan('`prospec change tasks`')} to generate the task list`,
@@ -50,3 +51,4 @@ export function formatChangePlanOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
+

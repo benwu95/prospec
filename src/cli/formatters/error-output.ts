@@ -50,9 +50,10 @@ export function formatGenericError(
       process.stderr.write(`\n${stackLines}\n`);
     }
   } else {
-    process.stderr.write(`\n  ${pc.dim(String(error))}\n`);
+    process.stderr.write(`\n  ${pc.dim(sanitizeTerminal(String(error)))}\n`);
   }
 }
+
 
 /**
  * Unified error handler — dispatches to the appropriate formatter.

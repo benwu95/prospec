@@ -138,6 +138,7 @@ For README-PENDING modules (the CLI's judgment worklist):
 - Update Key Files table, Public API list, dependency info
 - **Refresh Modification Guide** — if implementation patterns changed, update guidance
 - **Refresh Ripple Effects** — if new dependencies were added, update impact list
+- **Pair universal conventions with executors** — when adding or editing a universal prose convention in a module README (e.g. "EVERY X must Y" or "all sinks must call Z"), ensure an executor test exists in `tests/contract/` (or the project's contract suite) to mechanically enforce it; a checker with no executor is not a gate.
 - **Maintain sub-modules** — if the module already has `## Sub-Modules` links, update the affected `{sub-module}.md` (and the link's one-liner) instead of cramming the detail back into the README. If the change pushes the README over budget and a content-rich, independent sub-area now exists, extract a new sub-module (`{module}/{sub-module}.md`) and add it to `## Sub-Modules` — do NOT add it to `prospec/index.md`.
 
 #### 3b: Module README.md (REMOVED)

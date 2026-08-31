@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { KnowledgeInitResult } from '../../services/knowledge-init.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the KnowledgeInitResult for terminal output.
@@ -23,7 +24,7 @@ export function formatKnowledgeInitOutput(
     lines.push('');
     lines.push('Entry points:');
     for (const ep of result.entryPoints) {
-      lines.push(`  ${pc.cyan(ep)}`);
+      lines.push(`  ${pc.cyan(sanitizeTerminal(ep))}`);
     }
   }
 
@@ -32,8 +33,8 @@ export function formatKnowledgeInitOutput(
     lines.push('');
     lines.push(`Dependencies: ${pc.yellow(result.dependencies.length.toString())}`);
     for (const dep of result.dependencies.slice(0, 20)) {
-      const ver = dep.version ? pc.dim(` @ ${dep.version}`) : '';
-      lines.push(`  ${dep.name}${ver}`);
+      const ver = dep.version ? pc.dim(` @ ${sanitizeTerminal(dep.version)}`) : '';
+      lines.push(`  ${sanitizeTerminal(dep.name)}${ver}`);
     }
     if (result.dependencies.length > 20) {
       lines.push(`  ${pc.dim(`... and ${result.dependencies.length - 20} more`)}`);
@@ -47,7 +48,7 @@ export function formatKnowledgeInitOutput(
   if (!result.dryRun && result.outputFiles.length > 0) {
     lines.push('');
     for (const file of result.outputFiles) {
-      lines.push(`${pc.green('✓')} Created ${file}`);
+      lines.push(`${pc.green('✓')} Created ${sanitizeTerminal(file)}`);
     }
   }
 
@@ -74,3 +75,4 @@ export function formatKnowledgeInitOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
+
