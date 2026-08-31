@@ -111,11 +111,6 @@ describe('content reads (null = not found)', () => {
     expect(readIndex(path.join(tmpDir, 'docs'))).toBeNull();
   });
 
-  it('does not fall back to a legacy ai-knowledge/_index.md (un-migrated project reads as not-found)', () => {
-    write('knowledge/_index.md', '# Legacy Index\n');
-    expect(readIndex(tmpDir)).toBeNull();
-  });
-
   it('reads a module README and refuses traversal names', () => {
     write('knowledge/modules/lib/README.md', '# lib\n');
     write('secret.md', 'secret\n');

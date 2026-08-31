@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `init.service.ts` / `upgrade.service.ts` | Scaffold config + Constitution + AI Knowledge (per-file skip-if-exists, `.prospec.yaml` last); upgrade records `version`, re-syncs, back-fills missing init docs (never overwrite) + migration report (stale-Language-Policy, canonical docs marker) |
+| `init.service.ts` / `upgrade.service.ts` | Scaffold config + Constitution + AI Knowledge (per-file skip-if-exists, `.prospec.yaml` last); upgrade records `version`, re-syncs, back-fills missing init docs (never overwrite) + refresh report (stale Language Policy, canonical docs marker) |
 | `cascade.service.ts` | `evaluateCascadeTransition` (autonomous pipeline cascading transitions per scale & verifiers), `generateTastemakerSummary`, `formatTastemakerPresentation` (Tastemaker presentation gate) |
 | `archive.service.ts` | Archive + spec-sync (Feature Spec / product.md / `feature-map.yaml`) — writer contracts in the Spec Sync sub-module; `syncToFeatureSpecs` takes the change name as a REQUIRED arg (both Change History writers name it through `escapeTableCell`); `dryRun` short-circuits every write and returns `planned` |
 | `agent-sync.service.ts` | Sync skills + `getSkillReferences` refs + entry configs; triggers; sweep orphans; merge user blocks; per-group capability/render-flag merges and complete `invocation_guidance` from every shared-output member (never one member's host syntax) |

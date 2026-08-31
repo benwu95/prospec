@@ -44,7 +44,6 @@ export interface FilteredConventions {
 
 /**
  * Filters a list of convention file paths into core and load-on-demand arrays.
- * Always excludes `_index.md` (for backward compatibility).
  * 
  * @param files - Array of file paths (e.g. from a glob scan)
  * @returns Filtered core and demand file paths
@@ -59,7 +58,6 @@ export function filterConventions(
 
   for (const file of files) {
     const basename = path.basename(file);
-    if (basename === '_index.md') continue; // filter old index.md from previous versions
 
     if (coreSet.has(basename)) {
       core.push(file);

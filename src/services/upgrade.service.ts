@@ -157,8 +157,7 @@ export interface UpgradeResult {
  * 7. Build a report (version delta, skills missing triggers, remaining nudges,
  *    docs inventory + the docs just created) for the `prospec-upgrade` skill,
  *    which handles the consent-gated work the CLI cannot: ENRICHING a created doc
- *    (e.g. index.md's real module table / a legacy _index.md migration) and
- *    migrating an existing doc's FORMAT.
+ *    (e.g. index.md's real module table) and migrating an existing doc's FORMAT.
  *
  * It only ever CREATES a missing registry doc (CONSTITUTION, index, README, the
  * convention docs); it never overwrites or reformats an existing one — that needs

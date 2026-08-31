@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4606%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4605%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1063,7 +1063,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4606 個；4 個略過）
+# 執行所有測試（共 4605 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1076,8 +1076,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4606 個測試（4602 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3282 tests
+**測試覆蓋率**：共 4605 個測試（4601 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3281 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1148 tests
 - Integration tests：45 tests
 - E2E tests：131 tests

@@ -4652,28 +4652,24 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-084, REQ-TEMP
   });
 });
 
-// Hierarchical-index migration path (REQ-KNOW-034): `prospec upgrade` back-fills a
-// BASELINE root <base_dir>/index.md, but the consent-gated upgrade skill is the ONLY
-// mechanism that migrates a legacy <kb>/_index.md's curated content into it — pin
-// that instruction's existence and its data-loss guard.
-describe('prospec-upgrade: legacy index migration step', () => {
-  it('carries the index enrichment/migration instruction targeting the root index.md', () => {
+// Root index enrichment remains current behavior, but the pre-hierarchical-index
+// migration path is retired. Pin the supported surface and the absence of the old
+// path inside Step 2 rather than relying on a whole-template substring.
+describe('prospec-upgrade: root index enrichment only', () => {
+  it('enriches the root index without carrying a legacy migration branch', () => {
     const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
-    expect(content).toContain('**Index enrichment / migration**');
-    expect(content).toContain('_index.md');
-    expect(content).toContain('/index.md');
+    const step2 = sectionOf(content, '### Step 2');
+    expect(step2).toContain('**Index enrichment**');
+    expect(step2).toContain('/index.md');
+    expect(step2).not.toContain('_index.md');
+    expect(step2).not.toMatch(/legacy.*index|index.*migration/is);
   });
 
-  it('instructs copying curated table rows verbatim; `prospec knowledge update` is now safe (no-clobber backfill, issue #107)', () => {
-    const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
-    // the curated Keywords/Aliases/Rationale/Depends On cells exist nowhere else
-    expect(content).toContain(
-      'copy both the Core/Demand Conventions lists and the\n   curated `Modules` table rows verbatim'
-    );
-    // the rebuild prohibition flipped: knowledge update backfills curated columns no-clobber
-    expect(content).toMatch(/A later\s+`prospec knowledge update` run is safe/);
-    expect(content).toContain('no-clobber');
-    expect(content).not.toMatch(/Do NOT run\s+`prospec knowledge update`/);
+  it('lets knowledge generation scan every markdown convention without a retired-name exclusion', () => {
+    const content = renderTemplate('skills/prospec-knowledge-generate.hbs', TEMPLATE_CONTEXT);
+    const step5 = sectionOf(content, '### Step 5');
+    expect(step5).toContain('Scan the `prospec/ai-knowledge/` directory for `_*.md` files.');
+    expect(step5).not.toContain('excluding `_index.md`');
   });
 });
 
@@ -4703,8 +4699,8 @@ describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
 
   it('Step 2 carries NO hardcoded convention-doc scan list (negative — the #48 root cause)', () => {
     const step2 = sectionOf(render(), '### Step 2');
-    // The Index Migration pair (`_index.md` → root `index.md`) is the only
-    // per-file path allowed to remain; every convention-doc name must be gone.
+    // Every convention-doc name must be absent; Step 2 has no per-file migration exception.
+    expect(step2).not.toContain('_index.md');
     expect(step2).not.toContain('_status-lifecycle.md');
     expect(step2).not.toContain('_module-readme-conventions.md');
     expect(step2).not.toContain('_diagram-conventions.md');
