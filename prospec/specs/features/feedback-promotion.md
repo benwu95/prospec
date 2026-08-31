@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-28
+last_updated: 2026-08-31
 story_count: 5
-req_count: 20
+req_count: 22
 ---
 
 # Feedback Promotion Pipeline
@@ -23,6 +23,22 @@ req_count: 20
 - [US-1–US-2](./feedback-promotion/us-1.md)
 - [US-3–US-4](./feedback-promotion/us-3.md)
 - [US-5](./feedback-promotion/us-5.md)
+
+---
+
+
+#### REQ-TEMPLATES-223: Regression Pin Contract Test Promotion Pipeline
+`prospec-archive.hbs`, `prospec-learn.hbs`, and `promotion-format.hbs` define the standing promotion pipeline from review regression pins to contract tests.
+- WHEN archive or learn processes review regression pins, THEN judgment evaluates whether the pin enforces a generalizable invariant
+- WHEN an invariant is deemed generalizable, THEN it is proposed for promotion to a directory-enumerated contract test
+
+---
+
+
+#### REQ-TESTS-106: Template Assertions for Universal Claims and Promotion Pipeline
+`tests/contract/skill-format.test.ts` asserts that skill templates and references carry universal claim executor and regression pin promotion pipeline prose.
+- WHEN `skill-format.test.ts` runs, THEN it asserts the presence of the executor requirement and regression pin promotion pipeline in template sources
+- WHEN any of these clauses is removed from templates, THEN the test fails (mutation-verified)
 
 ---
 
@@ -55,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-08-31 | give-prose-conventions-executors | ADDED REQ-TEMPLATES-223; ADDED REQ-TESTS-106 | REQ-TEMPLATES-223, REQ-TESTS-106 |
 | 2026-08-28 | fix-disclosed-cleanups | MODIFIED REQ-CLI-044 | REQ-CLI-044 |
 | 2026-08-28 | add-lens-yield-statistics | ADDED REQ-TYPES-090; ADDED REQ-LIB-065; ADDED REQ-SERVICES-099; ADDED REQ-CLI-044; ADDED REQ-TEMPLATES-204; ADDED REQ-TESTS-100 | REQ-TYPES-090, REQ-LIB-065, REQ-SERVICES-099, REQ-CLI-044, REQ-TEMPLATES-204, REQ-TESTS-100 |
 | 2026-08-20 | make-templates-project-agnostic | MODIFIED REQ-TEMPLATES-198 | REQ-TEMPLATES-198 |
