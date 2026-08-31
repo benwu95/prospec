@@ -140,21 +140,14 @@ describe('upgrade.service', () => {
     expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(true);
   });
 
-  it('back-fills a baseline root index.md but never migrates or deletes a legacy _index.md', async () => {
-    // A project scaffolded before the hierarchical-index migration: the index
-    // still lives at <kb>/_index.md and no <base_dir>/index.md exists. The CLI
-    // creates a BASELINE index.md; enriching it with the real module table and
-    // migrating the legacy _index.md's curated columns is the skill's job.
+  it('back-fills a baseline root index.md when it is missing', async () => {
     seedProject({ version: '0.1.0' });
     fs.rmSync('/project/prospec/index.md');
-    fs.writeFileSync(`${KB}/_index.md`, '# LEGACY curated index\n');
 
     const { report } = await execute({ cwd: '/project' });
 
     expect(fs.existsSync('/project/prospec/index.md')).toBe(true);
     expect(report.createdDocs).toContain('prospec/index.md');
-    // the legacy _index.md is left byte-identical — the CLI never migrates/deletes it
-    expect(fs.readFileSync(`${KB}/_index.md`, 'utf-8')).toBe('# LEGACY curated index\n');
   });
 
   it('back-fills every missing registry doc (multiple) and lists them in createdDocs', async () => {

@@ -284,17 +284,16 @@ describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
     expect(demand).toEqual(['_playbook.md']);
   });
 
-  it('always drops the legacy _index.md from both lists (pre-migration back-compat)', () => {
+  it('classifies _index.md like any other non-core convention', () => {
     const { core, demand } = filterConventions(['_index.md', '_conventions.md', '_custom.md']);
     expect(core).toEqual(['_conventions.md']);
-    expect(demand).toEqual(['_custom.md']);
-    expect([...core, ...demand]).not.toContain('_index.md');
+    expect(demand).toEqual(['_index.md', '_custom.md']);
   });
 
   it('matches on basename, so scan paths with directories still split correctly', () => {
     const { core, demand } = filterConventions(['docs/kb/_glossary.md', 'docs/kb/_index.md', 'docs/kb/_notes.md']);
     expect(core).toEqual(['docs/kb/_glossary.md']);
-    expect(demand).toEqual(['docs/kb/_notes.md']);
+    expect(demand).toEqual(['docs/kb/_index.md', 'docs/kb/_notes.md']);
   });
 
   it('additionalCore promotes a demand convention into core (knowledge.additional_core_conventions)', () => {

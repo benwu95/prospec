@@ -66,16 +66,11 @@ baseline, requires consent. Do that here:
    no `Docs inventory:` section, the installed CLI predates it (CLI/skill version mismatch) — STOP
    this step and tell the user to re-run `prospec upgrade` (which re-syncs this skill to match the
    CLI), then re-run `prospec-upgrade`.
-3. **Index enrichment / migration**: `prospec upgrade` back-fills `{{base_dir}}/index.md` as a
-   BASELINE — its module table is empty. Offer to populate that table from the current modules,
-   and if `{{knowledge_base_path}}/_index.md` exists (a project from before the hierarchical-index
-   move), migrate its curated content into that baseline: preserve any user notes in the
-   `<!-- prospec:user-start -->` block, and **copy both the Core/Demand Conventions lists and the
-   curated `Modules` table rows verbatim** into the `prospec:auto` block — the Keywords / Aliases /
-   Rationale / Depends On columns are human-curated and exist nowhere else. (A later
-   `prospec knowledge update` run is safe: it backfills the curated content columns from index.md
-   into `module-map.yaml` no-clobber before regenerating the auto block.) Delete the old
-   `{{knowledge_base_path}}/_index.md` after a successful migration.
+3. **Index enrichment**: `prospec upgrade` back-fills `{{base_dir}}/index.md` as a BASELINE — its
+   module table is empty. Offer to populate that table from the current modules, preserving any
+   user notes in the `<!-- prospec:user-start -->` block. A later `prospec knowledge update` run is
+   safe: it backfills curated content columns from index.md into `module-map.yaml` no-clobber before
+   regenerating the auto block.
 4. **Back-fill safety net** — `prospec upgrade` already created every doc it could (the report's
    `created …` line), so the inventory should show them present. For any doc the inventory **still
    marks MISSING** (its back-fill failed), offer to create it by rendering its listed template.
@@ -145,7 +140,7 @@ English or every skill already has an entry.
 
 ### Success Criteria
 - [ ] `prospec upgrade` ran and `.prospec.yaml` `version` equals the installed prospec version
-- [ ] every doc in the report's `Docs inventory:` was handled — present docs diffed against their listed template and updated only on consent, the docs `prospec upgrade` back-filled were enriched where needed (index module table / legacy `_index.md` migration) on consent, and any still-MISSING doc was offered for creation as a safety net (or templates were unavailable / the inventory section was absent, and the step was skipped with a note)
+- [ ] every doc in the report's `Docs inventory:` was handled — present docs diffed against their listed template and updated only on consent, the docs `prospec upgrade` back-filled were enriched where needed (including the index module table) on consent, and any still-MISSING doc was offered for creation as a safety net (or templates were unavailable / the inventory section was absent, and the step was skipped with a note)
 - [ ] when the report flagged `stale Language Policy wording`, a diff of that section alone was shown and it was rewritten only on consent (or declined / the report carried no `Current Language Policy rule:` block and the step was skipped with a note)
 - [ ] when the report flagged `no artifact_language set`, the user was asked which language to use and `artifact_language` was written to their choice (or they declined)
 - [ ] every skill in the report's "missing triggers" list (and all skills, when Step 3 just set a non-English language) is localized (or the user declined)

@@ -164,7 +164,7 @@ If a module's README would exceed the ≤100 line / ≤2000 token budget even af
 The `prospec:auto` block contains two auto-generated sections. Populate them within `prospec:auto-start/end` markers:
 
 1. **Conventions**:
-   - Scan the `prospec/ai-knowledge/` directory for `.md` files (excluding `_index.md`).
+   - Scan the `prospec/ai-knowledge/` directory for `_*.md` files.
    - List them under **Core Conventions (L1)** if they are built-in core files (e.g. `_conventions.md`) or defined in `.prospec.yaml`'s `additional_core_conventions`.
    - List the rest under **Load-on-Demand Conventions**.
 

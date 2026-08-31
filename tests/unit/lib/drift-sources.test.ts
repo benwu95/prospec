@@ -368,11 +368,12 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
     write('prospec/ai-knowledge/_conventions.md', 'C'.repeat(8));
     write('prospec/ai-knowledge/_house-review-rules.md', 'H'.repeat(4000)); // 1000 tokens > 900
     write('prospec/ai-knowledge/raw-scan.md', 'R'.repeat(4000)); // not `_*.md` — a scan artifact
-    write('prospec/ai-knowledge/_index.md', 'I'.repeat(4000)); // legacy index, excluded by contract
+    write('prospec/ai-knowledge/_index.md', 'I'.repeat(4000)); // non-core convention, measured dynamically
 
     const src = collect();
     expect(pathsOf(src, 'demand-knowledge')).toEqual([
       'prospec/ai-knowledge/_house-review-rules.md',
+      'prospec/ai-knowledge/_index.md',
     ]);
   });
 
