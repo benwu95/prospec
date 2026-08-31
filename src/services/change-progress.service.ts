@@ -88,7 +88,7 @@ export async function execute(options: ChangeProgressOptions): Promise<ChangePro
       `tasks.md not found for change '${changeName}'`,
       forbiddenArtifacts(scale).includes('tasks.md')
         ? `\`scale: ${scale}\` has no task list by contract — there is no progress to report`
-        : 'Run `prospec change tasks` (or /prospec-tasks) first to create the task list',
+        : 'Run `prospec change tasks` (or prospec-tasks) first to create the task list',
     );
   }
 

@@ -287,7 +287,7 @@ describe('evaluateKnowledgeSize (REQ-LIB-027)', () => {
     ]));
     const detailOf = (p: string): string => r.findings.find((f) => f.source_path === p)!.detail;
     expect(detailOf('prospec/specs/features/big.md')).toContain('slices');
-    expect(detailOf('prospec/ai-knowledge/_lessons-ledger.md')).toContain('/prospec-learn');
+    expect(detailOf('prospec/ai-knowledge/_lessons-ledger.md')).toContain('prospec-learn');
     expect(detailOf('.claude/skills/prospec-verify/SKILL.md')).toContain('on-demand reference');
   });
 });

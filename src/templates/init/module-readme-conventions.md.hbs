@@ -2,7 +2,7 @@
 
 > How to structure an AI Knowledge module README (`modules/{module}/README.md`).
 > Sibling of [`_diagram-conventions.md`](_diagram-conventions.md): that file governs diagrams *inside* knowledge docs, this one governs module README *structure*.
-> **Read this before authoring or regenerating a module README** — it is the canonical template that `/prospec-knowledge-generate` and `/prospec-knowledge-update` produce against. If this file and a skill's inlined template ever diverge, this file wins.
+> **Read this before authoring or regenerating a module README** — it is the canonical template that `prospec-knowledge-generate` and `prospec-knowledge-update` produce against. If this file and a skill's inlined template ever diverge, this file wins.
 
 ---
 
@@ -22,7 +22,7 @@ Every module README is split by HTML-comment markers into a generated block and 
 <!-- prospec:user-end -->
 ```
 
-- **`prospec:auto-start` … `prospec:auto-end`** delimits the block `/prospec-knowledge-generate` and `/prospec-knowledge-update` own and may rewrite. Do NOT hand-edit it expecting edits to survive regeneration — durable hand-written notes go in the user block.
+- **`prospec:auto-start` … `prospec:auto-end`** delimits the block `prospec-knowledge-generate` and `prospec-knowledge-update` own and may rewrite. Do NOT hand-edit it expecting edits to survive regeneration — durable hand-written notes go in the user block.
 - **`prospec:user-start` … `prospec:user-end`** is never overwritten by the skills. Use it for a `## Developer Notes` section or anything the generator cannot derive from the code. It may be empty.
 - The title and the one-line `>` summary sit **above** `prospec:auto-start`.
 

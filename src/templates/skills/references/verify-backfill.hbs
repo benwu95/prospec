@@ -1,6 +1,6 @@
 # Backfill Verification Reference (`scale: backfill`)
 
-This document defines the specialized verification rules and quality criteria used by `/prospec-verify` when verifying brownfield reverse-extracted specs (`metadata.scale: backfill`).
+This document defines the specialized verification rules and quality criteria used by `prospec-verify` when verifying brownfield reverse-extracted specs (`metadata.scale: backfill`).
 
 ---
 
@@ -22,7 +22,7 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 ## 2. Planning Artifacts & Review Exemption
 
 - **Planning Artifacts**: Only `proposal.md` and `delta-spec.md` are required. `plan.md` and `tasks.md` are omitted by contract (backfill records existing code; forward planning is hollow make-work).
-- **Implementation Status**: `metadata.status: implemented` (stamped by `/prospec-promote-backfill`) satisfies the implementation gate.
+- **Implementation Status**: `metadata.status: implemented` (stamped by `prospec-promote-backfill`) satisfies the implementation gate.
 - **Review Provenance**: `review-provenance` skips proven backfill changes; code review is optional.
 
 ---
@@ -53,7 +53,7 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 
 ## 4. Post-Verify Commit & Knowledge Sync
 
-- **Knowledge Sync**: Do **not** run REQ-prefix-driven `/prospec-knowledge-update` (feature-slug REQ IDs like `REQ-AUTH-FLOW-001` would mint phantom modules). Sync only the module READMEs named in `metadata.related_modules` (by description) and stamp freshness via `prospec knowledge verify <modules...>`.
+- **Knowledge Sync**: Do **not** run REQ-prefix-driven `prospec-knowledge-update` (feature-slug REQ IDs like `REQ-AUTH-FLOW-001` would mint phantom modules). Sync only the module READMEs named in `metadata.related_modules` (by description) and stamp freshness via `prospec knowledge verify <modules...>`.
 - **Grade S/A Meaning**: S/A grade certifies that the spec is **100% faithful to the existing code**.
 
 ---

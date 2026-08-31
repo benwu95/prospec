@@ -312,7 +312,7 @@ describe('formatAgentSyncOutput', () => {
         'normal',
       );
       const stdout = s.stdout();
-      expect(stdout).toContain('/prospec-explore');
+      expect(stdout).toContain('prospec-explore');
       expect(stdout).toContain('AI agent configurations are ready');
       expect(stdout.endsWith('\n')).toBe(true);
     });

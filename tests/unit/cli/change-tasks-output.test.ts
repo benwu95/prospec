@@ -101,7 +101,7 @@ describe('formatChangeTasksOutput', () => {
     formatChangeTasksOutput(makeResult({ changeName: 'fix-bug-42' }));
     const out = write.mock.calls.flat().join('');
     expect(out).toContain('.prospec/changes/fix-bug-42/tasks.md');
-    expect(out).toContain('/prospec-implement');
+    expect(out).toContain('prospec-implement');
   });
 
   it('terminates the written payload with a trailing newline', () => {

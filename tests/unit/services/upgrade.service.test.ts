@@ -108,7 +108,7 @@ describe('upgrade.service', () => {
     // raw-scan.md is refreshed to the new version's scanner (like agent sync).
     expect(generateRawScan).toHaveBeenCalledWith({ cwd: '/project' });
     expect(result.rawScanRefreshed).toBe(true);
-    expect(result.nextStep).toBe('/prospec-upgrade');
+    expect(result.nextStep).toBe('prospec-upgrade');
   });
 
   it('a raw-scan refresh failure is non-fatal — the version bump + agent sync still stand', async () => {

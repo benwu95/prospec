@@ -60,7 +60,7 @@ describe('prospec upgrade E2E', () => {
     expect(stdout).toContain('raw-scan refreshed');
 
     expect(stdout).toContain('Upgrade report');
-    expect(stdout).toContain('/prospec-upgrade');
+    expect(stdout).toContain('prospec-upgrade');
     // `init` wrote artifact_language: English, so this deliberate choice must NOT
     // be nagged — it reports triggers up to date, never the unset-language nudge.
     expect(stdout).toContain('skill triggers up to date');
@@ -106,7 +106,7 @@ describe('prospec upgrade E2E', () => {
     const { stdout, exitCode } = await runCli(['upgrade', '--no-interactive']);
     expect(exitCode).toBe(0);
     expect(stdout).toContain('no artifact_language set');
-    expect(stdout).toContain('/prospec-upgrade');
+    expect(stdout).toContain('prospec-upgrade');
     // The misleading "up to date" line must not appear for an unset language.
     expect(stdout).not.toContain('skill triggers up to date');
 

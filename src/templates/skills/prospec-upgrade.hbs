@@ -65,7 +65,7 @@ baseline, requires consent. Do that here:
    do not keep, reconstruct, or fall back to a file list written into this skill. If the report has
    no `Docs inventory:` section, the installed CLI predates it (CLI/skill version mismatch) — STOP
    this step and tell the user to re-run `prospec upgrade` (which re-syncs this skill to match the
-   CLI), then re-run `/prospec-upgrade`.
+   CLI), then re-run `prospec-upgrade`.
 3. **Index enrichment / migration**: `prospec upgrade` back-fills `{{base_dir}}/index.md` as a
    BASELINE — its module table is empty. Offer to populate that table from the current modules,
    and if `{{knowledge_base_path}}/_index.md` exists (a project from before the hierarchical-index

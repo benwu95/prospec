@@ -62,7 +62,7 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
   if (forbidden.includes('tasks.md')) {
     throw new PrerequisiteError(
       `tasks.md must not exist under \`scale: ${meta?.metadata.scale}\` — it records existing code, so there is no work to schedule`,
-      'Formalize the change with `/prospec-promote-backfill`, which enters the lifecycle at `implemented`',
+      'Formalize the change with `prospec-promote-backfill`, which enters the lifecycle at `implemented`',
     );
   }
 

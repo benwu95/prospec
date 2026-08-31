@@ -16,9 +16,9 @@ import { sanitizeTerminal } from './sanitize.js';
  * 4. Docs inventory (post-creation) — one fixed-format line per init-created doc
  *    (present ✓ / MISSING ✗, with its source template), then any docs this run
  *    back-filled and any still MISSING (back-fill failed)
- * 5. Agent-sync hints, then the next step (/prospec-upgrade)
+ * 5. Agent-sync hints, then the next step (prospec-upgrade)
  *
- * The report is plain stdout text so the /prospec-upgrade skill can read it back
+ * The report is plain stdout text so the prospec-upgrade skill can read it back
  * after shelling out to `prospec upgrade`.
  *
  * @param result - The upgrade orchestrator result
@@ -52,7 +52,7 @@ export function formatUpgradeOutput(
     lines.push(`${pc.green('✓')} ${sanitizeTerminal(resolved.field)} set to ${sanitizeTerminal(resolved.value)}`);
   }
 
-  // 2. Upgrade report — what /prospec-upgrade should act on (with confirmation).
+  // 2. Upgrade report — what prospec-upgrade should act on (with confirmation).
   //    Print each config-field nudge, then missing triggers; fall back to
   //    "up to date" only when there is nothing to act on. (Today the
   //    artifact_language nudge and missing triggers are mutually exclusive — an
@@ -94,7 +94,7 @@ export function formatUpgradeOutput(
   }
 
   // 3. Docs inventory (post-creation) — every init-created doc's present/missing
-  //    status. Fixed, parse-friendly lines: the /prospec-upgrade skill uses this
+  //    status. Fixed, parse-friendly lines: the prospec-upgrade skill uses this
   //    as its authoritative scan scope (diff present docs, enrich created ones),
   //    so path + template must both appear on the line.
   lines.push('');

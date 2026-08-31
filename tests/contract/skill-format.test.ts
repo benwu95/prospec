@@ -72,6 +72,16 @@ const TEMPLATE_CONTEXT = {
   can_spawn_subagent: true,
   can_worktree: true,
   can_background: true,
+  invocation_guidance: [
+    { agent: 'claude', label: 'Claude Code', invocationPrefix: '/' },
+    { agent: 'codex', label: 'Codex', invocationPrefix: '$' },
+    { agent: 'copilot', label: 'GitHub Copilot', invocationPrefix: '/' },
+    {
+      agent: 'antigravity',
+      label: 'Antigravity',
+      invocationInstruction: 'Mention the bare Skill name or select it from the Skills browser.',
+    },
+  ],
   trigger_words: 'test-trigger-alpha, test-trigger-beta',
   skills: SKILL_DEFINITIONS.map((s) => ({
     name: s.name,
@@ -1813,7 +1823,7 @@ describe('Skill Format Contract', () => {
         TEMPLATE_CONTEXT,
       );
       // part b: prevention moved to the verify S/A commit prompt; Entry Gate demoted to backstop
-      expect(content).toContain('prevention point is the `/prospec-verify` S/A commit prompt');
+      expect(content).toContain('prevention point is the `prospec-verify` S/A commit prompt');
       expect(content).toContain('backstop');
       // the absolute single-checkpoint claim is gone
       expect(content).not.toContain('single mandatory knowledge-sync checkpoint');
@@ -1946,6 +1956,86 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Agent config skill registry (per-agent frontmatter split)', () => {
+    const invocationSection = (surfacesSkillFrontmatter: boolean) =>
+      sectionOf(
+        renderTemplate('agent-configs/entry.md.hbs', {
+          ...TEMPLATE_CONTEXT,
+          skill_path: '.agents/skills',
+          surfaces_skill_frontmatter: surfacesSkillFrontmatter,
+        }),
+        '## Invoking a Prospec Skill',
+      );
+
+    it('renders the host-labelled invocation matrix from guidance in both registry branches (REQ-TEMPLATES-222)', () => {
+      for (const surfacesSkillFrontmatter of [true, false]) {
+        const section = invocationSection(surfacesSkillFrontmatter);
+        expect(section).toContain('`prospec-<name>`');
+        expect(section).toContain('| Claude Code | `/prospec-<name>` |');
+        expect(section).toContain('| Codex | `$prospec-<name>` |');
+        expect(section).toContain('| GitHub Copilot | `/prospec-<name>` |');
+        expect(section).toContain(
+          '| Antigravity | Mention the bare Skill name or select it from the Skills browser. `prospec-<name>` |',
+        );
+      }
+    });
+
+    it('keeps sigils out of every bundled template except the labelled entry matrix (REQ-TEMPLATES-222)', () => {
+      const unclassified = Object.entries(BUNDLED_TEMPLATES).flatMap(([name, content]) =>
+        name === 'agent-configs/entry.md.hbs' || !/(?<![A-Za-z0-9_.-])[/$]prospec-[a-z-]+/.test(content)
+          ? []
+          : [name],
+      );
+
+      expect(unclassified).toEqual([]);
+    });
+
+    it('keeps implicit discovery separate from explicit host invocation (REQ-TEMPLATES-222)', () => {
+      const full = renderTemplate('agent-configs/entry.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.agents/skills',
+        surfaces_skill_frontmatter: false,
+      });
+      const slim = renderTemplate('agent-configs/entry.md.hbs', {
+        ...TEMPLATE_CONTEXT,
+        skill_path: '.claude/skills',
+        surfaces_skill_frontmatter: true,
+      });
+
+      expect(full).toContain('descriptions and trigger words continue to support implicit discovery');
+      expect(slim).toContain('description and trigger words are surfaced automatically');
+      for (const skill of SKILL_DEFINITIONS) {
+        expect(full).toContain(skill.description);
+        expect(full).toContain(`**Triggers**: ${skill.triggers.join(', ')}`);
+      }
+    });
+
+    it('deployed entry configs preserve their resolved host matrix and managed blocks (REQ-TESTS-104)', () => {
+      const root = path.resolve(import.meta.dirname, '../..');
+      const claude = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf-8');
+      const shared = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf-8');
+      const claudeMatrix = sectionOf(claude, '## Invoking a Prospec Skill');
+      const sharedMatrix = sectionOf(shared, '## Invoking a Prospec Skill');
+
+      expect(claudeMatrix).toContain('| Claude Code | `/prospec-<name>` |');
+      expect(claudeMatrix).not.toContain('$prospec-<name>');
+      expect(claudeMatrix).not.toContain('GitHub Copilot');
+      expect(sharedMatrix).toContain('| Codex | `$prospec-<name>` |');
+      expect(sharedMatrix).toContain('| GitHub Copilot | `/prospec-<name>` |');
+      expect(sharedMatrix).toContain('Mention the bare Skill name or select it from the Skills browser.');
+      expect(sharedMatrix).not.toContain('| Claude Code |');
+
+      for (const [name, doc, matrix] of [
+        ['CLAUDE.md', claude, claudeMatrix],
+        ['AGENTS.md', shared, sharedMatrix],
+      ] as const) {
+        expect(doc, `${name}: auto block missing`).toContain('<!-- prospec:auto-start -->');
+        expect(doc, `${name}: user block missing`).toContain('<!-- prospec:user-start -->');
+        expect(doc.replace(matrix, ''), `${name}: unlabelled host sigil`).not.toMatch(
+          /(?<![A-Za-z0-9_.-])[$/]prospec-[a-z-]+/,
+        );
+      }
+    });
+
     it('full table (non-frontmatter agent) renders skills-dir references for .agents/skills', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', {
         ...TEMPLATE_CONTEXT,
@@ -1953,7 +2043,8 @@ describe('Skill Format Contract', () => {
         surfaces_skill_frontmatter: false,
       });
       expect(content).toContain('.agents/skills/prospec-archive/references/');
-      expect(content).toContain('### /prospec-archive');
+      expect(content).toContain('### prospec-archive');
+      expect(content).not.toContain('### /prospec-archive');
       expect(content).not.toContain('.prospec/skills/');
       expect(content).not.toContain('.instructions.md');
     });
@@ -1979,11 +2070,11 @@ describe('Skill Format Contract', () => {
         surfaces_skill_frontmatter: true,
       });
       // no per-skill table, no reference paths — Claude Code surfaces frontmatter
-      expect(content).not.toContain('### /prospec-archive');
+      expect(content).not.toContain('### prospec-archive');
       expect(content).not.toContain('**Triggers**:');
       expect(content).not.toContain('.claude/skills/prospec-archive/references/');
-      // still names the slash-command invocation contract + the frontmatter source
-      expect(content).toContain('/prospec-');
+      // still names the canonical identity + the frontmatter source
+      expect(content).toContain('`prospec-<name>`');
       expect(content).toContain('SKILL.md');
     });
 
@@ -1992,7 +2083,7 @@ describe('Skill Format Contract', () => {
         ...TEMPLATE_CONTEXT,
         skill_path: '.agents/skills',
       });
-      expect(content).toContain('### /prospec-archive');
+      expect(content).toContain('### prospec-archive');
     });
 
     it('is the single shared entry template — no per-agent templates remain', () => {
@@ -2014,6 +2105,48 @@ describe('Skill Format Contract', () => {
     it('should include project name', () => {
       const content = renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT);
       expect(content).toContain('test-project');
+    });
+  });
+
+  describe('root README invocation guidance (REQ-TEMPLATES-222)', () => {
+    const root = path.resolve(import.meta.dirname, '../..');
+    const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
+    const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+    const expectedRows = [
+      '| Claude Code | `/prospec-<name>` |',
+      '| Codex | `$prospec-<name>` |',
+      '| GitHub Copilot | `/prospec-<name>` |',
+    ];
+
+    it('keeps the same host matrix, canonical identity, and implicit-discovery boundary in both languages', () => {
+      for (const readme of [english, traditionalChinese]) {
+        expect(readme).toContain('`prospec-<name>`');
+        expect(readme).toContain('| Antigravity |');
+        expect(readme).toContain('Skills browser');
+        expect(readme).toContain('implicit discovery');
+        for (const row of expectedRows) expect(readme).toContain(row);
+      }
+    });
+
+    it('contains no unlabelled host sigil outside the invocation matrix', () => {
+      for (const [name, readme, heading] of [
+        ['README.md', english, '### Skill invocation'],
+        ['README.zh-TW.md', traditionalChinese, '### Skill 呼叫方式'],
+      ] as const) {
+        const matrix = sectionOf(readme, heading);
+        expect(matrix, name).toMatch(/\/prospec-<name>/);
+        const withoutMatrix = readme.replace(matrix, '');
+        expect(withoutMatrix, name).not.toMatch(/(?<![A-Za-z0-9_.-])[/$]prospec-[a-z-]+/);
+      }
+    });
+
+    it('keeps the documented CI workflow path and machine-owned coverage fields in both languages', () => {
+      expect(english).toContain('`.github/workflows/prospec-check.yml`');
+      expect(traditionalChinese).toContain('`.github/workflows/prospec-check.yml`');
+      expect(english).toMatch(/\*\*Test Coverage\*\*: \d+ total tests \(\d+ passed; \d+ skipped\)/);
+      expect(traditionalChinese).toMatch(
+        /\*\*測試覆蓋率\*\*：共 \d+ 個測試（\d+ 個通過；\d+ 個略過）/,
+      );
     });
   });
 
@@ -2135,7 +2268,7 @@ describe('Skill Format Contract', () => {
     it('prospec-archive Entry Gate blocks until verified status and knowledge are synced', () => {
       const gate = sectionOf(renderArchive(), '## Entry Gate');
       expect(gate).toContain('`status: verified`');
-      expect(gate).toContain('/prospec-knowledge-update');
+      expect(gate).toContain('prospec-knowledge-update');
       expect(gate).toContain('FAIL');
       // module extraction must cover removals too, or REMOVED-only changes never sync
       expect(gate).toContain('ADDED/MODIFIED/REMOVED');
@@ -2328,9 +2461,9 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Commit boundary after verify(S/A) (BL-037)', () => {
-    it('prospec-implement defers commit and points to /prospec-review', () => {
+    it('prospec-implement defers commit and points to prospec-review', () => {
       const c = renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
-      expect(c).toContain('/prospec-review');
+      expect(c).toContain('prospec-review');
       expect(c).toMatch(/do not commit|defer commit|not commit during/i);
     });
 
@@ -2346,7 +2479,7 @@ describe('Skill Format Contract', () => {
       expect(commit).not.toMatch(/recommended commit strategy/i);
       // the actual boundary: defer to verify S/A, then one atomic-by-feature commit
       expect(commit).toMatch(/do not commit during implement/i);
-      expect(commit).toContain('/prospec-verify');
+      expect(commit).toContain('prospec-verify');
       expect(commit).toMatch(/S\/A/);
       expect(commit).toMatch(/atomic-by-feature/i);
       // downstream-adaptive: message format defers to the target Constitution,
@@ -2548,7 +2681,7 @@ describe('Skill Format Contract', () => {
       expect(harvest).toContain('quality_log');
       expect(harvest).toContain('review.md');
       expect(harvest).toContain('[M]'); // tasks×kind manual-skip dimension (frozen kind schema)
-      expect(harvest).toContain('/prospec-learn'); // accumulates, then hands off — no auto-promote
+      expect(harvest).toContain('prospec-learn'); // accumulates, then hands off — no auto-promote
     });
 
     // REQ-AGNT-015 — archive Phase 4.5 must cite its OWN bundled promotion-format,
@@ -2564,8 +2697,8 @@ describe('Skill Format Contract', () => {
       expect(harvest).toContain('](references/promotion-format.md)');
       // the reference is no longer attributed to the prospec-learn sibling skill
       expect(harvest).not.toMatch(/prospec-learn`'s/);
-      // but the Score/Promote workflow hand-off to /prospec-learn remains
-      expect(harvest).toContain('/prospec-learn');
+      // but the Score/Promote workflow hand-off to prospec-learn remains
+      expect(harvest).toContain('prospec-learn');
     });
 
     // The retired-row refusal lives in `prospec learn upsert`, so it is only
@@ -3465,7 +3598,7 @@ describe('scale adapter — new-story complexity assessment (BL-004)', () => {
     expect(phase).toContain('| Criterion | quick | standard | full |');
     expect(phase).toContain('**Hard veto:**');
     expect(phase).toContain('do NOT propose `quick`');
-    expect(phase).toContain('`/prospec-archive` Entry Gate re-checks');
+    expect(phase).toContain('`prospec-archive` Entry Gate re-checks');
   });
 
   it('Phase 3.5 determines scale autonomously in Draft-First or with user confirmation in interactive mode', () => {
@@ -3528,7 +3661,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     const content = renderLifecycle();
     expect(content).toContain('skipped when metadata `scale: quick`');
     expect(content).toContain('**quick path**: metadata `scale: quick` (user-confirmed');
-    expect(content).toContain('re-checked at the `/prospec-archive` Entry Gate');
+    expect(content).toContain('re-checked at the `prospec-archive` Entry Gate');
     expect(content).toContain('The only legal skip is `story → tasks` under a `scale: quick`');
     // A machine-assigned scale is as legal as a confirmed one — the document
     // must not state a blanket "user-confirmed" that `change auto-draft` breaks.
@@ -3554,7 +3687,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       // symbol name would let the surrounding claim drift between the copies.
       'is the **executable copy**: `prospec change plan` / `prospec change tasks` refuse from it before writing anything',
       'so the table and the registry cannot disagree',
-      'routes it to the `promote` station (`/prospec-promote-backfill`), never to plan or tasks',
+      'routes it to the `promote` station (`prospec-promote-backfill`), never to plan or tasks',
       "That a station actually honours a given row is proven by that station's own tests, not by this table",
       // The two reasons a status sits outside the audit scope are different facts;
       // collapsing `archived` into "exempt" is how the gap stayed unacknowledged.
@@ -4104,7 +4237,7 @@ describe('scale adapter — review quick degradation (REQ-TEMPLATES-090)', () =>
   it('quick lens raises an early spec-impact warning ahead of the archive gate', () => {
     const lenses = sectionOf(render(), '### Review Lenses');
     expect(lenses).toContain('raise an early warning');
-    expect(lenses).toContain('`/prospec-archive` Entry Gate re-checks');
+    expect(lenses).toContain('`prospec-archive` Entry Gate re-checks');
   });
 });
 
@@ -4124,7 +4257,7 @@ describe('scale adapter — verify kind-aware completion and quick reduction (RE
     const v2 = sectionOf(render(), '### Verification 2/5');
     expect(v2).toContain('`not-applicable`');
     expect(v2).toContain('NEVER as PASS');
-    expect(v2).toContain('`/prospec-archive` Entry Gate');
+    expect(v2).toContain('`prospec-archive` Entry Gate');
   });
 
   it('Entry Gate relaxes planning artifacts for quick only', () => {
@@ -4192,10 +4325,10 @@ describe('scale adapter — implement quick awareness (round-2 fix)', () => {
     expect(content).toContain('quick: against proposal.md acceptance scenarios');
   });
 
-  it('does not route quick changes to /prospec-plan for spec clarification', () => {
+  it('does not route quick changes to prospec-plan for spec clarification', () => {
     const errors = sectionOf(render(), '## Error Handling');
     expect(errors).toContain('supplement proposal.md instead');
-    expect(errors).toContain('`/prospec-plan` refuses quick');
+    expect(errors).toContain('`prospec-plan` refuses quick');
   });
 
   it('NEVER bullet names the quick spec source', () => {
@@ -4721,7 +4854,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
   it('cascade-protocol commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
     const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
     expect(status).toMatch(/Sync affected-module Knowledge/);
-    expect(status).toContain('/prospec-knowledge-update');
+    expect(status).toContain('prospec-knowledge-update');
     expect(status).toMatch(/Re-derive factual counts/);
     expect(status).toContain('into the feature commit');
   });
@@ -4768,7 +4901,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     const canonicalSection = gateSection(canonical);
     expect(gateSection(template)).toBe(canonicalSection);
     // the new framing is present in both copies
-    expect(canonicalSection).toContain('prevention point is the `/prospec-verify` S/A commit prompt');
+    expect(canonicalSection).toContain('prevention point is the `prospec-verify` S/A commit prompt');
     expect(canonicalSection).toContain('backstop');
   });
 });
@@ -5015,7 +5148,7 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
       const c = render(name);
       expect(c, `${name} must not restate the full Quality-Gate table`).not.toContain(QUALITY_GATE_TABLE);
       expect(c, `${name} must defer to verify for the full table`).toContain(
-        'full per-station Quality-Gate table lives only in `/prospec-verify`',
+        'full per-station Quality-Gate table lives only in `prospec-verify`',
       );
     }
   });
@@ -5069,7 +5202,7 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
       'Fix the block, not the code',
       // The two findings demand DIFFERENT fixes; naming only re-review sends the
       // reader down the wrong path when the cause was the commit moving HEAD.
-      '/prospec-review',
+      'prospec-review',
       '--record-review',
       '--record-tests',
       '`skipped` is not a FAIL',
@@ -5147,7 +5280,7 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
   it('the shipped status-lifecycle template documents design as a no-status station (ui_scope-gated)', () => {
     const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(lifecycle, '## Stations without a status transition');
-    expect(section).toContain('/prospec-design');
+    expect(section).toContain('prospec-design');
     expect(section).toContain('ui_scope != none');
     expect(section).toContain('between `plan` and `tasks`');
   });
@@ -6178,7 +6311,7 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
       expect(content, `escalation type ${type} missing from the Trigger line`).toContain(type);
     }
     // the protocol names its real integration points only
-    expect(content).not.toContain("/prospec-implement");
+    expect(content).not.toContain("prospec-implement");
   });
 
   it("project-test-runner.md defines multi-language test command resolution hierarchy", () => {

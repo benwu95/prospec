@@ -41,7 +41,7 @@ nondeterministic serialization this contract exists to remove.
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
-- Implementation is done: metadata status is `implemented` **or later** and code tasks are complete (`prospec change status implemented` already enforces that; unchecked `[M]`/`[V]` do not block; kind schema: tasks-format reference); if still before `implemented` (`story`/`plan`/`tasks`), FAIL and point to `/prospec-implement`. This item is a **floor, not a ceiling** — a `verified` change whose code moved after verify re-enters here (its stale `review-provenance` demands it), stamping a fresh baseline with no status regression.
+- Implementation is done: metadata status is `implemented` **or later** and code tasks are complete (`prospec change status implemented` already enforces that; unchecked `[M]`/`[V]` do not block; kind schema: tasks-format reference); if still before `implemented` (`story`/`plan`/`tasks`), FAIL and point to `prospec-implement`. This item is a **floor, not a ceiling** — a `verified` change whose code moved after verify re-enters here (its stale `review-provenance` demands it), stamping a fresh baseline with no status regression.
 - Planning artifacts exist: proposal.md, plan.md, delta-spec.md, tasks.md. **Exception — `metadata.scale: quick`**: only proposal.md + tasks.md are required (a quick change legitimately has no plan/delta-spec); do not FAIL on their absence. **Exception — `metadata.scale: backfill`**: only proposal.md + delta-spec.md are required (a backfill change records existing code — no forward plan/tasks); do not FAIL on their absence.
 - Prior unresolved WARN: surface the `warn:` lines `prospec status` prints for this change.
 
@@ -59,8 +59,8 @@ nondeterministic serialization this contract exists to remove.
 Must-run every round:
 - **correctness & edge cases**
 - **security & data integrity**
-- **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation **contradicting** a `delta-spec` REQ, the project's declared dependency direction (per its Constitution / `_conventions.md`), module conventions, and unhandled ripple effects. Whether every REQ is *fully satisfied* is `/prospec-verify` 2/5's contract check, not this lens — that station's `## Key Difference from Other Skills` states the review/verify division once; do not restate or re-audit it here.
-  - **Quick degradation** (`metadata.scale: quick`): the delta-spec REQ comparison is `not-applicable` (there is no delta-spec — never report it as PASS); dependency direction, module conventions, and ripple checks still run in full. Additionally, when the diff appears to touch behavior covered by existing `prospec/specs/features/` REQs, raise an early warning — the `/prospec-archive` Entry Gate re-checks this, but catching it at review is cheaper.
+- **spec-architecture** — the prospec differentiator, always layered on regardless of reviewer engine: implementation **contradicting** a `delta-spec` REQ, the project's declared dependency direction (per its Constitution / `_conventions.md`), module conventions, and unhandled ripple effects. Whether every REQ is *fully satisfied* is `prospec-verify` 2/5's contract check, not this lens — that station's `## Key Difference from Other Skills` states the review/verify division once; do not restate or re-audit it here.
+  - **Quick degradation** (`metadata.scale: quick`): the delta-spec REQ comparison is `not-applicable` (there is no delta-spec — never report it as PASS); dependency direction, module conventions, and ripple checks still run in full. Additionally, when the diff appears to touch behavior covered by existing `prospec/specs/features/` REQs, raise an early warning — the `prospec-archive` Entry Gate re-checks this, but catching it at review is cheaper.
 
 Conditional: **security & data integrity** (untrusted input, auth, external integrations), efficiency/performance (hot-path or data-layer changes), maintainability/DRY (new abstractions, or an existing helper / guard / writer re-implemented), **docs-claims** (the change adds/edits README or doc claims about behavior — check claim ⊆ implementation), **parallel-site completeness** (the change touches a shared resolver / invariant / data source — grep EVERY consumer), and **test-quality** (the change adds/edits tests — section-scoped + structural + negative + mutation-verified). When any conditional lens applies, load [`references/review-lenses-content.md`](references/review-lenses-content.md) **on demand** for its concrete, severity-pre-mapped criteria (OWASP/IDOR/SSRF/injection/secrets; N+1/CWV/blocking I/O; DRY/complexity/Rule-of-N; docs-claims/parallel-site/test-quality) — severity vocabulary stays defined in `review-format.md`, the lens-content reference only maps onto it. This reference is on-demand only — it is NOT a Startup Loading item. A pluggable language-specific engine may add further language lenses; the spec-architecture lens is always added by prospec and is never replaced by the vendored lens criteria.
 
@@ -94,12 +94,12 @@ Emit this round's findings as a `ReviewFindingsInputSchema` JSON array — whose
 
 ### Review Provenance (machine gate)
 
-Review must leave a machine-queryable record so `/prospec-verify`'s Entry Gate can prove it ran and is still current:
+Review must leave a machine-queryable record so `prospec-verify`'s Entry Gate can prove it ran and is still current:
 
 1. **Every round** — including a **review-clean** round (0 critical / 0 major) and **circuit-breaker tripped rounds** — record the round via `prospec change log --skill prospec-review --result PASS|WARN --criticals-found <n> --criticals-fixed <n> --majors <n> [--warning "circuit breaker tripped: <type>"|"<unresolved item>"]` (Bash; result `PASS` when clean, `WARN` when unresolved majors/FAIL or circuit-breaker trips carry forward). The counts come straight from `prospec review merge`'s round report. A clean review that records nothing is indistinguishable from a review that never ran — a round that finds nothing records the counts as `0`.
 2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review --graded-by <fresh-subagent|in-session>` — it code-computes the reviewed change's digest and writes `review_provenance` (with the declared grading context) to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
 
-Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `/prospec-verify` will then require a fresh review round before it runs.
+Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `prospec-verify` will then require a fresh review round before it runs.
 
 ## Output Contract
 
@@ -121,7 +121,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering** — the spec-architecture lens's concern), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. **Always** record a `prospec-review` entry to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) — **every round, including review-clean** (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward) — so `/prospec-verify` can machine-verify review ran and surface any majors; majors are advisory and do not block. Then record the review baseline (`prospec check --record-review --graded-by <context>`, see Review Provenance) and suggest `/prospec-verify`.
+Verify the output against this skill's **site-specific** Constitution rule (**dependency-direction/layering** — the spec-architecture lens's concern), not the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. **Always** record a `prospec-review` entry to `metadata.yaml` `quality_log` (`skill: prospec-review` / `date` / `result` / `warnings`) — **every round, including review-clean** (result `PASS` when clean, `WARN` when unresolved majors/FAIL carry forward) — so `prospec-verify` can machine-verify review ran and surface any majors; majors are advisory and do not block. Then record the review baseline (`prospec check --record-review --graded-by <context>`, see Review Provenance) and suggest `prospec-verify`.
 
 ## NEVER
 
@@ -135,14 +135,14 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** auto-apply an architectural or large-refactor fix — only concrete, local, drop-in fixes are safe to apply unattended; the rest are proposed
 - **NEVER** count major findings in verify's grade — review and verify are separate axes; majors pass as advisory WARN, not as a grade penalty
 - **NEVER** silently skip review when the capability line says no sub-agents, or when a spawn fails — offer the degraded path so the developer decides knowingly
-- **NEVER** commit during review — the commit boundary is after `/prospec-verify` reaches S/A; review only edits the working tree
+- **NEVER** commit during review — the commit boundary is after `prospec-verify` reaches S/A; review only edits the working tree
 
 ## Error Handling
 
 | Scenario | Action |
 |----------|--------|
-| metadata status is BEFORE `implemented` (`story`/`plan`/`tasks` — implementation unfinished) | Stop; point to `/prospec-implement` to finish tasks first. A status at or past `implemented` — `verified` included — is NOT this scenario: the Entry Gate item is a floor |
-| No change diff vs branch base | Report nothing to review; suggest proceeding to `/prospec-verify` |
+| metadata status is BEFORE `implemented` (`story`/`plan`/`tasks` — implementation unfinished) | Stop; point to `prospec-implement` to finish tasks first. A status at or past `implemented` — `verified` included — is NOT this scenario: the Entry Gate item is a floor |
+| No change diff vs branch base | Report nothing to review; suggest proceeding to `prospec-verify` |
 | Sub-agent spawn fails at runtime | Offer the harness reviewer or single-pass fallback; do not skip |
 | Fix repeatedly turns tests red | Roll back, mark the critical unresolved, escalate to the human |
 | Reviewer and verify disagree on layering | Keep both — review catches it first, verify re-checks independently; no mutual exemption |
@@ -152,9 +152,9 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.

@@ -4,13 +4,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4586%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4606%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
 **為 AI coding agent 打造的漸進式規格驅動開發 (SDD) 工具組**
 
-*Slash-command Skills · 結構化 AI Knowledge · MCP server — 支援 Claude Code、Copilot、Codex*
+*Host-aware Skills · 結構化 AI Knowledge · MCP server — 支援 Claude Code、Copilot、Codex*
 
 [English](./README.md) • [快速上手](#快速上手) • [為什麼選擇 Prospec？](#為什麼選擇-prospec) • [運作原理](#運作原理) • [AI Skills](#ai-skills) • [CLI 命令](#cli-命令)
 
@@ -56,7 +56,7 @@
 
 ## 什麼是 Prospec？
 
-Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 slash-command **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex），而 Skills 執行的每一項**確定性操作** —— scaffold、狀態轉換、quality-log 寫入、spec sync、評分 —— 都交由 **`prospec` CLI**（必裝的單一執行檔）執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。成效：你的 Agent 遵循一致的 `story → plan → tasks → implement → review → verify → archive` 工作流，立基於結構化、版控的專案知識，且 LLM 的不確定性被隔絕在簿記之外。
+Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 host-aware **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex），而 Skills 執行的每一項**確定性操作** —— scaffold、狀態轉換、quality-log 寫入、spec sync、評分 —— 都交由 **`prospec` CLI**（必裝的單一執行檔）執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。成效：你的 Agent 遵循一致的 `story → plan → tasks → implement → review → verify → archive` 工作流，立基於結構化、版控的專案知識，且 LLM 的不確定性被隔絕在簿記之外。
 
 三個元件協同運作：
 
@@ -84,14 +84,14 @@ Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI
 
 | 挑戰 | Prospec 如何解決 |
 |------|------------------|
-| AI 不了解你的程式碼庫 | `prospec knowledge init` + `/prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
+| AI 不了解你的程式碼庫 | `prospec knowledge init` + `prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
 | Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用（vs full-dump 省 70%+ tokens） |
 | AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → tasks → implement → review → verify → archive` |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
-| 設計到程式碼斷裂 | `/prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
+| 設計到程式碼斷裂 | `prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
 | Knowledge 容易過時 | verify S/A commit prompt 把 Knowledge Update 折入 feature commit；archive Entry Gate 為 backstop 複核 |
-| verify 過了仍出細微 bug | `/prospec-review` —— implement 與 verify 間的獨立對抗式審查 |
-| 教訓無法跨 session 留存 | `/prospec-learn` —— 反覆出現的修正經人工核可晉升為版控的團隊規則 |
+| verify 過了仍出細微 bug | `prospec-review` —— implement 與 verify 間的獨立對抗式審查 |
+| 教訓無法跨 session 留存 | `prospec-learn` —— 反覆出現的修正經人工核可晉升為版控的團隊規則 |
 
 > 每一列都對應下方的某個 Skill 或命令 —— 見 [AI Skills](#ai-skills) 與 [CLI 命令](#cli-命令)。
 
@@ -108,7 +108,7 @@ Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI
 
 ### 1. 安裝
 
-`prospec` CLI 是日常 SDD 開發迴圈不可或缺的**核心確定性執行引擎**。AI Agent 內部的 Skills（例如 `/prospec-new-story`、`/prospec-plan`、`/prospec-verify`、`/prospec-archive` 等）在執行時，會在背景自動呼叫 `prospec` 指令來建立骨架、進行狀態轉換、記錄 quality_log、驗證 drift 與同步 Feature Spec。
+`prospec` CLI 是日常 SDD 開發迴圈不可或缺的**核心確定性執行引擎**。AI Agent 內部的 Skills（例如 `prospec-new-story`、`prospec-plan`、`prospec-verify`、`prospec-archive` 等）在執行時，會在背景自動呼叫 `prospec` 指令來建立骨架、進行狀態轉換、記錄 quality_log、驗證 drift 與同步 Feature Spec。
 
 因此，請確保系統 `PATH` 中可直接執行 `prospec`：
 
@@ -160,10 +160,23 @@ prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；�
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-quickstart           # 在地化 skill triggers、重新同步 config、生成 AI Knowledge
+prospec-quickstart           # 在地化 skill triggers、重新同步 config、生成 AI Knowledge
 ```
 
 這個一次性收尾步驟可重複執行且會自我終止；在既有程式碼庫上，它會把你的模組讀進 AI Knowledge，讓 Agent 在你的第一個變更前就理解它們。
+
+### Skill 呼叫方式
+
+`prospec-<name>` 是 canonical Skill identity。手動呼叫時使用的語法屬於 host，而不是 Skill 名稱本身：
+
+| Host | 明確呼叫方式 |
+|------|--------------|
+| Claude Code | `/prospec-<name>` |
+| Codex | `$prospec-<name>` |
+| GitHub Copilot | `/prospec-<name>` |
+| Antigravity | 以 bare Skill name 提及，或在 Skills browser 選取：`prospec-<name>` |
+
+這些形式只用於明確呼叫；Skill 的 description 與 triggers 仍支援 implicit discovery，因此沒有任何 workflow 變成只能手動執行。
 
 ### 3. 跑你的第一個變更（在 AI Agent 中）
 
@@ -173,49 +186,49 @@ prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；�
 🤖 Run inside your AI Agent chat:
 你 ▸ 請 prospec 幫我加一個深色模式切換
 
-Agent 接手需求並執行 /prospec-ff：
+Agent 接手需求並執行 prospec-ff：
   • 問幾個範圍 / 驗收問題 —— 你用自然語言回答
   • 寫出 story → plan → tasks，接著在每個階段交接：
 
-  "Run /prospec-implement now? (Y/n)"             → Y
-  implement → "Run /prospec-review now? (Y/n)"    → Y
-  review    → "Run /prospec-verify now? (Y/n)"    → Y
+  "Run prospec-implement now? (Y/n)"             → Y
+  implement → "Run prospec-review now? (Y/n)"    → Y
+  review    → "Run prospec-verify now? (Y/n)"    → Y
   verify 達到 grade A → 提示你 commit              → Y
-         → "Run /prospec-archive now? (Y/n)"      → Y   ✓ 已歸檔
+         → "Run prospec-archive now? (Y/n)"      → Y   ✓ 已歸檔
 ```
 
-每個階段結束時都會告訴你下一步、並等你按 `Y` —— 按 `n` 就停下、提示會保留，你可以稍後回來接續，不必記得自己進行到哪。`/prospec-verify` 是 commit 邊界：達 S/A 時它會提示你 commit（絕不替你 commit），接著才提議歸檔。
+每個階段結束時都會告訴你下一步、並等你按 `Y` —— 按 `n` 就停下、提示會保留，你可以稍後回來接續，不必記得自己進行到哪。`prospec-verify` 是 commit 邊界：達 S/A 時它會提示你 commit（絕不替你 commit），接著才提議歸檔。
 
 想自己逐步驅動？也可以明確執行：
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-explore                   # （可選）先釐清需求
-/prospec-new-story add-my-feature  # 把需求記錄成結構化 story
-/prospec-design                    # （可選）UI / 互動規格
-/prospec-plan                      # 設計實作（`quick` scale 的變更會跳過）
-/prospec-tasks                     # 把計劃拆成有序的任務清單
-#   ↑ 用 /prospec-ff add-my-feature 一次收合 story → plan → tasks
-/prospec-implement                 # 逐項實作（先不 commit）
-/prospec-review                    # 對抗式審查 → fix 迴圈
-/prospec-verify                    # 驗證；達 S/A 後提示你 commit
-/prospec-archive                   # 歸檔 + 同步規格與知識
-/prospec-learn                     # （定期）把反覆出現的教訓晉升為團隊規則
+prospec-explore                   # （可選）先釐清需求
+prospec-new-story add-my-feature  # 把需求記錄成結構化 story
+prospec-design                    # （可選）UI / 互動規格
+prospec-plan                      # 設計實作（`quick` scale 的變更會跳過）
+prospec-tasks                     # 把計劃拆成有序的任務清單
+#   ↑ 用 prospec-ff add-my-feature 一次收合 story → plan → tasks
+prospec-implement                 # 逐項實作（先不 commit）
+prospec-review                    # 對抗式審查 → fix 迴圈
+prospec-verify                    # 驗證；達 S/A 後提示你 commit
+prospec-archive                   # 歸檔 + 同步規格與知識
+prospec-learn                     # （定期）把反覆出現的教訓晉升為團隊規則
 ```
 
-這就是完整的 SDD 迴圈。由於 `/prospec-quickstart` 已經先生成了 AI Knowledge，Agent 一開始就理解你的模組。下方完整的 Greenfield 與 Brownfield 流程會逐步拆解 `prospec quickstart` 自動完成的每個步驟。
+這就是完整的 SDD 迴圈。由於 `prospec-quickstart` 已經先生成了 AI Knowledge，Agent 一開始就理解你的模組。下方完整的 Greenfield 與 Brownfield 流程會逐步拆解 `prospec quickstart` 自動完成的每個步驟。
 
 <details>
 <summary>Greenfield 與 Brownfield 的 bootstrap 差異 —— 兩個指令展開後做了什麼</summary>
 
 #### Greenfield（新專案）
-`prospec quickstart` → `/prospec-quickstart` 就是完整的 bootstrap
+`prospec quickstart` → `prospec-quickstart` 就是完整的 bootstrap
 
 ```bash
 mkdir my-project && cd my-project
 prospec quickstart --name my-project   # init + agent sync（互動式選擇 assistant 與語言）
 # 接著在你的 AI Agent 中：
-/prospec-quickstart                     # 在地化 triggers · 重新同步 · 生成 AI Knowledge
+prospec-quickstart                     # 在地化 triggers · 重新同步 · 生成 AI Knowledge
 ```
 
 這兩個指令展開後是：
@@ -232,22 +245,22 @@ prospec agent sync               # → 各 agent config + Skills（Claude Code �
                                  #   .claude/skills/；Antigravity / Codex / Copilot →
                                  #   AGENTS.md + .agents/skills/）
 
-# `/prospec-quickstart` 接著在你的 AI Agent 中：
+# `prospec-quickstart` 接著在你的 AI Agent 中：
 #   • 文件語言非英文？它會為 .prospec.yaml 的 `skill_triggers` 提議母語觸發詞，
 #     經你確認後重跑 agent sync —— skills 就能匹配你用母語描述的需求
-#   • prospec knowledge init → /prospec-knowledge-generate（生成 AI Knowledge）
+#   • prospec knowledge init → prospec-knowledge-generate（生成 AI Knowledge）
 ```
 
-空專案上，`/prospec-knowledge-generate` 會產出一份最小的 Knowledge base，隨著你持續出貨變更逐步補完。接著就照上面步驟 3 跑你的第一個變更。
+空專案上，`prospec-knowledge-generate` 會產出一份最小的 Knowledge base，隨著你持續出貨變更逐步補完。接著就照上面步驟 3 跑你的第一個變更。
 
 #### Brownfield（既有專案）
-同樣兩個指令；`/prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge
+同樣兩個指令；`prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge
 
 ```bash
 cd existing-project
 prospec quickstart                      # 自動偵測 Tech Stack；執行 init + agent sync
 # 接著在你的 AI Agent 中：
-/prospec-quickstart                     # 在地化 triggers · 重新同步 · knowledge init · /prospec-knowledge-generate
+prospec-quickstart                     # 在地化 triggers · 重新同步 · knowledge init · prospec-knowledge-generate
 ```
 
 這兩個指令展開後是：
@@ -258,20 +271,20 @@ prospec init          # → 自動偵測 Tech Stack；選擇 AI Assistant；選�
                       #   （預設英文；--language 可跳過互動提示）
 prospec agent sync    # → 各 agent config + Skills
 
-# `/prospec-quickstart` 接著在你的 AI Agent 中：
+# `prospec-quickstart` 接著在你的 AI Agent 中：
 prospec knowledge init       # → 生成 raw-scan.md + 空骨架（prospec/index.md、_conventions.md、module-map.yaml）
-/prospec-knowledge-generate  # → AI 讀取 raw-scan.md，決定模組切割，
+prospec-knowledge-generate  # → AI 讀取 raw-scan.md，決定模組切割，
                              #   建立 modules/*/README.md + 填充 prospec/index.md
 ```
 
-這裡的 `knowledge init` 會讀取你既有的程式碼，所以 `/prospec-knowledge-generate` 一開始就產出內容豐富的 Knowledge base。接著就照上面步驟 3 跑你的第一個變更 —— 開發迴圈與 Greenfield 完全相同。
+這裡的 `knowledge init` 會讀取你既有的程式碼，所以 `prospec-knowledge-generate` 一開始就產出內容豐富的 Knowledge base。接著就照上面步驟 3 跑你的第一個變更 —— 開發迴圈與 Greenfield 完全相同。
 
 `knowledge init` 捕捉的是程式碼*怎麼*組織，但 brownfield 模組通常仍缺少描述它*做什麼*的 Feature Spec。補上這個 WHAT 層缺口是一條獨立的一等流程 —— 見下方 **[Backfill：把既有程式碼納進信任區](#backfill把既有程式碼納進信任區)**。它不屬於 bootstrap，可在任何時候執行。
 
 </details>
 
 <details>
-<summary>完成 Quickstart 後的目錄佈局（<code>prospec quickstart</code> + <code>/prospec-quickstart</code>）</summary>
+<summary>完成 Quickstart 後的目錄佈局（<code>prospec quickstart</code> + <code>prospec-quickstart</code>）</summary>
 
 ```
 your-project/
@@ -287,7 +300,7 @@ your-project/
 │   │   └── features/          # 活的 Feature Spec（累積）
 │   └── ai-knowledge/
 │       ├── _conventions.md    # 專案慣例
-│       ├── _playbook.md       # /prospec-learn 晉升的團隊教訓（人工核可）
+│       ├── _playbook.md       # prospec-learn 晉升的團隊教訓（人工核可）
 │       ├── _lessons-ledger.md # 累積的教訓 ledger，Archive 時自動 feed（版控）
 │       ├── raw-scan.md        # 自動生成的專案掃描資料
 │       ├── module-map.yaml    # 模組依賴關係
@@ -364,7 +377,7 @@ flowchart TD
 
 ### Skill 與 CLI 協同模式：判斷面與確定性執行
 
-Prospec 提供擁有 17+ 個頂層命令的豐富 CLI，但**開發者平時幾乎不需要手動輸入這些 CLI 指令**。日常的 SDD 開發流程主要是透過 AI Agent 介面中的 slash-command **Skills**（例如 `/prospec-ff`、`/prospec-implement`、`/prospec-verify` 等）來驅動。
+Prospec 提供擁有 17+ 個頂層命令的豐富 CLI，但**開發者平時幾乎不需要手動輸入這些 CLI 指令**。日常的 SDD 開發流程主要是透過 AI Agent 介面中的 host-aware **Skills**（例如 `prospec-ff`、`prospec-implement`、`prospec-verify` 等）來驅動。
 
 Skills 與 CLI 之間的互動遵循嚴格的職責分工：
 
@@ -372,7 +385,7 @@ Skills 與 CLI 之間的互動遵循嚴格的職責分工：
 - **CLI（`prospec` 確定性執行引擎）**：由 Skills 在背景透過指令探針（`_cli-probe`）自動呼叫。CLI 負責所有位元可重現的狀態變更 —— 建立變更骨架 (scaffolds)、驗證 YAML metadata、更新生命週期狀態轉換、寫入結構化 quality_log、計算 drift 報告、執行機械式 Spec Sync 以及歸檔已完成變更。
 
 ```
-  使用者 ⇄ AI Agent (Slash-Command Skills)
+  使用者 ⇄ AI Agent (Skills)
            │
            │  (1) 提問與引導 SDD 開發流程
            │  (2) 執行高階判斷（撰寫文章、對抗審查、編寫程式碼）
@@ -407,30 +420,30 @@ Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案
 
 ## AI Skills
 
-Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`/prospec-quickstart`（啟動）與 `/prospec-upgrade`（版本升級）：
+Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`prospec-quickstart`（啟動）與 `prospec-upgrade`（版本升級）：
 
-| Skill | Slash Command | 說明 |
+| Skill | Canonical Skill | 說明 |
 |-------|---------------|------|
-| **探索** | `/prospec-explore` | 思考夥伴，協助釐清需求 |
-| **新需求** | `/prospec-new-story` | 建立結構化的變更需求 |
-| **設計** | `/prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式） |
-| **計劃** | `/prospec-plan` | 生成實作計劃 + delta-spec |
-| **任務** | `/prospec-tasks` | 拆分為可執行的任務 |
-| **快速前進** | `/prospec-ff` | 一次生成 story → plan → tasks |
-| **實作** | `/prospec-implement` | 逐項實作任務，MCP 優先讀取設計資料 |
-| **審查** | `/prospec-review` | 對抗式審查 → fix 迴圈；經驗證確認的 critical 自動修，帶 spec-aware lens |
-| **驗證** | `/prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D）；達 S/A 後提示 commit |
-| **歸檔** | `/prospec-archive` | 歸檔變更 + Spec Sync + Knowledge 同步 Entry Gate |
-| **學習** | `/prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
-| **知識生成** | `/prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
-| **知識更新** | `/prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
-| **回填規格** | `/prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
-| **晉升回填** | `/prospec-promote-backfill` | 把審閱過的回填草稿定型化為 backfill change scaffold（proposal + delta-spec + metadata、`scale: backfill`、`status: implemented`;輕量 scale —— 無 plan/tasks）；絕不直寫信任區 |
-| **快速開始** | `/prospec-quickstart` | `prospec quickstart` 執行 init + agent sync 後，依 artifact language 在地化 skill 觸發詞、準備 Knowledge 掃描，並串接 `/prospec-knowledge-generate` 生成 AI Knowledge;絕不直寫信任區 |
-| **升級** | `/prospec-upgrade` | `prospec upgrade` 記錄版本、重新同步 agents 並補建缺少的 init 檔案後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 檔案格式 + 補齊已建檔案，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不覆寫你撰寫的內容 |
+| **探索** | `prospec-explore` | 思考夥伴，協助釐清需求 |
+| **新需求** | `prospec-new-story` | 建立結構化的變更需求 |
+| **設計** | `prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式） |
+| **計劃** | `prospec-plan` | 生成實作計劃 + delta-spec |
+| **任務** | `prospec-tasks` | 拆分為可執行的任務 |
+| **快速前進** | `prospec-ff` | 一次生成 story → plan → tasks |
+| **實作** | `prospec-implement` | 逐項實作任務，MCP 優先讀取設計資料 |
+| **審查** | `prospec-review` | 對抗式審查 → fix 迴圈；經驗證確認的 critical 自動修，帶 spec-aware lens |
+| **驗證** | `prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D）；達 S/A 後提示 commit |
+| **歸檔** | `prospec-archive` | 歸檔變更 + Spec Sync + Knowledge 同步 Entry Gate |
+| **學習** | `prospec-learn` | 回饋晉升：反覆出現的教訓 → 團隊 `_playbook` / Constitution（可審計、人工核可） |
+| **知識生成** | `prospec-knowledge-generate` | AI 驅動的模組分析與知識建立 |
+| **知識更新** | `prospec-knowledge-update` | 基於 delta-spec 的增量知識更新 |
+| **回填規格** | `prospec-backfill-spec` | 從既有 brownfield code 反向萃取 Feature Spec 草稿（僅 stage 草稿，絕不直寫信任區） |
+| **晉升回填** | `prospec-promote-backfill` | 把審閱過的回填草稿定型化為 backfill change scaffold（proposal + delta-spec + metadata、`scale: backfill`、`status: implemented`;輕量 scale —— 無 plan/tasks）；絕不直寫信任區 |
+| **快速開始** | `prospec-quickstart` | `prospec quickstart` 執行 init + agent sync 後，依 artifact language 在地化 skill 觸發詞、準備 Knowledge 掃描，並串接 `prospec-knowledge-generate` 生成 AI Knowledge;絕不直寫信任區 |
+| **升級** | `prospec-upgrade` | `prospec upgrade` 記錄版本、重新同步 agents 並補建缺少的 init 檔案後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 檔案格式 + 補齊已建檔案，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不覆寫你撰寫的內容 |
 
 > [!NOTE]
-> **週期性收尾 Skills**：`/prospec-quickstart`（`prospec quickstart` 後執行一次）與 `/prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
+> **週期性收尾 Skills**：`prospec-quickstart`（`prospec quickstart` 後執行一次）與 `prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
 
 ### 品質閘門與自我改進
 
@@ -438,15 +451,15 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 - **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
-- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**（`Run <next-step> now? (Y/n)` —— 你的 Y 才是觸發、絕不靜默 auto-run）；新 session 偵測進行中的變更以接續；`/prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`/prospec-explore` 與 `/prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
-- **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `/prospec-verify` 分級。
-- **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`/prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。搭配選配的 `feature-map.yaml`（feature→module 索引，archive 時 bootstrap）再加兩條治理檢查：REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。
-- **對抗式審查** — `/prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
-- **回饋晉升** — 每個 **Archive** 都自動 harvest 該變更反覆出現的教訓進版控的 `_lessons-ledger.md`；`/prospec-learn` 以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進團隊 `_playbook.md` 或 Constitution。每次收集前它還會**掃描兩份檔案裡專案已經長大而不再需要的條目** —— 規則已由某道閘門執行、規則的主體已不存在、或與 Constitution 互相矛盾 —— 並帶著證據交由人工退役；退役一律就地標記（ledger 列保留所有計數、playbook 編號永不重用），清理不會損及稽核軌跡。
+- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**（`Run <next-step> now? (Y/n)` —— 你的 Y 才是觸發、絕不靜默 auto-run）；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
+- **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `prospec-verify` 分級。
+- **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。搭配選配的 `feature-map.yaml`（feature→module 索引，archive 時 bootstrap）再加兩條治理檢查：REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。
+- **對抗式審查** — `prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
+- **回饋晉升** — 每個 **Archive** 都自動 harvest 該變更反覆出現的教訓進版控的 `_lessons-ledger.md`；`prospec-learn` 以明文可重現準則（頻次 + 影響模組數）評分，**僅在顯式人工核可後**晉升進團隊 `_playbook.md` 或 Constitution。每次收集前它還會**掃描兩份檔案裡專案已經長大而不再需要的條目** —— 規則已由某道閘門執行、規則的主體已不存在、或與 Constitution 互相矛盾 —— 並帶著證據交由人工退役；退役一律就地標記（ledger 列保留所有計數、playbook 編號永不重用），清理不會損及稽核軌跡。
 
 ### 相稱流程（Scale）
 
-不是每個變更都值得完整儀式。story 階段由 `/prospec-new-story`（或 `/prospec-ff`）依明文判準評估複雜度並建議 scale —— **經你確認後**才寫入 `metadata.yaml`：
+不是每個變更都值得完整儀式。story 階段由 `prospec-new-story`（或 `prospec-ff`）依明文判準評估複雜度並建議 scale —— **經你確認後**才寫入 `metadata.yaml`：
 
 | Scale | 流程差異 |
 |-------|---------|
@@ -454,7 +467,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | `standard`（預設；既有變更無欄位即此級） | 現行精簡流程 —— plan ≤ 120 行，結尾必含 **Simpler Alternative** 段落（實質更簡單的替代方案或明文 concede，附檔數/行數變更表面估算） |
 | `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain、Best-of-N 候選架構錦標賽（其非選中候選記錄替代 Simpler Alternative 段落） |
 
-兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`/prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。工程紀律不隨 scale 縮減：TDD、對抗式審查、Constitution 稽核在每個級別照常執行。
+兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。工程紀律不隨 scale 縮減：TDD、對抗式審查、Constitution 稽核在每個級別照常執行。
 
 任務同時帶 **kind** 標記（`[M]` manual、`[V]` verification、無標記＝code）：完成率只計 code task，「手動跑個指令」之類未勾選的提醒不會卡住或扭曲任何 gate。
 
@@ -478,7 +491,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 | 命令 | 說明 |
 |------|------|
-| `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`，並交棒給 Agent 內的 `/prospec-quickstart` |
+| `prospec quickstart [options]` | 一鍵啟動：執行 `init` + `agent sync`，並交棒給 Agent 內的 `prospec-quickstart` |
 | `prospec upgrade [--cwd <dir>]` | 版本升級後更新 `.prospec.yaml` 版本號、重跑 `agent sync` 並補建缺少的文件範本 |
 | `prospec init [options]` | 初始化 Prospec 專案結構（可設定語言與支援的 Agent） |
 | `prospec knowledge init [options]` | 靜態掃描專案原始碼，生成 `raw-scan.md` 與模組結構骨架 |
@@ -493,7 +506,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 - **`prospec quickstart [options]`**
   - **核心用途**：新專案快速引導，串接 `init` 與 `agent sync`。
-  - **執行行為**：自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `/prospec-quickstart` 進行觸發詞在地化與知識庫生成。
+  - **執行行為**：自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
   - **選項**：支援與 `init` 相同的 `--name`、`--agents`、`--language` 選項。
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -502,7 +515,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
     - 在 `.prospec.yaml` 中記錄新版本號（就地合併，保留既有註解與格式）。
     - 重新執行 `agent sync` 確保各 Agent 配置與 Skills 範本對齊最新版。
     - 自動補建缺少的初始文件（以範本渲染，採 skip-if-exists 策略，絕不覆寫或重排既有檔案）。
-    - 輸出 migration report（含 docs inventory 清單），後續由 `/prospec-upgrade` Skill 接手需人工同意的格式收斂。
+    - 輸出 migration report（含 docs inventory 清單），後續由 `prospec-upgrade` Skill 接手需人工同意的格式收斂。
 
 - **`prospec init [options]`**
   - **核心用途**：初始化 Prospec 專案結構。
@@ -512,7 +525,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
   - **核心用途**：靜態掃描專案原始碼，生成專案結構快照與模組骨架。
   - **執行行為**：
     - 產生 `raw-scan.md` 及初版模組骨架（`module-map.yaml`、`prospec/index.md`、`_conventions.md`，僅在缺檔時建立）。
-    - `--raw-scan-only`：僅重新產生 `raw-scan.md`（確定性掃描、不使用 LLM、不更動既有文件），用於程式碼變動後或 `/prospec-knowledge-generate` 前刷新結構快照。
+    - `--raw-scan-only`：僅重新產生 `raw-scan.md`（確定性掃描、不使用 LLM、不更動既有文件），用於程式碼變動後或 `prospec-knowledge-generate` 前刷新結構快照。
 
 - **`prospec knowledge update [--change <name>] [--module <m>...]`**
   - **核心用途**：依變更的 `delta-spec.md` 或指定模組進行機械式知識庫增量同步。
@@ -551,7 +564,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 
-工作流程取決於 harness 的 Skills（如 `/prospec-review`、`/prospec-verify`、`/prospec-plan`、`/prospec-tasks` 與 `/prospec-ff`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+工作流程取決於 harness 的 Skills（如 `prospec-review`、`prospec-verify`、`prospec-plan`、`prospec-tasks` 與 `prospec-ff`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
 
 > [!NOTE]
 > **編輯安全性**：Entry 配置文件皆包含 `prospec:auto` 與 `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只會更新 `auto` 區塊，並完整保留你在 `user` 區塊手寫的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時自動遷入 `user` 區塊，而非被覆蓋。
@@ -577,9 +590,9 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 ¹ Java 依賴僅讀取 Maven `pom.xml`——Gradle 的 Groovy/Kotlin DSL 不做靜態解析。² Ruby 依賴不解析（`Gemfile` 為 Ruby DSL）。³ C 與 C++ 由原始碼副檔名推斷；可於 `.prospec.yaml` 設 `tech_stack` 覆寫。⁴ C/C++ 依賴僅讀宣告式 manifest——`CMakeLists.txt` 與 `conanfile.py` 為命令式、不解析。⁵ Swift 依賴不解析（`Package.swift` 為命令式 Swift）。未辨識的語言仍會出現在 Directory Tree 與 File Stats 區塊——且因為未列出的副檔名一律算原始碼，其程式碼目錄**不會**出現在 Directories Without Source Files。
 
-**掃描無法判定為程式碼的目錄。** `raw-scan.md` 另有一個 `Directories Without Source Files` 區塊：列出沒有任何檔案算得上原始碼的最上層目錄，含檔案數與副檔名組成——module 偵測器要求檔案**有**副檔名、**且**該副檔名不在非原始碼拒絕清單上，因此只含無副檔名檔案的目錄（一整包腳本的 `bin/`）也會落在這裡。根目錄層級的檔案不屬於任何目錄，永遠不會被列出。它是掃描事實而非偵測判決：curated 的 `module-map.yaml`（偵測一律優先採用）或零結果退回，仍可能讓這類目錄成為 module。該區塊是 `/prospec-knowledge-generate` 判斷的依據——某個目錄（一整包 Kubernetes YAML 的 `manifests/`、一整本 LaTeX 的 `chapters/`）究竟是不是這個專案的本體、該不該寫進 `module-map.yaml`。
+**掃描無法判定為程式碼的目錄。** `raw-scan.md` 另有一個 `Directories Without Source Files` 區塊：列出沒有任何檔案算得上原始碼的最上層目錄，含檔案數與副檔名組成——module 偵測器要求檔案**有**副檔名、**且**該副檔名不在非原始碼拒絕清單上，因此只含無副檔名檔案的目錄（一整包腳本的 `bin/`）也會落在這裡。根目錄層級的檔案不屬於任何目錄，永遠不會被列出。它是掃描事實而非偵測判決：curated 的 `module-map.yaml`（偵測一律優先採用）或零結果退回，仍可能讓這類目錄成為 module。該區塊是 `prospec-knowledge-generate` 判斷的依據——某個目錄（一整包 Kubernetes YAML 的 `manifests/`、一整本 LaTeX 的 `chapters/`）究竟是不是這個專案的本體、該不該寫進 `module-map.yaml`。
 
-**表外的語言？** 仍會掃描——Directory Tree 與 File Stats 永遠有值，且 `/prospec-knowledge-generate` 會直接讀原始碼。Tech Stack 會落為 `unknown`；可於 `.prospec.yaml` 的 `tech_stack` 權威宣告（free-form——覆蓋自動偵測，並以 `Source: config` 呈現）：
+**表外的語言？** 仍會掃描——Directory Tree 與 File Stats 永遠有值，且 `prospec-knowledge-generate` 會直接讀原始碼。Tech Stack 會落為 `unknown`；可於 `.prospec.yaml` 的 `tech_stack` 權威宣告（free-form——覆蓋自動偵測，並以 `Source: config` 呈現）：
 
 ```yaml
 tech_stack:
@@ -640,7 +653,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec change plan [--change <name>] [--force]`**
   - **核心用途**：建立 `plan.md` 與 `delta-spec.md` 骨架，並將狀態推進至 `plan`。
-  - **防護規則**：若檔案已存在則拒絕覆寫（除非加上 `--force`）；禁止不允許 plan 的 scale（例如 `quick` 需改跑 `change tasks`，`backfill` 需使用 `/prospec-promote-backfill`）。
+  - **防護規則**：若檔案已存在則拒絕覆寫（除非加上 `--force`）；禁止不允許 plan 的 scale（例如 `quick` 需改跑 `change tasks`，`backfill` 需使用 `prospec-promote-backfill`）。
 
 - **`prospec change tasks [--change <name>] [--force]`**
   - **核心用途**：建立 `tasks.md` 骨架，並將狀態推進至 `tasks`。
@@ -705,7 +718,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec` 等）。校驗失敗時 exit 1。
 
 > [!IMPORTANT]
-> **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`/prospec-new-story`、`/prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
+> **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`prospec-new-story`、`prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
 
 ### MCP Server
 
@@ -815,7 +828,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - **`prospec check --record-tests [--change <name>]`**
   - **核心用途**：執行專案測試指令並將結果（指令、退出碼、digest、日期）寫入變更的 `metadata.yaml`。
   - **重點條列**：
-    - 測試結果作為 `/prospec-verify` 測試維度的客觀裁決依據，防止 Agent 自陳虛報。
+    - 測試結果作為 `prospec-verify` 測試維度的客觀裁決依據，防止 Agent 自陳虛報。
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
 
@@ -828,7 +841,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - **`prospec check --init-ci`**
   - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。
 
-誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code 一致性仍屬 `/prospec-review`（報告恆標 `not-checked`）。`/prospec-verify` 在開發期消費同一份報告，開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
+誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code 一致性仍屬 `prospec-review`（報告恆標 `not-checked`）。`prospec-verify` 在開發期消費同一份報告，開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
 **verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械 oracle 的兩個維度——delta-spec 合規與設計一致性——維持機率判斷，並在 **fresh context**（未寫過這段程式的獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
 
@@ -848,7 +861,7 @@ knowledge:
     headroom: 0.85                  # 觸發壓力預警的預算水位比例（0.85 = 85%）
 ```
 
-新初始化的專案，其 `.prospec.yaml` 不含 `token_budget` 區塊，因此每個門檻都回退到上面的 shipped default；要改哪幾欄，跑 `prospec config example` 取得完整逐欄註解的區塊再複製過去。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code），且每則 finding 會指出該載入面的具名收斂路徑，而不是泛泛的「請壓縮」：Feature Spec 切到 `specs/features/{feature}/`、治理知識檔跑 `/prospec-learn` 的 Staleness Sweep、L2 檔抽出 sub-module。
+新初始化的專案，其 `.prospec.yaml` 不含 `token_budget` 區塊，因此每個門檻都回退到上面的 shipped default；要改哪幾欄，跑 `prospec config example` 取得完整逐欄註解的區塊再複製過去。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code），且每則 finding 會指出該載入面的具名收斂路徑，而不是泛泛的「請壓縮」：Feature Spec 切到 `specs/features/{feature}/`、治理知識檔跑 `prospec-learn` 的 Staleness Sweep、L2 檔抽出 sub-module。
 
 其中兩項值得單獨說明。**Feature Spec 是單調成長的** —— 每次歸檔都會 append 畢業的 REQ，而沒有任何機制會移除 —— 所以在成熟專案裡支配載入量的那一層，正是先前完全沒有預算的那一層；切出來的 slice 以同一個 `spec_per_file` 量測，因此分割不可能把它移出預算視線。**skill 檔只在 authoring 專案量測**，以 skill 樣板原始碼是否存在來偵測：純消費生成 skill 的專案對這種 finding 無法行動，而「無法行動的 WARN」正是這個檢查存在要避免的東西。
 
@@ -973,11 +986,11 @@ flowchart TD
     class CODE,FS asset;
 ```
 
-1. **萃取** —— `/prospec-backfill-spec` 讀程式碼（與 tests、git history、docs）、stage 一份 route-compatible 的 `backfill-draft.md`；無法從程式碼推得的 intent 標 `[NEEDS CLARIFICATION]`，絕不捏造。
+1. **萃取** —— `prospec-backfill-spec` 讀程式碼（與 tests、git history、docs）、stage 一份 route-compatible 的 `backfill-draft.md`；無法從程式碼推得的 intent 標 `[NEEDS CLARIFICATION]`，絕不捏造。
 2. **審閱** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC），確認候選 feature slug。這是人工關卡。
-3. **晉升** —— `/prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
-4. **驗證** —— `/prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。
-5. **歸檔** —— `/prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
+3. **晉升** —— `prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
+4. **驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。
+5. **歸檔** —— `prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
 
 ### 升級 Prospec
 
@@ -999,7 +1012,7 @@ prospec upgrade                  # 步驟 1：CLI（zero-LLM）自動同步基�
 
 ```text
 🤖 Run inside your AI Agent chat:
-/prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格式、補齊內容與在地化觸發詞（逐項徵詢確認）
+prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格式、補齊內容與在地化觸發詞（逐項徵詢確認）
 ```
 
 #### 步驟 1：`prospec upgrade`（CLI 確定性處理）
@@ -1009,7 +1022,7 @@ prospec upgrade                  # 步驟 1：CLI（zero-LLM）自動同步基�
 - **補建缺漏檔案**：以 `prospec init` 初始範本補建新版本新增的 init 檔案（採 skip-if-exists 策略，絕不覆寫或變更任何既有檔案內容）。
 - **產出遷移報告**：輸出版本差異、文件庫存清單（docs inventory）以及新 Skill 觸發詞缺口。
 
-#### 步驟 2：`/prospec-upgrade`（AI Agent 判斷與遷移）
+#### 步驟 2：`prospec-upgrade`（AI Agent 判斷與遷移）
 - **格式遷移**：依據 docs inventory 逐檔比對最新範本，若既有檔案格式漂移則提議更新，**逐檔徵詢使用者同意**（絕不擅自覆寫自訂內容）。
 - **內容補齊**：為 CLI 剛補建的基礎檔案填入專案真實內容（例如 `index.md` 的模組表格）。
 - **觸發詞在地化**：依專案的 `artifact_language` 為新增的 Skills 自動補齊在地化觸發詞（`skill_triggers`）。
@@ -1050,7 +1063,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4586 個；4 個略過）
+# 執行所有測試（共 4606 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1063,9 +1076,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4586 個測試（4582 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3269 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1141 tests
+**測試覆蓋率**：共 4606 個測試（4602 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3282 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1148 tests
 - Integration tests：45 tests
 - E2E tests：131 tests
 

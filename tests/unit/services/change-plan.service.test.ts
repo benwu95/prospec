@@ -355,7 +355,7 @@ ${scale ? `scale: ${scale}\n` : ''}`;
     vol.reset();
     seed('backfill', 'implemented');
     await expect(execute({ change: 'light', cwd: '/project' })).rejects.toMatchObject({
-      suggestion: expect.stringContaining('/prospec-promote-backfill'),
+      suggestion: expect.stringContaining('prospec-promote-backfill'),
     });
   });
 

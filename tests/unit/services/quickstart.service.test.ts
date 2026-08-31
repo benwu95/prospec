@@ -20,14 +20,14 @@ beforeEach(() => {
 });
 
 describe('quickstart.service', () => {
-  it('fresh project: runs init then agent-sync, hands off to /prospec-quickstart', async () => {
+  it('fresh project: runs init then agent-sync, hands off to prospec-quickstart', async () => {
     const result = await execute({ agents: ['claude'], cwd: '/project' });
 
     expect(result.steps).toEqual([
       { name: 'init', status: 'created' },
       { name: 'agent-sync', status: 'created' },
     ]);
-    expect(result.nextStep).toBe('/prospec-quickstart');
+    expect(result.nextStep).toBe('prospec-quickstart');
     // init wrote the config marker; agent-sync produced files
     expect(vol.existsSync('/project/.prospec.yaml')).toBe(true);
     // totalFiles = entry config (1) + every SKILL.md + every reference file,

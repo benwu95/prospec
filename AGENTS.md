@@ -27,16 +27,26 @@ Project glossary and domain terms: [`prospec/ai-knowledge/_glossary.md`](prospec
 
 ## Available Prospec Skills
 
-This project ships with the following Prospec Skills, triggered via slash commands:
+Prospec Skills use bare `prospec-<name>` as their canonical identity. Use the host-specific guidance below only when you want to invoke a Skill explicitly; descriptions and trigger words continue to support implicit discovery.
 
-### /prospec-explore
+## Invoking a Prospec Skill
+
+| Host | Explicit invocation |
+|------|---------------------|
+| Codex | `$prospec-<name>` |
+| GitHub Copilot | `/prospec-<name>` |
+| Antigravity | Mention the bare Skill name or select it from the Skills browser. `prospec-<name>` |
+
+This project ships with the following Prospec Skills:
+
+### prospec-explore
 
 Explore - Requirement exploration, problem investigation, and solution comparison partner.
 
 **Type**: Lifecycle
 **Triggers**: explore, compare, investigate, unsure, clarify, 探索, 比較, 釐清, 調查, 不確定
 
-### /prospec-new-story
+### prospec-new-story
 
 New Story - Create change requests by guiding User Story and acceptance criteria definition.
 
@@ -44,7 +54,7 @@ New Story - Create change requests by guiding User Story and acceptance criteria
 **Triggers**: new feature, requirement, user story, 新功能, 需求, 新增需求
 **References**: `.agents/skills/prospec-new-story/references/`
 
-### /prospec-plan
+### prospec-plan
 
 Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).
 
@@ -52,7 +62,7 @@ Plan Implementation - Convert User Story into technical implementation plan (pla
 **Triggers**: plan, architecture, technical plan, 規劃, 架構規劃, 技術規劃
 **References**: `.agents/skills/prospec-plan/references/`
 
-### /prospec-design
+### prospec-design
 
 Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.
 
@@ -60,7 +70,7 @@ Design Phase - Generate visual and interaction specs from proposal (Generate Mod
 **Triggers**: design, UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計
 **References**: `.agents/skills/prospec-design/references/`
 
-### /prospec-tasks
+### prospec-tasks
 
 Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md).
 
@@ -68,7 +78,7 @@ Break Down Tasks - Decompose implementation plan into an actionable task checkli
 **Triggers**: break down, tasks, task list, work items, how to split, 拆解, 任務, 任務清單, 工作項目, 如何拆分
 **References**: `.agents/skills/prospec-tasks/references/`
 
-### /prospec-ff
+### prospec-ff
 
 Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks).
 
@@ -76,7 +86,7 @@ Fast-Forward Planning - Generate complete planning artifacts in one pass (Story 
 **Triggers**: fast-forward, ff, all at once, 一次到位, 快轉
 **References**: `.agents/skills/prospec-ff/references/`
 
-### /prospec-implement
+### prospec-implement
 
 Implementation - Execute tasks from the task list, implementing features one by one.
 
@@ -84,7 +94,7 @@ Implementation - Execute tasks from the task list, implementing features one by 
 **Triggers**: implement, start coding, write code, 實作, 開始寫程式, 寫程式, 開始實作
 **References**: `.agents/skills/prospec-implement/references/`
 
-### /prospec-review
+### prospec-review
 
 Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.
 
@@ -92,7 +102,7 @@ Adversarial Code Review → Fix Loop - Between implement and verify, an independ
 **Triggers**: review, code review, adversarial review, find bugs, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
 **References**: `.agents/skills/prospec-review/references/`
 
-### /prospec-verify
+### prospec-verify
 
 Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).
 
@@ -100,14 +110,14 @@ Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constit
 **Triggers**: verify, audit, quality check, 驗證, 稽核, 品質檢查, 評級
 **References**: `.agents/skills/prospec-verify/references/`
 
-### /prospec-knowledge-generate
+### prospec-knowledge-generate
 
 Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index.
 
 **Type**: Lifecycle
 **Triggers**: generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分
 
-### /prospec-archive
+### prospec-archive
 
 Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.
 
@@ -115,14 +125,14 @@ Archive Changes - Archive completed changes, generate summary, sync requirements
 **Triggers**: archive, spec sync, finalize change, 封存, 歸檔, 收尾, 規格同步
 **References**: `.agents/skills/prospec-archive/references/`
 
-### /prospec-knowledge-update
+### prospec-knowledge-update
 
 Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, index.md, and module-map.yaml incrementally.
 
 **Type**: Lifecycle
 **Triggers**: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件
 
-### /prospec-backfill-spec
+### prospec-backfill-spec
 
 Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.
 
@@ -130,7 +140,7 @@ Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing br
 **Triggers**: backfill spec, spec from code, brownfield, document existing code, 回填規格, 從程式碼產生規格, 既有程式碼, 補規格
 **References**: `.agents/skills/prospec-backfill-spec/references/`
 
-### /prospec-promote-backfill
+### prospec-promote-backfill
 
 Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone.
 
@@ -138,7 +148,7 @@ Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill chan
 **Triggers**: promote backfill, formalize backfill, backfill to delta-spec, promote draft, 晉升回填, 正式化回填, 回填轉正, 提升草稿
 **References**: `.agents/skills/prospec-promote-backfill/references/`
 
-### /prospec-learn
+### prospec-learn
 
 Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).
 
@@ -161,12 +171,12 @@ the standalone executable before running any skill — never substitute manual s
 
 **Station Transition Protocol**: The SDD workflow advances through stations (`prospec status` reports the current node and the next). On advancing to ANY new station — whether `prospec status` routed you there or you cascaded to it autonomously — read that station's skill file under `.agents/skills/` with your file-reading tool BEFORE taking any station action; `prospec status`'s `action:` line prints the exact path for the station it routes you to. Do not rely on accumulated context to guess a station's entry gates or micro-rules — a long session's diffs and logs dilute the initial instructions, so re-read the station's skill on every transition.
 
-**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `/prospec-learn` skill's promotion-format reference under `.agents/skills/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `prospec/ai-knowledge/module-map.yaml` and terms from `prospec/ai-knowledge/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
+**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `prospec-learn` Skill's promotion-format reference under `.agents/skills/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `prospec/ai-knowledge/module-map.yaml` and terms from `prospec/ai-knowledge/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
 
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture
 3. **Coding standards**: Follow the style guide in the Conventions document
-4. **Use Skills**: Trigger dedicated workflows via `/skill-name` commands
+4. **Use Skills**: Trigger dedicated workflows via their bare `prospec-<name>` identity
 5. **Module dependencies**: Check `prospec/ai-knowledge/module-map.yaml` before modifying
 
 ## Notes

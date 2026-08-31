@@ -502,7 +502,7 @@ describe('verify-record Gate A — review-provenance', () => {
     }).catch((e) => e);
     expect(err).toBeInstanceOf(PrerequisiteError);
     expect(err.message).toMatch(/review-provenance FAILs/);
-    expect(err.suggestion).toContain('/prospec-review');
+    expect(err.suggestion).toContain('prospec-review');
     // refuse-before-write: metadata untouched
     expect(vol.readFileSync(META, 'utf-8') as string).toContain('status: implemented');
   });

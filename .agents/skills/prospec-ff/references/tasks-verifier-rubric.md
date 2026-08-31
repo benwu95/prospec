@@ -1,6 +1,6 @@
 # Task Verifier Rubric Reference
 
-This document defines the **orthogonal criteria decomposition** and verification protocol used by the **Task Verifier** in the `/prospec-tasks` Skill (Phase 6) and `/prospec-ff` (Phase 4).
+This document defines the **orthogonal criteria decomposition** and verification protocol used by the **Task Verifier** in the `prospec-tasks` Skill (Phase 6) and `prospec-ff` (Phase 4).
 
 ---
 
@@ -45,7 +45,7 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 
 | Verdict | Condition | Action |
 |---------|-----------|--------|
-| **PASS** | All 4 dimensions satisfied; 100% contract coverage and correct topological ordering. | Advance to `/prospec-implement` or manual review. |
+| **PASS** | All 4 dimensions satisfied; 100% contract coverage and correct topological ordering. | Advance to `prospec-implement` or manual review. |
 | **WARN** | Advisory concerns (e.g. minor task sizing variance, missing optional `[P]` markers). | Record to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
 | **FLAWS** (FAIL) | Structural defect (uncovered REQ-ID, inverted dependency ordering, missing test task for affected module, missing `[M]`/`[V]` marker). | Revise `tasks.md` to resolve flaws, or exercise Break-Glass Override. |
 

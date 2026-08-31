@@ -196,7 +196,8 @@ describe('CLI E2E — change & spec', () => {
       const { stdout, exitCode } = await runCli(['status']);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('add-feature');
-      expect(stdout).toContain('/prospec-plan');
+      expect(stdout).toMatch(/next:\s+prospec-plan/);
+      expect(stdout).not.toMatch(/next:\s+\/prospec-plan/);
       // Solution B (REQ-CLI-039): the next station is surfaced as an actionable
       // skill target — the resolved path (from the configured `claude` agent),
       // plus the read-first instruction — never a hardcoded skills directory.

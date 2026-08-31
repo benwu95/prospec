@@ -17,6 +17,8 @@ describe('deriveTestCounts', () => {
     };
     expect(deriveTestCounts(report)).toEqual({
       'tests.total': 11,
+      'tests.passed': 11,
+      'tests.skipped': 0,
       'tests.unit': 5,
       'tests.contract': 1,
       'tests.integration': 4,
@@ -34,6 +36,8 @@ describe('deriveTestCounts', () => {
     };
     const out = deriveTestCounts(report)!;
     expect(out['tests.total']).toBe(5);
+    expect(out['tests.passed']).toBe(5);
+    expect(out['tests.skipped']).toBe(0);
     expect(out['tests.unit']).toBe(2);
     expect(out['tests.files']).toBe(2);
   });
@@ -43,6 +47,23 @@ describe('deriveTestCounts', () => {
       testResults: [{ name: 'C:\\repo\\tests\\unit\\a.test.ts', assertionResults: [{}, {}] }],
     };
     expect(deriveTestCounts(report)!['tests.unit']).toBe(2);
+  });
+
+  it('uses Vitest summary outcomes when available', () => {
+    const report = {
+      numTotalTests: 7,
+      numPassedTests: 5,
+      numPendingTests: 1,
+      numTodoTests: 1,
+      testResults: [
+        { name: '/repo/tests/unit/a.test.ts', assertionResults: [{}, {}, {}, {}, {}, {}, {}] },
+      ],
+    };
+
+    const out = deriveTestCounts(report)!;
+    expect(out['tests.total']).toBe(7);
+    expect(out['tests.passed']).toBe(5);
+    expect(out['tests.skipped']).toBe(2);
   });
 
   it('returns null for an empty or resultless report (caller skips, never fabricates)', () => {

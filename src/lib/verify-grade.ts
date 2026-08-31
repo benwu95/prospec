@@ -1,7 +1,7 @@
 import type { QualityDimension, VerifyGrade, GateResult } from '../types/change.js';
 
 /**
- * The /prospec-verify S/A/B/C/D decision table as a pure function — the
+ * The prospec-verify S/A/B/C/D decision table as a pure function — the
  * executable copy of the grading rules in `skills/prospec-verify.hbs`.
  *
  * Post-#107 there is NO engine-unavailability WARN exemption class: the CLI is
@@ -79,7 +79,7 @@ export function resultForGrade(grade: VerifyGrade): GateResult {
   return grade === 'B' ? 'WARN' : 'FAIL';
 }
 
-/** Only S/A graduate — the `status: verified` gate `/prospec-archive` looks for. */
+/** Only S/A graduate — the `status: verified` gate `prospec-archive` looks for. */
 export function gradeAdvancesStatus(grade: VerifyGrade): boolean {
   return grade === 'S' || grade === 'A';
 }

@@ -261,7 +261,7 @@ describe('prospec mcp E2E', () => {
       expect(claudeMd).toContain('/prospec-'); // slim pointer names the command family
 
       // the hand-off line names the exact next slash command
-      expect(stdout).toContain('/prospec-quickstart');
+      expect(stdout).toContain('prospec-quickstart');
     });
 
     it('is re-runnable: a second run skips init', async () => {

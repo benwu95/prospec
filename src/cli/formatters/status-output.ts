@@ -60,7 +60,7 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     }
     const next =
       change.next === null
-        ? pc.dim('— terminal (periodic /prospec-learn)')
+        ? pc.dim('— terminal (periodic prospec-learn)')
         : pc.cyan(STATION_SKILLS[change.next]);
     console.log(`  next:    ${next}`);
     if (change.nextSkillPath !== undefined) {

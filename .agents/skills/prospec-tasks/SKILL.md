@@ -136,14 +136,14 @@ Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh 
 
 ### Phase 7: Knowledge Quality Gate
 
-Confirm the decomposition against Knowledge in **one line**: layer order matches the module dependency graph, task file paths exist or are clearly new, and every new/modified module has a test task. Any gap → WARN with a clarification note on the affected task (non-blocking); record to `metadata.yaml` `quality_log`. (The full per-station Quality-Gate table lives only in `/prospec-verify`.)
+Confirm the decomposition against Knowledge in **one line**: layer order matches the module dependency graph, task file paths exist or are clearly new, and every new/modified module has a test task. Any gap → WARN with a clarification note on the affected task (non-blocking); record to `metadata.yaml` `quality_log`. (The full per-station Quality-Gate table lives only in `prospec-verify`.)
 
 > **Phase 7 Gate** — proceed when:
 > - [ ] the one-line Knowledge check is recorded PASS or WARN (with a clarification note per WARN)
 
 ### Phase 8: Summary + Next Steps
 
-Suggest: `/prospec-implement` or manual review.
+Suggest: `prospec-implement` or manual review.
 
 ## Output Contract
 
@@ -164,7 +164,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) and the Task Verifier rubric — not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** Constitution rule (**TDD / test coverage**) and the Task Verifier rubric — not the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When the rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` — the CLI owns the `quality_log` serialization; `result` stays the gate three-state, never a grade. Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
@@ -186,7 +186,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**TD
 
 | Scenario | Action |
 |----------|--------|
-| plan.md not found | `scale: quick`: expected — decompose from proposal.md. Otherwise guide user to run `/prospec-plan` first |
+| plan.md not found | `scale: quick`: expected — decompose from proposal.md. Otherwise guide user to run `prospec-plan` first |
 | Task count exceeds 30 | Suggest splitting the Story or merging fine-grained tasks |
 | Insufficient test coverage | Offer options: add test tasks / document test debt |
 
@@ -195,9 +195,9 @@ Verify the output against this skill's **site-specific** Constitution rule (**TD
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.

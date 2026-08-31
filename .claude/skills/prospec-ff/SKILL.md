@@ -79,15 +79,15 @@ absent; never invent one, and never derive one from the branch name.
 | Step | Action |
 |------|--------|
 | Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md`. Pass `--issue` only when Phase 1 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
-| Scale | Run the complexity assessment from `/prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
+| Scale | Run the complexity assessment from `prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
-| Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `/prospec-verify` only |
+| Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `prospec-verify` only |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
 delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `prospec/index.md` from Startup
 Loading is still read). Status advances `story → tasks` directly
 (a legal quick-path transition; see `prospec/ai-knowledge/_status-lifecycle.md`). The
-`/prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
+`prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created
@@ -138,17 +138,17 @@ Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`refer
 
 ### Completion: Summary Report
 
-List all produced files and task statistics. If planning only, suggest `/prospec-implement`. If cascading completed, present the Tastemaker summary for human sign-off.
+List all produced files and task statistics. If planning only, suggest `prospec-implement`. If cascading completed, present the Tastemaker summary for human sign-off.
 
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.
 
@@ -156,9 +156,9 @@ offering the next skill.
 
 | Failed Phase | Preserved | Recovery Options |
 |-------------|-----------|-----------------|
-| Story fails | Change directory | Retry / switch to `/prospec-new-story` |
-| Plan fails | proposal.md | Retry / switch to `/prospec-plan` |
-| Tasks fails | proposal.md (+ plan.md + delta-spec.md for standard/full) | Retry / switch to `/prospec-tasks` |
+| Story fails | Change directory | Retry / switch to `prospec-new-story` |
+| Plan fails | proposal.md | Retry / switch to `prospec-plan` |
+| Tasks fails | proposal.md (+ plan.md + delta-spec.md for standard/full) | Retry / switch to `prospec-tasks` |
 | Implement / Review fails | working tree + tasks.md | Resolve blocker or switch to single-station skill |
 | Circuit breaker tripped | state & diagnostics | Escalate to human with trade-off options |
 | Severe Constitution violation | All parts completed before failure | Pause FF, switch to single-phase Skill |
@@ -190,13 +190,13 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage and task verifier rubric for tasks) — NOT the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
+Verify the output against each phase's **site-specific** Constitution rule (INVEST for story, dependency-direction/layering and architecture verifier rubric for plan, TDD coverage and task verifier rubric for tasks) — NOT the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record each WARN/FAIL via `prospec change log --skill <station> --result WARN|FAIL --warning "<detail>"` (the CLI owns the `quality_log` serialization). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 
-- **NEVER** use FF when requirements are vague — guide user to `/prospec-explore` first
-- **NEVER** run a generic multi-principle Constitution scan per phase — each phase checks only its site-specific rule (INVEST / dependency-direction / TDD); the full every-principle audit is `/prospec-verify`'s job (single-full-audit convergence)
-- **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `/prospec-explore` for depth
+- **NEVER** use FF when requirements are vague — guide user to `prospec-explore` first
+- **NEVER** run a generic multi-principle Constitution scan per phase — each phase checks only its site-specific rule (INVEST / dependency-direction / TDD); the full every-principle audit is `prospec-verify`'s job (single-full-audit convergence)
+- **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files directly
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks (or story → tasks under `scale: quick`); the `prospec change` commands own every transition — never hand-edit metadata.yaml
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability

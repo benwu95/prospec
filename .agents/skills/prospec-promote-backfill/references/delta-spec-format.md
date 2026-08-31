@@ -26,7 +26,7 @@ REQ-{MODULE}-{NUMBER}
 
 **Backfill (`scale: backfill`):** feature-first extraction uses a feature-slug REQ-id
 (`REQ-{FEATURE-SLUG}-{NUMBER}`, e.g. `REQ-USER-PROFILE-001`) instead of a module name —
-`/prospec-archive` routes the REQ by its `**Feature:**` field and derives affected modules from
+`prospec-archive` routes the REQ by its `**Feature:**` field and derives affected modules from
 `metadata.related_modules`/feature-map, so a backfill REQ-id need not be module-based.
 
 ---

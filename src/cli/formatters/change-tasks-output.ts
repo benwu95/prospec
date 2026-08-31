@@ -43,9 +43,8 @@ export function formatChangeTasksOutput(
     `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${sanitizeTerminal(result.changeName)}/tasks.md\``)} to refine the task breakdown`,
   );
   lines.push(
-    `${pc.dim('→')} Use ${pc.cyan('`/prospec-implement`')} skill to start implementation`,
+    `${pc.dim('→')} Use ${pc.cyan('`prospec-implement`')} skill to start implementation`,
   );
 
   process.stdout.write(lines.join('\n') + '\n');
 }
-

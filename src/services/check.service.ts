@@ -348,7 +348,7 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
 
 /**
  * Record the active change's review baseline (REQ-SERVICES-062). Run by
- * `/prospec-review` at loop convergence so the digest is code-computed, not
+ * `prospec-review` at loop convergence so the digest is code-computed, not
  * hand-derived. Writes `review_provenance` into metadata.yaml with the
  * comment-preserving Document round-trip; a non-git repo yields no digest, so
  * it honestly skips rather than writing a fake baseline.

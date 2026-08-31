@@ -152,7 +152,7 @@ function generateConventionsSkeleton(projectName: string): string {
 > Coding conventions and best practices for ${projectName}
 
 <!-- prospec:auto-start -->
-_Populated by \`/prospec-knowledge-generate\`._
+_Populated by \`prospec-knowledge-generate\`._
 <!-- prospec:auto-end -->
 
 <!-- prospec:user-start -->

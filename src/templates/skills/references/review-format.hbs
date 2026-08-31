@@ -23,11 +23,11 @@ A finding is critical only if it is one of:
 3. **Spec contradiction**: the implementation logically contradicts a `delta-spec` REQ's stated intent.
 4. **Single-source bypass on an autonomous or write path**: the change re-implements a guard, normalizer, or writer that the project's knowledge base documents as the single source (or that an existing service already provides), AND the duplicate sits on an autonomous or write path — *autonomous*: executed without a human in the loop (a scheduled, CI, hook, or agent-driven job); *write path*: code that creates or mutates an artifact, record, or configuration — both conditions required; a duplicate off those paths stays major (DRY). This two-condition definition lives here only — the plan rubric and the lens reference cite it by name.
 
-> REQ *completeness* ("this REQ is only partially covered") is **not** a review critical — it is left to `/prospec-verify` dimension 1–2. Review checks correctness and spec-*contradiction*, not coverage.
+> REQ *completeness* ("this REQ is only partially covered") is **not** a review critical — it is left to `prospec-verify` dimension 1–2. Review checks correctness and spec-*contradiction*, not coverage.
 
 ### major — does not block, proposed, passed to verify as WARN
 
-- **Performance** and **maintainability** concerns. Recorded and handed to `/prospec-verify` as an advisory WARN (via `quality_log`); **not counted in verify's grade** — review and verify stay on separate axes. Never auto-fixed.
+- **Performance** and **maintainability** concerns. Recorded and handed to `prospec-verify` as an advisory WARN (via `quality_log`); **not counted in verify's grade** — review and verify stay on separate axes. Never auto-fixed.
 
 ### nit — dropped, not reported
 

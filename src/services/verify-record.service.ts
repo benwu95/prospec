@@ -307,7 +307,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   if (report.structural.checks.find((c) => c.id === 'review-provenance')?.status === 'fail') {
     throw new PrerequisiteError(
       'review-provenance FAILs — this change has no current review baseline',
-      'Run `/prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
+      'Run `prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
     );
   }
 

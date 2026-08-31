@@ -64,7 +64,7 @@ Runs FIRST — audit the two governed files for entries the project has outgrown
 ### Collect
 
 Build/refresh the version-controlled lessons ledger (`prospec/ai-knowledge/_lessons-ledger.md`):
-- Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in the session corrections the user raised that pass the **Generalizability Heuristic** (`references/promotion-format.md` → what to capture) — a one-off mock, business-string tweak or temporary hack is not folded in, so a manual `/prospec-learn` run applies the same capture filter the L0 Checkpoint Correction Capture protocol does.
+- Scan each archived change's `metadata.yaml` `quality_log` and `review.md` for WARN/FAIL/critical findings; also fold in the session corrections the user raised that pass the **Generalizability Heuristic** (`references/promotion-format.md` → what to capture) — a one-off mock, business-string tweak or temporary hack is not folded in, so a manual `prospec-learn` run applies the same capture filter the L0 Checkpoint Correction Capture protocol does.
 - Assign each finding a **deterministic key** (a normalized signature — e.g. the rule/REQ it relates to, or a file/pattern), so the same lesson maps to the same key every run. Semantic matching ("are these the same lesson?" → reuse the existing key) is the **only LLM step**.
 - For each keyed finding, emit a lesson JSON (`{key, description, kind, source_change, impact_modules}` — `impact_modules` looked up from `module-map.yaml`) to a temp file and run `prospec learn upsert --lesson <file>` (Bash). The CLI owns the mechanics: keyed idempotent upsert, `frequency` incremented only for a DISTINCT source change (never recomputed by re-scanning), `source_changes[]`/`impact_modules[]` union, and the canonical table render.
 
@@ -80,7 +80,7 @@ The scoring runs INSIDE `prospec learn upsert` — the explicit numeric rule fro
 ### Promote
 
 **lessons ledger → team `prospec/ai-knowledge/_playbook.md` → Constitution**, gated stricter at each step. Routing by the lesson's **kind** (see `references/promotion-format.md`):
-- **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (RFC-2119 severity form) that `/prospec-verify` grades.
+- **constitution** (hard, enforceable principle) → `prospec/CONSTITUTION.md` as a `ConstitutionRule` (RFC-2119 severity form) that `prospec-verify` grades.
 - **convention** / **playbook** → `prospec/ai-knowledge/_playbook.md` — the single governed team tier (L2 on-demand + TTL). The `kind` label is recorded on the entry; a `convention`-labelled entry may later be **hand-moved** by a human into `_conventions.md` `prospec:user` section, but the pipeline **never auto-writes `_conventions.md`** (it is an L1 Core Convention read on every task and not TTL-governed).
 - **contract test promotion** (generalizable invariant pin) → propose promoting review fix-loop regression pins that enforce structural, sanitization, or boundary invariants across an entire component family into permanent directory-enumerated contract tests in `tests/contract/`.
 
@@ -116,7 +116,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ### Exit Gate (Constitution)
 
-Verify the output against this skill's **site-specific** rule (**promotion-approval discipline** — nothing reaches the team playbook or Constitution without explicit human approval), not the full Constitution; the every-principle audit is `/prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record any WARN/FAIL (e.g. a promotion blocked, an unresolved conflict) to the change's `metadata.yaml` `quality_log` (`skill: prospec-learn` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
+Verify the output against this skill's **site-specific** rule (**promotion-approval discipline** — nothing reaches the team playbook or Constitution without explicit human approval), not the full Constitution; the every-principle audit is `prospec-verify` V3/5 only. When a rule carries RFC-2119 severity, grade by weight — MUST→FAIL, SHOULD→WARN, MAY→informational (the grade vocabulary stays PASS/WARN/FAIL). A free-text Constitution falls back to judgment-based grading. Record any WARN/FAIL (e.g. a promotion blocked, an unresolved conflict) to the change's `metadata.yaml` `quality_log` (`skill: prospec-learn` / `date` / `result` / `warnings`). Advisory — surface issues, do not hard-block.
 
 ## NEVER
 

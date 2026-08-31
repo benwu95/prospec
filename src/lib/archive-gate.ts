@@ -41,7 +41,7 @@ export function evaluateArchiveEntryGate(
   }
   if (checkFails(report, 'review-provenance')) {
     reasons.push(
-      'review-provenance FAILs — re-run `/prospec-review`, then `prospec check --record-review`',
+      'review-provenance FAILs — re-run `prospec-review`, then `prospec check --record-review`',
     );
   }
   if (checkFails(report, 'test-provenance')) {
@@ -55,7 +55,7 @@ export function evaluateArchiveEntryGate(
     );
   }
   if (!knowledgeSynced) {
-    reasons.push('affected-module Knowledge is not synced — run `/prospec-knowledge-update`');
+    reasons.push('affected-module Knowledge is not synced — run `prospec-knowledge-update`');
   }
 
   return { blocked: reasons.length > 0, reasons };

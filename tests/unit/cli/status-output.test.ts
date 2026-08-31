@@ -49,7 +49,8 @@ describe('status-output', () => {
     expect(text).toContain('add-auth');
     expect(text).toContain('[standard]');
     expect(text).toContain('implemented');
-    expect(text).toContain('/prospec-review');
+    expect(text).toContain('prospec-review');
+    expect(text).not.toContain('/prospec-review');
     expect(text).toContain('adversarial review completed');
     expect(text).toContain('review owns no status transition');
   });

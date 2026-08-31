@@ -9,7 +9,7 @@ description: "Promote Backfill - Formalize a reviewed backfill-draft.md into the
 ## Activation
 
 When triggered, briefly describe:
-- That you'll formalize a **reviewed** `backfill-draft.md` into the backfill change scaffold — `proposal.md` + `delta-spec.md` + `metadata.yaml` — so it can graduate through `/prospec-verify` (backfill mode) → `/prospec-archive`
+- That you'll formalize a **reviewed** `backfill-draft.md` into the backfill change scaffold — `proposal.md` + `delta-spec.md` + `metadata.yaml` — so it can graduate through `prospec-verify` (backfill mode) → `prospec-archive`
 - That this is the single, repeatable draft→scaffold step — it replaces ad-hoc hand conversion and is where the `scale: backfill` marker is set
 - That `backfill` is a **light scale** like `quick`: it records *existing* behavior, so there is **no `plan.md` and no `tasks.md`** (nothing to plan, no work to schedule). The scaffold enters the lifecycle directly at `status: implemented`
 - That it **never** writes the trust zone (`prospec/specs/features/`) — `prospec archive` (the CLI) stays the sole writer
@@ -45,12 +45,12 @@ nondeterministic serialization this contract exists to remove.
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not produce the scaffold.
 
 - `.prospec/changes/[name]/backfill-draft.md` exists and is route-compatible (`**Feature:**`/`**Story:**` headers + User Story + Acceptance Criteria candidates).
-- The draft has **no unresolved `[NEEDS CLARIFICATION]`** — promotion is a record of *confirmed* behavior; an unresolved marker means the user-review gate (`/prospec-backfill-spec` Phase 5) is incomplete. FAIL → send the user back to resolve it; never carry it into the scaffold.
+- The draft has **no unresolved `[NEEDS CLARIFICATION]`** — promotion is a record of *confirmed* behavior; an unresolved marker means the user-review gate (`prospec-backfill-spec` Phase 5) is incomplete. FAIL → send the user back to resolve it; never carry it into the scaffold.
 - The candidate feature slug is confirmed and `prospec validate slug <candidate>` (Bash) PASSes.
 
 ## Core Workflow
 
-> The draft is already fidelity-checked (every AC backed by `file:line`, no fabricated intent, no uncounted facts — `/prospec-backfill-spec` guarantees this). Promotion **reshapes** that material into the forward-path artifacts; it does not re-derive behavior and **adds no claim the draft did not already ground**.
+> The draft is already fidelity-checked (every AC backed by `file:line`, no fabricated intent, no uncounted facts — `prospec-backfill-spec` guarantees this). Promotion **reshapes** that material into the forward-path artifacts; it does not re-derive behavior and **adds no claim the draft did not already ground**.
 
 ### Phase 1: Validate and route the draft
 
@@ -67,11 +67,11 @@ Run `prospec change story [slug] --description "<one-liner>" --related-module <m
 auto-match, which knows nothing about the traced code). The CLI scaffolds the change directory,
 metadata.yaml (status: story), and a proposal.md skeleton.
 
-Then overwrite `proposal.md` per `references/proposal-format.md`: each draft story → an INVEST User Story (As a / I want / So that + WHEN/THEN Acceptance Scenarios from the draft's AC). Carry the draft's *So that* / role verbatim — they were confirmed at review. Edge Cases and FR/SC trace to the draft's behaviors. (`/prospec-archive` Phase 3.5 graduates the Feature Spec from this proposal + the delta-spec below.)
+Then overwrite `proposal.md` per `references/proposal-format.md`: each draft story → an INVEST User Story (As a / I want / So that + WHEN/THEN Acceptance Scenarios from the draft's AC). Carry the draft's *So that* / role verbatim — they were confirmed at review. Edge Cases and FR/SC trace to the draft's behaviors. (`prospec-archive` Phase 3.5 graduates the Feature Spec from this proposal + the delta-spec below.)
 
 ### Phase 3: delta-spec.md
 
-Write `delta-spec.md` per `references/delta-spec-format.md`: each draft AC candidate → a REQ under `## ADDED` with `**Feature:**` (the confirmed slug) and `**Story:**` routing. Keep the feature-first REQ-id (`REQ-{FEATURE-SLUG}-NNN`) — archive routes by `**Feature:**` and derives modules from `related_modules`/feature-map, so the REQ-id need not be module-based. Every AC keeps its `file:line` citation so `/prospec-verify` can re-confirm fidelity.
+Write `delta-spec.md` per `references/delta-spec-format.md`: each draft AC candidate → a REQ under `## ADDED` with `**Feature:**` (the confirmed slug) and `**Story:**` routing. Keep the feature-first REQ-id (`REQ-{FEATURE-SLUG}-NNN`) — archive routes by `**Feature:**` and derives modules from `related_modules`/feature-map, so the REQ-id need not be module-based. Every AC keeps its `file:line` citation so `prospec-verify` can re-confirm fidelity.
 
 ### Phase 4: metadata.yaml (CLI-written)
 
@@ -90,7 +90,7 @@ plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitte
 
 ### Phase 5: Handoff
 
-Present the produced scaffold and route the user to `/prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, so a faithful draft reaches grade S/A → `verified` → archivable.
+Present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, so a faithful draft reaches grade S/A → `verified` → archivable.
 
 ## Output Contract
 
@@ -115,15 +115,15 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** carry an unresolved `[NEEDS CLARIFICATION]` into the scaffold — a backfill change records *confirmed* behavior; send the user back to the draft's review gate instead
 - **NEVER** add a behavior, count, or cross-module flow the draft did not already ground in `file:line` — promotion reshapes the fidelity-checked draft, it does not re-extract or fabricate
 - **NEVER** leave `related_modules` empty — archive's backfill knowledge-sync derives affected modules from it; an empty set would silently pass the gate
-- **NEVER** strip a REQ's `file:line` citation — `/prospec-verify` needs it to re-confirm spec-fidelity
+- **NEVER** strip a REQ's `file:line` citation — `prospec-verify` needs it to re-confirm spec-fidelity
 - **NEVER** set `scale` to anything but `backfill`, or `status` to anything but `implemented` — promotion is the backfill lifecycle entry; other values misroute verify/archive
 
 ## Error Handling
 
 | Scenario | Action |
 |----------|--------|
-| `backfill-draft.md` missing | Guide user to run `/prospec-backfill-spec` first (it stages the draft) |
-| Unresolved `[NEEDS CLARIFICATION]` in the draft | STOP; send the user back to `/prospec-backfill-spec` Phase 5 to resolve before promoting |
+| `backfill-draft.md` missing | Guide user to run `prospec-backfill-spec` first (it stages the draft) |
+| Unresolved `[NEEDS CLARIFICATION]` in the draft | STOP; send the user back to `prospec-backfill-spec` Phase 5 to resolve before promoting |
 | Candidate feature slug fails `prospec validate slug` | Reject; ask the user to confirm a safe slug |
 | No module resolves from the draft's `file:line` | STOP; `related_modules` cannot be empty — the draft's tracing is incomplete |
 
@@ -132,9 +132,9 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 After the Output Summary, recommend the next step in the SDD workflow order
 (`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
-status transition, so follow this order, not status alone). Provide the direct, actionable slash
-command or CLI command for the next step (e.g. `/prospec-plan`), allowing smooth continuation
+status transition, so follow this order, not status alone). Provide the direct, actionable Skill
+identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
 without blocking on a separate confirmation turn. If the stage is terminal (`archived`), the linear
-flow is complete — point to periodic `/prospec-learn` rather than a workflow successor. If the result
+flow is complete — point to periodic `prospec-learn` rather than a workflow successor. If the result
 does not advance (e.g. verify grade B/C/D), say so and point to the corrective step instead of
 offering the next skill.

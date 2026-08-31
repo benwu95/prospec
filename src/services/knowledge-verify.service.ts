@@ -58,7 +58,7 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   } catch {
     throw new PrerequisiteError(
       `module-map.yaml not found at ${moduleMapPath}`,
-      'Run `prospec knowledge init` (and `/prospec-knowledge-generate`) first.',
+      'Run `prospec knowledge init` (and `prospec-knowledge-generate`) first.',
     );
   }
 

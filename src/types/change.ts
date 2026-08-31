@@ -10,19 +10,19 @@ import { z } from 'zod';
 export const CHANGE_STATUSES = ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived'] as const;
 
 /** Process weight per change (BL-004). Absent on existing metadata means `standard`.
- *  `backfill` is a promotion-time scale set only by `/prospec-promote-backfill` (documents
+ *  `backfill` is a promotion-time scale set only by `prospec-promote-backfill` (documents
  *  existing brownfield code); verify/archive branch on it like `quick`. */
 export const CHANGE_SCALES = ['quick', 'standard', 'full', 'backfill'] as const;
 
 /** Severity vocabulary shared with Entry/Exit gates and verify (no fourth state). */
 export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;
 
-/** /prospec-verify quality grade vocabulary (S/A graduate; B/C/D do not). */
+/** prospec-verify quality grade vocabulary (S/A graduate; B/C/D do not). */
 export const VERIFY_GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
 
 /** A single verify dimension's outcome. Wider than `GATE_RESULTS`: a dimension
  *  that does not apply to this change's scale is reported `not-applicable`, which
- *  `/prospec-verify` mandates over PASS (a quick change has no delta-spec to
+ *  `prospec-verify` mandates over PASS (a quick change has no delta-spec to
  *  compare, a backfill change has no tasks.md — an unchecked dimension must not
  *  read as a passed one). `not-adjudicated` is the distinct case where a dimension
  *  DOES apply but its machine adjudicator was unavailable (the drift engine could
@@ -42,7 +42,7 @@ export const DIMENSION_ADJUDICATORS = ['machine', 'judgment'] as const;
  *  grader validating its own reasoning is not independent evidence. */
 export const DIMENSION_GRADED_BY = ['fresh-subagent', 'in-session'] as const;
 
-/** One /prospec-verify dimension outcome, for machine-aggregatable quality trends. */
+/** One prospec-verify dimension outcome, for machine-aggregatable quality trends. */
 export const QualityDimensionSchema = z.looseObject({
   name: z.string(),
   result: z.enum(DIMENSION_RESULTS),
@@ -54,7 +54,7 @@ export const QualityDimensionSchema = z.looseObject({
    *  here. `in-session` caps the grade below S. */
   graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
   /** Free-string self-report of who graded it (model / harness description). Not
-   *  validated — prospec detects no model; it is a data source for `/prospec-learn`
+   *  validated — prospec detects no model; it is a data source for `prospec-learn`
    *  per-executor statistics, absent when the grader did not declare one. */
   executor: z.string().optional(),
   /** Self-reported tokens spent on this verdict — the detection-per-cost
@@ -71,15 +71,15 @@ const QualityLogEntryShape = {
   // `.default([])` only ever ADDS this key (the metadata-format reference
   // requires it present, `[]` when empty) — it never drops caller data.
   warnings: z.array(z.string()).default([]),
-  /** /prospec-verify grade; `result` stays the gate three-state, never a grade. */
+  /** prospec-verify grade; `result` stays the gate three-state, never a grade. */
   grade: z.enum(VERIFY_GRADES).optional(),
-  /** /prospec-verify 5+1 dimension results. */
+  /** prospec-verify 5+1 dimension results. */
   dimensions: z.array(QualityDimensionSchema).optional(),
-  /** /prospec-review criticals surfaced this round. */
+  /** prospec-review criticals surfaced this round. */
   criticals_found: z.number().int().nonnegative().optional(),
-  /** /prospec-review criticals auto-fixed this round. */
+  /** prospec-review criticals auto-fixed this round. */
   criticals_fixed: z.number().int().nonnegative().optional(),
-  /** /prospec-review majors surfaced this round (advisory, never counted in grade). */
+  /** prospec-review majors surfaced this round (advisory, never counted in grade). */
   majors: z.number().int().nonnegative().optional(),
 } as const;
 
@@ -154,13 +154,13 @@ const ChangeMetadataShape = {
   // Entry/Exit gate trail (BL-003).
   quality_log: z.array(QualityLogEntrySchema).optional(),
   // Machine-written review baseline (written by `prospec check --record-review`
-  // when `/prospec-review` completes). `digest` is a content fingerprint of the
+  // when `prospec-review` completes). `digest` is a content fingerprint of the
   // reviewed code state; the review-provenance drift check recomputes it and
   // flags the change stale when it no longer matches. Optional keeps existing
   // metadata valid and marks a change that has not been reviewed yet.
   review_provenance: ReviewProvenanceSchema.optional(),
   // Machine-written test baseline (written by `prospec check --record-tests` when
-  // `/prospec-verify` records the run). The test-provenance drift check recomputes
+  // `prospec-verify` records the run). The test-provenance drift check recomputes
   // the digest and flags the change stale when it no longer matches, or failed when
   // `exit_code` is non-zero. Deliberately NOT part of the metadata-completeness
   // required-field floor: adding it there would retroactively fail every change

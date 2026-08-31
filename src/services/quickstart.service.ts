@@ -34,8 +34,8 @@ export interface QuickstartResult {
  * Thin wrapper over two already-idempotent services (service-orchestrates-service,
  * cf. `change-resolver`). It deliberately does NOT run `knowledge init` —
  * raw-scan generation + knowledge generation need an LLM, so they belong to the
- * `/prospec-quickstart` skill, which keeps raw-scan.md fresh and chains into
- * `/prospec-knowledge-generate`.
+ * `prospec-quickstart` skill, which keeps raw-scan.md fresh and chains into
+ * `prospec-knowledge-generate`.
  *
  * 1. init — catch AlreadyExistsError on a re-run and mark the step `skipped`
  * 2. agent sync — idempotent overwrite; its hints (native-language triggers)
@@ -71,6 +71,6 @@ export async function execute(
   return {
     steps,
     agentSync,
-    nextStep: '/prospec-quickstart',
+    nextStep: 'prospec-quickstart',
   };
 }

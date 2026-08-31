@@ -65,7 +65,7 @@ export async function execute(options: SpecShowOptions): Promise<SpecShowResult>
     throw new PrerequisiteError(
       `no active feature spec named "${options.feature}"`,
       result.available.length === 0
-        ? 'No feature specs exist yet — they are written by /prospec-archive'
+        ? 'No feature specs exist yet — they are written by prospec-archive'
         : `Available feature specs: ${result.available.join(', ')}`,
     );
   }

@@ -1,6 +1,6 @@
 # Architecture Verifier Rubric Reference
 
-This document defines the **orthogonal criteria decomposition** and verification protocol used by the **Architecture Verifier** in the `/prospec-plan` Skill (Phase 6).
+This document defines the **orthogonal criteria decomposition** and verification protocol used by the **Architecture Verifier** in the `prospec-plan` Skill (Phase 6).
 
 ---
 
@@ -58,7 +58,7 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
 
 | Verdict | Condition | Action |
 |---------|-----------|--------|
-| **PASS** | All 5 dimensions satisfied; no critical flaws. | Advance to `/prospec-tasks` or manual review. |
+| **PASS** | All 5 dimensions satisfied; no critical flaws. | Advance to `prospec-tasks` or manual review. |
 | **WARN** | Advisory concerns (e.g. missing edge-case mitigation, non-critical performance note). | Append to `plan.md` Risk Assessment and log to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
 | **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story, an existing owner bypassed without a stated rationale, or a `standard` plan missing its Simpler Alternative). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
 
