@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import type { McpServeResult } from '../../services/mcp.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Serve diagnostics go to STDERR by design (REQ-MCP-001): stdout is the MCP
@@ -7,8 +8,9 @@ import type { McpServeResult } from '../../services/mcp.service.js';
  */
 export function formatMcpServeOutput(result: McpServeResult): void {
   process.stderr.write(
-    `${pc.green('✓')} ${result.serverName} MCP server v${result.version} serving on stdio\n` +
-      `  ${pc.dim('knowledge:')} ${result.knowledgePath}\n` +
-      `  ${pc.dim('specs:')} ${result.featuresDir}\n`,
+    `${pc.green('✓')} ${sanitizeTerminal(result.serverName)} MCP server v${sanitizeTerminal(result.version)} serving on stdio\n` +
+      `  ${pc.dim('knowledge:')} ${sanitizeTerminal(result.knowledgePath)}\n` +
+      `  ${pc.dim('specs:')} ${sanitizeTerminal(result.featuresDir)}\n`,
   );
 }
+

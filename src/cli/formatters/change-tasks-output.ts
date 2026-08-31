@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeTasksResult } from '../../services/change-tasks.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the ChangeTasksResult for terminal output.
@@ -21,7 +22,7 @@ export function formatChangeTasksOutput(
 
   // 1. Created files
   for (const file of result.createdFiles) {
-    lines.push(`${pc.green('✓')} Created ${file}`);
+    lines.push(`${pc.green('✓')} Created ${sanitizeTerminal(file)}`);
   }
 
   // 2. Status update
@@ -32,14 +33,14 @@ export function formatChangeTasksOutput(
     lines.push('');
     lines.push('Related modules:');
     for (const mod of result.relatedModules) {
-      lines.push(`  ${pc.green('●')} ${mod}`);
+      lines.push(`  ${pc.green('●')} ${sanitizeTerminal(mod)}`);
     }
   }
 
   // 4. Next steps
   lines.push('');
   lines.push(
-    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${result.changeName}/tasks.md\``)} to refine the task breakdown`,
+    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${sanitizeTerminal(result.changeName)}/tasks.md\``)} to refine the task breakdown`,
   );
   lines.push(
     `${pc.dim('→')} Use ${pc.cyan('`/prospec-implement`')} skill to start implementation`,
@@ -47,3 +48,4 @@ export function formatChangeTasksOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
+

@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeStoryResult } from '../../services/change-story.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the ChangeStoryResult for terminal output with proper styling.
@@ -22,13 +23,13 @@ export function formatChangeStoryOutput(
   // the change's artifacts, and under a dry run none of them are on disk.
   const verb = result.dryRun ? 'Would create' : 'Created';
   for (const file of result.createdFiles) {
-    lines.push(`${pc.green('✓')} ${verb} ${file}`);
+    lines.push(`${pc.green('✓')} ${verb} ${sanitizeTerminal(file)}`);
   }
 
   // 2. Description (if provided)
   if (result.description) {
     lines.push('');
-    lines.push(`Description: ${pc.cyan(result.description)}`);
+    lines.push(`Description: ${pc.cyan(sanitizeTerminal(result.description))}`);
   }
 
   // 3. Related modules (if matched)
@@ -36,14 +37,14 @@ export function formatChangeStoryOutput(
     lines.push('');
     lines.push('Related modules:');
     for (const mod of result.relatedModules) {
-      lines.push(`  ${pc.green('●')} ${mod.name} — ${pc.dim(mod.description)}`);
+      lines.push(`  ${pc.green('●')} ${sanitizeTerminal(mod.name)} — ${pc.dim(sanitizeTerminal(mod.description))}`);
     }
   }
 
   // 4. Next steps
   lines.push('');
   lines.push(
-    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${result.changeName}/proposal.md\``)} to fill in your User Story`,
+    `${pc.dim('→')} Edit ${pc.cyan(`\`.prospec/changes/${sanitizeTerminal(result.changeName)}/proposal.md\``)} to fill in your User Story`,
   );
   lines.push(
     `${pc.dim('→')} Then run ${pc.cyan('`prospec change plan`')} to generate the implementation plan`,
@@ -51,3 +52,4 @@ export function formatChangeStoryOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
+

@@ -47,9 +47,9 @@ export function formatAgentTriggersOutput(
     'skill_triggers:',
   ];
   for (const skill of missing) {
-    lines.push(`  ${skill.name}:`);
+    lines.push(`  ${sanitizeTerminal(skill.name)}:`);
     for (const word of skill.baseline) {
-      lines.push(`    - ${word}`);
+      lines.push(`    - ${sanitizeTerminal(word)}`);
     }
   }
   process.stdout.write(lines.join('\n') + '\n');
@@ -65,10 +65,11 @@ export function formatAgentTriggersWriteOutput(
   const lines: string[] = [];
   if (result.written.length > 0) {
     lines.push(
-      `${pc.green('✓')} Inserted skill_triggers for ${result.written.length} skill(s) into ${pc.cyan(result.configPath)}:`,
+      `${pc.green('✓')} Inserted skill_triggers for ${result.written.length} skill(s) into ${pc.cyan(sanitizeTerminal(result.configPath))}:`,
     );
     for (const skill of result.written) lines.push(`  - ${sanitizeTerminal(skill)}`);
   } else {
+
     lines.push(`${pc.yellow('●')} Nothing written — no missing skill_triggers entries in the scaffold`);
   }
   if (result.skippedExisting.length > 0) {

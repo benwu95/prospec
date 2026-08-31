@@ -6647,6 +6647,82 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       expect(dangling).toContain('unknown-ref.md');
     });
   });
+
+  describe('Universal Claims & Regression Pin Promotion Contracts (REQ-TEMPLATES-222, REQ-TEMPLATES-223, REQ-TESTS-106)', () => {
+    it('knowledge-update Phase 3a requires pairing universal prose conventions with executors', () => {
+      const content = renderTemplate('skills/prospec-knowledge-update.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '### Phase 3: Update README Content');
+      expect(section).toContain('Pair universal conventions with executors');
+      expect(section).toContain('a checker with no executor is not a gate');
+    });
+
+
+    it('review-lenses-content docs-claims lens flags universal claims without executor as critical/major', () => {
+      const content = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '## Docs-Claims / Measurement-Attribution Lens');
+      expect(section).toContain('Universal claims without executor');
+      expect(section).toContain('EVERY X must Y');
+    });
+
+    it('archive Phase 4.5 includes Regression Pin Adjudication for promotion to contract tests', () => {
+      const content = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '### Phase 4.5: Auto-Harvest Recurring Lessons');
+      expect(section).toContain('Regression Pin Adjudication');
+      expect(section).toContain('directory-enumerated contract test');
+    });
+
+    it('learn Promote section includes contract test promotion path for generalizable invariant pins', () => {
+      const content = renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '### Promote');
+      expect(section).toContain('contract test promotion');
+      expect(section).toContain('tests/contract/');
+    });
+
+    it('promotion-format reference defines criteria for Regression Pin Promotion to Contract Tests', () => {
+      const content = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(content, '## Regression Pin Promotion to Contract Tests');
+      expect(section).toContain('Promote to Contract Test');
+      expect(section).toContain('Keep in Unit/Integration Test');
+    });
+
+    describe('Mutation Verification (PB-001/PB-019)', () => {
+      it('fails if universal convention executor clause is removed from rendered knowledge-update template', () => {
+        const real = renderTemplate('skills/prospec-knowledge-update.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('Pair universal conventions with executors', 'Removed clause');
+        const section = sectionOf(mutated, '### Phase 3: Update README Content');
+        expect(section).not.toContain('Pair universal conventions with executors');
+      });
+
+      it('fails if universal claims check is removed from rendered review-lenses-content template', () => {
+        const real = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('Universal claims without executor', 'Removed check');
+        const section = sectionOf(mutated, '## Docs-Claims / Measurement-Attribution Lens');
+        expect(section).not.toContain('Universal claims without executor');
+      });
+
+      it('fails if regression pin promotion is removed from rendered archive template', () => {
+        const real = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('Regression Pin Adjudication', 'Removed step');
+        const section = sectionOf(mutated, '### Phase 4.5: Auto-Harvest Recurring Lessons');
+        expect(section).not.toContain('Regression Pin Adjudication');
+      });
+
+      it('fails if contract test promotion is removed from rendered learn Promote section', () => {
+        const real = renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('contract test promotion', 'removed promotion');
+        const section = sectionOf(mutated, '### Promote');
+        expect(section).not.toContain('contract test promotion');
+      });
+
+      it('fails if regression pin promotion section is removed from rendered promotion-format template', () => {
+        const real = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('## Regression Pin Promotion to Contract Tests', '## Removed Heading');
+        expect(() => sectionOf(mutated, '## Regression Pin Promotion to Contract Tests')).toThrow();
+      });
+    });
+  });
 });
+
+
 
 

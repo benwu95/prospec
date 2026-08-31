@@ -1,4 +1,5 @@
 import type { PrintTemplateResult } from '../../services/print-template.service.js';
+import { sanitizeTerminal } from './sanitize.js';
 
 /**
  * Format the PrintTemplateResult for terminal output.
@@ -7,5 +8,6 @@ import type { PrintTemplateResult } from '../../services/print-template.service.
  * @param result - The print-template service result
  */
 export function formatPrintTemplateOutput(result: PrintTemplateResult): void {
-  process.stdout.write(result.content);
+  process.stdout.write(sanitizeTerminal(result.content));
 }
+
