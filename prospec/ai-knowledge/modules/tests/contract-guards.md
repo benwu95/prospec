@@ -37,6 +37,7 @@
 ## Pitfalls
 
 - Assertions must be section-scoped AND structure-aware (PB-001) — a bare `toContain` over a whole document yields false-greens. Mutation-verify every new assertion.
+- Delegated-receipt guards cover five skills and four references. The matrix verifies the physical non-empty schema gate, lifecycle/transcript wait, causal terminal degradation, zero-mock rule, schema ownership, and downstream neutrality; its mutations remove the full behavioral path, not merely one keyword that an equivalent phrase could leave behind.
 - Doc↔doc agreement never proved either side matches the code, and a Yes-rows-only table leaves an exclusion unfalsifiable — key the set equality over the registry's own domain so a missing row fails.
 - Narrowing an assertion buys immunity to the wrong thing: archive's provenance Entry-Gate assertion narrows to the one bullet that recurs in the gate (`The CLI is required`), which buys immunity to a *weakened* marker list, not to the redness.
 - A same-input-twice comparison is a tautology — `knowledge-format`'s order-independence pin renders TWO orderings of one file list and compares those.

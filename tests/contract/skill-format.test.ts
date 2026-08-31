@@ -19,11 +19,18 @@ import {
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
-import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
+import {
+  RELAYED_FIELD_MAX_CHARS,
+  REVIEW_SEVERITIES,
+  ReviewFindingsInputSchema,
+  JudgmentDimensionsInputSchema,
+} from '../../src/types/station.js';
 import { EscalationReportSchema } from '../../src/types/cascade.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
   CHANGE_STATUSES,
+  DIMENSION_GRADED_BY,
+  DIMENSION_RESULTS,
   PROVENANCE_AUDITED_STATUSES,
   SCALE_FORBIDDEN_ARTIFACTS,
 } from '../../src/types/change.js';
@@ -6721,8 +6728,696 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       });
     });
   });
+
+  describe('Subagent Physical Receipt Verification Protocol (REQ-TESTS-107, REQ-TEMPLATES-224)', () => {
+    const DELEGATED_SKILLS = [
+      'prospec-review',
+      'prospec-verify',
+      'prospec-plan',
+      'prospec-tasks',
+      'prospec-ff',
+    ] as const;
+
+    const DELEGATED_REFERENCES = [
+      'delegated-evidence-format',
+      'candidate-evaluation',
+      'plan-verifier-rubric',
+      'tasks-verifier-rubric',
+    ] as const;
+
+    const FORBIDDEN_DOWNSTREAM_IDENTIFIERS = [
+      'manage_subagents',
+      'view_file',
+      'invoke_subagent',
+      'Claude Code MCP',
+      'claude_code',
+      'claude-3',
+      'gpt-4',
+      'anthropic',
+      'openai',
+    ];
+
+    const schemaRows = (content: string, heading: string): Map<string, string> => {
+      const section = sectionOf(content, heading);
+      const rows = section
+        .split('\n')
+        .map((line) => line.match(/^- `([^`]+)`: (.+)$/))
+        .filter((match): match is RegExpMatchArray => match !== null);
+      const fields = new Map(rows.map((match) => [match[1]!, match[2]!]));
+      expect(fields.size, `${heading} has duplicate or missing field rows`).toBe(rows.length);
+      return fields;
+    };
+
+    const withoutCodeTicks = (value: string | undefined): string => value?.replace(/`/g, '') ?? '';
+
+    const requiredSchemaFields = (
+      shape: Record<string, { safeParse: (input: unknown) => { success: boolean } }>,
+    ): string[] =>
+      Object.entries(shape)
+        .filter(([, schema]) => !schema.safeParse(undefined).success)
+        .map(([field]) => field);
+
+    const expectExecutableProjection = (
+      rows: Map<string, string>,
+      shape: Record<string, { safeParse: (input: unknown) => { success: boolean } }>,
+    ): void => {
+      expect([...rows.keys()]).toEqual(Object.keys(shape));
+      const required = new Set(requiredSchemaFields(shape));
+      for (const [field, contract] of rows) {
+        if (required.has(field)) expect(contract, `${field} must be documented as required`).toMatch(/\brequired\b/i);
+        else expect(contract, `${field} must be documented as optional or defaulted`).toMatch(/\boptional\b|\bdefault\b/i);
+      }
+    };
+
+    const expectDocumentedRequiredness = (
+      rows: Map<string, string>,
+      required: readonly string[],
+      optional: readonly string[],
+    ): void => {
+      expect([...required, ...optional]).toEqual([...rows.keys()]);
+      for (const field of required) {
+        expect(rows.get(field), `${field} must be documented as required`).toMatch(/\brequired\b/i);
+      }
+      for (const field of optional) {
+        expect(rows.get(field), `${field} must be documented as optional`).toMatch(/\boptional\b/i);
+      }
+    };
+
+    const expectReceiptProtocol = (section: string): void => {
+      expect(section).toMatch(/regular file/i);
+      expect(section).toMatch(/size > 0/i);
+      expect(section).toMatch(/schema/i);
+      expect(section).toMatch(/(?:inspect|check)\s+(?:abstract\s+(?:subagent\s+)?)?(?:lifecycle|transcript)/i);
+      expect(section).toMatch(
+        /(?:crashes?|timeout|fails? to (?:execute|spawn)|spawn failure|terminal failure)[^.\n]*(?:degrad|in-session|disclos)/i,
+      );
+      expect(section).not.toMatch(
+        /(?:invalid output|schema-invalid|malformed|corrupt|unreadable)[^.\n]*(?:degrad|fall back|in-session)/i,
+      );
+      expect(section).toMatch(/zero-mock|never.*(mock|dummy|\[\])/i);
+    };
+
+    const expectReviewNeverContract = (content: string): void => {
+      const never = sectionOf(content, '## NEVER');
+      expect(never).toMatch(/verbal.*(promise|claim|completion)/i);
+      expect(never).toMatch(/NEVER.*fabricate.*(mock|dummy|synthetic)/i);
+    };
+
+    const expectVerifyRecordReceiptContract = (content: string): void => {
+      const record = sectionOf(content, '## Record & Status Update (CLI-executed)');
+      expect(record).toMatch(/Physical Receipt Verification/i);
+      expect(record).toMatch(/regular file.*size > 0/i);
+      expect(record).toMatch(/JudgmentDimensionsInputSchema/i);
+      expect(record).toMatch(/lifecycle|transcript/i);
+      expect(record).toMatch(/explicit degradation/i);
+    };
+
+    /**
+     * Every delegated skill may put its receipt gate in a different phase, but
+     * the same four executable guarantees must remain visible at each consumer:
+     * physical/schema validation, lifecycle wait, explicit degradation, and the
+     * global zero-mock/verbal-shortcut prohibition. Keeping this predicate shared
+     * prevents one skill's weaker copy from escaping a one-off assertion.
+     */
+    const expectSkillReceiptProtocol = (
+      content: string,
+      receiptHeadings: readonly string[],
+    ): void => {
+      for (const heading of receiptHeadings) {
+        const receipt = sectionOf(content, heading);
+        expect(receipt, `${heading} must require a readable regular file`).toMatch(/readable regular file/i);
+        expect(receipt, `${heading} must require a non-empty payload`).toMatch(/size > 0|non-empty/i);
+        expect(receipt, `${heading} must validate its target schema`).toMatch(/schema/i);
+        expect(receipt, `${heading} must await an incomplete receipt`).toMatch(
+          /(?:inspect|check)\s+(?:abstract\s+(?:subagent\s+)?)?(?:lifecycle|transcript)/i,
+        );
+        expect(receipt, `${heading} must disclose terminal degradation`).toMatch(
+          /(?:crashes?|timeout|fails? to (?:execute|spawn)|spawn failure|terminal failure)[^.\n]*(?:degrad|in-session|disclos)/i,
+        );
+      }
+
+      const never = sectionOf(content, '## NEVER');
+      expect(never, 'delegated output must not accept verbal shortcuts').toMatch(
+        /verbal.*(promise|claim|completion|shortcut)/i,
+      );
+      expect(never, 'delegated output must not fabricate a replacement payload').toMatch(
+        /mock|dummy|synthetic/i,
+      );
+    };
+
+    const mutateSection = (
+      content: string,
+      heading: string,
+      mutate: (section: string) => string,
+    ): string => {
+      const section = sectionOf(content, heading);
+      const mutatedSection = mutate(section);
+      expect(mutatedSection, `mutation did not apply to ${heading}`).not.toBe(section);
+      return content.replace(section, mutatedSection);
+    };
+
+    const expectDownstreamNeutrality = (content: string, target: string): void => {
+      for (const forbidden of FORBIDDEN_DOWNSTREAM_IDENTIFIERS) {
+        expect(content, `${target} contains forbidden identifier "${forbidden}"`).not.toContain(
+          forbidden,
+        );
+      }
+    };
+
+    const expectDelegatedEvidenceSchemaContract = (content: string): void => {
+      const reviewRows = schemaRows(content, '### ReviewFindingsInputSchema projection');
+      expectExecutableProjection(reviewRows, ReviewFindingsInputSchema.element.shape);
+      expect(withoutCodeTicks(reviewRows.get('severity'))).toContain(
+        REVIEW_SEVERITIES.map((value) => `"${value}"`).join(' | '),
+      );
+      expect(reviewRows.get('id')).toMatch(/optional.*required.*repro.*evidence/i);
+      expect(reviewRows.get('repro')).toMatch(/optional.*required.*critical/i);
+      expect(reviewRows.get('evidence')).toMatch(/optional.*requires.*id/i);
+
+      const crossFieldRules = sectionOf(content, '## Cross-field rules');
+      expect(crossFieldRules).toMatch(/severity.*critical.*repro.*required/i);
+      expect(crossFieldRules).toMatch(/repro.*evidence.*id.*required/i);
+
+      const dimensionRows = schemaRows(content, '### JudgmentDimensionsInputSchema projection');
+      expectExecutableProjection(dimensionRows, JudgmentDimensionsInputSchema.element.shape);
+      expect(withoutCodeTicks(dimensionRows.get('result'))).toContain(
+        DIMENSION_RESULTS.map((value) => `"${value}"`).join(' | '),
+      );
+      expect(withoutCodeTicks(dimensionRows.get('graded_by'))).toContain(
+        DIMENSION_GRADED_BY.map((value) => `"${value}"`).join(' | '),
+      );
+    };
+
+    const expectCandidateSchemaContract = (content: string): void => {
+      const candidateRows = schemaRows(content, '### Candidate Payload Schema (`candidate.json`)');
+      expect([...candidateRows.keys()]).toEqual([
+        'id', 'title', 'overview', 'trade_offs', 'call_chain', 'estimated_lines',
+      ]);
+      expect(withoutCodeTicks(candidateRows.get('id'))).toContain(
+        '"option-a" | "option-b" | "option-c"',
+      );
+      expect(candidateRows.get('trade_offs')).toMatch(/pros.*cons.*blast_radius.*no additional/i);
+      expectDocumentedRequiredness(
+        candidateRows,
+        ['id', 'title', 'overview', 'trade_offs'],
+        ['call_chain', 'estimated_lines'],
+      );
+
+      const decisionRows = schemaRows(content, '### Tournament Decision Payload Schema (`decision.json`)');
+      expect([...decisionRows.keys()]).toEqual([
+        'recommended_option', 'evaluation_matrix', 'rationale', 'hybrid_recommendation',
+      ]);
+      expect(withoutCodeTicks(decisionRows.get('recommended_option'))).toContain(
+        '"option-a" | "option-b" | "option-c" | "hybrid"',
+      );
+      expect(decisionRows.get('evaluation_matrix')).toMatch(
+        /blast_radius_complexity.*constitution_layering.*extensibility_simplicity/i,
+      );
+      expect(decisionRows.get('evaluation_matrix')).toMatch(
+        /winner.*score_rationale.*no additional/i,
+      );
+      expectDocumentedRequiredness(
+        decisionRows,
+        ['recommended_option', 'evaluation_matrix', 'rationale'],
+        ['hybrid_recommendation'],
+      );
+      expect(sectionOf(content, '### Delegated Return Contract')).toMatch(/return only.*file path/i);
+      expect(sectionOf(content, '## Candidate and Tournament Decision Payload Schema')).toMatch(
+        /no additional top-level fields/i,
+      );
+    };
+
+    describe('Delegated Skills Matrix (5 Skills)', () => {
+      const skillReceiptTargets = [
+        {
+          name: 'prospec-review',
+          template: 'skills/prospec-review.hbs',
+          receiptHeadings: ['### The Loop'],
+        },
+        {
+          name: 'prospec-verify',
+          template: 'skills/prospec-verify.hbs',
+          receiptHeadings: ['## Record & Status Update (CLI-executed)'],
+        },
+        {
+          name: 'prospec-plan',
+          template: 'skills/prospec-plan.hbs',
+          receiptHeadings: ['### Phase 4: Design plan.md', '### Phase 6: Architecture Verification'],
+        },
+        {
+          name: 'prospec-tasks',
+          template: 'skills/prospec-tasks.hbs',
+          receiptHeadings: ['### Phase 6: Task Contract & Verifier Audit'],
+        },
+        {
+          name: 'prospec-ff',
+          template: 'skills/prospec-ff.hbs',
+          receiptHeadings: ['### Phase 3: Plan Generation (skipped when `scale: quick`)', '### Phase 4: Tasks Generation'],
+        },
+      ] as const;
+
+      it.each(skillReceiptTargets)(
+        '$name keeps every receipt invariant at every consuming checkpoint (REQ-TESTS-107)',
+        ({ template, receiptHeadings }) => {
+          expectSkillReceiptProtocol(renderTemplate(template, TEMPLATE_CONTEXT), receiptHeadings);
+        },
+      );
+
+      it('prospec-review enforces physical receipt check, lifecycle wait, explicit degradation, and zero-mock NEVER (REQ-TEMPLATES-066, REQ-TEMPLATES-181)', () => {
+        const content = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+        const loop = sectionOf(content, '### The Loop');
+        expect(loop.length).toBeGreaterThan(0);
+        expect(loop).toMatch(/receipt verification|physical receipt/i);
+        expect(loop).toMatch(/regular file.*exists/i);
+        expect(loop).toMatch(/size > 0|non-empty/i);
+        expect(loop).toMatch(/valid.*json|schema/i);
+        expect(loop).toMatch(/lifecycle|transcript/i);
+
+        expectReviewNeverContract(content);
+      });
+
+      it('requires a physical receipt for the independent Critical Verifier (REQ-TEMPLATES-066)', () => {
+        const content = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+        const loop = sectionOf(content, '### The Loop');
+        const criticalVerifierStep =
+          loop.match(/\n2\. For each reported \*\*critical\*\*[\s\S]*?(?=\n3\. Apply)/)?.[0] ?? '';
+
+        expect(criticalVerifierStep.length).toBeGreaterThan(0);
+        expect(criticalVerifierStep).toMatch(/single-entry.*ReviewFindingsInputSchema/i);
+        expect(criticalVerifierStep).toMatch(/regular file.*size > 0/i);
+        expect(criticalVerifierStep).toMatch(/lifecycle|transcript/i);
+        expect(criticalVerifierStep).toMatch(/terminal failure.*unresolved|escalat/i);
+        expect(criticalVerifierStep).toMatch(/never.*(mock|dummy|synthetic)/i);
+      });
+
+      it('prospec-verify enforces physical receipt check, lifecycle wait, explicit degradation, and zero-mock NEVER (REQ-TEMPLATES-155, REQ-TEMPLATES-181)', () => {
+        const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+        expectVerifyRecordReceiptContract(content);
+
+        const never = sectionOf(content, '## NEVER');
+        expect(never.length).toBeGreaterThan(0);
+        expect(never).toMatch(/mock.*dimensions|dummy/i);
+        expect(never).toMatch(/verbal.*(promise|claim|completion)/i);
+      });
+
+      it('prospec-plan enforces physical receipt check for candidates & verifier, lifecycle wait, and zero-mock NEVER (REQ-TEMPLATES-183, REQ-TEMPLATES-185)', () => {
+        const content = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
+        const phase4 = sectionOf(content, '### Phase 4: Design plan.md');
+        expect(phase4.length).toBeGreaterThan(0);
+        expect(phase4).toMatch(/receipt verification|physical receipt|valid.*receipt/i);
+        expect(phase4).toMatch(/lifecycle|transcript/i);
+
+        const phase6 = sectionOf(content, '### Phase 6: Architecture Verification');
+        expect(phase6.length).toBeGreaterThan(0);
+        expect(phase6).toMatch(/receipt verification|physical receipt|valid.*report/i);
+        expect(phase6).toMatch(/lifecycle|transcript/i);
+
+        const never = sectionOf(content, '## NEVER');
+        expect(never.length).toBeGreaterThan(0);
+        expect(never).toMatch(/mock|dummy|synthetic pass/i);
+      });
+
+      it('prospec-tasks enforces physical receipt check for task verifier, lifecycle wait, and zero-mock NEVER (REQ-TEMPLATES-187)', () => {
+        const content = renderTemplate('skills/prospec-tasks.hbs', TEMPLATE_CONTEXT);
+        const phase6 = sectionOf(content, '### Phase 6: Task Contract & Verifier Audit');
+        expect(phase6.length).toBeGreaterThan(0);
+        expect(phase6).toMatch(/receipt verification|physical receipt|valid.*report/i);
+        expect(phase6).toMatch(/lifecycle|transcript/i);
+
+        const never = sectionOf(content, '## NEVER');
+        expect(never.length).toBeGreaterThan(0);
+        expect(never).toMatch(/mock|dummy|synthetic pass/i);
+      });
+
+      it('prospec-ff enforces cascading receipt verification, station reload, and zero-mock NEVER (REQ-TEMPLATES-193)', () => {
+        const content = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+        expect(content).toContain(CAPABILITY_LINE_LABEL);
+        expect(content).toContain('`can_spawn_subagent`: yes');
+        const phase5 = sectionOf(content, '### Phase 5: Autonomous Execution');
+        expect(phase5.length).toBeGreaterThan(0);
+        expect(phase5).toMatch(/receipt verification|receipt protocol|receipt gate/i);
+        expect(phase5).toMatch(/reload.*skill|re-read/i);
+
+        const never = sectionOf(content, '## NEVER');
+        expect(never.length).toBeGreaterThan(0);
+        expect(never).toMatch(/verbal.*shortcut|mock|bypass/i);
+      });
+    });
+
+    describe('Delegated References Matrix (4 References)', () => {
+      it.each(DELEGATED_REFERENCES)(
+        '%s keeps every receipt invariant in its owner protocol (REQ-TESTS-107)',
+        (referenceName) => {
+          const content = renderTemplate(`skills/references/${referenceName}.hbs`, TEMPLATE_CONTEXT);
+          expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+        },
+      );
+
+      it('delegated-evidence-format defines standard four-pillar receipt protocol and zero-mock rules (REQ-TEMPLATES-180)', () => {
+        const content = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+        expectDelegatedEvidenceSchemaContract(content);
+
+        const delegatedReturn = sectionOf(content, '## What the delegated agent does');
+        expect(delegatedReturn).toMatch(/return.*file.*path.*counts|return.*file.*path.*verdict/i);
+        expect(delegatedReturn).toMatch(/never.*evidence prose/i);
+      });
+
+      it('candidate-evaluation defines candidate & tournament decision receipt protocol and required fields (REQ-TEMPLATES-184)', () => {
+        const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+        expectCandidateSchemaContract(content);
+      });
+
+      it('plan-verifier-rubric defines architecture verifier receipt protocol and 5 orthogonal dimensions schema (REQ-TEMPLATES-182)', () => {
+        const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+        const rows = schemaRows(content, '## Architecture Verifier Payload Schema');
+        expect([...rows.keys()]).toEqual(['verdict', 'dimensions', 'evidence', 'warnings']);
+        expect(withoutCodeTicks(rows.get('verdict'))).toContain('"PASS" | "WARN" | "FLAWS"');
+        expect(rows.get('dimensions')).toMatch(/project_layering.*blast_radius.*state_safety.*delta_spec.*reuse/i);
+        expect(rows.get('dimensions')).toMatch(/exactly.*result.*rationale.*no additional/i);
+        expectDocumentedRequiredness(rows, ['verdict', 'dimensions', 'evidence'], ['warnings']);
+        expect(sectionOf(content, '## Delegated Return Contract')).toMatch(/return only.*file path/i);
+      });
+
+      it('tasks-verifier-rubric defines task verifier receipt protocol and 4 orthogonal dimensions schema (REQ-TEMPLATES-186)', () => {
+        const content = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+        const rows = schemaRows(content, '## Task Verifier Payload Schema');
+        expect([...rows.keys()]).toEqual(['verdict', 'dimensions', 'evidence', 'warnings']);
+        expect(withoutCodeTicks(rows.get('verdict'))).toContain('"PASS" | "WARN" | "FLAWS"');
+        expect(rows.get('dimensions')).toMatch(/bidirectional_coverage.*dag_topological_order.*tdd_module_closure.*task_sizing_schema/i);
+        expect(rows.get('dimensions')).toMatch(/exactly.*result.*rationale.*no additional/i);
+        expectDocumentedRequiredness(rows, ['verdict', 'dimensions', 'evidence'], ['warnings']);
+        expect(sectionOf(content, '## Delegated Return Contract')).toMatch(/return only.*file path/i);
+      });
+    });
+
+    describe('Executable Schema Test Closure (ReviewFindingsInputSchema & JudgmentDimensionsInputSchema)', () => {
+      it('validates correct ReviewFindingsInputSchema positive and negative fixtures', () => {
+        const validFindings = [
+          {
+            id: 'F-1',
+            location: 'src/lib/test.ts:10',
+            severity: 'critical' as const,
+            lens: 'correctness',
+            summary: 'Null pointer exception on undefined config',
+            repro: 'pnpm vitest run tests/unit/lib/test.test.ts',
+            evidence: 'Detailed stack trace and explanation of null dereference.',
+          },
+        ];
+        expect(ReviewFindingsInputSchema.safeParse(validFindings).success).toBe(true);
+
+        const invalidEmptyId = [
+          {
+            id: '',
+            location: 'src/lib/test.ts:10',
+            severity: 'critical' as const,
+            lens: 'correctness',
+            summary: 'Invalid empty id',
+          },
+        ];
+        expect(ReviewFindingsInputSchema.safeParse(invalidEmptyId).success).toBe(false);
+
+        const invalidSeverity = [
+          {
+            id: 'F-2',
+            location: 'src/lib/test.ts:10',
+            severity: 'fatal',
+            lens: 'correctness',
+            summary: 'Invalid severity enum',
+          },
+        ];
+        expect(ReviewFindingsInputSchema.safeParse(invalidSeverity).success).toBe(false);
+      });
+
+      it('validates correct JudgmentDimensionsInputSchema positive and negative fixtures', () => {
+        const validDimensions = [
+          {
+            name: 'delta-spec-compliance',
+            result: 'PASS' as const,
+            graded_by: 'fresh-subagent' as const,
+            executor: 'code-reviewer',
+            spend: 1500,
+            summary: 'All acceptance scenarios met',
+            evidence: 'Full verification logs and traceability matrix.',
+          },
+        ];
+        expect(JudgmentDimensionsInputSchema.safeParse(validDimensions).success).toBe(true);
+
+        const invalidMissingGradedBy = [
+          {
+            name: 'delta-spec-compliance',
+            result: 'PASS' as const,
+            summary: 'Missing graded_by field',
+          },
+        ];
+        expect(JudgmentDimensionsInputSchema.safeParse(invalidMissingGradedBy).success).toBe(false);
+
+        const invalidResult = [
+          {
+            name: 'delta-spec-compliance',
+            result: 'APPROVED',
+            graded_by: 'fresh-subagent' as const,
+          },
+        ];
+        expect(JudgmentDimensionsInputSchema.safeParse(invalidResult).success).toBe(false);
+      });
+    });
+
+    describe('Downstream Neutrality (T2)', () => {
+      it('all 5 delegated skills are downstream-neutral and free of named tools/vendors', () => {
+        for (const skillName of DELEGATED_SKILLS) {
+          const content = renderTemplate(`skills/${skillName}.hbs`, TEMPLATE_CONTEXT);
+          expectDownstreamNeutrality(content, skillName);
+        }
+      });
+
+      it('all 4 delegated references are downstream-neutral and free of named tools/vendors', () => {
+        for (const refName of DELEGATED_REFERENCES) {
+          const content = renderTemplate(`skills/references/${refName}.hbs`, TEMPLATE_CONTEXT);
+          expectDownstreamNeutrality(content, refName);
+        }
+      });
+
+      it.each([
+        ...DELEGATED_SKILLS.map((name) => ({ name, template: `skills/${name}.hbs` })),
+        ...DELEGATED_REFERENCES.map((name) => ({ name, template: `skills/references/${name}.hbs` })),
+      ])('$name remains downstream-neutral (REQ-TESTS-107)', ({ name, template }) => {
+        expectDownstreamNeutrality(renderTemplate(template, TEMPLATE_CONTEXT), name);
+      });
+    });
+
+    // These tests mutate rendered output to prove predicate falsifiability. The separate
+    // T18 source → bundle → targeted RED/GREEN loop is recorded in the change evidence.
+    describe('Mutation Verification for Receipt Protocol (PB-001/PB-019)', () => {
+      const removeDegradationPath = (section: string): string =>
+        section.replace(
+          /^.*(?:degrad|crash|timeout|spawn failure|in-session|disclos).*$(?:\r?\n)?/gim,
+          '',
+        );
+
+      const skillReceiptTargets = [
+        {
+          name: 'prospec-review',
+          template: 'skills/prospec-review.hbs',
+          receiptHeading: '### The Loop',
+        },
+        {
+          name: 'prospec-verify',
+          template: 'skills/prospec-verify.hbs',
+          receiptHeading: '## Record & Status Update (CLI-executed)',
+        },
+        {
+          name: 'prospec-plan',
+          template: 'skills/prospec-plan.hbs',
+          receiptHeading: '### Phase 6: Architecture Verification',
+        },
+        {
+          name: 'prospec-tasks',
+          template: 'skills/prospec-tasks.hbs',
+          receiptHeading: '### Phase 6: Task Contract & Verifier Audit',
+        },
+        {
+          name: 'prospec-ff',
+          template: 'skills/prospec-ff.hbs',
+          receiptHeading: '### Phase 3: Plan Generation (skipped when `scale: quick`)',
+        },
+      ] as const;
+
+      for (const target of skillReceiptTargets) {
+        it(`${target.name} predicate rejects a deleted physical receipt guard`, () => {
+          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            target.receiptHeading,
+            (section) => section.replace(/readable regular file/gi, 'removed physical payload guard'),
+          );
+          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
+        });
+
+        it(`${target.name} predicate rejects a deleted lifecycle wait`, () => {
+          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            target.receiptHeading,
+            (section) => section.replace(/lifecycle|transcript/gi, 'removed'),
+          );
+          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
+        });
+
+        it(`${target.name} predicate rejects a deleted degradation path`, () => {
+          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            target.receiptHeading,
+            removeDegradationPath,
+          );
+          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
+        });
+
+        it(`${target.name} predicate rejects a deleted zero-mock rule`, () => {
+          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            '## NEVER',
+            (section) => section.replace(/mock|dummy|synthetic/gi, 'removed'),
+          );
+          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
+        });
+      }
+
+      const referenceReceiptTargets = [
+        'delegated-evidence-format',
+        'candidate-evaluation',
+        'plan-verifier-rubric',
+        'tasks-verifier-rubric',
+      ] as const;
+
+      for (const referenceName of referenceReceiptTargets) {
+        const template = `skills/references/${referenceName}.hbs`;
+        const protocolHeading = '## Physical Receipt Verification Protocol';
+
+        it(`${referenceName} predicate rejects a deleted physical receipt guard`, () => {
+          const real = renderTemplate(template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            protocolHeading,
+            (section) => section.replace(/readable regular file|regular file on disk/gi, 'removed physical payload guard'),
+          );
+          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
+        });
+
+        it(`${referenceName} predicate rejects a deleted lifecycle wait`, () => {
+          const real = renderTemplate(template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            protocolHeading,
+            (section) => section.replace(/lifecycle|transcript/gi, 'removed'),
+          );
+          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
+        });
+
+        it(`${referenceName} predicate rejects a deleted degradation path`, () => {
+          const real = renderTemplate(template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            protocolHeading,
+            removeDegradationPath,
+          );
+          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
+        });
+
+        it(`${referenceName} predicate rejects a deleted zero-mock rule`, () => {
+          const real = renderTemplate(template, TEMPLATE_CONTEXT);
+          const mutated = mutateSection(
+            real,
+            protocolHeading,
+            (section) => section.replace(/mock|dummy|synthetic|empty arrays? `\[\]`/gi, 'removed'),
+          );
+          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
+        });
+      }
+
+      it('candidate-evaluation predicate rejects an invalid receipt routed to degraded execution (R8-1)', () => {
+        const real = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+        const mutated = mutateSection(
+          real,
+          '## Physical Receipt Verification Protocol',
+          (section) =>
+            section.replace(
+              'On a confirmed crash, failure, or timeout, fall back to single-context degraded execution and honestly disclose the in-session mode.',
+              'On crash, timeout, or invalid output, fall back to single-context degraded execution and honestly disclose the in-session mode.',
+            ),
+        );
+        expect(mutated).not.toBe(real);
+        expect(() =>
+          expectReceiptProtocol(sectionOf(mutated, '## Physical Receipt Verification Protocol')),
+        ).toThrow();
+      });
+
+      const neutralityTargets = [
+        ...DELEGATED_SKILLS.map((name) => ({ name, template: `skills/${name}.hbs` })),
+        ...DELEGATED_REFERENCES.map((name) => ({ name, template: `skills/references/${name}.hbs` })),
+      ];
+
+      it.each(neutralityTargets)(
+        '$name neutrality predicate rejects an injected named harness tool',
+        ({ name, template }) => {
+          const real = renderTemplate(template, TEMPLATE_CONTEXT);
+          const mutated = `${real}\nmanage_subagents`;
+          expect(() => expectDownstreamNeutrality(mutated, name)).toThrow();
+        },
+      );
+
+      it('the delegated-reference contract predicate fails when non-empty receipt validation is removed', () => {
+        const real = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+        const protocol = sectionOf(real, '## Physical Receipt Verification Protocol');
+        const mutated = protocol.replace('`size > 0` bytes', 'no size validation');
+        expect(mutated).not.toBe(protocol);
+        expect(() => expectReceiptProtocol(mutated)).toThrow();
+      });
+
+      it('the review NEVER predicate fails when zero-mock prohibition is removed', () => {
+        const real = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace(
+          /- \*\*NEVER\*\* fabricate mock findings, dummy JSON `\[\]`, or synthetic passes[^\n]+/,
+          '- Removed zero-mock prohibition',
+        );
+        expect(mutated).not.toBe(real);
+        expect(() => expectReviewNeverContract(mutated)).toThrow();
+      });
+
+      it('the verify-record predicate fails when receipt verification is removed', () => {
+        const real = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace(
+          /- \*\*Physical Receipt Verification\*\*:[^\n]+/,
+          '- Removed receipt gate',
+        );
+        expect(mutated).not.toBe(real);
+        expect(() => expectVerifyRecordReceiptContract(mutated)).toThrow();
+      });
+
+      it('the candidate schema predicate fails when a required field becomes optional', () => {
+        const real = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+        const mutated = real.replace('`title`: string (required)', '`title`: string (optional)');
+        expect(mutated).not.toBe(real);
+        expect(() => expectCandidateSchemaContract(mutated)).toThrow();
+      });
+
+      it('the delegated schema predicate fails when the id cross-field rule is removed', () => {
+        const real = renderTemplate(
+          'skills/references/delegated-evidence-format.hbs',
+          TEMPLATE_CONTEXT,
+        );
+        const mutated = real.replace(
+          '(optional; required when `repro` or `evidence` is present)',
+          '(optional)',
+        );
+        expect(mutated).not.toBe(real);
+        expect(() => expectDelegatedEvidenceSchemaContract(mutated)).toThrow();
+      });
+    });
+  });
 });
-
-
-
-

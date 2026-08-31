@@ -151,7 +151,8 @@ graded it. `in-session` is not merely disclosed — it **mechanically caps the g
 independent verification), and `verify record` prints the remedy: re-grade in fresh context, then
 re-record.
 
-The grader **writes** its verdicts — `{name, result, graded_by, executor?, spend?, summary?, repro?, evidence?}` per dimension — as a
+The grader **writes** its `JudgmentDimensionsInputSchema` verdicts — whose executable field projection
+is in [`references/delegated-evidence-format.md`](references/delegated-evidence-format.md) — as a
 JSON array to a file and **returns only that path plus the one-line verdicts**; the evidence never
 travels back, and `verify record --dimensions` lands it in `verify.md` (contract:
 [`references/delegated-evidence-format.md`](references/delegated-evidence-format.md), on demand).
@@ -338,6 +339,11 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
 
 ## Record & Status Update (CLI-executed)
 
+Before executing the record command with delegated payloads:
+- **Physical Receipt Verification**: The orchestrator MUST verify that the `--dimensions <file>` path resolves to a readable regular file that exists on disk, has `size > 0` bytes, and parses as valid JSON matching `JudgmentDimensionsInputSchema`.
+- **Lifecycle Probe & Await**: If the subagent claims completion or returns a path but the file is not yet written, inspect abstract subagent lifecycle state or transcript logs and await completion.
+- **Explicit Degradation**: If the subagent crashes, times out, or fails to execute, trigger explicit Harness Degradation (e.g. grading in-session with honest `--graded-by in-session` disclosure, accepting the mechanical grade cap).
+
 Run `prospec verify record` (Bash) with ONLY the judgment verdicts — as `--dimensions <file>` (the
 grader's JSON array, `graded_by` and optional `executor`/`spend` per entry, evidence included) or as
 one `--dimension <name>=<result>` each with a run-level `--graded-by <fresh-subagent|in-session>`
@@ -427,6 +433,8 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 - **NEVER** overturn a machine dimension's verdict (1/5, 4/5, 5/5) — the engine adjudicates, you interpret; re-grading its FAIL as WARN/PASS (or its PASS as FAIL) puts the judgment noise back into the one place that was free of it
 - **NEVER** adjudicate a machine dimension yourself or relay one into `prospec verify record` — the CLI reads them from the report; and NEVER report `not-adjudicated` as PASS (reading tasks.md or re-running tests by hand and calling it PASS re-creates the generator-is-its-own-validator problem this split removes)
 - **NEVER** return evidence prose to this context — a delegated grader writes it to the dimensions file and returns the path; an unbounded relay costs the very context delegation was meant to save
+- **NEVER** proceed on verbal completion claims or promises without physical receipt verification of the dimensions file — trusting prose without file inspection masks execution errors
+- **NEVER** fabricate mock dimensions, dummy JSON, or synthetic passes when a payload file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** grade 2/5 or 6 in the implementation's own context without disclosure — fresh context is the requirement; on 2/5's degraded path, say so and record it with `--graded-by in-session`, accepting the mechanical grade cap (S unattainable) it brings
 - **NEVER** treat a drift-report `skipped` check as PASS — skipped means unchecked; present the skip reason instead
 - **NEVER** compute the grade or hand-write the verify `quality_log` entry yourself — `prospec verify record` owns the decision table, the entry serialization, and the S/A status advance

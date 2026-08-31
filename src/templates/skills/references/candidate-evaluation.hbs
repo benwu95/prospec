@@ -79,12 +79,52 @@ To eliminate LLM **Positional Bias** (the tendency to favor the first presented 
 
 ---
 
+## Candidate and Tournament Decision Payload Schema
+
+Delegated candidate generators and tournament judges write structured JSON to disk:
+
+Each payload is a closed top-level object: no additional top-level fields are accepted.
+
+### Candidate Payload Schema (`candidate.json`)
+- `id`: `"option-a"` | `"option-b"` | `"option-c"` (required)
+- `title`: string (required)
+- `overview`: string summary of architecture (required)
+- `trade_offs`: object with exactly `pros` (string[]), `cons` (string[]), and `blast_radius` (string); no additional properties (required)
+- `call_chain`: string[] representation of module sequence (optional)
+- `estimated_lines`: number (optional)
+
+### Tournament Decision Payload Schema (`decision.json`)
+- `recommended_option`: `"option-a"` | `"option-b"` | `"option-c"` | `"hybrid"` (required)
+- `evaluation_matrix`: array containing the closed dimensions `blast_radius_complexity`, `constitution_layering`, and `extensibility_simplicity`; every item has exactly `dimension`, `winner` (`"option-a"` | `"option-b"` | `"option-c"` | `"tie"`), and `score_rationale`, with no additional properties (required)
+- `rationale`: string explanation of decision (required)
+- `hybrid_recommendation`: string optional synthesis details
+
+### Delegated Return Contract
+
+Each Candidate generator and Tournament Judge MUST return only its JSON file path. It MUST NOT relay
+the candidate, decision, or evidence prose through the completion message.
+
+---
+
+## Physical Receipt Verification Protocol
+
+Before consuming candidate proposals or tournament decisions:
+1. **Physical Existence & Non-Empty**: The orchestrator must verify that the target JSON output exists as a regular file on disk and has `size > 0` bytes.
+2. **Schema Validation**: Parse and validate the file content against the Candidate / Tournament Decision JSON schema.
+3. **Lifecycle Probe & Await**: If the output file is missing when a completion message arrives, check abstract subagent lifecycle state or transcript logs and await completion.
+4. **Explicit Degradation**: On a confirmed crash, failure, or timeout, fall back to single-context degraded execution and honestly disclose the in-session mode.
+5. **Zero-Mock Rule**: NEVER create dummy candidate records or fake tournament decisions. Missing, empty, unreadable, malformed, or schema-invalid outputs fail closed with concrete I/O or parse errors.
+
+---
+
 ## Execution Modes & Harness Degradation
 
 ### Subagent Parallel Mode (`can_spawn_subagent: yes`)
-1. Spawn Subagent 1: Generate Option A (Pragmatic).
-2. Spawn Subagent 2: Generate Option B (Decoupled).
-3. Spawn Tournament Judge Subagent: Perform position-swapped pairwise evaluation and produce the Decision Record.
+1. Spawn Subagent 1: Generate Option A (Pragmatic) and write to JSON file.
+2. Spawn Subagent 2: Generate Option B (Decoupled) and write to JSON file.
+3. Verify candidate receipts via the Physical Receipt Verification Protocol.
+4. Spawn Tournament Judge Subagent: Perform position-swapped pairwise evaluation and write Decision Record to JSON file.
+5. Verify tournament decision receipt before presenting options to the developer.
 
 ### Single-Context Degraded Mode (`can_spawn_subagent: no` or spawn failure)
 1. Sequentially generate Option A and Option B in prompt-isolated steps.

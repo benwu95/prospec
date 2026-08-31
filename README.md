@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4503%20passing-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4586%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -568,7 +568,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (shared [agents.md](https://agents.md) open standard; written once when multiple agents are enabled)
 
-Skills whose workflow depends on the harness — today `/prospec-review` and `/prospec-verify` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
+Skills whose workflow depends on the harness — `/prospec-review`, `/prospec-verify`, `/prospec-plan`, `/prospec-tasks`, and `/prospec-ff` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
 
 > [!NOTE]
 > **Editing Safety**: Entry configs carry `prospec:auto` and `prospec:user` blocks. `agent sync` (and `init` on `AGENTS.md`) only refreshes the `auto` block and preserves whatever you write in the `user` block; existing hand-written `CLAUDE.md` / `AGENTS.md` files are migrated into the `user` block on first sync rather than overwritten.
@@ -1070,7 +1070,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4503 tests)
+# Run all tests (4586 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1083,9 +1083,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4503 tests across 4 categories:
+**Test Coverage**: 4586 total tests (4582 passed; 4 skipped) across 4 categories:
 - Unit tests (types + lib + services + cli): 3269 tests
-- Contract tests (CLI output + Skill format): 1058 tests
+- Contract tests (CLI output + Skill format): 1141 tests
 - Integration tests: 45 tests
 - E2E tests: 131 tests
 

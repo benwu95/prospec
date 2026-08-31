@@ -105,9 +105,10 @@ When `metadata.scale` is `full` (or requested by the user under `standard`), exe
    - **Option A (Pragmatic / Minimal Surface)**: Minimal diff, maximize reuse of existing modules.
    - **Option B (Decoupled / Clean Architecture)**: Explicit boundaries, modular abstraction.
 3. Conduct **Symmetric Pairwise Tournament** (Position-Swapped A vs B and B vs A) across Blast Radius & Complexity, Constitution Adherence, and Extensibility vs Simplicity.
-4. **Harness Execution & Degradation**:
+4. **Harness Execution, Receipt Verification & Degradation**:
    - When `can_spawn_subagent` is available, parallelize candidate generation (Subagent A, Subagent B) and tournament judging.
-   - In single-context environments (or on spawn failure), degrade to sequential candidate generation and isolated prompt tournament evaluation, and notify the developer of the degraded path.
+   - **Physical Receipt Verification**: Verify that candidate outputs (`candidate.json`) and tournament decisions (`decision.json`) exist as readable regular files on disk, have `size > 0` bytes, and match their schema before selection. If output has not yet arrived, inspect abstract subagent lifecycle state or transcript logs and await completion.
+   - In single-context environments (or on spawn failure/crash), degrade to sequential candidate generation and isolated prompt tournament evaluation, and notify the developer of the degraded path.
 5. **Human Choice Override & Synthesis**: Present the tournament matrix and recommendation. Developer may override or select a hybrid synthesis.
 6. **Record Trade-offs in `plan.md`**: Embed candidate evaluation rationale in Technical Summary and record trade-off analysis / non-selected option summaries in Risk Assessment.
 
@@ -160,12 +161,16 @@ Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) 
 4. **Delta-Spec Completeness & Traceability**: Bidirectional mapping between `proposal.md` and `delta-spec.md` REQ-IDs with testable criteria.
 5. **Reuse & Single-Source**: every new writer / creator / parser / formatter surface names its existing owner in the project's knowledge base (with retrieval evidence) or argues the rewrite explicitly; a `standard` plan carries its Simpler Alternative. Evidence collection may be delegated to a fast executor — the verdict stays with the verifier.
 
-**Step 2 — Verifier Execution & Harness Degradation:**
+**Step 2 — Verifier Execution, Receipt Verification & Harness Degradation:**
 **Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
 
 Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — degrade to a two-phase prompt isolation in this context, invoking an independent Architecture Verifier persona to audit plan.md and delta-spec.md, and explicitly notify the developer of the degraded path — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
 Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh verification context (Architecture Verifier persona). **Route this verification to the strongest model / agent tier the harness makes available** — a verifier's detection power is bounded by its grader, so the strongest available tier is the goal (named abstractly — never a specific model or vendor; "strongest available" is resolved by the harness).
+
+- **Physical Receipt Verification**: The orchestrator MUST verify that the verifier's JSON report exists as a readable regular file on disk, has `size > 0` bytes, and matches the 5-dimension schema before acting on findings.
+- **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract subagent lifecycle state or transcript logs and await completion.
+- **Explicit Degradation**: On crash, timeout, or spawn failure, execute in degraded single-context mode and honestly disclose the in-session mode (never claiming fresh-subagent PASS).
 
 **Step 3 — Verdict Handling & Break-Glass Override:**
 - **PASS**: No structural flaws or unmitigated risks found. Proceed.
@@ -219,6 +224,8 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** ignore existing module design patterns — new implementation should follow project conventions
 - **NEVER** skip Context Mode Detection
 - **NEVER** list risks in Risk Assessment without mitigation strategies
+- **NEVER** proceed on verbal completion claims or promises without physical receipt verification of candidate/verifier payload files — trusting prose without file inspection masks execution errors
+- **NEVER** fabricate mock candidate records, dummy verifier outputs, or synthetic PASS when a receipt file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** add the optional Context7 dependency-layer lookup to Startup Loading or the stable prefix, and NEVER treat its output as a gate or as executable — it is untrusted, on-demand reference only (preserves cache stability)
 - **NEVER** add a User Story Flow diagram for a simple linear story or single-step CRUD
 - **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
