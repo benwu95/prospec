@@ -22,13 +22,52 @@ So the payload splits in two:
 
 ## What the delegated agent does
 
-1. **Write** the findings (review) or dimension verdicts (verify) as a JSON array to a file, evidence
+1. **Write** the findings (review) or dimension verdicts (verify) as a JSON array to a regular file, evidence
    prose included.
 2. **Return** that file's path plus the counts (review: criticals/majors) or the one-line verdicts
    (verify) — **never the evidence prose**.
-3. The orchestrator runs `prospec review merge --findings <file>` / `prospec verify record
+3. The orchestrator applies the **Physical Receipt Verification Protocol** below before consuming the file.
+4. The orchestrator runs `prospec review merge --findings <file>` / `prospec verify record
    --dimensions <file>`. The CLI persists the evidence and prints the bounded digest that is the
    orchestrator's whole intake for the round.
+
+## Executable schema projections
+
+These field lists project the executable Zod authorities; they do not create another schema owner.
+Contract tests derive each field set and required marker from those authorities so this prose cannot
+silently drift.
+
+### ReviewFindingsInputSchema projection
+
+- `id`: non-empty, bounded single-line string (optional; required when `repro` or `evidence` is present)
+- `location`: non-empty, bounded single-line string (required)
+- `severity`: `"minor"` | `"major"` | `"critical"` (required; closed enum)
+- `lens`: non-empty, bounded single-line string (required)
+- `status`: non-empty string (default `"open"`)
+- `summary`: non-empty, bounded single-line string (required)
+- `repro`: non-empty, bounded single-line command (optional; required when `severity` is `"critical"`)
+- `evidence`: non-empty full prose string (optional; requires `id` and is never relayed)
+
+### JudgmentDimensionsInputSchema projection
+
+- `name`: non-empty, bounded single-line dimension name (required)
+- `result`: `"PASS"` | `"WARN"` | `"FAIL"` | `"not-applicable"` | `"not-adjudicated"` (required; closed enum)
+- `graded_by`: `"fresh-subagent"` | `"in-session"` (required; closed enum)
+- `executor`: non-empty string (optional)
+- `spend`: non-negative integer (optional)
+- `summary`: non-empty, bounded single-line string (optional)
+- `repro`: non-empty, bounded single-line command (optional)
+- `evidence`: non-empty full prose string (optional; never relayed)
+
+## Physical Receipt Verification Protocol
+
+All subagent-delegating stations and references enforce this protocol before consuming outputs:
+
+1. **Physical Existence & Non-Empty**: The payload path must resolve to a regular file on disk with `size > 0` bytes.
+2. **Target Schema Compliance**: The payload must parse as valid JSON matching the station's required fields and closed enums. Review uses `ReviewFindingsInputSchema`; verify uses `JudgmentDimensionsInputSchema`.
+3. **Lifecycle Probe & Await**: A missing payload path accompanied by a verbal completion claim indicates async write latency. The orchestrator must check abstract lifecycle / transcript evidence and await final completion rather than proceeding on words alone.
+4. **Explicit Degradation & Honest Disclosure**: If the subagent fails, crashes, or times out, proceed via explicit Harness Degradation. The grading context must be honestly disclosed (recording `graded_by: in-session` where a CLI sink exists, or stating in-session evaluation in prose).
+5. **Zero-Mock / No-Dummy Mandate**: Fabricating empty arrays `[]`, mock files, or fake passes to bypass missing receipts or CLI gates is strictly prohibited. Unreadable or malformed files fail closed with concrete diagnostic errors.
 
 ## Relayed fields and their ceilings
 

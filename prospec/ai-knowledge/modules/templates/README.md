@@ -28,6 +28,7 @@
 1. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}`.
 2. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`.
 3. **Add or change a skill / reference** — see [Skill Authoring](./skill-authoring.md).
+4. **Change a delegated-receipt gate** — keep the five consuming skills and four delegated references aligned; each output is a readable, non-empty, schema-valid regular file, pending output is lifecycle-/transcript-checked and awaited, terminal failure uses disclosed degradation, and mock records are forbidden.
 
 ## Ripple Effects
 
@@ -53,4 +54,3 @@
 
 <!-- prospec:user-start -->
 <!-- prospec:user-end -->
-

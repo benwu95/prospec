@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4503%20通過-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4586%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -551,7 +551,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 
-工作流程取決於 harness 的 Skills（如 `/prospec-review` 與 `/prospec-verify`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+工作流程取決於 harness 的 Skills（如 `/prospec-review`、`/prospec-verify`、`/prospec-plan`、`/prospec-tasks` 與 `/prospec-ff`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
 
 > [!NOTE]
 > **編輯安全性**：Entry 配置文件皆包含 `prospec:auto` 與 `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只會更新 `auto` 區塊，並完整保留你在 `user` 區塊手寫的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時自動遷入 `user` 區塊，而非被覆蓋。
@@ -1050,7 +1050,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（4503 個測試）
+# 執行所有測試（共 4586 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1063,9 +1063,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：4503 個測試橫跨 4 大類：
+**測試覆蓋率**：共 4586 個測試（4582 個通過；4 個略過），橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：3269 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1058 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1141 tests
 - Integration tests：45 tests
 - E2E tests：131 tests
 

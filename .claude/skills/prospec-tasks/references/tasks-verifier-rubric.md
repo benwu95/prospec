@@ -51,6 +51,51 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 
 ---
 
+## Task Verifier Payload Schema
+
+The Task Verifier writes its structured audit report as JSON to a regular file on disk:
+
+```json
+{
+  "verdict": "PASS",
+  "dimensions": {
+    "bidirectional_coverage": { "result": "PASS", "rationale": "100% forward REQ and backward plan coverage" },
+    "dag_topological_order": { "result": "PASS", "rationale": "Bottom-up dependency order preserved" },
+    "tdd_module_closure": { "result": "PASS", "rationale": "All affected modules have test tasks" },
+    "task_sizing_schema": { "result": "PASS", "rationale": "Kind markers and sizing guidelines satisfied" }
+  },
+  "evidence": "Verification report text...",
+  "warnings": []
+}
+```
+
+- `verdict`: `"PASS"` | `"WARN"` | `"FLAWS"` (required)
+- `dimensions`: object containing exactly `bidirectional_coverage`, `dag_topological_order`, `tdd_module_closure`, and `task_sizing_schema`; every value has exactly `result` (`"PASS"` | `"WARN"` | `"FLAWS"`) and `rationale` (non-empty string), with no additional properties (required)
+- `evidence`: string detailed summary (required)
+- `warnings`: array of string advisory notes (optional)
+
+No additional top-level fields are accepted.
+
+---
+
+## Delegated Return Contract
+
+The Task Verifier MUST return only the report file path. It MUST NOT relay the verdict, dimensions,
+or evidence prose through the completion message.
+
+---
+
+## Physical Receipt Verification Protocol
+
+Before consuming the Task Verifier report:
+1. **Physical Existence & Non-Empty**: The orchestrator must verify that the report exists as a readable regular file on disk and has `size > 0` bytes.
+2. **Schema Validation**: Parse and validate the file content against the Task Verifier JSON schema.
+3. **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract lifecycle state or transcript logs and await completion.
+4. **Explicit Degradation**: If the verifier crashes, times out, or fails to spawn, trigger explicit single-context degradation and honestly disclose the in-session verification mode (never claiming fresh-subagent PASS).
+5. **Zero-Mock Rule**: NEVER create dummy report files, empty results, or synthetic PASS on missing or unreadable receipts. Unreadable outputs fail closed with concrete I/O or parse errors.
+
+---
+
 > **Language- and Architecture-Agnostic Principle**:
 > Prospec is a language-agnostic and architecture-agnostic SDD framework. The Verifier dynamically reads the project's `prospec/CONSTITUTION.md`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml`. It **never** hardcodes any specific framework layering or test runner.
 

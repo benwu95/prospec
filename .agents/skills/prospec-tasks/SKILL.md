@@ -114,12 +114,16 @@ Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md
 3. **TDD Module Test Closure**: Every modified or added module in `plan.md` (or `delta-spec.md`) has at least 1 corresponding test task in the `Tests` section.
 4. **Task Sizing & Schema Compliance**: `[M]`/`[V]` kind markers on non-code tasks, granularity 20–100 lines.
 
-**Step 2 — Verifier Execution & Harness Degradation:**
+**Step 2 — Verifier Execution, Receipt Verification & Harness Degradation:**
 **Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
 
 Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — degrade to a two-phase prompt isolation in this context, invoking an independent Task Verifier persona to audit tasks.md against delta-spec.md and plan.md, and explicitly notify the developer of the degraded path — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
 Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh verification context (Task Verifier persona).
+
+- **Physical Receipt Verification**: The orchestrator MUST verify that the verifier's JSON report exists as a readable regular file on disk, has `size > 0` bytes, and matches the 4-dimension schema before acting on findings.
+- **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract subagent lifecycle state or transcript logs and await completion.
+- **Explicit Degradation**: On crash, timeout, or spawn failure, execute in degraded single-context mode and honestly disclose the in-session mode (never claiming fresh-subagent PASS).
 
 **Step 3 — Verdict Handling & Break-Glass Override:**
 - **PASS**: All 4 dimensions satisfied. Proceed.
@@ -172,6 +176,8 @@ Verify the output against this skill's **site-specific** Constitution rule (**TD
 - **NEVER** skip test tasks — Constitution requires test coverage; untested modules are deployment blockers in Verify phase
 - **NEVER** gate on `[P]` or `~lines` — both are optional reader aids that no skill gates on (nothing reads `~lines`; implement's `[P]` reminder is best-effort and executes sequentially anyway); if you do add an estimate, use `~{lines} lines`, not S/M/L
 - **NEVER** omit a non-code task's `[M]`/`[V]` kind marker — verify's completion rate and archive's unchecked-task warnings depend on it (this is the one required marker)
+- **NEVER** proceed on verbal completion claims or promises without physical receipt verification of the verifier report file — trusting prose without file inspection masks execution errors
+- **NEVER** fabricate mock report files, dummy outputs, or synthetic PASS when a receipt file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** add `references/tasks-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
 - **NEVER** proceed past Phase 6 on unresolved FLAWS without a documented Break-Glass Override

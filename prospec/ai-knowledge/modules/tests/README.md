@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 186 test files, 4,503 tests (unit 3269, contract 1058, integration 45, e2e 131)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 186 test files, 4,586 tests (unit 3269, contract 1141, integration 45, e2e 131)).
 
 <!-- prospec:auto-start -->
 
@@ -32,6 +32,7 @@
 4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
 6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
+7. **Change a delegated-receipt rule** — update the section-scoped five-skill/four-reference matrix in `skill-format.test.ts`; every physical, lifecycle, degradation, zero-mock, schema-owner, and downstream-neutral predicate needs a killing mutation.
 
 ## Ripple Effects
 

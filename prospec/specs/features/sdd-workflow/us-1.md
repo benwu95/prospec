@@ -118,6 +118,7 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN an existing owner is bypassed without a stated rationale, or a `standard` plan lacks its Simpler Alternative, THEN the Verdict table grades it FLAWS regardless of the path the surface sits on (Break-Glass Override unchanged); the rubric names the single-source bypass criterion in `review-format.md` only as the review-stage counterpart — whose two-condition threshold is deliberately narrower — and never restates its definition
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
 Phase 6 of `/prospec-plan` performs independent architecture verification against plan.md and delta-spec.md using orthogonal criteria decomposition.
@@ -127,6 +128,7 @@ Phase 6 of `/prospec-plan` performs independent architecture verification agains
 - WHEN the verifier discovers architectural flaws or warnings, THEN findings are recorded to `plan.md` Risk Assessment and appended to `metadata.yaml` `quality_log`
 - WHEN false positives occur, THEN the developer may exercise Break-Glass Override by providing a manual bypass rationale
 - WHEN `/prospec-ff` executes Plan phase verification, THEN it aligns with the same architecture verification gate and degradation policy
+- WHEN the verifier returns a report path or completion prose, THEN Phase 6 MUST verify the readable non-empty file against the rubric-owned report schema before progression, inspect lifecycle/transcript evidence while pending, and NEVER fabricate a report or fresh-context PASS; terminal failure follows the disclosed degraded path
 
 #### REQ-TESTS-089: Contract Tests for Plan Verifier and Rubric
 Contract test suite asserts the invariants of the Plan Architecture Verifier and its rubric.
@@ -224,6 +226,7 @@ A structured candidate evaluation rubric template (`candidate-evaluation.md`) de
 - WHEN evaluating candidates, THEN it instructs dynamic anchoring to the project's manifests and `_conventions.md`
 - WHEN conducting tournament comparison, THEN it uses position-swapped pairwise comparison across Blast Radius & Complexity, Constitution & Layering Adherence, and Extensibility vs Simplicity
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN a Candidate or Tournament Judge writes a delegated report, THEN this reference owns its JSON schema and required closed fields; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER substitutes a verbal or mock record
 
 ---
 
@@ -233,6 +236,7 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection and t
 - WHEN generating candidate architectures, THEN generate 2-3 orthogonal options and execute symmetric pairwise tournament selection
 - WHEN running in a subagent-capable environment, THEN parallelize candidate generation and tournament judging; degrade to sequential prompt isolation in single-context environments
 - WHEN finalizing plan.md, THEN record trade-off analysis, winning option rationale, and non-selected candidate summaries in Technical Summary and Risk Assessment
+- WHEN any Candidate or Tournament Judge returns a path or completion prose, THEN Phase 4 MUST verify the physical non-empty report against the reference-owned schema before selection, inspect lifecycle/transcript evidence while pending, and NEVER fabricate an option or decision; terminal failure uses the disclosed sequential degraded path
 
 ---
 
@@ -248,6 +252,7 @@ A structured task verification rubric template (`tasks-verifier-rubric.md`) defi
 - WHEN `tasks-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Bidirectional Contract Coverage, DAG Dependency & Layering Topological Order, TDD Module Test Closure, and Task Sizing & Marker Schema Compliance
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md`, `_conventions.md`, and `module-map.yaml` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN the Task Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact four dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
 
 ---
 
@@ -258,6 +263,7 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 - WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
 - WHEN the verifier discovers defects or layering violations, THEN findings are recorded to `metadata.yaml` `quality_log` (FLAWS block progression unless a Break-Glass Override is provided)
 - WHEN `/prospec-ff` executes Tasks phase verification, THEN it aligns with the same task verification gate and degradation policy
+- WHEN the verifier returns a report path or completion prose, THEN the station MUST verify the readable non-empty file against the rubric-owned report schema before progression, inspect lifecycle/transcript evidence while pending, and NEVER fabricate a report or PASS; terminal failure follows the disclosed degraded path
 
 ---
 
@@ -347,6 +353,7 @@ The template library includes skill references for cascading execution, circuit 
 Prospec skill templates instruct AI agents to perform autonomous pipeline cascading gated on machine verifiers and human sign-off.
 - WHEN cascading mode is triggered, THEN the agent advances sequentially through planning, implementation, review, and verification whenever verifiers pass
 - WHEN Grade S/A is reached in verification, THEN the agent presents the Tastemaker summary and halts for human sign-off before any commit or archive
+- WHEN cascading enters a delegated station or receives its subagent result, THEN it MUST reload and follow that station's receipt/schema contract, MUST stop on a missing or invalid payload, and MUST NEVER use a verbal/mock shortcut or claim a fresh-context PASS without a verified physical report
 
 ---
 

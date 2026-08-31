@@ -51,6 +51,12 @@ nondeterministic serialization this contract exists to remove.
 
 > Phases are numbered from 1 (no Phase 0).
 
+### Harness Capabilities
+
+**Harness capabilities** (resolved by `prospec agent sync` from this agent's registry entry — act on them, do not re-derive them at runtime): `can_spawn_subagent`: yes · `can_worktree`: no · `can_background`: yes
+
+Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — run planning verifiers sequentially with prompt isolation; after planning, re-read each downstream station and use that station's own disclosed degradation path — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
+
 ### Phase 1: Quick Interview (3 questions to converge)
 
 Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
@@ -95,7 +101,7 @@ Loading is still read). Status advances `story → tasks` directly
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Scaffold | Run `prospec change plan` (Bash) — CLI scaffolds `plan.md` + `delta-spec.md` and advances status → `plan` |
 | Populate | Read [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) on demand, then write to those formats |
-| Check | Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) on demand. Run site-specific Architecture Verification (dependency-direction/layering & orthogonal rubric; support harness degradation & manual bypass) → PASS continue / WARN log / FLAW pause |
+| Check | Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) on demand. Run site-specific Architecture Verification (dependency-direction/layering & orthogonal rubric). Apply **Physical Receipt Verification Protocol** to verifier report (readable regular file exists, `size > 0`, valid schema); when a completion claim precedes the write, inspect lifecycle/transcript evidence and await it; missing or invalid report stops the phase, while terminal failure takes explicit Harness Degradation. Support harness degradation & manual bypass → PASS continue / WARN log / FLAW pause |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
@@ -107,7 +113,7 @@ Loading is still read). Status advances `story → tasks` directly
 |------|--------|
 | Scaffold | Run `prospec change tasks` (Bash) — CLI scaffolds `tasks.md` and advances status → `tasks` (including the quick `story → tasks` transition) |
 | Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
-| Check | Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) on demand. Run site-specific Task Contract Verification (bidirectional coverage, DAG dependency layering, TDD closure; support harness degradation & manual bypass) → PASS continue / WARN log / FLAW pause |
+| Check | Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) on demand. Run site-specific Task Contract Verification (bidirectional coverage, DAG dependency layering, TDD closure). Apply **Physical Receipt Verification Protocol** to verifier report (readable regular file exists, `size > 0`, valid schema); when a completion claim precedes the write, inspect lifecycle/transcript evidence and await it; missing or invalid report stops the phase, while terminal failure takes explicit Harness Degradation. Support harness degradation & manual bypass → PASS continue / WARN log / FLAW pause |
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] tasks.md created with layer-ordered tasks and kind markers, status → `tasks`
@@ -117,10 +123,12 @@ Loading is still read). Status advances `story → tasks` directly
 
 **Autonomous Pipeline Cascading**: in cascading mode, execution advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off.
 
+**Station Transition & Receipt Protocol**: On advancing to each station, re-read and reload that downstream skill to ensure full compliance with its receipt contracts and entry gates.
+
 Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
 1. **Implementation**: Execute code tasks sequentially in the project's dependency-layer order (as grouped in `tasks.md` per [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.
-2. **Adversarial Review Loop**: Run review pass, auto-fixing verifier-confirmed criticals. Guarded by Oscillation Breaker (red-green-red detector) and 3-5 round limit.
-3. **Verify Audit**: Execute 5+1 dimension audit until Grade S/A is reached (`status: verified`).
+2. **Adversarial Review Loop**: Run review pass, enforcing the **Physical Receipt Verification Protocol** on review findings payloads (`ReviewFindingsInputSchema`) before calling `prospec review merge`, auto-fixing verifier-confirmed criticals. Guarded by Oscillation Breaker (red-green-red detector) and 3-5 round limit.
+3. **Verify Audit**: Execute 5+1 dimension audit, enforcing the **Physical Receipt Verification Protocol** on dimension verdicts (`JudgmentDimensionsInputSchema`) before calling `prospec verify record`, until Grade S/A is reached (`status: verified`).
 4. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
 
 > **Phase 5 Gate** — proceed when:
@@ -194,6 +202,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
+- **NEVER** take verbal shortcuts, bypass receipt gates, or fabricate mock payloads during fast-forward cascading — all subagent outputs must be physically verified
 - **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").

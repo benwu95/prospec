@@ -50,6 +50,7 @@ Both judgment dimensions are graded by an independent reviewer that does not sha
 - WHEN no fresh context is available, THEN 2/5 is graded in-session, recorded as `graded_by: in-session`, and the resulting mechanical grade cap (S unattainable) with its remedy is disclosed
 - WHEN dimension 6 degrades, THEN it points at 2/5's disclosure rather than carrying a second copy
 - WHEN the skill routes the judgment grading, THEN it names the strongest available tier abstractly and contains no specific model or harness name
+- WHEN either judgment grader returns a payload path or verbal completion claim, THEN the orchestrator MUST verify the physical non-empty file against the documented `JudgmentDimensionsInputSchema` fields, await a still-running grader, and use the disclosed degraded path only after terminal failure; it MUST NEVER fabricate dimensions or a PASS
 
 #### REQ-TEMPLATES-156: review / verify division of labour stated once
 `/prospec-review` is open-ended defect discovery (unbounded search, necessarily probabilistic); `/prospec-verify` is closed-ended contract checking (bounded comparison, mechanical wherever an oracle exists). The statement lives **only** in `prospec-verify`; `prospec-review` keeps a one-line pointer and its own major→WARN contract, and its spec-architecture lens covers REQ *contradiction* while completeness stays verify's 2/5.
