@@ -1,7 +1,7 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-08-29
+last_updated: 2026-09-01
 story_count: 2
 req_count: 10
 ---
@@ -52,11 +52,16 @@ To solve the problem that a standalone binary has no `package.json` from which t
 - WHEN running in an unpackaged environment (local development), THEN the version number can still be read from `package.json` via fallback.
 
 #### REQ-DOCS-001: Standalone Binary Installation Documentation
-Adjust the installation and execution instructions, including the English README.md and the Chinese README.zh-TW.md in the root directory, as well as the website installation instruction pages under the docs/ directory, to provide users with clear guidance for installing and launching the standalone binary.
-
-**Scenarios:**
+Adjust the installation and execution instructions, including the English README.md and the Chinese README.zh-TW.md in the root directory, as well as the website installation instruction pages under the docs/ directory, to provide users with clear guidance for installing and launching the standalone binary. Public installation and execution documentation stays aligned with the supported delivery paths, frozen public registries, and current host-aware workflow before a release is published.
 - WHEN viewing README.md and README.zh-TW.md, THEN a one-click installation script, standalone binary download, and npx/devDependency options have been added, and the global npm install has been removed.
 - WHEN visiting the docs/ website, THEN the installation instructions on the relevant pages are synchronously adjusted to the one-click installation script.
+- WHEN the standalone binary path is documented, THEN Node.js is explicitly optional; Node.js requirements apply only to npx, devDependency, or source-development paths
+- WHEN a Skill is named in shared public prose, THEN its bare `prospec-<name>` identity is used and host-specific explicit invocation syntax is explained separately
+- WHEN a major release is prepared, THEN the public documentation describes the current station chain, compatibility boundaries, and downstream upgrade steps before the release is published
+- WHEN public content is prepared before that release, THEN the upcoming version is labelled as upcoming while package, configuration, navbar, structured-data version, and release-date fields retain the currently released value until the release bump
+- WHEN documentation enumerates the MCP or Skill surface, THEN names and totals match the frozen registries and host profiles in source
+- WHEN a numeric efficiency claim is published, THEN it cites a current reproducible measurement; otherwise the documentation uses non-numeric wording and points to `prospec measure`
+- WHEN metadata, structured data, FAQ, social-preview text, or accessibility text restates product behavior, THEN it remains semantically aligned with the visible lifecycle, runtime requirements, and invocation guidance in both languages
 
 #### REQ-CLI-020: Add the print-template Subcommand
 Add the `print-template <path>` subcommand to the `prospec` CLI to directly output the source content of the built-in Handlebars templates.
@@ -134,6 +139,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | refresh-v2-documentation | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-08-29 | lazy-load-cli-startup | ADDED REQ-CLI-045; ADDED REQ-CLI-046 | REQ-CLI-045, REQ-CLI-046 |
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-066, REQ-TYPES-001, REQ-DOCS-001 |
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |

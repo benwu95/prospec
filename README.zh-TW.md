@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4605%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4631%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -24,6 +24,8 @@
 
 - [什麼是 Prospec？](#什麼是-prospec)
 - [為什麼選擇 Prospec？](#為什麼選擇-prospec)
+- [2.0 新功能](#20-新功能)
+  - [從 1.3 升級](#從-13-升級)
 - [快速上手](#快速上手)
   - [前置需求](#前置需求)
   - [1. 安裝](#1-安裝)
@@ -56,15 +58,15 @@
 
 ## 什麼是 Prospec？
 
-Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 host-aware **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex），而 Skills 執行的每一項**確定性操作** —— scaffold、狀態轉換、quality-log 寫入、spec sync、評分 —— 都交由 **`prospec` CLI**（必裝的單一執行檔）執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。成效：你的 Agent 遵循一致的 `story → plan → tasks → implement → review → verify → archive` 工作流，立基於結構化、版控的專案知識，且 LLM 的不確定性被隔絕在簿記之外。
+Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 host-aware **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex），而 Skills 執行的每一項**確定性操作** —— scaffold、狀態轉換、quality-log 寫入、spec sync、評分 —— 都交由 **`prospec` CLI**（必裝的單一執行檔）執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。成效：你的 Agent 遵循一致的 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive` 工作流，立基於結構化、版控的專案知識，且 LLM 的不確定性被隔絕在簿記之外。Design 只在 UI scope 需要時執行；scale-aware 例外會在下文分開說明。
 
 三個元件協同運作：
 
 ```
   你 ⇄ AI agent
      │
-     ├─ Skills .......... 執行工作流：story → plan → tasks →
-     │                    implement → review → verify → archive
+     ├─ Skills .......... 執行工作流：story → plan → design → tasks →
+     │                    implement → review → verify → knowledge-update → archive
      │                        ▲
      │                        │ 讀取並擴充
      ├─ AI Knowledge .... 結構化的專案記憶（模組、規格、教訓）
@@ -85,8 +87,8 @@ Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI
 | 挑戰 | Prospec 如何解決 |
 |------|------------------|
 | AI 不了解你的程式碼庫 | `prospec knowledge init` + `prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
-| Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用（vs full-dump 省 70%+ tokens） |
-| AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → tasks → implement → review → verify → archive` |
+| Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用；用 `prospec measure` 驗證你自己 session 的實際影響 |
+| AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`，條件分支也明確可見 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
 | Knowledge 容易過時 | verify S/A commit prompt 把 Knowledge Update 折入 feature commit；archive Entry Gate 為 backstop 複核 |
@@ -94,6 +96,36 @@ Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI
 | 教訓無法跨 session 留存 | `prospec-learn` —— 反覆出現的修正經人工核可晉升為版控的團隊規則 |
 
 > 每一列都對應下方的某個 Skill 或命令 —— 見 [AI Skills](#ai-skills) 與 [CLI 命令](#cli-命令)。
+
+---
+
+## 2.0 新功能
+
+Prospec 2.0 把 SDD 從一串引導步驟，提升為**受 gate 管理、可恢復的 pipeline**：Skills 保留判斷面，CLI 則負責狀態轉換、evidence 與 spec landing。
+
+| 能力 | 2.0 的改變 |
+|------|------------|
+| **更強的規劃** | 獨立的 architecture verifier 與 task verifier 會在 implementation 前檢查 layering、blast radius、reuse、REQ traceability、task ordering 與 TDD closure。Full-scale plan 可比較多個 architecture candidates；standard plan 必須說明 simpler alternative。 |
+| **受 gate 管理、可恢復的執行** | `prospec status` 會路由下一個 station 並列出 entry gate。每次 station transition 都重新載入指示；會改變狀態的 command 對非法 transition 直接拒絕，不再只靠 prose 約束。Design 是條件式 station、Knowledge Update 成為正式 station，quick/backfill 路徑也明確分開。 |
+| **會自我修正的品質迴圈** | Drift 可建立有界的 follow-up draft；review 使用 fresh-context verifier loop 與 circuit breaker；Verify 記錄 judgment provenance；Archive 在改 trust zone 前檢查 requirement landing fidelity。反覆出現的 correction 可走 human-approved learning pipeline 晉升。 |
+
+### 從 1.3 升級
+
+既有的 1.3 專案依下列順序升級：
+
+1. 把 standalone binary（或 pinned GitHub devDependency）更新到 2.0。
+2. 在專案內執行 `prospec upgrade`。CLI 會記錄 installed version、重新同步 agent assets、刷新 deterministic scan、只建立缺少的 init docs，並回報 format/trigger gaps。
+3. 依你的 host 語法明確呼叫 bare identity `prospec-upgrade`。逐項審閱並核可 curated-document migration；使用者撰寫的內容不會被靜默覆寫。
+4. 恢復工作前，確認下列 behavior boundaries：
+   - 明確呼叫 Skill 的語法由 host 決定（Claude Code 與 Copilot 使用 `/`、Codex 使用 `$`、Antigravity 使用 bare name 或 Skills browser）；共用 prose 與 automation 一律使用 bare `prospec-<name>` identity。
+   - Lifecycle commands 現在會強制更多 entry gates，可能拒絕 1.3 曾接受的 shortcut。請用 `prospec status` 當恢復點，不要手動編輯 lifecycle metadata。
+   - 標準 post-Verify 路徑改為 `verify → knowledge-update → archive`；Knowledge changes 與 feature commit 一起提交，Feature Specs 仍在 Archive 才畢業。
+   - L1 Knowledge entry point 是 `{base_dir}/index.md`。若專案仍只依賴 legacy `ai-knowledge/_index.md`，請先把 authored content 保留到 root index，再移除 orphaned file；已退役的 compatibility branch 不再代為搬移。
+5. 執行 `prospec status` 與 `prospec check --strict`，處理新 gate 揭露的失敗，再從 CLI 回報的 station 繼續。
+
+Major version 表示 **workflow contract 有相容性邊界**，不是要求重寫產品程式碼或現有 Markdown specs。Upgrade path 會保留既有 project choices，且 judgment-based 文件修改都先詢問；需特別規劃的是更嚴格的拒絕行為與 host invocation syntax。
+
+完整的兩段式 command 行為請見[升級 Prospec](#升級-prospec)。
 
 ---
 
@@ -180,7 +212,7 @@ prospec-quickstart           # 在地化 skill triggers、重新同步 config、
 
 ### 3. 跑你的第一個變更（在 AI Agent 中）
 
-你不需要記得每一步 —— **用自然語言描述你要的變更，Agent 就會自己跑完整個 SDD 迴圈**，只在需要時停下來問你問題、並徵詢每次的交接：
+你不需要記得每一步 —— **用自然語言描述你要的變更，Agent 就會自己跑完整個有閘門的 SDD cascade**，只在範圍提問、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下：
 
 ```text
 🤖 Run inside your AI Agent chat:
@@ -188,16 +220,16 @@ prospec-quickstart           # 在地化 skill triggers、重新同步 config、
 
 Agent 接手需求並執行 prospec-ff：
   • 問幾個範圍 / 驗收問題 —— 你用自然語言回答
-  • 寫出 story → plan → tasks，接著在每個階段交接：
+  • 寫出 story → plan → tasks
+  • machine gates 通過後自主繼續：
 
-  "Run prospec-implement now? (Y/n)"             → Y
-  implement → "Run prospec-review now? (Y/n)"    → Y
-  review    → "Run prospec-verify now? (Y/n)"    → Y
-  verify 達到 grade A → 提示你 commit              → Y
-         → "Run prospec-archive now? (Y/n)"      → Y   ✓ 已歸檔
+  implement → review → verify → GRADE A
+                           → knowledge update ✓
+                           → Tastemaker sign-off（你檢視 diff + evidence）
+                           → 你核准 commit 與 archive ✓
 ```
 
-每個階段結束時都會告訴你下一步、並等你按 `Y` —— 按 `n` 就停下、提示會保留，你可以稍後回來接續，不必記得自己進行到哪。`prospec-verify` 是 commit 邊界：達 S/A 時它會提示你 commit（絕不替你 commit），接著才提議歸檔。
+在 `prospec-ff` cascading mode 中，machine gates 通過後會自動進入下一站。Cascade 只在需要釐清、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下。到達該邊界時，Agent 會呈現 diff 與 evidence；未經你的明確核准，絕不 commit、push 或 archive。Cascade 之外的個別 station Skills 仍會以 status-aware handoff 結束，因此你也能逐站驅動同一條流程。
 
 想自己逐步驅動？也可以明確執行：
 
@@ -205,14 +237,15 @@ Agent 接手需求並執行 prospec-ff：
 🤖 Run inside your AI Agent chat:
 prospec-explore                   # （可選）先釐清需求
 prospec-new-story add-my-feature  # 把需求記錄成結構化 story
-prospec-design                    # （可選）UI / 互動規格
 prospec-plan                      # 設計實作（`quick` scale 的變更會跳過）
+prospec-design                    # （Plan 之後可選）UI / 互動規格
 prospec-tasks                     # 把計劃拆成有序的任務清單
 #   ↑ 用 prospec-ff add-my-feature 一次收合 story → plan → tasks
 prospec-implement                 # 逐項實作（先不 commit）
 prospec-review                    # 對抗式審查 → fix 迴圈
-prospec-verify                    # 驗證；達 S/A 後提示你 commit
-prospec-archive                   # 歸檔 + 同步規格與知識
+prospec-verify                    # 驗證；達 S/A 後開啟 commit 邊界
+prospec-knowledge-update          # 同步受影響模組的 Knowledge 並折入 feature commit
+prospec-archive                   # 歸檔 + 讓 Feature Specs 正式畢業
 prospec-learn                     # （定期）把反覆出現的教訓晉升為團隊規則
 ```
 
@@ -351,7 +384,7 @@ Prospec 跑一條線性流程，外包兩條回饋迴圈，讓它**越用越好*
 
 ```mermaid
 flowchart TD
-    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> D(["設計（可選）<br/>Design"]) --> P([計劃<br/>Plan]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) --> KU([更新知識<br/>Knowledge Update]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
+    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> P([計劃<br/>Plan]) --> D(["設計（UI 工作可選）<br/>Design"]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) --> KU([更新知識<br/>Knowledge Update]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
 
     V -. quality_log .-> L
     R -. findings .-> L
@@ -373,7 +406,7 @@ flowchart TD
 
 每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而反覆出現的教訓 —— review findings、跨階段 `quality_log`、session corrections —— 經**人工核可**晉升為持續累積的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。
 
-流程同時是 **scale-aware** 的：經使用者確認的 `quick` 變更會完全跳過 Plan 階段（`story → tasks`），並由 archive 時的 backstop 把關 —— 見[相稱流程](#相稱流程scale)。
+圖中顯示標準路徑。流程同時是 **scale-aware** 的：Design 只在 UI scope 為 `full` 或 `partial` 時執行；經使用者確認的 `quick` 變更完全跳過 Plan（`story → tasks`）；Brownfield backfill 則從 `prospec-promote-backfill` 進入 Verify，不重跑標準 planning path。Archive-time gates 仍是 backstop —— 見[相稱流程](#相稱流程scale)與[回填流程](#backfill把既有程式碼納進信任區)。
 
 ### Skill 與 CLI 協同模式：判斷面與確定性執行
 
@@ -451,7 +484,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 - **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
-- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**（`Run <next-step> now? (Y/n)` —— 你的 Y 才是觸發、絕不靜默 auto-run）；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
+- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；在 `prospec-ff` cascade 之外，線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `prospec-verify` 分級。
 - **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。搭配選配的 `feature-map.yaml`（feature→module 索引，archive 時 bootstrap）再加兩條治理檢查：REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。
 - **對抗式審查** — `prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。
@@ -467,7 +500,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | `standard`（預設；既有變更無欄位即此級） | 現行精簡流程 —— plan ≤ 120 行，結尾必含 **Simpler Alternative** 段落（實質更簡單的替代方案或明文 concede，附檔數/行數變更表面估算） |
 | `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain、Best-of-N 候選架構錦標賽（其非選中候選記錄替代 Simpler Alternative 段落） |
 
-兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。工程紀律不隨 scale 縮減：TDD、對抗式審查、Constitution 稽核在每個級別照常執行。
+兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。Forward-change scales 保留 TDD、對抗式審查與 Constitution 稽核；proven backfill 採獨立 fidelity contract，code review 為 optional。
 
 任務同時帶 **kind** 標記（`[M]` manual、`[V]` verification、無標記＝code）：完成率只計 code task，「手動跑個指令」之類未勾選的提醒不會卡住或扭曲任何 gate。
 
@@ -978,7 +1011,7 @@ Brownfield 專案累積了大量「沒有 Feature Spec 描述」的行為。**Ba
 
 ```mermaid
 flowchart TD
-    CODE[("既有<br/>brownfield code")] --> BF([萃取<br/>Backfill]) -- "草稿 + 人工審閱" --> PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify]) -- "spec-fidelity → S/A" --> A([歸檔<br/>Archive])
+    CODE[("既有<br/>brownfield code")] --> BF([萃取<br/>Backfill]) -- "草稿 + 人工審閱" --> PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify]) -- "spec-fidelity → S/A" --> K([知識同步<br/>Knowledge Sync]) --> A([歸檔<br/>Archive])
 
     A -- Spec Sync --> FS[("Feature Specs<br/>graduate 進信任區")]
 
@@ -989,8 +1022,9 @@ flowchart TD
 1. **萃取** —— `prospec-backfill-spec` 讀程式碼（與 tests、git history、docs）、stage 一份 route-compatible 的 `backfill-draft.md`；無法從程式碼推得的 intent 標 `[NEEDS CLARIFICATION]`，絕不捏造。
 2. **審閱** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC），確認候選 feature slug。這是人工關卡。
 3. **晉升** —— `prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
-4. **驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。
-5. **歸檔** —— `prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
+4. **驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。依 contract，proven backfill 的 code review 是 optional。
+5. **Knowledge Sync** —— 只更新 `metadata.related_modules` 指定的 module READMEs，再用 `prospec knowledge verify` stamp；feature-slug REQ IDs 不執行 REQ-prefix-driven `prospec-knowledge-update`。
+6. **歸檔** —— `prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
 
 ### 升級 Prospec
 
@@ -1063,7 +1097,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4605 個；4 個略過）
+# 執行所有測試（共 4631 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1076,9 +1110,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4605 個測試（4601 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3281 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1148 tests
+**測試覆蓋率**：共 4631 個測試（4627 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3291 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1164 tests
 - Integration tests：45 tests
 - E2E tests：131 tests
 

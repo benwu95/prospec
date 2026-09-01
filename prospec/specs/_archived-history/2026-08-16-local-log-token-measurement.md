@@ -1,35 +1,35 @@
-# local-log-token-measurement — Archive Summary
+# local-log-token-measurement — 封存摘要
 
-- **Archived**: 2026-08-16
-- **Original Created**: 2026-08-16T16:21:30.471Z
-- **Quality Grade**: A
+- **封存日期**: 2026-08-16
+- **原始建立日期**: 2026-08-16T16:21:30.471Z
+- **品質評級**: A
 - **Issue**: 177
 
-## User Story
+## 使用者故事
 
-N/A
+不適用
 
-## Affected Modules
+## 受影響模組
 
-| Module | Impact | Description |
+| 模組 | 影響 | 說明 |
 |--------|--------|-------------|
-| measure | Modified | Local Session Log Parsing |
+| measure | 已修改 | 本機 session log 解析 |
 
-## Requirements
+## 需求
 
-| REQ ID | Status | Description |
+| REQ ID | 狀態 | 說明 |
 |--------|--------|-------------|
-| REQ-MEASURE-006 | ADDED | Local Session Log Parsing |
-| REQ-MEASURE-007 | ADDED | Theoretical Baseline Estimation |
-| REQ-MEASURE-002 | MODIFIED | Token Usage Reporting |
+| REQ-MEASURE-006 | ADDED | 本機 session log 解析 |
+| REQ-MEASURE-007 | ADDED | 理論 baseline 估算 |
+| REQ-MEASURE-002 | MODIFIED | token 用量報告 |
 
-## Completion
+## 完成度
 
-- **Tasks**: 13/13 (100%)
+- **任務**: 13/13（100%）
 
-## Review & Verify
+## Review 與 Verify
 
-- **Grade**: A
-- **Criticals Found**: 0
-- **Majors Found**: 0
+- **評級**: A
+- **Critical 數量**: 0
+- **Major 數量**: 0
 - **Quality Log**: PASS

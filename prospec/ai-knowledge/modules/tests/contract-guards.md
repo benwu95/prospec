@@ -6,7 +6,7 @@
 
 | File | Purpose |
 |------|---------|
-| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 18 references. It also fences sigils to the labelled host matrix, pins canonical bare identity, README parity, deployed `.claude`/`.agents` matrices, and status hand-offs; assertions stay section-scoped and mutation-verified. |
+| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 18 references. It also pins bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/i18n contract; assertions stay section-scoped and mutation-verified. |
 | `knowledge-format.test.ts`, `cli-output.test.ts`, `change-artifact-format.test.ts` | Output-format pins through the real `renderTemplate()`, never mocks. `change-artifact-format` renders `change/proposal.md.hbs` and pins that a module name is bolded exactly once, with a `****` negative; `knowledge-format` also pins raw-scan's disclosure block — item-set, caps, empty placeholder, fallback-exception sentence, and order-independence. |
 | `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, and each generated-artifact registry entry ≡ the path its producer actually writes. |
 | `own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell living only in the generated file is a pending revert); and a shrink-only set-equality ledger of the legacy body-less REQs — repairing one requires deleting its `LEGACY_BODYLESS` entry. |
@@ -29,10 +29,11 @@
 2. **Pin a doc against a registry** — assert SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
 3. **Pin a `--dry-run`** — snapshot the tree before and after and assert it is unchanged.
 4. **Rebaseline a frozen fixture** — `tests/fixtures/startup-loading-baseline.json` is version-controlled; a new loading item fails until it is updated deliberately.
+5. **Change public website behavior** — update the English HTML and Traditional Chinese overlay together; parse JSON-LD, compare the translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
 
 ## Ripple Effects
 
-- A new skill bumps `skill-format`'s count AND the loading-item baseline; a new `.hbs` reddens `bundled-templates-sync` until `pnpm bundle` runs; a curated cell added only to `index.md` reddens `own-knowledge-sync`.
+- A new skill bumps `skill-format`'s count AND the loading-item baseline; a new `.hbs` reddens `bundled-templates-sync` until `pnpm bundle` runs; a curated cell added only to `index.md` reddens `own-knowledge-sync`; website lifecycle, runtime, MCP, metadata, or translation changes redden the public-document contract until both language surfaces agree.
 
 ## Pitfalls
 
@@ -45,4 +46,5 @@
 - Two references contradicting each other stays invisible while this project's authors happen to follow one of them — `spec-sync-corpus.test.ts` exists because that happened.
 - **A section slicer must not stop at a heading inside a code fence.** `skill-format`'s `sectionOf` keyed its boundary on `^#{2,3} ` over raw lines, so the moment `review-format.hbs` gained a fenced example containing `## Evidence`, two live assertions silently sliced half a section — and passed on the surviving half. Boundary detection runs over fence-MASKED lines while the body comes from the raw ones (and an unclosed fence degrades to raw lines, `markdown-fences`' own rule). Any format reference that shows headings in an example is exposed to this.
 - A disjunction hides a dead half: pin each clause separately, or deleting either side stays green.
+- The website's English source is `docs/index.html`, while Traditional Chinese is a key-value overlay in `docs/i18n.js`: exact key-set equality catches both missing and orphaned translations, and JSON-LD must be parsed as JSON rather than pinned only as raw substrings.
 - Locate a table row by the cell whose content the test is ABOUT, never by a phrase in the cell it grades: `skill-format`'s lens-row pin once found the Maintainability row by `single-source bypass criterion` — text in the SEVERITY cell — so blanking the criterion cell or flipping the severity to `major` stayed green (review R3-1). Split with `splitTableRow`, find by the criterion cell, then anchor the severity cell with `/^critical\b/` and a `not /^major/` negative.

@@ -24,6 +24,8 @@ import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
 
 const README = 'README.md';
 const README_ZH = 'README.zh-TW.md';
+const DOCS_INDEX = 'docs/index.html';
+const DOCS_I18N = 'docs/i18n.js';
 const INDEX = 'prospec/index.md';
 const TESTS_README = 'prospec/ai-knowledge/modules/tests/README.md';
 const TEMPLATES_README = 'prospec/ai-knowledge/modules/templates/README.md';
@@ -67,6 +69,16 @@ export const COUNT_REGISTRY: CountEntry[] = [
         anchor: /\*\*測試覆蓋率\*\*：(?:共 )?(\d+) 個測試(?:（\d+ 個通過；\d+ 個略過）)?(?:，)?橫跨/,
         format: 'plain',
       },
+      {
+        doc: DOCS_INDEX,
+        anchor: /data-i18n="hero\.facts\.tests"><b>([\d,]+)<\/b> total ·/,
+        format: 'comma',
+      },
+      {
+        doc: DOCS_I18N,
+        anchor: /'hero\.facts\.tests': '共 <b>([\d,]+)<\/b> 個測試 ·/,
+        format: 'comma',
+      },
       { doc: INDEX, anchor: /files, ([\d,]+) tests \(unit /, format: 'comma' },
       moduleMapTwin('tests', /files, ([\d,]+) tests \(unit /, 'comma'),
       { doc: TESTS_README, anchor: /test files, ([\d,]+) tests \(unit /, format: 'comma' },
@@ -85,6 +97,16 @@ export const COUNT_REGISTRY: CountEntry[] = [
         doc: README_ZH,
         anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（(\d+) 個通過；\d+ 個略過）(?:，)?橫跨/,
         format: 'plain',
+      },
+      {
+        doc: DOCS_INDEX,
+        anchor: /hero\.facts\.tests">.* total · <b>([\d,]+)<\/b> passed ·/,
+        format: 'comma',
+      },
+      {
+        doc: DOCS_I18N,
+        anchor: /'hero\.facts\.tests': '.* 個測試 · <b>([\d,]+)<\/b> 個通過 ·/,
+        format: 'comma',
       },
     ],
   },
@@ -107,6 +129,16 @@ export const COUNT_REGISTRY: CountEntry[] = [
         doc: README_ZH,
         anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（\d+ 個通過；(\d+) 個略過）(?:，)?橫跨/,
         format: 'plain',
+      },
+      {
+        doc: DOCS_INDEX,
+        anchor: /hero\.facts\.tests">.* passed · <b>([\d,]+)<\/b> skipped/,
+        format: 'comma',
+      },
+      {
+        doc: DOCS_I18N,
+        anchor: /'hero\.facts\.tests': '.* 個通過 · <b>([\d,]+)<\/b> 個略過/,
+        format: 'comma',
       },
     ],
   },

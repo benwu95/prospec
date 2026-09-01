@@ -4,21 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prospec — spec-driven development that audits itself, for AI coding agents</title>
-<meta name="description" content="Prospec drives your AI coding agent through a governed story → plan → tasks → implement → review → verify → archive loop, with adversarial review, S-to-D quality grades, and project knowledge that compounds on every change. Works with Claude Code, Codex, Copilot, and Antigravity.">
+<meta name="description" content="Prospec drives AI coding agents through a gated, resumable story → plan → design → tasks → implement → review → verify → knowledge update → archive pipeline, with adversarial review and project knowledge that compounds on every change.">
 <meta name="theme-color" content="#0b0f14">
 <link rel="canonical" href="https://benwu95.github.io/prospec/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://benwu95.github.io/prospec/">
 <meta property="og:title" content="Prospec — the governed spec loop for AI coding agents">
-<meta property="og:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and project knowledge that compounds every change.">
+<meta property="og:description" content="A gated, resumable SDD pipeline: stronger planning, deterministic entry gates, adversarial review, and self-correcting project knowledge.">
 <meta property="og:image" content="https://benwu95.github.io/prospec/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Prospec — spec-driven development that audits itself, for AI coding agents. story → plan → tasks → implement → review → verify → archive.">
+<meta property="og:image:alt" content="Current 1.3 social preview: Prospec's self-auditing SDD, grade A, earlier story-to-archive flow, and Node.js toolchain.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Prospec — the governed spec loop for AI coding agents">
-<meta name="twitter:description" content="Spec-driven development that audits itself: adversarial review, S-to-D quality grades, and knowledge that compounds.">
+<meta name="twitter:description" content="Stronger planning, deterministic gates, adversarial review, and self-correcting knowledge for AI coding agents.">
 <meta name="twitter:image" content="https://benwu95.github.io/prospec/og.png">
+<meta name="twitter:image:alt" content="Current 1.3 social preview: Prospec's self-auditing SDD, grade A, earlier story-to-archive flow, and Node.js toolchain.">
 <script>
   (function(){
     var h = document.documentElement;
@@ -41,9 +42,10 @@
   "@context":"https://schema.org",
   "@type":"SoftwareApplication",
   "name":"Prospec",
-  "description":"Progressive Spec-Driven Development toolkit for AI coding agents: a governed story → plan → tasks → implement → review → verify → archive loop with adversarial review, S-to-D quality grades, and compounding project knowledge.",
+  "description":"Progressive Spec-Driven Development toolkit for AI coding agents: a gated, resumable story → plan → design → tasks → implement → review → verify → knowledge update → archive pipeline with adversarial review and compounding project knowledge.",
   "applicationCategory":"DeveloperApplication",
-  "operatingSystem":"Node.js >= 22.13",
+  "operatingSystem":"macOS, Linux, Windows",
+  "softwareRequirements":"Standalone binaries require no Node.js. Node.js >= 22.13 is required only for npx, devDependency, or source-development paths.",
   "softwareVersion":"1.3.0",
   "dateModified":"2026-08-15",
   "license":"https://opensource.org/licenses/MIT",
@@ -75,12 +77,12 @@
     {
       "@type":"Question",
       "name":"What does it deliberately not do?",
-      "acceptedAnswer":{"@type":"Answer","text":"The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec-to-code consistency — that stays with the adversarial review. And no scale skips engineering discipline: TDD, review, and Constitution audits run everywhere."}
+      "acceptedAnswer":{"@type":"Answer","text":"The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec-to-code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional."}
     },
     {
       "@type":"Question",
       "name":"Greenfield or brownfield?",
-      "acceptedAnswer":{"@type":"Answer","text":"Both, with the same two bootstrap commands. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, /prospec-quickstart reads your code into AI Knowledge up front, and the backfill path can reverse-extract specs from behavior that was never documented."}
+      "acceptedAnswer":{"@type":"Answer","text":"Both, with the same two bootstrap commands. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, the prospec-quickstart Skill reads your code into AI Knowledge up front, and the backfill path can reverse-extract specs from behavior that was never documented."}
     },
     {
       "@type":"Question",
@@ -104,6 +106,7 @@
   <div class="wrap nav__in">
     <a class="brand" href="#top" aria-label="Prospec home" data-i18n-aria-label="nav.aria.brandHome">prospec<span class="dot" aria-hidden="true">.</span><span class="ver">1.3.0</span></a>
     <nav class="nav__links" aria-label="Primary" data-i18n-aria-label="nav.aria.primary">
+      <a href="#v2" data-i18n="nav.v2">What's new in 2.0</a>
       <a href="#how" data-i18n="nav.how">How it works</a>
       <a href="#verify" data-i18n="nav.verify">Verify</a>
       <a href="#skills" data-i18n="nav.skills">Skills</a>
@@ -129,7 +132,7 @@
     <span class="eyebrow" data-i18n="hero.eyebrow">Progressive Spec-Driven Development</span>
     <h1 data-i18n="hero.h1">Spec-driven development<br>that <span class="em">audits itself</span>.</h1>
     <p class="sub" data-i18n="hero.sub">Spec-driven development means your AI agent builds from a written spec, not a throwaway prompt. Prospec runs that as one governed loop:</p>
-    <p class="sub-pipe"><code>story → plan → tasks → implement → review → verify → archive</code></p>
+    <p class="sub-pipe"><code>story → plan → design → tasks → implement → review → verify → knowledge update → archive</code></p>
     <p class="sub sub--tail" data-i18n="hero.subtail">Plus adversarial review, S-to-D quality grades, and project knowledge that compounds on every change.</p>
 
     <div class="hero__install">
@@ -156,7 +159,7 @@
     </div>
 
     <div class="hero__facts">
-      <span data-i18n="hero.facts.tests"><b>3,777</b> tests passing</span><span class="sep" aria-hidden="true">·</span>
+      <span data-i18n="hero.facts.tests"><b>4,631</b> total · <b>4,627</b> passed · <b>4</b> skipped</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.skills"><b>17</b> skills</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.principles"><b>8</b> enforced principles</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.mcp">read-only <b>MCP</b> server</span><span class="sep" aria-hidden="true">·</span>
@@ -167,21 +170,61 @@
   </div>
 
   <div class="wrap proof">
-    <div class="term" role="img" aria-label="Terminal transcript: a developer asks the agent to add a dark-mode toggle; Prospec runs the full SDD loop and the change reaches grade A and is archived." data-i18n-aria-label="proof.aria">
+    <div class="term" role="img" aria-label="Terminal transcript: a developer asks the agent to rate-limit a public API; Prospec autonomously advances through passing gates, updates Knowledge, reaches grade A, and pauses for Tastemaker sign-off before commit and archive." data-i18n-aria-label="proof.aria">
       <div class="term__bar"><span class="b"></span><span class="b"></span><span class="b"></span><span class="t" data-i18n="proof.bar">your-ai-agent — prospec</span></div>
       <div class="term__body">
-        <p class="t-line" data-i18n="proof.l1"><span class="who">you ▸ </span>Ask prospec to add a dark-mode toggle</p>
-        <p class="t-line t-dim t-indent" data-i18n="proof.l2">agent picks up the request and runs <span class="hl">/prospec-ff</span> …</p>
+        <p class="t-line" data-i18n="proof.l1"><span class="who">you ▸ </span>Ask prospec to rate-limit the public API</p>
+        <p class="t-line t-dim t-indent" data-i18n="proof.l2">agent picks up the request and runs <span class="hl">prospec-ff</span> …</p>
         <p class="t-line t-dim t-indent" data-i18n="proof.l3">• scoping &amp; acceptance questions → you answer in plain language</p>
-        <p class="t-line t-indent" data-i18n="proof.l4">• writes <span class="hl">story → plan → tasks</span>, then hands off at each stage:</p>
+        <p class="t-line t-indent" data-i18n="proof.l4">• writes <span class="hl">story → plan → tasks</span>; machine gates pass automatically:</p>
         <div class="t-steps">
-          <span class="t-desc" data-i18n="proof.s1">implement → <span class="hl">/prospec-review</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note"></span>
-          <span class="t-desc" data-i18n="proof.s2">review → <span class="hl">/prospec-verify</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note"></span>
-          <span class="t-desc" data-i18n="proof.s3">verify → <span class="grade">GRADE A ✓</span> prompts you to commit</span><span class="t-ans">Y</span><span class="t-note"></span>
-          <span class="t-desc" data-i18n="proof.s4">archive → <span class="hl">/prospec-archive</span> → run now? (Y/n)</span><span class="t-ans">Y</span><span class="t-note t-ok" data-i18n="proof.s4note">✓ archived</span>
+          <span class="t-desc" data-i18n="proof.s1">implement → <span class="hl">prospec-review</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s2">review → <span class="hl">prospec-verify</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s3">verify → <span class="grade">GRADE A ✓</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s4">verify → <span class="hl">prospec-knowledge-update</span></span><span class="t-ans">synced ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s5">Tastemaker sign-off → commit + <span class="hl">prospec-archive</span>? (Y/n)</span><span class="t-ans">Y</span><span class="t-note t-ok" data-i18n="proof.s5note">✓ archived</span>
         </div>
         <p class="t-line t-dim t-indent" data-i18n="proof.l5">AI Knowledge enriched · specs graduated · lessons harvested</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2.0 ===================== -->
+<section class="section section--panel" id="v2">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow" data-i18n="v2.eyebrow">What's new in 2.0</span>
+      <h2 data-i18n="v2.h2">From a guided sequence to a gated, resumable pipeline.</h2>
+      <p class="lede" data-i18n="v2.lede">Prospec 2.0 keeps judgment in Skills and makes the CLI responsible for state, evidence, and spec landing.</p>
+    </div>
+    <div class="pieces reveal">
+      <article class="piece">
+        <span class="pk" data-i18n="v2.c1.k">Planning</span>
+        <h3 data-i18n="v2.c1.h">Stronger planning</h3>
+        <p data-i18n="v2.c1.p">Independent architecture and task verifiers check layering, blast radius, reuse, REQ traceability, task order, and TDD closure before implementation.</p>
+      </article>
+      <article class="piece">
+        <span class="pk" data-i18n="v2.c2.k">Execution</span>
+        <h3 data-i18n="v2.c2.h">Gated and resumable</h3>
+        <p data-i18n="v2.c2.p"><code>prospec status</code> routes the next station; deterministic commands refuse illegal transitions. Design is conditional and Knowledge Update is a formal station.</p>
+      </article>
+      <article class="piece">
+        <span class="pk" data-i18n="v2.c3.k">Quality</span>
+        <h3 data-i18n="v2.c3.h">A self-correcting quality loop</h3>
+        <p data-i18n="v2.c3.p">Drift drafts bounded follow-ups, review loops carry circuit breakers, Verify records provenance, and Archive checks landing fidelity before trust-zone writes.</p>
+      </article>
+    </div>
+    <div class="compound__note reveal">
+      <h3 data-i18n="v2.upgrade.h">1.3 → 2.0 upgrade path</h3>
+      <ol class="v2__steps">
+        <li data-i18n="v2.upgrade.1">Update the binary or pinned GitHub dependency to 2.0.</li>
+        <li data-i18n="v2.upgrade.2">Run <code>prospec upgrade</code>, then invoke the bare <code>prospec-upgrade</code> Skill with your host's syntax and approve curated-document migrations individually.</li>
+        <li data-i18n="v2.upgrade.3">Adopt host-aware invocation and the formal <code>verify → knowledge-update → archive</code> path; use <code>prospec status</code> instead of editing lifecycle metadata.</li>
+        <li data-i18n="v2.upgrade.4">If the project still relies only on legacy <code>ai-knowledge/_index.md</code>, preserve its authored content in <code>{base_dir}/index.md</code>; automatic relocation has retired.</li>
+        <li data-i18n="v2.upgrade.5">Run <code>prospec check --strict</code>, resolve newly enforced failures, and resume from the station reported by the CLI.</li>
+      </ol>
+      <p data-i18n="v2.upgrade.note"><b>Compatibility:</b> this major release tightens workflow contracts; it does not require rewriting product code or existing Markdown specs.</p>
     </div>
   </div>
 </section>
@@ -198,7 +241,7 @@
     <div class="ledger reveal">
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r1.c">The agent doesn't know your codebase.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r1.a"><code>prospec knowledge init</code> + <code>/prospec-knowledge-generate</code> auto-scan your project and generate AI-readable module docs.</p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r1.a"><code>prospec knowledge init</code> + <code>prospec-knowledge-generate</code> auto-scan your project and generate AI-readable module docs.</p></div>
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r2.c">Context windows are finite.</p></div>
@@ -206,7 +249,7 @@
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r3.c">Every AI session improvises a different workflow.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r3.a">Structured Skills enforce one loop:</p><p class="ledger-pipe"><code>story → plan → tasks → implement → review → verify → archive</code></p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r3.a">Structured Skills enforce one loop:</p><p class="ledger-pipe"><code>story → plan → design → tasks → implement → review → verify → knowledge update → archive</code></p></div>
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r4.c">Vendor lock-in to one AI CLI.</p></div>
@@ -214,7 +257,7 @@
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r5.c">Verify passes, but subtle bugs still ship.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r5.a"><code>/prospec-review</code> — an independent adversarial reviewer audits the whole diff between implement and verify.</p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r5.a"><code>prospec-review</code> — an independent adversarial reviewer audits the whole diff between implement and verify.</p></div>
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r6.c">Knowledge goes stale the moment it's written.</p></div>
@@ -222,11 +265,11 @@
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r7.c">Lessons don't survive across sessions.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r7.a"><code>/prospec-learn</code> promotes recurring fixes — only with human approval — into versioned team rules.</p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r7.a"><code>prospec-learn</code> promotes recurring fixes — only with human approval — into versioned team rules.</p></div>
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r8.c">There's no bridge from design to code.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r8.a"><code>/prospec-design</code> generates visual + interaction specs, with MCP tool integration for Figma / Penpot.</p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r8.a"><code>prospec-design</code> generates visual + interaction specs, with MCP tool integration for Figma / Penpot.</p></div>
       </div>
     </div>
   </div>
@@ -241,8 +284,8 @@
       <p class="lede" data-i18n="how.lede">Most spec tools stop at <span class="ink-em">spec → plan → tasks → implement</span>. Prospec keeps going — through the stages that actually catch problems and grow your project's memory.</p>
     </div>
 
-    <div class="diagram-wrap reveal" role="img" aria-label="Prospec's lifecycle as a flow diagram. A linear pipeline runs Explore, Story, Plan, Tasks, Implement, then the four stages Prospec adds — Review, Verify, Archive, Learn. Archive feeds AI Knowledge and Feature Specs; Learn feeds the Constitution and Playbook. All three accumulating assets loop back as context into the next change's Plan, so each change starts from a richer baseline." data-i18n-aria-label="how.diagramAria">
-      <svg class="diagram" viewBox="0 0 960 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <div class="diagram-wrap reveal" role="img" aria-label="Prospec's lifecycle as a flow diagram. A linear pipeline runs Explore, Story, Plan, Design (optional for UI work), Tasks, Implement, Review, Verify, Knowledge Update, and Archive. Learn runs periodically. Knowledge Update feeds AI Knowledge; Archive graduates Feature Specs; Learn feeds the Constitution and Playbook. All three accumulating assets loop back as context into the next change's Plan." data-i18n-aria-label="how.diagramAria">
+      <svg class="diagram" viewBox="0 0 1120 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <defs>
           <marker id="ar" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" viewBox="0 0 12 12" refX="9" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 z" fill="#30445a"/></marker>
           <marker id="arg" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" viewBox="0 0 12 12" refX="9" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 z" fill="#e0a53c"/></marker>
@@ -251,55 +294,59 @@
         <text class="dg-cap" x="16" y="24" data-i18n="how.dg.cap1">ONE CHANGE — EXPLORE TO ARCHIVE</text>
 
         <!-- pipeline edges (flow left to right) -->
-        <line class="dg-edge" x1="102" y1="63" x2="118" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="204" y1="63" x2="220" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="306" y1="63" x2="322" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="408" y1="63" x2="424" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="510" y1="63" x2="526" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="612" y1="63" x2="628" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="714" y1="63" x2="730" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="816" y1="63" x2="832" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="102" y1="63" x2="112" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="198" y1="63" x2="208" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="294" y1="63" x2="304" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="390" y1="63" x2="400" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="486" y1="63" x2="496" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="582" y1="63" x2="592" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="678" y1="63" x2="688" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="774" y1="63" x2="784" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="900" y1="63" x2="910" y2="63" marker-end="url(#ar)"/>
 
         <!-- pipeline nodes -->
         <rect class="dg-node" x="16" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="59" y="69" text-anchor="middle">Explore</text>
-        <rect class="dg-node" x="118" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="161" y="69" text-anchor="middle">Story</text>
-        <rect class="dg-node" x="220" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="263" y="69" text-anchor="middle">Plan</text>
-        <rect class="dg-node" x="322" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="365" y="69" text-anchor="middle">Tasks</text>
-        <rect class="dg-node" x="424" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="467" y="69" text-anchor="middle">Implement</text>
-        <rect class="dg-node dg-node--own" x="526" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="569" y="69" text-anchor="middle">Review</text>
-        <rect class="dg-node dg-node--own" x="628" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="671" y="69" text-anchor="middle">Verify</text>
-        <rect class="dg-node dg-node--own" x="730" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="773" y="69" text-anchor="middle">Archive</text>
-        <rect class="dg-node dg-node--own" x="832" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="875" y="69" text-anchor="middle">Learn</text>
+        <rect class="dg-node" x="112" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="155" y="69" text-anchor="middle">Story</text>
+        <rect class="dg-node" x="208" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="251" y="69" text-anchor="middle">Plan</text>
+        <rect class="dg-node" x="304" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="347" y="69" text-anchor="middle">Design</text>
+        <rect class="dg-node" x="400" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="443" y="69" text-anchor="middle">Tasks</text>
+        <rect class="dg-node" x="496" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="539" y="69" text-anchor="middle">Implement</text>
+        <rect class="dg-node dg-node--own" x="592" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="635" y="69" text-anchor="middle">Review</text>
+        <rect class="dg-node dg-node--own" x="688" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="731" y="69" text-anchor="middle">Verify</text>
+        <rect class="dg-node dg-node--own" x="784" y="40" width="116" height="46" rx="6"/><text class="dg-name dg-name--own dg-name--small" x="842" y="69" text-anchor="middle">Knowledge Update</text>
+        <rect class="dg-node dg-node--own" x="910" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="953" y="69" text-anchor="middle">Archive</text>
+        <text class="dg-cap" x="1049" y="126" text-anchor="middle" data-i18n="how.dg.periodic">PERIODIC</text>
+        <rect class="dg-node dg-node--own" x="1006" y="138" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="1049" y="167" text-anchor="middle">Learn</text>
 
         <!-- harvest: late stages deposit into the accumulating assets -->
-        <path class="dg-feed" d="M773,86 V210 H425 V300" marker-end="url(#arg)"/>
-        <path class="dg-feed" d="M773,86 V234 H640 V300" marker-end="url(#arg)"/>
-        <path class="dg-feed" d="M875,86 V210 H855 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M842,86 V210 H320 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M953,86 V234 H560 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M1049,184 V234 H800 V300" marker-end="url(#arg)"/>
         <text class="dg-cap" x="60" y="292" data-i18n="how.dg.cap2">ACCUMULATES EVERY CHANGE</text>
 
         <!-- asset stores -->
-        <rect class="dg-store" x="330" y="300" width="190" height="74" rx="10"/>
-        <text class="dg-store-t" x="425" y="334" text-anchor="middle">AI Knowledge</text>
-        <text class="dg-store-s" x="425" y="354" text-anchor="middle" data-i18n="how.dg.store1">richer every archive</text>
-        <rect class="dg-store" x="545" y="300" width="190" height="74" rx="10"/>
-        <text class="dg-store-t" x="640" y="334" text-anchor="middle">Feature Specs</text>
-        <text class="dg-store-s" x="640" y="354" text-anchor="middle" data-i18n="how.dg.store2">graduate at archive</text>
-        <rect class="dg-store" x="760" y="300" width="190" height="74" rx="10"/>
-        <text class="dg-store-t" x="855" y="334" text-anchor="middle">Constitution + Playbook</text>
-        <text class="dg-store-s" x="855" y="354" text-anchor="middle" data-i18n="how.dg.store3">rules accumulate</text>
+        <rect class="dg-store" x="225" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="320" y="334" text-anchor="middle">AI Knowledge</text>
+        <text class="dg-store-s" x="320" y="354" text-anchor="middle" data-i18n="how.dg.store1">richer every update</text>
+        <rect class="dg-store" x="465" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="560" y="334" text-anchor="middle">Feature Specs</text>
+        <text class="dg-store-s" x="560" y="354" text-anchor="middle" data-i18n="how.dg.store2">graduate at archive</text>
+        <rect class="dg-store" x="705" y="300" width="190" height="74" rx="10"/>
+        <text class="dg-store-t" x="800" y="334" text-anchor="middle">Constitution + Playbook</text>
+        <text class="dg-store-s" x="800" y="354" text-anchor="middle" data-i18n="how.dg.store3">rules accumulate</text>
 
         <!-- merge + return loop back to the next change -->
-        <path class="dg-loop" d="M425,374 V414"/>
-        <path class="dg-loop" d="M640,374 V414"/>
-        <path class="dg-loop" d="M855,374 V414"/>
-        <path class="dg-loop" d="M855,414 H36 V120 H263 V88" marker-end="url(#arg)"/>
-        <text class="dg-cap" x="447" y="438" text-anchor="middle" data-i18n="how.dg.cap3">↺  NEXT CHANGE STARTS FROM A RICHER BASELINE</text>
+        <path class="dg-loop" d="M320,374 V414"/>
+        <path class="dg-loop" d="M560,374 V414"/>
+        <path class="dg-loop" d="M800,374 V414"/>
+        <path class="dg-loop" d="M800,414 H36 V120 H251 V88" marker-end="url(#arg)"/>
+        <text class="dg-cap" x="527" y="438" text-anchor="middle" data-i18n="how.dg.cap3">↺  NEXT CHANGE STARTS FROM A RICHER BASELINE</text>
       </svg>
     </div>
-    <p class="flow__hint" data-i18n="how.hint">The gold stages — <b>Review · Verify · Archive · Learn</b> — are where Prospec goes beyond the category. The gold arrows are the loop: each change's results feed into the next, so the project gets smarter as you ship. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
+    <p class="flow__hint" data-i18n="how.hint">The gold stages — <b>Review · Verify · Knowledge Update · Archive · Learn</b> — turn evidence into project memory. The gold arrows are the loop: each change's results feed into the next. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
 
     <div class="compound__note reveal">
-      <p data-i18n="how.compound"><b>Scale-aware:</b> not every change earns the full ceremony. A user-confirmed <code>quick</code> change skips Plan entirely (<code>story → tasks</code>), with archive-time backstops so it never becomes a spec-drift hole. TDD, adversarial review, and Constitution audits run at <em>every</em> scale.</p>
+      <p data-i18n="how.compound"><b>Scale-aware:</b> Design is optional for UI work; a user-confirmed <code>quick</code> change skips Plan (<code>story → tasks</code>). Proven backfill follows <code>backfill → Promote → verify → knowledge verify → archive</code>; code review is optional for proven backfill. Forward-change scales keep TDD, adversarial review, and Constitution audits.</p>
     </div>
 
     <div class="principles reveal" aria-label="Six core principles" data-i18n-aria-label="how.principlesAria">
@@ -325,7 +372,7 @@
       <div class="piece">
         <span class="pk" data-i18n="pieces.1.k">Surface</span>
         <h3>Skills</h3>
-        <p data-i18n="pieces.1.p">Slash-command workflows that run the whole SDD loop inside your AI agent. This is what you touch every day — describe a change in plain language and the Skills drive it.</p>
+        <p data-i18n="pieces.1.p">Host-aware workflows that run the whole SDD loop inside your AI agent. Describe a change in plain language and Skills can be discovered implicitly; explicit syntax belongs to the host.</p>
         <p class="role" data-i18n="pieces.1.role">runs the workflow</p>
       </div>
       <div class="piece">
@@ -350,22 +397,22 @@
     <div class="sec-head reveal">
       <span class="eyebrow" data-i18n="quickstart.eyebrow">§04 · Quickstart</span>
       <h2 data-i18n="quickstart.h2">Zero to your first AI-driven change in ~5 minutes.</h2>
-      <p class="lede" data-i18n="quickstart.lede">Prerequisites: Node.js ≥ 22.13 and an AI CLI (Claude Code recommended). You install Prospec once — after bootstrap, your agent works from the committed Markdown.</p>
+      <p class="lede" data-i18n="quickstart.lede">Prerequisite: an AI coding agent. Standalone binaries do not require Node.js; Node.js ≥ 22.13 applies only to npx, devDependency, and source-development paths.</p>
     </div>
     <div class="steps reveal">
       <div class="step">
         <div class="step__n" aria-hidden="true">1</div>
         <div>
           <h3 data-i18n="quickstart.s1.h">Install the CLI</h3>
-          <p data-i18n="quickstart.s1.p">Download the precompiled binary from Releases, or install via npm/pnpm.</p>
+          <p data-i18n="quickstart.s1.p">Use the one-click standalone installer, download a release binary, or choose the Node.js path for npx/devDependency use.</p>
           <div class="cmds">
-            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optA1">// Option A1: Standalone Binary (Recommended / macOS & Linux)</div>
+            <div class="option-label" data-i18n="quickstart.optA1">// Option A1: Standalone Binary (Recommended / macOS & Linux)</div>
             <div class="cmd"><code><span class="pr">$ </span>curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash">Copy</button></div>
             
-            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optA2">// Option A2: Standalone Binary (Recommended / Windows)</div>
+            <div class="option-label" data-i18n="quickstart.optA2">// Option A2: Standalone Binary (Recommended / Windows)</div>
             <div class="cmd"><code><span class="pr">> </span>powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"</code><button class="copy" data-copy="powershell -c &quot;irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex&quot;">Copy</button></div>
             
-            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--color-ink-muted);" data-i18n="quickstart.optB">// Option B: Run on demand with npx (Node.js environments)</div>
+            <div class="option-label" data-i18n="quickstart.optB">// Option B: Run on demand with npx (Node.js environments)</div>
             <div class="cmd"><code><span class="pr">$ </span>npx github:benwu95/prospec --help</code><button class="copy" data-copy="npx github:benwu95/prospec --help">Copy</button></div>
           </div>
         </div>
@@ -377,7 +424,7 @@
           <p data-i18n="quickstart.s2.p">One command chains <code>init</code> + <code>agent sync</code> — pick your AI assistants and doc language. Then finish onboarding inside your agent.</p>
           <div class="cmds">
             <div class="cmd"><code><span class="pr">$ </span>cd my-project &amp;&amp; prospec quickstart</code><button class="copy" data-copy="cd my-project && prospec quickstart">Copy</button></div>
-            <div class="cmd"><code><span class="pr">▸ </span>/prospec-quickstart <span class="cm" data-i18n="quickstart.cm.inAgent"># inside your AI agent</span></code><button class="copy" data-copy="/prospec-quickstart">Copy</button></div>
+            <div class="cmd"><code><span class="pr">▸ </span>prospec-quickstart <span class="cm" data-i18n="quickstart.cm.inAgent"># use your host's invocation syntax</span></code><button class="copy" data-copy="prospec-quickstart">Copy</button></div>
           </div>
           <p class="note" data-i18n="quickstart.s2.note">On an existing codebase, this reads your modules into AI Knowledge before your first change.</p>
         </div>
@@ -386,13 +433,37 @@
         <div class="step__n" aria-hidden="true">3</div>
         <div>
           <h3 data-i18n="quickstart.s3.h">Describe a change — the agent drives the loop</h3>
-          <p data-i18n="quickstart.s3.p">You don't memorize steps. Talk in plain language; the agent runs the SDD loop and pauses only to ask questions and confirm each handoff.</p>
+          <p data-i18n="quickstart.s3.p">You don't memorize steps. Talk in plain language; the agent runs the gated SDD cascade and pauses for questions, failed gates or circuit breakers, and final Tastemaker sign-off.</p>
           <div class="cmds">
             <div class="cmd"><code data-i18n="quickstart.prompt"><span class="pr">▸ </span>Ask prospec to add a dark-mode toggle</code><button class="copy" data-copy="Ask prospec to add a dark-mode toggle" data-i18n-copy="quickstart.prompt.copy">Copy</button></div>
           </div>
-          <p class="note" data-i18n="quickstart.s3.note">Each stage ends with “Run /prospec-&lt;next&gt; now? (Y/n)” — your Y is the trigger, never a silent auto-run.</p>
+          <p class="note" data-i18n="quickstart.s3.note">Passing machine gates advance <code>prospec-ff</code> automatically. Individual station Skills still end with a status-aware handoff when you choose to drive the flow manually.</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SKILL INVOCATION ===================== -->
+<section class="section section--compact" id="skill-invocation">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow" data-i18n="invocation.eyebrow">Host-aware invocation</span>
+      <h2 data-i18n="invocation.h2">One canonical Skill name, four host conventions.</h2>
+      <p class="lede" data-i18n="invocation.lede">Every Skill has a bare identity such as <code>prospec-implement</code>. Natural-language triggers can discover it implicitly; when invoking explicitly, use the syntax required by your agent host.</p>
+    </div>
+    <div class="invocation-table-wrap reveal">
+      <table class="invocation-table">
+        <thead>
+          <tr><th scope="col" data-i18n="invocation.host">Host</th><th scope="col" data-i18n="invocation.syntax">Explicit syntax</th><th scope="col" data-i18n="invocation.note">Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Claude Code</th><td><code>/prospec-&lt;name&gt;</code></td><td data-i18n="invocation.claude">Slash command</td></tr>
+          <tr><th scope="row">Codex</th><td><code>$prospec-&lt;name&gt;</code></td><td data-i18n="invocation.codex">Skill mention</td></tr>
+          <tr><th scope="row">GitHub Copilot</th><td><code>/prospec-&lt;name&gt;</code></td><td data-i18n="invocation.copilot">Slash command</td></tr>
+          <tr><th scope="row">Antigravity</th><td><code>prospec-&lt;name&gt;</code></td><td data-i18n="invocation.antigravity">Bare name or Skills browser</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -422,7 +493,7 @@
           <div class="gate"><span data-i18n="verify.gate.spec">spec compliance</span><span class="chip pass" data-i18n="verify.pass">pass</span></div>
           <div class="gate"><span data-i18n="verify.gate.constitution">constitution</span><span class="chip pass" data-i18n="verify.pass">pass</span></div>
           <div class="gate"><span data-i18n="verify.gate.knowledge">knowledge consistency</span><span class="chip pass" data-i18n="verify.pass">pass</span></div>
-          <div class="gate"><span data-i18n="verify.gate.tests">tests (3777)</span><span class="chip pass" data-i18n="verify.pass">pass</span></div>
+          <div class="gate"><span data-i18n="verify.gate.tests">current test suite</span><span class="chip pass" data-i18n="verify.pass">pass</span></div>
         </div>
         <span class="report__seal" aria-hidden="true" data-i18n="verify.seal">stamped</span>
       </aside>
@@ -431,12 +502,12 @@
         <div class="dim">
           <div class="dim__h"><span class="di">A</span><h3 data-i18n="verify.dimA.h">Adversarial review, then verify</h3></div>
           <p class="dim-lead" data-i18n="verify.dimA.lead">Critical issues get caught and fixed before they reach you.</p>
-          <p data-i18n="verify.dimA.p"><code>/prospec-review</code> runs an independent, fresh-context reviewer over the entire diff. Verifier-confirmed, drop-in critical issues are auto-fixed; architectural or ambiguous ones escalate to you. The commit boundary sits <em>after</em> verify hits grade S/A — review and fixes land in one atomic commit. Prospec prompts; it never auto-commits.</p>
+          <p data-i18n="verify.dimA.p"><code>prospec-review</code> runs an independent, fresh-context reviewer over the entire diff. Verifier-confirmed, drop-in critical issues are auto-fixed; architectural or ambiguous ones escalate to you. The commit boundary sits <em>after</em> verify hits grade S/A and Knowledge Update runs — review and fixes land in one atomic commit. Prospec prompts; it never auto-commits.</p>
         </div>
         <div class="dim">
           <div class="dim__h"><span class="di">B</span><h3 data-i18n="verify.dimB.h">Executable Constitution</h3></div>
           <p class="dim-lead" data-i18n="verify.dimB.lead">Your project rules become pass/fail checks, not opinions.</p>
-          <p data-i18n="verify.dimB.p">Your project rules carry RFC-2119 severity — <span class="bar">MUST</span> → FAIL, <span class="bar">SHOULD</span> → WARN, <span class="bar">MAY</span> → advisory. <code>/prospec-verify</code> grades against them, so "compliant" is a computed verdict, not an opinion.</p>
+          <p data-i18n="verify.dimB.p">Your project rules carry RFC-2119 severity — <span class="bar">MUST</span> → FAIL, <span class="bar">SHOULD</span> → WARN, <span class="bar">MAY</span> → advisory. <code>prospec-verify</code> grades against them, so "compliant" is a computed verdict, not an opinion.</p>
         </div>
         <div class="dim">
           <div class="dim__h"><span class="di">C</span><h3 data-i18n="verify.dimC.h">Deterministic drift gate</h3></div>
@@ -465,18 +536,18 @@
         <h3 data-i18n="brownfield.c1.h"><span class="num" aria-hidden="true">↩</span> Backfill existing code into specs</h3>
         <p data-i18n="brownfield.c1.p">Mature codebases accumulate behavior no spec describes. Backfill is a first-class, two-skill path that reverse-extracts that behavior and graduates it into the spec trust zone (the human-verified spec files that only Archive may write) — without ever writing that trust zone by hand.</p>
         <ol>
-          <li data-i18n="brownfield.c1.li1"><b>Extract</b> — <code>/prospec-backfill-spec</code> reads code, tests, and history; intent it can't infer is marked <code>[NEEDS CLARIFICATION]</code>, never fabricated.</li>
+          <li data-i18n="brownfield.c1.li1"><b>Extract</b> — <code>prospec-backfill-spec</code> reads code, tests, and history; intent it can't infer is marked <code>[NEEDS CLARIFICATION]</code>, never fabricated.</li>
           <li data-i18n="brownfield.c1.li2"><b>Review</b> — you resolve every clarification. The human gate.</li>
-          <li data-i18n="brownfield.c1.li3"><b>Promote → Verify → Archive</b> — the draft graduates through the same gates as any change; Archive is the sole writer of the trust zone.</li>
+          <li data-i18n="brownfield.c1.li3"><b>Promote → Verify → Knowledge Sync → Archive</b> — proven backfill skips review provenance; sync only its declared modules, then Archive writes the trust zone.</li>
         </ol>
       </div>
       <div class="card reveal">
         <h3 data-i18n="brownfield.c2.h"><span class="num" aria-hidden="true">⇌</span> A read-only MCP server</h3>
         <p data-i18n="brownfield.c2.p">Expose your project's truth — architecture, specs, dependency direction, promoted playbook, knowledge freshness — to any MCP-capable agent, even one with no Prospec Skills installed.</p>
         <div class="mini">
-          <span><b>knowledge://</b> index · module · module-map · feature-map · playbook · health</span>
-          <span><b>spec://</b> product · feature/&lt;name&gt;</span>
-          <span><b>tools</b> search_modules · get_dependency_direction</span>
+          <span><b>8 resources</b> knowledge://index · knowledge://module-map · knowledge://playbook · knowledge://health</span>
+          <span><b>resources</b> knowledge://module/{name} · knowledge://feature-map · spec://product · spec://feature/{name}</span>
+          <span><b>3 tools</b> search_modules · get_dependency_direction · get_spec_requirements</span>
         </div>
         <div class="cmds">
           <div class="cmd"><code><span class="pr">$ </span>claude mcp add proj -- prospec mcp serve --cwd .</code><button class="copy" data-copy="claude mcp add proj -- prospec mcp serve --cwd .">Copy</button></div>
@@ -495,44 +566,44 @@
       <p class="lede" data-i18n="skills.lede">You don't have to run these one by one — describe a change in plain language and the agent drives the loop (or run each step yourself when you want). Day to day you'll mostly reach for explore, implement, review, verify, and archive. They deploy as Markdown adapters for any agent you use — and trigger by plain-language keywords, including your own language.</p>
     </div>
     <details class="skills-more reveal">
-      <summary data-i18n="skills.summary">17 skills, grouped by phase: Planning 6, Execution 3, Lifecycle 2, Knowledge 4, Finishers 2. <span class="aside">Expand the full index.</span></summary>
+      <summary data-i18n="skills.summary">17 Skills in registry order, presented as Planning 6, Execution 3, Knowledge bootstrap 1, Lifecycle &amp; brownfield 5, and Finishers 2. <span class="aside">Expand the full index.</span></summary>
       <div class="skills">
       <div class="skillgrp">
         <h3>Planning · 6</h3>
         <ul>
-          <li><span class="sc">/prospec-explore</span><span class="sd" data-i18n="skills.explore">Think-partner for clarifying a requirement</span></li>
-          <li><span class="sc">/prospec-new-story</span><span class="sd" data-i18n="skills.newStory">Create a structured change story</span></li>
-          <li><span class="sc">/prospec-design</span><span class="sd" data-i18n="skills.design">Visual + interaction specs (generate / extract)</span></li>
-          <li><span class="sc">/prospec-plan</span><span class="sd" data-i18n="skills.plan">Implementation plan + delta-spec</span></li>
-          <li><span class="sc">/prospec-tasks</span><span class="sd" data-i18n="skills.tasks">Ordered, checkable task list</span></li>
-          <li><span class="sc">/prospec-ff</span><span class="sd" data-i18n="skills.ff">Story → plan → tasks in one pass</span></li>
+          <li><span class="sc">prospec-explore</span><span class="sd" data-i18n="skills.explore">Think-partner for clarifying a requirement</span></li>
+          <li><span class="sc">prospec-new-story</span><span class="sd" data-i18n="skills.newStory">Create a structured change story</span></li>
+          <li><span class="sc">prospec-plan</span><span class="sd" data-i18n="skills.plan">Implementation plan + delta-spec</span></li>
+          <li><span class="sc">prospec-design</span><span class="sd" data-i18n="skills.design">Visual + interaction specs (generate / extract)</span></li>
+          <li><span class="sc">prospec-tasks</span><span class="sd" data-i18n="skills.tasks">Ordered, checkable task list</span></li>
+          <li><span class="sc">prospec-ff</span><span class="sd" data-i18n="skills.ff">Story → plan → tasks in one pass</span></li>
         </ul>
       </div>
       <div class="skillgrp">
         <h3>Execution · 3</h3>
         <ul>
-          <li><span class="sc">/prospec-implement</span><span class="sd" data-i18n="skills.implement">Implement tasks one by one</span></li>
-          <li><span class="sc">/prospec-review</span><span class="sd" data-i18n="skills.review">Adversarial review → fix loop</span></li>
-          <li><span class="sc">/prospec-verify</span><span class="sd" data-i18n="skills.verify">5+1 audit + quality grade S/A/B/C/D</span></li>
-        </ul>
-        <h3>Lifecycle · 2</h3>
-        <ul>
-          <li><span class="sc">/prospec-archive</span><span class="sd" data-i18n="skills.archive">Archive + spec sync + knowledge gate</span></li>
-          <li><span class="sc">/prospec-learn</span><span class="sd" data-i18n="skills.learn">Promote recurring lessons → team rules</span></li>
+          <li><span class="sc">prospec-implement</span><span class="sd" data-i18n="skills.implement">Implement tasks one by one</span></li>
+          <li><span class="sc">prospec-review</span><span class="sd" data-i18n="skills.review">Adversarial review → fix loop</span></li>
+          <li><span class="sc">prospec-verify</span><span class="sd" data-i18n="skills.verify">5+1 audit + quality grade S/A/B/C/D</span></li>
         </ul>
       </div>
       <div class="skillgrp">
-        <h3>Knowledge &amp; brownfield · 4</h3>
+        <h3>Knowledge bootstrap · 1</h3>
         <ul>
-          <li><span class="sc">/prospec-knowledge-generate</span><span class="sd" data-i18n="skills.kgen">Analyze project → module docs</span></li>
-          <li><span class="sc">/prospec-knowledge-update</span><span class="sd" data-i18n="skills.kupdate">Incremental update from delta-spec</span></li>
-          <li><span class="sc">/prospec-backfill-spec</span><span class="sd" data-i18n="skills.backfill">Reverse-extract a spec draft from code</span></li>
-          <li><span class="sc">/prospec-promote-backfill</span><span class="sd" data-i18n="skills.promote">Formalize a reviewed backfill draft</span></li>
+          <li><span class="sc">prospec-knowledge-generate</span><span class="sd" data-i18n="skills.kgen">Analyze project → module docs</span></li>
+        </ul>
+        <h3>Lifecycle &amp; brownfield · 5</h3>
+        <ul>
+          <li><span class="sc">prospec-archive</span><span class="sd" data-i18n="skills.archive">Archive + spec sync + knowledge gate</span></li>
+          <li><span class="sc">prospec-knowledge-update</span><span class="sd" data-i18n="skills.kupdate">Incremental update from delta-spec</span></li>
+          <li><span class="sc">prospec-backfill-spec</span><span class="sd" data-i18n="skills.backfill">Reverse-extract a spec draft from code</span></li>
+          <li><span class="sc">prospec-promote-backfill</span><span class="sd" data-i18n="skills.promote">Formalize a reviewed backfill draft</span></li>
+          <li><span class="sc">prospec-learn</span><span class="sd" data-i18n="skills.learn">Promote recurring lessons → team rules</span></li>
         </ul>
         <h3>Periodic finishers · 2</h3>
         <ul>
-          <li><span class="sc">/prospec-quickstart</span><span class="sd" data-i18n="skills.quickstart">Onboarding finisher (run once)</span></li>
-          <li><span class="sc">/prospec-upgrade</span><span class="sd" data-i18n="skills.upgrade">Version-upgrade finisher</span></li>
+          <li><span class="sc">prospec-quickstart</span><span class="sd" data-i18n="skills.quickstart">Onboarding finisher (run once)</span></li>
+          <li><span class="sc">prospec-upgrade</span><span class="sd" data-i18n="skills.upgrade">Version-upgrade finisher</span></li>
         </ul>
       </div>
       </div>
@@ -550,7 +621,7 @@
     <div class="faq reveal">
       <details>
         <summary><span class="q">Q1</span><span data-i18n="faq.q1.q">Do I need the CLI running while I work?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q1.a">No manual CLI execution is needed. Day-to-day SDD work is driven through slash-command Skills in your AI Agent. Under the hood, Skills call the <code>prospec</code> CLI as a background deterministic engine to handle byte-reproducible state mutations, zero-token drift checks, and spec sync without formatting errors.</div>
+        <div data-i18n="faq.q1.a">No manual CLI execution is needed. Day-to-day SDD work is driven through host-aware Skills in your AI agent. Under the hood, Skills call the <code>prospec</code> CLI as a deterministic engine for reproducible state mutations, zero-token drift checks, and spec sync.</div>
       </details>
       <details>
         <summary><span class="q">Q2</span><span data-i18n="faq.q2.q">Does it lock me into one AI vendor?</span><span class="pm" aria-hidden="true">+</span></summary>
@@ -562,11 +633,11 @@
       </details>
       <details>
         <summary><span class="q">Q4</span><span data-i18n="faq.q4.q">What does it deliberately <em>not</em> do?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q4.a">The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency — that stays with the adversarial review. And no scale skips engineering discipline: TDD, review, and Constitution audits run everywhere.</div>
+        <div data-i18n="faq.q4.a">The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional.</div>
       </details>
       <details>
         <summary><span class="q">Q5</span><span data-i18n="faq.q5.q">Greenfield or brownfield?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q5.a">Both, with the same two bootstrap commands. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, <code>/prospec-quickstart</code> reads your code into AI Knowledge up front, and the backfill path can reverse-extract specs from behavior that was never documented.</div>
+        <div data-i18n="faq.q5.a">Both, with the same bootstrap path. On a new repo, knowledge starts minimal and fills in as you ship. On an existing one, <code>prospec-quickstart</code> reads your code into AI Knowledge up front, and backfill can reverse-extract specs from undocumented behavior.</div>
       </details>
       <details>
         <summary><span class="q">Q6</span><span data-i18n="faq.q6.q">What's the lineage and license?</span><span class="pm" aria-hidden="true">+</span></summary>

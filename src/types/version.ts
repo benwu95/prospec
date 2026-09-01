@@ -28,9 +28,9 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
  * older, because the skill's deterministic steps call commands this version
  * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
  * newer version — never as a routine release chore. It names the version that
- * SHIPS those commands, so during development it runs ahead of `package.json`
- * until the release bumps to match: `1.0.0` is the release that makes the CLI a
- * required file, and a floor below it would let an older binary — one without
- * these commands — pass the probe.
+ * SHIPS the complete command contract, so during development it runs ahead of
+ * `package.json` until the release bumps to match. `2.0.0` is the release that
+ * ships the command contract used by the current skills; a lower floor would let
+ * an older binary with pre-2.0 behavior pass the probe.
  */
-export const MINIMUM_CLI_VERSION = '1.0.0';
+export const MINIMUM_CLI_VERSION = '2.0.0';
