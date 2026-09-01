@@ -371,6 +371,15 @@ describe('Skill Format Contract', () => {
   });
 
   describe('Reference templates', () => {
+    it('renders the spec-graduation reference without trailing whitespace', () => {
+      const content = renderTemplate(
+        'skills/references/spec-graduation.hbs',
+        TEMPLATE_CONTEXT,
+      );
+
+      expect(content.split('\n').every((line) => !/[\t ]$/.test(line))).toBe(true);
+    });
+
     // each reference's distinctive title heading pins the correct template
     // rendered — a non-empty smoke check would also pass a swapped template
     const REFERENCE_TEMPLATES: ReadonlyArray<readonly [string, string]> = [

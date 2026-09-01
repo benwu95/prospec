@@ -46,7 +46,7 @@ This document defines the semantic graduation protocol and CLI worklist interpre
 
 ## Block-Replaces-Whole-Body Rule
 
-A `**Spec:**` landing block in `delta-spec.md` replaces the **entire requirement body** in `specs/features/`. 
+A `**Spec:**` landing block in `delta-spec.md` replaces the **entire requirement body** in `specs/features/`.
 - Any existing behavior not restated in the new block is considered removed.
 - Always review the merged spec on disk via `prospec spec show <feature> --req <ids>` rather than relying on memory or raw diffs.
 
