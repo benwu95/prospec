@@ -2273,7 +2273,7 @@ describe('Skill Format Contract', () => {
     const zhOverlay = fs.readFileSync(path.join(root, 'docs/i18n.js'), 'utf-8');
     const zhTranslations = websiteTranslationMap(zhOverlay);
 
-    it('presents the 2.0 release story while preserving release-owned version fields until the cut', () => {
+    it('presents the 2.0 release story with the released version fields', () => {
       const release = htmlSectionById(website, 'v2');
       expect(release).toContain("What's new in 2.0");
       expect(release).toContain('1.3 → 2.0');
@@ -2281,13 +2281,13 @@ describe('Skill Format Contract', () => {
       expect(release).toContain('gated');
       expect(release).toContain('quality');
       expect(release).not.toContain('Upcoming 2.0');
-      expect(release).not.toContain('released version remains 1.3.0');
-      expect(website).toContain('<span class="ver">1.3.0</span>');
-      expect(website).toContain('"softwareVersion":"1.3.0"');
+      expect(release).not.toContain('released version remains');
+      expect(website).toContain('<span class="ver">2.0.0</span>');
+      expect(website).toContain('"softwareVersion":"2.0.0"');
       expect(zhOverlay).toContain("'v2.eyebrow'");
       expect(zhOverlay).toContain('2.0 新功能');
       expect(zhOverlay).not.toContain('即將推出 2.0');
-      expect(zhOverlay).not.toContain('已發布版本仍維持 1.3.0');
+      expect(zhOverlay).not.toContain('已發布版本仍維持');
     });
 
     it('describes the 2.0 social image with the current runtime and lifecycle', () => {
