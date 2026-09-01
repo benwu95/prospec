@@ -2290,11 +2290,11 @@ describe('Skill Format Contract', () => {
       expect(zhOverlay).not.toContain('已發布版本仍維持 1.3.0');
     });
 
-    it('describes the unchanged 1.3 social image without presenting it as the 2.0 pipeline', () => {
-      const alt = "Current 1.3 social preview: Prospec's self-auditing SDD, grade A, earlier story-to-archive flow, and Node.js toolchain.";
+    it('describes the 2.0 social image with the current runtime and lifecycle', () => {
+      const alt = 'Prospec 2.0 social preview: spec-driven development that audits itself, with stronger planning, deterministic gates, disciplined review, standalone binaries, and a lifecycle from story through knowledge update to archive.';
       expect(website).toContain(`<meta property="og:image:alt" content="${alt}">`);
       expect(website).toContain(`<meta name="twitter:image:alt" content="${alt}">`);
-      expect(website).not.toContain('content="Prospec 2.0 lifecycle:');
+      expect(website).not.toContain('Current 1.3 social preview');
     });
 
     it('renders the canonical standard lifecycle in order and names its exceptions', () => {
