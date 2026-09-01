@@ -6,7 +6,7 @@
 
 | File | Purpose |
 |------|---------|
-| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 18 references. It also pins bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/i18n contract; assertions stay section-scoped and mutation-verified. |
+| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus 18 references. It also pins bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. |
 | `knowledge-format.test.ts`, `cli-output.test.ts`, `change-artifact-format.test.ts` | Output-format pins through the real `renderTemplate()`, never mocks. `change-artifact-format` renders `change/proposal.md.hbs` and pins that a module name is bolded exactly once, with a `****` negative; `knowledge-format` also pins raw-scan's disclosure block — item-set, caps, empty placeholder, fallback-exception sentence, and order-independence. |
 | `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, and each generated-artifact registry entry ≡ the path its producer actually writes. |
 | `own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell living only in the generated file is a pending revert); and a shrink-only set-equality ledger of the legacy body-less REQs — repairing one requires deleting its `LEGACY_BODYLESS` entry. |
@@ -29,7 +29,7 @@
 2. **Pin a doc against a registry** — assert SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
 3. **Pin a `--dry-run`** — snapshot the tree before and after and assert it is unchanged.
 4. **Rebaseline a frozen fixture** — `tests/fixtures/startup-loading-baseline.json` is version-controlled; a new loading item fails until it is updated deliberately.
-5. **Change public website behavior** — update the English HTML and Traditional Chinese overlay together; parse JSON-LD, compare the translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
+5. **Change public website behavior** — update the English HTML and Traditional Chinese overlay together; when the social preview changes, update `docs/og.png` and both alt-text tags as one unit; parse JSON-LD, compare the translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
 
 ## Ripple Effects
 
