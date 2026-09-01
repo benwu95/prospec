@@ -15,6 +15,7 @@ function groupCount(re: RegExp): number {
 const allOccurrences = COUNT_REGISTRY.flatMap((e) =>
   e.occurrences.map((occ) => ({ key: e.key, occ })),
 );
+const WEBSITE_COUNT_DOCS = ['docs/index.html', 'docs/i18n.js'] as const;
 
 describe('COUNT_REGISTRY structure', () => {
   it('every anchor has exactly one capture group (the number span)', () => {
@@ -36,6 +37,20 @@ describe('COUNT_REGISTRY structure', () => {
 });
 
 describe('COUNT_REGISTRY ⇄ docs completeness', () => {
+  it.each(['tests.total', 'tests.passed', 'tests.skipped'] as const)(
+    '%s owns one narrow target in each website language source',
+    (key) => {
+      const entry = COUNT_REGISTRY.find((candidate) => candidate.key === key);
+      expect(entry, `${key} registry entry exists`).toBeDefined();
+      for (const doc of WEBSITE_COUNT_DOCS) {
+        expect(
+          entry!.occurrences.filter((occurrence) => occurrence.doc === doc),
+          `${key} @ ${doc}`,
+        ).toHaveLength(1);
+      }
+    },
+  );
+
   // Each whitelisted anchor must resolve against the CURRENT repo docs — a
   // missing match means the registry drifted from the doc (renamed heading,
   // moved count) and the tool would silently miss that spot.

@@ -1,38 +1,38 @@
-# decouple-skill-invocation-syntax — Archive Summary
+# decouple-skill-invocation-syntax — 封存摘要
 
-- **Archived**: 2026-08-31
-- **Original Created**: 2026-08-31T15:36:32.102Z
-- **Quality Grade**: S
+- **封存日期**: 2026-08-31
+- **原始建立日期**: 2026-08-31T15:36:32.102Z
+- **品質評級**: S
 - **Issue**: https://github.com/benwu95/prospec/issues/243
 
-## User Story
+## 使用者故事
 
-N/A
+不適用
 
-## Affected Modules
+## 受影響模組
 
-| Module | Impact | Description |
+| 模組 | 影響 | 說明 |
 |--------|--------|-------------|
-| types | Modified | Host Invocation Profile and Shared Guidance Reducer |
-| templates | Modified | Canonical Skill References and Host Invocation Matrix |
-| tests | Modified | Invocation Syntax and Implicit Discovery Contract Coverage |
-| agnt | Modified | Per-agent Entry Registry Rendering |
+| types | 已修改 | host invocation profile 與 shared guidance reducer |
+| templates | 已修改 | canonical Skill reference 與 host invocation matrix |
+| tests | 已修改 | invocation syntax 與 implicit discovery contract coverage |
+| agnt | 已修改 | 各 agent 的 entry registry rendering |
 
-## Requirements
+## 需求
 
-| REQ ID | Status | Description |
+| REQ ID | 狀態 | 說明 |
 |--------|--------|-------------|
-| REQ-TYPES-092 | ADDED | Host Invocation Profile and Shared Guidance Reducer |
-| REQ-TEMPLATES-225 | ADDED | Canonical Skill References and Host Invocation Matrix |
-| REQ-TESTS-109 | ADDED | Invocation Syntax and Implicit Discovery Contract Coverage |
-| REQ-AGNT-034 | MODIFIED | Per-agent Entry Registry Rendering |
+| REQ-TYPES-092 | ADDED | host invocation profile 與 shared guidance reducer |
+| REQ-TEMPLATES-225 | ADDED | canonical Skill reference 與 host invocation matrix |
+| REQ-TESTS-109 | ADDED | invocation syntax 與 implicit discovery contract coverage |
+| REQ-AGNT-034 | MODIFIED | 各 agent 的 entry registry rendering |
 
-## Completion
+## 完成度
 
-- **Tasks**: 18/18 (100%), 3/3 [M]/[V] (not counted)
+- **任務**: 18/18（100%），另有 3/3 個 [M]/[V] 任務（不納入計數）
 
-## Review & Verify
+## Review 與 Verify
 
-- **Review**: 4 round(s), 0 critical / 0 major — final independent review clean; the earlier critical and four major findings were fixed and re-reviewed.
-- **Verify**: Grade S — task completion, Knowledge, and tests PASS; delta-spec compliance and all 8 Constitution rules PASS; design not-applicable (`UI Scope: none`); 4,602 passed, 4 skipped.
-- **Quality Log**: historical review findings resolved; final review and verify entries PASS.
+- **Review**: 共 4 輪，最終為 0 critical／0 major；先前的 1 個 critical 與 4 個 major 均已修正並完成重審。
+- **Verify**: Grade S；任務完成度、Knowledge 與 tests 均 PASS，delta-spec compliance 與全部 8 條 Constitution rule 均 PASS，design 不適用（`UI Scope: none`）；4,602 passed、4 skipped。
+- **Quality Log**: 歷史 review findings 均已解決；最終 review 與 verify entries 均 PASS。

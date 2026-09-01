@@ -64,6 +64,7 @@ img,svg{ max-width:100%; display:block; }
 .section{ padding-block:var(--sec-y); position:relative; scroll-margin-top:calc(var(--nav-h) + 12px); }
 .section + .section{ border-top:1px solid var(--line); }
 .section--panel{ background:radial-gradient(820px 320px at 50% -4%, var(--seal-dim), transparent 62%), var(--ink-2); }
+.section--compact{ padding-block:clamp(3rem,6vw,5rem); }
 
 .skip{ position:absolute; left:-9999px; }
 .skip:focus{ position:fixed; left:1rem; top:1rem; z-index:100; background:var(--seal); color:#1a1206; padding:.6rem 1rem; font-weight:600; }
@@ -230,11 +231,12 @@ img,svg{ max-width:100%; display:block; }
 /* §02 flow diagram — mermaid-style pipeline + animated feedback loop.
    Neutral arrows = the linear pipeline; gold flowing arrows = the loop. */
 .diagram-wrap{ margin-top:var(--gap-block); border:1px solid var(--line); border-radius:var(--r); background:var(--surface); padding:1.1rem; overflow-x:auto; }
-.diagram{ display:block; width:100%; min-width:720px; height:auto; }
+.diagram{ display:block; width:100%; min-width:1050px; height:auto; }
 .dg-node{ fill:var(--surface-2); stroke:var(--line-2); stroke-width:1.5; }
 .dg-node--own{ fill:rgba(224,165,60,.10); stroke:var(--seal); stroke-width:1.5; }
 .dg-name{ fill:var(--paper); font-family:var(--font-display); font-weight:700; font-size:15px; }
 .dg-name--own{ fill:var(--seal); }
+.dg-name--small{ font-size:12px; }
 .dg-store{ fill:var(--ink-2); stroke:var(--seal); stroke-width:1.4; }
 .dg-store-t{ fill:var(--paper); font-family:var(--font-display); font-weight:700; font-size:13px; }
 .dg-store-s{ fill:var(--muted); font-family:var(--font-mono); font-size:10.5px; }
@@ -246,8 +248,11 @@ img,svg{ max-width:100%; display:block; }
 @keyframes dgB{ to{ stroke-dashoffset:-14; } }
 @keyframes dgC{ to{ stroke-dashoffset:-16; } }
 .compound__note{ margin-top:1.4rem; padding:1.1rem 1.3rem; border:1px solid var(--line-2); border-left:2px solid var(--seal); border-radius:var(--r); background:var(--seal-dim); }
+.compound__note h3{ font-size:1.12rem; color:var(--seal); }
 .compound__note p{ font-size:.96rem; color:var(--paper); }
 .compound__note b{ color:var(--seal); }
+.v2__steps{ margin:1rem 0; padding-left:1.3rem; display:grid; gap:.55rem; color:var(--muted); font-size:.92rem; }
+.v2__steps code{ font-family:var(--font-mono); color:var(--paper); font-size:.88em; }
 
 .principles{ margin-top:2.4rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:.7rem 1.4rem; }
 .principle{ display:flex; gap:.7rem; font-size:.9rem; color:var(--muted); border-left:2px solid var(--line-2); padding:.15rem 0 .15rem .8rem; }
@@ -323,6 +328,17 @@ img,svg{ max-width:100%; display:block; }
 .step p{ font-size:.9rem; color:var(--muted); margin:.4rem 0 .9rem; }
 .step .cmds{ font-family:var(--font-mono); display:grid; gap:.5rem; }
 .step .note{ font-family:var(--font-mono); font-size:.8rem; color:var(--faint); margin-top:.7rem; }
+.option-label{ margin:.35rem 0 0; font-size:.82rem; color:var(--faint); }
+
+/* ============================================================ SKILL INVOCATION */
+.invocation-table-wrap{ margin-top:var(--gap-block); overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); }
+.invocation-table{ width:100%; min-width:620px; border-collapse:collapse; background:var(--surface); text-align:left; }
+.invocation-table th,
+.invocation-table td{ padding:.85rem 1rem; border-top:1px solid var(--line); vertical-align:top; }
+.invocation-table thead th{ border-top:0; color:var(--muted); font-family:var(--font-mono); font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
+.invocation-table tbody th{ color:var(--paper); font-size:.92rem; white-space:nowrap; }
+.invocation-table td{ color:var(--muted); font-size:.9rem; }
+.invocation-table code{ font-family:var(--font-mono); color:var(--seal-hi); white-space:nowrap; }
 
 /* ============================================================ SPLIT */
 .split{ margin-top:var(--gap-block); display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }

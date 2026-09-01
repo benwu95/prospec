@@ -35,6 +35,7 @@ import {
   SCALE_FORBIDDEN_ARTIFACTS,
 } from '../../src/types/change.js';
 import { SDD_STATIONS } from '../../src/types/status.js';
+import { MCP_RESOURCE_URIS, MCP_TOOL_NAMES } from '../../src/types/mcp.js';
 import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
 import { withoutFencedBlocks, hasUnclosedFence } from '../../src/lib/markdown-fences.js';
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
@@ -127,6 +128,54 @@ const sectionOf = (content: string, heading: string): string => {
 
 /** Collapse prose line wrapping so an assertion pins meaning, not wrap position. */
 const flat = (text: string): string => text.replace(/\s+/g, ' ');
+
+/** Slice one top-level website section by id and fail closed when it disappears. */
+const htmlSectionById = (content: string, id: string): string => {
+  const startMatch = new RegExp(`<section\\b[^>]*\\bid="${id}"[^>]*>`).exec(content);
+  expect(startMatch, `website section not found: #${id}`).not.toBeNull();
+  const start = startMatch!.index;
+  const end = content.indexOf('</section>', start);
+  expect(end, `website section not closed: #${id}`).toBeGreaterThan(start);
+  const section = content.slice(start, end + '</section>'.length);
+  expect(section.trim().length, `website section is empty: #${id}`).toBeGreaterThan(0);
+  return section;
+};
+
+type WebsiteJsonLdBlock = {
+  '@type': string;
+  description?: string;
+  softwareRequirements?: string;
+  mainEntity?: Array<{
+    name: string;
+    acceptedAnswer: { text: string };
+  }>;
+};
+
+/** Parse each website JSON-LD block through one fail-closed extraction path. */
+const websiteJsonLdBlocks = (content: string): WebsiteJsonLdBlock[] =>
+  [...content.matchAll(
+    /<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g,
+  )].map((match) => {
+    const json = match[1];
+    if (json === undefined) throw new Error('JSON-LD capture is missing');
+    return JSON.parse(json) as WebsiteJsonLdBlock;
+  });
+
+/** Parse the static zh overlay once and fail closed on an empty or duplicate keyset. */
+const websiteTranslationMap = (content: string): Map<string, string> => {
+  const entries = [...content.matchAll(/^\s*'([^']*)': '(.*)',?\s*$/gm)]
+    .map((match) => [match[1], match[2]] as const);
+  expect(entries.length, 'website translation overlay is empty').toBeGreaterThan(0);
+
+  const translations = new Map<string, string>();
+  for (const [key, value] of entries) {
+    expect(key?.length, 'website translation key is empty').toBeGreaterThan(0);
+    expect(value).toBeDefined();
+    expect(translations.has(key!), `duplicate website translation key: ${key}`).toBe(false);
+    translations.set(key!, value!);
+  }
+  return translations;
+};
 
 const KNOWLEDGE_LOADING_SKILLS = [
   'prospec-knowledge-generate',
@@ -2118,6 +2167,20 @@ describe('Skill Format Contract', () => {
       '| GitHub Copilot | `/prospec-<name>` |',
     ];
 
+    it('presents 2.0 as the current product story while retaining the 1.3 migration path', () => {
+      const englishV2 = sectionOf(english, "## What's new in 2.0");
+      const chineseV2 = sectionOf(traditionalChinese, '## 2.0 新功能');
+      const englishUpgrade = sectionOf(english, '### Upgrade from 1.3');
+      const chineseUpgrade = sectionOf(traditionalChinese, '### 從 1.3 升級');
+
+      expect(englishUpgrade).toContain('Upgrade an existing 1.3 project');
+      expect(chineseUpgrade).toContain('既有的 1.3 專案');
+      expect(englishV2).not.toContain('currently published release remains');
+      expect(chineseV2).not.toContain('目前已發布版本仍是');
+      expect(english).not.toContain('Upcoming 2.0');
+      expect(traditionalChinese).not.toContain('即將推出 2.0');
+    });
+
     it('keeps the same host matrix, canonical identity, and implicit-discovery boundary in both languages', () => {
       for (const readme of [english, traditionalChinese]) {
         expect(readme).toContain('`prospec-<name>`');
@@ -2147,6 +2210,318 @@ describe('Skill Format Contract', () => {
       expect(traditionalChinese).toMatch(
         /\*\*測試覆蓋率\*\*：共 \d+ 個測試（\d+ 個通過；\d+ 個略過）/,
       );
+    });
+
+    it('keeps proven backfill on its direct Promote-to-Verify exception', () => {
+      const englishRoute = sectionOf(
+        english,
+        '### Backfill: Bringing Brownfield Code into the Trust Zone',
+      );
+      const chineseRoute = sectionOf(
+        traditionalChinese,
+        '### Backfill：把既有程式碼納進信任區',
+      );
+      expect(englishRoute).toContain(
+        'PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify])',
+      );
+      expect(chineseRoute).toContain(
+        'PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify])',
+      );
+      expect(englishRoute).toContain('code review is optional for proven backfill');
+      expect(chineseRoute).toContain('proven backfill 的 code review 是 optional');
+      expect(englishRoute).not.toContain('`prospec-review` runs');
+      expect(chineseRoute).not.toContain('`prospec-review` 執行');
+    });
+
+    it('distinguishes the prospec-ff cascade from manual station handoffs', () => {
+      const englishFirstChange = sectionOf(
+        english,
+        '### 3. Run your first change (inside your AI agent)',
+      );
+      const chineseFirstChange = sectionOf(
+        traditionalChinese,
+        '### 3. 跑你的第一個變更（在 AI Agent 中）',
+      );
+
+      const englishTranscript = englishFirstChange.match(
+        /```text\s*([\s\S]*?)\s*```/,
+      )?.[1];
+      const chineseTranscript = chineseFirstChange.match(
+        /```text\s*([\s\S]*?)\s*```/,
+      )?.[1];
+      expect(englishTranscript).toBeDefined();
+      expect(chineseTranscript).toBeDefined();
+      expect(englishTranscript).toContain('as machine gates pass, continues autonomously');
+      expect(englishTranscript).not.toContain('(Y/n)');
+      expect(chineseTranscript).toContain('machine gates 通過後自主繼續');
+      expect(chineseTranscript).not.toContain('(Y/n)');
+
+      expect(englishFirstChange).toContain('machine gates pass');
+      expect(englishFirstChange).toContain('Tastemaker sign-off');
+      expect(englishFirstChange).toContain('Individual station Skills');
+      expect(englishFirstChange).not.toContain('Every stage ends');
+      expect(chineseFirstChange).toContain('machine gates 通過');
+      expect(chineseFirstChange).toContain('Tastemaker sign-off');
+      expect(chineseFirstChange).toContain('個別 station Skills');
+      expect(chineseFirstChange).not.toContain('每個階段結束時');
+    });
+  });
+
+  describe('public website release-readiness contract (REQ-DOCS-001)', () => {
+    const root = path.resolve(import.meta.dirname, '../..');
+    const website = fs.readFileSync(path.join(root, 'docs/index.html'), 'utf-8');
+    const zhOverlay = fs.readFileSync(path.join(root, 'docs/i18n.js'), 'utf-8');
+    const zhTranslations = websiteTranslationMap(zhOverlay);
+
+    it('presents the 2.0 release story while preserving release-owned version fields until the cut', () => {
+      const release = htmlSectionById(website, 'v2');
+      expect(release).toContain("What's new in 2.0");
+      expect(release).toContain('1.3 → 2.0');
+      expect(release).toContain('planning');
+      expect(release).toContain('gated');
+      expect(release).toContain('quality');
+      expect(release).not.toContain('Upcoming 2.0');
+      expect(release).not.toContain('released version remains 1.3.0');
+      expect(website).toContain('<span class="ver">1.3.0</span>');
+      expect(website).toContain('"softwareVersion":"1.3.0"');
+      expect(zhOverlay).toContain("'v2.eyebrow'");
+      expect(zhOverlay).toContain('2.0 新功能');
+      expect(zhOverlay).not.toContain('即將推出 2.0');
+      expect(zhOverlay).not.toContain('已發布版本仍維持 1.3.0');
+    });
+
+    it('describes the unchanged 1.3 social image without presenting it as the 2.0 pipeline', () => {
+      const alt = "Current 1.3 social preview: Prospec's self-auditing SDD, grade A, earlier story-to-archive flow, and Node.js toolchain.";
+      expect(website).toContain(`<meta property="og:image:alt" content="${alt}">`);
+      expect(website).toContain(`<meta name="twitter:image:alt" content="${alt}">`);
+      expect(website).not.toContain('content="Prospec 2.0 lifecycle:');
+    });
+
+    it('renders the canonical standard lifecycle in order and names its exceptions', () => {
+      const lifecycle = htmlSectionById(website, 'how');
+      const orderedStages = SDD_STATIONS
+        .filter((station) => station !== 'promote')
+        .map((station) => station
+          .split('-')
+          .map((word) => `${word[0]?.toUpperCase()}${word.slice(1)}`)
+          .join(' '));
+      let cursor = -1;
+      for (const stage of orderedStages) {
+        const next = lifecycle.indexOf(stage, cursor + 1);
+        expect(next, `${stage} missing or out of order`).toBeGreaterThan(cursor);
+        cursor = next;
+      }
+      expect(lifecycle).toContain('optional for UI work');
+      expect(lifecycle).toContain('backfill');
+      expect(lifecycle).toContain('Promote');
+      expect(lifecycle).toContain('quick');
+    });
+
+    it('shows autonomous prospec-ff gates with one final human sign-off', () => {
+      const proof = website.match(/<section class="section hero">[\s\S]*?<\/section>/)?.[0];
+      expect(proof).toBeDefined();
+      expect(proof).toContain('machine gates pass automatically');
+      expect(proof).toContain('Tastemaker sign-off');
+      expect(proof!.match(/\(Y\/n\)/g)).toHaveLength(1);
+
+      const quickstart = htmlSectionById(website, 'quickstart');
+      expect(quickstart).toContain('Passing machine gates advance <code>prospec-ff</code> automatically');
+      expect(quickstart).toContain('Individual station Skills still end with a status-aware handoff');
+      expect(quickstart).not.toContain('your Y is the trigger');
+      expect(zhOverlay).toContain('machine gates 通過後，<code>prospec-ff</code> 會自動前進');
+      expect(zhOverlay).toContain('個別 station Skills 仍會以 status-aware handoff 結束');
+      expect(zhOverlay).not.toContain('你的 Y 才是觸發');
+
+      const chineseProofLine = zhTranslations.get('proof.l4');
+      expect(chineseProofLine).toBeDefined();
+      expect(chineseProofLine).toContain('machine gates 通過後自動前進');
+      expect(chineseProofLine).not.toContain('每個階段交接');
+    });
+
+    it('renders Learn as a periodic activity outside the visible change pipeline', () => {
+      const lifecycle = htmlSectionById(website, 'how');
+      const diagram = lifecycle.match(/<svg class="diagram"[\s\S]*?<\/svg>/)?.[0];
+      expect(diagram).toBeDefined();
+
+      const visibleStages = [...diagram!.matchAll(/<text class="dg-name(?: [^"]*)?"[^>]*>([^<]+)<\/text>/g)]
+        .map((match) => match[1]);
+      const canonicalForwardStages = SDD_STATIONS
+        .filter((station) => station !== 'promote')
+        .map((station) => station
+          .split('-')
+          .map((word) => `${word[0]?.toUpperCase()}${word.slice(1)}`)
+          .join(' '));
+      expect(visibleStages).toEqual([
+        'Explore',
+        ...canonicalForwardStages,
+        'Learn',
+      ]);
+      expect(diagram!.match(/class="dg-edge"/g)).toHaveLength(9);
+      expect(diagram).toContain('data-i18n="how.dg.periodic">PERIODIC</text>');
+      expect(diagram).toContain('<rect class="dg-node dg-node--own" x="1006" y="138"');
+      expect(diagram).not.toContain('x1="996" y1="63" x2="1006"');
+    });
+
+    it('keeps every visible backfill summary on its direct Promote → Verify exception', () => {
+      const lifecycle = htmlSectionById(website, 'how');
+      const brownfield = htmlSectionById(website, 'brownfield');
+      expect(lifecycle).toContain('backfill → Promote → verify → knowledge verify → archive');
+      expect(brownfield).toContain('Promote → Verify → Knowledge Sync → Archive');
+      expect(lifecycle).toContain('code review is optional for proven backfill');
+      expect(zhOverlay).toContain('backfill → Promote → verify → knowledge verify → archive');
+      expect(zhOverlay).toContain('Promote → Verify → Knowledge Sync → Archive');
+      expect(zhOverlay).toContain('proven backfill 的 code review 是 optional');
+    });
+
+    it('uses bare Skill identities in shared prose and isolates host sigils to the matrix', () => {
+      const skills = htmlSectionById(website, 'skills');
+      const names = [...skills.matchAll(/<span class="sc">([^<]+)<\/span>/g)].map((m) => m[1]);
+      expect(names).toEqual(SKILL_DEFINITIONS.map((skill) => skill.name));
+
+      const matrix = htmlSectionById(website, 'skill-invocation');
+      expect(matrix).toContain('<code>/prospec-&lt;name&gt;</code>');
+      expect(matrix).toContain('<code>$prospec-&lt;name&gt;</code>');
+      expect(matrix).toContain('GitHub Copilot');
+      expect(matrix).toContain('Antigravity');
+      expect(matrix).toContain('Skills browser');
+
+      const hostSyntax = [...matrix.matchAll(
+        /<tr><th scope="row">([^<]+)<\/th><td><code>([^<]+)<\/code><\/td>/g,
+      )].map((match) => [match[1], match[2]]);
+      const canonicalHostSyntax = Object.values(AGENT_CONFIGS).map((agent) => [
+        agent.invocation.label,
+        agent.invocation.mode === 'sigil'
+          ? `${agent.invocation.invocationPrefix}prospec-&lt;name&gt;`
+          : 'prospec-&lt;name&gt;',
+      ]);
+      expect(hostSyntax).toEqual(canonicalHostSyntax);
+
+      expect(website.replace(matrix, '')).not.toMatch(/(?<![A-Za-z0-9_.-])[/$]prospec-[a-z-]+/);
+      expect(website).not.toContain('slash-command Skills');
+      expect(zhOverlay).not.toContain('slash-command Skills');
+    });
+
+    it('documents standalone runtime requirements and the complete frozen MCP surface', () => {
+      const quickstart = htmlSectionById(website, 'quickstart');
+      expect(quickstart).toContain('Standalone binaries do not require Node.js');
+      expect(quickstart).not.toContain('Prerequisites: Node.js');
+
+      const brownfield = htmlSectionById(website, 'brownfield');
+      expect(brownfield).toContain(`${Object.keys(MCP_RESOURCE_URIS).length} resources`);
+      expect(brownfield).toContain(`${MCP_TOOL_NAMES.length} tools`);
+      for (const uri of Object.values(MCP_RESOURCE_URIS)) expect(brownfield).toContain(uri);
+      for (const tool of MCP_TOOL_NAMES) expect(brownfield).toContain(tool);
+    });
+
+    it('pins lifecycle and runtime boundaries on each metadata consumer', () => {
+      const structuredBlocks = websiteJsonLdBlocks(website);
+      const applications = structuredBlocks.filter(
+        (block) => block['@type'] === 'SoftwareApplication',
+      );
+      expect(applications).toHaveLength(1);
+      expect(applications[0]?.description).toContain(
+        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+      );
+      expect(applications[0]?.softwareRequirements).toContain(
+        'Standalone binaries require no Node.js',
+      );
+      expect(applications[0]?.softwareRequirements).toContain(
+        'required only for npx, devDependency, or source-development paths',
+      );
+
+      const chineseDescription = zhTranslations.get('doc.desc');
+      expect(chineseDescription).toBeDefined();
+      expect(chineseDescription).toContain(
+        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+      );
+
+      const chineseRuntimeBoundary = zhTranslations.get('quickstart.lede');
+      expect(chineseRuntimeBoundary).toBeDefined();
+      expect(chineseRuntimeBoundary).toContain('獨立執行檔不需要 Node.js');
+      expect(chineseRuntimeBoundary).toContain(
+        '只有 npx、devDependency 與原始碼開發路徑需要 Node.js ≥ 22.13',
+      );
+
+      const seoDescriptions = [...website.matchAll(
+        /<meta name="description" content="([^"]+)">/g,
+      )].map((match) => match[1]);
+      expect(seoDescriptions).toHaveLength(1);
+      expect(seoDescriptions[0]).toContain(
+        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+      );
+
+      const proofAriaLabels = [...website.matchAll(
+        /<div class="term" role="img" aria-label="([^"]+)" data-i18n-aria-label="proof\.aria">/g,
+      )].map((match) => match[1]);
+      expect(proofAriaLabels).toHaveLength(1);
+      expect(proofAriaLabels[0]).toContain('autonomously advances through passing gates');
+      expect(proofAriaLabels[0]).toContain('Tastemaker sign-off');
+      expect(proofAriaLabels[0]).not.toContain('each stage');
+
+      const chineseProofAriaLabel = zhTranslations.get('proof.aria');
+      expect(chineseProofAriaLabel).toBeDefined();
+      expect(chineseProofAriaLabel).toContain('gates 通過後自主前進');
+      expect(chineseProofAriaLabel).toContain('Tastemaker sign-off');
+      expect(chineseProofAriaLabel).not.toContain('每個階段交接');
+    });
+
+    it('keeps translated metadata and user-facing claims aligned with visible content', () => {
+      expect(website).toContain('story → plan → design → tasks → implement → review → verify → knowledge update → archive');
+      expect(website).toContain('prospec measure');
+      expect(website).not.toContain('3,777');
+      expect(website).not.toContain('3777');
+      expect(zhOverlay).not.toContain('3,777');
+      expect(zhOverlay).not.toContain('3777');
+    });
+
+    it('keeps every website translation key in exact set equality with the zh overlay', () => {
+      const htmlKeys = [...new Set([
+        ...[...website.matchAll(/\bdata-i18n(?:-[a-z-]+)?="([^"]+)"/g)]
+          .map((match) => match[1]),
+        'doc.title',
+        'doc.desc',
+      ])].sort();
+      const chineseKeys = [...zhTranslations.keys()].sort();
+
+      expect(htmlKeys.length).toBeGreaterThan(0);
+      expect(chineseKeys.length).toBeGreaterThan(0);
+      expect(chineseKeys).toEqual(htmlKeys);
+    });
+
+    it('keeps structured FAQ metadata aligned with the proven-backfill exception', () => {
+      const structuredBlocks = websiteJsonLdBlocks(website);
+      const faq = structuredBlocks.find((block) => block['@type'] === 'FAQPage');
+      const boundary = faq?.mainEntity?.find(
+        (question) => question.name === 'What does it deliberately not do?',
+      );
+
+      expect(boundary?.acceptedAnswer.text).toContain(
+        'Forward changes retain TDD, review, and Constitution audits',
+      );
+      expect(boundary?.acceptedAnswer.text).toContain('proven backfill');
+      expect(boundary?.acceptedAnswer.text).toContain('code review is optional');
+      expect(boundary?.acceptedAnswer.text).not.toContain('no scale skips');
+    });
+
+    it('pins the visible FAQ backfill exception independently in both languages', () => {
+      const faq = htmlSectionById(website, 'faq');
+      const englishAnswer = faq.match(
+        /<div data-i18n="faq\.q4\.a">([\s\S]*?)<\/div>/,
+      )?.[1];
+      expect(englishAnswer).toBeDefined();
+      expect(englishAnswer).toContain(
+        'Forward changes retain TDD, review, and Constitution audits',
+      );
+      expect(englishAnswer).toContain('proven backfill');
+      expect(englishAnswer).toContain('code review is optional');
+      expect(englishAnswer).not.toContain('no scale skips');
+
+      const chineseAnswer = zhTranslations.get('faq.q4.a');
+      expect(chineseAnswer).toBeDefined();
+      expect(chineseAnswer).toContain('Forward changes 保留 TDD、review 與 Constitution audit');
+      expect(chineseAnswer).toContain('proven backfill');
+      expect(chineseAnswer).toContain('code review 為 optional');
+      expect(chineseAnswer).not.toContain('所有 scale');
     });
   });
 
