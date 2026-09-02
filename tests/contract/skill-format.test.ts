@@ -4984,11 +4984,11 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-084, REQ-TEMP
       expect(c).toMatch(/DRY|Chesterton/);
     });
 
-    it('pre-maps each criterion onto the critical/major/nit vocabulary', () => {
+    it('pre-maps each criterion onto the critical/major/minor vocabulary', () => {
       const c = render();
       expect(c).toContain('critical');
       expect(c).toContain('major');
-      expect(c).toContain('nit');
+      expect(c).toContain('minor');
     });
 
     it('cites review-format as the single severity source, never redefines severity', () => {
