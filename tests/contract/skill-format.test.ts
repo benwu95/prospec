@@ -5742,6 +5742,35 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
     }
   });
 
+  it('both lifecycle copies describe the prospec-ff cascade with a bounded own-transition, not a stale planning-only claim (issue #253)', () => {
+    const ffBullets: string[] = [];
+    for (const doc of [
+      renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT),
+      fs.readFileSync(
+        path.join(__dirname, '../../prospec/ai-knowledge/_status-lifecycle.md'),
+        'utf-8',
+      ),
+    ]) {
+      const gates = sectionOf(doc, '## Gates (why some transitions are conditional)');
+      expect(gates.trim().length, '§Gates section not found').toBeGreaterThan(0);
+      const ffBullet = gates
+        .split('\n')
+        .find((line) => line.startsWith('- **`prospec-ff`**'));
+      expect(ffBullet, 'prospec-ff bullet missing from §Gates').toBeDefined();
+      const bullet = ffBullet as string;
+      // ff's OWN status transition is still bounded at tasks ...
+      expect(bullet).toContain('stops at `tasks`');
+      // ... but the bullet now describes cascading mode, resolving the contradiction with prospec-ff Phase 5.
+      expect(bullet).toContain('cascading');
+      expect(bullet).toContain('Tastemaker sign-off');
+      // negative: the stale standalone "planning-only" claim must not come back.
+      expect(bullet, 'the stale planning-only claim must not return').not.toContain('planning-only');
+      ffBullets.push(bullet);
+    }
+    // dual-copy parity: the ff bullet is identical across canonical doc and shipped template.
+    expect(ffBullets[0]).toBe(ffBullets[1]);
+  });
+
   it('the shipped status-lifecycle template documents design as a no-status station (ui_scope-gated)', () => {
     const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(lifecycle, '## Stations without a status transition');
