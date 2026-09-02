@@ -4,7 +4,7 @@ Concrete, checkable criteria for **prospec-review**'s conditional lenses — sec
 performance, and maintainability/DRY. Loaded **on demand** when a conditional lens applies; it is NOT a
 Startup Loading item.
 
-> **Severity vocabulary is defined once, in `review-format.md`** (critical / major / nit). This file does
+> **Severity vocabulary is defined once, in `review-format.md`** (critical / major / minor). This file does
 > NOT redefine severity — it maps each criterion onto that vocabulary. The **spec-architecture** lens stays
 > owned by prospec (see `review-format.md`) and is never replaced or overridden by the criteria below.
 
@@ -12,7 +12,7 @@ Startup Loading item.
 
 ## Attribution
 
-Heuristics adapted (de-Node-ified, mapped to prospec's critical/major/nit vocabulary) from the
+Heuristics adapted (de-Node-ified, mapped to prospec's critical/major/minor vocabulary) from the
 `security-and-hardening`, `performance-optimization`, `code-simplification`, and `code-review-and-quality`
 skills in **addyosmani/agent-skills**, used under the MIT License.
 Source: https://github.com/addyosmani/agent-skills · upstream baseline commit `662910cd1a23`.
@@ -67,14 +67,14 @@ SOFTWARE.
 | N+1 query pattern (one query per item) — use a join/include | critical (scales to timeouts) |
 | List endpoints without pagination / unbounded fetch or loops | critical (memory exhaustion, DoS) |
 | Missing indexes on queried columns; blocking I/O on a hot path | major |
-| Missing or misused caching (none → redundant work; over-use → stale data) | major / nit |
+| Missing or misused caching (none → redundant work; over-use → stale data) | major / minor |
 | Frontend: missing code-splitting/lazy-loading; images without dimensions or responsive sizes; no `fetchpriority` on the LCP image | major (bundle / CLS / LCP) |
-| Unnecessary re-renders (new objects per render); `memo`/`useMemo` overuse | nit (measure first) |
+| Unnecessary re-renders (new objects per render); `memo`/`useMemo` overuse | minor (measure first) |
 
 **Core Web Vitals targets** (good / poor): LCP ≤ 2.5s / > 4.0s · INP ≤ 200ms / > 500ms · CLS ≤ 0.1 / > 0.25.
 **Budget guides:** initial JS < 200KB gzipped · API p95 < 200ms · TTI < 3.5s on 4G · Lighthouse Perf ≥ 90.
 
-> Optimize only after measuring — flagging a "slow" path without a baseline is a nit, not a major.
+> Optimize only after measuring — flagging a "slow" path without a baseline is a minor, not a major.
 
 ---
 
@@ -87,9 +87,9 @@ SOFTWARE.
 | Re-implementing a helper or guard the project's knowledge base documents as the single source (or that an existing service already provides) — delegate to the owner instead | critical when the single-source bypass criterion in `review-format.md` holds (its path condition and both-conditions rule live there); otherwise major (DRY) |
 | Deep nesting > 3 levels, or functions > ~50 lines — guard clauses / split by responsibility | major |
 | Dead code (unreachable branches, unused vars, commented-out blocks) | major |
-| Speculative/premature abstraction not yet used; over-engineered patterns (factory-of-factory) | major / nit (generalize at the 3rd use, not the 1st) |
-| Misleading names (a `get*` that mutates); generic names (`data`, `tmp`, `x`); non-universal abbreviations | nit (rename to behavior/role) |
-| Nested ternaries, boolean-flag parameters; comments stating *what* not *why* | nit |
+| Speculative/premature abstraction not yet used; over-engineered patterns (factory-of-factory) | major / minor (generalize at the 3rd use, not the 1st) |
+| Misleading names (a `get*` that mutates); generic names (`data`, `tmp`, `x`); non-universal abbreviations | minor (rename to behavior/role) |
+| Nested ternaries, boolean-flag parameters; comments stating *what* not *why* | minor |
 
 **Chesterton's Fence:** understand why code exists (check `git blame`) before simplifying it — complexity
 often encodes a real constraint. **Change-size signal:** ~100 lines reviews in one sitting; ~300 stretches

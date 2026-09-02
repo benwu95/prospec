@@ -29,9 +29,9 @@ A finding is critical only if it is one of:
 
 - **Performance** and **maintainability** concerns. Recorded and handed to `prospec-verify` as an advisory WARN (via `quality_log`); **not counted in verify's grade** — review and verify stay on separate axes. Never auto-fixed.
 
-### nit — dropped, not reported
+### minor — recorded, does not block
 
-- Style, naming, formatting, speculative risk, or anything already handled. Dropped silently to keep signal density high.
+- Style, naming, formatting, speculative risk, or anything already handled. Leave these **unfiled** to keep signal density high — that "drop" is the reviewer's choice, not the CLI's. A `minor` that *is* filed is **recorded** (the CLI drops nothing) but never blocks, is never auto-fixed, and never reaches verify's grade.
 
 ---
 
@@ -131,5 +131,5 @@ A pluggable language-specific engine may add language lenses; the **spec-archite
 ## Reference Information
 
 - Project name: `prospec`
-- Severity vocabulary: critical / major / nit (PASS/WARN/FAIL family — no fourth state)
+- Severity vocabulary: critical / major / minor (PASS/WARN/FAIL family — no fourth state)
 - Constitution file: `prospec/CONSTITUTION.md`
