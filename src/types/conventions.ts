@@ -122,13 +122,16 @@ export const CANONICAL_INIT_DOCS = INIT_DOC_REGISTRY.filter(doc => doc.canonical
 
 /**
  * Core convention files (L1) that agents must read at the start of every task.
- * Any convention not in this list is treated as a load-on-demand (L2) convention.
+ * Any convention not in this list is treated as a load-on-demand convention,
+ * graded against `demand_knowledge_per_file` (never the L1 per-file budget).
  * `_playbook.md` is deliberately absent: feedback-promotion governance keeps it
  * load-on-demand (progressive disclosure, TTL-governed), never core.
+ * `_status-lifecycle.md` is likewise absent: its executable copy is the
+ * `prospec status` CLI (`lib/status-router.ts`) — agents read the command output,
+ * not the markdown — so it is load-on-demand reference, not always-on L1.
  */
 export const CORE_CONVENTIONS = [
   '_conventions.md',
   '_diagram-conventions.md',
   '_glossary.md',
-  '_status-lifecycle.md',
 ];

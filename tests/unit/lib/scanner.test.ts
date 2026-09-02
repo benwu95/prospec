@@ -284,6 +284,13 @@ describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
     expect(demand).toEqual(['_playbook.md']);
   });
 
+  it('keeps _status-lifecycle.md load-on-demand — its executable copy is the `prospec status` CLI, not the markdown', () => {
+    expect(CORE_CONVENTIONS).not.toContain('_status-lifecycle.md');
+    const { core, demand } = filterConventions(['_conventions.md', '_status-lifecycle.md']);
+    expect(core).toEqual(['_conventions.md']);
+    expect(demand).toEqual(['_status-lifecycle.md']);
+  });
+
   it('classifies _index.md like any other non-core convention', () => {
     const { core, demand } = filterConventions(['_index.md', '_conventions.md', '_custom.md']);
     expect(core).toEqual(['_conventions.md']);
