@@ -165,6 +165,7 @@ The test suite protects canonical identity, host-specific explicit invocation, a
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-SERVICES-089 | REQ-TEMPLATES-121, REQ-SERVICES-089 |
 | 2026-09-01 | require-v2-cli-for-skills | MODIFIED REQ-TEMPLATES-160 | REQ-TEMPLATES-160 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-TEMPLATES-121 | REQ-TEMPLATES-121 |
 | 2026-08-31 | decouple-skill-invocation-syntax | ADDED REQ-TYPES-092; ADDED REQ-TEMPLATES-225; ADDED REQ-TESTS-109; MODIFIED REQ-AGNT-034 | REQ-TYPES-092, REQ-TEMPLATES-225, REQ-TESTS-109, REQ-AGNT-034 |

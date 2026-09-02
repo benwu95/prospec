@@ -1,6 +1,7 @@
 # Command Services
 
 > Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (32 files)
+<!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
 

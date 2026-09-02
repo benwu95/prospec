@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-08-31
+last_updated: 2026-09-01
 story_count: 15
-req_count: 68
+req_count: 74
 ---
 
 # AI Knowledge
@@ -18,6 +18,70 @@ Serves developers and AI Agents using Prospec. AI Knowledge is a structured proj
 - [US-302–US-303](./ai-knowledge/us-302.md)
 - [US-310–US-350](./ai-knowledge/us-310.md)
 - [US-351–US-361](./ai-knowledge/us-351.md)
+
+
+#### REQ-TYPES-093: Module README Format Contracts
+`types` defines the shared `2026-09-01` Module README format date, extension declaration, and `module-readme` validate-kind contracts; parsing, findings, verdicts, and filesystem behavior remain with their existing lib/service owners.
+- WHEN a CLI or service asks to validate a Module README, THEN `module-readme` is a member of the single closed `VALIDATE_KINDS` contract
+- WHEN a format declaration crosses a layer boundary, THEN its ID, heading, applicability, requiredness, MCP visibility, and content format use the one shared type contract; `ValidationFinding`/`ValidationVerdict` and `ValidateResult` remain owned by their existing lib/service contracts
+
+---
+
+
+#### REQ-LIB-073: Fence-Aware Module README Format Validation
+`lib/module-readme-format` is the single validator for the `2026-09-01` Module README grammar and its Markdown-owned Project Section Extensions registry. It orchestrates existing Markdown-table, fence, user-content, safe-name, and validation-verdict utilities rather than reimplementing any of those mechanics.
+- WHEN parsing a README, THEN the validator requires a title, one summary line, the `<!-- prospec:module-readme-format 2026-09-01 -->` marker, one auto block, and the fixed Recipe-First Core heading order; conditional Ripple Effects and Sub-Modules retain their existing semantics
+- WHEN parsing `_module-readme-conventions.md`, THEN it reads the preserved Project Section Extensions table through the shared `findTable`/`splitTableRow` mechanics with ID, Heading, Applies To, Required, MCP Visibility, and Content Format fields; `Applies To` is `all` or module names admitted by `isSafeResourceName`, visibility is `included`, and content format is `markdown` or `field-table`
+- WHEN an extension instance is declared, THEN it is wrapped by matching `prospec:section-start/end {id}` comments inside the README user block and its heading, applicability, requiredness, uniqueness, and content shape match the registry
+- WHEN an extension declares `field-table`, THEN its body has exactly the `| Field | Value |` header, a valid two-column separator, and at least one two-column nonempty body row; the exact `_Add field_` / `_Add value_` skeleton row is structurally valid, while empty cells, no body row, or extra columns fail with a source-anchored repair finding
+- WHEN a marker, heading, registry row, or extension example occurs in a closed Markdown code fence, THEN the shared `withoutFencedBlocks` behavior ignores it as illustrative content; the shared `hasUnclosedFence` behavior produces an actionable invalid-format finding
+- WHEN a user-authored heading has no extension markers, THEN it remains freeform user content and is not reported as an unregistered extension
+- WHEN canonical init-doc drift is checked for `_module-readme-conventions.md`, THEN generated/static template changes still fail while a valid preserved registry does not cause drift
+- WHEN returning Module README validation results, THEN it uses the existing `ValidationFinding`/`ValidationVerdict` contract; `parseSubModuleLinks` remains limited to MCP sub-module link extraction and is not repurposed as a full README grammar parser
+
+---
+
+
+#### REQ-SERVICES-105: Validate and Scaffold Registered Module README Extensions
+The validate service resolves a module README through realpath-contained `readModuleReadme` and its canonical convention through realpath-contained `readContainedText`, delegates format interpretation to `lib/module-readme-format`, and returns actionable findings without writing files. `knowledge-update.service` reads registered extensions only when creating a new README skeleton and never mechanically rewrites an existing README.
+- WHEN validation is requested for a missing convention, missing README, or unsafe module name, THEN it fails with an actionable repair message and never reports a false PASS
+- WHEN a requested README or convention resolves through a symlink outside the knowledge root, THEN validation fails as not found; a symlink contained within the root remains readable under the existing knowledge-reader contract
+- WHEN a new module README is created, THEN its template receives only extension declarations applicable to that module and emits generic placeholders inside the user block
+- WHEN a README already exists, THEN `updateModuleReadme` leaves it byte-identical and reports it as `readmePending`; registered extensions and ordinary user notes remain consent-gated judgment work
+- WHEN the validator returns Module README structural facts, THEN `validate.service` extends its existing `ValidateResult` facts union instead of publishing a parallel result envelope
+
+---
+
+
+#### REQ-CLI-050: Focused Module README Validation Command
+`prospec validate module-readme <module>` is a thin CLI adapter over the validate service and existing validate formatter.
+- WHEN the command is invoked, THEN it accepts the shared `module-readme` kind and a module name, prints PASS or source-anchored findings, and exits non-zero for invalid format
+- WHEN Module README format validation is added, THEN `prospec check`, its report schema, and existing check IDs remain unchanged
+- WHEN the public validate-kind list changes, THEN `README.md` and `README.zh-TW.md` list `module-readme` in equivalent user-facing documentation
+
+---
+
+
+#### REQ-TEMPLATES-226: Canonical Date Format and Project Section Extensions
+The module README template, canonical convention template, and knowledge generate/update skill templates use the `2026-09-01` date marker and the canonical Markdown-owned Project Section Extensions registry as their sole format authority.
+- WHEN a template creates a Module README, THEN the date marker appears immediately after the title summary, the existing Core sections remain in their fixed auto-block order, and applicable extension placeholders appear inside the user block
+- WHEN a downstream project registers an extension, THEN the canonical convention document—not `.prospec.yaml` or an inlined skill skeleton—defines its fields and instance syntax
+- WHEN the knowledge skills encounter format drift or a readme-pending document, THEN they validate against the canonical convention, obtain consent before migration, preserve marked extensions and freeform user notes, and do not mechanically re-render an authored README
+- WHEN bundled templates are changed, THEN generated agent skill files are re-synced from their source templates
+
+---
+
+
+#### REQ-TESTS-110: Module README Format Boundary Coverage
+The test suite proves the Module README format contract at every boundary using fixtures with at least two registered extensions and mutation cases.
+- WHEN unit tests exercise the parser, THEN they cover valid registration, legacy-marker migration, duplicate/unknown IDs, wrong heading or placement, applicability/requiredness, the canonical field-table header/separator/row/cell rules, fence masking, and unclosed fences
+- WHEN template and service tests run, THEN they prove marker placement and Core order, applicable new-skeleton placeholders, byte-identical preservation of an existing README and its user content, and realpath-contained validation reads for outward and in-root symlinks
+- WHEN canonical-doc drift tests run, THEN a user registry is accepted while a generated convention edit fails
+- WHEN an in-memory MCP module resource is read, THEN its raw Markdown includes the date marker and registered extension verbatim with linked sub-modules; no structured or filtered MCP response is introduced
+- WHEN public validate documentation is tested, THEN the English and Traditional Chinese root README entries both include the new kind
+- WHEN upgrade contract tests run, THEN canonical format refresh preserves a registered convention user block and refuses to treat a marker-less legacy convention as disposable whole-file canonical content
+
+---
 
 ## Edge Cases
 
@@ -58,6 +122,7 @@ Serves developers and AI Agents using Prospec. AI Knowledge is a structured proj
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | standardize-module-readme-format | ADDED REQ-TYPES-093; ADDED REQ-LIB-073; ADDED REQ-SERVICES-105; ADDED REQ-CLI-050; ADDED REQ-TEMPLATES-226; ADDED REQ-TESTS-110; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-015; MODIFIED REQ-TEMPLATES-122 | REQ-TYPES-093, REQ-LIB-073, REQ-SERVICES-105, REQ-CLI-050, REQ-TEMPLATES-226, REQ-TESTS-110, REQ-KNOW-004, REQ-KNOW-015, REQ-TEMPLATES-122 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-KNOW-034; MODIFIED REQ-KNOW-035 | REQ-KNOW-034, REQ-KNOW-035 |
 | 2026-08-27 | align-knowledge-check-attribution | ADDED REQ-LIB-062; ADDED REQ-SERVICES-097; ADDED REQ-CLI-042; MODIFIED REQ-TEMPLATES-162 | REQ-LIB-062, REQ-SERVICES-097, REQ-CLI-042, REQ-TEMPLATES-162 |
 | 2026-08-19 | instruct-prospec-knowledge-verify | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |

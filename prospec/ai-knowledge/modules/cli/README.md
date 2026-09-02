@@ -1,6 +1,7 @@
 # CLI Surface
 
 > Thin I/O layer — Commander commands parse args → call one service → format output (64 files)
+<!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
 

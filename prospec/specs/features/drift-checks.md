@@ -1,7 +1,7 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-08-28
+last_updated: 2026-09-01
 story_count: 5
 req_count: 5
 ---
@@ -38,9 +38,12 @@ The knowledge size check provides early warnings via a headroom band.
 ### US-4
 
 #### REQ-LIB-052: Canonical Doc Drift Check
-The `canonical-doc-drift` check WARNs when a canonical/no-authored-content init doc has diverged from the installed version's template. Scope is the in-project README and the two canonical convention docs (`_status-lifecycle.md`, `_module-readme-conventions.md`), resolved at their actual locations and rendered through the shared init-doc path; user-authored docs (CONSTITUTION, index, user-managed conventions) are out of scope, and the canonical subset is the single classification `INIT_DOC_REGISTRY` carries.
+The `canonical-doc-drift` check WARNs when a canonical init doc's template-owned content has diverged from the installed version's template. Scope is the in-project README and the two canonical convention docs (`_status-lifecycle.md`, `_module-readme-conventions.md`), resolved at their actual locations and rendered through the shared init-doc path; user-authored docs (CONSTITUTION, index, user-managed conventions) are out of scope, and the canonical subset plus per-doc preservation semantics are the single classification `INIT_DOC_REGISTRY` carries.
 - WHEN a present canonical doc's on-disk content differs from its rendered template after normalizing line endings and a single trailing newline, THEN a WARN finding names that doc
 - WHEN a present canonical doc matches its rendered template, THEN the check passes for it
+- WHEN a present canonical doc without `preserveUserContent` differs from its rendered template after normalizing line endings and a single trailing newline, THEN a WARN finding names that doc
+- WHEN `_module-readme-conventions.md` has `preserveUserContent`, THEN compare its rendered generated/static content through the shared user-block merge semantics; a changed Project Section Extensions registry alone does not produce drift
+- WHEN a present canonical doc matches its rendered template-owned content, THEN the check passes for it
 - WHEN a canonical doc is absent, THEN it is skipped (absence is not drift)
 - WHEN a user-authored doc differs from its template, THEN this check reports nothing (out of scope)
 
@@ -96,6 +99,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-LIB-052 | REQ-LIB-052 |
 | 2026-08-28 | add-req-id-uniqueness-check | ADDED REQ-LIB-068 | REQ-LIB-068 |
 | 2026-08-23 | validate-routing-headers-before-landing | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-08-22 | add-landing-fidelity-check | ADDED REQ-LIB-061 | REQ-LIB-061 |
