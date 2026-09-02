@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4632%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4670%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -765,7 +765,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Key Details**: Tracks consecutive zero-yield changes and yield ratio per lens; outputs recommendations (`keep`, `review`, `retire`).
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`). Exits 1 on failure.
+  - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`). `module-readme` validates a module's README against its canonical Markdown convention. Exits 1 on failure.
 
 > [!IMPORTANT]
 > **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`prospec-new-story`, `prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
@@ -1025,6 +1025,44 @@ skill_triggers:
 
 ## Advanced Workflows
 
+### Customizing Module READMEs (Project Section Extensions)
+
+By default, every module README follows the canonical Recipe-First structure (`## Key Files`, `## Public API`, `## Dependencies`, `## Modification Guide`, `## Pitfalls`, and optional `## Ripple Effects` / `## Sub-Modules`) inside its generated block (`prospec:auto-start` ... `prospec:auto-end`).
+
+To add project-specific custom sections (e.g. `## Team Ownership`, `## Security Rules`), register them in [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) inside its `prospec:user` block under `## Project Section Extensions`. This Markdown table is the **single authority** for custom sections (do not define them in `.prospec.yaml`):
+
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| team-ownership | Team Ownership | Who owns this module and how to reach them | all | optional | included | field-table |
+| security-rules | Security Rules | Security controls enforced in this module | auth,services | required | included | markdown |
+
+- **`Content`**: One-line description of the section's purpose — what it is for and what belongs in it, so an agent knows how to fill it.
+- **`Applies To`**: `all` or a comma-separated list of module names.
+- **`Required`**: `required` (enforced during validation) or `optional`.
+- **`Content Format`**:
+  - `field-table`: Strict 2-column key-value table (`| Field | Value |`).
+  - `markdown`: Freeform Markdown text.
+
+In the target module's `modules/{module}/README.md`, implement the section within `<!-- prospec:user-start -->` and `<!-- prospec:user-end -->`:
+
+```markdown
+<!-- prospec:user-start -->
+<!-- prospec:section-start team-ownership -->
+## Team Ownership
+
+| Field | Value |
+| --- | --- |
+| Owner | Platform Team |
+| Slack | #platform-eng |
+<!-- prospec:section-end team-ownership -->
+<!-- prospec:user-end -->
+```
+
+Validate conformity at any time:
+```bash
+prospec validate module-readme <module-name>
+```
+
 ### Backfill: Bringing Brownfield Code into the Trust Zone
 
 Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
@@ -1117,7 +1155,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4632 total; 4 skipped)
+# Run all tests (4670 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1130,9 +1168,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4632 total tests (4628 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3291 tests
-- Contract tests (CLI output + Skill format): 1165 tests
+**Test Coverage**: 4670 total tests (4666 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3319 tests
+- Contract tests (CLI output + Skill format): 1175 tests
 - Integration tests: 45 tests
 - E2E tests: 131 tests
 

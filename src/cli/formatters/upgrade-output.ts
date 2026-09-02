@@ -102,10 +102,13 @@ export function formatUpgradeOutput(
   for (const doc of report.docs) {
     const suffix = `(template: ${sanitizeTerminal(doc.template)})`;
     const canonicalMarker = doc.canonical ? `${pc.magenta('[canonical]')} ` : '';
+    const preservationMarker = doc.preserveUserContent
+      ? `${pc.magenta('[preserves-user-content]')} `
+      : '';
     lines.push(
       doc.present
-        ? `${pc.green('✓')} ${canonicalMarker}${sanitizeTerminal(doc.path)} ${suffix}`
-        : `${pc.yellow('✗')} ${canonicalMarker}${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
+        ? `${pc.green('✓')} ${canonicalMarker}${preservationMarker}${sanitizeTerminal(doc.path)} ${suffix}`
+        : `${pc.yellow('✗')} ${canonicalMarker}${preservationMarker}${sanitizeTerminal(doc.path)} — MISSING ${suffix}`,
     );
   }
   // Docs back-filled this run — rendered from their template (skip-if-exists).

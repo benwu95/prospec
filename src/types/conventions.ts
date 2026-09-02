@@ -8,6 +8,8 @@ export interface ConventionDocSource {
   template: string;
   /** Output filename under the knowledge base directory. */
   output: string;
+  /** Preserve this canonical document's authored user block during format refreshes. */
+  preserveUserContent?: boolean;
 }
 
 /**
@@ -19,7 +21,11 @@ export interface ConventionDocSource {
  */
 export const CANONICAL_CONVENTION_DOCS: ConventionDocSource[] = [
   { template: 'init/status-lifecycle.md.hbs', output: '_status-lifecycle.md' },
-  { template: 'init/module-readme-conventions.md.hbs', output: '_module-readme-conventions.md' },
+  {
+    template: 'init/module-readme-conventions.md.hbs',
+    output: '_module-readme-conventions.md',
+    preserveUserContent: true,
+  },
 ];
 
 /**
@@ -83,6 +89,8 @@ export interface InitDoc {
    * Canonical docs are checked for drift by full content and can be whole-file replaced.
    */
   canonical?: boolean;
+  /** Whether a canonical doc preserves its authored user block during format refreshes. */
+  preserveUserContent?: boolean;
 }
 
 /**
@@ -99,6 +107,7 @@ export const asKnowledgeInitDoc = (doc: ConventionDocSource, canonical?: boolean
   root: 'knowledge',
   output: doc.output,
   ...(canonical !== undefined ? { canonical } : {}),
+  ...(doc.preserveUserContent ? { preserveUserContent: true } : {}),
 });
 
 export const INIT_DOC_REGISTRY: InitDoc[] = [

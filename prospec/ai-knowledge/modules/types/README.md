@@ -1,6 +1,7 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (19 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (20 files)
+<!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
 
@@ -19,7 +20,7 @@
 | `skill.ts` | Skill and agent registries, including closed host `InvocationProfile` metadata and `mergeGroupInvocationGuidance` for shared entry-config output |
 | `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema` (each entry declares `graded_by`, optional `executor`/`spend` self-reports), `LessonInputSchema`, review status groups (`REVIEW_*_STATUSES`, `normalizeReviewStatus`/`hasReviewStatus`), and the `prospec learn yield` contracts (`LensYieldThresholdsSchema` defaults 5/3/0.1, `LensYieldStatSchema`, `LensYieldReportSchema`, `LENS_RETIREMENT_ACTIONS`); `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 
-Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipped | failed` per-group outcome), `conventions.ts`, `escaped-defect.ts`, `feature-map.ts`, `mcp.ts`, `measurement.ts`, `spec.ts`, `status.ts` (`ChangeRoute`, `StatusReport`, and `DriftSignal` — the two-state drift verdict `prospec status` reports), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
+Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipped | failed` per-group outcome), `conventions.ts`, `escaped-defect.ts`, `feature-map.ts`, `mcp.ts`, `measurement.ts`, `module-readme-format.ts`, `spec.ts`, `status.ts` (`ChangeRoute`, `StatusReport`, and `DriftSignal` — the two-state drift verdict `prospec status` reports), `version.ts` (`PROSPEC_VERSION` + `MINIMUM_CLI_VERSION`).
 
 ## Public API
 

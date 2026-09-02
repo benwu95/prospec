@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4632%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4670%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -748,7 +748,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec` 等）。校驗失敗時 exit 1。
+  - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。校驗失敗時 exit 1。
 
 > [!IMPORTANT]
 > **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`prospec-new-story`、`prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
@@ -1005,6 +1005,44 @@ skill_triggers:
 
 ## 進階工作流
 
+### 客製化 Module README（Project Section Extensions）
+
+預設情況下，每個模組的 README 都遵循自動生成區塊（`prospec:auto-start` ... `prospec:auto-end`）內的 Recipe-First 正典結構（`## Key Files`、`## Public API`、`## Dependencies`、`## Modification Guide`、`## Pitfalls`，以及可選的 `## Ripple Effects` / `## Sub-Modules`）。
+
+若需要為專案擴充自訂 Section（如 `## Team Ownership`、`## Security Rules`），請直接在 [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 的 `prospec:user` 區塊中的 `## Project Section Extensions` 註冊。此 Markdown 表格是擴充結構的**單一真相來源**（不需定義在 `.prospec.yaml`）：
+
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| team-ownership | Team Ownership | 誰負責此模組、如何聯繫 | all | optional | included | field-table |
+| security-rules | Security Rules | 此模組強制的安全控管 | auth,services | required | included | markdown |
+
+- **`Content`**：一行描述此 Section 的用途——它是做什麼的、該放什麼內容，讓 agent 知道如何填寫。
+- **`Applies To`**：`all` 或以逗號分隔的模組名稱（如 `auth,services`）。
+- **`Required`**：`required`（驗證時強制檢查）或 `optional`。
+- **`Content Format`**：
+  - `field-table`：嚴格雙欄鍵值表（標題必須為 `| Field | Value |`）。
+  - `markdown`：自由 Markdown 格式。
+
+在對應模組的 `modules/{module}/README.md` 中，於 `<!-- prospec:user-start -->` 與 `<!-- prospec:user-end -->` 之間實作該區塊：
+
+```markdown
+<!-- prospec:user-start -->
+<!-- prospec:section-start team-ownership -->
+## Team Ownership
+
+| Field | Value |
+| --- | --- |
+| Owner | Platform Team |
+| Slack | #platform-eng |
+<!-- prospec:section-end team-ownership -->
+<!-- prospec:user-end -->
+```
+
+可隨時執行 CLI 指令驗證擴充格式：
+```bash
+prospec validate module-readme <module-name>
+```
+
 ### Backfill：把既有程式碼納進信任區
 
 Brownfield 專案累積了大量「沒有 Feature Spec 描述」的行為。**Backfill** 是一條一等、雙 skill 的流程：從程式碼反向萃取這些行為，並把它 graduate 進規格信任區（`prospec/specs/features/`）—— 而且**從不手寫信任區**（archive 維持唯一寫入者）。
@@ -1097,7 +1135,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4632 個；4 個略過）
+# 執行所有測試（共 4670 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1110,9 +1148,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4632 個測試（4628 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3291 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1165 tests
+**測試覆蓋率**：共 4670 個測試（4666 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3319 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1175 tests
 - Integration tests：45 tests
 - E2E tests：131 tests
 

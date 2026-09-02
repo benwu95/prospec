@@ -59,6 +59,23 @@ describe('validate-output', () => {
     expect(out).toContain('L12: [NEEDS CLARIFICATION] why retries?');
   });
 
+  it('prints a module README target and source-anchored format finding on one existing result surface', () => {
+    const out = captureStdout(() =>
+      formatValidateOutput(
+        baseResult({
+          kind: 'module-readme',
+          target: 'services',
+          ok: false,
+          findings: [{ level: 'FAIL', message: 'line 14: required Core heading missing: ## Pitfalls' }],
+        }),
+        'normal',
+      ),
+    );
+
+    expect(out).toContain('validate module-readme services: FAIL');
+    expect(out).toContain('line 14: required Core heading missing: ## Pitfalls');
+  });
+
   it('prints nothing in quiet mode', () => {
     const out = captureStdout(() => formatValidateOutput(baseResult(), 'quiet'));
     expect(out).toBe('');

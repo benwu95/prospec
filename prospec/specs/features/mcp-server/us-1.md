@@ -27,6 +27,7 @@ Five kinds of read-only resources: `knowledge://index`, `knowledge://module/{nam
 - WHEN reading a nonexistent module/file, THEN it returns an MCP error (resource not found), and the server process is not interrupted
 - WHEN a resource parameter contains a path separator or `..`, THEN it is always rejected
 - WHEN the realpath of any resource file (including module-map.yaml and its derived surfaces: listing, health, dependency queries) escapes the served root, THEN it is always treated as not found—a committed symlink must not become an oracle for reading files outside the repo or for existence probing; symlinks within root are served as usual
+- WHEN reading a Module README with a recognized format marker or registered extension section, THEN the raw Markdown carries those comments, headings, and bodies verbatim; the MCP resource adds no structured format payload and does not filter extension content
 
 #### REQ-LIB-056: Assemble a module's README with its linked sub-modules
 `lib/knowledge-reader` assembles a module's whole L2 knowledge for the MCP module resource: `parseSubModuleLinks(readme)` lists the sub-module basenames the README links from its `## Sub-Modules` section, and `loadModuleKnowledge(knowledgePath, name)` returns the README followed by each linked sub-module body — the module-knowledge analog of the sliced feature-spec read.

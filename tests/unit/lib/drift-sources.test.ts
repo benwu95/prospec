@@ -2943,6 +2943,60 @@ describe('collectCanonicalDocDrift', () => {
     }
   });
 
+  it('preserves a Module README convention registry while checking its template-owned regions', () => {
+    const contexts = buildInitDocContexts(MOCK_CONFIG, tmpDir);
+    const convention = CANONICAL_INIT_DOCS.find((doc) => doc.output === '_module-readme-conventions.md')!;
+    const renderWithRegistrySlot = {
+      ...INIT_DOCS,
+      renderInitDoc: (doc: typeof convention, renderContexts: typeof contexts) => {
+        const rendered = renderInitDoc(doc, renderContexts);
+        return doc.output === '_module-readme-conventions.md'
+          ? `${rendered.trimEnd()}\n<!-- prospec:auto-start -->\nformat core\n<!-- prospec:auto-end -->\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n`
+          : rendered;
+      },
+    };
+    const expected = renderWithRegistrySlot.renderInitDoc(convention, contexts);
+    const authoredRegistry = expected.replace(
+      '<!-- prospec:user-start -->\n<!-- prospec:user-end -->',
+      '<!-- prospec:user-start -->\n## Project Section Extensions\n| ID | Heading |\n| --- | --- |\n| ownership | Ownership |\n<!-- prospec:user-end -->',
+    );
+    write('prospec/ai-knowledge/_module-readme-conventions.md', authoredRegistry);
+
+    const res = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, renderWithRegistrySlot);
+
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.docs.find((doc) => doc.source_path.endsWith('_module-readme-conventions.md'))?.matches).toBe(true);
+    }
+  });
+
+  it('keeps a valid real registry out of drift while still detecting a generated-region edit', () => {
+    const contexts = buildInitDocContexts(MOCK_CONFIG, tmpDir);
+    const convention = CANONICAL_INIT_DOCS.find((doc) => doc.output === '_module-readme-conventions.md')!;
+    const expected = renderInitDoc(convention, contexts);
+    const finalUserStart = expected.lastIndexOf('<!-- prospec:user-start -->');
+    const finalUserEnd = expected.lastIndexOf('<!-- prospec:user-end -->');
+    const registry = `<!-- prospec:user-start -->
+## Project Section Extensions
+
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| ownership | Ownership | Who owns this module | all | optional | included | field-table |
+<!-- prospec:user-end -->`;
+    const authored = `${expected.slice(0, finalUserStart)}${registry}${expected.slice(finalUserEnd + '<!-- prospec:user-end -->'.length)}`;
+    write('prospec/ai-knowledge/_module-readme-conventions.md', authored);
+
+    const valid = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
+    expect(valid.docs.find((doc) => doc.source_path.endsWith('_module-readme-conventions.md'))?.matches).toBe(true);
+
+    write(
+      'prospec/ai-knowledge/_module-readme-conventions.md',
+      authored.replace('## Principles', '## Changed Principles'),
+    );
+    const drifted = collectCanonicalDocDrift(MOCK_CONFIG, tmpDir, INIT_DOCS);
+    expect(drifted.docs.find((doc) => doc.source_path.endsWith('_module-readme-conventions.md'))?.matches).toBe(false);
+  });
+
   it('ignores out-of-scope files like user-managed docs', () => {
     write('prospec/README.md', '# prospec\n\n> AI-augmented project with Prospec Skills and structured AI Knowledge\n\n## Tech Stack\n\n- **Language**: typescript\n- **Package Manager**: pnpm\n');
     write('prospec/specs/features/some.md', '# Not a canonical doc\n');

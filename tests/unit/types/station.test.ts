@@ -292,6 +292,12 @@ describe('LessonInputSchema', () => {
 
 describe('VALIDATE_KINDS', () => {
   it('is the closed artifact-kind set the validate command grades', () => {
-    expect(VALIDATE_KINDS).toEqual(['slug', 'backfill-draft', 'promote-scaffold', 'design-spec']);
+    expect(VALIDATE_KINDS).toEqual([
+      'slug',
+      'backfill-draft',
+      'promote-scaffold',
+      'design-spec',
+      'module-readme',
+    ]);
   });
 });

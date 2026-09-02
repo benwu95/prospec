@@ -36,7 +36,7 @@ nondeterministic serialization this contract exists to remove.
 ## Startup Loading
 
 1. [STABLE] Read `prospec/ai-knowledge/_conventions.md` — team conventions (incl. the Module READMEs pointer)
-2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_module-readme-conventions.md` for the canonical README output format (section order, `# {ProperName}` title, `prospec:auto`/`prospec:user` marker contract)
+2. [STABLE] **MANDATORY** — Read `prospec/ai-knowledge/_module-readme-conventions.md` for the canonical README output format (dated marker, Core section order, `# {ProperName}` title, `prospec:auto`/`prospec:user` marker contract, and the Project Section Extensions registry — the only extension authority, not `.prospec.yaml`)
 3. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — identify ADDED/MODIFIED/REMOVED requirements
 4. [DYNAMIC] Read `prospec/index.md` — current module index
 5. [DYNAMIC] Read `prospec/ai-knowledge/module-map.yaml` — current dependency graph (if exists)
@@ -103,8 +103,9 @@ For each affected module:
 Before writing, check whether the **existing** Knowledge files' format still matches the current
 templates/conventions — independent of this change's content:
 - `prospec/index.md` column schema vs the canonical INDEX columns and `_module-readme-conventions.md`
-- each affected module `README.md` section structure vs `_module-readme-conventions.md` (the section
-  set + marker contract)
+- each affected module `README.md` by running `prospec validate module-readme <module>` against
+  `_module-readme-conventions.md`; use its source-anchored findings for the dated marker, Core grammar,
+  registry, and marked extension instances rather than inventing a second checklist
 - `_conventions.md` `prospec:auto`/`user` marker structure
 
 If a file's **format** has drifted (sections/columns/markers differ from the current conventions),
@@ -112,6 +113,9 @@ list the specific drift and **ask the user whether to update the format** in thi
 format only on consent — never rewrite authored content. If the user declines, do the content
 increment in the existing format and note the declined format update. When there is no drift, proceed
 silently — do not prompt.
+
+An accepted migration preserves every marked extension section and all freeform user notes inside the
+user block. The registry defines only marked sections; an unmarked user heading remains a freeform note.
 
 > **Phase 2.5 Gate** — proceed when:
 > - [ ] existing Knowledge format compared against current conventions/templates
@@ -134,7 +138,7 @@ For README-PENDING modules (the CLI's judgment worklist):
 - Read the existing README.md
 - Update the `prospec:auto-start/end` section CONTENT by hand from what you scanned in Phase 2 —
   this is deliberate judgment work, never a mechanical re-render
-- **Preserve** all content within `prospec:user-start/end` markers
+- **Preserve** all content within `prospec:user-start/end` markers, including marked extension sections and freeform user notes
 - Update Key Files table, Public API list, dependency info
 - **Refresh Modification Guide** — if implementation patterns changed, update guidance
 - **Refresh Ripple Effects** — if new dependencies were added, update impact list
@@ -195,7 +199,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** overwrite content between `prospec:user-start/end` markers — always preserve user notes
+- **NEVER** overwrite content between `prospec:user-start/end` markers — preserve marked extension sections and freeform user notes
 - **NEVER** migrate an existing Knowledge file's format without listing the drift and getting user consent (Phase 2.5) — content increments are fine, format rewrites need a yes
 - **NEVER** delete module directories for REMOVED requirements — mark as deprecated only
 - **NEVER** scan the entire codebase — only scan modules identified from delta-spec

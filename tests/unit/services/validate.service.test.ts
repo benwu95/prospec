@@ -194,3 +194,80 @@ describe('validate backfill-draft / design-spec', () => {
     ).rejects.toThrow(/target not found/);
   });
 });
+
+describe('validate module-readme', () => {
+  const convention = `# Module README Conventions
+<!-- prospec:auto-start -->
+Core
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+## Project Section Extensions
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+<!-- prospec:user-end -->`;
+  const readme = `# Services
+> Command orchestration
+<!-- prospec:module-readme-format 2026-09-01 -->
+<!-- prospec:auto-start -->
+## Key Files
+## Public API
+## Dependencies
+## Modification Guide
+## Pitfalls
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+<!-- prospec:user-end -->`;
+
+  it('reads the README and convention through the knowledge-root boundary without writing either', async () => {
+    vol.fromJSON({
+      '/repo/prospec/ai-knowledge/_module-readme-conventions.md': convention,
+      '/repo/prospec/ai-knowledge/modules/services/README.md': readme,
+    });
+
+    const result = await execute({ kind: 'module-readme', target: 'services', cwd: CWD });
+
+    expect(result).toMatchObject({ kind: 'module-readme', target: 'services', ok: true });
+    expect(result.facts).toMatchObject({ declarations: [], extensionIds: [] });
+    expect(vol.readFileSync('/repo/prospec/ai-knowledge/modules/services/README.md', 'utf-8')).toBe(readme);
+  });
+
+  it('returns an actionable failed verdict for a missing README or convention', async () => {
+    const result = await execute({ kind: 'module-readme', target: 'services', cwd: CWD });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings.map((finding) => finding.message).join(' ')).toContain('not found');
+  });
+
+  it('rejects an unsafe module name without turning it into a filesystem read', async () => {
+    vol.fromJSON({
+      '/repo/prospec/ai-knowledge/_module-readme-conventions.md': convention,
+    });
+
+    const result = await execute({ kind: 'module-readme', target: '../services', cwd: CWD });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings.map((finding) => finding.message).join(' ')).toContain('not found');
+  });
+
+  it('refuses an outward README symlink while allowing a symlink contained in the knowledge root', async () => {
+    vol.fromJSON({
+      '/repo/prospec/ai-knowledge/_module-readme-conventions.md': convention,
+      '/repo/prospec/ai-knowledge/modules/real/README.md': readme,
+      '/outside/README.md': readme,
+    });
+    vol.mkdirSync('/repo/prospec/ai-knowledge/modules/services', { recursive: true });
+    vol.symlinkSync(
+      '/repo/prospec/ai-knowledge/modules/real/README.md',
+      '/repo/prospec/ai-knowledge/modules/services/README.md',
+    );
+
+    const contained = await execute({ kind: 'module-readme', target: 'services', cwd: CWD });
+    expect(contained.ok).toBe(true);
+
+    vol.unlinkSync('/repo/prospec/ai-knowledge/modules/services/README.md');
+    vol.symlinkSync('/outside/README.md', '/repo/prospec/ai-knowledge/modules/services/README.md');
+    const escaped = await execute({ kind: 'module-readme', target: 'services', cwd: CWD });
+    expect(escaped.ok).toBe(false);
+    expect(escaped.findings.map((finding) => finding.message).join(' ')).toContain('not found');
+  });
+});

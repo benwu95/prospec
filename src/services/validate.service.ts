@@ -16,12 +16,21 @@ import {
   type TrustZoneProbe,
 } from '../lib/artifact-validators.js';
 import { readChangeMetadata } from '../lib/change-metadata.js';
-import { loadFeatureMap, listFeatureSpecs } from '../lib/knowledge-reader.js';
+import {
+  listFeatureSpecs,
+  loadFeatureMap,
+  readContainedText,
+  readModuleReadme,
+} from '../lib/knowledge-reader.js';
+import {
+  validateModuleReadmeFormat,
+  type ModuleReadmeFormatFacts,
+} from '../lib/module-readme-format.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ValidateOptions {
   kind: ValidateKind;
-  /** slug: the name itself; backfill-draft / design-spec: an explicit file path. */
+  /** slug/module-readme: the name itself; backfill-draft / design-spec: an explicit file path. */
   target?: string;
   /** Change providing default artifact paths (backfill/promote/design kinds). */
   change?: string;
@@ -35,7 +44,7 @@ export interface ValidateResult {
   ok: boolean;
   findings: ValidationFinding[];
   /** Structural facts for the subset kinds — the skill's judgment inputs. */
-  facts?: BackfillDraftFacts | DesignSpecFacts;
+  facts?: BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts;
 }
 
 /**
@@ -57,6 +66,43 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
     }
     const verdict = validateSlug(options.target);
     return { kind: 'slug', target: options.target, ...verdict };
+  }
+
+  if (options.kind === 'module-readme') {
+    if (!options.target) {
+      throw new PrerequisiteError(
+        'validate module-readme needs the module name as its argument',
+        'Example: `prospec validate module-readme services`',
+      );
+    }
+    const config = await readConfig(cwd);
+    const { knowledgePath } = resolveBasePaths(config, cwd);
+    const readme = readModuleReadme(knowledgePath, options.target);
+    const convention = readContainedText(
+      path.join(knowledgePath, '_module-readme-conventions.md'),
+      knowledgePath,
+    );
+    if (readme === null || convention === null) {
+      const missing = [
+        ...(readme === null ? ['Module README'] : []),
+        ...(convention === null ? ['Module README convention'] : []),
+      ];
+      return {
+        kind: 'module-readme',
+        target: options.target,
+        ok: false,
+        findings: [{
+          level: 'FAIL',
+          message: `${missing.join(' and ')} not found inside the configured knowledge root`,
+        }],
+      };
+    }
+    const report = validateModuleReadmeFormat({
+      module: options.target,
+      readme,
+      convention,
+    });
+    return { kind: 'module-readme', target: options.target, ...report };
   }
 
   if (options.kind === 'promote-scaffold') {

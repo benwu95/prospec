@@ -13,13 +13,8 @@
  *   <!-- prospec:user-end -->
  */
 
-/** Marker patterns */
 import { trimTrailingNewlines } from './markdown-fences.js';
-
-const AUTO_START = '<!-- prospec:auto-start -->';
-const AUTO_END = '<!-- prospec:auto-end -->';
-const USER_START = '<!-- prospec:user-start -->';
-const USER_END = '<!-- prospec:user-end -->';
+import { AUTO_START, AUTO_END, USER_START, USER_END } from './content-markers.js';
 
 interface ContentSection {
   type: 'auto' | 'user' | 'static';

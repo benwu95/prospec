@@ -254,8 +254,8 @@ export type LessonInput = z.infer<typeof LessonInputSchema>;
 // --- validate (`prospec validate <kind>`) ---
 
 /**
- * Artifact kinds `prospec validate` grades. `slug` and `promote-scaffold` are
- * complete machine verdicts; `backfill-draft` and `design-spec` report the
+ * Artifact kinds `prospec validate` grades. `slug`, `promote-scaffold`, and
+ * `module-readme` are complete machine verdicts; `backfill-draft` and `design-spec` report the
  * structural subset only (sections, headers, NEEDS-CLARIFICATION count and
  * locations) — ratio-exemption classification and component-set extraction are
  * semantic judgment and stay in the skill.
@@ -265,6 +265,7 @@ export const VALIDATE_KINDS = [
   'backfill-draft',
   'promote-scaffold',
   'design-spec',
+  'module-readme',
 ] as const;
 export type ValidateKind = (typeof VALIDATE_KINDS)[number];
 
@@ -303,4 +304,3 @@ export const LensYieldReportSchema = z.object({
   stats: z.array(LensYieldStatSchema),
 });
 export type LensYieldReport = z.infer<typeof LensYieldReportSchema>;
-

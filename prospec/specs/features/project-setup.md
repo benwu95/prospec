@@ -1,7 +1,7 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-08-31
+last_updated: 2026-09-01
 story_count: 19
 req_count: 47
 ---
@@ -66,6 +66,7 @@ req_count: 47
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TYPES-038 | REQ-TYPES-038 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-SETUP-024; MODIFIED REQ-TEMPLATES-124 | REQ-SETUP-024, REQ-TEMPLATES-124 |
 | 2026-07-30 | fix-cli-first-regressions | MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-030; MODIFIED REQ-LIB-013 | REQ-TYPES-063, REQ-LIB-030, REQ-LIB-013 |
 | 2026-02-04 | mvp-initial | CLI base framework, project initialization, architecture analysis | US-001~004, REQ-SETUP-001~010 |

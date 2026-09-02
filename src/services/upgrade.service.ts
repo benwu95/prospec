@@ -68,6 +68,8 @@ export interface DocInventoryEntry {
   present: boolean;
   /** Whether the doc is canonical/no-authored-content (sourced from INIT_DOC_REGISTRY). */
   canonical: boolean;
+  /** Whether a canonical format refresh preserves this doc's user block. */
+  preserveUserContent: boolean;
 }
 
 export interface UpgradeReport {
@@ -265,6 +267,7 @@ export function buildDocsInventory(
       template: doc.template,
       present: fileExists(absPath),
       canonical: !!doc.canonical,
+      preserveUserContent: !!doc.preserveUserContent,
     };
   });
 }

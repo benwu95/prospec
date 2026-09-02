@@ -7,6 +7,7 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
@@ -2608,7 +2609,16 @@ export function collectCanonicalDocDrift(
       continue;
     }
 
-    const normActual = actual.replace(/\r\n/g, '\n').trimEnd() + '\n';
+    // For a doc whose user block is project-owned (the extension registry),
+    // neutralize user-block differences before comparing. mergeContent keeps
+    // arg1's auto block and arg2's user block, so (actual, expected) yields
+    // actual's auto block under expected's user block: auto-block drift is still
+    // detected, project edits to the user block are exempt. (Arg order is
+    // deliberately the reverse of mergeContent's usual freshTemplate/onDisk sense.)
+    const comparableActual = doc.preserveUserContent
+      ? mergeContent(actual, expected)
+      : actual;
+    const normActual = comparableActual.replace(/\r\n/g, '\n').trimEnd() + '\n';
     const normExpected = expected.replace(/\r\n/g, '\n').trimEnd() + '\n';
 
     docs.push({

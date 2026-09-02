@@ -219,12 +219,12 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 261 files: `.md`, `.yaml`
+- `prospec/` — 262 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1354 |
+| Total files | 1360 |
 | Scan depth | 10 |

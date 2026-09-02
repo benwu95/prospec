@@ -1,7 +1,7 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-08-31
+last_updated: 2026-09-01
 story_count: 4
 req_count: 14
 ---
@@ -51,6 +51,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-MCP-002 | REQ-MCP-002 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-MCP-002 | REQ-MCP-002 |
 | 2026-08-14 | unify-spec-read-resolution | ADDED REQ-LIB-056; MODIFIED REQ-MCP-009; MODIFIED REQ-MCP-002 | REQ-LIB-056, REQ-MCP-009, REQ-MCP-002 |
 | 2026-08-08 | read-specs-by-req | ADDED REQ-TYPES-079; ADDED REQ-MCP-009 | REQ-TYPES-079, REQ-MCP-009 |
