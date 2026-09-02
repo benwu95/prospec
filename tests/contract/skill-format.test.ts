@@ -55,8 +55,11 @@ const TEMPLATE_CONTEXT = {
   // `artifact_language` above: a fixture whose flag contradicts its language makes
   // every other entry-config render take the wrong branch.
   language_is_english: true,
+  trust_zone_is_english: true,
+  language_single_zone: true,
+  trust_zone_language: 'English',
   language_native_paths: '`.prospec/changes/**`, `prospec/specs/_archived-history/**`',
-  language_english_paths: '`prospec/CONSTITUTION.md`, `prospec/ai-knowledge/**`',
+  language_trust_zone_paths: '`prospec/CONSTITUTION.md`, `prospec/ai-knowledge/**`',
   // Spread, never hand-listed: agent-sync injects the WHOLE resolved budget, and a
   // trio written out here left four fields undefined, which Handlebars renders as
   // the empty string — so a template naming a new budget stayed green.
@@ -3256,10 +3259,13 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
       .replace(/\{\{knowledge_base_path\}\}/g, kbp)
       .trim();
     const outputNote = readPartial('_output-summary-note.hbs').trim();
-    // The language-policy partial takes no variables, so its expansion is literal.
-    // Left unguarded, rewording it and skipping `agent sync` leaves every deployed
-    // SKILL.md instructing the old policy with a green suite.
-    const policyExpanded = readPartial('_language-policy.hbs').trim();
+    // The language-policy partial's one variable is this repo's trust-zone language
+    // (English — `trust_zone_language` unset). Left unguarded, rewording it and
+    // skipping `agent sync` leaves every deployed SKILL.md instructing the old
+    // policy with a green suite.
+    const policyExpanded = readPartial('_language-policy.hbs')
+      .replace(/\{\{trust_zone_language\}\}/g, 'English')
+      .trim();
     const agentDirs = ['.claude/skills', '.agents/skills'];
     for (const skill of SKILL_DEFINITIONS) {
       const usesHandoff = src(skill.name).includes('{{> next-step-handoff}}');
@@ -3788,6 +3794,7 @@ describe('Language Policy mechanism', () => {
       ...TEMPLATE_CONTEXT,
       artifact_language: 'Traditional Chinese (Taiwan)',
       language_is_english: false,
+      language_single_zone: false,
       skill_path: '.claude/skills',
     });
     const section = sectionOf(content, '## Language Policy');
@@ -5231,8 +5238,20 @@ describe('prospec-upgrade: seeded Language Policy migration (Step 2.5)', () => {
     const c = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
     const ledger = sectionOf(c, '## Lessons Ledger');
     expect(ledger).toMatch(/\*\*description\*\*: written in the language of the original correction/);
-    expect(ledger).toMatch(/Language Policy names this column/);
-    expect(ledger).toMatch(/Every other column stays English/);
+    expect(ledger).toMatch(/every other column is an identifier or enum and stays English/);
+    // The exception clause only exists when the zones differ — an all-English
+    // project (the fixture) has no trust-zone exception to name.
+    expect(ledger).not.toMatch(/Language Policy names this column/);
+    const twoZone = sectionOf(
+      renderTemplate('skills/references/promotion-format.hbs', {
+        ...TEMPLATE_CONTEXT,
+        artifact_language: 'Traditional Chinese (Taiwan)',
+        language_is_english: false,
+        language_single_zone: false,
+      }),
+      '## Lessons Ledger',
+    );
+    expect(twoZone).toMatch(/Language Policy names this column as a trust-zone exception/);
     // status is a closed token set; provenance prose there is what put this repo's
     // own ledger outside both the enum and the language exception.
     expect(ledger).toMatch(/\*\*status\*\*:.*`retired`/);
@@ -8046,5 +8065,76 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         expect(() => expectDelegatedEvidenceSchemaContract(mutated)).toThrow();
       });
     });
+  });
+});
+
+// The trust-zone language axis: under a native trust zone, no shipped template
+// may state the trust zone (or graduating REQ bodies) as English. Rendered with
+// the SAME six keys agent-sync injects, so a template still reading a hardcoded
+// language goes red here rather than in a downstream project's CLAUDE.md.
+describe('native trust zone renders (REQ-SKILL-012 / REQ-TEMPLATES-151)', () => {
+  const NATIVE = 'Traditional Chinese (Taiwan)';
+  const nativeTrust = {
+    ...TEMPLATE_CONTEXT,
+    artifact_language: NATIVE,
+    language_is_english: false,
+    trust_zone_is_english: false,
+    language_single_zone: true,
+    trust_zone_language: NATIVE,
+    skill_path: '.claude/skills',
+  };
+  const ENGLISH_TRUST_ZONE = /always remains in English|trust zone stays\s+English|Write in English|spec's English|lands English spec/;
+
+  it('entry config states one native language over both zones', () => {
+    const section = sectionOf(renderTemplate('agent-configs/entry.md.hbs', nativeTrust), '## Language Policy');
+    expect(section).toContain(`**${NATIVE}**`);
+    expect(section).toContain('`prospec/ai-knowledge/**`');
+    expect(section).toContain('stay English');
+    expect(section).not.toMatch(ENGLISH_TRUST_ZONE);
+    expect(section).not.toMatch(/\(\s*\)/);
+  });
+
+  it('entry config names a native trust zone beside a different artifact language', () => {
+    const section = sectionOf(
+      renderTemplate('agent-configs/entry.md.hbs', {
+        ...nativeTrust,
+        artifact_language: 'Japanese',
+        language_single_zone: false,
+      }),
+      '## Language Policy',
+    );
+    expect(section).toContain('is **Japanese**');
+    expect(section).toContain(`is written in **${NATIVE}**`);
+    expect(section).toContain(`follow ${NATIVE}`);
+    expect(section).not.toMatch(ENGLISH_TRUST_ZONE);
+  });
+
+  it('the language-policy partial, graduation references and archive skill name the trust-zone language', () => {
+    const rendered = [
+      renderTemplate('skills/prospec-archive.hbs', { ...nativeTrust, trigger_words: 'x' }),
+      renderTemplate('skills/references/spec-graduation.hbs', nativeTrust),
+      renderTemplate('skills/references/delta-spec-format.hbs', nativeTrust),
+      renderTemplate('skills/prospec-upgrade.hbs', { ...nativeTrust, trigger_words: 'x' }),
+    ];
+    for (const doc of rendered) {
+      expect(doc).toContain(NATIVE);
+      expect(doc).not.toMatch(ENGLISH_TRUST_ZONE);
+    }
+    const partial = sectionOf(rendered[0]!, '## Language Policy');
+    expect(partial).toContain(`(Knowledge base, Feature Specs, index) in ${NATIVE}`);
+    expect(rendered[1]).toContain(`Write in ${NATIVE} (the Feature Specs' language)`);
+  });
+
+  it('renders the default (English trust zone) forms with the same templates', () => {
+    const entry = sectionOf(renderTemplate('agent-configs/entry.md.hbs', {
+      ...TEMPLATE_CONTEXT,
+      artifact_language: NATIVE,
+      language_is_english: false,
+      language_single_zone: false,
+      skill_path: '.claude/skills',
+    }), '## Language Policy');
+    expect(entry).toMatch(/always remains in English/);
+    const graduation = renderTemplate('skills/references/spec-graduation.hbs', TEMPLATE_CONTEXT);
+    expect(graduation).toContain("Write in English (the Feature Specs' language)");
   });
 });

@@ -19,10 +19,18 @@
 
 ## Language Policy
 
+{{#if language_single_zone}}
 {{#if language_is_english}}
 All generated documents — code, identifiers, technical terms, and git commit messages included — are written in English (see the Constitution's Language Policy rule).
 {{else}}
-The user's primary language for **change artifacts** ({{language_native_paths}}) is **{{artifact_language}}**, and requests may be phrased in it. The trust zone ({{language_english_paths}}) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the {{artifact_language}} requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use {{artifact_language}}, and change-artifact spots that stay English because their content is copied into the trust zone verbatim.
+All generated documents — change artifacts ({{language_native_paths}}) and the trust zone ({{language_trust_zone_paths}}) — are written in **{{trust_zone_language}}**, and requests may be phrased in it; code, identifiers, technical terms, and git commit messages stay English (see the Constitution's Language Policy rule, generated from this same path set).
+{{/if}}
+{{else}}
+{{#if trust_zone_is_english}}
+The user's primary language for **change artifacts** ({{language_native_paths}}) is **{{artifact_language}}**, and requests may be phrased in it. The trust zone ({{language_trust_zone_paths}}) always remains in {{trust_zone_language}}, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in {{trust_zone_language}}, exempt from the {{artifact_language}} requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use {{artifact_language}}, and change-artifact spots that stay English because their content is copied into the trust zone verbatim.
+{{else}}
+The user's primary language for **change artifacts** ({{language_native_paths}}) is **{{artifact_language}}**, and requests may be phrased in it. The trust zone ({{language_trust_zone_paths}}) is written in **{{trust_zone_language}}** — it is technical documentation read next to the code — and is exempt from the {{artifact_language}} requirement; code, identifiers, technical terms, and git commit messages stay English. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use {{artifact_language}}, and change-artifact spots that follow {{trust_zone_language}} because their content is copied into the trust zone verbatim.
+{{/if}}
 {{/if}}
 
 ## Core Resources

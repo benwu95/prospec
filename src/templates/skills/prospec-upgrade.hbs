@@ -44,8 +44,10 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
   ones (so most read present), then a `created N missing doc(s): …` line names what it just wrote. This
   section is Step 2's authoritative scan scope. A line still marked MISSING means its back-fill failed —
   Step 2's safety net.
-- `stale Language Policy wording: …` — the seeded Language Policy rule in `{{constitution_path}}` still
-  carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). It is immediately
+- `stale Language Policy wording: …` — the Language Policy rule in `{{constitution_path}}` has a
+  Description that no longer matches the rule rendered for this project's resolved language scope
+  (an untouched old seed, a reworded Description, or a changed `artifact_language` /
+  `trust_zone_language`), so it contradicts the entry config (Step 2.5). It is immediately
   followed by a `Current Language Policy rule:` block holding the replacement wording — **carry that
   block forward verbatim**; Step 2.5 has no other source for it.
 
@@ -95,8 +97,11 @@ baseline, requires consent. Do that here:
 ### Step 2.5: Migrate the seeded Language Policy wording (only when flagged)
 
 Run this ONLY when Step 1's report carries the `stale Language Policy wording:` line. It is the one
-authored-wording change this skill may propose, because that wording is a **seed** `prospec init` wrote,
-not something the owner authored.
+authored-wording change this skill may propose, because that principle's Description is **generated**
+from the project's resolved language scope (the same scope the entry config renders), not something the
+owner authored. The line fires for three causes — an untouched old seed, a Description reworded away
+from the generated one, or an `artifact_language` / `trust_zone_language` changed after the rule was
+written — and the remedy is the same for all three.
 
 1. Take the replacement wording from the report's `Current Language Policy rule:` block — the CLI renders
    it from THIS project's resolved paths and language, so it is ready to paste. Do NOT try
@@ -117,8 +122,8 @@ pre-feature CLI — `prospec init` always writes the field). Skip it entirely ot
 project that already chose a language, including an explicit `English`.
 
 1. Tell the user their project has no `artifact_language`, so change artifacts currently default
-   to **English**, and ask which language they want for them (default: English; the trust zone stays
-   English either way).
+   to **English**, and ask which language they want for them (default: English; the trust zone's
+   language is governed separately by `trust_zone_language`, which this step never sets).
 2. **If they choose a non-English language**: capture `.prospec.yaml` verbatim as a snapshot, add the
    `artifact_language` key by a **minimal in-place edit** (insert the single key; never re-serialize or
    reorder), then read the file back to confirm it still parses — restore the snapshot if not. Every
@@ -176,7 +181,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** scan from a file list maintained inside this skill — the report's `Docs inventory:` (derived from init's own registry) is the only scan scope; a parallel list here drifts and re-opens the coverage gap
 - **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template; the single exception is Step 2.5's seeded Language Policy body, and only after a diff and consent
 - **NEVER** whole-file replace a `[preserves-user-content]` document or a marker-less legacy document — use a consented no-clobber migration diff and preserve the registry user block
-- **NEVER** run Step 2.5 unprompted — it fires only on the report's `stale Language Policy wording` line, so a rule the owner already reworded is never touched
+- **NEVER** run Step 2.5 unprompted — it fires only on the report's `stale Language Policy wording` line, so a Description that matches the resolved scope is never touched
 - **NEVER** set or change `artifact_language` for a project that already has one — Step 3 runs only when the report flags it unset
 - **NEVER** set `artifact_language` without first asking the user which language they want
 - **NEVER** re-translate or overwrite an existing `skill_triggers` entry — localize only the skills with no entry yet

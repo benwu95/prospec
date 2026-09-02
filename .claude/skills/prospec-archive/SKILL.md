@@ -112,7 +112,7 @@ count the pre-graduation spec text.
 
 1. **Audit CLI Worklists**: Consult the 5 worklists (`pendingConvergence`, `droppedBehavior`, `refusedRequirements`, `acknowledgedDrops`, `staleDeclarations`) per [`references/spec-graduation.md`](references/spec-graduation.md). Phase 3's mechanical sync replaced bodies only where the delta-spec carried a `**Spec:**` block — it did NOT replace bodies lacking one (having landed does not mean you lost nothing — inspect dropped behavior; a refusal for an ADDED entry with no `**Spec:**` block points at Description / Acceptance Criteria).
 2. **Read Graduating REQs**: Read every requirement this change graduates from the **merged Feature Spec on disk** via `prospec spec show <feature> --req <ids>` (Bash) (the worklists above do **not** define that set — each is an EXCEPTION report; **Graduation key by scale** names that set: `quick` → the proposal's **Spec Impact** section; `standard`/`full`/`backfill` → delta-spec REQ IDs; never substitute the delta-spec).
-3. **Converge wording**: Rewrite merged text into the spec's English, behavior-first voice; trim transient change narrative.
+3. **Converge wording**: Rewrite merged text into the spec's language (English), behavior-first voice; trim transient change narrative.
 4. **Story Placement & Context**: Ensure ADDED REQs sit under their respective User Story sections and context is enriched per [`references/spec-graduation.md`](references/spec-graduation.md) and [`references/feature-spec-format.md`](references/feature-spec-format.md).
 5. (Frontmatter counters are reconciled mechanically by `prospec archive finalize` in Phase 3.7 — do not recount them by hand).
 

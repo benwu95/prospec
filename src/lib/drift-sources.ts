@@ -8,7 +8,8 @@ import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { mergeContent } from './content-merger.js';
-import { ARCHIVE_NATIVE_GLOB } from './language-policy.js';
+import { ARCHIVE_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
+import type { LanguageScope } from '../types/constitution.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
@@ -2569,6 +2570,82 @@ export function collectArtifactLanguage(
   // and would break cross-machine report byte-identity.
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { available: true, language: scope.language, files };
+}
+
+export interface LanguagePolicyDriftSource {
+  available: boolean;
+  reason?: string;
+  /** repo-relative, posix-separated Constitution path (finding anchor). */
+  source_path: string;
+  /** Resolved zone languages, so the finding can name what the rule was rendered for. */
+  artifact_language: string;
+  trust_zone_language: string;
+  /** null when the file could not be read at all. */
+  verdict: LanguagePolicyComparison | null;
+}
+
+/**
+ * Collect the Language Policy drift verdict (REQ-LIB-074): the Constitution's
+ * Language Policy `**Description**:` against the Description `languagePolicyRule`
+ * renders for the project's resolved scope. The judgment is the pure
+ * `compareLanguagePolicy` — the same one `prospec upgrade`'s stale signal reads —
+ * so the two surfaces cannot disagree; this is only the read and the mapping of
+ * "nothing to compare" onto an honest skip.
+ *
+ * Three unavailable reasons, never a vacuous pass: the file is unreadable inside
+ * the repo, it declares no Language Policy principle, or that principle carries no
+ * `**Description**:` field (a free-text rule the owner wrote is not judged).
+ * Nothing here may throw: this is an argument to `runChecks(...)`, so one
+ * exception would take every other verdict down with it.
+ */
+export function collectLanguagePolicyDrift(
+  constitutionPath: string,
+  cwd: string,
+  scope: LanguageScope,
+  expectedDescription: string,
+): LanguagePolicyDriftSource {
+  const source_path = path.relative(cwd, constitutionPath).replace(/\\/g, '/');
+  const base = {
+    source_path,
+    artifact_language: scope.language,
+    trust_zone_language: scope.trustZoneLanguage,
+  };
+  try {
+    const content = readContainedFile(cwd, source_path);
+    if (content === null) {
+      return {
+        ...base,
+        available: false,
+        reason: `source unavailable: ${source_path} not found or not readable inside the repo`,
+        verdict: null,
+      };
+    }
+    const verdict = compareLanguagePolicy(content, expectedDescription, scope);
+    if (verdict === 'missing-section') {
+      return {
+        ...base,
+        available: false,
+        reason: `source unavailable: ${source_path} declares no Language Policy principle`,
+        verdict,
+      };
+    }
+    if (verdict === 'no-description') {
+      return {
+        ...base,
+        available: false,
+        reason: `source unavailable: the Language Policy principle in ${source_path} carries no **Description**: field (free-text rule, not compared)`,
+        verdict,
+      };
+    }
+    return { ...base, available: true, verdict };
+  } catch (err) {
+    return {
+      ...base,
+      available: false,
+      reason: `source unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      verdict: null,
+    };
+  }
 }
 
 /**

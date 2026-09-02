@@ -15,6 +15,7 @@ import {
   evaluateReqReferences,
   evaluateReqIdUniqueness,
   evaluateArtifactLanguage,
+  evaluateLanguagePolicyDrift,
   evaluateConstitutionSeverity,
   evaluateReviewProvenance,
   evaluateDeltaSpecProvenance,
@@ -32,6 +33,7 @@ import { exampleRulesFor } from '../../../src/lib/constitution-rules.js';
 import type { TechStackResult } from '../../../src/lib/detector.js';
 import type {
   ArtifactLanguageSource,
+  LanguagePolicyDriftSource,
   ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
@@ -104,6 +106,13 @@ const emptyInputs: DriftCheckInputs = {
   artifactLanguage: { available: true, language: 'Traditional Chinese (Taiwan)', files: [] },
   specCounters: { available: true, specs: [] },
   canonicalDocDrift: { available: true, docs: [] },
+  languagePolicyDrift: {
+    available: true,
+    source_path: 'prospec/CONSTITUTION.md',
+    artifact_language: 'Traditional Chinese (Taiwan)',
+    trust_zone_language: 'English',
+    verdict: 'in-sync',
+  },
   constitutionRules: {
     available: true,
     source_path: 'prospec/CONSTITUTION.md',
@@ -1941,6 +1950,61 @@ describe('evaluateConstitutionSeverity (REQ-LIB-032)', () => {
         language,
       ).toBe(true);
     }
+  });
+});
+
+describe('evaluateLanguagePolicyDrift (REQ-LIB-074)', () => {
+  const src = (over: Partial<LanguagePolicyDriftSource> = {}): LanguagePolicyDriftSource => ({
+    available: true,
+    source_path: 'prospec/CONSTITUTION.md',
+    artifact_language: 'Traditional Chinese (Taiwan)',
+    trust_zone_language: 'English',
+    verdict: 'in-sync',
+    ...over,
+  });
+
+  it('skips (never PASS) when the source is unavailable, carrying its reason', () => {
+    const r = evaluateLanguagePolicyDrift(
+      src({ available: false, reason: 'source unavailable: no **Description**: field', verdict: 'no-description' }),
+    );
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('Description');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes with no finding when the Description is in sync', () => {
+    const r = evaluateLanguagePolicyDrift(src());
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('passes for the legacy English seed — nothing to migrate', () => {
+    const r = evaluateLanguagePolicyDrift(src({ verdict: 'legacy-english-seed', artifact_language: 'English' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns once, anchored at the Constitution, when the Description diverged', () => {
+    const r = evaluateLanguagePolicyDrift(src({ verdict: 'diverged', trust_zone_language: 'Traditional Chinese (Taiwan)' }));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    const f = r.findings[0]!;
+    expect(f.check).toBe('language-policy-drift');
+    expect(f.severity).toBe('warn');
+    expect(f.source_path).toBe('prospec/CONSTITUTION.md');
+    expect(f.detail).toContain('no longer matches');
+    // names both resolved zone languages and both remedies
+    expect(f.detail).toContain('change artifacts: Traditional Chinese (Taiwan)');
+    expect(f.detail).toContain('trust zone: Traditional Chinese (Taiwan)');
+    expect(f.detail).toContain('prospec upgrade');
+    expect(f.detail).toContain('trust_zone_language');
+  });
+
+  it('warns once for an untouched old seed, naming that cause', () => {
+    const r = evaluateLanguagePolicyDrift(src({ verdict: 'stale-seed' }));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('seed wording');
   });
 });
 

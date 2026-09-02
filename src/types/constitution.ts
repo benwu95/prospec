@@ -12,28 +12,31 @@ export type ConstitutionSeverity = 'MUST' | 'SHOULD' | 'MAY';
 /**
  * Resolved language scope for the seeded Language Policy rule.
  *
- * The path sets are the single source shared by the Constitution rule and the
- * agent entry config (CLAUDE.md/AGENTS.md): both are generated from one
- * `LanguageScope`, so the two documents cannot declare contradictory scopes.
- * Paths are repo-relative POSIX globs resolved from `paths.base_dir` and
- * `knowledge.base_path` — never hardcoded defaults.
+ * The path sets and both zone languages are the single source shared by the
+ * Constitution rule and the agent entry config (CLAUDE.md/AGENTS.md): both are
+ * generated from one `LanguageScope`, so the two documents cannot declare
+ * contradictory scopes. Paths are repo-relative POSIX globs resolved from
+ * `paths.base_dir` and `knowledge.base_path` — never hardcoded defaults — and
+ * neither language is hardcoded either: each is a string the resolver fills.
  */
 export interface LanguageScope {
   /** Resolved artifact language (free-form; 'English' when unset/blank). */
   language: string;
+  /** Resolved trust-zone language (free-form; 'English' when unset/blank). */
+  trustZoneLanguage: string;
   /** Paths written in `language` — change artifacts and their archived summaries. */
   nativePaths: string[];
-  /** Trust-zone paths that stay English regardless of `language`. */
-  englishPaths: string[];
+  /** Trust-zone paths, written in `trustZoneLanguage`. */
+  trustZonePaths: string[];
   /** Trust-zone spots where `language` is allowed, each with its reason. */
   namedExceptions: string[];
   /**
-   * The reverse exceptions: spots inside `nativePaths` that stay English, each
-   * with its reason. A change artifact may carry text destined for the trust zone
-   * verbatim, and the rule must say so — otherwise a MUST audit reads that text as
-   * a violation of the very rule that requires it.
+   * The reverse exceptions: spots inside `nativePaths` that follow
+   * `trustZoneLanguage`, each with its reason. A change artifact may carry text
+   * destined for the trust zone verbatim, and the rule must say so — otherwise a
+   * MUST audit reads that text as a violation of the very rule that requires it.
    */
-  englishExceptions: string[];
+  trustZoneExceptions: string[];
 }
 
 /** A single guided Constitution rule. */

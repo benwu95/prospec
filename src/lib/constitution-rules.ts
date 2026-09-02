@@ -1,6 +1,6 @@
 import type { TechStackResult } from './detector.js';
 import type { ConstitutionRule, LanguageScope } from '../types/constitution.js';
-import { isDefaultArtifactLanguage } from './config.js';
+import { isDefaultArtifactLanguage, sameLanguage } from './config.js';
 import { formatPathList } from './language-policy.js';
 
 /**
@@ -105,30 +105,54 @@ const GENERIC_RULES: ConstitutionRule[] = [
   },
 ];
 
+/** The surfaces that stay English whatever either zone's document language is. */
+const CODE_SURFACES = 'code, identifiers, technical terms, and git commit messages';
+
 /**
  * The Language Policy rule seeded into every Constitution by `prospec init`.
  *
- * Takes a resolved `LanguageScope` rather than a bare language string: the same
+ * Takes a resolved `LanguageScope` rather than bare language strings: the same
  * scope renders the agent entry config's declaration, so the two documents
- * cannot disagree about which paths are English (see `lib/language-policy.ts`).
- * The rule is stated by path so a verify audit can decide by file location
- * instead of re-interpreting what "AI-generated documents" covers.
+ * cannot disagree about which paths follow which language (see
+ * `lib/language-policy.ts`). The rule is stated by path so a verify audit can
+ * decide by file location instead of re-interpreting what "AI-generated
+ * documents" covers.
+ *
+ * Its form follows the two resolved languages. Both English → the condensed
+ * single sentence. Both the same non-English language → one language over both
+ * path sets. Different → the two-zone form, whose trust-zone clause names
+ * `trustZoneLanguage`. No form hardcodes a trust-zone language; the two forms a
+ * default project can reach (both English; English trust zone) render exactly
+ * the pre-axis text, because `language-policy-drift` compares Constitutions
+ * against this Description and a changed default would WARN every existing
+ * project.
  */
 export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
-  const { language, nativePaths, englishPaths, namedExceptions, englishExceptions } = scope;
+  const { language, trustZoneLanguage, nativePaths, trustZonePaths, namedExceptions, trustZoneExceptions } =
+    scope;
+  const trustZoneIsEnglish = isDefaultArtifactLanguage(trustZoneLanguage);
 
-  // An English project has one zone, so the exemption clauses would only add
-  // noise to a MUST rule the owner has to read.
-  if (isDefaultArtifactLanguage(language)) {
+  if (sameLanguage(language, trustZoneLanguage)) {
+    // One zone, so the exemption clauses would only add noise to a MUST rule the
+    // owner has to read.
+    if (trustZoneIsEnglish) {
+      return {
+        severity: 'MUST',
+        name: 'Language Policy',
+        description:
+          'All generated documents, code, identifiers, technical terms, and git commit messages are written in English.',
+        rationale:
+          'One declared document language keeps generated artifacts consistent and reviewable; English code, terminology, and commit history follow industry convention.',
+        check:
+          'Generated documents, code, technical terms, and commit messages are in English.',
+      };
+    }
     return {
       severity: 'MUST',
       name: 'Language Policy',
-      description:
-        'All generated documents, code, identifiers, technical terms, and git commit messages are written in English.',
-      rationale:
-        'One declared document language keeps generated artifacts consistent and reviewable; English code, terminology, and commit history follow industry convention.',
-      check:
-        'Generated documents, code, technical terms, and commit messages are in English.',
+      description: `All generated documents — change artifacts and their archived summaries (${formatPathList(nativePaths)}) and the trust zone (${formatPathList(trustZonePaths)}) — are written in ${language}; ${CODE_SURFACES} stay English.`,
+      rationale: `The project owner reads both the change narrative and the trust zone in ${language}, while ${CODE_SURFACES} stay English so the project reads like the ecosystem it ships into. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
+      check: `Files under ${formatPathList(nativePaths)} and ${formatPathList(trustZonePaths)} are written in ${language}; code, technical terms, and commit messages are in English.`,
     };
   }
 
@@ -136,16 +160,28 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
   // The reverse direction, stated in the same rule: a change artifact may carry
   // text destined for the trust zone verbatim, and a MUST audit that has not been
   // told so reads that text as a violation of this very rule.
-  const englishInNative = englishExceptions.length === 0
+  const reverse = trustZoneExceptions.length === 0
     ? ''
-    : `\n\nNamed exceptions inside the change-artifact zone, which stay **English** because their content is copied into the trust zone verbatim:\n${englishExceptions.map((e) => `  - ${e}`).join('\n')}`;
+    : `\n\nNamed exceptions inside the change-artifact zone, which stay **${trustZoneLanguage}** because their content is copied into the trust zone verbatim:\n${trustZoneExceptions.map((e) => `  - ${e}`).join('\n')}`;
+
+  // An English trust zone shares its language with the code surfaces, so one
+  // clause covers both; any other trust-zone language has to name them apart.
+  const trustClause = trustZoneIsEnglish
+    ? `always remains in ${trustZoneLanguage}, as do ${CODE_SURFACES}: it is technical reference read next to the code and cited in ${trustZoneLanguage}, and is **explicitly NOT** subject to the ${language} requirement`
+    : `is written in ${trustZoneLanguage}, and is **explicitly NOT** subject to the ${language} requirement; ${CODE_SURFACES} stay English`;
+  const rationaleTrust = trustZoneIsEnglish
+    ? `while the trust zone stays ${trustZoneLanguage} so it reads like the code it documents and travels beyond this project`
+    : `and reads the trust zone in ${trustZoneLanguage}, while ${CODE_SURFACES} stay English so the project reads like the ecosystem it ships into`;
+  const checkTrust = trustZoneIsEnglish
+    ? `${formatPathList(trustZonePaths)}, code, technical terms, and commit messages are in ${trustZoneLanguage}`
+    : `${formatPathList(trustZonePaths)} are written in ${trustZoneLanguage}; code, technical terms, and commit messages are in English`;
 
   return {
     severity: 'MUST',
     name: 'Language Policy',
-    description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(englishPaths)} — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the ${language} requirement. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}${englishInNative}`,
-    rationale: `The project owner reviews their own change narrative in ${language}, while the trust zone stays English so it reads like the code it documents and travels beyond this project. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
-    check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${formatPathList(englishPaths)}, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation.`,
+    description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(trustZonePaths)} — ${trustClause}. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}${reverse}`,
+    rationale: `The project owner reviews their own change narrative in ${language}, ${rationaleTrust}. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
+    check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${checkTrust}. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the ${trustZoneLanguage} trust zone as a Language-Policy violation.`,
   };
 }
 

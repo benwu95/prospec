@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4672%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4717%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -272,7 +272,8 @@ prospec init --name my-project   # → 選擇要啟用的 AI Assistant（互動�
                                  # → 選擇文件主要語言（預設英文，或用
                                  #   --language "Traditional Chinese (Taiwan)"）；[MUST]
                                  #   路徑式 Language Policy 規則會寫入 CONSTITUTION.md —
-                                 #   trust zone、程式碼與 git commit message 一律維持英文
+                                 #   trust zone 依 trust_zone_language（未設定即英文）；
+                                 #   程式碼與 git commit message 一律維持英文
                                  # → 建立 .prospec.yaml + 目錄結構
 prospec agent sync               # → 各 agent config + Skills（Claude Code → CLAUDE.md +
                                  #   .claude/skills/；Antigravity / Codex / Copilot →
@@ -447,7 +448,7 @@ Prospec 強制執行 6 大核心原則，約束的對象是注入使用者專案
 3. **Zero Startup Cost for Brownfield** — 不需要預先文件化整個程式碼庫
 4. **AI Agent Agnostic** — 透過 Markdown adapters 支援任何 AI CLI
 5. **User Controls the Rules** — Constitution 由使用者定義，工具負責強制執行
-6. **Language Policy** — 變更文件使用 `prospec init` 時選擇的語言（預設英文）；trust zone（AI Knowledge base、Feature Spec、Constitution）、程式碼、專業術語與 git commit message 一律英文
+6. **Language Policy** — 變更文件使用 `prospec init` 時選擇的語言（預設英文）；trust zone（AI Knowledge base、Feature Spec、Constitution）依 `trust_zone_language` 設定的語言（預設英文）；程式碼、專業術語與 git commit message 一律英文
 
 ---
 
@@ -844,7 +845,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。
       - `delta-spec-provenance`：變更的 `delta-spec.md` 指紋必須與 review 基線一致（防止審查後私自修改規格）。
       - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。
-    - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）。
+    - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）、憲法 Language Policy 與 resolved 語言範圍一致性（`language-policy-drift`，WARN）。
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
     - `--strict`：任一檢項出現 FAIL 時以 exit 1 退出（WARN 與 SKIPPED 永不影響退出碼）。`--auto-draft` 無法改變這件事：起草在報告寫出之後才執行，起草失敗只會被回報、不會被拋出。
@@ -959,7 +960,8 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 
 你可以調整的關鍵設定包含：
 
-- **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 以及程式碼、變數名稱、專業術語與 git commit message 將一律維持英文。`prospec init` 會以同一組路徑把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，因此該規則與 agent entry config（`CLAUDE.md`/`AGENTS.md`）永遠陳述同一個範圍。
+- **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 一律維持英文；trust zone 的語言由 `trust_zone_language` 決定。`prospec init` 會以與 agent entry config（`CLAUDE.md`/`AGENTS.md`）相同的路徑與語言把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，且 `prospec check`（`language-policy-drift`）會在憲法的 Description 與之漂移時提出 WARN。
+- **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。預設為 English（此設定出現前所有專案的既有行為）。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
 - **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
@@ -1135,7 +1137,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4672 個；4 個略過）
+# 執行所有測試（共 4717 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1148,9 +1150,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4672 個測試（4668 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3320 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1176 tests
+**測試覆蓋率**：共 4717 個測試（4713 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3359 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1182 tests
 - Integration tests：45 tests
 - E2E tests：131 tests
 

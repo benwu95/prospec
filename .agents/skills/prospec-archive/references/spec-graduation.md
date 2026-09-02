@@ -54,7 +54,7 @@ A `**Spec:**` landing block in `delta-spec.md` replaces the **entire requirement
 
 ## Semantic Convergence Guidelines
 
-1. **Voice & Language**: Write in English, behavior-first voice (`- WHEN ..., THEN ...`). Strip transient change narrative.
+1. **Voice & Language**: Write in English (the Feature Specs' language), behavior-first voice (`- WHEN ..., THEN ...`). Strip transient change narrative.
 2. **Story Placement**: Ensure newly ADDED REQs are placed under the appropriate `## US-{N}` section (the mechanical merge appends before `## Edge Cases`).
 3. **Context Enrichment**: Ensure User Story context (`As a ... / I want ... / So that ...`) is present.
 

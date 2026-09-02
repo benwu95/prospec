@@ -50,7 +50,7 @@ position. Each entry: `{ id, status, reason? }`, adopted **verbatim**.
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
   `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
   `delta-spec-provenance`, `unjustified-budget-override`, `canonical-doc-drift`,
-  `delta-spec-landing-fidelity`, `req-id-uniqueness`.
+  `delta-spec-landing-fidelity`, `req-id-uniqueness`, `language-policy-drift`.
 
 ### Key Check Interpretations
 
@@ -63,6 +63,7 @@ position. Each entry: `{ id, status, reason? }`, adopted **verbatim**.
 | `canonical-doc-drift` | `warn` | Flags canonical project docs drifting from rendered canonical templates. | File absent. |
 | `delta-spec-landing-fidelity` | `fail` | Flags MODIFIED `**Spec:**` blocks omitting existing `WHEN/THEN` bullets without `**Dropped:**` declaration. | ADDED entries, no `**Spec:**` block, no changes dir. |
 | `req-id-uniqueness` | `fail` | Flags duplicate REQ ID definitions across Feature Specs (slices grouped with parent). | Specs absent or unparseable. |
+| `language-policy-drift` | `warn` | Flags a Constitution whose Language Policy Description no longer matches the one generated for the resolved language scope, or still carries the old seed (the old English seed in an English-only project passes — nothing to migrate). | Constitution unreadable, no Language Policy principle, or no `**Description**:` field. |
 | `task-completion` | `warn`/`fail` | Tracks code-task completion in `tasks.md` (`[M]`/`[V]` excluded). | No tasks.md or not in git repo. |
 | `constitution-severity` | `warn` | Checks Constitution principles for RFC-2119 severity tags (`MUST`/`SHOULD`/`MAY`). | Constitution missing or empty. |
 | `knowledge-health` | `warn`/`fail` | Tracks module README git timestamp staleness and documentation coverage. | Module map unavailable. |

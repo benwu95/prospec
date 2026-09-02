@@ -170,11 +170,11 @@ describe('renderTemplate', () => {
     try {
       // Both skills renders trigger ensureBuiltinPartials(); with the source
       // file gone they only succeed because the cached registration is reused.
-      const first = renderTemplate('skills/__first.hbs', {});
-      const second = renderTemplate('skills/__second.hbs', {});
+      const first = renderTemplate('skills/__first.hbs', { trust_zone_language: 'English' });
+      const second = renderTemplate('skills/__second.hbs', { trust_zone_language: 'English' });
       // Compared against the partial's own source (read before it was unlinked),
       // so this pins the cached-registration reuse without re-pinning its wording.
-      expect(first).toBe(`A${policyBody}`);
+      expect(first).toBe(`A${policyBody.replace(/\{\{trust_zone_language\}\}/g, 'English')}`);
       expect(second.startsWith('B')).toBe(true);
       expect(second).toContain('Language Policy');
     } finally {

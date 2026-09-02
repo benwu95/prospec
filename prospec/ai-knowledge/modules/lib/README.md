@@ -9,7 +9,7 @@
 
 | File | Purpose |
 |------|---------|
-| `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, artifact-language |
+| `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, the two language resolvers (`resolveArtifactLanguage` / `resolveTrustZoneLanguage`, each defaulting to English) |
 | `project-runner.ts` | Multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`): declared `test_command` → declared package manager + `scripts.test` → manifest detection (Rust, Python, Go, Node lockfile, Makefile) → honest `null`; the review circuit breaker is a station engine — see the sub-module below |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
 | `template.ts` / `auto-draft-template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem; `buildAutoDraftProposal` is a pure context builder over `change/auto-draft-proposal.md.hbs` — it collapses report-supplied text to one line, so a multi-line `detail` cannot forge the `## UI Scope` heading `status` parses as a routing fact |

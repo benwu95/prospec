@@ -156,6 +156,26 @@ export const DRIFT_CHECK_IDS = [
   // is not a duplicate). Skips — never a vacuous pass — when the features
   // directory is absent or holds no parseable spec.
   'req-id-uniqueness',
+  // Language Policy drift — the Constitution's Language Policy `**Description**:`
+  // no longer matches the Description `languagePolicyRule` renders for the
+  // project's resolved language scope (artifact_language + trust_zone_language,
+  // whitespace-normalized), or still carries the pre-path-scoped seed wording,
+  // warns (warn) — except the old ENGLISH seed in an English-only project, which
+  // has nothing to migrate and passes. Checks the Constitution half of the entry
+  // config's "generated from this same path set": `agent sync` regenerates
+  // CLAUDE.md/AGENTS.md from the current scope on every run, but nothing ever
+  // regenerated the Constitution, so this compares the Constitution against the
+  // rule the current scope renders. The entry config itself is NOT read here — an
+  // un-synced entry config is `agent sync`'s job, not this check's. WARN-class on
+  // purpose: a fail tier would red, on adoption day, every
+  // project whose owner reworded the seeded Description — a forced migration this
+  // axis promises not to cause; the prospec-upgrade consent flow is the remedy.
+  // Rationale/Verify are never compared (owner-authored). Skips — never a vacuous
+  // pass — when the Constitution is unreadable, declares no Language Policy
+  // principle, or that principle carries no `**Description**:` field (a free-text
+  // rule is not judged). The comparison itself is `lib/language-policy`'s
+  // `compareLanguagePolicy`, shared with `prospec upgrade`'s stale detector.
+  'language-policy-drift',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
