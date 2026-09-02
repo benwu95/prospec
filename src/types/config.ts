@@ -212,6 +212,7 @@ export const ProspecConfigSchema = z
     agents: z.array(z.enum(VALID_AGENTS)).optional(),
     knowledge: KnowledgeSchema,
     artifact_language: z.string().optional(),
+    trust_zone_language: z.string().optional(),
     skill_triggers: z.record(z.string(), z.array(z.string())).optional(),
   })
   .loose();

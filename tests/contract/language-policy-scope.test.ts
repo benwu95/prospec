@@ -93,11 +93,11 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     }
   });
 
-  it('declares the same English trust zone in both documents', async () => {
+  it('declares the same trust-zone paths in both documents', async () => {
     const { rule, entry, scope } = await scaffold('Traditional Chinese (Taiwan)');
 
-    expect(scope.englishPaths.length).toBeGreaterThan(0);
-    for (const p of scope.englishPaths) {
+    expect(scope.trustZonePaths.length).toBeGreaterThan(0);
+    for (const p of scope.trustZonePaths) {
       expect(rule).toContain(p);
       expect(entry).toContain(p);
     }
@@ -110,8 +110,8 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     // in the artifact language while the entry config called it English. Scoped to
     // the sentences that actually impose the requirement, so a later mention of
     // the same path in the English clause is not mistaken for a violation.
-    const knowledgeGlob = scope.englishPaths.find((p) => p.includes('ai-knowledge'));
-    // Without this, a scope that drops the knowledge base from englishPaths makes
+    const knowledgeGlob = scope.trustZonePaths.find((p) => p.includes('ai-knowledge'));
+    // Without this, a scope that drops the knowledge base from trustZonePaths makes
     // knowledgeGlob undefined — and `not.toContain(undefined)` passes, so the whole
     // assertion below would go vacuous exactly when it matters.
     expect(knowledgeGlob).toBeDefined();
@@ -147,7 +147,7 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
         .replace('base_path: prospec/ai-knowledge', 'base_path: docs/kb'),
     );
 
-    expect(scope.englishPaths).toContain('docs/kb/**');
+    expect(scope.trustZonePaths).toContain('docs/kb/**');
     for (const p of ['docs/kb/**', 'docs/spec/CONSTITUTION.md', 'docs/spec/specs/features/**']) {
       expect(rule).toContain(p);
       expect(entry).toContain(p);
@@ -173,7 +173,7 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     for (const file of written) {
       const section = sectionOf(fs.readFileSync(`${CWD}/${file}`, 'utf-8'), /^##\s+Language Policy\s*$/);
       expect(section.trim().length).toBeGreaterThan(0);
-      for (const p of [...scope.nativePaths, ...scope.englishPaths]) {
+      for (const p of [...scope.nativePaths, ...scope.trustZonePaths]) {
         expect(section).toContain(p);
       }
       expect(section).not.toMatch(/\(\s*\)/);
@@ -223,7 +223,7 @@ describe('resolveLanguageScope is the single source both documents read', () => 
       '.prospec/archive/**',
       'x/specs/_archived-history/**',
     ]);
-    expect(scope.englishPaths).toEqual([
+    expect(scope.trustZonePaths).toEqual([
       'x/CONSTITUTION.md',
       'x/README.md',
       'x/index.md',
@@ -231,5 +231,33 @@ describe('resolveLanguageScope is the single source both documents read', () => 
       'x/specs/features/**',
       'y/**',
     ]);
+  });
+});
+
+// Byte-identity pins for the entry config's Language Policy section under the
+// default trust zone. Same reason as the rule pin in `constitution-rules.test.ts`:
+// an unset `trust_zone_language` — and an explicit English one — must render the
+// pre-axis text exactly, or every existing project's CLAUDE.md/AGENTS.md changes on
+// the next `agent sync` for a feature it never opted into.
+describe('entry config — default trust zone is byte-identical to the pre-axis wording', () => {
+  const PINNED_TWO_ZONE_ENTRY =
+    "\nThe user's primary language for **change artifacts** (`.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**`) is **Traditional Chinese (Taiwan)**, and requests may be phrased in it. The trust zone (`prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the Traditional Chinese (Taiwan) requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use Traditional Chinese (Taiwan), and change-artifact spots that stay English because their content is copied into the trust zone verbatim.\n";
+  const PINNED_ENGLISH_ENTRY =
+    "\nAll generated documents — code, identifiers, technical terms, and git commit messages included — are written in English (see the Constitution's Language Policy rule).\n";
+
+  it('renders the two-zone section verbatim with trust_zone_language unset or explicit English', async () => {
+    const unset = await scaffold('Traditional Chinese (Taiwan)');
+    const explicit = await scaffold('Traditional Chinese (Taiwan)', (yaml) =>
+      `${yaml.trimEnd()}\ntrust_zone_language: English\n`,
+    );
+
+    expect(unset.entry).toBe(PINNED_TWO_ZONE_ENTRY);
+    expect(explicit.entry).toBe(PINNED_TWO_ZONE_ENTRY);
+    expect(explicit.rule).toBe(unset.rule);
+  });
+
+  it('renders the single English sentence verbatim for an all-English project', async () => {
+    const { entry } = await scaffold('English');
+    expect(entry).toBe(PINNED_ENGLISH_ENTRY);
   });
 });

@@ -53,6 +53,9 @@ const SCALE_BY_CHECK: Record<DriftCheckId, ChangeScale> = {
   // A fix renumbers a colliding REQ id in the trust zone and sweeps its
   // references — spec-touching, cross-file work like req-references.
   'req-id-uniqueness': 'standard',
+  // A fix rewrites one Constitution principle's body from the rendered rule —
+  // the prospec-upgrade consent flow, no code.
+  'language-policy-drift': 'quick',
 };
 
 /**

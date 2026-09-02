@@ -34,7 +34,10 @@ import {
   collectCanonicalDocDrift,
   changedPathsFromWorkTree,
   partitionDiffAttributedModules,
+  collectLanguagePolicyDrift,
 } from '../../../src/lib/drift-sources.js';
+import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
+import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import { evaluateKnowledgeHealth, evaluateReqReferences } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
@@ -2504,6 +2507,97 @@ describe('collectConstitutionRules (REQ-LIB-032)', () => {
     expect(r.available).toBe(true);
     expect(r.source_path).toBe('prospec/CONSTITUTION.md');
     expect(r.rules.map((x) => [x.name, x.severity])).toEqual([['A', 'MUST'], ['B', null]]);
+  });
+});
+
+describe('collectLanguagePolicyDrift (REQ-LIB-074)', () => {
+  const config = {
+    project: { name: 'demo' },
+    paths: { base_dir: 'prospec' },
+    knowledge: { base_path: 'prospec/ai-knowledge' },
+    artifact_language: 'Traditional Chinese (Taiwan)',
+  } as ProspecConfig;
+  const collect = () => {
+    const scope = resolveLanguageScope(config, tmpDir);
+    return collectLanguagePolicyDrift(
+      path.join(tmpDir, 'prospec/CONSTITUTION.md'),
+      tmpDir,
+      scope,
+      languagePolicyRule(scope).description,
+    );
+  };
+  const constitution = (body: string) =>
+    `# C\n\n## Principles\n\n### [MUST] Language Policy\n\n${body}\n\n**Rationale**: r.\n\n---\n`;
+
+  it('reports unavailable when the Constitution is missing, with the repo-relative path', () => {
+    const r = collect();
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not found');
+    expect(r.source_path).toBe('prospec/CONSTITUTION.md');
+    expect(r.verdict).toBeNull();
+  });
+
+  it('reports unavailable (distinct reason) when no Language Policy principle exists', () => {
+    write('prospec/CONSTITUTION.md', '# C\n\n## Principles\n\n### [MUST] Other\n\n**Description**: x.\n');
+    const r = collect();
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('declares no Language Policy principle');
+    expect(r.verdict).toBe('missing-section');
+  });
+
+  it('reports unavailable (distinct reason) for a free-text principle without a Description field', () => {
+    write('prospec/CONSTITUTION.md', constitution('Everything is written in the artifact language except code.'));
+    const r = collect();
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('no **Description**: field');
+    expect(r.verdict).toBe('no-description');
+  });
+
+  it('is available and in sync when the Description matches the rendered rule', () => {
+    const expected = languagePolicyRule(resolveLanguageScope(config, tmpDir)).description;
+    write('prospec/CONSTITUTION.md', constitution(`**Description**: ${expected}`));
+    const r = collect();
+    expect(r).toMatchObject({
+      available: true,
+      source_path: 'prospec/CONSTITUTION.md',
+      artifact_language: 'Traditional Chinese (Taiwan)',
+      trust_zone_language: 'English',
+      verdict: 'in-sync',
+    });
+  });
+
+  it('is available and diverged when the Description was reworded', () => {
+    write('prospec/CONSTITUTION.md', constitution('**Description**: Change artifacts are Chinese; the trust zone stays English.'));
+    const r = collect();
+    expect(r.available).toBe(true);
+    expect(r.verdict).toBe('diverged');
+  });
+
+  it('treats a directory at the Constitution path as unreadable (the contained read returns null)', () => {
+    mkdirSync(path.join(tmpDir, 'prospec/CONSTITUTION.md'), { recursive: true });
+    const r = collect();
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain('not found or not readable');
+    expect(r.verdict).toBeNull();
+  });
+
+  it('degrades to unavailable when the comparison itself throws — never out of runChecks', () => {
+    // The contained read never throws (it returns null), so the only way to reach
+    // the catch is a comparison that does: a non-string expected Description makes
+    // `normalizeProse` throw a TypeError inside compareLanguagePolicy. Without the
+    // try/catch this call propagates and takes every other verdict down with it.
+    write('prospec/CONSTITUTION.md', constitution('**Description**: anything'));
+    const scope = resolveLanguageScope(config, tmpDir);
+    const r = collectLanguagePolicyDrift(
+      path.join(tmpDir, 'prospec/CONSTITUTION.md'),
+      tmpDir,
+      scope,
+      undefined as unknown as string,
+    );
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/^source unavailable: /);
+    expect(r.reason).not.toContain('not found');
+    expect(r.verdict).toBeNull();
   });
 });
 

@@ -86,12 +86,20 @@ knowledge:
     headroom: 0.85
 
 # Language for AI-generated change artifacts (and their archived summaries under
-# specs/_archived-history/). Code, identifiers, technical terms, commit messages,
-# and the trust zone (the AI Knowledge base, specs/features/, specs/product.md,
-# index.md, README.md, CONSTITUTION.md) always stay English — the Language Policy rule
-# is generated from the same path sets and names the few in-zone exceptions.
+# specs/_archived-history/). Code, identifiers, technical terms and commit messages
+# always stay English; the trust zone follows `trust_zone_language` below. The
+# Language Policy rule seeded into CONSTITUTION.md and the entry config's declaration
+# are generated from the same path sets and languages, and `prospec check`'s
+# `language-policy-drift` warns when the Constitution's Description drifts from them.
 # Defaults to English when absent.
 artifact_language: Traditional Chinese (Taiwan)
+
+# Language of the trust zone (the AI Knowledge base, specs/features/, specs/product.md,
+# index.md, README.md, CONSTITUTION.md). Defaults to English when absent — the
+# behavior every project had before this key existed. Set it to the same value as
+# `artifact_language` for a project whose whole documentation set is one language;
+# code, identifiers, technical terms and commit messages stay English regardless.
+trust_zone_language: English
 
 # Feedback promotion (`prospec learn`) — both blocks optional; the defaults are shown.
 learn:

@@ -199,9 +199,9 @@ Out of scope for this story. Email notification will be handled by a separate mo
 `prospec archive`'s Feature-Spec sync is mechanical: it can copy text, never author it. The
 `**Spec:**` block is the ONE part of a delta-spec entry that lands **verbatim** as the REQ's body in
 `specs/features/{feature-slug}.md` (or its automatically resolved sub-module slice). Write it in spec form — a 1-2 sentence statement of the resulting
-behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Spec's language**, not the
-change-artifact language (a project whose change artifacts are non-English still lands English spec
-bodies when its Feature Specs are English).
+behavior, then `- WHEN …, THEN …` bullets — and in the **target Feature Spec's language**
+(English for this project), not the change-artifact language (Traditional Chinese (Taiwan)):
+a project whose two zones differ still lands spec bodies in the Feature Specs' language.
 
 **Write the resulting requirement, not the delta.** For a **MODIFIED** REQ, the `**Spec:**` block replaces the WHOLE body in the feature spec. What the block omits leaves the trust zone; the archive CLI reports omitted bullets on the MODIFIED path only (an ADDED entry replacing a pre-existing body is reported by neither worklist). Any existing behavior not restated must be declared under `**Dropped:**` (omitted WHEN/THEN bullets must be declared, or `prospec archive` will refuse spec sync).
 

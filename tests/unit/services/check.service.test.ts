@@ -13,6 +13,9 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
+import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
+import type { ProspecConfig } from '../../../src/types/config.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import {
   DriftReportSchema,
@@ -877,6 +880,50 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
     // carrying the script is not — a hardcoded empty scope reports neither.
     expect(findings.map((f) => f.source_path)).toEqual(['.prospec/changes/demo/proposal.md']);
     expect(findings[0]!.severity).toBe('warn');
+  });
+
+  // REQ-SERVICES-106: the language-policy-drift collector is wired from the SAME
+  // resolved scope and compared against the rule init would seed today.
+  it('compares the Constitution against the rule rendered for the resolved scope (language-policy-drift)', async () => {
+    withLanguage('Traditional Chinese (Taiwan)');
+    const config = {
+      project: { name: 't' },
+      paths: { base_dir: 'prospec' },
+      knowledge: { base_path: 'prospec/ai-knowledge' },
+      artifact_language: 'Traditional Chinese (Taiwan)',
+    } as ProspecConfig;
+    const expected = languagePolicyRule(resolveLanguageScope(config, tmpDir)).description;
+    write(
+      'prospec/CONSTITUTION.md',
+      `# C\n\n## Principles\n\n### [MUST] Language Policy\n\n**Description**: ${expected}\n\n**Rationale**: r.\n\n---\n`,
+    );
+
+    const inSync = await execute({ cwd: tmpDir });
+    if (inSync.kind !== 'report') throw new Error('expected report');
+    expect(inSync.report.structural.checks.map((c) => c.id)).toContain('language-policy-drift');
+    expect(inSync.report.structural.checks.find((c) => c.id === 'language-policy-drift')?.status).toBe('pass');
+
+    // Change the trust-zone language under the same Constitution: the expected
+    // Description changes with the scope, so the unchanged file is now diverged.
+    write(
+      '.prospec.yaml',
+      [
+        'project:',
+        '  name: t',
+        'paths:',
+        '  base_dir: prospec',
+        'knowledge:',
+        '  base_path: prospec/ai-knowledge',
+        'artifact_language: Traditional Chinese (Taiwan)',
+        'trust_zone_language: Traditional Chinese (Taiwan)',
+      ].join('\n'),
+    );
+    const diverged = await execute({ cwd: tmpDir });
+    if (diverged.kind !== 'report') throw new Error('expected report');
+    expect(diverged.report.structural.checks.find((c) => c.id === 'language-policy-drift')?.status).toBe('warn');
+    const findings = diverged.report.structural.findings.filter((f) => f.check === 'language-policy-drift');
+    expect(findings.map((f) => f.source_path)).toEqual(['prospec/CONSTITUTION.md']);
+    expect(findings[0]!.detail).toContain('trust zone: Traditional Chinese (Taiwan)');
   });
 
   it('never scans the gitignored archive copy, though the resolved scope names it', async () => {

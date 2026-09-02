@@ -33,7 +33,7 @@ tier:
 ```
 
 - **key**: Normalized signature (rule/REQ/file pattern in English).
-- **description**: written in the language of the original correction (Language Policy names this column as a trust-zone exception; Every other column stays English).
+- **description**: written in the language of the original correction (Language Policy names this column as a trust-zone exception); every other column is an identifier or enum and stays English.
 - **kind**: `convention` | `playbook` | `constitution`.
 - **status**: `personal` | `suggest-promote` | `promoted` | `declined` | `retired` — a **bare token** only; narrative details or timestamps are never appended to this column.
 

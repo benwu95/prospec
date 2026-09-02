@@ -72,6 +72,26 @@ describe('formatUpgradeOutput', () => {
     expect(line).toMatch(/\/prospec-upgrade will show a diff and ask before rewriting/);
   });
 
+  // R3-1 regression pin: the signal fires for three causes (old seed, reworded
+  // Description, changed artifact_language / trust_zone_language), so the line may
+  // not assert the single old-seed cause — for a `diverged` project that sentence
+  // is false, and the prospec-upgrade skill reading it already names all three.
+  it('explains the stale signal by its actual trigger, never by the single old-seed cause', () => {
+    const { stdout } = captureStreams();
+
+    formatUpgradeOutput(baseResult({ staleLanguagePolicy: true }));
+
+    const line = stdout()
+      .split('\n')
+      .find((l) => l.includes('stale Language Policy wording'));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/no longer matches the rule rendered for this project's resolved language scope/);
+    expect(line).toMatch(/old seed/);
+    expect(line).toMatch(/reworded/);
+    expect(line).toMatch(/trust_zone_language/);
+    expect(line).not.toMatch(/still claims the AI Knowledge base/);
+  });
+
   it('prints the rendered replacement rule the skill has no other way to obtain', () => {
     const { stdout } = captureStreams();
 

@@ -72,10 +72,12 @@ export function formatUpgradeOutput(
   }
   // Report-only: the CLI never edits CONSTITUTION.md — the skill asks first. The
   // rendered replacement travels with the signal because no template carries it
-  // (the rule body is built in lib/constitution-rules, not in the .hbs).
+  // (the rule body is built in lib/constitution-rules, not in the .hbs). The
+  // signal has three causes (isLanguagePolicyStale), so the line names them
+  // rather than asserting the old-seed one.
   if (report.staleLanguagePolicy) {
     lines.push(
-      `${pc.yellow('•')} stale Language Policy wording: the seeded rule still claims the AI Knowledge base follows the artifact language, which contradicts the entry config — ${sanitizeTerminal(result.nextStep)} will show a diff and ask before rewriting that section`,
+      `${pc.yellow('•')} stale Language Policy wording: the Constitution's Language Policy Description no longer matches the rule rendered for this project's resolved language scope (an untouched old seed, a reworded Description, or a changed artifact_language / trust_zone_language), so it contradicts the entry config — ${sanitizeTerminal(result.nextStep)} will show a diff and ask before rewriting that section`,
     );
     const rule = report.currentLanguagePolicy;
     if (rule) {

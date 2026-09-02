@@ -1,6 +1,7 @@
 import { Document, parseDocument, stringify, isMap, isScalar } from 'yaml';
 import type { DocumentOptions, ParseOptions, SchemaOptions, ToStringOptions, YAMLMap } from 'yaml';
 import { YamlParseError } from '../types/errors.js';
+import { collapseWhitespace } from './text-lines.js';
 
 /**
  * Parse a YAML string into a JavaScript value.
@@ -139,9 +140,5 @@ export function mergeIntoDocument(
  * whitespace to single spaces (the target scalars are single-line).
  */
 export function escapeYamlScalar(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return collapseWhitespace(text.replace(/\\/g, '\\\\').replace(/"/g, '\\"'));
 }

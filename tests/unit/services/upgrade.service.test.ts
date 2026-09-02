@@ -47,6 +47,8 @@ import { execute as agentSyncExecute } from '../../../src/services/agent-sync.se
 import { generateRawScan } from '../../../src/services/raw-scan.service.js';
 import { input } from '@inquirer/prompts';
 import { renderTemplate } from '../../../src/lib/template.js';
+import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
+import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 
 const KB = '/project/prospec/ai-knowledge';
 
@@ -365,12 +367,34 @@ describe('detectStaleLanguagePolicy', () => {
     expect(await detectStaleLanguagePolicy(config, '/project')).toBe(true);
   });
 
-  it('does not flag a rule the owner already rewrote', async () => {
+  it('flags a rule the owner reworded away from the rule the resolved scope renders', async () => {
     vol.fromJSON({
       '/project/prospec/CONSTITUTION.md': constitution(
         '**Description**: Change artifacts under `.prospec/changes/**` are Japanese; the trust zone stays English.',
       ),
     });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(true);
+  });
+
+  it('does not flag a Description that matches the rule rendered for the resolved scope', async () => {
+    const expected = languagePolicyRule(resolveLanguageScope(config, '/project')).description;
+    vol.fromJSON({ '/project/prospec/CONSTITUTION.md': constitution(`**Description**: ${expected}`) });
+
+    expect(await detectStaleLanguagePolicy(config, '/project')).toBe(false);
+  });
+
+  it('flags a matching Description once trust_zone_language changes underneath it', async () => {
+    const expected = languagePolicyRule(resolveLanguageScope(config, '/project')).description;
+    vol.fromJSON({ '/project/prospec/CONSTITUTION.md': constitution(`**Description**: ${expected}`) });
+
+    expect(
+      await detectStaleLanguagePolicy({ ...config, trust_zone_language: 'Japanese' } as ProspecConfig, '/project'),
+    ).toBe(true);
+  });
+
+  it('does not flag a free-text principle with no Description field', async () => {
+    vol.fromJSON({ '/project/prospec/CONSTITUTION.md': constitution('Everything is Japanese except code.') });
 
     expect(await detectStaleLanguagePolicy(config, '/project')).toBe(false);
   });
@@ -456,10 +480,11 @@ describe('detectStaleLanguagePolicy', () => {
     expect(stale.report.currentLanguagePolicy?.name).toBe('Language Policy');
     expect(stale.report.currentLanguagePolicy?.description).toContain('.prospec/changes/**');
 
+    // In sync: the Description is exactly what the resolved scope renders today.
     vol.fromJSON(
       {
         '/project/prospec/CONSTITUTION.md': constitution(
-          '**Description**: Change artifacts under `.prospec/changes/**` are Traditional Chinese (Taiwan); the trust zone stays English.',
+          `**Description**: ${languagePolicyRule(resolveLanguageScope(await readConfig('/project'), '/project')).description}`,
         ),
       },
       '/',

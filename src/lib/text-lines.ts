@@ -36,3 +36,8 @@
 export function stripTrailingCr(line: string): string {
   return line.endsWith('\r') ? line.slice(0, -1) : line;
 }
+
+/** Whitespace runs (line breaks included) to one space, ends trimmed — the ONE prose normalizer for comparisons. */
+export function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}

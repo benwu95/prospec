@@ -46,7 +46,7 @@
     'hero.lbl2': '// 啟動任何專案 —— 新專案或既有專案皆可',
     'hero.ctaPrimary': '約 5 分鐘快速上手 <span class="arr" aria-hidden="true">→</span>',
     'hero.ctaGhost': '在 GitHub 上查看',
-    'hero.facts.tests': '共 <b>4,672</b> 個測試 · <b>4,668</b> 個通過 · <b>4</b> 個略過',
+    'hero.facts.tests': '共 <b>4,717</b> 個測試 · <b>4,713</b> 個通過 · <b>4</b> 個略過',
     'hero.facts.skills': '<b>17</b> 個 Skills',
     'hero.facts.principles': '<b>8</b> 條強制原則',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',

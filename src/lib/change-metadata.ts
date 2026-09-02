@@ -9,6 +9,7 @@ import {
 import { MetadataValidationError } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
+import { collapseWhitespace } from './text-lines.js';
 
 /**
  * The single read/write entry point for a change's `metadata.yaml`.
@@ -169,7 +170,7 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
  */
 export function normalizeIssueRef(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const collapsed = value.replace(/\s+/g, ' ').trim();
+  const collapsed = collapseWhitespace(value);
   return collapsed === '' ? undefined : collapsed;
 }
 

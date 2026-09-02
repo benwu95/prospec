@@ -6,6 +6,7 @@ import {
   DEFAULT_ARTIFACT_LANGUAGE,
   DEFAULT_BASE_DIR,
   DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+  isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
@@ -52,6 +53,22 @@ export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths 
 export function resolveArtifactLanguage(config: ProspecConfig): string {
   const raw = (config.artifact_language ?? '').trim();
   return raw || DEFAULT_ARTIFACT_LANGUAGE;
+}
+
+/**
+ * Resolve the trust-zone language. Absent or blank means English — the behavior
+ * every project had before the axis existed. An English spelled differently
+ * (`english`, ` English `) is canonicalized to the default constant so the
+ * generators that interpolate it keep rendering the exact pre-axis text.
+ */
+export function resolveTrustZoneLanguage(config: ProspecConfig): string {
+  const raw = (config.trust_zone_language ?? '').trim();
+  return !raw || isDefaultArtifactLanguage(raw) ? DEFAULT_ARTIFACT_LANGUAGE : raw;
+}
+
+/** Whether two resolved language names denote one language (trim + case-insensitive). */
+export function sameLanguage(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 // Re-exported from its canonical home in `types/config` so existing lib/service

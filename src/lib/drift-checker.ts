@@ -37,6 +37,7 @@ import type {
   TestProvenanceSource,
   BudgetOverrideSource,
   CanonicalDocDriftSource,
+  LanguagePolicyDriftSource,
 } from './drift-sources.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 import { SEEDED_CONSTITUTION_RULE_NAMES } from './constitution-rules.js';
@@ -79,6 +80,7 @@ export interface DriftCheckInputs {
   artifactLanguage: ArtifactLanguageSource;
   specCounters: SpecCounterSource;
   canonicalDocDrift: CanonicalDocDriftSource;
+  languagePolicyDrift: LanguagePolicyDriftSource;
   generatedAt: string;
 }
 
@@ -964,6 +966,37 @@ export function evaluateArtifactLanguage(src: ArtifactLanguageSource): CheckOutc
   return outcome('artifact-language', findings);
 }
 
+/**
+ * Language Policy drift — the Constitution's Language Policy Description no longer
+ * matches the one rendered for the resolved scope, or still carries the old seed
+ * (REQ-LIB-074). WARN-class: a fail tier would red every project whose owner
+ * reworded the seeded Description on adoption day. `in-sync` and the legacy
+ * English seed (nothing to migrate) emit nothing.
+ */
+export function evaluateLanguagePolicyDrift(src: LanguagePolicyDriftSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('language-policy-drift', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  if (src.verdict === 'diverged' || src.verdict === 'stale-seed') {
+    const cause =
+      src.verdict === 'stale-seed'
+        ? 'still carries the pre-path-scoped seed wording'
+        : "no longer matches the Description generated for this project's resolved language scope";
+    findings.push({
+      check: 'language-policy-drift',
+      severity: 'warn',
+      source_path: src.source_path,
+      detail:
+        `Language Policy drift: the Constitution's Language Policy Description ${cause} ` +
+        `(change artifacts: ${src.artifact_language}; trust zone: ${src.trust_zone_language}). ` +
+        'Run `prospec upgrade` and accept the prospec-upgrade rewrite of that principle, or align ' +
+        '`artifact_language` / `trust_zone_language` in .prospec.yaml with what the Constitution states.',
+    });
+  }
+  return outcome('language-policy-drift', findings);
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -987,6 +1020,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'canonical-doc-drift': evaluateCanonicalDocDrift(inputs.canonicalDocDrift),
     'delta-spec-landing-fidelity': evaluateDeltaSpecLandingFidelity(inputs.deltaSpecLandingFidelity),
     'req-id-uniqueness': evaluateReqIdUniqueness(inputs.reqIdUniqueness),
+    'language-policy-drift': evaluateLanguagePolicyDrift(inputs.languagePolicyDrift),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

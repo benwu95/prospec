@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-08-29
-story_count: 20
-req_count: 81
+last_updated: 2026-09-02
+story_count: 21
+req_count: 85
 ---
 
 # Deterministic Drift Check
@@ -26,6 +26,7 @@ req_count: 81
 - [US-14: Provenance audit scope covers the verified→archived window](./drift-detection/us-14.md)
 - [US-15–US-16](./drift-detection/us-15.md)
 - [US-17–US-20](./drift-detection/us-17.md)
+- [US-21: Constitution Language Policy drifts from the resolved language scope](./drift-detection/us-21.md)
 
 ## Edge Cases
 
@@ -59,6 +60,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-02 | support-native-language-trust-zone | ADDED REQ-TYPES-094; ADDED REQ-LIB-074; ADDED REQ-SERVICES-106; ADDED REQ-TESTS-111 | REQ-TYPES-094, REQ-LIB-074, REQ-SERVICES-106, REQ-TESTS-111 |
 | 2026-08-29 | surface-warns-and-empty-constitution | ADDED REQ-LIB-072 | REQ-LIB-072 |
 | 2026-08-29 | mechanize-lifecycle-entry-gates | MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-142; MODIFIED REQ-TEMPLATES-173 | REQ-TEMPLATES-171, REQ-TEMPLATES-142, REQ-TEMPLATES-173 |
 | 2026-08-29 | dedupe-drift-git-subprocesses | ADDED REQ-LIB-069; ADDED REQ-LIB-070 | REQ-LIB-069, REQ-LIB-070 |

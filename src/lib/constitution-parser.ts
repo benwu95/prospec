@@ -25,7 +25,15 @@ const PRINCIPLES_HEADING = /^##\s+Principles\s*$/;
 const SECTION_CLOSING_HEADING = /^#{1,2}\s+/;
 const RULE_HEADING = /^###\s+(.+?)\s*$/;
 const SEVERITY_TAGGED = /^\[([A-Z]+)\]\s*(.*)$/;
-const VERIFY_HINT = /^\*\*Verify\*\*\s*:/;
+/**
+ * The `**Name**:` label that opens a Constitution rule field — the ONE shape both
+ * this inventory parser and the Language Policy Description comparison match, so
+ * a change to the field syntax cannot reach one reader and not the other.
+ */
+export function ruleFieldLabel(name: string): RegExp {
+  return new RegExp(`^\\*\\*${name}\\*\\*\\s*:`);
+}
+const VERIFY_HINT = ruleFieldLabel('Verify');
 
 const SEVERITIES = new Set<string>(CONSTITUTION_SEVERITIES);
 

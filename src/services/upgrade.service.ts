@@ -7,7 +7,7 @@ import {
   isArtifactLanguageUnset,
   resolveBasePaths,
 } from '../lib/config.js';
-import { isSeededLanguagePolicyStale, resolveLanguageScope } from '../lib/language-policy.js';
+import { isLanguagePolicyStale, resolveLanguageScope } from '../lib/language-policy.js';
 import { languagePolicyRule } from '../lib/constitution-rules.js';
 import type { ConstitutionRule } from '../types/constitution.js';
 import { fileExists, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
@@ -307,12 +307,13 @@ export async function createMissingDocs(
 }
 
 /**
- * Whether the existing Constitution still carries the pre-fix seeded Language
- * Policy. I/O lives here; the judgment (including which language combinations are
- * worth migrating) is the pure `isSeededLanguagePolicyStale`, so the wording it
- * keys off stays next to the generator that emits it. An absent Constitution reads
- * as not stale — there is nothing to migrate (the back-fill step writes a fresh,
- * already-correct one).
+ * Whether the existing Constitution's Language Policy no longer states the rule
+ * this project's resolved scope renders — an untouched old seed, a reworded
+ * Description, or a language changed in `.prospec.yaml` after init. I/O lives
+ * here; the judgment is the pure `isLanguagePolicyStale`, the same comparison the
+ * `language-policy-drift` check reads, so upgrade and check cannot disagree. An
+ * absent Constitution reads as not stale — there is nothing to migrate (the
+ * back-fill step writes a fresh, already-correct one).
  */
 export async function detectStaleLanguagePolicy(
   config: ProspecConfig,
@@ -320,12 +321,11 @@ export async function detectStaleLanguagePolicy(
 ): Promise<boolean> {
   const { constitutionPath } = resolveBasePaths(config, cwd);
   try {
-    // The language decides whether the old seed is worth migrating — an English
-    // project whose seed also said English has no contradiction, but one that was
-    // seeded under another language and later switched does.
-    return isSeededLanguagePolicyStale(
+    const scope = resolveLanguageScope(config, cwd);
+    return isLanguagePolicyStale(
       await readFileIfExists(constitutionPath),
-      resolveArtifactLanguage(config),
+      languagePolicyRule(scope).description,
+      scope,
     );
   } catch {
     // Report-phase step, like the docs inventory and the raw-scan refresh: the

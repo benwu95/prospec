@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4672%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4717%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -272,8 +272,9 @@ prospec init --name my-project   # → select AI assistants (interactive checkbo
                                  # → choose the doc language (default: English, or
                                  #   --language "Traditional Chinese (Taiwan)"); a [MUST]
                                  #   path-scoped Language Policy rule is seeded into
-                                 #   CONSTITUTION.md — the trust zone, code, and git commit
-                                 #   messages stay in English
+                                 #   CONSTITUTION.md — the trust zone follows
+                                 #   trust_zone_language (English unless set); code and
+                                 #   git commit messages stay in English
                                  # → creates .prospec.yaml + directory structure
 prospec agent sync               # → per-agent config + Skills (Claude Code → CLAUDE.md +
                                  #   .claude/skills/; Antigravity / Codex / Copilot →
@@ -449,7 +450,7 @@ Prospec enforces 6 principles over the assets it injects into your project — t
 3. **Zero Startup Cost for Brownfield** — no need to document the entire codebase upfront
 4. **AI Agent Agnostic** — works with any AI CLI via Markdown adapters
 5. **User Controls the Rules** — Constitution is user-defined, the tool enforces
-6. **Language Policy** — change artifacts in the language you choose at `prospec init` (default: English); the trust zone (AI Knowledge base, Feature Specs, Constitution), code, technical terms, and git commit messages always in English
+6. **Language Policy** — change artifacts in the language you choose at `prospec init` (default: English); the trust zone (AI Knowledge base, Feature Specs, Constitution) in the language `trust_zone_language` sets (default: English); code, technical terms, and git commit messages always in English
 
 ---
 
@@ -864,7 +865,7 @@ deliberately not included in this version.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.
       - `delta-spec-provenance`: Change's `delta-spec.md` fingerprint must match the recorded review baseline.
       - `delta-spec-landing-fidelity`: A MODIFIED delta-spec `**Spec:**` landing block must not drop an authored trust-zone `WHEN/THEN` bullet without declaring it under `**Dropped:**` (FAIL) — surfaces the loss at every check, sharing the archive write path's comparison, not only at archive after the commit.
-    - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN).
+    - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN), Constitution Language Policy vs. resolved language scope (`language-policy-drift`, WARN).
   - **Execution & Exit Codes**:
     - `--json`: Outputs machine-readable `prospec-report.json`.
     - `--strict`: Exits 1 on any FAIL (WARN and SKIPPED never affect exit codes). `--auto-draft` cannot change this: drafting runs after the report is written and a drafting failure is reported, never thrown.
@@ -979,7 +980,8 @@ Prospec can be configured via a `.prospec.yaml` file in the project root. This i
 
 Key configurations you can tweak:
 
-- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). The trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md` — plus code, identifiers, technical terms, and git commit messages are always kept in English. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from these same paths, so the rule and your agent's entry config (`CLAUDE.md`/`AGENTS.md`) always state one scope.
+- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages always stay English; the trust zone follows `trust_zone_language`. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from the same paths and languages your agent's entry config (`CLAUDE.md`/`AGENTS.md`) renders, and `prospec check` (`language-policy-drift`) warns when the Constitution's Description drifts from them.
+- **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English (the behavior every project had before the key existed). Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -1155,7 +1157,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4672 total; 4 skipped)
+# Run all tests (4717 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1168,9 +1170,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4672 total tests (4668 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3320 tests
-- Contract tests (CLI output + Skill format): 1176 tests
+**Test Coverage**: 4717 total tests (4713 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3359 tests
+- Contract tests (CLI output + Skill format): 1182 tests
 - Integration tests: 45 tests
 - E2E tests: 131 tests
 
