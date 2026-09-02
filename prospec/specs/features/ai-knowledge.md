@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-09-01
+last_updated: 2026-09-02
 story_count: 15
 req_count: 74
 ---
@@ -122,6 +122,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-02 | reclassify-status-lifecycle-demand | MODIFIED REQ-KNOW-035 | REQ-KNOW-035 |
 | 2026-09-01 | standardize-module-readme-format | ADDED REQ-TYPES-093; ADDED REQ-LIB-073; ADDED REQ-SERVICES-105; ADDED REQ-CLI-050; ADDED REQ-TEMPLATES-226; ADDED REQ-TESTS-110; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-015; MODIFIED REQ-TEMPLATES-122 | REQ-TYPES-093, REQ-LIB-073, REQ-SERVICES-105, REQ-CLI-050, REQ-TEMPLATES-226, REQ-TESTS-110, REQ-KNOW-004, REQ-KNOW-015, REQ-TEMPLATES-122 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-KNOW-034; MODIFIED REQ-KNOW-035 | REQ-KNOW-034, REQ-KNOW-035 |
 | 2026-08-27 | align-knowledge-check-attribution | ADDED REQ-LIB-062; ADDED REQ-SERVICES-097; ADDED REQ-CLI-042; MODIFIED REQ-TEMPLATES-162 | REQ-LIB-062, REQ-SERVICES-097, REQ-CLI-042, REQ-TEMPLATES-162 |
