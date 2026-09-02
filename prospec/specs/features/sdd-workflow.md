@@ -89,6 +89,7 @@ req_count: 267
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-166 | REQ-TEMPLATES-166 |
 | 2026-09-02 | align-review-severity-with-cli-enum | MODIFIED REQ-TEMPLATES-067 | REQ-TEMPLATES-067 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-CLI-031 | REQ-CLI-031 |
 | 2026-09-01 | refresh-v2-documentation | MODIFIED REQ-TESTS-070 | REQ-TESTS-070 |

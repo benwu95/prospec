@@ -122,6 +122,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-141 | REQ-TEMPLATES-141 |
 | 2026-09-02 | reclassify-status-lifecycle-demand | MODIFIED REQ-KNOW-035 | REQ-KNOW-035 |
 | 2026-09-01 | standardize-module-readme-format | ADDED REQ-TYPES-093; ADDED REQ-LIB-073; ADDED REQ-SERVICES-105; ADDED REQ-CLI-050; ADDED REQ-TEMPLATES-226; ADDED REQ-TESTS-110; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-015; MODIFIED REQ-TEMPLATES-122 | REQ-TYPES-093, REQ-LIB-073, REQ-SERVICES-105, REQ-CLI-050, REQ-TEMPLATES-226, REQ-TESTS-110, REQ-KNOW-004, REQ-KNOW-015, REQ-TEMPLATES-122 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-KNOW-034; MODIFIED REQ-KNOW-035 | REQ-KNOW-034, REQ-KNOW-035 |

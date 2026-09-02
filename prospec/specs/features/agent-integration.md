@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-01
+last_updated: 2026-09-02
 story_count: 22
 req_count: 103
 ---
@@ -165,6 +165,7 @@ The test suite protects canonical identity, host-specific explicit invocation, a
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-151; MODIFIED REQ-AGNT-020; MODIFIED REQ-SKILL-012; MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-TEMPLATES-152 | REQ-TEMPLATES-151, REQ-AGNT-020, REQ-SKILL-012, REQ-TEMPLATES-121, REQ-TEMPLATES-152 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-SERVICES-089 | REQ-TEMPLATES-121, REQ-SERVICES-089 |
 | 2026-09-01 | require-v2-cli-for-skills | MODIFIED REQ-TEMPLATES-160 | REQ-TEMPLATES-160 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-TEMPLATES-121 | REQ-TEMPLATES-121 |
