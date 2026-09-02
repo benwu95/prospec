@@ -1843,6 +1843,48 @@ describe('Skill Format Contract', () => {
       }
     });
 
+    it('knowledge skill sources make the registry authoritative and use focused validation before a consented migration', () => {
+      const sources = path.resolve(import.meta.dirname, '../../src/templates/skills');
+      const generate = fs.readFileSync(path.join(sources, 'prospec-knowledge-generate.hbs'), 'utf-8');
+      const update = fs.readFileSync(path.join(sources, 'prospec-knowledge-update.hbs'), 'utf-8');
+
+      expect(generate).toContain('Project Section Extensions');
+      expect(generate).toContain('not `.prospec.yaml`');
+      expect(update).toContain('`prospec validate module-readme <module>`');
+      expect(update).toContain('marked extension sections');
+      expect(update).toContain('freeform user notes');
+    });
+
+    it('deployed knowledge skills retain their source template format-migration rules', () => {
+      const repoRoot = path.resolve(import.meta.dirname, '../..');
+      const expectedBySkill: Record<string, string[]> = {
+        'prospec-knowledge-generate': ['Project Section Extensions', 'not `.prospec.yaml`'],
+        'prospec-knowledge-update': [
+          '`prospec validate module-readme <module>`',
+          'marked extension sections and freeform user notes',
+        ],
+        'prospec-upgrade': [
+          '[canonical] [preserves-user-content]',
+          'no-clobber migration diff',
+          'preserve the registry user block byte-for-byte',
+        ],
+      };
+
+      for (const [skill, expected] of Object.entries(expectedBySkill)) {
+        const source = fs.readFileSync(
+          path.join(repoRoot, 'src/templates/skills', `${skill}.hbs`),
+          'utf-8',
+        );
+        for (const directory of ['.agents/skills', '.claude/skills']) {
+          const deployed = fs.readFileSync(path.join(repoRoot, directory, skill, 'SKILL.md'), 'utf-8');
+          for (const text of expected) {
+            expect(source, `${skill} source`).toContain(text);
+            expect(deployed, `${directory}/${skill}`).toContain(text);
+          }
+        }
+      }
+    });
+
     it('convention reference templates should render', () => {
       for (const tmpl of [
         'init/status-lifecycle.md.hbs',
@@ -5043,10 +5085,14 @@ describe('prospec-upgrade: root index enrichment only', () => {
   it('enriches the root index without carrying a legacy migration branch', () => {
     const content = renderTemplate('skills/prospec-upgrade.hbs', TEMPLATE_CONTEXT);
     const step2 = sectionOf(content, '### Step 2');
-    expect(step2).toContain('**Index enrichment**');
-    expect(step2).toContain('/index.md');
-    expect(step2).not.toContain('_index.md');
-    expect(step2).not.toMatch(/legacy.*index|index.*migration/is);
+    const indexEnrichment = step2.slice(
+      step2.indexOf('3. **Index enrichment**'),
+      step2.indexOf('4. **Back-fill safety net**'),
+    );
+    expect(indexEnrichment).toContain('**Index enrichment**');
+    expect(indexEnrichment).toContain('/index.md');
+    expect(indexEnrichment).not.toContain('_index.md');
+    expect(indexEnrichment).not.toMatch(/legacy.*index|index.*migration/is);
   });
 
   it('lets knowledge generation scan every markdown convention without a retired-name exclusion', () => {
@@ -5054,6 +5100,21 @@ describe('prospec-upgrade: root index enrichment only', () => {
     const step5 = sectionOf(content, '### Step 5');
     expect(step5).toContain('Scan the `prospec/ai-knowledge/` directory for `_*.md` files.');
     expect(step5).not.toContain('excluding `_index.md`');
+  });
+});
+
+describe('root README validate-kind parity (REQ-CLI-050)', () => {
+  it('documents module-readme in the English and Traditional Chinese validate command entries', () => {
+    const root = path.resolve(import.meta.dirname, '../..');
+    const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
+    const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+
+    for (const readme of [english, traditionalChinese]) {
+      const line = readme.split('\n').find((candidate) => candidate.startsWith('- **`prospec validate <kind>'));
+      expect(line).toBeDefined();
+      const detail = readme.slice(readme.indexOf(line!), readme.indexOf('\n\n', readme.indexOf(line!)));
+      expect(detail).toContain('module-readme');
+    }
   });
 });
 
@@ -5097,6 +5158,30 @@ describe('prospec-upgrade: inventory-driven doc refresh (issue #48)', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('**NEVER** scan from a file list maintained inside this skill');
     expect(never).toMatch(/create a doc the inventory marks MISSING without/);
+  });
+
+  it('source recognizes preservation-marked canonical docs and protects marker-less legacy content', () => {
+    const source = fs.readFileSync(
+      path.resolve(import.meta.dirname, '../../src/templates/skills/prospec-upgrade.hbs'),
+      'utf-8',
+    );
+    expect(source).toContain('[preserves-user-content]');
+    expect(source).toContain('generated/static format');
+    expect(source).toContain('preserve the registry user block');
+    expect(source).toContain('marker-less legacy');
+    expect(source).toContain('no-clobber migration diff');
+  });
+
+  it('the bundled upgrade skill preserves registry content on a consented refresh while ordinary canonical docs stay replaceable', () => {
+    const step2 = sectionOf(render(), '### Step 2');
+
+    expect(step2).toContain('[canonical] [preserves-user-content]');
+    expect(step2).toContain('generated/static format');
+    expect(step2).toContain('preserve the registry user block byte-for-byte');
+    expect(step2).toContain('marker-less legacy');
+    expect(step2).toContain('no-clobber migration diff');
+    expect(step2).toContain('`[canonical]` but lacks `[preserves-user-content]`');
+    expect(step2).toContain('Compare the **full content**');
   });
 });
 

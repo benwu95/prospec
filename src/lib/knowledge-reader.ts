@@ -9,6 +9,7 @@ import { INDEX_TABLE_COLUMNS, INDEX_COLUMN } from '../types/knowledge.js';
 import { estimateTokens } from './token-accounting.js';
 import { parseSpecSlices, type SpecContent } from './spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from './markdown-fences.js';
+import { AUTO_START, AUTO_END } from './content-markers.js';
 
 /**
  * Knowledge content read layer (REQ-MCP-006) — whole-document reads for the
@@ -411,8 +412,8 @@ function emptySearchResult(): SearchModulesResult {
 }
 
 function sliceAutoBlock(content: string): string {
-  const start = content.indexOf('<!-- prospec:auto-start -->');
-  const end = content.indexOf('<!-- prospec:auto-end -->');
+  const start = content.indexOf(AUTO_START);
+  const end = content.indexOf(AUTO_END);
   if (start === -1 || end === -1 || end < start) return content;
   return content.slice(start, end);
 }

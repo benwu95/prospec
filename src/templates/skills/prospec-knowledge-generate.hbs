@@ -106,6 +106,8 @@ For each module, generate **exactly one file**: `{{knowledge_base_path}}/modules
 
 **Key principles:**
 - **Canonical template**: generate against `{{knowledge_base_path}}/_module-readme-conventions.md` — it is the sole authority for README structure; do not restate the skeleton here.
+- **Project Section Extensions**: the convention's preserved registry is the only authority for registered extension IDs, headings, applicability, requiredness, visibility, and content format — not `.prospec.yaml` and not an inlined skill template. Emit a registered extension only with its section markers inside the README user block; preserve both marked extensions and freeform user notes when revising an existing README.
+- **Format release**: follow the convention's dated format marker immediately after the summary and its fixed Core grammar; optional registered extensions do not change that format date.
 - **No api-surface.md, dependencies.md, or patterns.md** — all information consolidated into README.md (or its sub-module files, see Step 4.5)
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists
 - **Ripple Effects** — prevent agents from making isolated changes that break other modules
@@ -169,7 +171,7 @@ Naming conventions, project-specific patterns, directory conventions, import ord
 - README contains all Recipe-First sections (Key Files, Public API, Dependencies, Modification Guide, Ripple Effects, Pitfalls)
 - {{base_dir}}/index.md has Aliases + Rationale columns
 - **Each L1 file ({{base_dir}}/index.md, each core convention) ≤ {{l1_per_file}} tokens per file** (estimate ~4 chars/token)
-- All `prospec:user-start/end` content preserved
+- All `prospec:user-start/end` content preserved, including marked extension sections and freeform user notes
 - Strategy matches project structure (auto resolved correctly)
 
 ### Step 8: Constitution Emptiness Check
@@ -199,7 +201,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 ## NEVER
 
-- **NEVER** overwrite content between `prospec:user-start/end` markers — these are user notes, always preserve
+- **NEVER** overwrite content between `prospec:user-start/end` markers — preserve marked extension sections and freeform user notes
 - **NEVER** start without raw-scan.md — Startup Loading runs `prospec knowledge init --raw-scan-only` to (re)generate it; a first-ever run needs the full `prospec knowledge init` (bootstrap) first
 - **NEVER** create circular module dependencies — module dependency graph must be a DAG
 - **NEVER** put all files in a single module — even small projects need 2-3 responsibility modules minimum
@@ -217,7 +219,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 |----------|--------|
 | raw-scan.md stale or missing | Refresh via `prospec knowledge init --raw-scan-only`; `module-map.yaml` absent → full `prospec knowledge init` |
 | raw-scan.md incomplete | List missing sections, suggest re-running `prospec knowledge init --raw-scan-only` (or full init) or manual completion |
-| Module README already exists | Only overwrite auto sections, preserve user sections |
+| Module README already exists | Do not mechanically re-render it; preserve marked extension sections and freeform user notes, and migrate format only with consent |
 | Strategy produces <2 modules | Fall back to `architecture` strategy |
 | Module README exceeds {{readme_max_lines}} lines | If a content-rich, independent sub-area exists → extract a sub-module (Step 4.5) and link it; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact |
 | Ambiguous project type | Ask user to clarify, or treat as hybrid |

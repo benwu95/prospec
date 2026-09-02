@@ -499,6 +499,9 @@ describe('upgrade.service docs inventory (issue #48)', () => {
     expect(report.docs.map((d) => d.template)).toEqual(
       INIT_DOC_REGISTRY.map((d) => d.template),
     );
+    expect(report.docs.map((d) => d.preserveUserContent)).toEqual(
+      INIT_DOC_REGISTRY.map((d) => !!d.preserveUserContent),
+    );
   });
 
   it('back-fills a doc init would create but the project lacks (_glossary.md) and reports it present', async () => {

@@ -53,10 +53,12 @@ the running prospec version in `.prospec.yaml` `version` (comment-preserving in-
   language (Step 3).
 - `skills missing triggers: …` — newly-added skills with no localized triggers (Step 4)
 - `Docs inventory:` — one line per init-created doc, `✓ <path> (template: <hbs>)` when present or
-  `✗ <path> — MISSING (template: <hbs>)` when absent, reported AFTER `prospec upgrade` back-filled the
-  missing ones (so most read present), then a `created N missing doc(s): …` line naming what it just
-  wrote. This section is Step 2's authoritative scan scope. A line still marked MISSING means its
-  back-fill failed — Step 2's safety net.
+  `✗ <path> — MISSING (template: <hbs>)` when absent. `[canonical]` identifies a whole-file canonical
+  document; `[preserves-user-content]` additionally identifies a canonical generated/static format with
+  a preserved authored user block. The lines are reported AFTER `prospec upgrade` back-filled the missing
+  ones (so most read present), then a `created N missing doc(s): …` line names what it just wrote. This
+  section is Step 2's authoritative scan scope. A line still marked MISSING means its back-fill failed —
+  Step 2's safety net.
 - `stale Language Policy wording: …` — the seeded Language Policy rule in `prospec/CONSTITUTION.md` still
   carries the pre-path-scoped wording, which contradicts the entry config (Step 2.5). It is immediately
   followed by a `Current Language Policy rule:` block holding the replacement wording — **carry that
@@ -92,7 +94,16 @@ baseline, requires consent. Do that here:
    Creating a file risks no authored content, but still **ask before each creation** and show what
    will be written; leave declined files uncreated.
 5. **For each doc the inventory marks present**, compare it to its listed template:
-   - **If the line has a `[canonical]` marker** (e.g. `README.md` or core conventions), the doc has no authored wording. Compare the **full content** (CRLF normalized). If it has drifted, **show a diff and ask the user whether to overwrite it** with the template content.
+   - **If the line has both `[canonical] [preserves-user-content]` markers**, compare only its
+     **generated/static format** (CRLF normalized). On consent, refresh only that generated/static
+     format and preserve the registry user block byte-for-byte. If the existing document is a
+     **marker-less legacy** document (it lacks a usable auto/user boundary), never whole-file replace
+     it: show a **no-clobber migration diff** that makes the preserved boundary explicit, and proceed
+     only after consent. If that diff cannot preserve the registry user block, leave the document
+     unchanged and report the migration as blocked.
+   - **If the line has `[canonical]` but lacks `[preserves-user-content]`**, it has no authored wording.
+     Compare the **full content** (CRLF normalized). If it has drifted, **show a diff and ask the user
+     whether to overwrite it** with the template content.
    - **If the line lacks the marker** (user-managed), compare the **format/structure** (severity tags, section markers) only, never the user's authored wording. If the format has drifted, **show a diff and ask the user whether to update it** — migrate the FORMAT only, preserving authored content.
    Apply only the files the user approves; leave the rest unchanged.
 
@@ -179,6 +190,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** create a doc the inventory marks MISSING without showing what will be written AND asking first
 - **NEVER** scan from a file list maintained inside this skill — the report's `Docs inventory:` (derived from init's own registry) is the only scan scope; a parallel list here drifts and re-opens the coverage gap
 - **NEVER** rewrite a doc's authored content/intent — migrate only its format/structure to the latest template; the single exception is Step 2.5's seeded Language Policy body, and only after a diff and consent
+- **NEVER** whole-file replace a `[preserves-user-content]` document or a marker-less legacy document — use a consented no-clobber migration diff and preserve the registry user block
 - **NEVER** run Step 2.5 unprompted — it fires only on the report's `stale Language Policy wording` line, so a rule the owner already reworded is never touched
 - **NEVER** set or change `artifact_language` for a project that already has one — Step 3 runs only when the report flags it unset
 - **NEVER** set `artifact_language` without first asking the user which language they want

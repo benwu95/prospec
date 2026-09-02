@@ -233,6 +233,42 @@ describe('updateModuleReadme', () => {
     ).toBe(existingContent);
   });
 
+  it('passes only applicable registry extensions with generic content-format placeholders for a new README', async () => {
+    const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
+    vol.fromJSON({
+      '/project/prospec/ai-knowledge/_module-readme-conventions.md': `<!-- prospec:auto-start -->
+<!-- prospec:auto-end -->
+<!-- prospec:user-start -->
+## Project Section Extensions
+
+| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- |
+| ownership | Ownership | auth | required | included | field-table |
+| release-notes | Release Notes | services | optional | included | markdown |
+<!-- prospec:user-end -->
+`,
+    });
+    vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
+
+    await updateModuleReadme('auth', ['src/auth/**'], {
+      cwd: '/project',
+      knowledgeBasePath: 'prospec/ai-knowledge',
+    });
+
+    const readmeCall = vi
+      .mocked(mockRender)
+      .mock.calls.filter((call) => call[0] === 'knowledge/module-readme.hbs')
+      .at(-1);
+    const context = readmeCall![1] as Record<string, unknown>;
+    expect(context.section_extensions).toEqual([
+      {
+        id: 'ownership',
+        heading: 'Ownership',
+        placeholder: '| Field | Value |\n| --- | --- |\n| _Add field_ | _Add value_ |',
+      },
+    ]);
+  });
+
   it('should call renderTemplate with key_exports in context', async () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
 

@@ -195,8 +195,8 @@ describe('formatUpgradeOutput', () => {
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
-          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: false, canonical: false },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false, preserveUserContent: false },
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: false, canonical: false, preserveUserContent: false },
         ],
       }),
       'normal',
@@ -216,8 +216,8 @@ describe('formatUpgradeOutput', () => {
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/README.md', template: 'init/readme.md.hbs', present: true, canonical: true },
-          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
+          { path: 'prospec/README.md', template: 'init/readme.md.hbs', present: true, canonical: true, preserveUserContent: false },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false, preserveUserContent: false },
         ],
       }),
       'normal',
@@ -227,12 +227,34 @@ describe('formatUpgradeOutput', () => {
     expect(text).not.toContain('[canonical] prospec/CONSTITUTION.md');
   });
 
+  it('tags registry-derived user-preserving canonical docs without special-casing their path', () => {
+    const { stdout } = captureStreams();
+    formatUpgradeOutput(
+      baseResult({
+        docs: [
+          {
+            path: 'prospec/ai-knowledge/_module-readme-conventions.md',
+            template: 'init/module-readme-conventions.md.hbs',
+            present: true,
+            canonical: true,
+            preserveUserContent: true,
+          },
+        ],
+      }),
+      'normal',
+    );
+
+    expect(stdout()).toContain(
+      '[canonical] [preserves-user-content] prospec/ai-knowledge/_module-readme-conventions.md',
+    );
+  });
+
   it('lists docs it back-filled this run under a created line', () => {
     const { stdout } = captureStreams();
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: true, canonical: false },
+          { path: 'prospec/ai-knowledge/_glossary.md', template: 'init/glossary.md.hbs', present: true, canonical: false, preserveUserContent: false },
         ],
         createdDocs: ['prospec/ai-knowledge/_glossary.md'],
       }),
@@ -249,7 +271,7 @@ describe('formatUpgradeOutput', () => {
     formatUpgradeOutput(
       baseResult({
         docs: [
-          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false },
+          { path: 'prospec/CONSTITUTION.md', template: 'init/constitution.md.hbs', present: true, canonical: false, preserveUserContent: false },
         ],
       }),
       'normal',
@@ -270,6 +292,7 @@ describe('formatUpgradeOutput', () => {
             template: 'init/constitution.md.hbs',
             present: false,
             canonical: false,
+            preserveUserContent: false,
           },
         ],
       }),

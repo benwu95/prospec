@@ -189,6 +189,46 @@ describe('resources (REQ-MCP-002/003)', () => {
     expect(text.endsWith('# Drift Engine\ncollectors')).toBe(true);
   });
 
+  it('returns the dated README and registered extension verbatim with linked sub-modules', async () => {
+    const ctx = writeFixtureProject();
+    const readme = [
+      '# alpha',
+      '> Example module',
+      '<!-- prospec:module-readme-format 2026-09-01 -->',
+      '<!-- prospec:auto-start -->',
+      '## Key Files',
+      '## Public API',
+      '## Dependencies',
+      '## Modification Guide',
+      '## Pitfalls',
+      '## Sub-Modules',
+      '- [Details](./details.md)',
+      '<!-- prospec:auto-end -->',
+      '<!-- prospec:user-start -->',
+      '<!-- prospec:section-start ownership -->',
+      '## Ownership',
+      '| Field | Value |',
+      '| --- | --- |',
+      '| team | Knowledge |',
+      '<!-- prospec:section-end ownership -->',
+      '<!-- prospec:user-end -->',
+      '',
+    ].join('\n');
+    const details = '# Details\nverbatim body';
+    write('prospec/ai-knowledge/modules/alpha/README.md', readme);
+    write('prospec/ai-knowledge/modules/alpha/details.md', details);
+
+    const client = await connect(ctx);
+    const result = await client.readResource({ uri: 'knowledge://module/alpha' });
+    const text = await readText(client, 'knowledge://module/alpha');
+
+    expect(text).toBe(`${readme}\n\n${details}`);
+    expect(text).toContain('<!-- prospec:module-readme-format 2026-09-01 -->');
+    expect(text).toContain('<!-- prospec:section-start ownership -->');
+    expect(result.contents).toHaveLength(1);
+    expect('structuredContent' in result).toBe(false);
+  });
+
   it('re-reads files on every request — no cache (REQ-MCP-002 AC3)', async () => {
     const ctx = writeFixtureProject();
     const client = await connect(ctx);

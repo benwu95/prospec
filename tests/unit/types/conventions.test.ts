@@ -79,6 +79,32 @@ describe('INIT_DOC_REGISTRY', () => {
     }
   });
 
+  it('preserves user content only for the canonical Module README convention', () => {
+    const preservingDocs = INIT_DOC_REGISTRY.filter((doc) => doc.preserveUserContent);
+
+    expect(preservingDocs).toHaveLength(1);
+    expect(preservingDocs[0]).toMatchObject({
+      output: '_module-readme-conventions.md',
+      canonical: true,
+      preserveUserContent: true,
+    });
+  });
+
+  it('keeps the preservation flag aligned with the complete eight-document registry', () => {
+    expect(
+      INIT_DOC_REGISTRY.map((doc) => [doc.root, doc.output, !!doc.preserveUserContent]),
+    ).toEqual([
+      ['base', 'README.md', false],
+      ['base', 'CONSTITUTION.md', false],
+      ['knowledge', '_conventions.md', false],
+      ['knowledge', '_diagram-conventions.md', false],
+      ['knowledge', '_glossary.md', false],
+      ['base', 'index.md', false],
+      ['knowledge', '_status-lifecycle.md', false],
+      ['knowledge', '_module-readme-conventions.md', true],
+    ]);
+  });
+
   it('derives the user-managed convention docs instead of duplicating them', () => {
     // a doc added to USER_MANAGED_CONVENTION_DOCS but not the registry (or
     // vice versa) was exactly the drift class behind issue #48 — bind the lists

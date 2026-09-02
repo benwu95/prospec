@@ -12,7 +12,8 @@ import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
-import { isSafeResourceName, loadFeatureMap, loadModuleMap, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import { isSafeResourceName, loadFeatureMap, loadModuleMap, readContainedText, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import { applicableModuleReadmeExtensions, parseModuleReadmeExtensions } from '../lib/module-readme-format.js';
 import { changedPathsFromWorkTree, partitionDiffAttributedModules } from '../lib/drift-sources.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
@@ -77,7 +78,7 @@ export interface KnowledgeUpdateResult {
 export async function updateModuleReadme(
   moduleName: string,
   modulePaths: string[],
-  options: { cwd: string; knowledgeBasePath: string; excludePatterns?: string[] },
+  options: { cwd: string; knowledgeBasePath: string; excludePatterns?: string[]; warnings?: string[] },
 ): Promise<GeneratedFile | null> {
   const readmePath = path.join(
     options.cwd,
@@ -88,6 +89,29 @@ export async function updateModuleReadme(
   );
 
   if (fs.existsSync(readmePath)) return null;
+
+  const knowledgePath = path.resolve(options.cwd, options.knowledgeBasePath);
+  const convention = readContainedText(
+    path.join(knowledgePath, '_module-readme-conventions.md'),
+    knowledgePath,
+  );
+  const parsedRegistry = convention === null ? null : parseModuleReadmeExtensions(convention);
+  if (parsedRegistry && !parsedRegistry.ok) {
+    // Fail safe (skeleton without extensions) but not silently: a broken registry
+    // would otherwise drop even required extensions with no trace here.
+    options.warnings?.push(
+      `module '${moduleName}': Project Section Extensions registry has errors — skeleton omits extensions until \`prospec validate module-readme\` reports them fixed`,
+    );
+  }
+  const sectionExtensions = parsedRegistry?.ok
+    ? applicableModuleReadmeExtensions(parsedRegistry.declarations, moduleName).map((extension) => ({
+      id: extension.id,
+      heading: extension.heading,
+      placeholder: extension.contentFormat === 'field-table'
+        ? '| Field | Value |\n| --- | --- |\n| _Add field_ | _Add value_ |'
+        : '_Add content_',
+    }))
+    : [];
 
   await ensureDir(path.dirname(readmePath));
 
@@ -115,6 +139,7 @@ export async function updateModuleReadme(
     relationships: { depends_on: [], used_by: [] },
     key_files: keyFiles.slice(0, 10),
     key_exports: deriveKeyExports(keyFiles),
+    section_extensions: sectionExtensions,
   };
 
   const newContent = renderTemplate('knowledge/module-readme.hbs', templateContext);
@@ -359,7 +384,7 @@ export async function execute(
     sweptFiles: [],
   };
 
-  const baseOpts = { cwd, knowledgeBasePath, excludePatterns };
+  const baseOpts = { cwd, knowledgeBasePath, excludePatterns, warnings: result.warnings };
 
   if (options.deltaSpecPath) {
     // --- Delta Spec Mode ---

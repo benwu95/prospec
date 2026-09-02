@@ -131,6 +131,70 @@ describe('Knowledge Format Contract', () => {
       expect(content).toContain('prospec:user-end');
     });
 
+    it('source template places the dated marker after its summary and emits registered extensions only in the user block', () => {
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../src/templates/knowledge/module-readme.hbs'),
+        'utf-8',
+      );
+      const marker = '<!-- prospec:module-readme-format 2026-09-01 -->';
+      const userStart = '<!-- prospec:user-start -->';
+
+      expect(source).toContain(`> {{description}}\n${marker}`);
+      expect(source).toContain('{{#each section_extensions}}');
+      expect(source.indexOf('<!-- prospec:section-start {{id}} -->')).toBeGreaterThan(
+        source.indexOf(userStart),
+      );
+      expect(source).toContain('{{{placeholder}}}');
+    });
+
+    it('repository module READMEs use the current format marker without seeded extension examples', () => {
+      const modules = ['types', 'lib', 'services', 'cli', 'templates', 'tests'];
+      for (const module of modules) {
+        const readme = fs.readFileSync(
+          path.resolve(__dirname, `../../prospec/ai-knowledge/modules/${module}/README.md`),
+          'utf-8',
+        );
+        expect(readme, module).toMatch(
+          /> [^\n]+\n<!-- prospec:module-readme-format 2026-09-01 -->/,
+        );
+        expect(readme, module).not.toContain('prospec:section-start');
+      }
+    });
+
+    it('section-scoped format assertions reject Core, extension-ID, and field-table mutations', () => {
+      const convention = fs.readFileSync(
+        path.resolve(__dirname, '../../src/templates/init/module-readme-conventions.md.hbs'),
+        'utf-8',
+      );
+      const moduleReadme = fs.readFileSync(
+        path.resolve(__dirname, '../../src/templates/knowledge/module-readme.hbs'),
+        'utf-8',
+      );
+      const core = convention.slice(
+        convention.indexOf('## Section template (inside the auto block)'),
+        convention.indexOf('## Sub-Modules'),
+      );
+      const registry = convention.slice(
+        convention.lastIndexOf('<!-- prospec:user-start -->'),
+        convention.lastIndexOf('<!-- prospec:user-end -->'),
+      );
+      const userBlock = moduleReadme.slice(
+        moduleReadme.indexOf('<!-- prospec:user-start -->'),
+        moduleReadme.indexOf('<!-- prospec:user-end -->'),
+      );
+
+      for (const heading of ['## Key Files', '## Public API', '## Dependencies', '## Modification Guide', '## Pitfalls']) {
+        expect(core).toContain(heading);
+      }
+      expect(registry).toContain('<!-- prospec:section-start {id} -->');
+      expect(registry).toContain('| Field | Value |');
+      expect(userBlock).toContain('<!-- prospec:section-start {{id}} -->');
+
+      expect(core.replace('## Pitfalls', '## Problems')).not.toContain('## Pitfalls');
+      expect(registry.replace('{id}', '{extension-id}')).not.toContain('<!-- prospec:section-start {id} -->');
+      expect(registry.replace('| Field | Value |', '| Name | Value |')).not.toContain('| Field | Value |');
+    });
+
     it('should NOT contain api-surface, dependencies.md, or patterns.md references', () => {
       const content = renderTemplate('knowledge/module-readme.hbs', templateContext);
       expect(content).not.toContain('api-surface.md');
@@ -319,6 +383,49 @@ describe('Knowledge Format Contract', () => {
       );
       expect(raw).toContain('**Depends on:**');
       expect(raw).toContain('**Used by:**');
+    });
+
+    it('defines the dated grammar in the canonical core and seeds extensions in the preserved block', () => {
+      const template = fs.readFileSync(
+        path.join(TEMPLATES, 'init', 'module-readme-conventions.md.hbs'),
+        'utf-8',
+      );
+      const canonical = fs.readFileSync(
+        path.resolve(__dirname, '../../prospec/ai-knowledge/_module-readme-conventions.md'),
+        'utf-8',
+      );
+      const autoStart = '<!-- prospec:auto-start -->';
+      const autoEnd = '<!-- prospec:auto-end -->';
+      const userStart = '<!-- prospec:user-start -->';
+      const userEnd = '<!-- prospec:user-end -->';
+      const core = (content: string) =>
+        content.slice(content.indexOf(autoStart) + autoStart.length, content.lastIndexOf(autoEnd));
+      const userBlock = (content: string) =>
+        content.slice(content.lastIndexOf(userStart) + userStart.length, content.lastIndexOf(userEnd));
+      const templateCore = core(template);
+      const canonicalCore = core(canonical);
+      const templateRegistry = userBlock(template);
+      const skeletonStart = templateCore.indexOf('## Skeleton');
+      const skeleton = templateCore.slice(
+        skeletonStart,
+        templateCore.indexOf('## Sub-Modules', skeletonStart),
+      );
+
+      expect(template.indexOf(autoStart)).toBeGreaterThan(-1);
+      expect(template.indexOf(autoEnd)).toBeGreaterThan(template.indexOf(autoStart));
+      expect(template.indexOf(userStart)).toBeGreaterThan(template.indexOf(autoEnd));
+      expect(template.indexOf(userEnd)).toBeGreaterThan(template.indexOf(userStart));
+      expect(canonicalCore).toBe(templateCore);
+      expect(skeleton).toContain('<!-- prospec:module-readme-format 2026-09-01 -->');
+      expect(skeleton.indexOf('> {one-line summary}')).toBeLessThan(
+        skeleton.indexOf('<!-- prospec:module-readme-format 2026-09-01 -->'),
+      );
+      expect(skeleton.indexOf('<!-- prospec:module-readme-format 2026-09-01 -->')).toBeLessThan(
+        skeleton.indexOf('<!-- prospec:auto-start -->'),
+      );
+      expect(templateRegistry).toContain('| ID | Heading | Applies To | Required | MCP Visibility | Content Format |');
+      expect(templateRegistry).toContain('<!-- prospec:section-start {id} -->');
+      expect(templateRegistry).toContain('<!-- prospec:section-end {id} -->');
     });
   });
 

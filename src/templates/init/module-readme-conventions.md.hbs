@@ -4,6 +4,8 @@
 > Sibling of [`_diagram-conventions.md`](_diagram-conventions.md): that file governs diagrams *inside* knowledge docs, this one governs module README *structure*.
 > **Read this before authoring or regenerating a module README** — it is the canonical template that `prospec-knowledge-generate` and `prospec-knowledge-update` produce against. If this file and a skill's inlined template ever diverge, this file wins.
 
+<!-- prospec:auto-start -->
+
 ---
 
 ## Generated vs user-authored split (marker contract)
@@ -14,6 +16,7 @@ Every module README is split by HTML-comment markers into a generated block and 
 # {ProperName}
 > one-line module summary
 
+<!-- prospec:module-readme-format 2026-09-01 -->
 <!-- prospec:auto-start -->
 ... generated sections (see template below) ...
 <!-- prospec:auto-end -->
@@ -23,13 +26,14 @@ Every module README is split by HTML-comment markers into a generated block and 
 ```
 
 - **`prospec:auto-start` … `prospec:auto-end`** delimits the block `prospec-knowledge-generate` and `prospec-knowledge-update` own and may rewrite. Do NOT hand-edit it expecting edits to survive regeneration — durable hand-written notes go in the user block.
-- **`prospec:user-start` … `prospec:user-end`** is never overwritten by the skills. Use it for a `## Developer Notes` section or anything the generator cannot derive from the code. It may be empty.
-- The title and the one-line `>` summary sit **above** `prospec:auto-start`.
+- **`prospec:user-start` … `prospec:user-end`** is never overwritten by the skills. Registered Project Section Extensions and freeform `## Developer Notes` both belong here.
+- The title and one-line `>` summary sit above `<!-- prospec:module-readme-format 2026-09-01 -->`; the marker sits immediately before `prospec:auto-start`.
 
 ## Title and summary
 
 - Title is the module's proper name: `# Knowledge Engine`, `# Agent Sync` — **not** `# Module: services` and not the raw directory slug.
 - Exactly one `>` blockquote line directly under the title: a single sentence on what the module does.
+- `2026-09-01` is the compatible grammar release, not the document modification date. Clarifications and registered optional extensions keep it; incompatible title/summary placement, marker semantics, or Core grammar changes require a new date.
 
 ## Section template (inside the auto block)
 
@@ -51,6 +55,7 @@ The order is fixed. Keep each section concise; the whole README stays within its
 # {ProperName}
 > {one-line summary}
 
+<!-- prospec:module-readme-format 2026-09-01 -->
 <!-- prospec:auto-start -->
 ## Key Files
 | File | Purpose |
@@ -114,3 +119,39 @@ of trimming it away.
 - **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into the README (or its sub-module files); these are the only knowledge docs per module.
 - **README is a map, not a copy** — point to source files; never duplicate source code or full signatures.
 - **Prefer extraction over lossy trimming** — when a README outgrows its budget and has an independent sub-area, extract a sub-module rather than deleting useful detail.
+
+<!-- prospec:auto-end -->
+
+<!-- prospec:user-start -->
+## Project Section Extensions
+
+Register project-specific sections here. This Markdown registry is the sole extension authority; do not copy it to `.prospec.yaml`.
+
+| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- |
+
+### Registry Specification
+
+- **ID**: Unique safe resource name — `[A-Za-z0-9][A-Za-z0-9._-]*` (`kebab-case` recommended, e.g. `team-ownership`, `security-rules`).
+- **Heading**: H2 heading text without leading hashes (e.g. `Team Ownership`, `Security Rules`).
+- **Applies To**: `all` or a comma-separated list of safe module names (e.g. `auth,services`).
+- **Required**: `required` (enforced by `prospec validate module-readme`) or `optional`.
+- **MCP Visibility**: `included` (raw module knowledge includes these extensions).
+- **Content Format**: `markdown` (freeform Markdown text) or `field-table` (strict 2-column table).
+
+### Extension Instance Syntax
+
+For each registered extension, place its instance inside the module README user block (`prospec:user-start` ... `prospec:user-end`):
+
+```markdown
+<!-- prospec:section-start {id} -->
+## {Heading}
+{body matching Content Format}
+<!-- prospec:section-end {id} -->
+```
+
+- **`field-table` rules**: Must use exactly `| Field | Value |`, a valid two-column separator, and at least one two-column body row (the initial skeleton's `_Add field_` / `_Add value_` placeholder row is valid).
+- **`markdown` rules**: Any valid Markdown text.
+- **Freeform User Notes**: Unmarked level-2 headings (e.g. `## Developer Notes`) remain freeform notes, not extensions. They are not validated against the registry and are always preserved.
+- **Validation**: Run `prospec validate module-readme <module>` to verify that registered required extensions and table formats conform to this registry.
+<!-- prospec:user-end -->

@@ -1,6 +1,7 @@
 # {{module_name}}
 
 > {{description}}
+<!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
 
@@ -42,4 +43,12 @@ _(Auto-generated initial pitfalls — customize in user section below)_
 
 <!-- prospec:user-start -->
 <!-- Add module-specific notes, detailed modification guides, and pitfalls here. This section is preserved on regeneration. -->
+{{#each section_extensions}}
+<!-- prospec:section-start {{id}} -->
+## {{heading}}
+
+{{{placeholder}}}
+<!-- prospec:section-end {{id}} -->
+
+{{/each}}
 <!-- prospec:user-end -->
