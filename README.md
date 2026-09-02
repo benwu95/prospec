@@ -1031,11 +1031,12 @@ By default, every module README follows the canonical Recipe-First structure (`#
 
 To add project-specific custom sections (e.g. `## Team Ownership`, `## Security Rules`), register them in [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) inside its `prospec:user` block under `## Project Section Extensions`. This Markdown table is the **single authority** for custom sections (do not define them in `.prospec.yaml`):
 
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| team-ownership | Team Ownership | all | optional | included | field-table |
-| security-rules | Security Rules | auth,services | required | included | markdown |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| team-ownership | Team Ownership | Who owns this module and how to reach them | all | optional | included | field-table |
+| security-rules | Security Rules | Security controls enforced in this module | auth,services | required | included | markdown |
 
+- **`Content`**: One-line description of the section's purpose — what it is for and what belongs in it, so an agent knows how to fill it.
 - **`Applies To`**: `all` or a comma-separated list of module names.
 - **`Required`**: `required` (enforced during validation) or `optional`.
 - **`Content Format`**:

@@ -127,13 +127,14 @@ of trimming it away.
 
 Register project-specific sections here. This Markdown registry is the sole extension authority; do not copy it to `.prospec.yaml`.
 
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
 
 ### Registry Specification
 
 - **ID**: Unique safe resource name — `[A-Za-z0-9][A-Za-z0-9._-]*` (`kebab-case` recommended, e.g. `team-ownership`, `security-rules`).
 - **Heading**: H2 heading text without leading hashes (e.g. `Team Ownership`, `Security Rules`).
+- **Content**: One-line description of the section's purpose — what it is for and what belongs in it, so an agent reading the registry knows how to fill the instance (mirrors the base section template's `Content` column).
 - **Applies To**: `all` or a comma-separated list of safe module names (e.g. `auth,services`).
 - **Required**: `required` (enforced by `prospec validate module-readme`) or `optional`.
 - **MCP Visibility**: `included` (raw module knowledge includes these extensions).

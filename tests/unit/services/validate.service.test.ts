@@ -202,8 +202,8 @@ Core
 <!-- prospec:auto-end -->
 <!-- prospec:user-start -->
 ## Project Section Extensions
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
 <!-- prospec:user-end -->`;
   const readme = `# Services
 > Command orchestration

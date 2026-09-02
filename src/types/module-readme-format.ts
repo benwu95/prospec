@@ -13,6 +13,7 @@ export type ModuleReadmeMcpVisibility = (typeof MODULE_README_MCP_VISIBILITIES)[
 export interface ModuleReadmeExtensionDeclaration {
   id: string;
   heading: string;
+  content: string;
   appliesTo: 'all' | readonly string[];
   required: boolean;
   mcpVisibility: ModuleReadmeMcpVisibility;

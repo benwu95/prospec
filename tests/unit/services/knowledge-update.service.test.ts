@@ -241,10 +241,10 @@ describe('updateModuleReadme', () => {
 <!-- prospec:user-start -->
 ## Project Section Extensions
 
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| ownership | Ownership | auth | required | included | field-table |
-| release-notes | Release Notes | services | optional | included | markdown |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| ownership | Ownership | Who owns this module | auth | required | included | field-table |
+| release-notes | Release Notes | Release note entries | services | optional | included | markdown |
 <!-- prospec:user-end -->
 `,
     });

@@ -423,7 +423,7 @@ describe('Knowledge Format Contract', () => {
       expect(skeleton.indexOf('<!-- prospec:module-readme-format 2026-09-01 -->')).toBeLessThan(
         skeleton.indexOf('<!-- prospec:auto-start -->'),
       );
-      expect(templateRegistry).toContain('| ID | Heading | Applies To | Required | MCP Visibility | Content Format |');
+      expect(templateRegistry).toContain('| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |');
       expect(templateRegistry).toContain('<!-- prospec:section-start {id} -->');
       expect(templateRegistry).toContain('<!-- prospec:section-end {id} -->');
     });

@@ -1011,11 +1011,12 @@ skill_triggers:
 
 若需要為專案擴充自訂 Section（如 `## Team Ownership`、`## Security Rules`），請直接在 [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 的 `prospec:user` 區塊中的 `## Project Section Extensions` 註冊。此 Markdown 表格是擴充結構的**單一真相來源**（不需定義在 `.prospec.yaml`）：
 
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| team-ownership | Team Ownership | all | optional | included | field-table |
-| security-rules | Security Rules | auth,services | required | included | markdown |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| team-ownership | Team Ownership | 誰負責此模組、如何聯繫 | all | optional | included | field-table |
+| security-rules | Security Rules | 此模組強制的安全控管 | auth,services | required | included | markdown |
 
+- **`Content`**：一行描述此 Section 的用途——它是做什麼的、該放什麼內容，讓 agent 知道如何填寫。
 - **`Applies To`**：`all` 或以逗號分隔的模組名稱（如 `auth,services`）。
 - **`Required`**：`required`（驗證時強制檢查）或 `optional`。
 - **`Content Format`**：

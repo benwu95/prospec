@@ -15,6 +15,7 @@ describe('Module README format contracts', () => {
     const declaration: ModuleReadmeExtensionDeclaration = {
       id: 'ownership',
       heading: 'Ownership',
+      content: 'Who owns this module',
       appliesTo: ['services'],
       required: false,
       mcpVisibility: 'included',

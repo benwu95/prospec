@@ -10,16 +10,16 @@ Core rules
 <!-- prospec:auto-end -->
 <!-- prospec:user-start -->
 ~~~markdown
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| ignored | Ignored | all | optional | included | markdown |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| ignored | Ignored | Ignored purpose | all | optional | included | markdown |
 ~~~
 
 ## Project Section Extensions
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| ownership | Ownership | services | required | included | field-table |
-| runbook | Runbook | all | optional | included | markdown |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| ownership | Ownership | Who owns this module | services | required | included | field-table |
+| runbook | Runbook | On-call runbook steps | all | optional | included | markdown |
 <!-- prospec:user-end -->`;
 
 const readme = `# Services
@@ -50,6 +50,7 @@ describe('Module README format', () => {
       {
         id: 'ownership',
         heading: 'Ownership',
+        content: 'Who owns this module',
         appliesTo: ['services'],
         required: true,
         mcpVisibility: 'included',
@@ -58,6 +59,7 @@ describe('Module README format', () => {
       {
         id: 'runbook',
         heading: 'Runbook',
+        content: 'On-call runbook steps',
         appliesTo: 'all',
         required: false,
         mcpVisibility: 'included',

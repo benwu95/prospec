@@ -2979,9 +2979,9 @@ describe('collectCanonicalDocDrift', () => {
     const registry = `<!-- prospec:user-start -->
 ## Project Section Extensions
 
-| ID | Heading | Applies To | Required | MCP Visibility | Content Format |
-| --- | --- | --- | --- | --- | --- |
-| ownership | Ownership | all | optional | included | field-table |
+| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |
+| --- | --- | --- | --- | --- | --- | --- |
+| ownership | Ownership | Who owns this module | all | optional | included | field-table |
 <!-- prospec:user-end -->`;
     const authored = `${expected.slice(0, finalUserStart)}${registry}${expected.slice(finalUserEnd + '<!-- prospec:user-end -->'.length)}`;
     write('prospec/ai-knowledge/_module-readme-conventions.md', authored);

@@ -11,7 +11,7 @@ import { isSafeResourceName } from './knowledge-reader.js';
 import { AUTO_START, AUTO_END, USER_START, USER_END } from './content-markers.js';
 
 const FORMAT_MARKER = `<!-- prospec:module-readme-format ${MODULE_README_FORMAT_DATE} -->`;
-const REGISTRY_HEADERS = ['ID', 'Heading', 'Applies To', 'Required', 'MCP Visibility', 'Content Format'];
+const REGISTRY_HEADERS = ['ID', 'Heading', 'Content', 'Applies To', 'Required', 'MCP Visibility', 'Content Format'];
 const CORE_HEADINGS = [
   '## Key Files',
   '## Public API',
@@ -130,11 +130,11 @@ export function parseModuleReadmeExtensions(convention: string): ModuleReadmeReg
   for (const [offset, row] of table.rows.entries()) {
     const line = user.start + table.start + offset + 4;
     if (row.length !== REGISTRY_HEADERS.length || row.some((cell) => cell.length === 0)) {
-      finding(findings, line, 'each Project Section Extensions row needs six non-empty cells');
+      finding(findings, line, 'each Project Section Extensions row needs seven non-empty cells');
       continue;
     }
-    const [id, heading, appliesRaw, requiredRaw, visibilityRaw, contentFormatRaw] = row;
-    if (id === undefined || heading === undefined || appliesRaw === undefined || requiredRaw === undefined || visibilityRaw === undefined || contentFormatRaw === undefined) continue;
+    const [id, heading, content, appliesRaw, requiredRaw, visibilityRaw, contentFormatRaw] = row;
+    if (id === undefined || heading === undefined || content === undefined || appliesRaw === undefined || requiredRaw === undefined || visibilityRaw === undefined || contentFormatRaw === undefined) continue;
     if (!isSafeResourceName(id)) {
       finding(findings, line, `extension ID '${id}' is not a safe resource name`);
       continue;
@@ -161,6 +161,7 @@ export function parseModuleReadmeExtensions(convention: string): ModuleReadmeReg
     declarations.push({
       id,
       heading,
+      content,
       appliesTo,
       required: requiredRaw === 'required',
       mcpVisibility: visibilityRaw as ModuleReadmeExtensionDeclaration['mcpVisibility'],
