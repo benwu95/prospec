@@ -122,7 +122,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-09-02T04:07:58.774Z
+    last_verified: 2026-09-02T09:20:15.674Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -266,10 +266,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-09-02T04:07:58.774Z
+    last_verified: 2026-09-02T09:07:00.874Z
   - name: tests
-    description: 4-layer test suite — 189 files, 4,671 tests (unit 3320 + contract
-      1175 + integration 45 + e2e 131). Validates every module — format and
+    description: 4-layer test suite — 189 files, 4,672 tests (unit 3320 + contract
+      1176 + integration 45 + e2e 131). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport.
@@ -309,4 +309,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-09-02T07:46:24.900Z
+    last_verified: 2026-09-02T09:07:00.874Z
