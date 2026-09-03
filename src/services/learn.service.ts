@@ -30,34 +30,23 @@ import {
   type ChangeReviewEntry,
 } from '../lib/lens-yield.js';
 
-/** One archived change directory as enumerated from the archive (or a `--corpus`). */
-export interface ArchivedChangeDir {
-  dirPath: string;
-  changeName: string;
-  /** Present when the directory name starts with `YYYY-MM-DD-`. */
-  date?: string;
-}
-
 /**
- * Enumerate archived change directories — the ONE listing both `learn yield` and
- * `learn stats` read, so `--corpus` semantics cannot drift between them: dirs are
- * deduplicated and resolved against `cwd`; the default archive may legitimately be
- * absent (clean worktree) while a corpus the caller named must exist — skipping it
- * silently would print statistics over a corpus that was never read; symlinked
- * directories count; the change name and date come from the `YYYY-MM-DD-<name>`
- * directory name. Order is the readdir order per search dir — callers sort.
+ * Scan directory for archived `review.md` files in chronological order.
  */
-export async function listArchivedChangeDirs(
+export async function scanArchivedReviews(
   archiveDir: string,
   extraCorpusDirs: string[] = [],
   cwd: string = process.cwd(),
-): Promise<ArchivedChangeDir[]> {
-  const dirs: ArchivedChangeDir[] = [];
+): Promise<ChangeReviewEntry[]> {
+  const entries: ChangeReviewEntry[] = [];
   const searchDirs = Array.from(
     new Set([archiveDir, ...extraCorpusDirs].map((d) => path.resolve(cwd, d))),
   );
 
   for (const [i, dir] of searchDirs.entries()) {
+    // The default archive may legitimately be absent (clean worktree); a corpus
+    // the caller named must exist — skipping it silently would print statistics
+    // over a corpus that was never read.
     const explicit = i > 0;
     const st = await fs.promises.stat(dir).catch(() => undefined);
     if (!st?.isDirectory()) {
@@ -78,33 +67,24 @@ export async function listArchivedChangeDirs(
         (item.isSymbolicLink() &&
           (await fs.promises.stat(full).catch(() => undefined))?.isDirectory() === true);
       if (!isDir) continue;
-      const dateMatch = item.name.match(/^(\d{4}-\d{2}-\d{2})-(.*)$/);
-      dirs.push({
-        dirPath: full,
-        changeName: dateMatch ? dateMatch[2]! : item.name,
-        ...(dateMatch ? { date: dateMatch[1]! } : {}),
-      });
-    }
-  }
-  return dirs;
-}
+      const reviewPath = path.join(full, 'review.md');
+      if (fs.existsSync(reviewPath)) {
+        const content = await fs.promises.readFile(reviewPath, 'utf-8');
+        const { rows } = parseReviewDocument(content);
+        const { lenses } = parseReviewMetrics(content);
+        // Extract date if folder starts with YYYY-MM-DD
+        const dateMatch = item.name.match(/^(\d{4}-\d{2}-\d{2})-(.*)$/);
+        const date = dateMatch ? dateMatch[1] : undefined;
+        const changeName = dateMatch ? dateMatch[2]! : item.name;
 
-/**
- * Scan directory for archived `review.md` files in chronological order.
- */
-export async function scanArchivedReviews(
-  archiveDir: string,
-  extraCorpusDirs: string[] = [],
-  cwd: string = process.cwd(),
-): Promise<ChangeReviewEntry[]> {
-  const entries: ChangeReviewEntry[] = [];
-  for (const { dirPath, changeName, date } of await listArchivedChangeDirs(archiveDir, extraCorpusDirs, cwd)) {
-    const reviewPath = path.join(dirPath, 'review.md');
-    if (!fs.existsSync(reviewPath)) continue;
-    const content = await fs.promises.readFile(reviewPath, 'utf-8');
-    const { rows } = parseReviewDocument(content);
-    const { lenses } = parseReviewMetrics(content);
-    entries.push({ changeName, rows, date, lensesRun: lenses });
+        entries.push({
+          changeName,
+          rows,
+          date,
+          lensesRun: lenses,
+        });
+      }
+    }
   }
 
   // Code-point comparison on purpose: ISO dates sort chronologically that way and

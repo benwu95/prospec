@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-09-03
+last_updated: 2026-09-02
 story_count: 21
 req_count: 85
 ---
@@ -60,7 +60,6 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
-| 2026-09-03 | normalize-executor-labels-and-stats | MODIFIED REQ-SERVICES-062; MODIFIED REQ-CLI-012 | REQ-SERVICES-062, REQ-CLI-012 |
 | 2026-09-02 | support-native-language-trust-zone | ADDED REQ-TYPES-094; ADDED REQ-LIB-074; ADDED REQ-SERVICES-106; ADDED REQ-TESTS-111 | REQ-TYPES-094, REQ-LIB-074, REQ-SERVICES-106, REQ-TESTS-111 |
 | 2026-08-29 | surface-warns-and-empty-constitution | ADDED REQ-LIB-072 | REQ-LIB-072 |
 | 2026-08-29 | mechanize-lifecycle-entry-gates | MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-142; MODIFIED REQ-TEMPLATES-173 | REQ-TEMPLATES-171, REQ-TEMPLATES-142, REQ-TEMPLATES-173 |

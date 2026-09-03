@@ -189,37 +189,6 @@ const KNOWLEDGE_LOADING_SKILLS = [
 // negative guard below asserts they render no budget table and no injected sentinel.
 const NO_BUDGET_PARTIAL_SKILLS = ['prospec-verify', 'prospec-plan', 'prospec-implement'];
 
-// AC-3: the routing guidance is model/harness-agnostic — no vendor names.
-const JUDGMENT_STATION_TEMPLATES = [
-  'skills/prospec-review.hbs',
-  'skills/prospec-verify.hbs',
-  'skills/prospec-plan.hbs',
-  'skills/references/candidate-evaluation.hbs',
-];
-// A grep guard, not a whitelist — model/vendor/harness names that must never
-// be hard-coded into a shipped template. `claude` legitimately appears only
-// as the `CLAUDE.md` entry-config filename, so that literal is masked before
-// scanning instead of exempting the name outright — a blanket exemption left
-// the likeliest leaks (claude/codex/copilot) unguarded (review SA-5/TQ-3).
-/** Single vendor/model-name guard list — every negative scan in this file iterates it. */
-const FORBIDDEN_MODEL_NAMES = [
-  'gpt', 'gemini', 'llama', 'mistral', 'anthropic', 'openai',
-  'opus', 'sonnet', 'haiku', 'fable', 'cursor', 'windsurf',
-  'codex', 'copilot',
-];
-
-/** The one negative scan: no model/vendor name, `claude` masked only as the `CLAUDE.md` filename. */
-function expectNoVendorNames(text: string, label: string): void {
-  const lower = text.toLowerCase();
-  for (const name of FORBIDDEN_MODEL_NAMES) {
-    expect(lower, `${label} must not name model/vendor "${name}"`).not.toContain(name);
-  }
-  expect(
-    lower.replaceAll('claude.md', ''),
-    `${label} must not name model/vendor "claude" (the CLAUDE.md filename is masked before this scan)`,
-  ).not.toContain('claude');
-}
-
 describe('Knowledge budget rendering (no leaked symbol, values from injected context)', () => {
   // Sentinel budgets distinct from DEFAULT_KNOWLEDGE_TOKEN_BUDGET prove the rendered
   // numbers come from the injected context (agent-sync's resolveKnowledgeTokenBudget),
@@ -5141,77 +5110,6 @@ describe('prospec-upgrade: root index enrichment only', () => {
   });
 });
 
-describe('executor label guidance (REQ-TEMPLATES-227)', () => {
-  const root = path.resolve(import.meta.dirname, '../..');
-
-  it('every --record-review command line in the review skill carries --executor <label>', () => {
-    const content = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
-    const commandLines = content.split('\n').filter((l) => l.includes('prospec check --record-review'));
-    expect(commandLines.length).toBeGreaterThanOrEqual(3);
-    for (const line of commandLines) {
-      expect(line, line).toContain('--executor <label>');
-    }
-    // the record command lines proper (those spelling --graded-by) all carry the optional flag
-    expect(commandLines.filter((l) => l.includes('--record-review --graded-by')).length).toBeGreaterThanOrEqual(3);
-    // the label is tied to the project's own vocabulary, not to any model
-    expect(flat(content)).toContain('`executors` declares');
-  });
-
-  it('metadata-format describes executor as a vocabulary-validated label consumed by learn stats, on the review_provenance row too', () => {
-    const content = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
-    const row = content.split('\n').find((l) => l.startsWith('| `review_provenance` |'));
-    expect(row).toBeDefined();
-    expect(row).toContain('`executor`');
-    // section-scoped to the quality_log shape section (PB-001), then to the ONE bullet
-    // that documents the grading-context fields — the invariant is that THIS bullet
-    // states the vocabulary gate and the consumer, not that the words occur somewhere.
-    const section = sectionOf(content, '## `quality_log` entry shape');
-    const bullet = section
-      .split('\n- ')
-      .find((b) => b.startsWith('**`graded_by` / `executor` / `spend`**'));
-    expect(bullet, 'grading-context bullet').toBeDefined();
-    const para = flat(bullet!);
-    expect(para).toContain('`executors` vocabulary');
-    expect(para).toContain('refuse a label outside it');
-    expect(para).toContain('`prospec learn stats`');
-    // the pre-change claim was that nothing consumes the field — the bullet must now name a consumer
-    expect(para).not.toMatch(/no station consumes/);
-  });
-
-  it('prospec-learn names learn stats as the per-executor false-green source', () => {
-    const content = renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
-    expect(flat(content)).toContain('`prospec learn stats`');
-  });
-
-  it('the config example documents executors with abstract placeholder labels and the undeclared rule', () => {
-    const src = fs.readFileSync(path.join(root, 'src/templates/references/config-example.yaml.hbs'), 'utf-8');
-    const start = src.indexOf('# Executor label vocabulary');
-    expect(start).toBeGreaterThan(-1);
-    const end = src.indexOf('\n\n', src.indexOf('executors:', start));
-    const block = src.slice(start, end === -1 ? undefined : end);
-    expect(block).toMatch(/^executors:\n( {2}- [a-z-]+\n?)+/m);
-    expect(block.toLowerCase()).toContain('absent');
-    expectNoVendorNames(block, 'config-example executors block');
-  });
-
-  it('the metadata-format reference names no model or vendor (the executor example is a label)', () => {
-    expectNoVendorNames(renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT), 'metadata-format');
-  });
-
-  it('both root READMEs document learn stats in the command table and the breakdown', () => {
-    const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
-    const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
-    for (const readme of [english, traditionalChinese]) {
-      expect(readme).toMatch(/^\| `prospec learn stats \[options\]` \|/m);
-      const line = readme.split('\n').find((candidate) => candidate.startsWith('- **`prospec learn stats'));
-      expect(line).toBeDefined();
-      const detail = readme.slice(readme.indexOf(line!), readme.indexOf('\n\n', readme.indexOf(line!)));
-      expect(detail).toContain('executor-stats-report.json');
-      expect(detail).toContain('executors');
-    }
-  });
-});
-
 describe('root README validate-kind parity (REQ-CLI-050)', () => {
   it('documents module-readme in the English and Traditional Chinese validate command entries', () => {
     const root = path.resolve(import.meta.dirname, '../..');
@@ -6150,10 +6048,36 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(flat(log)).toContain('caps the grade below S');
     });
 
+    // AC-3: the routing guidance is model/harness-agnostic — no vendor names.
+    const JUDGMENT_STATION_TEMPLATES = [
+      'skills/prospec-review.hbs',
+      'skills/prospec-verify.hbs',
+      'skills/prospec-plan.hbs',
+      'skills/references/candidate-evaluation.hbs',
+    ];
+    // A grep guard, not a whitelist — model/vendor/harness names that must never
+    // be hard-coded into a shipped template. `claude` legitimately appears only
+    // as the `CLAUDE.md` entry-config filename, so that literal is masked before
+    // scanning instead of exempting the name outright — a blanket exemption left
+    // the likeliest leaks (claude/codex/copilot) unguarded (review SA-5/TQ-3).
+    const FORBIDDEN_MODEL_NAMES = [
+      'gpt', 'gemini', 'llama', 'mistral', 'anthropic', 'openai',
+      'opus', 'sonnet', 'haiku', 'fable', 'cursor', 'windsurf',
+      'codex', 'copilot',
+    ];
+
     it.each(JUDGMENT_STATION_TEMPLATES)('%s routes to the strongest available tier, named abstractly', (tpl) => {
       const content = renderTemplate(tpl, TEMPLATE_CONTEXT);
       expect(flat(content)).toContain('strongest');
-      expectNoVendorNames(content, tpl);
+      const lower = content.toLowerCase();
+      for (const name of FORBIDDEN_MODEL_NAMES) {
+        expect(lower, `${tpl} must not name model/vendor "${name}"`).not.toContain(name);
+      }
+      const masked = lower.replaceAll('claude.md', '');
+      expect(
+        masked,
+        `${tpl} must not name model/vendor "claude" (the CLAUDE.md filename is masked before this scan)`,
+      ).not.toContain('claude');
     });
   });
 });

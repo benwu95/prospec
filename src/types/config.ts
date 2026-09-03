@@ -214,11 +214,6 @@ export const ProspecConfigSchema = z
     artifact_language: z.string().optional(),
     trust_zone_language: z.string().optional(),
     skill_triggers: z.record(z.string(), z.array(z.string())).optional(),
-    // Executor label vocabulary — the labels `verify record` and `check --record-review`
-    // validate `executor` against when declared. prospec assigns them no meaning
-    // (no model or vendor is known to the CLI); absent means every executor value
-    // stays a free string. An empty array would refuse every value, so it is invalid.
-    executors: z.array(z.string().min(1)).min(1).optional(),
   })
   .loose();
 

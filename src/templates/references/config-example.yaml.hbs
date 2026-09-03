@@ -103,16 +103,6 @@ artifact_language: Traditional Chinese (Taiwan)
 # code, identifiers, technical terms and commit messages stay English regardless.
 trust_zone_language: English
 
-# Executor label vocabulary (optional). When declared, `prospec verify record --executor`
-# and `prospec check --record-review --executor` refuse a label outside this list, so
-# the labels `prospec learn stats` later groups archived metadata by are the ones
-# written here. The labels are yours: prospec attaches no meaning to them and knows
-# no model. Absent: any non-empty string is accepted (the behavior before this key
-# existed).
-executors:
-  - judge
-  - drafter
-
 # Feedback promotion (`prospec learn`) — both blocks optional; the defaults are shown.
 learn:
   thresholds:                       # `prospec learn upsert` promotion rule

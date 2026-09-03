@@ -14,7 +14,7 @@ import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
-import { readChangeMetadataLeniently, normalizeIssueRef } from '../lib/change-metadata.js';
+import { normalizeIssueRef } from '../lib/change-metadata.js';
 import {
   assessDrops,
   classifyBlockTerminator,
@@ -300,14 +300,19 @@ export async function scanChanges(cwd: string): Promise<ChangeEntry[]> {
     // Discovery pass over EVERY change directory — deliberately lenient, like
     // the drift collectors. Enforcing the schema here would let one malformed
     // sibling hide every archivable change.
-    const metadata = readChangeMetadataLeniently(metadataPath);
-    if (metadata === null) continue; // unparseable or non-mapping metadata — skipped
-    changes.push({
-      name: entry,
-      dir: changeDir,
-      metadata,
-      status: String(metadata.status ?? 'unknown'),
-    });
+    try {
+      const content = await fs.promises.readFile(metadataPath, 'utf-8');
+      const metadata = parseYaml<Record<string, unknown>>(content, metadataPath);
+      changes.push({
+        name: entry,
+        dir: changeDir,
+        metadata,
+        status: String(metadata.status ?? 'unknown'),
+      });
+    } catch {
+      // Skip changes with unparseable metadata
+      continue;
+    }
   }
 
   return changes;
