@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-09-02
+last_updated: 2026-09-03
 story_count: 19
-req_count: 47
+req_count: 48
 ---
 
 # Project Setup
@@ -66,6 +66,7 @@ req_count: 47
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-03 | prompt-trust-zone-language-at-init | ADDED REQ-CLI-051; MODIFIED REQ-SETUP-015; MODIFIED REQ-SETUP-017 | REQ-CLI-051, REQ-SETUP-015, REQ-SETUP-017 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TYPES-025; MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-013; MODIFIED REQ-LIB-030 | REQ-TYPES-025, REQ-TYPES-063, REQ-LIB-013, REQ-LIB-030 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TYPES-038 | REQ-TYPES-038 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-SETUP-024; MODIFIED REQ-TEMPLATES-124 | REQ-SETUP-024, REQ-TEMPLATES-124 |
