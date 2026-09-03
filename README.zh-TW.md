@@ -741,7 +741,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **核心用途**：計算驗證評級（S/A/B/C/D）並記錄結果。
-  - **重點條列**：機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入；評級達 S 或 A 時自動將狀態推進至 `status: verified`。
+  - **重點條列**：機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入；評級達 S 或 A 時自動將狀態推進至 `status: verified`。每筆判斷維度都要申報評分脈絡：`--graded-by <fresh-subagent|in-session>`（必填；`in-session` 會把評級封頂在 S 以下），旗標形式可再帶整輪的 `--executor <label>` 與 `--spend <tokens>`，`--dimensions` 檔案形式則每筆各帶 `graded_by`／`executor`／`spend`。`.prospec.yaml` 宣告 `executors` 時，清單外的 label 會在寫入前被拒絕。
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。
@@ -873,8 +873,9 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
 
-- **`prospec check --record-review [--change <name>]`**
+- **`prospec check --record-review [--change <name>] [--graded-by <context>] [--executor <label>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
+  - **重點條列**：`--graded-by <fresh-subagent|in-session>` 記錄審查者的評分脈絡、`--executor <label>` 記錄其 executor label 到 `review_provenance`；宣告 `.prospec.yaml` `executors` 時 label 會受詞彙驗證，讓 `prospec learn stats` 能把 review baseline（以及之後 verify 抓到的 FAIL，即假綠）歸屬到 executor。
 
 - **`prospec check --escaped-defects [--json]`**
   - **核心用途**：依 `introduced_by` 欄位聚合各階段閘門的漏失缺陷率（報表模式，不產生 finding 也不影響 exit code）。
@@ -969,6 +970,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 
 - **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 一律維持英文；trust zone 的語言由 `trust_zone_language` 決定。`prospec init` 會以與 agent entry config（`CLAUDE.md`/`AGENTS.md`）相同的路徑與語言把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，且 `prospec check`（`language-policy-drift`）會在憲法的 Description 與之漂移時提出 WARN。
 - **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。未設定時預設為 English（此設定出現前所有專案的既有行為）。`prospec init` 會寫入它：互動式 init 只在 `artifact_language` 非英文時追問，預設與該語言相同；`--trust-zone-language` 可直接指定不提問，CI 模式（`--agents`）未給 flag 則維持 English。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
+- **`executors`**：選填的 executor label 清單 —— review 與 verify 站記錄「是誰評的」時使用的詞彙。label 由你定義（模型身分如 `claude-fable-5-1`，或角色如 `judge`）；Prospec 不賦予任何語意、也不認識任何模型。宣告後，`prospec verify record --executor <label>`（旗標形式為整輪一個值；`--dimensions` 檔案形式為每筆各自帶）與 `prospec check --record-review --executor <label>` 收到清單外的值會拒絕並列出合法 label；label 會 trim、必須單行，落在 `quality_log[].dimensions[].executor` 與 `review_provenance.executor`。未宣告時任何非空字串皆接受（此鍵出現前的既有行為）。之後 `prospec learn stats` 依這些 label 分組封存記錄 —— 每個 label 的評級分布、維度結果、`graded_by` 組成、spend 中位數與假綠計數 —— 自評過寬的 executor 會直接在資料上現形。
 - **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
@@ -989,6 +991,9 @@ tech_stack:
 paths:
   base_dir: prospec
 artifact_language: Traditional Chinese (Taiwan)
+executors:
+  - judge
+  - drafter
 exclude:
   - "*.env*"
   - "node_modules"

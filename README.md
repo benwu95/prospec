@@ -758,7 +758,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.
-  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade.
+  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade. Each judgment verdict declares its grading context: `--graded-by <fresh-subagent|in-session>` (required; `in-session` caps the grade below S), plus optional `--executor <label>` and `--spend <tokens>` run-level in the flag form, or `graded_by` / `executor` / `spend` per entry in the `--dimensions` file. When `.prospec.yaml` declares `executors`, a label outside that list is refused before anything is written.
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
@@ -893,8 +893,9 @@ deliberately not included in this version.
     - Executed via argv directly without shell; degrades to `skipped` when unable to execute honestly.
     - Previously recorded non-zero exit codes remain FAIL even if command subsequently becomes unresolvable.
 
-- **`prospec check --record-review [--change <name>]`**
+- **`prospec check --record-review [--change <name>] [--graded-by <context>] [--executor <label>]`**
   - **Purpose**: Records code digest and `delta-spec.md` fingerprint to satisfy `review-provenance` and `delta-spec-provenance`.
+  - **Key Details**: `--graded-by <fresh-subagent|in-session>` records the reviewer's grading context and `--executor <label>` its executor label into `review_provenance`; the label is validated against `.prospec.yaml` `executors` when declared, so `prospec learn stats` can attribute review baselines (and later verify FAILs, the false greens) per executor.
 
 - **`prospec check --escaped-defects [--json]`**
   - **Purpose**: Aggregates escaped-defect metrics grouped by `introduced_by` (reporting mode, no findings, does not affect `--strict`).
@@ -989,6 +990,7 @@ Key configurations you can tweak:
 
 - **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages always stay English; the trust zone follows `trust_zone_language`. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from the same paths and languages your agent's entry config (`CLAUDE.md`/`AGENTS.md`) renders, and `prospec check` (`language-policy-drift`) warns when the Constitution's Description drifts from them.
 - **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English when absent (the behavior every project had before the key existed). `prospec init` writes it: interactive init asks for it only when `artifact_language` is non-English, defaulting to that same language; `--trust-zone-language` sets it without a prompt, and CI mode (`--agents`) without the flag keeps English. Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
+- **`executors`**: Optional list of executor labels — the vocabulary your review and verify stations record *who graded* under. Labels are yours (a model identity such as `claude-fable-5-1`, or a role such as `judge`); Prospec attaches no meaning to them and knows no model. When declared, `prospec verify record --executor <label>` (run-level for the flag form, per entry in a `--dimensions` file) and `prospec check --record-review --executor <label>` refuse a label outside the list and print the legal ones; the label is trimmed, must be a single line, and lands in `quality_log[].dimensions[].executor` / `review_provenance.executor`. Absent, any non-empty string is accepted (the behavior before this key existed). `prospec learn stats` then groups the archived record by these labels — grade distribution, dimension results, `graded_by` composition, spend median and false greens per label — so an executor that self-grades too generously shows up in data.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -1009,6 +1011,9 @@ tech_stack:
 paths:
   base_dir: prospec
 artifact_language: Traditional Chinese (Taiwan)
+executors:
+  - judge
+  - drafter
 exclude:
   - "*.env*"
   - "node_modules"
