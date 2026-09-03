@@ -15,6 +15,7 @@ function makeResult(overrides: Partial<InitResult> = {}): InitResult {
     agentInfos: [] as AgentInfoLike[],
     selectedAgents: [],
     artifactLanguage: 'English',
+    trustZoneLanguage: 'English',
     createdFiles: [],
   };
   return { ...base, ...overrides };
@@ -246,6 +247,48 @@ describe('formatInitOutput', () => {
       expect(text).toContain('繁體中文');
       expect(text).toContain('skill_triggers');
       expect(text).toContain('.prospec.yaml');
+    });
+  });
+
+  describe('trust-zone language on the document language line', () => {
+    it('names the resolved trust-zone language for a non-English artifact language, never "English until set"', () => {
+      const { out } = captureStdout();
+      formatInitOutput(
+        makeResult({ artifactLanguage: '繁體中文', trustZoneLanguage: '繁體中文' }),
+        'normal',
+      );
+      const text = out();
+      expect(text).toContain('for change artifacts; the trust zone');
+      expect(text).toContain('in 繁體中文');
+      expect(text).not.toContain('English until set');
+    });
+
+    it('prints an English trust zone verbatim when the two languages differ', () => {
+      const { out } = captureStdout();
+      formatInitOutput(
+        makeResult({ artifactLanguage: 'Japanese', trustZoneLanguage: 'English' }),
+        'normal',
+      );
+      expect(out()).toContain('in English');
+    });
+
+    it('routes the trust-zone language through sanitizeTerminal', () => {
+      const { out } = captureStdout();
+      formatInitOutput(
+        makeResult({ artifactLanguage: 'Japanese', trustZoneLanguage: 'Jap\u001b[31manese' }),
+        'normal',
+      );
+      const text = out();
+      expect(text).not.toContain('\u001b[31m');
+      expect(text).toContain('Japanese');
+    });
+
+    it('keeps the English document language line free of the scope note', () => {
+      const { out } = captureStdout();
+      formatInitOutput(makeResult({ artifactLanguage: 'English', trustZoneLanguage: 'English' }), 'normal');
+      const text = out();
+      expect(text).not.toContain('for change artifacts');
+      expect(text).not.toContain('trust zone');
     });
   });
 

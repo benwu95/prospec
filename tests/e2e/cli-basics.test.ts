@@ -156,12 +156,56 @@ describe('CLI E2E — basics', () => {
       expect(configContent).toContain('artifact_language: English');
     });
 
+    it('should record --trust-zone-language and seed the single-language Language Policy', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'e2e-trust-lang' }),
+      );
+
+      const { stdout, exitCode } = await runCli([
+        'init',
+        '--name',
+        'e2e-trust-lang',
+        '--agents',
+        'claude',
+        '--language',
+        'Traditional Chinese (Taiwan)',
+        '--trust-zone-language',
+        'Traditional Chinese (Taiwan)',
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('the trust zone (Knowledge base, specs/features, index.md, Constitution) in Traditional Chinese (Taiwan)');
+      expect(stdout).not.toContain('English until set');
+
+      const configContent = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'utf-8',
+      );
+      expect(configContent).toContain('trust_zone_language: Traditional Chinese (Taiwan)');
+
+      const constitution = await fs.promises.readFile(
+        path.join(tmpDir, 'prospec', 'CONSTITUTION.md'),
+        'utf-8',
+      );
+      // Same non-English language on both axes → the single-language form, no exemption clause.
+      expect(constitution).toContain('are written in Traditional Chinese (Taiwan)');
+      expect(constitution).not.toContain('explicitly NOT');
+    });
+
     it('help output for init is in English and lists --language', async () => {
       const { stdout, exitCode } = await runCli(['init', '--help']);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('--language');
+      expect(stdout).toContain('--trust-zone-language');
       expect(stdout).toContain('Initialize Prospec project structure');
       expect(/[\u4e00-\u9fff]/.test(stdout)).toBe(false);
+    });
+
+    it('help output for quickstart lists --trust-zone-language', async () => {
+      const { stdout, exitCode } = await runCli(['quickstart', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--trust-zone-language');
     });
 
     it('should prevent double initialization', async () => {

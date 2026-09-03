@@ -246,10 +246,14 @@ describe('entry config — default trust zone is byte-identical to the pre-axis 
     "\nAll generated documents — code, identifiers, technical terms, and git commit messages included — are written in English (see the Constitution's Language Policy rule).\n";
 
   it('renders the two-zone section verbatim with trust_zone_language unset or explicit English', async () => {
-    const unset = await scaffold('Traditional Chinese (Taiwan)');
-    const explicit = await scaffold('Traditional Chinese (Taiwan)', (yaml) =>
-      `${yaml.trimEnd()}\ntrust_zone_language: English\n`,
+    // CI-mode init writes `trust_zone_language: English` itself; the unset variant
+    // strips that key to model a pre-axis config.
+    const unset = await scaffold('Traditional Chinese (Taiwan)', (yaml) =>
+      yaml.replace(/^trust_zone_language:.*\n/m, ''),
     );
+    const explicit = await scaffold('Traditional Chinese (Taiwan)');
+    // Prove the "explicit" premise in this file: init itself wrote the key.
+    expect(fs.readFileSync(`${CWD}/.prospec.yaml`, 'utf-8')).toContain('trust_zone_language: English');
 
     expect(unset.entry).toBe(PINNED_TWO_ZONE_ENTRY);
     expect(explicit.entry).toBe(PINNED_TWO_ZONE_ENTRY);

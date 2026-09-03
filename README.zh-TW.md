@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4717%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4730%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -270,10 +270,11 @@ prospec-quickstart                     # 在地化 triggers · 重新同步 · �
 # `prospec quickstart` 執行：
 prospec init --name my-project   # → 選擇要啟用的 AI Assistant（互動式 checkbox）
                                  # → 選擇文件主要語言（預設英文，或用
-                                 #   --language "Traditional Chinese (Taiwan)"）；[MUST]
-                                 #   路徑式 Language Policy 規則會寫入 CONSTITUTION.md —
-                                 #   trust zone 依 trust_zone_language（未設定即英文）；
-                                 #   程式碼與 git commit message 一律維持英文
+                                 #   --language "Traditional Chinese (Taiwan)"）；若非英文，
+                                 #   接著選擇 trust zone 語言（預設同值；--trust-zone-language
+                                 #   可跳過提示）。[MUST] 路徑式 Language Policy 規則會依
+                                 #   兩者寫入 CONSTITUTION.md；程式碼與 git commit message
+                                 #   一律維持英文
                                  # → 建立 .prospec.yaml + 目錄結構
 prospec agent sync               # → 各 agent config + Skills（Claude Code → CLAUDE.md +
                                  #   .claude/skills/；Antigravity / Codex / Copilot →
@@ -302,7 +303,8 @@ prospec-quickstart                     # 在地化 triggers · 重新同步 · k
 ```bash
 # `prospec quickstart` 執行：
 prospec init          # → 自動偵測 Tech Stack；選擇 AI Assistant；選擇文件主要語言
-                      #   （預設英文；--language 可跳過互動提示）
+                      #   （預設英文；--language 可跳過互動提示）；若非英文，再選擇
+                      #   trust zone 語言（--trust-zone-language）
 prospec agent sync    # → 各 agent config + Skills
 
 # `prospec-quickstart` 接著在你的 AI Agent 中：
@@ -541,7 +543,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 - **`prospec quickstart [options]`**
   - **核心用途**：新專案快速引導，串接 `init` 與 `agent sync`。
   - **執行行為**：自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
-  - **選項**：支援與 `init` 相同的 `--name`、`--agents`、`--language` 選項。
+  - **選項**：支援與 `init` 相同的 `--name`、`--agents`、`--language`、`--trust-zone-language` 選項。
 
 - **`prospec upgrade [--cwd <dir>]`**
   - **核心用途**：升級 Prospec 版本後進行確定性環境更新與檔案補齊。
@@ -553,7 +555,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 - **`prospec init [options]`**
   - **核心用途**：初始化 Prospec 專案結構。
-  - **選項**：`--language <lang>`（設定 AI 產出文件語言，預設英文）、`--name <name>`、`--agents <list>`。
+  - **選項**：`--language <lang>`（設定變更文件語言，預設英文）、`--trust-zone-language <lang>`（設定 trust zone 語言並跳過其提問；互動式 init 只在變更文件語言非英文時追問，預設同值；CI 模式未給 flag 維持英文）、`--name <name>`、`--agents <list>`。
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**
   - **核心用途**：靜態掃描專案原始碼，生成專案結構快照與模組骨架。
@@ -961,7 +963,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 你可以調整的關鍵設定包含：
 
 - **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 一律維持英文；trust zone 的語言由 `trust_zone_language` 決定。`prospec init` 會以與 agent entry config（`CLAUDE.md`/`AGENTS.md`）相同的路徑與語言把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，且 `prospec check`（`language-policy-drift`）會在憲法的 Description 與之漂移時提出 WARN。
-- **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。預設為 English（此設定出現前所有專案的既有行為）。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
+- **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。未設定時預設為 English（此設定出現前所有專案的既有行為）。`prospec init` 會寫入它：互動式 init 只在 `artifact_language` 非英文時追問，預設與該語言相同；`--trust-zone-language` 可直接指定不提問，CI 模式（`--agents`）未給 flag 則維持 English。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
 - **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
@@ -1137,7 +1139,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4717 個；4 個略過）
+# 執行所有測試（共 4730 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1150,11 +1152,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4717 個測試（4713 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3359 tests
+**測試覆蓋率**：共 4730 個測試（4726 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3370 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1182 tests
 - Integration tests：45 tests
-- E2E tests：131 tests
+- E2E tests：133 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

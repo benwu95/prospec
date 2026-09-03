@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4717%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4730%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -270,11 +270,12 @@ Those two commands expand to:
 # `prospec quickstart` runs:
 prospec init --name my-project   # → select AI assistants (interactive checkbox)
                                  # → choose the doc language (default: English, or
-                                 #   --language "Traditional Chinese (Taiwan)"); a [MUST]
-                                 #   path-scoped Language Policy rule is seeded into
-                                 #   CONSTITUTION.md — the trust zone follows
-                                 #   trust_zone_language (English unless set); code and
-                                 #   git commit messages stay in English
+                                 #   --language "Traditional Chinese (Taiwan)"); when it is
+                                 #   non-English, also choose the trust-zone language
+                                 #   (defaults to the same; --trust-zone-language skips the
+                                 #   prompt). A [MUST] path-scoped Language Policy rule is
+                                 #   seeded into CONSTITUTION.md from both; code and git
+                                 #   commit messages stay in English
                                  # → creates .prospec.yaml + directory structure
 prospec agent sync               # → per-agent config + Skills (Claude Code → CLAUDE.md +
                                  #   .claude/skills/; Antigravity / Codex / Copilot →
@@ -304,7 +305,8 @@ Those two commands expand to:
 ```bash
 # `prospec quickstart` runs:
 prospec init          # → auto-detect tech stack; select AI assistants; choose doc
-                      #   language (default: English; --language to skip the prompt)
+                      #   language (default: English; --language to skip the prompt) and,
+                      #   if non-English, the trust-zone language (--trust-zone-language)
 prospec agent sync    # → per-agent config + Skills
 
 # `prospec-quickstart` then, inside your AI agent:
@@ -558,7 +560,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 - **`prospec quickstart [options]`**
   - **Purpose**: Fast, streamlined onboarding by chaining `init` and `agent sync`.
   - **Behavior**: Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
-  - **Options**: Accepts the same `--name`, `--agents`, and `--language` options as `init`.
+  - **Options**: Accepts the same `--name`, `--agents`, `--language`, and `--trust-zone-language` options as `init`.
 
 - **`prospec upgrade [--cwd <dir>]`**
   - **Purpose**: Deterministic project and template upgrade following a Prospec version bump.
@@ -570,7 +572,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 - **`prospec init [options]`**
   - **Purpose**: Initialize Prospec project structure and baseline configuration.
-  - **Options**: `--language <lang>` (sets document language, default English), `--name <name>`, `--agents <list>`.
+  - **Options**: `--language <lang>` (sets the change-artifact language, default English), `--trust-zone-language <lang>` (sets the trust-zone language and skips its prompt; interactive init asks only when the artifact language is non-English, defaulting to it; CI mode without the flag stays English), `--name <name>`, `--agents <list>`.
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**
   - **Purpose**: Statically scan project source code to generate structure snapshots and module skeletons.
@@ -981,7 +983,7 @@ Prospec can be configured via a `.prospec.yaml` file in the project root. This i
 Key configurations you can tweak:
 
 - **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages always stay English; the trust zone follows `trust_zone_language`. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from the same paths and languages your agent's entry config (`CLAUDE.md`/`AGENTS.md`) renders, and `prospec check` (`language-policy-drift`) warns when the Constitution's Description drifts from them.
-- **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English (the behavior every project had before the key existed). Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
+- **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English when absent (the behavior every project had before the key existed). `prospec init` writes it: interactive init asks for it only when `artifact_language` is non-English, defaulting to that same language; `--trust-zone-language` sets it without a prompt, and CI mode (`--agents`) without the flag keeps English. Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -1157,7 +1159,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4717 total; 4 skipped)
+# Run all tests (4730 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1170,11 +1172,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4717 total tests (4713 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3359 tests
+**Test Coverage**: 4730 total tests (4726 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3370 tests
 - Contract tests (CLI output + Skill format): 1182 tests
 - Integration tests: 45 tests
-- E2E tests: 131 tests
+- E2E tests: 133 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

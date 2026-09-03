@@ -96,7 +96,9 @@ artifact_language: Traditional Chinese (Taiwan)
 
 # Language of the trust zone (the AI Knowledge base, specs/features/, specs/product.md,
 # index.md, README.md, CONSTITUTION.md). Defaults to English when absent — the
-# behavior every project had before this key existed. Set it to the same value as
+# behavior every project had before this key existed. `prospec init` asks for it only
+# when `artifact_language` is non-English (defaulting to that language); pass
+# `--trust-zone-language` to skip the prompt. Set it to the same value as
 # `artifact_language` for a project whose whole documentation set is one language;
 # code, identifiers, technical terms and commit messages stay English regardless.
 trust_zone_language: English

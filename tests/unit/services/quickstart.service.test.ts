@@ -76,6 +76,20 @@ describe('quickstart.service', () => {
     expect(result.agentSync.hints[0]).toContain('skill_triggers');
   });
 
+  it('passes --trust-zone-language through to init', async () => {
+    const result = await execute({
+      agents: ['claude'],
+      language: 'Japanese',
+      trustZoneLanguage: 'Japanese',
+      cwd: '/project',
+    });
+
+    expect(result.steps[0]).toEqual({ name: 'init', status: 'created' });
+    const yaml = vol.readFileSync('/project/.prospec.yaml', 'utf-8') as string;
+    expect(yaml).toContain('artifact_language: Japanese');
+    expect(yaml).toContain('trust_zone_language: Japanese');
+  });
+
   it('re-throws a non-AlreadyExistsError from init instead of marking it skipped', async () => {
     // init validates options.agents up front: an unknown agent throws ConfigInvalid,
     // which is NOT an AlreadyExistsError, so quickstart must propagate it (else-branch).
