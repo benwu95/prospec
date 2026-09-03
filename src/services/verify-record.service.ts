@@ -37,6 +37,7 @@ import {
   applySelfVerifiedCap,
 } from '../lib/verify-grade.js';
 import { todayIso } from '../lib/date-utils.js';
+import { assertExecutorLabel, normalizeExecutorLabel, readConfig } from '../lib/config.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface VerifyRecordOptions {
@@ -252,6 +253,28 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     );
   }
 
+  // Executor labels are validated against the project's declared vocabulary — the
+  // same refuse-before-write band. Config is read ONLY when a verdict carries an
+  // executor, so a run without one never gains a .prospec.yaml dependency.
+  // Both forms land the SAME bytes for the same label (`check --record-review` does
+  // the same), so the two provenance writers stay byte-comparable. A label that is
+  // empty once normalized is refused, mirroring the flag parser: an empty executor is
+  // omitted, never written. Normalized copies — the caller's objects are not mutated.
+  const normalizedVerdicts: QualityDimension[] = judgmentVerdicts.map((d) =>
+    d.executor === undefined ? d : { ...d, executor: normalizeExecutorLabel(d.executor) },
+  );
+  const blank = normalizedVerdicts.filter((d) => d.executor === '').map((d) => d.name);
+  if (blank.length > 0) {
+    throw new PrerequisiteError(
+      `Judgment dimension(s) carry a blank executor: ${blank.join(', ')}`,
+      'An executor label must be non-empty — omit the field instead of leaving it blank. Nothing was written',
+    );
+  }
+  if (normalizedVerdicts.some((d) => d.executor !== undefined)) {
+    const config = await readConfig(cwd);
+    for (const d of normalizedVerdicts) assertExecutorLabel(config, d.executor);
+  }
+
   // Scale policy FIRST — it shapes both the machine ledger and the warnings.
   // A PROVEN backfill (backfill-draft.md present) has no tasks.md by contract,
   // so 1/5 task-completion is not-applicable (never a vacuous PASS from the
@@ -339,7 +362,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // Gate D1 — a judgment dimension may not be graded more leniently than its
   // machine counterpart's finding. A report FAIL/WARN floors the judgment; a
   // report pass/skipped/absent sets no floor (a judgment may still be stricter).
-  for (const d of judgmentVerdicts) {
+  for (const d of normalizedVerdicts) {
     const checkId = JUDGMENT_MACHINE_COUNTERPART[d.name];
     if (checkId === undefined) continue;
     const check = report.structural.checks.find((c) => c.id === checkId);
@@ -355,7 +378,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
 
   const dimensions: QualityDimension[] = [
     ...machineDimensions,
-    ...judgmentVerdicts.map((d) => ({ ...d, adjudicator: 'judgment' as const })),
+    ...normalizedVerdicts.map((d) => ({ ...d, adjudicator: 'judgment' as const })),
   ];
 
   // A not-adjudicated machine dimension is itself a WARN — spell its warning

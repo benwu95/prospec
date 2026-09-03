@@ -9,10 +9,11 @@ import {
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
-import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
+import { ConfigNotFound, ConfigInvalid, PrerequisiteError } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
+import { collapseWhitespace } from './text-lines.js';
 
 const CONFIG_FILENAME = '.prospec.yaml';
 
@@ -64,6 +65,36 @@ export function resolveArtifactLanguage(config: ProspecConfig): string {
 export function resolveTrustZoneLanguage(config: ProspecConfig): string {
   const raw = (config.trust_zone_language ?? '').trim();
   return !raw || isDefaultArtifactLanguage(raw) ? DEFAULT_ARTIFACT_LANGUAGE : raw;
+}
+
+/**
+ * Assert an executor label against the vocabulary `.prospec.yaml` declares — the ONE
+ * rule both provenance writers (`verify record`, `check --record-review`) call, so
+ * the two stations cannot drift into different refusals. No-op when the project
+ * declares no `executors` (every value stays a free string) or when no executor
+ * was supplied; otherwise a trimmed value outside the list is refused with the
+ * declared labels listed. prospec knows no model: the labels are the project's own.
+ */
+export function assertExecutorLabel(config: ProspecConfig, executor: string | undefined): void {
+  const declared = config.executors;
+  if (declared === undefined || executor === undefined) return;
+  const label = normalizeExecutorLabel(executor);
+  if (declared.some((d) => normalizeExecutorLabel(d) === label)) return;
+  throw new PrerequisiteError(
+    `executor "${label}" is not a declared label`,
+    `Declared labels (.prospec.yaml executors): ${declared.map(normalizeExecutorLabel).join(', ')}. Use one of them, or omit --executor`,
+  );
+}
+
+/**
+ * The ONE normalization every executor label passes through — at both write paths
+ * (so `review_provenance.executor` and a verify dimension's `executor` land as the
+ * same bytes for the same input) and at the `learn stats` read path (archive
+ * metadata is untrusted: a label carrying a line break must not forge a report
+ * line). Whitespace runs, line breaks included, collapse to one space; ends trimmed.
+ */
+export function normalizeExecutorLabel(value: string): string {
+  return collapseWhitespace(value);
 }
 
 /** Whether two resolved language names denote one language (trim + case-insensitive). */

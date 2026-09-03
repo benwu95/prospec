@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4730%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4790%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -682,6 +682,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
+| `prospec learn stats [options]` | Per-executor grade, dimension, spend and false-green statistics from archived metadata |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
 
 #### Change Management Commands Breakdown
@@ -766,6 +767,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **Purpose**: Calculate confirmed yield statistics per review lens and recommend retirements from archived reviews.
   - **Key Details**: Tracks consecutive zero-yield changes and yield ratio per lens; outputs recommendations (`keep`, `review`, `retire`).
+
+- **`prospec learn stats [--corpus <dir>] [--json]`**
+  - **Purpose**: Group archived verify dimensions and review baselines by their self-declared `executor` label and report per-label statistics.
+  - **Key Details**: Grade distribution, dimension PASS/WARN/FAIL counts, `graded_by` composition, spend median, and false-green count (a review baseline followed, same day or later, by a verify FAIL); groups are the self-declared `executor` labels recorded in the archived metadata (a declared `.prospec.yaml` `executors` vocabulary constrains what the write paths accept); `--json` writes `executor-stats-report.json` while stdout stays human-readable.
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`). `module-readme` validates a module's README against its canonical Markdown convention. Exits 1 on failure.
@@ -1159,7 +1164,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4730 total; 4 skipped)
+# Run all tests (4790 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1172,11 +1177,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4730 total tests (4726 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3370 tests
-- Contract tests (CLI output + Skill format): 1182 tests
+**Test Coverage**: 4790 total tests (4786 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3420 tests
+- Contract tests (CLI output + Skill format): 1188 tests
 - Integration tests: 45 tests
-- E2E tests: 133 tests
+- E2E tests: 137 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

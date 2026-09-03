@@ -7,6 +7,7 @@ import {
   parseIntOption,
   parseBoundedInt,
   parseRatio,
+  parseExecutorLabel,
 } from '../../../src/cli/parse-options.js';
 
 describe('parseDepth', () => {
@@ -99,5 +100,22 @@ describe('parseRatio', () => {
     expect(() => parser('abc')).toThrow(InvalidArgumentError);
     expect(() => parser('0.5abc')).toThrow(InvalidArgumentError);
     expect(() => parser('0.5%')).toThrow(InvalidArgumentError);
+  });
+});
+
+describe('parseExecutorLabel (REQ-CLI-052)', () => {
+  it('passes a non-empty single-line label through (the service normalizes it)', () => {
+    expect(parseExecutorLabel('judge')).toBe('judge');
+    expect(parseExecutorLabel(' judge ')).toBe(' judge ');
+  });
+
+  it('refuses an empty or whitespace-only label with the omit-the-flag hint', () => {
+    expect(() => parseExecutorLabel('')).toThrow(InvalidArgumentError);
+    expect(() => parseExecutorLabel('   ')).toThrow(/non-empty executor/);
+  });
+
+  it('refuses a label carrying a line break — it is rendered as one line', () => {
+    expect(() => parseExecutorLabel('jud\nge')).toThrow(/single line/);
+    expect(() => parseExecutorLabel('jud\rge')).toThrow(InvalidArgumentError);
   });
 });

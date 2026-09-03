@@ -253,11 +253,121 @@ describe('verify-record service', () => {
 
   it('records executor and spend from the run-level flag form', async () => {
     seed();
+    // an executor value reads .prospec.yaml for the vocabulary (undeclared here → free string)
+    vol.writeFileSync('/repo/.prospec.yaml', 'version: "2.0"\nproject:\n  name: t\n');
     const dims = judgment().map((d) => ({ ...d, executor: 'opus-tier fresh subagent', spend: 12000 }));
     await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
     const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
     expect(written).toContain('executor: opus-tier fresh subagent');
     expect(written).toContain('spend: 12000');
+  });
+});
+
+describe('executor vocabulary at the write path (REQ-SERVICES-107)', () => {
+  const CONFIG = '/repo/.prospec.yaml';
+  const declared = 'version: "2.0"\nproject:\n  name: t\nexecutors:\n  - judge\n  - drafter\n';
+
+  it('refuses an undeclared executor when .prospec.yaml declares a vocabulary — nothing written', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    const before = vol.readFileSync(META, 'utf-8') as string;
+    const dims = judgment().map((d) => ({ ...d, executor: 'reviewer' }));
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [] });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    expect((caught as PrerequisiteError).suggestion).toContain('judge, drafter');
+    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+  });
+
+  it('records a declared executor label (flag and file form alike)', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    const dims = judgment().map((d) => ({ ...d, executor: 'judge' }));
+    await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-09-03' });
+    expect((vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ')).toContain('executor: judge');
+
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    vol.writeFileSync(
+      '/repo/verdicts.json',
+      JSON.stringify(judgment().map((d) => ({ name: d.name, result: d.result, graded_by: 'fresh-subagent', executor: 'drafter' }))),
+    );
+    await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: '/repo/verdicts.json', warnings: [], date: '2026-09-03' });
+    expect((vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ')).toContain('executor: drafter');
+  });
+
+  it('writes the normalized label in both forms — the same bytes `check --record-review` writes', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    const dims = judgment().map((d) => ({ ...d, executor: '  judge ' }));
+    await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-09-03' });
+    const flag = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
+    expect(flag).toContain('executor: judge');
+    expect(flag).not.toContain('executor: "  judge "');
+
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    vol.writeFileSync(
+      '/repo/verdicts.json',
+      JSON.stringify(judgment().map((d) => ({ name: d.name, result: d.result, graded_by: 'fresh-subagent', executor: ' drafter\t' }))),
+    );
+    await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: '/repo/verdicts.json', warnings: [], date: '2026-09-03' });
+    const file = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
+    expect(file).toContain('executor: drafter');
+    expect(file).not.toMatch(/executor: ["'] ?drafter/);
+  });
+
+  it('refuses a blank executor in the --dimensions file form — omitted, never written as "" (review R4-1 pin)', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, 'version: "2.0"\nproject:\n  name: t\n');
+    const before = vol.readFileSync(META, 'utf-8') as string;
+    vol.writeFileSync(
+      '/repo/verdicts.json',
+      JSON.stringify(judgment().map((d) => ({ name: d.name, result: d.result, graded_by: 'fresh-subagent', executor: '   ' }))),
+    );
+    await expect(
+      execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: '/repo/verdicts.json', warnings: [] }),
+    ).rejects.toThrow(/blank executor/);
+    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+  });
+
+  it('does not mutate the caller-supplied judgment dimensions while normalizing', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    const dims = judgment().map((d) => ({ ...d, executor: ' judge ' }));
+    await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-09-03' });
+    expect(dims.every((d) => d.executor === ' judge ')).toBe(true);
+  });
+
+  it('refuses through the --dimensions file form too', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, declared);
+    vol.writeFileSync(
+      '/repo/verdicts.json',
+      JSON.stringify(judgment().map((d) => ({ name: d.name, result: d.result, graded_by: 'fresh-subagent', executor: 'nope' }))),
+    );
+    await expect(
+      execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: '/repo/verdicts.json', warnings: [] }),
+    ).rejects.toBeInstanceOf(PrerequisiteError);
+  });
+
+  it('keeps every executor a free string when no vocabulary is declared', async () => {
+    seed();
+    vol.writeFileSync(CONFIG, 'version: "2.0"\nproject:\n  name: t\n');
+    const dims = judgment().map((d) => ({ ...d, executor: 'anything at all' }));
+    await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-09-03' });
+    expect((vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ')).toContain('executor: anything at all');
+  });
+
+  it('does not read .prospec.yaml at all when no verdict carries an executor (no config dependency)', async () => {
+    seed(); // seed() writes no .prospec.yaml — readConfig would throw ConfigNotFound
+    expect(vol.existsSync(CONFIG)).toBe(false);
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-09-03' });
+    expect(result.grade).toBe('S');
   });
 });
 
@@ -471,6 +581,7 @@ describe('report freshness guard', () => {
 
     it('carries per-entry graded_by / executor / spend from the file form into metadata', async () => {
       seed();
+      vol.writeFileSync('/repo/.prospec.yaml', 'version: "2.0"\nproject:\n  name: t\n');
       vol.writeFileSync(
         DIMS,
         JSON.stringify([

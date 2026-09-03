@@ -204,10 +204,11 @@ describe('contained read is single-sourced (REQ-MCP-006 / REQ-LIB-014)', () => {
       reads,
       'a new readFileSync in drift-sources must go through readTextOrSkip / readContainedText — ' +
         'update this baseline only when you have re-argued the failure mode',
-    ).toBe(4);
-    // the four: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
-    // (already try-wrapped), the metadata read (already try-wrapped), and
-    // computeDeltaSpecDigest's single-file hash read. The last one is argued, not
+    ).toBe(3);
+    // the three: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
+    // (already try-wrapped), and computeDeltaSpecDigest's single-file hash read; the
+    // change-metadata read moved into lib/change-metadata's `readChangeMetadataLeniently`
+    // (the ONE lenient discovery read — its own try/catch, pinned in change-metadata.test). The last one is argued, not
     // waved through: its whole body is a try/catch returning null, which is the
     // fail-closed contract this budget exists to protect — an unreadable delta-spec
     // must degrade to an honest skip, never to a constant that would certify a

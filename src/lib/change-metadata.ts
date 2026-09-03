@@ -8,7 +8,7 @@ import {
 } from '../types/change.js';
 import { MetadataValidationError } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
-import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
+import { parseYaml, parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
 import { collapseWhitespace } from './text-lines.js';
 
 /**
@@ -195,3 +195,23 @@ export function deriveFixChangeName(target: string, checkId: string): string {
   return `fix-${cleanTarget}-${cleanCheck}`;
 }
 
+/**
+ * The ONE lenient read of a change's `metadata.yaml` for discovery and statistics
+ * passes — the archive scan, the drift collectors, `learn stats`. Returns the parsed
+ * mapping, or `null` when the file is missing, unparseable, or not a mapping (an
+ * empty/blank/`null` document included); the caller keeps its own policy for a
+ * corrupt record (skip it, report it incomplete, count it). Never validates: one
+ * malformed sibling must not hide every other change (PB-006 — this rule was
+ * hand-copied three times before it lived here).
+ */
+export function readChangeMetadataLeniently(metadataPath: string): Record<string, unknown> | null {
+  let parsed: unknown;
+  try {
+    parsed = parseYaml<unknown>(fs.readFileSync(metadataPath, 'utf-8'), metadataPath);
+  } catch {
+    return null;
+  }
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : null;
+}

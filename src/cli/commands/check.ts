@@ -4,6 +4,7 @@ import { formatCheckOutput } from '../formatters/check-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
+import { parseExecutorLabel } from '../parse-options.js';
 
 /**
  * Register the `check` command.
@@ -48,6 +49,11 @@ export function registerCheckCommand(program: Command): void {
         "With --record-review: the reviewer's self-declared grading context",
       ).choices([...DIMENSION_GRADED_BY]),
     )
+    .option(
+      '--executor <label>',
+      "With --record-review: the reviewer's self-declared executor label (validated against .prospec.yaml executors when declared)",
+      parseExecutorLabel,
+    )
     .action(
       async (options: {
         json?: boolean;
@@ -58,6 +64,7 @@ export function registerCheckCommand(program: Command): void {
         escapedDefects?: boolean;
         change?: string;
         gradedBy?: DimensionGradedBy;
+        executor?: string;
         autoDraft?: boolean;
         autoDraftDryRun?: boolean;
       }) => {
@@ -74,6 +81,7 @@ export function registerCheckCommand(program: Command): void {
             escapedDefects: options.escapedDefects,
             change: options.change,
             gradedBy: options.gradedBy,
+            executor: options.executor,
             autoDraft: options.autoDraft,
             autoDraftDryRun: options.autoDraftDryRun,
           });

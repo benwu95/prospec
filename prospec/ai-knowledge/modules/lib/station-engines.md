@@ -1,6 +1,6 @@
 # Station Engines
 
-> The I/O-free engines the cli-first stations delegate their deterministic half to — table mechanics, the S/A/B/C/D grade, the review findings merge, the shared evidence-block grammar, the lessons ledger, the artifact validators, the dual-axis review circuit breaker, and the lens yield statistics. Reached from [lib](./README.md).
+> The I/O-free engines the cli-first stations delegate their deterministic half to — table mechanics, the S/A/B/C/D grade, the review findings merge, the shared evidence-block grammar, the lessons ledger, the artifact validators, the dual-axis review circuit breaker, the lens yield statistics, and the per-executor statistics. Reached from [lib](./README.md).
 
 ## Key Files
 
@@ -14,6 +14,7 @@
 | `lessons-ledger.ts` | Ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped) |
 | `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids) |
 | `lens-yield.ts` | Calculate confirmed yield per lens, recommend lens retirement (`calculateLensYield`, `recommendLensRetirement`, `buildLensYieldReport`) |
+| `executor-stats.ts` | `aggregateExecutorStats` — per-executor grades, dimension results, grading contexts, spend median (one sample per entry+executor) and false greens (review baseline followed by a verify FAIL, ≤1 per change) over leniently-parsed archive metadata; ends with `ExecutorStatsReportSchema.parse` |
 
 ## Public API
 
@@ -21,7 +22,7 @@
 - `renderEvidenceBlock` / `renderEvidenceSection` (heading is a parameter) / `splitEvidenceSection` (→ `{before, blocks, after}`) / `containsEvidenceMarker` / `findUnsafeBlockField`
 - `parseReviewRows` / `parseReviewDocument` / `parseReviewMetrics` / `mergeFindings` / `roundCounts` / `renderReviewDocument` / `evidenceBlocksFor`
 - `computeGrade` / `resultForGrade` / `gradeAdvancesStatus` / `isSelfVerified` / `applySelfVerifiedCap`; `upsertLesson`; `validateSlug` / `validate*`
-- `normalizeLens` / `isConfirmedFinding` / `calculateLensYield` / `recommendLensRetirement` / `buildLensYieldReport`
+- `normalizeLens` / `isConfirmedFinding` / `calculateLensYield` / `recommendLensRetirement` / `buildLensYieldReport`; `aggregateExecutorStats` / `median`
 
 ## Modification Guide
 

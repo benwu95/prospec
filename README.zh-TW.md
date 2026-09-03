@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4730%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4790%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -665,6 +665,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），達標時推進 verified |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
+| `prospec learn stats [options]` | 從已封存 metadata 計算各 executor 的評級、維度、花費與假綠統計 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
 
 #### 變更管理命令詳解
@@ -749,6 +750,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。
   - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
+
+- **`prospec learn stats [--corpus <dir>] [--json]`**
+  - **核心用途**：依自我申報的 `executor` label 將已封存的 verify 維度與 review baseline 分組，輸出各 label 的統計。
+  - **重點條列**：評級分布、維度 PASS/WARN/FAIL 計數、`graded_by` 組成、spend 中位數、假綠計數（review baseline 當日或之後 verify 出現 FAIL）；分組鍵為封存 metadata 內自我申報的 `executor` label（宣告 `.prospec.yaml` `executors` 詞彙時，寫入端只接受清單內的值）；`--json` 寫入 `executor-stats-report.json`，stdout 維持人類可讀。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。校驗失敗時 exit 1。
@@ -1139,7 +1144,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4730 個；4 個略過）
+# 執行所有測試（共 4790 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1152,11 +1157,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4730 個測試（4726 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3370 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1182 tests
+**測試覆蓋率**：共 4790 個測試（4786 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3420 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1188 tests
 - Integration tests：45 tests
-- E2E tests：133 tests
+- E2E tests：137 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

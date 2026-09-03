@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { LearnUpsertResult } from '../../services/learn.service.js';
+import type { LearnStatsResult } from '../../services/learn-stats.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /** Format the LearnUpsertResult: upsert action, score details, TTL expiry list. */
@@ -117,3 +118,51 @@ export function formatLensYieldOutput(
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+
+/** Format the per-executor statistics: corpus totals, one block per executor, and the
+ *  `--json` report path. Every executor label is project-declared free text — sanitized. */
+export function formatExecutorStatsOutput(
+  result: LearnStatsResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+  const { report } = result;
+  const lines: string[] = [];
+  lines.push(
+    `${pc.bold('Per-Executor Statistics')} (${report.total_changes_analyzed} changes analyzed, ${report.skipped} skipped, ${report.unlabeled_dimensions} unlabeled dimensions)`,
+  );
+
+  if (report.stats.length === 0) {
+    lines.push(pc.dim('No executor labels found across analyzed changes.'));
+  }
+
+  const counts = (record: Record<string, number>): string =>
+    Object.entries(record)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${k}=${n}`)
+      .join(' ') || pc.dim('none');
+
+  for (const s of report.stats) {
+    lines.push('');
+    lines.push(`${pc.cyan('●')} ${pc.bold(sanitizeTerminal(s.executor))}  ${pc.dim(`${s.changes} changes, ${s.verify_entries} verify entries`)}`);
+    lines.push(`  grades:      ${counts(s.grades)}`);
+    lines.push(`  dimensions:  ${counts(s.dimension_results)}`);
+    lines.push(`  graded_by:   ${counts(s.graded_by)}`);
+    lines.push(
+      `  spend:       ${s.spend.median === null ? pc.dim('no samples') : `median ${s.spend.median} (${s.spend.samples} samples)`}`,
+    );
+    const falseGreen = s.false_greens > 0 ? pc.red(String(s.false_greens)) : String(s.false_greens);
+    lines.push(`  review:      ${s.review_baselines} baselines, ${falseGreen} false greens`);
+  }
+
+  if (report.stats.length > 0) {
+    lines.push('');
+    lines.push(
+      pc.dim('false greens = review baseline followed (same day or later) by a verify FAIL dimension; day granularity, conservative lower bound'),
+    );
+  }
+  if (result.reportPath !== undefined) {
+    lines.push(`${pc.green('✓')} Report written: ${pc.cyan(sanitizeTerminal(result.reportPath))}`);
+  }
+  process.stdout.write(lines.join('\n') + '\n');
+}
