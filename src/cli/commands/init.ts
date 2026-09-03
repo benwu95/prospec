@@ -9,7 +9,7 @@ import { resolveLogLevel } from '../log-level.js';
  * Register the `init` command onto the program.
  *
  * Usage:
- *   prospec init [--name <name>] [--agents <list>]
+ *   prospec init [--name <name>] [--agents <list>] [--language <language>] [--trust-zone-language <language>]
  *
  * --agents accepts a comma-separated list and skips interactive selection (CI/CD mode).
  */
@@ -27,7 +27,11 @@ export function registerInitCommand(program: Command): void {
       '--language <language>',
       `Primary language for AI-generated documents (default: ${DEFAULT_ARTIFACT_LANGUAGE}, skips interactive prompt)`,
     )
-    .action(async (options: { name?: string; agents?: string[]; language?: string }) => {
+    .option(
+      '--trust-zone-language <language>',
+      `Language of the trust zone — Knowledge base, Feature Specs, Constitution; sets it and skips its prompt (CI default: ${DEFAULT_ARTIFACT_LANGUAGE}; interactive init asks only when the artifact language is non-English, defaulting to it)`,
+    )
+    .action(async (options: { name?: string; agents?: string[]; language?: string; trustZoneLanguage?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
 
@@ -37,6 +41,7 @@ export function registerInitCommand(program: Command): void {
           name: options.name,
           agents: options.agents,
           language: options.language,
+          trustZoneLanguage: options.trustZoneLanguage,
         });
         formatInitOutput(result, logLevel);
       } catch (err) {

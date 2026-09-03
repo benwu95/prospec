@@ -61,7 +61,7 @@ export function formatInitOutput(
   lines.push(''); // Empty line separator
   const languageScopeNote = isDefaultArtifactLanguage(result.artifactLanguage)
     ? ''
-    : ' for change artifacts; the trust zone (Knowledge base, specs/features, index.md, Constitution) follows trust_zone_language — English until set';
+    : ` for change artifacts; the trust zone (Knowledge base, specs/features, index.md, Constitution) in ${sanitizeTerminal(result.trustZoneLanguage)}`;
   lines.push(
     `Document language: ${pc.cyan(sanitizeTerminal(result.artifactLanguage))}${languageScopeNote} (Language Policy added to CONSTITUTION.md)`,
   );

@@ -204,6 +204,7 @@ describe('init.service artifact language', () => {
   beforeEach(() => {
     vol.reset();
     vi.mocked(renderTemplate).mockClear();
+    vi.mocked(input).mockClear();
   });
 
   it('uses the --language flag value and writes it to .prospec.yaml', async () => {
@@ -236,11 +237,16 @@ describe('init.service artifact language', () => {
     vol.fromJSON({ '/project/package.json': '{}' });
     vi.mocked(input)
       .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Français')
       .mockResolvedValueOnce('Français');
 
     const result = await execute({ name: 'test', cwd: '/project' });
 
     expect(result.artifactLanguage).toBe('Français');
+    expect(result.trustZoneLanguage).toBe('Français');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'trust_zone_language: Français',
+    );
   });
 
   it('falls back to English when the prompt answer is blank', async () => {
@@ -252,6 +258,112 @@ describe('init.service artifact language', () => {
     const result = await execute({ name: 'test', cwd: '/project' });
 
     expect(result.artifactLanguage).toBe('English');
+    // A blank artifact answer resolves to English, so the trust-zone prompt is skipped.
+    expect(vi.mocked(input)).toHaveBeenCalledTimes(2);
+    expect(result.trustZoneLanguage).toBe('English');
+  });
+
+  it('does not prompt for the trust-zone language when the artifact language is English', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce(' english ');
+
+    const result = await execute({ name: 'test', cwd: '/project' });
+
+    expect(vi.mocked(input)).toHaveBeenCalledTimes(2);
+    expect(result.trustZoneLanguage).toBe('English');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'trust_zone_language: English',
+    );
+  });
+
+  it('prompts for the trust-zone language with the artifact language as default when it is non-English', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Japanese')
+      .mockResolvedValueOnce('English');
+
+    const result = await execute({ name: 'test', cwd: '/project' });
+
+    expect(vi.mocked(input)).toHaveBeenCalledTimes(3);
+    const third = vi.mocked(input).mock.calls[2]![0] as { message: string; default?: string };
+    expect(third.default).toBe('Japanese');
+    expect(third.message).toMatch(/trust zone/i);
+    expect(result.trustZoneLanguage).toBe('English');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'trust_zone_language: English',
+    );
+  });
+
+  it('falls back to the artifact language when the trust-zone answer is blank', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Japanese')
+      .mockResolvedValueOnce('   ');
+
+    const result = await execute({ name: 'test', cwd: '/project' });
+
+    expect(result.trustZoneLanguage).toBe('Japanese');
+  });
+
+  it('uses the --trust-zone-language flag value, skipping the prompt', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Japanese');
+
+    const result = await execute({
+      name: 'test',
+      trustZoneLanguage: 'Traditional Chinese (Taiwan)',
+      cwd: '/project',
+    });
+
+    expect(vi.mocked(input)).toHaveBeenCalledTimes(2);
+    expect(result.trustZoneLanguage).toBe('Traditional Chinese (Taiwan)');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'trust_zone_language: Traditional Chinese (Taiwan)',
+    );
+  });
+
+  it('treats a blank --trust-zone-language as unspecified: artifact language interactively, English in CI mode', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    vi.mocked(input)
+      .mockResolvedValueOnce('prospec')
+      .mockResolvedValueOnce('Japanese');
+
+    const interactive = await execute({ name: 'test', trustZoneLanguage: '  ', cwd: '/project' });
+    expect(vi.mocked(input)).toHaveBeenCalledTimes(2);
+    expect(interactive.trustZoneLanguage).toBe('Japanese');
+
+    vol.reset();
+    vol.fromJSON({ '/project/package.json': '{}' });
+    const ci = await execute({
+      name: 'test',
+      agents: ['claude'],
+      language: 'Japanese',
+      trustZoneLanguage: '  ',
+      cwd: '/project',
+    });
+    expect(ci.trustZoneLanguage).toBe('English');
+  });
+
+  it('defaults the trust-zone language to English in CI mode without the flag', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+
+    const result = await execute({
+      name: 'test',
+      agents: ['claude'],
+      language: 'Japanese',
+      cwd: '/project',
+    });
+
+    expect(result.trustZoneLanguage).toBe('English');
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toContain(
+      'trust_zone_language: English',
+    );
   });
 
   it('seeds the Constitution with the Language Policy rule first', async () => {

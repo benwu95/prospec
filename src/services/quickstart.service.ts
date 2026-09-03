@@ -9,6 +9,7 @@ export interface QuickstartOptions {
   name?: string;
   agents?: string[];
   language?: string;
+  trustZoneLanguage?: string;
   cwd?: string;
 }
 
@@ -53,6 +54,7 @@ export async function execute(
       name: options.name,
       agents: options.agents,
       language: options.language,
+      trustZoneLanguage: options.trustZoneLanguage,
       cwd,
     });
     steps.push({ name: 'init', status: 'created' });

@@ -11,7 +11,8 @@ import { INIT_DOC_REGISTRY } from '../types/conventions.js';
 import { detectTechStack } from '../lib/detector.js';
 import type { TechStackResult } from '../lib/detector.js';
 export type { TechStackResult };
-export { isDefaultArtifactLanguage } from '../lib/config.js';
+import { isDefaultArtifactLanguage } from '../lib/config.js';
+export { isDefaultArtifactLanguage };
 import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
@@ -21,6 +22,7 @@ export interface InitOptions {
   name?: string;
   agents?: string[];
   language?: string;
+  trustZoneLanguage?: string;
   cwd?: string;
 }
 
@@ -30,6 +32,7 @@ export interface InitResult {
   agentInfos: AgentInfo[];
   selectedAgents: string[];
   artifactLanguage: string;
+  trustZoneLanguage: string;
   createdFiles: string[];
 }
 
@@ -108,6 +111,28 @@ export async function execute(options: InitOptions): Promise<InitResult> {
   }
   artifactLanguage = artifactLanguage.trim() || DEFAULT_ARTIFACT_LANGUAGE;
 
+  // 6c. Resolve trust-zone language. The prompt only appears when the artifact
+  // language is non-English: an English project has one sensible value, and
+  // init generates the Constitution + entry config from both axes right now, so
+  // a value set afterwards costs a drift → upgrade → knowledge regeneration
+  // round-trip. Interactive default follows the artifact language; the flag/CI
+  // paths keep the pre-axis default (English) so unattended output is unchanged.
+  const trustZoneFlag = options.trustZoneLanguage?.trim() ?? '';
+  const trustZoneDefault =
+    options.agents || isDefaultArtifactLanguage(artifactLanguage)
+      ? DEFAULT_ARTIFACT_LANGUAGE
+      : artifactLanguage;
+  let trustZoneLanguage: string;
+  if (options.trustZoneLanguage !== undefined || options.agents || isDefaultArtifactLanguage(artifactLanguage)) {
+    trustZoneLanguage = trustZoneFlag || trustZoneDefault;
+  } else {
+    const answer = await input({
+      message: 'Language for the trust zone (Knowledge base, Feature Specs, Constitution):',
+      default: trustZoneDefault,
+    });
+    trustZoneLanguage = answer.trim() || trustZoneDefault;
+  }
+
   // 7. Build config
   const config: ProspecConfig = {
     version: PROSPEC_VERSION,
@@ -119,6 +144,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       : {}),
     paths: { base_dir: baseDir },
     artifact_language: artifactLanguage,
+    trust_zone_language: trustZoneLanguage,
     exclude: ['*.env*', '*credential*', '*secret*', 'node_modules', '.git'],
     agents: selectedAgents.length > 0 ? selectedAgents as ProspecConfig['agents'] : undefined,
     knowledge: {
@@ -187,6 +213,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     agentInfos,
     selectedAgents,
     artifactLanguage,
+    trustZoneLanguage,
     createdFiles,
   };
 }
