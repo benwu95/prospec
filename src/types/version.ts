@@ -29,8 +29,10 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
  * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
  * newer version — never as a routine release chore. It names the version that
  * SHIPS the complete command contract, so during development it runs ahead of
- * `package.json` until the release bumps to match. `2.0.0` is the release that
- * ships the command contract used by the current skills; a lower floor would let
- * an older binary with pre-2.0 behavior pass the probe.
+ * `package.json` until the release bumps to match. `2.1.0` is the release that
+ * ships the command contract used by the current skills — `prospec-knowledge-update`
+ * calls `prospec validate module-readme`, a validate kind 2.0.x does not accept — so
+ * a lower floor would let a 2.0.x binary pass the probe and then die mid-station on
+ * commander's kind validation.
  */
-export const MINIMUM_CLI_VERSION = '2.0.0';
+export const MINIMUM_CLI_VERSION = '2.1.0';

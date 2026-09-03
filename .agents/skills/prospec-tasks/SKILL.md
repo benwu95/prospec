@@ -26,7 +26,7 @@ Write each generated document in the language the Constitution's Language Policy
    executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
    Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
    npm. Then re-run this skill.
-3. **Version older than 2.0.0** → STOP. Report the installed vs required version
+3. **Version older than 2.1.0** → STOP. Report the installed vs required version
    and ask the user to upgrade, then re-run this skill.
 
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the

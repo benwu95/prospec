@@ -41,7 +41,7 @@ Each Skill's description and trigger words are surfaced automatically from its `
 
 At the start of a session, run `prospec status` — it deterministically reports each in-progress
 change's name, current node, suggested next step, and blocking gates (the executable copy of
-`prospec/ai-knowledge/_status-lifecycle.md`). The prospec CLI (version ≥ 2.0.0)
+`prospec/ai-knowledge/_status-lifecycle.md`). The prospec CLI (version ≥ 2.1.0)
 is a required file for the prospec skills: when it is missing or too old, STOP and install/upgrade
 the standalone executable before running any skill — never substitute manual steps.
 
