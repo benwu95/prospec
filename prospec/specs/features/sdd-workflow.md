@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-09-02
+last_updated: 2026-09-03
 story_count: 41
-req_count: 267
+req_count: 269
 ---
 
 # SDD Workflow
@@ -89,6 +89,7 @@ req_count: 267
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-03 | normalize-executor-labels-and-stats | ADDED REQ-LIB-075; ADDED REQ-SERVICES-107; MODIFIED REQ-TYPES-053 | REQ-LIB-075, REQ-SERVICES-107, REQ-TYPES-053 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-166 | REQ-TEMPLATES-166 |
 | 2026-09-02 | align-review-severity-with-cli-enum | MODIFIED REQ-TEMPLATES-067 | REQ-TEMPLATES-067 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-CLI-031 | REQ-CLI-031 |
