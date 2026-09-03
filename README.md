@@ -569,6 +569,7 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
     - Re-runs `agent sync` to align agent configurations and Skill templates with the latest release.
     - Scaffolds any missing init-created files from templates (`skip-if-exists`, never overwriting or reordering existing files).
     - Prints a migration report with a docs inventory, handing off to `prospec-upgrade` for consent-gated format migrations.
+    - Marks each inventory line `[canonical]` (a whole-file canonical document) or `[canonical] [preserves-user-content]` (a canonical format wrapped around an authored user block — `_module-readme-conventions.md` and its Project Section Extensions registry, for instance). A `[preserves-user-content]` document is never replaced whole-file: a consented migration refreshes only its generated format and keeps your registered sections byte-for-byte, and a marker-less legacy document goes through a no-clobber migration diff — reported as blocked, and left unchanged, if that diff cannot preserve your block.
 
 - **`prospec init [options]`**
   - **Purpose**: Initialize Prospec project structure and baseline configuration.
@@ -1032,6 +1033,8 @@ skill_triggers:
 ### Customizing Module READMEs (Project Section Extensions)
 
 By default, every module README follows the canonical Recipe-First structure (`## Key Files`, `## Public API`, `## Dependencies`, `## Modification Guide`, `## Pitfalls`, and optional `## Ripple Effects` / `## Sub-Modules`) inside its generated block (`prospec:auto-start` ... `prospec:auto-end`).
+
+Right after the title and one-line summary, above that block, sits a format marker — `<!-- prospec:module-readme-format 2026-09-01 -->`. It names the compatible grammar release the file conforms to, not the date the document was last edited: clarifications and registered optional extensions keep the same date, while an incompatible change to marker semantics or the core section grammar earns a new one. [`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) is the authority for both the marker and the structure, and `prospec validate module-readme <module>` grades a README against them.
 
 To add project-specific custom sections (e.g. `## Team Ownership`, `## Security Rules`), register them in [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) inside its `prospec:user` block under `## Project Section Extensions`. This Markdown table is the **single authority** for custom sections (do not define them in `.prospec.yaml`):
 

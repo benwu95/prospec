@@ -552,6 +552,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
     - 重新執行 `agent sync` 確保各 Agent 配置與 Skills 範本對齊最新版。
     - 自動補建缺少的初始文件（以範本渲染，採 skip-if-exists 策略，絕不覆寫或重排既有檔案）。
     - 輸出 migration report（含 docs inventory 清單），後續由 `prospec-upgrade` Skill 接手需人工同意的格式收斂。
+    - inventory 中每一行會標示 `[canonical]`（整檔正典文件）或 `[canonical] [preserves-user-content]`（正典格式包覆使用者手寫區塊，例如 `_module-readme-conventions.md` 及其 Project Section Extensions registry）。標為 `[preserves-user-content]` 的文件絕不會被整檔取代：經同意的遷移只更新其生成格式，並逐字保留你註冊的 Section；若是缺少 marker 的舊格式文件，則走「不覆蓋（no-clobber）」的遷移 diff —— 當該 diff 無法保留你的區塊時，會回報遷移受阻並維持文件原狀。
 
 - **`prospec init [options]`**
   - **核心用途**：初始化 Prospec 專案結構。
@@ -1012,6 +1013,8 @@ skill_triggers:
 ### 客製化 Module README（Project Section Extensions）
 
 預設情況下，每個模組的 README 都遵循自動生成區塊（`prospec:auto-start` ... `prospec:auto-end`）內的 Recipe-First 正典結構（`## Key Files`、`## Public API`、`## Dependencies`、`## Modification Guide`、`## Pitfalls`，以及可選的 `## Ripple Effects` / `## Sub-Modules`）。
+
+在標題與單行摘要之後、該生成區塊之前，會有一行格式標記 —— `<!-- prospec:module-readme-format 2026-09-01 -->`。它標示的是該檔案所遵循的相容 grammar 版本，而非文件最後修改日期：補充說明與註冊的選用擴充 Section 不會改動此日期，唯有 marker 語意或核心 Section grammar 出現不相容變更才會換新日期。[`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 是 marker 與結構的共同權威，`prospec validate module-readme <module>` 即依此校驗 README。
 
 若需要為專案擴充自訂 Section（如 `## Team Ownership`、`## Security Rules`），請直接在 [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 的 `prospec:user` 區塊中的 `## Project Section Extensions` 註冊。此 Markdown 表格是擴充結構的**單一真相來源**（不需定義在 `.prospec.yaml`）：
 
