@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-31
-story_count: 5
-req_count: 22
+last_updated: 2026-09-03
+story_count: 6
+req_count: 28
 ---
 
 # Feedback Promotion Pipeline
@@ -23,6 +23,7 @@ req_count: 22
 - [US-1–US-2](./feedback-promotion/us-1.md)
 - [US-3–US-4](./feedback-promotion/us-3.md)
 - [US-5](./feedback-promotion/us-5.md)
+- [US-6](./feedback-promotion/us-6.md)
 
 ---
 
@@ -71,6 +72,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-03 | normalize-executor-labels-and-stats | ADDED REQ-TYPES-095; ADDED REQ-LIB-076; ADDED REQ-SERVICES-108; ADDED REQ-CLI-052; ADDED REQ-TEMPLATES-227; ADDED REQ-TESTS-112 | REQ-TYPES-095, REQ-LIB-076, REQ-SERVICES-108, REQ-CLI-052, REQ-TEMPLATES-227, REQ-TESTS-112 |
 | 2026-08-31 | give-prose-conventions-executors | ADDED REQ-TEMPLATES-223; ADDED REQ-TESTS-106 | REQ-TEMPLATES-223, REQ-TESTS-106 |
 | 2026-08-28 | fix-disclosed-cleanups | MODIFIED REQ-CLI-044 | REQ-CLI-044 |
 | 2026-08-28 | add-lens-yield-statistics | ADDED REQ-TYPES-090; ADDED REQ-LIB-065; ADDED REQ-SERVICES-099; ADDED REQ-CLI-044; ADDED REQ-TEMPLATES-204; ADDED REQ-TESTS-100 | REQ-TYPES-090, REQ-LIB-065, REQ-SERVICES-099, REQ-CLI-044, REQ-TEMPLATES-204, REQ-TESTS-100 |

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4730%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4790%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -682,6 +682,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
+| `prospec learn stats [options]` | Per-executor grade, dimension, spend and false-green statistics from archived metadata |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
 
 #### Change Management Commands Breakdown
@@ -757,7 +758,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.
-  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade.
+  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade. Each judgment verdict declares its grading context: `--graded-by <fresh-subagent|in-session>` (required; `in-session` caps the grade below S), plus optional `--executor <label>` and `--spend <tokens>` run-level in the flag form, or `graded_by` / `executor` / `spend` per entry in the `--dimensions` file. When `.prospec.yaml` declares `executors`, a label outside that list is refused before anything is written.
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
@@ -766,6 +767,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **Purpose**: Calculate confirmed yield statistics per review lens and recommend retirements from archived reviews.
   - **Key Details**: Tracks consecutive zero-yield changes and yield ratio per lens; outputs recommendations (`keep`, `review`, `retire`).
+
+- **`prospec learn stats [--corpus <dir>] [--json]`**
+  - **Purpose**: Group archived verify dimensions and review baselines by their self-declared `executor` label and report per-label statistics.
+  - **Key Details**: Grade distribution, dimension PASS/WARN/FAIL counts, `graded_by` composition, spend median, and false-green count (a review baseline followed, same day or later, by a verify FAIL); groups are the self-declared `executor` labels recorded in the archived metadata (a declared `.prospec.yaml` `executors` vocabulary constrains what the write paths accept); `--json` writes `executor-stats-report.json` while stdout stays human-readable.
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`). `module-readme` validates a module's README against its canonical Markdown convention. Exits 1 on failure.
@@ -888,8 +893,9 @@ deliberately not included in this version.
     - Executed via argv directly without shell; degrades to `skipped` when unable to execute honestly.
     - Previously recorded non-zero exit codes remain FAIL even if command subsequently becomes unresolvable.
 
-- **`prospec check --record-review [--change <name>]`**
+- **`prospec check --record-review [--change <name>] [--graded-by <context>] [--executor <label>]`**
   - **Purpose**: Records code digest and `delta-spec.md` fingerprint to satisfy `review-provenance` and `delta-spec-provenance`.
+  - **Key Details**: `--graded-by <fresh-subagent|in-session>` records the reviewer's grading context and `--executor <label>` its executor label into `review_provenance`; the label is validated against `.prospec.yaml` `executors` when declared, so `prospec learn stats` can attribute review baselines (and later verify FAILs, the false greens) per executor.
 
 - **`prospec check --escaped-defects [--json]`**
   - **Purpose**: Aggregates escaped-defect metrics grouped by `introduced_by` (reporting mode, no findings, does not affect `--strict`).
@@ -984,6 +990,7 @@ Key configurations you can tweak:
 
 - **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages always stay English; the trust zone follows `trust_zone_language`. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from the same paths and languages your agent's entry config (`CLAUDE.md`/`AGENTS.md`) renders, and `prospec check` (`language-policy-drift`) warns when the Constitution's Description drifts from them.
 - **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English when absent (the behavior every project had before the key existed). `prospec init` writes it: interactive init asks for it only when `artifact_language` is non-English, defaulting to that same language; `--trust-zone-language` sets it without a prompt, and CI mode (`--agents`) without the flag keeps English. Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
+- **`executors`**: Optional list of executor labels — the vocabulary your review and verify stations record *who graded* under. Labels are yours (a model identity such as `claude-fable-5-1`, or a role such as `judge`); Prospec attaches no meaning to them and knows no model. When declared, `prospec verify record --executor <label>` (run-level for the flag form, per entry in a `--dimensions` file) and `prospec check --record-review --executor <label>` refuse a label outside the list and print the legal ones; the label is trimmed, must be a single line, and lands in `quality_log[].dimensions[].executor` / `review_provenance.executor`. Absent, any non-empty string is accepted (the behavior before this key existed). `prospec learn stats` then groups the archived record by these labels — grade distribution, dimension results, `graded_by` composition, spend median and false greens per label — so an executor that self-grades too generously shows up in data.
 - **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
 - **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
 - **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
@@ -1004,6 +1011,9 @@ tech_stack:
 paths:
   base_dir: prospec
 artifact_language: Traditional Chinese (Taiwan)
+executors:
+  - judge
+  - drafter
 exclude:
   - "*.env*"
   - "node_modules"
@@ -1159,7 +1169,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4730 total; 4 skipped)
+# Run all tests (4790 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1172,11 +1182,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4730 total tests (4726 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3370 tests
-- Contract tests (CLI output + Skill format): 1182 tests
+**Test Coverage**: 4790 total tests (4786 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3420 tests
+- Contract tests (CLI output + Skill format): 1188 tests
 - Integration tests: 45 tests
-- E2E tests: 133 tests
+- E2E tests: 137 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

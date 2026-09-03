@@ -37,6 +37,16 @@ knowledge:
     # the knowledge getting smaller.
     demand_knowledge_per_file: 20000
 artifact_language: Traditional Chinese (Taiwan)
+# Executor label vocabulary — model identity only (graded_by already records the
+# fresh-vs-in-session context). `unattributed` absorbs historical rows that named a
+# role or station instead of an executor. Project-private values: shipped templates
+# never name a model.
+executors:
+  - claude-fable-5
+  - claude-fable-5-1
+  - claude-opus-4-8
+  - gpt-5-6
+  - unattributed
 skill_triggers:
   prospec-explore:
     - 探索

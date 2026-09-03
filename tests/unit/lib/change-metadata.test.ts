@@ -7,6 +7,7 @@ import {
   writeChangeMetadataObject,
   appendQualityLogEntry,
   normalizeIssueRef,
+  readChangeMetadataLeniently,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
 
@@ -384,4 +385,25 @@ describe('normalizeIssueRef (issue #131)', () => {
       expect(normalizeIssueRef(value)).toBeUndefined();
     },
   );
+});
+
+describe('readChangeMetadataLeniently — the one discovery read', () => {
+  it('returns the mapping for a parseable document without validating it', () => {
+    vol.fromJSON({ '/repo/.prospec/changes/c/metadata.yaml': 'name: c\nweird_key: 1\n' });
+    expect(readChangeMetadataLeniently('/repo/.prospec/changes/c/metadata.yaml')).toEqual({ name: 'c', weird_key: 1 });
+  });
+
+  it('returns null for a missing, unparseable, empty or non-mapping document', () => {
+    vol.fromJSON({
+      '/repo/bad.yaml': 'key: [unclosed',
+      '/repo/empty.yaml': '',
+      '/repo/list.yaml': '- a\n- b\n',
+      '/repo/scalar.yaml': 'just a string\n',
+    });
+    expect(readChangeMetadataLeniently('/repo/missing.yaml')).toBeNull();
+    expect(readChangeMetadataLeniently('/repo/bad.yaml')).toBeNull();
+    expect(readChangeMetadataLeniently('/repo/empty.yaml')).toBeNull();
+    expect(readChangeMetadataLeniently('/repo/list.yaml')).toBeNull();
+    expect(readChangeMetadataLeniently('/repo/scalar.yaml')).toBeNull();
+  });
 });

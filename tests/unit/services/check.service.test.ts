@@ -414,6 +414,36 @@ describe('check.service review-provenance', () => {
     expect(meta).not.toContain('graded_by:');
   });
 
+  it('records review_provenance.executor alongside graded_by when --executor is supplied (REQ-SERVICES-062)', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true, gradedBy: 'fresh-subagent', executor: ' judge ' });
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    const parsed = parseYaml<{ review_provenance?: { graded_by?: string; executor?: string } }>(meta);
+    expect(parsed.review_provenance?.graded_by).toBe('fresh-subagent');
+    expect(parsed.review_provenance?.executor).toBe('judge');
+  });
+
+  it('omits review_provenance.executor when --executor is absent (backward-compatible)', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true });
+    const meta = readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf-8');
+    expect(meta).not.toContain('executor:');
+  });
+
+  it('refuses an executor outside the declared vocabulary and leaves metadata byte-identical (REQ-SERVICES-107)', async () => {
+    write('.prospec.yaml', 'version: "2.0"\nproject:\n  name: t\nexecutors:\n  - judge\n');
+    initGitChange();
+    const metaPath = path.join(tmpDir, '.prospec/changes/c1/metadata.yaml');
+    const before = readFileSync(metaPath, 'utf-8');
+    await expect(
+      execute({ cwd: tmpDir, recordReview: true, executor: 'reviewer' }),
+    ).rejects.toThrow(/not a declared label/);
+    expect(readFileSync(metaPath, 'utf-8')).toBe(before);
+    const ok = await execute({ cwd: tmpDir, recordReview: true, executor: 'judge' });
+    expect(ok.kind).toBe('record-review');
+    expect(readFileSync(metaPath, 'utf-8')).toContain('executor: judge');
+  });
+
   it('goes stale when code changes after the recorded review', async () => {
     initGitChange();
     await execute({ cwd: tmpDir, recordReview: true });

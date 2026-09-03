@@ -202,6 +202,8 @@ describe('JudgmentDimensionsInputSchema', () => {
     }
     expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, spend: -1 }).success).toBe(false);
     expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: '' }).success).toBe(false);
+    // rendered as one line by `learn stats` — a line break is refused at the schema layer
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: 'jud\nge' }).success).toBe(false);
   });
 
   it('accepts the non-adjudicated dimension results verify reports', () => {
