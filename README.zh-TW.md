@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4790%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4730%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -665,7 +665,6 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），達標時推進 verified |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
-| `prospec learn stats [options]` | 從已封存 metadata 計算各 executor 的評級、維度、花費與假綠統計 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
 
 #### 變更管理命令詳解
@@ -741,7 +740,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **核心用途**：計算驗證評級（S/A/B/C/D）並記錄結果。
-  - **重點條列**：機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入；評級達 S 或 A 時自動將狀態推進至 `status: verified`。每筆判斷維度都要申報評分脈絡：`--graded-by <fresh-subagent|in-session>`（必填；`in-session` 會把評級封頂在 S 以下），旗標形式可再帶整輪的 `--executor <label>` 與 `--spend <tokens>`，`--dimensions` 檔案形式則每筆各帶 `graded_by`／`executor`／`spend`。`.prospec.yaml` 宣告 `executors` 時，清單外的 label 會在寫入前被拒絕。
+  - **重點條列**：機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入；評級達 S 或 A 時自動將狀態推進至 `status: verified`。
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。
@@ -750,10 +749,6 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。
   - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
-
-- **`prospec learn stats [--corpus <dir>] [--json]`**
-  - **核心用途**：依自我申報的 `executor` label 將已封存的 verify 維度與 review baseline 分組，輸出各 label 的統計。
-  - **重點條列**：評級分布、維度 PASS/WARN/FAIL 計數、`graded_by` 組成、spend 中位數、假綠計數（review baseline 當日或之後 verify 出現 FAIL）；分組鍵為封存 metadata 內自我申報的 `executor` label（宣告 `.prospec.yaml` `executors` 詞彙時，寫入端只接受清單內的值）；`--json` 寫入 `executor-stats-report.json`，stdout 維持人類可讀。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。校驗失敗時 exit 1。
@@ -873,9 +868,8 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
 
-- **`prospec check --record-review [--change <name>] [--graded-by <context>] [--executor <label>]`**
+- **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
-  - **重點條列**：`--graded-by <fresh-subagent|in-session>` 記錄審查者的評分脈絡、`--executor <label>` 記錄其 executor label 到 `review_provenance`；宣告 `.prospec.yaml` `executors` 時 label 會受詞彙驗證，讓 `prospec learn stats` 能把 review baseline（以及之後 verify 抓到的 FAIL，即假綠）歸屬到 executor。
 
 - **`prospec check --escaped-defects [--json]`**
   - **核心用途**：依 `introduced_by` 欄位聚合各階段閘門的漏失缺陷率（報表模式，不產生 finding 也不影響 exit code）。
@@ -970,7 +964,6 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 
 - **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 一律維持英文；trust zone 的語言由 `trust_zone_language` 決定。`prospec init` 會以與 agent entry config（`CLAUDE.md`/`AGENTS.md`）相同的路徑與語言把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，且 `prospec check`（`language-policy-drift`）會在憲法的 Description 與之漂移時提出 WARN。
 - **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。未設定時預設為 English（此設定出現前所有專案的既有行為）。`prospec init` 會寫入它：互動式 init 只在 `artifact_language` 非英文時追問，預設與該語言相同；`--trust-zone-language` 可直接指定不提問，CI 模式（`--agents`）未給 flag 則維持 English。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
-- **`executors`**：選填的 executor label 清單 —— review 與 verify 站記錄「是誰評的」時使用的詞彙。label 由你定義（模型身分如 `claude-fable-5-1`，或角色如 `judge`）；Prospec 不賦予任何語意、也不認識任何模型。宣告後，`prospec verify record --executor <label>`（旗標形式為整輪一個值；`--dimensions` 檔案形式為每筆各自帶）與 `prospec check --record-review --executor <label>` 收到清單外的值會拒絕並列出合法 label；label 會 trim、必須單行，落在 `quality_log[].dimensions[].executor` 與 `review_provenance.executor`。未宣告時任何非空字串皆接受（此鍵出現前的既有行為）。之後 `prospec learn stats` 依這些 label 分組封存記錄 —— 每個 label 的評級分布、維度結果、`graded_by` 組成、spend 中位數與假綠計數 —— 自評過寬的 executor 會直接在資料上現形。
 - **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
 - **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
 - **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
@@ -991,9 +984,6 @@ tech_stack:
 paths:
   base_dir: prospec
 artifact_language: Traditional Chinese (Taiwan)
-executors:
-  - judge
-  - drafter
 exclude:
   - "*.env*"
   - "node_modules"
@@ -1149,7 +1139,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4790 個；4 個略過）
+# 執行所有測試（共 4730 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1162,11 +1152,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4790 個測試（4786 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3420 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1188 tests
+**測試覆蓋率**：共 4730 個測試（4726 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3370 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1182 tests
 - Integration tests：45 tests
-- E2E tests：137 tests
+- E2E tests：133 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

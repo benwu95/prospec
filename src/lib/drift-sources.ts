@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
-import { readChangeMetadataLeniently } from './change-metadata.js';
+import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
@@ -2291,8 +2291,18 @@ function enumerateChangeMetadata(
     const metadataPath = path.join(dir, name, 'metadata.yaml');
     if (!existsSync(metadataPath)) continue;
     const source_path = path.relative(cwd, metadataPath).replace(/\\/g, '/');
-    // null for an unparseable or non-mapping file — the caller decides the policy.
-    out.push({ name, source_path, meta: readChangeMetadataLeniently(metadataPath) });
+    let meta: Record<string, unknown> | null = null;
+    try {
+      const parsed = parseYaml<unknown>(readFileSync(metadataPath, 'utf-8'), metadataPath);
+      // parseYaml returns null (never throws) for empty/blank/comment-only/`null`
+      // content — any non-mapping result is reported as null, same as a parse error.
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        meta = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // unparseable metadata — reported as null for the caller to decide
+    }
+    out.push({ name, source_path, meta });
   }
   return out;
 }

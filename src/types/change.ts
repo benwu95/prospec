@@ -53,9 +53,9 @@ export const QualityDimensionSchema = z.looseObject({
    *  "required for a judgment dimension" rule is enforced by `verify record`, not
    *  here. `in-session` caps the grade below S. */
   graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
-  /** Self-declared executor label. Optional keeps every pre-existing entry valid;
-   *  the write path (`verify record`) validates it against the project's declared
-   *  `executors` vocabulary when one exists, and `prospec learn stats` aggregates by it. */
+  /** Free-string self-report of who graded it (model / harness description). Not
+   *  validated — prospec detects no model; it is a data source for `prospec-learn`
+   *  per-executor statistics, absent when the grader did not declare one. */
   executor: z.string().optional(),
   /** Self-reported tokens spent on this verdict — the detection-per-cost
    *  denominator (`lib/token-accounting` gives an offline estimate). Optional and
@@ -98,15 +98,12 @@ export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
  *  code state; `date` is the ISO 8601 record date. `graded_by` is the reviewer's
- *  self-declaration of the grading context (`fresh-subagent`|`in-session`), and
- *  `executor` the reviewer's self-declared executor label (validated against the
- *  project's declared vocabulary at the write path) — both optional so every
- *  pre-existing baseline stays valid. */
+ *  self-declaration of the grading context (`fresh-subagent`|`in-session`),
+ *  optional so every pre-existing baseline stays valid. */
 export const ReviewProvenanceSchema = z.looseObject({
   digest: z.string(),
   date: z.string(), // ISO 8601 date
   graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
-  executor: z.string().min(1).optional(),
 });
 
 /** Machine-written test baseline (written by `prospec check --record-tests`).

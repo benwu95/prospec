@@ -63,17 +63,3 @@ export function parseRatio(name: string) {
   };
 }
 
-
-/** Commander option parser for `--executor <label>`: a non-empty self-declared executor
- *  label; an empty value must be omitted, never written. Shared by `verify record` and
- *  `check --record-review` so both stations refuse the same shape the same way; the
- *  vocabulary itself is asserted in the service against `.prospec.yaml` `executors`. */
-export function parseExecutorLabel(value: string): string {
-  if (value.trim() === '') {
-    throw new InvalidArgumentError('expected a non-empty executor self-report (omit the flag instead)');
-  }
-  if (/[\r\n]/.test(value)) {
-    throw new InvalidArgumentError('executor label must be a single line');
-  }
-  return value;
-}

@@ -176,21 +176,3 @@ describe('single-source: index.md declares the DEFAULT budget numbers', () => {
     );
   });
 });
-
-describe('executors vocabulary (REQ-TYPES-025)', () => {
-  it('validates without the field and keeps every executor value a free string', () => {
-    const parsed = ProspecConfigSchema.parse({ project: { name: 't' } });
-    expect(parsed.executors).toBeUndefined();
-  });
-
-  it('accepts a non-empty list of non-empty labels', () => {
-    const parsed = ProspecConfigSchema.parse({ project: { name: 't' }, executors: ['judge', 'drafter'] });
-    expect(parsed.executors).toEqual(['judge', 'drafter']);
-  });
-
-  it('refuses an empty array (it would refuse every executor) and an empty label', () => {
-    expect(ProspecConfigSchema.safeParse({ project: { name: 't' }, executors: [] }).success).toBe(false);
-    expect(ProspecConfigSchema.safeParse({ project: { name: 't' }, executors: ['judge', ''] }).success).toBe(false);
-    expect(ProspecConfigSchema.safeParse({ project: { name: 't' }, executors: 'judge' }).success).toBe(false);
-  });
-});

@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  DIMENSION_ADJUDICATORS,
-  DIMENSION_GRADED_BY,
-  DIMENSION_RESULTS,
-  VERIFY_GRADES,
-} from './change.js';
+import { DIMENSION_ADJUDICATORS, DIMENSION_GRADED_BY, DIMENSION_RESULTS } from './change.js';
 
 /**
  * Station I/O contracts for the cli-first delegation commands (issue #107).
@@ -214,15 +209,10 @@ export const JudgmentDimensionInputSchema = z.object({
    *  file-form entry omitting it is refused at the schema layer, matching the
    *  flag form's service-layer refusal. */
   graded_by: z.enum(DIMENSION_GRADED_BY),
-  /** Self-declared executor label. Optional; single-line because it is rendered as
-   *  one line by `learn stats`. When `.prospec.yaml` declares an `executors`
-   *  vocabulary the write path refuses a label outside it; `prospec learn stats`
-   *  aggregates grades, dimension results and false greens per label. */
-  executor: z
-    .string()
-    .min(1)
-    .refine((v) => !/[\r\n]/.test(v), { error: 'executor must be a single line' })
-    .optional(),
+  /** Free-string self-report of the grading executor (model / harness). Optional
+   *  and non-blocking — recorded for future per-executor statistics (no station
+   *  consumes it yet), not a gate. */
+  executor: z.string().min(1).optional(),
   /** Self-reported tokens spent on this verdict — the detection-per-cost
    *  denominator. Optional and non-blocking. */
   spend: z.number().int().nonnegative().optional(),
@@ -314,47 +304,3 @@ export const LensYieldReportSchema = z.object({
   stats: z.array(LensYieldStatSchema),
 });
 export type LensYieldReport = z.infer<typeof LensYieldReportSchema>;
-
-// --- learn executor stats (`prospec learn stats`) ---
-
-/** The `--json` output file of `prospec learn stats` — the one name every writer
- *  and reader imports (sibling of `DRIFT_REPORT_FILENAME`). */
-export const EXECUTOR_STATS_REPORT_FILENAME = 'executor-stats-report.json';
-
-const nonNegativeCount = z.number().int().nonnegative();
-
-/** Per-executor aggregate over the archived changes. Every count record carries a
- *  key for EVERY registered value (zero when unseen), so a consumer never has to
- *  guard a missing grade or result. Executors are self-declared labels from the
- *  project's own vocabulary — prospec attaches no meaning to them. */
-export const ExecutorStatSchema = z.object({
-  executor: z.string().min(1),
-  /** Distinct archived changes this executor appears in (verify dimensions or review baseline). */
-  changes: nonNegativeCount,
-  /** `prospec-verify` quality_log entries carrying this executor on any dimension. */
-  verify_entries: nonNegativeCount,
-  /** Each verify entry's grade counted once per distinct executor among its dimensions. */
-  grades: z.record(z.enum(VERIFY_GRADES), nonNegativeCount),
-  dimension_results: z.record(z.enum(DIMENSION_RESULTS), nonNegativeCount),
-  graded_by: z.record(z.enum(DIMENSION_GRADED_BY), nonNegativeCount),
-  /** One spend sample per (verify entry, executor) — the flag form copies a single
-   *  spend onto every dimension, so sampling per dimension would triple it. */
-  spend: z.object({ samples: nonNegativeCount, median: z.number().nonnegative().nullable() }),
-  /** Changes whose `review_provenance.executor` names this executor. */
-  review_baselines: nonNegativeCount,
-  /** Review baselines followed (same day or later) by a verify entry with a FAIL
-   *  dimension — at most one per change. Day granularity; a conservative lower bound. */
-  false_greens: nonNegativeCount,
-});
-export type ExecutorStat = z.infer<typeof ExecutorStatSchema>;
-
-export const ExecutorStatsReportSchema = z.object({
-  generated_at: z.string(),
-  total_changes_analyzed: nonNegativeCount,
-  /** Archived changes whose metadata.yaml was missing, unparseable or not a mapping. */
-  skipped: nonNegativeCount,
-  /** Non-machine dimensions carrying no executor — the unattributed remainder. */
-  unlabeled_dimensions: nonNegativeCount,
-  stats: z.array(ExecutorStatSchema),
-});
-export type ExecutorStatsReport = z.infer<typeof ExecutorStatsReportSchema>;

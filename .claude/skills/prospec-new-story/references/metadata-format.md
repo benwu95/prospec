@@ -29,7 +29,7 @@ composing structured CLI input) knows what each field means.
 | `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
-| `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline (+ `graded_by`, `executor`) |
+| `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
 | `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
 | `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
@@ -112,7 +112,7 @@ quality_log:
         result: WARN
         adjudicator: judgment
         graded_by: fresh-subagent  # judgment only: fresh-subagent | in-session
-        executor: judge            # optional label
+        executor: "strongest-tier model, fresh subagent"  # optional self-report
         spend: 18500               # optional self-reported tokens
 ```
 
@@ -135,10 +135,9 @@ quality_log:
   context, so a PASS is attributable. `graded_by` is `fresh-subagent` or `in-session` — required for a
   judgment dimension at the `verify record` write path (refused when absent), but optional at the
   schema level so machine dimensions and pre-existing entries stay valid; `in-session` mechanically
-  caps the grade below S. `executor` is a self-declared label and `spend` a
-  self-reported token count — both optional. When `.prospec.yaml` declares an `executors`
-  vocabulary, `verify record` and `check --record-review` refuse a label outside it (undeclared:
-  any non-empty string); `prospec learn stats` aggregates per label. prospec detects no model:
+  caps the grade below S. `executor` is a free-string self-report (model / harness) and `spend` a
+  self-reported token count — both optional and non-blocking; they are recorded so a per-executor
+  statistic can be aggregated later, and no station consumes them yet. prospec detects no model:
   all three are self-declared.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.

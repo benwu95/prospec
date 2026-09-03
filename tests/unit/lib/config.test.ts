@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, assertExecutorLabel } from '../../../src/lib/config.js';
-import { ConfigNotFound, ConfigInvalid, PrerequisiteError } from '../../../src/types/errors.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand } from '../../../src/lib/config.js';
+import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
@@ -379,53 +379,5 @@ describe('US-3 schema cleanup: dead fields removed, top-level loose preserved', 
   it('keeps preserving unknown TOP-LEVEL keys via .loose() (a tested extensibility point, not dead)', () => {
     const config = validateConfig('project:\n  name: test\ncustom_field: value\n');
     expect((config as Record<string, unknown>)['custom_field']).toBe('value');
-  });
-});
-
-describe('assertExecutorLabel (REQ-LIB-075)', () => {
-  const cfg = (executors?: string[]): ProspecConfig =>
-    ({ project: { name: 't' }, ...(executors ? { executors } : {}) }) as ProspecConfig;
-
-  it('is a no-op when the project declares no vocabulary — any non-empty value passes', () => {
-    expect(() => assertExecutorLabel(cfg(), 'anything goes, even spaces')).not.toThrow();
-  });
-
-  it('is a no-op when no executor was supplied, even with a vocabulary declared', () => {
-    expect(() => assertExecutorLabel(cfg(['judge']), undefined)).not.toThrow();
-  });
-
-  it('accepts a declared label, trimming surrounding whitespace', () => {
-    expect(() => assertExecutorLabel(cfg(['judge', 'drafter']), 'judge')).not.toThrow();
-    expect(() => assertExecutorLabel(cfg(['judge', 'drafter']), '  drafter ')).not.toThrow();
-  });
-
-  it('refuses an undeclared value with a PrerequisiteError that lists every declared label', () => {
-    let caught: unknown;
-    try {
-      assertExecutorLabel(cfg(['judge', 'drafter']), 'reviewer');
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(PrerequisiteError);
-    const err = caught as PrerequisiteError;
-    expect(err.message).toContain('executor "reviewer" is not a declared label');
-    expect(err.suggestion).toContain('judge, drafter');
-    expect(err.suggestion).toContain('.prospec.yaml executors');
-  });
-
-  it('compares the declared labels normalized too, so a padded declaration stays reachable (review R4-2 pin)', () => {
-    expect(() => assertExecutorLabel(cfg([' judge ', 'drafter']), 'judge')).not.toThrow();
-    // and the refusal hint lists them normalized as well (review R5-1 pin)
-    let caught: unknown;
-    try {
-      assertExecutorLabel(cfg([' judge ', 'drafter']), 'reviewer');
-    } catch (err) {
-      caught = err;
-    }
-    expect((caught as PrerequisiteError).suggestion).toContain('executors): judge, drafter.');
-  });
-
-  it('is case-sensitive: labels are the project\'s own spelling', () => {
-    expect(() => assertExecutorLabel(cfg(['judge']), 'Judge')).toThrow(PrerequisiteError);
   });
 });

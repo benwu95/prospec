@@ -1,21 +1,16 @@
 import type { Command } from 'commander';
-import {
-  formatExecutorStatsOutput,
-  formatLearnUpsertOutput,
-  formatLensYieldOutput,
-} from '../formatters/learn-output.js';
+import { formatLearnUpsertOutput, formatLensYieldOutput } from '../formatters/learn-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { collect, parseDate, parseIntOption, parseRatio } from '../parse-options.js';
 
 /**
- * Register the `learn` command group with the `upsert`, `yield` and `stats` subcommands.
+ * Register the `learn` command group with the `upsert` and `yield` subcommands.
  *
  * Usage:
  *   prospec learn upsert --lesson <lesson.json>
  *   prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]
- *   prospec learn stats [--corpus <dir>] [--json]
  */
 export function registerLearnCommand(program: Command): void {
   const learn = program.command('learn').description('Feedback-promotion ledger mechanics');
@@ -93,33 +88,6 @@ export function registerLearnCommand(program: Command): void {
         }
       },
     );
-
-  learn
-    .command('stats')
-    .description(
-      'Per-executor statistics (grades, dimension results, grading contexts, spend, false greens) from archived metadata',
-    )
-    .option(
-      '--corpus <dir>',
-      'Additional archive directories to scan (repeatable)',
-      collect,
-      [],
-    )
-    .option(
-      '--json',
-      'Also write the report to executor-stats-report.json (stdout stays human-readable — unlike `learn yield --json`)',
-    )
-    .action(async (options: { corpus?: string[]; json?: boolean }) => {
-      const globalOpts = program.opts<GlobalOptions>();
-      const logLevel = resolveLogLevel(globalOpts);
-      try {
-        const { execute } = await import('../../services/learn-stats.service.js');
-        const result = await execute({ extraCorpusDirs: options.corpus, json: options.json });
-        formatExecutorStatsOutput(result, logLevel);
-      } catch (err) {
-        handleError(err, globalOpts.verbose ?? false);
-      }
-    });
 }
 
 

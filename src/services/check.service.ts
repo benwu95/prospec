@@ -3,8 +3,6 @@ import path from 'node:path';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import type { DimensionGradedBy } from '../types/change.js';
 import {
-  assertExecutorLabel,
-  normalizeExecutorLabel,
   readConfig,
   resolveBasePaths,
   resolveKnowledgeTokenBudget,
@@ -79,10 +77,6 @@ export interface CheckOptions {
   /** With `--record-review`: the reviewer's self-declared grading context,
    *  recorded into `review_provenance.graded_by`. Absent leaves the field unwritten. */
   gradedBy?: DimensionGradedBy;
-  /** With `--record-review`: the reviewer's self-declared executor label, validated
-   *  against `.prospec.yaml` `executors` when declared and recorded into
-   *  `review_provenance.executor`. Absent leaves the field unwritten. */
-  executor?: string;
   /** Auto-draft fix proposals for detected drift findings. */
   autoDraft?: boolean;
   /** Preview the drafting only. Named for its scope: `check`'s other writes
@@ -189,7 +183,7 @@ export async function execute(
   }
 
   if (options.recordReview) {
-    return recordReviewProvenance(cwd, config, options.change, options.gradedBy, options.executor);
+    return recordReviewProvenance(cwd, options.change, options.gradedBy);
   }
 
   if (options.recordTests) {
@@ -373,13 +367,9 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
  */
 async function recordReviewProvenance(
   cwd: string,
-  config: ProspecConfig,
   explicitChange?: string,
   gradedBy?: DimensionGradedBy,
-  executor?: string,
 ): Promise<RecordReviewResult> {
-  // Refused before the metadata read so a rejected label leaves the file byte-identical.
-  assertExecutorLabel(config, executor);
   // quiet=true keeps `check` non-interactive; with several in-flight changes it
   // errors with "use --change <name>", so --change is the disambiguation path.
   const change = await resolveChange(cwd, explicitChange, true, 'Which change to record the review for?');
@@ -396,12 +386,7 @@ async function recordReviewProvenance(
   const date = new Date().toISOString().slice(0, 10);
   doc.set(
     'review_provenance',
-    doc.createNode({
-      digest,
-      date,
-      ...(gradedBy !== undefined ? { graded_by: gradedBy } : {}),
-      ...(executor !== undefined ? { executor: normalizeExecutorLabel(executor) } : {}),
-    }),
+    doc.createNode({ digest, date, ...(gradedBy !== undefined ? { graded_by: gradedBy } : {}) }),
   );
   // The delta-spec baseline is stamped in the SAME write (REQ-SERVICES-082). Two
   // separate writes could record two different moments, and the whole point of

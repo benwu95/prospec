@@ -9,7 +9,7 @@ import { formatVerifyRecordOutput } from '../formatters/verify-record-output.js'
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
-import { collect, parseDate, parseExecutorLabel, parseIntOption } from '../parse-options.js';
+import { collect, parseDate, parseIntOption } from '../parse-options.js';
 
 /** `name=result` → a judgment QualityDimension (adjudicator is always judgment here). */
 function parseJudgmentDimension(
@@ -32,6 +32,14 @@ function parseJudgmentDimension(
       adjudicator: 'judgment',
     },
   ];
+}
+
+/** `--executor` → a non-empty self-report; an empty value must be omitted, never written. */
+function parseExecutor(value: string): string {
+  if (value.trim() === '') {
+    throw new InvalidArgumentError('expected a non-empty executor self-report (omit the flag instead)');
+  }
+  return value;
 }
 
 /**
@@ -90,9 +98,9 @@ export function registerVerifyCommand(program: Command): void {
     .addOption(
       new Option(
         '--executor <text>',
-        'Self-declared executor label (validated against .prospec.yaml executors when declared), flag form',
+        'Self-reported grading executor (model / harness), flag form',
       )
-        .argParser(parseExecutorLabel)
+        .argParser(parseExecutor)
         .conflicts('dimensions'),
     )
     .addOption(
