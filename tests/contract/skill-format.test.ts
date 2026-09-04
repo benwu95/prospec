@@ -2336,8 +2336,8 @@ describe('Skill Format Contract', () => {
       expect(release).toContain('quality');
       expect(release).not.toContain('Upcoming 2.0');
       expect(release).not.toContain('released version remains');
-      expect(website).toContain('<span class="ver">2.1.0</span>');
-      expect(website).toContain('"softwareVersion":"2.1.0"');
+      expect(website).toContain('<span class="ver">2.1.1</span>');
+      expect(website).toContain('"softwareVersion":"2.1.1"');
       expect(zhOverlay).toContain("'v2.eyebrow'");
       expect(zhOverlay).toContain('2.0 新功能');
       expect(zhOverlay).not.toContain('即將推出 2.0');
