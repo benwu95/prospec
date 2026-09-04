@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-09-02
+last_updated: 2026-09-04
 story_count: 15
 req_count: 74
 ---
@@ -31,6 +31,9 @@ Serves developers and AI Agents using Prospec. AI Knowledge is a structured proj
 #### REQ-LIB-073: Fence-Aware Module README Format Validation
 `lib/module-readme-format` is the single validator for the `2026-09-01` Module README grammar and its Markdown-owned Project Section Extensions registry. It orchestrates existing Markdown-table, fence, user-content, safe-name, and validation-verdict utilities rather than reimplementing any of those mechanics.
 - WHEN parsing a README, THEN the validator requires a title, one summary line, the `<!-- prospec:module-readme-format 2026-09-01 -->` marker, one auto block, and the fixed Recipe-First Core heading order; conditional Ripple Effects and Sub-Modules retain their existing semantics
+- WHEN the format marker sits between the summary and well-formed auto and user blocks, THEN only blank lines — and closed fenced blocks, which the shared mask blanks — may separate it from the summary, and every other intervening line fails with a finding anchored to that line
+- WHEN the marker instead sits below the auto block, or either managed block is missing or duplicated, THEN that verdict is reported alone and the gap is not scanned, so one finding names the real defect rather than one per body line
+- WHEN the format marker is absent, THEN the finding is anchored to the line the marker belongs on — the line after the summary — and states the placement rule; a README without a valid summary anchors that finding to line 1
 - WHEN parsing `_module-readme-conventions.md`, THEN it reads the preserved Project Section Extensions table through the shared `findTable`/`splitTableRow` mechanics with ID, Heading, Content, Applies To, Required, MCP Visibility, and Content Format fields; `Content` is a non-empty one-line purpose description, `Applies To` is `all` or module names admitted by `isSafeResourceName`, visibility is `included`, and content format is `markdown` or `field-table`
 - WHEN an extension instance is declared, THEN it is wrapped by matching `prospec:section-start/end {id}` comments inside the README user block and its heading, applicability, requiredness, uniqueness, and content shape match the registry
 - WHEN an extension declares `field-table`, THEN its body has exactly the `| Field | Value |` header, a valid two-column separator, and at least one two-column nonempty body row; the exact `_Add field_` / `_Add value_` skeleton row is structurally valid, while empty cells, no body row, or extra columns fail with a source-anchored repair finding
@@ -64,7 +67,8 @@ The validate service resolves a module README through realpath-contained `readMo
 
 #### REQ-TEMPLATES-226: Canonical Date Format and Project Section Extensions
 The module README template, canonical convention template, and knowledge generate/update skill templates use the `2026-09-01` date marker and the canonical Markdown-owned Project Section Extensions registry as their sole format authority.
-- WHEN a template creates a Module README, THEN the date marker appears immediately after the title summary, the existing Core sections remain in their fixed auto-block order, and applicable extension placeholders appear inside the user block
+- WHEN a template creates a Module README, THEN the date marker follows the title summary — separated from it, and from `prospec:auto-start`, by blank lines only, with the generator emitting it on the line immediately after the summary — the existing Core sections remain in their fixed auto-block order, and applicable extension placeholders appear inside the user block
+- WHEN a template or shipped skill states where the marker sits, THEN it states the placement rule the validator enforces — the first non-blank line after the summary — rather than asserting literal adjacency
 - WHEN a downstream project registers an extension, THEN the canonical convention document—not `.prospec.yaml` or an inlined skill skeleton—defines its fields and instance syntax
 - WHEN the knowledge skills encounter format drift or a readme-pending document, THEN they validate against the canonical convention, obtain consent before migration, preserve marked extensions and freeform user notes, and do not mechanically re-render an authored README
 - WHEN bundled templates are changed, THEN generated agent skill files are re-synced from their source templates
@@ -75,7 +79,8 @@ The module README template, canonical convention template, and knowledge generat
 #### REQ-TESTS-110: Module README Format Boundary Coverage
 The test suite proves the Module README format contract at every boundary using fixtures with at least two registered extensions and mutation cases.
 - WHEN unit tests exercise the parser, THEN they cover valid registration, legacy-marker migration, duplicate/unknown IDs, wrong heading or placement, applicability/requiredness, the canonical field-table header/separator/row/cell rules, fence masking, and unclosed fences
-- WHEN template and service tests run, THEN they prove marker placement and Core order, applicable new-skeleton placeholders, byte-identical preservation of an existing README and its user content, and realpath-contained validation reads for outward and in-root symlinks
+- WHEN unit tests exercise marker placement, THEN they cover a blank-line-separated marker passing, an intervening non-blank line failing at its own line, and an absent marker anchoring to the line after the summary
+- WHEN template and service tests run, THEN they prove marker placement and Core order on both authorities — the generator template's adjacent form and the canonical convention skeleton's blank-line-only separation — plus applicable new-skeleton placeholders, byte-identical preservation of an existing README and its user content, and realpath-contained validation reads for outward and in-root symlinks
 - WHEN canonical-doc drift tests run, THEN a user registry is accepted while a generated convention edit fails
 - WHEN an in-memory MCP module resource is read, THEN its raw Markdown includes the date marker and registered extension verbatim with linked sub-modules; no structured or filtered MCP response is introduced
 - WHEN public validate documentation is tested, THEN the English and Traditional Chinese root README entries both include the new kind
@@ -122,6 +127,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-04 | relax-readme-marker-adjacency | MODIFIED REQ-LIB-073; MODIFIED REQ-TESTS-110; MODIFIED REQ-TEMPLATES-226 | REQ-LIB-073, REQ-TESTS-110, REQ-TEMPLATES-226 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-141 | REQ-TEMPLATES-141 |
 | 2026-09-02 | reclassify-status-lifecycle-demand | MODIFIED REQ-KNOW-035 | REQ-KNOW-035 |
 | 2026-09-01 | standardize-module-readme-format | ADDED REQ-TYPES-093; ADDED REQ-LIB-073; ADDED REQ-SERVICES-105; ADDED REQ-CLI-050; ADDED REQ-TEMPLATES-226; ADDED REQ-TESTS-110; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-015; MODIFIED REQ-TEMPLATES-122 | REQ-TYPES-093, REQ-LIB-073, REQ-SERVICES-105, REQ-CLI-050, REQ-TEMPLATES-226, REQ-TESTS-110, REQ-KNOW-004, REQ-KNOW-015, REQ-TEMPLATES-122 |
