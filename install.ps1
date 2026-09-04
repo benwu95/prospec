@@ -1,5 +1,12 @@
 $ErrorActionPreference = 'Stop'
 
+# Requested release version: first script argument, else $env:PROSPEC_INSTALL_VERSION, else latest.
+# Piping through `iex` cannot forward arguments, so the env var is the pinning path there.
+# Deliberately NOT named PROSPEC_VERSION: the CLI reads that one as its own version override.
+# Release tags carry no "v" prefix, so tolerate (and strip) one if supplied.
+$Version = if ($args.Count -ge 1) { $args[0] } else { $env:PROSPEC_INSTALL_VERSION }
+if ($Version) { $Version = $Version -replace '^v', '' } else { $Version = "" }
+
 $Owner = "benwu95"
 $Repo = "prospec"
 $AssetName = "prospec-windows-x64.zip"
@@ -11,16 +18,25 @@ if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir | Out-Null
 }
 
-$DownloadUrl = "https://github.com/$Owner/$Repo/releases/latest/download/$AssetName"
+if ($Version) {
+    $DownloadUrl = "https://github.com/$Owner/$Repo/releases/download/$Version/$AssetName"
+    $ReleaseLabel = "release $Version"
+} else {
+    $DownloadUrl = "https://github.com/$Owner/$Repo/releases/latest/download/$AssetName"
+    $ReleaseLabel = "latest release"
+}
 
 # Temporary path for the downloaded zip file
 $TempZipPath = Join-Path $env:TEMP "prospec-windows-x64.zip"
 
-Write-Host "Downloading $AssetName from latest release..."
+Write-Host "Downloading $AssetName from $ReleaseLabel..."
 try {
     # Download the zip file following redirects
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempZipPath -UseBasicParsing
 } catch {
+    if ($Version) {
+        Write-Host "Check that $Version is an existing tag at https://github.com/$Owner/$Repo/releases"
+    }
     Write-Error "Failed to download $AssetName from $DownloadUrl"
     exit 1
 }

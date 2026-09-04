@@ -155,6 +155,15 @@ For Windows, run the one-click PowerShell installer script:
 powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
 ```
 
+Both installers take the newest release by default. To pin a specific release, pass its tag (tags carry no `v` prefix) — as an argument on macOS/Linux, or via `PROSPEC_INSTALL_VERSION` when the script is piped into a shell that cannot forward arguments:
+```bash
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash -s -- 2.1.1
+```
+```powershell
+$env:PROSPEC_INSTALL_VERSION = "2.1.1"
+irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex
+```
+
 Alternatively, download the precompiled binary manually from the [GitHub Releases](https://github.com/benwu95/prospec/releases) page and place it in your `PATH`:
 
 - **Linux (x64)**: `prospec-linux-x64.tar.gz`

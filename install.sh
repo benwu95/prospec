@@ -5,6 +5,12 @@ set -e
 OWNER="benwu95"
 REPO="prospec"
 
+# Requested release version: first positional argument, else PROSPEC_INSTALL_VERSION, else latest.
+# Deliberately NOT named PROSPEC_VERSION: the CLI reads that one as its own version override.
+# Release tags carry no "v" prefix, so tolerate (and strip) one if supplied.
+VERSION="${1:-${PROSPEC_INSTALL_VERSION:-}}"
+VERSION="${VERSION#v}"
+
 # Detect OS
 OS="$(uname -s)"
 case "${OS}" in
@@ -32,7 +38,13 @@ else
     ASSET_NAME="prospec-linux-x64.tar.gz"
 fi
 
-DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/latest/download/${ASSET_NAME}"
+if [ -n "${VERSION}" ]; then
+    DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
+    RELEASE_LABEL="release ${VERSION}"
+else
+    DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/latest/download/${ASSET_NAME}"
+    RELEASE_LABEL="latest release"
+fi
 
 # Determine installation directory (under HOME to avoid requiring sudo)
 INSTALL_DIR="${HOME}/.prospec/bin"
@@ -41,12 +53,15 @@ TARGET_PATH="${INSTALL_DIR}/prospec"
 # Create installation directory if it doesn't exist
 mkdir -p "${INSTALL_DIR}"
 
-echo "Downloading ${ASSET_NAME} from latest release..."
+echo "Downloading ${ASSET_NAME} from ${RELEASE_LABEL}..."
 TEMP_FILE=$(mktemp)
 
 # Download asset (following redirects)
 if ! curl -fsSL -o "${TEMP_FILE}" "${DOWNLOAD_URL}"; then
     echo "Error: Download failed from ${DOWNLOAD_URL}" >&2
+    if [ -n "${VERSION}" ]; then
+        echo "Check that ${VERSION} is an existing tag at https://github.com/${OWNER}/${REPO}/releases" >&2
+    fi
     rm -f "${TEMP_FILE}"
     exit 1
 fi

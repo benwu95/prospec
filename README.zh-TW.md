@@ -155,6 +155,15 @@ curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | b
 powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex"
 ```
 
+兩個安裝腳本預設安裝最新 release。若要指定特定版本，傳入該 release 的 tag（tag 不帶 `v` 前綴）—— macOS/Linux 以參數傳入；當腳本以 pipe 方式執行、無法傳遞參數時（例如 PowerShell 的 `iex`），改用 `PROSPEC_INSTALL_VERSION` 環境變數：
+```bash
+curl -fsSL https://raw.githubusercontent.com/benwu95/prospec/main/install.sh | bash -s -- 2.1.1
+```
+```powershell
+$env:PROSPEC_INSTALL_VERSION = "2.1.1"
+irm https://raw.githubusercontent.com/benwu95/prospec/main/install.ps1 | iex
+```
+
 或者，您也可以手動自 [GitHub Releases](https://github.com/benwu95/prospec/releases) 頁面下載適用您平台的二進位檔，解壓後放置於系統 `PATH` 目錄下：
 
 - **Linux (x64)**: `prospec-linux-x64.tar.gz`
