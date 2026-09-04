@@ -27,12 +27,12 @@ Every module README is split by HTML-comment markers into a generated block and 
 
 - **`prospec:auto-start` … `prospec:auto-end`** delimits the block `prospec-knowledge-generate` and `prospec-knowledge-update` own and may rewrite. Do NOT hand-edit it expecting edits to survive regeneration — durable hand-written notes go in the user block.
 - **`prospec:user-start` … `prospec:user-end`** is never overwritten by the skills. Registered Project Section Extensions and freeform `## Developer Notes` both belong here.
-- The title and one-line `>` summary sit above `<!-- prospec:module-readme-format 2026-09-01 -->`; the marker sits immediately before `prospec:auto-start`.
+- The title and one-line `>` summary sit above `<!-- prospec:module-readme-format 2026-09-01 -->`, and the marker sits above `prospec:auto-start`. Blank lines may separate the marker from either neighbour — it is the first non-blank line after the summary.
 
 ## Title and summary
 
 - Title is the module's proper name: `# Knowledge Engine`, `# Agent Sync` — **not** `# Module: services` and not the raw directory slug.
-- Exactly one `>` blockquote line directly under the title: a single sentence on what the module does.
+- Exactly one `>` blockquote line — the first non-blank line under the title: a single sentence on what the module does.
 - `2026-09-01` is the compatible grammar release, not the document modification date. Clarifications and registered optional extensions keep it; incompatible title/summary placement, marker semantics, or Core grammar changes require a new date.
 
 ## Section template (inside the auto block)

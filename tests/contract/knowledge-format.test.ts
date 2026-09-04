@@ -385,6 +385,44 @@ describe('Knowledge Format Contract', () => {
       expect(raw).toContain('**Used by:**');
     });
 
+    it('states the marker placement rule instead of asserting any literal adjacency', () => {
+      // The validator separates title/summary/marker by blank lines. Pinning the
+      // ONE old phrasing was not enough: the sentence that actually caused the
+      // downstream failure said `immediately before prospec:auto-start`, so a
+      // literal-string guard never went red for the convention at all. Scope the
+      // sections that state placement and ban the adjacency claim itself.
+      // The deployed `.claude/`/`.agents/` copies are deliberately NOT listed —
+      // `pnpm agents:check` already proves templates → bundle → deployed, and
+      // re-checking them here would misreport a skipped sync as a format defect.
+      const adjacency = /\b(?:immediately|directly|right)\s+(?:after|under|below|beneath|before)\b/;
+      const placementSection = (content: string, heading: string): string => {
+        const start = content.indexOf(heading);
+        expect(start, heading).toBeGreaterThan(-1);
+        const rest = content.slice(start + heading.length);
+        const end = rest.indexOf('\n## ');
+        return end < 0 ? rest : rest.slice(0, end);
+      };
+
+      const conventions = [
+        path.join(TEMPLATES, 'init', 'module-readme-conventions.md.hbs'),
+        path.resolve(__dirname, '../../prospec/ai-knowledge/_module-readme-conventions.md'),
+      ];
+      for (const file of conventions) {
+        const content = fs.readFileSync(file, 'utf-8');
+        for (const heading of ['## Generated vs user-authored split (marker contract)', '## Title and summary']) {
+          expect(placementSection(content, heading), `${file} ${heading}`).not.toMatch(adjacency);
+        }
+        expect(content, file).toContain('first non-blank line after the summary');
+        expect(content, file).toContain('first non-blank line under the title');
+      }
+
+      const skill = fs.readFileSync(path.join(TEMPLATES, 'skills', 'prospec-knowledge-generate.hbs'), 'utf-8');
+      const formatRelease = skill.split('\n').filter((line) => line.includes('Format release'));
+      expect(formatRelease).toHaveLength(1);
+      expect(formatRelease[0]).not.toMatch(adjacency);
+      expect(formatRelease[0]).toContain('first non-blank line after the summary');
+    });
+
     it('defines the dated grammar in the canonical core and seeds extensions in the preserved block', () => {
       const template = fs.readFileSync(
         path.join(TEMPLATES, 'init', 'module-readme-conventions.md.hbs'),
@@ -417,12 +455,35 @@ describe('Knowledge Format Contract', () => {
       expect(template.indexOf(userEnd)).toBeGreaterThan(template.indexOf(userStart));
       expect(canonicalCore).toBe(templateCore);
       expect(skeleton).toContain('<!-- prospec:module-readme-format 2026-09-01 -->');
-      expect(skeleton.indexOf('> {one-line summary}')).toBeLessThan(
-        skeleton.indexOf('<!-- prospec:module-readme-format 2026-09-01 -->'),
+
+      // Structure, not just order: `lib/module-readme-format` allows ONLY blank
+      // lines between the summary and the marker, and the generator template is
+      // pinned to the adjacent form. Asserting order alone here is what let this
+      // skeleton teach a separation the validator rejected for a whole release.
+      // Applied to BOTH module-README examples the convention ships — the
+      // marker-contract fence had no test reading it at all.
+      const blankOnlyBeforeMarker = (block: string, summaryText: string, label: string): void => {
+        const blockLines = block.split('\n');
+        const lineOf = (text: string) => blockLines.findIndex((line) => line.trim() === text);
+        const summaryLine = lineOf(summaryText);
+        const markerLine = lineOf('<!-- prospec:module-readme-format 2026-09-01 -->');
+        const autoLine = lineOf('<!-- prospec:auto-start -->');
+        expect(summaryLine, label).toBeGreaterThan(-1);
+        expect(markerLine, label).toBeGreaterThan(summaryLine);
+        expect(autoLine, label).toBeGreaterThan(markerLine);
+        expect(
+          blockLines.slice(summaryLine + 1, markerLine).filter((line) => line.trim() !== ''),
+          label,
+        ).toEqual([]);
+      };
+      const markerContractStart = templateCore.indexOf('## Generated vs user-authored split (marker contract)');
+      const markerContract = templateCore.slice(
+        markerContractStart,
+        templateCore.indexOf('## Title and summary', markerContractStart),
       );
-      expect(skeleton.indexOf('<!-- prospec:module-readme-format 2026-09-01 -->')).toBeLessThan(
-        skeleton.indexOf('<!-- prospec:auto-start -->'),
-      );
+      expect(markerContractStart).toBeGreaterThan(-1);
+      blankOnlyBeforeMarker(skeleton, '> {one-line summary}', '## Skeleton');
+      blankOnlyBeforeMarker(markerContract, '> one-line module summary', 'marker contract');
       expect(templateRegistry).toContain('| ID | Heading | Content | Applies To | Required | MCP Visibility | Content Format |');
       expect(templateRegistry).toContain('<!-- prospec:section-start {id} -->');
       expect(templateRegistry).toContain('<!-- prospec:section-end {id} -->');

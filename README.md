@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4730%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4740%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1034,7 +1034,7 @@ skill_triggers:
 
 By default, every module README follows the canonical Recipe-First structure (`## Key Files`, `## Public API`, `## Dependencies`, `## Modification Guide`, `## Pitfalls`, and optional `## Ripple Effects` / `## Sub-Modules`) inside its generated block (`prospec:auto-start` ... `prospec:auto-end`).
 
-Right after the title and one-line summary, above that block, sits a format marker — `<!-- prospec:module-readme-format 2026-09-01 -->`. It names the compatible grammar release the file conforms to, not the date the document was last edited: clarifications and registered optional extensions keep the same date, while an incompatible change to marker semantics or the core section grammar earns a new one. [`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) is the authority for both the marker and the structure, and `prospec validate module-readme <module>` grades a README against them.
+On the first non-blank line after the title's one-line summary — blank lines may separate the two — and above that block, sits a format marker: `<!-- prospec:module-readme-format 2026-09-01 -->`. It names the compatible grammar release the file conforms to, not the date the document was last edited: clarifications and registered optional extensions keep the same date, while an incompatible change to marker semantics or the core section grammar earns a new one. [`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) is the authority for both the marker and the structure, and `prospec validate module-readme <module>` grades a README against them.
 
 To add project-specific custom sections (e.g. `## Team Ownership`, `## Security Rules`), register them in [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) inside its `prospec:user` block under `## Project Section Extensions`. This Markdown table is the **single authority** for custom sections (do not define them in `.prospec.yaml`):
 
@@ -1162,7 +1162,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4730 total; 4 skipped)
+# Run all tests (4740 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1175,9 +1175,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4730 total tests (4726 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3370 tests
-- Contract tests (CLI output + Skill format): 1182 tests
+**Test Coverage**: 4740 total tests (4736 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3379 tests
+- Contract tests (CLI output + Skill format): 1183 tests
 - Integration tests: 45 tests
 - E2E tests: 133 tests
 
