@@ -140,7 +140,7 @@ For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{m
 **Key principles:**
 - **Canonical template**: generate against `prospec/ai-knowledge/_module-readme-conventions.md` — it is the sole authority for README structure; do not restate the skeleton here.
 - **Project Section Extensions**: the convention's preserved registry is the only authority for registered extension IDs, headings, purpose (the `Content` column — what the section is for), applicability, requiredness, visibility, and content format — not `.prospec.yaml` and not an inlined skill template. Emit a registered extension only with its section markers inside the README user block; preserve both marked extensions and freeform user notes when revising an existing README.
-- **Format release**: follow the convention's dated format marker immediately after the summary and its fixed Core grammar; optional registered extensions do not change that format date.
+- **Format release**: follow the convention's dated format marker — the first non-blank line after the summary — and its fixed Core grammar; optional registered extensions do not change that format date.
 - **No api-surface.md, dependencies.md, or patterns.md** — all information consolidated into README.md (or its sub-module files, see Step 4.5)
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists
 - **Ripple Effects** — prevent agents from making isolated changes that break other modules

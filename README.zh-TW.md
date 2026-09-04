@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4730%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4740%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1014,7 +1014,7 @@ skill_triggers:
 
 預設情況下，每個模組的 README 都遵循自動生成區塊（`prospec:auto-start` ... `prospec:auto-end`）內的 Recipe-First 正典結構（`## Key Files`、`## Public API`、`## Dependencies`、`## Modification Guide`、`## Pitfalls`，以及可選的 `## Ripple Effects` / `## Sub-Modules`）。
 
-在標題與單行摘要之後、該生成區塊之前，會有一行格式標記 —— `<!-- prospec:module-readme-format 2026-09-01 -->`。它標示的是該檔案所遵循的相容 grammar 版本，而非文件最後修改日期：補充說明與註冊的選用擴充 Section 不會改動此日期，唯有 marker 語意或核心 Section grammar 出現不相容變更才會換新日期。[`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 是 marker 與結構的共同權威，`prospec validate module-readme <module>` 即依此校驗 README。
+在標題的單行摘要之後第一個非空行（兩者之間可留空行）、該生成區塊之前，會有一行格式標記 —— `<!-- prospec:module-readme-format 2026-09-01 -->`。它標示的是該檔案所遵循的相容 grammar 版本，而非文件最後修改日期：補充說明與註冊的選用擴充 Section 不會改動此日期，唯有 marker 語意或核心 Section grammar 出現不相容變更才會換新日期。[`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 是 marker 與結構的共同權威，`prospec validate module-readme <module>` 即依此校驗 README。
 
 若需要為專案擴充自訂 Section（如 `## Team Ownership`、`## Security Rules`），請直接在 [`prospec/ai-knowledge/_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) 的 `prospec:user` 區塊中的 `## Project Section Extensions` 註冊。此 Markdown 表格是擴充結構的**單一真相來源**（不需定義在 `.prospec.yaml`）：
 
@@ -1142,7 +1142,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4730 個；4 個略過）
+# 執行所有測試（共 4740 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1155,9 +1155,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4730 個測試（4726 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3370 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1182 tests
+**測試覆蓋率**：共 4740 個測試（4736 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3379 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1183 tests
 - Integration tests：45 tests
 - E2E tests：133 tests
 

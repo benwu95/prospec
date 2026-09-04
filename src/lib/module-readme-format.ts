@@ -280,22 +280,41 @@ function validateCoreGrammar(lines: string[], findings: ValidationFinding[]): Ma
   const title = lines[0]?.trim() ?? '';
   if (!/^#\s+\S/.test(title)) finding(findings, 1, 'Module README must start with one level-1 title');
   const summaryIndex = lines.findIndex((line, index) => index > 0 && line.trim() !== '');
-  if (summaryIndex < 0 || !/^>\s+\S/.test((lines[summaryIndex] ?? '').trim())) {
+  const hasSummary = summaryIndex >= 0 && /^>\s+\S/.test((lines[summaryIndex] ?? '').trim());
+  if (!hasSummary) {
     finding(findings, Math.max(2, summaryIndex + 1), 'Module README needs one blockquote summary after its title');
   }
   const markers = markerIndexes(lines, FORMAT_MARKER);
-  if (markers.length !== 1) {
+  if (markers.length === 0) {
+    // Anchor to the line the marker belongs on, not to the title: a reader who
+    // omitted it needs to know where it goes, and line 1 sends them to the title.
+    finding(
+      findings,
+      hasSummary ? summaryIndex + 2 : 1,
+      `Module README needs exactly one ${FORMAT_MARKER} on the first non-blank line after the summary, above ${AUTO_START}`,
+    );
+  } else if (markers.length > 1) {
     finding(findings, 1, `Module README needs exactly one ${FORMAT_MARKER}`);
-  } else if (summaryIndex >= 0 && markers[0] !== summaryIndex + 1) {
-    finding(findings, markers[0]! + 1, 'format marker must appear immediately after the summary');
   }
   const auto = managedBlock(lines, AUTO_START, AUTO_END, findings, 'Module README auto block');
   const user = managedBlock(lines, USER_START, USER_END, findings, 'Module README user block');
   if (auto === null || user === null) return null;
   if (markers[0] !== undefined) {
     if (auto.start < markers[0]) {
+      // Out-of-order header: the gaps below are not gaps at all, and scanning
+      // them would report every line of the document as misplaced. One finding
+      // that names the real problem beats a cascade of misleading ones.
       finding(findings, auto.start + 1, 'auto block must appear after the format marker');
     } else {
+      // Both header gaps admit blank lines and nothing else — one rule, reported
+      // at the same density on both sides so they cannot drift apart.
+      if (hasSummary) {
+        for (let i = summaryIndex + 1; i < markers[0]; i++) {
+          if (lines[i]?.trim() !== '') {
+            finding(findings, i + 1, 'only blank lines may separate the summary from the format marker');
+          }
+        }
+      }
       for (let i = markers[0] + 1; i < auto.start; i++) {
         if (lines[i]?.trim() !== '') {
           finding(findings, i + 1, 'content is not allowed between format marker and auto block');
