@@ -149,21 +149,27 @@ Tests pin both the fix and the damage it already did. Fixture-driven unit tests 
 ---
 
 #### REQ-LIB-071: archive Entry-Gate evaluator + shared knowledge-sync helper
-The knowledge-sync currency derivation moves from `status.service` into a shared `lib` helper (`checkKnowledgeSync`), so `status` and `archive` call one owner; its behavior is unchanged. A new pure `evaluateArchiveEntryGate(report, { knowledgeSynced, allowIncomplete })` returns `{ blocked, reasons }` from the current read-only assessment report's `metadata-completeness`, `review-provenance`, `test-provenance` and `delta-spec-provenance` check statuses plus the knowledge-sync flag; `metadata-completeness` is exempted only when `allowIncomplete` is set.
+The knowledge-sync currency derivation moves from `status.service` into a shared `lib` helper (`checkKnowledgeSync`), so `status` and `archive` call one owner; its behavior is unchanged. The pure `evaluateArchiveEntryGate(report, { changeName, knowledgeSynced, allowIncomplete, taskCompletionApplicable })` returns `{ blocked, reasons: WorkflowReason[] }`, adjudicating `metadata-completeness`, `task-completion`, `review-provenance`, `test-provenance` and `delta-spec-provenance` for the TARGET change through `adjudicateChangeCheck` plus the knowledge-sync flag; `metadata-completeness` is exempted only when `allowIncomplete` is set.
 - WHEN any of completeness / the three provenance checks is FAIL, or `knowledgeSynced` is false, THEN `evaluateArchiveEntryGate` reports blocked with one named reason per cause
 - WHEN `allowIncomplete` is set, THEN a `metadata-completeness` FAIL alone does not block
 - WHEN required live checks are missing or their observation cannot be proven, THEN the archive boundary refuses before mutation rather than treating an absent verdict as permission; `allowIncomplete` still exempts completeness alone
 - WHEN the current assessment and knowledge-sync verdict are passed to this pure evaluator, THEN their I/O and receipt recheck remain owned by the shared assessment/helper and service boundary, never reimplemented in the evaluator
+- WHEN a sibling change's change-scoped findings FAIL, THEN the target is not blocked by them; WHEN the target is not enumerated in a required check's `subjects` (or the report predates `subjects`), THEN the gate blocks with code `CHECK_UNPROVABLE`
+- WHEN a reason is reported, THEN it is a `WorkflowReason` carrying a `WORKFLOW_REASON_CODES` code, a message and a concrete remediation; the `test command unavailable:` skip of `test-provenance` remains the one accepted skip
+- WHEN `taskCompletionApplicable` is false (the service derives it from `scale: backfill` with `backfill-draft.md` present — a scale whose contract forbids `tasks.md`, so its collector never enumerates it), THEN `task-completion` is not adjudicated for the target and never blocks; an unproven `scale: backfill` follows the ordinary rule and its `CHECK_UNPROVABLE` remediation names the only exits — restore `backfill-draft.md` through `prospec-promote-backfill`, or change the scale with `prospec change scale`
 
 ---
 
 #### REQ-SERVICES-102: prospec archive refuses on failed Entry-Gate conditions
-`prospec archive` obtains a shared read-only current drift assessment before moving any change, derives knowledge-sync through its shared helper and calls `evaluateArchiveEntryGate`; a persisted report is optional diagnostic output, never the authority authorizing archive. The existing repo-wide aggregation, pre-schema metadata tolerance under `--allow-incomplete`, and spec-sync preflight remain unchanged.
+`prospec archive` obtains a shared read-only current drift assessment before moving any change, derives knowledge-sync through its shared helper and calls `evaluateArchiveEntryGate` with the candidate's name; a persisted report is optional diagnostic output, never the authority authorizing archive. The existing repo-wide aggregation, pre-schema metadata tolerance under `--allow-incomplete`, and spec-sync preflight remain unchanged.
 - WHEN a persisted report is absent, stale or predates a normal `verify record`, THEN archive recomputes required workflow verdicts without requiring a manual report rebuild, test execution, report write or other bookkeeping mutation
 - WHEN completeness / any provenance is FAIL or knowledge-sync is false, THEN the target change is refused with a named reason per cause; WHEN `--dry-run`, THEN the same refusal prints and nothing is written
 - WHEN the latest verify entry is B/C/D after an earlier S/A, or tasks, delta-spec, provenance, attempts or other required facts changed after report generation, THEN archive judges those current facts and cannot accept the earlier cached verdict
 - WHEN preflight completes, THEN revalidate the assessment and knowledge-sync observation receipt immediately before the first mutation; a mismatch, missing required check or unprovable fact refuses the target with byte-identical files under dry-run and execution alike
 - WHEN `--allow-incomplete` is used, THEN only the completeness condition is relaxed; known provenance failures, unprovable required evidence, knowledge-sync and preflight protections remain enforced, while legacy metadata is not globally forced through the new strict writer schema
+- WHEN two changes are in flight and only a sibling's evidence is missing or stale, THEN the target with current evidence is not refused, the sibling is, and `prospec check` still reports the sibling's findings
+- WHEN a refusal is printed, THEN each reason reads `<CODE>: <message> — <remediation>`
+- WHEN the candidate is a proven backfill (`scale: backfill` with `backfill-draft.md`), THEN archive passes `taskCompletionApplicable: false` so the absent `tasks.md` never refuses it; the per-target adjudication removes a sibling's missing evidence as a blocker but not the whole-tree digest — a sibling's code edit still stales the target's review/test evidence
 
 ---
 

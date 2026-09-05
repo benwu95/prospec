@@ -93,7 +93,12 @@ so that drift checks are enforced in the CI main pipeline without burning any to
 - WHEN run with `--strict` and a FAIL exists, THEN exit 1; WARN and skipped never affect the exit code
 - WHEN the report contains skipped checks, THEN both the report and the PR comment explicitly state the reason and do not count toward PASS
 
-#### REQ-TYPES-027: Drift Report Schema (extend with two check ids)
+#### REQ-TYPES-027: Drift Report Schema (check scopes and enumerated subjects)
+`types/drift-report.ts` owns `DriftReportSchema` (`prospec-report.json`), the frozen `DRIFT_CHECK_IDS`, and `DRIFT_CHECK_SCOPES: Record<DriftCheckId, 'change' | 'repository'>` — `change` for `task-completion`, `review-provenance`, `metadata-completeness`, `test-provenance`, `delta-spec-provenance` and `delta-spec-landing-fidelity`, `repository` for every other check. `DriftCheckResultSchema` is `{ id, status, reason?, subjects?, subject_skips? }`.
+- WHEN a check id is added to `DRIFT_CHECK_IDS` without a `DRIFT_CHECK_SCOPES` entry, THEN type-checking fails
+- WHEN a `change`-scoped check runs, THEN its result carries `subjects` — the change names its collector enumerated (empty when none) — and a `repository`-scoped check carries none
+- WHEN a `change`-scoped evaluator could not grade one enumerated change while another produced findings (e.g. `test-provenance` with this change's test command unavailable and a sibling's failing run), THEN the result carries that change under `subject_skips` with its reason, so the whole-check `fail` never reads as the ungraded change's pass
+- WHEN an older report without `subjects` is parsed, THEN it still validates; consumers treat the absence as unprovable for per-change adjudication, never as pass
 
 #### REQ-SERVICES-027: Check Service thin orchestration
 `execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the workflow template (rerun-safe, does not overwrite); the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
