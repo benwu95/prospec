@@ -57,7 +57,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | **implement** | `review` | 100% of code tasks checked off; `prospec change status implemented` executed. |
 | **review** | `verify` | 0 unresolved critical findings; tests pass; review baseline stamped via `prospec check --record-review`. |
 | **verify** | `knowledge-update` | Quality Grade **S** or **A** achieved (`status: verified`). |
-| **knowledge-update** | `awaiting_signoff` | Affected module READMEs, `index.md`, and `module-map.yaml` synced incrementally. |
+| **knowledge-update** | `review` if inputs changed, otherwise `awaiting_signoff` | Knowledge/count/generated assets synced; final evidence matches resulting inputs. |
 | **awaiting_signoff** | `archive` | Human sign-off granted and atomic feature commit created. |
 
 ---
@@ -69,6 +69,7 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
 1. **Commit Boundary & Preparation (S/A only)**:
    - **Sync affected-module Knowledge**: Run `prospec-knowledge-update` for the modules this change touched into the feature commit (delta-spec REQ-prefix modules $\cup$ working-tree diff modules via module map, generated artifacts included). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`. (`scale: backfill`: sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`).
    - **Re-derive factual counts**: If the project has a factual count generator (e.g. `pnpm counts`), run it to synchronize documentation counts; otherwise re-derive from source.
+   - **Final evidence order**: sync → final review → tests → verify → equivalent commit. If synchronization changed repository inputs, return to review and verify after sync; present only the resulting S/A. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
 2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
    - **Delta-Spec Summary**: Overview of added/modified/removed requirements.

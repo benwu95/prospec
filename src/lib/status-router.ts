@@ -219,11 +219,11 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           '`prospec archive` refuses unless the change is `verified`',
           'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
           // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these are live gates
-          // on this edge, not just on the one before it — and the verify S/A commit
-          // stales them by construction (HEAD is in the digest). Declared, not
+          // on this edge, not just on the one before it. Equivalent commits keep
+          // repository-input evidence current. Declared, not
           // evaluated: the router is I/O-free and never reads the drift report — the
           // station CLI (`prospec archive`) is the adjudicator that refuses on them.
-          'review/test provenance current for the final code — `prospec archive` refuses on any FAIL (`prospec check` — re-record after the verify S/A commit)',
+          'review/test provenance current for the final inputs — `prospec archive` refuses on any FAIL (`prospec check` — re-record when inputs change; equivalent commits preserve evidence)',
         ],
         reasons: ['status `verified` — next station per lifecycle order'],
       };

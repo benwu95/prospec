@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
+import { recordCliEvidence } from './helpers/evidence.js';
 import { runCliInProcess } from './helpers/run-cli.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
@@ -348,7 +349,7 @@ describe('CLI E2E — station commands', () => {
       expect(await fs.promises.readFile(reviewMd, 'utf-8')).toBe(afterR2);
     });
 
-    it('verify record refuses without the drift report, naming the prerequisite', async () => {
+    it('verify record refuses absent current review even without a saved report', async () => {
       await initChange();
       const { exitCode, stderr } = await runCli([
         'verify', 'record',
@@ -358,7 +359,7 @@ describe('CLI E2E — station commands', () => {
         '--graded-by', 'fresh-subagent',
       ]);
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain('prospec-report.json not found');
+      expect(stderr).toContain('review-provenance');
     });
 
     it('verify record refuses a judgment set with no graded_by declared', async () => {
@@ -388,33 +389,15 @@ describe('CLI E2E — station commands', () => {
 
     it('verify record caps the grade below S and prints the remedy when graded in-session', async () => {
       await initChange();
-      // A hand-written all-pass report; the tmpdir is not a git repo, so the
-      // freshness guard is unadjudicable and skips honestly (no digest needed).
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'prospec-report.json'),
-        JSON.stringify({
-          version: 1,
-          generated_at: '2026-08-22T00:00:00.000Z',
-          structural: {
-            checks: [
-              { id: 'task-completion', status: 'pass' },
-              { id: 'knowledge-health', status: 'pass' },
-              { id: 'test-provenance', status: 'pass' },
-            ],
-            findings: [],
-          },
-          semantic: { status: 'not-checked' },
-          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
-        }),
-      );
-      const { exitCode, stdout } = await runCli([
+      await recordCliEvidence(tmpDir, 'my-change');
+      const { exitCode, stdout, stderr } = await runCli([
         'verify', 'record',
         '--dimension', 'delta-spec-compliance=PASS',
         '--dimension', 'constitution=PASS',
         '--dimension', 'design=not-applicable',
         '--graded-by', 'in-session',
       ]);
-      expect(exitCode).toBe(0);
+      expect(exitCode, stderr).toBe(0);
       // the cap must land in the GRADE, not only in the narration (review TQ-1)
       expect(stdout).toContain('Quality Grade: A');
       expect(stdout).toContain('Grade capped below S');
@@ -429,24 +412,8 @@ describe('CLI E2E — station commands', () => {
 
     it('verify record carries run-level --executor/--spend onto each judgment dimension (flag form)', async () => {
       await initChange();
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'prospec-report.json'),
-        JSON.stringify({
-          version: 1,
-          generated_at: '2026-08-22T00:00:00.000Z',
-          structural: {
-            checks: [
-              { id: 'task-completion', status: 'pass' },
-              { id: 'knowledge-health', status: 'pass' },
-              { id: 'test-provenance', status: 'pass' },
-            ],
-            findings: [],
-          },
-          semantic: { status: 'not-checked' },
-          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
-        }),
-      );
-      const { exitCode, stdout } = await runCli([
+      await recordCliEvidence(tmpDir, 'my-change');
+      const { exitCode, stdout, stderr } = await runCli([
         'verify', 'record',
         '--dimension', 'delta-spec-compliance=PASS',
         '--dimension', 'constitution=PASS',
@@ -455,7 +422,7 @@ describe('CLI E2E — station commands', () => {
         '--executor', 'strongest-tier',
         '--spend', '12345',
       ]);
-      expect(exitCode).toBe(0);
+      expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain('Quality Grade: S');
       const metadata = await fs.promises.readFile(
         path.join(tmpDir, '.prospec', 'changes', 'my-change', 'metadata.yaml'),
@@ -636,8 +603,8 @@ describe('CLI E2E — station commands', () => {
       const specBefore = '---\nfeature: f\nstory_count: 0\nreq_count: 0\n---\n\n## US-1: s\n';
       await fs.promises.writeFile(specPath, specBefore);
 
-      const { exitCode, stdout } = await runCli(['archive', 'finalize', 'my-change', '--dry-run']);
-      expect(exitCode).toBe(0);
+      const { exitCode, stdout, stderr } = await runCli(['archive', 'finalize', 'my-change', '--dry-run']);
+      expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain('dry-run');
       expect(fs.existsSync(path.join(tmpDir, 'prospec', 'specs', '_archived-history'))).toBe(false);
       expect(await fs.promises.readFile(specPath, 'utf-8')).toBe(specBefore);
@@ -656,8 +623,8 @@ describe('CLI E2E — station commands', () => {
       const before = await fs.promises.readFile(configPath, 'utf-8');
       const scaffold = path.join(tmpDir, 'triggers.yaml');
       await fs.promises.writeFile(scaffold, 'skill_triggers:\n  prospec-verify:\n    - 驗證\n');
-      const { exitCode } = await runCli(['agent', 'triggers', '--write', scaffold]);
-      expect(exitCode).toBe(0);
+      const { exitCode, stderr } = await runCli(['agent', 'triggers', '--write', scaffold]);
+      expect(exitCode, stderr).toBe(0);
       const after = await fs.promises.readFile(configPath, 'utf-8');
       expect(after).toContain('prospec-verify:');
       expect(after).toContain('- 驗證');
@@ -669,4 +636,25 @@ describe('CLI E2E — station commands', () => {
     });
   });
 
+});
+
+it('reports source mutation during tests and refuses archive through normal command entry', async () => {
+  await runCli(['init', '--name', 'mutation', '--agents', 'claude']);
+  await runCli(['change', 'story', 'mutation', '--description', 'fixture']);
+  await recordCliEvidence(tmpDir, 'mutation');
+  await runCli(['change', 'status', 'implemented']);
+  fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), "const fs=require('fs');require('assert').strictEqual(fs.readFileSync('input.txt','utf8'),'old');fs.writeFileSync('input.txt','new');");
+  fs.writeFileSync(path.join(tmpDir, 'input.txt'), 'old');
+  await runCli(['check', '--record-review']);
+  const result = await runCli(['check', '--record-tests']);
+  expect(result.stdout + result.stderr).toContain('passing evidence is not certified');
+  const metadataPath = path.join(tmpDir, '.prospec/changes/mutation/metadata.yaml');
+  expect(fs.readFileSync(metadataPath, 'utf8')).toContain('outcome: unprovable');
+  const verification = await runCli(['verify', 'record', '--dimension', 'delta-spec-compliance=PASS', '--dimension', 'constitution=PASS', '--dimension', 'design=not-applicable', '--graded-by', 'fresh-subagent']);
+  expect(verification.exitCode).toBe(1);
+  for (const extra of [[], ['--dry-run']]) {
+    const before = fs.readFileSync(metadataPath);
+    expect((await runCli(['archive', 'mutation', ...extra])).exitCode).toBe(1);
+    expect(fs.readFileSync(metadataPath)).toEqual(before);
+  }
 });

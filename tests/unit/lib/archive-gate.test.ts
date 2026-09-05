@@ -4,7 +4,7 @@ import { DRIFT_REPORT_VERSION, type DriftReport } from '../../../src/types/drift
 
 /** A drift report carrying the given check → status map (plus a filler so `checks` is non-empty). */
 function report(statuses: Record<string, 'pass' | 'warn' | 'fail' | 'skipped'>): DriftReport {
-  const checks = Object.entries(statuses).map(([id, status]) => ({ id, status }));
+  const checks = Object.entries({ 'task-completion': 'pass', 'metadata-completeness': 'pass', 'review-provenance': 'pass', 'test-provenance': 'pass', 'delta-spec-provenance': 'pass', ...statuses }).map(([id, status]) => ({ id, status }));
   return {
     version: DRIFT_REPORT_VERSION,
     generated_at: '2026-08-29T00:00:00.000Z',
@@ -92,19 +92,27 @@ describe('evaluateArchiveEntryGate', () => {
     expect(v.reasons).toHaveLength(5);
   });
 
-  it('does not block on a check absent from the report (older engine)', () => {
-    const v = evaluateArchiveEntryGate(report({ 'req-references': 'pass' }), {
+  it('blocks on a check absent from the report (older engine)', () => {
+    const v = evaluateArchiveEntryGate({ ...report({}), structural: { checks: [], findings: [] } }, {
       knowledgeSynced: true,
       allowIncomplete: false,
     });
-    expect(v.blocked).toBe(false);
+    expect(v.blocked).toBe(true);
   });
 
-  it('treats a non-fail (warn/skipped) gated check as non-blocking', () => {
+  it('refuses unprovable review even alongside an advisory delta warning', () => {
     const v = evaluateArchiveEntryGate(
       report({ 'review-provenance': 'skipped', 'delta-spec-provenance': 'warn' }),
       { knowledgeSynced: true, allowIncomplete: false },
     );
-    expect(v.blocked).toBe(false);
+    expect(v.blocked).toBe(true);
   });
+});
+
+it('refuses missing required facts and pending code tasks', () => {
+  const absent = report({});
+  absent.structural.checks = [];
+  expect(evaluateArchiveEntryGate(absent, { knowledgeSynced: true, allowIncomplete: true }).blocked).toBe(true);
+  const pending = report({ 'task-completion': 'fail', 'metadata-completeness': 'pass', 'review-provenance': 'pass', 'test-provenance': 'pass', 'delta-spec-provenance': 'pass' });
+  expect(evaluateArchiveEntryGate(pending, { knowledgeSynced: true, allowIncomplete: false }).reasons.some((r) => r.includes('task-completion'))).toBe(true);
 });

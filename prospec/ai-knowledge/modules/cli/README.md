@@ -45,6 +45,9 @@
 
 ## Pitfalls
 
+- Ordinary status routing excludes Handlebars and stays under 250 dependency modules; recognized saved-report assessment runs canonical rendering with a separate 300-module ceiling. Both paths retain the four unrelated-heavy-dependency exclusions.
+- Evidence formatters project service reasons for changed inputs, legacy versions and uncertified attempts; never derive validity or suggest a commit-only rebaseline.
+
 - No business logic in cli — always delegate to services; `.action()` callbacks are async → `await` + try/catch with `handleError()`.
 - A flag declared on BOTH a parent and its subcommand (e.g. `--dry-run` on `archive` and `archive finalize`) binds to the PARENT — the subcommand's own `opts()` arrives EMPTY, so reading it would silently write on a dry run. Use `optsWithGlobals()` in such an action (and keep the action a `function` so `this` is the Command).
 - Success → stdout, errors → stderr; `mcp serve` keeps stdout byte-clean (JSON-RPC channel — any write corrupts the session; contract test spies on `process.stdout.write`).

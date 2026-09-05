@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-09-04
+last_updated: 2026-09-05
 story_count: 15
 req_count: 74
 ---
@@ -127,6 +127,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-05 | verified-input-evidence | MODIFIED REQ-LIB-062; MODIFIED REQ-TEMPLATES-207 | REQ-LIB-062, REQ-TEMPLATES-207 |
 | 2026-09-04 | relax-readme-marker-adjacency | MODIFIED REQ-LIB-073; MODIFIED REQ-TESTS-110; MODIFIED REQ-TEMPLATES-226 | REQ-LIB-073, REQ-TESTS-110, REQ-TEMPLATES-226 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-141 | REQ-TEMPLATES-141 |
 | 2026-09-02 | reclassify-status-lifecycle-demand | MODIFIED REQ-KNOW-035 | REQ-KNOW-035 |

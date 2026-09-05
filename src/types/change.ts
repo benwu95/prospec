@@ -96,11 +96,35 @@ export const NewQualityLogEntrySchema = z.object(QualityLogEntryShape);
  *  Loose: reads never strip unmodeled keys (see ChangeMetadataSchema). */
 export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
 
+/** Version and scope are explicit; unknown/absent values remain readable legacy evidence. */
+export const FINGERPRINT_VERSION = 'snapshot-v2';
+export const EVIDENCE_SCOPE = 'repository-inputs-v2';
+const EvidenceTraceShape = {
+  fingerprint_version: z.string().optional(),
+  scope: z.string().optional(),
+  head: z.string().optional(),
+};
+
+export const NewTestAttemptSchema = z.object({
+  id: z.string().min(1),
+  outcome: z.enum(['running', 'passed', 'failed', 'unprovable', 'timeout', 'unavailable']),
+  date: z.string().optional(),
+  command: z.string().optional(),
+  before_digest: z.string().optional(),
+  after_digest: z.string().optional(),
+  exit_code: z.number().int().optional(),
+  signal: z.string().optional(),
+  reason: z.string().optional(),
+});
+export const TestAttemptSchema = NewTestAttemptSchema.loose();
+export type TestAttempt = z.infer<typeof NewTestAttemptSchema>;
+
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
  *  code state; `date` is the ISO 8601 record date. `graded_by` is the reviewer's
  *  self-declaration of the grading context (`fresh-subagent`|`in-session`),
  *  optional so every pre-existing baseline stays valid. */
 export const ReviewProvenanceSchema = z.looseObject({
+  ...EvidenceTraceShape,
   digest: z.string(),
   date: z.string(), // ISO 8601 date
   graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
@@ -111,6 +135,8 @@ export const ReviewProvenanceSchema = z.looseObject({
  *  non-zero — a failing suite is the fact the check must see), `digest` fingerprints
  *  the code state it ran against, `date` is the ISO 8601 record date. */
 export const TestProvenanceSchema = z.looseObject({
+  ...EvidenceTraceShape,
+  attempt_id: z.string().optional(),
   command: z.string(),
   exit_code: z.number().int(),
   digest: z.string(),
@@ -166,6 +192,7 @@ const ChangeMetadataShape = {
   // required-field floor: adding it there would retroactively fail every change
   // archived before this field existed.
   test_provenance: TestProvenanceSchema.optional(),
+  test_attempt: TestAttemptSchema.optional(),
   // Machine-written delta-spec baseline (written by `prospec check --record-review`
   // alongside review_provenance). The delta-spec-provenance drift check recomputes
   // the digest and flags the change stale when it no longer matches, so a landing

@@ -13,7 +13,7 @@
 | `cascade.ts` | Cascade contracts — `CascadeScaleSchema`, `CascadeStationSchema`, `OscillationRecordSchema`, `CircuitBreakerConfigSchema`, `EscalationReportSchema`, `TastemakerPresentationSchema` |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget` (7 per-surface thresholds), `KnowledgeSizeKind`, `test_command`, `knowledge.generated_artifacts` (staleness exclusion globs — `.optional()` with NO schema `.default()`, since a default lands in the OUTPUT type and breaks every typed `ProspecConfig` literal; each consumer supplies `?? []`) |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check); `LanguageScope` (both zone languages, `nativePaths` / `trustZonePaths`, plus BOTH exception directions — `namedExceptions` / `trustZoneExceptions`; no language name hardcoded) |
-| `drift-report.ts` | `DriftReportSchema` (+ optional `change_digest` freshness stamp) — its frozen id list and `knowledge_health` shape are in the sub-module |
+| `drift-report.ts` | `DriftReportSchema` (optional versioned snapshot trace), `InputSnapshot` / `CurrentDriftAssessment` read-only gate contracts — its frozen id list and `knowledge_health` shape are in the sub-module |
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
@@ -50,6 +50,8 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 - Imported everywhere: a schema change ripples to every consumer — config → `lib/config.ts`, errors → `cli/formatters/error-output.ts`. Registry ripple is in the sub-module.
 
 ## Pitfalls
+
+- Evidence uses optional version/scope on loose legacy reads and strict new attempt outcomes; `test_attempt` and `test_provenance.attempt_id` link the latest invocation without inventing an exit code.
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`. A budget threshold needs BOTH `TokenBudgetSchema` and `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — the resolver reads the default's keys, so a schema-only field parses then is ignored (a key-set equality test pins it).
 - `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of it gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body.

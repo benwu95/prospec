@@ -461,22 +461,11 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
         detail:
           `no review recorded for change "${c.name}" — run prospec-review before prospec-verify`,
       });
-    } else if (c.recorded_digest !== src.current_digest) {
-      findings.push({
-        check: 'review-provenance',
-        severity: 'fail',
-        source_path: c.source_path,
-        // A clean working tree means the mismatch is commit-induced (a commit landed
-        // after the baseline was recorded — HEAD is inside the digest), not a code
-        // change, so the cheap remedy is to re-record; only a dirty/unknown tree keeps
-        // the code-changed wording. The gate FAILs either way — only the remedy differs.
-        detail:
-          src.working_tree_clean === true
-            ? `stale review for change "${c.name}": the working tree is clean, so the recorded ` +
-              'review predates the current commit — re-record with `prospec check --record-review` ' +
-              '(a full prospec-review is only needed if code changed before the commit)'
-            : `stale review for change "${c.name}": code changed since the recorded review — ` +
-              `re-run prospec-review`,
+    } else if (!c.version_supported || src.current_digest === null || c.recorded_digest !== src.current_digest) {
+      findings.push({ check: 'review-provenance', severity: 'fail', source_path: c.source_path,
+        detail: !c.version_supported
+          ? `legacy or unknown review evidence for change "${c.name}" — complete one valid re-review; re-run prospec-review`
+          : `stale review for change "${c.name}": code changed since the recorded review or current inputs are unprovable — re-run prospec-review`,
       });
     }
   }
@@ -831,6 +820,7 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
     return skipped('test-provenance', src.reason ?? 'source unavailable');
   }
   const findings: DriftFinding[] = [];
+  const unavailableReasons = src.command_unavailable_reason != null ? [src.command_unavailable_reason] : [];
   for (const c of src.changes) {
     if (!isProvenanceAudited(c.status)) continue;
     const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
@@ -857,6 +847,23 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
     // `!= null` on purpose: a source built before this field existed must read
     // as "command resolvable", never as a skip.
     if (src.command_unavailable_reason != null) continue;
+    const attemptDetail = [
+      c.attempt_command ? `command \`${c.attempt_command}\`` : '',
+      c.attempt_exit_code !== undefined ? `exited ${c.attempt_exit_code}` : '',
+      c.attempt_signal ? `signal ${c.attempt_signal}` : '',
+      c.attempt_reason ?? '',
+    ].filter(Boolean).join('; ');
+    if (c.attempt_outcome === 'unavailable') {
+      unavailableReasons.push(`test command unavailable: latest attempt for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``);
+      continue;
+    }
+    if (c.attempt_outcome && c.attempt_outcome !== 'passed') {
+      if (provenBackfill) continue;
+      findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path,
+        detail: `uncertified test attempt (${c.attempt_outcome}) for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — re-run \`prospec check --record-tests\``,
+      });
+      continue;
+    }
     if (c.recorded_digest === null) {
       if (provenBackfill) continue; // brownfield code legitimately has no run
       findings.push({
@@ -867,30 +874,19 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
           `no test run recorded for change "${c.name}" — run ` +
           '`prospec check --record-tests` before prospec-verify',
       });
-    } else if (c.recorded_digest !== src.current_digest) {
-      // Stale with a GREEN record means "current outcome unknown", which for proven
-      // brownfield code is the same exempt state as no record at all — and failing it
-      // would punish recording a run while staying silent rewards not recording one.
+    } else if (!c.version_supported || !c.attempt_matches || src.current_digest === null || c.recorded_digest !== src.current_digest) {
       if (provenBackfill) continue;
-      findings.push({
-        check: 'test-provenance',
-        severity: 'fail',
-        source_path: c.source_path,
-        // Same clean-tree distinction as review-provenance: a clean tree means the
-        // recorded run predates the current commit (outcome unknown, not a failure),
-        // so re-record; a dirty/unknown tree keeps the code-changed wording.
-        detail:
-          src.working_tree_clean === true
-            ? `stale test run for change "${c.name}": the working tree is clean, so the recorded ` +
-              'run predates the current commit — re-record with `prospec check --record-tests` ' +
-              '(the suite outcome is unknown after the commit, not a failure)'
-            : `stale test run for change "${c.name}": code changed since the recorded run — ` +
-              're-run `prospec check --record-tests`',
+      findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path,
+        detail: !c.version_supported
+          ? `legacy or unknown test evidence for change "${c.name}" — run one valid test attempt with \`prospec check --record-tests\``
+          : !c.attempt_matches
+            ? `uncertified test attempt (${c.attempt_outcome || 'missing'}) for change "${c.name}" — re-run \`prospec check --record-tests\``
+            : `stale test run for change "${c.name}": code changed since the recorded run or current inputs are unprovable — re-run \`prospec check --record-tests\``,
       });
     }
   }
-  if (findings.length === 0 && src.command_unavailable_reason != null) {
-    return skipped('test-provenance', src.command_unavailable_reason);
+  if (findings.length === 0 && unavailableReasons.length > 0) {
+    return skipped('test-provenance', unavailableReasons.join('; '));
   }
   return outcome('test-provenance', findings);
 }

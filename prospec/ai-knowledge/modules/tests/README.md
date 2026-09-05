@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 189 test files, 4,740 tests (unit 3379, contract 1183, integration 45, e2e 133)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 194 test files, 4,832 tests (unit 3445, contract 1187, integration 55, e2e 145)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -42,6 +42,10 @@
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Startup measurements use isolated real-Git status fixtures (no/current/stale report and in-flight change); assert the executed branch, not only a module ceiling, so archive cannot hide a report-dependent path.
+- Invalid UTF-8 path refusal uses a real Git index on macOS and Linux, with additional Linux worktree coverage, keeping both platforms' test counts aligned.
+- Snapshot and live-evidence regressions use real Git fixtures (`input-snapshot`, `drift-assessment`, integration `evidence-validity`); assert identity relations, latest-attempt safety, refusal byte identity and suite invocation counts.
 
 - fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares a FILE-level `vi.setConfig({ testTimeout })` (PB-010) — 90_000 where the file shells out to a real subprocess or runs git-bound services (`drift-sources`, `check.service`, `test-runner`, `counts-from-report`, and every `tests/e2e/*` file — the in-process `cli-*` files still drive git via check/archive/status, and the smoke/startup files spawn node), since `prospec check --record-tests` nests the whole suite inside another node process and 30 s did not hold there: full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
 - The subprocess smokes and the startup-modules guard spawn the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or they fail; the in-process `cli-*` e2e files run against `src` and need no build. The in-process runner (`helpers/run-cli.ts`) patches BOTH `process.stdout/stderr.write` AND `console.*` (vitest intercepts `console`, so a stream patch alone misses formatter output) and restores every global in a `finally` — its `run-cli-helper.test.ts` pins that contract.

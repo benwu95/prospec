@@ -5,7 +5,7 @@ import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
-import { reqIdToPrefix, computeChangeDigest } from '../lib/drift-sources.js';
+import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
 import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
 import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
@@ -44,7 +44,8 @@ export {
 export type { BlockTerminator, Bullet, DeltaBlock, DeltaBlockTruncation };
 import type { ChangeStatus } from '../types/change.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DRIFT_REPORT_FILENAME, DriftReportSchema, type DriftReport } from '../types/drift-report.js';
+import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import type { CurrentDriftAssessment } from '../types/drift-report.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
@@ -1400,7 +1401,9 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   let knowledgePath: string | null = null;
   let projectName = 'project';
   let configObj: ProspecConfig | null = null;
+  let resolvedConfigBytes: string | null = null;
   try {
+    resolvedConfigBytes = fs.readFileSync(path.join(cwd, '.prospec.yaml'), 'utf8');
     const config = await readConfig(cwd);
     configObj = config;
     const basePaths = resolveBasePaths(config, cwd);
@@ -1412,45 +1415,27 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     // Config not available — skip Feature Spec sync
   }
 
-  // --- Entry Gate (mechanized) ---
-  // The archive skill used to run `prospec check --json` and read these
-  // conclusions by hand; the CLI now refuses on them, so the skill text converges.
-  // Read the drift report ONCE (it is repo-wide) and check its freshness the same
-  // way `verify record` and `status` do — a missing, unreadable, or stale report
-  // is refused per target rather than silently trusted. Decision only: no write.
   const allowIncomplete = options.allowIncomplete ?? false;
-  let gateReport: DriftReport | null = null;
-  let gateReportProblem: string | null = null;
-  const reportPath = path.join(cwd, DRIFT_REPORT_FILENAME);
-  if (!fs.existsSync(reportPath)) {
-    gateReportProblem = 'no prospec-report.json — run `prospec check --json` before archiving';
-  } else {
-    try {
-      gateReport = DriftReportSchema.parse(JSON.parse(fs.readFileSync(reportPath, 'utf-8')));
-    } catch {
-      gateReportProblem = 'prospec-report.json is unreadable — re-run `prospec check --json`';
-    }
-    if (gateReport) {
-      const currentDigest = computeChangeDigest(cwd);
-      if (currentDigest !== null && gateReport.change_digest !== currentDigest) {
-        gateReport = null;
-        gateReportProblem =
-          'prospec-report.json is stale (generated against different code) — re-run `prospec check --json`';
-      }
-    }
-  }
 
   for (const change of candidates) {
     try {
       const createdDate = String(change.metadata.created ?? change.metadata.created_at ?? 'unknown');
+      let assessment: CurrentDriftAssessment;
+      try { assessment = await assessCurrentDrift(cwd); }
+      catch (error) {
+        refused.push({ name: change.name, status: change.status, reason: `current assessment unavailable: ${error instanceof Error ? error.message : String(error)}` });
+        continue;
+      }
+      const currentMetadata = fs.readFileSync(path.join(change.dir, 'metadata.yaml'), 'utf8');
+      if (JSON.stringify(parseYaml(currentMetadata)) !== JSON.stringify(change.metadata)) {
+        refused.push({ name: change.name, status: change.status, reason: 'change metadata changed since selection — re-run archive' });
+        continue;
+      }
+
 
       // Entry Gate B — refuse a change the drift report says is not archivable,
       // before PREFLIGHT and before anything moves. --dry-run prints the same
       // refusal (this runs regardless of dryRun).
-      if (gateReportProblem !== null) {
-        refused.push({ name: change.name, status: change.status, reason: gateReportProblem });
-        continue;
-      }
       const relatedRaw = change.metadata.related_modules;
       const relatedModules = Array.isArray(relatedRaw)
         ? relatedRaw.filter((m): m is string => typeof m === 'string')
@@ -1461,7 +1446,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         cwd,
         configObj,
       );
-      const gate = evaluateArchiveEntryGate(gateReport!, { knowledgeSynced, allowIncomplete });
+      const gate = evaluateArchiveEntryGate(assessment.report, { knowledgeSynced, allowIncomplete });
       if (gate.blocked) {
         refused.push({ name: change.name, status: change.status, reason: gate.reasons.join('; ') });
         continue;
@@ -1488,6 +1473,17 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
             'spec sync would lose authored behavior — nothing was archived; fix the delta-spec and re-run';
           continue;
         }
+      }
+
+      const configPath = path.join(cwd, '.prospec.yaml');
+      const currentConfigBytes = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : null;
+      if (currentConfigBytes !== resolvedConfigBytes) {
+        refused.push({ name: change.name, status: change.status, reason: 'configuration changed during archive — retry with stable inputs' });
+        continue;
+      }
+      if (!assessment.recheck() || fs.readFileSync(path.join(change.dir, 'metadata.yaml'), 'utf8') !== currentMetadata) {
+        refused.push({ name: change.name, status: change.status, reason: 'archive inputs changed or are unprovable after preflight — nothing was written' });
+        continue;
       }
 
       // Move to archive. Dry-run mirrors moveToArchive: an existing archive

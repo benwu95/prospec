@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (52 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (53 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -21,7 +21,7 @@
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
 | station engines (9 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators, the module README format engine, the dual-axis review circuit breaker, the lens yield statistics — see the sub-module below |
 
-The drift engine's 6 files are listed in the sub-module below; the station engines' 9 in theirs; the other 19 `.ts` are single-purpose helpers, with invariants in Pitfalls.
+The drift engine's 7 files are listed in the sub-module below; the station engines' 9 in theirs; the other 19 `.ts` are single-purpose helpers, with invariants in Pitfalls.
 
 ## Public API
 
@@ -50,6 +50,9 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` reaches mcp.service/drift-sources/check.service.
 
 ## Pitfalls
+
+- `drift-assessment` owns shared current facts and pre-write rechecks; keep capture identity in `drift-sources` and pure decisions in `drift-checker`.
+- `writeChangeMetadataDoc` preserves authored field order when YAML aliases exist, including nested aliases; canonical reordering must not move their anchors or change bindings.
 
 - `mergeContent()` relies on exact markers (typos fail silently) — the auto/user marker strings live once in `content-markers.ts`; `scanDir()` excludes ADD to security defaults; YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
 - `module-detector.ts` admission is a pure 2-source-file gate; `isSourceFile` is the single classifier.

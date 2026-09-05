@@ -134,6 +134,23 @@ describe('readChangeMetadata', () => {
 });
 
 describe('writeChangeMetadataDoc (lossless path)', () => {
+  it.each([
+    'custom_modules: &modules [ lib ]\nrelated_modules: *modules\n',
+    'custom_module: &module lib\nrelated_modules: [ *module ]\n',
+  ])('preserves anchor-before-alias order, including nested aliases (F-265-7): %s', async (aliasFields) => {
+    const original = 'name: add-widget\ncreated_at: today\nstatus: implemented\n# reusable module\n' + aliasFields;
+    seed(original);
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    const before = doc.toJS();
+    doc.set('test_attempt', { id: 'new-attempt', outcome: 'running' });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const raw = vol.readFileSync(PATH, 'utf8') as string;
+    expect(raw.startsWith(original)).toBe(true);
+    const { metadata } = readChangeMetadata(PATH, 'add-widget');
+    expect(metadata).toMatchObject(before);
+    expect(metadata.related_modules).toEqual(['lib']);
+    expect(metadata.test_attempt?.outcome).toBe('running');
+  });
   it('round-trips an unknown field and YAML comments byte-for-byte', async () => {
     const withExtras = `# top comment
 name: add-widget
@@ -384,4 +401,19 @@ describe('normalizeIssueRef (issue #131)', () => {
       expect(normalizeIssueRef(value)).toBeUndefined();
     },
   );
+});
+
+it('orders evidence fields without losing attached comments or unknown fields', async () => {
+  seed(VALID + 'introduced_by: old\n# attempt note\ntest_attempt:\n  id: x\n  outcome: running\ncustom: kept\n');
+  const { doc } = readChangeMetadata(PATH, 'add-widget');
+  doc.set('test_provenance', { digest: 'd', date: 'today', command: 'test', exit_code: 0 });
+  doc.set('review_provenance', { digest: 'd', date: 'today' });
+  await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+  const raw = vol.readFileSync(PATH, 'utf8') as string;
+  const keys = Object.keys(readChangeMetadata(PATH, 'add-widget').doc.toJS());
+  expect(keys.indexOf('review_provenance')).toBeLessThan(keys.indexOf('test_provenance'));
+  expect(keys.indexOf('test_provenance')).toBeLessThan(keys.indexOf('test_attempt'));
+  expect(keys.indexOf('test_attempt')).toBeLessThan(keys.indexOf('introduced_by'));
+  expect(raw).toContain('# attempt note');
+  expect(raw).toContain('custom: kept');
 });

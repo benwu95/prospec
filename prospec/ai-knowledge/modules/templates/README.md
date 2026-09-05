@@ -37,6 +37,9 @@
 
 ## Pitfalls
 
+- Sync Knowledge/count/generated assets before final review/tests/verify; equivalent commits preserve `snapshot-v2` evidence. Keep lifecycle and metadata/runner/cascade references aligned.
+- Verify Error Handling separates unavailable skips, uncertified-attempt failures and required-input refusal; its section-scoped table guard pins those distinct remedies.
+
 - Variables are NOT compile-checked — a typo or `undefined` array yields silent empty output. `_knowledge-loading-rules.hbs` must carry a row per knowledge budget field (contract-asserted per field, from the budget's own keys): an un-rowed field renders as an empty cell in every generated `index.md` and SKILL.md, and a fixture that hand-lists a subset of the budget cannot detect it.
 - Template prose that describes CLI behavior is a claim under test (PB-003): raw-scan's disclosure block must state that the no-module fallback can still admit the listed directories, and `prospec-knowledge-generate` Step 3 must keep both the draft characterization and the propose→confirm write-back — `knowledge-format`/`skill-format` pin each.
 - A shipped template must not assert a fact about THIS repo — it renders verbatim into every downstream project, and must not cite this repo's governance identifiers either (playbook `PB-nnn`, backlog `BL-nnn`, issue numbers, module-prefixed REQ ids) — a contract test renders every shipped skill and reference template and fails on those id shapes (incl. an `issue #n` split across a line wrap and a module-prefixed REQ wildcard); only generic format examples (a sample module prefix such as `AUTH` with a placeholder number) and the `PB-{NNN}` format token are allowed (the verify commit-prompt once claimed "this repo's generator is named in its contributor docs", true here and false there). So `metadata-format`'s `issue` entry states the field's format and no-validation stance, then defers the convention to "its contributor docs" — never a named file.

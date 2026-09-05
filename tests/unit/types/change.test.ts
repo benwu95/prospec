@@ -667,3 +667,22 @@ describe('NewQualityLogEntrySchema (strict build view)', () => {
     expect(r.success).toBe(false);
   });
 });
+
+describe('versioned input evidence', () => {
+  it('validates attempt fields rather than accepting an opaque unknown object', () => {
+    expect(ChangeMetadataSchema.safeParse({ ...base, test_attempt: { id: 'a', outcome: 'invented' } }).success).toBe(false);
+    expect(ChangeMetadataSchema.safeParse({ ...base, test_attempt: { id: 'a', outcome: 'timeout', exit_code: null } }).success).toBe(false);
+  });
+
+  it('keeps honest attempts without an exit and preserves future fields', () => {
+    const attempt = { id: 'a', outcome: 'running', date: '2026-09-05', future: true };
+    expect(ChangeMetadataSchema.parse({ ...base, test_attempt: attempt }).test_attempt).toEqual(attempt);
+  });
+
+  it('validates optional fingerprint fields while reading legacy records', () => {
+    const record = { digest: 'd', date: '2026-09-05' };
+    expect(ChangeMetadataSchema.safeParse({ ...base, review_provenance: record }).success).toBe(true);
+    expect(ChangeMetadataSchema.safeParse({ ...base, review_provenance: { ...record, fingerprint_version: 2 } }).success).toBe(false);
+    expect(ChangeMetadataSchema.parse({ ...base, review_provenance: { ...record, fingerprint_version: 'future', scope: 'future' } }).review_provenance?.scope).toBe('future');
+  });
+});

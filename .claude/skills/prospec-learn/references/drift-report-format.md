@@ -26,17 +26,19 @@ with `prospec check --json` after edits; never fabricate a report.
 {
   "version": 1,
   "generated_at": "<ISO timestamp>",
-  "change_digest": "<code fingerprint, or null outside a git worktree>",
+  "change_digest": "<repository-input fingerprint, or null when unprovable>",
+  "snapshot": { "fingerprint_version": "snapshot-v2", "scope": "repository-inputs-v2" },
   "structural": { "checks": [ … ], "findings": [ … ], "knowledge_health": { … }, "constitution": { … } },
   "semantic":   { "status": "not-checked", "note": "…" },
   "summary":    { "fail_count": 0, "warn_count": 0, "skipped_count": 0 }
 }
 ```
 
-`change_digest` is the code fingerprint the report was generated against (the same digest the
-review/test-provenance checks compare). `prospec verify record` recomputes it and **refuses a stale
-report** rather than grading yesterday's verdicts — so regenerate the report (`prospec check --json`)
-after any code edit. It is `null` outside a git worktree, where the freshness guard skips honestly.
+`change_digest` is the repository-input fingerprint observed for this display artifact; null means
+unprovable. Optional snapshot trace identifies version/scope and may include head/reason. Legacy
+reports remain readable. Verify/archive obtain a live assessment and recheck before writing, never
+trust a saved report. Status compares current content and deterministic workflow verdicts; timestamps
+and pure Git trace do not make an otherwise equivalent report stale.
 
 ## `structural.checks[]` — one entry per check, keyed by `id`
 

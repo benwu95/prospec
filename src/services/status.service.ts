@@ -4,7 +4,8 @@ import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js
 import { readConfig } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
-import { computeChangeDigest } from '../lib/drift-sources.js';
+import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import { EVIDENCE_SCOPE, FINGERPRINT_VERSION } from '../types/change.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
 import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
@@ -86,7 +87,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   // Only nudge when the desk is clear. Under this guard nothing is in progress,
   // so nothing can be addressing a finding — which is why there is no
   // "already addressed" suppression here: it would have nothing to suppress.
-  const drift = isClean ? readDriftSignal(cwd) : undefined;
+  const drift = isClean ? await readDriftSignal(cwd) : undefined;
 
   return {
     clean: isClean,
@@ -99,13 +100,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
 /**
  * What `prospec-report.json` says about drift right now — or that it cannot say.
  *
- * Report state, not finding attribution: `check` computes findings freshly and
- * correctly, so status re-deriving them from a gitignored file that may predate
- * the working tree only invents a second, staler answer. A report that is
- * absent, unreadable, off-schema, or generated against different code is
- * reported AS THAT — staleness is the message, never a silent pass.
+ * Saved reports are display artifacts: compare their versioned content identity
+ * and deterministic verdict payload with a current read-only assessment. Trace
+ * timestamps do not define freshness; changed workflow facts do.
  */
-function readDriftSignal(cwd: string): DriftSignal | undefined {
+async function readDriftSignal(cwd: string): Promise<DriftSignal | undefined> {
   const reportPath = path.join(cwd, DRIFT_REPORT_FILENAME);
   const unusable = (reason: 'unreadable' | 'stale' | 'unprovable'): DriftSignal => ({
     state: 'unusable',
@@ -122,17 +121,27 @@ function readDriftSignal(cwd: string): DriftSignal | undefined {
     return unusable('unreadable');
   }
 
-  // Same freshness rule `verify record` applies: a digest that cannot be
-  // computed (no git worktree) proves nothing, so it does not condemn.
-  const currentDigest = computeChangeDigest(cwd);
-  if (currentDigest !== null && parsed.change_digest !== currentDigest) {
-    // A report from an older engine carries no digest at all. That is freshness
-    // UNPROVEN, not freshness disproven — saying "generated against different
-    // code" would assert something nobody measured.
-    return unusable(
-      parsed.change_digest === null || parsed.change_digest === undefined ? 'unprovable' : 'stale',
-    );
+  if (!parsed.change_digest || parsed.snapshot?.fingerprint_version !== FINGERPRINT_VERSION || parsed.snapshot.scope !== EVIDENCE_SCOPE) {
+    return unusable('unprovable');
   }
+  try {
+    const current = await assessCurrentDrift(cwd);
+    if (current.snapshot.digest === null || !current.recheck()) return unusable('unprovable');
+    const payload = (report: DriftReport) => JSON.stringify({
+      structural: {
+        ...report.structural,
+        // Health finding prose is derived from the structured module facts and
+        // embeds Git trace timestamps. Compare those facts, not their narration.
+        findings: report.structural.findings.map((finding) =>
+          finding.check === 'knowledge-health' && report.structural.knowledge_health
+            ? { ...finding, detail: undefined } : finding),
+      },
+      semantic: report.semantic,
+      summary: report.summary,
+    },
+      (key, value: unknown) => ['last_src_commit', 'last_readme_commit', 'last_sub_module_commit'].includes(key) ? undefined : value);
+    if (current.snapshot.digest !== parsed.change_digest || payload(current.report) !== payload(parsed)) return unusable('stale');
+  } catch { return unusable('unprovable'); }
 
   // The SAME predicate `--auto-draft` applies. Counting raw findings here would
   // name a number the recommended command then refuses to act on.

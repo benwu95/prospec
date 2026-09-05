@@ -81,7 +81,12 @@ Which statuses `review-provenance`, `test-provenance` and `delta-spec-provenance
 | `verified` | Yes | S/A ends neither the audit nor the need to re-review — code edited afterwards would graduate requirements no review saw |
 | `archived` | No | unreachable rather than exempt: the bundle has left `.prospec/changes/`, so no collector enumerates it |
 
-HEAD is in the digest, so the verify S/A feature commit itself stales both baselines — an honest red. Re-record **after** committing (`--record-review`, then `--record-tests`), then archive.
+Evidence identity is `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
+file content, mode and symlink semantics; HEAD and staging are diagnostic only. Complete
+Knowledge/count/generated-asset sync before final review → tests → verify. Equivalent commit or
+amend preserves evidence. Legacy records need one real revalidation. Test attempts certify only
+provable equal before/after inputs with exit 0. Verify/archive read current workflow facts and
+recheck their observations before writing; saved reports are display artifacts, never gate authority.
 
 ## Escaped-defect registration (`introduced_by`)
 

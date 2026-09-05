@@ -29,6 +29,8 @@ When triggered, briefly describe:
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — principles and dependency/layering rule

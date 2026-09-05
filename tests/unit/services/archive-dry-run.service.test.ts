@@ -1,4 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+vi.mock('../../../src/lib/drift-assessment.js', () => ({
+  assessCurrentDrift: vi.fn(async () => ({
+    report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass' })), findings: [] } },
+    snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
+  })),
+}));
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

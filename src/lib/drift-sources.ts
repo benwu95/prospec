@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, lstatSync, readlinkSync, realpathSync, type Dirent } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -40,6 +40,8 @@ import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drif
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
+import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
+import type { InputSnapshot } from '../types/drift-report.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
@@ -226,6 +228,7 @@ export interface ReviewProvenanceChange {
   scale: string;
   /** digest recorded by `--record-review`; null when never reviewed. */
   recorded_digest: string | null;
+  version_supported?: boolean;
   /** True when `backfill-draft.md` sits beside the metadata — the backfill
    *  exemption keys on this, not on the hand-editable `scale`, exactly like
    *  test-provenance (issue #103 aligned the two). */
@@ -237,10 +240,7 @@ export interface ReviewProvenanceSource {
   reason?: string;
   /** current code fingerprint to compare each recorded digest against. */
   current_digest: string | null;
-  /** Whether the working tree is clean in the digest scope (empty `git diff HEAD`,
-   *  no untracked) — the one whole-tree signal, so it sits on the source, not per
-   *  change. `null` when unknown (not git / a git capture failed). A stale finding
-   *  reads `true` as "commit-induced, re-record" and `false`/`null` as "code changed". */
+  /** Git cleanliness over snapshot scope, diagnostic only; never evidence identity. */
   working_tree_clean: boolean | null;
   changes: ReviewProvenanceChange[];
 }
@@ -308,6 +308,13 @@ export interface TestProvenanceChange {
   scale: string;
   /** digest recorded by `--record-tests`; null when no run was ever recorded. */
   recorded_digest: string | null;
+  version_supported?: boolean;
+  attempt_outcome?: string;
+  attempt_matches?: boolean;
+  attempt_command?: string;
+  attempt_reason?: string;
+  attempt_signal?: string;
+  attempt_exit_code?: number;
   /** exit code of the recorded run; null when absent or not a number. */
   recorded_exit_code: number | null;
   /** the recorded command, for a finding that has to name what failed. */
@@ -1666,29 +1673,6 @@ function gitLastCommit(
 }
 
 /**
- * Content fingerprint of the change's CODE state — NOT git commit timestamps
- * (REQ-LIB-024). The commit boundary is after verify S/A, so review/verify run
- * pre-commit and commit timestamps would all point at the branch base. Hash the
- * working-tree code delta instead: HEAD sha + `git diff HEAD` + untracked
- * contents, covering the WHOLE first-party change (everything `prospec-review`
- * reviews) via a denylist — excluding only workflow state (`.prospec/`) and
- * check-written reports, generated artifacts (deployed `.claude/`/`.agents/`
- * skills, `dist/`), and lockfiles. This fails CLOSED (over-review), never open:
- * an edit to code outside `src/`+`tests/` (e.g. `scripts/`) still flips
- * staleness, while a `--record-review`/`--record-tests`/status write, a report
- * this very command generated, or an `agent sync` cannot self-trip it. Returns
- * null when not a git repo AND when the diff cannot be captured (honest skip;
- * shallow clones are fine — no history is read, only the working tree).
- *
- * The generated-artifact exclusions are derived from the report filename
- * constants, so adding a new report cannot silently re-open the self-trip hole.
- *
- * Callers pass the result INTO the provenance collectors rather than letting each
- * compute its own: this is the most expensive collector (a whole-tree `git diff`
- * plus a hash of every untracked file), the two results can never differ within a
- * run, and computing it per-collector doubled every `prospec check`.
- */
-/**
  * Content fingerprint of ONE change's `delta-spec.md` (REQ-LIB-045) — the narrow
  * sibling of `computeChangeDigest`, and narrow on purpose.
  *
@@ -1717,125 +1701,146 @@ export function computeDeltaSpecDigest(changeDir: string): string | null {
   }
 }
 
-/** The denylist pathspec shared by the whole-tree digest and the working-tree-clean
- *  probe. Both MUST judge the SAME file set — a signal computed over a wider or
- *  narrower scope than the digest it explains would be worse than none — so the
- *  scope lives in one place rather than being duplicated at each call site. */
-function digestScope(): string[] {
-  return [
-    '--',
-    '.',
-    ':(exclude).prospec',
-    ...DIGEST_EXCLUDED_REPORTS.map((f) => `:(exclude)${f}`),
-    ':(exclude).claude',
-    ':(exclude).agents',
-    ':(exclude)dist',
-    ':(exclude)pnpm-lock.yaml',
-    ':(exclude)package-lock.json',
-    ':(exclude)yarn.lock',
-  ];
+/** Workflow bookkeeping is the only scope exclusion; tracked generated code is input. */
+function inEvidenceScope(file: string): boolean {
+  return file !== '.prospec' && !file.startsWith('.prospec/') &&
+    !DIGEST_EXCLUDED_REPORTS.some((report) => report === file);
 }
 
-/** The change's code state from ONE capture: the content fingerprint and the
- *  whole-tree-clean signal, both over the shared denylist scope. */
-export interface ChangeState {
-  /** Content fingerprint of the change's code state; null on any capture failure. */
-  digest: string | null;
-  /** Whether the working tree is clean in the same scope; null on any capture failure. */
-  clean: boolean | null;
+function gitPaths(cwd: string, args: string[]): string[] {
+  const bytes = execFileSync('git', args, { cwd, stdio: 'pipe', maxBuffer: GIT_CAPTURE_MAX_BUFFER });
+  const decoded = bytes.toString('utf8');
+  if (!Buffer.from(decoded).equals(bytes)) throw new Error('Git path cannot be decoded losslessly');
+  if (decoded !== '' && !decoded.endsWith('\0')) throw new Error('Incomplete NUL Git capture');
+  return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
 }
 
-/**
- * Compute the digest AND the clean signal from a SINGLE `git diff HEAD` +
- * `ls-files` capture. `computeChangeDigest` and `computeWorkingTreeClean` are thin
- * wrappers over this, so a caller that needs both (check.service) pays for one
- * capture instead of two near-identical ones. No `isGitWorkTree` probe: `git
- * rev-parse HEAD` and the diff already fail outside a work tree and on an unborn
- * HEAD, so both fields fall closed to null there — the same tri-state PB-013
- * requires, one spawn cheaper. A capture failure (buffer overrun, unborn HEAD)
- * yields null for BOTH, never a constant that would certify stale code as current.
+function inputFiles(cwd: string): string[] {
+  const paths = new Set<string>();
+  for (const entry of gitPaths(cwd, ['ls-files', '-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'])) {
+    let file: string;
+    if (entry.startsWith('? ')) file = entry.slice(2);
+    else {
+      const match = /^([A-Z]) (\d{6}) [a-f0-9]+ (\d)\t([\s\S]+)$/.exec(entry);
+      if (!match) throw new Error('Unsupported Git index record');
+      file = match[4]!;
+      if (!inEvidenceScope(file)) continue;
+      if (match[1] === 'S' || match[2] === '160000' || match[3] !== '0') {
+        throw new Error(`Unprovable sparse, gitlink or unmerged input: ${file}`);
+      }
+    }
+    if (inEvidenceScope(file)) paths.add(file);
+  }
+  return [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+}
+
+/** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
+ * Ordinary root projects need no extra subprocess. Nested/external-worktree
+ * setups ask Git for the exact prefix, preserving embedded whitespace bytes.
  */
-export function computeChangeState(cwd: string): ChangeState {
-  const scope = digestScope();
-  const head = gitCapture(cwd, ['rev-parse', 'HEAD']);
-  if (head === null) return { digest: null, clean: null };
-  const diff = gitCapture(cwd, ['diff', 'HEAD', ...scope]);
-  if (diff === null) return { digest: null, clean: null };
-  // `?? ''` here would silently drop the untracked dimension — fail-open, the
-  // pattern issue #103 removed. Fail closed to null for both instead.
-  const untrackedOut = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
-  if (untrackedOut === null) return { digest: null, clean: null };
-  const clean = diff === '' && untrackedOut.trim() === '';
-  const untracked = untrackedOut
-    .split('\n')
-    .filter((l) => l.length > 0)
-    .sort();
-  const hash = createHash('sha256');
-  hash.update(`head\0${head.trim()}\0diff\0${diff}`);
-  for (const rel of untracked) {
-    hash.update(`\0file\0${rel}\0`);
-    try {
-      hash.update(readFileSync(path.resolve(cwd, rel)));
-    } catch {
-      // unreadable untracked file — fold in only its path (already hashed above)
+function gitProjectPrefix(cwd: string): string {
+  if (existsSync(path.join(cwd, '.git')) && !process.env.GIT_DIR && !process.env.GIT_WORK_TREE) return '';
+  const raw = execFileSync('git', ['rev-parse', '--show-prefix'], { cwd, stdio: 'pipe' });
+  const text = raw.toString('utf8');
+  if (!Buffer.from(text).equals(raw) || !text.endsWith('\n')) throw new Error('Git project prefix cannot be represented losslessly');
+  return text.slice(0, -1);
+}
+
+function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string> } {
+  const prefix = gitProjectPrefix(cwd);
+  const relative = (file: string): string | null => file.startsWith(prefix) ? file.slice(prefix.length) : null;
+  const records = gitPaths(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+  const changed = new Set<string>();
+  const deleted = new Set<string>();
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i]!;
+    const code = record.slice(0, 2);
+    const file = relative(record.slice(3));
+    if (record[2] !== ' ') throw new Error('Unsupported Git status record');
+    if (file !== null && inEvidenceScope(file)) {
+      changed.add(file);
+      if (code.includes('D')) deleted.add(file);
+    }
+    if (/[RC]/.test(code)) {
+      const from = records[++i];
+      if (from === undefined) throw new Error('Incomplete Git rename record');
+      const localFrom = relative(from);
+      if (localFrom !== null && inEvidenceScope(localFrom)) { changed.add(localFrom); deleted.add(localFrom); }
     }
   }
-  return { digest: hash.digest('hex'), clean };
+  return { changed: [...changed].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), deleted };
+}
+
+export type ChangeState = InputSnapshot;
+
+/** Hash the final represented files, never Git history/index/diff representation. */
+export function computeChangeState(cwd: string): ChangeState {
+  try {
+    cwd = realpathSync(cwd);
+    const files = inputFiles(cwd);
+    const state = workTreePaths(cwd);
+    const listed = new Set(files);
+    const validateMembership = (candidate: ReturnType<typeof workTreePaths>): void => {
+      const addedDuringCapture = candidate.changed.find((file) => !listed.has(file) && !candidate.deleted.has(file));
+      if (addedDuringCapture !== undefined) throw new Error(`Input membership changed during capture: ${addedDuringCapture}`);
+      if (JSON.stringify(candidate.changed) !== JSON.stringify(state.changed)
+        || candidate.deleted.size !== state.deleted.size
+        || [...candidate.deleted].some((file) => !state.deleted.has(file))) {
+        throw new Error('Input membership changed during capture');
+      }
+    };
+    validateMembership(state);
+    const represented = new Set(files.map((f) => path.resolve(cwd, f)));
+    const hash = createHash('sha256');
+    const frame = (data: string | Buffer) => {
+      const bytes = typeof data === 'string' ? Buffer.from(data) : data;
+      const length = Buffer.alloc(8); length.writeBigUInt64BE(BigInt(bytes.length));
+      hash.update(length).update(bytes);
+    };
+    frame(FINGERPRINT_VERSION); frame(EVIDENCE_SCOPE);
+    for (const file of files) {
+      const absolute = path.resolve(cwd, file);
+      let stat;
+      try { stat = lstatSync(absolute); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !state.deleted.has(file)) throw error;
+        // Confirm deletion against a second observation, not an index-dependent tombstone.
+        const confirmed = workTreePaths(cwd);
+        validateMembership(confirmed);
+        if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
+        continue;
+      }
+      if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error(`Unsupported input kind: ${file}`);
+      frame(file); frame(stat.isSymbolicLink() ? 'symlink' : 'regular');
+      frame(stat.isSymbolicLink() ? 'link' : (stat.mode & 0o111) !== 0 ? 'executable' : 'plain');
+      if (stat.isSymbolicLink()) {
+        const target = realpathSync(absolute);
+        if (!represented.has(target)) throw new Error(`Symlink target is outside represented inputs: ${file}`);
+        frame(readlinkSync(absolute, { encoding: 'buffer' }));
+      } else frame(readFileSync(absolute));
+      const after = lstatSync(absolute);
+      if (stat.ino !== after.ino || stat.mode !== after.mode || stat.size !== after.size || stat.mtimeMs !== after.mtimeMs || stat.ctimeMs !== after.ctimeMs) {
+        throw new Error(`Input changed during capture: ${file}`);
+      }
+    }
+    return { digest: hash.digest('hex'), clean: state.changed.length === 0 };
+  } catch (error) {
+    return { digest: null, clean: null, reason: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export function computeChangeDigest(cwd: string): string | null {
   return computeChangeState(cwd).digest;
 }
 
-/**
- * Whether the working tree is clean in the SAME denylist scope as the digest — an
- * empty `git diff HEAD` and no untracked files (REQ-LIB-024). This is what lets the
- * review/test-provenance stale findings tell a commit-INDUCED stale baseline (tree
- * clean → the recorded baseline predates the current commit, re-record) apart from a
- * genuine code change (tree dirty → re-review / re-run), rather than always reporting
- * the latter.
- *
- * Tri-state on purpose: `null` when it is not a git repository or ANY git capture
- * fails, so a swallowed error can never masquerade as a clean tree (PB-013 — the same
- * fail-closed rule `computeChangeDigest` follows; the evaluators read `null` as "not
- * clean" and keep the code-changed wording). It never widens or opens the gate: a
- * stale baseline still FAILs whatever this returns; only the finding's remedy text
- * changes.
- */
+/** Git cleanliness is diagnostic only; it never proves prior evidence current. */
 export function computeWorkingTreeClean(cwd: string): boolean | null {
   return computeChangeState(cwd).clean;
 }
 
-/**
- * The repo-relative paths a change has touched in the working tree — tracked
- * (`git diff --name-only HEAD`) plus untracked (`git ls-files --others`) — over the
- * SAME denylist scope as the change digest, so a generated `src/**` artifact counts
- * while `.prospec`/`.claude`/`dist`/lockfiles do not.
- *
- * This is the pre-commit counterpart of the `knowledge:check` gate's committed-range
- * diff. The gate runs in CI after the commit and can diff a base branch; the
- * knowledge-update station runs at the verify S/A commit prompt, BEFORE the feature
- * commit, when every edit still sits in the working tree — so this, not a base
- * branch the shipped tool cannot assume downstream, is how the station sees what the
- * change touched. Both attribute those paths through the one `moduleAttributor`.
- *
- * Tri-state fail-closed, exactly like `computeChangeDigest`/`computeWorkingTreeClean`
- * (PB-013): null when it is not a git repository or ANY git capture fails, so a
- * swallowed error can never masquerade as an empty change set.
- */
+/** Same lossless parser and input scope as the content snapshot. */
 export function changedPathsFromWorkTree(cwd: string): string[] | null {
-  if (!isGitWorkTree(cwd)) return null;
-  const scope = digestScope();
-  const tracked = gitCapture(cwd, ['diff', '--name-only', 'HEAD', ...scope]);
-  if (tracked === null) return null;
-  const untracked = gitCapture(cwd, ['ls-files', '--others', '--exclude-standard', ...scope]);
-  if (untracked === null) return null;
-  const paths = new Set<string>();
-  for (const line of [...tracked.split('\n'), ...untracked.split('\n')]) {
-    const p = line.trim();
-    if (p.length > 0) paths.add(p);
-  }
-  return [...paths].sort();
+  try { return workTreePaths(cwd).changed; } catch { return null; }
 }
 
 /**
@@ -1877,25 +1882,17 @@ export function collectReviewProvenance(
     };
   }
   const current_digest = digest;
-  if (current_digest === null) {
-    return {
-      available: false,
-      reason: 'source unavailable: could not compute the current change digest',
-      current_digest: null,
-      working_tree_clean: null,
-      changes: [],
-    };
-  }
   const changes: ReviewProvenanceChange[] = [];
   for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
     // unparseable metadata — skip this change, never fabricate a finding
     if (entry.meta === null) continue;
-    const prov = entry.meta.review_provenance as { digest?: unknown } | undefined;
+    const prov = entry.meta.review_provenance as Record<string, unknown> | undefined;
     changes.push({
       name: entry.name,
       source_path: entry.source_path,
       status: readString(entry.meta.status),
       scale: readString(entry.meta.scale),
+      version_supported: prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE,
       recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
       backfill_draft_present: existsSync(
         path.join(changesDir, entry.name, 'backfill-draft.md'),
@@ -2130,13 +2127,22 @@ export function collectTestProvenance(
   for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
     if (entry.meta === null) continue; // unparseable — metadata-completeness owns that finding
     const prov = entry.meta.test_provenance as
-      | { digest?: unknown; exit_code?: unknown; command?: unknown }
+      | Record<string, unknown>
       | undefined;
+    const attempt = entry.meta.test_attempt as Record<string, unknown> | undefined;
     changes.push({
       name: entry.name,
       source_path: entry.source_path,
       status: readString(entry.meta.status),
       scale: readString(entry.meta.scale),
+      version_supported: prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE,
+      attempt_outcome: attempt ? readString(attempt.outcome) : '',
+      attempt_command: attempt ? readString(attempt.command) : '',
+      attempt_reason: attempt ? readString(attempt.reason) : '',
+      attempt_signal: attempt ? readString(attempt.signal) : '',
+      attempt_exit_code: typeof attempt?.exit_code === 'number' ? attempt.exit_code : undefined,
+      attempt_matches: attempt?.outcome === 'passed' && typeof attempt.id === 'string' && attempt.id === prov?.attempt_id &&
+        attempt.before_digest === prov?.digest && attempt.after_digest === prov?.digest && attempt.exit_code === 0,
       recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
       recorded_exit_code: prov && typeof prov.exit_code === 'number' ? prov.exit_code : null,
       recorded_command: prov ? readString(prov.command) : '',

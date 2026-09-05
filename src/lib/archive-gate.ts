@@ -20,13 +20,9 @@ const checkFails = (report: DriftReport, id: string): boolean =>
 /**
  * The archive Entry Gate as a pure verdict over the drift report.
  *
- * The station skill used to run `prospec check --json` and read these checks by
- * hand; this is the executable copy that `prospec archive` refuses on, so the
- * text can converge to one line. A check absent from the report (an older
- * engine) does not block — it cannot be adjudicated, the same stance the verify
- * machine ledger takes on a missing check. `metadata-completeness` is the one
- * condition `allowIncomplete` exempts, for pre-schema records; every other
- * condition still blocks.
+ * Required absent/unprovable checks refuse entry. Only an explicitly unavailable
+ * test command may skip; allowIncomplete exempts metadata completeness alone.
+ * Services supply a current assessment, never a saved display report.
  */
 export function evaluateArchiveEntryGate(
   report: DriftReport,
@@ -34,6 +30,14 @@ export function evaluateArchiveEntryGate(
 ): ArchiveGateVerdict {
   const reasons: string[] = [];
 
+  for (const id of ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance']) {
+    if (id === 'metadata-completeness' && allowIncomplete) continue;
+    const check = report.structural.checks.find((c) => c.id === id);
+    if (!check || (check.status === 'skipped' && !(id === 'test-provenance' && check.reason?.startsWith('test command unavailable:')))) {
+      reasons.push(`${id} is missing or unprovable — collect current inputs before archiving`);
+    }
+  }
+  if (checkFails(report, 'task-completion')) reasons.push('task-completion FAILs — complete pending code tasks');
   if (!allowIncomplete && checkFails(report, 'metadata-completeness')) {
     reasons.push(
       'metadata-completeness FAILs — the change metadata is incomplete or lacks a verify S/A grade (pass --allow-incomplete to archive a pre-schema record)',

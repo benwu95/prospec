@@ -33,6 +33,8 @@ Write each generated document in the language the Constitution's Language Policy
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
@@ -129,7 +131,8 @@ Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`refer
 1. **Implementation**: Execute code tasks sequentially in the project's dependency-layer order (as grouped in `tasks.md` per [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.
 2. **Adversarial Review Loop**: Run review pass, enforcing the **Physical Receipt Verification Protocol** on review findings payloads (`ReviewFindingsInputSchema`) before calling `prospec review merge`, auto-fixing verifier-confirmed criticals. Guarded by Oscillation Breaker (red-green-red detector) and 3-5 round limit.
 3. **Verify Audit**: Execute 5+1 dimension audit, enforcing the **Physical Receipt Verification Protocol** on dimension verdicts (`JudgmentDimensionsInputSchema`) before calling `prospec verify record`, until Grade S/A is reached (`status: verified`).
-4. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
+4. **Final evidence convergence**: If Knowledge/count/generated-asset sync changed inputs, repeat review → tests → verify on the resulting snapshot before sign-off.
+5. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] all code tasks implemented and test suite green (status: implemented)

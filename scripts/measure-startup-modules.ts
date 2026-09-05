@@ -2,8 +2,8 @@
  * Measure the startup module-load graph of the unbundled CLI entry
  * (`dist/cli/index.js`) per command, via a `module.registerHooks` load counter
  * run in the child process. Proves REQ-CLI-045: command-irrelevant heavy
- * dependencies stay out of a command's load set, and `--version`/`status` load
- * at most `MAX_NODE_MODULES` node_modules files.
+ * dependencies stay out of a command's load set, with separate ceilings for
+ * registration, ordinary routing and full saved-report assessment.
  *
  * Usage:
  *   npx tsx scripts/measure-startup-modules.ts          # print a table
@@ -14,6 +14,8 @@
  * write — the load graph is captured, the working tree is untouched.
  */
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,6 +34,10 @@ const DEFAULT_CLI = path.resolve(REPO_ROOT, 'dist/cli/index.js');
  */
 export const REGISTRATION_MAX = 200;
 export const DRIFT_PATH_MAX = 250;
+// A recognized saved report requires the full canonical-doc assessment.
+// Keep its renderer budget separate from ordinary routing (measured: 274).
+export const REPORT_PATH_MAX = 300;
+export type StatusScenario = 'no-report' | 'current-report' | 'stale-report' | 'in-flight';
 
 const ALL_HEAVY = ['mcp-sdk', 'inquirer', 'fast-xml-parser', 'smol-toml', 'handlebars'] as const;
 type Heavy = (typeof ALL_HEAVY)[number];
@@ -46,11 +52,16 @@ export interface StartupPath {
   forbidden: Heavy[];
   /** node_modules ceiling; undefined = uncapped */
   maxNodeModules?: number;
+  /** Isolated status state, independent of the developer's active changes/report. */
+  scenario?: StatusScenario;
 }
 
 export const STARTUP_PATHS: StartupPath[] = [
   { label: '--version', args: ['--version'], forbidden: [...ALL_HEAVY], maxNodeModules: REGISTRATION_MAX },
-  { label: 'status', args: ['status'], forbidden: [...ALL_HEAVY], maxNodeModules: DRIFT_PATH_MAX },
+  { label: 'status', args: ['status', '--json'], scenario: 'no-report', forbidden: [...ALL_HEAVY], maxNodeModules: DRIFT_PATH_MAX },
+  { label: 'status current report', args: ['status', '--json'], scenario: 'current-report', forbidden: FORBIDDEN_FOUR, maxNodeModules: REPORT_PATH_MAX },
+  { label: 'status stale report', args: ['status', '--json'], scenario: 'stale-report', forbidden: FORBIDDEN_FOUR, maxNodeModules: REPORT_PATH_MAX },
+  { label: 'status in flight', args: ['status', '--json'], scenario: 'in-flight', forbidden: [...ALL_HEAVY], maxNodeModules: DRIFT_PATH_MAX },
   // `check` legitimately renders canonical docs → handlebars is allowed, and it
   // runs the full drift suite so its count is not bounded here.
   { label: 'check', args: ['check'], forbidden: FORBIDDEN_FOUR },
@@ -72,9 +83,11 @@ export interface StartupMeasurement {
   nodeModules: number;
   own: number;
   heavy: Heavy[];
+  stdout: string;
+  exitCode: number | null;
 }
 
-// A measurement is a pure function of (cliPath, args) against a fixed dist, so
+// A measurement is a pure function of (cliPath, args, scenario) against a fixed dist, so
 // repeated identical measurements — the contract check and the per-path it.each
 // blocks all measure the same paths within one test process — reuse the first
 // spawn instead of paying a fresh node startup each time. In the one-shot
@@ -82,18 +95,25 @@ export interface StartupMeasurement {
 // there; it only collapses the test suite's redundant re-spawns.
 const measurementCache = new Map<string, StartupMeasurement>();
 
-export function measureStartupModules(args: string[], cliPath: string = DEFAULT_CLI): StartupMeasurement {
-  const cacheKey = JSON.stringify([cliPath, args]);
+export function measureStartupModules(args: string[], cliPath: string = DEFAULT_CLI, scenario?: StatusScenario): StartupMeasurement {
+  const cacheKey = JSON.stringify([cliPath, args, scenario]);
   const cached = measurementCache.get(cacheKey);
   if (cached) return cached;
 
   // spawnSync returns stderr on both success and non-zero exit (a
   // nonexistent-change path exits 1 by design); the counter prints on exit.
-  const { stderr } = spawnSync(process.execPath, ['--import', HOOK, cliPath, ...args], {
-    cwd: REPO_ROOT,
-    stdio: ['ignore', 'ignore', 'pipe'],
-    encoding: 'utf-8',
-  });
+  const fixture = scenario === undefined ? undefined : createStatusFixture(cliPath, scenario);
+  let processResult;
+  try {
+    processResult = spawnSync(process.execPath, ['--import', HOOK, cliPath, ...args], {
+      cwd: fixture ?? REPO_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+    });
+  } finally {
+    if (fixture) rmSync(fixture, { recursive: true, force: true });
+  }
+  const { stderr, stdout, status: exitCode } = processResult;
   const line = (stderr ?? '')
     .split('\n')
     .reverse()
@@ -101,9 +121,38 @@ export function measureStartupModules(args: string[], cliPath: string = DEFAULT_
   if (!line) {
     throw new Error(`no PROSPEC_STARTUP line for args [${args.join(' ')}]; stderr:\n${stderr}`);
   }
-  const measurement = JSON.parse(line.slice('PROSPEC_STARTUP '.length)) as StartupMeasurement;
+  const measurement: StartupMeasurement = { ...JSON.parse(line.slice('PROSPEC_STARTUP '.length)), stdout, exitCode };
   measurementCache.set(cacheKey, measurement);
   return measurement;
+}
+
+/** Real Git fixtures exercise both sides of the post-archive status branch.
+ * Setup runs outside the measured process; it never touches the user's report.
+ */
+function createStatusFixture(cliPath: string, scenario: StatusScenario): string {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'prospec-startup-'));
+  const write = (name: string, text: string) => {
+    mkdirSync(path.dirname(path.join(cwd, name)), { recursive: true });
+    writeFileSync(path.join(cwd, name), text);
+  };
+  try {
+    const git = spawnSync('git', ['init', '-q'], { cwd, encoding: 'utf8' });
+    if (git.status !== 0) throw new Error(`startup fixture git init failed: ${git.stderr}`);
+    write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: startup-fixture\n');
+    write('input.txt', 'before');
+    if (scenario !== 'no-report') {
+      const check = spawnSync(process.execPath, [cliPath, 'check', '--json'], { cwd, encoding: 'utf8' });
+      if (check.status !== 0) throw new Error(`startup fixture check failed: ${check.stderr}`);
+    }
+    if (scenario === 'stale-report') write('input.txt', 'after');
+    if (scenario === 'in-flight') {
+      write('.prospec/changes/active/metadata.yaml', 'name: active\ncreated_at: "2026-09-05"\nstatus: story\nscale: quick\n');
+    }
+    return cwd;
+  } catch (error) {
+    rmSync(cwd, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 export interface Violation {
@@ -118,8 +167,11 @@ export function checkStartupContract(cliPath: string = DEFAULT_CLI): {
   const rows: Array<StartupPath & StartupMeasurement> = [];
   const violations: Violation[] = [];
   for (const p of STARTUP_PATHS) {
-    const m = measureStartupModules(p.args, cliPath);
+    const m = measureStartupModules(p.args, cliPath, p.scenario);
     rows.push({ ...p, ...m });
+    if (p.scenario && m.exitCode !== 0) {
+      violations.push({ label: p.label, message: `status fixture exited ${m.exitCode}` });
+    }
     const leaked = p.forbidden.filter((h) => m.heavy.includes(h));
     if (leaked.length > 0) {
       violations.push({ label: p.label, message: `loads forbidden heavy dep(s): ${leaked.join(', ')}` });

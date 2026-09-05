@@ -10,14 +10,13 @@ vi.mock('node:fs', async () => {
   };
 });
 
-// Under memfs there is no git worktree, so the real `computeChangeDigest`
-// always returns null and the staleness branch is unreachable. Controlling it
-// here is what makes that branch testable at all.
-const worktreeDigest = vi.hoisted(() => ({ value: null as string | null }));
-vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/lib/drift-sources.js')>();
-  return { ...actual, computeChangeDigest: () => worktreeDigest.value };
-});
+const worktreeDigest = vi.hoisted(() => ({ value: 'digest-now' as string | null, report: null as unknown }));
+vi.mock('../../../src/lib/drift-assessment.js', () => ({
+  assessCurrentDrift: vi.fn(async () => ({
+    report: worktreeDigest.report ?? JSON.parse(vol.readFileSync('/test-project/prospec-report.json', 'utf8') as string),
+    snapshot: { digest: worktreeDigest.value, clean: true }, recheck: () => true,
+  })),
+}));
 
 const PROJECT = {
   '.prospec.yaml': 'project_name: test-project\ntech_stack:\n  language: typescript\n',
@@ -25,9 +24,10 @@ const PROJECT = {
   'prospec/index.md': '# Index\n',
 };
 
-const reportWithFindings = (count: number, changeDigest?: string): string =>
+const reportWithFindings = (count: number, changeDigest: string = 'digest-now'): string =>
   JSON.stringify({
     version: 1,
+    snapshot: { fingerprint_version: 'snapshot-v2', scope: 'repository-inputs-v2' },
     generated_at: '2026-08-21T00:00:00Z',
     ...(changeDigest !== undefined ? { change_digest: changeDigest } : {}),
     structural: {
@@ -49,7 +49,7 @@ describe('status.service drift signal', () => {
   beforeEach(() => {
     vol.reset();
     vol.fromJSON(PROJECT, cwd);
-    worktreeDigest.value = null;
+    worktreeDigest.value = 'digest-now'; worktreeDigest.report = null;
   });
 
   afterEach(() => {
@@ -115,7 +115,8 @@ describe('status.service drift signal', () => {
     worktreeDigest.value = 'digest-now';
     // An older engine wrote no `change_digest` at all: its freshness was never
     // measured, which is not the same as measured and wrong.
-    vol.fromJSON({ ...PROJECT, 'prospec-report.json': reportWithFindings(2) }, cwd);
+    const old = JSON.parse(reportWithFindings(2)); delete old.change_digest;
+    vol.fromJSON({ ...PROJECT, 'prospec-report.json': JSON.stringify(old) }, cwd);
 
     const report = await execute({ cwd });
 
@@ -126,13 +127,13 @@ describe('status.service drift signal', () => {
     });
   });
 
-  it('does not condemn a report when the working-tree digest cannot be computed', async () => {
+  it('reports unprovable when current inputs cannot be captured', async () => {
     worktreeDigest.value = null;
     vol.fromJSON({ ...PROJECT, 'prospec-report.json': reportWithFindings(1, 'digest-then') }, cwd);
 
     const report = await execute({ cwd });
 
-    expect(report.drift?.state).toBe('findings');
+    expect(report.drift).toMatchObject({ state: 'unusable', reason: 'unprovable' });
   });
 
   it('counts only findings `--auto-draft` would actually draft', async () => {
@@ -228,4 +229,11 @@ describe('status.service drift signal', () => {
     const other = (await execute({ cwd })).changes.find((c) => c.name === 'ordinary-change')!;
     expect({ ...other, name: 'ordinary-change' }).toEqual(plain);
   });
+});
+
+it('refuses stale workflow conclusions even when content digest matches', async () => {
+  const cwd = '/test-project';
+  vol.fromJSON({ ...PROJECT, 'prospec-report.json': reportWithFindings(1) }, cwd);
+  worktreeDigest.value = 'digest-now'; worktreeDigest.report = JSON.parse(reportWithFindings(2));
+  expect((await execute({ cwd })).drift).toMatchObject({ state: 'unusable', reason: 'stale' });
 });

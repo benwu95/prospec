@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4740%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4832%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1151,7 +1151,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4740 個；4 個略過）
+# 執行所有測試（共 4832 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1164,11 +1164,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4740 個測試（4736 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3379 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1183 tests
-- Integration tests：45 tests
-- E2E tests：133 tests
+**測試覆蓋率**：共 4832 個測試（4828 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3445 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1187 tests
+- Integration tests：55 tests
+- E2E tests：145 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
@@ -1278,3 +1278,19 @@ Prospec 的獨特貢獻：**cli-first SDD、Skills 只留判斷** — CLI 執行
 [回到頂端](#prospec)
 
 </div>
+
+### 審查與測試證據
+
+證據使用 `snapshot-v2`／`repository-inputs-v2`：追蹤檔案與未被 Git 忽略的未追蹤檔案之最終位元組、
+可執行 mode，以及支援的儲存庫內 symlink。manifest、lockfile、文件與已追蹤的生成檔都算輸入。
+`.prospec/` 工作流程產物與指定的 Prospec 報告不納入此 fingerprint；verify/archive 另外檢查即時工作流程事實。
+測試輸出應宣告於 Git ignore；已追蹤輸出仍屬輸入。
+
+先完成 Knowledge／數量／生成檔同步，再依序進行最後 review → tests → verify。
+僅 staging、commit、amend 或等價歷史改變，不會使證據失效，也不需要額外重跑測試。
+舊版紀錄仍可讀，但必須實際重新審查與測試一次。最新 attempt 若仍 running 或無法證明，不能沿用舊 PASS；
+只有實際 exit 0 且前後快照皆可證明且相等，才能建立通過證據。已知失敗會保留，直到穩定成功。
+
+儲存的報告是顯示產物；verify/archive 會評估目前輸入並在寫入前重新確認，dry-run 使用相同拒絕條件。
+此保證僅涵蓋執行前後的觀察，不隔離短暫修改後還原（change-and-restore）、被忽略的依賴、外部服務，
+或儲存庫輸入之外的工具鏈變更。不支援或不可讀的輸入會標為 unprovable，不會認證為通過。

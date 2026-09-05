@@ -216,6 +216,9 @@ export function formatCheckOutput(
  *  a non-zero exit code belongs to the `test-provenance` check, not to this line. */
 function formatRecordTests(result: RecordTestsResult): void {
   const cmd = result.command === undefined ? '' : ` (\`${sanitizeTerminal(result.command)}\`)`;
+  if (result.treeChangedDuringRun === true) {
+    console.log(`  ${pc.yellow('●')} inputs changed during the run — passing evidence is not certified; re-run after inputs settle`);
+  }
   if (!result.recorded) {
     console.log(
       `${pc.yellow('●')} Test baseline not recorded for "${sanitizeTerminal(result.change)}"${cmd}` +
@@ -232,12 +235,7 @@ function formatRecordTests(result: RecordTestsResult): void {
   if (!passed) {
     console.log('  → recorded as failing; `test-provenance` will FAIL until the suite is green');
   }
-  if (result.treeChangedDuringRun === true) {
-    console.log(
-      `  ${pc.yellow('●')} the tree changed while the suite ran — the recorded fingerprint covers` +
-        ' code the run may not have exercised',
-    );
-  }
+
 }
 
 function formatEscapedDefects(result: EscapedDefectsResult): void {

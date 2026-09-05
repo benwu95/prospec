@@ -371,3 +371,12 @@ describe('DriftReportInvalid', () => {
     expect(err.message).toContain('prospec-report.json');
   });
 });
+
+describe('snapshot trace compatibility', () => {
+  it('retains versioned snapshot diagnostics without changing check order', () => {
+    const trace = { fingerprint_version: 'snapshot-v2', scope: 'repository-inputs-v2', head: 'abc', reason: 'unreadable' };
+    const report = DriftReportSchema.parse({ ...baseReport, snapshot: trace });
+    expect(report).toHaveProperty('snapshot', trace);
+    expect(report.structural.checks.map((c) => c.id)).toEqual(DRIFT_CHECK_IDS);
+  });
+});

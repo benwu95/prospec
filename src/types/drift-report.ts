@@ -288,14 +288,17 @@ export const DriftReportSchema = z.object({
   version: z.literal(DRIFT_REPORT_VERSION),
   generated_at: z.string().min(1),
   /**
-   * Working-tree change digest (drift-sources computeChangeDigest) at
-   * generation time; null when it could not be computed (not a git repo, a
-   * capture failed). Consumers that trust the machine verdicts (verify record)
-   * compare it against the current digest so a report generated before later
-   * edits can never certify them. Optional so reports from older engines still
-   * parse — freshness then reads as unprovable, not as fresh.
+   * Repository-input snapshot at report generation; null means unprovable.
+   * The report is a display artifact. Verify/archive assess live inputs instead
+   * of trusting this stamp. Optional so older reports remain readable.
    */
   change_digest: z.string().nullable().optional(),
+  snapshot: z.object({
+    fingerprint_version: z.string(),
+    scope: z.string(),
+    head: z.string().optional(),
+    reason: z.string().optional(),
+  }).optional(),
   structural: z.object({
     checks: z.array(DriftCheckResultSchema).min(1),
     findings: z.array(DriftFindingSchema),
@@ -326,3 +329,18 @@ export type ConstitutionSeverity = (typeof CONSTITUTION_SEVERITIES)[number];
 export type ConstitutionRuleEntry = z.infer<typeof ConstitutionRuleEntrySchema>;
 export type ConstitutionInventory = z.infer<typeof ConstitutionInventorySchema>;
 export type DriftReport = z.infer<typeof DriftReportSchema>;
+
+/** Repository content capture; Git cleanliness and HEAD are diagnostic only. */
+export interface InputSnapshot {
+  digest: string | null;
+  clean: boolean | null;
+  head?: string;
+  reason?: string;
+}
+
+/** Read-only adjudication and its observation-bound write precondition. */
+export interface CurrentDriftAssessment {
+  report: DriftReport;
+  snapshot: InputSnapshot;
+  recheck: () => boolean;
+}

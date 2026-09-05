@@ -25,13 +25,14 @@ vi.setConfig({ testTimeout: 30_000 });
  * pattern the diff branch was fixed for.
  */
 
-const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false }));
+const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false, failStatus: false }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
     ...actual,
     execFileSync: ((file: string, args: readonly string[], opts: unknown) => {
+      if (state.failStatus && args.includes('status')) throw new Error('simulated status capture failure');
       if (state.failLsFiles && Array.isArray(args) && args.includes('ls-files')) {
         throw new Error('simulated ls-files capture failure');
       }
@@ -56,6 +57,7 @@ describe('computeChangeDigest under selective git-capture failure', () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(path.join(os.tmpdir(), 'drift-git-capture-'));
+    state.failStatus = false;
     state.failLsFiles = false;
     state.failExcludePathspec = false;
     git('init', '-q');
@@ -124,14 +126,14 @@ describe('computeChangeDigest under selective git-capture failure', () => {
       expect(changedPathsFromWorkTree(tmpDir)).toEqual([]);
     });
 
-    it('returns null when the tracked-diff capture fails', () => {
+    it('returns null when the tracked status capture fails', () => {
       // the diff carries `:(exclude)` pathspecs, so this fault trips its capture
-      state.failExcludePathspec = true;
+      state.failStatus = true;
       expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
     });
 
-    it('returns null when the untracked listing capture fails', () => {
-      state.failLsFiles = true;
+    it('returns null when the status capture including untracked paths fails', () => {
+      state.failStatus = true;
       expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
     });
   });

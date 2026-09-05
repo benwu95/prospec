@@ -36,9 +36,9 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
       } else {
         const why =
           report.drift.reason === 'stale'
-            ? 'was generated against different code'
+            ? 'differs from current content or workflow facts'
             : report.drift.reason === 'unprovable'
-              ? 'records no code fingerprint, so its freshness cannot be checked'
+              ? 'cannot prove current evidence (legacy fingerprint or unreadable inputs)'
               : 'could not be read';
         console.log(`${pc.yellow('●')} \`${DRIFT_REPORT_FILENAME}\` ${why}`);
         console.log(`  action:  run ${pc.cyan(report.drift.recommendation)} to regenerate it`);
