@@ -1,7 +1,7 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-09-01
+last_updated: 2026-09-05
 story_count: 2
 req_count: 10
 ---
@@ -103,8 +103,9 @@ So that everyday read commands no longer pay the module-load and fixed startup c
 #### REQ-CLI-045: Command-scoped Startup Loading
 Each CLI command lazy-loads its service and formatter inside the action handler; command registration imports only the `types` layer. A command's startup module set excludes dependencies that command does not use.
 - WHEN running `prospec status`, `prospec check`, `prospec change log`, or `prospec verify record` on the unbundled `dist/cli/index.js`, THEN the loaded module set (counted via `module.registerHooks`) contains none of `@modelcontextprotocol/sdk`, `@inquirer/*`, `fast-xml-parser`, or `smol-toml`.
-- WHEN running `prospec status`, `prospec change log`, or `prospec verify record` (none of which render a template), THEN the loaded module set also excludes `handlebars`; `prospec check` legitimately loads `handlebars` only through the canonical-doc-drift collector it actually runs.
-- WHEN running `prospec --version` or `prospec change log`, THEN the loaded `node_modules` module count is at most 200 (down from a 530 baseline); WHEN running `prospec status` or `prospec verify record`, which transitively import the drift engine and its fast-glob dependency tree, THEN the count is at most 250 — still more than halved from the 530 baseline.
+- WHEN running ordinary `prospec status` routing (no saved report, or a change is in flight), `prospec change log`, or `prospec verify record` before assessment, THEN the loaded module set also excludes `handlebars`; WHEN status validates a recognized saved report with no in-flight change, THEN its full live assessment legitimately uses the same canonical-doc renderer as `prospec check`, so `handlebars` is allowed only on those assessment paths.
+- WHEN running `prospec --version` or `prospec change log`, THEN the loaded `node_modules` module count is at most 200 (down from a 530 baseline); WHEN running ordinary `prospec status` routing or `prospec verify record` before assessment, which transitively import the drift engine and its fast-glob dependency tree, THEN the count is at most 250; WHEN status performs a full saved-report assessment, THEN its separate ceiling is 300, including the required renderer.
+- WHEN measuring status startup, THEN isolated real-Git fixtures cover no report, a current recognized report, a stale recognized report and an in-flight change; assert the actual status branch as well as the dependency budget, independently of the developer workspace state
 - WHEN running `prospec mcp serve`, `prospec init`, or `prospec knowledge init`, THEN each command's required dependency (MCP SDK, inquirer, manifest parsers) is imported on demand within the action and observable behavior is unchanged.
 
 #### REQ-CLI-046: Bundled bin and Startup Compile Cache
@@ -145,3 +146,4 @@ _(None)_
 | 2026-07-08 | cli-print-template | Add print-template CLI subcommand and service to support Node.js-free template resolution in prospec-upgrade skill | US-1, REQ-CLI-020, REQ-SERVICES-015, REQ-TEMPLATES-005, REQ-LIB-008 |
 | 2026-07-08 | compress-release-binaries | Package binaries in .zip and .tar.gz archives and update installers | REQ-CLI-001 |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-09-05 | verified-input-evidence | MODIFIED REQ-CLI-045: distinguish ordinary routing from live saved-report assessment | REQ-CLI-045 |

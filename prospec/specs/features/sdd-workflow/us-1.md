@@ -42,7 +42,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN archive runs, THEN accept only `verified` changes
 - WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
 - WHEN gating artifacts, THEN Feature Specs are updated ONLY by `/prospec-archive` (Phase 3.5 graduation); `/prospec-verify` gates on Knowledge↔code and does NOT gate on Feature Spec freshness — preventing a verify↔archive deadlock
-- WHEN reaching the S/A commit boundary, THEN module-README Knowledge is synced at the verify S/A commit prompt (the prevention point) and the archive Entry Gate is the backstop that still FAILs when unsynced; Feature Specs remain archive-Phase-3.5-only (the deadlock-avoidance line above is unchanged)
+- WHEN reaching the S/A commit boundary, THEN final module-README Knowledge and factual-count sync precede final valid review/tests/verify, and a content-equivalent feature commit retains that evidence; archive remains the backstop that FAILs when unsynced, while Feature Specs remain archive-Phase-3.5-only
 - WHEN `prospec change auto-draft` creates a change, THEN its `scale` is assigned from the drift check that triggered it rather than confirmed by a user — a machine-assigned scale is as legal as a confirmed one, and the lifecycle document says so rather than stating a blanket "user-confirmed"
 
 #### REQ-CHNG-005: Prevent Duplicate Changes

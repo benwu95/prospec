@@ -149,16 +149,21 @@ Tests pin both the fix and the damage it already did. Fixture-driven unit tests 
 ---
 
 #### REQ-LIB-071: archive Entry-Gate evaluator + shared knowledge-sync helper
-The knowledge-sync currency derivation moves from `status.service` into a shared `lib` helper (`checkKnowledgeSync`), so `status` and `archive` call one owner; its behavior is unchanged. A new pure `evaluateArchiveEntryGate(report, { knowledgeSynced, allowIncomplete })` returns `{ blocked, reasons }` from the drift report's `metadata-completeness`, `review-provenance`, `test-provenance` and `delta-spec-provenance` check statuses plus the knowledge-sync flag; `metadata-completeness` is exempted only when `allowIncomplete` is set.
+The knowledge-sync currency derivation moves from `status.service` into a shared `lib` helper (`checkKnowledgeSync`), so `status` and `archive` call one owner; its behavior is unchanged. A new pure `evaluateArchiveEntryGate(report, { knowledgeSynced, allowIncomplete })` returns `{ blocked, reasons }` from the current read-only assessment report's `metadata-completeness`, `review-provenance`, `test-provenance` and `delta-spec-provenance` check statuses plus the knowledge-sync flag; `metadata-completeness` is exempted only when `allowIncomplete` is set.
 - WHEN any of completeness / the three provenance checks is FAIL, or `knowledgeSynced` is false, THEN `evaluateArchiveEntryGate` reports blocked with one named reason per cause
 - WHEN `allowIncomplete` is set, THEN a `metadata-completeness` FAIL alone does not block
+- WHEN required live checks are missing or their observation cannot be proven, THEN the archive boundary refuses before mutation rather than treating an absent verdict as permission; `allowIncomplete` still exempts completeness alone
+- WHEN the current assessment and knowledge-sync verdict are passed to this pure evaluator, THEN their I/O and receipt recheck remain owned by the shared assessment/helper and service boundary, never reimplemented in the evaluator
 
 ---
 
 #### REQ-SERVICES-102: prospec archive refuses on failed Entry-Gate conditions
-`prospec archive` reads the latest `prospec-report.json` and computes its freshness before moving any change: a missing or stale report is refused with a request to re-run `prospec check`. For each target change it derives knowledge-sync via the shared helper and calls `evaluateArchiveEntryGate`; a blocked verdict refuses that change with the evaluator's named reasons instead of archiving it. The gate reads the drift report's conclusions only and does not re-validate metadata schema, so pre-schema records still archive under `--allow-incomplete`. `--dry-run` prints the same gate outcome and writes nothing.
-- WHEN the report is missing or stale, THEN archive refuses and asks for a fresh `prospec check`
+`prospec archive` obtains a shared read-only current drift assessment before moving any change, derives knowledge-sync through its shared helper and calls `evaluateArchiveEntryGate`; a persisted report is optional diagnostic output, never the authority authorizing archive. The existing repo-wide aggregation, pre-schema metadata tolerance under `--allow-incomplete`, and spec-sync preflight remain unchanged.
+- WHEN a persisted report is absent, stale or predates a normal `verify record`, THEN archive recomputes required workflow verdicts without requiring a manual report rebuild, test execution, report write or other bookkeeping mutation
 - WHEN completeness / any provenance is FAIL or knowledge-sync is false, THEN the target change is refused with a named reason per cause; WHEN `--dry-run`, THEN the same refusal prints and nothing is written
+- WHEN the latest verify entry is B/C/D after an earlier S/A, or tasks, delta-spec, provenance, attempts or other required facts changed after report generation, THEN archive judges those current facts and cannot accept the earlier cached verdict
+- WHEN preflight completes, THEN revalidate the assessment and knowledge-sync observation receipt immediately before the first mutation; a mismatch, missing required check or unprovable fact refuses the target with byte-identical files under dry-run and execution alike
+- WHEN `--allow-incomplete` is used, THEN only the completeness condition is relaxed; known provenance failures, unprovable required evidence, knowledge-sync and preflight protections remain enforced, while legacy metadata is not globally forced through the new strict writer schema
 
 ---
 
