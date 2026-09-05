@@ -277,7 +277,7 @@ export function evaluateTaskCompletion(tasks: TaskSource): CheckOutcome {
       }
     }
   }
-  return outcome('task-completion', findings);
+  return outcome('task-completion', findings, tasks.changes.map((c) => c.name));
 }
 
 /**
@@ -469,7 +469,7 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
       });
     }
   }
-  return outcome('review-provenance', findings);
+  return outcome('review-provenance', findings, src.changes.map((c) => c.name));
 }
 
 /**
@@ -535,7 +535,7 @@ export function evaluateDeltaSpecProvenance(src: DeltaSpecProvenanceSource): Che
       );
     }
   }
-  return outcome('delta-spec-provenance', findings);
+  return outcome('delta-spec-provenance', findings, src.changes.map((c) => c.name));
 }
 
 /**
@@ -620,7 +620,7 @@ export function evaluateDeltaSpecLandingFidelity(
       });
     }
   }
-  return outcome('delta-spec-landing-fidelity', findings);
+  return outcome('delta-spec-landing-fidelity', findings, src.changes);
 }
 
 /**
@@ -659,7 +659,7 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
       });
     }
   }
-  return outcome('metadata-completeness', findings);
+  return outcome('metadata-completeness', findings, src.changes.map((c) => c.name));
 }
 
 /**
@@ -821,6 +821,12 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   }
   const findings: DriftFinding[] = [];
   const unavailableReasons = src.command_unavailable_reason != null ? [src.command_unavailable_reason] : [];
+  // Per-change skips: a change whose run could not be graded because the command
+  // was unavailable (machine-wide, or its own latest attempt). When every audited
+  // change is in this state the whole check skips (below); when a sibling produces
+  // findings the check FAILs for the sibling, and THESE entries keep the ungraded
+  // change from reading as a pass in a per-change adjudication.
+  const subjectSkips: Record<string, string> = {};
   for (const c of src.changes) {
     if (!isProvenanceAudited(c.status)) continue;
     const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
@@ -846,7 +852,10 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
     // cannot spawn on this machine; those branches skip honestly below. Loose
     // `!= null` on purpose: a source built before this field existed must read
     // as "command resolvable", never as a skip.
-    if (src.command_unavailable_reason != null) continue;
+    if (src.command_unavailable_reason != null) {
+      subjectSkips[c.name] = src.command_unavailable_reason;
+      continue;
+    }
     const attemptDetail = [
       c.attempt_command ? `command \`${c.attempt_command}\`` : '',
       c.attempt_exit_code !== undefined ? `exited ${c.attempt_exit_code}` : '',
@@ -854,7 +863,9 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
       c.attempt_reason ?? '',
     ].filter(Boolean).join('; ');
     if (c.attempt_outcome === 'unavailable') {
-      unavailableReasons.push(`test command unavailable: latest attempt for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``);
+      const reason = `test command unavailable: latest attempt for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``;
+      unavailableReasons.push(reason);
+      subjectSkips[c.name] = reason;
       continue;
     }
     if (c.attempt_outcome && c.attempt_outcome !== 'passed') {
@@ -885,10 +896,11 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
       });
     }
   }
+  const subjects = src.changes.map((c) => c.name);
   if (findings.length === 0 && unavailableReasons.length > 0) {
-    return skipped('test-provenance', unavailableReasons.join('; '));
+    return skipped('test-provenance', unavailableReasons.join('; '), subjects);
   }
-  return outcome('test-provenance', findings);
+  return outcome('test-provenance', findings, subjects, subjectSkips);
 }
 
 /**
@@ -1049,14 +1061,28 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
   return parsed.data;
 }
 
-function outcome(id: DriftCheckId, findings: DriftFinding[]): CheckOutcome {
+/**
+ * `subjects` — for a `change`-scoped check, the change names the collector
+ * actually enumerated, so a per-change gate can tell "no finding for X" (pass)
+ * from "X was never looked at" (unprovable). Repository-scoped checks pass none.
+ */
+function outcome(
+  id: DriftCheckId,
+  findings: DriftFinding[],
+  subjects?: string[],
+  subjectSkips?: Record<string, string>,
+): CheckOutcome {
   const hasFail = findings.some((f) => f.severity === 'fail');
   const status = hasFail ? 'fail' : findings.length > 0 ? 'warn' : 'pass';
-  return { result: { id, status }, findings };
+  const skips = subjectSkips !== undefined && Object.keys(subjectSkips).length > 0 ? { subject_skips: subjectSkips } : {};
+  return { result: { id, status, ...(subjects === undefined ? {} : { subjects }), ...skips }, findings };
 }
 
-function skipped(id: DriftCheckId, reason: string): CheckOutcome {
-  return { result: { id, status: 'skipped', reason }, findings: [] };
+function skipped(id: DriftCheckId, reason: string, subjects?: string[]): CheckOutcome {
+  return {
+    result: { id, status: 'skipped', reason, ...(subjects === undefined ? {} : { subjects }) },
+    findings: [],
+  };
 }
 
 export function isStale(srcCommit: string | null, reference: string): boolean {

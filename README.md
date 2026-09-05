@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4832%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4906%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -106,7 +106,7 @@ Prospec 2.0 turns SDD from a guided sequence into a **gated, resumable pipeline*
 | Capability | What changes in 2.0 |
 |------------|---------------------|
 | **Stronger planning** | Independent architecture and task verifiers check layering, blast radius, reuse, REQ traceability, task ordering, and TDD closure before implementation. Full-scale plans can compare multiple candidate architectures; standard plans must state the simpler alternative. |
-| **Gated, resumable execution** | `prospec status` routes the next station and names its entry gate. Station instructions are reloaded at every transition; state-changing commands refuse illegal transitions instead of relying on prose discipline. Design is conditional, Knowledge Update is a formal station, and quick/backfill routes remain explicit. |
+| **Gated, resumable execution** | `prospec status` routes the next station and names its entry gate. Station instructions are reloaded at every transition; state-changing commands refuse illegal transitions instead of relying on prose discipline. Design is conditional, Knowledge Update is a formal station, and quick/backfill routes remain explicit. A `verified` change whose latest grade is B/C/D is routed back to verify, and a plan or tasks station whose recorded verifier result is FAIL is routed back to itself. Archive and verify gates are adjudicated per change: a sibling change's missing evidence never blocks the target (the shared whole-tree evidence digest still does). |
 | **Self-correcting quality** | Drift can draft a bounded follow-up, review uses fresh-context verifier loops and circuit breakers, Verify records judgment provenance, and Archive checks requirement landing fidelity before the trust zone changes. Recurring corrections can graduate through the human-approved learning pipeline. |
 
 ### Upgrade from 1.3
@@ -671,7 +671,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 | Command | Description |
 |---------|-------------|
-| `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; on a clean workspace, reports the drift report's state. `--json` emits the full report to stdout |
+| `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; each `reason:` line carries a stable `[CODE]`. On a clean workspace, reports the drift report's state. `--json` emits the full report to stdout |
 | `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) |
 | `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
@@ -687,7 +687,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change scale <scale> [--change <name>]` | Set complexity scale (`quick` / `standard` / `full` / `backfill`) |
 | `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition (refuses backward or invalid transitions) |
 | `prospec change progress [options]` | Calculate code-task progress (excluding `[M]` / `[V]`) and flip checkboxes |
-| `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml` |
+| `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml`; `--verifier-report <file>` records a validated plan/tasks verifier report (`FLAWS` → `FAIL`) |
 | `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table |
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
@@ -751,9 +751,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec change status <to> [--change <name>]`**
   - **Purpose**: Forward-only lifecycle state advancement (refuses illegal jumps and lists valid targets).
 
-- **`prospec change log --skill <station> --result <PASS|WARN|FAIL> [options]`**
+- **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
   - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering and automatic character escaping.
+  - **`--verifier-report <file>`** (plan/tasks stations): validates the Architecture/Task Verifier JSON report against the rubric-owned schema (verdict `PASS` | `WARN` | `FLAWS`, exactly the owning dimensions, single-line bounded `rationale`/`warnings`) and records it — `FLAWS` lands as `result: FAIL`, an invalid payload is refused before any write. Mutually exclusive with `--result` and the composed-entry fields. `prospec status` routes a station whose latest recorded verifier result is `FAIL` back to that station until a later verifier `PASS` or `WARN`, or a Break-Glass `--result WARN --warning "Manual override: …"`, supersedes it.
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
   - **Purpose**: Track and update code-task progress in `tasks.md`.
@@ -1187,7 +1188,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4832 total; 4 skipped)
+# Run all tests (4906 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1200,11 +1201,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4832 total tests (4828 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3445 tests
-- Contract tests (CLI output + Skill format): 1187 tests
-- Integration tests: 55 tests
-- E2E tests: 145 tests
+**Test Coverage**: 4906 total tests (4902 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3498 tests
+- Contract tests (CLI output + Skill format): 1202 tests
+- Integration tests: 58 tests
+- E2E tests: 148 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

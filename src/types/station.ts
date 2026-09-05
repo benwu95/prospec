@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { DIMENSION_ADJUDICATORS, DIMENSION_GRADED_BY, DIMENSION_RESULTS } from './change.js';
+import {
+  DIMENSION_ADJUDICATORS,
+  DIMENSION_GRADED_BY,
+  DIMENSION_RESULTS,
+  PLANNING_VERDICTS,
+  type GateResult,
+} from './change.js';
 
 /**
  * Station I/O contracts for the cli-first delegation commands (issue #107).
@@ -227,6 +233,85 @@ export type JudgmentDimensionInput = z.infer<typeof JudgmentDimensionInputSchema
 
 /** The `--dimensions` payload: one verify run's judgment verdicts. */
 export const JudgmentDimensionsInputSchema = z.array(JudgmentDimensionInputSchema);
+
+// --- planning verifiers (`prospec change log --verifier-report`) ---
+
+/**
+ * The plan / tasks verifier verdict vocabulary (owned by `change.ts`, where the
+ * quality_log entry carries it as the sink's stamp). `FLAWS` is the rubric's word
+ * for a structural defect and maps to the gate three-state `FAIL` when recorded;
+ * the rubric references render THIS list (injected by `agent sync`), so the enum
+ * cannot drift into a `FLAW`/`FLAWS` split again.
+ */
+export { PLANNING_VERDICTS };
+export type PlanningVerdict = (typeof PLANNING_VERDICTS)[number];
+
+/** The Architecture Verifier's five orthogonal dimensions (plan station). */
+export const PLAN_VERIFIER_DIMENSIONS = [
+  'project_layering',
+  'blast_radius',
+  'state_safety',
+  'delta_spec',
+  'reuse',
+] as const;
+
+/** The Task Verifier's four orthogonal dimensions (tasks station). */
+export const TASKS_VERIFIER_DIMENSIONS = [
+  'bidirectional_coverage',
+  'dag_topological_order',
+  'tdd_module_closure',
+  'task_sizing_schema',
+] as const;
+
+/**
+ * One verifier report, closed at every level. `rationale` and each `warnings[]`
+ * item are appended to `quality_log.warnings` and printed by `prospec status` as
+ * raw lines, so they carry the relayed `summary` ceiling (single line, bounded);
+ * `evidence` is the uncapped home for detail. No lenient normalization: `flaws`
+ * or ` FLAWS ` is refused, never coerced.
+ */
+function verifierReportSchema<const D extends readonly [string, ...string[]]>(dimensions: D) {
+  const dimension = z.strictObject({
+    result: z.enum(PLANNING_VERDICTS),
+    rationale: relayedString('summary', 'rationale'),
+  });
+  return z.strictObject({
+    verdict: z.enum(PLANNING_VERDICTS),
+    dimensions: z.strictObject(
+      Object.fromEntries(dimensions.map((name) => [name, dimension])) as Record<
+        D[number],
+        typeof dimension
+      >,
+    ),
+    evidence: z.string().min(1),
+    warnings: z.array(relayedString('summary', 'warnings[]')).optional(),
+  });
+}
+
+export const PlanVerifierReportSchema = verifierReportSchema(PLAN_VERIFIER_DIMENSIONS);
+export const TasksVerifierReportSchema = verifierReportSchema(TASKS_VERIFIER_DIMENSIONS);
+export type PlanVerifierReport = z.infer<typeof PlanVerifierReportSchema>;
+export type TasksVerifierReport = z.infer<typeof TasksVerifierReportSchema>;
+
+/**
+ * Which report schema a station skill's verifier writes — keyed by the skill name
+ * `prospec change log --skill` receives. A skill absent here has no verifier
+ * report contract, and `--verifier-report` is refused for it.
+ */
+export const VERIFIER_REPORT_SCHEMAS = {
+  'prospec-plan': PlanVerifierReportSchema,
+  'prospec-tasks': TasksVerifierReportSchema,
+} as const;
+export type VerifierReportSkill = keyof typeof VERIFIER_REPORT_SCHEMAS;
+
+export function isVerifierReportSkill(skill: string): skill is VerifierReportSkill {
+  return Object.hasOwn(VERIFIER_REPORT_SCHEMAS, skill);
+}
+
+/** The gate three-state a planning verdict records as. */
+export function planningVerdictToGateResult(verdict: PlanningVerdict): GateResult {
+  return verdict === 'FLAWS' ? 'FAIL' : verdict;
+}
 
 // --- learn upsert (`prospec learn upsert`) ---
 

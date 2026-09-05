@@ -71,8 +71,9 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     for (const gate of change.blockingGates) {
       console.log(`  gate:    ${sanitizeTerminal(gate)}`);
     }
+    // The stable code an automation matches on, ahead of the prose it explains.
     for (const reason of change.reasons) {
-      console.log(`  reason:  ${sanitizeTerminal(reason)}`);
+      console.log(`  reason:  ${pc.dim(`[${change.code}]`)} ${sanitizeTerminal(reason)}`);
     }
     for (const w of change.unresolvedWarnings ?? []) {
       console.log(`  warn:    ${sanitizeTerminal(`${w.skill}: ${w.warning}`)}`);

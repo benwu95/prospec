@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-4832%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-4906%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -106,7 +106,7 @@ Prospec 2.0 把 SDD 從一串引導步驟，提升為**受 gate 管理、可恢�
 | 能力 | 2.0 的改變 |
 |------|------------|
 | **更強的規劃** | 獨立的 architecture verifier 與 task verifier 會在 implementation 前檢查 layering、blast radius、reuse、REQ traceability、task ordering 與 TDD closure。Full-scale plan 可比較多個 architecture candidates；standard plan 必須說明 simpler alternative。 |
-| **受 gate 管理、可恢復的執行** | `prospec status` 會路由下一個 station 並列出 entry gate。每次 station transition 都重新載入指示；會改變狀態的 command 對非法 transition 直接拒絕，不再只靠 prose 約束。Design 是條件式 station、Knowledge Update 成為正式 station，quick/backfill 路徑也明確分開。 |
+| **受 gate 管理、可恢復的執行** | `prospec status` 會路由下一個 station 並列出 entry gate。每次 station transition 都重新載入指示；會改變狀態的 command 對非法 transition 直接拒絕，不再只靠 prose 約束。Design 是條件式 station、Knowledge Update 成為正式 station，quick/backfill 路徑也明確分開。最新 grade 為 B/C/D 的 `verified` change 會被導回 verify，recorded verifier 結果為 FAIL 的 plan／tasks 站會被導回該站。Archive 與 verify 的 gate 以單一 change 為對象裁決：sibling change 缺少的 evidence 不會擋住 target（共用的 whole-tree evidence digest 仍會） |
 | **會自我修正的品質迴圈** | Drift 可建立有界的 follow-up draft；review 使用 fresh-context verifier loop 與 circuit breaker；Verify 記錄 judgment provenance；Archive 在改 trust zone 前檢查 requirement landing fidelity。反覆出現的 correction 可走 human-approved learning pipeline 晉升。 |
 
 ### 從 1.3 升級
@@ -654,7 +654,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 | 命令 | 說明 |
 |------|------|
-| `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。`--json` 將完整報告輸出至 stdout |
+| `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。每行 `reason:` 帶穩定的 `[CODE]`。`--json` 將完整報告輸出至 stdout |
 | `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
@@ -670,7 +670,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change scale <scale> [--change <name>]` | 設定複雜度規模（`quick` / `standard` / `full` / `backfill`） |
 | `prospec change status <to> [--change <name>]` | 單向推進變更生命週期狀態（拒絕逆向或非法跳躍） |
 | `prospec change progress [options]` | 計算任務進度（排除 `[M]` / `[V]`）並支援勾選指定任務 |
-| `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄 |
+| `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄；`--verifier-report <file>` 記錄經 schema 驗證的 plan/tasks verifier 報告（`FLAWS` → `FAIL`） |
 | `prospec review merge --findings <file> [options]` | 將審查 JSON 發現合併進累積 `review.md` 表格 |
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），達標時推進 verified |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
@@ -734,9 +734,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec change status <to> [--change <name>]`**
   - **核心用途**：單向推進生命週期狀態（逆向或非法躍遷將被拒絕並列出合法目標）。
 
-- **`prospec change log --skill <station> --result <PASS|WARN|FAIL> [options]`**
+- **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
   - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，確保欄位順序固定與字元自動跳脫。
+  - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`，或 Break-Glass `--result WARN --warning "Manual override: …"` 取代它。
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
   - **核心用途**：計算與更新 `tasks.md` 的任務進度。
@@ -1167,7 +1168,7 @@ src/
 ## 測試
 
 ```bash
-# 執行所有測試（共 4832 個；4 個略過）
+# 執行所有測試（共 4906 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -1180,11 +1181,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 4832 個測試（4828 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3445 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1187 tests
-- Integration tests：55 tests
-- E2E tests：145 tests
+**測試覆蓋率**：共 4906 個測試（4902 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3498 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1202 tests
+- Integration tests：58 tests
+- E2E tests：148 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

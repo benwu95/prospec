@@ -7,7 +7,7 @@ import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
-import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
+import { evaluateArchiveEntryGate, formatWorkflowReason } from '../lib/archive-gate.js';
 import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
@@ -1446,9 +1446,21 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         cwd,
         configObj,
       );
-      const gate = evaluateArchiveEntryGate(assessment.report, { knowledgeSynced, allowIncomplete });
+      // Adjudicated for THIS change: a sibling's missing evidence never refuses
+      // it. A PROVEN backfill (draft present) has no tasks.md by contract, so
+      // task-completion is not applicable to it — the same policy verify record
+      // applies; `scale` alone (hand-editable) proves nothing.
+      const taskCompletionApplicable = !(
+        change.metadata.scale === 'backfill' && fs.existsSync(path.join(change.dir, 'backfill-draft.md'))
+      );
+      const gate = evaluateArchiveEntryGate(assessment.report, {
+        changeName: change.name,
+        knowledgeSynced,
+        allowIncomplete,
+        taskCompletionApplicable,
+      });
       if (gate.blocked) {
-        refused.push({ name: change.name, status: change.status, reason: gate.reasons.join('; ') });
+        refused.push({ name: change.name, status: change.status, reason: gate.reasons.map(formatWorkflowReason).join('; ') });
         continue;
       }
 

@@ -20,6 +20,11 @@ export const GATE_RESULTS = ['PASS', 'WARN', 'FAIL'] as const;
 /** prospec-verify quality grade vocabulary (S/A graduate; B/C/D do not). */
 export const VERIFY_GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
 
+/** The plan / tasks verifier verdict vocabulary — `FLAWS` records as gate `FAIL`.
+ *  Lives here (not in station.ts) because a quality_log entry carries it as the
+ *  sink's provenance stamp; station.ts re-exports it for the report schemas. */
+export const PLANNING_VERDICTS = ['PASS', 'WARN', 'FLAWS'] as const;
+
 /** A single verify dimension's outcome. Wider than `GATE_RESULTS`: a dimension
  *  that does not apply to this change's scale is reported `not-applicable`, which
  *  `prospec-verify` mandates over PASS (a quick change has no delta-spec to
@@ -81,6 +86,12 @@ const QualityLogEntryShape = {
   criticals_fixed: z.number().int().nonnegative().optional(),
   /** prospec-review majors surfaced this round (advisory, never counted in grade). */
   majors: z.number().int().nonnegative().optional(),
+  /** Written ONLY by `prospec change log --verifier-report`: the plan/tasks verifier's
+   *  own verdict, the provenance stamp that tells `prospec status` this entry IS the
+   *  station's verifier result. A station's Exit Gate / Knowledge Gate entry under the
+   *  same skill carries none, so it is never read as one. `result` stays the gate
+   *  three-state (`FLAWS` → `FAIL`). */
+  verifier_verdict: z.enum(PLANNING_VERDICTS).optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still catches

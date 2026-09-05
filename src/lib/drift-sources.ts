@@ -1975,6 +1975,10 @@ export interface LandingFidelityEntry {
 export interface DeltaSpecLandingFidelitySource {
   available: boolean;
   reason?: string;
+  /** Every change whose delta-spec was read — the `subjects` a per-change gate
+   *  keys on. Wider than the changes that produced `entries`: an ADDED-only
+   *  delta-spec is read, graded clean, and must not read as "never looked at". */
+  changes: string[];
   entries: LandingFidelityEntry[];
 }
 
@@ -2029,16 +2033,19 @@ export function collectDeltaSpecLandingFidelity(
     return {
       available: false,
       reason: 'source unavailable: .prospec/changes/ not found (not version-controlled)',
+      changes: [],
       entries: [],
     };
   }
   const reqHomes = buildReqHomeIndex(featuresDir);
   const entries: LandingFidelityEntry[] = [];
+  const changes: string[] = [];
   for (const change of enumerateChangeMetadata(changesDir, cwd)) {
     // The delta-spec read goes through the non-throwing wrapper (null = absent or
     // unreadable), so one bad file skips its change rather than aborting all 19 checks.
     const deltaContent = readTextOrSkip(path.join(changesDir, change.name, 'delta-spec.md'));
     if (deltaContent === null) continue;
+    changes.push(change.name);
     const sourcePath = change.source_path.replace(/metadata\.yaml$/, 'delta-spec.md');
     for (const entry of iterateDeltaEntries(deltaContent)) {
       // REMOVED joins MODIFIED here: both carry a `**Feature:**` the archive write
@@ -2061,7 +2068,7 @@ export function collectDeltaSpecLandingFidelity(
       });
     }
   }
-  return { available: true, entries };
+  return { available: true, changes, entries };
 }
 
 /**

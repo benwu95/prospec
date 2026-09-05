@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../../src/lib/drift-assessment.js', () => ({
   assessCurrentDrift: vi.fn(async () => ({
-    report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass' })), findings: [] } },
+    report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass', subjects: ['feat-x'] })), findings: [] } },
     snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
   })),
 }));

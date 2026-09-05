@@ -1,133 +1,16 @@
-import type {
-  CascadeScale,
-  CascadeStation,
-  CircuitBreakerState,
-  EscalationReport,
-  TastemakerPresentation,
-} from '../types/cascade.js';
+import type { TastemakerPresentation } from '../types/cascade.js';
 
-export interface CascadeTransitionOptions {
-  currentStation: CascadeStation;
-  scale: CascadeScale;
-  verifierResult: {
-    status: 'PASS' | 'WARN' | 'FAIL' | 'FLAW';
-    grade?: string;
-    criticals?: number;
-    warnings?: string[];
-  };
-  circuitBreakerState?: CircuitBreakerState;
-}
-
-export interface CascadeTransitionResult {
-  canAdvance: boolean;
-  nextStation: CascadeStation;
-  haltReason?: string;
-  escalation?: EscalationReport;
-  requiresHumanSignoff?: boolean;
-}
+/**
+ * Tastemaker delivery helpers for autonomous cascading. Station transitions are
+ * NOT evaluated here: `prospec status` (`lib/status-router`) is the single
+ * transition authority the cascade consults at every Step 5 [NEXT].
+ */
 
 export interface TastemakerSummaryOptions {
   changeName: string;
   verifyGrade: 'S' | 'A';
   gitDiffSummary: string;
   deltaSpecSummary: string;
-}
-
-/**
- * Evaluate whether an autonomous cascade can transition to the next SDD station.
- */
-export function evaluateCascadeTransition(
-  options: CascadeTransitionOptions,
-): CascadeTransitionResult {
-  const { currentStation, scale, verifierResult, circuitBreakerState } = options;
-
-  // 1. Check Circuit Breaker
-  if (circuitBreakerState?.tripped) {
-    return {
-      canAdvance: false,
-      nextStation: currentStation,
-      haltReason: circuitBreakerState.reason ?? 'Circuit breaker tripped',
-      escalation: circuitBreakerState.escalationReport,
-    };
-  }
-
-  // 2. Check Verifier Gate
-  if (verifierResult.status === 'FAIL' || verifierResult.status === 'FLAW') {
-    const message = `Verifier gate FAILED at station ${currentStation}. Cannot advance autonomously.`;
-    return {
-      canAdvance: false,
-      nextStation: currentStation,
-      haltReason: message,
-      escalation: {
-        type: 'unrecoverable_critical',
-        message,
-        tradeoffOptions: [
-          'Review error findings and resolve defects manually',
-          'Provide Break-Glass manual override if verified as false positive',
-        ],
-      },
-    };
-  }
-
-  // 3. Compute scale-driven next station
-  switch (currentStation) {
-    case 'story': {
-      const next: CascadeStation = scale === 'quick' ? 'tasks' : 'plan';
-      return { canAdvance: true, nextStation: next };
-    }
-    case 'plan': {
-      return { canAdvance: true, nextStation: 'tasks' };
-    }
-    case 'tasks': {
-      return { canAdvance: true, nextStation: 'implement' };
-    }
-    case 'implement': {
-      return { canAdvance: true, nextStation: 'review' };
-    }
-    case 'review': {
-      if ((verifierResult.criticals ?? 0) > 0) {
-        return {
-          canAdvance: false,
-          nextStation: 'review',
-          haltReason: `Review loop has ${verifierResult.criticals} unresolved critical finding(s).`,
-        };
-      }
-      return { canAdvance: true, nextStation: 'verify' };
-    }
-    case 'verify': {
-      if (verifierResult.grade === 'S' || verifierResult.grade === 'A') {
-        return {
-          canAdvance: true,
-          nextStation: 'knowledge-update',
-        };
-      }
-      return {
-        canAdvance: false,
-        nextStation: 'verify',
-        haltReason: `Verify achieved Grade ${verifierResult.grade ?? 'B/C/D'} (S/A required for graduation).`,
-      };
-    }
-    case 'knowledge-update': {
-      return {
-        canAdvance: true,
-        nextStation: 'awaiting_signoff',
-        requiresHumanSignoff: true,
-      };
-    }
-    case 'awaiting_signoff': {
-      return {
-        canAdvance: true,
-        nextStation: 'archive',
-        requiresHumanSignoff: true,
-      };
-    }
-    case 'archive': {
-      return { canAdvance: false, nextStation: 'archive' };
-    }
-    default: {
-      return { canAdvance: false, nextStation: currentStation };
-    }
-  }
 }
 
 /**

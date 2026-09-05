@@ -66,7 +66,7 @@ absent; never invent one, and never derive one from the branch name.
 | Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md`. Pass `--issue` only when Phase 1 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
 | Scale | Run the complexity assessment from `prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
-| Check | Site-specific Constitution check (this phase's rule: INVEST) → PASS continue / FAIL pause — the full every-principle audit is `prospec-verify` only |
+| Check | Site-specific Constitution check (this phase's rule: INVEST) — **advisory**: record any concern via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story on it (the same advisory contract as `prospec-new-story`; the authoritative INVEST audit is `prospec-verify`'s) |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
 delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `{{base_dir}}/index.md` from Startup
@@ -77,32 +77,33 @@ Loading is still read). Status advances `story → tasks` directly
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created
 > - [ ] `metadata.scale` confirmed by user and written
-> - [ ] Site-specific Constitution check (INVEST) passed (pause on FAIL)
+> - [ ] advisory INVEST check run; any concern recorded to `quality_log` (never blocks)
 
 ### Phase 3: Plan Generation (skipped when `scale: quick`)
 
 | Step | Action |
 |------|--------|
 | Knowledge | Layer 1 ({{base_dir}}/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
-| Scaffold | Run `prospec change plan` (Bash) — CLI scaffolds `plan.md` + `delta-spec.md` and advances status → `plan` |
-| Populate | Read [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) on demand, then write to those formats |
-| Check | Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) on demand. Run site-specific Architecture Verification (dependency-direction/layering & orthogonal rubric). Apply **Physical Receipt Verification Protocol** to verifier report (readable regular file exists, `size > 0`, valid schema); when a completion claim precedes the write, inspect lifecycle/transcript evidence and await it; missing or invalid report stops the phase, while terminal failure takes explicit Harness Degradation. Support harness degradation & manual bypass → PASS continue / WARN log / FLAW pause |
+| Station | Enter the `prospec-plan` station (Station Transition Protocol): read its `SKILL.md` — the path `prospec status` prints — and run its phases there: `prospec change plan` scaffold, plan/delta-spec authoring per [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) (full: the candidate tournament), and the Architecture Verification with its **Physical Receipt Verification Protocol** ([`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md)). This table is the entry checklist, not a second copy of that flow |
+| Receipt | Apply the **Physical Receipt Verification Protocol** to the verifier report: a readable regular file exists with `size > 0`; when a completion claim precedes the write, inspect abstract subagent lifecycle state or transcript logs and await it; a crash, timeout or spawn failure takes the station's explicit, disclosed Harness Degradation path; never fabricate a mock report or a synthetic PASS (zero-mock) |
+| Verdict | Record the report via `prospec change log --skill prospec-plan --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict {{planning_verdicts}}) and records `FLAWS` as `result: FAIL`; an invalid or missing report is refused, never worked around. Then run `prospec status`: a recorded FAIL routes back to plan until a later verifier PASS/WARN, or a documented Break-Glass `--result WARN --warning "{{break_glass_prefix}} <rationale>"`, supersedes it |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
+> - [ ] (standard/full) Architecture Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override)
 > - [ ] (quick) phase marked skipped per `scale: quick` — no plan artifacts produced
 
 ### Phase 4: Tasks Generation
 
 | Step | Action |
 |------|--------|
-| Scaffold | Run `prospec change tasks` (Bash) — CLI scaffolds `tasks.md` and advances status → `tasks` (including the quick `story → tasks` transition) |
-| Populate | Read [`references/tasks-format.md`](references/tasks-format.md) on demand, then decompose by architecture layer to that format |
-| Check | Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) on demand. Run site-specific Task Contract Verification (bidirectional coverage, DAG dependency layering, TDD closure). Apply **Physical Receipt Verification Protocol** to verifier report (readable regular file exists, `size > 0`, valid schema); when a completion claim precedes the write, inspect lifecycle/transcript evidence and await it; missing or invalid report stops the phase, while terminal failure takes explicit Harness Degradation. Support harness degradation & manual bypass → PASS continue / WARN log / FLAW pause |
+| Station | Enter the `prospec-tasks` station (Station Transition Protocol): read its `SKILL.md` — the path `prospec status` prints — and run its phases there: `prospec change tasks` scaffold (including the quick `story → tasks` transition), decomposition per [`references/tasks-format.md`](references/tasks-format.md), and the Task Contract Verification with its **Physical Receipt Verification Protocol** ([`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md)) |
+| Receipt | Apply the **Physical Receipt Verification Protocol** to the verifier report: a readable regular file exists with `size > 0`; when a completion claim precedes the write, inspect abstract subagent lifecycle state or transcript logs and await it; a crash, timeout or spawn failure takes the station's explicit, disclosed Harness Degradation path; never fabricate a mock report or a synthetic PASS (zero-mock) |
+| Verdict | Record the report via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict {{planning_verdicts}}) and records `FLAWS` as `result: FAIL`. Then run `prospec status`: a recorded FAIL routes back to tasks until a later verifier PASS/WARN, or a documented Break-Glass `--result WARN --warning "{{break_glass_prefix}} <rationale>"`, supersedes it |
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] tasks.md created with layer-ordered tasks and kind markers, status → `tasks`
-> - [ ] Task Contract Verification passed (or documented Break-Glass override)
+> - [ ] Task Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override)
 
 ### Phase 5: Autonomous Execution & Cascading (when cascading active)
 
@@ -179,6 +180,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
 - **NEVER** take verbal shortcuts, bypass receipt gates, or fabricate mock payloads during fast-forward cascading — all subagent outputs must be physically verified
+- **NEVER** relay a plan/tasks verifier verdict by hand — `prospec change log --skill <station> --verifier-report <file>` is the only sink; `prospec status` is the only transition authority the cascade consults
 - **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").

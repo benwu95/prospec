@@ -7,7 +7,7 @@
 
 If the Verifier produces a false positive or the project requires a deliberate, documented exception:
 1. The developer provides an explicit rationale explaining why the flagged item is acceptable.
-2. The orchestrator records the exception in `metadata.yaml` `quality_log` via `prospec change log --skill {{verifier_skill_name}} --result WARN --warning "Manual override: <rationale>"`.
+2. The orchestrator records the exception in `metadata.yaml` `quality_log` via `prospec change log --skill {{verifier_skill_name}} --result WARN --warning "{{break_glass_prefix}} <rationale>"`.
 3. Progression may then proceed.
 
 ---

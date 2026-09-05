@@ -658,3 +658,66 @@ it('reports source mutation during tests and refuses archive through normal comm
     expect(fs.readFileSync(metadataPath)).toEqual(before);
   }
 });
+
+describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
+  const planReport = (verdict: string, extra: Record<string, unknown> = {}) => ({
+    verdict,
+    dimensions: Object.fromEntries(
+      ['project_layering', 'blast_radius', 'state_safety', 'delta_spec', 'reuse'].map((d) => [d, { result: verdict === 'FLAWS' && d === 'reuse' ? 'FLAWS' : 'PASS', rationale: `${d} assessed` }]),
+    ),
+    evidence: 'audit',
+    ...extra,
+  });
+  const writeReport = (name: string, body: unknown): string => {
+    const p = path.join(tmpDir, name);
+    fs.writeFileSync(p, typeof body === 'string' ? body : JSON.stringify(body));
+    return p;
+  };
+  async function initChange(): Promise<string> {
+    await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
+    await runCli(['change', 'story', 'plan-me', '--description', 'fixture']);
+    await runCli(['change', 'plan']);
+    return path.join(tmpDir, '.prospec/changes/plan-me');
+  }
+
+  it('records a FLAWS report as result FAIL and status routes back to plan; a later PASS supersedes it', async () => {
+    const changeDir = await initChange();
+    const flaws = await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', writeReport('r1.json', planReport('FLAWS'))]);
+    expect(flaws.exitCode).toBe(0);
+    let metadata = fs.readFileSync(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+    expect(metadata).toContain('result: FAIL');
+    expect(metadata).toContain('reuse: reuse assessed');
+    const routed = await runCli(['status', '--json']);
+    const route = (JSON.parse(routed.stdout) as { changes: Array<{ next: string; code: string }> }).changes[0]!;
+    expect(route.next).toBe('plan');
+    expect(route.code).toBe('PLAN_VERIFIER_FAILED');
+    expect((await runCli(['status'])).stdout).toContain('[PLAN_VERIFIER_FAILED]');
+
+    expect((await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', writeReport('r2.json', planReport('PASS'))])).exitCode).toBe(0);
+    metadata = fs.readFileSync(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+    expect(metadata).toContain('result: PASS');
+    const after = JSON.parse((await runCli(['status', '--json'])).stdout) as { changes: Array<{ next: string }> };
+    expect(after.changes[0]!.next).toBe('tasks');
+  });
+
+  it('refuses an unknown verdict enum and an extra key before writing, exit 1 with the field path', async () => {
+    const changeDir = await initChange();
+    const before = fs.readFileSync(path.join(changeDir, 'metadata.yaml'), 'utf-8');
+    const bad = await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', writeReport('bad.json', planReport('FLAW'))]);
+    expect(bad.exitCode).toBe(1);
+    expect(bad.stderr).toContain('verdict');
+    const extra = await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', writeReport('extra.json', planReport('PASS', { bonus: true }))]);
+    expect(extra.exitCode).toBe(1);
+    expect(fs.readFileSync(path.join(changeDir, 'metadata.yaml'), 'utf-8')).toBe(before);
+  });
+
+  it('refuses --verifier-report alongside --result (usage error) and neither at all', async () => {
+    await initChange();
+    const both = await runCli(['change', 'log', '--skill', 'prospec-plan', '--result', 'PASS', '--verifier-report', writeReport('r.json', planReport('PASS'))]);
+    expect(both.exitCode).not.toBe(0);
+    expect(both.stderr).toMatch(/cannot be used with|conflicts/i);
+    const neither = await runCli(['change', 'log', '--skill', 'prospec-plan']);
+    expect(neither.exitCode).toBe(1);
+    expect(neither.stderr).toMatch(/--result|--verifier-report/);
+  });
+});

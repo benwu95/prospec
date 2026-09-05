@@ -180,6 +180,40 @@ export const DRIFT_CHECK_IDS = [
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
 
+/**
+ * What a check's findings are ABOUT. A `change`-scoped check enumerates
+ * `.prospec/changes/*` and anchors every finding under one change directory, so a
+ * per-change gate (archive, verify record) may adjudicate it for ONE target; a
+ * `repository`-scoped check's verdict is the repository's and is adopted as-is.
+ * `Record<DriftCheckId, …>` so a new check id cannot ship without declaring its
+ * scope — an undeclared scope is a compile error, never a silent repository default.
+ */
+export const DRIFT_CHECK_SCOPES = {
+  'req-references': 'repository',
+  'file-paths': 'repository',
+  'import-direction': 'repository',
+  'knowledge-health': 'repository',
+  'task-completion': 'change',
+  'dangling-prefix': 'repository',
+  'feature-modules': 'repository',
+  'mcp-readme-counts': 'repository',
+  'review-provenance': 'change',
+  'metadata-completeness': 'change',
+  'knowledge-size': 'repository',
+  'test-provenance': 'change',
+  'constitution-severity': 'repository',
+  'artifact-language': 'repository',
+  'spec-counters': 'repository',
+  'delta-spec-provenance': 'change',
+  'unjustified-budget-override': 'repository',
+  'canonical-doc-drift': 'repository',
+  'delta-spec-landing-fidelity': 'change',
+  'req-id-uniqueness': 'repository',
+  'language-policy-drift': 'repository',
+} as const satisfies Record<(typeof DRIFT_CHECK_IDS)[number], 'change' | 'repository'>;
+
+export type DriftCheckScope = (typeof DRIFT_CHECK_SCOPES)[keyof typeof DRIFT_CHECK_SCOPES];
+
 /** Findings only exist for problems — pass/skipped never produce findings. */
 export const DRIFT_FINDING_SEVERITIES = ['warn', 'fail'] as const;
 
@@ -223,6 +257,21 @@ export const DriftCheckResultSchema = z
     status: z.enum(DRIFT_CHECK_STATUSES),
     /** Required when status is skipped — honest skip, never a silent pass. */
     reason: z.string().min(1).optional(),
+    /**
+     * `change`-scoped checks only: the change names the collector actually
+     * enumerated (empty when none). A per-change gate reads a target's absence
+     * here as unprovable, never as pass. Additive and optional, so a report from
+     * an older engine still parses — and is then unprovable for every target.
+     */
+    subjects: z.array(z.string().min(1)).optional(),
+    /**
+     * `change`-scoped checks only: subjects the evaluator could NOT grade, keyed by
+     * change name with the honest skip reason — e.g. this change's test command
+     * was unavailable while a sibling's run produced findings, so the check as a
+     * whole is `fail`, not `skipped`. A per-change gate reads the target's entry
+     * here as `skipped`, never as a pass earned by having no finding of its own.
+     */
+    subject_skips: z.record(z.string().min(1), z.string().min(1)).optional(),
   })
   .refine((c) => c.status !== 'skipped' || c.reason !== undefined, {
     message: 'a skipped check must carry a reason',

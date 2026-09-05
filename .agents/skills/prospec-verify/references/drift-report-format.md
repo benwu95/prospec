@@ -42,11 +42,14 @@ and pure Git trace do not make an otherwise equivalent report stale.
 
 ## `structural.checks[]` — one entry per check, keyed by `id`
 
-A **flat array** — locate a check by its `id` (`checks.find(c => c.id === '…')`), never by array
-position. Each entry: `{ id, status, reason? }`, adopted **verbatim**.
+A **flat array** keyed by `id`, never by position. Each entry: `{ id, status, reason?, subjects?,
+subject_skips? }`, adopted **verbatim**.
 
 - `status` ∈ `pass` | `warn` | `fail` | `skipped`. A `skipped` check carries a `reason` and is
   **never** treated as `pass` — skipped means unchecked.
+- `subjects` (change-scoped checks only): the change names the collector enumerated. A per-change
+  gate reads a target's absence here as unprovable, never as pass; a name under `subject_skips`
+  (with its reason) reads as skipped for that change even when the check as a whole FAILs.
 - `id` ∈ the frozen `DRIFT_CHECK_IDS` set: `req-references`, `file-paths`, `import-direction`,
   `knowledge-health`, `task-completion`, `dangling-prefix`, `feature-modules`,
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,

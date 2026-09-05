@@ -143,6 +143,7 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
   if (parsed.criticals_found !== undefined) ordered.criticals_found = parsed.criticals_found;
   if (parsed.criticals_fixed !== undefined) ordered.criticals_fixed = parsed.criticals_fixed;
   if (parsed.majors !== undefined) ordered.majors = parsed.majors;
+  if (parsed.verifier_verdict !== undefined) ordered.verifier_verdict = parsed.verifier_verdict;
 
   if (doc.has('quality_log')) {
     doc.addIn(['quality_log'], doc.createNode(ordered));

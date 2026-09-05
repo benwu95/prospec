@@ -5,20 +5,25 @@ import { readConfig } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
-import { EVIDENCE_SCOPE, FINGERPRINT_VERSION } from '../types/change.js';
+import { EVIDENCE_SCOPE, FINGERPRINT_VERSION, PLANNING_VERDICTS } from '../types/change.js';
+import { planningVerdictToGateResult } from '../types/station.js';
+import { z } from 'zod';
+
+const PlanningVerdictSchema = z.enum(PLANNING_VERDICTS);
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
 import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import type { VerifyGrade } from '../types/change.js';
-import type {
-  ChangeRoute,
-  ChangeRouteError,
-  ChangeRouteFacts,
-  DriftSignal,
-  StatusReport,
-  UiScope,
-  UnresolvedWarning,
+import type { GateResult, VerifyGrade } from '../types/change.js';
+import {
+  BREAK_GLASS_PREFIX,
+  type ChangeRoute,
+  type ChangeRouteError,
+  type ChangeRouteFacts,
+  type DriftSignal,
+  type StatusReport,
+  type UiScope,
+  type UnresolvedWarning,
 } from '../types/status.js';
 
 import type { DriftReport } from '../types/drift-report.js';
@@ -176,6 +181,8 @@ async function collectFacts(
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
+    lastPlanVerifierResult: latestGateResult(metadata.quality_log, 'prospec-plan'),
+    lastTasksVerifierResult: latestGateResult(metadata.quality_log, 'prospec-tasks'),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     hasKnowledgeSync:
       metadata.status === 'verified'
@@ -228,6 +235,42 @@ function parseUiScope(proposalText: string): UiScope | null {
   // partial | none` must not parse as a chosen `full`.
   const value = /^\*\*Scope:\*\*\s*(full|partial|none)\s*$/im.exec(body)?.[1];
   return value === undefined ? null : (value.toLowerCase() as UiScope);
+}
+
+/**
+ * A station's latest recorded verifier result. Scanned from the latest entry
+ * backwards, and keyed on PROVENANCE, not on `result`: only an entry the sink
+ * (`change log --verifier-report`) stamped with `verifier_verdict` is the
+ * verifier's word (`FLAWS` → FAIL, else PASS/WARN — a verifier WARN supersedes an
+ * earlier FLAWS exactly as the rubric promises), plus a Break-Glass `WARN` whose
+ * warning opens with `BREAK_GLASS_PREFIX`. Every other entry under the skill —
+ * the station's own Exit Gate or Knowledge Gate note, PASS/WARN/FAIL alike — is
+ * neither a verifier result nor able to hide one, so it is skipped.
+ */
+function latestGateResult(
+  qualityLog:
+    | Array<{ skill: string; result: string; warnings?: string[]; verifier_verdict?: string }>
+    | undefined,
+  skill: string,
+): GateResult | null {
+  if (qualityLog === undefined) return null;
+  for (let i = qualityLog.length - 1; i >= 0; i--) {
+    const entry = qualityLog[i];
+    if (entry === undefined || entry.skill !== skill) continue;
+    if (entry.verifier_verdict !== undefined) {
+      const parsed = PlanningVerdictSchema.safeParse(entry.verifier_verdict);
+      // An unknown stamp is not a verdict — skip it rather than default to PASS.
+      if (!parsed.success) continue;
+      return planningVerdictToGateResult(parsed.data);
+    }
+    if (
+      entry.result === 'WARN' &&
+      (entry.warnings ?? []).some((w) => w.trimStart().startsWith(BREAK_GLASS_PREFIX))
+    ) {
+      return 'WARN';
+    }
+  }
+  return null;
 }
 
 /** Latest recorded `prospec-verify` grade, null when none. */

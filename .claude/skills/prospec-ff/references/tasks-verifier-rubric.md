@@ -69,12 +69,12 @@ The Task Verifier writes its structured audit report as JSON to a regular file o
 }
 ```
 
-- `verdict`: `"PASS"` | `"WARN"` | `"FLAWS"` (required)
-- `dimensions`: object containing exactly `bidirectional_coverage`, `dag_topological_order`, `tdd_module_closure`, and `task_sizing_schema`; every value has exactly `result` (`"PASS"` | `"WARN"` | `"FLAWS"`) and `rationale` (non-empty string), with no additional properties (required)
-- `evidence`: string detailed summary (required)
-- `warnings`: array of string advisory notes (optional)
+- `verdict`: "PASS" | "WARN" | "FLAWS" (required)
+- `dimensions`: object containing exactly `bidirectional_coverage`, `dag_topological_order`, `tdd_module_closure`, `task_sizing_schema`; every value has exactly `result` ("PASS" | "WARN" | "FLAWS") and `rationale` (non-empty, single line, ≤ 500 chars), with no additional properties (required)
+- `evidence`: string detailed summary — the uncapped home for detail (required)
+- `warnings`: array of string advisory notes, each single line and ≤ 500 chars (optional)
 
-No additional top-level fields are accepted.
+No additional top-level fields are accepted. The orchestrator records the file with `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI enforces this schema and records `FLAWS` as `result: FAIL`.
 
 ---
 

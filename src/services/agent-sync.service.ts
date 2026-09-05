@@ -16,7 +16,13 @@ import { computeUnlocalizedSkills } from './trigger-localization.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
 import { MINIMUM_CLI_VERSION } from '../types/version.js';
-import { RELAYED_FIELD_MAX_CHARS } from '../types/station.js';
+import { BREAK_GLASS_PREFIX } from '../types/status.js';
+import {
+  PLANNING_VERDICTS,
+  PLAN_VERIFIER_DIMENSIONS,
+  RELAYED_FIELD_MAX_CHARS,
+  TASKS_VERIFIER_DIMENSIONS,
+} from '../types/station.js';
 import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
@@ -173,6 +179,11 @@ export async function execute(
         max,
       ]),
     ),
+    // The planning-verifier vocabulary the two rubrics and the plan/tasks/ff
+    // skills render — projected from the schema `change log --verifier-report`
+    // enforces, so the words the verifier is told to write are the words the
+    // sink accepts (the `FLAW`/`FLAWS` split lived in a hand-typed literal).
+    ...planningVerifierContext(),
     // Entry config (CLAUDE.md/AGENTS.md) is always-loaded Layer 0 — exclude
     // excludeFromEntryConfig skills so a one-shot onboarding skill costs no
     // recurring tokens. syncSkillsDirSkills still writes its SKILL.md (below),
@@ -264,6 +275,16 @@ export function synthesizeTriggers(
     return `${baseline} — or equivalent terms in ${artifactLanguage}`;
   }
   return baseline;
+}
+
+/** Verdict enum and dimension lists as the rubric prose renders them. */
+export function planningVerifierContext(): Record<string, string> {
+  return {
+    planning_verdicts: PLANNING_VERDICTS.map((v) => `"${v}"`).join(' | '),
+    break_glass_prefix: BREAK_GLASS_PREFIX,
+    plan_verifier_dimensions: PLAN_VERIFIER_DIMENSIONS.map((d) => `\`${d}\``).join(', '),
+    tasks_verifier_dimensions: TASKS_VERIFIER_DIMENSIONS.map((d) => `\`${d}\``).join(', '),
+  };
 }
 
 /**

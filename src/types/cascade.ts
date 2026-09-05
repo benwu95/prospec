@@ -7,23 +7,6 @@ import type { ChangeScale } from './change.js';
 export type CascadeScale = ChangeScale;
 
 /**
- * SDD stations participating in autonomous cascading.
- */
-export const CASCADE_STATIONS = [
-  'story',
-  'plan',
-  'tasks',
-  'implement',
-  'review',
-  'verify',
-  'knowledge-update',
-  'awaiting_signoff',
-  'archive',
-] as const;
-
-export type CascadeStation = (typeof CASCADE_STATIONS)[number];
-
-/**
  * A historical trial record for a specific defect or test signature.
  */
 export const OscillationRecordSchema = z.object({

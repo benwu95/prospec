@@ -14,12 +14,28 @@ import { ScanError, WriteError } from '../../../src/types/errors.js';
 
 // Archive mechanics use an injected current assessment; real collectors and refusals
 // are exercised through normal services in integration/evidence-validity.test.ts.
-vi.mock('../../../src/lib/drift-assessment.js', () => ({
-  assessCurrentDrift: vi.fn(async () => ({
-    report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass' })), findings: [] } },
-    snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
-  })),
-}));
+vi.mock('../../../src/lib/drift-assessment.js', async () => {
+  const { vol: memVol } = await import('memfs');
+  // The gate adjudicates per target and refuses a change no check enumerated, so
+  // this stub lists every fixture change dir as a subject of every gated check.
+  // That is a SIMPLIFICATION of the engine (the real collectors enumerate only the
+  // changes they could read — task-completion only those with a tasks.md); the
+  // per-target refusal paths themselves are covered by archive-gate.test.ts and
+  // the real-Git integration/workflow-contracts.test.ts, not here.
+  const subjects = (): string[] => {
+    try {
+      return memVol.readdirSync('/project/.prospec/changes') as string[];
+    } catch {
+      return [];
+    }
+  };
+  return {
+    assessCurrentDrift: vi.fn(async () => ({
+      report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass', subjects: subjects() })), findings: [] } },
+      snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
+    })),
+  };
+});
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
