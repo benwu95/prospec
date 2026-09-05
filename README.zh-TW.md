@@ -887,11 +887,27 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - **`prospec check --init-ci`**
   - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。
 
+#### 審查與測試證據
+
+「證據」把已記錄的審查或測試結果，與當時檢查的儲存庫內容連結起來，讓 Prospec 判斷先前的 PASS 現在是否仍有效。
+
+- 先完成 Knowledge、事實計數與生成檔同步，再依序進行最後 review → tests → verify。
+- 只做 staging、commit 或 amend，且輸入內容沒有改變，證據仍有效。修改程式、manifest、lockfile、文件或已追蹤的生成檔，則需要重新驗證。
+- 測試必須實際 exit 0，且執行前後的輸入快照皆可證明且相等，才能建立通過紀錄。最新 attempt 若仍 running 或未經認證，不能沿用舊 PASS；已知失敗會保留到穩定成功為止。
+- 舊版紀錄仍可讀，但需要實際重新審查與測試一次。
+- verify/archive 會評估目前輸入與工作流程事實，並在寫入前重新確認；archive dry-run 使用相同拒絕條件。僅有一份儲存的報告不足以允許操作。
+
+證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](./prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
+
+#### 檢查結果與驗證裁決
+
 誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code 一致性仍屬 `prospec-review`（報告恆標 `not-checked`）。`prospec-verify` 在開發期消費同一份報告，開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
 **verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械 oracle 的兩個維度——delta-spec 合規與設計一致性——維持機率判斷，並在 **fresh context**（未寫過這段程式的獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
 
-**調整 `knowledge-size` 預算** —— `knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
+#### 調整 `knowledge-size` 預算
+
+`knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
 
 ```yaml
 # .prospec.yaml
@@ -1278,19 +1294,3 @@ Prospec 的獨特貢獻：**cli-first SDD、Skills 只留判斷** — CLI 執行
 [回到頂端](#prospec)
 
 </div>
-
-### 審查與測試證據
-
-證據使用 `snapshot-v2`／`repository-inputs-v2`：追蹤檔案與未被 Git 忽略的未追蹤檔案之最終位元組、
-可執行 mode，以及支援的儲存庫內 symlink。manifest、lockfile、文件與已追蹤的生成檔都算輸入。
-`.prospec/` 工作流程產物與指定的 Prospec 報告不納入此 fingerprint；verify/archive 另外檢查即時工作流程事實。
-測試輸出應宣告於 Git ignore；已追蹤輸出仍屬輸入。
-
-先完成 Knowledge／數量／生成檔同步，再依序進行最後 review → tests → verify。
-僅 staging、commit、amend 或等價歷史改變，不會使證據失效，也不需要額外重跑測試。
-舊版紀錄仍可讀，但必須實際重新審查與測試一次。最新 attempt 若仍 running 或無法證明，不能沿用舊 PASS；
-只有實際 exit 0 且前後快照皆可證明且相等，才能建立通過證據。已知失敗會保留，直到穩定成功。
-
-儲存的報告是顯示產物；verify/archive 會評估目前輸入並在寫入前重新確認，dry-run 使用相同拒絕條件。
-此保證僅涵蓋執行前後的觀察，不隔離短暫修改後還原（change-and-restore）、被忽略的依賴、外部服務，
-或儲存庫輸入之外的工具鏈變更。不支援或不可讀的輸入會標為 unprovable，不會認證為通過。

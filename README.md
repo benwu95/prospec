@@ -907,11 +907,27 @@ deliberately not included in this version.
 - **`prospec check --init-ci`**
   - **Purpose**: Scaffolds supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) with SHA pinning, least privilege, and sticky PR comments.
 
+#### Review and test evidence
+
+Evidence connects a recorded review or test result to the repository contents it checked, so Prospec can tell whether an earlier PASS still applies.
+
+- Finish Knowledge, factual-count and generated-asset sync before the final review → tests → verify sequence.
+- Staging, committing or amending without changing input contents preserves evidence. Changes to code, manifests, lockfiles, docs or tracked generated files require revalidation.
+- A passing test record requires exit code 0 and provably equal input snapshots before and after execution. A running or uncertified latest attempt cannot reuse an old PASS; a known failure remains until a stable successful run.
+- Legacy records remain readable, but need one real review and test revalidation.
+- Verify/archive assess current inputs and workflow facts, then recheck before writing; archive dry-run uses the same refusal conditions. A saved report alone does not authorize the operation.
+
+The evidence format is `snapshot-v2` / `repository-inputs-v2`; see the [input snapshot specification](./prospec/specs/features/drift-detection/us-5.md) for the precise scope and supported file types. Ignore test outputs in Git (tracked outputs still count as inputs). Unsupported or unreadable inputs remain unprovable. The before/after checks cannot detect every transient change-and-restore, or changes to ignored dependencies, external services and toolchains outside repository inputs.
+
+#### Check results and verification decisions
+
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason — never a fake PASS — and semantic spec↔code consistency stays with `prospec-review` (the report permanently marks it `not-checked`). `prospec-verify` consumes the same report at dev time, so the developer and the CI gate always see the same facts, token-free.
 
 **Who decides what at verify** — the report is not advisory there. `prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
 
-**Tuning the `knowledge-size` budgets** — `knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
+#### Tuning the `knowledge-size` budgets
+
+`knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
 
 ```yaml
 # .prospec.yaml
@@ -1298,22 +1314,3 @@ Prospec's unique contribution: **cli-first SDD with judgment-only Skills** — t
 [Back to top](#prospec)
 
 </div>
-
-### Review and test evidence
-
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
-file bytes, executable mode and supported in-repository symlinks. Manifests, lockfiles, docs and
-tracked generated assets are inputs. `.prospec/` workflow artifacts and designated Prospec reports
-are excluded from that fingerprint; current workflow facts are checked separately at verify/archive.
-Declare suite outputs in Git ignores (tracked outputs remain inputs).
-
-Finish Knowledge/count/generated-asset sync, then final review → tests → verify. Staging, committing,
-amending or equivalent history alone does not invalidate evidence or require another suite run.
-Legacy records remain readable and require one real review/test revalidation. A running or
-uncertified latest attempt cannot reuse an old PASS; passing requires actual exit 0 and equal,
-provable before/after snapshots. A known failure persists until stable success.
-
-Saved reports are display artifacts. Verify/archive assess current inputs and recheck before writes;
-dry-run applies the same refusal gate. This is a before/after guarantee, not isolation against
-transient change-and-restore, ignored dependencies, external services or toolchain changes outside
-repository inputs. Unsupported or unreadable input is unprovable, never certified.
