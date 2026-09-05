@@ -648,3 +648,90 @@ describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
     expect(report.changes[0]?.nextSkillPath).toBeUndefined();
   });
 });
+
+describe('status.service — latest planning verifier result (REQ-SERVICES-070 / issue #266)', () => {
+  const log = (entries: string) =>
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status: 'plan', extra: `quality_log:\n${entries}` }),
+    });
+  const entry = (skill: string, result: string, warnings: string[] = []) =>
+    `  - skill: ${skill}\n    date: 2026-01-02\n    result: ${result}\n    warnings:${warnings.length === 0 ? ' []' : ''}\n` +
+    warnings.map((w) => `      - "${w}"\n`).join('');
+  // What `change log --verifier-report` writes: the gate result PLUS the verifier's
+  // own verdict as the provenance stamp the reader keys on.
+  const sinkEntry = (skill: string, verdict: 'PASS' | 'WARN' | 'FLAWS', warnings: string[] = []) =>
+    entry(skill, verdict === 'FLAWS' ? 'FAIL' : verdict, warnings).replace(/\n {4}warnings:/, `\n    verifier_verdict: ${verdict}\n    warnings:`);
+
+  it('reads a recorded FAIL and routes back to plan', async () => {
+    log(sinkEntry('prospec-plan', 'FLAWS', ['reuse: owner bypassed']));
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('FAIL');
+    expect(routedFacts[0]?.lastTasksVerifierResult).toBeNull();
+    expect(report.changes[0]?.next).toBe('plan');
+    expect(report.changes[0]?.code).toBe('PLAN_VERIFIER_FAILED');
+  });
+
+  it("an Exit Gate WARN appended after the verifier FAIL does not hide it", async () => {
+    log(sinkEntry('prospec-plan', 'FLAWS', ['reuse: owner bypassed']) + entry('prospec-plan', 'WARN', ['dependency-direction: minor note']));
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('FAIL');
+  });
+
+  // Review pin (C-1): a WARN verdict the sink recorded IS the latest verifier result —
+  // it must supersede the earlier FAIL, unlike a station's own Exit Gate WARN. The
+  // two entries differ only by the sink's provenance stamp, so the reader keys on it.
+  it('a verifier WARN recorded by the sink supersedes an earlier FAIL, while an Exit Gate WARN of the same shape does not', async () => {
+    log(sinkEntry('prospec-plan', 'FLAWS', ['reuse: owner bypassed']) + sinkEntry('prospec-plan', 'WARN', ['blast_radius: wide']));
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('WARN');
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  // Review pin (C-2 / S-1): a station's Exit Gate FAIL (Constitution advisory, no
+  // verifier stamp) is not a verifier result and never routes the change back.
+  it('an Exit Gate FAIL without the verifier stamp is not read as a verifier FAIL', async () => {
+    log(entry('prospec-plan', 'FAIL', ['layering: MUST rule concern']));
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBeNull();
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  it('a Break-Glass WARN (Manual override:) supersedes the FAIL, as does a later PASS', async () => {
+    log(sinkEntry('prospec-plan', 'FLAWS') + entry('prospec-plan', 'WARN', ['Manual override: false positive on reuse']));
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('WARN');
+    log(sinkEntry('prospec-plan', 'FLAWS') + sinkEntry('prospec-plan', 'PASS'));
+    routedFacts.length = 0;
+    const report = await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('PASS');
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  it('reads the tasks station independently and stays null without any entry', async () => {
+    log(sinkEntry('prospec-tasks', 'FLAWS') + sinkEntry('prospec-plan', 'PASS'));
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastTasksVerifierResult).toBe('FAIL');
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('PASS');
+    vol.fromJSON({ [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status: 'plan' }) });
+    routedFacts.length = 0;
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBeNull();
+  });
+
+  it('routes a verified change whose latest grade is C back to verify (REQ-LIB-035)', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'verified',
+        extra:
+          'quality_log:\n' +
+          '  - skill: prospec-verify\n    date: 2026-01-02\n    result: PASS\n    warnings: []\n    grade: A\n' +
+          '  - skill: prospec-verify\n    date: 2026-01-03\n    result: FAIL\n    warnings: []\n    grade: C\n',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.status).toBe('verified');
+    expect(report.changes[0]?.next).toBe('verify');
+    expect(report.changes[0]?.code).toBe('VERIFY_GRADE_BELOW_BAR');
+  });
+});

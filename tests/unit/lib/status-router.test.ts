@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { routeChange, resolveNextSkillPath } from '../../../src/lib/status-router.js';
-import type { ChangeRouteFacts } from '../../../src/types/status.js';
+import { WORKFLOW_REASON_CODES, type ChangeRouteFacts } from '../../../src/types/status.js';
 import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
 
 /**
@@ -22,6 +22,8 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     codeTasksDone: 0,
     hasReviewProvenance: false,
     lastVerifyGrade: null,
+    lastPlanVerifierResult: null,
+    lastTasksVerifierResult: null,
     hasKnowledgeSync: true,
     ...overrides,
   };
@@ -146,6 +148,58 @@ describe('status-router — lifecycle edges', () => {
     expect(gates).toContain('re-record');
   });
 
+  // --- issue #266: the latest grade, not the persisted status, decides (REQ-LIB-035) ---
+
+  for (const grade of ['B', 'C', 'D'] as const) {
+    it(`verified re-verified to ${grade} routes back to verify (status stays verified), ahead of knowledge sync`, () => {
+      for (const hasKnowledgeSync of [true, false]) {
+        const route = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync }));
+        expect(route.status).toBe('verified');
+        expect(route.next).toBe('verify');
+        expect(route.code).toBe('VERIFY_GRADE_BELOW_BAR');
+        expect(route.reasons.join(' ')).toContain(`grade is ${grade}`);
+        expect(route.reasons.join(' ')).toContain('re-run prospec-verify');
+      }
+    });
+  }
+
+  for (const grade of ['S', 'A', null] as const) {
+    it(`verified with latest grade ${grade ?? 'none'} keeps the knowledge-update / archive edges`, () => {
+      expect(routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync: false })).next).toBe('knowledge-update');
+      const synced = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync: true }));
+      expect(synced.next).toBe('archive');
+      expect(synced.code).toBe('LIFECYCLE_NEXT');
+    });
+  }
+
+  it('plan with a recorded verifier FAIL routes back to plan, ahead of design', () => {
+    const route = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'FAIL', uiScope: 'full' }));
+    expect(route.next).toBe('plan');
+    expect(route.code).toBe('PLAN_VERIFIER_FAILED');
+    expect(route.blockingGates.join(' ')).toContain('--verifier-report');
+    expect(route.blockingGates.join(' ')).toContain('Manual override');
+  });
+
+  it('plan with a recorded verifier PASS or WARN (or none) advances normally', () => {
+    for (const result of ['PASS', 'WARN', null] as const) {
+      expect(routeChange(facts({ status: 'plan', lastPlanVerifierResult: result })).next).toBe('tasks');
+    }
+  });
+
+  it('tasks with a recorded verifier FAIL routes back to tasks', () => {
+    const route = routeChange(facts({ status: 'tasks', lastTasksVerifierResult: 'FAIL', hasTasks: true, codeTasksTotal: 3 }));
+    expect(route.next).toBe('tasks');
+    expect(route.code).toBe('TASKS_VERIFIER_FAILED');
+    for (const result of ['PASS', 'WARN', null] as const) {
+      expect(routeChange(facts({ status: 'tasks', lastTasksVerifierResult: result })).next).toBe('implement');
+    }
+  });
+
+  it('a plan verifier FAIL does not leak into other statuses', () => {
+    expect(routeChange(facts({ status: 'tasks', lastPlanVerifierResult: 'FAIL' })).next).toBe('implement');
+    expect(routeChange(facts({ status: 'story', lastPlanVerifierResult: 'FAIL' })).next).toBe('plan');
+  });
+
   it('archived is terminal — next is null, periodic learn applies', () => {
     const route = routeChange(facts({ status: 'archived' }));
     expect(route.next).toBeNull();
@@ -240,6 +294,8 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
         const route = routeChange(facts({ status, scale }));
         expect(route.next).toBe(NEXT_BY_STATUS_SCALE[status]![scale]);
         expect(route.reasons.length).toBeGreaterThan(0);
+        // every placement carries a stable, registered code (REQ-TYPES-070)
+        expect(WORKFLOW_REASON_CODES).toContain(route.code);
       });
     }
   }

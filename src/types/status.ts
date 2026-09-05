@@ -1,4 +1,4 @@
-import type { ChangeScale, ChangeStatus, VerifyGrade } from './change.js';
+import type { ChangeScale, ChangeStatus, GateResult, VerifyGrade } from './change.js';
 
 /**
  * SDD station-routing contract — the types behind `prospec status`.
@@ -51,6 +51,51 @@ export const STATION_SKILLS: Record<SddStation, string> = {
   archive: 'prospec-archive',
 };
 
+/**
+ * Stable reason codes shared by the router (`ChangeRoute.code` — why a change was
+ * placed where it was) and the archive Entry Gate (`WorkflowReason.code` — why a
+ * target was refused). Frozen: an automation matches on these, never on the prose
+ * beside them. Route codes come first, gate codes second.
+ */
+export const WORKFLOW_REASON_CODES = [
+  // routing
+  'LIFECYCLE_NEXT',
+  'QUICK_SKIPS_PLAN',
+  'PROMOTION_INCOMPLETE',
+  'DESIGN_REQUIRED',
+  'PLAN_VERIFIER_FAILED',
+  'TASKS_VERIFIER_FAILED',
+  'REVIEW_PENDING',
+  'VERIFY_PENDING',
+  'VERIFY_GRADE_BELOW_BAR',
+  'KNOWLEDGE_UNSYNCED',
+  'TERMINAL',
+  // archive Entry Gate
+  'CHECK_UNPROVABLE',
+  'TASKS_INCOMPLETE',
+  'METADATA_INCOMPLETE',
+  'REVIEW_STALE',
+  'TESTS_STALE',
+  'DELTA_SPEC_STALE',
+] as const;
+
+export type WorkflowReasonCode = (typeof WORKFLOW_REASON_CODES)[number];
+
+/**
+ * The Break-Glass marker: a `WARN` quality_log entry whose warning opens with this
+ * prefix is a documented manual override and supersedes a station's recorded
+ * verifier FAIL. One constant, rendered into the skill templates by `agent sync`
+ * and read by the status service — never a second hand-typed copy.
+ */
+export const BREAK_GLASS_PREFIX = 'Manual override:';
+
+/** A refusal or placement, machine-matchable by `code`, human-actionable by `remediation`. */
+export interface WorkflowReason {
+  code: WorkflowReasonCode;
+  message: string;
+  remediation: string;
+}
+
 /** proposal.md `## UI Scope` values (design engages only on full/partial). */
 export const UI_SCOPES = ['full', 'partial', 'none'] as const;
 export type UiScope = (typeof UI_SCOPES)[number];
@@ -87,6 +132,17 @@ export interface ChangeRouteFacts {
   hasReviewProvenance: boolean;
   /** Latest `prospec-verify` quality_log grade, null when never verified. */
   lastVerifyGrade: VerifyGrade | null;
+  /**
+   * The plan / tasks station's latest recorded verifier result, null when none.
+   * Read by PROVENANCE, not by `result`: only an entry the sink (`prospec change
+   * log --verifier-report`) stamped with `verifier_verdict` counts (`FLAWS` →
+   * FAIL, else PASS/WARN), plus a Break-Glass `WARN` whose warning opens with
+   * `BREAK_GLASS_PREFIX`; a station's own unstamped Exit Gate entry is neither a
+   * verifier result nor able to hide one. The service derives it; the router only
+   * reads it.
+   */
+  lastPlanVerifierResult: GateResult | null;
+  lastTasksVerifierResult: GateResult | null;
   /** Whether affected-module Knowledge is confirmed synced for this change. */
   hasKnowledgeSync: boolean;
   /** Unresolved WARNs computed from this change's `quality_log` (empty when
@@ -108,6 +164,8 @@ export interface ChangeRoute {
   current: SddStation;
   /** Suggested next station; null only at the terminal `archived`. */
   next: SddStation | null;
+  /** Why the change was placed here, as a stable code (`reasons` carries the prose). */
+  code: WorkflowReasonCode;
   /** Resolved skill file path for `next` (e.g. `.claude/skills/prospec-verify/SKILL.md`),
    *  so `prospec status` can hand the agent an actionable read target. Absent when the
    *  change is terminal (`next` is null) or the project configures no agent — never a

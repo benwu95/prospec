@@ -30,16 +30,18 @@ function report(
   checks: Record<string, 'pass' | 'warn' | 'fail' | 'skipped'> = {},
   digest?: string,
 ): string {
-  const list = Object.entries({ 'task-completion': 'pass', 'metadata-completeness': 'pass', 'review-provenance': 'pass', 'test-provenance': 'pass', 'delta-spec-provenance': 'pass', ...checks }).map(([id, status]) =>
-    status === 'skipped' ? { id, status, reason: 'x' } : { id, status },
-  );
+  const findings: Array<Record<string, unknown>> = [];
+  const list = Object.entries({ 'task-completion': 'pass', 'metadata-completeness': 'pass', 'review-provenance': 'pass', 'test-provenance': 'pass', 'delta-spec-provenance': 'pass', ...checks }).map(([id, status]) => {
+    if (status === 'fail') findings.push({ check: id, severity: 'fail', source_path: `.prospec/changes/${CHANGE}/metadata.yaml`, detail: `${id} fails` });
+    return status === 'skipped' ? { id, status, reason: 'x', subjects: [CHANGE] } : { id, status, subjects: [CHANGE] };
+  });
   return JSON.stringify({
     version: 1,
     generated_at: '2026-08-29T00:00:00.000Z',
     ...(digest !== undefined ? { change_digest: digest } : {}),
     structural: {
       checks: list.length > 0 ? list : [{ id: 'req-references', status: 'pass' }],
-      findings: [],
+      findings,
     },
     semantic: { status: 'not-checked' },
     summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },

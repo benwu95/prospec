@@ -28,6 +28,8 @@ import {
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import { adjudicateChangeCheck } from '../lib/change-gate.js';
+import type { DriftCheckId } from '../types/drift-report.js';
 import {
   computeGrade,
   resultForGrade,
@@ -280,14 +282,23 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const { report } = assessment;
 
   // Gate A — the review-provenance Entry Gate, enforced here so the verify skill
-  // no longer checks it by hand: a non-backfill change whose report review-provenance
-  // FAILs (review absent or stale) is refused before any write. A proven backfill's
-  // check is `skipped`, so this never fires for it; a `pass` or absent check records.
-  if (report.structural.checks.find((c) => c.id === 'review-provenance')?.status !== 'pass' && notApplicableMachine.length === 0) {
-    throw new PrerequisiteError(
-      'review-provenance FAILs — this change has no current review baseline',
-      'Run `prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
-    );
+  // no longer checks it by hand: a non-backfill change whose review-provenance,
+  // adjudicated for THIS change, is not `pass` (review absent, stale, or the
+  // change unprovable) is refused before any write. A sibling change's missing
+  // review is not this change's problem. A proven backfill is guarded by the
+  // not-applicable policy (the evaluator emits no finding for it), so it records.
+  if (notApplicableMachine.length === 0) {
+    const reviewGate = adjudicateChangeCheck(report, 'review-provenance', changeName);
+    if (reviewGate.status !== 'pass') {
+      throw new PrerequisiteError(
+        reviewGate.status === 'unprovable'
+          ? `review-provenance is unprovable for this change — ${reviewGate.reason}`
+          : reviewGate.status === 'skipped'
+            ? `review-provenance is skipped (${reviewGate.reason}) — this change has no provable review baseline`
+            : 'review-provenance FAILs — this change has no current review baseline',
+        'Run `prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
+      );
+    }
   }
 
   const machineSkipReasons = new Map<string, string>();
@@ -296,20 +307,21 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
       return { name, result: 'not-applicable' as const, adjudicator: 'machine' as const };
     }
     const checkId = MACHINE_CHECK_FOR_DIMENSION[name]!;
-    const check = report.structural.checks.find((c) => c.id === checkId);
-    if (!check) {
-      // A check id absent from the report (older engine) is an honest gap.
-      return { name, result: 'not-adjudicated' as const, adjudicator: 'machine' as const };
-    }
-    if (check.reason !== undefined) {
-      machineSkipReasons.set(name, check.reason);
+    // Adjudicated for THIS change: task-completion and test-provenance are
+    // change-scoped (a sibling's unchecked tasks or stale run never grade this
+    // one), knowledge-health is repository-scoped and adopted as-is. A check
+    // absent from the report, or a change the engine never enumerated, is an
+    // honest gap — `not-adjudicated`, with the reason spelled into the warning.
+    const verdict = adjudicateChangeCheck(report, checkId as DriftCheckId, changeName);
+    if (verdict.reason !== undefined) {
+      machineSkipReasons.set(name, verdict.reason);
     }
     const result =
-      check.status === 'pass'
+      verdict.status === 'pass'
         ? ('PASS' as const)
-        : check.status === 'warn'
+        : verdict.status === 'warn'
           ? ('WARN' as const)
-          : check.status === 'fail'
+          : verdict.status === 'fail'
             ? ('FAIL' as const)
             : ('not-adjudicated' as const);
     return { name, result, adjudicator: 'machine' as const };

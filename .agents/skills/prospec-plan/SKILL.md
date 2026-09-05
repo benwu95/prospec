@@ -172,14 +172,15 @@ Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh 
 - **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract subagent lifecycle state or transcript logs and await completion.
 - **Explicit Degradation**: On crash, timeout, or spawn failure, execute in degraded single-context mode and honestly disclose the in-session mode (never claiming fresh-subagent PASS).
 
-**Step 3 — Verdict Handling & Break-Glass Override:**
+**Step 3 — Record the Verdict (machine sink) & Break-Glass Override:**
+Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-plan --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS"; exactly the five dimensions; `rationale` and each warning single-line, ≤ 500 chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.
 - **PASS**: No structural flaws or unmitigated risks found. Proceed.
-- **WARN**: Advisory concerns identified. Append them to `plan.md` Risk Assessment with mitigations and record via `prospec change log --skill prospec-plan --result WARN --warning "<warning detail>"`.
-- **FLAWS**: Structural defect or layering violation found. Revise `plan.md`/`delta-spec.md` to fix the issue, OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, recorded in `plan.md` Risk Assessment and logged via the same `prospec change log` command with `--warning "Manual override: <rationale>"`.
+- **WARN**: Advisory concerns identified. Append them to `plan.md` Risk Assessment with mitigations (the recorded entry already carries them).
+- **FLAWS**: Structural defect or layering violation found. Revise `plan.md`/`delta-spec.md` and re-run the verifier (a later recorded PASS or WARN verdict supersedes the FAIL — the sink stamps each entry with `verifier_verdict`, so your Exit Gate notes under this skill never count as verifier results), OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, recorded in `plan.md` Risk Assessment and logged via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`. While the latest recorded verifier result is FAIL, `prospec status` routes the change back to plan.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Architecture Verifier audit completed against the 5 orthogonal dimensions (or documented manual override provided)
-> - [ ] Any discovered risks/warnings recorded in plan.md Risk Assessment and appended to metadata.yaml quality_log
+> - [ ] Architecture Verifier audit completed against the 5 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override logged)
+> - [ ] Any discovered risks/warnings recorded in plan.md Risk Assessment
 
 ### Phase 7: Knowledge Quality Gate
 

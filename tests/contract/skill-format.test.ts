@@ -20,21 +20,28 @@ import {
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import {
+  PLANNING_VERDICTS,
+  PLAN_VERIFIER_DIMENSIONS,
   RELAYED_FIELD_MAX_CHARS,
   REVIEW_SEVERITIES,
   ReviewFindingsInputSchema,
   JudgmentDimensionsInputSchema,
+  TASKS_VERIFIER_DIMENSIONS,
 } from '../../src/types/station.js';
 import { EscalationReportSchema } from '../../src/types/cascade.js';
+import { planningVerifierContext } from '../../src/services/agent-sync.service.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
+  CHANGE_SCALES,
   CHANGE_STATUSES,
   DIMENSION_GRADED_BY,
   DIMENSION_RESULTS,
   PROVENANCE_AUDITED_STATUSES,
   SCALE_FORBIDDEN_ARTIFACTS,
 } from '../../src/types/change.js';
-import { SDD_STATIONS } from '../../src/types/status.js';
+import { BREAK_GLASS_PREFIX, SDD_STATIONS, type ChangeRouteFacts, type SddStation } from '../../src/types/status.js';
+import { forbiddenArtifacts } from '../../src/types/change.js';
+import { routeChange } from '../../src/lib/status-router.js';
 import { MCP_RESOURCE_URIS, MCP_TOOL_NAMES } from '../../src/types/mcp.js';
 import { findTable, splitTableRow } from '../../src/lib/markdown-table.js';
 import { withoutFencedBlocks, hasUnclosedFence } from '../../src/lib/markdown-fences.js';
@@ -70,6 +77,11 @@ const TEMPLATE_CONTEXT = {
   ...Object.fromEntries(
     Object.entries(RELAYED_FIELD_MAX_CHARS).map(([f, m]) => [`relayed_max_${f}`, m]),
   ),
+  // The planning-verifier vocabulary agent-sync injects — projected from the
+  // schema `change log --verifier-report` enforces, so a rubric that renders it
+  // renders the words the sink accepts; spread from the same helper the service
+  // uses, never hand-typed here.
+  ...planningVerifierContext(),
   // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
   // fixture models a fully-capable harness so the default renders exercise the
   // primary path; the degraded branch is rendered explicitly where it is asserted.
@@ -8179,5 +8191,179 @@ describe('verified input evidence guidance', () => {
       expect(text).toContain('repository-inputs-v2');
       expect(text).toContain('change-and-restore');
     }
+  });
+});
+
+describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATES-228, REQ-TESTS-113)', () => {
+  const root = path.join(__dirname, '../..');
+  const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
+  const renderedSet = (): [string, string][] =>
+    [
+      ...SKILL_DEFINITIONS.map((s) => `skills/${s.name}.hbs`),
+      ...fs
+        .readdirSync(path.join(root, 'src/templates/skills/references'))
+        .filter((f) => f.endsWith('.hbs'))
+        .map((f) => `skills/references/${f}`),
+    ].map((t) => [t, render(t)]);
+
+  it('no rendered skill or reference carries the singular FLAW verdict', () => {
+    for (const [name, content] of renderedSet()) {
+      expect(content, `${name} uses the singular verdict`).not.toMatch(/\bFLAW\b/);
+    }
+  });
+
+  it.each([
+    ['skills/references/plan-verifier-rubric.hbs', '## Architecture Verifier Payload Schema', PLAN_VERIFIER_DIMENSIONS],
+    ['skills/references/tasks-verifier-rubric.hbs', '## Task Verifier Payload Schema', TASKS_VERIFIER_DIMENSIONS],
+  ] as const)('%s renders the verdict and dimension vocabulary from the executable schema, not a literal', (template, heading, dims) => {
+    const body = sectionOf(render(template), heading);
+    const verdictRow = body.split('\n').find((l) => l.startsWith('- `verdict`:'))!;
+    const dimsRow = body.split('\n').find((l) => l.startsWith('- `dimensions`:'))!;
+    expect(verdictRow).toContain(PLANNING_VERDICTS.map((v) => `"${v}"`).join(' | '));
+    expect(dimsRow).toContain(dims.map((d) => `\`${d}\``).join(', '));
+    expect(body).toContain(`≤ ${RELAYED_FIELD_MAX_CHARS.summary} chars`);
+    expect(body).toContain('--verifier-report');
+    // the rendering is a projection: a context without the vocabulary renders empty, never a stale literal
+    const withoutVocabulary: Record<string, unknown> = { ...TEMPLATE_CONTEXT };
+    delete withoutVocabulary['planning_verdicts'];
+    delete withoutVocabulary['plan_verifier_dimensions'];
+    delete withoutVocabulary['tasks_verifier_dimensions'];
+    const bare = sectionOf(renderTemplate(template, withoutVocabulary), heading);
+    expect(bare.split('\n').find((l) => l.startsWith('- `verdict`:'))).not.toContain('"FLAWS"');
+    expect(bare.split('\n').find((l) => l.startsWith('- `dimensions`:'))).not.toContain(`\`${dims[0]}\``);
+  });
+
+  it.each(['prospec-ff', 'prospec-plan', 'prospec-tasks'])(
+    '%s records the planning verifier verdict through the machine sink',
+    (skill) => {
+      const content = render(`skills/${skill}.hbs`);
+      expect(content).toMatch(/prospec change log --skill prospec-(?:plan|tasks) --verifier-report <file>/);
+      // the Break-Glass marker the status service keys on — rendered from the one constant
+      expect(content).toContain(BREAK_GLASS_PREFIX);
+      const withoutMarker: Record<string, unknown> = { ...TEMPLATE_CONTEXT };
+      delete withoutMarker['break_glass_prefix'];
+      expect(renderTemplate(`skills/${skill}.hbs`, withoutMarker)).not.toContain(BREAK_GLASS_PREFIX);
+    },
+  );
+
+  it.each(['plan-verifier-rubric', 'tasks-verifier-rubric', 'metadata-format'])(
+    'reference %s renders the Break-Glass marker from the one constant, never a literal',
+    (reference) => {
+      const template = `skills/references/${reference}.hbs`;
+      expect(render(template)).toContain(BREAK_GLASS_PREFIX);
+      const withoutMarker: Record<string, unknown> = { ...TEMPLATE_CONTEXT };
+      delete withoutMarker['break_glass_prefix'];
+      expect(renderTemplate(template, withoutMarker)).not.toContain(BREAK_GLASS_PREFIX);
+    },
+  );
+
+  it('the Story-stage INVEST check is advisory in ff, new-story and cascade-protocol — no phase pauses on it', () => {
+    const ff = sectionOf(render('skills/prospec-ff.hbs'), '### Phase 2: Story Generation');
+    expect(ff).toMatch(/advisory/i);
+    expect(ff).toMatch(/never pause|never blocks/i);
+    expect(ff).not.toMatch(/FAIL pause|pause on FAIL/i);
+    const newStory = sectionOf(render('skills/prospec-new-story.hbs'), '### Phase 6: Constitution Check (site-specific: INVEST)');
+    expect(newStory).toContain('do not hard-block');
+    const storyRow = sectionOf(render('skills/references/cascade-protocol.hbs'), '## Station Transition Gates')
+      .split('\n')
+      .find((l) => l.startsWith('| **story** |'))!;
+    expect(storyRow).toMatch(/INVEST advisory/);
+    expect(storyRow).toMatch(/never blocking/);
+  });
+
+  it('cascade-protocol describes the backfill trajectory and the B/C/D re-route', () => {
+    const cascade = render('skills/references/cascade-protocol.hbs');
+    expect(cascade).toContain('Scale: Backfill');
+    expect(cascade).toContain('`promote → review → verify → knowledge-update → Tastemaker Sign-off`');
+    const verifyRow = sectionOf(cascade, '## Station Transition Gates').split('\n').find((l) => l.startsWith('| **verify** |'))!;
+    expect(verifyRow).toMatch(/B\/C\/D grade[^|]*routed back to verify/);
+    expect(cascade).not.toContain('awaiting_signoff');
+  });
+
+  // Route parity, cell by cell (proposal US-4 AC-1): every transition-table row's
+  // next-station set equals what `routeChange` returns for that current station
+  // across the scale × ui_scope fact space with a passing verdict. Membership in
+  // SDD_STATIONS alone would let a wrong-but-legal next station through.
+  it('every cascade transition row names exactly the next stations routeChange computes for that station', () => {
+    const rows = sectionOf(render('skills/references/cascade-protocol.hbs'), '## Station Transition Gates')
+      .split('\n')
+      .filter((l) => /^\| \*\*[a-z-]+\*\* \|/.test(l));
+    const table = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const cells = row.split('|').map((c) => c.trim());
+      const current = cells[1]!.replace(/\*\*/g, '');
+      const next = new Set([...cells[2]!.matchAll(/`([a-z-]+)`/g)].map((m) => m[1]!).filter((s) => (SDD_STATIONS as readonly string[]).includes(s)));
+      table.set(current, next);
+    }
+    // every routable station has a row (learn is periodic; archive is terminal)
+    expect([...table.keys()].sort()).toEqual([...SDD_STATIONS].filter((s) => s !== 'archive').sort());
+
+    const facts = (over: Partial<ChangeRouteFacts>): ChangeRouteFacts => ({
+      name: 'c', status: 'story', scale: 'standard', hasTasks: true, hasDesignSpec: false, uiScope: null,
+      codeTasksTotal: 1, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
+      lastPlanVerifierResult: null, lastTasksVerifierResult: null, hasKnowledgeSync: true, ...over,
+    });
+    const routed = (variants: Partial<ChangeRouteFacts>[]): Set<string> =>
+      new Set(variants.map((v) => routeChange(facts(v)).next).filter((n): n is SddStation => n !== null));
+    // The fact space per row is the FULL scale × ui_scope matrix, narrowed only by
+    // the artifact registry — a station is reachable for a scale exactly when its
+    // contract does not forbid the artifact that station produces (a scale with no
+    // plan.md never sits at `plan`; one with no tasks.md never sits at `tasks` or
+    // ran `implement`). Every other fact (grade, knowledge sync) spans its whole
+    // domain, so a table row that hides a router edge goes red here.
+    const scales = CHANGE_SCALES;
+    const uiScopes = [null, 'full', 'none'] as const;
+    const grades = ['S', 'A', 'B', 'C', 'D', null] as const;
+    const withPlan = scales.filter((s) => !forbiddenArtifacts(s).includes('plan.md'));
+    const withTasks = scales.filter((s) => !forbiddenArtifacts(s).includes('tasks.md'));
+    const withoutTasks = scales.filter((s) => forbiddenArtifacts(s).includes('tasks.md'));
+    const expected: Record<string, Set<string>> = {
+      story: routed(scales.flatMap((scale) => uiScopes.map((uiScope) => ({ status: 'story', scale, uiScope })))),
+      plan: routed(withPlan.flatMap((scale) => uiScopes.map((uiScope) => ({ status: 'plan', scale, uiScope })))),
+      design: routed(withPlan.map((scale) => ({ status: 'plan', scale, uiScope: 'full', hasDesignSpec: true }))),
+      tasks: routed(withTasks.flatMap((scale) => uiScopes.map((uiScope) => ({ status: 'tasks', scale, uiScope })))),
+      promote: routed(withoutTasks.map((scale) => ({ status: 'implemented', scale }))),
+      implement: routed(withTasks.map((scale) => ({ status: 'implemented', scale }))),
+      review: routed(scales.map((scale) => ({ status: 'implemented', scale, hasReviewProvenance: true }))),
+      verify: routed(grades.flatMap((lastVerifyGrade) => [true, false].map((hasKnowledgeSync) => ({ status: 'verified', lastVerifyGrade, hasKnowledgeSync })))),
+      'knowledge-update': routed((['S', 'A'] as const).map((lastVerifyGrade) => ({ status: 'verified', lastVerifyGrade, hasKnowledgeSync: true }))),
+    };
+    for (const [station, next] of Object.entries(expected)) {
+      expect([...table.get(station)!].sort(), `row ${station}`).toEqual([...next].sort());
+    }
+  });
+
+  it('both lifecycle copies state the verifier sink, the B/C/D re-route and the per-change archive gate', () => {
+    for (const doc of [
+      render('init/status-lifecycle.md.hbs'),
+      fs.readFileSync(path.join(root, 'prospec/ai-knowledge/_status-lifecycle.md'), 'utf-8'),
+    ]) {
+      const gates = sectionOf(doc, '## Gates (why some transitions are conditional)');
+      expect(gates).toContain('--verifier-report');
+      expect(gates).toContain('Manual override:');
+      expect(gates).toContain('VERIFY_GRADE_BELOW_BAR');
+      expect(gates).toContain('CHECK_UNPROVABLE');
+      expect(gates).toMatch(/sibling change/);
+    }
+  });
+
+  it('both root READMEs document --verifier-report, the [CODE] prefix and the per-change gate', () => {
+    for (const file of ['README.md', 'README.zh-TW.md']) {
+      const text = fs.readFileSync(path.join(root, file), 'utf-8');
+      expect(text, file).toContain('--verifier-report <file>');
+      expect(text, file).toContain('[CODE]');
+      expect(text, file).toMatch(/FLAWS[^|\n]*FAIL/);
+      expect(text, file).toMatch(/sibling change/);
+    }
+  });
+
+  it('src/ holds exactly one station-transition authority — no cascade transition evaluator', () => {
+    const srcDir = path.join(root, 'src');
+    const hits = (fs.readdirSync(srcDir, { recursive: true, withFileTypes: true }) as fs.Dirent[])
+      .filter((e) => e.isFile() && e.name.endsWith('.ts'))
+      .map((e) => path.join(e.parentPath, e.name))
+      .filter((file) => /evaluateCascadeTransition|CASCADE_STATIONS/.test(fs.readFileSync(file, 'utf-8')))
+      .map((file) => path.relative(root, file));
+    expect(hits).toEqual([]);
   });
 });

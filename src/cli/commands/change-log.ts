@@ -80,28 +80,41 @@ export function registerChangeLogCommand(program: Command): void {
     .command('log')
     .description('Append a structured quality_log entry to a change')
     .requiredOption('--skill <station>', 'Station name (e.g. prospec-review)')
+    // Two verdict sources, mutually exclusive at BOTH layers (commander usage
+    // error here, PrerequisiteError in the service): a composed entry
+    // (`--result` + the station's fields), or a planning verifier report the
+    // service validates against the station's schema and derives the entry from.
     .addOption(
-      new Option('--result <result>', 'Gate three-state result')
+      new Option('--result <result>', 'Gate three-state result (required unless --verifier-report)')
         .choices(GATE_RESULTS)
-        .makeOptionMandatory(),
+        .conflicts(['verifierReport']),
     )
-    .option('--warning <text>', 'Warning detail (repeatable)', collect, [])
+    .addOption(
+      new Option(
+        '--verifier-report <file>',
+        'Plan/tasks verifier report (JSON) — validated, FLAWS recorded as FAIL; excludes --result and the composed-entry fields',
+      ).conflicts(['result', 'warning', 'grade', 'dimension', 'criticalsFound', 'criticalsFixed', 'majors']),
+    )
+    .addOption(new Option('--warning <text>', 'Warning detail (repeatable)').argParser(collect).default([]))
     .addOption(new Option('--grade <grade>', 'Verify quality grade').choices(VERIFY_GRADES))
-    .option(
-      '--dimension <spec>',
-      'Verify dimension as name=result[:adjudicator[:graded_by]] (repeatable; judgment requires graded_by)',
-      parseDimension,
-      [] as QualityDimension[],
+    .addOption(
+      new Option(
+        '--dimension <spec>',
+        'Verify dimension as name=result[:adjudicator[:graded_by]] (repeatable; judgment requires graded_by)',
+      )
+        .argParser(parseDimension)
+        .default([] as QualityDimension[]),
     )
-    .option('--criticals-found <n>', 'Review criticals surfaced this round', parseCount)
-    .option('--criticals-fixed <n>', 'Review criticals fixed this round', parseCount)
-    .option('--majors <n>', 'Review majors surfaced this round', parseCount)
+    .addOption(new Option('--criticals-found <n>', 'Review criticals surfaced this round').argParser(parseCount))
+    .addOption(new Option('--criticals-fixed <n>', 'Review criticals fixed this round').argParser(parseCount))
+    .addOption(new Option('--majors <n>', 'Review majors surfaced this round').argParser(parseCount))
     .option('--date <date>', 'Entry date (defaults to today)', parseDate)
     .option('--change <name>', 'Specify the change name')
     .action(
       async (options: {
         skill: string;
-        result: (typeof GATE_RESULTS)[number];
+        result?: (typeof GATE_RESULTS)[number];
+        verifierReport?: string;
         warning: string[];
         grade?: (typeof VERIFY_GRADES)[number];
         dimension: QualityDimension[];
@@ -118,21 +131,33 @@ export function registerChangeLogCommand(program: Command): void {
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,
-            entry: {
-              skill: options.skill,
-              result: options.result,
-              warnings: options.warning,
-              ...(options.date !== undefined ? { date: options.date } : {}),
-              ...(options.grade !== undefined ? { grade: options.grade } : {}),
-              ...(options.dimension.length > 0 ? { dimensions: options.dimension } : {}),
-              ...(options.criticalsFound !== undefined
-                ? { criticals_found: options.criticalsFound }
+            ...(options.verifierReport !== undefined
+              ? {
+                  verifierReport: {
+                    skill: options.skill,
+                    path: options.verifierReport,
+                    ...(options.date !== undefined ? { date: options.date } : {}),
+                  },
+                }
+              : options.result !== undefined
+                ? {
+                    entry: {
+                      skill: options.skill,
+                      result: options.result,
+                      warnings: options.warning,
+                      ...(options.date !== undefined ? { date: options.date } : {}),
+                      ...(options.grade !== undefined ? { grade: options.grade } : {}),
+                      ...(options.dimension.length > 0 ? { dimensions: options.dimension } : {}),
+                      ...(options.criticalsFound !== undefined
+                        ? { criticals_found: options.criticalsFound }
+                        : {}),
+                      ...(options.criticalsFixed !== undefined
+                        ? { criticals_fixed: options.criticalsFixed }
+                        : {}),
+                      ...(options.majors !== undefined ? { majors: options.majors } : {}),
+                    },
+                  }
                 : {}),
-              ...(options.criticalsFixed !== undefined
-                ? { criticals_fixed: options.criticalsFixed }
-                : {}),
-              ...(options.majors !== undefined ? { majors: options.majors } : {}),
-            },
           });
           formatChangeLogOutput(result, logLevel);
         } catch (err) {

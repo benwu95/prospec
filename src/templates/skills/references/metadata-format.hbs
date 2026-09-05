@@ -121,6 +121,12 @@ quality_log:
     criticals_found: 0             # review only (optional)
     criticals_fixed: 0             # review only (optional)
     majors: 1                      # review only (optional)
+  - skill: prospec-plan
+    date: 2026-07-13
+    result: FAIL                   # the gate three-state the verdict maps to
+    warnings:
+      - "reuse: existing owner bypassed"
+    verifier_verdict: FLAWS        # plan/tasks verifier sink only (`change log --verifier-report`)
   - skill: prospec-verify
     date: 2026-07-13
     result: PASS                   # still the gate three-state
@@ -164,6 +170,12 @@ quality_log:
   self-reported token count — both optional and non-blocking; they are recorded so a per-executor
   statistic can be aggregated later, and no station consumes them yet. prospec detects no model:
   all three are self-declared.
+- **`verifier_verdict`** (plan/tasks only) is written solely by `prospec change log --verifier-report`
+  — the verifier's own verdict (`PASS` | `WARN` | `FLAWS`; `FLAWS` maps to `result: FAIL`). It is the
+  provenance stamp `prospec status` keys on: only a stamped entry is the station's verifier result, a
+  later stamped `PASS`/`WARN` supersedes a stamped `FLAWS`, and a station's own Exit Gate entry under
+  the same skill (unstamped) is never read as one. The one unstamped entry that also counts is a
+  Break-Glass `WARN` whose warning opens with `{{break_glass_prefix}}`.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.
 

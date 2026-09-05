@@ -3,7 +3,7 @@ import type {
   ChangeRouteFacts,
   SddStation,
 } from '../types/status.js';
-import { STATION_SKILLS } from '../types/status.js';
+import { BREAK_GLASS_PREFIX, STATION_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import type { ValidAgent } from '../types/config.js';
@@ -28,9 +28,22 @@ import type { ValidAgent } from '../types/config.js';
  *   tasks (only when proposal.md declares ui_scope full/partial), review
  *   between implemented and verified (done-ness read from review_provenance).
  * - verify sets `verified` only at grade S/A — B/C/D leaves the status at
- *   `implemented`, so the router points back at verify with the fix reason.
+ *   `implemented`, so the router points back at verify with the fix reason. An
+ *   already-`verified` change re-verified to B/C/D keeps its status (forward-only)
+ *   but is ALSO routed back to verify: the latest grade, not the persisted
+ *   status, says whether archive is next.
+ * - plan / tasks: the station's latest recorded verifier result (the
+ *   `change log --verifier-report` sink) — a FAIL routes back to that station
+ *   until a PASS or a Break-Glass WARN supersedes it.
  * - archive accepts only `verified` and re-confirms Knowledge sync.
+ * - every route carries a stable `code` from `WORKFLOW_REASON_CODES`; `reasons`
+ *   stays prose.
  */
+
+/** A recorded grade that did not (or would not) advance the status. */
+function gradeBelowBar(grade: ChangeRouteFacts['lastVerifyGrade']): boolean {
+  return grade !== null && grade !== 'S' && grade !== 'A';
+}
 
 /** `status` value → the station it marks as completed. */
 const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
@@ -66,7 +79,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     ...(facts.unresolvedWarnings === undefined || facts.unresolvedWarnings.length === 0
       ? {}
       : { unresolvedWarnings: facts.unresolvedWarnings }),
-  } satisfies Omit<ChangeRoute, 'next' | 'blockingGates' | 'reasons'>;
+  } satisfies Omit<ChangeRoute, 'next' | 'code' | 'blockingGates' | 'reasons'>;
 
   // A scale with neither a plan nor a task list has NO forward planning station:
   // its lifecycle entry is the promotion itself, landing at `implemented`. Until
@@ -80,6 +93,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     return {
       ...base,
       next: 'promote',
+      code: 'PROMOTION_INCOMPLETE',
       blockingGates: [
         'promotion scaffold complete — `prospec validate promote-scaffold` PASSes and `status: implemented` is set',
       ],
@@ -98,6 +112,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         return {
           ...base,
           next: 'tasks',
+          code: 'QUICK_SKIPS_PLAN',
           blockingGates: ['tasks.md created (decomposed directly from proposal.md)'],
           reasons: [
             `scale: ${facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the prospec-archive Entry Gate)`,
@@ -107,12 +122,30 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: 'plan',
+        code: 'LIFECYCLE_NEXT',
         blockingGates: ['plan.md + delta-spec.md created'],
         reasons: ['status `story` — next station per lifecycle order'],
       };
     }
 
     case 'plan': {
+      // The plan verifier's recorded FLAWS (result FAIL) outranks every forward
+      // edge, design included: a plan that failed its own audit is revised before
+      // anything is built on it. Superseded only by a later PASS or Break-Glass
+      // WARN — the service applies that reading, the router just trusts the fact.
+      if (facts.lastPlanVerifierResult === 'FAIL') {
+        return {
+          ...base,
+          next: 'plan',
+          code: 'PLAN_VERIFIER_FAILED',
+          blockingGates: [
+            `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
+          ],
+          reasons: [
+            'the latest recorded prospec-plan verifier result is FAIL — revise plan.md/delta-spec.md and re-run the Architecture Verifier; the status stays `plan`',
+          ],
+        };
+      }
       // Design hangs off the `plan` station, so a scale whose contract has no plan
       // is never routed to it — the lifecycle states this for quick, and keying it
       // on the registry rather than the scale name keeps the two from drifting.
@@ -124,6 +157,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         return {
           ...base,
           next: 'design',
+          code: 'DESIGN_REQUIRED',
           blockingGates: ['design-spec.md + interaction-spec.md produced'],
           reasons: [
             `proposal ui_scope: ${facts.uiScope} — design sits between plan and tasks (owns no status transition; placed by workflow order)`,
@@ -137,12 +171,26 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: 'tasks',
+        code: 'LIFECYCLE_NEXT',
         blockingGates: ['tasks.md created'],
         reasons,
       };
     }
 
     case 'tasks': {
+      if (facts.lastTasksVerifierResult === 'FAIL') {
+        return {
+          ...base,
+          next: 'tasks',
+          code: 'TASKS_VERIFIER_FAILED',
+          blockingGates: [
+            `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
+          ],
+          reasons: [
+            'the latest recorded prospec-tasks verifier result is FAIL — revise tasks.md and re-run the Task Verifier; the status stays `tasks`',
+          ],
+        };
+      }
       // Honest gate state, never a vacuous pass: a missing tasks.md or an
       // empty code-task set is surfaced instead of reading as "all done".
       const gate = !facts.hasTasks
@@ -153,6 +201,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: 'implement',
+        code: 'LIFECYCLE_NEXT',
         blockingGates: [gate],
         reasons: ['status `tasks` — next station per lifecycle order'],
       };
@@ -172,17 +221,15 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         return {
           ...base,
           next: 'review',
+          code: 'REVIEW_PENDING',
           blockingGates: [
             'adversarial review completed and its baseline recorded (`prospec check --record-review`)',
           ],
           reasons,
         };
       }
-      if (
-        facts.lastVerifyGrade !== null &&
-        facts.lastVerifyGrade !== 'S' &&
-        facts.lastVerifyGrade !== 'A'
-      ) {
+      const belowBar = gradeBelowBar(facts.lastVerifyGrade);
+      if (belowBar) {
         reasons.push(
           `previous verify grade ${facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run prospec-verify`,
         );
@@ -192,6 +239,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: 'verify',
+        code: belowBar ? 'VERIFY_GRADE_BELOW_BAR' : 'VERIFY_PENDING',
         blockingGates: [
           'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` and refuses a non-backfill verdict when review-provenance FAILs',
         ],
@@ -200,10 +248,27 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     }
 
     case 'verified': {
+      // The persisted status never regresses, but the LATEST grade decides the
+      // route: a re-verify that landed B/C/D means the change is not archivable
+      // until a fresh S/A — say so here, not at the archive refusal.
+      if (gradeBelowBar(facts.lastVerifyGrade)) {
+        return {
+          ...base,
+          next: 'verify',
+          code: 'VERIFY_GRADE_BELOW_BAR',
+          blockingGates: [
+            'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)',
+          ],
+          reasons: [
+            `status stays \`verified\` (forward-only) but the latest prospec-verify grade is ${facts.lastVerifyGrade} — fix the WARN/FAIL items and re-run prospec-verify before archive; \`prospec archive\` would refuse this change`,
+          ],
+        };
+      }
       if (!facts.hasKnowledgeSync) {
         return {
           ...base,
           next: 'knowledge-update',
+          code: 'KNOWLEDGE_UNSYNCED',
           blockingGates: [
             'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
           ],
@@ -215,6 +280,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: 'archive',
+        code: 'LIFECYCLE_NEXT',
         blockingGates: [
           '`prospec archive` refuses unless the change is `verified`',
           'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
@@ -233,6 +299,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       return {
         ...base,
         next: null,
+        code: 'TERMINAL',
         blockingGates: [],
         reasons: ['terminal — linear flow complete; periodic prospec-learn applies'],
       };

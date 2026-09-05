@@ -125,14 +125,15 @@ Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh 
 - **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract subagent lifecycle state or transcript logs and await completion.
 - **Explicit Degradation**: On crash, timeout, or spawn failure, execute in degraded single-context mode and honestly disclose the in-session mode (never claiming fresh-subagent PASS).
 
-**Step 3 — Verdict Handling & Break-Glass Override:**
+**Step 3 — Record the Verdict (machine sink) & Break-Glass Override:**
+Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS"; exactly the four dimensions; `rationale` and each warning single-line, ≤ 500 chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.
 - **PASS**: All 4 dimensions satisfied. Proceed.
-- **WARN**: Advisory concerns identified (e.g. minor sizing note). Record to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --result WARN --warning "<warning detail>"`.
-- **FLAWS**: Missing REQ coverage, inverted dependency ordering, missing test tasks for affected modules, or missing kind markers. Revise `tasks.md` to fix the issue, OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, logged via `prospec change log --skill prospec-tasks --result WARN --warning "Manual override: <rationale>"`.
+- **WARN**: Advisory concerns identified (e.g. minor sizing note) — already recorded by the sink. Proceed.
+- **FLAWS**: Missing REQ coverage, inverted dependency ordering, missing test tasks for affected modules, or missing kind markers. Revise `tasks.md` and re-run the verifier (a later recorded PASS or WARN verdict supersedes the FAIL — the sink stamps each entry with `verifier_verdict`, so your Exit Gate notes under this skill never count as verifier results), OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, logged via `prospec change log --skill prospec-tasks --result WARN --warning "Manual override: <rationale>"`. While the latest recorded verifier result is FAIL, `prospec status` routes the change back to tasks.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Task Verifier audit completed against the 4 orthogonal dimensions (or documented manual override provided)
-> - [ ] Any discovered warnings/overrides recorded in metadata.yaml quality_log
+> - [ ] Task Verifier audit completed against the 4 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override logged)
+> - [ ] Any discovered warnings/overrides visible in metadata.yaml quality_log
 
 ### Phase 7: Knowledge Quality Gate
 

@@ -119,6 +119,7 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
 - WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
+- WHEN the payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `PLAN_VERIFIER_DIMENSIONS` through the render context, the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling (detail belongs in `evidence`), and the receipt is recorded with `prospec change log --skill prospec-plan --verifier-report <file>`
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
 Phase 6 of `/prospec-plan` performs independent architecture verification against plan.md and delta-spec.md using orthogonal criteria decomposition.
@@ -261,9 +262,10 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 - WHEN Phase 6 begins, THEN `prospec-tasks` loads `references/tasks-verifier-rubric.md` on-demand in-phase without placing it in Startup Loading
 - WHEN the environment supports subagents (`can_spawn_subagent: yes`), THEN an independent fresh-context Task Verifier subagent is spawned to audit `tasks.md` against `delta-spec.md` and `plan.md`
 - WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
-- WHEN the verifier discovers defects or layering violations, THEN findings are recorded to `metadata.yaml` `quality_log` (FLAWS block progression unless a Break-Glass Override is provided)
+- WHEN the verifier report passes receipt verification, THEN the station records it via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates the payload against the rubric-owned schema, maps `FLAWS` to `result: FAIL`, and `prospec status` routes the change back to tasks until a PASS or a documented Break-Glass `--result WARN --warning "Manual override: …"` supersedes it
 - WHEN `/prospec-ff` executes Tasks phase verification, THEN it aligns with the same task verification gate and degradation policy
 - WHEN the verifier returns a report path or completion prose, THEN the station MUST verify the readable non-empty file against the rubric-owned report schema before progression, inspect lifecycle/transcript evidence while pending, and NEVER fabricate a report or PASS; terminal failure follows the disclosed degraded path
+- WHEN the rubric's payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `TASKS_VERIFIER_DIMENSIONS`, and the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling
 
 ---
 
@@ -336,9 +338,9 @@ The lib module dynamically detects and resolves test commands across multiple pr
 ---
 
 #### REQ-SERVICES-091: Cascade Orchestration Service and Transition Evaluator
-The services module provides cascading workflow state transition evaluation and Tastemaker delivery generation.
-- WHEN evaluating a transition with all verifiers passing, THEN the next valid lifecycle station for the change's scale is returned
+The services module provides Tastemaker delivery generation for autonomous cascading (`generateTastemakerSummary`, `formatTastemakerPresentation`); station transitions are NOT evaluated here — `prospec status` (`lib/status-router`) is the single transition authority the cascade consults at every Step 5 [NEXT].
 - WHEN a change achieves Verify Grade S/A, THEN a Tastemaker presentation is generated and status transitions to awaiting human sign-off without performing automated git commit or push
+- WHEN `src/` is searched, THEN no `evaluateCascadeTransition` and no `CASCADE_STATIONS` exist; circuit-breaker types remain in `types/cascade.ts` for the review loop
 
 ---
 
@@ -346,6 +348,8 @@ The services module provides cascading workflow state transition evaluation and 
 The template library includes skill references for cascading execution, circuit breakers, and project test runner adapters.
 - WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
 - WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires Architecture Verifier PASS on five orthogonal dimensions (or a documented Break-Glass override), matching the rubric's dimension count
+- WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `design` and `promote` have rows, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
+- WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → review → verify → knowledge-update → Tastemaker sign-off` is present alongside quick/standard/full
 
 ---
 
@@ -354,12 +358,15 @@ Prospec skill templates instruct AI agents to perform autonomous pipeline cascad
 - WHEN cascading mode is triggered, THEN the agent advances sequentially through planning, implementation, review, and verification whenever verifiers pass
 - WHEN Grade S/A is reached in verification, THEN the agent presents the Tastemaker summary and halts for human sign-off before any commit or archive
 - WHEN cascading enters a delegated station or receives its subagent result, THEN it MUST reload and follow that station's receipt/schema contract, MUST stop on a missing or invalid payload, and MUST NEVER use a verbal/mock shortcut or claim a fresh-context PASS without a verified physical report
+- WHEN `prospec-ff` Phase 2 runs the INVEST check, THEN it is advisory — concerns are recorded via `prospec change log --result WARN` and never pause the Story — consistent with `prospec-new-story` and `cascade-protocol`
+- WHEN `prospec-ff` Phase 3 or 4 runs, THEN it enters the `prospec-plan` / `prospec-tasks` station skill, records the verifier report via `prospec change log --skill <station> --verifier-report <file>`, and follows `prospec status`; the rendered skill carries no singular `FLAW` verdict
 
 ---
 
 #### REQ-TESTS-093: Unit, Contract, and E2E Tests for Pipeline Cascading
 The test suite validates pipeline cascading components, oscillation breakers, project test runner resolvers, and skill template contracts.
 - WHEN running unit and contract tests, THEN oscillation detection, project test command resolution, and template contracts pass without regressions
+- WHEN the cascade unit suite runs, THEN it covers `generateTastemakerSummary` / `formatTastemakerPresentation` only, and a contract test asserts the rendered `cascade-protocol` transition table against `SDD_STATIONS`
 
 ---
 

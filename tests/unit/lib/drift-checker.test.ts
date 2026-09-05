@@ -27,7 +27,7 @@ import {
   runChecks,
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
-import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
+import { DRIFT_CHECK_IDS, DRIFT_CHECK_SCOPES } from '../../../src/types/drift-report.js';
 import { parseConstitutionRules } from '../../../src/lib/constitution-parser.js';
 import { exampleRulesFor } from '../../../src/lib/constitution-rules.js';
 import type { TechStackResult } from '../../../src/lib/detector.js';
@@ -84,7 +84,7 @@ const emptyInputs: DriftCheckInputs = {
   mcpReadmeCounts: { available: true, claims: [] },
   reviewProvenance: { available: true, current_digest: 'CUR', working_tree_clean: true, changes: [] },
   deltaSpecProvenance: { available: true, changes: [] },
-  deltaSpecLandingFidelity: { available: true, entries: [] },
+  deltaSpecLandingFidelity: { available: true, changes: [], entries: [] },
   metadataCompleteness: { available: true, changes: [] },
   knowledgeSize: {
     available: true,
@@ -752,6 +752,14 @@ describe('evaluateTaskCompletion', () => {
   it('skips with reason when .prospec/changes is unavailable', () => {
     const r = evaluateTaskCompletion({ available: false, reason: 'source unavailable: .prospec/changes/ not found', changes: [] });
     expect(r.result.status).toBe('skipped');
+  });
+
+  it('enumerates the changes it graded as subjects, anchored under their change directory (REQ-TYPES-027)', () => {
+    const r = evaluateTaskCompletion(tasks([[false, 'code']]));
+    expect(r.result.subjects).toEqual(['c1']);
+    expect(r.findings[0]?.source_path.startsWith('.prospec/changes/c1/')).toBe(true);
+    // no tasks.md anywhere → nobody enumerated, honestly
+    expect(evaluateTaskCompletion({ available: true, changes: [] }).result.subjects).toEqual([]);
   });
 });
 
@@ -1519,6 +1527,57 @@ describe('evaluateMcpReadmeCounts (REQ-LIB-020)', () => {
   });
 });
 
+describe('change-scoped evaluators enumerate their subjects under the change directory (REQ-TYPES-027, REQ-TESTS-113)', () => {
+  it('review-provenance', () => {
+    const r = evaluateReviewProvenance({ available: true, current_digest: 'CUR', working_tree_clean: true, changes: [
+      { name: 'ok', source_path: '.prospec/changes/ok/metadata.yaml', status: 'implemented', scale: 'standard', recorded_digest: 'CUR', version_supported: true, backfill_draft_present: false },
+      { name: 'stale', source_path: '.prospec/changes/stale/metadata.yaml', status: 'implemented', scale: 'standard', recorded_digest: 'OLD', version_supported: true, backfill_draft_present: false },
+    ] });
+    expect(r.result.subjects).toEqual(['ok', 'stale']);
+    expect(r.findings.map((f) => f.source_path)).toEqual(['.prospec/changes/stale/metadata.yaml']);
+  });
+  it('metadata-completeness (unparseable changes included)', () => {
+    const r = evaluateMetadataCompleteness({ available: true, changes: [
+      { name: 'ok', source_path: '.prospec/changes/ok/metadata.yaml', status: 'tasks', missing_fields: [], missing_verify_grade: false },
+      { name: 'broken', source_path: '.prospec/changes/broken/metadata.yaml', status: 'tasks', missing_fields: ['scale'], missing_verify_grade: false },
+    ] });
+    expect(r.result.subjects).toEqual(['ok', 'broken']);
+    expect(r.findings.every((f) => f.source_path.startsWith('.prospec/changes/broken/'))).toBe(true);
+  });
+  it('test-provenance', () => {
+    const base = { source_path: '', status: 'implemented', scale: 'standard', recorded_digest: 'CUR', version_supported: true, attempt_matches: true, recorded_exit_code: 0, recorded_command: 'pnpm test', backfill_draft_present: false };
+    const r = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [
+      { ...base, name: 'ok', source_path: '.prospec/changes/ok/metadata.yaml' },
+      { ...base, name: 'red', source_path: '.prospec/changes/red/metadata.yaml', recorded_exit_code: 1 },
+    ] });
+    expect(r.result.subjects).toEqual(['ok', 'red']);
+    expect(r.findings.map((f) => f.source_path)).toEqual(['.prospec/changes/red/metadata.yaml']);
+  });
+  it('delta-spec-provenance', () => {
+    const base = { status: 'implemented', scale: 'standard', recorded_digest: 'D', current_digest: 'D', delta_spec_present: true, backfill_draft_present: false };
+    const r = evaluateDeltaSpecProvenance({ available: true, changes: [
+      { ...base, name: 'ok', source_path: '.prospec/changes/ok/metadata.yaml' },
+      { ...base, name: 'moved', source_path: '.prospec/changes/moved/metadata.yaml', current_digest: 'E' },
+    ] });
+    expect(r.result.subjects).toEqual(['ok', 'moved']);
+    expect(r.findings.map((f) => f.source_path)).toEqual(['.prospec/changes/moved/metadata.yaml']);
+  });
+  // Driven by the scope registry, not a hand-kept list: a check added to
+  // DRIFT_CHECK_SCOPES as `change` without threading `subjects` through its
+  // evaluator turns red here; a `repository` check that starts emitting them does too.
+  it('every check emits subjects exactly when DRIFT_CHECK_SCOPES says it is change-scoped', () => {
+    const report = runChecks(emptyInputs);
+    for (const id of DRIFT_CHECK_IDS) {
+      const check = report.structural.checks.find((c) => c.id === id)!;
+      if (DRIFT_CHECK_SCOPES[id] === 'change') {
+        expect(check.subjects, `${id} is change-scoped and must enumerate subjects`).toEqual([]);
+      } else {
+        expect(check.subjects, `${id} is repository-scoped and must not enumerate subjects`).toBeUndefined();
+      }
+    }
+  });
+});
+
 describe('evaluateMetadataCompleteness', () => {
   const change = (
     over: Partial<MetadataCompletenessSource['changes'][number]> = {},
@@ -1617,6 +1676,26 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
         ...over,
       },
     ],
+  });
+
+  // Review pin (Q-1): an `unavailable` attempt is a per-change skip, not a
+  // per-repository one. Alone it skips the whole check (unchanged); beside a
+  // failing sibling the check FAILs for the sibling and the unavailable change
+  // is recorded under `subject_skips`, so a per-change gate reads it as skipped.
+  it('records an unavailable attempt as a per-subject skip when a sibling produces findings (REQ-LIB-077)', () => {
+    const unavailable = { name: 'a', source_path: '.prospec/changes/a/metadata.yaml', status: 'implemented', scale: 'standard', attempt_outcome: 'unavailable', recorded_digest: null, recorded_exit_code: null, recorded_command: '', backfill_draft_present: false };
+    const failing = { ...unavailable, name: 'b', source_path: '.prospec/changes/b/metadata.yaml', attempt_outcome: 'failed' };
+    const alone = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'd', working_tree_clean: true, changes: [unavailable] });
+    expect(alone.result.status).toBe('skipped');
+    const withSibling = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'd', working_tree_clean: true, changes: [unavailable, failing] });
+    expect(withSibling.result.status).toBe('fail');
+    expect(withSibling.result.subjects).toEqual(['a', 'b']);
+    expect(withSibling.result.subject_skips?.['a']).toMatch(/^test command unavailable:/);
+    expect(withSibling.result.subject_skips?.['b']).toBeUndefined();
+    // a machine-level unavailable command skips every change that produced no finding
+    const machine = evaluateTestProvenance({ available: true, command_unavailable_reason: 'unset', current_digest: 'd', working_tree_clean: true, changes: [{ ...unavailable, attempt_outcome: undefined }, { ...failing, attempt_outcome: undefined, recorded_exit_code: 1, recorded_digest: 'd' }] });
+    expect(machine.result.status).toBe('fail');
+    expect(machine.result.subject_skips?.['a']).toBe('unset');
   });
 
   it('skips (never PASS) when the source is unavailable', () => {
@@ -2133,13 +2212,20 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     droppedBlockPresent: false,
     ...over,
   });
-  const src = (entries: LandingFidelityEntry[]): DeltaSpecLandingFidelitySource => ({
+  const src = (entries: LandingFidelityEntry[], changes?: string[]): DeltaSpecLandingFidelitySource => ({
     available: true,
+    changes: changes ?? [...new Set(entries.map((e) => e.change))],
     entries,
   });
 
+  it('enumerates every change whose delta-spec was read as a subject, ADDED-only changes included (REQ-TYPES-027)', () => {
+    const r = evaluateDeltaSpecLandingFidelity(src([], ['added-only', 'other']));
+    expect(r.result.status).toBe('pass');
+    expect(r.result.subjects).toEqual(['added-only', 'other']);
+  });
+
   it('skips honestly when the source is unavailable', () => {
-    const r = evaluateDeltaSpecLandingFidelity({ available: false, reason: 'no changes dir', entries: [] });
+    const r = evaluateDeltaSpecLandingFidelity({ available: false, reason: 'no changes dir', changes: [], entries: [] });
     expect(r.result.status).toBe('skipped');
     expect(r.result.reason).toBe('no changes dir');
     expect(r.findings).toHaveLength(0);

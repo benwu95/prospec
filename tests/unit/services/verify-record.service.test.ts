@@ -27,12 +27,20 @@ const META = '/repo/.prospec/changes/add-widget/metadata.yaml';
 
 function report(
   statuses: { tc?: string; kh?: string; tp?: string; rp?: string; cs?: string } = {},
-  extra: { digest?: string | null; skipReason?: string } = {},
+  extra: { digest?: string | null; skipReason?: string; subjects?: string[]; omitSubjects?: boolean; failingChange?: string } = {},
 ): string {
+  // Change-scoped checks enumerate their subjects (the target by default) and
+  // anchor a fail under the target's change dir — the engine's own shape, so the
+  // per-change adjudication reads them the way it reads a real report.
+  const CHANGE_SCOPED = new Set(['task-completion', 'test-provenance', 'review-provenance']);
+  const subjects = extra.subjects ?? ['add-widget'];
   const check = (id: string, status: string) =>
     status === 'skipped'
-      ? { id, status, reason: extra.skipReason ?? 'source unavailable' }
-      : { id, status };
+      ? { id, status, reason: extra.skipReason ?? 'source unavailable', ...(CHANGE_SCOPED.has(id) ? { subjects } : {}) }
+      : { id, status, ...(CHANGE_SCOPED.has(id) && !extra.omitSubjects ? { subjects } : {}) };
+  const findings = ['task-completion', 'test-provenance', 'review-provenance']
+    .filter((id) => ({ 'task-completion': statuses.tc, 'test-provenance': statuses.tp, 'review-provenance': statuses.rp } as Record<string, string | undefined>)[id] === 'fail')
+    .map((id) => ({ check: id, severity: 'fail', source_path: `.prospec/changes/${extra.failingChange ?? 'add-widget'}/metadata.yaml`, detail: `${id} fails` }));
   const checks: Array<{ id: string; status: string; reason?: string }> = [
     check('task-completion', statuses.tc ?? 'pass'),
     check('knowledge-health', statuses.kh ?? 'pass'),
@@ -48,7 +56,7 @@ function report(
     ...(extra.digest !== undefined ? { change_digest: extra.digest } : {}),
     structural: {
       checks,
-      findings: [],
+      findings,
     },
     semantic: { status: 'not-checked' },
     summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
@@ -582,5 +590,28 @@ describe('verify-record Gate D1 — judgment may not undercut its machine counte
     seed(); // constitution-severity absent
     const absent = await execute({ cwd: CWD, judgmentDimensions: judgment({ constitution: 'PASS' }), warnings: [], date: '2026-08-29' });
     expect(absent.grade).toBe('S');
+  });
+});
+
+describe('verify-record — per-change adjudication (REQ-TEMPLATES-131 / issue #266)', () => {
+  it("a sibling change's failing tests and missing review do not grade this change", async () => {
+    seed({ reportJson: report({ tp: 'fail', rp: 'fail' }, { subjects: ['add-widget', 'other'], failingChange: 'other' }) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.grade).toBe('S');
+    expect(result.dimensions.find((d) => d.name === 'tests')?.result).toBe('PASS');
+  });
+
+  it('refuses Gate A as unprovable when the engine never enumerated this change', async () => {
+    seed({ reportJson: report({}, { subjects: ['other'] }) });
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow(/unprovable/);
+    expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
+  });
+
+  it('refuses Gate A on a legacy report without subjects, and grades machine dims not-adjudicated for a proven backfill on such a report', async () => {
+    seed({ reportJson: report({}, { omitSubjects: true }) });
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow(/enumerated no subjects/);
+    seed({ scale: 'backfill', draft: true, reportJson: report({}, { omitSubjects: true }) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.dimensions.find((d) => d.name === 'tests')?.result).toBe('not-adjudicated');
   });
 });

@@ -30,6 +30,12 @@ The cascading workflow dynamically adapts its trajectory based on `metadata.scal
 - **Trajectory**: `story → plan (Tournament) → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
 - **Tournament Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures and executes symmetric pairwise tournament evaluation before cascading into tasks.
 
+### 4. Scale: Backfill (`scale: backfill`)
+- **Trajectory**: `promote → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Entry, not a skip**: `prospec-promote-backfill` formalizes a reviewed `backfill-draft.md` and lands at `implemented`; plan and tasks are forbidden by contract, and `prospec status` never routes a backfill to them.
+
+A UI change (`proposal.md` `ui_scope` full/partial) inserts `design` between `plan` and `tasks` on the standard/full trajectory. Every next station above is what `prospec status` computes — the cascade consults it at each Step 5 [NEXT] and never keeps a route table of its own.
+
 ---
 
 ## Per-Station Execution Loop
@@ -50,14 +56,15 @@ An autonomous transition to the next station occurs **only** when all preconditi
 
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
-| **story** | `plan` (or `tasks` for quick) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed. |
-| **plan** | `tasks` | Architecture Verifier PASS on five orthogonal dimensions (or documented Break-Glass override). |
-| **tasks** | `implement` | Task Contract Verifier PASS (bidirectional coverage, DAG layering, TDD closure). |
+| **story** | `plan` — or `tasks` (`scale: quick`), or `promote` (`scale: backfill`) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed (recorded, never blocking). |
+| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (or a documented Break-Glass override); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN. |
+| **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
+| **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
+| **promote** | `review` | Promotion scaffold complete (`prospec validate promote-scaffold`) and `status: implemented` set — the backfill entry. |
 | **implement** | `review` | 100% of code tasks checked off; `prospec change status implemented` executed. |
 | **review** | `verify` | 0 unresolved critical findings; tests pass; review baseline stamped via `prospec check --record-review`. |
-| **verify** | `knowledge-update` | Quality Grade **S** or **A** achieved (`status: verified`). |
-| **knowledge-update** | `review` if inputs changed, otherwise `awaiting_signoff` | Knowledge/count/generated assets synced; final evidence matches resulting inputs. |
-| **awaiting_signoff** | `archive` | Human sign-off granted and atomic feature commit created. |
+| **verify** | `knowledge-update` — or `archive` when affected-module Knowledge is already synced — or back to `verify` | Quality Grade **S** or **A** achieved (`status: verified`); a B/C/D grade — even after an earlier S/A — is routed back to verify by `prospec status`, never to archive. |
+| **knowledge-update** | `archive` (after Tastemaker sign-off and the human commit) | Knowledge/count/generated assets synced; final evidence matches resulting inputs — when the sync changed inputs, the provenance gates send the change through review and verify again before sign-off. |
 
 ---
 
