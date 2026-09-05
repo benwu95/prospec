@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/archive.service.js';
-import { computeChangeDigest } from '../../../src/lib/drift-sources.js';
+
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
 
-// Partial mock: archive uses several drift-sources exports; only the freshness
-// fingerprint is stubbed so a test can drive the stale-report branch. Default
-// null = honest skip (no git worktree), matching the other archive tests.
-vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/lib/drift-sources.js')>();
-  return { ...actual, computeChangeDigest: vi.fn((): string | null => null) };
-});
+const live = vi.hoisted(() => ({ report: {} as unknown, recheck: true, unavailable: false, mutateConfig: false }));
+vi.mock('../../../src/lib/drift-assessment.js', () => ({
+  assessCurrentDrift: vi.fn(async () => {
+    if (live.mutateConfig) vol.writeFileSync('/repo/.prospec.yaml', 'version: "1.0"\nproject:\n  name: changed\n');
+    if (live.unavailable) throw new Error('cannot collect current inputs');
+    return { report: live.report, snapshot: { digest: 'current', clean: true }, recheck: () => live.recheck };
+  }),
+}));
 
 const CWD = '/repo';
 const CHANGE = 'add-widget';
@@ -22,14 +23,14 @@ const META = `/repo/.prospec/changes/${CHANGE}/metadata.yaml`;
 
 beforeEach(() => {
   vol.reset();
-  vi.mocked(computeChangeDigest).mockReturnValue(null);
+  live.recheck = true; live.unavailable = false; live.mutateConfig = false;
 });
 
 function report(
   checks: Record<string, 'pass' | 'warn' | 'fail' | 'skipped'> = {},
   digest?: string,
 ): string {
-  const list = Object.entries(checks).map(([id, status]) =>
+  const list = Object.entries({ 'task-completion': 'pass', 'metadata-completeness': 'pass', 'review-provenance': 'pass', 'test-provenance': 'pass', 'delta-spec-provenance': 'pass', ...checks }).map(([id, status]) =>
     status === 'skipped' ? { id, status, reason: 'x' } : { id, status },
   );
   return JSON.stringify({
@@ -59,6 +60,7 @@ function seed(opts: {
   if (opts.reportJson !== null) files['/repo/prospec-report.json'] = opts.reportJson ?? report();
   if (opts.moduleMap !== undefined) files['/repo/prospec/ai-knowledge/module-map.yaml'] = opts.moduleMap;
   vol.fromJSON(files);
+  live.report = JSON.parse(opts.reportJson ?? report());
 }
 
 const run = () => execute({ cwd: CWD, names: [CHANGE], dryRun: true });
@@ -99,25 +101,26 @@ describe('archive Entry Gate (mechanized)', () => {
     expect(result.refused[0]!.reason).toContain('Knowledge');
   });
 
-  it('refuses when the report is stale (digest mismatch)', async () => {
-    vi.mocked(computeChangeDigest).mockReturnValue('CURRENT');
+  it('refuses when inputs change after the current assessment', async () => {
+    live.recheck = false;
     seed({ reportJson: report({}, 'OLD') });
     const result = await run();
     expect(result.refused).toHaveLength(1);
-    expect(result.refused[0]!.reason).toContain('stale');
+    expect(result.refused[0]!.reason).toContain('inputs changed');
   });
 
-  it('refuses when the report is missing', async () => {
+  it('refuses when current inputs cannot be collected', async () => {
     seed({ reportJson: null });
+    live.unavailable = true;
     const result = await run();
     expect(result.refused).toHaveLength(1);
-    expect(result.refused[0]!.reason).toContain('no prospec-report.json');
+    expect(result.refused[0]!.reason).toContain('current assessment unavailable');
   });
 
   it('--allow-incomplete exempts completeness only', async () => {
     // completeness fails, but --allow-incomplete lets it through
     vol.reset();
-    vi.mocked(computeChangeDigest).mockReturnValue(null);
+    live.recheck = true; live.unavailable = false; live.mutateConfig = false;
     seed({ reportJson: report({ 'metadata-completeness': 'fail' }) });
     const allowed = await execute({ cwd: CWD, names: [CHANGE], dryRun: true, allowIncomplete: true });
     expect(allowed.refused).toEqual([]);
@@ -125,10 +128,17 @@ describe('archive Entry Gate (mechanized)', () => {
 
     // provenance still blocks even with the flag
     vol.reset();
-    vi.mocked(computeChangeDigest).mockReturnValue(null);
+    live.recheck = true; live.unavailable = false; live.mutateConfig = false;
     seed({ reportJson: report({ 'metadata-completeness': 'fail', 'review-provenance': 'fail' }) });
     const blocked = await execute({ cwd: CWD, names: [CHANGE], dryRun: true, allowIncomplete: true });
     expect(blocked.refused).toHaveLength(1);
     expect(blocked.refused[0]!.reason).toContain('review-provenance');
   });
+});
+
+it('refuses a config mutation between initial resolution and the current assessment', async () => {
+  seed();
+  live.mutateConfig = true;
+  const result = await execute({ cwd: CWD, names: [CHANGE], dryRun: true });
+  expect(result.refused).toEqual([expect.objectContaining({ reason: expect.stringContaining('configuration changed') })]);
 });

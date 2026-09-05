@@ -7,7 +7,6 @@ import {
   type VerifyGrade,
   type GateResult,
 } from '../types/change.js';
-import { DriftReportSchema } from '../types/drift-report.js';
 import {
   JUDGMENT_DIMENSION_NAMES,
   MACHINE_DIMENSION_NAMES,
@@ -28,7 +27,7 @@ import {
   EVIDENCE_MARKER_PREFIX,
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
-import { computeChangeDigest } from '../lib/drift-sources.js';
+import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import {
   computeGrade,
   resultForGrade,
@@ -258,6 +257,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // repo-wide check, never a FAIL borrowed from a sibling change), and 3/5 +
   // 5/5 are recorded but excluded from the grade inputs.
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
+  const metadataInput = fs.readFileSync(metadataPath, 'utf8');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
   let excludedFromGrade: string[] = [];
   let notApplicableMachine: string[] = [];
@@ -275,36 +275,15 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     }
   }
 
-  // Machine ledger — read from the report file, never from the caller.
-  const reportPath = path.join(cwd, 'prospec-report.json');
-  if (!fs.existsSync(reportPath)) {
-    throw new PrerequisiteError(
-      'prospec-report.json not found — machine dimensions cannot be adjudicated',
-      'Run `prospec check --record-tests`, then `prospec check --json`, before recording the verify verdict',
-    );
-  }
-  const report = DriftReportSchema.parse(
-    JSON.parse(fs.readFileSync(reportPath, 'utf-8')),
-  );
-
-  // Freshness guard: a report generated before the current code state (e.g.
-  // review fix-loop edits landed after `prospec check --json`) must never feed
-  // the machine ledger. When the current digest is not computable (not a git
-  // repo) freshness is unadjudicable and the guard skips honestly — the same
-  // policy the provenance checks apply.
-  const currentDigest = computeChangeDigest(cwd);
-  if (currentDigest !== null && report.change_digest !== currentDigest) {
-    throw new PrerequisiteError(
-      'prospec-report.json does not match the current code state — the code changed after the report was generated (or the report carries no change digest)',
-      'Re-run `prospec check --record-tests` then `prospec check --json` so the machine dimensions grade the current code, and record the verify verdict again',
-    );
-  }
+  // Adjudicate current facts; a saved report is only an informational artifact.
+  const assessment = await assessCurrentDrift(cwd);
+  const { report } = assessment;
 
   // Gate A — the review-provenance Entry Gate, enforced here so the verify skill
   // no longer checks it by hand: a non-backfill change whose report review-provenance
   // FAILs (review absent or stale) is refused before any write. A proven backfill's
   // check is `skipped`, so this never fires for it; a `pass` or absent check records.
-  if (report.structural.checks.find((c) => c.id === 'review-provenance')?.status === 'fail') {
+  if (report.structural.checks.find((c) => c.id === 'review-provenance')?.status !== 'pass' && notApplicableMachine.length === 0) {
     throw new PrerequisiteError(
       'review-provenance FAILs — this change has no current review baseline',
       'Run `prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
@@ -439,6 +418,9 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // the authoritative write left a dated, graded evidence section for a run that
   // has no `quality_log` entry at all; this order can only ever leave a recorded
   // run whose evidence is missing, which reads as what it is.
+  if (!assessment.recheck() || fs.readFileSync(metadataPath, 'utf8') !== metadataInput) {
+    throw new PrerequisiteError('verification inputs changed or are unprovable — nothing was written', 'Re-run verify against stable current inputs');
+  }
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
 
   // The judgment evidence goes to `verify.md`, never to `metadata.yaml`: the

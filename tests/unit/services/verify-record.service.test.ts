@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/verify-record.service.js';
-import { computeChangeDigest } from '../../../src/lib/drift-sources.js';
+import { assessCurrentDrift } from '../../../src/lib/drift-assessment.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { QualityDimension } from '../../../src/types/change.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
@@ -12,15 +12,14 @@ vi.mock('node:fs', async () => {
   return { ...memfs.fs, default: memfs.fs };
 });
 
-// The freshness guard's git-backed fingerprint; null (default) = honest skip,
-// matching a non-git environment.
-vi.mock('../../../src/lib/drift-sources.js', () => ({
-  computeChangeDigest: vi.fn((): string | null => null),
+const live = vi.hoisted(() => ({ recheck: true, report: {} as unknown }));
+vi.mock('../../../src/lib/drift-assessment.js', () => ({
+  assessCurrentDrift: vi.fn(async () => ({ report: live.report, snapshot: { digest: 'current', clean: true }, recheck: () => live.recheck })),
 }));
 
 beforeEach(() => {
   vol.reset();
-  vi.mocked(computeChangeDigest).mockReturnValue(null);
+  live.recheck = true;
 });
 
 const CWD = '/repo';
@@ -41,7 +40,7 @@ function report(
   ];
   // review-provenance / constitution-severity are added ONLY when a test asks for
   // them, so the shared fixtures do not trip Gate A / Gate D1 by default.
-  if (statuses.rp !== undefined) checks.push(check('review-provenance', statuses.rp));
+  checks.push(check('review-provenance', statuses.rp ?? 'pass'));
   if (statuses.cs !== undefined) checks.push(check('constitution-severity', statuses.cs));
   return JSON.stringify({
     version: 1,
@@ -75,6 +74,7 @@ ${opts.scale ? `scale: ${opts.scale}\n` : ''}`,
   };
   if (opts.draft) files['/repo/.prospec/changes/add-widget/backfill-draft.md'] = '**Feature:** x\n**Story:** US-1\n';
   vol.fromJSON(files);
+  live.report = JSON.parse(opts.reportJson ?? report());
 }
 
 describe('verify-record service', () => {
@@ -108,12 +108,12 @@ describe('verify-record service', () => {
     expect(result.warnings.join(' ')).toContain('knowledge: not-adjudicated');
   });
 
-  it('refuses to run without the report, pointing at prospec check', async () => {
+  it('adjudicates without a saved report', async () => {
     seed();
     vol.unlinkSync('/repo/prospec-report.json');
     await expect(
       execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }),
-    ).rejects.toThrow(/prospec-report\.json not found/);
+    ).resolves.toMatchObject({ grade: 'S' });
   });
 
   it('refuses a judgment set that is missing a dimension or relays a machine one', async () => {
@@ -262,35 +262,22 @@ describe('verify-record service', () => {
 });
 
 describe('report freshness guard', () => {
-  it('refuses a report whose digest predates the current code state — nothing written', async () => {
-    seed({ reportJson: report({}, { digest: 'digest-at-report-time' }) });
-    vi.mocked(computeChangeDigest).mockReturnValue('digest-after-later-edits');
-    const before = vol.readFileSync(META, 'utf-8') as string;
-    let caught: unknown;
-    try {
-      await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(PrerequisiteError);
-    expect((caught as PrerequisiteError).suggestion).toContain('prospec check --json');
-    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+  it('refuses a changed observation receipt before any write', async () => {
+    seed(); live.recheck = false;
+    const before = vol.readFileSync(META, 'utf8');
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow(/inputs changed or are unprovable/);
+    expect(vol.readFileSync(META, 'utf8')).toBe(before);
   });
-
-  it('refuses a report carrying no digest while the tree is fingerprintable', async () => {
-    seed();
-    vi.mocked(computeChangeDigest).mockReturnValue('current-digest');
-    await expect(
-      execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }),
-    ).rejects.toThrow(/does not match the current code state/);
-  });
-
-  it('still grades from a fresh report whose digest matches', async () => {
-    seed({ reportJson: report({}, { digest: 'same-digest' }) });
-    vi.mocked(computeChangeDigest).mockReturnValue('same-digest');
+  it('ignores stale saved reports and uses the current assessment', async () => {
+    seed({ reportJson: report({}, { digest: 'old' }) });
+    live.report = JSON.parse(report({ tp: 'fail' }));
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
-    expect(result.grade).toBe('S');
-    expect(vol.readFileSync(META, 'utf-8')).toContain('status: verified');
+    expect(result.grade).toBe('C');
+    expect(assessCurrentDrift).toHaveBeenCalledWith(CWD);
+  });
+  it('grades from current facts independently of the saved digest', async () => {
+    seed({ reportJson: report({}, { digest: 'old' }) });
+    expect((await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).grade).toBe('S');
   });
   describe('--dimensions carries the verdicts and their evidence', () => {
     const VERIFY = '/repo/.prospec/changes/add-widget/verify.md';
@@ -309,7 +296,7 @@ describe('report freshness guard', () => {
       const viaFlags = vol.readFileSync(META, 'utf-8') as string;
 
       vol.reset();
-      vi.mocked(computeChangeDigest).mockReturnValue(null);
+      live.recheck = true;
       seed();
       vol.writeFileSync(DIMS, JSON.stringify(verdicts()));
       await execute({ cwd: CWD, judgmentDimensions: [], dimensionsPath: DIMS, warnings: [], date: '2026-08-10' });
@@ -508,7 +495,7 @@ describe('verify-record Gate A — review-provenance', () => {
   });
 
   it('records normally when review-provenance is skipped (proven backfill / no review)', async () => {
-    seed({ reportJson: report({ rp: 'skipped' }) });
+    seed({ scale: 'backfill', draft: true, reportJson: report({ rp: 'skipped' }) });
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-29' });
     expect(result.grade).toBe('S');
   });
@@ -519,10 +506,12 @@ describe('verify-record Gate A — review-provenance', () => {
     expect(result.grade).toBe('S');
   });
 
-  it('records normally when review-provenance is absent (older engine)', async () => {
-    seed(); // default report has no review-provenance check
-    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-08-29' });
-    expect(result.grade).toBe('S');
+  it('refuses when required current review facts are absent', async () => {
+    seed();
+    const source = JSON.parse(report());
+    source.structural.checks = source.structural.checks.filter((c: { id: string }) => c.id !== 'review-provenance');
+    live.report = source;
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow(/review-provenance/);
   });
 });
 

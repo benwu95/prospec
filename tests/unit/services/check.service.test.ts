@@ -393,6 +393,15 @@ describe('check.service review-provenance', () => {
     expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
   });
 
+  it('writes recognized review scope and keeps it current across commit', async () => {
+    initGitChange();
+    await execute({ cwd: tmpDir, recordReview: true });
+    const meta = parseYaml<{ review_provenance: Record<string, unknown> }>(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf8'));
+    expect(meta.review_provenance).toMatchObject({ fingerprint_version: 'snapshot-v2', scope: 'repository-inputs-v2' });
+    git('add', '.'); git('commit', '-qm', 'equivalent inputs');
+    expect(provenance(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
   it('records review_provenance.graded_by when --graded-by is supplied', async () => {
     initGitChange();
     await execute({ cwd: tmpDir, recordReview: true, gradedBy: 'in-session' });
@@ -638,6 +647,37 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     expect(finding?.detail).toContain('failing test run');
   });
 
+  it('rejects assert-old-then-mutate exit zero and does not restore older PASS', async () => {
+    initGitChange(); setTestCommand(0); await execute({ cwd: tmpDir, recordTests: true });
+    write('mutate.cjs', "const fs=require('fs'); require('assert').match(fs.readFileSync('src/lib/x.ts','utf8'), /a = 1/); fs.writeFileSync('src/lib/x.ts','export const a = 2;');");
+    setTestCommandArgv(`${NODE} mutate.cjs`);
+    const result = await execute({ cwd: tmpDir, recordTests: true });
+    expect(result).toMatchObject({ recorded: false, treeChangedDuringRun: true });
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('fail');
+    const meta = parseYaml<{ test_attempt: { outcome: string } }>(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf8'));
+    expect(meta.test_attempt.outcome).toBe('unprovable');
+  });
+
+  it('persists running before spawning and refuses an obsolete attempt completion', async () => {
+    initGitChange();
+    write('attempt.cjs', "const fs=require('fs');const p='.prospec/changes/c1/metadata.yaml';const raw=fs.readFileSync(p,'utf8');require('assert').match(raw,/outcome: running/);fs.writeFileSync(p,raw.replace(/id: [^\\n]+/,'id: newer-attempt'));");
+    setTestCommandArgv(`${NODE} attempt.cjs`);
+    const result = await execute({ cwd: tmpDir, recordTests: true });
+    expect(result).toMatchObject({ recorded: false, reason: expect.stringContaining('superseded') });
+    expect(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf8')).toContain('id: newer-attempt');
+  });
+
+  it('keeps a nonzero failure through a later unavailable attempt until certified success', async () => {
+    initGitChange(); setTestCommand(0); await execute({ cwd: tmpDir, recordTests: true });
+    setTestCommand(1); await execute({ cwd: tmpDir, recordTests: true });
+    setTestCommandArgv('missing-prospec-test-executable'); await execute({ cwd: tmpDir, recordTests: true });
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('fail');
+    const meta = parseYaml<{ test_provenance: { exit_code: number } }>(readFileSync(path.join(tmpDir, '.prospec/changes/c1/metadata.yaml'), 'utf8'));
+    expect(meta.test_provenance.exit_code).toBe(1);
+    setTestCommand(0); await execute({ cwd: tmpDir, recordTests: true });
+    expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
+  });
+
   it('goes stale when code changes after the recorded run', async () => {
     initGitChange();
     setTestCommand(0);
@@ -688,10 +728,11 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     expect(findings.filter((f) => f.check === 'test-provenance')).toHaveLength(0);
   });
 
-  it('converges in one run when the suite writes an untracked artifact', async () => {
+  it('converges in one run when the suite writes an ignored output', async () => {
     initGitChange();
     // A suite emitting junit.xml / coverage output changes the tree it just ran
     // against; recording the pre-run digest would report "stale" forever.
+    write('.gitignore', 'junit.xml\n');
     write('emit.cjs', "require('fs').writeFileSync('junit.xml', String(Date.now()));\n");
     setTestCommandArgv(`${NODE} emit.cjs`);
     const rec = await execute({ cwd: tmpDir, recordTests: true });
@@ -735,17 +776,19 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
 
   // A null digest inside a real repo is a capture failure, not "not a git
   // repository" — the wrong reason sends the developer to the wrong fix (#103).
-  it('names a digest failure honestly when the directory IS a git repository', async () => {
+  it.skipIf(process.platform === 'win32')('names an unreadable input honestly inside a Git repository', async () => {
     git('init', '-q'); // unborn HEAD: work tree yes, `git diff HEAD` fails
     write(
       '.prospec/changes/c1/metadata.yaml',
       'name: c1\ncreated_at: 2026-07-13T09:51:00.000Z\nstatus: implemented\nscale: standard\n',
     );
     setTestCommand(0);
+    write('blocked.txt', 'input');
+    chmodSync(path.join(tmpDir, 'blocked.txt'), 0);
     const rec = await execute({ cwd: tmpDir, recordTests: true });
     if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
     expect(rec.recorded).toBe(false);
-    expect(rec.reason).toContain('could not compute the change digest');
+    expect(rec.reason).toContain('EACCES');
     expect(rec.reason).not.toContain('not a git repository');
   });
 
@@ -1088,4 +1131,10 @@ describe('check.service artifact-language honesty (REQ-LIB-037)', () => {
       chmodSync(locked, 0o755);
     }
   });
+});
+
+it('projects the shared versioned assessment through ordinary check', async () => {
+  const result = await execute({ cwd: tmpDir });
+  expect(result.kind).toBe('report');
+  if (result.kind === 'report') expect(result.report.snapshot).toMatchObject({ fingerprint_version: 'snapshot-v2', scope: 'repository-inputs-v2' });
 });

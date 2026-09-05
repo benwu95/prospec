@@ -4125,9 +4125,8 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       // The two reasons a status sits outside the audit scope are different facts;
       // collapsing `archived` into "exempt" is how the gap stayed unacknowledged.
       'unreachable rather than exempt',
-      // Without this the honest-red window reads as a bug and gets "fixed" by
-      // loosening the gate rather than by re-recording after the commit (PB-016).
-      'the verify S/A feature commit itself stales both baselines',
+      // Equivalent history must preserve the final-content evidence contract.
+      'amend preserves evidence',
     ]) {
       expect(tmpl).toContain(marker);
       expect(copy).toContain(marker);
@@ -5684,12 +5683,11 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
       // Its remedy points at the block, not at the code — naming a re-review here
       // would send the reader to fix something that is already correct.
       'Fix the block, not the code',
-      // The two findings demand DIFFERENT fixes; naming only re-review sends the
-      // reader down the wrong path when the cause was the commit moving HEAD.
+      // Current evidence remedies run actual review/tests; equivalent history is stable.
       'prospec-review',
       '--record-review',
       '--record-tests',
-      '`skipped` is not a FAIL',
+      'Missing or unprovable required checks refuse entry',
       // The remediation routes into a re-verify, and a re-verify that grades B/C/D
       // leaves an already-`verified` change at `verified` while `quality_log` keeps
       // the earlier S/A entry — so the bullet must say the status is not the pass.
@@ -5993,7 +5991,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       // only the judgment dimensions are passed; none may be omitted
       expect(section).toContain('--dimension <name>=<result>');
       expect(section).toContain('`=not-applicable`, never omitted');
-      // machine dimensions come from the report — an LLM relay is refused
+      // machine dimensions come from a live assessment — an LLM relay is refused
       expect(section).toContain('self-sources the machine dimensions');
       expect(section).toContain('refuses an LLM relay of an engine verdict');
     });
@@ -6017,7 +6015,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     it('documents test_provenance in the metadata-format reference, in canonical order', () => {
       const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
       const order = sectionOf(ref, '## Canonical field order');
-      expect(order).toContain('`review_provenance` → `test_provenance` → `introduced_by`');
+      expect(order).toContain('`review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by`');
       expect(order).toContain('--record-tests');
       const prov = sectionOf(ref, '### `test_provenance` — the recorded test run');
       expect(prov).toContain('exit_code');
@@ -8136,5 +8134,50 @@ describe('native trust zone renders (REQ-SKILL-012 / REQ-TEMPLATES-151)', () => 
     expect(entry).toMatch(/always remains in English/);
     const graduation = renderTemplate('skills/references/spec-graduation.hbs', TEMPLATE_CONTEXT);
     expect(graduation).toContain("Write in English (the Feature Specs' language)");
+  });
+});
+
+describe('verified input evidence guidance', () => {
+  const source = (p: string) => fs.readFileSync(path.resolve('src/templates', p), 'utf8');
+  it('separates unavailable, uncertified and unprovable remedies in Error Handling (V-265-2)', () => {
+    const errors = sectionOf(source('skills/prospec-verify.hbs'), '## Error Handling');
+    expect(errors.trim()).not.toBe('');
+    const rows = errors.split('\n').filter(line => line.startsWith('| `--record-tests`'));
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatch(/unavailable.*not-adjudicated/);
+    expect(rows[0]).toContain('known non-zero failure still FAILs');
+    expect(rows[0]).not.toMatch(/timeout|not a git repo/);
+    expect(rows[1]).toMatch(/running.*timeout.*unprovable.*FAIL/);
+    expect(rows[1]).not.toContain('not-adjudicated');
+    expect(rows[2]).toMatch(/required inputs.*unprovable.*refuse/);
+    expect(rows[2]).not.toContain('not-adjudicated');
+    expect(errors).not.toContain('no test command / not a git repo / timeout');
+  });
+  it('keeps review, verify, archive and ff on content snapshots without commit rebaseline', () => {
+    for (const name of ['review', 'verify', 'archive', 'ff']) {
+      const text = source(`skills/prospec-${name}.hbs`);
+      expect(text, name).toContain('snapshot-v2');
+      expect(text, name).toContain('repository-inputs-v2');
+      expect(text, name).not.toMatch(/re-record[^\n]*after committing/i);
+    }
+    expect(source('skills/prospec-verify.hbs')).toContain('live assessment');
+    expect(source('skills/prospec-archive.hbs')).toContain('before the first write');
+  });
+  it('defines attempts, one-time legacy migration and sync before final evidence', () => {
+    const metadata = source('skills/references/metadata-format.hbs');
+    for (const field of ['fingerprint_version', 'scope', 'attempt_id', 'test_attempt', 'before_digest', 'after_digest', 'unprovable']) expect(metadata).toContain(field);
+    const cascade = source('skills/references/cascade-protocol.hbs');
+    expect(cascade).toContain('sync → final review → tests → verify → equivalent commit');
+    expect(source('skills/references/project-test-runner.hbs')).toContain('before/after');
+    expect(source('init/status-lifecycle.md.hbs')).not.toContain('HEAD is in the digest');
+    expect(source('skills/references/drift-report-format.hbs')).toContain('display artifact');
+  });
+  it('documents scope, migration and bounded guarantees in both public READMEs', () => {
+    for (const file of ['README.md', 'README.zh-TW.md']) {
+      const text = fs.readFileSync(path.resolve(file), 'utf8');
+      expect(text).toContain('snapshot-v2');
+      expect(text).toContain('repository-inputs-v2');
+      expect(text).toContain('change-and-restore');
+    }
   });
 });

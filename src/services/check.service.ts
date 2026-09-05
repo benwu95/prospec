@@ -1,53 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
-import type { DimensionGradedBy } from '../types/change.js';
+import { FINGERPRINT_VERSION, EVIDENCE_SCOPE, type TestAttempt, type DimensionGradedBy } from '../types/change.js';
+import { randomUUID } from 'node:crypto';
 import {
   readConfig,
-  resolveBasePaths,
-  resolveKnowledgeTokenBudget,
   resolveTestCommand,
 } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
-import { loadModuleMap } from '../lib/knowledge-reader.js';
 import { renderTemplate } from '../lib/template.js';
-import { resolveLanguageScope } from '../lib/language-policy.js';
-import { languagePolicyRule } from '../lib/constitution-rules.js';
-import type { ProspecConfig } from '../types/config.js';
-import {
-  buildDependencyRules,
-  constitutionFallbackModuleMap,
-  constitutionFallbackRules,
-  runChecks,
-} from '../lib/drift-checker.js';
-import {
-  collectArtifactLanguage,
-  collectLanguagePolicyDrift,
-  collectConstitutionRules,
-  collectFeatureMapGovernance,
-  collectGitTimestamps,
-  collectImportEdges,
-  collectKnowledgeSize,
-  collectMarkdownLinks,
-  collectMcpReadmeCounts,
-  collectMetadataCompleteness,
-  collectQualityLedger,
-  collectReqDefinitions,
-  collectReqIdUniqueness,
-  collectSpecCounters,
-  collectReqReferences,
-  collectReviewProvenance,
-  collectDeltaSpecProvenance,
-  collectDeltaSpecLandingFidelity,
-  computeDeltaSpecDigest,
-  collectTaskStates,
-  collectTestProvenance,
-  computeChangeDigest,
-  computeChangeState,
-  collectBudgetOverrides,
-  collectCanonicalDocDrift,
-  isGitWorkTree,
-} from '../lib/drift-sources.js';
+import { computeChangeDigest, computeChangeState, computeDeltaSpecDigest, collectQualityLedger, isGitWorkTree } from '../lib/drift-sources.js';
+import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
 import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
@@ -187,127 +150,14 @@ export async function execute(
   }
 
   if (options.recordTests) {
-    return recordTestProvenance(cwd, config, options.change);
+    return recordTestProvenance(cwd, options.change);
   }
 
   if (options.escapedDefects) {
     return aggregateEscapedDefectReport(cwd, options.json);
   }
 
-  const paths = resolveBasePaths(config, cwd);
-  const featuresDir = path.join(paths.specsPath, 'features');
-  const markdownRoots = [paths.specsPath, paths.knowledgePath, paths.baseDir];
-
-  // The one work-tree probe for the whole run, shared across every git-backed
-  // collector so none re-probes (also disambiguates the digest's null cause below).
-  const inWorkTree = isGitWorkTree(cwd);
-  // One digest AND clean signal per run from a single capture, shared by both
-  // provenance collectors: the digest is the most expensive fact the engine gathers,
-  // the two can never disagree within a run, and clean must be judged over the
-  // digest's exact scope. computeChangeState computes both from one `git diff HEAD`.
-  const { digest: currentDigest, clean: workingTreeClean } = computeChangeState(cwd);
-
-  const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
-  const attributionMap = moduleMap ?? constitutionFallbackModuleMap();
-  const dependencyRules = moduleMap
-    ? buildDependencyRules(moduleMap)
-    : constitutionFallbackRules();
-
-  // module-map-keyed sources (health, declared-count veracity) share one honest
-  // degrade when the map is absent — the constitution fallback is a direction
-  // ruleset, not a knowledge claim, so facts for undeclared boundaries would be fabricated.
-  const moduleMapMissing = <T extends object>(extra: T) =>
-    ({
-      available: false as const,
-      reason: 'source unavailable: module-map.yaml not found — module boundaries unknown',
-      ...extra,
-    });
-
-  // Loaded here (not statically by drift-sources) so read paths that never run
-  // the canonical-doc collector — `status`, `verify record` — stay clear of the
-  // Handlebars template chain.
-  const initDocs = await import('../lib/init-docs.js');
-  const languageScope = resolveLanguageScope(config, cwd);
-  const report = runChecks({
-    reqDefinitions: collectReqDefinitions(featuresDir),
-    reqIdUniqueness: collectReqIdUniqueness(featuresDir, cwd),
-    reqReferences: collectReqReferences(markdownRoots, cwd),
-    links: collectMarkdownLinks(markdownRoots, cwd),
-    importEdges: collectImportEdges(cwd, attributionMap),
-    dependencyRules,
-    timestamps: moduleMap
-      ? collectGitTimestamps(
-          cwd,
-          moduleMap,
-          paths.knowledgePath,
-          config.knowledge?.generated_artifacts ?? [],
-          inWorkTree,
-        )
-      : moduleMapMissing({ modules: [] }),
-    tasks: collectTaskStates(cwd),
-    // feature-map.yaml is the optional index; the collector reports it
-    // unavailable when absent, so both governance checks skip (never a fabricated finding).
-    featureMapGovernance: collectFeatureMapGovernance(
-      featuresDir,
-      paths.knowledgePath,
-      cwd,
-      attributionMap,
-    ),
-    mcpReadmeCounts: moduleMap
-      ? collectMcpReadmeCounts(cwd, paths.knowledgePath, moduleMap)
-      : moduleMapMissing({ claims: [] }),
-    reviewProvenance: collectReviewProvenance(cwd, currentDigest, workingTreeClean, inWorkTree),
-    // No shared digest to pass: this one fingerprints each change's own
-    // delta-spec, so the collector computes them per change.
-    deltaSpecProvenance: collectDeltaSpecProvenance(cwd),
-    // Not audit-scoped: reads every in-progress change's delta-spec so an undeclared
-    // landing-block drop surfaces before archive, sharing archive's comparison logic.
-    deltaSpecLandingFidelity: collectDeltaSpecLandingFidelity(featuresDir, cwd),
-    metadataCompleteness: collectMetadataCompleteness(cwd),
-    budgetOverrides: collectBudgetOverrides(cwd),
-    knowledgeSize: collectKnowledgeSize(
-      cwd,
-      paths.baseDir,
-      paths.knowledgePath,
-      resolveKnowledgeTokenBudget(config),
-      // The same list the index writers split on — a file the project promoted to
-      // a core convention must be graded as L1, not as load-on-demand knowledge.
-      config.knowledge?.additional_core_conventions ?? [],
-    ),
-    // The resolved command decides whether this check can apply at all — a project
-    // with none skips honestly instead of failing a gate it can never satisfy.
-    testProvenance: collectTestProvenance(
-      cwd,
-      resolveTestCommand(config, cwd),
-      currentDigest,
-      undefined,
-      workingTreeClean,
-      inWorkTree,
-    ),
-    // The Constitution path comes from the canonical resolver, never re-derived here.
-    constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
-    // Scan set comes from the SAME resolver the Constitution rule is generated
-    // from, and is a deliberate subset of it — it enforces less than the rule
-    // states but can never contradict it.
-    artifactLanguage: collectArtifactLanguage(cwd, languageScope),
-    // Same scope again, compared against the very rule init would seed today —
-    // the Constitution half of the entry config's "generated from this same path
-    // set" (the entry config itself is regenerated by every agent sync, not read here).
-    languagePolicyDrift: collectLanguagePolicyDrift(
-      paths.constitutionPath,
-      cwd,
-      languageScope,
-      languagePolicyRule(languageScope).description,
-    ),
-    // Same resolved features directory the REQ-definition and feature-map
-    // collectors read — the counters are a fact about those very files.
-    specCounters: collectSpecCounters(featuresDir, cwd),
-    canonicalDocDrift: collectCanonicalDocDrift(config, cwd, initDocs),
-    generatedAt: new Date().toISOString(),
-  });
-  // Stamp the code state the verdicts describe — `verify record` refuses a
-  // report whose digest no longer matches the tree (freshness guard).
-  report.change_digest = currentDigest;
+  const { report } = await assessCurrentDrift(cwd);
 
   const result: CheckResult = {
     kind: 'report',
@@ -386,7 +236,7 @@ async function recordReviewProvenance(
   const date = new Date().toISOString().slice(0, 10);
   doc.set(
     'review_provenance',
-    doc.createNode({ digest, date, ...(gradedBy !== undefined ? { graded_by: gradedBy } : {}) }),
+    doc.createNode({ digest, date, fingerprint_version: FINGERPRINT_VERSION, scope: EVIDENCE_SCOPE, ...(gradedBy !== undefined ? { graded_by: gradedBy } : {}) }),
   );
   // The delta-spec baseline is stamped in the SAME write (REQ-SERVICES-082). Two
   // separate writes could record two different moments, and the whole point of
@@ -396,6 +246,11 @@ async function recordReviewProvenance(
   const deltaSpecDigest = computeDeltaSpecDigest(path.dirname(metadataPath));
   if (deltaSpecDigest !== null) {
     doc.set('delta_spec_provenance', doc.createNode({ digest: deltaSpecDigest, date }));
+  }
+  const deltaPresent = existsSync(path.join(path.dirname(metadataPath), 'delta-spec.md'));
+  if ((deltaPresent && deltaSpecDigest === null) || computeChangeDigest(cwd) !== digest ||
+      computeDeltaSpecDigest(path.dirname(metadataPath)) !== deltaSpecDigest) {
+    return { kind: 'record-review', change, recorded: false, reason: 'review inputs changed or are unprovable — complete a valid review before recording' };
   }
   await writeChangeMetadataDoc(metadataPath, doc, change);
   return {
@@ -422,12 +277,10 @@ function digestFailureReason(cwd: string): string {
  *
  * A non-zero exit code IS recorded: the fact verify must see is "the suite ran and
  * failed", and `evaluateTestProvenance` turns that into the FAIL. Only cases where
- * nothing trustworthy happened (no command, not a git repo, timeout) skip, and they
- * write nothing rather than half a record.
+ * uncertified outcomes retain the latest attempt without creating passing provenance.
  */
 async function recordTestProvenance(
   cwd: string,
-  config: ProspecConfig,
   explicitChange?: string,
 ): Promise<RecordTestsResult> {
   const change = await resolveChange(cwd, explicitChange, true, 'Which change to record the test run for?');
@@ -435,88 +288,52 @@ async function recordTestProvenance(
   if (!existsSync(metadataPath)) {
     return { kind: 'record-tests', change, recorded: false, reason: 'metadata.yaml not found' };
   }
-  const command = resolveTestCommand(config, cwd);
-  if (command === null) {
-    return {
-      kind: 'record-tests',
-      change,
-      recorded: false,
-      reason: 'no test command — set tech_stack.test_command in .prospec.yaml',
-    };
-  }
-  // Every precondition is checked BEFORE the suite runs — a 15-minute run that is
-  // then discarded (or that dies on a schema error) is the worst possible outcome.
-  // The pre-run digest doubles as the git-repo guard; the metadata read here is
-  // pure fail-fast validation (it throws on a schema error) — the document it
-  // returns is deliberately NOT the one written back.
-  const before = computeChangeDigest(cwd);
-  if (before === null) {
-    return { kind: 'record-tests', change, recorded: false, reason: digestFailureReason(cwd) };
-  }
-  readChangeMetadata(metadataPath, change);
+  const id = randomUUID();
+  const date = new Date().toISOString().slice(0, 10);
+  const { doc: initial } = readChangeMetadata(metadataPath, change);
+  initial.set('test_attempt', initial.createNode({ id, date, outcome: 'running' } satisfies TestAttempt));
+  await writeChangeMetadataDoc(metadataPath, initial, change);
+  // Command resolution reads repository inputs too; include it inside the fence.
+  const before = computeChangeState(cwd);
 
-  const run = runTestCommand(cwd, command);
-  if (run.timed_out || run.exit_code === null) {
-    return {
-      kind: 'record-tests',
-      change,
-      recorded: false,
-      command: run.command,
-      reason: run.timed_out
-        ? `test run timed out after ${run.timeout_ms} ms`
-        : run.signal !== undefined
-          ? `test run killed by ${run.signal}`
-          : (run.error ?? 'test run produced no exit code'),
-    };
-  }
-
-  // Record the POST-run digest. A suite that writes an untracked artifact (junit
-  // xml, coverage summary, a fresh snapshot) changes the tree it just ran against;
-  // recording the pre-run value would make the very next check report "stale" and,
-  // whenever the artifact's bytes vary per run, never converge. Hashing after the
-  // run is what the check compares against, so it converges in one run.
-  const after = computeChangeDigest(cwd);
-  if (after === null) {
-    return { kind: 'record-tests', change, recorded: false, reason: digestFailureReason(cwd) };
-  }
-  // Re-read AFTER the run and write into the fresh document: a long suite leaves a
-  // wide window in which the metadata may be edited, and writing back the pre-run
-  // snapshot would silently clobber that edit (issue #103). If the file no longer
-  // validates, record nothing — a stale snapshot must not resurrect itself.
-  let doc: ReturnType<typeof readChangeMetadata>['doc'];
-  try {
-    ({ doc } = readChangeMetadata(metadataPath, change));
-  } catch (err) {
-    return {
-      kind: 'record-tests',
-      change,
-      recorded: false,
-      command: run.command,
-      reason:
-        'metadata.yaml changed during the run and no longer validates — ' +
-        `fix it and re-run (${err instanceof Error ? err.message : String(err)})`,
-    };
-  }
-  doc.set(
-    'test_provenance',
-    doc.createNode({
-      command: run.command,
-      exit_code: run.exit_code,
-      digest: after,
-      date: new Date().toISOString().slice(0, 10),
-    }),
-  );
-  await writeChangeMetadataDoc(metadataPath, doc, change);
-  return {
-    kind: 'record-tests',
-    change,
-    recorded: true,
-    command: run.command,
-    exitCode: run.exit_code,
-    // Disclosed, not silently absorbed: the tree changed while the suite ran, so
-    // the recorded fingerprint may cover an edit the run never exercised.
-    treeChangedDuringRun: before !== after,
+  const finish = async (attempt: TestAttempt, result: RecordTestsResult, provenance?: Record<string, unknown>): Promise<RecordTestsResult> => {
+    try {
+      const { doc, metadata } = readChangeMetadata(metadataPath, change);
+      if (metadata.test_attempt?.id !== id) return { ...result, recorded: false, reason: 'test attempt superseded — completion cannot overwrite a newer attempt' };
+      doc.set('test_attempt', doc.createNode(attempt));
+      if (provenance) doc.set('test_provenance', doc.createNode(provenance));
+      await writeChangeMetadataDoc(metadataPath, doc, change);
+      return result;
+    } catch (error) {
+      return { ...result, recorded: false, reason: `metadata.yaml changed during the run and no longer validates or cannot be written — re-run (${error instanceof Error ? error.message : String(error)})` };
+    }
   };
+  const skipped = async (outcome: TestAttempt['outcome'], reason: string, command?: string) =>
+    finish({ id, date, outcome, reason, ...(before.digest !== null ? { before_digest: before.digest } : {}), ...(command ? { command } : {}) }, { kind: 'record-tests', change, recorded: false, reason, ...(command ? { command } : {}) });
+  let command: string | null;
+  try { command = resolveTestCommand(await readConfig(cwd), cwd); }
+  catch (error) { return skipped('unprovable', `test configuration is unreadable: ${String(error)}`); }
+  if (command === null) return skipped('unavailable', 'no test command — set tech_stack.test_command in .prospec.yaml');
+  if (before.digest === null) return skipped('unprovable', before.reason ?? digestFailureReason(cwd), command);
+  const run = runTestCommand(cwd, command);
+  const after = computeChangeState(cwd);
+  const stable = after.digest !== null && before.digest === after.digest;
+  const outcome: TestAttempt['outcome'] = run.timed_out ? 'timeout' : run.exit_code === null
+    ? (run.error ? 'unavailable' : 'unprovable') : run.exit_code !== 0 ? 'failed' : stable ? 'passed' : 'unprovable';
+  const reason = run.timed_out ? `test run timed out after ${run.timeout_ms} ms`
+    : run.signal ? `test run killed by ${run.signal}` : run.error ?? (stable ? undefined : 'inputs changed during test run or capture is unprovable — re-run against stable inputs');
+  const attempt: TestAttempt = { id, date, outcome, command: run.command, before_digest: before.digest,
+    ...(after.digest !== null ? { after_digest: after.digest } : {}),
+    ...(run.exit_code !== null ? { exit_code: run.exit_code } : {}),
+    ...(run.signal ? { signal: run.signal } : {}), ...(reason ? { reason } : {}),
+  };
+  // Nonzero is durable even when after-capture fails; only certified success clears it.
+  const recorded = outcome === 'passed' || outcome === 'failed';
+  const provenance = recorded ? { command: run.command, exit_code: run.exit_code, digest: before.digest, date,
+    fingerprint_version: FINGERPRINT_VERSION, scope: EVIDENCE_SCOPE, attempt_id: id } : undefined;
+  return finish(attempt, { kind: 'record-tests', change, recorded, command: run.command,
+    exitCode: run.exit_code, treeChangedDuringRun: !stable, ...(reason ? { reason } : {}) }, provenance);
+
 }
 
 /**

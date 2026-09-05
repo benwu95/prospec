@@ -12,6 +12,15 @@ import {
 } from '../../../src/services/archive.service.js';
 import { ScanError, WriteError } from '../../../src/types/errors.js';
 
+// Archive mechanics use an injected current assessment; real collectors and refusals
+// are exercised through normal services in integration/evidence-validity.test.ts.
+vi.mock('../../../src/lib/drift-assessment.js', () => ({
+  assessCurrentDrift: vi.fn(async () => ({
+    report: { structural: { checks: ['metadata-completeness', 'task-completion', 'review-provenance', 'test-provenance', 'delta-spec-provenance'].map((id) => ({ id, status: 'pass' })), findings: [] } },
+    snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
+  })),
+}));
+
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };

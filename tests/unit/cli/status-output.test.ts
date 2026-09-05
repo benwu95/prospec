@@ -167,7 +167,7 @@ describe('status-output drift signal', () => {
       'normal',
     );
     const stale = output();
-    expect(stale).toContain('generated against different code');
+    expect(stale).toContain('differs from current content or workflow facts');
     expect(stale).toContain('prospec check --json');
 
     logSpy.mockClear();
@@ -183,9 +183,9 @@ describe('status-output drift signal', () => {
       'normal',
     );
     const unprovable = output();
-    expect(unprovable).toContain('records no code fingerprint');
+    expect(unprovable).toContain('cannot prove current evidence (legacy fingerprint or unreadable inputs)');
     // Never the stale wording: nobody measured this report's freshness.
-    expect(unprovable).not.toContain('generated against different code');
+    expect(unprovable).not.toContain('differs from current content or workflow facts');
   });
 
   it('prints only the clean line when there is no drift signal', () => {

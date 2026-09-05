@@ -1702,14 +1702,15 @@ describe('computeChangeDigest', () => {
     expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
-  it('ignores workflow-owned + generated files so --record-review / status / agent-sync never self-trip', () => {
+  it('ignores bookkeeping but includes deployed code and lockfiles', () => {
     initRepo();
     const d0 = computeChangeDigest(tmpDir);
     write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
     write('.claude/skills/prospec-x/SKILL.md', 'generated\n');
     write('.agents/skills/prospec-x/SKILL.md', 'generated\n');
     write('pnpm-lock.yaml', 'lockfile\n');
-    expect(computeChangeDigest(tmpDir)).toBe(d0);
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
   // Derived from the filename CONSTANTS, not hand-listed: the hand-enumerated
@@ -1755,10 +1756,10 @@ describe('computeChangeDigest', () => {
   // repo exits at the isGitWorkTree guard, so reverting the fail-closed fix back
   // to `?? ''` kept the whole suite green (issue #103). An unborn-HEAD repo IS a
   // work tree, but `git diff HEAD` fails on real git — this is that branch.
-  it('returns null via the capture-failure branch on an unborn-HEAD repo', () => {
+  it('captures effective content in an unborn-HEAD repo', () => {
     git('init', '-q');
-    write('src/lib/x.ts', 'export const a = 1;\n'); // a constant digest would hash this
-    expect(computeChangeDigest(tmpDir)).toBeNull();
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    expect(computeChangeDigest(tmpDir)).toBeTruthy();
   });
 
   it('flips when first-party code OUTSIDE src/tests changes (e.g. scripts/) — no fail-open', () => {
@@ -1813,12 +1814,13 @@ describe('computeWorkingTreeClean', () => {
     expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 
-  it('stays clean when only out-of-scope files (workflow / report / dist) are dirty', () => {
+  it('stays clean when only out-of-scope files (workflow / report) are dirty', () => {
     initRepo();
     write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
     write(DRIFT_REPORT_FILENAME, '{"generated_at":"now"}\n');
-    write('dist/x.js', 'x\n');
     expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+    write('dist/x.js', 'x\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 
   it('is null (unknown) outside a git work tree — never a fabricated clean', () => {
@@ -1827,10 +1829,10 @@ describe('computeWorkingTreeClean', () => {
 
   // Same fail-closed branch computeChangeDigest has: an unborn-HEAD repo IS a work
   // tree, but `git diff HEAD` fails, so the signal degrades to null, not to a clean.
-  it('is null via the capture-failure branch on an unborn-HEAD repo', () => {
+  it('reports untracked input as dirty on an unborn HEAD', () => {
     git('init', '-q');
     write('src/lib/x.ts', 'export const a = 1;\n');
-    expect(computeWorkingTreeClean(tmpDir)).toBeNull();
+    expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 });
 
@@ -1860,13 +1862,13 @@ describe('computeChangeState (REQ-LIB-070)', () => {
     expect(dirty.digest).toBe(computeChangeDigest(tmpDir));
   });
 
-  it('falls closed to null digest AND null clean outside a work tree and on an unborn HEAD', () => {
+  it('fails closed outside Git but captures unborn content', () => {
     // No isGitWorkTree probe any more: rev-parse HEAD / diff HEAD fail here, so
     // BOTH fields must degrade to null — never a constant that certifies stale code.
-    expect(computeChangeState(tmpDir)).toEqual({ digest: null, clean: null });
+    expect(computeChangeState(tmpDir)).toMatchObject({ digest: null, clean: null });
     git('init', '-q'); // unborn HEAD — a work tree, but `git rev-parse HEAD` fails
     write('src/lib/x.ts', 'export const a = 1;\n');
-    expect(computeChangeState(tmpDir)).toEqual({ digest: null, clean: null });
+    expect(computeChangeState(tmpDir)).toMatchObject({ digest: expect.any(String), clean: false });
   });
 });
 
@@ -3330,8 +3332,8 @@ describe('changedPathsFromWorkTree (REQ-LIB-062)', () => {
     expect(changed).toContain('src/lib/base.ts');
     expect(changed).toContain('src/lib/bundled-templates.ts');
     expect(changed).not.toContain('.prospec/changes/x/delta-spec.md');
-    expect(changed).not.toContain('dist/out.js');
-    expect(changed).not.toContain('pnpm-lock.yaml');
+    expect(changed).toContain('dist/out.js');
+    expect(changed).toContain('pnpm-lock.yaml');
   });
 
   it('returns an empty list (not null) when the working tree is clean', () => {

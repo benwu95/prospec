@@ -18,7 +18,10 @@ composing structured CLI input) knows what each field means.
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
-`quality_log` → `review_provenance` → `test_provenance` → `introduced_by` → `issue`
+`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by` → `issue`
+
+Existing documents containing YAML aliases retain their authored field order: anchor/alias bindings
+take precedence over canonical ordering. Comments and unknown fields remain preserved.
 
 | Field | Required | Written by | Notes |
 |-------|----------|-----------|-------|
@@ -31,6 +34,8 @@ composing structured CLI input) knows what each field means.
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
+| `test_attempt` | no | `prospec check --record-tests` | latest attempt, including running and uncertified outcomes |
+| `delta_spec_provenance` | no | `prospec check --record-review` | delta-spec baseline |
 | `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
 | `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
 
@@ -38,6 +43,9 @@ composing structured CLI input) knows what each field means.
 
 ```yaml
 test_provenance:
+  fingerprint_version: snapshot-v2
+  scope: repository-inputs-v2
+  attempt_id: example-run
   command: pnpm test              # the command as run (argv, no shell syntax)
   exit_code: 0                    # recorded even when non-zero — a failing suite IS the fact
   digest: 3f9c…                   # code fingerprint the run exercised
@@ -49,6 +57,23 @@ than a self-report. The `test-provenance` drift check fails when this block is a
 `digest` no longer matches the code, or when `exit_code` is non-zero. It is deliberately **not** part
 of the `metadata-completeness` required-field floor — requiring it would retroactively fail every
 change archived before the field existed.
+
+### `test_attempt` — latest invocation
+
+```yaml
+test_attempt:
+  id: example-run
+  outcome: passed                 # running | passed | failed | unprovable | timeout | unavailable
+  before_digest: 3f9c…
+  after_digest: 3f9c…
+  exit_code: 0                    # absent when no exit was observed
+```
+
+The CLI writes running before launch. Passing evidence requires equal provable before/after
+snapshots and an attempt_id linked to this latest passed attempt. A failed run keeps its actual
+nonzero exit in test_provenance; subsequent unavailable/timeout/unprovable attempts cannot erase
+that failure. Review provenance also carries fingerprint_version and scope. Old/unknown versions
+remain readable but need one real review/test revalidation, never a stamp-only migration.
 
 ### `issue` — the external-tracker registration
 

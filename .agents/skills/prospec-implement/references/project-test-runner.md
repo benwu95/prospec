@@ -4,6 +4,11 @@ This document defines the **Project Test Runner & Multi-Ecosystem Adaptation Gui
 
 ---
 
+A test record certifies before/after repository inputs only when both snapshots are provable and equal
+and the actual exit is 0. The CLI prewrites running; timeout/crash/unavailable/unprovable attempts do
+not restore an old PASS. Declare generated suite outputs in Git ignores; tracked outputs remain inputs.
+Snapshot capture is not isolation against transient change-and-restore, external services or ignored dependencies.
+
 ## Purpose
 
 Prospec is an architecture- and language-agnostic Spec-Driven Development framework. When executing automated testing during implementation, review, and verification, the Agent dynamically adapts to the host repository's test runner, language conventions, and Constitution.

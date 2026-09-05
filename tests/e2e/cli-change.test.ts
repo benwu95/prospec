@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { parse as parseYamlRaw } from 'yaml';
+import { recordCliEvidence } from './helpers/evidence.js';
 import { runCliInProcess } from './helpers/run-cli.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
@@ -380,7 +381,7 @@ describe('CLI E2E — change & spec', () => {
       await fs.promises.mkdir(changeDir, { recursive: true });
       await fs.promises.writeFile(
         path.join(changeDir, 'metadata.yaml'),
-        `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\n`,
+        `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nquality_log:\n  - skill: prospec-verify\n    date: 2026-07-01\n    result: PASS\n    warnings: []\n    grade: S\n`,
       );
       await fs.promises.writeFile(
         path.join(changeDir, 'proposal.md'),
@@ -399,20 +400,6 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'archive-test' }),
       );
       await runCli(['init', '--name', 'archive-test', '--agents', 'claude']);
-      // Satisfy archive's mechanized Entry Gate so these tests reach the archive
-      // mechanics (the gate's own refusals are unit-tested): a fresh all-passing
-      // report + a stamped `lib` module-map/README (the delta-spec's REQ-LIB module)
-      // so knowledge-sync passes. tmpDir is not a git repo, so freshness skips.
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'prospec-report.json'),
-        JSON.stringify({
-          version: 1,
-          generated_at: '2026-08-29T00:00:00.000Z',
-          structural: { checks: [{ id: 'req-references', status: 'pass' }], findings: [] },
-          semantic: { status: 'not-checked' },
-          summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
-        }),
-      );
       await fs.promises.writeFile(
         path.join(tmpDir, 'prospec', 'ai-knowledge', 'module-map.yaml'),
         'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords: []\n    last_verified: 2026-07-01T00:00:00.000Z\n',
@@ -429,8 +416,9 @@ describe('CLI E2E — change & spec', () => {
     it('previews every mutation with --dry-run and writes nothing', async () => {
       await writeVerifiedChange('feat-x');
 
-      const { stdout, exitCode } = await runCli(['archive', 'feat-x', '--dry-run']);
-      expect(exitCode).toBe(0);
+      await recordCliEvidence(tmpDir, 'feat-x');
+      const { stdout, stderr, exitCode } = await runCli(['archive', 'feat-x', '--dry-run']);
+      expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain('Dry-run — nothing was written');
       expect(stdout).toContain('feat-x');
       expect(stdout).toContain('summary.md');
@@ -441,8 +429,9 @@ describe('CLI E2E — change & spec', () => {
     it('archives a verified change and syncs Feature Specs', async () => {
       await writeVerifiedChange('feat-x');
 
-      const { stdout, exitCode } = await runCli(['archive', 'feat-x']);
-      expect(exitCode).toBe(0);
+      await recordCliEvidence(tmpDir, 'feat-x');
+      const { stdout, stderr, exitCode } = await runCli(['archive', 'feat-x']);
+      expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain('archived feat-x');
       expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-x'))).toBe(false);
       const today = new Date().toISOString().slice(0, 10);
@@ -470,6 +459,7 @@ describe('CLI E2E — change & spec', () => {
         path.join(tmpDir, '.prospec', 'changes', name, 'delta-spec.md'),
         `# Delta Spec\n\n## MODIFIED\n\n### REQ-LIB-002: existing\n\n**Feature:** alpha\n**Story:** US-1\n\n**Spec:**\n${specBlock}\n\n**Priority:** High\n\n---\n`,
       );
+      await recordCliEvidence(tmpDir, name);
     }
 
     const alphaSpec = (): string =>
@@ -539,8 +529,9 @@ describe('CLI E2E — change & spec', () => {
         ),
       );
 
-      const { exitCode } = await runCli(['archive', 'feat-recover']);
-      expect(exitCode).toBe(0);
+      await runCli(['check', '--change', 'feat-recover', '--record-review']);
+      const { exitCode, stderr } = await runCli(['archive', 'feat-recover']);
+      expect(exitCode, stderr).toBe(0);
       expect(alphaSpec()).toContain('A new body that restates nothing.');
       expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-recover'))).toBe(false);
     });
@@ -551,8 +542,8 @@ describe('CLI E2E — change & spec', () => {
         'A new body that restates nothing.\n\n**Dropped:**\n- WHEN a happens, THEN b follows',
       );
 
-      const { exitCode } = await runCli(['archive', 'feat-declared']);
-      expect(exitCode).toBe(0);
+      const { exitCode, stderr } = await runCli(['archive', 'feat-declared']);
+      expect(exitCode, stderr).toBe(0);
       expect(alphaSpec()).toContain('A new body that restates nothing.');
     });
 

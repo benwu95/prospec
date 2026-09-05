@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
-import type { Document } from 'yaml';
+import { isMap, isScalar, visit, type Document } from 'yaml';
 import {
   ChangeMetadataSchema,
+  NewChangeMetadataSchema,
   NewQualityLogEntrySchema,
   type ChangeMetadata,
   type NewQualityLogEntry,
@@ -93,6 +94,18 @@ export async function writeChangeMetadataDoc(
   changeName: string,
 ): Promise<void> {
   assertValidChangeMetadata(doc.toJS(), changeName);
+  let hasAliases = false;
+  visit(doc, { Alias() { hasAliases = true; return visit.BREAK; } });
+  // Alias bindings depend on preceding anchors (including reused anchor names).
+  // Keep authored order for these documents rather than changing their meaning.
+  if (isMap(doc.contents) && !hasAliases) {
+    const order = Object.keys(NewChangeMetadataSchema.shape);
+    const rank = (key: unknown): number => {
+      const index = order.indexOf(isScalar(key) ? String(key.value) : String(key));
+      return index < 0 ? order.length : index;
+    };
+    doc.contents.items.sort((a, b) => rank(a.key) - rank(b.key));
+  }
   await atomicWrite(metadataPath, stringifyYamlDocument(doc));
 }
 
@@ -194,4 +207,3 @@ export function deriveFixChangeName(target: string, checkId: string): string {
   const cleanCheck = sanitizeChangeSlug(checkId) || 'drift';
   return `fix-${cleanTarget}-${cleanCheck}`;
 }
-

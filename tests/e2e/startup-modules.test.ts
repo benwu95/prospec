@@ -23,6 +23,31 @@ import {
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 describe('startup module graph (REQ-CLI-045)', () => {
+  it('covers ordinary, current-report, stale-report and in-flight status independently', () => {
+    expect(STARTUP_PATHS.filter((p) => p.args[0] === 'status').map((p) => p.scenario)).toEqual([
+      'no-report', 'current-report', 'stale-report', 'in-flight',
+    ]);
+  });
+
+  it.each(['no-report', 'current-report', 'stale-report', 'in-flight'] as const)(
+    'executes the real %s status branch', (scenario) => {
+      const result = measureStartupModules(['status', '--json'], undefined, scenario);
+      expect(result.exitCode).toBe(0);
+      const status = JSON.parse(result.stdout);
+      expect(status.clean).toBe(scenario !== 'in-flight');
+      if (scenario === 'stale-report') {
+        expect(status.drift).toMatchObject({ state: 'unusable', reason: 'stale' });
+      } else {
+        expect(status.drift).toBeUndefined();
+      }
+      if (scenario === 'current-report' || scenario === 'stale-report') {
+        expect(result.heavy).toContain('handlebars');
+      } else {
+        expect(result.heavy).not.toContain('handlebars');
+      }
+    },
+  );
+
   it('satisfies the whole startup contract with no violations', () => {
     const { violations } = checkStartupContract();
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
@@ -31,7 +56,7 @@ describe('startup module graph (REQ-CLI-045)', () => {
   it.each(STARTUP_PATHS.map((p) => [p.label, p] as const))(
     '%s excludes its forbidden heavy deps',
     (_label, p) => {
-      const { heavy } = measureStartupModules(p.args);
+      const { heavy } = measureStartupModules(p.args, undefined, p.scenario);
       for (const dep of p.forbidden) {
         expect(heavy).not.toContain(dep);
       }
@@ -41,7 +66,7 @@ describe('startup module graph (REQ-CLI-045)', () => {
   it.each(STARTUP_PATHS.filter((p) => p.maxNodeModules !== undefined).map((p) => [p.label, p] as const))(
     '%s stays under its node_modules ceiling',
     (_label, p) => {
-      const { nodeModules } = measureStartupModules(p.args);
+      const { nodeModules } = measureStartupModules(p.args, undefined, p.scenario);
       expect(nodeModules).toBeLessThanOrEqual(p.maxNodeModules!);
     },
   );

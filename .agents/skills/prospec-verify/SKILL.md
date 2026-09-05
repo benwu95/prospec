@@ -30,6 +30,8 @@ When triggered, briefly describe:
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+
 ## Startup Loading
 
 1. [STABLE] Read `prospec/CONSTITUTION.md` — for full audit
@@ -108,15 +110,14 @@ Every other **SDD-pipeline** skill (new-story → plan → tasks → implement �
 ### Step 0: Record the test run (before reading the report)
 
 Run `prospec check --record-tests` (Bash). It runs the project's test command and records
-`{command, exit_code, digest, date}` into `metadata.yaml` `test_provenance` — the fact 5/5 is
+versioned provenance and a `test_attempt` into `metadata.yaml` — the fact 5/5 is
 adjudicated on, instead of your own claim that the suite passed. It belongs **here**, after the Entry
 Gate: it costs a full suite run and mutates metadata, so a change the gate is about to refuse must
-not pay for it. Run it **after the last code edit**, then **re-run `prospec check --json` and re-read
+not pay for it. Run it **after the last code, Knowledge, count or generated-asset edit**, then **re-run `prospec check --json` and re-read
 the report** — the copy loaded at startup predates this record, so 1/5–5/5 must be read from the
 refreshed one.
 
-An honest skip (no test command configured, not a git repo, timed out or killed) writes nothing —
-carry its reason into 5/5 and never substitute your own test run for the record.
+The CLI prewrites a running attempt. Timeout, unavailable or unprovable outcomes cannot reuse an old PASS; only exit 0 with equal provable before/after inputs certifies passing evidence. A known nonzero failure survives later nonpassing attempts until stable success. Carry the reported reason into 5/5; never substitute a self-report.
 
 ### Verification 1/5: Task Completion — `[machine]`
 
@@ -251,7 +252,7 @@ Read the check, cite the recorded command and exit code, and explain what failed
 5/5 from your own memory of having run the tests, and do not re-grade a recorded failure as a WARN.
 
 - No run recorded / stale / non-zero exit → **FAIL**, with the command to re-run as remediation. A
-  run that **timed out** or was killed writes no record, so it lands here as "no run recorded" —
+  run that **timed out** or was killed leaves an uncertified latest attempt —
   carry `--record-tests`'s reported reason into the FAIL so the remediation names the hang, not just
   the absent record.
 - **The project has no resolvable test command** → the check itself reports `skipped`, so this
@@ -354,10 +355,7 @@ each judgment verdict's `graded_by` (refused when absent), plus one `--warning "
 budget-counted WARN. The CLI:
 
 - **self-sources the machine dimensions** (1/5 `task-completion`, 4/5 `knowledge`, 5/5 `tests`) from
-  the `prospec-report.json` drift report — 5/5 comes from its `test-provenance` check, which is what
-  reads the `test_provenance` metadata `--record-tests` wrote, so the report must be regenerated
-  AFTER that record. It refuses an LLM relay of an engine verdict, and refuses to run when the report
-  is missing or stale (run `prospec check --record-tests` then `prospec check --json` first);
+  a live assessment of current content and workflow facts. `prospec-report.json` is a display artifact, not gate authority; it may be absent or stale. The CLI refuses an LLM relay of an engine verdict and rechecks observed inputs before its first write;
 - computes the S/A/B/C/D grade per the decision table above (bit-identical on rerun);
 - appends the structured `skill: prospec-verify` `quality_log` entry (`grade`, `dimensions` with
   adjudicators, gate three-state `result`, `warnings`) — never hand-write this entry;
@@ -379,7 +377,7 @@ budget-counted WARN. The CLI:
 
 The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
 
-**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (sync affected-module Knowledge updating descriptions only without citing not-yet-graduated REQ ids). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
+**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (sync affected-module Knowledge updating descriptions only without citing not-yet-graduated REQ ids, then repeat final review/tests/verify if that sync changed inputs). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
 
 Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `prospec-archive` Entry Gate re-confirms this as a **backstop**.
 
@@ -447,8 +445,10 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 
 | Scenario | Action |
 |----------|--------|
-| `prospec verify record` refuses (report missing / wrong judgment set) | Run `prospec check --record-tests` then `prospec check --json` first; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
-| `--record-tests` skips (no test command / not a git repo / timeout) | Carry its reason into 5/5 as `not-adjudicated`; point at `tech_stack.test_command` in `.prospec.yaml` when the command is what is missing |
+| `prospec verify record` refuses (unprovable inputs / wrong judgment set) | Settle inputs, run current review/tests as needed, then retry; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
+| `--record-tests` skips because the latest attempt or resolved command is unavailable | Adopt the engine's honest skip as `not-adjudicated`, with its actual command/reason and a remedy for `tech_stack.test_command` or executable availability; a known non-zero failure still FAILs |
+| `--record-tests` leaves a running, timeout, failed or unprovable attempt | Adopt the engine's FAIL and actual command/reason/signal, settle the cause and re-run; never reuse an older PASS |
+| `--record-tests` encounters required inputs that are unprovable (including a non-Git checkout) | Report the capture reason; `verify record` must refuse before writing until required inputs can be proven |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 
 ## Next-Step Handoff

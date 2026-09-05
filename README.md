@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-4740%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4832%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -1171,7 +1171,7 @@ src/
 ## Testing
 
 ```bash
-# Run all tests (4740 total; 4 skipped)
+# Run all tests (4832 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -1184,11 +1184,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 4740 total tests (4736 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3379 tests
-- Contract tests (CLI output + Skill format): 1183 tests
-- Integration tests: 45 tests
-- E2E tests: 133 tests
+**Test Coverage**: 4832 total tests (4828 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3445 tests
+- Contract tests (CLI output + Skill format): 1187 tests
+- Integration tests: 55 tests
+- E2E tests: 145 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 
@@ -1298,3 +1298,22 @@ Prospec's unique contribution: **cli-first SDD with judgment-only Skills** — t
 [Back to top](#prospec)
 
 </div>
+
+### Review and test evidence
+
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
+file bytes, executable mode and supported in-repository symlinks. Manifests, lockfiles, docs and
+tracked generated assets are inputs. `.prospec/` workflow artifacts and designated Prospec reports
+are excluded from that fingerprint; current workflow facts are checked separately at verify/archive.
+Declare suite outputs in Git ignores (tracked outputs remain inputs).
+
+Finish Knowledge/count/generated-asset sync, then final review → tests → verify. Staging, committing,
+amending or equivalent history alone does not invalidate evidence or require another suite run.
+Legacy records remain readable and require one real review/test revalidation. A running or
+uncertified latest attempt cannot reuse an old PASS; passing requires actual exit 0 and equal,
+provable before/after snapshots. A known failure persists until stable success.
+
+Saved reports are display artifacts. Verify/archive assess current inputs and recheck before writes;
+dry-run applies the same refusal gate. This is a before/after guarantee, not isolation against
+transient change-and-restore, ignored dependencies, external services or toolchain changes outside
+repository inputs. Unsupported or unreadable input is unprovable, never certified.
