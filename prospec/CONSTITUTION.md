@@ -87,17 +87,17 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 ### [MUST] Factual Count Integrity
 
-**Description**: Factual counts — test tallies, template/skill/reference inventories, module file counts, feature spec `story_count`/`req_count`, and root-README check enumerations — are duplicated across `README.md`, `README.zh-TW.md`, `prospec/index.md`, module READMEs, and feature spec frontmatter. Three tiers govern them:
+**Description**: Factual counts — test tallies, template/skill/reference inventories, module file counts, feature spec `story_count`/`req_count`, and the public `prospec check` enumeration (relocated out of the root READMEs into `reference/cli-reference.md` and `reference/cli-reference.zh-TW.md`) — are duplicated across `README.md`, `README.zh-TW.md`, `reference/cli-reference.md`, `reference/cli-reference.zh-TW.md`, `prospec/index.md`, module READMEs, and feature spec frontmatter. Three tiers govern them:
 
 1. **Machine-owned** (`pnpm counts`): `scripts/sync-counts.ts` regenerates test counts and `.hbs`/skill/reference inventories from source. Run `pnpm counts` to sync; never hand-edit these numbers.
 2. **CI-gated** (`pnpm counts:check`): the checker runs in `ci.yml` and exits non-zero on drift. A failing `counts:check` blocks merge.
-3. **Hand-maintained** (everything else): module README `(N files, N lines)` headers, feature spec frontmatter `story_count`/`req_count`, and the root-README `prospec check` prose enumeration have no single source and no machine guard. When a change adds or removes a module source file, graduates or deprecates a REQ, or appends a `DRIFT_CHECK_IDS` entry, re-derive these from the filesystem or the spec body at the same sync point and land them in the **same feature commit**. Never copy a sibling doc or carry a declared value forward by arithmetic — that propagates any pre-existing offset.
+3. **Hand-maintained** (everything else): module README `(N files, N lines)` headers, feature spec frontmatter `story_count`/`req_count`, and the `prospec check` prose enumeration in both CLI Reference files have no single source. That enumeration names a SUBSET of `DRIFT_CHECK_IDS` by id, with the rest described in prose, and its one machine guard proves only that every id it does name is real — a check the enumeration omits stays invisible to it. When a change adds or removes a module source file, graduates or deprecates a REQ, or appends a `DRIFT_CHECK_IDS` entry, re-derive these from the filesystem or the spec body at the same sync point and land them in the **same feature commit**. Never copy a sibling doc or carry a declared value forward by arithmetic — that propagates any pre-existing offset.
 
 The drift engine does **not** check count accuracy — a correct aggregate can mask offsetting per-layer errors.
 
 **Rationale**: Factual counts drift silently and compound: 23 occurrences over 6 modules before machine ownership was established (PB-004 provenance), and every new drift check missed the README prose enumeration until adversarial review caught it (PB-009 provenance, 5 occurrences across 3 modules). Splitting counts into three explicit tiers eliminates the assumption that `pnpm counts` covers everything — it does not.
 
-**Verify**: `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. The root-README check enumeration matches `DRIFT_CHECK_IDS`.
+**Verify**: `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. Every check id **annotated with its severity** in either CLI Reference file is a real `DRIFT_CHECK_IDS` member, and both files name the same real ids (both contract-guarded). An id mentioned without a severity, and whether the enumeration still COVERS a newly added check, are verified by review — not by a machine.
 
 ---
 ### [MUST] Pre-Merge CI Checks

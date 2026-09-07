@@ -27,6 +27,8 @@ import {
   ReviewFindingsInputSchema,
   JudgmentDimensionsInputSchema,
   TASKS_VERIFIER_DIMENSIONS,
+  VALIDATE_KINDS,
+  VERIFIER_REPORT_SCHEMAS,
 } from '../../src/types/station.js';
 import { EscalationReportSchema } from '../../src/types/cascade.js';
 import { planningVerifierContext } from '../../src/services/agent-sync.service.js';
@@ -48,6 +50,7 @@ import { withoutFencedBlocks, hasUnclosedFence } from '../../src/lib/markdown-fe
 import { escapeYamlScalar, parseYaml } from '../../src/lib/yaml-utils.js';
 import { bootstrapProductSpec } from '../../src/services/archive.service.js';
 import { estimateTokens } from '../../src/lib/token-accounting.js';
+import { DECLARED_NON_SHIPPED, mandatoryCitations, referenceOf, startupLoadingSection as sharedStartupLoadingSection } from '../helpers/mandatory-loads.js';
 
 const TEMPLATE_CONTEXT = {
   project_name: 'test-project',
@@ -955,15 +958,21 @@ describe('Skill Format Contract', () => {
       expect(content).not.toMatch(/regenerat\w*\s+product\.md/i);
     });
 
-    it('should reference feature-spec-format in Startup Loading', () => {
+    it('names each spec format and the phase that reads it, without preloading (REQ-TEMPLATES-147)', () => {
       const content = renderTemplate(
         'skills/prospec-archive.hbs',
         TEMPLATE_CONTEXT,
       );
       const section = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(content)?.[1] ?? '';
       expect(section.trim().length).toBeGreaterThan(0);
+      // The prefix maps reference → phase; it is a pointer list, not a load. The map
+      // is what keeps a station reachable (see the Opus comparison finding).
       expect(section).toContain('feature-spec-format');
       expect(section).toContain('product-spec-format');
+      expect(section).toContain('per phase on demand');
+      expect(section).not.toContain('**MANDATORY**');
+      expect(sectionOf(content, '### Phase 3.5: Feature Spec Sync')).toContain('references/feature-spec-format.md');
+      expect(sectionOf(content, '### Phase 3.6: Product Spec Sync')).toContain('references/product-spec-format.md');
     });
   });
 
@@ -3914,15 +3923,64 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
       path.resolve(__dirname, '../fixtures/startup-loading-baseline.json'),
       'utf-8',
     ),
-  ) as Record<string, { items: string[]; mandatory: number }>;
+  ) as {
+    version: 1;
+    cumulative_ceiling_tokens: number;
+    reference_ceiling_tokens: number;
+    references: Record<string, number>;
+    skills: Record<string, { items: string[]; mandatory: number; mandatory_context_tokens: number }>;
+  };
 
-  function startupLoadingSection(raw: string): string {
-    const match = /^## Startup Loading\n([\s\S]*?)(?=^## )/m.exec(raw);
-    expect(match, 'Startup Loading section must exist').not.toBeNull();
-    const section = match![1]!;
-    expect(section.trim().length, 'Startup Loading section must be non-empty').toBeGreaterThan(0);
-    return section;
-  }
+  /**
+   * Shrink-only anchors, deliberately outside `startup-loading-baseline.json`.
+   * The fixture's rows sum exactly to its own ceilings, so a ceiling asserted
+   * only against the fixture can never fail; these constants are what makes
+   * "never rises" falsifiable. Raising one is a reviewed edit to this file.
+   *
+   * These bound the SHIPPED instruction cost (skill bodies plus mandatory references).
+   * A mandatory project file is declared in `DECLARED_NON_SHIPPED` instead of measured,
+   * so an unrelated knowledge edit cannot redden this contract and force the anchor up.
+   */
+  const REFERENCE_CEILING_ANCHOR = 46_365;
+  const CUMULATIVE_CEILING_ANCHOR = 87_633;
+
+  const renderSkill = (name: string) => {
+    const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
+    return renderTemplate(`skills/${name}.hbs`, {
+      ...TEMPLATE_CONTEXT,
+      skill_description: escapeYamlScalar(skill.description),
+    });
+  };
+
+  /**
+   * What running this station costs before any phase work: the skill itself plus every
+   * shipped reference its Startup Loading marks MANDATORY. Counting the references is
+   * what stops a "slimmer" skill that merely displaced its prose into one.
+   *
+   * A mandatory load that is NOT a shipped reference is the host project's own file, so
+   * its size belongs to the project, not to this budget — but it must be DECLARED, or a
+   * new mandatory load would silently score as zero (round-1 T1-2). Measuring those
+   * files instead made the budget depend on unrelated knowledge edits, whose only cure
+   * would be raising the anchor — exactly what the anchor forbids (round-2 T2-1/T2-3).
+   */
+  const mandatoryContextTokens = (name: string): number => {
+    const rendered = renderSkill(name);
+    const section = startupLoadingSection(rendered);
+    let total = estimateTokens(rendered);
+    for (const cited of mandatoryCitations(section)) {
+      const reference = referenceOf(cited);
+      if (reference) {
+        total += estimateTokens(renderTemplate(`skills/references/${reference}.hbs`, TEMPLATE_CONTEXT));
+        continue;
+      }
+      expect(DECLARED_NON_SHIPPED.has(cited),
+        `${name}: MANDATORY load ${cited} is neither a shipped reference nor a declared project file`).toBe(true);
+    }
+    return total;
+  };
+
+  const startupLoadingSection = (raw: string): string =>
+    sharedStartupLoadingSection(raw, (message) => { expect.fail(message); });
 
   function numberedItems(section: string): string[] {
     return section
@@ -3968,11 +4026,11 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
 
       it('loading-item set matches the pre-reorder baseline (order-only change)', () => {
         const keys = numberedItems(section()).map(itemKey).sort();
-        expect(keys).toEqual(baseline[skill.name]!.items);
+        expect(keys).toEqual(baseline.skills[skill.name]!.items);
       });
 
       it('MANDATORY marker count is unchanged from baseline', () => {
-        expect(section().split('**MANDATORY**').length - 1).toBe(baseline[skill.name]!.mandatory);
+        expect(section().split('**MANDATORY**').length - 1).toBe(baseline.skills[skill.name]!.mandatory);
       });
 
       it('numbered loading items are contiguous (no prose interrupts the list)', () => {
@@ -3989,6 +4047,68 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
       });
     });
   }
+
+  it('every shipped JSON example parses and validates against its owning schema (REQ-TESTS-116)', () => {
+    // A reference's example is what an agent copies. If it does not satisfy the schema
+    // the CLI enforces, the reference teaches a payload the sink will refuse.
+    const cases = [
+      { reference: 'tasks-verifier-rubric', schema: VERIFIER_REPORT_SCHEMAS['prospec-tasks'] },
+      { reference: 'plan-verifier-rubric', schema: VERIFIER_REPORT_SCHEMAS['prospec-plan'] },
+    ] as const;
+    for (const { reference, schema } of cases) {
+      const rendered = renderTemplate(`skills/references/${reference}.hbs`, {
+        ...TEMPLATE_CONTEXT,
+        ...planningVerifierContext(),
+      });
+      const fences = [...rendered.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1]!);
+      expect(fences.length, `${reference} must ship at least one JSON example`).toBeGreaterThan(0);
+      for (const fence of fences) {
+        const parsed = JSON.parse(fence);
+        const result = schema.safeParse(parsed);
+        expect(result.success, `${reference}: ${JSON.stringify(result.error?.issues?.[0] ?? {})}`).toBe(true);
+        // Negative half: the example is validated by the real schema, not a permissive stand-in —
+        // an unknown key or a verdict outside the closed enum must be refused.
+        expect(schema.safeParse({ ...parsed, unexpected: true }).success).toBe(false);
+        expect(schema.safeParse({ ...parsed, verdict: 'FLAWLESS' }).success).toBe(false);
+      }
+    }
+  });
+
+  it('every shipped reference matches its recorded size and their total never rises (REQ-TESTS-116)', () => {
+    const names = fs
+      .readdirSync(path.resolve(__dirname, '../../src/templates/skills/references'))
+      .filter((file) => file.endsWith('.hbs'))
+      .map((file) => file.replace(/\.hbs$/, ''))
+      .sort();
+    const measured = Object.fromEntries(names.map((name) => [name,
+      estimateTokens(renderTemplate(`skills/references/${name}.hbs`, TEMPLATE_CONTEXT))]));
+    // Exact per-reference equality: a reference that grows shows up in the fixture diff,
+    // and prose displaced OUT of a skill lands here rather than vanishing from the books.
+    expect(measured).toEqual(baseline.references);
+    const total = Object.values(measured).reduce((sum, tokens) => sum + tokens, 0);
+    expect(total).toBeLessThanOrEqual(baseline.reference_ceiling_tokens);
+    // The ceiling is anchored HERE, outside the fixture it bounds: the fixture's own
+    // rows sum to it, so a rebaseline that also raised the ceiling would otherwise
+    // stay green. Lowering it is an edit to this line, which review sees.
+    expect(baseline.reference_ceiling_tokens).toBeLessThanOrEqual(REFERENCE_CEILING_ANCHOR);
+  });
+
+  it('per-skill mandatory context matches the recorded baseline and the cumulative ceiling never rises (REQ-TESTS-116)', () => {
+    const measured = Object.fromEntries(
+      SKILL_DEFINITIONS.map((skill) => [skill.name, mandatoryContextTokens(skill.name)]),
+    );
+    const recorded = Object.fromEntries(
+      Object.entries(baseline.skills).map(([name, entry]) => [name, entry.mandatory_context_tokens]),
+    );
+    // Exact per-skill equality: any context change must land in the reviewed fixture diff.
+    expect(measured).toEqual(recorded);
+    // The ceiling is the pre-change cumulative cost. It may only be lowered — an
+    // intentional route change updates the per-skill rows, never this bound upward.
+    const cumulative = Object.values(measured).reduce((sum, tokens) => sum + tokens, 0);
+    expect(cumulative).toBeLessThanOrEqual(baseline.cumulative_ceiling_tokens);
+    // Same reason as the reference ceiling: the bound lives outside the fixture.
+    expect(baseline.cumulative_ceiling_tokens).toBeLessThanOrEqual(CUMULATIVE_CEILING_ANCHOR);
+  });
 });
 
 describe('task kind markers — frozen schema (BL-004/OPT-B3)', () => {
@@ -5881,6 +6001,27 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(lenses).toContain('contradicting');
     });
 
+    it('keeps each scale exception at the lens that applies it (REQ-TESTS-116)', () => {
+      const lenses = sectionOf(review(), '### Review Lenses');
+      // Bounded at the Conditional paragraph: an unbounded slice runs to the end of
+      // the section and would pass with the carve-out moved into the generic block.
+      const specStart = lenses.indexOf('**spec-architecture**');
+      const conditional = lenses.indexOf('\nConditional:', specStart);
+      expect(conditional).toBeGreaterThan(specStart);
+      const specArchitecture = lenses.slice(specStart, conditional);
+      expect(specArchitecture).not.toContain('**test-quality**');
+      // The quick degradation belongs to the lens whose oracle disappears under
+      // quick — not to a generic scale block that every lens would have to read.
+      expect(specArchitecture).toContain('`metadata.scale: quick`');
+      expect(specArchitecture).toContain('not-applicable');
+      expect(specArchitecture).toContain('never report it as PASS');
+      // The other must-run lenses carry no scale carve-out of their own.
+      const beforeSpec = lenses.slice(0, lenses.indexOf('**spec-architecture**'));
+      expect(beforeSpec).not.toContain('metadata.scale');
+      // Review never restates verify's division; it points at the owning section.
+      expect(specArchitecture).toContain('do not restate');
+    });
+
     it('defines not-adjudicated as distinct from not-applicable, with S unreachable', () => {
       const section = sectionOf(verify(), '### When a machine check skips');
       expect(section).toContain('not-adjudicated');
@@ -6733,7 +6874,11 @@ describe('Shift-Left Task Contract & DAG Dependency Verifier in /prospec-tasks (
   it('prospec-ff Phase 4 references and checks include tasks-verifier-rubric.md', () => {
     const ff = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
     const startup = sectionOf(ff, '## Startup Loading');
+    // The prefix names WHERE each reference is read without preloading it. Removing that
+    // map (T16) cost the model its route in the 32-run Opus comparison — three regressed
+    // cells read ff and then never reached the next station — so the enumeration stays.
     expect(startup).toContain('references/tasks-verifier-rubric.md');
+    expect(startup).toContain('per phase on demand');
     const phase4 = sectionOf(ff, '### Phase 4: Tasks Generation');
     expect(phase4).toContain('references/tasks-verifier-rubric.md');
     expect(phase4).toContain('Task Contract Verification');
@@ -8184,6 +8329,125 @@ describe('verified input evidence guidance', () => {
     expect(source('init/status-lifecycle.md.hbs')).not.toContain('HEAD is in the digest');
     expect(source('skills/references/drift-report-format.hbs')).toContain('display artifact');
   });
+  it('attributes every guarantee to CLI, skill or model, with bounded model claims (REQ-TEMPLATES-230)', () => {
+    for (const [file, heading, labels] of [
+      ['README.md', '### What is enforced, and by what',
+        ['**CLI-enforced (deterministic)**', '**Skill-directed (procedural)**', '**Model judgment (bounded)**']],
+      ['README.zh-TW.md', '### 誰在強制什麼',
+        ['**CLI 強制（決定性）**', '**Skill 指示（程序性）**', '**模型判斷（有界）**']],
+    ] as const) {
+      const readme = fs.readFileSync(path.resolve(file), 'utf8');
+      const start = readme.indexOf(heading);
+      expect(start, file).toBeGreaterThan(-1);
+      const block = readme.slice(start, readme.indexOf('\n### ', start + heading.length));
+      for (const label of labels) expect(block, `${file}: ${label}`).toContain(label);
+      // The quick-scale Knowledge impact review is model judgment, named where it is judged.
+      expect(block, file).toContain('quick');
+      expect(block, file).toContain('delta-spec');
+      // Model reliability is pointed at the recorded evaluation, never asserted broadly.
+      expect(block, file).toContain('scripts/workflow-eval/README.md');
+      // The old overclaims are gone: nothing is "guaranteed" about model behavior, and
+      // the Constitution is graded by the audit rather than "enforced by the tool".
+      expect(readme, file).not.toMatch(/guarantees zero-token|保證了?零 token/);
+      const principle = readme.split('\n').find((line) => line.startsWith('5. **User Controls the Rules**'))!;
+      expect(principle, file).toBeDefined();
+      expect(principle, file).not.toMatch(/the tool enforces|工具負責強制執行/);
+      // Both halves must name the grader, so a single-language correction fails here.
+      expect(principle, file).toMatch(/verify|稽核/);
+    }
+  });
+
+  it('relocates the command/config/layout detail to a bilingual reference pair with parity (REQ-TEMPLATES-230)', () => {
+    const pair = {
+      en: fs.readFileSync(path.resolve('reference/cli-reference.md'), 'utf8'),
+      zh: fs.readFileSync(path.resolve('reference/cli-reference.zh-TW.md'), 'utf8'),
+    };
+    // Both halves carry the same four relocated sections, and each links the other.
+    const sections = {
+      en: ['## Generated project layout', '## CLI Commands', '## Configuration', '## Architecture'],
+      zh: ['## 產生的專案佈局', '## CLI 命令', '## 設定 (Configuration)', '## 架構'],
+    };
+    for (const lang of ['en', 'zh'] as const) {
+      for (const heading of sections[lang]) expect(pair[lang], `${lang}: ${heading}`).toContain(heading);
+      // The relocated command detail is the bulk of the file, not a stub pointing back.
+      const commands = pair[lang].slice(pair[lang].indexOf(`\n${sections[lang][1]!}`));
+      // Bounded by the NEXT heading in this language: an English delimiter never
+      // matches the zh file, so the slice would run to EOF and pass on a stub.
+      const end = commands.indexOf(`\n${sections[lang][2]!}`);
+      expect(end, `${lang}: Configuration heading must follow the command detail`).toBeGreaterThan(0);
+      expect(commands.slice(0, end).length).toBeGreaterThan(2000);
+    }
+    expect(pair.en).toContain('./cli-reference.zh-TW.md');
+    expect(pair.zh).toContain('./cli-reference.md');
+    // The Constitution's hand-maintained check enumeration moved here with the rest of
+    // the command detail, so this pair is now its audit target. Two invariants are
+    // checkable: inside the drift-check section every kebab token IS a real check id
+    // (a prefix whitelist let five plausible invented ids survive — round-4 D4-4), and
+    // both languages name the SAME set (a one-sided id leaves one audience without a
+    // searchable handle, which is how `artifact-language` drifted — round-3 D3-2).
+    // A token is claimed as a check id when it is annotated with that check's severity —
+    // `` `canonical-doc-drift`, WARN `` — which is exactly the shape a reader trusts and
+    // the shape an invented id would be injected in. Keying on THAT closes the guard with
+    // no exception list: a prefix whitelist let five plausible fakes survive (round-4
+    // D4-4), and an exclusion list simply moved the treadmill.
+    const sectionIds = (lang: 'en' | 'zh') => new Set([...pair[lang]
+      .matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`[,，]\s*(?:WARN|FAIL)/g)].map((match) => match[1]!));
+    for (const lang of ['en', 'zh'] as const) {
+      const named = sectionIds(lang);
+      for (const id of named) {
+        expect(DRIFT_CHECK_IDS as readonly string[], `${lang}: ${id} is annotated as a check but is not one`).toContain(id);
+      }
+      // Positive control against an empty sweep — the floor is what the files carry
+      // today, not a target to grow.
+      expect(named.size, lang).toBeGreaterThanOrEqual(5);
+    }
+    // Parity is asserted over the ids that ARE real, which is the half the annotation
+    // guard cannot see: a real id named in only one language is the `artifact-language`
+    // drift (round-3 D3-2), and it carries no severity in either file.
+    const realIds = (lang: 'en' | 'zh') => new Set([...pair[lang].matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`/g)]
+      .map((match) => match[1]!).filter((token) => (DRIFT_CHECK_IDS as readonly string[]).includes(token)));
+    expect([...realIds('en')].sort(), 'both CLI Reference files must name the same check ids')
+      .toEqual([...realIds('zh')].sort());
+
+    // A relative link written for the repo root resolves to reference/<path> here.
+    for (const lang of ['en', 'zh'] as const) expect(pair[lang], lang).not.toMatch(/\]\(\.\/prospec\//);
+    // The root READMEs keep the onboarding narrative plus a reachable destination link,
+    // and no longer carry the exhaustive per-command tables.
+    for (const [file, link, heading] of [
+      ['README.md', './reference/cli-reference.md#cli-commands', '## CLI Commands'],
+      ['README.zh-TW.md', './reference/cli-reference.zh-TW.md#cli-命令', '## CLI 命令'],
+    ] as const) {
+      const readme = fs.readFileSync(path.resolve(file), 'utf8');
+      expect(readme, file).toContain(heading);
+      expect(readme, file).toContain(link);
+      // The concise mentions existing contracts require stay in the root file — the
+      // validate entry by its own line, not merely the word somewhere else on the page.
+      const lines = readme.split('\n');
+      const at = lines.findIndex((line) => line.startsWith('- **`prospec validate <kind>'));
+      expect(at, file).toBeGreaterThan(-1);
+      // The entry wraps, so the kind list sits on its continuation line. Pin it against
+      // the registry Commander binds: a plausible-looking invented kind is a copy-paste
+      // the CLI refuses, and a real kind left out sends the reader to a dead end.
+      const entry = lines.slice(at, at + 2).join(' ');
+      for (const kind of VALIDATE_KINDS) expect(entry, `${file}: ${kind}`).toContain(`\`${kind}\``);
+      const documented = [...entry.matchAll(/`([a-z-]+)`/g)].map((match) => match[1]!)
+        .filter((kind) => kind !== 'kind' && !kind.startsWith('prospec'));
+      expect([...new Set(documented)].sort(), file).toEqual([...VALIDATE_KINDS].sort());
+      expect(readme, file).toContain('--verifier-report <file>');
+      expect(readme, file).toContain('.github/workflows/prospec-check.yml');
+      expect(readme, file).toContain('snapshot-v2');
+      // Graduated REQs require these in the ROOT README specifically, so relocating the
+      // command detail must not take them along: REQ-MCP-008 (an MCP section plus
+      // per-agent registration guidance), REQ-CLI-021 (`config example`) and
+      // REQ-AGNT-036 (`agent triggers`). All three vanished once (round-2 A2-1).
+      expect(readme, `${file}: REQ-MCP-008 command`).toContain('prospec mcp serve');
+      expect(readme, `${file}: REQ-MCP-008 section`).toMatch(/^### MCP server$/m);
+      expect(readme, `${file}: REQ-MCP-008 registration`).toContain('claude mcp add');
+      expect(readme, `${file}: REQ-CLI-021`).toContain('prospec config example');
+      expect(readme, `${file}: REQ-AGNT-036`).toContain('prospec agent triggers');
+    }
+  });
+
   it('documents scope, migration and bounded guarantees in both public READMEs', () => {
     for (const file of ['README.md', 'README.zh-TW.md']) {
       const text = fs.readFileSync(path.resolve(file), 'utf8');

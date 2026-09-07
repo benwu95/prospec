@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "budget_usd": 5,
+  "max_turns": 50,
+  "max_actions": 100,
+  "timeout_ms": 300000,
+  "max_output_bytes": 500000,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 8192,
+  "executors": [
+    {
+      "id": "stronger",
+      "tier": "stronger",
+      "command": "/absolute/path/to/trusted-jsonl-adapter",
+      "args": [],
+      "model": "REPLACE_WITH_STRONGER_MODEL",
+      "env_keys": ["WORKFLOW_STRONGER_API_KEY"],
+      "settings": {},
+      "input_usd_per_mtok": 1,
+      "output_usd_per_mtok": 1,
+      "token_bound": "utf8-bytes",
+      "mediated_tools": true
+    },
+    {
+      "id": "cheaper",
+      "tier": "cheaper",
+      "command": "/absolute/path/to/trusted-jsonl-adapter",
+      "args": [],
+      "model": "REPLACE_WITH_CHEAPER_MODEL",
+      "env_keys": ["WORKFLOW_CHEAPER_API_KEY"],
+      "settings": {},
+      "input_usd_per_mtok": 1,
+      "output_usd_per_mtok": 1,
+      "token_bound": "utf8-bytes",
+      "mediated_tools": true
+    }
+  ]
+}

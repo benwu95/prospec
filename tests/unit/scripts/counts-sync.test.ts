@@ -35,8 +35,11 @@ const README_STALE = [
   '- Contract tests (CLI output + Skill format): 500 tests',
   '- Integration tests: 30 tests',
   '- E2E tests: 40 tests',
-  '└── templates/    — Handlebars templates (50 .hbs files)',
 ].join('\n');
+
+// The layer tree — and the template count anchored in it — lives in the CLI
+// reference pair, not the root README (REQ-TEMPLATES-230).
+const CLI_REFERENCE_STALE = '└── templates/    — Handlebars templates (50 .hbs files)';
 
 // The SOURCE `prospec/index.md` is generated from. YAML folds the long
 // description, so each counted phrase straddles a line break — a line-scoped
@@ -78,6 +81,7 @@ function setup(): string {
     writeFileSync(abs, body);
   };
   write('README.md', README_STALE);
+  write('reference/cli-reference.md', CLI_REFERENCE_STALE);
   write('prospec/index.md', INDEX_STALE);
   write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_STALE);
   return root;
@@ -98,7 +102,7 @@ describe('syncCounts write mode', () => {
     expect(readme).toContain('**Test Coverage**: 1865 tests (1861 passed; 4 skipped) across');
     expect(readme).toContain('Unit tests (types + lib + services + cli): 1204 tests');
     expect(readme).toContain('Integration tests: 38 tests');
-    expect(readme).toContain('Handlebars templates (58 .hbs files)');
+    expect(read('reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
 
     const index = read('prospec/index.md');
     expect(index).toContain('78 files, 1,865 tests (unit 1204 + contract 580 + integration 38 + e2e 43)');
@@ -169,6 +173,7 @@ describe('syncCounts write mode', () => {
       'README.md',
       'prospec/ai-knowledge/module-map.yaml',
       'prospec/index.md',
+      'reference/cli-reference.md',
     ]);
     expect(report.changes.length).toBeGreaterThan(0);
     for (const c of report.changes) {
@@ -229,7 +234,7 @@ describe('syncCounts honest skip', () => {
       skipped: [{ key: 'tests.total', reason: 'vitest unavailable' }],
     });
     // inventory fixed…
-    expect(read('README.md')).toContain('Handlebars templates (58 .hbs files)');
+    expect(read('reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
     // …but every test count stays stale (no fabricated write)
     expect(read('README.md')).toContain('# Run all tests (1800 tests; 2 skipped)');
     expect(report.changes.every((c) => c.key.startsWith('templates.'))).toBe(true);

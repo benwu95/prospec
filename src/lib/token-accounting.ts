@@ -34,7 +34,7 @@ export function cacheHitRate(usage: TokenUsage): number {
  * Effective input-side cost in USD: base-rate input plus cache reads and
  * writes billed at their pricing multipliers.
  */
-export function effectiveInputCostUsd(usage: TokenUsage, pricing: Pricing): number {
+export function effectiveInputCostUsd(usage: Pick<TokenUsage, 'input' | 'cache_read' | 'cache_write'>, pricing: Pricing): number {
   const weightedTokens =
     usage.input +
     usage.cache_read * pricing.cache_read_multiplier +
@@ -43,7 +43,7 @@ export function effectiveInputCostUsd(usage: TokenUsage, pricing: Pricing): numb
 }
 
 /** Output-side cost in USD. */
-export function outputCostUsd(usage: TokenUsage, pricing: Pricing): number {
+export function outputCostUsd(usage: Pick<TokenUsage, 'output'>, pricing: Pricing): number {
   return (usage.output / MTOK) * pricing.output_usd_per_mtok;
 }
 

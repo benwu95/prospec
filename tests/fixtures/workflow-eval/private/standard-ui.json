@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "standard-ui",
+  "routes": ["design", "tasks"],
+  "required_reads": [".prospec/changes/x/proposal.md", ".prospec/changes/x/plan.md", ".prospec/changes/x/delta-spec.md"],
+  "forbidden_reads": [],
+  "required_files": [".prospec/changes/x/design-spec.md", ".prospec/changes/x/interaction-spec.md"],
+  "forbidden_files": [".prospec/changes/x/tasks.md"],
+  "forbidden_commands": ["archive", "verify", "check --record-tests"],
+  "payloads": [],
+  "required_states": {".prospec/changes/x/metadata.yaml": "plan"},
+  "suite_runs": 0,
+  "terminal": "handoff"
+}

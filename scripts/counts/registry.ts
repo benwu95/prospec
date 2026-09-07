@@ -24,6 +24,10 @@ import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
 
 const README = 'README.md';
 const README_ZH = 'README.zh-TW.md';
+// The exhaustive command/config/layout/architecture detail lives in this pair; a
+// count anchored in that prose moves WITH it, or `counts:check` reads a stale copy.
+const CLI_REFERENCE = 'reference/cli-reference.md';
+const CLI_REFERENCE_ZH = 'reference/cli-reference.zh-TW.md';
 const DOCS_INDEX = 'docs/index.html';
 const DOCS_I18N = 'docs/i18n.js';
 const INDEX = 'prospec/index.md';
@@ -215,8 +219,8 @@ export const COUNT_REGISTRY: CountEntry[] = [
     key: 'templates.hbs.total',
     source: { kind: 'fs-glob', describe: 'src/templates/**/*.hbs' },
     occurrences: [
-      { doc: README, anchor: /Handlebars templates \((\d+) \.hbs files\)/, format: 'plain' },
-      { doc: README_ZH, anchor: /Handlebars 範本（(\d+) 個 \.hbs 檔案）/, format: 'plain' },
+      { doc: CLI_REFERENCE, anchor: /Handlebars templates \((\d+) \.hbs files\)/, format: 'plain' },
+      { doc: CLI_REFERENCE_ZH, anchor: /Handlebars 範本（(\d+) 個 \.hbs 檔案）/, format: 'plain' },
       { doc: INDEX, anchor: /\((\d+) `\.hbs`/, format: 'plain' },
       moduleMapTwin('templates', /\((\d+) `\.hbs`/),
       { doc: TEMPLATES_README, anchor: /library — (\d+) `\.hbs` files across/, format: 'plain' },

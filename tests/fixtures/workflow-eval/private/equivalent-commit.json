@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "id": "equivalent-commit",
+  "routes": [
+    "archive"
+  ],
+  "required_reads": [
+    ".prospec/changes/x/metadata.yaml"
+  ],
+  "forbidden_reads": [],
+  "required_files": [
+    ".prospec/changes/x/verify.md"
+  ],
+  "forbidden_files": [],
+  "forbidden_commands": [
+    "archive",
+    "verify",
+    "check --record-tests",
+    "check --record-review",
+    "change log",
+    "change tasks",
+    "change status",
+    "review merge"
+  ],
+  "payloads": [],
+  "suite_runs": 0,
+  "terminal": "handoff",
+  "allow_writes": false,
+  "allow_delegation": false
+}

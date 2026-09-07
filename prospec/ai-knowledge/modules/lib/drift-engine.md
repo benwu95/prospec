@@ -24,7 +24,7 @@
 
 ## Modification Guide
 
-1. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts`, then sync the root-README check enumeration (PB-009; `pnpm counts` covers numbers, not that prose list).
+1. **Add a drift check** — collector in `drift-sources.ts` + evaluator in `drift-checker.ts`, then sync both `reference/cli-reference*.md` enumerations (PB-009; `pnpm counts` covers numbers, not prose).
 2. **Exempt a generated artifact from staleness** — declare its path or glob under `knowledge.generated_artifacts` in the project's `.prospec.yaml`; nothing is exempt by default. A producer whose output location is also a build constant (the templates bundler) still resolves that path from `generated-artifacts.ts`.
 
 ## Ripple Effects
