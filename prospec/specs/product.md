@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 1.0.0
-last_updated: 2026-09-05
+last_updated: 2026-09-07
 ---
 
 # prospec — Progressive Spec-Driven Development for AI agents
@@ -96,3 +96,8 @@ Ships prospec as a single multi-platform executable, so a project machine or CI 
 
 Benchmarks full-dump vs naive-RAG vs prospec context assembly across providers offline, so the token-savings claim is a measured number with a report behind it. `prospec measure` displays it read-only — no threshold, never a CI gate.
 → [features/token-measurement.md](features/token-measurement.md)
+
+### workflow-evaluation
+
+Runs the shipped skill instructions against eight fixed scenarios and adjudicates the result from observed evidence, so a change to those instructions is accepted or rejected on paired measurement rather than on how the prose reads. Development tooling — opt-in, never part of CI.
+→ [features/workflow-evaluation.md](features/workflow-evaluation.md)

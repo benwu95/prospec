@@ -105,3 +105,8 @@ features:
     req_prefixes:
       - MEASURE
     status: active
+  - feature: workflow-evaluation
+    modules:
+      - tests
+    req_prefixes: []
+    status: active

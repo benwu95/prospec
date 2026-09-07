@@ -76,9 +76,11 @@ prospec/
       mcp-server/
       project-setup/
       sdd-workflow/
+reference/
 scripts/
   counts/
   measure/
+  workflow-eval/
 src/
   cli/
     commands/
@@ -193,6 +195,10 @@ tests/
       synthetic-fenced/
       synthetic-struck/
     token-corpus/
+    workflow-eval/
+      private/
+      public/
+  helpers/
   integration/
   unit/
     cli/
@@ -218,13 +224,14 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `tests/fixtures/` — 614 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 271 files: `.md`, `.yaml`
+- `tests/fixtures/` — 631 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 274 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
+- `reference/` — 2 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1380 |
+| Total files | 1450 |
 | Scan depth | 10 |

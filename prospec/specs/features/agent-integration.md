@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-02
+last_updated: 2026-09-07
 story_count: 22
-req_count: 103
+req_count: 104
 ---
 
 # Agent Integration
@@ -130,6 +130,15 @@ The test suite protects canonical identity, host-specific explicit invocation, a
 
 ---
 
+
+#### REQ-TEMPLATES-230: Concise bilingual reader entry with accurate guarantees
+The repository's English and Traditional Chinese root READMEs provide equivalent concise onboarding and navigation to detailed command/configuration/layout documentation.
+- WHEN entering either README, THEN readers can find purpose, audience, installation, first change, core workflow and capability limitations; relocated information remains reachable through valid links and retained anchors or explicit destination links.
+- WHEN describing guarantees, THEN accurately attribute CLI-enforced schema/per-target checks, skill-directed gates and model judgment, including quick Knowledge impact review; do not claim broader model reliability than the recorded evaluation demonstrates.
+- WHEN moving detailed content, THEN maintain bilingual parity and retain concise root mentions required by existing command/skill documentation contracts; keep canonical skill identity and host-specific invocation guidance intact.
+
+---
+
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -165,6 +174,7 @@ The test suite protects canonical identity, host-specific explicit invocation, a
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-07 | reduce-workflow-context | ADDED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-151; MODIFIED REQ-AGNT-020; MODIFIED REQ-SKILL-012; MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-TEMPLATES-152 | REQ-TEMPLATES-151, REQ-AGNT-020, REQ-SKILL-012, REQ-TEMPLATES-121, REQ-TEMPLATES-152 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-SERVICES-089 | REQ-TEMPLATES-121, REQ-SERVICES-089 |
 | 2026-09-01 | require-v2-cli-for-skills | MODIFIED REQ-TEMPLATES-160 | REQ-TEMPLATES-160 |
