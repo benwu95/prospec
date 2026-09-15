@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "standard-ui",
+  "setup": "standard-ui",
+  "entry_skill": "prospec-ff",
+  "task": "Continue change x from its current state. The user confirmed standard scale, partial UI scope, and HTML as the design platform. Produce the next station's artifacts and stop at its handoff; do not implement code. The requested UI is a keyboard-accessible empty-state message with an Add item button. Use the supplied workflow instructions.",
+  "files": {
+    ".prospec.yaml": "version: \"1.0\"\nproject:\n  name: workflow-fixture\ndesign:\n  platform: html\n",
+    ".prospec/changes/x/metadata.yaml": "name: x\ncreated_at: \"2026-09-05\"\nstatus: plan\nscale: standard\n",
+    ".prospec/changes/x/proposal.md": "# Proposal: x\n\nShow an empty-state message and an Add item button when there are no items. The button supports keyboard activation and a visible focus indicator.\n\n## UI Scope\n\n**Scope:** partial\n",
+    ".prospec/changes/x/plan.md": "# Plan\n\nUse a semantic heading, explanatory paragraph and native button. Reuse the page typography. The button invokes the existing create-item action.\n",
+    ".prospec/changes/x/delta-spec.md": "# Delta Spec\n\n## ADDED\n\n### REQ-UI-001 Empty state\n\n**Spec:** When there are no items, show an empty-state message and a keyboard-accessible Add item button.\n"
+  }
+}

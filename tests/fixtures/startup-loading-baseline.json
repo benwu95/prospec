@@ -1,159 +1,213 @@
 {
-  "prospec-archive": {
-    "items": [
-      ".prospec/changes/"
-    ],
-    "mandatory": 0
+  "version": 1,
+  "cumulative_ceiling_tokens": 87633,
+  "skills": {
+    "prospec-archive": {
+      "items": [
+        ".prospec/changes/"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 7694
+    },
+    "prospec-backfill-spec": {
+      "items": [
+        "{{base_dir}}/index.md",
+        "{{base_dir}}/specs/features/"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 3391
+    },
+    "prospec-promote-backfill": {
+      "items": [
+        ".prospec/changes/[name]/backfill-draft.md",
+        "references/proposal-format.md",
+        "{{base_dir}}/index.md",
+        "{{base_dir}}/specs/features/"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 5829
+    },
+    "prospec-design": {
+      "items": [
+        ".prospec.yaml",
+        ".prospec/changes/[name]/proposal.md",
+        "design.platform",
+        "references/design-spec-format.md",
+        "references/interaction-spec-format.md"
+      ],
+      "mandatory": 2,
+      "mandatory_context_tokens": 4643
+    },
+    "prospec-explore": {
+      "items": [
+        "{{base_dir}}/index.md",
+        "{{constitution_path}}"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 1278
+    },
+    "prospec-ff": {
+      "items": [
+        "{{base_dir}}/index.md",
+        "{{constitution_path}}"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 4951
+    },
+    "prospec-implement": {
+      "items": [
+        ".prospec/changes/[name]/delta-spec.md",
+        ".prospec/changes/[name]/plan.md",
+        ".prospec/changes/[name]/tasks.md",
+        "references/implementation-guide.md",
+        "{{knowledge_base_path}}/_conventions.md",
+        "{{knowledge_base_path}}/_playbook.md"
+      ],
+      "mandatory": 2,
+      "mandatory_context_tokens": 4502
+    },
+    "prospec-knowledge-generate": {
+      "items": [
+        ".prospec.yaml",
+        "{{base_dir}}/index.md",
+        "{{constitution_path}}",
+        "{{knowledge_base_path}}/_conventions.md",
+        "{{knowledge_base_path}}/_module-readme-conventions.md",
+        "{{knowledge_base_path}}/raw-scan.md"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 4897
+    },
+    "prospec-knowledge-update": {
+      "items": [
+        ".prospec/changes/[name]/delta-spec.md",
+        "{{base_dir}}/index.md",
+        "{{knowledge_base_path}}/_conventions.md",
+        "{{knowledge_base_path}}/_module-readme-conventions.md",
+        "{{knowledge_base_path}}/module-map.yaml"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 4414
+    },
+    "prospec-learn": {
+      "items": [
+        ".prospec.yaml",
+        "references/promotion-format.md",
+        "{{constitution_path}}",
+        "{{knowledge_base_path}}/_lessons-ledger.md",
+        "{{knowledge_base_path}}/_playbook.md",
+        "{{knowledge_base_path}}/module-map.yaml"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 5594
+    },
+    "prospec-new-story": {
+      "items": [
+        "references/metadata-format.md",
+        "references/proposal-format.md",
+        "{{base_dir}}/index.md",
+        "{{base_dir}}/specs/features/",
+        "{{constitution_path}}"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 5084
+    },
+    "prospec-quickstart": {
+      "items": [
+        ".prospec.yaml"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 1515
+    },
+    "prospec-upgrade": {
+      "items": [
+        ".prospec.yaml"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 4290
+    },
+    "prospec-plan": {
+      "items": [
+        ".prospec/changes/[name]/proposal.md",
+        "{{base_dir}}/index.md",
+        "{{base_dir}}/specs/features/",
+        "{{base_dir}}/specs/product.md",
+        "{{constitution_path}}",
+        "{{knowledge_base_path}}/_playbook.md"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 5608
+    },
+    "prospec-review": {
+      "items": [
+        ".prospec/changes/[name]/tasks.md",
+        "git diff",
+        "references/review-format.md",
+        "{{constitution_path}}",
+        "{{knowledge_base_path}}/_conventions.md"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 7830
+    },
+    "prospec-tasks": {
+      "items": [
+        ".prospec/changes/[name]/delta-spec.md",
+        ".prospec/changes/[name]/design-spec.md",
+        ".prospec/changes/[name]/plan.md",
+        "README.md",
+        "references/tasks-format.md",
+        "{{constitution_path}}"
+      ],
+      "mandatory": 1,
+      "mandatory_context_tokens": 5629
+    },
+    "prospec-verify": {
+      "items": [
+        ".prospec/changes/[name]/delta-spec.md",
+        ".prospec/changes/[name]/metadata.yaml",
+        ".prospec/changes/[name]/plan.md",
+        ".prospec/changes/[name]/proposal.md",
+        ".prospec/changes/[name]/tasks.md",
+        "prospec check --json",
+        "prospec spec show <feature> --req <ids>",
+        "{{base_dir}}/specs/product.md",
+        "{{constitution_path}}"
+      ],
+      "mandatory": 0,
+      "mandatory_context_tokens": 10484
+    }
   },
-  "prospec-backfill-spec": {
-    "items": [
-      "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/"
-    ],
-    "mandatory": 0
-  },
-  "prospec-promote-backfill": {
-    "items": [
-      ".prospec/changes/[name]/backfill-draft.md",
-      "references/proposal-format.md",
-      "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/"
-    ],
-    "mandatory": 1
-  },
-  "prospec-design": {
-    "items": [
-      ".prospec.yaml",
-      ".prospec/changes/[name]/proposal.md",
-      "design.platform",
-      "references/design-spec-format.md",
-      "references/interaction-spec-format.md"
-    ],
-    "mandatory": 2
-  },
-  "prospec-explore": {
-    "items": [
-      "{{base_dir}}/index.md",
-      "{{constitution_path}}"
-    ],
-    "mandatory": 0
-  },
-  "prospec-ff": {
-    "items": [
-      "{{base_dir}}/index.md",
-      "{{constitution_path}}"
-    ],
-    "mandatory": 0
-  },
-  "prospec-implement": {
-    "items": [
-      ".prospec/changes/[name]/delta-spec.md",
-      ".prospec/changes/[name]/plan.md",
-      ".prospec/changes/[name]/tasks.md",
-      "references/implementation-guide.md",
-      "{{knowledge_base_path}}/_conventions.md",
-      "{{knowledge_base_path}}/_playbook.md"
-    ],
-    "mandatory": 2
-  },
-  "prospec-knowledge-generate": {
-    "items": [
-      ".prospec.yaml",
-      "{{base_dir}}/index.md",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_conventions.md",
-      "{{knowledge_base_path}}/_module-readme-conventions.md",
-      "{{knowledge_base_path}}/raw-scan.md"
-    ],
-    "mandatory": 0
-  },
-  "prospec-knowledge-update": {
-    "items": [
-      ".prospec/changes/[name]/delta-spec.md",
-      "{{base_dir}}/index.md",
-      "{{knowledge_base_path}}/_conventions.md",
-      "{{knowledge_base_path}}/_module-readme-conventions.md",
-      "{{knowledge_base_path}}/module-map.yaml"
-    ],
-    "mandatory": 1
-  },
-  "prospec-learn": {
-    "items": [
-      ".prospec.yaml",
-      "references/promotion-format.md",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_lessons-ledger.md",
-      "{{knowledge_base_path}}/_playbook.md",
-      "{{knowledge_base_path}}/module-map.yaml"
-    ],
-    "mandatory": 1
-  },
-  "prospec-new-story": {
-    "items": [
-      "references/metadata-format.md",
-      "references/proposal-format.md",
-      "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/",
-      "{{constitution_path}}"
-    ],
-    "mandatory": 1
-  },
-  "prospec-quickstart": {
-    "items": [
-      ".prospec.yaml"
-    ],
-    "mandatory": 0
-  },
-  "prospec-upgrade": {
-    "items": [
-      ".prospec.yaml"
-    ],
-    "mandatory": 0
-  },
-  "prospec-plan": {
-    "items": [
-      ".prospec/changes/[name]/proposal.md",
-      "{{base_dir}}/index.md",
-      "{{base_dir}}/specs/features/",
-      "{{base_dir}}/specs/product.md",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_playbook.md"
-    ],
-    "mandatory": 0
-  },
-  "prospec-review": {
-    "items": [
-      ".prospec/changes/[name]/tasks.md",
-      "git diff",
-      "references/review-format.md",
-      "{{constitution_path}}",
-      "{{knowledge_base_path}}/_conventions.md"
-    ],
-    "mandatory": 1
-  },
-  "prospec-tasks": {
-    "items": [
-      ".prospec/changes/[name]/delta-spec.md",
-      ".prospec/changes/[name]/design-spec.md",
-      ".prospec/changes/[name]/plan.md",
-      "README.md",
-      "references/tasks-format.md",
-      "{{constitution_path}}"
-    ],
-    "mandatory": 1
-  },
-  "prospec-verify": {
-    "items": [
-      ".prospec/changes/[name]/delta-spec.md",
-      ".prospec/changes/[name]/metadata.yaml",
-      ".prospec/changes/[name]/plan.md",
-      ".prospec/changes/[name]/proposal.md",
-      ".prospec/changes/[name]/tasks.md",
-      "prospec check --json",
-      "prospec spec show <feature> --req <ids>",
-      "{{base_dir}}/specs/product.md",
-      "{{constitution_path}}"
-    ],
-    "mandatory": 0
+  "reference_ceiling_tokens": 46365,
+  "references": {
+    "adapter-figma": 589,
+    "adapter-html": 663,
+    "adapter-pencil": 871,
+    "adapter-penpot": 490,
+    "archive-format": 1211,
+    "candidate-evaluation": 2211,
+    "cascade-protocol": 2126,
+    "circuit-breaker": 1150,
+    "debug-recovery-format": 1307,
+    "delegated-evidence-format": 2849,
+    "delta-spec-format": 2017,
+    "design-spec-format": 930,
+    "drift-report-format": 2701,
+    "feature-boundary-criteria": 963,
+    "feature-spec-format": 1185,
+    "implementation-guide": 1079,
+    "interaction-spec-format": 835,
+    "metadata-format": 3007,
+    "plan-format": 2476,
+    "plan-verifier-rubric": 2291,
+    "product-spec-format": 1277,
+    "project-test-runner": 799,
+    "promotion-format": 1622,
+    "proposal-format": 1098,
+    "review-format": 2494,
+    "review-lenses-content": 2863,
+    "spec-graduation": 892,
+    "tasks-format": 1549,
+    "tasks-verifier-rubric": 1837,
+    "verify-backfill": 983
   }
 }

@@ -11,9 +11,13 @@ export default defineConfig({
     env: { NO_COLOR: '1' },
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
+      include: ['src/**/*.ts', 'scripts/workflow-eval/**/*.ts', 'scripts/evaluate-workflow.ts'],
       exclude: ['src/templates/**'],
       reporter: ['text', 'text-summary', 'json-summary', 'html'],
+      thresholds: {
+        'scripts/workflow-eval/**': { lines: 80, statements: 80, branches: 80, functions: 80 },
+        'scripts/evaluate-workflow.ts': { lines: 80, statements: 80, branches: 80, functions: 80 },
+      },
     },
     unstubEnvs: true,
   },

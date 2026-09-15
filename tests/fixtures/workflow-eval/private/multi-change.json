@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "id": "multi-change",
+  "routes": [
+    "archive"
+  ],
+  "required_reads": [
+    ".prospec/changes/x/metadata.yaml",
+    ".prospec/changes/y/metadata.yaml"
+  ],
+  "forbidden_reads": [],
+  "required_files": [],
+  "forbidden_files": [],
+  "required_commands": [
+    [
+      "check",
+      "--change",
+      "x",
+      "--json"
+    ],
+    [
+      "check",
+      "--change",
+      "y",
+      "--json"
+    ]
+  ],
+  "forbidden_commands": [
+    "archive",
+    "verify",
+    "check --record-tests",
+    "check --record-review",
+    "change status",
+    "change log",
+    "change tasks",
+    "review merge"
+  ],
+  "payloads": [],
+  "suite_runs": 0,
+  "terminal": "stop",
+  "allow_writes": false,
+  "allow_delegation": false
+}

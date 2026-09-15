@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "note": "Route-specific mandatory inventories plus the pre-change token ceiling each scenario must stay at or below. Derived from each routed station's Startup Loading MANDATORY items, then reviewed; an inventory of what the instructions require, never of what a run read. Re-measured 2026-09-07: the inventory is now derived from each deployed skill's own **MANDATORY** markers instead of a hand-written list, which added the implement station's mandatory `prospec/ai-knowledge/_conventions.md` (measured from this repository's copy, since it is a project file rather than a shipped skill). Only `quick` routes through implement, so only its ceiling moved (15,096 → 16,347). The shipped instructions did not change — the measure got wider. Known bound: the inventory is derived from the literal `**MANDATORY**` marker, so a mandatory load declared another way is absent from it — today that is `prospec-verify`'s `**SCALE: BACKFILL MANDATORY ROUTING**` requirement to read `references/verify-backfill.md` (~982 tokens) under `scale: backfill`, which the `proven-backfill` ceiling therefore does not include.",
+  "ceilings": {
+    "quick": 16347,
+    "standard-ui": 15244,
+    "proven-backfill": 23279,
+    "equivalent-commit": 12651,
+    "reverify-c": 15439,
+    "missing-receipt": 5613,
+    "stale-delta": 12792,
+    "multi-change": 12651
+  },
+  "policies": {
+    "quick": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "tasks",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "tasks",
+          "paths": [
+            ".agents/skills/prospec-tasks/SKILL.md"
+          ]
+        },
+        {
+          "station": "implement",
+          "paths": [
+            ".agents/skills/prospec-implement/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-ff/SKILL.md": [],
+        ".agents/skills/prospec-implement/SKILL.md": [
+          ".agents/skills/prospec-implement/references/implementation-guide.md",
+          "prospec/ai-knowledge/_conventions.md"
+        ],
+        ".agents/skills/prospec-implement/references/implementation-guide.md": [],
+        ".agents/skills/prospec-tasks/SKILL.md": [
+          ".agents/skills/prospec-tasks/references/tasks-format.md"
+        ],
+        ".agents/skills/prospec-tasks/references/tasks-format.md": [],
+        "prospec/ai-knowledge/_conventions.md": []
+      }
+    },
+    "standard-ui": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "design",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "design",
+          "paths": [
+            ".agents/skills/prospec-design/SKILL.md"
+          ]
+        },
+        {
+          "station": "tasks",
+          "paths": [
+            ".agents/skills/prospec-tasks/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-design/SKILL.md": [
+          ".agents/skills/prospec-design/references/design-spec-format.md",
+          ".agents/skills/prospec-design/references/interaction-spec-format.md"
+        ],
+        ".agents/skills/prospec-design/references/design-spec-format.md": [],
+        ".agents/skills/prospec-design/references/interaction-spec-format.md": [],
+        ".agents/skills/prospec-ff/SKILL.md": [],
+        ".agents/skills/prospec-tasks/SKILL.md": [
+          ".agents/skills/prospec-tasks/references/tasks-format.md"
+        ],
+        ".agents/skills/prospec-tasks/references/tasks-format.md": []
+      }
+    },
+    "proven-backfill": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "review",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "review",
+          "paths": [
+            ".agents/skills/prospec-review/SKILL.md"
+          ]
+        },
+        {
+          "station": "verify",
+          "paths": [
+            ".agents/skills/prospec-verify/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-ff/SKILL.md": [],
+        ".agents/skills/prospec-review/SKILL.md": [
+          ".agents/skills/prospec-review/references/review-format.md"
+        ],
+        ".agents/skills/prospec-review/references/review-format.md": [],
+        ".agents/skills/prospec-verify/SKILL.md": []
+      }
+    },
+    "equivalent-commit": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "archive",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "archive",
+          "paths": [
+            ".agents/skills/prospec-archive/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-archive/SKILL.md": [],
+        ".agents/skills/prospec-ff/SKILL.md": []
+      }
+    },
+    "reverify-c": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "verify",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "verify",
+          "paths": [
+            ".agents/skills/prospec-verify/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-ff/SKILL.md": [],
+        ".agents/skills/prospec-verify/SKILL.md": []
+      }
+    },
+    "missing-receipt": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "plan",
+          "paths": [
+            ".agents/skills/prospec-plan/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-plan/SKILL.md": []
+      }
+    },
+    "stale-delta": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "review",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "review",
+          "paths": [
+            ".agents/skills/prospec-review/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-ff/SKILL.md": [],
+        ".agents/skills/prospec-review/SKILL.md": [
+          ".agents/skills/prospec-review/references/review-format.md"
+        ],
+        ".agents/skills/prospec-review/references/review-format.md": []
+      }
+    },
+    "multi-change": {
+      "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+      "roots": [
+        {
+          "station": "archive",
+          "paths": [
+            ".agents/skills/prospec-ff/SKILL.md"
+          ]
+        },
+        {
+          "station": "archive",
+          "paths": [
+            ".agents/skills/prospec-archive/SKILL.md"
+          ]
+        }
+      ],
+      "dependencies": {
+        ".agents/skills/prospec-archive/SKILL.md": [],
+        ".agents/skills/prospec-ff/SKILL.md": []
+      }
+    }
+  }
+}

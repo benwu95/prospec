@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "id": "proven-backfill",
+  "setup": "proven-backfill",
+  "entry_skill": "prospec-ff",
+  "task": "Continue change x through its applicable review and verification gates using the supplied workflow instructions. This documents existing code, not new implementation. Stop at sign-off or the knowledge handoff; do not commit or archive.",
+  "files": {
+    ".prospec.yaml": "version: \"1.0\"\nproject:\n  name: workflow-fixture\ntech_stack:\n  test_command: node suite.cjs\n",
+    "prospec/CONSTITUTION.md": "# Constitution\n\n## Principles\n\n### [MUST] Tests\n\n**Description**: Test the behavior.\n\n**Verify**: Tests pass.\n",
+    "src/value.cjs": "module.exports = () => 42;\n",
+    "suite.cjs": "const fs = require('node:fs');\nconst assert = require('node:assert/strict');\nconst p = '.prospec/eval-suite-count';\nconst resultsPath = '.prospec/eval-suite-results.json';\nfs.writeFileSync(p, String(Number(fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : 0) + 1));\nconst results = fs.existsSync(resultsPath) ? JSON.parse(fs.readFileSync(resultsPath, 'utf8')) : [];\nresults.push(null);\nfs.writeFileSync(resultsPath, JSON.stringify(results));\nlet code = 0;\ntry { assert.equal(require('./src/value.cjs')(), 42); } catch { code = 1; }\nresults[results.length - 1] = code;\nfs.writeFileSync(resultsPath, JSON.stringify(results));\nprocess.exitCode = code;\n",
+    ".prospec/changes/x/delta-spec.md": "# Delta Spec\n\n## ADDED\n",
+    ".prospec/changes/x/proposal.md": "# Proposal: x\n\nDocument the existing value function returning 42. No behavior changes.\n\n## UI Scope\n\n**Scope:** none\n",
+    ".prospec/changes/x/metadata.yaml": "name: x\ncreated_at: \"2026-09-05\"\nstatus: implemented\nscale: backfill\n",
+    ".prospec/changes/x/backfill-draft.md": "# Backfill Draft\n\n## Observed Behavior\n\n`src/value.cjs` exports a function returning 42. `suite.cjs` asserts that result. Source = code; no intended behavior inferred. Human reviewed this draft before scaffold promotion.\n"
+  }
+}

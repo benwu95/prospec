@@ -28,7 +28,7 @@ import {
   execute as agentSync,
   getSkillReferences,
 } from '../../src/services/agent-sync.service.js';
-import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
+import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../../src/types/skill.js';
 
 // The skills whose rendered SKILL.md must reference _status-lifecycle.md. An
 // explicit named set, not a bare count: a skill that gains or drops the
@@ -160,6 +160,39 @@ describe('Skill generation contract (verify-skills.sh port)', () => {
   });
 
   // [D] every references/ link resolves in the SAME skill's references/ dir
+  it('[D] every host deploys exactly getSkillReferences, and every cited link resolves there (REQ-TEMPLATES-147)', () => {
+    // The registry is the only wiring path: a host that carries a file the registry
+    // does not name was hand-copied, and one that misses a named file cannot resolve
+    // the citation the skill body makes.
+    // Hosts come from the registry that OWNS the deployment paths, not a literal list:
+    // a new host would otherwise be exempt from this guard by omission (round-3 T3-2).
+    const hosts = [...new Set(Object.values(AGENT_CONFIGS).map((config) => config.skillPath))];
+    expect(hosts.length, 'agent registry must declare at least one skill path').toBeGreaterThan(0);
+    const problems: string[] = [];
+    let checked = 0;
+    for (const host of hosts) {
+      for (const skill of SKILL_DEFINITIONS) {
+        const skillMd = at(host, skill.name, 'SKILL.md');
+        // A missing deployment is a finding, not a silent skip: skipping is what made
+        // this universal claim vacuous when nothing had been generated for the host.
+        if (!existsSync(skillMd)) { problems.push(`${host}/${skill.name}: SKILL.md is not deployed`); continue; }
+        checked++;
+        const registered = getSkillReferences(skill.name).map((r) => r.outputName).sort();
+        const dir = at(host, skill.name, 'references');
+        const deployed = existsSync(dir) ? readdirSync(dir).sort() : [];
+        if (JSON.stringify(deployed) !== JSON.stringify(registered)) {
+          problems.push(`${host}/${skill.name}: deployed ${deployed.join(',') || 'none'} vs registered ${registered.join(',') || 'none'}`);
+        }
+        for (const link of new Set(readFileSync(skillMd, 'utf-8').match(/references\/[a-z0-9-]+\.md/g) ?? [])) {
+          if (!existsSync(at(host, skill.name, link))) problems.push(`${host}/${skill.name}: dangling ${link}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+    // Positive control: an empty sweep would satisfy the assertion above.
+    expect(checked).toBe(hosts.length * SKILL_DEFINITIONS.length);
+  });
+
   it('[D] every references/ link resolves self-contained (no sibling/dangling)', () => {
     const dangling: string[] = [];
     for (const skill of SKILL_DEFINITIONS) {

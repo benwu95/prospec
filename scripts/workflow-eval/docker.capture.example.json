@@ -1,0 +1,12 @@
+{
+  "target": {
+    "command": "/usr/local/bin/docker",
+    "container": "0000000000000000000000000000000000000000000000000000000000000000",
+    "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "uid": 1000,
+    "cwd": "/home/evaluator/workflow-capture-001"
+  },
+  "node": "/opt/prospec-eval/node-v26.7.0-linux-arm64/bin/node",
+  "runtime": "/opt/prospec-eval/workflow-runtime.mjs",
+  "cli": "/home/evaluator/.local/bin/agy"
+}

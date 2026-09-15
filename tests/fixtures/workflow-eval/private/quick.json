@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "quick",
+  "routes": ["tasks", "implement"],
+  "required_reads": [".prospec/changes/x/proposal.md"],
+  "forbidden_reads": [".prospec/changes/x/plan.md", ".prospec/changes/x/delta-spec.md"],
+  "required_files": [".prospec/changes/x/tasks.md"],
+  "forbidden_files": [".prospec/changes/x/plan.md", ".prospec/changes/x/delta-spec.md", ".prospec/changes/x/design-spec.md"],
+  "forbidden_commands": ["archive", "verify", "check --record-tests"],
+  "payloads": ["prospec-tasks"],
+  "required_receipts": ["prospec-tasks"],
+  "required_states": {".prospec/changes/x/metadata.yaml": "tasks"},
+  "required_log_skills": {".prospec/changes/x/metadata.yaml": ["prospec-tasks"]},
+  "suite_runs": 0,
+  "terminal": "handoff"
+}

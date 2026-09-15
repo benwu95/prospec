@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "execution_mode": "native-subscription",
+  "max_requests": 1600,
+  "prior_requests": 2,
+  "timeout_ms": 300000,
+  "max_output_bytes": 500000,
+  "executors": [
+    {
+      "cli": "claude",
+      "command": "/absolute/path/to/claude",
+      "model": "claude-fable-5-1",
+      "version": "2.1.263 (Claude Code)",
+      "tier": "stronger"
+    },
+    {
+      "cli": "agy",
+      "command": "/absolute/path/to/agy",
+      "model": "gemini-3.8-flash-high",
+      "version": "1.1.27",
+      "tier": "cheaper"
+    }
+  ]
+}

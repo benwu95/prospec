@@ -46,7 +46,7 @@
     'hero.lbl2': '// 啟動任何專案 —— 新專案或既有專案皆可',
     'hero.ctaPrimary': '約 5 分鐘快速上手 <span class="arr" aria-hidden="true">→</span>',
     'hero.ctaGhost': '在 GitHub 上查看',
-    'hero.facts.tests': '共 <b>4,906</b> 個測試 · <b>4,902</b> 個通過 · <b>4</b> 個略過',
+    'hero.facts.tests': '共 <b>5,119</b> 個測試 · <b>5,115</b> 個通過 · <b>4</b> 個略過',
     'hero.facts.skills': '<b>17</b> 個 Skills',
     'hero.facts.principles': '<b>8</b> 條強制原則',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',
@@ -263,6 +263,7 @@
     'final.p': '安裝一次，啟動任何專案，接著用自然語言描述你的第一個變更。',
     'final.ctaPrimary': '在 GitHub 上查看 <span class="arr" aria-hidden="true">→</span>',
     'final.ctaGhost': '閱讀完整 README',
+    'footer.repo.cliReference': 'CLI 參考',
 
     // ---- footer ----
     'footer.desc': '為 AI coding agent 打造的漸進式規格驅動開發。Skills 負責判斷面；確定性 CLI 在背景執行。',

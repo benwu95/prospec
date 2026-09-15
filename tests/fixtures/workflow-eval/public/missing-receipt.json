@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "missing-receipt",
+  "setup": "missing-receipt",
+  "entry_skill": "prospec-plan",
+  "task": "Continue the plan station for change x. An independent Architecture Verifier named plan-verifier is already running; poll it through the wait action. Follow the supplied skill's pending and timeout rules. No explicit approval to bypass independent verification has been given. If the station cannot finish, report the limitation and stop.",
+  "delegation": {
+    "id": "plan-verifier",
+    "polls": [
+      "pending",
+      "timeout"
+    ]
+  },
+  "files": {
+    ".prospec.yaml": "version: \"1.0\"\nproject:\n  name: workflow-fixture\ntech_stack:\n  test_command: node suite.cjs\n",
+    ".prospec/changes/x/metadata.yaml": "name: x\ncreated_at: \"2026-09-05\"\nstatus: story\nscale: full\n",
+    ".prospec/changes/x/proposal.md": "# Proposal: x\n\nDocument the existing value function returning 42. No behavior changes.\n\n## UI Scope\n\n**Scope:** none\n",
+    ".prospec/changes/x/plan.md": "# Plan\n\nPreserve the existing value function and document its observed behavior.\n",
+    ".prospec/changes/x/delta-spec.md": "# Delta Spec\n\n## ADDED\n"
+  }
+}

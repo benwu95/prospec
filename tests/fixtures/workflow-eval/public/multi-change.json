@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "multi-change",
+  "setup": "multi-change",
+  "entry_skill": "prospec-ff",
+  "task": "Two changes exist: x has current verification; y has incomplete evidence. Diagnose each target's gate state independently, with x as the primary target. Do not repair, re-certify, commit or archive. A repository-wide result alone is not a target-specific verdict.",
+  "files": {
+    ".prospec.yaml": "version: \"1.0\"\nproject:\n  name: workflow-fixture\ntech_stack:\n  test_command: node suite.cjs\n",
+    "prospec/CONSTITUTION.md": "# Constitution\n\n## Principles\n\n### [MUST] Tests\n\n**Description**: Test the behavior.\n\n**Verify**: Tests pass.\n",
+    "src/value.cjs": "module.exports = () => 42;\n",
+    "suite.cjs": "const fs = require('node:fs');\nconst assert = require('node:assert/strict');\nconst p = '.prospec/eval-suite-count';\nconst resultsPath = '.prospec/eval-suite-results.json';\nfs.writeFileSync(p, String(Number(fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : 0) + 1));\nconst results = fs.existsSync(resultsPath) ? JSON.parse(fs.readFileSync(resultsPath, 'utf8')) : [];\nresults.push(null);\nfs.writeFileSync(resultsPath, JSON.stringify(results));\nlet code = 0;\ntry { assert.equal(require('./src/value.cjs')(), 42); } catch { code = 1; }\nresults[results.length - 1] = code;\nfs.writeFileSync(resultsPath, JSON.stringify(results));\nprocess.exitCode = code;\n",
+    ".prospec/changes/x/delta-spec.md": "# Delta Spec\n\n## ADDED\n",
+    ".prospec/changes/x/proposal.md": "# Proposal: x\n\nDocument the existing value function returning 42. No behavior changes.\n\n## UI Scope\n\n**Scope:** none\n",
+    ".prospec/changes/x/metadata.yaml": "name: x\ncreated_at: \"2026-09-05\"\nstatus: implemented\nscale: full\n",
+    ".prospec/changes/x/tasks.md": "- [x] T1 Preserve the value function behavior\n",
+    ".prospec/changes/y/delta-spec.md": "# Delta Spec\n\n## ADDED\n",
+    ".prospec/changes/y/proposal.md": "# Proposal: x\n\nDocument the existing value function returning 42. No behavior changes.\n\n## UI Scope\n\n**Scope:** none\n",
+    ".prospec/changes/y/metadata.yaml": "name: y\ncreated_at: \"2026-09-05\"\nstatus: verified\nscale: full\n",
+    ".prospec/changes/y/tasks.md": "- [x] T1 Preserve the value function behavior\n"
+  }
+}

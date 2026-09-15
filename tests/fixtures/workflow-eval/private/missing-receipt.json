@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "missing-receipt",
+  "routes": [
+    "plan"
+  ],
+  "required_reads": [
+    ".prospec/changes/x/metadata.yaml"
+  ],
+  "forbidden_reads": [],
+  "required_files": [],
+  "forbidden_files": [
+    ".prospec/changes/x/design-spec.md"
+  ],
+  "forbidden_commands": [
+    "archive",
+    "verify",
+    "check --record-tests",
+    "check --record-review",
+    "change status"
+  ],
+  "payloads": [],
+  "required_signals": [
+    "pending",
+    "timeout"
+  ],
+  "suite_runs": 0,
+  "terminal": "stop"
+}

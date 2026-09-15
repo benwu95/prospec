@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "id": "reverify-c",
+  "routes": [
+    "verify"
+  ],
+  "required_reads": [
+    ".prospec/changes/x/metadata.yaml"
+  ],
+  "forbidden_reads": [],
+  "required_files": [],
+  "forbidden_files": [
+    ".prospec/changes/x/design-spec.md"
+  ],
+  "forbidden_commands": [
+    "archive",
+    "verify",
+    "check --record-tests",
+    "check --record-review",
+    "change status",
+    "change log",
+    "change tasks",
+    "review merge"
+  ],
+  "payloads": [],
+  "required_signals": [],
+  "suite_runs": 0,
+  "terminal": "stop",
+  "allow_writes": false,
+  "allow_delegation": false
+}

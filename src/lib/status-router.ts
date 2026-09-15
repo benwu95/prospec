@@ -46,7 +46,7 @@ function gradeBelowBar(grade: ChangeRouteFacts['lastVerifyGrade']): boolean {
 }
 
 /** `status` value → the station it marks as completed. */
-const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
+export const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
   story: 'story',
   plan: 'plan',
   tasks: 'tasks',
