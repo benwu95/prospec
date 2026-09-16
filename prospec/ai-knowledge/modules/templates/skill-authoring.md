@@ -22,7 +22,7 @@
 ## Modification Guide
 
 1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step) and `{{> next-step-handoff}}` at the end, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
-2. **Add a reference** — create `skills/references/{name}.hbs`, map it in `agent-sync.service.ts` (once per skill that needs it — a shared reference is registered per station, never cross-linked), cite it from the skill.
+2. **Add a reference** — create `skills/references/{name}.hbs`, declare it in `types`' `STATION_REFERENCES` (once per skill that needs it — a shared reference is registered per station, never cross-linked) with a load point per place the skill reads it, then cite it from the skill at exactly those places; an enumerated map is rendered by `{{stationReferences skill slot}}` rather than hand-written. `prospec check`'s `skill-reference-map` fails a deployment whose citations no longer match.
 3. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
 4. **Change a delegated receipt contract** — update the consuming skill and its owning reference together: require a readable regular file, `size > 0`, target-schema validation, lifecycle/transcript wait while pending, explicit terminal degradation with honest in-session context, and a zero-mock rule. Re-run the five-skill/four-reference matrix and its mutation checks.
 

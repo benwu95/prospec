@@ -56,6 +56,9 @@ const SCALE_BY_CHECK: Record<DriftCheckId, ChangeScale> = {
   // A fix rewrites one Constitution principle's body from the rendered rule —
   // the prospec-upgrade consent flow, no code.
   'language-policy-drift': 'quick',
+  // A fix re-syncs a host's deployed skills (or corrects the registry), which
+  // touches templates, the registry and every deployed copy — cross-layer work.
+  'skill-reference-map': 'standard',
 };
 
 /**

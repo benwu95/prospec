@@ -38,7 +38,16 @@ import type {
   BudgetOverrideSource,
   CanonicalDocDriftSource,
   LanguagePolicyDriftSource,
+  SkillReferenceMapSource,
 } from './drift-sources.js';
+import { STATION_REFERENCES } from '../types/skill.js';
+import { renderStationReferenceSlot } from './skill-reference-map.js';
+import {
+  carriesTextAt,
+  citedReferences,
+  citesReferenceAt,
+  parseSkillReferenceProse,
+} from './skill-reference-prose.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 import { SEEDED_CONSTITUTION_RULE_NAMES } from './constitution-rules.js';
 
@@ -80,6 +89,7 @@ export interface DriftCheckInputs {
   artifactLanguage: ArtifactLanguageSource;
   specCounters: SpecCounterSource;
   canonicalDocDrift: CanonicalDocDriftSource;
+  skillReferenceMap: SkillReferenceMapSource;
   languagePolicyDrift: LanguagePolicyDriftSource;
   generatedAt: string;
 }
@@ -1008,6 +1018,113 @@ export function evaluateLanguagePolicyDrift(src: LanguagePolicyDriftSource): Che
   return outcome('language-policy-drift', findings);
 }
 
+/**
+ * Station reference map — the DEPLOYED instructions must still carry the map
+ * `STATION_REFERENCES` declares (REQ-LIB-079).
+ *
+ * Checked per load point, not per file: a citation deleted from the phase that
+ * needs it fails even while a Startup Loading summary still names the same file,
+ * which is the loss this check exists for. Beyond that it fails a registered
+ * reference that was never deployed, a deployed reference no load point claims,
+ * a citation of a reference the registry does not know, and a rendered map whose
+ * text no longer appears where it belongs (which is how a changed purpose or
+ * condition surfaces). Every finding names the deployed file it was found in, so
+ * the remedy — `prospec agent sync` at a matching source version — is locatable.
+ */
+export function evaluateSkillReferenceMap(src: SkillReferenceMapSource): CheckOutcome {
+  if (!src.available) {
+    return skipped('skill-reference-map', src.reason ?? 'source unavailable');
+  }
+  const findings: DriftFinding[] = [];
+  const fail = (source_path: string, detail: string, line?: number) =>
+    findings.push({
+      check: 'skill-reference-map',
+      severity: 'fail',
+      source_path,
+      ...(line === undefined ? {} : { line }),
+      detail,
+    });
+
+  for (const deployment of src.deployments) {
+    const entry = STATION_REFERENCES[deployment.skill];
+    if (entry === undefined) continue;
+    const registered = new Set(entry.files.map((file) => file.outputName));
+
+    if (deployment.text === null) {
+      fail(
+        deployment.source_path,
+        `station reference map: ${deployment.skill} is configured for ${deployment.skill_path} but its SKILL.md could not be read. Run \`prospec agent sync\` from a matching prospec version.`,
+      );
+      continue;
+    }
+
+    const prose = parseSkillReferenceProse(deployment.text);
+    if (prose.unclosedFence) {
+      fail(
+        deployment.source_path,
+        'station reference map: the deployed instructions leave a code fence open, so no load point in them can be located. Re-run `prospec agent sync`.',
+      );
+      continue;
+    }
+    for (const site of prose.duplicateSites) {
+      fail(
+        deployment.source_path,
+        `station reference map: heading path "${site}" occurs more than once, so a citation under it cannot be attributed to one load point.`,
+      );
+    }
+
+    for (const use of entry.uses) {
+      if (use.target.kind !== 'reference') continue;
+      if (citesReferenceAt(prose, use.site, use.target.reference)) continue;
+      fail(
+        deployment.source_path,
+        `station reference map: ${deployment.skill} no longer cites references/${use.target.reference} at "${use.site}" (load point ${use.id}). A citation elsewhere in the file does not satisfy this load point.`,
+      );
+    }
+
+    for (const slot of entry.slots) {
+      if (carriesTextAt(prose, slot.site, renderStationReferenceSlot(deployment.skill, slot.id))) continue;
+      fail(
+        deployment.source_path,
+        `station reference map: the rendered map "${slot.id}" of ${deployment.skill} is missing or altered at "${slot.site}" — its purposes or conditions no longer match the registry.`,
+      );
+    }
+
+    for (const cited of citedReferences(prose)) {
+      if (registered.has(cited)) continue;
+      fail(
+        deployment.source_path,
+        `station reference map: ${deployment.skill} cites references/${cited}, which the registry does not declare for it.`,
+      );
+    }
+
+    const deployed = new Set(deployment.references);
+    for (const file of entry.files) {
+      if (deployed.has(file.outputName)) continue;
+      fail(
+        `${deployment.skill_path}/${deployment.skill}/references/${file.outputName}`,
+        `station reference map: ${file.outputName} is registered for ${deployment.skill} but is not deployed under ${deployment.skill_path}. Run \`prospec agent sync\`.`,
+      );
+    }
+    for (const name of deployment.references) {
+      if (registered.has(name)) continue;
+      fail(
+        `${deployment.skill_path}/${deployment.skill}/references/${name}`,
+        `station reference map: ${name} is deployed under ${deployment.skill} but no load point claims it. Remove the stale file, or declare its load point in the registry.`,
+      );
+    }
+  }
+  const result = outcome('skill-reference-map', findings);
+  const unreadable = Object.entries(src.unreadableRoots);
+  if (unreadable.length > 0) {
+    const reason = `source unavailable: ${unreadable.map(([root, why]) => `${root} (${why})`).join('; ')}`;
+    // Preserve proven failures; otherwise the unassessed host prevents PASS.
+    if (result.result.status !== 'fail') return skipped('skill-reference-map', reason);
+    result.result.reason = reason;
+  }
+  return result;
+}
+
 /** Run all evaluators and assemble a schema-validated, deterministically ordered report. */
 export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const outcomes: Record<DriftCheckId, CheckOutcome> = {
@@ -1032,6 +1149,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'delta-spec-landing-fidelity': evaluateDeltaSpecLandingFidelity(inputs.deltaSpecLandingFidelity),
     'req-id-uniqueness': evaluateReqIdUniqueness(inputs.reqIdUniqueness),
     'language-policy-drift': evaluateLanguagePolicyDrift(inputs.languagePolicyDrift),
+    'skill-reference-map': evaluateSkillReferenceMap(inputs.skillReferenceMap),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

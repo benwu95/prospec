@@ -226,7 +226,8 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 支援不同的 scale 路由（如 `quick` 跳過 plan 直接進入 tasks、`backfill` 路由至 promote 站）。
     - 呈現登記的 `issue` 參照；中繼資料格式錯誤會逐變更回報，絕不中斷整體執行。
     - 於 `warn:` 列出各變更未解的 `quality_log` WARN（每個 skill 最後一筆仍為 WARN 者）——讓各站的 Entry Gate 不必自行翻閱 log 即可浮現先前的警告。
-    - `--json` 將整份 status 報告（含各變更的 `unresolvedWarnings`）輸出至 stdout，供機器讀取。
+    - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 與 UI scope 過濾，並以 `action:` 同一個已設定 host 解析路徑；終端路由或未設定 agent 時不輸出，未帶 reference 的站則為空集合。
+    - `--json` 將整份 status 報告（含各變更的 `unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
 
 - **`prospec change story <name> [options]`**
@@ -401,6 +402,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
       - `delta-spec-provenance`：變更的 `delta-spec.md` 指紋必須與 review 基線一致（防止審查後私自修改規格）。
       - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。
     - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）、憲法 Language Policy 與 resolved 語言範圍一致性（`language-policy-drift`，WARN）。
+    - **Skill 部署**：`skill-reference-map`（FAIL）比對各已設定 host 的實際部署與 station reference registry——載入點不再引用其 reference、已登記的 reference 未部署、已部署的 reference 無任何載入點認領。已設定 host 的部署目錄不存在也會 FAIL。修復方式是以與部署相符的 prospec 版本執行 `prospec agent sync`。未設定 agent，或 host 根目錄無法讀取且沒有其他已確認失敗時，明示 skipped 與原因；可讀 host 不能代替不可讀 host 通過檢查，已確認失敗仍保留 FAIL。
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
     - `--strict`：任一檢項出現 FAIL 時以 exit 1 退出（WARN 與 SKIPPED 永不影響退出碼）。`--auto-draft` 無法改變這件事：起草在報告寫出之後才執行，起草失敗只會被回報、不會被拋出。

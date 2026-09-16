@@ -67,6 +67,120 @@ describe('CLI E2E — station commands', () => {
       expect(bad.exitCode).not.toBe(0);
     });
 
+    /**
+     * The next-station reference map through the real CLI (REQ-SERVICES-111,
+     * REQ-CLI-023). Every case asserts the pre-existing routing output beside the
+     * map, so "additive" is proved rather than assumed.
+     */
+    describe('status prints the next station reference map', () => {
+      const mapOf = async (name: string) => {
+        const json = await runCli(['status', '--json']);
+        const report = JSON.parse(json.stdout) as {
+          clean: boolean;
+          changes: Array<{
+            name: string;
+            next: string | null;
+            nextSkillPath?: string;
+            blockingGates: string[];
+            reasons: string[];
+            nextReferenceMap?: Array<{ phase: string; referencePath: string; purpose: string; loading: string; conditionHint?: string }>;
+          }>;
+        };
+        const change = report.changes.find((c) => c.name === name)!;
+        expect(change.next, 'routing still resolves a next station').not.toBeUndefined();
+        expect(Array.isArray(change.reasons)).toBe(true);
+        expect(Array.isArray(change.blockingGates)).toBe(true);
+        return change;
+      };
+
+      it('quick routes to tasks and lists that station load points', async () => {
+        await initChange('quick-change');
+        await runCli(['change', 'scale', 'quick']);
+        const change = await mapOf('quick-change');
+        expect(change.next).toBe('tasks');
+        expect(change.nextSkillPath).toBe('.claude/skills/prospec-tasks/SKILL.md');
+        expect(change.nextReferenceMap?.map((row) => row.referencePath)).toContain(
+          '.claude/skills/prospec-tasks/references/tasks-format.md',
+        );
+        const human = await runCli(['status']);
+        expect(human.stdout).toContain('action:');
+        expect(human.stdout).toContain('read:');
+        expect(human.stdout).toContain('references/tasks-format.md');
+      });
+
+      it('standard routes through plan and lists its per-phase reads', async () => {
+        await initChange('standard-change');
+        const change = await mapOf('standard-change');
+        expect(change.next).toBe('plan');
+        const phases = change.nextReferenceMap?.map((row) => row.phase) ?? [];
+        expect(phases).toContain('Phase 4: Design plan.md');
+        expect(phases).toContain('Phase 5: Generate delta-spec.md');
+      });
+
+      it('full keeps the tournament reference its scale reaches', async () => {
+        await initChange('full-change');
+        await runCli(['change', 'scale', 'full']);
+        const change = await mapOf('full-change');
+        expect(change.next).toBe('plan');
+        const row = change.nextReferenceMap?.find((r) => r.referencePath.endsWith('candidate-evaluation.md'));
+        expect(row?.conditionHint).toBeTruthy();
+      });
+
+      it('backfill reaches verify with its backfill-only load points', async () => {
+        await initChange('backfill-change');
+        await runCli(['change', 'scale', 'backfill']);
+        await runCli(['change', 'status', 'implemented']);
+        const change = await mapOf('backfill-change');
+        expect(change.next).toBe('review');
+        expect(change.nextReferenceMap?.map((row) => row.referencePath)).toContain(
+          '.claude/skills/prospec-review/references/review-format.md',
+        );
+      });
+
+      it('prints a UI-scoped route without inventing a decision it cannot make', async () => {
+        const changeDir = await initChange('ui-change');
+        await fs.promises.writeFile(
+          path.join(changeDir, 'proposal.md'),
+          '# p\n\n## UI Scope\n\n**Scope:** full\n',
+        );
+        await runCli(['change', 'status', 'plan']);
+        const change = await mapOf('ui-change');
+        expect(change.next).toBe('design');
+        const conditions = (change.nextReferenceMap ?? [])
+          .map((row) => row.conditionHint)
+          .filter((hint): hint is string => hint !== undefined);
+        // The platform adapters are a runtime choice; they are shown WITH their
+        // condition rather than silently narrowed to one.
+        expect(conditions.some((hint) => hint.includes('design.platform'))).toBe(true);
+      });
+
+      it('fabricates no path when the project configures no agent', async () => {
+        await initChange('no-agent-change');
+        const configPath = path.join(tmpDir, '.prospec.yaml');
+        const config = await fs.promises.readFile(configPath, 'utf-8');
+        await fs.promises.writeFile(configPath, config.replace(/agents:\n(?:\s+-\s+\w+\n)+/, 'agents: []\n'));
+        const change = await mapOf('no-agent-change');
+        // Routing still happens; only the deployment-derived halves are absent.
+        expect(change.next).toBe('plan');
+        expect(change.nextSkillPath).toBeUndefined();
+        expect(change.nextReferenceMap).toBeUndefined();
+        const human = await runCli(['status']);
+        expect(human.stdout).toContain('next:');
+        expect(human.stdout).not.toContain('read:');
+      });
+
+      it('names the configured host root, not a hardcoded one', async () => {
+        await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'station-test' }));
+        await runCli(['init', '--name', 'station-test', '--agents', 'codex']);
+        await runCli(['change', 'story', 'codex-change', '--description', 'host test']);
+        const change = await mapOf('codex-change');
+        expect(change.nextSkillPath?.startsWith('.agents/skills/')).toBe(true);
+        for (const row of change.nextReferenceMap ?? []) {
+          expect(row.referencePath.startsWith('.agents/skills/')).toBe(true);
+        }
+      });
+    });
+
     it('status surfaces unresolved warnings on the terminal and in --json, cleared by a later PASS (issue #228)', async () => {
       await initChange();
       await runCli([

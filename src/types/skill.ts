@@ -6,6 +6,24 @@
 import { VALID_AGENTS, type ValidAgent } from './config.js';
 
 /**
+ * The station reference map lives in its own leaf file (it is bulk data), but
+ * `types/skill.ts` stays its single entry point: skill identity and the
+ * references a skill deploys are read together, so consumers import both here.
+ */
+export {
+  REFERENCE_LOAD_KINDS,
+  STATION_REFERENCES,
+  skillHasReferences,
+  type ReferenceLoadKind,
+  type StationReferenceEntry,
+  type StationReferenceFile,
+  type StationReferenceSlot,
+  type StationReferenceSlotGroup,
+  type StationReferenceTarget,
+  type StationReferenceUse,
+} from './station-references.js';
+
+/**
  * Skill type categorization.
  *
  * - Planning: Depends on CLI commands to create scaffolds, then AI fills content
@@ -35,8 +53,6 @@ export interface SkillConfig {
   type: SkillType;
   /** CLI command this Skill depends on (e.g., 'prospec change story') */
   cliDependency?: string;
-  /** Whether this Skill has reference files in references/ subdirectory */
-  hasReferences: boolean;
   /**
    * Exclude this Skill from the always-loaded agent entry config
    * (CLAUDE.md/AGENTS.md) while still deploying its SKILL.md on disk (invocable
@@ -310,7 +326,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['explore', 'compare', 'investigate', 'unsure', 'clarify'],
     exclude: ['writing the Story', 'general brainstorming'],
     type: 'Lifecycle',
-    hasReferences: false,
   },
   {
     name: 'prospec-new-story',
@@ -319,7 +334,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['generic issue writing', 'ticket drafting'],
     type: 'Planning',
     cliDependency: 'prospec change story',
-    hasReferences: true,
   },
   {
     name: 'prospec-plan',
@@ -328,7 +342,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['ad-hoc architecture discussion', 'UI design'],
     type: 'Planning',
     cliDependency: 'prospec change plan',
-    hasReferences: true,
   },
   {
     name: 'prospec-design',
@@ -336,7 +349,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['UI spec', 'generate design', 'extract design'],
     exclude: ['architecture design', 'API design'],
     type: 'Planning',
-    hasReferences: true,
   },
   {
     name: 'prospec-tasks',
@@ -345,7 +357,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['generic todo list', 'personal task tracking'],
     type: 'Planning',
     cliDependency: 'prospec change tasks',
-    hasReferences: true,
   },
   {
     name: 'prospec-ff',
@@ -354,7 +365,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['vague requirements', 'requirement exploration'],
     type: 'Planning',
     cliDependency: 'prospec change story + plan + tasks',
-    hasReferences: true,
   },
   {
     name: 'prospec-implement',
@@ -362,7 +372,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['implement', 'start coding', 'write code'],
     exclude: ['coding without tasks.md', 'quick fixes outside a change'],
     type: 'Execution',
-    hasReferences: true,
   },
   {
     name: 'prospec-review',
@@ -370,7 +379,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['code review', 'adversarial review', 'find bugs'],
     exclude: ['ad-hoc PR review', 'general code critique'],
     type: 'Execution',
-    hasReferences: true,
   },
   {
     name: 'prospec-verify',
@@ -378,7 +386,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['verify', 'audit', 'quality check'],
     exclude: ['running tests only', 'generic QA'],
     type: 'Execution',
-    hasReferences: true,
   },
   {
     name: 'prospec-knowledge-generate',
@@ -386,7 +393,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['generate knowledge', 'analyze project', 'module split'],
     exclude: ['incremental knowledge update', 'editing one README'],
     type: 'Lifecycle',
-    hasReferences: false,
   },
   {
     name: 'prospec-archive',
@@ -394,7 +400,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['archive', 'spec sync', 'finalize change'],
     exclude: ['git tagging', 'cutting a release'],
     type: 'Lifecycle',
-    hasReferences: true,
   },
   {
     name: 'prospec-knowledge-update',
@@ -402,7 +407,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['knowledge update', 'incremental update', 'sync knowledge', 'update docs'],
     exclude: ['first-time knowledge generation', 'full rescan'],
     type: 'Lifecycle',
-    hasReferences: false,
   },
   {
     name: 'prospec-backfill-spec',
@@ -410,7 +414,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['backfill spec', 'spec from code', 'brownfield', 'document existing code'],
     exclude: ['design-tool extraction', 'writing new requirements'],
     type: 'Lifecycle',
-    hasReferences: true,
   },
   {
     name: 'prospec-promote-backfill',
@@ -418,7 +421,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['promote backfill', 'formalize backfill', 'backfill to delta-spec', 'promote draft'],
     exclude: ['extracting the draft', 'writing the trust zone'],
     type: 'Lifecycle',
-    hasReferences: true,
   },
   {
     name: 'prospec-learn',
@@ -426,7 +428,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     triggers: ['learn', 'promote lesson', 'playbook'],
     exclude: ['one-off notes', 'personal reminders'],
     type: 'Lifecycle',
-    hasReferences: true,
   },
   {
     name: 'prospec-quickstart',
@@ -435,7 +436,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['per-session use', 'version upgrade'],
     type: 'Lifecycle',
     cliDependency: 'prospec quickstart',
-    hasReferences: false,
     excludeFromEntryConfig: true,
   },
   {
@@ -445,7 +445,6 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     exclude: ['first-time onboarding', 'daily use'],
     type: 'Lifecycle',
     cliDependency: 'prospec upgrade',
-    hasReferences: false,
     excludeFromEntryConfig: true,
   },
 ];

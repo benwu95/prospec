@@ -207,3 +207,93 @@ describe('status-output drift signal', () => {
     expect(output()).toBe('');
   });
 });
+
+/**
+ * The next-station reference map (REQ-CLI-023). The formatter prints what the
+ * service decided and decides nothing itself — no filtering, no applicability,
+ * no path building — and everything repo-derived goes through the sanitizer.
+ */
+describe('status-output — next-station reference map', () => {
+  const withMap = (rows: NonNullable<StatusReport['changes'][number]['nextReferenceMap']>): StatusReport => ({
+    ...ROUTED,
+    changes: [{ ...ROUTED.changes[0]!, nextSkillPath: '.claude/skills/prospec-review/SKILL.md', nextReferenceMap: rows }],
+  });
+
+  it('prints each row after the action line, with its phase, path and purpose', () => {
+    formatStatusOutput(
+      withMap([
+        {
+          phase: 'Startup Loading',
+          referencePath: '.claude/skills/prospec-review/references/review-format.md',
+          purpose: 'the severity contract',
+          loading: 'startup-mandatory',
+        },
+      ]),
+      'normal',
+    );
+    const text = output();
+    const lines = text.split('\n');
+    expect(lines.findIndex((line) => line.includes('action:'))).toBeLessThan(
+      lines.findIndex((line) => line.includes('read:')),
+    );
+    expect(text).toContain('Startup Loading');
+    expect(text).toContain('.claude/skills/prospec-review/references/review-format.md');
+    expect(text).toContain('the severity contract');
+  });
+
+  it('prints an undecided condition as guidance rather than dropping the row', () => {
+    formatStatusOutput(
+      withMap([
+        {
+          phase: 'Review Lenses',
+          referencePath: '.claude/skills/prospec-review/references/review-lenses-content.md',
+          purpose: 'the lens criteria',
+          loading: 'in-phase',
+          conditionHint: 'a conditional lens applies to this diff',
+        },
+      ]),
+      'normal',
+    );
+    expect(output()).toContain('a conditional lens applies to this diff');
+  });
+
+  it('sanitizes every repo-derived value in a row', () => {
+    const esc = String.fromCharCode(27);
+    formatStatusOutput(
+      withMap([
+        {
+          phase: `Phase 1${esc}[2J`,
+          referencePath: `.claude/skills/x${esc}[2J.md`,
+          purpose: `purpose${esc}[2J`,
+          loading: 'in-phase',
+          conditionHint: `when${esc}[2J`,
+        },
+      ]),
+      'normal',
+    );
+    expect(output()).not.toContain(esc);
+  });
+
+  it('prints no map line for an empty map or an absent one', () => {
+    formatStatusOutput(withMap([]), 'normal');
+    expect(output()).not.toContain('read:');
+    logSpy.mockClear();
+    formatStatusOutput(ROUTED, 'normal');
+    expect(output()).not.toContain('read:');
+  });
+
+  it('stays silent in quiet mode', () => {
+    formatStatusOutput(
+      withMap([
+        {
+          phase: 'Startup Loading',
+          referencePath: '.claude/skills/prospec-review/references/review-format.md',
+          purpose: 'the severity contract',
+          loading: 'startup-mandatory',
+        },
+      ]),
+      'quiet',
+    );
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+});

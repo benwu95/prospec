@@ -68,6 +68,16 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
         `  action:  read ${pc.cyan(change.nextSkillPath)} before executing station checks`,
       );
     }
+    // The next station's load points, after the action that names that station:
+    // an agent regaining context reads the map here instead of re-deriving it.
+    // Formatting only — the service decided applicability, this prints it.
+    for (const row of change.nextReferenceMap ?? []) {
+      const condition = row.conditionHint === undefined ? '' : ` — when ${sanitizeTerminal(row.conditionHint)}`;
+      console.log(
+        `  read:    ${sanitizeTerminal(row.phase)} → ${pc.cyan(sanitizeTerminal(row.referencePath))}` +
+          ` (${sanitizeTerminal(row.purpose)})${condition}`,
+      );
+    }
     for (const gate of change.blockingGates) {
       console.log(`  gate:    ${sanitizeTerminal(gate)}`);
     }

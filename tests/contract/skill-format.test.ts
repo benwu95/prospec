@@ -12,10 +12,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
 import { BUNDLED_TEMPLATES } from '../../src/lib/bundled-templates.js';
+import { renderStationReferenceSlot } from '../../src/lib/skill-reference-map.js';
 import {
   AGENT_CONFIGS,
   SKILL_DEFINITIONS,
   intersectCapabilities,
+  skillHasReferences,
 } from '../../src/types/skill.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
@@ -107,7 +109,7 @@ const TEMPLATE_CONTEXT = {
     description: s.description,
     triggers: s.triggers.join(', '),
     type: s.type,
-    hasReferences: s.hasReferences,
+    hasReferences: skillHasReferences(s.name),
   })),
 };
 
@@ -599,8 +601,8 @@ describe('Skill Format Contract', () => {
       }
     });
 
-    it('skills with references should have hasReferences = true', () => {
-      const skillsWithRefs = SKILL_DEFINITIONS.filter((s) => s.hasReferences);
+    it('skills with references are derived from the registry, never a second flag', () => {
+      const skillsWithRefs = SKILL_DEFINITIONS.filter((s) => skillHasReferences(s.name));
       expect(skillsWithRefs.length).toBeGreaterThan(0);
 
       // Skills with references directories
@@ -621,12 +623,12 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-promote-backfill');
     });
 
-    it('self-contained skills should have hasReferences = false', () => {
+    it('self-contained skills derive to no references', () => {
       // knowledge-generate / knowledge-update inline their canonical format
       // and defer to _module-readme-conventions.md — no references/ dir.
       // (backfill-spec moved to has-references in BL-039 — feature-boundary-criteria.)
       const selfContained = SKILL_DEFINITIONS.filter(
-        (s) => !s.hasReferences,
+        (s) => !skillHasReferences(s.name),
       ).map((s) => s.name);
       expect(selfContained).toContain('prospec-knowledge-generate');
       expect(selfContained).toContain('prospec-knowledge-update');
@@ -3993,6 +3995,14 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
       .map((line) => line.replace(/^\d+\.\s+/, ''));
   }
 
+  /** Substitute each `{{stationReferences skill slot}}` with what it renders. */
+  function expandStationReferences(source: string): string {
+    return source.replace(
+      /\{\{stationReferences "([^"]+)" "([^"]+)"\}\}/g,
+      (_match, skillName: string, slotId: string) => renderStationReferenceSlot(skillName, slotId),
+    );
+  }
+
   function itemKey(body: string): string {
     const stripped = body.replace(/^\[(STABLE|DYNAMIC)\]\s+/, '');
     const backtick = /`([^`]+)`/.exec(stripped);
@@ -4001,9 +4011,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
 
   for (const skill of SKILL_DEFINITIONS) {
     describe(`${skill.name}`, () => {
-      const raw = fs.readFileSync(
-        path.resolve(__dirname, `../../src/templates/skills/${skill.name}.hbs`),
-        'utf-8',
+      // The template source with its registry-owned map slots expanded, and every
+      // other token left alone: the baseline below is keyed on template tokens
+      // (`{{base_dir}}/index.md`), so a full render would rewrite every row and
+      // stop proving that moving the maps into the registry changed nothing.
+      const raw = expandStationReferences(
+        fs.readFileSync(path.resolve(__dirname, `../../src/templates/skills/${skill.name}.hbs`), 'utf-8'),
       );
       const section = () => startupLoadingSection(raw);
 
@@ -5216,7 +5229,8 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-084, REQ-TEMP
 
   it('prospec-verify is registered as a reference-bearing skill', () => {
     const verify = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-verify');
-    expect(verify?.hasReferences).toBe(true);
+    expect(verify).toBeDefined();
+    expect(skillHasReferences('prospec-verify')).toBe(true);
   });
 });
 
@@ -7422,7 +7436,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     };
 
     for (const skill of SKILL_DEFINITIONS) {
-      if (!skill.hasReferences) continue;
+      if (!skillHasReferences(skill.name)) continue;
 
       describe(`${skill.name} deployed references`, () => {
         const refs = getSkillReferences(skill.name);

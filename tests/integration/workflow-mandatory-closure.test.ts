@@ -5,6 +5,11 @@ import { loadCorpus } from '../../scripts/evaluate-workflow.js';
 import { mandatoryLedger } from '../../scripts/workflow-eval/context.js';
 import { SCENARIO_IDS } from '../../scripts/workflow-eval/protocol.js';
 import { mandatoryCitations, startupLoadingSection } from '../helpers/mandatory-loads.js';
+import {
+  generateMandatoryPolicies,
+  type MandatoryPolicyFixture,
+} from '../../scripts/workflow-eval/generate-mandatory-policies.js';
+import STATION_BASELINE from '../fixtures/station-reference-baseline.json' with { type: 'json' };
 
 /**
  * Scenario-level mandatory context: what the SHIPPED instructions require a station
@@ -106,5 +111,31 @@ describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)'
       expect(ledger.estimated_tokens, `${scenario.id} mandatory context`).toBeLessThanOrEqual(fixture.ceilings[scenario.id]!);
       expect(ledger.loads.length, scenario.id).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * The third leg. Two already meet here: the fixture inventory and the deployed
+ * instructions read through the shared parser. This adds the registry the
+ * instructions are now generated from, plus the PRE-MIGRATION copy of the whole
+ * policy file — so "the single source agrees" is proved against a value captured
+ * before the single source existed, not against the fixture it now writes.
+ */
+describe('mandatory inventory agrees with the registry and the pre-migration record', () => {
+  const frozen = (STATION_BASELINE as unknown as {
+    mandatory_policies: { ceilings: Record<string, number>; policies: MandatoryPolicyFixture['policies'] };
+  }).mandatory_policies;
+
+  it('regenerates every scenario from STATION_REFERENCES with no value diff', () => {
+    const generated = generateMandatoryPolicies(fixture as MandatoryPolicyFixture, 'prospec/ai-knowledge');
+    expect(generated.policies).toEqual(fixture.policies);
+    expect(generated.ceilings).toEqual(fixture.ceilings);
+  });
+
+  it('keeps every ceiling, route, audit note and edge at its pre-migration value', () => {
+    expect(fixture.ceilings).toEqual(frozen.ceilings);
+    expect(fixture.policies).toEqual(frozen.policies);
+    // The anchors bound the fixture from outside it, and this change moved none.
+    expect(CEILING_ANCHORS).toEqual(frozen.ceilings);
   });
 });

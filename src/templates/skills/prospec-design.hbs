@@ -20,15 +20,12 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. [STABLE] **MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format
-2. [STABLE] **MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format
+1. [STABLE] {{stationReferences "prospec-design" "startup-design-spec-format"}}
+2. [STABLE] {{stationReferences "prospec-design" "startup-interaction-spec-format"}}
 3. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse UI Scope and User Stories
 4. [DYNAMIC] Read `.prospec.yaml` — check `design.platform` setting (pencil|figma|penpot|html)
 5. [DYNAMIC] Load the platform adapter reference based on `design.platform`:
-   - pencil → [`references/adapter-pencil.md`](references/adapter-pencil.md)
-   - figma → [`references/adapter-figma.md`](references/adapter-figma.md)
-   - penpot → [`references/adapter-penpot.md`](references/adapter-penpot.md)
-   - html → [`references/adapter-html.md`](references/adapter-html.md)
+{{stationReferences "prospec-design" "startup-adapters"}}
    - If not set → default to `html` adapter (zero-dependency fallback)
    - **Do NOT load** adapters for platforms not in use — only load the one matching `design.platform`
 

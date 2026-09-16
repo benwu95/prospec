@@ -34,8 +34,7 @@ with `prospec check --json` after edits; never fabricate a report.
 }
 ```
 
-`change_digest` is the repository-input fingerprint observed for this display artifact; null means
-unprovable. Optional snapshot trace identifies version/scope and may include head/reason. Legacy
+`change_digest` is observed for this display artifact. Optional snapshot trace identifies version/scope and may include head/reason. Legacy
 reports remain readable. Verify/archive obtain a live assessment and recheck before writing, never
 trust a saved report. Status compares current content and deterministic workflow verdicts; timestamps
 and pure Git trace do not make an otherwise equivalent report stale.
@@ -55,7 +54,8 @@ subject_skips? }`, adopted **verbatim**.
   `mcp-readme-counts`, `review-provenance`, `metadata-completeness`, `knowledge-size`,
   `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
   `delta-spec-provenance`, `unjustified-budget-override`, `canonical-doc-drift`,
-  `delta-spec-landing-fidelity`, `req-id-uniqueness`, `language-policy-drift`.
+  `delta-spec-landing-fidelity`, `req-id-uniqueness`, `language-policy-drift`,
+  `skill-reference-map`.
 
 ### Key Check Interpretations
 

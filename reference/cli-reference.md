@@ -227,7 +227,8 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Supports scale-specific routes (`quick` skipping plan to tasks, `backfill` entering at promote).
     - Displays registered `issue` trackers; reports malformed metadata per change without crashing.
     - Lists each change's unresolved `quality_log` WARNs under `warn:` — the latest entry per skill still at WARN — so a station's Entry Gate surfaces prior warnings without re-reading the log itself.
-    - `--json` emits the whole status report (including each change's `unresolvedWarnings`) to stdout for machine consumption.
+    - Prints the next station's reference map under `read:` — each load point that station reaches, the deployed path to read, why, and any condition `status` cannot decide. Filtered by the change's known scale and UI scope, resolved under the same configured host the `action:` line names; absent for a terminal route or a project with no configured agent, empty for a station that ships no reference.
+    - `--json` emits the whole status report (including each change's `unresolvedWarnings` and `nextReferenceMap`) to stdout for machine consumption.
     - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
 
 - **`prospec change story <name> [options]`**
@@ -405,11 +406,12 @@ deliberately not included in this version.
       - `delta-spec-provenance`: Change's `delta-spec.md` fingerprint must match the recorded review baseline.
       - `delta-spec-landing-fidelity`: A MODIFIED delta-spec `**Spec:**` landing block must not drop an authored trust-zone `WHEN/THEN` bullet without declaring it under `**Dropped:**` (FAIL) — surfaces the loss at every check, sharing the archive write path's comparison, not only at archive after the commit.
     - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (`artifact-language`, WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN), Constitution Language Policy vs. resolved language scope (`language-policy-drift`, WARN).
+    - **Skill Deployment**: `skill-reference-map` (FAIL) compares every configured host's deployed skills against the station reference registry — a load point that no longer cites its reference, a registered reference that was never deployed, and a deployed reference no load point claims. A missing configured host directory also fails. The remedy is `prospec agent sync` from a prospec version matching the deployment. No configured agent, or an unreadable host root without another proven failure, yields skipped with a reason; a readable host cannot certify an unreadable one, and known failures retain FAIL.
   - **Execution & Exit Codes**:
     - `--json`: Outputs machine-readable `prospec-report.json`.
     - `--strict`: Exits 1 on any FAIL (WARN and SKIPPED never affect exit codes). `--auto-draft` cannot change this: drafting runs after the report is written and a drafting failure is reported, never thrown.
     - `--auto-draft` is REFUSED (exit 1, nothing written) alongside `--init-ci` / `--record-review` / `--record-tests` / `--escaped-defects`, which all return before any drift check runs, and `--auto-draft-dry-run` is refused without `--auto-draft` — a flag that cannot be honoured is rejected rather than silently ignored.
-    - Missing or unavailable sources gracefully degrade to `skipped` with explicit reasons, never fabricating a PASS.
+    - Unavailable inputs degrade to `skipped` with explicit reasons, never fabricating a PASS; known missing required deployment files remain FAIL.
 
 - **`prospec change auto-draft [--from-report [file]] [--target <name>] [--reason <text>] [--check <id>] [--scale <scale>] [--issue <ref>] [--dry-run]`**
   - **Purpose**: Turn drift findings into change scaffolds so an agent can start fixing without transcribing the report. Also available as `prospec check --auto-draft`, which drafts from the run it just reported.

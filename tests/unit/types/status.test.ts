@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { SDD_STATIONS, STATION_SKILLS, UI_SCOPES } from '../../../src/types/status.js';
+import {
+  SDD_STATIONS,
+  STATION_SKILLS,
+  UI_SCOPES,
+  type ChangeRoute,
+  type StationReferenceMapRow,
+} from '../../../src/types/status.js';
 import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
 
 /**
@@ -54,5 +60,52 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
 
   it('declares the three ui_scope values design engages on', () => {
     expect(UI_SCOPES).toEqual(['full', 'partial', 'none']);
+  });
+});
+
+/**
+ * The next-station reference map is ADDITIVE on `ChangeRoute` (REQ-SERVICES-111):
+ * a consumer written before it must still read every field it read before, and a
+ * route without a map must be indistinguishable from the pre-change shape.
+ */
+describe('ChangeRoute next-station reference map', () => {
+  const base: ChangeRoute = {
+    name: 'add-auth',
+    status: 'implemented',
+    scale: 'standard',
+    current: 'implement',
+    next: 'review',
+    code: 'REVIEW_PENDING',
+    blockingGates: [],
+    reasons: [],
+  };
+
+  it('is optional — a route without one keeps the pre-change shape', () => {
+    expect(Object.hasOwn(base, 'nextReferenceMap')).toBe(false);
+    expect(JSON.parse(JSON.stringify(base))).toEqual(base);
+  });
+
+  it('carries a phase, a deployed path, a purpose and the load kind', () => {
+    const row: StationReferenceMapRow = {
+      phase: 'Startup Loading',
+      referencePath: '.claude/skills/prospec-review/references/review-format.md',
+      purpose: 'the severity contract',
+      loading: 'startup-mandatory',
+    };
+    const route: ChangeRoute = { ...base, nextReferenceMap: [row] };
+    expect(route.nextReferenceMap).toEqual([row]);
+    // Every other field keeps its meaning beside it.
+    expect({ ...route, nextReferenceMap: undefined }).toMatchObject(base);
+  });
+
+  it('accepts an undecidable runtime condition on a row', () => {
+    const row: StationReferenceMapRow = {
+      phase: 'Review Lenses',
+      referencePath: '.claude/skills/prospec-review/references/review-lenses-content.md',
+      purpose: 'the lens criteria',
+      loading: 'in-phase',
+      conditionHint: 'a conditional lens applies to this diff',
+    };
+    expect(row.conditionHint).toBeTruthy();
   });
 });

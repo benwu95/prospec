@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (20 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (22 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -17,7 +17,7 @@
 | `errors.ts` | `ProspecError` base + 16 error subclasses (incl. `InvalidTransitionError`) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
-| `skill.ts` | Skill and agent registries, including closed host `InvocationProfile` metadata and `mergeGroupInvocationGuidance` for shared entry-config output; every `description` ends in a negative-scope clause and `exclude` holds its short-phrase English baseline (translation source only, never rendered) |
+| `skill.ts` / `station-references.ts` | Skill and agent registries, plus `STATION_REFERENCES` — the ONE map from a shipped skill to its reference files, each one's load point, purpose and scale/UI applicability (`skill.ts` re-exports it; `skillHasReferences` derives from it, never a second flag); closed host `InvocationProfile` metadata and `mergeGroupInvocationGuidance` for shared entry-config output; every `description` ends in a negative-scope clause and `exclude` holds its short-phrase English baseline (translation source only, never rendered) |
 | `cli-help.ts` | `HELP_ENRICHED_COMMANDS` + `COMMAND_HELP_SPECS` (when-to-use / example / returns per agent-called command; a `Record`, so a missing spec is a type error), `renderCommandHelp`, `EscapingDisclosure` (`markdown-table` vs `yaml-scalar`) and `ESCAPING_RULE_TEXT` — the one sentence both the help and the success notice print |
 | `station.ts` | Station I/O schemas — `ReviewFindingSchema` (+ its `repro`/`evidence` half), `JudgmentDimensionInputSchema` (each entry declares `graded_by`, optional `executor`/`spend` self-reports), the planning-verifier contract (`PLANNING_VERDICTS`, `PLAN_VERIFIER_DIMENSIONS` / `TASKS_VERIFIER_DIMENSIONS`, strict `PlanVerifierReportSchema` / `TasksVerifierReportSchema`, `VERIFIER_REPORT_SCHEMAS` keyed by station skill, `planningVerdictToGateResult` FLAWS→FAIL), `LessonInputSchema`, review status groups (`REVIEW_*_STATUSES`, `normalizeReviewStatus`/`hasReviewStatus`), and the `prospec learn yield` contracts (`LensYieldThresholdsSchema` defaults 5/3/0.1, `LensYieldStatSchema`, `LensYieldReportSchema`, `LENS_RETIREMENT_ACTIONS`); `RELAYED_FIELD_MAX_CHARS` and the dimension/kind registries are in the sub-module |
 

@@ -1,22 +1,22 @@
 # Contract Guards
 
-> Sub-module of [Verification Suite](./README.md) — the 24 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
+> Sub-module of [Verification Suite](./README.md) — the 25 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract, plus the 30 shipped references. It also pins bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. Baseline-backed pins: per-skill mandatory Startup-Loading context and the 30 references' total may only shrink, every JSON example parses against its schema owner, relocated README sections resolve in BOTH `reference/cli-reference.md(.zh-TW)`, and each guarantee is attributed to CLI, skill or model. |
+| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract and the 30 shipped references, plus bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. Baseline-backed pins: per-skill mandatory Startup-Loading context and the references' total may only shrink, every JSON example parses against its schema owner, relocated README sections resolve in BOTH `reference/cli-reference.md(.zh-TW)`, and each guarantee is attributed to CLI, skill or model. |
 | `knowledge-format.test.ts`, `cli-output.test.ts`, `change-artifact-format.test.ts` | Output-format pins through the real `renderTemplate()`, never mocks. `change-artifact-format` renders `change/proposal.md.hbs` and pins that a module name is bolded exactly once, with a `****` negative; `knowledge-format` also pins raw-scan's disclosure block — item-set, caps, empty placeholder, fallback-exception sentence, and order-independence. |
-| `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, and each generated-artifact registry entry ≡ the path its producer actually writes. |
+| `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, each generated-artifact entry ≡ the path its producer writes. |
 | `own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell living only in the generated file is a pending revert); and a shrink-only set-equality ledger of the legacy body-less REQs — repairing one requires deleting its `LEGACY_BODYLESS` entry. |
-| `mcp-server.test.ts`, `language-policy-scope.test.ts`, `spec-heading-single-source.test.ts`, `spec-sync-corpus.test.ts` | Protocol + cross-document agreement — MCP over the SDK in-memory linked transport (never a spawned daemon), cross-document language-scope agreement, the ONE REQ-heading definition, and the two spec-format references' agreement on the `**Spec:**` boundary. |
-| `auto-draft-proposal-format.test.ts`, `change-auto-draft.contract.test.ts` | The drift-drafting surface: `auto-draft-proposal-format` renders the real `change/auto-draft-proposal.md.hbs` and pins the section set the canonical proposal format requires, the `## UI Scope` / `**Scope:**` block `status`'s `parseUiScope` reads, `## Related Modules` in both the attributed and unattributed shapes, one bullet per finding carrying its own `source_path`, every distinct remedy, and that drift text renders verbatim rather than HTML-escaped; `change-auto-draft.contract` pins the command's flag surface, including `--scale` constrained to `CHANGE_SCALES` and the scope-named `--auto-draft-dry-run`. |
-| `typecheck-config.test.ts`, `agent-triggers-*.test.ts`, `lessons-harvest-fixtures.test.ts` | The typecheck config's `exclude` guard, trigger scaffolding, and the synthetic archived corpus the harvest reads. |
+| `mcp-server.test.ts`, `language-policy-scope.test.ts`, `spec-heading-single-source.test.ts`, `spec-sync-corpus.test.ts`, `station-reference-prose.test.ts` | Protocol + cross-document agreement — MCP over the SDK in-memory linked transport (never a spawned daemon), cross-document language-scope agreement, the ONE REQ-heading definition, the two spec-format references' agreement on the `**Spec:**` boundary, and the station reference map as shipped: each slot renders at its declared site with the frozen pre-migration text and no hand-written copy beside it, every load point is cited where declared, and the facade deploys the frozen four-host set. |
+| `auto-draft-proposal-format.test.ts`, `change-auto-draft.contract.test.ts` | The drift-drafting surface: the real `change/auto-draft-proposal.md.hbs` pinned for the canonical proposal section set, the `## UI Scope` / `**Scope:**` block `status`'s `parseUiScope` reads, `## Related Modules` in both attributed and unattributed shapes, one bullet per finding with its own `source_path`, every distinct remedy, and drift text rendered verbatim rather than HTML-escaped; plus the command's flag surface (`--scale` constrained to `CHANGE_SCALES`, the scope-named `--auto-draft-dry-run`). |
+| `typecheck-config.test.ts`, `agent-triggers-*.test.ts`, `lessons-harvest-fixtures.test.ts` | The typecheck `exclude` guard, trigger scaffolding, the synthetic archived corpus the harvest reads. |
 
 ## Public API
 
-- No exports — `pnpm vitest run tests/contract/` (24 files).
+- No exports — `pnpm vitest run tests/contract/` (25 files).
 
 ## Dependencies
 
@@ -25,26 +25,26 @@
 
 ## Modification Guide
 
-1. **Add a contract test** — `tests/contract/{name}.test.ts`; real `renderTemplate()`, no mocks; keep every assertion section-scoped.
-2. **Pin a doc against a registry** — assert SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
+1. **Add a contract test** — `tests/contract/{name}.test.ts`; real `renderTemplate()`, no mocks, every assertion section-scoped.
+2. **Pin a doc against a registry** — SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
 3. **Pin a `--dry-run`** — snapshot the tree before and after and assert it is unchanged.
 4. **Rebaseline a frozen fixture** — `tests/fixtures/startup-loading-baseline.json` is version-controlled; a new loading item fails until it is updated deliberately, and its ceilings are shrink-only.
-5. **Change public website behavior** — update the English HTML and Traditional Chinese overlay together; when the social preview changes, update `docs/og.png` and both alt-text tags as one unit; parse JSON-LD, compare the translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
+5. **Change public website behavior** — update the English HTML and the Traditional Chinese overlay together (a social-preview change moves `docs/og.png` and both alt-text tags as one unit); parse JSON-LD, compare translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
 
 ## Ripple Effects
 
-- A new skill bumps `skill-format`'s count AND the loading-item baseline; a new `.hbs` reddens `bundled-templates-sync` until `pnpm bundle` runs; a curated cell added only to `index.md` reddens `own-knowledge-sync`; website lifecycle, runtime, MCP, metadata, or translation changes redden the public-document contract until both language surfaces agree.
+- A new skill bumps `skill-format`'s count AND the loading-item baseline; a new `.hbs` reddens `bundled-templates-sync` until `pnpm bundle` runs; a curated cell added only to `index.md` reddens `own-knowledge-sync`; website lifecycle, runtime, MCP, metadata or translation changes redden the public-document contract until both language surfaces agree.
 
 ## Pitfalls
 
 - Assertions must be section-scoped AND structure-aware (PB-001) — a bare `toContain` over a whole document yields false-greens. Mutation-verify every new assertion.
-- Delegated-receipt guards cover five skills and four references. The matrix verifies the physical non-empty schema gate, lifecycle/transcript wait, causal terminal degradation, zero-mock rule, schema ownership, and downstream neutrality; its mutations remove the full behavioral path, not merely one keyword that an equivalent phrase could leave behind.
-- Doc↔doc agreement never proved either side matches the code, and a Yes-rows-only table leaves an exclusion unfalsifiable — key the set equality over the registry's own domain so a missing row fails.
-- Narrowing an assertion buys immunity to the wrong thing: archive's provenance Entry-Gate assertion narrows to the one bullet that recurs in the gate (`The CLI is required`), which buys immunity to a *weakened* marker list, not to the redness.
+- Delegated-receipt guards cover five skills and four references: the physical non-empty schema gate, lifecycle/transcript wait, causal terminal degradation, zero-mock rule, schema ownership, and downstream neutrality; their mutations remove the full behavioral path, not one keyword an equivalent phrase could leave behind.
+- Doc↔doc agreement never proved either side matches the code, and a Yes-rows-only table leaves an exclusion unfalsifiable — key set equality over the registry's own domain so a missing row fails.
+- Narrowing an assertion buys immunity to the wrong thing: archive's provenance Entry-Gate assertion narrows to the one recurring bullet (`The CLI is required`), buying immunity to a *weakened* marker list, not to the redness.
 - A same-input-twice comparison is a tautology — `knowledge-format`'s order-independence pin renders TWO orderings of one file list and compares those.
 - A `--dry-run` flag bound to the wrong Commander scope still prints the preview while writing, so the pin must be "writes NOTHING", not "prints a preview".
 - Two references contradicting each other stays invisible while this project's authors happen to follow one of them — `spec-sync-corpus.test.ts` exists because that happened.
-- **A section slicer must not stop at a heading inside a code fence.** `skill-format`'s `sectionOf` keyed its boundary on `^#{2,3} ` over raw lines, so the moment `review-format.hbs` gained a fenced example containing `## Evidence`, two live assertions silently sliced half a section — and passed on the surviving half. Boundary detection runs over fence-MASKED lines while the body comes from the raw ones (and an unclosed fence degrades to raw lines, `markdown-fences`' own rule). Any format reference that shows headings in an example is exposed to this.
+- **A section slicer must not stop at a heading inside a code fence.** `skill-format`'s `sectionOf` keyed its boundary on `^#{2,3} ` over raw lines, so when `review-format.hbs` gained a fenced example containing `## Evidence`, two live assertions sliced half a section and passed on the surviving half. Boundary detection runs over fence-MASKED lines, the body over raw ones (an unclosed fence degrades to raw lines — `markdown-fences`' own rule). Any format reference showing headings in an example is exposed.
 - A disjunction hides a dead half: pin each clause separately, or deleting either side stays green.
 - The website's English source is `docs/index.html`, while Traditional Chinese is a key-value overlay in `docs/i18n.js`: exact key-set equality catches both missing and orphaned translations, and JSON-LD must be parsed as JSON rather than pinned only as raw substrings.
 - Locate a table row by the cell whose content the test is ABOUT, never by a phrase in the cell it grades: `skill-format`'s lens-row pin once found the Maintainability row by `single-source bypass criterion` — text in the SEVERITY cell — so blanking the criterion cell or flipping the severity to `major` stayed green (review R3-1). Split with `splitTableRow`, find by the criterion cell, then anchor the severity cell with `/^critical\b/` and a `not /^major/` negative.

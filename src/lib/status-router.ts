@@ -328,9 +328,19 @@ export function resolveNextSkillPath(
   agentNames: readonly string[],
   station: SddStation | null,
 ): string | null {
-  if (station === null || agentNames.length === 0) return null;
-  const config = AGENT_CONFIGS[agentNames[0] as ValidAgent];
-  if (!config) return null;
-  const skillDir = STATION_SKILLS[station];
-  return `${config.skillPath}/${skillDir}/SKILL.md`;
+  if (station === null) return null;
+  const root = resolveSkillRoot(agentNames);
+  if (root === null) return null;
+  return `${root}/${STATION_SKILLS[station]}/SKILL.md`;
+}
+
+/**
+ * The deployment root the first configured agent uses, or null when the project
+ * configures none. Extracted so the next station's skill path and its reference
+ * paths come from ONE resolution — a second derivation is how they would end up
+ * naming different hosts for the same route.
+ */
+export function resolveSkillRoot(agentNames: readonly string[]): string | null {
+  if (agentNames.length === 0) return null;
+  return AGENT_CONFIGS[agentNames[0] as ValidAgent]?.skillPath ?? null;
 }

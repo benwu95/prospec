@@ -20,7 +20,7 @@ When triggered, briefly describe:
 
 ## Startup Loading
 
-1. [STABLE] **MANDATORY** — Load the format references this scaffold must match: `references/proposal-format.md`, `references/delta-spec-format.md`
+1. [STABLE] {{stationReferences "prospec-promote-backfill" "startup-format-references"}}
 2. [DYNAMIC] Read `.prospec/changes/[name]/backfill-draft.md` — the reviewed source draft to formalize
 3. [DYNAMIC] Read `{{base_dir}}/index.md` + `{{knowledge_base_path}}/module-map.yaml` — map the draft's traced `file:line` to module names for `related_modules`
 4. [DYNAMIC] Read `{{base_dir}}/specs/features/` — align the candidate feature slug to an existing Feature Spec when one fits

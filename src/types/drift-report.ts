@@ -176,6 +176,18 @@ export const DRIFT_CHECK_IDS = [
   // rule is not judged). The comparison itself is `lib/language-policy`'s
   // `compareLanguagePolicy`, shared with `prospec upgrade`'s stale detector.
   'language-policy-drift',
+  // Station reference map — a shipped skill whose DEPLOYED instructions no longer
+  // agree with `STATION_REFERENCES` fails (fail), naming the skill, the load
+  // point and the reference. Three losses it catches that nothing else did: a
+  // phase's citation deleted or moved while a Startup Loading summary still names
+  // the file (so the agent stops reading it at the phase that needs it), a
+  // registered reference that was never deployed, and a deployed reference no
+  // load point claims. Reads every configured agent's shipped-skill root — a
+  // custom skill directory is outside the registry and outside this check — and
+  // asserts against the deployed bytes, so an un-synced host is a finding rather
+  // than a silent divergence from the source of truth. Unreadable inputs and a
+  // project with no configured agent are explicitly skipped, never certified.
+  'skill-reference-map',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
@@ -210,6 +222,7 @@ export const DRIFT_CHECK_SCOPES = {
   'delta-spec-landing-fidelity': 'change',
   'req-id-uniqueness': 'repository',
   'language-policy-drift': 'repository',
+  'skill-reference-map': 'repository',
 } as const satisfies Record<(typeof DRIFT_CHECK_IDS)[number], 'change' | 'repository'>;
 
 export type DriftCheckScope = (typeof DRIFT_CHECK_SCOPES)[keyof typeof DRIFT_CHECK_SCOPES];

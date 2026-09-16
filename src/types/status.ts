@@ -1,4 +1,5 @@
 import type { ChangeScale, ChangeStatus, GateResult, VerifyGrade } from './change.js';
+import type { ReferenceLoadKind } from './station-references.js';
 
 /**
  * SDD station-routing contract — the types behind `prospec status`.
@@ -155,6 +156,23 @@ export interface ChangeRouteFacts {
   issue?: string;
 }
 
+/**
+ * One row of the next station's reference map: a load point that station reaches,
+ * the deployed path to read, and why. Display data derived from
+ * `STATION_REFERENCES` — the router decides nothing from it.
+ */
+export interface StationReferenceMapRow {
+  /** Load-point label as the station calls it (`Startup Loading`, `Phase 4`). */
+  phase: string;
+  /** Deployed path under the resolved skill directory. */
+  referencePath: string;
+  /** One line: what the station reads it for. */
+  purpose: string;
+  loading: ReferenceLoadKind;
+  /** A runtime condition status cannot decide (absent when unconditional). */
+  conditionHint?: string;
+}
+
 /** One routed in-flight change — the router's whole verdict. */
 export interface ChangeRoute {
   name: string;
@@ -171,6 +189,11 @@ export interface ChangeRoute {
    *  change is terminal (`next` is null) or the project configures no agent — never a
    *  hardcoded skills directory. Filled by the service; the router leaves it unset. */
   nextSkillPath?: string;
+  /** The next station's reference map, filtered to this change's known scale and
+   *  UI scope and resolved against the same agent deployment `nextSkillPath` uses.
+   *  Additive and display-only: absent when the route is terminal, when no agent
+   *  is configured, and empty when the next station deploys no references. */
+  nextReferenceMap?: StationReferenceMapRow[];
   /** Gate/precondition text for the edge to `next`, from the lifecycle table. */
   blockingGates: string[];
   /** Why the router placed the change here (quick skip, backfill entry, …). */
