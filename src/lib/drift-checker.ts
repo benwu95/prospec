@@ -433,9 +433,12 @@ export function evaluateSpecCounters(src: SpecCounterSource): CheckOutcome {
  * `backfill-draft.md` (`scale` alone is hand-editable, #103); an unavailable
  * source (not git / no changes dir / no digest) skips.
  *
- * HEAD is inside the digest, so the verify S/A feature commit itself stales the
- * baseline. That red is honest, and the remedy is the PB-016 order: commit, then
- * re-record both baselines, then archive.
+ * Evidence identity is the repository input snapshot (`snapshot-v2`), not HEAD:
+ * staging, committing or amending equivalent content leaves the baseline intact,
+ * so the verify S/A feature commit itself stales nothing. A stale red here means
+ * an input changed after the record (an absent, legacy or unprovable baseline is
+ * red on its own terms, as its detail says); the remedy is the PB-016 order:
+ * finish every content change, re-record both baselines, then commit and archive.
  *
  * Assumes a single change in flight at a time (the normal prospec workflow): the
  * one whole-tree `current_digest` is compared against every change, so with
