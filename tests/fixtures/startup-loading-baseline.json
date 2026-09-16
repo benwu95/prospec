@@ -64,7 +64,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4502
+      "mandatory_context_tokens": 4498
     },
     "prospec-knowledge-generate": {
       "items": [
@@ -194,7 +194,7 @@
     "drift-report-format": 2701,
     "feature-boundary-criteria": 963,
     "feature-spec-format": 1185,
-    "implementation-guide": 1079,
+    "implementation-guide": 1075,
     "interaction-spec-format": 835,
     "metadata-format": 3007,
     "plan-format": 2476,
