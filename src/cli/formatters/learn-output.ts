@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { LearnUpsertResult } from '../../services/learn.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatEscapingNotice } from './escaping-notice.js';
 
 /** Format the LearnUpsertResult: upsert action, score details, TTL expiry list. */
 export function formatLearnUpsertOutput(
@@ -30,6 +31,8 @@ export function formatLearnUpsertOutput(
       lines.push(`  - ${sanitizeTerminal(e.entry)} (review by ${sanitizeTerminal(e.reviewBy)})`);
     }
   }
+  const notice = formatEscapingNotice(result.escapedCells);
+  if (notice !== undefined) lines.push(notice);
   process.stdout.write(lines.join('\n') + '\n');
 }
 

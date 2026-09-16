@@ -261,7 +261,10 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       title: 'Search modules',
       description:
         'Find which module owns a concept — normalized term-OR match over the ' +
-        'curated Module/Keywords/Aliases columns of knowledge://index',
+        'curated Module/Keywords/Aliases columns of knowledge://index. ' +
+        'Example: `{ "query": "auth service" }` also matches a module whose keywords list `auth-service` (separators are equivalent). ' +
+        'Returns `matches[]` ranked by field weight (name > keywords > aliases) with each ' +
+        'module\'s description and ordered categories; an empty match set carries a `suggestion`.',
       inputSchema: SearchModulesInputShape,
       outputSchema: SearchModulesResultSchema,
       annotations: { readOnlyHint: true },
@@ -283,7 +286,9 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       title: 'Get dependency direction',
       description:
         'May `from` import `to`? Answered from module-map depends_on, or the ' +
-        'Constitution chain cli → services → lib → types when no map exists',
+        'Constitution chain cli → services → lib → types when no map exists. ' +
+        'Example: `{ "from": "cli", "to": "lib" }`. ' +
+        'Returns `{ allowed, direction, source }` where `source` is `module-map` or `constitution-fallback`.',
       inputSchema: GetDependencyDirectionInputShape,
       outputSchema: DependencyDirectionResultSchema,
       annotations: { readOnlyHint: true },
@@ -306,7 +311,9 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       title: 'Get spec requirements',
       description:
         'Quote only the requirements a change touches — by REQ id or story — ' +
-        'instead of reading a whole feature spec',
+        'instead of reading a whole feature spec. ' +
+        'Example: `{ "feature": "sdd-workflow", "req": ["REQ-CLI-028"] }` or `{ "feature": "sdd-workflow", "story": ["US-36"] }`. ' +
+        'Returns `{ feature, slices, misses }` — the selected slices plus the selectors that matched nothing; with no selector it refuses and points at `spec://feature/{name}`.',
       inputSchema: GetSpecRequirementsInputShape,
       outputSchema: SpecRequirementsResultSchema,
       annotations: { readOnlyHint: true },

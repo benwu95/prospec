@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-5119%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5186%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -445,7 +445,7 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 | **Upgrade** | `prospec-upgrade` | After `prospec upgrade` records the version, re-syncs agents, and back-fills missing init docs, work through the report's docs inventory: migrate drifted init-doc formats + enrich the docs it created, and localize triggers for newly-added skills (fill-missing only) — each with confirmation + a diff/content preview; never overwrites your authored content |
 
 > [!NOTE]
-> **Periodic Finisher Skills**: `prospec-quickstart` (runs once after `prospec quickstart`) and `prospec-upgrade` (runs during version upgrades after `prospec upgrade`) finish the judgment steps the CLI cannot handle deterministically. Both deploy to disk as Skills but are excluded from active entry config, so they add zero ongoing token cost.
+> **Periodic Finisher Skills**: `prospec-quickstart` (runs once after `prospec quickstart`) and `prospec-upgrade` (runs during version upgrades after `prospec upgrade`) finish the judgment steps the CLI cannot handle deterministically. Both deploy to disk as Skills but are excluded from the always-loaded entry config; each deployed `SKILL.md`'s name and description still loads per session, so the saving is the entry-config listing, not the skill metadata.
 
 ### Quality Gates & Self-Improvement
 
@@ -535,7 +535,7 @@ The few command details a reader most often needs from here:
   **[CLI Reference — MCP server](./reference/cli-reference.md#mcp-server)**.
 - **`prospec config example`** — prints the complete annotated `.prospec.yaml` reference with example
   values, which is the fastest way to see a field's shape before setting it.
-- **`prospec agent triggers [--write <file>]`** — prints a ready-to-translate `skill_triggers`
+- **`prospec agent triggers [--write <file>]`** — prints a ready-to-translate `skill_triggers` + `skill_exclusions`
   scaffold, and writes it back with `--write`.
 
 ## Configuration
@@ -659,7 +659,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (5119 total; 4 skipped)
+# Run all tests (5186 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -672,9 +672,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 5119 total tests (5115 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3699 tests
-- Contract tests (CLI output + Skill format): 1208 tests
+**Test Coverage**: 5186 total tests (5182 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3731 tests
+- Contract tests (CLI output + Skill format): 1243 tests
 - Integration tests: 64 tests
 - E2E tests: 148 tests
 

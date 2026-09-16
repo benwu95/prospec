@@ -37,9 +37,44 @@ function scaffoldResult(overrides: Partial<AgentTriggersResult> = {}): AgentTrig
     artifactLanguage: 'Traditional Chinese (Taiwan)',
     isEnglish: false,
     missing: [{ name: 'prospec-plan', baseline: ['plan', 'architecture'] }],
+    missingExclusions: [],
     ...overrides,
   };
 }
+
+describe('agent-triggers-output (skill_exclusions block, REQ-AGNT-036)', () => {
+  it('prints the skill_exclusions block after skill_triggers when exclusions are missing', () => {
+    const { out } = capture(() =>
+      formatAgentTriggersOutput(
+        scaffoldResult({ missingExclusions: [{ name: 'prospec-review', baseline: ['ad-hoc PR review'] }] }),
+        'normal',
+      ),
+    );
+    expect(out.indexOf('skill_triggers:')).toBeLessThan(out.indexOf('skill_exclusions:'));
+    expect(out).toContain('  prospec-review:');
+    expect(out).toContain('    - ad-hoc PR review');
+  });
+
+  it('prints only the exclusions block when triggers are fully localized', () => {
+    const { out, err } = capture(() =>
+      formatAgentTriggersOutput(
+        scaffoldResult({ missing: [], missingExclusions: [{ name: 'prospec-review', baseline: ['ad-hoc PR review'] }] }),
+        'normal',
+      ),
+    );
+    expect(out).not.toContain('skill_triggers:');
+    expect(out).toContain('skill_exclusions:');
+    expect(err).toBe('');
+  });
+
+  it('is informational when both maps are complete', () => {
+    const { out, err } = capture(() =>
+      formatAgentTriggersOutput(scaffoldResult({ missing: [], missingExclusions: [] }), 'normal'),
+    );
+    expect(out).toBe('');
+    expect(err).toContain('nothing to localize');
+  });
+});
 
 describe('agent-triggers-output (scaffold)', () => {
   it('emits the paste-ready skill_triggers scaffold on stdout', () => {
@@ -90,6 +125,8 @@ describe('agent-triggers-output (scaffold)', () => {
 
 function writeResult(overrides: Partial<AgentTriggersWriteResult> = {}): AgentTriggersWriteResult {
   return {
+    writtenExclusions: [],
+    skippedExistingExclusions: [],
     written: ['prospec-plan'],
     skippedExisting: [],
     configPath: '.prospec.yaml',

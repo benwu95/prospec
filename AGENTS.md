@@ -41,14 +41,14 @@ This project ships with the following Prospec Skills:
 
 ### prospec-explore
 
-Explore - Requirement exploration, problem investigation, and solution comparison partner.
+Explore - Requirement exploration, problem investigation, and solution comparison partner — clarifies before a Story exists, not the Story writer itself.
 
 **Type**: Lifecycle
 **Triggers**: explore, compare, investigate, unsure, clarify, 探索, 比較, 釐清, 調查, 不確定
 
 ### prospec-new-story
 
-New Story - Create change requests by guiding User Story and acceptance criteria definition.
+New Story - Create change requests by guiding User Story and acceptance criteria definition — the SDD entry station, not a generic issue or ticket writer.
 
 **Type**: Planning
 **Triggers**: new feature, requirement, user story, 新功能, 需求, 新增需求
@@ -56,7 +56,7 @@ New Story - Create change requests by guiding User Story and acceptance criteria
 
 ### prospec-plan
 
-Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md).
+Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md) — the SDD plan station, not ad-hoc architecture discussion.
 
 **Type**: Planning
 **Triggers**: plan, architecture, technical plan, 規劃, 架構規劃, 技術規劃
@@ -64,23 +64,23 @@ Plan Implementation - Convert User Story into technical implementation plan (pla
 
 ### prospec-design
 
-Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms.
+Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms. UI scope only — not architecture design (that is the plan station).
 
 **Type**: Planning
-**Triggers**: design, UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計
+**Triggers**: UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計
 **References**: `.agents/skills/prospec-design/references/`
 
 ### prospec-tasks
 
-Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md).
+Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md) — the SDD station after plan, not a generic todo tool.
 
 **Type**: Planning
-**Triggers**: break down, tasks, task list, work items, how to split, 拆解, 任務, 任務清單, 工作項目, 如何拆分
+**Triggers**: break down, task list, work items, how to split, 拆解, 任務, 任務清單, 工作項目, 如何拆分
 **References**: `.agents/skills/prospec-tasks/references/`
 
 ### prospec-ff
 
-Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks).
+Fast-Forward Planning - Generate complete planning artifacts in one pass (Story → Plan → Tasks) — for clear requirements, not exploration.
 
 **Type**: Planning
 **Triggers**: fast-forward, ff, all at once, 一次到位, 快轉
@@ -88,7 +88,7 @@ Fast-Forward Planning - Generate complete planning artifacts in one pass (Story 
 
 ### prospec-implement
 
-Implementation - Execute tasks from the task list, implementing features one by one.
+Implementation - Execute tasks from the task list, implementing features one by one — driven by tasks.md, not free-form coding without a task list.
 
 **Type**: Execution
 **Triggers**: implement, start coding, write code, 實作, 開始寫程式, 寫程式, 開始實作
@@ -96,15 +96,15 @@ Implementation - Execute tasks from the task list, implementing features one by 
 
 ### prospec-review
 
-Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction.
+Adversarial Code Review → Fix Loop - Between implement and verify, an independent fresh-context reviewer audits the whole change diff; verifier-confirmed criticals are auto-fixed, majors are proposed, and a spec-aware lens checks delta-spec/dependency-direction — the SDD station between implement and verify, not ad-hoc PR review.
 
 **Type**: Execution
-**Triggers**: review, code review, adversarial review, find bugs, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
+**Triggers**: code review, adversarial review, find bugs, 審查, 程式碼審查, 對抗式審查, 找 bug, 找問題
 **References**: `.agents/skills/prospec-review/references/`
 
 ### prospec-verify
 
-Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D).
+Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D) — the SDD gate before archive, not a plain test run.
 
 **Type**: Execution
 **Triggers**: verify, audit, quality check, 驗證, 稽核, 品質檢查, 評級
@@ -112,14 +112,14 @@ Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constit
 
 ### prospec-knowledge-generate
 
-Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index.
+Generate AI Knowledge - Read raw-scan.md, analyze project structure, autonomously decide module boundaries, and produce Recipe-First module READMEs and index — first-time seeding, not the incremental update after a change.
 
 **Type**: Lifecycle
 **Triggers**: generate knowledge, analyze project, module split, 產生知識, 知識庫, 分析專案, 模組拆分
 
 ### prospec-archive
 
-Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync.
+Archive Changes - Archive completed changes, generate summary, sync requirements to feature specs, and gate archiving on Knowledge sync — the SDD terminal station, not git tagging or a release.
 
 **Type**: Lifecycle
 **Triggers**: archive, spec sync, finalize change, 封存, 歸檔, 收尾, 規格同步
@@ -127,7 +127,7 @@ Archive Changes - Archive completed changes, generate summary, sync requirements
 
 ### prospec-knowledge-update
 
-Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, index.md, and module-map.yaml incrementally.
+Incremental Knowledge Update - Parse delta-spec.md to identify affected modules, scan source code, and update module README, index.md, and module-map.yaml incrementally — after a change, not the first-time knowledge scan.
 
 **Type**: Lifecycle
 **Triggers**: knowledge update, incremental update, sync knowledge, update docs, 更新知識, 增量更新, 同步知識, 更新文件
@@ -142,7 +142,7 @@ Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing br
 
 ### prospec-promote-backfill
 
-Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone.
+Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill change scaffold (proposal.md + delta-spec.md + metadata.yaml with scale: backfill, status: implemented) so brownfield behavior can graduate through verify → archive. A light scale like quick — no hollow plan.md/tasks.md; the single, repeatable draft→scaffold step; never writes the trust zone — promotion only, not the draft extraction itself.
 
 **Type**: Lifecycle
 **Triggers**: promote backfill, formalize backfill, backfill to delta-spec, promote draft, 晉升回填, 正式化回填, 回填轉正, 提升草稿
@@ -150,7 +150,7 @@ Promote Backfill - Formalize a reviewed backfill-draft.md into the backfill chan
 
 ### prospec-learn
 
-Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule).
+Feedback Promotion Pipeline - Collect session corrections, repeated verify FAILs and recurring review criticals into a version-controlled lessons ledger; score them with an explicit, reproducible rule (frequency + impact modules); and promote - only with explicit human approval - across three tiers (accumulating ledger -> team playbook -> Constitution rule) — a ledger for recurring lessons, not a one-off note taker.
 
 **Type**: Lifecycle
 **Triggers**: learn, promote lesson, playbook, 學習, 晉升教訓, 經驗手冊

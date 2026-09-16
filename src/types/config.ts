@@ -214,6 +214,9 @@ export const ProspecConfigSchema = z
     artifact_language: z.string().optional(),
     trust_zone_language: z.string().optional(),
     skill_triggers: z.record(z.string(), z.array(z.string())).optional(),
+    // Localized negative-scope phrases per skill — a sibling of skill_triggers with
+    // the same shape; absent means the description's English boundary stands alone.
+    skill_exclusions: z.record(z.string(), z.array(z.string())).optional(),
   })
   .loose();
 

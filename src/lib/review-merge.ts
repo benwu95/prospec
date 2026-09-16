@@ -10,6 +10,7 @@ import {
   type EvidenceBlock,
 } from './delegated-evidence.js';
 import {
+  countEscapedCells,
   findTable,
   renderMarkdownTable,
   replaceTableInDocument,
@@ -267,21 +268,55 @@ export function roundCounts(incoming: ReviewFinding[]): ReviewRoundCounts {
   return { criticals_found, criticals_fixed, majors };
 }
 
+/** The cells one row renders to — the single list both the table and the escaped-cell count use. */
+function reviewRowCells(r: ReviewRow): string[] {
+  return [
+    r.id ?? '',
+    r.location,
+    r.severity,
+    r.lens,
+    r.status,
+    r.origin_round !== undefined ? String(r.origin_round) : '1',
+    r.summary,
+    r.repro ?? '',
+  ];
+}
+
 /** Render the canonical cumulative table (stable row order = merge order). */
 export function renderReviewTable(rows: ReviewRow[]): string {
-  return renderMarkdownTable(
-    CANONICAL_HEADER,
-    rows.map((r) => [
-      r.id ?? '',
-      r.location,
-      r.severity,
-      r.lens,
-      r.status,
-      r.origin_round !== undefined ? String(r.origin_round) : '1',
-      r.summary,
-      r.repro ?? '',
-    ]),
-  );
+  return renderMarkdownTable(CANONICAL_HEADER, rows.map(reviewRowCells));
+}
+
+/**
+ * How many cells the table engine rewrites (a `|` or a line break) among the
+ * merged rows THIS round wrote or updated — counted over the cells the row
+ * actually renders to, so a value the merge discarded (a re-reported `lens`,
+ * which is never overwritten) is not counted, and a carried-forward row the
+ * round did not touch is not counted either.
+ */
+export function escapedCellsFor(
+  merged: readonly ReviewRow[],
+  incoming: readonly ReviewFinding[],
+): number {
+  const touched = new Set<ReviewRow>();
+  const byId = new Map(merged.filter((r) => r.id !== undefined).map((r) => [r.id!, r]));
+  // Same two-pass order as mergeFindings: asserted identity reserves its row first,
+  // whatever order the findings arrive in, so an id-less finding cannot steal it.
+  for (const f of incoming) {
+    if (f.id === undefined) continue;
+    const row = byId.get(f.id);
+    if (row) touched.add(row);
+  }
+  for (const f of incoming) {
+    if (f.id !== undefined) continue;
+    // Same claim-once semantics as the merge's fallback queue: two id-less findings
+    // at one (location, lens) are two rows, so each claims the next unclaimed one.
+    const row = merged.find(
+      (r) => r.location === f.location && r.lens === f.lens && !touched.has(r),
+    );
+    if (row) touched.add(row);
+  }
+  return countEscapedCells([...touched].map(reviewRowCells));
 }
 
 /** The evidence blocks a row set carries, in table-row order — so the section is

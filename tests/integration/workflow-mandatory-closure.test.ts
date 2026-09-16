@@ -51,8 +51,8 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
  * scenario routed through implement, carries its mandatory `_conventions.md`.
  */
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_347, 'standard-ui': 15_244, 'proven-backfill': 23_279, 'equivalent-commit': 12_651,
-  'reverify-c': 15_439, 'missing-receipt': 5_613, 'stale-delta': 12_792, 'multi-change': 12_651,
+  quick: 16_382, 'standard-ui': 15_282, 'proven-backfill': 23_318, 'equivalent-commit': 12_676,
+  'reverify-c': 15_463, 'missing-receipt': 5_627, 'stale-delta': 12_818, 'multi-change': 12_676,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {

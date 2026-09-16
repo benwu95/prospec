@@ -15,6 +15,7 @@ import { todayIso } from '../lib/date-utils.js';
 import {
   parseLedger,
   upsertLesson,
+  escapedCellsFor,
   scoreLessons,
   renderLedgerDocument,
   expiredPlaybookEntries,
@@ -122,6 +123,8 @@ export interface LearnUpsertResult {
   suggestions: ScoreSuggestion[];
   /** Playbook entries past their TTL review-by date (needs-review list). */
   expiredPlaybook: PlaybookTtl[];
+  /** Cells of the upserted lesson the table engine rewrote (`|` / line break). */
+  escapedCells: number;
 }
 
 /** `.prospec.yaml` `learn.thresholds` override, falling back to the shipped defaults. */
@@ -227,6 +230,7 @@ export async function execute(options: LearnUpsertOptions): Promise<LearnUpsertR
     warnings: [...upserted.warnings, ...moduleWarnings],
     suggestions: scored.suggestions,
     expiredPlaybook,
+    escapedCells: escapedCellsFor(scored.entries, upserted.action, lesson.key),
   };
 }
 

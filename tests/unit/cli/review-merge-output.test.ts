@@ -29,9 +29,26 @@ function baseResult(overrides: Partial<ReviewMergeResult> = {}): ReviewMergeResu
     evidenceBlocks: 0,
     criticals: [],
     round: { criticals_found: 1, criticals_fixed: 1, majors: 2, roundNumber: 1 },
+    escapedCells: 0,
     ...overrides,
   };
 }
+
+describe('review-merge-output escaping notice (REQ-CLI-055 / REQ-CLI-037)', () => {
+  it('prints nothing extra when no cell was escaped (byte-identical digest)', () => {
+    const out = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
+    expect(out).not.toMatch(/escaped/i);
+    expect(out.split('\n').filter(Boolean)).toHaveLength(3);
+  });
+
+  it('prints exactly one extra line with the count and the rule when cells were escaped', () => {
+    const base = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
+    const out = captureStdout(() => formatReviewMergeOutput(baseResult({ escapedCells: 2 }), 'normal'));
+    expect(out.split('\n').length).toBe(base.split('\n').length + 1);
+    expect(out).toContain('2 cell(s)');
+    expect(out).toContain('\\|');
+  });
+});
 
 describe('review-merge-output', () => {
   // The round-counts line feeds `prospec change log --skill prospec-review` —

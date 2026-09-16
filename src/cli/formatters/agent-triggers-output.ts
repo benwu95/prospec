@@ -31,27 +31,34 @@ export function formatAgentTriggersOutput(
     return;
   }
 
-  if (missing.length === 0) {
+  const { missingExclusions } = result;
+  if (missing.length === 0 && missingExclusions.length === 0) {
     if (logLevel !== 'quiet') {
       process.stderr.write(
-        `${pc.cyan('ℹ')} All skills already have a ${artifactLanguage} skill_triggers entry — nothing to localize.\n`,
+        `${pc.cyan('ℹ')} All skills already have a ${artifactLanguage} skill_triggers entry and a skill_exclusions entry — nothing to localize.\n`,
       );
     }
     return;
   }
 
   const lines: string[] = [
-    '# Native-language skill_triggers scaffold — translate each English baseline',
-    `# value into ${artifactLanguage}, then add these entries under skill_triggers`,
-    '# in .prospec.yaml (existing entries are left untouched).',
-    'skill_triggers:',
+    '# Native-language localization scaffold — translate each English baseline value',
+    `# into ${artifactLanguage}, then add these entries under the same key in .prospec.yaml`,
+    '# (existing entries are left untouched). Under skill_triggers go the words that should',
+    '# invoke the skill; under skill_exclusions go short phrases naming what it is NOT for.',
   ];
-  for (const skill of missing) {
-    lines.push(`  ${sanitizeTerminal(skill.name)}:`);
-    for (const word of skill.baseline) {
-      lines.push(`    - ${sanitizeTerminal(word)}`);
+  const block = (key: string, skills: typeof missing): void => {
+    if (skills.length === 0) return;
+    lines.push(`${key}:`);
+    for (const skill of skills) {
+      lines.push(`  ${sanitizeTerminal(skill.name)}:`);
+      for (const word of skill.baseline) {
+        lines.push(`    - ${sanitizeTerminal(word)}`);
+      }
     }
-  }
+  };
+  block('skill_triggers', missing);
+  block('skill_exclusions', missingExclusions);
   process.stdout.write(lines.join('\n') + '\n');
 }
 
@@ -63,20 +70,23 @@ export function formatAgentTriggersWriteOutput(
   if (logLevel === 'quiet') return;
 
   const lines: string[] = [];
-  if (result.written.length > 0) {
-    lines.push(
-      `${pc.green('✓')} Inserted skill_triggers for ${result.written.length} skill(s) into ${pc.cyan(sanitizeTerminal(result.configPath))}:`,
-    );
-    for (const skill of result.written) lines.push(`  - ${sanitizeTerminal(skill)}`);
-  } else {
-
-    lines.push(`${pc.yellow('●')} Nothing written — no missing skill_triggers entries in the scaffold`);
-  }
-  if (result.skippedExisting.length > 0) {
-    const skipped = result.skippedExisting.map((s) => sanitizeTerminal(s)).join(', ');
-    lines.push(
-      pc.dim(`Skipped (existing entries are never overwritten): ${skipped}`),
-    );
+  const report = (key: string, written: string[], skipped: string[]): void => {
+    if (written.length > 0) {
+      lines.push(
+        `${pc.green('✓')} Inserted ${key} for ${written.length} skill(s) into ${pc.cyan(sanitizeTerminal(result.configPath))}:`,
+      );
+      for (const skill of written) lines.push(`  - ${sanitizeTerminal(skill)}`);
+    }
+    if (skipped.length > 0) {
+      const names = skipped.map((s) => sanitizeTerminal(s)).join(', ');
+      const label = key === 'skill_triggers' ? 'Skipped' : `Skipped ${key}`;
+      lines.push(pc.dim(`${label} (existing entries are never overwritten): ${names}`));
+    }
+  };
+  report('skill_triggers', result.written, result.skippedExisting);
+  report('skill_exclusions', result.writtenExclusions, result.skippedExistingExclusions);
+  if (result.written.length + result.writtenExclusions.length === 0) {
+    lines.push(`${pc.yellow('●')} Nothing written — no missing skill_triggers or skill_exclusions entries in the scaffold`);
   }
   lines.push(`${pc.dim('→')} Run ${pc.cyan('`prospec agent sync`')} to redeploy skills with the new triggers`);
   process.stdout.write(lines.join('\n') + '\n');

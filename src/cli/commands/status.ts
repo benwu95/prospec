@@ -3,6 +3,7 @@ import { formatStatusOutput, formatStatusJson } from '../formatters/status-outpu
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /**
  * Register the `status` command.
@@ -19,6 +20,7 @@ export function registerStatusCommand(program: Command): void {
   program
     .command('status')
     .description('Show each in-progress change and its suggested next SDD station')
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['status']))
     .option('--json', 'Emit the full status report as JSON to stdout instead of the human view')
     .action(async (options: { json?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();

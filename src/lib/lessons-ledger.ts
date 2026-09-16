@@ -1,6 +1,7 @@
 import type { LessonInput, LessonKind } from '../types/station.js';
 import {
   findTable,
+  countEscapedCells,
   renderMarkdownTable,
   replaceTableInDocument,
   type FindTableOptions,
@@ -205,22 +206,39 @@ export function scoreLessons(
   return { entries: next, suggestions };
 }
 
+/** The cells one ledger row renders to — the single list both the table and the escaped-cell count use. */
+function ledgerRowCells(e: LedgerEntry): string[] {
+  return [
+    e.key,
+    e.description,
+    String(e.frequency),
+    e.impactModules.length > 0 ? `${e.impactModules.length} (${e.impactModules.join(',')})` : '0',
+    e.kind,
+    e.sourceChanges.join(', '),
+    e.status,
+  ];
+}
+
+/**
+ * How many cells the table engine rewrites in the ONE row this upsert wrote or
+ * updated, counted over the row as it renders (the stored description wins over
+ * a re-report's, so the input text is never what gets escaped). An `unchanged`
+ * upsert — retired row, or a source change already recorded — wrote nothing and
+ * counts 0.
+ */
+export function escapedCellsFor(
+  entries: readonly LedgerEntry[],
+  action: UpsertResult['action'],
+  key: string,
+): number {
+  if (action === 'unchanged') return 0;
+  const row = entries.find((e) => e.key === key);
+  return row ? countEscapedCells([ledgerRowCells(row)]) : 0;
+}
+
 /** Render the canonical ledger table (row order = entry order, stable). */
 export function renderLedgerTable(entries: LedgerEntry[]): string {
-  return renderMarkdownTable(
-    LEDGER_COLUMNS,
-    entries.map((e) => [
-      e.key,
-      e.description,
-      String(e.frequency),
-      e.impactModules.length > 0
-        ? `${e.impactModules.length} (${e.impactModules.join(',')})`
-        : '0',
-      e.kind,
-      e.sourceChanges.join(', '),
-      e.status,
-    ]),
-  );
+  return renderMarkdownTable(LEDGER_COLUMNS, entries.map(ledgerRowCells));
 }
 
 /** Replace the ledger table in the file, preserving surrounding prose. */

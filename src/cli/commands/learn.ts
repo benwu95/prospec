@@ -4,6 +4,7 @@ import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { collect, parseDate, parseIntOption, parseRatio } from '../parse-options.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /**
  * Register the `learn` command group with the `upsert` and `yield` subcommands.
@@ -20,6 +21,7 @@ export function registerLearnCommand(program: Command): void {
     .description(
       'Keyed idempotent upsert into the lessons ledger, plus the explicit scoring rule and TTL scan',
     )
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['learn upsert']))
     .requiredOption('--lesson <file>', 'Path to the lesson JSON')
     .option('--today <date>', 'Date used for the playbook TTL expiry scan', parseDate)
     .action(async (options: { lesson: string; today?: string }) => {

@@ -10,6 +10,7 @@ import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { collect, parseDate, parseIntOption } from '../parse-options.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /** `name=result` → a judgment QualityDimension (adjudicator is always judgment here). */
 function parseJudgmentDimension(
@@ -66,6 +67,7 @@ export function registerVerifyCommand(program: Command): void {
     .description(
       'Compute the S/A/B/C/D grade (machine dims self-sourced from the drift report) and record it',
     )
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['verify record']))
     .option(
       '--dimension <spec>',
       'Judgment dimension verdict as name=result (repeatable; exactly the 3 judgment dimensions)',

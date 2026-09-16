@@ -886,3 +886,69 @@ knowledge:
     expect(out).toContain('# shared hand-written guidance');
   });
 });
+
+describe('renderSkillDescription — one exit for entry config and frontmatter (REQ-AGNT-031 / REQ-SERVICES-110)', () => {
+  it('renders the Not for: clause into BOTH the entry-config registry and the SKILL.md frontmatter context when localized exclusions exist', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: test',
+        'agents:',
+        '  - codex',
+        'artifact_language: Traditional Chinese (Taiwan)',
+        'skill_exclusions:',
+        '  prospec-review: [臨時 PR 審查]',
+        '',
+      ].join('\n'),
+    });
+    await execute({ cwd: '/project' });
+    const calls = vi.mocked(renderTemplate).mock.calls;
+    const review = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-review')!;
+    const expected = `${review.description} Not for: 臨時 PR 審查.`;
+    const reviewCtx = calls.find(([name]) => name === 'skills/prospec-review.hbs')![1] as Record<string, unknown>;
+    expect(reviewCtx.skill_description).toBe(expected);
+    const entryCtx = calls.find(([name]) => name === 'agent-configs/entry.md.hbs')![1] as {
+      skills: { name: string; description: string }[];
+    };
+    expect(entryCtx.skills.find((s) => s.name === 'prospec-review')!.description).toBe(expected);
+    // a skill without localized exclusions renders its bare description
+    const planCtx = calls.find(([name]) => name === 'skills/prospec-plan.hbs')![1] as Record<string, unknown>;
+    expect(planCtx.skill_description).toBe(SKILL_DEFINITIONS.find((s) => s.name === 'prospec-plan')!.description);
+  });
+
+  it('absent skill_exclusions and an empty-array entry both render the bare description (byte-identical no-op)', async () => {
+    const render = async (yaml: string) => {
+      vol.reset();
+      vi.mocked(renderTemplate).mockClear();
+      vol.fromJSON({ '/project/.prospec.yaml': yaml });
+      await execute({ cwd: '/project' });
+      return vi.mocked(renderTemplate).mock.calls
+        .filter(([name]) => String(name).startsWith('skills/prospec-') || name === 'agent-configs/entry.md.hbs')
+        .map(([name, ctx]) => [name, JSON.stringify(ctx)]);
+    };
+    const base = 'project:\n  name: test\nagents:\n  - codex\n';
+    const without = await render(base);
+    const withEmpty = await render(`${base}skill_exclusions:\n  prospec-review: []\n`);
+    expect(withEmpty).toEqual(without);
+  });
+
+  it('the population hint names both localization maps and the write-back command', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\nartifact_language: Japanese\n',
+    });
+    const result = await execute({ cwd: '/project' });
+    expect(result.hints).toHaveLength(1);
+    expect(result.hints[0]).toContain('skill_triggers');
+    expect(result.hints[0]).toContain('skill_exclusions');
+    expect(result.hints[0]).toContain('prospec agent triggers --write');
+    expect(result.hints[0]).toContain('Japanese');
+  });
+
+  it('the hint gap set stays the skill_triggers gap (REQ-AGNT-021): fully localized triggers → no hint even with exclusions missing', async () => {
+    const allTriggers = SKILL_DEFINITIONS.map((s) => `  ${s.name}: [x]`).join('\n');
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:\n  name: test\nagents:\n  - claude\nartifact_language: Japanese\nskill_triggers:\n${allTriggers}\n`,
+    });
+    expect((await execute({ cwd: '/project' })).hints).toEqual([]);
+  });
+});

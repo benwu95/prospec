@@ -12,6 +12,7 @@ import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { collect, parseDate } from '../parse-options.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /** `name=result[:adjudicator[:graded_by]]` → a QualityDimension, validated against the closed vocabularies. */
 function parseDimension(value: string, previous: QualityDimension[]): QualityDimension[] {
@@ -79,6 +80,7 @@ export function registerChangeLogCommand(program: Command): void {
   changeCmd
     .command('log')
     .description('Append a structured quality_log entry to a change')
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['change log']))
     .requiredOption('--skill <station>', 'Station name (e.g. prospec-review)')
     // Two verdict sources, mutually exclusive at BOTH layers (commander usage
     // error here, PrerequisiteError in the service): a composed entry

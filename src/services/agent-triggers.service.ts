@@ -15,7 +15,9 @@ import { ProspecConfigSchema } from '../types/config.js';
 import { SKILL_DEFINITIONS } from '../types/skill.js';
 import { ConfigInvalid, PrerequisiteError } from '../types/errors.js';
 import {
-  computeUnlocalizedSkills,
+  computeUnlocalized,
+  LOCALIZATION_CONFIG_KEYS,
+  type LocalizationKind,
   type UnlocalizedSkill,
 } from './trigger-localization.js';
 
@@ -31,6 +33,8 @@ export interface AgentTriggersResult {
   isEnglish: boolean;
   /** Skills still lacking a native-language `skill_triggers` entry, with English baselines. */
   missing: UnlocalizedSkill[];
+  /** Skills still lacking a native-language `skill_exclusions` entry, with English baselines. */
+  missingExclusions: UnlocalizedSkill[];
 }
 
 /**
@@ -50,7 +54,8 @@ export async function execute(
   return {
     artifactLanguage,
     isEnglish: isDefaultArtifactLanguage(artifactLanguage),
-    missing: computeUnlocalizedSkills(config),
+    missing: computeUnlocalized(config, 'triggers'),
+    missingExclusions: computeUnlocalized(config, 'exclusions'),
   };
 }
 
@@ -67,6 +72,9 @@ export interface AgentTriggersWriteResult {
   written: string[];
   /** Skills skipped because a non-empty entry already exists (never overwritten). */
   skippedExisting: string[];
+  /** Same two lists for the `skill_exclusions` map. */
+  writtenExclusions: string[];
+  skippedExistingExclusions: string[];
   configPath: string;
 }
 
@@ -94,33 +102,43 @@ export async function executeWrite(
     );
   }
   const rawInput = parseYaml<unknown>(fs.readFileSync(options.from, 'utf-8'), options.from);
-  const triggers = extractTriggersMapping(rawInput, options.from);
+  const mappings: Record<LocalizationKind, Record<string, string[]>> = {
+    triggers: extractSkillMapping(rawInput, options.from, 'triggers'),
+    exclusions: extractSkillMapping(rawInput, options.from, 'exclusions'),
+  };
 
   const knownSkills = new Set(SKILL_DEFINITIONS.map((s) => s.name));
-  const unknown = Object.keys(triggers).filter((k) => !knownSkills.has(k));
-  if (unknown.length > 0) {
-    throw new PrerequisiteError(
-      `Unknown skill name(s) in scaffold: ${unknown.join(', ')}`,
-      'skill_triggers keys must match shipped skill names (see `prospec agent triggers` output)',
-    );
+  for (const kind of ['triggers', 'exclusions'] as const) {
+    const unknown = Object.keys(mappings[kind]).filter((k) => !knownSkills.has(k));
+    if (unknown.length > 0) {
+      throw new PrerequisiteError(
+        `Unknown skill name(s) in scaffold: ${unknown.join(', ')}`,
+        `${LOCALIZATION_CONFIG_KEYS[kind]} keys must match shipped skill names (see \`prospec agent triggers\` output)`,
+      );
+    }
   }
 
   const config = await readConfig(cwd);
-  const existing = config.skill_triggers ?? {};
   const doc = parseYamlDocument(fs.readFileSync(configPath, 'utf-8'), configPath);
 
-  const written: string[] = [];
-  const skippedExisting: string[] = [];
-  for (const [skill, words] of Object.entries(triggers)) {
-    if ((existing[skill] ?? []).length > 0) {
-      skippedExisting.push(skill);
-      continue;
+  const outcome: Record<LocalizationKind, { written: string[]; skipped: string[] }> = {
+    triggers: { written: [], skipped: [] },
+    exclusions: { written: [], skipped: [] },
+  };
+  for (const kind of ['triggers', 'exclusions'] as const) {
+    const key = LOCALIZATION_CONFIG_KEYS[kind];
+    const existing = config[key] ?? {};
+    for (const [skill, words] of Object.entries(mappings[kind])) {
+      if ((existing[skill] ?? []).length > 0) {
+        outcome[kind].skipped.push(skill);
+        continue;
+      }
+      doc.setIn([key, skill], doc.createNode(words));
+      outcome[kind].written.push(skill);
     }
-    doc.setIn(['skill_triggers', skill], doc.createNode(words));
-    written.push(skill);
   }
 
-  if (written.length > 0) {
+  if (outcome.triggers.written.length + outcome.exclusions.written.length > 0) {
     const serialized = stringifyYamlDocument(doc);
     const readBack = ProspecConfigSchema.safeParse(parseYaml(serialized, configPath));
     if (!readBack.success) {
@@ -133,39 +151,58 @@ export async function executeWrite(
     await atomicWrite(configPath, serialized);
   }
 
-  return { written, skippedExisting, configPath: '.prospec.yaml' };
+  return {
+    written: outcome.triggers.written,
+    skippedExisting: outcome.triggers.skipped,
+    writtenExclusions: outcome.exclusions.written,
+    skippedExistingExclusions: outcome.exclusions.skipped,
+    configPath: '.prospec.yaml',
+  };
 }
 
-/** Accept the scaffold either wrapped (`skill_triggers: {…}`) or as a bare mapping. */
-function extractTriggersMapping(
+const SCAFFOLD_KEYS = Object.values(LOCALIZATION_CONFIG_KEYS);
+
+/**
+ * Accept the scaffold either wrapped (`skill_triggers: {…}` / `skill_exclusions: {…}`,
+ * one or both) or as a bare mapping — which is read as `skill_triggers`, the
+ * pre-exclusions shape. A wrapped scaffold that omits one map yields `{}` for it.
+ */
+function extractSkillMapping(
   input: unknown,
   fromPath: string,
+  kind: LocalizationKind,
 ): Record<string, string[]> {
-  const candidate =
+  const key = LOCALIZATION_CONFIG_KEYS[kind];
+  const isWrapped =
     input !== null &&
     typeof input === 'object' &&
-    'skill_triggers' in (input as Record<string, unknown>)
-      ? (input as Record<string, unknown>).skill_triggers
-      : input;
+    !Array.isArray(input) &&
+    SCAFFOLD_KEYS.some((k) => k in (input as Record<string, unknown>));
+  const candidate = isWrapped
+    ? (input as Record<string, unknown>)[key]
+    : kind === 'triggers'
+      ? input
+      : undefined;
+  if (candidate === undefined) return {};
   if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) {
     throw new PrerequisiteError(
-      `Scaffold ${fromPath} is not a skill_triggers mapping`,
-      'Expected `skill_triggers:` followed by `<skill-name>: [word, …]` entries',
+      `Scaffold ${fromPath} is not a ${key} mapping`,
+      `Expected \`${key}:\` followed by \`<skill-name>: [word, …]\` entries`,
     );
   }
   const result: Record<string, string[]> = {};
-  for (const [key, value] of Object.entries(candidate)) {
+  for (const [entryKey, value] of Object.entries(candidate)) {
     if (
       !Array.isArray(value) ||
       value.length === 0 ||
       value.some((w) => typeof w !== 'string' || w.trim() === '')
     ) {
       throw new PrerequisiteError(
-        `Scaffold entry '${key}' must be a non-empty array of non-empty strings`,
+        `Scaffold entry '${entryKey}' must be a non-empty array of non-empty strings`,
         'Translate the English baselines into the artifact language — do not leave placeholders',
       );
     }
-    result[key] = value as string[];
+    result[entryKey] = value as string[];
   }
   return result;
 }

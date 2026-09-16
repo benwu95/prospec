@@ -5,6 +5,7 @@ import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 import { parseIntOption, parseBoundedInt, parseRatio } from '../parse-options.js';
 import { REVIEW_ROUNDS_MIN, REVIEW_ROUNDS_MAX } from '../../types/cascade.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /**
  * Register the `review` command group with the `merge` subcommand.
@@ -18,6 +19,7 @@ export function registerReviewCommand(program: Command): void {
   review
     .command('merge')
     .description('Merge one review round\'s findings into the cumulative review.md table')
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['review merge']))
     .requiredOption('--findings <file>', "Path to the round's findings JSON array")
     .option('--change <name>', 'Specify the change name')
     .option('--round <number>', 'In-loop round, starting at 1 on every entry into review (omitted: re-runs the recorded round until `prospec change log` closes it)', parseIntOption('round', 1))

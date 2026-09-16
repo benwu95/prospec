@@ -338,6 +338,36 @@ describe('tools (REQ-MCP-005)', () => {
     ]);
   });
 
+  it('every tool description carries a concrete example and a Returns sentence (REQ-MCP-010)', async () => {
+    const client = await connect(writeFixtureProject());
+    const tools = (await client.listTools()).tools;
+    for (const name of MCP_TOOL_NAMES) {
+      const tool = tools.find((t) => t.name === name)!;
+      expect(tool.description, `${name}: example token`).toMatch(/`[^`]+`/);
+      expect(tool.description, `${name}: Returns sentence`).toMatch(/\bReturns\b/);
+    }
+    // Exact example strings, so dropping the Example sentence turns this red (not `/to/`-style regexes)
+    const search = tools.find((t) => t.name === 'search_modules')!.description!;
+    expect(search).toContain('Example: `{ "query": "auth service" }`');
+    expect(search).toContain('`auth-service`');
+    expect(search).toContain('Returns `matches[]`');
+    const dep = tools.find((t) => t.name === 'get_dependency_direction')!.description!;
+    expect(dep).toContain('Example: `{ "from": "cli", "to": "lib" }`');
+    expect(dep).toContain('Returns `{ allowed, direction, source }`');
+    const spec = tools.find((t) => t.name === 'get_spec_requirements')!.description!;
+    expect(spec).toContain('"req": ["REQ-CLI-028"]');
+    expect(spec).toContain('"story": ["US-36"]');
+    // the field name must be the one the result schema actually carries
+    expect(spec).toContain('`{ feature, slices, misses }`');
+    expect(spec).not.toContain('unmatched');
+    // the input schema's own describe() texts travel in tools/list too — same project-agnostic rule
+    const describes = JSON.stringify(tools.map((t) => t.inputSchema));
+    expect(describes).toContain('auth service');
+    expect(describes).not.toContain('drift checker');
+    expect(describes).toContain('`cli`');
+    expect(describes).toContain('`REQ-CLI-028`');
+  });
+
   it('search_modules: separator-normalized matching with ranked structured output', async () => {
     const client = await connect(writeFixtureProject());
     const result = await client.callTool({

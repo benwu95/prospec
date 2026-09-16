@@ -43,7 +43,7 @@ The drift engine's 7 files are listed in the sub-module below; the station engin
 2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it.
 3. **Add a drift check, or a generated artifact** — see [Drift Engine](./drift-engine.md).
 4. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers.
-5. **Add a table-bearing doc** — reuse `markdown-table.ts`; own only the header predicate + columns.
+5. **Add a table-bearing doc** — reuse `markdown-table.ts`; own only the header predicate + columns. `needsTableEscape` is the one predicate that says whether a cell is rewritten — count escaped cells with it (`escapedCellsFor` in `review-merge` / `lessons-ledger`), never a second regex.
 
 ## Ripple Effects
 
