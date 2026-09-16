@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ReviewMergeResult } from '../../services/review-merge.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatEscapingNotice } from './escaping-notice.js';
 
 /**
  * Format the ReviewMergeResult: where the round landed, this round's counts, and
@@ -73,6 +74,8 @@ export function formatReviewMergeOutput(
     }
   }
 
+  const notice = formatEscapingNotice(result.escapedCells);
+  if (notice !== undefined) lines.push(notice);
   lines.push(
     `${pc.dim('→')} Record the round with ${pc.cyan('`prospec change log --skill prospec-review …`')} using these counts`,
   );

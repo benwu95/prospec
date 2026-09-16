@@ -28,9 +28,20 @@ function baseResult(overrides: Partial<LearnUpsertResult> = {}): LearnUpsertResu
     warnings: [],
     suggestions: [],
     expiredPlaybook: [],
+    escapedCells: 0,
     ...overrides,
   };
 }
+
+describe('learn-output escaping notice (REQ-CLI-055)', () => {
+  it('adds one line only when a cell was escaped', () => {
+    const base = captureStdout(() => formatLearnUpsertOutput(baseResult(), 'normal'));
+    expect(base).not.toMatch(/escaped/i);
+    const out = captureStdout(() => formatLearnUpsertOutput(baseResult({ escapedCells: 1 }), 'normal'));
+    expect(out.split('\n').length).toBe(base.split('\n').length + 1);
+    expect(out).toContain('1 cell(s)');
+  });
+});
 
 describe('learn-output', () => {
   it('prints the upsert action, suggestions, and TTL expiry list', () => {

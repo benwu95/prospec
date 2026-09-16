@@ -108,11 +108,17 @@ export async function execute(
   const artifactLanguage = resolveArtifactLanguage(config);
   const languageScope = resolveLanguageScope(config, cwd);
   const skillTriggers = config.skill_triggers ?? {};
+  const skillExclusions = config.skill_exclusions ?? {};
   const knownSkillNames = new Set(SKILL_DEFINITIONS.map((s) => s.name));
   const warnings: string[] = [];
   for (const key of Object.keys(skillTriggers)) {
     if (!knownSkillNames.has(key)) {
       warnings.push(`skill_triggers: unknown skill '${key}' ignored`);
+    }
+  }
+  for (const key of Object.keys(skillExclusions)) {
+    if (!knownSkillNames.has(key)) {
+      warnings.push(`skill_exclusions: unknown skill '${key}' ignored`);
     }
   }
   const hints: string[] = [];
@@ -121,18 +127,19 @@ export async function execute(
     // also consumed by `prospec agent triggers`. Naming the gap lets the user
     // fill just the newly-added skills after a CLI upgrade — never deleting
     // .prospec.yaml to force a full re-localization through init.
+    // The hint's gap set stays the skill_triggers gap (REQ-AGNT-021); its wording
+    // names both maps because the scaffold it points at prints both blocks.
     const missing = computeUnlocalizedSkills(config);
+    const gapNames = missing.map((s) => s.name);
     if (missing.length === SKILL_DEFINITIONS.length) {
       // None localized yet — generic onboarding guidance (don't enumerate all).
       hints.push(
-        `Native-language skill triggers: run \`prospec agent triggers\` to get a ready-to-translate skill_triggers scaffold, translate each English baseline into ${artifactLanguage}, add them under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\`.`,
+        `Native-language skill triggers and exclusions: run \`prospec agent triggers\` to get a ready-to-translate scaffold (skill_triggers + skill_exclusions blocks), translate each English baseline into ${artifactLanguage}, write it back with \`prospec agent triggers --write <file>\`, then re-run \`prospec agent sync\`.`,
       );
-    } else if (missing.length > 0) {
-      // Partially localized — name the skills still missing triggers.
+    } else if (gapNames.length > 0) {
+      // Partially localized — name the skills still missing an entry in either map.
       hints.push(
-        `These skills have no ${artifactLanguage} skill_triggers entry yet: ${missing
-          .map((s) => s.name)
-          .join(', ')}. Run \`prospec agent triggers\` to get their baselines, add their triggers under skill_triggers in .prospec.yaml, then re-run \`prospec agent sync\` — no need to re-init.`,
+        `These skills have no ${artifactLanguage} skill_triggers or skill_exclusions entry yet: ${gapNames.join(', ')}. Run \`prospec agent triggers\` to get their baselines, write them back with \`prospec agent triggers --write <file>\`, then re-run \`prospec agent sync\` — no need to re-init.`,
       );
     }
   }
@@ -143,6 +150,11 @@ export async function execute(
       s.name,
       synthesizeTriggers(s, artifactLanguage, skillTriggers[s.name]),
     ]),
+  );
+  // One description exit for BOTH the entry-config registry and the SKILL.md
+  // frontmatter — the localized `Not for:` clause reaches both or neither.
+  const descriptionBySkill = new Map(
+    SKILL_DEFINITIONS.map((s) => [s.name, renderSkillDescription(s, skillExclusions[s.name])]),
   );
 
   // 5. Template context (shared across all agents)
@@ -190,7 +202,7 @@ export async function execute(
     // so it stays invocable on demand.
     skills: SKILL_DEFINITIONS.filter((s) => !s.excludeFromEntryConfig).map((s) => ({
       name: s.name,
-      description: s.description,
+      description: descriptionBySkill.get(s.name),
       triggers: triggerWordsBySkill.get(s.name),
       type: s.type,
       hasReferences: s.hasReferences,
@@ -236,6 +248,7 @@ export async function execute(
         invocation_guidance: invocationGuidance,
       },
       triggerWordsBySkill,
+      descriptionBySkill,
       cwd,
     );
     result.agent = names.join(', ');
@@ -275,6 +288,24 @@ export function synthesizeTriggers(
     return `${baseline} — or equivalent terms in ${artifactLanguage}`;
   }
   return baseline;
+}
+
+/**
+ * The description both exits render: the single-source `description`, plus a
+ * ` Not for: <phrases>.` clause only when the project localized exclusions for
+ * this skill. The English `exclude` baseline is never rendered — the English
+ * boundary already lives in the description — so an absent or empty entry is a
+ * byte-identical no-op.
+ */
+export function renderSkillDescription(
+  skill: Pick<SkillConfig, 'description'>,
+  localizedExclusions: string[] | undefined,
+): string {
+  // collapse inner whitespace too: the entry-config exit is raw markdown, so a line break
+  // inside a phrase would otherwise mint a new line in the always-loaded file
+  const phrases = (localizedExclusions ?? []).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (phrases.length === 0) return skill.description;
+  return `${skill.description} Not for: ${phrases.join('; ')}.`;
 }
 
 /** Verdict enum and dimension lists as the rubric prose renders them. */
@@ -329,6 +360,7 @@ async function syncAgent(
   agentConfig: AgentConfig,
   templateContext: Record<string, unknown>,
   triggerWordsBySkill: Map<string, string>,
+  descriptionBySkill: Map<string, string>,
   cwd: string,
 ): Promise<AgentSyncResult> {
   const skillFiles: string[] = [];
@@ -338,6 +370,7 @@ async function syncAgent(
     agentConfig,
     templateContext,
     triggerWordsBySkill,
+    descriptionBySkill,
     cwd,
     skillFiles,
     referenceFiles,
@@ -401,6 +434,7 @@ async function syncSkillsDirSkills(
   agentConfig: AgentConfig,
   templateContext: Record<string, unknown>,
   triggerWordsBySkill: Map<string, string>,
+  descriptionBySkill: Map<string, string>,
   cwd: string,
   skillFiles: string[],
   referenceFiles: string[],
@@ -414,7 +448,7 @@ async function syncSkillsDirSkills(
     // YAML scalar in the SKILL.md frontmatter.
     const content = renderTemplate(`skills/${skill.name}.hbs`, {
       ...templateContext,
-      skill_description: escapeYamlScalar(skill.description),
+      skill_description: escapeYamlScalar(descriptionBySkill.get(skill.name) ?? skill.description),
       trigger_words: escapeYamlScalar(triggerWordsBySkill.get(skill.name) ?? ''),
     });
 

@@ -120,3 +120,11 @@ skill_triggers:
   prospec-explore:
     - explore
     - 探索
+
+# Native-language negative-scope phrases per skill (skill-name -> list of strings),
+# rendered as a `Not for: …` clause after the skill description in the entry
+# config and SKILL.md frontmatter. Same shape as skill_triggers; the same
+# `prospec agent triggers` scaffold lists the skills still missing an entry.
+skill_exclusions:
+  prospec-review:
+    - 臨時 PR 審查

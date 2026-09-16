@@ -85,7 +85,7 @@ your-project/
 | `prospec knowledge update [options]` | Mechanical incremental knowledge sync from `delta-spec.md` into `module-map` and `index.md` |
 | `prospec knowledge verify <modules>` | Stamp `last_verified` for named modules in `module-map.yaml` for CI staleness checks |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs and generate Skills across configured harnesses |
-| `prospec agent triggers [--write <file>]` | Print ready-to-translate `skill_triggers` scaffold and optionally write back |
+| `prospec agent triggers [--write <file>]` | Print ready-to-translate `skill_triggers` + `skill_exclusions` scaffold and optionally write back |
 | `prospec config example` | Print complete annotated `.prospec.yaml` reference with example values |
 | `prospec print-template <path>` | Print raw content of bundled template (offline, node-free) |
 
@@ -135,7 +135,7 @@ your-project/
     - Only refreshes `prospec:auto` sections in entry configs, preserving whatever is written in `prospec:user`.
 
 - **`prospec agent triggers [--write <file>]`**
-  - **Purpose**: Generate a ready-to-translate `skill_triggers` scaffold for localization.
+  - **Purpose**: Generate a ready-to-translate localization scaffold with two blocks — `skill_triggers` (invocation words) and `skill_exclusions` (short phrases naming what a skill is NOT for; rendered as a `Not for:` clause after the description) — listing only the skills still missing an entry in each; `--write` inserts the missing keys of both maps in one validated write.
   - **Behavior**:
     - Lists unlocalized skills with their English baselines (from `SKILL_DEFINITIONS`).
     - `--write <file>`: Safely inserts only missing keys back into `.prospec.yaml` without overwriting existing entries.
@@ -277,7 +277,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
-  - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering and automatic character escaping.
+  - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering; free text is serialized as YAML data by the yaml library (quoted only when YAML requires it), so metacharacters cannot corrupt the file; this command writes YAML, not a Markdown table, so no table escaping applies.
   - **`--verifier-report <file>`** (plan/tasks stations): validates the Architecture/Task Verifier JSON report against the rubric-owned schema (verdict `PASS` | `WARN` | `FLAWS`, exactly the owning dimensions, single-line bounded `rationale`/`warnings`) and records it — `FLAWS` lands as `result: FAIL`, an invalid payload is refused before any write. Mutually exclusive with `--result` and the composed-entry fields. `prospec status` routes a station whose latest recorded verifier result is `FAIL` back to that station until a later verifier `PASS` or `WARN`, or a Break-Glass `--result WARN --warning "Manual override: …"`, supersedes it.
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -288,6 +288,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
+  - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the finding `id`, never the location text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, tracks cumulative token spend, records invoked lenses, and evaluates the dual-axis circuit breaker (fix-induced ratio / spend budget / oscillation flips / hard cap) to emit an EscalationReport when tripped.
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
@@ -296,6 +297,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
+  - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the ledger `key`, never the description text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
@@ -544,6 +546,7 @@ Key configurations you can tweak:
 - **`knowledge.generated_artifacts`**: Paths (repo-relative) of files your build generates into the source tree. `knowledge-health` ignores their commit timestamps, so regenerating a bundle no longer reports every module that "changed" as stale. Unset means nothing is excluded — the check has no built-in idea of what your build emits.
 - **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
 - **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
+- **`skill_exclusions`**: Same shape as `skill_triggers` — native-language phrases naming what a skill is NOT for; `prospec agent sync` renders them as a `Not for:` clause after the skill description (absent = no clause).
 
 Example `.prospec.yaml` (for the full annotated reference of every field, run `prospec config example`):
 ```yaml
@@ -575,6 +578,9 @@ skill_triggers:
   prospec-explore:
     - explore
     - 探索
+skill_exclusions:
+  prospec-review:
+    - ad-hoc PR review
 ```
 
 ---

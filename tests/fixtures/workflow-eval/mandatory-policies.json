@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "note": "Route-specific mandatory inventories plus the pre-change token ceiling each scenario must stay at or below. Derived from each routed station's Startup Loading MANDATORY items, then reviewed; an inventory of what the instructions require, never of what a run read. Re-measured 2026-09-07: the inventory is now derived from each deployed skill's own **MANDATORY** markers instead of a hand-written list, which added the implement station's mandatory `prospec/ai-knowledge/_conventions.md` (measured from this repository's copy, since it is a project file rather than a shipped skill). Only `quick` routes through implement, so only its ceiling moved (15,096 → 16,347). The shipped instructions did not change — the measure got wider. Known bound: the inventory is derived from the literal `**MANDATORY**` marker, so a mandatory load declared another way is absent from it — today that is `prospec-verify`'s `**SCALE: BACKFILL MANDATORY ROUTING**` requirement to read `references/verify-backfill.md` (~982 tokens) under `scale: backfill`, which the `proven-backfill` ceiling therefore does not include.",
+  "note": "Route-specific mandatory inventories plus the pre-change token ceiling each scenario must stay at or below. Derived from each routed station's Startup Loading MANDATORY items, then reviewed; an inventory of what the instructions require, never of what a run read. Re-measured 2026-09-07: the inventory is now derived from each deployed skill's own **MANDATORY** markers instead of a hand-written list, which added the implement station's mandatory `prospec/ai-knowledge/_conventions.md` (measured from this repository's copy, since it is a project file rather than a shipped skill). Only `quick` routes through implement, so only its ceiling moved (15,096 → 16,347). The shipped instructions did not change — the measure got wider. Known bound: the inventory is derived from the literal `**MANDATORY**` marker, so a mandatory load declared another way is absent from it — today that is `prospec-verify`'s `**SCALE: BACKFILL MANDATORY ROUTING**` requirement to read `references/verify-backfill.md` (~982 tokens) under `scale: backfill`, which the `proven-backfill` ceiling therefore does not include. Re-measured 2026-09-16: every skill description gained a negative-scope clause (one clause per skill, rendered into each SKILL.md frontmatter), so every scenario's ceiling moved by the clauses of the skills on its route (quick 16,347 → 16,382; standard-ui 15,244 → 15,282; proven-backfill 23,279 → 23,318; equivalent-commit / multi-change 12,651 → 12,676; reverify-c 15,439 → 15,463; missing-receipt 5,613 → 5,627; stale-delta 12,792 → 12,818). A deliberate shipped-instruction cost, reviewed with that change.",
   "ceilings": {
-    "quick": 16347,
-    "standard-ui": 15244,
-    "proven-backfill": 23279,
-    "equivalent-commit": 12651,
-    "reverify-c": 15439,
-    "missing-receipt": 5613,
-    "stale-delta": 12792,
-    "multi-change": 12651
+    "quick": 16382,
+    "standard-ui": 15282,
+    "proven-backfill": 23318,
+    "equivalent-commit": 12676,
+    "reverify-c": 15463,
+    "missing-receipt": 5627,
+    "stale-delta": 12818,
+    "multi-change": 12676
   },
   "policies": {
     "quick": {

@@ -3,6 +3,7 @@ import { formatSpecShowOutput } from '../formatters/spec-show-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { collect } from '../parse-options.js';
+import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /**
  * Register the `spec` command group with the `show` subcommand.
@@ -16,6 +17,7 @@ export function registerSpecCommand(program: Command): void {
   spec
     .command('show')
     .description('Print the requirements a change touches, by REQ id or story')
+    .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['spec show']))
     .argument('<feature>', 'Feature slug — the spec filename without `.md`')
     .option('--req <ids>', 'REQ id (repeatable; comma-separated accepted)', collect, [])
     .option('--story <ids>', 'Story id such as US-1 (repeatable; comma-separated accepted)', collect, [])

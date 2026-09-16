@@ -91,8 +91,23 @@ export function findTable(lines: string[], options: FindTableOptions): TableBloc
   return null;
 }
 
+const TABLE_ESCAPE_PATTERN = /\||\r?\n/;
+
+/** True when `escapeTableCell` would change the value (a `|` or a line break). */
+export function needsTableEscape(value: string): boolean {
+  return TABLE_ESCAPE_PATTERN.test(value);
+}
+
+/** How many cells of these rendered rows `escapeTableCell` rewrites — the same predicate, over the same cells. */
+export function countEscapedCells(rows: ReadonlyArray<readonly string[]>): number {
+  let count = 0;
+  for (const cells of rows) for (const cell of cells) if (needsTableEscape(cell)) count++;
+  return count;
+}
+
 /** Escape a cell for rendering: `|` → `\|`, newlines flattened to spaces. */
 export function escapeTableCell(value: string): string {
+  if (!needsTableEscape(value)) return value;
   return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 

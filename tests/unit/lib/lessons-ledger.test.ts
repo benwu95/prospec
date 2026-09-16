@@ -6,6 +6,7 @@ import {
   renderLedgerDocument,
   expiredPlaybookEntries,
   DEFAULT_SCORE_THRESHOLDS,
+  escapedCellsFor,
   type LedgerEntry,
 } from '../../../src/lib/lessons-ledger.js';
 import type { LessonInput } from '../../../src/types/station.js';
@@ -374,5 +375,48 @@ describe('expiredPlaybookEntries line endings', () => {
       { entry: 'PB-002: another rule', reviewBy: '2026-06-01' },
       { entry: 'PB-004: revived rule', reviewBy: '2026-05-20' },
     ]);
+  });
+});
+
+describe('escapedCellsFor (REQ-LIB-078) — counts only the row this upsert wrote or updated', () => {
+  const stored = (over: Partial<LedgerEntry> = {}): LedgerEntry => ({
+    key: 'fix/rework-misses-parallel-site',
+    description: 'kept | stored',
+    frequency: 1,
+    impactModules: ['lib'],
+    kind: 'playbook',
+    sourceChanges: ['c1'],
+    status: 'personal',
+    ...over,
+  });
+
+  it('an unchanged upsert (same source_change already recorded) counts 0 even when the INPUT carries a pipe', () => {
+    // regression pin for the review critical: the stored row is untouched, so nothing was escaped on write
+    const result = upsertLesson([stored()], lesson({ description: 'input | with pipe', source_change: 'c1' }));
+    expect(result.action).toBe('unchanged');
+    expect(escapedCellsFor(result.entries, result.action, 'fix/rework-misses-parallel-site')).toBe(0);
+  });
+
+  it('a retired row counts 0 (refused, nothing written)', () => {
+    const result = upsertLesson([stored({ status: 'retired' })], lesson({ description: 'a | b', source_change: 'c9' }));
+    expect(result.action).toBe('unchanged');
+    expect(escapedCellsFor(result.entries, result.action, 'fix/rework-misses-parallel-site')).toBe(0);
+  });
+
+  it('an incremented upsert counts the STORED row as rendered — the stored description wins, the input one is not written', () => {
+    const result = upsertLesson([stored()], lesson({ description: 'input | with pipe', source_change: 'c2' }));
+    expect(result.action).toBe('incremented');
+    // stored description `kept | stored` is the one cell with a pipe in the rendered row
+    expect(escapedCellsFor(result.entries, result.action, 'fix/rework-misses-parallel-site')).toBe(1);
+    const clean = upsertLesson([stored({ description: 'plain' })], lesson({ description: 'input | with pipe', source_change: 'c2' }));
+    expect(escapedCellsFor(clean.entries, clean.action, 'fix/rework-misses-parallel-site')).toBe(0);
+  });
+
+  it('a created row counts its rendered cells', () => {
+    const result = upsertLesson([], lesson({ key: 'new/key', description: 'a | b' }));
+    expect(result.action).toBe('created');
+    expect(escapedCellsFor(result.entries, result.action, 'new/key')).toBe(1);
+    const two = upsertLesson([], lesson({ key: 'k\nk', description: 'a | b' }));
+    expect(escapedCellsFor(two.entries, two.action, 'k\nk')).toBe(2);
   });
 });

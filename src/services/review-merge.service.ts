@@ -16,6 +16,7 @@ import {
   parseReviewDocument,
   mergeFindings,
   roundCounts,
+  escapedCellsFor,
   renderReviewDocument,
   parseReviewMetrics,
   evidenceBlocksFor,
@@ -85,6 +86,8 @@ export interface ReviewMergeResult {
   criticals: ReviewCriticalDigest[];
   /** This ROUND's structured counts and metrics — the `change log` review fields. */
   round: ReviewRoundStats;
+  /** Cells of this round's findings the table engine rewrote (`|` / line break). */
+  escapedCells: number;
   /** Dual-axis circuit breaker evaluation state. */
   circuitBreaker?: CircuitBreakerState;
 }
@@ -308,6 +311,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       fixInducedRatio: circuitBreaker?.fixInducedRatio,
       budget: options.budget,
     },
+    escapedCells: escapedCellsFor(merged, findings),
     circuitBreaker,
   };
 }

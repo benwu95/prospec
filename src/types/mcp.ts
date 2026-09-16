@@ -32,7 +32,12 @@ export const MCP_TOOL_NAMES = [
 // --- search_modules ---
 
 export const SearchModulesInputShape = {
-  query: z.string().min(1).describe('Search terms; `-`, `_` and whitespace are equivalent separators'),
+  query: z
+    .string()
+    .min(1)
+    .describe(
+      'Search terms, e.g. `auth service` (also matches a keyword `auth-service`); `-`, `_` and whitespace are equivalent separators',
+    ),
 };
 
 export const SearchModulesInputSchema = z.object(SearchModulesInputShape);
@@ -57,8 +62,8 @@ export const SearchModulesResultSchema = z.object({
 // --- get_dependency_direction ---
 
 export const GetDependencyDirectionInputShape = {
-  from: z.string().min(1).describe('Module that wants to import'),
-  to: z.string().min(1).describe('Module being imported'),
+  from: z.string().min(1).describe('Module that wants to import, e.g. `cli`'),
+  to: z.string().min(1).describe('Module being imported, e.g. `lib`'),
 };
 
 export const GetDependencyDirectionInputSchema = z.object(GetDependencyDirectionInputShape);
@@ -80,15 +85,15 @@ export const DependencyDirectionResultSchema = z.object({
  * would stop the plain whole-spec read from matching its own template.
  */
 export const GetSpecRequirementsInputShape = {
-  feature: z.string().min(1).describe('Feature slug — the spec filename without `.md`'),
+  feature: z.string().min(1).describe('Feature slug — the spec filename without `.md`, e.g. `sdd-workflow`'),
   req: z
     .array(z.string().min(1))
     .optional()
-    .describe('REQ ids to quote; an entry may be a comma-separated list'),
+    .describe('REQ ids to quote, e.g. `REQ-CLI-028`; an entry may be a comma-separated list'),
   story: z
     .array(z.string().min(1))
     .optional()
-    .describe('Story ids (`US-1`) to quote whole; same comma tolerance'),
+    .describe('Story ids to quote whole, e.g. `US-1`; same comma tolerance'),
 };
 
 export const GetSpecRequirementsInputSchema = z.object(GetSpecRequirementsInputShape);

@@ -20,7 +20,7 @@
 | `check.service.ts` | Flag orchestration around `lib/drift-assessment` → report (versioned snapshot trace); non-check modes (init-ci/record-review/record-tests/escaped-defects) return before the run (record-review also stamps the reviewer's self-declared grading context into `review_provenance` when supplied — absent otherwise, never blank); `--json` writes the report and `--auto-draft` drafts AFTER it, so drafting can neither discard the report nor move the exit code; every collector goes through a canonical resolver, never a re-derived path |
 | `mcp.service.ts` / `status.service.ts` / `spec-show.service.ts` | The read-only surfaces — `src/services/mcp.service.ts` registers 8 resources + 3 tools (full path so `mcp-readme-counts` audits the line); SDD routing and the REQ-scoped Feature Spec read sit beside it. `status.service` also reads `prospec-report.json` when the workspace is clean — through `DriftReportSchema`, recognized snapshot version/scope and a live deterministic payload comparison, so an unusable or stale report is reported as that rather than as no drift, and it counts only what `--auto-draft` would draft (`isDraftableFinding`). See the Read-only Queries sub-module |
 
-Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`, `measure` (local session log parsing + baseline estimation, or projects context budget via `--project-workflow`), `print-template`, `config-example`. README/index **content** is skill judgment (`/prospec-knowledge-generate`) — no service generates it.
+Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization` (`computeUnlocalized(config, kind)` is the gap source for BOTH `skill_triggers` and `skill_exclusions`; `--write` inserts both maps' missing keys in one validated write; `agent sync` renders a localized `Not for:` clause through the single `renderSkillDescription` exit that feeds the entry config AND the frontmatter — absent exclusions are a byte-identical no-op), `measure` (local session log parsing + baseline estimation, or projects context budget via `--project-workflow`), `print-template`, `config-example`. README/index **content** is skill judgment (`/prospec-knowledge-generate`) — no service generates it.
 
 ## Public API
 
@@ -29,7 +29,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 - `executeFinalize` / `executeForChange` / `executeWrite` — archive post-judgment; change-driven knowledge update; trigger write-back
 - `generateTastemakerSummary` / `formatTastemakerPresentation` — human sign-off formatting (station transitions are `prospec status`'s, never evaluated here)
 - `resolveChange(...)` — change selector (zero/ambiguous → `PrerequisiteError`; traversal names refused pre-probe)
-- `computeUnlocalizedSkills(config)` — fill-missing skill set (agent-sync hint + agent-triggers)
+- `computeUnlocalizedSkills(config)` / `computeUnlocalized(config, kind)` — fill-missing skill set per localization map (agent-sync hint + agent-triggers); `renderSkillDescription(skill, localized)` — description + optional `Not for:` clause
 - `syncToFeatureSpecs(...)` → `SpecSyncResult` — `files` + the worklists; `droppedBehavior` and `refusedRequirements` are BLOCKING (spec left unwritten, non-zero exit), the rest advisory — see the Spec Sync sub-module
 - `recountFeatureSpecCounters(content)` — frontmatter counters from the final body, derived by `lib/spec-headings`
 

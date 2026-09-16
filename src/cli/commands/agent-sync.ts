@@ -49,11 +49,11 @@ export function registerAgentCommand(program: Command): void {
   agent
     .command('triggers')
     .description(
-      'Emit a fill-missing skill_triggers localization scaffold (English baselines from SKILL_DEFINITIONS)',
+      'Emit a fill-missing localization scaffold with two blocks — skill_triggers and skill_exclusions (English baselines from SKILL_DEFINITIONS)',
     )
     .option(
       '--write <file>',
-      'Write a translated scaffold back into .prospec.yaml (fill-missing, comment-preserving)',
+      'Write a translated scaffold back into .prospec.yaml — missing skill_triggers and skill_exclusions keys only (fill-missing, comment-preserving)',
     )
     .action(async (options: { write?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();

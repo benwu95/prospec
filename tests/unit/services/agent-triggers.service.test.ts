@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/agent-triggers.service.js';
-import { computeUnlocalizedSkills } from '../../../src/services/trigger-localization.js';
+import { computeUnlocalizedSkills, computeUnlocalized } from '../../../src/services/trigger-localization.js';
 import { SKILL_DEFINITIONS } from '../../../src/types/skill.js';
 import type { ProspecConfig } from '../../../src/types/config.js';
 
@@ -73,5 +73,49 @@ describe('agent-triggers.service execute', () => {
     expect(result.artifactLanguage).toBe('Japanese');
     expect(result.missing.map((s) => s.name)).not.toContain('prospec-explore');
     expect(result.missing.length).toBe(SKILL_DEFINITIONS.length - 1);
+  });
+});
+
+describe('computeUnlocalized(config, kind) — the kind-parameterized single source (REQ-SERVICES-066)', () => {
+  it("'triggers' is exactly what computeUnlocalizedSkills returns", () => {
+    const config = { project: { name: 't' }, skill_triggers: { 'prospec-plan': ['計畫'] } } as ProspecConfig;
+    expect(computeUnlocalized(config, 'triggers')).toEqual(computeUnlocalizedSkills(config));
+  });
+
+  it("'exclusions' reads skill_exclusions and sources each baseline from SKILL_DEFINITIONS.exclude", () => {
+    const config = {
+      project: { name: 't' },
+      skill_exclusions: { 'prospec-review': ['臨時 PR 審查'], 'prospec-plan': [], unknown: ['x'] },
+    } as unknown as ProspecConfig;
+    const gaps = computeUnlocalized(config, 'exclusions');
+    expect(gaps.map((g) => g.name)).not.toContain('prospec-review');
+    expect(gaps.map((g) => g.name)).toContain('prospec-plan');
+    expect(gaps).toHaveLength(SKILL_DEFINITIONS.length - 1);
+    for (const gap of gaps) {
+      const def = SKILL_DEFINITIONS.find((s) => s.name === gap.name)!;
+      expect(gap.baseline).toEqual(def.exclude);
+    }
+  });
+
+  it('execute reports the exclusions gap beside the triggers gap', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': [
+        'project:',
+        '  name: t',
+        'artifact_language: Japanese',
+        'skill_triggers:',
+        '  prospec-explore: [調査]',
+        'skill_exclusions:',
+        '  prospec-explore: [除外]',
+        '  prospec-plan: [除外]',
+        '',
+      ].join('\n'),
+    });
+    const result = await execute({ cwd: '/project' });
+    expect(result.missing.map((m) => m.name)).not.toContain('prospec-explore');
+    expect(result.missing.map((m) => m.name)).toContain('prospec-plan');
+    expect(result.missingExclusions.map((m) => m.name)).not.toContain('prospec-explore');
+    expect(result.missingExclusions.map((m) => m.name)).not.toContain('prospec-plan');
+    expect(result.missingExclusions.map((m) => m.name)).toContain('prospec-review');
   });
 });

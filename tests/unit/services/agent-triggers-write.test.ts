@@ -126,3 +126,44 @@ describe('agent-triggers executeWrite', () => {
     expect(new ConfigInvalid('x')).toBeInstanceOf(ConfigInvalid);
   });
 });
+
+describe('agent-triggers executeWrite — skill_exclusions (REQ-CLI-027)', () => {
+  it('inserts missing keys of both maps in one write, skipping existing entries per map', async () => {
+    seed(
+      `skill_triggers:\n  prospec-plan: [x]\n  prospec-review: [レビュー]\nskill_exclusions:\n  prospec-review: [y]\n  prospec-plan: [設計ではない]\n`,
+      `project:\n  name: t\nartifact_language: Japanese\nskill_triggers:\n  prospec-plan: [計画]\nskill_exclusions:\n  prospec-review: [臨時レビュー]\n`,
+    );
+    const result = await executeWrite({ cwd: CWD, from: SCAFFOLD_PATH });
+    expect(result.written).toEqual(['prospec-review']);
+    expect(result.skippedExisting).toEqual(['prospec-plan']);
+    expect(result.writtenExclusions).toEqual(['prospec-plan']);
+    expect(result.skippedExistingExclusions).toEqual(['prospec-review']);
+    const after = vol.readFileSync(CONFIG_PATH, 'utf-8') as string;
+    // existing entries untouched, missing ones inserted under their own map (style-agnostic)
+    const triggersBlock = after.slice(after.indexOf('skill_triggers:'), after.indexOf('skill_exclusions:'));
+    const exclusionsBlock = after.slice(after.indexOf('skill_exclusions:'));
+    expect(triggersBlock).toMatch(/prospec-plan:[\s\S]*計画/);
+    expect(triggersBlock).toMatch(/prospec-review:[\s\S]*レビュー/);
+    expect(triggersBlock).not.toContain('設計ではない');
+    expect(exclusionsBlock).toMatch(/prospec-review:[\s\S]*臨時レビュー/);
+    expect(exclusionsBlock).toMatch(/prospec-plan:[\s\S]*設計ではない/);
+    expect(exclusionsBlock).not.toContain('- y');
+  });
+
+  it('a scaffold carrying only skill_exclusions inserts them and reports no trigger writes', async () => {
+    seed(`skill_exclusions:\n  prospec-plan: [設計ではない]\n`, `project:\n  name: t\nartifact_language: Japanese\n`);
+    const result = await executeWrite({ cwd: CWD, from: SCAFFOLD_PATH });
+    expect(result.written).toEqual([]);
+    expect(result.writtenExclusions).toEqual(['prospec-plan']);
+    const after = vol.readFileSync(CONFIG_PATH, 'utf-8') as string;
+    expect(after).toContain('skill_exclusions:');
+    expect(after).not.toContain('skill_triggers:');
+  });
+
+  it('rejects an unknown skill in skill_exclusions before touching the config', async () => {
+    seed(`skill_exclusions:\n  prospec-nope: [x]\n`);
+    const before = vol.readFileSync(CONFIG_PATH, 'utf-8');
+    await expect(executeWrite({ cwd: CWD, from: SCAFFOLD_PATH })).rejects.toThrow(PrerequisiteError);
+    expect(vol.readFileSync(CONFIG_PATH, 'utf-8')).toBe(before);
+  });
+});

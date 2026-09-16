@@ -31,7 +31,7 @@ Read `.prospec.yaml`. When `artifact_language` is not English, localize the skil
 both a fresh project (all skills missing) and a project that just gained new skills (only the new ones
 missing) — so you never delete `.prospec.yaml` to re-localize:
 
-1. Run `prospec agent triggers` (Bash) to get a ready-to-translate `skill_triggers` scaffold — the skills still missing an entry, each with its English baseline sourced from the CLI (authoritative; never grep a deployed SKILL.md, whose frontmatter already merges custom words)
+1. Run `prospec agent triggers` (Bash) to get a ready-to-translate scaffold with two blocks — `skill_triggers` (invocation words) and `skill_exclusions` (short phrases naming what a skill is NOT for) — listing only the skills still missing an entry in each, each with its English baseline sourced from the CLI (authoritative; never grep a deployed SKILL.md, whose frontmatter already merges custom words); translate both blocks and write both back with `--write`
 2. Translate each scaffold value into the `artifact_language` — leave skills that already have an entry untouched (translation is this skill's judgment step)
 3. **Show the proposed translations to the user and wait for confirmation** before writing anything
 4. On confirmation, save the translated scaffold to a temp file and run `prospec agent triggers --write <file>` (Bash) — the CLI inserts only the missing keys (comment- and order-preserving), validates the result BEFORE writing, and never overwrites an existing entry

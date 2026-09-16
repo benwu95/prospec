@@ -9,6 +9,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createProgram } from '../../src/cli/program.js';
 import { VALID_AGENTS } from '../../src/types/config.js';
+import type { Command } from 'commander';
+import {
+  HELP_ENRICHED_COMMANDS,
+  HELP_SECTION_LABELS,
+  COMMAND_HELP_SPECS,
+} from '../../src/types/cli-help.js';
 
 // Capture stdout/stderr
 let stdoutOutput: string[] = [];
@@ -206,6 +212,83 @@ describe('CLI Output Contract', () => {
       }
       expect(output).toContain('antigravity');
       expect(output).not.toContain('gemini');
+    });
+  });
+
+  describe('registry-driven enriched help (REQ-CLI-054 / REQ-TESTS-118)', () => {
+    const LABELS = [
+      HELP_SECTION_LABELS.whenToUse,
+      HELP_SECTION_LABELS.example,
+      HELP_SECTION_LABELS.returns,
+    ];
+
+    async function helpOf(commandPath: string): Promise<string> {
+      stdoutOutput = [];
+      const program = createProgram();
+      try {
+        await program.parseAsync(['node', 'prospec', ...commandPath.split(' '), '--help']);
+      } catch (err) {
+        if ((err as { exitCode?: number }).exitCode !== 0) throw err;
+      }
+      return stdoutOutput.join('');
+    }
+
+    /** Every leaf command path the program registers (`change log`, `status`, …). */
+    function leafCommandPaths(cmd: Command, prefix: string[] = []): string[] {
+      const own = cmd.commands.filter((c) => c.name() !== 'help');
+      if (own.length === 0) return [prefix.join(' ')];
+      return own.flatMap((c) => leafCommandPaths(c, [...prefix, c.name()]));
+    }
+
+    it('the three section labels are the literal strings the contract names', () => {
+      // asserted as literals so the test is not a tautology over the constant
+      expect(LABELS).toEqual(['When to use:', 'Example:', 'Returns:']);
+    });
+
+    for (const commandPath of HELP_ENRICHED_COMMANDS) {
+      it(`prospec ${commandPath} --help carries the three sections and its registry example verbatim`, async () => {
+        const output = await helpOf(commandPath);
+        for (const label of ['When to use:', 'Example:', 'Returns:']) {
+          expect(output, `${commandPath}: missing ${label}`).toContain(label);
+        }
+        const spec = COMMAND_HELP_SPECS[commandPath];
+        expect(output).toContain(spec.example);
+        expect(spec.example.startsWith(`prospec ${commandPath}`), `${commandPath}: example must be a complete command line`).toBe(true);
+        // sections appear in order after the Options block
+        const order = ['When to use:', 'Example:', 'Returns:'].map((l) => output.indexOf(l));
+        expect(order[0]).toBeGreaterThan(output.indexOf('Options:'));
+        expect(order[0]).toBeLessThan(order[1]!);
+        expect(order[1]).toBeLessThan(order[2]!);
+      });
+    }
+
+    it('status help names the session start and the action: line; change log claims YAML-scalar escaping, never table escaping', async () => {
+      const status = await helpOf('status');
+      expect(status).toMatch(/first command of a session|start of a session|session start/i);
+      expect(status).toContain('action:');
+      const changeLog = await helpOf('change log');
+      expect(changeLog).toMatch(/YAML/);
+      expect(changeLog).not.toContain('\\|');
+      for (const writer of ['review merge', 'learn upsert'] as const) {
+        const out = await helpOf(writer);
+        expect(out, writer).toContain('\\|');
+        expect(out, writer).toMatch(/identity/i);
+      }
+    });
+
+    it('registry ↔ program: every registry key is a registered leaf command, and every command whose help carries the three sections is a registry key (bidirectional)', async () => {
+      const program = createProgram();
+      const leaves = new Set(leafCommandPaths(program));
+      for (const commandPath of HELP_ENRICHED_COMMANDS) {
+        expect(leaves.has(commandPath), `registry key not registered: ${commandPath}`).toBe(true);
+      }
+      const enriched: string[] = [];
+      for (const leaf of leaves) {
+        if (leaf === '') continue;
+        const output = await helpOf(leaf);
+        if (['When to use:', 'Example:', 'Returns:'].every((l) => output.includes(l))) enriched.push(leaf);
+      }
+      expect(enriched.sort()).toEqual([...HELP_ENRICHED_COMMANDS].sort());
     });
   });
 

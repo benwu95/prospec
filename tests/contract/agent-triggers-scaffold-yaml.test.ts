@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { parse } from 'yaml';
 import { formatAgentTriggersOutput } from '../../src/cli/formatters/agent-triggers-output.js';
-import { computeUnlocalizedSkills } from '../../src/services/trigger-localization.js';
+import { computeUnlocalizedSkills, computeUnlocalized } from '../../src/services/trigger-localization.js';
 import { SKILL_DEFINITIONS } from '../../src/types/skill.js';
 import type { ProspecConfig } from '../../src/types/config.js';
 
@@ -24,7 +24,12 @@ describe('agent triggers scaffold emits valid, round-tripping YAML', () => {
       }) as typeof process.stdout.write);
     try {
       formatAgentTriggersOutput(
-        { artifactLanguage: 'Japanese', isEnglish: false, missing },
+        {
+          artifactLanguage: 'Japanese',
+          isEnglish: false,
+          missing,
+          missingExclusions: computeUnlocalized({ project: { name: 't' } } as ProspecConfig, 'exclusions'),
+        },
         'normal',
       );
     } finally {
@@ -33,10 +38,18 @@ describe('agent triggers scaffold emits valid, round-tripping YAML', () => {
 
     const parsed = parse(chunks.join('')) as {
       skill_triggers?: Record<string, string[]>;
+      skill_exclusions?: Record<string, string[]>;
     };
     expect(parsed.skill_triggers).toBeDefined();
     for (const skill of SKILL_DEFINITIONS) {
       expect(parsed.skill_triggers?.[skill.name]).toEqual(skill.triggers);
     }
+    // REQ-AGNT-036: the exclusions block follows, each baseline verbatim from SKILL_DEFINITIONS.exclude
+    expect(parsed.skill_exclusions).toBeDefined();
+    for (const skill of SKILL_DEFINITIONS) {
+      expect(parsed.skill_exclusions?.[skill.name]).toEqual(skill.exclude);
+    }
+    const text = chunks.join('');
+    expect(text.indexOf('skill_triggers:')).toBeLessThan(text.indexOf('skill_exclusions:'));
   });
 });

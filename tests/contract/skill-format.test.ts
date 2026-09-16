@@ -31,7 +31,7 @@ import {
   VERIFIER_REPORT_SCHEMAS,
 } from '../../src/types/station.js';
 import { EscalationReportSchema } from '../../src/types/cascade.js';
-import { planningVerifierContext } from '../../src/services/agent-sync.service.js';
+import { planningVerifierContext, renderSkillDescription } from '../../src/services/agent-sync.service.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
   CHANGE_SCALES,
@@ -3940,9 +3940,13 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * These bound the SHIPPED instruction cost (skill bodies plus mandatory references).
    * A mandatory project file is declared in `DECLARED_NON_SHIPPED` instead of measured,
    * so an unrelated knowledge edit cannot redden this contract and force the anchor up.
+   *
+   * Raised 87_633 → 87_953 when every skill description gained a negative-scope
+   * clause and the two finisher skills gained the `skill_exclusions` sentence — a deliberate
+   * shipped-instruction cost (one clause per skill), reviewed with that change.
    */
   const REFERENCE_CEILING_ANCHOR = 46_365;
-  const CUMULATIVE_CEILING_ANCHOR = 87_633;
+  const CUMULATIVE_CEILING_ANCHOR = 87_953;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -8629,5 +8633,107 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
       .filter((file) => /evaluateCascadeTransition|CASCADE_STATIONS/.test(fs.readFileSync(file, 'utf-8')))
       .map((file) => path.relative(root, file));
     expect(hits).toEqual([]);
+  });
+});
+
+describe('skill descriptions carry a negative scope and hygienic triggers (REQ-TESTS-117 / REQ-AGNT-033)', () => {
+  // A boundary clause reads "…, not ad-hoc PR review" / "— not a generic todo tool":
+  // a separator followed by `not`. Weak proxy by design — it catches "nothing written"
+  // and the banned names; the wording quality is review's judgment.
+  const BOUNDARY_CLAUSE = /[—–\-;,]\s*not\s/i;
+  const BANNED_HOST_NAMES = ['Claude', 'Codex', 'Cursor', 'Copilot', 'Antigravity', 'Gemini', 'plugin'];
+  const BARE_WORDS = ['review', 'tasks', 'design'];
+
+  for (const skill of SKILL_DEFINITIONS) {
+    it(`${skill.name}: description has a boundary clause, names no harness, keeps no bare word, and carries an exclude baseline`, () => {
+      expect(skill.description, 'boundary clause').toMatch(BOUNDARY_CLAUSE);
+      for (const banned of BANNED_HOST_NAMES) {
+        expect(skill.description.toLowerCase(), `banned host name ${banned}`).not.toContain(banned.toLowerCase());
+      }
+      for (const bare of BARE_WORDS) {
+        expect(skill.triggers, `bare trigger ${bare}`).not.toContain(bare);
+      }
+      expect(Array.isArray(skill.exclude) && skill.exclude.length > 0, 'exclude baseline').toBe(true);
+      for (const phrase of skill.exclude ?? []) {
+        expect(phrase.trim().length, 'exclude phrase non-empty').toBeGreaterThan(0);
+        expect(phrase, 'exclude phrase is a phrase, not a sentence').not.toMatch(/\.$/);
+      }
+    });
+  }
+
+  it('the boundary-clause detector flags a description without one (mutation guard)', () => {
+    expect('Plan Implementation - Convert User Story into a plan.').not.toMatch(BOUNDARY_CLAUSE);
+    expect('Plan Implementation - Convert User Story into a plan — not a code generator.').toMatch(BOUNDARY_CLAUSE);
+  });
+});
+
+describe('skill_exclusions renders Not for: only when localized, and is a byte-identical no-op when absent (REQ-TESTS-117 / REQ-SERVICES-110)', () => {
+  it('renderSkillDescription: absent and empty-array exclusions both yield the bare description', () => {
+    const skill = SKILL_DEFINITIONS[0]!;
+    expect(renderSkillDescription(skill, undefined)).toBe(skill.description);
+    expect(renderSkillDescription(skill, [])).toBe(skill.description);
+    expect(renderSkillDescription(skill, ['  '])).toBe(skill.description);
+  });
+
+  it('renderSkillDescription: localized phrases land as one Not for: clause after the description', () => {
+    const skill = SKILL_DEFINITIONS[0]!;
+    const rendered = renderSkillDescription(skill, ['臨時 PR 審查', '一般待辦']);
+    expect(rendered).toBe(`${skill.description} Not for: 臨時 PR 審查; 一般待辦.`);
+    // the English baseline is never rendered — the English boundary already lives in the description
+    for (const phrase of skill.exclude ?? []) expect(rendered).not.toContain(`Not for: ${phrase}`);
+  });
+
+  it('the frontmatter template still renders the single-source scalar (REQ-AGNT-031 shape unchanged)', () => {
+    const skill = SKILL_DEFINITIONS.find((s) => s.name === 'prospec-review')!;
+    const content = renderTemplate(`skills/${skill.name}.hbs`, {
+      ...TEMPLATE_CONTEXT,
+      skill_description: escapeYamlScalar(renderSkillDescription(skill, ['臨時 PR 審查'])),
+    });
+    const parsed = parseYaml<{ description: string }>(extractFrontmatter(content), `${skill.name}.hbs`);
+    expect(parsed.description).toBe(
+      `${skill.description} Not for: 臨時 PR 審查. Triggers: ${TEMPLATE_CONTEXT.trigger_words}`,
+    );
+  });
+});
+
+describe('finisher skills name both localization keys (REQ-TEMPLATES-231)', () => {
+  for (const [name, heading] of [
+    ['prospec-quickstart', '### Step 1: Localize Skill Triggers (non-English only, fill-missing)'],
+    ['prospec-upgrade', '### Step 4: Localize triggers for skills missing them (fill-missing) + re-sync'],
+  ] as const) {
+    it(`${name}: the localization step mentions skill_exclusions alongside skill_triggers`, () => {
+      const rendered = renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+      const section = sectionOf(rendered, heading);
+      expect(section, 'section sliced empty').not.toBe('');
+      expect(section).toContain('skill_exclusions');
+      expect(section).toContain('skill_triggers');
+    });
+  }
+});
+
+describe('root READMEs state the finisher skills\' per-session cost honestly (REQ-AGNT-043)', () => {
+  const root = path.resolve(import.meta.dirname, '../..');
+  const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
+  const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+
+  it('neither README claims zero ongoing token cost', () => {
+    expect(english).not.toContain('zero ongoing token cost');
+    expect(traditionalChinese).not.toContain('不增加任何重複性 token 成本');
+  });
+
+  it('the finisher note itself states that the SKILL.md metadata still loads per session (section-scoped)', () => {
+    // slice the `> [!NOTE]` finisher paragraph, not the whole README — an unrelated sentence must not satisfy this
+    const finisherNote = (readme: string, marker: string): string => {
+      const start = readme.indexOf(marker);
+      expect(start, `finisher note marker missing: ${marker}`).toBeGreaterThan(-1);
+      const end = readme.indexOf('\n\n', start);
+      return readme.slice(start, end === -1 ? undefined : end);
+    };
+    const en = finisherNote(english, '> **Periodic Finisher Skills**');
+    const zh = finisherNote(traditionalChinese, '> **週期性收尾 Skills**');
+    expect(en).toMatch(/still loads? per session/);
+    expect(en).toContain('excluded from the always-loaded entry config');
+    expect(zh).toMatch(/仍會在每個 session 載入/);
+    expect(zh).toContain('不列入常駐 entry config');
   });
 });

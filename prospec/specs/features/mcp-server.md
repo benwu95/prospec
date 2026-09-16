@@ -1,9 +1,9 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-09-01
+last_updated: 2026-09-16
 story_count: 4
-req_count: 14
+req_count: 15
 ---
 
 # MCP Truth Layer (Project Truth Server)
@@ -51,6 +51,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-16 | enrich-help-and-skill-descriptions | ADDED REQ-MCP-010 | REQ-MCP-010 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-MCP-002 | REQ-MCP-002 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-MCP-002 | REQ-MCP-002 |
 | 2026-08-14 | unify-spec-read-resolution | ADDED REQ-LIB-056; MODIFIED REQ-MCP-009; MODIFIED REQ-MCP-002 | REQ-LIB-056, REQ-MCP-009, REQ-MCP-002 |

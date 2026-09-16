@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "cumulative_ceiling_tokens": 87633,
+  "cumulative_ceiling_tokens": 87953,
   "skills": {
     "prospec-archive": {
       "items": [
         ".prospec/changes/"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 7694
+      "mandatory_context_tokens": 7708
     },
     "prospec-backfill-spec": {
       "items": [
@@ -25,7 +25,7 @@
         "{{base_dir}}/specs/features/"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5829
+      "mandatory_context_tokens": 5841
     },
     "prospec-design": {
       "items": [
@@ -36,7 +36,7 @@
         "references/interaction-spec-format.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4643
+      "mandatory_context_tokens": 4660
     },
     "prospec-explore": {
       "items": [
@@ -44,7 +44,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 1278
+      "mandatory_context_tokens": 1293
     },
     "prospec-ff": {
       "items": [
@@ -52,7 +52,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4951
+      "mandatory_context_tokens": 4961
     },
     "prospec-implement": {
       "items": [
@@ -64,7 +64,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4498
+      "mandatory_context_tokens": 4513
     },
     "prospec-knowledge-generate": {
       "items": [
@@ -76,7 +76,7 @@
         "{{knowledge_base_path}}/raw-scan.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4897
+      "mandatory_context_tokens": 4913
     },
     "prospec-knowledge-update": {
       "items": [
@@ -87,7 +87,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 4414
+      "mandatory_context_tokens": 4427
     },
     "prospec-learn": {
       "items": [
@@ -99,7 +99,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5594
+      "mandatory_context_tokens": 5609
     },
     "prospec-new-story": {
       "items": [
@@ -110,21 +110,21 @@
         "{{constitution_path}}"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5084
+      "mandatory_context_tokens": 5100
     },
     "prospec-quickstart": {
       "items": [
         ".prospec.yaml"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 1515
+      "mandatory_context_tokens": 1577
     },
     "prospec-upgrade": {
       "items": [
         ".prospec.yaml"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4290
+      "mandatory_context_tokens": 4351
     },
     "prospec-plan": {
       "items": [
@@ -136,7 +136,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5608
+      "mandatory_context_tokens": 5623
     },
     "prospec-review": {
       "items": [
@@ -147,7 +147,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 7830
+      "mandatory_context_tokens": 7847
     },
     "prospec-tasks": {
       "items": [
@@ -159,7 +159,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5629
+      "mandatory_context_tokens": 5642
     },
     "prospec-verify": {
       "items": [
@@ -174,7 +174,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10484
+      "mandatory_context_tokens": 10497
     }
   },
   "reference_ceiling_tokens": 46365,

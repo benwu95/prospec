@@ -4,6 +4,7 @@ import {
   isSeparatorRow,
   findTable,
   escapeTableCell,
+  needsTableEscape,
   renderMarkdownTable,
   replaceTableInDocument,
   type FindTableOptions,
@@ -30,6 +31,38 @@ describe('escapeTableCell / splitTableRow inverse', () => {
     const cells = ['union A | B mishandled (a || b)', 'multi\nline'];
     const row = `| ${cells.map(escapeTableCell).join(' | ')} |`;
     expect(splitTableRow(row)).toEqual(['union A | B mishandled (a || b)', 'multi line']);
+  });
+
+  it('a pipe survives render → findTable → splitTableRow verbatim (REQ-LIB-078)', () => {
+    const original = 'a \\| b \\| c | pipes';
+    const table = renderMarkdownTable(['k', 'v'], [['x', original]]);
+    const lines = table.split('\n');
+    expect(findTable(lines, anyTable)).not.toBeNull();
+    expect(splitTableRow(lines[2]!)).toEqual(['x', original]);
+  });
+
+  it('a line break is a stated lossy case: it reads back as a single space, never the break', () => {
+    const table = renderMarkdownTable(['k', 'v'], [['x', 'first\nsecond'], ['y', 'crlf\r\nend']]);
+    const lines = table.split('\n');
+    expect(lines).toHaveLength(4);
+    expect(splitTableRow(lines[2]!)).toEqual(['x', 'first second']);
+    expect(splitTableRow(lines[3]!)).toEqual(['y', 'crlf end']);
+  });
+
+  it('needsTableEscape is the single predicate escapeTableCell acts on', () => {
+    for (const v of ['a|b', 'a\nb', 'a\r\nb', '|']) {
+      expect(needsTableEscape(v), v).toBe(true);
+      expect(escapeTableCell(v)).not.toBe(v);
+    }
+    for (const v of ['plain', 'has \\ backslash', 'ends with slash\\', '']) {
+      expect(needsTableEscape(v), v).toBe(false);
+      expect(escapeTableCell(v)).toBe(v);
+    }
+  });
+
+  it('the pipe replacement is load-bearing: the escaped row reads back as the original cell', () => {
+    // mutation applied by hand (pipe replacement removed from escapeTableCell): this assertion went red
+    expect(splitTableRow(`| x | ${escapeTableCell('a | b')} |`)).toEqual(['x', 'a | b']);
   });
 });
 

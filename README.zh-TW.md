@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-5119%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-5186%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -440,7 +440,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 | **升級** | `prospec-upgrade` | `prospec upgrade` 記錄版本、重新同步 agents 並補建缺少的 init 檔案後，依 report 的 docs inventory 逐檔處理：遷移漂移的 init 檔案格式 + 補齊已建檔案，並為新增 skill 補譯觸發詞（只補缺）—— 每步附確認 + diff／內容預覽；絕不覆寫你撰寫的內容 |
 
 > [!NOTE]
-> **週期性收尾 Skills**：`prospec-quickstart`（`prospec quickstart` 後執行一次）與 `prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config，因此不增加任何重複性 token 成本。
+> **週期性收尾 Skills**：`prospec-quickstart`（`prospec quickstart` 後執行一次）與 `prospec-upgrade`（版本升級時於 `prospec upgrade` 後執行）完成 CLI 無法決定性處理的判斷步驟。兩者皆以 Skill 形式部署於磁碟，但不列入常駐 entry config；每份已部署 `SKILL.md` 的 name 與 description 仍會在每個 session 載入，省下的是 entry config 的列表，不是 skill metadata。
 
 ### 品質閘門與自我改進
 
@@ -511,7 +511,7 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   **[CLI 參考 — MCP server](./reference/cli-reference.zh-TW.md#mcp-server)**。
 - **`prospec config example`** — 印出完整帶註解的 `.prospec.yaml` 參考（含範例值），是設定某個欄位前
   最快確認其形狀的方式。
-- **`prospec agent triggers [--write <file>]`** — 印出可直接翻譯的 `skill_triggers` 骨架，加 `--write`
+- **`prospec agent triggers [--write <file>]`** — 印出可直接翻譯的 `skill_triggers` 與 `skill_exclusions` 骨架，加 `--write`
   則寫回檔案。
 
 ## 設定 (Configuration)
@@ -633,7 +633,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 5119 個；4 個略過）
+# 執行所有測試（共 5186 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -646,9 +646,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 5119 個測試（5115 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3699 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1208 tests
+**測試覆蓋率**：共 5186 個測試（5182 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3731 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1243 tests
 - Integration tests：64 tests
 - E2E tests：148 tests
 

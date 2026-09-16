@@ -21,14 +21,32 @@ export interface UnlocalizedSkill {
  * from a deployed SKILL.md (whose frontmatter already merges custom words).
  */
 export function computeUnlocalizedSkills(config: ProspecConfig): UnlocalizedSkill[] {
-  const skillTriggers = config.skill_triggers ?? {};
+  return computeUnlocalized(config, 'triggers');
+}
+
+/** The two localizable maps: `skill_triggers` and its sibling `skill_exclusions`. */
+export type LocalizationKind = 'triggers' | 'exclusions';
+
+export const LOCALIZATION_CONFIG_KEYS: Record<LocalizationKind, 'skill_triggers' | 'skill_exclusions'> = {
+  triggers: 'skill_triggers',
+  exclusions: 'skill_exclusions',
+};
+
+/**
+ * The kind-parameterized single source: the gap set for `skill_triggers`
+ * (baseline `SKILL_DEFINITIONS.triggers`) or `skill_exclusions` (baseline
+ * `SKILL_DEFINITIONS.exclude`), with the same rules — an empty array is unset,
+ * unknown keys are irrelevant to the gap.
+ */
+export function computeUnlocalized(config: ProspecConfig, kind: LocalizationKind): UnlocalizedSkill[] {
+  const mapping = config[LOCALIZATION_CONFIG_KEYS[kind]] ?? {};
   const localized = new Set(
-    Object.entries(skillTriggers)
+    Object.entries(mapping)
       .filter(([, words]) => words.length > 0)
       .map(([name]) => name),
   );
   return SKILL_DEFINITIONS.filter((s) => !localized.has(s.name)).map((s) => ({
     name: s.name,
-    baseline: [...s.triggers],
+    baseline: kind === 'triggers' ? [...s.triggers] : [...(s.exclude ?? [])],
   }));
 }

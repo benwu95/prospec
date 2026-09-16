@@ -153,3 +153,11 @@ The MCP server exposes the REQ-granular read as a tool, `get_spec_requirements`,
 - WHEN the file is readable, THEN the emitted item is identical to the pre-change output
 
 ---
+
+#### REQ-MCP-010: Tool descriptions carry a concrete example and a returns sentence
+Every tool registered by `mcp.service` carries a description with one concrete call example and a sentence beginning `Returns` that names the structured result; the Zod input `.describe()` texts in `types/mcp.ts` carry concrete example values.
+- WHEN `tools/list` is called, THEN `search_modules` shows a separator-normalized query example (a query such as `auth service` also matches a keyword `auth-service`) that names no project-specific data, and returns ranked `matches[]` with categories
+- WHEN `tools/list` is called, THEN `get_dependency_direction` shows a `from`/`to` example and returns `{allowed, direction, source}`, and `get_spec_requirements` shows a feature with a `req` or `story` selector and returns `{ feature, slices, misses }` — the field names the result schema actually carries
+- WHEN a tool description loses its example or its `Returns` sentence, THEN the contract assertion turns red
+
+---

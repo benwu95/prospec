@@ -84,7 +84,7 @@ your-project/
 | `prospec knowledge update [options]` | 依 `delta-spec.md` 機械式同步模組邊界與 `index.md` auto 區塊 |
 | `prospec knowledge verify <modules>` | 記錄模組的 `last_verified` 時間戳記，供 CI 判斷知識新鮮度 |
 | `prospec agent sync [--cli <name>]` | 同步 Agent 配置與生成 Skills（支援多 Agent 規格） |
-| `prospec agent triggers [--write <file>]` | 匯出待在地化的 `skill_triggers` 範本，支援回寫至 `.prospec.yaml` |
+| `prospec agent triggers [--write <file>]` | 匯出待在地化的 `skill_triggers` 與 `skill_exclusions` 範本，支援回寫至 `.prospec.yaml` |
 | `prospec config example` | 輸出完整且含逐欄註解的 `.prospec.yaml` 參考範例 |
 | `prospec print-template <path>` | 輸出內建樣板原始內容（離線、免 Node.js 環境） |
 
@@ -134,7 +134,7 @@ your-project/
     - 僅更新 entry config 中的 `prospec:auto` 區塊，完整保留使用者於 `prospec:user` 的自訂內容。
 
 - **`prospec agent triggers [--write <file>]`**
-  - **核心用途**：輸出待翻譯的 `skill_triggers` 骨架以利在地化。
+  - **核心用途**：輸出含兩個區塊的待翻譯在地化骨架——`skill_triggers`（觸發詞）與 `skill_exclusions`（說明該 skill「不負責什麼」的短語，會渲染為 description 之後的 `Not for:` 子句）——只列各自仍缺條目的 skill；`--write` 一次驗證後回寫兩張表的缺鍵。
   - **執行行為**：
     - 列出尚未設定母語觸發詞的 Skill 及其英文基準（來自 `SKILL_DEFINITIONS`）。
     - `--write <file>`：僅將缺少的鍵值安全寫回 `.prospec.yaml`（保留註解與順序，寫入前經結構校驗，絕不覆寫既有條目）。
@@ -276,7 +276,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
-  - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，確保欄位順序固定與字元自動跳脫。
+  - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。
   - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`，或 Break-Glass `--result WARN --warning "Manual override: …"` 取代它。
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -287,6 +287,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
+  - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
@@ -295,6 +296,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。
+  - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 ledger `key` 判定，不比對 description 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依 `頻率 ≥ 3 且影響模組 ≥ 2` 規則自動評分是否晉升至 Playbook，並自動掃描 Playbook 條目的 TTL 狀態。
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
@@ -540,6 +542,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 - **`knowledge.generated_artifacts`**：由 build 產生、但會落在原始碼樹裡的檔案路徑（相對於 repo 根目錄）。`knowledge-health` 會忽略這些檔案的 commit 時間戳，因此重新產生 bundle 不再讓每個模組都被判定為 stale。未設定即不排除任何檔案 —— 這個檢查對「你的 build 會吐出什麼」沒有任何內建假設。
 - **`knowledge.additional_core_conventions`**：Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔案（例如 API 規範、資安規範等）也希望能做為 Core Conventions (L1) 強制預先載入，可以將相對於 `ai-knowledge/` 的檔名加在這裡。
 - **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
+- **`skill_exclusions`**：與 `skill_triggers` 同形狀——以母語說明該 skill「不負責什麼」的短語；`prospec agent sync` 會渲染為 skill description 之後的 `Not for:` 子句（未設定即無此子句）。
 
 `.prospec.yaml` 範例（每個欄位的完整逐欄註解參考，執行 `prospec config example`）：
 ```yaml
@@ -571,6 +574,9 @@ skill_triggers:
   prospec-explore:
     - explore
     - 探索
+skill_exclusions:
+  prospec-review:
+    - 臨時 PR 審查
 ```
 
 ---

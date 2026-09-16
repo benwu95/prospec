@@ -7,6 +7,7 @@ import {
   renderReviewDocument,
   parseReviewDocument,
   parseReviewMetrics,
+  escapedCellsFor,
   type ReviewRow,
 } from '../../../src/lib/review-merge.js';
 import type { ReviewFinding } from '../../../src/types/station.js';
@@ -582,3 +583,61 @@ describe('origin_round tracking and Origin column (REQ-LIB-064, REQ-CLI-028)', (
   });
 });
 
+
+describe('escapedCellsFor (REQ-LIB-078) — counts the rendered cells of rows this round wrote or updated', () => {
+  it('counts only rows the incoming findings touched, over the cells the table actually renders', () => {
+    const findings: ReviewFinding[] = [
+      finding({ id: 'F-1', location: 'a.ts:1', summary: 'plain' }),
+      finding({ id: 'F-2', location: 'b.ts:2', summary: 'uses a | pipe', repro: 'grep "x" | head' }),
+      finding({ id: 'F-3', location: 'c.ts:3', summary: 'multi\nline' }),
+    ];
+    const merged = mergeFindings([], findings);
+    expect(escapedCellsFor(merged, findings)).toBe(3);
+    expect(escapedCellsFor(merged, [])).toBe(0);
+  });
+
+  it('a carried-forward row with a pipe is NOT counted when this round did not touch it', () => {
+    const existing: ReviewRow[] = [
+      { id: 'OLD', location: 'z.ts:9', severity: 'major', lens: 'correctness', status: 'open', summary: 'old | row' },
+    ];
+    const incoming = [finding({ id: 'F-9', location: 'q.ts:1', summary: 'clean' })];
+    const merged = mergeFindings(existing, incoming);
+    expect(merged).toHaveLength(2);
+    expect(escapedCellsFor(merged, incoming)).toBe(0);
+  });
+
+  it('two id-less findings at one location+lens in one round are two rows and both are counted (claim once, in table order)', () => {
+    // pinned from the round-2 review repro: `find` returned the first row twice → reported 1, expected 2
+    const incoming = [
+      finding({ location: 'a.ts:1', summary: 'one | x' }),
+      finding({ location: 'a.ts:1', summary: 'two | y' }),
+    ];
+    const merged = mergeFindings([], incoming);
+    expect(merged).toHaveLength(2);
+    expect(escapedCellsFor(merged, incoming)).toBe(2);
+  });
+
+  it('an id-bearing finding reserves its row before any id-less finding claims by location (order-independent, like the merge)', () => {
+    // pinned from the round-3 review repro: id-less first at the same (location, lens) stole X-1 → reported 1, expected 2
+    const existing: ReviewRow[] = [
+      { id: 'X-1', location: 'a.ts:1', severity: 'major', lens: 'c', status: 'open', summary: 'old' },
+    ];
+    const incoming = [
+      finding({ location: 'a.ts:1', lens: 'c', summary: 'fresh | b' }),
+      finding({ id: 'X-1', location: 'a.ts:1', lens: 'c', summary: 'new | a' }),
+    ];
+    const merged = mergeFindings(existing, incoming, 2);
+    expect(merged).toHaveLength(2);
+    expect(escapedCellsFor(merged, incoming)).toBe(2);
+  });
+
+  it('re-reporting a row by id counts the row AS RENDERED (lens is never overwritten, so a pipe in the incoming lens is not counted)', () => {
+    const existing: ReviewRow[] = [
+      { id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'old' },
+    ];
+    const incoming = [finding({ id: 'F-1', location: 'a.ts:2', lens: 'weird | lens', status: 'fixed', summary: 'now | piped' })];
+    const merged = mergeFindings(existing, incoming);
+    expect(merged[0]!.lens).toBe('correctness');
+    expect(escapedCellsFor(merged, incoming)).toBe(1);
+  });
+});
