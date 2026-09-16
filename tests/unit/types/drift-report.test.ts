@@ -1,5 +1,36 @@
 import { describe, it, expect } from 'vitest';
 import { DRIFT_CHECK_IDS, DriftReportSchema } from '../../../src/types/drift-report.js';
+
+/**
+ * The version-controlled ordered baseline of every check id. Growth is
+ * additive-only: a new id is appended here in the same position it takes in the
+ * registry, so a reorder, a rename and a silent removal each fail — and the
+ * count assertion reads this list instead of a hand-maintained literal.
+ */
+const FROZEN_CHECK_IDS = [
+  'req-references',
+  'file-paths',
+  'import-direction',
+  'knowledge-health',
+  'task-completion',
+  'dangling-prefix',
+  'feature-modules',
+  'mcp-readme-counts',
+  'review-provenance',
+  'metadata-completeness',
+  'knowledge-size',
+  'test-provenance',
+  'constitution-severity',
+  'artifact-language',
+  'spec-counters',
+  'delta-spec-provenance',
+  'unjustified-budget-override',
+  'canonical-doc-drift',
+  'delta-spec-landing-fidelity',
+  'req-id-uniqueness',
+  'language-policy-drift',
+  'skill-reference-map',
+] as const;
 import { DriftReportInvalid } from '../../../src/types/errors.js';
 
 const passingCheck = (id: string) => ({ id, status: 'pass' as const });
@@ -181,64 +212,19 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
-  it('exposes exactly the twenty-one frozen check ids', () => {
-    expect([...DRIFT_CHECK_IDS].sort()).toEqual(
-      [
-        'artifact-language',
-        'constitution-severity',
-        'dangling-prefix',
-        'delta-spec-landing-fidelity',
-        'delta-spec-provenance',
-        'feature-modules',
-        'file-paths',
-        'import-direction',
-        'knowledge-health',
-        'knowledge-size',
-        'mcp-readme-counts',
-        'metadata-completeness',
-        'req-id-uniqueness',
-        'req-references',
-        'review-provenance',
-        'spec-counters',
-        'task-completion',
-        'test-provenance',
-        'unjustified-budget-override',
-        'canonical-doc-drift',
-        'language-policy-drift',
-      ].sort(),
-    );
-    expect(DRIFT_CHECK_IDS).toHaveLength(21);
+  it('exposes exactly the frozen check ids', () => {
+    expect([...DRIFT_CHECK_IDS].sort()).toEqual([...FROZEN_CHECK_IDS].sort());
+    // The total comes from the version-controlled baseline, never from a literal
+    // that has to be hand-bumped — and that can be bumped without anyone reading
+    // what was added.
+    expect(DRIFT_CHECK_IDS).toHaveLength(FROZEN_CHECK_IDS.length);
   });
 
   // The registry is FROZEN: report `checks[]` order and the CLI's status-line order
   // both derive from it, so the existing ids must keep their relative positions.
   // Asserted UNSORTED and literal — a sorted comparison cannot see a reorder.
-  it('keeps the pre-existing eleven ids in their frozen order (additive-only growth)', () => {
-    expect([...DRIFT_CHECK_IDS].slice(0, 11)).toEqual([
-      'req-references',
-      'file-paths',
-      'import-direction',
-      'knowledge-health',
-      'task-completion',
-      'dangling-prefix',
-      'feature-modules',
-      'mcp-readme-counts',
-      'review-provenance',
-      'metadata-completeness',
-      'knowledge-size',
-    ]);
-    expect([...DRIFT_CHECK_IDS].slice(11)).toEqual([
-      'test-provenance',
-      'constitution-severity',
-      'artifact-language',
-      'spec-counters',
-      'delta-spec-provenance',
-      'unjustified-budget-override',
-      'canonical-doc-drift',
-      'delta-spec-landing-fidelity',
-      'req-id-uniqueness',
-      'language-policy-drift',
-    ]);
+  it('keeps every id in its frozen order (additive-only growth)', () => {
+    expect([...DRIFT_CHECK_IDS]).toEqual([...FROZEN_CHECK_IDS]);
   });
 
   it('accepts the optional constitution inventory, including an untagged rule', () => {

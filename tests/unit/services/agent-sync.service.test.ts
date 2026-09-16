@@ -4,7 +4,7 @@ import { vol } from 'memfs';
 import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
-import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../../../src/types/skill.js';
+import { AGENT_CONFIGS, SKILL_DEFINITIONS, skillHasReferences } from '../../../src/types/skill.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { parse as parseYamlDoc } from 'yaml';
 
@@ -262,7 +262,7 @@ knowledge:
     expect(agent.referenceFiles.length).toBeGreaterThan(0);
     for (const refPath of agent.referenceFiles) {
       const owner = refPath.split('/')[2]; // .claude/skills/<owner>/references/...
-      expect(SKILL_DEFINITIONS.find((s) => s.name === owner)?.hasReferences).toBe(true);
+      expect(skillHasReferences(owner!)).toBe(true);
     }
     // totalFiles is the exact reduce: 1 entry config + skills + references.
     expect(result.totalFiles).toBe(
@@ -440,7 +440,7 @@ knowledge:
       true,
     );
 
-    // A skill with hasReferences:false produces no references/ entries.
+    // A skill the registry gives no files produces no references/ entries.
     expect(refs.some((r) => r.startsWith('.claude/skills/prospec-explore/'))).toBe(false);
     expect(
       fs.existsSync('/project/.claude/skills/prospec-explore/references'),

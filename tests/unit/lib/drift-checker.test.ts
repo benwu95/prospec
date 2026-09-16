@@ -72,6 +72,9 @@ const BASE_SIZE_BUDGET: KnowledgeSizeBudget = {
 };
 
 const emptyInputs: DriftCheckInputs = {
+  // An available source with nothing deployed: there is nothing to disagree with,
+  // which is a pass — unlike an unavailable source, which skips.
+  skillReferenceMap: { available: true, deployments: [], roots: ['.claude/skills'], unreadableRoots: {} },
   reqDefinitions: { available: true, ids: [] },
   reqIdUniqueness: { available: true, definitions: new Map() },
   reqReferences: [],

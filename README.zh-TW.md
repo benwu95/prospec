@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-5186%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-5462%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -447,6 +447,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 除了線性流程，每個 workflow Skill 都內建品質機制：
 
 - **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
+- **Station reference map** — `prospec status` 依 phase 顯示下一站的 references，包含條件式載入提示。共用 registry 驅動產生的 reference maps 與部署清單；`prospec check` 的 `skill-reference-map` 檢查可偵測缺檔與 phase 引用不符。修正來源後，執行 `prospec agent sync` 更新已部署的 Skills。詳見 [CLI 參考](reference/cli-reference.zh-TW.md)。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
 - **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；在 `prospec-ff` cascade 之外，線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `prospec-verify` 分級。
@@ -633,7 +634,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 5186 個；4 個略過）
+# 執行所有測試（共 5462 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -646,11 +647,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 5186 個測試（5182 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3731 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1243 tests
-- Integration tests：64 tests
-- E2E tests：148 tests
+**測試覆蓋率**：共 5462 個測試（5458 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3911 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1313 tests
+- Integration tests：83 tests
+- E2E tests：155 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

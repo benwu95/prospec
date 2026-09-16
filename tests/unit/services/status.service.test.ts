@@ -649,6 +649,155 @@ describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
   });
 });
 
+/**
+ * The next station's reference map (REQ-SERVICES-111). Additive: every routing
+ * field keeps its meaning, and the map is absent — never invented — when there is
+ * no station to route to or no agent to resolve a path against.
+ */
+describe('status.service — next-station reference map (REQ-SERVICES-111)', () => {
+  const project = (options: { agents?: string; status: string; scale?: string; uiScope?: string }) => {
+    const files: Record<string, string> = {
+      [`${CWD}/.prospec.yaml`]: `project:\n  name: test\n${options.agents ?? ''}`,
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: options.status,
+        scale: options.scale,
+      }),
+    };
+    if (options.uiScope !== undefined) {
+      files[`${CWD}/.prospec/changes/add-auth/proposal.md`] = `# p\n\n## UI Scope\n\n**Scope:** ${options.uiScope}\n`;
+    }
+    vol.fromJSON(files);
+  };
+
+  it('lists the next station load points under the resolved host root', async () => {
+    project({ agents: 'agents:\n  - claude\n', status: 'plan' });
+    const report = await execute({ cwd: CWD });
+    const route = report.changes[0]!;
+    expect(route.next).toBe('tasks');
+    expect(route.nextReferenceMap).toEqual([
+      {
+        phase: 'Startup Loading',
+        referencePath: '.claude/skills/prospec-tasks/references/tasks-format.md',
+        purpose: 'the tasks.md format and its task kind markers',
+        loading: 'startup-mandatory',
+      },
+      {
+        phase: 'Phase 3: Decompose by Architecture Layer',
+        referencePath: '.claude/skills/prospec-tasks/references/tasks-format.md',
+        purpose: 'the layer-order adaptation note the decomposition follows',
+        loading: 'in-phase',
+      },
+      {
+        phase: 'Phase 6: Task Contract & Verifier Audit',
+        referencePath: '.claude/skills/prospec-tasks/references/tasks-verifier-rubric.md',
+        purpose: 'the four audit dimensions and the receipt protocol',
+        loading: 'in-phase',
+      },
+    ]);
+  });
+
+  it('uses the host root the action line resolved, not a hardcoded one', async () => {
+    project({ agents: 'agents:\n  - codex\n', status: 'plan' });
+    const report = await execute({ cwd: CWD });
+    const route = report.changes[0]!;
+    expect(route.nextSkillPath).toBe('.agents/skills/prospec-tasks/SKILL.md');
+    for (const row of route.nextReferenceMap ?? []) {
+      expect(row.referencePath.startsWith('.agents/skills/')).toBe(true);
+    }
+  });
+
+  it('fabricates no path when the project configures no agent', async () => {
+    project({ status: 'plan' });
+    const route = (await execute({ cwd: CWD })).changes[0]!;
+    expect(route.next).toBe('tasks');
+    expect(route.nextSkillPath).toBeUndefined();
+    expect(route.nextReferenceMap).toBeUndefined();
+  });
+
+  it('gives a reference-free next station an empty map, not a missing one', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'verified',
+        extra: 'related_modules:\n  - missing-module\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+    });
+    const route = (await execute({ cwd: CWD })).changes[0]!;
+    // prospec-knowledge-update ships no reference: an empty map, never an absent
+    // one, so a reader can tell "nothing to read" from "nowhere to read it from".
+    expect(route.next).toBe('knowledge-update');
+    expect(route.nextReferenceMap).toEqual([]);
+  });
+
+  it.each([
+    ['quick', 'tasks'],
+    ['standard', 'tasks'],
+    ['full', 'tasks'],
+  ] as const)('routes %s to a map of the station it actually reaches', async (scale, next) => {
+    project({ agents: 'agents:\n  - claude\n', status: 'plan', scale });
+    const route = (await execute({ cwd: CWD })).changes[0]!;
+    expect(route.next).toBe(next);
+    expect((route.nextReferenceMap ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('keeps a backfill station map to what backfill actually reads', async () => {
+    const reviewed =
+      'review_provenance:\n  digest: abc123\n  date: 2026-01-02\n';
+    const at = (scale: string) =>
+      vol.fromJSON({
+        [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+        [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+          name: 'add-auth',
+          status: 'implemented',
+          scale,
+          extra: reviewed,
+        }),
+      });
+
+    at('backfill');
+    const backfill = (await execute({ cwd: CWD })).changes[0]!;
+    expect(backfill.next).toBe('verify');
+    const backfillPhases = (backfill.nextReferenceMap ?? []).map((row) => row.phase);
+    expect(backfillPhases).toContain('Entry Gate');
+
+    vol.reset();
+    at('standard');
+    const standard = (await execute({ cwd: CWD })).changes[0]!;
+    expect(standard.next).toBe('verify');
+    const standardPhases = (standard.nextReferenceMap ?? []).map((row) => row.phase);
+    expect(standardPhases).not.toContain('Entry Gate');
+    // The backfill-only load points are the whole difference, and they are dropped
+    // on a KNOWN scale rather than shown with a condition nobody can decide.
+    expect(standardPhases.length).toBeLessThan(backfillPhases.length);
+  });
+
+  it.each(['full', 'partial', 'none'] as const)('keeps routing semantics for UI scope %s', async (uiScope) => {
+    project({ agents: 'agents:\n  - claude\n', status: 'plan', uiScope });
+    const route = (await execute({ cwd: CWD })).changes[0]!;
+    expect(route.next).toBe(uiScope === 'none' ? 'tasks' : 'design');
+    expect(Array.isArray(route.nextReferenceMap)).toBe(true);
+  });
+});
+
+describe('status.service — the map costs the status path no renderer', () => {
+  it('imports neither the template renderer nor the sync service', async () => {
+    const { readFileSync } = await vi.importActual<typeof import('node:fs')>('node:fs');
+    const source = readFileSync(
+      new URL('../../../src/services/status.service.ts', import.meta.url),
+      'utf8',
+    );
+    const specifiers = [...source.matchAll(/^import[^']*'([^']+)'/gm)].map((match) => match[1]!);
+    expect(specifiers).not.toContain('../lib/template.js');
+    expect(specifiers).not.toContain('./agent-sync.service.js');
+    // The map comes from the pure projection, which owns no renderer either.
+    expect(specifiers).toContain('../lib/skill-reference-map.js');
+  });
+});
+
 describe('status.service — latest planning verifier result (REQ-SERVICES-070 / issue #266)', () => {
   const log = (entries: string) =>
     vol.fromJSON({

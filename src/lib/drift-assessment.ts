@@ -9,6 +9,8 @@ import { resolveLanguageScope } from './language-policy.js';
 import { languagePolicyRule } from './constitution-rules.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
 import type { CurrentDriftAssessment } from '../types/drift-report.js';
+import type { ProspecConfig } from '../types/config.js';
+import { AGENT_CONFIGS } from '../types/skill.js';
 import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
@@ -38,6 +40,7 @@ import {
   computeChangeState,
   collectBudgetOverrides,
   collectCanonicalDocDrift,
+  collectSkillReferenceMap,
   isGitWorkTree,
 } from './drift-sources.js';
 
@@ -105,7 +108,14 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
   const paths = resolveBasePaths(config, cwd);
   const gitConfig = gitConfiguration(cwd);
   const roots = [path.join(cwd, '.prospec.yaml'), path.join(cwd, '.prospec/changes'),
-    paths.baseDir, paths.knowledgePath, paths.specsPath, ...gitConfig.files];
+    paths.baseDir, paths.knowledgePath, paths.specsPath, ...gitConfig.files,
+    // Every configured host's shipped-skill root, INCLUDING one that does not
+    // exist yet: `skill-reference-map` reads those directories, so a file added,
+    // removed or rewritten there between collection and a gate's write is an
+    // input change. `observeFiles` frames an absent path as `absent`, so an
+    // expected-but-missing root is observed rather than silently skipped — which
+    // is what lets a first sync landing mid-assessment turn the recheck false.
+    ...configuredSkillRoots(config, cwd)];
   let observation: string | null;
   try { observation = observeFiles(roots); } catch { observation = null; }
   const collect = () => {
@@ -213,6 +223,10 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       // collectors read — the counters are a fact about those very files.
       specCounters: collectSpecCounters(featuresDir, cwd),
       canonicalDocDrift: collectCanonicalDocDrift(config, cwd, initDocs),
+      // Every configured host's shipped-skill deployment, read from disk: the
+      // check compares what the registry declares against what an agent would
+      // actually read, so an un-synced host is a finding rather than invisible.
+      skillReferenceMap: collectSkillReferenceMap(config, cwd),
     };
     return { inputs, snapshot };
   };
@@ -231,4 +245,21 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       return now.snapshot.digest === collected.snapshot.digest && JSON.stringify(now.inputs) === facts && observation === observeFiles(roots);
     } catch { return false; }
   } };
+}
+
+/**
+ * The deployment roots of every configured agent, deduplicated by path — the
+ * directories `collectSkillReferenceMap` reads. Absent roots are included on
+ * purpose: they are expected locations whose appearance is itself a change.
+ */
+function configuredSkillRoots(config: ProspecConfig, cwd: string): string[] {
+  return [
+    ...new Set(
+      (config.agents ?? [])
+        .map((agent) => AGENT_CONFIGS[agent as keyof typeof AGENT_CONFIGS]?.skillPath)
+        .filter((skillPath): skillPath is string => typeof skillPath === 'string'),
+    ),
+  ]
+    .sort()
+    .map((skillPath) => path.join(cwd, skillPath));
 }

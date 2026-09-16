@@ -252,6 +252,8 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
 
   it('check --auto-draft still writes the report and grades the run', async () => {
     await initProject();
+    // A configured host must be deployed for a clean reference-map verdict.
+    expect((await runCli(['agent', 'sync'])).exitCode).toBe(0);
 
     const { exitCode, stdout } = await runCli(['check', '--json', '--auto-draft']);
 

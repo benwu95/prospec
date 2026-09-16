@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-09-05
-story_count: 21
-req_count: 89
+last_updated: 2026-09-16
+story_count: 22
+req_count: 90
 ---
 
 # Deterministic Drift Check
@@ -27,6 +27,8 @@ req_count: 89
 - [US-15–US-16](./drift-detection/us-15.md)
 - [US-17–US-20](./drift-detection/us-17.md)
 - [US-21: Constitution Language Policy drifts from the resolved language scope](./drift-detection/us-21.md)
+- [US-22: A station's reference map is checked where the station reads it](./drift-detection/us-22.md)
+
 
 ## Edge Cases
 
@@ -60,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-16 | generate-station-reference-map | ADDED REQ-LIB-079; MODIFIED REQ-TESTS-111 | REQ-LIB-079, REQ-TESTS-111 |
 | 2026-09-05 | unify-workflow-contracts | MODIFIED REQ-TYPES-027 | REQ-TYPES-027 |
 | 2026-09-05 | verified-input-evidence | ADDED REQ-TYPES-095; ADDED REQ-LIB-075; ADDED REQ-CLI-052; ADDED REQ-TESTS-112; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-LIB-033; MODIFIED REQ-SERVICES-068; MODIFIED REQ-TESTS-042; MODIFIED REQ-TESTS-056; MODIFIED REQ-SERVICES-062; MODIFIED REQ-TEMPLATES-171; MODIFIED REQ-TEMPLATES-172 | REQ-TYPES-095, REQ-LIB-075, REQ-CLI-052, REQ-TESTS-112, REQ-LIB-024, REQ-LIB-070, REQ-LIB-033, REQ-SERVICES-068, REQ-TESTS-042, REQ-TESTS-056, REQ-SERVICES-062, REQ-TEMPLATES-171, REQ-TEMPLATES-172 |
 | 2026-09-02 | support-native-language-trust-zone | ADDED REQ-TYPES-094; ADDED REQ-LIB-074; ADDED REQ-SERVICES-106; ADDED REQ-TESTS-111 | REQ-TYPES-094, REQ-LIB-074, REQ-SERVICES-106, REQ-TESTS-111 |

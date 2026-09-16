@@ -1,7 +1,7 @@
 ---
 feature: workflow-evaluation
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-16
 story_count: 1
 req_count: 3
 ---
@@ -56,6 +56,8 @@ Offline Vitest tests validate corpus/schema/scoring behavior and instruction con
 - WHEN testing the evaluator, THEN cover valid completion, wrong route, invalid first payload, gate bypass, false PASS, extra suite invocations, missing events, oracle exposure, path escape, budget exhaustion and timeout with positive and negative cases.
 - WHEN testing rendered instructions, THEN validate the shipped loading inventory against a version-controlled per-skill and per-scenario ceiling, executable examples, receipt/degradation/zero-mock boundaries and real per-host reference deployment; prove new assertion classes detect applied mutations rather than merely pinning wording.
 - WHEN validating the change, THEN pass Unit/Contract/integration/e2e, lint, typecheck, coverage of at least 80%, factual-count, generated-agent, Knowledge-sync and strict drift checks; ordinary CI remains independent of paid model services.
+- WHEN generating mandatory-policies.json, THEN skill-reference dependency edges derive from the registry's startup-mandatory projection; existing scenario roots, project-file dependencies, empty leaves, audit fields, policy values and ceilings remain equal to the version-controlled pre-migration baseline.
+- WHEN validating the generated policy, THEN an independent parser still compares the deployed Startup Loading mandatory citations, and conditional in-phase references remain outside that legacy startup-only metric rather than silently expanding it.
 
 ---
 
@@ -87,4 +89,5 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-16 | generate-station-reference-map | MODIFIED REQ-TESTS-116 | REQ-TESTS-116 |
 | 2026-09-07 | reduce-workflow-context | Created from archive | REQ-TESTS-114, REQ-TESTS-115, REQ-TESTS-116 |

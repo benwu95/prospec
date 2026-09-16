@@ -1,0 +1,777 @@
+{
+  "version": 1,
+  "captured_from_commit": "9d3f42d0771602228d727289a59a496fe1a06344",
+  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards.",
+  "hosts": {
+    "claude": {
+      "skill_path": ".claude/skills",
+      "references": {
+        "prospec-archive": [
+          "archive-format.md",
+          "feature-spec-format.md",
+          "product-spec-format.md",
+          "promotion-format.md",
+          "spec-graduation.md"
+        ],
+        "prospec-backfill-spec": [
+          "feature-boundary-criteria.md"
+        ],
+        "prospec-design": [
+          "adapter-figma.md",
+          "adapter-html.md",
+          "adapter-pencil.md",
+          "adapter-penpot.md",
+          "design-spec-format.md",
+          "interaction-spec-format.md"
+        ],
+        "prospec-explore": [],
+        "prospec-ff": [
+          "cascade-protocol.md",
+          "circuit-breaker.md",
+          "delta-spec-format.md",
+          "metadata-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md",
+          "project-test-runner.md",
+          "proposal-format.md",
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-implement": [
+          "implementation-guide.md",
+          "project-test-runner.md"
+        ],
+        "prospec-knowledge-generate": [],
+        "prospec-knowledge-update": [],
+        "prospec-learn": [
+          "drift-report-format.md",
+          "promotion-format.md"
+        ],
+        "prospec-new-story": [
+          "metadata-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-plan": [
+          "candidate-evaluation.md",
+          "delta-spec-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md"
+        ],
+        "prospec-promote-backfill": [
+          "delta-spec-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-quickstart": [],
+        "prospec-review": [
+          "circuit-breaker.md",
+          "delegated-evidence-format.md",
+          "project-test-runner.md",
+          "review-format.md",
+          "review-lenses-content.md"
+        ],
+        "prospec-tasks": [
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-upgrade": [],
+        "prospec-verify": [
+          "cascade-protocol.md",
+          "debug-recovery-format.md",
+          "delegated-evidence-format.md",
+          "drift-report-format.md",
+          "verify-backfill.md"
+        ]
+      }
+    },
+    "codex": {
+      "skill_path": ".agents/skills",
+      "references": {
+        "prospec-archive": [
+          "archive-format.md",
+          "feature-spec-format.md",
+          "product-spec-format.md",
+          "promotion-format.md",
+          "spec-graduation.md"
+        ],
+        "prospec-backfill-spec": [
+          "feature-boundary-criteria.md"
+        ],
+        "prospec-design": [
+          "adapter-figma.md",
+          "adapter-html.md",
+          "adapter-pencil.md",
+          "adapter-penpot.md",
+          "design-spec-format.md",
+          "interaction-spec-format.md"
+        ],
+        "prospec-explore": [],
+        "prospec-ff": [
+          "cascade-protocol.md",
+          "circuit-breaker.md",
+          "delta-spec-format.md",
+          "metadata-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md",
+          "project-test-runner.md",
+          "proposal-format.md",
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-implement": [
+          "implementation-guide.md",
+          "project-test-runner.md"
+        ],
+        "prospec-knowledge-generate": [],
+        "prospec-knowledge-update": [],
+        "prospec-learn": [
+          "drift-report-format.md",
+          "promotion-format.md"
+        ],
+        "prospec-new-story": [
+          "metadata-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-plan": [
+          "candidate-evaluation.md",
+          "delta-spec-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md"
+        ],
+        "prospec-promote-backfill": [
+          "delta-spec-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-quickstart": [],
+        "prospec-review": [
+          "circuit-breaker.md",
+          "delegated-evidence-format.md",
+          "project-test-runner.md",
+          "review-format.md",
+          "review-lenses-content.md"
+        ],
+        "prospec-tasks": [
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-upgrade": [],
+        "prospec-verify": [
+          "cascade-protocol.md",
+          "debug-recovery-format.md",
+          "delegated-evidence-format.md",
+          "drift-report-format.md",
+          "verify-backfill.md"
+        ]
+      }
+    },
+    "copilot": {
+      "skill_path": ".agents/skills",
+      "references": {
+        "prospec-archive": [
+          "archive-format.md",
+          "feature-spec-format.md",
+          "product-spec-format.md",
+          "promotion-format.md",
+          "spec-graduation.md"
+        ],
+        "prospec-backfill-spec": [
+          "feature-boundary-criteria.md"
+        ],
+        "prospec-design": [
+          "adapter-figma.md",
+          "adapter-html.md",
+          "adapter-pencil.md",
+          "adapter-penpot.md",
+          "design-spec-format.md",
+          "interaction-spec-format.md"
+        ],
+        "prospec-explore": [],
+        "prospec-ff": [
+          "cascade-protocol.md",
+          "circuit-breaker.md",
+          "delta-spec-format.md",
+          "metadata-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md",
+          "project-test-runner.md",
+          "proposal-format.md",
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-implement": [
+          "implementation-guide.md",
+          "project-test-runner.md"
+        ],
+        "prospec-knowledge-generate": [],
+        "prospec-knowledge-update": [],
+        "prospec-learn": [
+          "drift-report-format.md",
+          "promotion-format.md"
+        ],
+        "prospec-new-story": [
+          "metadata-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-plan": [
+          "candidate-evaluation.md",
+          "delta-spec-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md"
+        ],
+        "prospec-promote-backfill": [
+          "delta-spec-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-quickstart": [],
+        "prospec-review": [
+          "circuit-breaker.md",
+          "delegated-evidence-format.md",
+          "project-test-runner.md",
+          "review-format.md",
+          "review-lenses-content.md"
+        ],
+        "prospec-tasks": [
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-upgrade": [],
+        "prospec-verify": [
+          "cascade-protocol.md",
+          "debug-recovery-format.md",
+          "delegated-evidence-format.md",
+          "drift-report-format.md",
+          "verify-backfill.md"
+        ]
+      }
+    },
+    "antigravity": {
+      "skill_path": ".agents/skills",
+      "references": {
+        "prospec-archive": [
+          "archive-format.md",
+          "feature-spec-format.md",
+          "product-spec-format.md",
+          "promotion-format.md",
+          "spec-graduation.md"
+        ],
+        "prospec-backfill-spec": [
+          "feature-boundary-criteria.md"
+        ],
+        "prospec-design": [
+          "adapter-figma.md",
+          "adapter-html.md",
+          "adapter-pencil.md",
+          "adapter-penpot.md",
+          "design-spec-format.md",
+          "interaction-spec-format.md"
+        ],
+        "prospec-explore": [],
+        "prospec-ff": [
+          "cascade-protocol.md",
+          "circuit-breaker.md",
+          "delta-spec-format.md",
+          "metadata-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md",
+          "project-test-runner.md",
+          "proposal-format.md",
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-implement": [
+          "implementation-guide.md",
+          "project-test-runner.md"
+        ],
+        "prospec-knowledge-generate": [],
+        "prospec-knowledge-update": [],
+        "prospec-learn": [
+          "drift-report-format.md",
+          "promotion-format.md"
+        ],
+        "prospec-new-story": [
+          "metadata-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-plan": [
+          "candidate-evaluation.md",
+          "delta-spec-format.md",
+          "plan-format.md",
+          "plan-verifier-rubric.md"
+        ],
+        "prospec-promote-backfill": [
+          "delta-spec-format.md",
+          "proposal-format.md"
+        ],
+        "prospec-quickstart": [],
+        "prospec-review": [
+          "circuit-breaker.md",
+          "delegated-evidence-format.md",
+          "project-test-runner.md",
+          "review-format.md",
+          "review-lenses-content.md"
+        ],
+        "prospec-tasks": [
+          "tasks-format.md",
+          "tasks-verifier-rubric.md"
+        ],
+        "prospec-upgrade": [],
+        "prospec-verify": [
+          "cascade-protocol.md",
+          "debug-recovery-format.md",
+          "delegated-evidence-format.md",
+          "drift-report-format.md",
+          "verify-backfill.md"
+        ]
+      }
+    }
+  },
+  "prose_sites": {
+    "prospec-archive": {
+      "Startup Loading": [
+        "archive-format.md",
+        "feature-spec-format.md",
+        "product-spec-format.md",
+        "promotion-format.md"
+      ],
+      "Core Workflow > Phase 2: Generate Summary": [
+        "archive-format.md"
+      ],
+      "Core Workflow > Phase 3.5: Feature Spec Sync": [
+        "spec-graduation.md",
+        "feature-spec-format.md"
+      ],
+      "Core Workflow > Phase 3.6: Product Spec Sync": [
+        "product-spec-format.md"
+      ],
+      "Core Workflow > Phase 4.5: Auto-Harvest Recurring Lessons": [
+        "promotion-format.md"
+      ]
+    },
+    "prospec-backfill-spec": {
+      "Core Workflow > Phase 1: Triangulate the sources, then cluster by feature (vertical slice)": [
+        "feature-boundary-criteria.md"
+      ]
+    },
+    "prospec-design": {
+      "Startup Loading": [
+        "design-spec-format.md",
+        "interaction-spec-format.md",
+        "adapter-pencil.md",
+        "adapter-figma.md",
+        "adapter-penpot.md",
+        "adapter-html.md"
+      ]
+    },
+    "prospec-explore": {},
+    "prospec-ff": {
+      "Startup Loading": [
+        "proposal-format.md",
+        "metadata-format.md",
+        "plan-format.md",
+        "delta-spec-format.md",
+        "plan-verifier-rubric.md",
+        "tasks-format.md",
+        "tasks-verifier-rubric.md",
+        "cascade-protocol.md",
+        "circuit-breaker.md",
+        "project-test-runner.md"
+      ],
+      "Core Workflow > Phase 2: Story Generation": [
+        "proposal-format.md"
+      ],
+      "Core Workflow > Phase 3: Plan Generation (skipped when `scale: quick`)": [
+        "plan-format.md",
+        "delta-spec-format.md",
+        "plan-verifier-rubric.md"
+      ],
+      "Core Workflow > Phase 4: Tasks Generation": [
+        "tasks-format.md",
+        "tasks-verifier-rubric.md"
+      ],
+      "Core Workflow > Phase 5: Autonomous Execution & Cascading (when cascading active)": [
+        "cascade-protocol.md",
+        "circuit-breaker.md",
+        "project-test-runner.md",
+        "tasks-format.md"
+      ]
+    },
+    "prospec-implement": {
+      "Startup Loading": [
+        "implementation-guide.md"
+      ],
+      "Core Workflow > Phase 4: Verify Implementation": [
+        "project-test-runner.md"
+      ]
+    },
+    "prospec-knowledge-generate": {},
+    "prospec-knowledge-update": {},
+    "prospec-learn": {
+      "Startup Loading": [
+        "promotion-format.md"
+      ],
+      "Entry Gate": [
+        "promotion-format.md"
+      ],
+      "Core Workflow > Sweep": [
+        "promotion-format.md"
+      ],
+      "Core Workflow > Collect": [
+        "promotion-format.md"
+      ],
+      "Core Workflow > Score": [
+        "promotion-format.md",
+        "drift-report-format.md"
+      ],
+      "Core Workflow > Promote": [
+        "promotion-format.md"
+      ]
+    },
+    "prospec-new-story": {
+      "Startup Loading": [
+        "proposal-format.md",
+        "metadata-format.md"
+      ],
+      "Core Workflow > Phase 5: Write proposal.md": [
+        "proposal-format.md"
+      ]
+    },
+    "prospec-plan": {
+      "Startup Loading": [
+        "plan-format.md",
+        "candidate-evaluation.md",
+        "delta-spec-format.md",
+        "plan-verifier-rubric.md"
+      ],
+      "Core Workflow > Phase 4: Design plan.md": [
+        "plan-format.md",
+        "candidate-evaluation.md"
+      ],
+      "Core Workflow > Phase 5: Generate delta-spec.md": [
+        "delta-spec-format.md"
+      ],
+      "Core Workflow > Phase 6: Architecture Verification (site-specific: dependency/layering)": [
+        "plan-verifier-rubric.md"
+      ],
+      "NEVER": [
+        "plan-verifier-rubric.md"
+      ]
+    },
+    "prospec-promote-backfill": {
+      "Startup Loading": [
+        "proposal-format.md",
+        "delta-spec-format.md"
+      ],
+      "Core Workflow > Phase 2: Scaffold + proposal.md": [
+        "proposal-format.md"
+      ],
+      "Core Workflow > Phase 3: delta-spec.md": [
+        "delta-spec-format.md"
+      ]
+    },
+    "prospec-quickstart": {},
+    "prospec-review": {
+      "Startup Loading": [
+        "review-format.md"
+      ],
+      "Core Workflow > Review Lenses": [
+        "review-lenses-content.md"
+      ],
+      "Core Workflow > Severity Routing": [
+        "review-format.md"
+      ],
+      "Core Workflow > The Loop": [
+        "project-test-runner.md",
+        "circuit-breaker.md"
+      ],
+      "Core Workflow > Persistence": [
+        "delegated-evidence-format.md"
+      ],
+      "Output Contract > Success Criteria": [
+        "project-test-runner.md"
+      ]
+    },
+    "prospec-tasks": {
+      "Activation": [
+        "tasks-format.md"
+      ],
+      "Startup Loading": [
+        "tasks-format.md"
+      ],
+      "Core Workflow > Phase 3: Decompose by Architecture Layer": [
+        "tasks-format.md"
+      ],
+      "Core Workflow > Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)": [
+        "tasks-verifier-rubric.md"
+      ],
+      "NEVER": [
+        "tasks-verifier-rubric.md"
+      ]
+    },
+    "prospec-upgrade": {},
+    "prospec-verify": {
+      "Startup Loading": [
+        "drift-report-format.md",
+        "verify-backfill.md"
+      ],
+      "Entry Gate": [
+        "verify-backfill.md"
+      ],
+      "Core Workflow > Verification 1/5: Task Completion — `[machine]`": [
+        "verify-backfill.md"
+      ],
+      "Core Workflow > Verification 2/5: Delta Spec Compliance — `[judgment]`, fresh context required": [
+        "delegated-evidence-format.md",
+        "verify-backfill.md"
+      ],
+      "Core Workflow > Verification 3/5: Constitution Full Audit — `[mixed]`": [
+        "verify-backfill.md"
+      ],
+      "Core Workflow > Verification 4/5: Knowledge ↔ Implementation Consistency — `[machine]`": [
+        "drift-report-format.md"
+      ],
+      "Core Workflow > Verification 5/5: Test Verification — `[machine]`": [
+        "verify-backfill.md",
+        "debug-recovery-format.md"
+      ],
+      "Record & Status Update (CLI-executed)": [
+        "cascade-protocol.md"
+      ],
+      "NEVER": [
+        "verify-backfill.md"
+      ]
+    }
+  },
+  "mandatory_policies": {
+    "ceilings": {
+      "quick": 16382,
+      "standard-ui": 15282,
+      "proven-backfill": 23318,
+      "equivalent-commit": 12676,
+      "reverify-c": 15463,
+      "missing-receipt": 5627,
+      "stale-delta": 12818,
+      "multi-change": 12676
+    },
+    "policies": {
+      "quick": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "tasks",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "tasks",
+            "paths": [
+              ".agents/skills/prospec-tasks/SKILL.md"
+            ]
+          },
+          {
+            "station": "implement",
+            "paths": [
+              ".agents/skills/prospec-implement/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-implement/SKILL.md": [
+            ".agents/skills/prospec-implement/references/implementation-guide.md",
+            "prospec/ai-knowledge/_conventions.md"
+          ],
+          ".agents/skills/prospec-implement/references/implementation-guide.md": [],
+          ".agents/skills/prospec-tasks/SKILL.md": [
+            ".agents/skills/prospec-tasks/references/tasks-format.md"
+          ],
+          ".agents/skills/prospec-tasks/references/tasks-format.md": [],
+          "prospec/ai-knowledge/_conventions.md": []
+        }
+      },
+      "standard-ui": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "design",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "design",
+            "paths": [
+              ".agents/skills/prospec-design/SKILL.md"
+            ]
+          },
+          {
+            "station": "tasks",
+            "paths": [
+              ".agents/skills/prospec-tasks/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-design/SKILL.md": [
+            ".agents/skills/prospec-design/references/design-spec-format.md",
+            ".agents/skills/prospec-design/references/interaction-spec-format.md"
+          ],
+          ".agents/skills/prospec-design/references/design-spec-format.md": [],
+          ".agents/skills/prospec-design/references/interaction-spec-format.md": [],
+          ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-tasks/SKILL.md": [
+            ".agents/skills/prospec-tasks/references/tasks-format.md"
+          ],
+          ".agents/skills/prospec-tasks/references/tasks-format.md": []
+        }
+      },
+      "proven-backfill": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "review",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "review",
+            "paths": [
+              ".agents/skills/prospec-review/SKILL.md"
+            ]
+          },
+          {
+            "station": "verify",
+            "paths": [
+              ".agents/skills/prospec-verify/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-review/SKILL.md": [
+            ".agents/skills/prospec-review/references/review-format.md"
+          ],
+          ".agents/skills/prospec-review/references/review-format.md": [],
+          ".agents/skills/prospec-verify/SKILL.md": []
+        }
+      },
+      "equivalent-commit": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "archive",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "archive",
+            "paths": [
+              ".agents/skills/prospec-archive/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-archive/SKILL.md": [],
+          ".agents/skills/prospec-ff/SKILL.md": []
+        }
+      },
+      "reverify-c": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "verify",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "verify",
+            "paths": [
+              ".agents/skills/prospec-verify/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-verify/SKILL.md": []
+        }
+      },
+      "missing-receipt": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "plan",
+            "paths": [
+              ".agents/skills/prospec-plan/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-plan/SKILL.md": []
+        }
+      },
+      "stale-delta": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "review",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "review",
+            "paths": [
+              ".agents/skills/prospec-review/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-review/SKILL.md": [
+            ".agents/skills/prospec-review/references/review-format.md"
+          ],
+          ".agents/skills/prospec-review/references/review-format.md": []
+        }
+      },
+      "multi-change": {
+        "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
+        "roots": [
+          {
+            "station": "archive",
+            "paths": [
+              ".agents/skills/prospec-ff/SKILL.md"
+            ]
+          },
+          {
+            "station": "archive",
+            "paths": [
+              ".agents/skills/prospec-archive/SKILL.md"
+            ]
+          }
+        ],
+        "dependencies": {
+          ".agents/skills/prospec-archive/SKILL.md": [],
+          ".agents/skills/prospec-ff/SKILL.md": []
+        }
+      }
+    }
+  },
+  "slot_text": {
+    "prospec-new-story/startup-proposal-format": "**MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification",
+    "prospec-new-story/startup-metadata-format": "Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized",
+    "prospec-plan/startup-phase-map": "Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) and [`references/candidate-evaluation.md`](references/candidate-evaluation.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.",
+    "prospec-design/startup-design-spec-format": "**MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format",
+    "prospec-design/startup-interaction-spec-format": "**MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format",
+    "prospec-design/startup-adapters": "   - pencil → [`references/adapter-pencil.md`](references/adapter-pencil.md)\n   - figma → [`references/adapter-figma.md`](references/adapter-figma.md)\n   - penpot → [`references/adapter-penpot.md`](references/adapter-penpot.md)\n   - html → [`references/adapter-html.md`](references/adapter-html.md)",
+    "prospec-tasks/startup-tasks-format": "**MANDATORY** — Read [`references/tasks-format.md`](references/tasks-format.md) for tasks.md format",
+    "prospec-ff/startup-phase-map": "Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4, [`references/cascade-protocol.md`](references/cascade-protocol.md) + [`references/circuit-breaker.md`](references/circuit-breaker.md) + [`references/project-test-runner.md`](references/project-test-runner.md) for cascading execution. Read each when entering its phase; do not preload them into the stable prefix.",
+    "prospec-ff/phase-5-cascade-list": "Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:",
+    "prospec-implement/startup-implementation-guide": "**MANDATORY** — Read [`references/implementation-guide.md`](references/implementation-guide.md) for implementation guidelines",
+    "prospec-review/startup-review-format": "**MANDATORY** — Read [`references/review-format.md`](references/review-format.md) for the severity contract, review.md format, and reviewer lenses",
+    "prospec-archive/startup-phase-map": "Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/archive-format.md`](references/archive-format.md) at Phase 2/3 (summary + spec archiving), [`references/feature-spec-format.md`](references/feature-spec-format.md) at Phase 3.5, [`references/product-spec-format.md`](references/product-spec-format.md) at Phase 3.6. (`references/promotion-format.md` is already read on demand at Phase 4.5.) Read each when entering its phase; do not preload them into the stable prefix.",
+    "prospec-promote-backfill/startup-format-references": "**MANDATORY** — Load the format references this scaffold must match: `references/proposal-format.md`, `references/delta-spec-format.md`",
+    "prospec-learn/startup-promotion-format": "**MANDATORY** — Read [`references/promotion-format.md`](references/promotion-format.md) for the explicit promotion rule, the Generalizability Heuristic (what to capture), lessons-ledger format, playbook entry format, approval record, and TTL/conflict fields"
+  }
+}

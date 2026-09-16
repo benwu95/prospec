@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (54 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (56 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -12,16 +12,17 @@
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget, the two language resolvers (`resolveArtifactLanguage` / `resolveTrustZoneLanguage`, each defaulting to English) |
 | `project-runner.ts` | Multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`): declared `test_command` → declared package manager + `scripts.test` → manifest detection (Rust, Python, Go, Node lockfile, Makefile) → honest `null`; the review circuit breaker is a station engine — see the sub-module below |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite, ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
-| `template.ts` / `auto-draft-template.ts` | renderTemplate + helpers/partials; resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem; `buildAutoDraftProposal` is a pure context builder over `change/auto-draft-proposal.md.hbs` — it collapses report-supplied text to one line, so a multi-line `detail` cannot forge the `## UI Scope` heading `status` parses as a routing fact |
+| `template.ts` / `auto-draft-template.ts` | renderTemplate + helpers/partials (incl. `{{stationReferences skill slot}}`, a thin SafeString wrapper over the station-reference projection); resolveTemplatesDir; reads the generated `bundled-templates.ts` BEFORE the filesystem; `buildAutoDraftProposal` is a pure context builder over `change/auto-draft-proposal.md.hbs` — it collapses report-supplied text to one line, so a multi-line `detail` cannot forge the `## UI Scope` heading `status` parses as a routing fact |
 | `change-metadata.ts` | Sole schema-validated read/write entry for change `metadata.yaml` → `{doc, metadata}`; `appendQualityLogEntry` (canonical key order); `normalizeIssueRef` — THE `issue` rule, every sink calls it; `sanitizeChangeSlug` / `deriveFixChangeName` — the `fix-<target>-<check>` naming used by drafting, collapsing path separators and dots so a report's `source_path` can never escape `.prospec/changes/` |
 | `scanner.ts` / `module-detector.ts` | scanDir (fast-glob, security excludes), gitTrackedOnly, filterConventions, classifyModulePath; detectModules (auto/architecture/domain/package, source-gated), buildModuleMap |
 | `knowledge-reader.ts` / `status-router.ts` | Realpath-contained reads: loadModuleMap/loadFeatureMap/loadFeatureSpecContent/loadModuleKnowledge (README + linked sub-modules), searchModules, stripCellEmphasis; I/O-free SDD station router (`routeChange`) — the ONLY station-transition authority in `src/` — emits bare canonical `STATION_SKILLS` identities, a stable `code` per route (a `verified` change whose latest grade is B/C/D routes back to `verify`; a plan/tasks station whose latest recorded verifier result is FAIL routes back to itself), and a separate actionable skill-file path |
+| `skill-reference-map.ts` / `skill-reference-prose.ts` | `STATION_REFERENCES`' pure projections (deployment set, the scale/UI-filtered `status` map, startup-mandatory edges, a slot's in-place prose); and the parser of a DEPLOYED SKILL.md (heading path → citations), registry-free on purpose so the check compares two sources rather than one with itself. Neither imports the renderer — `status` calls them on its ordinary path |
 | `draftable-findings.ts` | `isDraftableFinding` — the ONE predicate deciding whether a drift finding can be drafted into a fix change (excludes the `headroom` pressure tier and anything under `.prospec/`); pure, so the read-only `status` surface shares it with the drafter without importing the change-creation path |
 | `knowledge-sync.ts` / `archive-gate.ts` / `change-gate.ts` | `checkKnowledgeSync` — the ONE affected-module knowledge-sync derivation (`status` routes on it, `archive` refuses on it); `adjudicateChangeCheck` — the pure per-change verdict over a report (`DRIFT_CHECK_SCOPES` + `subjects`: a sibling's findings never decide the target, an un-enumerated target is `unprovable`, skipped passes through ahead of the subjects test); `evaluateArchiveEntryGate` — the archive Entry-Gate verdict for ONE target (metadata-completeness / task-completion / three provenance / knowledge-sync as `WorkflowReason`s; `--allow-incomplete` exempts completeness only, a proven backfill's task-completion is not applicable) |
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
 | station engines (9 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators, the module README format engine, the dual-axis review circuit breaker, the lens yield statistics — see the sub-module below |
 
-The drift engine's 7 files are listed in the sub-module below; the station engines' 9 in theirs; the other 19 `.ts` are single-purpose helpers, with invariants in Pitfalls.
+The drift engine's 7 files are listed in the sub-module below; the station engines' 9 in theirs; the other 21 `.ts` are single-purpose helpers, with invariants in Pitfalls.
 
 ## Public API
 

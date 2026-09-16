@@ -224,8 +224,8 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `tests/fixtures/` — 631 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 277 files: `.md`, `.yaml`
+- `tests/fixtures/` — 632 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 280 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 - `reference/` — 2 files: `.md`
 
@@ -233,5 +233,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1456 |
+| Total files | 1473 |
 | Scan depth | 10 |

@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 223 test files, 5,186 tests (unit 3731, contract 1243, integration 64, e2e 148)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 231 test files, 5,462 tests (unit 3911, contract 1313, integration 83, e2e 155)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -10,9 +10,9 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), service and formatter (incl. `learn-yield.service` / `learn-yield-output`); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
-| `tests/contract/*.test.ts` (24) | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
+| `tests/contract/*.test.ts` (25) | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
 | `tests/unit/scripts/counts-registry.test.ts` | Factual-count registry structure and target completeness, including one total/passed/skipped target in each website language source. |
-| `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation. |
+| `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation, and a real four-host `agent sync` on a real filesystem whose output the station-reference collector and evaluator then judge (mutations asserted applied before their verdict is read). |
 | `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
 | `tests/e2e/cli-subprocess-smoke.test.ts` · `startup-modules.test.ts` | Real-subprocess coverage that lives outside the JS module boundary — shebang + bundled bin, exit-code propagation, non-TTY color (setup-color), mcp stdio startup; and the startup module-graph guard (REQ-CLI-045). Spawn `dist/cli/index.js`, so need `pnpm build`. |
 | `tests/fixtures/` | `startup-loading-baseline.json` (per-skill loading items + size ceilings), `workflow-eval/` (evaluator corpus), `token-corpus/`, `lessons-harvest/` (synthetic archived corpus). |
@@ -57,7 +57,7 @@
 
 ## Sub-Modules
 
-- [Contract Guards](./contract-guards.md) — the 24 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
+- [Contract Guards](./contract-guards.md) — the 25 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
 - [Workflow Evaluator](./workflow-evaluator.md) — the instruction-grading harness's suites, and why they are never model evidence
 
 <!-- prospec:auto-end -->

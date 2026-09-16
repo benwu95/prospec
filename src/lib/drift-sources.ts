@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, lstatSync, readlinkSync, realpathSync, type Dirent } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, lstatSync, statSync, readlinkSync, realpathSync, type Dirent } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -42,7 +42,7 @@ import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
 import type { InputSnapshot } from '../types/drift-report.js';
-import { AGENT_CONFIGS } from '../types/skill.js';
+import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
 
@@ -2722,4 +2722,122 @@ export function collectCanonicalDocDrift(
   }
 
   return { available: true, docs };
+}
+
+/** One shipped skill's deployment under one configured root. */
+export interface SkillReferenceDeployment {
+  /** Deployment root as configured, e.g. `.claude/skills`. */
+  skill_path: string;
+  /** Shipped skill name. */
+  skill: string;
+  /** Repo-relative path of the deployed SKILL.md. */
+  source_path: string;
+  /** The deployed instructions, or null when they could not be read. */
+  text: string | null;
+  /** Deployed file names under `references/`, sorted; empty when there is none. */
+  references: string[];
+}
+
+export interface SkillReferenceMapSource {
+  available: boolean;
+  reason?: string;
+  deployments: SkillReferenceDeployment[];
+  /** Assessed roots, including absent roots represented by missing deployments. */
+  roots: string[];
+  /** Roots that exist but could not be read, with the reason, so the evaluator can
+   *  report them as skipped instead of reading their absence as agreement. */
+  unreadableRoots: Record<string, string>;
+}
+
+/**
+ * Read every configured host's shipped-skill deployment: the SKILL.md bytes and
+ * the `references/` inventory, per skill, per root.
+ *
+ * Roots are deduplicated by path, not by agent: three of the four supported hosts
+ * share `.agents/skills`, and counting that directory three times would report the
+ * same divergence three times. Only skills the registry ships are read — a project's
+ * own skill directory is outside this check and must not surface as an orphan.
+ *
+ * An absent configured root contributes missing deployments. A root that cannot
+ * be enumerated for another reason is recorded in `unreadableRoots`, so a healthy
+ * host cannot silently certify a second host that was never assessed.
+ */
+export function collectSkillReferenceMap(
+  config: ProspecConfig,
+  cwd: string,
+): SkillReferenceMapSource {
+  const agents = config.agents ?? [];
+  if (agents.length === 0) {
+    return {
+      available: false,
+      reason: 'source unavailable: no configured agent',
+      deployments: [],
+      roots: [],
+      unreadableRoots: {},
+    };
+  }
+  const skillPaths = [
+    ...new Set(
+      agents
+        .map((agent) => AGENT_CONFIGS[agent as keyof typeof AGENT_CONFIGS]?.skillPath)
+        .filter((skillPath): skillPath is string => typeof skillPath === 'string'),
+    ),
+  ].sort();
+
+  const deployments: SkillReferenceDeployment[] = [];
+  const roots: string[] = [];
+  const unreadableRoots: Record<string, string> = {};
+  for (const skillPath of skillPaths) {
+    const absolute = path.resolve(cwd, skillPath);
+    try {
+      readdirSync(absolute, { withFileTypes: true });
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+        unreadableRoots[skillPath] = e instanceof Error ? e.message : String(e);
+        continue;
+      }
+    }
+    roots.push(skillPath);
+    for (const skill of SKILL_DEFINITIONS) {
+      const skillRel = `${skillPath}/${skill.name}/SKILL.md`;
+      deployments.push({
+        skill_path: skillPath,
+        skill: skill.name,
+        source_path: skillRel,
+        text: readContainedFile(cwd, skillRel),
+        references: deployedReferenceNames(cwd, `${skillPath}/${skill.name}/references`),
+      });
+    }
+  }
+
+  if (roots.length === 0) {
+    const reason =
+      Object.keys(unreadableRoots).length > 0
+        ? `source unavailable: ${Object.entries(unreadableRoots).map(([root, why]) => `${root} (${why})`).join('; ')}`
+        : 'source unavailable: no configured agent has a deployed skills directory';
+    return { available: false, reason, deployments: [], roots: [], unreadableRoots };
+  }
+  return { available: true, deployments, roots, unreadableRoots };
+}
+
+/** Deployed reference file names under one skill, sorted; empty when unreadable. */
+function deployedReferenceNames(cwd: string, relDir: string): string[] {
+  try {
+    return readdirSync(path.resolve(cwd, relDir), { withFileTypes: true })
+      .filter((entry) => !entry.isDirectory() && entry.name.endsWith('.md') && isSafeResourceName(entry.name))
+      .filter((entry) => {
+        const rel = path.join(relDir, entry.name);
+        try {
+          // A name alone cannot prove deployment: reject broken links, special
+          // files, escaped targets and unreadable bytes through the shared reader.
+          return statSync(path.resolve(cwd, rel)).isFile() && readContainedFile(cwd, rel) !== null;
+        } catch {
+          return false;
+        }
+      })
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
+    return [];
+  }
 }

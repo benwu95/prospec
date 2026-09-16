@@ -20,8 +20,8 @@ When triggered, briefly describe:
 ## Startup Loading
 
 1. [STABLE] Read `{{constitution_path}}` — prepare Constitution check
-2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
-3. [DYNAMIC] Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized
+2. [STABLE] {{stationReferences "prospec-new-story" "startup-proposal-format"}}
+3. [DYNAMIC] {{stationReferences "prospec-new-story" "startup-metadata-format"}}
 4. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules by matching proposal keywords against module `keywords` field
 5. [DYNAMIC] Read `{{base_dir}}/specs/features/` — check existing feature specs for context
 

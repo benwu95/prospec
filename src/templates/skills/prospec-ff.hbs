@@ -25,7 +25,7 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 1. [STABLE] Read `{{constitution_path}}` — prepare Constitution check
 2. [DYNAMIC] Read `{{base_dir}}/index.md` — identify related modules
 
-> Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4, [`references/cascade-protocol.md`](references/cascade-protocol.md) + [`references/circuit-breaker.md`](references/circuit-breaker.md) + [`references/project-test-runner.md`](references/project-test-runner.md) for cascading execution. Read each when entering its phase; do not preload them into the stable prefix.
+> {{stationReferences "prospec-ff" "startup-phase-map"}}
 
 ## Entry Gate
 
@@ -111,7 +111,7 @@ Loading is still read). Status advances `story → tasks` directly
 
 **Station Transition & Receipt Protocol**: On advancing to each station, re-read and reload that downstream skill to ensure full compliance with its receipt contracts and entry gates.
 
-Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
+{{stationReferences "prospec-ff" "phase-5-cascade-list"}}
 1. **Implementation**: Execute code tasks sequentially in the project's dependency-layer order (as grouped in `tasks.md` per [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.
 2. **Adversarial Review Loop**: Run review pass, enforcing the **Physical Receipt Verification Protocol** on review findings payloads (`ReviewFindingsInputSchema`) before calling `prospec review merge`, auto-fixing verifier-confirmed criticals. Guarded by Oscillation Breaker (red-green-red detector) and 3-5 round limit.
 3. **Verify Audit**: Execute 5+1 dimension audit, enforcing the **Physical Receipt Verification Protocol** on dimension verdicts (`JudgmentDimensionsInputSchema`) before calling `prospec verify record`, until Grade S/A is reached (`status: verified`).

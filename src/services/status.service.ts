@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
-import { readConfig } from '../lib/config.js';
+import { readConfig, resolveBasePaths } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
@@ -12,7 +12,8 @@ import { z } from 'zod';
 const PlanningVerdictSchema = z.enum(PLANNING_VERDICTS);
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
-import { routeChange, resolveNextSkillPath } from '../lib/status-router.js';
+import { routeChange, resolveNextSkillPath, resolveSkillRoot } from '../lib/status-router.js';
+import { projectStatusReferenceMap } from '../lib/skill-reference-map.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import type { GateResult, VerifyGrade } from '../types/change.js';
 import {
@@ -21,6 +22,7 @@ import {
   type ChangeRouteError,
   type ChangeRouteFacts,
   type DriftSignal,
+  STATION_SKILLS,
   type StatusReport,
   type UiScope,
   type UnresolvedWarning,
@@ -60,6 +62,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   // The router stays I/O-free.
   const config = await readConfig(cwd).catch(() => null);
   const agentNames = config?.agents ?? [];
+  // Resolves the project-file load points a station declares (the implement
+  // station's conventions); null leaves them out rather than printing a token.
+  const knowledgeBasePath = config
+    ? path.relative(cwd, resolveBasePaths(config, cwd).knowledgePath).replace(/\\/g, '/')
+    : null;
 
   if (fs.existsSync(changesDir)) {
     const dirs = fs
@@ -78,9 +85,22 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
-        const route = routeChange(await collectFacts(changeDir, name, metadata, cwd, config));
+        const facts = await collectFacts(changeDir, name, metadata, cwd, config);
+        const route = routeChange(facts);
         const skillPath = resolveNextSkillPath(agentNames, route.next);
         if (skillPath) route.nextSkillPath = skillPath;
+        // Additive and derived from the SAME resolution the skill path used, so a
+        // row can never name a different host than the action line above it. Absent
+        // — never fabricated — when the route is terminal or no agent is configured.
+        const skillRoot = resolveSkillRoot(agentNames);
+        if (route.next !== null && skillRoot !== null) {
+          route.nextReferenceMap = projectStatusReferenceMap(STATION_SKILLS[route.next], {
+            scale: facts.scale,
+            uiScope: facts.uiScope,
+            skillPath: skillRoot,
+            ...(knowledgeBasePath === null ? {} : { knowledgeBasePath }),
+          });
+        }
         changes.push(route);
       } catch (err) {
         errors.push({ name, error: err instanceof Error ? err.message : String(err) });

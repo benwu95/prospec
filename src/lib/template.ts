@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
 import { TemplateError } from '../types/errors.js';
 import { BUNDLED_TEMPLATES } from './bundled-templates.js';
+import { renderStationReferenceSlot } from './skill-reference-map.js';
 
 // Singleton Handlebars instance with helpers and partials registered
 let initialized = false;
@@ -48,6 +49,18 @@ function registerHelpers(): void {
     'join',
     (arr: unknown[] | undefined, sep: string) =>
       Array.isArray(arr) ? arr.join(typeof sep === 'string' ? sep : ', ') : '',
+  );
+
+  // {{stationReferences skill slot}} — the registry-owned reference map for one
+  // prose site. Thin on purpose: the projection lives in lib/skill-reference-map,
+  // and the result is a SafeString because the map IS markdown (links, backticks)
+  // which Handlebars would otherwise escape. Reads the registry directly, so a
+  // caller that renders a template without building a context still gets the map,
+  // and an unknown skill or slot throws instead of rendering an empty map.
+  Handlebars.registerHelper(
+    'stationReferences',
+    (skillName: unknown, slotId: unknown) =>
+      new Handlebars.SafeString(renderStationReferenceSlot(String(skillName), String(slotId))),
   );
 
   // {{isoDate}} — current ISO 8601 date string

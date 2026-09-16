@@ -47,6 +47,76 @@ describe('current assessment', () => {
   it.each(['tasks.md', 'metadata.yaml', 'delta-spec.md', 'backfill-draft.md'])('refuses a changed workflow observation: %s', async (file) => {
     const a = await assessCurrentDrift(root); write(`.prospec/changes/x/${file}`, 'changed'); expect(a.recheck()).toBe(false);
   });
+  /**
+   * The shipped-skill roots are inputs to `skill-reference-map`, so a deployment
+   * that shifts between collection and a gate's write must make the recheck
+   * false. An expected-but-absent root counts too: a first sync landing mid-gate
+   * is exactly the case a snapshot taken before it would certify wrongly.
+   */
+  describe('observes every configured shipped-skill root', () => {
+    const configured = 'version: "1.0"\nproject:\n  name: t\nagents:\n  - claude\n';
+
+    it('refuses a reference added under a deployed skill after collection', async () => {
+      write('.prospec.yaml', configured);
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      const a = await assessCurrentDrift(root);
+      expect(a.recheck()).toBe(true);
+      write('.claude/skills/prospec-tasks/references/orphan.md', '# orphan\n');
+      expect(a.recheck()).toBe(false);
+    });
+
+    it('refuses a deployed skill whose bytes changed after collection', async () => {
+      write('.prospec.yaml', configured);
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      const a = await assessCurrentDrift(root);
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks edited\n');
+      expect(a.recheck()).toBe(false);
+    });
+
+    it('refuses a deployed file removed after collection', async () => {
+      write('.prospec.yaml', configured);
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      write('.claude/skills/prospec-tasks/references/tasks-format.md', '# f\n');
+      const a = await assessCurrentDrift(root);
+      rmSync(path.join(root, '.claude/skills/prospec-tasks/references/tasks-format.md'));
+      expect(a.recheck()).toBe(false);
+    });
+
+    it('refuses a first deployment appearing in a root that did not exist', async () => {
+      write('.prospec.yaml', configured);
+      const a = await assessCurrentDrift(root);
+      // Nothing was deployed at collection time — the check failed — and the
+      // sync lands before the gate writes.
+      expect(a.report.structural.checks.find((c) => c.id === 'skill-reference-map')?.status).toBe('fail');
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      expect(a.recheck()).toBe(false);
+    });
+
+    it('observes directory membership, not only the files the collector reads', async () => {
+      write('.prospec.yaml', configured);
+      write('.gitignore', '.claude/\n');
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      const a = await assessCurrentDrift(root);
+      expect(a.recheck()).toBe(true);
+      // A project's own skill is outside the check, so the collected inputs are
+      // byte-identical before and after; the deployment is gitignored, so the
+      // repository fingerprint does not move either. Only observing the ROOT can
+      // see it — which is the whole point of observing the directory rather than
+      // trusting the subset of files that happened to be read.
+      write('.claude/skills/my-house-style/SKILL.md', '# mine\n');
+      expect(a.recheck()).toBe(false);
+    });
+
+    it('observes a deployment git never tracked', async () => {
+      write('.prospec.yaml', configured);
+      write('.gitignore', '.claude/\n');
+      write('.claude/skills/prospec-tasks/SKILL.md', '# tasks\n');
+      const a = await assessCurrentDrift(root);
+      write('.claude/skills/prospec-tasks/SKILL.md', '# edited while ignored\n');
+      expect(a.recheck()).toBe(false);
+    });
+  });
+
   it('detects change membership, source and ignore config mutations', async () => {
     const a = await assessCurrentDrift(root); write('.prospec/changes/new/proposal.md', 'new'); expect(a.recheck()).toBe(false);
     const b = await assessCurrentDrift(root); write('input.txt', 'new'); expect(b.recheck()).toBe(false);

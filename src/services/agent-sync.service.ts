@@ -9,6 +9,7 @@ import {
 } from '../lib/config.js';
 import { resolveLanguageScope, entryLanguageContext } from '../lib/language-policy.js';
 import { renderTemplate } from '../lib/template.js';
+import { projectStationDeployment } from '../lib/skill-reference-map.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
@@ -31,11 +32,13 @@ import {
   intersectCapabilities,
   mergeGroupInvocationGuidance,
   mergeGroupRenderFlags,
+  skillHasReferences,
   type AgentConfig,
   type AgentRenderFlags,
   type AgentSyncResult,
   type HarnessCapabilities,
   type SkillConfig,
+  type StationReferenceFile,
 } from '../types/skill.js';
 
 export interface AgentSyncOptions {
@@ -205,7 +208,7 @@ export async function execute(
       description: descriptionBySkill.get(s.name),
       triggers: triggerWordsBySkill.get(s.name),
       type: s.type,
-      hasReferences: s.hasReferences,
+      hasReferences: skillHasReferences(s.name),
     })),
   };
 
@@ -459,7 +462,7 @@ async function syncSkillsDirSkills(
     );
 
     // Generate reference files if applicable
-    if (skill.hasReferences) {
+    if (skillHasReferences(skill.name)) {
       const refs = getSkillReferences(skill.name);
       for (const ref of refs) {
         const refDir = path.join(skillDir, 'references');
@@ -514,279 +517,20 @@ async function generateEntryConfig(
   return agentConfig.configPath;
 }
 
-export interface SkillReference {
-  templateName: string;
-  outputName: string;
-  title: string;
-}
+/**
+ * The shape a reference deploys in. Structurally the registry's own
+ * `StationReferenceFile`, re-exported here so the long-standing
+ * `agent-sync.service` import path keeps working.
+ */
+export type SkillReference = StationReferenceFile;
 
 /**
- * Map skill names to their reference files. The map is fully static, so it is
- * built once and cached rather than reallocated on every call. Exported as the
- * single source for per-skill reference counts so tests derive them instead of
- * hardcoding literals (REQ-AGNT-030).
+ * The references a skill deploys — a compatibility facade over
+ * `STATION_REFERENCES` (REQ-AGNT-030). It owns NO table of its own: the registry
+ * is the single source for which files a station carries, what each one is read
+ * for and where, and a second map here is exactly the double-write this delegation
+ * removed.
  */
-let referenceMapCache: Record<string, SkillReference[]> | null = null;
 export function getSkillReferences(skillName: string): SkillReference[] {
-  referenceMapCache ??= {
-    'prospec-new-story': [
-      {
-        templateName: 'proposal-format.hbs',
-        outputName: 'proposal-format.md',
-        title: 'Proposal Format',
-      },
-      {
-        templateName: 'metadata-format.hbs',
-        outputName: 'metadata-format.md',
-        title: 'Metadata (metadata.yaml) Format',
-      },
-    ],
-    'prospec-plan': [
-      {
-        templateName: 'plan-format.hbs',
-        outputName: 'plan-format.md',
-        title: 'Plan Format',
-      },
-      {
-        templateName: 'delta-spec-format.hbs',
-        outputName: 'delta-spec-format.md',
-        title: 'Delta Spec Format',
-      },
-      {
-        templateName: 'plan-verifier-rubric.hbs',
-        outputName: 'plan-verifier-rubric.md',
-        title: 'Architecture Verifier Rubric',
-      },
-      {
-        templateName: 'candidate-evaluation.hbs',
-        outputName: 'candidate-evaluation.md',
-        title: 'Candidate Architecture Evaluation',
-      },
-    ],
-    'prospec-design': [
-      {
-        templateName: 'design-spec-format.hbs',
-        outputName: 'design-spec-format.md',
-        title: 'Design Spec Format',
-      },
-      {
-        templateName: 'interaction-spec-format.hbs',
-        outputName: 'interaction-spec-format.md',
-        title: 'Interaction Spec Format',
-      },
-      {
-        templateName: 'adapter-pencil.hbs',
-        outputName: 'adapter-pencil.md',
-        title: 'Platform Adapter: pencil.dev',
-      },
-      {
-        templateName: 'adapter-figma.hbs',
-        outputName: 'adapter-figma.md',
-        title: 'Platform Adapter: Figma',
-      },
-      {
-        templateName: 'adapter-penpot.hbs',
-        outputName: 'adapter-penpot.md',
-        title: 'Platform Adapter: Penpot',
-      },
-      {
-        templateName: 'adapter-html.hbs',
-        outputName: 'adapter-html.md',
-        title: 'Platform Adapter: HTML',
-      },
-    ],
-    'prospec-tasks': [
-      {
-        templateName: 'tasks-format.hbs',
-        outputName: 'tasks-format.md',
-        title: 'Tasks Format',
-      },
-      {
-        templateName: 'tasks-verifier-rubric.hbs',
-        outputName: 'tasks-verifier-rubric.md',
-        title: 'Task Verifier Rubric',
-      },
-    ],
-    'prospec-ff': [
-      {
-        templateName: 'proposal-format.hbs',
-        outputName: 'proposal-format.md',
-        title: 'Proposal Format',
-      },
-      {
-        templateName: 'plan-format.hbs',
-        outputName: 'plan-format.md',
-        title: 'Plan Format',
-      },
-      {
-        templateName: 'delta-spec-format.hbs',
-        outputName: 'delta-spec-format.md',
-        title: 'Delta Spec Format',
-      },
-      {
-        templateName: 'plan-verifier-rubric.hbs',
-        outputName: 'plan-verifier-rubric.md',
-        title: 'Architecture Verifier Rubric',
-      },
-      {
-        templateName: 'tasks-format.hbs',
-        outputName: 'tasks-format.md',
-        title: 'Tasks Format',
-      },
-      {
-        templateName: 'tasks-verifier-rubric.hbs',
-        outputName: 'tasks-verifier-rubric.md',
-        title: 'Task Verifier Rubric',
-      },
-      {
-        templateName: 'metadata-format.hbs',
-        outputName: 'metadata-format.md',
-        title: 'Metadata (metadata.yaml) Format',
-      },
-      {
-        templateName: 'cascade-protocol.hbs',
-        outputName: 'cascade-protocol.md',
-        title: 'Autonomous Pipeline Cascading Protocol',
-      },
-      {
-        templateName: 'circuit-breaker.hbs',
-        outputName: 'circuit-breaker.md',
-        title: 'Circuit Breakers & Runaway Cost Protection',
-      },
-      {
-        templateName: 'project-test-runner.hbs',
-        outputName: 'project-test-runner.md',
-        title: 'Project Test Runner & Ecosystem Adapter',
-      },
-    ],
-    'prospec-implement': [
-      {
-        templateName: 'implementation-guide.hbs',
-        outputName: 'implementation-guide.md',
-        title: 'Implementation Guide',
-      },
-      {
-        templateName: 'project-test-runner.hbs',
-        outputName: 'project-test-runner.md',
-        title: 'Project Test Runner & Ecosystem Adapter',
-      },
-    ],
-    'prospec-review': [
-      {
-        templateName: 'review-format.hbs',
-        outputName: 'review-format.md',
-        title: 'Review Severity Contract and review.md Format',
-      },
-      {
-        templateName: 'review-lenses-content.hbs',
-        outputName: 'review-lenses-content.md',
-        title: 'Review Lens Criteria (security / performance / maintainability)',
-      },
-      {
-        templateName: 'delegated-evidence-format.hbs',
-        outputName: 'delegated-evidence-format.md',
-        title: 'Delegated Payload Contract and Evidence Landing Format',
-      },
-      {
-        templateName: 'circuit-breaker.hbs',
-        outputName: 'circuit-breaker.md',
-        title: 'Circuit Breakers & Runaway Cost Protection',
-      },
-      {
-        templateName: 'project-test-runner.hbs',
-        outputName: 'project-test-runner.md',
-        title: 'Project Test Runner & Ecosystem Adapter',
-      },
-    ],
-    'prospec-verify': [
-      {
-        templateName: 'verify-backfill.hbs',
-        outputName: 'verify-backfill.md',
-        title: 'Backfill Verification Reference',
-      },
-      {
-        templateName: 'debug-recovery-format.hbs',
-        outputName: 'debug-recovery-format.md',
-        title: 'Debug & Recovery Triage Reference',
-      },
-      {
-        templateName: 'drift-report-format.hbs',
-        outputName: 'drift-report-format.md',
-        title: 'Drift Report (prospec-report.json) Format',
-      },
-      // Shared with prospec-review deliberately: both stations delegate to a
-      // fresh context, so the payload contract must have one text, not a copy
-      // per station that can drift.
-      {
-        templateName: 'delegated-evidence-format.hbs',
-        outputName: 'delegated-evidence-format.md',
-        title: 'Delegated Payload Contract and Evidence Landing Format',
-      },
-      {
-        templateName: 'cascade-protocol.hbs',
-        outputName: 'cascade-protocol.md',
-        title: 'Autonomous Pipeline Cascading Protocol',
-      },
-    ],
-    'prospec-archive': [
-      {
-        templateName: 'archive-format.hbs',
-        outputName: 'archive-format.md',
-        title: 'Archive Summary Format',
-      },
-      {
-        templateName: 'spec-graduation.hbs',
-        outputName: 'spec-graduation.md',
-        title: 'Feature Spec Graduation Reference',
-      },
-      {
-        templateName: 'feature-spec-format.hbs',
-        outputName: 'feature-spec-format.md',
-        title: 'Feature Spec Format',
-      },
-      {
-        templateName: 'product-spec-format.hbs',
-        outputName: 'product-spec-format.md',
-        title: 'Product Spec Format',
-      },
-      {
-        templateName: 'promotion-format.hbs',
-        outputName: 'promotion-format.md',
-        title: 'Feedback Promotion Rule and Ledger Format',
-      },
-    ],
-    'prospec-backfill-spec': [
-      {
-        templateName: 'feature-boundary-criteria.hbs',
-        outputName: 'feature-boundary-criteria.md',
-        title: 'Feature Boundary Criteria',
-      },
-    ],
-    'prospec-promote-backfill': [
-      {
-        templateName: 'proposal-format.hbs',
-        outputName: 'proposal-format.md',
-        title: 'Proposal Format',
-      },
-      {
-        templateName: 'delta-spec-format.hbs',
-        outputName: 'delta-spec-format.md',
-        title: 'Delta Spec Format',
-      },
-    ],
-    'prospec-learn': [
-      {
-        templateName: 'promotion-format.hbs',
-        outputName: 'promotion-format.md',
-        title: 'Feedback Promotion Rule and Ledger Format',
-      },
-      {
-        templateName: 'drift-report-format.hbs',
-        outputName: 'drift-report-format.md',
-        title: 'Drift Report (prospec-report.json) Format',
-      },
-    ],
-  };
-
-  return referenceMapCache[skillName] ?? [];
+  return projectStationDeployment(skillName);
 }

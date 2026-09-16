@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-5186%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5462%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -452,6 +452,7 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 
 - **Output Contract** — each Skill self-reports `Met N/M | Overall: PASS|WARN|FAIL` against objective criteria, so you don't hand-check artifacts.
+- **Station reference maps** — `prospec status` shows the next station's references by phase, including conditional loading hints. A shared registry drives generated reference maps and deployment inventories; `prospec check`'s `skill-reference-map` check detects missing files and mismatched phase citations. Run `prospec agent sync` to refresh deployed Skills after correcting their source. See the [CLI reference](reference/cli-reference.md).
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
 - **Skill instruction quality** — per-phase gate checklists (finer-grained than the skill-level Entry/Exit gates); outside the `prospec-ff` cascade, each linear-flow Skill (plan→tasks→implement→review→verify→archive) ends with a status-aware **next-step handoff**; new-session detection of in-progress changes to resume; `prospec-implement` re-anchors `Progress X/Y | Goal | Next` after each task; and `prospec-explore` / `prospec-knowledge-generate` warn when the Constitution is still substantively empty (its gates would otherwise be no-ops).
 - **Executable Constitution** — rules carry RFC-2119 severity (MUST→FAIL / SHOULD→WARN / MAY→advisory); `prospec-verify` grades against them.
@@ -659,7 +660,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (5186 total; 4 skipped)
+# Run all tests (5462 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -672,11 +673,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 5186 total tests (5182 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3731 tests
-- Contract tests (CLI output + Skill format): 1243 tests
-- Integration tests: 64 tests
-- E2E tests: 148 tests
+**Test Coverage**: 5462 total tests (5458 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3911 tests
+- Contract tests (CLI output + Skill format): 1313 tests
+- Integration tests: 83 tests
+- E2E tests: 155 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 
