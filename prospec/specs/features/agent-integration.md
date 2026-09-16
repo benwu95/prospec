@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-07
-story_count: 22
-req_count: 104
+last_updated: 2026-09-16
+story_count: 23
+req_count: 109
 ---
 
 # Agent Integration
@@ -13,6 +13,8 @@ req_count: 104
 Serves developers who use Prospec together with a variety of AI Agents (Claude Code, Antigravity CLI, Copilot, etc.). Agent Integration detects installed AI CLI tools and generates the corresponding configuration and SDD Skill files, so that AI Agents operate within Prospec's structured development workflow. Through three-layer Progressive Disclosure and a language-neutralization mechanism, it ensures Skills work correctly across different Agents and language environments.
 
 ## Slices
+
+- [US-445: Skill boundaries and localized exclusions](./agent-integration/us-445.md)
 
 - [US-400–US-402](./agent-integration/us-400.md)
 - [US-410–US-430](./agent-integration/us-410.md)
@@ -139,6 +141,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 ---
 
+
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -174,6 +177,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-16 | enrich-help-and-skill-descriptions | ADDED REQ-TYPES-097; ADDED REQ-SERVICES-110; ADDED REQ-TEMPLATES-231; ADDED REQ-AGNT-043; ADDED REQ-TESTS-117; MODIFIED REQ-AGNT-031; MODIFIED REQ-AGNT-033; MODIFIED REQ-AGNT-036; MODIFIED REQ-CLI-027; MODIFIED REQ-SERVICES-066 | REQ-TYPES-097, REQ-SERVICES-110, REQ-TEMPLATES-231, REQ-AGNT-043, REQ-TESTS-117, REQ-AGNT-031, REQ-AGNT-033, REQ-AGNT-036, REQ-CLI-027, REQ-SERVICES-066 |
 | 2026-09-07 | reduce-workflow-context | ADDED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TEMPLATES-151; MODIFIED REQ-AGNT-020; MODIFIED REQ-SKILL-012; MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-TEMPLATES-152 | REQ-TEMPLATES-151, REQ-AGNT-020, REQ-SKILL-012, REQ-TEMPLATES-121, REQ-TEMPLATES-152 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-TEMPLATES-121; MODIFIED REQ-SERVICES-089 | REQ-TEMPLATES-121, REQ-SERVICES-089 |
