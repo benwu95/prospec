@@ -36,6 +36,18 @@ knowledge:
     # no Sweep could clear it. PASS here comes from widening the budget, NOT from
     # the knowledge getting smaller.
     demand_knowledge_per_file: 20000
+    # Raised 5000->12500 (2026-09-18, issue #272 closed not-planned). The shipped
+    # default follows the Agent Skills guidance (<5,000 tokens per SKILL.md), but
+    # this project's four multi-phase gate skills carry an OPERATIONAL core that
+    # is itself ~2x that: verify 10,497 / archive 7,708 / plan 5,623 / review
+    # 5,353 tokens (chars/4). Three attempts to shrink them (#229, #230/#267,
+    # #272) showed that deleting prose barely moves the number and deleting the
+    # reference<->phase maps costs workflow completion (4/8 -> 1/8), while moving
+    # rationale into on-demand references saved only 776 tokens across the four.
+    # 12500 sits just above verify / 0.85 headroom, so PASS here comes from
+    # widening the budget, NOT from the skills getting smaller; the shipped
+    # default for downstream projects is unchanged.
+    skill_per_file: 12500
 artifact_language: Traditional Chinese (Taiwan)
 skill_triggers:
   prospec-explore:
