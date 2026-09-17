@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-16
-story_count: 24
-req_count: 112
+last_updated: 2026-09-17
+story_count: 25
+req_count: 114
 ---
 
 # Agent Integration
@@ -16,6 +16,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 
 - [US-445: Skill boundaries and localized exclusions](./agent-integration/us-445.md)
 - [US-446: One registry behind every station reference map](./agent-integration/us-446.md)
+- [US-447: Capability-aware station entry](./agent-integration/us-447.md)
 
 - [US-400–US-402](./agent-integration/us-400.md)
 - [US-410–US-430](./agent-integration/us-410.md)
@@ -40,10 +41,10 @@ Contract tests in `skill-format.test.ts` for candidate evaluation reference and 
 
 
 #### REQ-TEMPLATES-194: L0 Station Transition Protocol in entry config
-The generated agent entry config states a Station Transition Protocol: on advancing to any new SDD station, the agent reads that station's skill file before taking any station action.
-- WHEN `prospec agent sync` renders `entry.md.hbs`, THEN `## Working with This Project` contains a Station Transition Protocol instructing the agent to read the newly-entered station's skill file under `{{skill_path}}/` before acting, and to take the exact path from `prospec status`'s `action:` line
-- WHEN the protocol names the read action, THEN it uses harness-neutral wording (no harness-specific tool name such as `view_file` or `invoke_subagent`) and the resolved `{{skill_path}}`, never a hardcoded skills directory
-- WHEN the agent relies on prior-context memory to guess a station's constraints, THEN the protocol forbids it and requires re-reading the station skill
+The generated entry config states a capability-aware Station Transition Protocol that loads the selected station's instructions before any station action, on every transition and re-entry.
+- WHEN agent sync renders entry.md.hbs, THEN Working with This Project instructs the agent to run prospec status for the canonical skill identity and current map, invoke or reinvoke through the native skill mechanism for persistent-reattach, and use status-then-file-read for tool-output, unknown or unavailable native loading before station checks.
+- WHEN the protocol identifies a skill file, THEN it uses the resolved deployment path exposed as the separate status fallback field, never a hardcoded installation directory, and names no harness-specific tool or plugin agent type.
+- WHEN prior-context memory is used to guess a station's constraints, THEN the protocol forbids skipping the required reload or reinvocation, entry gates or applicable reference reads.
 
 ---
 
@@ -142,8 +143,6 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 ---
 
-
-
 ## Edge Cases
 
 - No AI CLI detected: list the supported ones and prompt for installation
@@ -179,6 +178,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-17 | enter-host-skill-stations | ADDED REQ-TYPES-100; ADDED REQ-TEMPLATES-233; MODIFIED REQ-TEMPLATES-194; MODIFIED REQ-TYPES-085 | REQ-TYPES-100, REQ-TEMPLATES-233, REQ-TEMPLATES-194, REQ-TYPES-085 |
 | 2026-09-16 | generate-station-reference-map | ADDED REQ-TYPES-099; ADDED REQ-TEMPLATES-232; ADDED REQ-TESTS-119; MODIFIED REQ-AGNT-030 | REQ-TYPES-099, REQ-TEMPLATES-232, REQ-TESTS-119, REQ-AGNT-030 |
 | 2026-09-16 | enrich-help-and-skill-descriptions | ADDED REQ-TYPES-097; ADDED REQ-SERVICES-110; ADDED REQ-TEMPLATES-231; ADDED REQ-AGNT-043; ADDED REQ-TESTS-117; MODIFIED REQ-AGNT-031; MODIFIED REQ-AGNT-033; MODIFIED REQ-AGNT-036; MODIFIED REQ-CLI-027; MODIFIED REQ-SERVICES-066 | REQ-TYPES-097, REQ-SERVICES-110, REQ-TEMPLATES-231, REQ-AGNT-043, REQ-TESTS-117, REQ-AGNT-031, REQ-AGNT-033, REQ-AGNT-036, REQ-CLI-027, REQ-SERVICES-066 |
 | 2026-09-07 | reduce-workflow-context | ADDED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |

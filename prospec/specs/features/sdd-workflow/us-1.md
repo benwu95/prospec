@@ -371,9 +371,9 @@ The test suite validates pipeline cascading components, oscillation breakers, pr
 ---
 
 #### REQ-TEMPLATES-195: Per-station Execution Loop in cascade protocol
-The cascading protocol reference defines a per-station Execution Loop whose first step reloads the station's skill.
-- WHEN a station is entered during cascading, THEN the loop runs Step 1 [LOAD] (read the station's `SKILL.md`) → Step 2 [ENTRY] (station entry gates) → Step 3 [EXEC] (per SKILL.md and its references) → Step 4 [GATE] (machine verifiers; FAIL trips the Oscillation Breaker) → Step 5 [NEXT] (`prospec status`, then back to Step 1)
-- WHEN the loop names the skill read, THEN it uses harness-neutral wording and a relative reference to the station skill, not an absolute or hardcoded path
+The cascading protocol defines a per-station execution loop whose first step loads the station instructions using the rendered host capability policy on every transition and re-entry.
+- WHEN a station is entered during cascading, THEN the loop runs Step 1 [LOAD] (invoke or reinvoke the station skill for persistent-reattach; otherwise run prospec status and read its SKILL.md, with native-load failure using the same fallback) → Step 2 [ENTRY] (station entry gates) → Step 3 [EXEC] (per SKILL.md and its on-demand references) → Step 4 [GATE] (machine verifiers; FAIL trips the Oscillation Breaker) → Step 5 [NEXT] (prospec status, then back to Step 1).
+- WHEN the loop identifies the skill, THEN it uses the canonical skill identity and harness-neutral guidance; fallback paths derive from deployment metadata, never an absolute or hardcoded installation root.
 
 ---
 
@@ -385,38 +385,47 @@ Heavy stations delegate to fresh context through the shared harness-capabilities
 ---
 
 #### REQ-TYPES-087: ChangeRoute carries the next station's skill path
-The `ChangeRoute` contract carries an optional `nextSkillPath` string for the next station's skill file.
-- WHEN a next station and a configured agent both resolve, THEN `nextSkillPath` is the resolved skill file path
-- WHEN the change is terminal or no agent is configured, THEN `nextSkillPath` is absent
+The ChangeRoute contract carries an optional canonical nextSkill identity alongside the existing optional nextSkillPath for the next station's skill file. These fields are display-only and do not decide routing.
+- WHEN a next station and a configured agent both resolve, THEN nextSkill is STATION_SKILLS[next] and nextSkillPath is the resolved skill file path.
+- WHEN the change is terminal, THEN nextSkill and nextSkillPath are absent.
+- WHEN a next station resolves but no agent configuration is readable or configured, THEN nextSkill is still present and nextSkillPath remains absent.
+- WHEN structured status is returned, THEN nextSkill is additive and all existing route fields and reference-map meanings are preserved.
 
 ---
 
 #### REQ-LIB-059: Pure resolver for the next station's skill path
-A pure resolver derives the next station's skill file path from the configured agents and the target station.
-- WHEN given a non-empty agent list and a non-null station, THEN it returns `{canonicalSkillPath}/{STATION_SKILLS[station] without leading slash}/SKILL.md`, where the canonical skill path comes from the first configured agent's registry entry
-- WHEN the agent list is empty or the station is null, THEN it returns null
-- WHEN resolving, THEN it performs no I/O (agent names and station are passed in)
+A pure resolver derives the next station's canonical skill identity from STATION_SKILLS, separately from the existing configured-agent skill file path resolver.
+- WHEN given a non-null station, THEN resolveNextSkill returns STATION_SKILLS[station] without a host sigil; when the station is null it returns null, independently of configured agents.
+- WHEN given a non-empty agent list and a non-null station, THEN resolveNextSkillPath returns {canonicalSkillPath}/{STATION_SKILLS[station]}/SKILL.md, where the canonical root comes from the first configured agent's registry entry, retaining its existing path semantics.
+- WHEN the agent list is empty or the station is null, THEN the path resolver returns null.
+- WHEN resolving identity or path, THEN no I/O is performed and no station decision is changed.
 
 ---
 
 #### REQ-SERVICES-092: status service attaches the resolved skill path
-The status service enriches each routed change with its next station's resolved skill path.
-- WHEN the service routes a change, THEN it calls the pure resolver with the project's configured agents and the routed next station and sets `nextSkillPath` on the route
-- WHEN config cannot be read or declares no agents, THEN the route's `nextSkillPath` stays absent and routing is otherwise unchanged
+The status service enriches each route with the next station's canonical skill identity and any resolvable deployment path, using the pure resolvers.
+- WHEN the service routes a non-terminal change, THEN it calls the identity resolver with the routed next station and sets nextSkill, and separately resolves nextSkillPath from the configured agents.
+- WHEN config cannot be read or declares no agents, THEN nextSkill still identifies the routed station, nextSkillPath stays absent and routing is otherwise unchanged.
+- WHEN the route is terminal, THEN no nextSkill, skill path or reference map is fabricated.
+- WHEN enrichment runs, THEN the filesystem stays byte-identical and current, next, code, blocking gates and reasons are unchanged; the existing reference-map projection and filtering are retained.
 
 ---
 
 #### REQ-CLI-039: status output surfaces the actionable skill target
-`prospec status` surfaces the next station's skill file as an actionable target.
-- WHEN a routed change has a `nextSkillPath`, THEN the output prints, below `next:`, an `action:` line naming that path and instructing the agent to read the skill file before executing station checks
-- WHEN `nextSkillPath` is absent, THEN the output is unchanged (slash-command `next:` only), never a hardcoded skills directory
+prospec status presents the canonical next-station skill identity as the primary actionable target and a resolvable skill path as a separate fallback field. It does not infer the running host or promise any lifecycle capability.
+- WHEN a routed change has nextSkill, THEN an action line below next names invoke skill prospec-<name> with guidance to follow the host loading policy; a nextSkillPath, if present, is printed separately as fallback: read <path> before station checks.
+- WHEN a non-terminal route has no configured agent, THEN the skill action is still present without a fabricated fallback directory.
+- WHEN the route is terminal, THEN no station action or fallback is printed and the existing terminal guidance is retained.
+- WHEN formatting, THEN existing status, issue, next, reference-map, gate, reason and warning output is retained, repository-derived values including fallback paths are sanitized, and no routing or capability decision is made by the formatter.
 
 ---
 
 #### REQ-TESTS-094: Contract, unit, and e2e coverage for station-transition awareness
-The test suite pins the station-transition awareness contracts.
-- WHEN contract tests run, THEN they assert `entry.md.hbs` renders a Station Transition Protocol using `{{skill_path}}` with no harness tool name, `cascade-protocol.hbs` defines the Step 1 [LOAD] per-station loop, and a repo-wide sweep finds no named plugin agent type or harness tool name in any skill/reference body
-- WHEN unit tests run, THEN they assert `resolveNextSkillPath` returns the composed path for a configured agent and null otherwise, and that `status.service` sets `nextSkillPath` from config
-- WHEN an e2e test runs `prospec status` on a change with a configured agent, THEN the output contains the resolved skill path and the read-first action line
+The test suite pins capability-aware station-transition contracts with registry, unit, real-render integration, contract and CLI coverage.
+- WHEN contract tests run, THEN each of the four hosts has section-scoped entry and cascade assertions for its lifecycle branch, re-entry and fallback; an applied mutation removing a required branch or leaking a forbidden host-specific name makes the corresponding assertion fail.
+- WHEN group tests run, THEN all-persistent, all-tool-output, mixed, unknown and empty groups, member-order reversal and duplicate members exercise the conservative reducer; init's provisional entry and shared-output sync are covered independently.
+- WHEN unit tests run, THEN identity and path resolvers, status enrichment with unreadable or empty configuration, terminal routes and all station targets retain their specified semantics; routing decisions are identical for unchanged workflow facts.
+- WHEN e2e status runs, THEN identity-first action, optional separate fallback, additive JSON and existing phase/reference-map output are checked, with no-agent and terminal behavior covered by the appropriate lower-level fixtures.
+- WHEN generated output is inspected, THEN no named plugin agent type or harness tool name occurs in skill/reference transition instructions, shared output is written once, repeated sync is stable, and user-managed content is preserved.
 
 ---

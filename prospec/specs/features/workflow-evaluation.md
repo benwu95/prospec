@@ -1,7 +1,7 @@
 ---
 feature: workflow-evaluation
 status: active
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 story_count: 1
 req_count: 3
 ---
@@ -48,6 +48,10 @@ An opt-in development runner executes the same versioned scenarios against basel
 - WHEN reporting, THEN retain revision/content identity, corpus/oracle hashes, redacted configuration, traces, payload-validation and adjudication evidence; report route accuracy, payload first-pass, forbidden actions, false PASS, unnecessary suite runs, completion, input/output usage and elapsed time.
 - WHEN measuring context, THEN distinguish skill body, loaded references, per-station and workflow cumulative costs, count repeated reads separately from unique content and keep chars/4 estimates, provider usage and unavailable values distinct.
 - WHEN executors or complete observations are unavailable, THEN mark the comparison incomplete, never claim cross-model passage from offline fixtures or skipped runs, and keep paid execution outside ordinary CI and downstream installation requirements.
+- WHEN adjudicating required instruction arrival, THEN successful observed file-content reads and successful observed native skill-content loads may satisfy the same frozen required content identity; a skill name, attempted invocation, process success, file existence or final narration alone never suffices.
+- WHEN native load evidence cannot establish the required content, its identity or completion, THEN the required-content dimension remains unobserved and completion remains incomplete; references and project files still require their own arrival evidence, and no skill invocation implies its reference closure arrived.
+- WHEN adapting the oracle from path reads to content arrival, THEN retain the eight scenarios, independent expected inventory, strict/graded attribution and certified/disclosed distinctions; graded station evidence accepts a certified native skill load equivalently to the existing station skill read while strict command-based routing remains unchanged.
+- WHEN native load observations contribute to context accounting, THEN count only observed content, distinguish first content injection from a verified same-content deduplicated load, and never invent a token count or duplicate file-read event from an invocation name.
 
 ---
 
@@ -58,6 +62,8 @@ Offline Vitest tests validate corpus/schema/scoring behavior and instruction con
 - WHEN validating the change, THEN pass Unit/Contract/integration/e2e, lint, typecheck, coverage of at least 80%, factual-count, generated-agent, Knowledge-sync and strict drift checks; ordinary CI remains independent of paid model services.
 - WHEN generating mandatory-policies.json, THEN skill-reference dependency edges derive from the registry's startup-mandatory projection; existing scenario roots, project-file dependencies, empty leaves, audit fields, policy values and ceilings remain equal to the version-controlled pre-migration baseline.
 - WHEN validating the generated policy, THEN an independent parser still compares the deployed Startup Loading mandatory citations, and conditional in-phase references remain outside that legacy startup-only metric rather than silently expanding it.
+- WHEN testing instruction arrival across all eight scenarios, THEN equivalent observed file-read and native-content traces satisfy the same required inventory, while name-only, failed, truncated, wrong-content-identity and missing-reference traces cannot certify completion.
+- WHEN migrating required-content evidence, THEN native graded station detection and context metrics are regression-tested alongside required_reads; the mediated runner remains compatible, existing ceilings and mandatory reference policies are not widened, and offline tooling tests are never reported as live executor evidence.
 
 ---
 
@@ -89,5 +95,6 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-17 | enter-host-skill-stations | MODIFIED REQ-TESTS-115; MODIFIED REQ-TESTS-116 | REQ-TESTS-115, REQ-TESTS-116 |
 | 2026-09-16 | generate-station-reference-map | MODIFIED REQ-TESTS-116 | REQ-TESTS-116 |
 | 2026-09-07 | reduce-workflow-context | Created from archive | REQ-TESTS-114, REQ-TESTS-115, REQ-TESTS-116 |
