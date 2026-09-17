@@ -199,11 +199,63 @@ describe('CLI E2E — change & spec', () => {
       expect(stdout).toContain('add-feature');
       expect(stdout).toMatch(/next:\s+prospec-plan/);
       expect(stdout).not.toMatch(/next:\s+\/prospec-plan/);
-      // Solution B (REQ-CLI-039): the next station is surfaced as an actionable
-      // skill target — the resolved path (from the configured `claude` agent),
-      // plus the read-first instruction — never a hardcoded skills directory.
-      expect(stdout).toContain('.claude/skills/prospec-plan/SKILL.md');
+      // REQ-CLI-039: the next station is surfaced as an actionable target — the
+      // canonical skill identity as the action, and the path resolved from the
+      // configured `claude` agent as a separate fallback, never a hardcoded dir.
+      expect(stdout).toMatch(/action:\s+invoke skill prospec-plan/);
+      expect(stdout).toMatch(/fallback:\s+read \.claude\/skills\/prospec-plan\/SKILL\.md/);
       expect(stdout).toContain('before executing station checks');
+      // The reference map still resolves against the SAME agent deployment.
+      expect(stdout).toMatch(/read:\s+.*\.claude\/skills\/prospec-plan\/references\//);
+    });
+
+    it('keeps the skill action when the project configures no agent, without inventing a path', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'status-test' }),
+      );
+      await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      // Drop the agents list: the deployment root is gone, the station is not.
+      const configPath = path.join(tmpDir, '.prospec.yaml');
+      const config = await fs.promises.readFile(configPath, 'utf-8');
+      await fs.promises.writeFile(
+        configPath,
+        config.split('\n').filter((line) => !/^\s*(agents:|\s*- claude)/.test(line)).join('\n'),
+      );
+
+      const { stdout, exitCode } = await runCli(['status']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/action:\s+invoke skill prospec-plan/);
+      expect(stdout).not.toContain('fallback:');
+      expect(stdout).not.toContain('.claude/skills');
+    });
+
+    it('carries the identity additively in --json, beside the existing route fields', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'status-test' }),
+      );
+      await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
+      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+
+      const { stdout, exitCode } = await runCli(['status', '--json']);
+      expect(exitCode).toBe(0);
+      const report = JSON.parse(stdout) as {
+        changes: {
+          next: string;
+          nextSkill?: string;
+          nextSkillPath?: string;
+          nextReferenceMap?: unknown[];
+          code: string;
+        }[];
+      };
+      const route = report.changes[0]!;
+      expect(route.next).toBe('plan');
+      expect(route.nextSkill).toBe('prospec-plan');
+      expect(route.nextSkillPath).toBe('.claude/skills/prospec-plan/SKILL.md');
+      expect(route.code).toBe('LIFECYCLE_NEXT');
+      expect(Array.isArray(route.nextReferenceMap)).toBe(true);
     });
 
     it('should fail without .prospec.yaml', async () => {

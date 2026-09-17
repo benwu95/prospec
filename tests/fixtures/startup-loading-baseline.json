@@ -52,7 +52,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4961
+      "mandatory_context_tokens": 4935
     },
     "prospec-implement": {
       "items": [
@@ -185,7 +185,7 @@
     "adapter-penpot": 490,
     "archive-format": 1211,
     "candidate-evaluation": 2211,
-    "cascade-protocol": 2126,
+    "cascade-protocol": 2137,
     "circuit-breaker": 1150,
     "debug-recovery-format": 1307,
     "delegated-evidence-format": 2849,

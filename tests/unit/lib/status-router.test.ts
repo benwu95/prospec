@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { routeChange, resolveNextSkillPath } from '../../../src/lib/status-router.js';
-import { WORKFLOW_REASON_CODES, type ChangeRouteFacts } from '../../../src/types/status.js';
+import { routeChange, resolveNextSkill, resolveNextSkillPath } from '../../../src/lib/status-router.js';
+import {
+  SDD_STATIONS,
+  STATION_SKILLS,
+  WORKFLOW_REASON_CODES,
+  type ChangeRouteFacts,
+} from '../../../src/types/status.js';
 import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
 
 /**
@@ -406,5 +411,45 @@ describe('resolveNextSkillPath — actionable skill target (REQ-LIB-059)', () =>
 
   it('returns null for an unknown agent name (never a hardcoded directory)', () => {
     expect(resolveNextSkillPath(['bogus-agent'], 'verify')).toBeNull();
+  });
+});
+
+
+describe('resolveNextSkill — canonical station identity (REQ-LIB-059)', () => {
+  it('names the canonical skill for every station, without a host sigil', () => {
+    for (const station of SDD_STATIONS) {
+      const identity = resolveNextSkill(station);
+      expect(identity, station).toBe(STATION_SKILLS[station]);
+      expect(identity, `${station} identity must carry no host sigil`).toMatch(/^prospec-[a-z-]+$/);
+    }
+  });
+
+  it('maps the station to its skill name, not prospec-{station} (story → prospec-new-story)', () => {
+    expect(resolveNextSkill('story')).toBe('prospec-new-story');
+    expect(resolveNextSkill('promote')).toBe('prospec-promote-backfill');
+  });
+
+  it('returns null at a terminal change (station is null)', () => {
+    expect(resolveNextSkill(null)).toBeNull();
+  });
+
+  it('is independent of configured agents — identity survives where the path resolver gives up', () => {
+    // The identity is what a host invokes; it exists whether or not this project
+    // configures an agent whose deployment root a file path could be built from.
+    expect(resolveNextSkill('verify')).toBe('prospec-verify');
+    expect(resolveNextSkillPath([], 'verify')).toBeNull();
+    expect(resolveNextSkillPath(['bogus-agent'], 'verify')).toBeNull();
+  });
+
+  it('performs no I/O and decides no route — the same facts route identically either way', () => {
+    for (const status of CHANGE_STATUSES) {
+      for (const scale of CHANGE_SCALES) {
+        const before = routeChange(facts({ status, scale }));
+        const identity = resolveNextSkill(before.next);
+        const after = routeChange(facts({ status, scale }));
+        expect(after).toEqual(before);
+        expect(identity).toBe(before.next === null ? null : STATION_SKILLS[before.next]);
+      }
+    }
   });
 });

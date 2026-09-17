@@ -308,8 +308,24 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
 }
 
 /**
+ * The canonical skill identity for a change's next station — what `prospec
+ * status` names as the primary target, because it is the one form every host can
+ * act on: a host with its own skill mechanism invokes it, a host without one
+ * resolves it to a file through `resolveNextSkillPath`.
+ *
+ * Pure — no I/O, and deliberately independent of the configured agents: the
+ * identity exists even where no deployment root does, so an unreadable or empty
+ * agent configuration costs the caller the fallback path, never the target.
+ * Returns null only for a terminal change (no next station).
+ */
+export function resolveNextSkill(station: SddStation | null): string | null {
+  return station === null ? null : STATION_SKILLS[station];
+}
+
+/**
  * Resolve the skill file path for a change's next station, so `prospec status`
- * can hand the agent an actionable read target (Station Transition Protocol).
+ * can hand a host with no skill mechanism of its own an actionable read target
+ * (Station Transition Protocol).
  *
  * Pure — no I/O. The caller passes the project's configured agent names (from
  * `config.agents`) and the routed next station. The canonical skill path is the

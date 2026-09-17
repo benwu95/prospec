@@ -65,7 +65,7 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       'Run at the start of a session, before any station skill: it names the in-flight change and the next station to enter. Not for reading a change\'s artifacts (read the files) and not for advancing a status (`prospec change status`).',
     example: 'prospec status --json',
     returns:
-      'One block per in-flight change — name, status, the `next:` station, then the lines that apply: `issue:` when the change registered one, an `action:` line naming the skill file to read when a next station exists, blocking `gate:` lines and unresolved `warn:` lines. With `--json` the same facts are written to stdout as JSON.',
+      'One block per in-flight change — name, status, the `next:` station, then the lines that apply: `issue:` when the change registered one, an `action:` line naming the next station\'s canonical Skill to invoke (`invoke skill prospec-<name>`) when a next station exists, a `fallback:` line giving the skill file to read when the host has no skill mechanism of its own — printed whenever the project configures an agent, absent for a terminal route — blocking `gate:` lines and unresolved `warn:` lines. With `--json` the same facts are written to stdout as JSON.',
   },
   'change log': {
     whenToUse:

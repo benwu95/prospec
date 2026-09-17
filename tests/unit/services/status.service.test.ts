@@ -647,6 +647,97 @@ describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.nextSkillPath).toBeUndefined();
   });
+
+  it('sets the canonical skill identity beside the path (REQ-SERVICES-092)', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.nextSkill).toBe('prospec-tasks');
+    expect(report.changes[0]?.nextSkillPath).toBe('.claude/skills/prospec-tasks/SKILL.md');
+  });
+
+  it('keeps the identity when no agent is configured — only the fallback path is lost', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.nextSkill).toBe('prospec-tasks');
+    expect(report.changes[0]?.nextSkillPath).toBeUndefined();
+  });
+
+  it('keeps the identity when the config cannot be read at all', async () => {
+    // A malformed .prospec.yaml costs the deployment root, not the station: the
+    // identity comes from the route, which is computed from the change itself.
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project: [unclosed\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'plan',
+      }),
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('tasks');
+    expect(report.changes[0]?.nextSkill).toBe('prospec-tasks');
+    expect(report.changes[0]?.nextSkillPath).toBeUndefined();
+  });
+
+  it('names the identity of every station it routes to, and none at a terminal route', async () => {
+    // Walk the statuses the router places differently, so an identity wired to one
+    // station (or to the path resolver's station) cannot pass by coincidence.
+    for (const [status, skill] of [
+      ['story', 'prospec-plan'],
+      ['plan', 'prospec-tasks'],
+      ['tasks', 'prospec-implement'],
+      ['implemented', 'prospec-review'],
+    ] as const) {
+      vol.reset();
+      vol.fromJSON({
+        [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+        [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status }),
+      });
+      const report = await execute({ cwd: CWD });
+      expect(report.changes[0]?.nextSkill, status).toBe(skill);
+    }
+    // An archived change is not reported at all — there is no station to name.
+    vol.reset();
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status: 'archived' }),
+    });
+    const archived = await execute({ cwd: CWD });
+    expect(archived.changes).toHaveLength(0);
+  });
+
+  it('adds the identity without changing any routing verdict or touching the tree', async () => {
+    const files = {
+      [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+        name: 'add-auth',
+        status: 'tasks',
+      }),
+    };
+    vol.fromJSON(files);
+    const before = vol.toJSON();
+    const report = await execute({ cwd: CWD });
+    const route = report.changes[0]!;
+    // Identity is additive: strip it and the route is exactly what it was.
+    const { nextSkill, ...rest } = route;
+    expect(nextSkill).toBe('prospec-implement');
+    expect(rest.current).toBe('tasks');
+    expect(rest.next).toBe('implement');
+    expect(rest.code).toBe('LIFECYCLE_NEXT');
+    expect(rest.blockingGates.length).toBeGreaterThan(0);
+    expect(vol.toJSON()).toEqual(before);
+  });
 });
 
 /**

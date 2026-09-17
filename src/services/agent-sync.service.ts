@@ -28,13 +28,12 @@ import {
   SKILL_DEFINITIONS,
   AGENT_CONFIGS,
   HARNESS_CAPABILITY_KEYS,
-  RENDER_FLAG_KEYS,
   intersectCapabilities,
   mergeGroupInvocationGuidance,
   mergeGroupRenderFlags,
+  renderFlagContext,
   skillHasReferences,
   type AgentConfig,
-  type AgentRenderFlags,
   type AgentSyncResult,
   type HarnessCapabilities,
   type SkillConfig,
@@ -335,23 +334,6 @@ function harnessCapabilityContext(
     HARNESS_CAPABILITY_KEYS.map((key) => [
       key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
       capabilities[key],
-    ]),
-  );
-}
-
-/**
- * Expand merged render flags into the `snake_case` render keys the entry
- * template branches on (`{{#if surfaces_skill_frontmatter}}`).
- */
-function renderFlagContext(flags: AgentRenderFlags): Record<string, boolean> {
-  // Derived from the canonical key list, not hand-mapped — same reason as
-  // `harnessCapabilityContext`: a new flag reaches the template instead of
-  // stopping at a forgotten literal. `surfacesSkillFrontmatter` →
-  // `surfaces_skill_frontmatter`.
-  return Object.fromEntries(
-    RENDER_FLAG_KEYS.map((key) => [
-      key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
-      flags[key],
     ]),
   );
 }

@@ -6,7 +6,7 @@ This document defines the **Autonomous Pipeline Cascading Protocol** used by `pr
 
 ## Purpose
 
-To eliminate the biological tax and friction of manual dispatch across SDD lifecycle stations (`story → plan → tasks → implement → review → verify → knowledge-update → archive`), this protocol enables **Type III Autonomous Execution**:
+To remove the friction of manual dispatch across SDD lifecycle stations (`story → plan → tasks → implement → review → verify → knowledge-update → archive`), this protocol enables **Type III Autonomous Execution**:
 - The AI Agent autonomously manages state transitions and progressive context loading across stations.
 - Verifier results (Plan Verifier, Tasks Verifier, Review findings, Verify 5+1 audit) serve as deterministic machine gates for stage progression.
 - The human developer transitions from a step-by-step dispatcher to a high-level strategic director and **Tastemaker** (responsible for initial intent and final delivery sign-off).
@@ -40,11 +40,11 @@ A UI change (`proposal.md` `ui_scope` full/partial) inserts `design` between `pl
 
 ## Per-Station Execution Loop
 
-Every station — whether reached via `prospec status` or by autonomous cascading — runs the SAME loop. Never skip Step 1 on the assumption that context memory already holds the station's rules:
+Every station — whether reached via `prospec status` or by autonomous cascading — runs the SAME loop:
 
-1. **Step 1 [LOAD]** — Read the station's `SKILL.md` (the skill `prospec status` names for the station you are entering) with your file-reading tool. Re-read it on every transition — a long session's accumulated diff and logs dilute the station's initial instructions.
+1. **Step 1 [LOAD]** — Run `prospec status`, then load the station it names: invoke — or re-invoke — its `prospec-<name>` Skill through this host's own skill mechanism, and read the fallback file it prints when that mechanism is unavailable — on every transition and re-entry, never from memory. If neither route yields the instructions, stop and name what is missing.
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
-3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand.
+3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
 5. **Step 5 [NEXT]** — Run `prospec status` for the next station, then return to Step 1.
 

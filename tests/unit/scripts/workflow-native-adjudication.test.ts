@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { adjudicateNativeCapture, observeNativeOperations } from '../../../scripts/workflow-eval/native-adjudication.js';
+import { adjudicateNativeCapture, observeContentArrivals, observeNativeOperations } from '../../../scripts/workflow-eval/native-adjudication.js';
 import { OracleSchema } from '../../../scripts/workflow-eval/protocol.js';
 
 const root = '/home/evaluator/quick';
@@ -11,21 +11,24 @@ const report = JSON.stringify({ verdict: 'WARN', evidence: 'Read tasks.md, propo
     .map((name) => [name, { result: name === 'tdd_module_closure' ? 'WARN' : 'PASS', rationale: `${name} rationale` }])) });
 const metadata = (status: string, logged = true) => `name: x\ncreated_at: "2026-09-05"\nstatus: ${status}\nscale: quick\n` +
   (logged ? 'quality_log:\n  - skill: prospec-tasks\n    date: 2026-09-06\n    result: WARN\n    warnings:\n      - "sizing advisory"\n    verifier_verdict: WARN\n' : '');
-const before = { '.prospec/changes/x/metadata.yaml': metadata('story', false), '.prospec/changes/x/proposal.md': '# Proposal: x\n', 'README.md': '# Fixture\n' };
+const stationFiles = Object.fromEntries(['tasks', 'review', 'verify', 'archive'].map((station) =>
+  [`.agents/skills/prospec-${station}/SKILL.md`, `# ${station} instructions\n`]));
+const before: Record<string, string> = { ...stationFiles, '.prospec/changes/x/metadata.yaml': metadata('story', false), '.prospec/changes/x/proposal.md': '# Proposal: x\n', 'README.md': '# Fixture\n' };
 const after = { ...before, '.prospec/changes/x/metadata.yaml': metadata('tasks'),
   '.prospec/changes/x/tasks.md': '# Tasks: x\n\n- [ ] T1 fix spelling\n', '.prospec/changes/x/tasks-verifier-report.json': report };
 
-const claudeUse = (name: string, input: Record<string, unknown>, id: string, child = false) => ([
+const claudeUse = (name: string, input: Record<string, unknown>, id: string, child = false, payload: unknown = name === 'Read'
+  ? before[String(input.file_path).replace(`${root}/`, '')] ?? null : 'ok') => ([
   { type: 'assistant', ...(child ? { parent_tool_use_id: 'toolu_agent' } : {}), message: { content: [{ type: 'tool_use', id, name, input }] } },
-  { type: 'user', ...(child ? { parent_tool_use_id: 'toolu_agent' } : {}), message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'ok' }] } },
+  { type: 'user', ...(child ? { parent_tool_use_id: 'toolu_agent' } : {}), message: { content: [{ type: 'tool_result', tool_use_id: id, content: payload }] } },
 ]);
 const agyTool = (index: number, tool_name: string, parameters: Record<string, unknown>) => ([
   { event: 'step_update', step_update: { step_index: index, state: 'ACTIVE', step_type: 'tool', tool_name, tool_info: { name: tool_name, parameters } } },
   { event: 'step_update', step_update: { step_index: index, state: 'DONE', step_type: 'tool', tool_name, tool_info: { name: tool_name, parameters } } },
 ]);
 const cli = `"/opt/node/bin/node" "/opt/prospec-eval/workflow-runtime.mjs"`;
-const claudeRecords = () => [
-  ...claudeUse('Read', { file_path: `${root}/.agents/skills/prospec-ff/SKILL.md` }, 't1'),
+const claudeRecords = (skillContent: string | null = null) => [
+  ...claudeUse('Read', { file_path: `${root}/.agents/skills/prospec-ff/SKILL.md` }, 't1', false, skillContent),
   ...claudeUse('Read', { file_path: `${root}/.prospec/changes/x/proposal.md` }, 't2'),
   ...claudeUse('Bash', { command: `${cli} change tasks --change x` }, 't3'),
   ...claudeUse('Write', { file_path: `${root}/.prospec/changes/x/tasks.md` }, 't4'),
@@ -81,7 +84,7 @@ describe('native capture adjudication', () => {
   it('measures the instruction context a run actually loaded from the fixture', async () => {
     const skill = '.agents/skills/prospec-ff/SKILL.md';
     const withSkill = { ...before, [skill]: '# ff\n'.repeat(200) };
-    const loaded = adjudicateNativeCapture({ ...capture('claude'),
+    const loaded = adjudicateNativeCapture({ ...capture('claude', { records: claudeRecords(withSkill[skill]) }),
       before: { artifacts: encode(withSkill) }, after: { artifacts: encode({ ...after, [skill]: withSkill[skill] }), runtime_unchanged: true } },
       await oracle());
     expect(loaded.context.available).toBe(true);
@@ -100,11 +103,12 @@ describe('native capture adjudication', () => {
     const result = adjudicateNativeCapture(capture('agy'), await oracle());
     expect(result.dimensions.independent_receipt).toMatchObject({ strict: 'unobserved', graded: 'satisfied', evidence: 'inferred-from-absence' });
     expect(result.metrics.strict.complete).toBe(false);
-    expect(result.metrics.strict.failures).toEqual(['independent_receipt']);
+    expect(result.metrics.strict.failures).toEqual(['independent_receipt', 'required_reads']);
     // An unobservable dimension is not a contradicted claim: this run is incomplete, not a false PASS.
     expect(result.metrics.strict.false_pass).toBe(0);
     expect(result.metrics.graded.false_pass).toBe(0);
-    expect(result.metrics.graded.complete).toBe(true);
+    expect(result.metrics.graded.complete).toBe(false);
+    expect(result.dimensions.required_reads.strict).toBe('unobserved');
     // A parent-written receipt is not independent under either standard.
     const parentWritten = capture('agy', { records: [...agyRecords().slice(0, -1),
       ...agyTool(14, 'write_to_file', { TargetFile: `${root}/.prospec/changes/x/tasks-verifier-report.json` })] });
@@ -450,5 +454,270 @@ describe('native capture adjudication', () => {
     const standard = OracleSchema.parse(JSON.parse(await readFile('tests/fixtures/workflow-eval/private/standard-ui.json', 'utf8')));
     expect(() => adjudicateNativeCapture(capture('claude'), standard)).toThrow(/scenario/i);
     expect(() => adjudicateNativeCapture({ ...capture('claude'), before: { artifacts: { encoding: 'utf8', files: {}, unavailable: [] } } }, standard)).toThrow();
+  });
+});
+
+/**
+ * Required instruction arrival is judged on CONTENT, not on the carrier (issue
+ * #271): a host that loads a station through its own skill mechanism arrives at
+ * the same frozen instructions a file read delivers. What is never enough is a
+ * name, a success flag, a truncated or wrong payload, or a deduplicated load with
+ * no earlier verified content in the same capture.
+ */
+describe('required instruction arrival — read and native skill load', () => {
+  const skillPath = '.agents/skills/prospec-ff/SKILL.md';
+  const skillBody = `---\nname: prospec-ff\n---\n\n# Prospec FF Skill\n\n${'Follow the cascading protocol.\n'.repeat(20)}`;
+  const frozen = { ...before, [skillPath]: skillBody };
+  // The oracle's required read is the proposal; this suite asks the same question
+  // of the SKILL.md the graded route and the context ledger also key on, so the
+  // required inventory is pointed at it explicitly.
+  const requiredSkillOracle = async () => ({ ...(await oracle()), required_reads: [skillPath] });
+
+  const claudeResult = (id: string, content: unknown) => ({
+    type: 'user',
+    message: { content: [{ type: 'tool_result', tool_use_id: id, content }] },
+  });
+  const skillLoad = (id: string, content: unknown, name = 'prospec-ff') => [
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Skill', input: { skill: name } }] } },
+    claudeResult(id, content),
+  ];
+  const withRecords = (records: unknown[]) => ({
+    ...capture('claude', { records, after: { ...after, [skillPath]: skillBody } }),
+    before: { artifacts: encode(frozen) },
+  });
+  // The base run minus its own SKILL.md read, so each case supplies the arrival.
+  const withoutSkillRead = () => claudeRecords().slice(2);
+
+  it('credits a native skill load whose observed content is the frozen station instructions', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', skillBody), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(result.dimensions.required_reads.strict).toBe('satisfied');
+    expect(result.dimensions.required_reads.detail).toEqual([]);
+  });
+
+  it('accepts the same content delivered as text blocks', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', [{ type: 'text', text: skillBody }]), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(result.dimensions.required_reads.strict).toBe('satisfied');
+  });
+
+  it('treats an equivalent file read and native load identically', async () => {
+    const viaRead = adjudicateNativeCapture(withRecords(claudeRecords(skillBody)), await requiredSkillOracle());
+    const viaLoad = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', skillBody), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(viaLoad.dimensions.required_reads).toEqual(viaRead.dimensions.required_reads);
+    expect(viaLoad.metrics.graded.complete).toBe(viaRead.metrics.graded.complete);
+  });
+
+  it.each([
+    ['a name-only invocation with no observed content', (): unknown[] => [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't0', name: 'Skill', input: { skill: 'prospec-ff' } }] } },
+    ]],
+    ['a failed load', (): unknown[] => [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't0', name: 'Skill', input: { skill: 'prospec-ff' } }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't0', is_error: true, content: 'skill not found' }] } },
+    ]],
+    ['a truncated payload', (): unknown[] => skillLoad('t0', `${skillBody.slice(0, 40)}…[truncated]`)],
+    ['content from another station', (): unknown[] => skillLoad('t0', '# A different skill entirely\n')],
+    ['a deduplicated load with no earlier verified content', (): unknown[] => skillLoad('t0', 'Skill prospec-ff already loaded')],
+  ])('leaves the requirement unobserved for %s', async (_label, records) => {
+    const result = adjudicateNativeCapture(
+      withRecords([...records(), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(result.dimensions.required_reads.strict).toBe('unobserved');
+    expect(result.dimensions.required_reads.detail.join(' ')).toContain(skillPath);
+    expect(result.metrics.strict.complete).toBe(false);
+  });
+
+  it.each(['Skill prospec-ff already loaded', 'wrong station payload', 'truncated…'])('R271-C1 never re-injects earlier bytes for %s', (message) => {
+    const operations = observeNativeOperations('claude', [
+      ...skillLoad('full', skillBody), ...skillLoad('repeat', message),
+    ], root);
+    const arrivals = observeContentArrivals(operations, () => skillBody);
+    expect(arrivals.filter((arrival) => arrival.content === skillBody)).toHaveLength(1);
+  });
+
+  it.each([null, 'ok', skillBody.slice(0, 40)])('R271-C2 does not certify a read from missing or partial content: %s', async (payload) => {
+    const records = [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'partial', name: 'Read', input: { file_path: `${root}/${skillPath}`, limit: 1 } }] } },
+      claudeResult('partial', payload),
+    ];
+    const result = adjudicateNativeCapture(withRecords(records), await requiredSkillOracle());
+    expect(result.dimensions.required_reads.strict).toBe('unobserved');
+    expect(result.metrics.graded.route_correct).toBe(0);
+    expect(result.context.loads.some((load) => load.bytes === Buffer.byteLength(skillBody))).toBe(false);
+  });
+
+  it('credits a deduplicated load only after the same content was verified in this capture', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([
+        ...skillLoad('t0', skillBody),
+        ...skillLoad('t9', 'Skill prospec-ff already loaded'),
+        ...withoutSkillRead(),
+      ]),
+      await requiredSkillOracle(),
+    );
+    expect(result.dimensions.required_reads.strict).toBe('satisfied');
+    // Only the observed marker is counted; the previously verified body is not reinjected.
+    expect(result.context.loads.map((load) => load.path)).toEqual([skillPath, skillPath]);
+    const [first, repeat] = result.context.loads;
+    expect(repeat!.digest).not.toBe(first!.digest);
+    expect(repeat!.bytes).toBe(Buffer.byteLength('Skill prospec-ff already loaded'));
+    expect(result.context.estimated_tokens).toBe(first!.estimated_tokens + repeat!.estimated_tokens);
+    expect(result.context.unique_estimated_tokens).toBe(result.context.estimated_tokens);
+    // The ledger records the distinction: first injection, then a verified repeat.
+    expect(result.context.loads.map((load) => [load.via, load.deduplicated])).toEqual([['load', false], ['load', true]]);
+    const observed = observeContentArrivals(observeNativeOperations('claude', [
+      ...skillLoad('full', skillBody), ...skillLoad('repeat', 'Skill prospec-ff already loaded'),
+    ], root), () => skillBody);
+    expect(observed.map((arrival) => arrival.deduplicated)).toEqual([false, true]);
+  });
+
+  it('records a marker with no earlier verified content as an unverified load, not a deduplicated one', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t9', 'Skill prospec-ff already loaded'), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(result.context.loads.map((load) => [load.path, load.via, load.deduplicated])).toEqual([[skillPath, 'load', false]]);
+    expect(result.dimensions.required_reads.strict).toBe('unobserved');
+  });
+
+  it.each([
+    ['read first', (numbered: string, framed: string) => [
+      ...claudeUse('Read', { file_path: `${root}/${skillPath}` }, 'r0', false, numbered), ...skillLoad('t0', framed)]],
+    ['load first', (numbered: string, framed: string) => [
+      ...skillLoad('t0', framed), ...claudeUse('Read', { file_path: `${root}/${skillPath}` }, 'r0', false, numbered)]],
+  ])('counts the same instructions arriving by read and by native load as one unique content — %s', async (_order, records) => {
+    // Each carrier frames the same frozen instructions differently: the read carries
+    // line numbers, the host wraps its load in a header and a trailing note.
+    const numbered = skillBody.split('\n').map((line, i) => `${i + 1}→${line}`).join('\n');
+    const framed = `Loaded skill prospec-ff\n\n${skillBody}\n\n(skill content ends)`;
+    const result = adjudicateNativeCapture(
+      withRecords([...records(numbered, framed), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    const [first, second] = result.context.loads;
+    expect(new Set([first!.via, second!.via])).toEqual(new Set(['read', 'load']));
+    // Observed cost differs (framing bytes are real); the content does not.
+    expect(first!.digest).not.toBe(second!.digest);
+    expect(first!.canonical_digest).toBe(second!.canonical_digest);
+    expect(result.context.estimated_tokens).toBe(first!.estimated_tokens + second!.estimated_tokens);
+    // Unique is the SMALLEST observed cost of that content: never a byte that was not loaded.
+    expect(result.context.unique_estimated_tokens).toBe(Math.min(first!.estimated_tokens, second!.estimated_tokens));
+    expect(result.context.unique_estimated_tokens).toBeLessThanOrEqual(result.context.estimated_tokens);
+  });
+
+  it('R271-C5 never values unique content above what was observed: a frontmatter-less certified load counts its own bytes', async () => {
+    const bodyOnly = skillBody.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', bodyOnly), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    expect(result.dimensions.required_reads.strict).toBe('satisfied');
+    const [load] = result.context.loads;
+    expect(load!.canonical_digest).toBeDefined();
+    // Uniqueness is keyed on the frozen content but VALUED at observed bytes only:
+    // the frontmatter this host dropped was never loaded, so it is never counted.
+    expect(result.context.unique_estimated_tokens).toBe(load!.estimated_tokens);
+    expect(result.context.unique_estimated_tokens).toBeLessThanOrEqual(result.context.estimated_tokens);
+  });
+
+  it('keeps an uncertified payload out of the frozen-content uniqueness key', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', skillBody), ...skillLoad('t1', `${skillBody.slice(0, 40)}…[truncated]`), ...withoutSkillRead()]),
+      await requiredSkillOracle(),
+    );
+    const [full, partial] = result.context.loads;
+    expect(full!.canonical_digest).toBeDefined();
+    expect(partial!.canonical_digest).toBeUndefined();
+    // Partial bytes are their own (observed) entry: never merged into the certified content, never borrowed from it.
+    expect(result.context.unique_estimated_tokens).toBe(full!.estimated_tokens + partial!.estimated_tokens);
+  });
+
+  it('measures a native load in the context ledger exactly as it measures a read', async () => {
+    const viaRead = adjudicateNativeCapture(withRecords(claudeRecords(skillBody)), await oracle());
+    const viaLoad = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', skillBody), ...withoutSkillRead()]),
+      await oracle(),
+    );
+    expect(viaLoad.context.available).toBe(true);
+    expect(viaLoad.context.loads.map((load) => load.path)).toEqual([skillPath]);
+    expect(viaLoad.context.estimated_tokens).toBe(viaRead.context.estimated_tokens);
+    expect(viaLoad.context.loads[0]!.digest).toBe(viaRead.context.loads[0]!.digest);
+  });
+
+  it('never invents a load from an invocation name', async () => {
+    const result = adjudicateNativeCapture(
+      withRecords([
+        { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't0', name: 'Skill', input: { skill: 'prospec-ff' } }] } },
+        ...withoutSkillRead(),
+      ]),
+      await oracle(),
+    );
+    expect(result.context.loads).toEqual([]);
+    expect(result.context.estimated_tokens).toBe(0);
+  });
+
+  it('accepts a certified native load as graded station evidence, like the station skill read', async () => {
+    // The graded standard credits a station by the station's OWN skill arriving —
+    // the only evidence a diagnostic station can leave. Which carrier delivered it
+    // must not change the verdict, so the two captures carry nothing else.
+    const stationSkill = '.agents/skills/prospec-tasks/SKILL.md';
+    const stationBody = `# Prospec Tasks Skill\n\n${'Decompose the plan.\n'.repeat(20)}`;
+    const stationFrozen = { ...before, [stationSkill]: stationBody };
+    const only = (records: unknown[]) => ({
+      ...capture('claude', { records, after: { ...after, [stationSkill]: stationBody } }),
+      before: { artifacts: encode(stationFrozen) },
+    });
+
+    const viaRead = adjudicateNativeCapture(
+      only(claudeUse('Read', { file_path: `${root}/${stationSkill}` }, 'r0', false, stationBody)),
+      await oracle(),
+    );
+    const viaLoad = adjudicateNativeCapture(
+      only(skillLoad('t0', stationBody, 'prospec-tasks')),
+      await oracle(),
+    );
+    expect(viaRead.metrics.graded.route_correct).toBeGreaterThan(0);
+    expect(viaLoad.metrics.graded.route_correct).toBe(viaRead.metrics.graded.route_correct);
+    expect(viaLoad.dimensions.routes.graded).toBe(viaRead.dimensions.routes.graded);
+
+    // …and a load that never delivered the content earns nothing.
+    const nameOnly = adjudicateNativeCapture(
+      only([{ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't0', name: 'Skill', input: { skill: 'prospec-tasks' } }] } }]),
+      await oracle(),
+    );
+    expect(nameOnly.metrics.graded.route_correct).toBe(0);
+  });
+
+  it('leaves strict command-based routing untouched by a skill load', async () => {
+    const noCommands = withRecords([...skillLoad('t0', skillBody)]);
+    const result = adjudicateNativeCapture(noCommands, await oracle());
+    // The strict standard still counts frozen-CLI mutations only — a loaded skill
+    // is not a station having run.
+    expect(result.metrics.strict.route_correct).toBe(0);
+    expect(result.dimensions.routes.strict).not.toBe('satisfied');
+  });
+
+  it('requires each reference to carry its own arrival evidence', async () => {
+    const referencePath = '.agents/skills/prospec-ff/references/cascade-protocol.md';
+    const withReference = {
+      ...(await oracle()),
+      required_reads: [skillPath, referencePath],
+    };
+    const result = adjudicateNativeCapture(
+      withRecords([...skillLoad('t0', skillBody), ...withoutSkillRead()]),
+      withReference,
+    );
+    // Invoking the skill does not carry its reference closure.
+    expect(result.dimensions.required_reads.strict).toBe('unobserved');
+    expect(result.dimensions.required_reads.detail.join(' ')).toContain(referencePath);
   });
 });

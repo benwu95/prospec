@@ -12,6 +12,15 @@ export interface MandatoryPolicy {
 }
 export interface ContextLoad {
   station: string; path: string; digest: string; bytes: number; estimated_tokens: number;
+  /** Observed loads only: which carrier delivered the bytes, and whether a same-capture
+   *  dedup marker followed content already certified — the ledger's distinction between
+   *  a first injection and a verified repeat. */
+  via?: 'read' | 'load'; deduplicated?: boolean;
+  /** Observed loads certified against the frozen fixture only: the digest of THAT
+   *  content. Uniqueness is a property of the instructions, not of how a carrier framed
+   *  them (line numbers, dropped frontmatter, a host header), so the uniqueness ledger
+   *  keys on this — and values it at observed bytes only, never at the frozen file's. */
+  canonical_digest?: string;
 }
 export interface ContextLedger {
   available: boolean; errors: string[]; estimator: string; loads: ContextLoad[];
@@ -19,7 +28,14 @@ export interface ContextLedger {
 }
 
 function ledger(loads: ContextLoad[], errors: string[]): ContextLedger {
-  const unique = new Map(loads.map((l) => [l.digest, l.estimated_tokens]));
+  // One entry per distinct content, valued at the SMALLEST observed cost of it — so the
+  // same instructions arriving twice, by any carriers in any order, count once, and a
+  // byte that was never loaded (a frontmatter the host dropped) is never counted.
+  const unique = new Map<string, number>();
+  for (const l of loads) {
+    const key = l.canonical_digest ?? l.digest;
+    unique.set(key, Math.min(unique.get(key) ?? Infinity, l.estimated_tokens));
+  }
   return { available: errors.length === 0, errors, estimator: TOKEN_ESTIMATOR_LABEL, loads,
     estimated_tokens: loads.reduce((sum, l) => sum + l.estimated_tokens, 0),
     unique_estimated_tokens: [...unique.values()].reduce((sum, n) => sum + n, 0) };
@@ -30,11 +46,15 @@ function ledger(loads: ContextLoad[], errors: string[]): ContextLedger {
  * loads never replace that inventory: a model that skipped a mandatory file reads
  * less, which is a finding about the run, not a smaller requirement.
  */
-export function observedLedger(loads: { path: string; station: string; content: string | null }[]): ContextLedger {
+export function observedLedger(loads: { path: string; station: string; content: string | null;
+  via?: 'read' | 'load'; deduplicated?: boolean; certified_content?: string | null }[]): ContextLedger {
   const errors = loads.filter((load) => load.content === null).map((load) => `Unavailable content: ${load.path}`);
   return ledger(loads.filter((load) => load.content !== null).map((load) => ({
     station: load.station, path: load.path, digest: digest(load.content!),
     bytes: Buffer.byteLength(load.content!), estimated_tokens: estimateTokens(load.content!),
+    ...(load.certified_content == null ? {} : { canonical_digest: digest(load.certified_content) }),
+    ...(load.via === undefined ? {} : { via: load.via }),
+    ...(load.deduplicated === undefined ? {} : { deduplicated: load.deduplicated }),
   })), errors);
 }
 

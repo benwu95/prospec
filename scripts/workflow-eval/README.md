@@ -380,6 +380,45 @@ suite can still be `complete: true`** — with all four facts in its `disclosed`
 in the comparison's warnings. `complete` means "the certified dimensions hold", never
 "the run behaved". A consumer that needs those facts must read what is disclosed.
 
+## How required instruction arrival is judged
+
+`required_reads` names the CONTENT a run must have loaded, not the tool that delivered
+it. A station's instructions reach a run either as a file read or through the host's own
+skill mechanism, and both satisfy the same requirement — but only against the frozen
+fixture:
+
+- A **completed read** certifies arrival only when its retained output carries the
+  frozen file's content (including supported line-number formatting). A successful
+  tool result without those bytes, or a partial read, remains `unobserved`. AGY
+  captures that retain only tool parameters/state cannot certify reads.
+- A **native skill load** follows the same content-binding rule, with skill
+  frontmatter allowed to be omitted by the host. A name, process success, failed,
+  truncated or wrong-station payload, or final narration never certifies arrival.
+- The exact **deduplication marker** `Skill <name> already loaded` never certifies
+  arrival by itself. Earlier certified content remains the arrival evidence, and the
+  context ledger records the marker's load as `deduplicated: true` only when that
+  content was certified earlier in the same capture (an unverified marker is recorded
+  as `deduplicated: false`); each ledger load also names its carrier under `via`. The
+  marker never reinjects its bytes: context cost counts only observed output, including
+  partial text and markers; a missing read/load payload makes accounting unavailable
+  instead of borrowing frozen file bytes. `unique_estimated_tokens` keys a certified
+  arrival on the FROZEN content it carried (`canonical_digest`) but values it at the
+  smallest OBSERVED cost of that content, so the same instructions arriving by read and
+  by native load — line-numbered, frontmatter-less or host-framed, in any order — count
+  once and never above what was loaded; an uncertified payload stays its own observed
+  entry.
+
+The same judgment feeds all three consumers — `required_reads`, the graded standard's
+station evidence (a certified skill load counts exactly as that station's skill read
+does) and the context ledger. Strict command-based routing is unchanged: a loaded skill
+is not a station having run. References keep their own arrival evidence; invoking a
+station's skill never implies its reference closure arrived.
+
+The offline Vitest suites exercise both carriers across all eight scenarios with
+positive and negative traces. They test this TOOLING. They are never live executor
+evidence, and a comparison whose captures cannot establish a dimension stays incomplete
+rather than passing.
+
 ## Adjudicating a native capture
 
 `workflow:evaluate adjudicate --capture <capture directory>` reads a saved native

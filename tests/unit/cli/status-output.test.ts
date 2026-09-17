@@ -216,7 +216,12 @@ describe('status-output drift signal', () => {
 describe('status-output — next-station reference map', () => {
   const withMap = (rows: NonNullable<StatusReport['changes'][number]['nextReferenceMap']>): StatusReport => ({
     ...ROUTED,
-    changes: [{ ...ROUTED.changes[0]!, nextSkillPath: '.claude/skills/prospec-review/SKILL.md', nextReferenceMap: rows }],
+    changes: [{
+      ...ROUTED.changes[0]!,
+      nextSkill: 'prospec-review',
+      nextSkillPath: '.claude/skills/prospec-review/SKILL.md',
+      nextReferenceMap: rows,
+    }],
   });
 
   it('prints each row after the action line, with its phase, path and purpose', () => {
@@ -295,5 +300,101 @@ describe('status-output — next-station reference map', () => {
       'quiet',
     );
     expect(logSpy).not.toHaveBeenCalled();
+  });
+});
+
+
+/**
+ * The actionable target (REQ-CLI-039). The canonical skill identity is the
+ * PRIMARY action — every host can act on it, through its own skill mechanism or
+ * by reading the file — and the resolved path is a separate fallback field. The
+ * formatter infers no host and promises no lifecycle: it projects and sanitizes.
+ */
+describe('status-output — identity-first action and fallback', () => {
+  const routed = (overrides: Partial<StatusReport['changes'][number]> = {}): StatusReport => ({
+    ...ROUTED,
+    changes: [{ ...ROUTED.changes[0]!, ...overrides }],
+  });
+
+  it('names the skill identity as the action, below next', () => {
+    formatStatusOutput(routed({ nextSkill: 'prospec-review' }), 'normal');
+    const lines = output().split('\n');
+    const next = lines.findIndex((line) => line.includes('next:'));
+    const action = lines.findIndex((line) => line.includes('action:'));
+    expect(next).toBeGreaterThanOrEqual(0);
+    expect(action).toBeGreaterThan(next);
+    expect(lines[action]).toContain('prospec-review');
+    // The identity is invoked, not read: the action must not present a file.
+    expect(lines[action]).not.toContain('SKILL.md');
+  });
+
+  it('prints the resolved path as a separate fallback, never as the action', () => {
+    formatStatusOutput(
+      routed({ nextSkill: 'prospec-review', nextSkillPath: '.claude/skills/prospec-review/SKILL.md' }),
+      'normal',
+    );
+    const lines = output().split('\n');
+    const action = lines.findIndex((line) => line.includes('action:'));
+    const fallback = lines.findIndex((line) => line.includes('fallback:'));
+    expect(fallback).toBeGreaterThan(action);
+    expect(lines[fallback]).toContain('.claude/skills/prospec-review/SKILL.md');
+    expect(lines[action]).toContain('prospec-review');
+  });
+
+  it('keeps the action without inventing a fallback when no agent is configured', () => {
+    formatStatusOutput(routed({ nextSkill: 'prospec-review' }), 'normal');
+    const text = output();
+    expect(text).toContain('prospec-review');
+    expect(text).not.toContain('fallback:');
+    expect(text).not.toContain('.claude/skills');
+    expect(text).not.toContain('.agents/skills');
+  });
+
+  it('prints neither action nor fallback at a terminal route', () => {
+    formatStatusOutput(
+      routed({ current: 'archive', next: null, code: 'TERMINAL', blockingGates: [], reasons: ['terminal'] }),
+      'normal',
+    );
+    const text = output();
+    expect(text).toContain('terminal');
+    expect(text).not.toContain('action:');
+    expect(text).not.toContain('fallback:');
+  });
+
+  it('promises no host capability — the action points at the host policy, not a mechanism', () => {
+    formatStatusOutput(
+      routed({ nextSkill: 'prospec-review', nextSkillPath: '.claude/skills/prospec-review/SKILL.md' }),
+      'normal',
+    );
+    const text = output();
+    for (const vendor of ['Claude', 'Codex', 'Copilot', 'Antigravity']) {
+      expect(text, `vendor name leaked: ${vendor}`).not.toContain(vendor);
+    }
+  });
+
+  it('sanitizes the fallback path', () => {
+    const esc = String.fromCharCode(27);
+    formatStatusOutput(
+      routed({ nextSkill: 'prospec-review', nextSkillPath: `.claude/skills/x${esc}[2J/SKILL.md` }),
+      'normal',
+    );
+    expect(output()).not.toContain(esc);
+  });
+
+  it('keeps every other line it printed before', () => {
+    formatStatusOutput(
+      routed({
+        nextSkill: 'prospec-review',
+        nextSkillPath: '.claude/skills/prospec-review/SKILL.md',
+        issue: 'https://example.test/1',
+        unresolvedWarnings: [{ skill: 'prospec-plan', warning: 'budget', date: '2026-09-17' }],
+      }),
+      'normal',
+    );
+    const text = output();
+    for (const label of ['status:', 'issue:', 'next:', 'gate:', 'reason:', 'warn:']) {
+      expect(text, label).toContain(label);
+    }
+    expect(text).toContain('[REVIEW_PENDING]');
   });
 });
