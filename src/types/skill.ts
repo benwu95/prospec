@@ -142,7 +142,34 @@ export interface AgentRenderFlags {
    * the entry config keeps the full table (the only place the agent sees skills).
    */
   surfacesSkillFrontmatter: boolean;
+  /**
+   * How long content loaded through the host's own skill mechanism stays
+   * available, which decides how the station-transition guidance tells the agent
+   * to ENTER a station. Documented mechanism only — never runtime availability,
+   * and never a promise that a whole skill survives a compaction.
+   */
+  skillContentLifecycle: SkillContentLifecycle;
 }
+
+/**
+ * The closed set of documented skill-content lifecycles.
+ *
+ * - `persistent-reattach`: content loaded through the host's skill mechanism
+ *   persists across turns, repeated loads of identical content are deduplicated,
+ *   and a BOUNDED prefix of each recently-loaded skill is re-attached after
+ *   auto-compaction. Bounded — not "the whole skill always survives".
+ * - `tool-output`: skill content arrives as ordinary tool output, so it is a
+ *   fresh copy per load and is summarized away like any other tool result.
+ * - `unknown`: the host documents no lifecycle. Absence of evidence, never a
+ *   negative claim — and never a capability inferred from a sibling product.
+ */
+export const SKILL_CONTENT_LIFECYCLES = [
+  'persistent-reattach',
+  'tool-output',
+  'unknown',
+] as const;
+
+export type SkillContentLifecycle = (typeof SKILL_CONTENT_LIFECYCLES)[number];
 
 /**
  * Canonical enumeration of the render flags — the reducer loop and the
@@ -151,6 +178,7 @@ export interface AgentRenderFlags {
  */
 export const RENDER_FLAG_KEYS = [
   'surfacesSkillFrontmatter',
+  'skillContentLifecycle',
 ] as const satisfies readonly (keyof AgentRenderFlags)[];
 
 /**
@@ -163,8 +191,14 @@ export type _RenderFlagKeysAreExhaustive = AssertNever<
   Exclude<keyof AgentRenderFlags, (typeof RENDER_FLAG_KEYS)[number]>
 >;
 
-/** Reduce one render flag's values across a group's members to a single value. */
-type RenderFlagReducer = (values: readonly boolean[]) => boolean;
+/**
+ * Reduce one render flag's values across a group's members to a single value.
+ * Typed PER KEY — a flag whose values are not booleans (the lifecycle three-state)
+ * gets a reducer over its own domain, instead of being coerced into a boolean one.
+ */
+type RenderFlagReducer<K extends keyof AgentRenderFlags> = (
+  values: readonly AgentRenderFlags[K][],
+) => AgentRenderFlags[K];
 
 /**
  * Each render flag DECLARES its own group-merge semantics — never a blanket
@@ -174,13 +208,35 @@ type RenderFlagReducer = (values: readonly boolean[]) => boolean;
  * silently took `configs[0]`'s view.
  */
 export const GROUP_RENDER_FLAG_REDUCERS: {
-  readonly [K in keyof AgentRenderFlags]: RenderFlagReducer;
+  readonly [K in keyof AgentRenderFlags]: RenderFlagReducer<K>;
 } = {
   // Slim only when EVERY member surfaces SKILL.md frontmatter; any member that
   // does not keeps the full table (the conservative side — the members that need
   // the table never lose their only skill listing). Empty declares nothing →
   // false → full, never `[].every() === true` → slim.
   surfacesSkillFrontmatter: (values) => values.length > 0 && values.every(Boolean),
+  // A shared entry config must not claim a lifecycle any member lacks, so only a
+  // non-empty UNANIMOUS group keeps its value; a mixed group — and an empty one,
+  // which declares nothing — degrades to `unknown`, the conservative branch.
+  skillContentLifecycle: (values) => {
+    if (values.length === 0) return 'unknown';
+    const [first] = values;
+    return first !== 'unknown' && values.every((value) => value === first) ? first! : 'unknown';
+  },
+};
+
+/**
+ * The template-context name each render flag is rendered under. Mapped over
+ * `keyof AgentRenderFlags` for the same reason as the reducer registry: a new
+ * flag with no declared name is a compile error, not a silently missing key.
+ * Names are NOT derived from the field name — `skillContentLifecycle` renders as
+ * the shorter `skill_lifecycle` the templates and the capability docs use.
+ */
+export const RENDER_FLAG_CONTEXT_KEYS: {
+  readonly [K in keyof AgentRenderFlags]: string;
+} = {
+  surfacesSkillFrontmatter: 'surfaces_skill_frontmatter',
+  skillContentLifecycle: 'skill_lifecycle',
 };
 
 /**
@@ -197,10 +253,44 @@ export function mergeGroupRenderFlags(
   // Built by looping the canonical key list (exhaustive per the type check
   // above), so the cast is filled before it is returned.
   const result = {} as AgentRenderFlags;
-  for (const key of RENDER_FLAG_KEYS) {
-    result[key] = GROUP_RENDER_FLAG_REDUCERS[key](members.map((m) => m[key]));
-  }
+  for (const key of RENDER_FLAG_KEYS) reduceRenderFlagInto(result, key, members);
   return result;
+}
+
+/**
+ * Apply ONE flag's declared reducer and store it. Generic over the key so the
+ * registry entry, the values it receives and the slot it fills are the same
+ * field's type; the indexed access loses that link only inside this body, which
+ * is where the narrow cast is confined.
+ */
+function reduceRenderFlagInto<K extends keyof AgentRenderFlags>(
+  target: AgentRenderFlags,
+  key: K,
+  members: readonly AgentRenderFlags[],
+): void {
+  const reducer = GROUP_RENDER_FLAG_REDUCERS[key] as RenderFlagReducer<K>;
+  target[key] = reducer(members.map((m) => m[key]));
+}
+
+/**
+ * Expand merged render flags into the render keys the entry config and the
+ * reference templates branch on. ONE projection for every render entry point
+ * (`agent sync`'s groups and `init`'s provisional entry config), so the two
+ * cannot hand the same template different shapes.
+ *
+ * The lifecycle also gets an explicit branch boolean: Handlebars reads every
+ * non-empty string as truthy, so `{{#if skill_lifecycle}}` would take the
+ * persistent branch for `unknown` — the exact claim the registry refuses to make.
+ */
+export function renderFlagContext(
+  flags: AgentRenderFlags,
+): Record<string, string | boolean> {
+  return {
+    ...Object.fromEntries(
+      RENDER_FLAG_KEYS.map((key) => [RENDER_FLAG_CONTEXT_KEYS[key], flags[key]]),
+    ),
+    skill_lifecycle_persistent: flags.skillContentLifecycle === 'persistent-reattach',
+  };
 }
 
 /**
@@ -465,6 +555,13 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     // Claude Code auto-injects each .claude/skills/*/SKILL.md frontmatter into
     // the session's available-skills reminder → the entry registry is redundant.
     surfacesSkillFrontmatter: true,
+
+    // Source: https://code.claude.com/docs/en/skills §Skill content lifecycle
+    // (read 2026-09-17). Skill-loaded content persists across turns, an identical
+    // re-invocation is deduplicated to a marker line, and after auto-compaction a
+    // BOUNDED prefix of each recently-invoked skill is re-attached. Bounded is the
+    // whole claim: the rendered guidance still re-invokes at every transition.
+    skillContentLifecycle: 'persistent-reattach',
     // Source: https://code.claude.com/docs/en/agent-sdk/slash-commands
     invocation: {
       mode: 'sigil',
@@ -487,6 +584,15 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+
+    // Source: the 2026-09-16 source audit recorded in
+    // https://github.com/benwu95/prospec/issues/271 —
+    // codex-rs/ext/skills/src/{catalog_prompt,host_prompt,tools/read,extension}.rs
+    // plus core/src/{compact,session/turn}.rs: an autonomously selected skill
+    // arrives through the read tool as ordinary tool output, the per-turn
+    // injection store is rebuilt each turn, and compaction models no skill
+    // retention. Tool output is the only lifecycle the source establishes.
+    skillContentLifecycle: 'tool-output',
     // Source: https://learn.chatgpt.com/docs/build-skills
     invocation: {
       mode: 'sigil',
@@ -508,6 +614,11 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+
+    // docs.github.com/en/copilot/concepts/agents/agent-skills documents where
+    // skills live and nothing about their lifecycle (checked 2026-09-17), so
+    // there is no value to declare — `unknown`, never an inference.
+    skillContentLifecycle: 'unknown',
     // Source: https://docs.github.com/en/copilot/concepts/agents/copilot-cli/comparing-cli-features
     invocation: {
       mode: 'sigil',
@@ -531,6 +642,11 @@ export const AGENT_CONFIGS: Record<ValidAgent, AgentConfig> = {
     skillPath: '.agents/skills',
     configPath: 'AGENTS.md',
     surfacesSkillFrontmatter: false,
+
+    // antigravity.google/docs/skills and /docs/cli/plugins document discovery
+    // and slash-command exposure only (checked 2026-09-17); the CLI is closed
+    // source, and a retired sibling product's behavior is not evidence for it.
+    skillContentLifecycle: 'unknown',
     // Source: https://antigravity.google/docs/skills
     invocation: {
       mode: 'name-or-browser',

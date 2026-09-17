@@ -12,7 +12,12 @@ import { z } from 'zod';
 const PlanningVerdictSchema = z.enum(PLANNING_VERDICTS);
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
-import { routeChange, resolveNextSkillPath, resolveSkillRoot } from '../lib/status-router.js';
+import {
+  routeChange,
+  resolveNextSkill,
+  resolveNextSkillPath,
+  resolveSkillRoot,
+} from '../lib/status-router.js';
 import { projectStatusReferenceMap } from '../lib/skill-reference-map.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import type { GateResult, VerifyGrade } from '../types/change.js';
@@ -87,6 +92,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
         if (metadata.status === 'archived') continue;
         const facts = await collectFacts(changeDir, name, metadata, cwd, config);
         const route = routeChange(facts);
+        // Identity first, and independent of the agent configuration: it is what a
+        // host's own skill mechanism loads, so an unreadable or empty config costs
+        // the fallback path below, never the station the agent is being sent to.
+        const skill = resolveNextSkill(route.next);
+        if (skill) route.nextSkill = skill;
         const skillPath = resolveNextSkillPath(agentNames, route.next);
         if (skillPath) route.nextSkillPath = skillPath;
         // Additive and derived from the SAME resolution the skill path used, so a

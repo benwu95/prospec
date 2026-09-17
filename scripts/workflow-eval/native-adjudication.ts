@@ -37,8 +37,12 @@ export const NATIVE_CERTIFIED = ['execution', 'artifacts', 'payloads', 'independ
   'routes', 'endpoint', 'required_reads', 'required_commands'] as const;
 export const NATIVE_DISCLOSED = NATIVE_DIMENSIONS.filter((name) =>
   !(NATIVE_CERTIFIED as readonly string[]).includes(name));
-export type NativeOperation = { kind: 'read' | 'write' | 'command' | 'delegate'; actor: 'parent' | 'child';
-  path: string | null; args: string[]; external: boolean; completed: boolean };
+export type NativeOperation = { kind: 'read' | 'load' | 'write' | 'command' | 'delegate'; actor: 'parent' | 'child';
+  path: string | null; args: string[]; external: boolean; completed: boolean;
+  /** What a read or load actually delivered, when the trace carries it. `null`
+   *  for other kinds and for payloads the capture did not retain — never a
+   *  reconstruction, because an unobserved payload is the whole question here. */
+  content: string | null };
 
 const nonNegative = z.number().int().nonnegative();
 /**
@@ -164,18 +168,37 @@ export function commandPaths(args: string[], root: string): string[] {
   return paths;
 }
 const operation = (kind: NativeOperation['kind'], actor: NativeOperation['actor'],
-  located: { path: string | null; external: boolean }, args: string[], completed: boolean): NativeOperation =>
-  ({ kind, actor, ...located, args, completed });
+  located: { path: string | null; external: boolean }, args: string[], completed: boolean,
+  content: string | null = null): NativeOperation =>
+  ({ kind, actor, ...located, args, completed, content });
+
+/** The tool-result payload as a plain string: a bare string, or the text blocks' text. */
+function resultText(content: unknown): string | null {
+  const direct = text(content);
+  if (direct !== null) return direct;
+  const blocks = z.array(z.unknown()).catch([]).parse(content)
+    .map((block) => text(object(block).text)).filter((part): part is string => part !== null);
+  return blocks.length ? blocks.join('\n') : null;
+}
 
 /** Claude attributes delegated work through `parent_tool_use_id`, so child tools are visible. */
 function observeClaudeOperations(records: Record<string, unknown>[], locate: Locator): NativeOperation[] {
   const operations: NativeOperation[] = [];
   const failed = new Set<string>(); const settled = new Set<string>();
+  const delivered = new Map<string, string>();
   for (const record of records) for (const block of z.array(z.unknown()).catch([]).parse(object(record.message).content)) {
     const result = object(block);
     if (result.type !== 'tool_result') continue;
     const id = text(result.tool_use_id);
-    if (id) { settled.add(id); if (result.is_error === true) failed.add(id); }
+    if (id) {
+      settled.add(id);
+      if (result.is_error === true) failed.add(id);
+      // The payload is kept ONLY to be checked against the frozen content later. A
+      // failed result never reaches that check: its operation is not `completed`,
+      // and only completed operations are judged — that gate is the one guard.
+      const payload = resultText(result.content);
+      if (payload !== null) delivered.set(id, payload);
+    }
   }
   for (const record of records) {
     const actor = text(record.parent_tool_use_id) ? 'child' : 'parent';
@@ -186,7 +209,7 @@ function observeClaudeOperations(records: Record<string, unknown>[], locate: Loc
       const input = object(use.input);
       const done = settled.has(id) && !failed.has(id);
       const none = { path: null, external: false };
-      if (use.name === 'Read') operations.push(operation('read', actor, locate(input.file_path), [], done));
+      if (use.name === 'Read') operations.push(operation('read', actor, locate(input.file_path), [], done, delivered.get(id) ?? null));
       else if (use.name === 'Write' || use.name === 'Edit') operations.push(operation('write', actor, locate(input.file_path), [], done));
       else if (use.name === 'Bash') {
         const args = tokenizeCommand(text(input.command) ?? '');
@@ -194,6 +217,15 @@ function observeClaudeOperations(records: Record<string, unknown>[], locate: Loc
         operations.push(operation('command', actor, escaped === null ? none : { path: escaped, external: true }, args, done));
       }
       else if (use.name === 'Agent' || use.name === 'Task') operations.push(operation('delegate', actor, none, [], done));
+      // A skill invocation is a LOAD: it names a station's instructions, and the
+      // result — when the trace carries it — is what actually arrived. The name
+      // alone is only an intention, which is why the payload travels with it.
+      else if (use.name === 'Skill') {
+        const skill = text(input.skill) ?? text(input.name);
+        operations.push(operation('load', actor,
+          skill === null ? none : { path: `${FIXTURE_SKILL_ROOT}/${skill}/SKILL.md`, external: false },
+          [], done, delivered.get(id) ?? null));
+      }
     }
   }
   return operations;
@@ -298,6 +330,70 @@ function parseSegment(tokens: string[]): { executable: string | null; verbs: str
 }
 
 const SKILL_STATIONS = new Map(Object.entries(STATION_SKILLS).map(([station, skill]) => [skill, station as SddStation]));
+
+/**
+ * Where the evaluation fixtures deploy skills. One constant for the load parser,
+ * the graded station evidence and the context ledger: three places deriving the
+ * same path independently is how they would end up disagreeing about whether the
+ * same file arrived.
+ */
+const FIXTURE_SKILL_ROOT = '.agents/skills';
+const FIXTURE_SKILL_PATH = new RegExp(`^${FIXTURE_SKILL_ROOT.replace(/\./g, '\\.')}/([^/]+)/SKILL\\.md$`);
+
+/** One observed arrival of required content, and which carrier delivered it. */
+export type ContentArrival = { index: number; path: string; via: 'read' | 'load';
+  content: string | null; certified: boolean; deduplicated: boolean };
+
+/**
+ * Whether an observed payload actually carries the frozen content.
+ *
+ * A host may frame what it loads (a header, a trailing note), so containment —
+ * not equality — is the test, measured against the frozen body with its
+ * frontmatter stripped. Truncated, wrong-station and marker-only payloads all
+ * fail it, which is the point: the name of a skill is not its instructions.
+ */
+function carriesContent(observed: string, expected: string, via: 'read' | 'load'): boolean {
+  const normalize = (value: string) => value.replace(/\r\n/g, '\n').trim();
+  const normalizedExpected = normalize(expected);
+  const body = via === 'load'
+    ? normalizedExpected.replace(/^---\n[\s\S]*?\n---\n/, '').trim()
+    : normalizedExpected;
+  // Read returns line-numbered text; remove only its documented line prefix.
+  const payload = via === 'read' ? observed.replace(/^\s*\d+→/gm, '') : observed;
+  return body.length > 0 && normalize(payload).includes(body);
+}
+
+/**
+ * The ONE judgment of which required content arrived, shared by `required_reads`,
+ * the graded station evidence and the context ledger. A dimension that answered
+ * this question for itself is how a native load could count for one consumer and
+ * be missing from another.
+ *
+ * Both carriers need their observed payload bound to frozen content before they
+ * certify arrival. Partial/missing payloads remain observations for context cost,
+ * but cannot satisfy a required read or route. A same-capture dedup marker is
+ * distinguished from reinjection: only the marker's observed bytes are counted.
+ * AGY traces without a retained read payload remain unobserved, never reconstructed.
+ */
+export function observeContentArrivals(
+  operations: readonly NativeOperation[],
+  frozen: (path: string) => string | null,
+): ContentArrival[] {
+  const arrivals: ContentArrival[] = [];
+  operations.forEach((op, index) => {
+    if (!op.completed || op.path === null) return;
+    if (op.kind !== 'read' && op.kind !== 'load') return;
+    const expected = frozen(op.path);
+    const certified = expected !== null && op.content !== null && carriesContent(op.content, expected, op.kind);
+    const skill = FIXTURE_SKILL_PATH.exec(op.path)?.[1];
+    const deduplicated = op.kind === 'load' && !certified && skill !== undefined &&
+      op.content?.trim() === `Skill ${skill} already loaded` &&
+      arrivals.some((arrival) => arrival.path === op.path && arrival.certified);
+    arrivals.push({ index, path: op.path, via: op.kind, content: op.content,
+      certified, deduplicated });
+  });
+  return arrivals;
+}
 
 /**
  * The station a frozen-CLI invocation mutates — never a narrated intent.
@@ -442,10 +538,14 @@ function judgeFixtureEvidence(before: Record<string, string>, after: Record<stri
  * every one of these is a positive detector: a satisfied negative dimension means no
  * violation was seen, never that none occurred.
  */
-function judgeObservedPolicies(operations: NativeOperation[], oracle: ScenarioOracle) {
+function judgeObservedPolicies(operations: NativeOperation[], oracle: ScenarioOracle, arrivals: ContentArrival[]) {
   const observed = {} as Record<DimensionName, Dimension>;
   const reads = new Set(operations.filter((operation) => operation.kind === 'read' && operation.completed).map((operation) => operation.path));
-  const missingReads = oracle.required_reads.filter((path) => !reads.has(path)).map((path) => `Unobserved required read: ${path}`);
+  // Required content is judged on ARRIVAL, not on the carrier: a file read and a
+  // content-bound native load satisfy the same requirement. Forbidden reads below
+  // stay on read operations — a station's own instructions are not a project file.
+  const arrived = new Set(arrivals.filter((arrival) => arrival.certified).map((arrival) => arrival.path));
+  const missingReads = oracle.required_reads.filter((path) => !arrived.has(path)).map((path) => `Unobserved required read: ${path}`);
   observed.required_reads = dimension(missingReads.length ? 'unobserved' : 'satisfied', 'observed-tools', missingReads);
   const forbiddenReads = oracle.forbidden_reads.filter((path) => reads.has(path)).map((path) => `Forbidden read observed: ${path}`);
   observed.forbidden_reads = dimension(forbiddenReads.length ? 'violated' : 'satisfied', 'observed-tools', forbiddenReads);
@@ -525,7 +625,7 @@ function judgeIndependentReceipt(operations: NativeOperation[], payloadPaths: Ma
  * says. `strict` counts frozen-CLI mutations only; `graded` also counts reading that
  * station's own skill, without which a diagnostic station is permanently unobservable.
  */
-function judgeRoutes(operations: NativeOperation[], oracle: ScenarioOracle, states: string[]) {
+function judgeRoutes(operations: NativeOperation[], oracle: ScenarioOracle, states: string[], arrivals: ContentArrival[]) {
   const executed = stationsFromCommands(operations);
   // A `handoff` terminal names the station the change is handed TO; it runs no
   // station work, so its evidence is the parked state, not an invocation.
@@ -538,9 +638,19 @@ function judgeRoutes(operations: NativeOperation[], oracle: ScenarioOracle, stat
   const strictRoute = executed.length === executable.length && executable.every((station, index) => executed[index] === station);
   // Graded evidence adds the station's own skill read: a diagnostic station mutates
   // nothing, so demanding a CLI record there would make it permanently unobservable.
-  const evidenceAt = (station: SddStation) => operations.findIndex((operation) => operation.completed &&
-    ((operation.kind === 'command' && frozenCliSegments(operation.args).some((segment) => stationOfCommand(segment.verbs) === station)) ||
-      (operation.kind === 'read' && operation.path === `.agents/skills/${STATION_SKILLS[station]}/SKILL.md`)));
+  const stationSkillPath = (station: SddStation) => `${FIXTURE_SKILL_ROOT}/${STATION_SKILLS[station]}/SKILL.md`;
+  const arrivedAt = (station: SddStation) => arrivals.filter((arrival) => arrival.certified)
+    .filter((arrival) => arrival.path === stationSkillPath(station))
+    .map((arrival) => arrival.index);
+  const evidenceAt = (station: SddStation) => {
+    const commandAt = operations.findIndex((operation) => operation.completed &&
+      operation.kind === 'command' && frozenCliSegments(operation.args).some((segment) => stationOfCommand(segment.verbs) === station));
+    // Whichever came FIRST: the sequence check below reads these as positions, so
+    // taking the command's index when an earlier certified load exists would
+    // report the station as reached later than it was.
+    const candidates = [commandAt, ...arrivedAt(station)].filter((at) => at >= 0);
+    return candidates.length ? Math.min(...candidates) : -1;
+  };
   const routeEvidence = executable.map(evidenceAt);
   const gradedRoute = routeEvidence.every((at, index) => at >= 0 && (index === 0 || at > routeEvidence[index - 1]!));
   const handoffCredit = (proven: boolean) => oracle.terminal === 'handoff' && proven && parked ? 1 : 0;
@@ -574,6 +684,10 @@ export function adjudicateNativeCapture(input: unknown, expected: ScenarioOracle
   const before = capture.before.artifacts.files;
   const after = capture.after.artifacts.files;
   const operations = observeNativeOperations(cli, capture.transport.observation.records, root);
+  // Computed ONCE, from the frozen fixture, and handed to every consumer that asks
+  // whether required content arrived.
+  const frozen = (path: string) => decode(before, path) ?? decode(after, path);
+  const arrivals = observeContentArrivals(operations, frozen);
   const dimensions = {} as Record<DimensionName, Dimension>;
   const observation = capture.transport.observation;
   dimensions.execution = judgeExecution(capture);
@@ -582,10 +696,10 @@ export function adjudicateNativeCapture(input: unknown, expected: ScenarioOracle
   const { states, payloadPaths } = fixture;
 
   dimensions.independent_receipt = judgeIndependentReceipt(operations, payloadPaths, before, oracle);
-  const routes = judgeRoutes(operations, oracle, states);
+  const routes = judgeRoutes(operations, oracle, states, arrivals);
   Object.assign(dimensions, routes.dimensions);
   const { routeCorrect } = routes;
-  const policies = judgeObservedPolicies(operations, oracle);
+  const policies = judgeObservedPolicies(operations, oracle, arrivals);
   Object.assign(dimensions, policies.dimensions);
   const { suiteRuns } = policies;
   // A model-authored metadata write is itself a forbidden action, not merely weak evidence.
@@ -608,11 +722,11 @@ export function adjudicateNativeCapture(input: unknown, expected: ScenarioOracle
   // What this run actually loaded from the shipped instructions — the quantity this
   // change exists to reduce. Skipping a mandatory file reads less; that is a finding
   // about the run, never a smaller requirement.
-  const instruction = /^\.agents\/skills\/([a-z0-9-]+)\//;
-  const context = observedLedger(operations.filter((operation) =>
-    operation.kind === 'read' && operation.completed && operation.path && instruction.test(operation.path))
-    .map((operation) => ({ path: operation.path!, content: decode(before, operation.path!) ?? decode(after, operation.path!),
-      station: SKILL_STATIONS.get(instruction.exec(operation.path!)![1]!) ?? 'other' })));
+  const instruction = new RegExp(`^${FIXTURE_SKILL_ROOT.replace(/\./g, '\\.')}/([^/]+)/`);
+  const context = observedLedger(arrivals.filter((arrival) => instruction.test(arrival.path))
+    .map((arrival) => ({ path: arrival.path, content: arrival.content, via: arrival.via,
+      deduplicated: arrival.deduplicated, certified_content: arrival.certified ? frozen(arrival.path) : null,
+      station: SKILL_STATIONS.get(instruction.exec(arrival.path)![1]!) ?? 'other' })));
   return { version: 1 as const, scenario: oracle.id, cli, model, project_root: root, context,
     digests: { config: capture.identity.config_digest, runtime: capture.identity.runtime_digest,
       instructions: capture.identity.instructions_digest },

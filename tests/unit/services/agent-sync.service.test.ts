@@ -176,6 +176,125 @@ agents:
     }
   });
 
+  it('injects the merged skill lifecycle into EVERY render exit — entry, skills and references (REQ-TEMPLATES-233)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+
+    await execute({ cwd: '/project' });
+
+    // A reference that renders the transition loop must receive the SAME
+    // capability the entry config does, or the two documents disagree about how
+    // this host enters a station.
+    const exits = ['agent-configs/entry.md.hbs', 'skills/', 'skills/references/'] as const;
+    for (const exit of exits) {
+      const call = rt.mock.calls.find(([name]) => String(name).startsWith(exit));
+      expect(call, `expected a ${exit} render`).toBeDefined();
+      const ctx = call![1] as Record<string, unknown>;
+      expect(ctx.skill_lifecycle, exit).toBe('persistent-reattach');
+      expect(ctx.skill_lifecycle_persistent, exit).toBe(true);
+    }
+  });
+
+  it('degrades a shared-output group\'s lifecycle to unknown, never one member\'s value (REQ-TYPES-085)', async () => {
+    // Degrade the MIDDLE member: first-member-wins and last-member-wins both read
+    // `persistent-reattach` here, so only a real group merge renders `unknown`.
+    const originals = {
+      codex: AGENT_CONFIGS.codex.skillContentLifecycle,
+      copilot: AGENT_CONFIGS.copilot.skillContentLifecycle,
+      antigravity: AGENT_CONFIGS.antigravity.skillContentLifecycle,
+    };
+    AGENT_CONFIGS.codex.skillContentLifecycle = 'persistent-reattach';
+    AGENT_CONFIGS.copilot.skillContentLifecycle = 'tool-output';
+    AGENT_CONFIGS.antigravity.skillContentLifecycle = 'persistent-reattach';
+    try {
+      vol.fromJSON({
+        '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - codex
+  - copilot
+  - antigravity
+`,
+      });
+      const rt = vi.mocked(renderTemplate);
+      rt.mockClear();
+
+      await execute({ cwd: '/project' });
+
+      const entryCall = rt.mock.calls.find(
+        ([name]) => String(name) === 'agent-configs/entry.md.hbs',
+      );
+      const ctx = entryCall![1] as Record<string, unknown>;
+      expect(ctx.skill_lifecycle).toBe('unknown');
+      expect(ctx.skill_lifecycle_persistent).toBe(false);
+    } finally {
+      AGENT_CONFIGS.codex.skillContentLifecycle = originals.codex;
+      AGENT_CONFIGS.copilot.skillContentLifecycle = originals.copilot;
+      AGENT_CONFIGS.antigravity.skillContentLifecycle = originals.antigravity;
+    }
+  });
+
+  it('resolves the same lifecycle whatever order the shared-output members are configured in', async () => {
+    const render = async (agents: string[]) => {
+      vol.reset();
+      vol.fromJSON({
+        '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+${agents.map((a) => `  - ${a}`).join('\n')}
+`,
+      });
+      const rt = vi.mocked(renderTemplate);
+      rt.mockClear();
+      await execute({ cwd: '/project' });
+      const entryCalls = rt.mock.calls.filter(
+        ([name]) => String(name) === 'agent-configs/entry.md.hbs',
+      );
+      // The group shares one output, so it is rendered — and written — ONCE.
+      expect(entryCalls).toHaveLength(1);
+      return (entryCalls[0]![1] as Record<string, unknown>).skill_lifecycle;
+    };
+
+    const forward = await render(['codex', 'copilot', 'antigravity']);
+    const reversed = await render(['antigravity', 'copilot', 'codex']);
+    expect(forward).toBe(reversed);
+    // codex declares tool-output and its two shared-output peers declare unknown,
+    // so the file they all read must claim nothing.
+    expect(forward).toBe('unknown');
+  });
+
+  it('renders the same capability on a repeated sync (stable output)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+  - codex
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    const lifecyclesOf = async () => {
+      rt.mockClear();
+      await execute({ cwd: '/project' });
+      return rt.mock.calls
+        .filter(([name]) => String(name) === 'agent-configs/entry.md.hbs')
+        .map(([, ctx]) => (ctx as Record<string, unknown>).skill_lifecycle);
+    };
+
+    const first = await lifecyclesOf();
+    const second = await lifecyclesOf();
+    // Two outputs (CLAUDE.md + AGENTS.md), each keeping its own group's capability.
+    expect(first).toEqual(['persistent-reattach', 'tool-output']);
+    expect(second).toEqual(first);
+  });
+
   it('injects the complete shared-output invocation matrix, never configs[0] guidance (REQ-AGNT-034)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

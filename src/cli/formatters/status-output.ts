@@ -11,8 +11,8 @@ import { sanitizeTerminal } from './sanitize.js';
  * Output structure:
  * 1. Clean state (no in-flight changes), or
  * 2. Per change: name + scale, status/current station, the registered issue
- *    reference (only when one exists), suggested next skill, blocking gates,
- *    reasons
+ *    reference (only when one exists), suggested next skill, the actionable skill
+ *    identity and its file fallback, blocking gates, reasons
  * 3. Unroutable records (malformed metadata) — reported, never dropped
  */
 export function formatStatusJson(report: StatusReport): void {
@@ -63,9 +63,20 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
         ? pc.dim('— terminal (periodic prospec-learn)')
         : pc.cyan(STATION_SKILLS[change.next]);
     console.log(`  next:    ${next}`);
+    // Identity first: it is the one target every host can act on — through its
+    // own skill mechanism where it has one, through the fallback file where it
+    // does not. The formatter states neither, because it cannot know which host
+    // is reading; the entry config's Station Transition Protocol does.
+    if (change.nextSkill !== undefined) {
+      console.log(
+        `  action:  invoke skill ${pc.cyan(sanitizeTerminal(change.nextSkill))}` +
+          " — load it the way this host loads skills, before executing station checks",
+      );
+    }
     if (change.nextSkillPath !== undefined) {
       console.log(
-        `  action:  read ${pc.cyan(change.nextSkillPath)} before executing station checks`,
+        `  fallback: read ${pc.cyan(sanitizeTerminal(change.nextSkillPath))}` +
+          ' when that mechanism is unavailable',
       );
     }
     // The next station's load points, after the action that names that station:

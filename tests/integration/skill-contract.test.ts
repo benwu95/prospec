@@ -93,6 +93,71 @@ describe('Skill generation contract (verify-skills.sh port)', () => {
     });
   });
 
+  // [A2] the deployed station-transition guidance, per host output (issue #271).
+  // This is the DEPLOYED layer of the capability branch the contract tests pin at
+  // the template layer: source → bundle → written file, for the two real outputs
+  // the four supported hosts resolve to.
+  describe('[A2] capability-aware station entry reaches both deployed outputs', () => {
+    const NATIVE_MECHANISM = "host's own skill mechanism";
+
+    it('CLAUDE.md enters stations through the host skill mechanism, with the file as fallback', () => {
+      // claude is the only registry member declaring persistent-reattach, and it
+      // is the sole writer of CLAUDE.md.
+      expect(AGENT_CONFIGS.claude.skillContentLifecycle).toBe('persistent-reattach');
+      const content = read('CLAUDE.md');
+      expect(content).toContain(NATIVE_MECHANISM);
+      expect(content).toContain('prospec status');
+      expect(content).toContain('.claude/skills/');
+    });
+
+    it('AGENTS.md keeps status-then-read and claims no persistence for its shared group', () => {
+      // codex (tool-output) shares this file with two `unknown` hosts, so the
+      // merged claim is `unknown` — the conservative branch.
+      const shared = ['codex', 'copilot', 'antigravity'] as const;
+      expect(shared.map((agent) => AGENT_CONFIGS[agent].configPath)).toEqual([
+        'AGENTS.md',
+        'AGENTS.md',
+        'AGENTS.md',
+      ]);
+      const content = read('AGENTS.md');
+      expect(content).not.toContain(NATIVE_MECHANISM);
+      expect(content).toContain('prospec status');
+      expect(content).toContain('.agents/skills/');
+    });
+
+    it('deploys the matching cascade Step 1 [LOAD] branch under each skills root', () => {
+      const claudeCascade = read('.claude/skills/prospec-ff/references/cascade-protocol.md');
+      const agentsCascade = read('.agents/skills/prospec-ff/references/cascade-protocol.md');
+      expect(claudeCascade).toContain('Step 1 [LOAD]');
+      expect(agentsCascade).toContain('Step 1 [LOAD]');
+      expect(claudeCascade).toContain(NATIVE_MECHANISM);
+      expect(agentsCascade).not.toContain(NATIVE_MECHANISM);
+      // Both roots keep the whole loop — only Step 1 branches.
+      for (const content of [claudeCascade, agentsCascade]) {
+        for (const step of ['Step 2 [ENTRY]', 'Step 3 [EXEC]', 'Step 4 [GATE]', 'Step 5 [NEXT]']) {
+          expect(content).toContain(step);
+        }
+      }
+    });
+
+    it('names no harness tool, plugin agent type or vendor in either deployed protocol', () => {
+      const bodies = [
+        read('CLAUDE.md'),
+        read('AGENTS.md'),
+        read('.claude/skills/prospec-ff/references/cascade-protocol.md'),
+        read('.agents/skills/prospec-ff/references/cascade-protocol.md'),
+      ];
+      for (const body of bodies) {
+        const section = body.slice(body.indexOf('Station Transition Protocol') >= 0
+          ? body.indexOf('Station Transition Protocol')
+          : body.indexOf('Per-Station Execution Loop'));
+        for (const leak of ['view_file', 'invoke_subagent', 'code-reviewer', 'Anthropic', 'OpenAI']) {
+          expect(section, `leaked: ${leak}`).not.toContain(leak);
+        }
+      }
+    });
+  });
+
   // [B] self-contained knowledge skills: no References line / no refs dir
   describe('[B] knowledge skills are self-contained', () => {
     it('AGENTS.md carries no References line for kg/ku (self-contained)', () => {

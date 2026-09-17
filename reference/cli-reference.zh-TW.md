@@ -226,8 +226,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 支援不同的 scale 路由（如 `quick` 跳過 plan 直接進入 tasks、`backfill` 路由至 promote 站）。
     - 呈現登記的 `issue` 參照；中繼資料格式錯誤會逐變更回報，絕不中斷整體執行。
     - 於 `warn:` 列出各變更未解的 `quality_log` WARN（每個 skill 最後一筆仍為 WARN 者）——讓各站的 Entry Gate 不必自行翻閱 log 即可浮現先前的警告。
-    - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 與 UI scope 過濾，並以 `action:` 同一個已設定 host 解析路徑；終端路由或未設定 agent 時不輸出，未帶 reference 的站則為空集合。
-    - `--json` 將整份 status 報告（含各變更的 `unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
+    - 以 `action:` 指出下一站的 canonical Skill 身分——`invoke skill prospec-<name>`，依執行中 host 載入 skill 的方式載入。身分不依賴部署根目錄，因此即使專案未設定 agent，非終端路由仍會印出。
+    - 以 `fallback:` 印出解析後的 skill 檔案路徑——host 沒有 skill 機制、或該機制當下不可用時改讀此檔。終端路由或未設定 agent 時不輸出，且絕不寫死 skills 目錄。`status` 本身不宣稱任何 host 能力：該走哪一條由各 host 在生成的 entry config「Station Transition Protocol」中宣告。
+    - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 與 UI scope 過濾，並以 `fallback:` 同一個已設定 host 解析路徑；終端路由或未設定 agent 時不輸出，未帶 reference 的站則為空集合。站點指令抵達不代表其 references 已抵達。
+    - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
 
 - **`prospec change story <name> [options]`**

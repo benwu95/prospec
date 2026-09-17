@@ -184,8 +184,15 @@ export interface ChangeRoute {
   next: SddStation | null;
   /** Why the change was placed here, as a stable code (`reasons` carries the prose). */
   code: WorkflowReasonCode;
+  /** Canonical skill identity for `next` (`STATION_SKILLS[next]`, e.g. `prospec-verify`),
+   *  so `prospec status` can hand the agent a target its own skill mechanism can load.
+   *  Present for every non-terminal route — including one whose agent configuration is
+   *  missing or unreadable, because the identity does not depend on a deployment root.
+   *  Absent only at the terminal `archived`. Display data: it decides no routing.
+   *  Filled by the service; the router leaves it unset. */
+  nextSkill?: string;
   /** Resolved skill file path for `next` (e.g. `.claude/skills/prospec-verify/SKILL.md`),
-   *  so `prospec status` can hand the agent an actionable read target. Absent when the
+   *  the FALLBACK for a host with no skill-loading mechanism of its own. Absent when the
    *  change is terminal (`next` is null) or the project configures no agent — never a
    *  hardcoded skills directory. Filled by the service; the router leaves it unset. */
   nextSkillPath?: string;

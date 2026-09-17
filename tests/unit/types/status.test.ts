@@ -85,6 +85,35 @@ describe('ChangeRoute next-station reference map', () => {
     expect(JSON.parse(JSON.stringify(base))).toEqual(base);
   });
 
+  it('carries the canonical skill identity additively beside the optional path', () => {
+    // Identity and path are separate fields on purpose: the identity is what a
+    // host invokes, the path is only the fallback a file-reading host needs.
+    const route: ChangeRoute = {
+      ...base,
+      nextSkill: STATION_SKILLS.review,
+      nextSkillPath: '.claude/skills/prospec-review/SKILL.md',
+    };
+    expect(route.nextSkill).toBe('prospec-review');
+    expect({ ...route, nextSkill: undefined, nextSkillPath: undefined }).toMatchObject(base);
+  });
+
+  it('accepts an identity with no resolvable path (no agent configured)', () => {
+    const route: ChangeRoute = { ...base, nextSkill: STATION_SKILLS.review };
+    expect(Object.hasOwn(route, 'nextSkillPath')).toBe(false);
+    expect(route.nextSkill).toBe('prospec-review');
+  });
+
+  it('keeps both absent at a terminal route', () => {
+    const terminal: ChangeRoute = {
+      ...base,
+      current: 'archive',
+      next: null,
+      code: 'TERMINAL',
+    };
+    expect(Object.hasOwn(terminal, 'nextSkill')).toBe(false);
+    expect(Object.hasOwn(terminal, 'nextSkillPath')).toBe(false);
+  });
+
   it('carries a phase, a deployed path, a purpose and the load kind', () => {
     const row: StationReferenceMapRow = {
       phase: 'Startup Loading',

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-5462%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5556%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -102,7 +102,7 @@ Prospec 2.0 turns SDD from a guided sequence into a **gated, resumable pipeline*
 | Capability | What changes in 2.0 |
 |------------|---------------------|
 | **Stronger planning** | Independent architecture and task verifiers check layering, blast radius, reuse, REQ traceability, task ordering, and TDD closure before implementation. Full-scale plans can compare multiple candidate architectures; standard plans must state the simpler alternative. |
-| **Gated, resumable execution** | `prospec status` routes the next station and names its entry gate. Station instructions are reloaded at every transition; state-changing commands refuse illegal transitions instead of relying on prose discipline. Design is conditional, Knowledge Update is a formal station, and quick/backfill routes remain explicit. A `verified` change whose latest grade is B/C/D is routed back to verify, and a plan or tasks station whose recorded verifier result is FAIL is routed back to itself. Archive and verify gates are adjudicated per change: a sibling change's missing evidence never blocks the target (the shared whole-tree evidence digest still does). |
+| **Gated, resumable execution** | `prospec status` routes the next station, names its canonical Skill as the action and the resolved skill file as a fallback, and names its entry gate. Station instructions are loaded at every transition — through the host's own skill mechanism where the agent registry declares one, by reading the file everywhere else; state-changing commands refuse illegal transitions instead of relying on prose discipline. Design is conditional, Knowledge Update is a formal station, and quick/backfill routes remain explicit. A `verified` change whose latest grade is B/C/D is routed back to verify, and a plan or tasks station whose recorded verifier result is FAIL is routed back to itself. Archive and verify gates are adjudicated per change: a sibling change's missing evidence never blocks the target (the shared whole-tree evidence digest still does). |
 | **Self-correcting quality** | Drift can draft a bounded follow-up, review uses fresh-context verifier loops and circuit breakers, Verify records judgment provenance, and Archive checks requirement landing fidelity before the trust zone changes. Recurring corrections can graduate through the human-approved learning pipeline. |
 
 ### Upgrade from 1.3
@@ -452,6 +452,7 @@ Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus
 Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 
 - **Output Contract** — each Skill self-reports `Met N/M | Overall: PASS|WARN|FAIL` against objective criteria, so you don't hand-check artifacts.
+- **Capability-aware station entry** — the generated entry config and the cascade protocol branch on the host's declared skill content lifecycle (`persistent-reattach`, `tool-output` or `unknown`, each traceable to a dated source in the agent registry). A host whose skill mechanism keeps loaded content alive is told to invoke — and re-invoke — the station's Skill; every other host, and any host with no declared lifecycle, runs `prospec status` and reads the station's `SKILL.md` before the entry gates. Neither route is exempt from the gates, and loading a station never implies its references arrived.
 - **Station reference maps** — `prospec status` shows the next station's references by phase, including conditional loading hints. A shared registry drives generated reference maps and deployment inventories; `prospec check`'s `skill-reference-map` check detects missing files and mismatched phase citations. Run `prospec agent sync` to refresh deployed Skills after correcting their source. See the [CLI reference](reference/cli-reference.md).
 - **Entry / Exit gates** — a Skill checks preconditions before running (Entry) and Constitution compliance after (Exit); WARN/FAIL records persist to a cross-stage `quality_log` so an earlier stage's concern surfaces at the next.
 - **Skill instruction quality** — per-phase gate checklists (finer-grained than the skill-level Entry/Exit gates); outside the `prospec-ff` cascade, each linear-flow Skill (plan→tasks→implement→review→verify→archive) ends with a status-aware **next-step handoff**; new-session detection of in-progress changes to resume; `prospec-implement` re-anchors `Progress X/Y | Goal | Next` after each task; and `prospec-explore` / `prospec-knowledge-generate` warn when the Constitution is still substantively empty (its gates would otherwise be no-ops).
@@ -660,7 +661,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (5462 total; 4 skipped)
+# Run all tests (5556 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -673,11 +674,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 5462 total tests (5458 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 3911 tests
-- Contract tests (CLI output + Skill format): 1313 tests
-- Integration tests: 83 tests
-- E2E tests: 155 tests
+**Test Coverage**: 5556 total tests (5552 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 3976 tests
+- Contract tests (CLI output + Skill format): 1325 tests
+- Integration tests: 98 tests
+- E2E tests: 157 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

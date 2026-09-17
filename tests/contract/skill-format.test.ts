@@ -17,8 +17,11 @@ import {
   AGENT_CONFIGS,
   SKILL_DEFINITIONS,
   intersectCapabilities,
+  mergeGroupRenderFlags,
+  renderFlagContext,
   skillHasReferences,
 } from '../../src/types/skill.js';
+import type { ValidAgent } from '../../src/types/config.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
 import {
@@ -1619,6 +1622,169 @@ describe('Skill Format Contract', () => {
         expect(section).toContain(step);
       }
       for (const t of HARNESS_TOOLS) expect(section).not.toContain(t);
+    });
+
+    // issue #271 — the station-transition guidance branches on the host's declared
+    // skill content lifecycle: a host whose skill mechanism keeps content alive
+    // ENTERS a station by invoking it, every other host (and a render with no
+    // capability context at all) keeps the conservative status-then-read route.
+    // Both branches load on EVERY transition and re-entry, and neither may name a
+    // harness tool, a plugin agent type or a hardcoded installation root.
+    describe('Capability-aware station entry (REQ-TEMPLATES-194, REQ-TEMPLATES-195, REQ-TEMPLATES-233)', () => {
+      // One sentinel per branch, each owned by exactly one `{{#if}}` arm, so a
+      // branch that leaks into the other turns these assertions red.
+      const NATIVE_LOAD = "invoke";
+      const NATIVE_MECHANISM = "host's own skill mechanism";
+      const FILE_LOAD = '`SKILL.md`';
+      const entrySection = (flags: Record<string, unknown>, skillPath: string) =>
+        sectionOf(
+          renderTemplate('agent-configs/entry.md.hbs', {
+            ...TEMPLATE_CONTEXT,
+            skill_path: skillPath,
+            ...flags,
+          }),
+          '## Working with This Project',
+        );
+      // The section holds three protocols, so every assertion below is scoped to
+      // the transition one — and inside it, to the part that carries the claim:
+      // its LEAD (what to do before loading) or its capability BRANCH (how to
+      // load). An assertion against the whole section passes on a sentence from a
+      // neighbouring paragraph, which is exactly how a deleted obligation hides.
+      const protocolOf = (section: string) => {
+        const start = section.indexOf('**Station Transition Protocol**');
+        expect(start, 'Station Transition Protocol not found').toBeGreaterThanOrEqual(0);
+        const rest = section.slice(start);
+        const end = rest.indexOf('**Checkpoint');
+        const protocol = end === -1 ? rest : rest.slice(0, end);
+        expect(protocol.trim().length).toBeGreaterThan(0);
+        return protocol;
+      };
+      const leadOf = (section: string) => {
+        const protocol = protocolOf(section);
+        const bullet = protocol.indexOf('\n- ');
+        expect(bullet, 'the protocol states no capability branch').toBeGreaterThan(0);
+        return protocol.slice(0, bullet);
+      };
+      const branchOf = (section: string) => {
+        const protocol = protocolOf(section);
+        const lines = protocol.split('\n').filter((line) => line.startsWith('- '));
+        expect(lines.length, 'the protocol states no capability branch').toBeGreaterThan(0);
+        return lines.join('\n');
+      };
+      const cascadeSection = (flags: Record<string, unknown>) =>
+        sectionOf(
+          renderTemplate('skills/references/cascade-protocol.hbs', { ...TEMPLATE_CONTEXT, ...flags }),
+          '## Per-Station Execution Loop',
+        );
+      // The rendered context comes from the SAME projection agent sync uses, over
+      // the SAME registry the hosts are declared in — a hand-written fixture would
+      // let the templates pass against a capability no host actually declares.
+      const groupContext = (...agents: ValidAgent[]) =>
+        renderFlagContext(mergeGroupRenderFlags(agents.map((agent) => AGENT_CONFIGS[agent])));
+
+      it('renders the native-invocation branch only for a persistent-reattach group (claude)', () => {
+        const section = entrySection(groupContext('claude'), AGENT_CONFIGS.claude.skillPath);
+        const branch = flat(branchOf(section));
+        expect(branch).toContain(NATIVE_MECHANISM);
+        expect(branch).toContain(NATIVE_LOAD);
+        // The native route is never the only route: the BRANCH ITSELF must carry
+        // the fallback, against the resolved deployment root — a fallback named
+        // only in the lead sentence leaves a failed load with nowhere to go.
+        expect(branch).toContain('fallback');
+        expect(branch).toContain('.claude/skills/');
+      });
+
+      it('runs status before loading, in every branch', () => {
+        // The obligation belongs to the LEAD: whichever way the station is loaded,
+        // the map and the identity come from `prospec status` first. Asserted as
+        // the INSTRUCTION to run it — the paragraph mentions the command twice for
+        // other reasons, so a bare name match survives deleting the obligation.
+        for (const context of [groupContext('claude'), groupContext('codex'), {}]) {
+          expect(flat(leadOf(entrySection(context, '.claude/skills')))).toMatch(
+            /run `prospec status` first/i,
+          );
+        }
+        // …and the same obligation opens the cascade's own load step.
+        for (const context of [groupContext('claude'), groupContext('codex'), {}]) {
+          const step = cascadeSection(context).split('\n').find((line) => line.includes('Step 1 [LOAD]'))!;
+          expect(step, 'Step 1 [LOAD] must open by running status').toMatch(/run `prospec status`/i);
+        }
+      });
+
+      it.each([
+        ['codex alone (tool-output)', ['codex'] as ValidAgent[], '.agents/skills'],
+        ['the shared AGENTS.md group (mixed → unknown)', ['codex', 'copilot', 'antigravity'] as ValidAgent[], '.agents/skills'],
+        ['antigravity alone (unknown)', ['antigravity'] as ValidAgent[], '.agents/skills'],
+        ['copilot alone (unknown)', ['copilot'] as ValidAgent[], '.agents/skills'],
+      ])('renders status-then-read for %s, claiming no persistence', (_label, agents, skillPath) => {
+        const section = entrySection(groupContext(...agents), skillPath);
+        const branch = flat(branchOf(section));
+        expect(flat(leadOf(section))).toContain('prospec status');
+        expect(branch).toContain(FILE_LOAD);
+        expect(branch).toContain('.agents/skills/');
+        expect(branch, 'no persistence may be claimed for this group').not.toContain(
+          NATIVE_MECHANISM,
+        );
+      });
+
+      it('takes the conservative branch when no capability context is rendered at all', () => {
+        // A caller that forgets the capability keys must not inherit the capable
+        // branch — and `{{#if skill_lifecycle}}` would, because Handlebars reads
+        // the non-empty string `unknown` as true.
+        const branch = flat(branchOf(entrySection({}, '.agents/skills')));
+        expect(branch).toContain(FILE_LOAD);
+        expect(branch).not.toContain(NATIVE_MECHANISM);
+      });
+
+      it('obliges a reload on every transition and re-entry, in both branches', () => {
+        for (const context of [groupContext('claude'), groupContext('codex')]) {
+          const section = flat(entrySection(context, '.claude/skills'));
+          expect(section).toMatch(/every transition and re-entry/);
+          // Remembered rules are never a substitute for the load.
+          expect(section).toMatch(/remembered|accumulated context/i);
+        }
+      });
+
+      it('keeps the five-step cascade loop and branches only its Step 1 [LOAD]', () => {
+        for (const context of [groupContext('claude'), groupContext('codex'), {}]) {
+          const section = cascadeSection(context);
+          for (const step of ['Step 1 [LOAD]', 'Step 2 [ENTRY]', 'Step 3 [EXEC]', 'Step 4 [GATE]', 'Step 5 [NEXT]']) {
+            expect(section, `${step} must survive the capability branch`).toContain(step);
+          }
+        }
+        expect(flat(cascadeSection(groupContext('claude')))).toContain(NATIVE_MECHANISM);
+        expect(flat(cascadeSection(groupContext('codex')))).not.toContain(NATIVE_MECHANISM);
+        expect(flat(cascadeSection({}))).not.toContain(NATIVE_MECHANISM);
+      });
+
+      it('states that a station load does not carry its references with it', () => {
+        // The obligation itself, not any mention of a reference: the entry lead's
+        // reference map and the cascade's on-demand references both say "reference"
+        // without stating that loading a station leaves its references unloaded.
+        const OBLIGATION = /loading a station never means its references arrived/;
+        for (const context of [groupContext('claude'), groupContext('codex')]) {
+          expect(protocolOf(flat(entrySection(context, '.claude/skills')))).toMatch(OBLIGATION);
+          expect(flat(cascadeSection(context))).toMatch(OBLIGATION);
+        }
+      });
+
+      it('names no host tool, plugin agent type, vendor or installation root in either branch', () => {
+        // The transition text ships to every downstream project: a name from ONE
+        // harness is wrong in all the others.
+        const VENDORS = ['Claude Code', 'Codex', 'Antigravity', 'GitHub Copilot', 'Anthropic', 'OpenAI'];
+        for (const agents of [['claude'], ['codex', 'copilot', 'antigravity']] as ValidAgent[][]) {
+          const sections = [
+            entrySection(groupContext(...agents), AGENT_CONFIGS[agents[0]!].skillPath),
+            cascadeSection(groupContext(...agents)),
+          ];
+          for (const section of sections) {
+            for (const t of HARNESS_TOOLS) expect(section).not.toContain(t);
+            for (const a of PLUGIN_AGENTS) expect(section).not.toContain(a);
+            for (const v of VENDORS) expect(section, `vendor name leaked: ${v}`).not.toContain(v);
+            expect(section, 'a hardcoded home-relative install root leaked').not.toMatch(/~\/\.[a-z]/);
+          }
+        }
+      });
     });
 
     it('no skill/reference body names a plugin agent type or a harness tool (D, REQ-TEMPLATES-196, PB-007 sweep)', () => {
@@ -3602,6 +3768,51 @@ describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167,
     expect(offenders).toEqual([]);
   });
 
+  it('no shipped template restates the station loading route the transition protocol owns (repo-wide negative)', () => {
+    // The loading route — HOW a station's instructions are obtained, and that
+    // `prospec status` prints where — is a capability branch owned by exactly two
+    // templates. Any other shipped template that combines a load verb, the skill
+    // file and the status-printed path in one line restates it, in whatever
+    // wording: the pre-change entry sentence and the prospec-ff table cell were
+    // two different phrasings of the same defect.
+    // Judged per PARAGRAPH (blank-line delimited), so a route split across hard-wrapped
+    // lines still co-occurs; the vocabulary covers the file and the command by their
+    // usual synonyms, not only the two spellings earlier rounds happened to cite.
+    const LOAD_VERB = String.raw`\b(read|open|load|consult|fetch|obtain|retrieve)\w*\b`;
+    const SKILL_FILE = String.raw`\b(SKILL\.md|skill file|station'?s skill|station instructions|skill'?s instructions)\b`;
+    // Verb before or after the noun ("read its SKILL.md" / "the SKILL.md must be read"),
+    // in any inflection ("reads", "loading").
+    const LOADS_SKILL_FILE = new RegExp(`${LOAD_VERB}[\\s\\S]{0,200}?${SKILL_FILE}|${SKILL_FILE}[\\s\\S]{0,120}?${LOAD_VERB}`, 'i');
+    const PATH_FROM_STATUS = /\bstatus\b[\s\S]{0,160}?\b(prints?|path|resolve[sd]?)\b|\bpath\b[\s\S]{0,100}?\bstatus\b/i;
+    const restatesRoute = (paragraph: string) => LOADS_SKILL_FILE.test(paragraph) && PATH_FROM_STATUS.test(paragraph);
+    const ROUTE_OWNERS = ['skills/references/cascade-protocol.hbs', 'agent-configs/entry.md.hbs'];
+    const templatesDir = path.resolve(skillsDir, '..');
+    const hbsFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return hbsFiles(full);
+        return e.name.endsWith('.hbs') ? [full] : [];
+      });
+    // The WHOLE shipped tree: init docs (status-lifecycle among them), change and
+    // knowledge scaffolds, references, partials and entry configs included.
+    const scanned = hbsFiles(templatesDir).map((f) => path.relative(templatesDir, f).replaceAll('\\', '/'));
+    for (const dir of ['skills', 'skills/references', 'agent-configs', 'init']) {
+      expect(scanned.some((f) => f.startsWith(`${dir}/`)), `${dir} must be in the scan`).toBe(true);
+    }
+    const paragraphsOf = (f: string) => fs.readFileSync(path.join(templatesDir, f), 'utf-8').split(/\n\s*\n/);
+    // The allowlist cannot go stale: each owner must still state BOTH halves of the
+    // route — how the instructions are loaded, and that status prints where.
+    for (const owner of ROUTE_OWNERS) {
+      const body = paragraphsOf(owner).join('\n\n');
+      expect(LOADS_SKILL_FILE.test(body), `${owner} no longer states how a station is loaded`).toBe(true);
+      expect(PATH_FROM_STATUS.test(body), `${owner} no longer states that status prints the path`).toBe(true);
+    }
+    const offenders = scanned
+      .filter((f) => !ROUTE_OWNERS.includes(f))
+      .filter((f) => paragraphsOf(f).some(restatesRoute));
+    expect(offenders).toEqual([]);
+  });
+
   it('agent-sync is the ONLY src render site for skill templates (capability keys cannot be skipped)', () => {
     // Handlebars is non-strict: a render site that omits `can_spawn_subagent`
     // silently emits the degraded branch as confident prose. Nothing in the
@@ -3969,6 +4180,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * files instead made the budget depend on unrelated knowledge edits, whose only cure
    * would be raising the anchor — exactly what the anchor forbids (round-2 T2-1/T2-3).
    */
+  // A reference with a host-capability branch deploys at two sizes; the ceiling
+  // bounds the larger one, or the branch a host actually receives could grow
+  // unmeasured behind a shrinking conservative render.
+  const referenceTokens = (reference: string): number => Math.max(
+    ...[false, true].map((skill_lifecycle_persistent) => estimateTokens(
+      renderTemplate(`skills/references/${reference}.hbs`, { ...TEMPLATE_CONTEXT, skill_lifecycle_persistent }))));
   const mandatoryContextTokens = (name: string): number => {
     const rendered = renderSkill(name);
     const section = startupLoadingSection(rendered);
@@ -3976,7 +4193,7 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
     for (const cited of mandatoryCitations(section)) {
       const reference = referenceOf(cited);
       if (reference) {
-        total += estimateTokens(renderTemplate(`skills/references/${reference}.hbs`, TEMPLATE_CONTEXT));
+        total += referenceTokens(reference);
         continue;
       }
       expect(DECLARED_NON_SHIPPED.has(cited),
@@ -4097,10 +4314,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
       .filter((file) => file.endsWith('.hbs'))
       .map((file) => file.replace(/\.hbs$/, ''))
       .sort();
-    const measured = Object.fromEntries(names.map((name) => [name,
-      estimateTokens(renderTemplate(`skills/references/${name}.hbs`, TEMPLATE_CONTEXT))]));
-    // Exact per-reference equality: a reference that grows shows up in the fixture diff,
-    // and prose displaced OUT of a skill lands here rather than vanishing from the books.
+    const measured = Object.fromEntries(names.map((name) => [name, referenceTokens(name)]));
+    // Exact per-reference equality on the recorded upper bound (the larger capability
+    // branch): a reference whose larger branch grows shows up in the fixture diff, and
+    // prose displaced OUT of a skill lands here rather than vanishing from the books.
+    // A smaller branch may move inside that bound without a diff — the bound is what
+    // the ceiling protects.
     expect(measured).toEqual(baseline.references);
     const total = Object.values(measured).reduce((sum, tokens) => sum + tokens, 0);
     expect(total).toBeLessThanOrEqual(baseline.reference_ceiling_tokens);

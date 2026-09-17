@@ -7,6 +7,7 @@ import { renderTemplate } from '../../../src/lib/template.js';
 import { input } from '@inquirer/prompts';
 import type { ConstitutionRule } from '../../../src/types/constitution.js';
 import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
+import { AGENT_CONFIGS } from '../../../src/types/skill.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -592,5 +593,61 @@ describe('init.service ⇄ INIT_DOC_REGISTRY equality (issue #48)', () => {
           : `prospec/${doc.output}`,
       );
     }
+  });
+});
+
+/**
+ * init renders a PROVISIONAL AGENTS.md before any `agent sync` runs, from its own
+ * render context (init.service, not the sync grouping). That file is read by the
+ * agents that share it, so its station-transition guidance must be merged over
+ * exactly those members — never over the first selected agent, which may write a
+ * different output entirely (issue #271 / issue #134's lesson at the second exit).
+ */
+describe('init provisional AGENTS.md capability (REQ-TEMPLATES-233)', () => {
+  const entryContext = async (agents: string[]): Promise<Record<string, unknown>> => {
+    vol.reset();
+    vol.fromJSON({ '/project/package.json': JSON.stringify({ name: 'test-project' }) });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+    await execute({ name: 'test-project', agents, cwd: '/project' });
+    const call = rt.mock.calls.find(([name]) => String(name) === 'agent-configs/entry.md.hbs');
+    expect(call, 'expected the provisional AGENTS.md render').toBeDefined();
+    return call![1] as Record<string, unknown>;
+  };
+
+  it('merges the members that actually share AGENTS.md', async () => {
+    const context = await entryContext(['codex', 'copilot', 'antigravity']);
+    expect(context.skill_lifecycle).toBe('unknown');
+    expect(context.skill_lifecycle_persistent).toBe(false);
+  });
+
+  it('claims nothing when no selected agent writes AGENTS.md', async () => {
+    // claude writes CLAUDE.md; the provisional AGENTS.md has no declarant at all,
+    // so it must take the conservative branch instead of borrowing claude's.
+    const context = await entryContext(['claude']);
+    expect(context.skill_lifecycle).toBe('unknown');
+    expect(context.skill_lifecycle_persistent).toBe(false);
+  });
+
+  it('never reads the first selected agent — the AGENTS.md group decides', async () => {
+    const original = AGENT_CONFIGS.codex.skillContentLifecycle;
+    AGENT_CONFIGS.codex.skillContentLifecycle = 'persistent-reattach';
+    try {
+      // claude is selected FIRST and is itself persistent-reattach, but it does
+      // not write this file; codex does, and here it is the one that declares.
+      const shared = await entryContext(['claude', 'codex']);
+      expect(shared.skill_lifecycle).toBe('persistent-reattach');
+      AGENT_CONFIGS.codex.skillContentLifecycle = 'tool-output';
+      const degraded = await entryContext(['claude', 'codex']);
+      expect(degraded.skill_lifecycle).toBe('tool-output');
+      expect(degraded.skill_lifecycle_persistent).toBe(false);
+    } finally {
+      AGENT_CONFIGS.codex.skillContentLifecycle = original;
+    }
+  });
+
+  it('claims nothing when no agent is selected at all', async () => {
+    const context = await entryContext([]);
+    expect(context.skill_lifecycle).toBe('unknown');
   });
 });

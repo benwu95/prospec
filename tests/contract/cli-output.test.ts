@@ -266,6 +266,13 @@ describe('CLI Output Contract', () => {
       const status = await helpOf('status');
       expect(status).toMatch(/first command of a session|start of a session|session start/i);
       expect(status).toContain('action:');
+      // The help describes the same lines the formatter prints: `action:` names a
+      // skill identity to invoke, and the skill FILE lives on a separate `fallback:`.
+      expect(status).toMatch(/action:[^.]*invoke/i);
+      expect(status).toContain('fallback:');
+      // The condition the formatter actually applies: a resolved agent path, never the host.
+      expect(status).toMatch(/fallback:[^.]*configures an agent/i);
+      expect(status).not.toMatch(/action:` line naming the skill file/i);
       const changeLog = await helpOf('change log');
       expect(changeLog).toMatch(/YAML/);
       expect(changeLog).not.toContain('\\|');

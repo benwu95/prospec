@@ -43,6 +43,7 @@
 - Reference self-containment & cross-station provenance: Reference templates must not point agents to undeployed `.md` files of other skills. Authoritative single sources for decoupled reference concepts:
   - `spec-graduation.hbs` owns spec graduation and `**Dropped:**` set refusal mechanics; `delta-spec-format.hbs` maintains self-contained local rules.
   - `circuit-breaker.hbs` owns the oscillation breaker contract (`FAIL → PASS → FAIL ≥ 2`); `cascade-protocol.hbs` inlines the core formula.
+  - `cascade-protocol.hbs` Step 1 [LOAD] and `entry.md.hbs`'s Station Transition Protocol are the only two sites branching on the merged host capability; both read the SAME render context and both load on every transition and re-entry.
   - `feature-spec-format.hbs` owns Feature Spec size governance (< 300 lines, 40%+ US share); `feature-boundary-criteria.hbs` refers to size governance conceptually.
   - `delta-spec-format.hbs` owns Delta Spec `**Spec:**` block landing syntax; `feature-spec-format.hbs` refers to the Delta Spec format contract.
   - `review-format.hbs` owns the two-condition single-source bypass critical definition; `plan-verifier-rubric.hbs` names the review-stage counterpart semantically.

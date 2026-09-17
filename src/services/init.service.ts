@@ -17,6 +17,12 @@ import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { buildInitDocContexts, renderInitDoc, resolveInitDocLocation } from '../lib/init-docs.js';
+import {
+  AGENT_CONFIGS,
+  mergeGroupRenderFlags,
+  renderFlagContext,
+  type AgentConfig,
+} from '../types/skill.js';
 
 export interface InitOptions {
   name?: string;
@@ -170,7 +176,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
       return { path: absPath, content: renderInitDoc(doc, contexts), label };
     }),
-    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...contexts.standard, skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...contexts.standard, ...agentsMdRenderFlags(selectedAgents), skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
 
@@ -216,6 +222,23 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     trustZoneLanguage,
     createdFiles,
   };
+}
+
+/**
+ * The render flags the provisional `AGENTS.md` is written from: merged over the
+ * selected agents that ACTUALLY write that file, through the one reducer
+ * registry `agent sync` uses.
+ *
+ * A selection whose members all write elsewhere (claude → `CLAUDE.md`) leaves an
+ * empty group, which the reducer resolves conservatively — taking the first
+ * selected agent's view instead is the `configs[0]` desync this file's second
+ * render exit would otherwise reintroduce (issue #134, issue #271).
+ */
+function agentsMdRenderFlags(selectedAgents: string[]): Record<string, string | boolean> {
+  const members = selectedAgents
+    .map((agent) => (AGENT_CONFIGS as Record<string, AgentConfig | undefined>)[agent])
+    .filter((config): config is AgentConfig => config?.configPath === 'AGENTS.md');
+  return renderFlagContext(mergeGroupRenderFlags(members));
 }
 
 async function promptAgentSelection(agentInfos: AgentInfo[]): Promise<string[]> {

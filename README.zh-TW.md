@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-5462%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-5556%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -102,7 +102,7 @@ Prospec 2.0 把 SDD 從一串引導步驟，提升為**受 gate 管理、可恢�
 | 能力 | 2.0 的改變 |
 |------|------------|
 | **更強的規劃** | 獨立的 architecture verifier 與 task verifier 會在 implementation 前檢查 layering、blast radius、reuse、REQ traceability、task ordering 與 TDD closure。Full-scale plan 可比較多個 architecture candidates；standard plan 必須說明 simpler alternative。 |
-| **受 gate 管理、可恢復的執行** | `prospec status` 會路由下一個 station 並列出 entry gate。每次 station transition 都重新載入指示；會改變狀態的 command 對非法 transition 直接拒絕，不再只靠 prose 約束。Design 是條件式 station、Knowledge Update 成為正式 station，quick/backfill 路徑也明確分開。最新 grade 為 B/C/D 的 `verified` change 會被導回 verify，recorded verifier 結果為 FAIL 的 plan／tasks 站會被導回該站。Archive 與 verify 的 gate 以單一 change 為對象裁決：sibling change 缺少的 evidence 不會擋住 target（共用的 whole-tree evidence digest 仍會） |
+| **受 gate 管理、可恢復的執行** | `prospec status` 會路由下一個 station，以 canonical Skill 身分作為 action、解析後的 skill 檔案作為 fallback，並列出 entry gate。每次 station transition 都重新載入指示——agent registry 宣告該 host 具備 skill 機制時就以該機制載入，其餘 host 一律讀檔；會改變狀態的 command 對非法 transition 直接拒絕，不再只靠 prose 約束。Design 是條件式 station、Knowledge Update 成為正式 station，quick/backfill 路徑也明確分開。最新 grade 為 B/C/D 的 `verified` change 會被導回 verify，recorded verifier 結果為 FAIL 的 plan／tasks 站會被導回該站。Archive 與 verify 的 gate 以單一 change 為對象裁決：sibling change 缺少的 evidence 不會擋住 target（共用的 whole-tree evidence digest 仍會） |
 | **會自我修正的品質迴圈** | Drift 可建立有界的 follow-up draft；review 使用 fresh-context verifier loop 與 circuit breaker；Verify 記錄 judgment provenance；Archive 在改 trust zone 前檢查 requirement landing fidelity。反覆出現的 correction 可走 human-approved learning pipeline 晉升。 |
 
 ### 從 1.3 升級
@@ -447,6 +447,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 除了線性流程，每個 workflow Skill 都內建品質機制：
 
 - **Output Contract** — 每個 Skill 對客觀準則自評 `Met N/M | Overall: PASS|WARN|FAIL`，不必逐行檢查 artifact。
+- **依 host 能力進站** — 生成的 entry config 與 cascade protocol 會依 host 宣告的 skill content lifecycle（`persistent-reattach`、`tool-output` 或 `unknown`，每個值在 agent registry 都有註明日期的出處）分岐。skill 機制能讓已載入內容存活的 host，會被指示以該機制調用、並於重入時重新調用該站 Skill；其餘 host 以及未宣告 lifecycle 的 host，一律先跑 `prospec status` 再讀該站 `SKILL.md`，然後才進 entry gates。兩條路徑都不豁免 gate，且載入站點指示不代表其 references 已抵達。
 - **Station reference map** — `prospec status` 依 phase 顯示下一站的 references，包含條件式載入提示。共用 registry 驅動產生的 reference maps 與部署清單；`prospec check` 的 `skill-reference-map` 檢查可偵測缺檔與 phase 引用不符。修正來源後，執行 `prospec agent sync` 更新已部署的 Skills。詳見 [CLI 參考](reference/cli-reference.zh-TW.md)。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
 - **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；在 `prospec-ff` cascade 之外，線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
@@ -634,7 +635,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 5462 個；4 個略過）
+# 執行所有測試（共 5556 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -647,11 +648,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 5462 個測試（5458 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：3911 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1313 tests
-- Integration tests：83 tests
-- E2E tests：155 tests
+**測試覆蓋率**：共 5556 個測試（5552 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：3976 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1325 tests
+- Integration tests：98 tests
+- E2E tests：157 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 
