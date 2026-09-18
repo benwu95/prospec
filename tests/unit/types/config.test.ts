@@ -6,6 +6,8 @@ import {
   KNOWLEDGE_SIZE_KINDS,
   KNOWLEDGE_SIZE_RULES,
   ProspecConfigSchema,
+  SHIPPED_BUDGET_FIELDS,
+  isShippedBudgetField,
   type KnowledgeSizeRule,
 } from '../../../src/types/config.js';
 
@@ -17,10 +19,32 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
       readme_max_lines: 100,
       spec_per_file: 5000,
       demand_knowledge_per_file: 10000,
-      skill_per_file: 5000,
+      skill_per_file: 12500,
       reference_per_file: 2500,
       headroom: 0.85,
     });
+  });
+
+  // The two shipped budgets describe the SKILL.md / reference files prospec itself
+  // ships, so their only correct value is the one prospec authored them against.
+  // Pinning the set by LITERAL: widening or shrinking it is a design decision.
+  it('names exactly the two shipped budgets a project cannot override', () => {
+    expect([...SHIPPED_BUDGET_FIELDS].sort()).toEqual(['reference_per_file', 'skill_per_file']);
+    for (const key of SHIPPED_BUDGET_FIELDS) expect(isShippedBudgetField(key)).toBe(true);
+    expect(isShippedBudgetField('l1_per_file')).toBe(false);
+    expect(isShippedBudgetField('headroom')).toBe(false);
+  });
+
+  it('schema keys plus SHIPPED_BUDGET_FIELDS cover DEFAULT_KNOWLEDGE_TOKEN_BUDGET exactly', () => {
+    const schemaKeys = Object.keys(
+      (ProspecConfigSchema.shape.knowledge.unwrap().shape.token_budget.unwrap() as {
+        shape: Record<string, unknown>;
+      }).shape,
+    );
+    for (const shipped of SHIPPED_BUDGET_FIELDS) expect(schemaKeys).not.toContain(shipped);
+    expect([...schemaKeys, ...SHIPPED_BUDGET_FIELDS].sort()).toEqual(
+      Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).sort(),
+    );
   });
 
   // A LITERAL table, not one derived from the rules under test. Asserting only
@@ -135,26 +159,20 @@ describe('single-source: index.md declares the DEFAULT budget numbers', () => {
     expect(num(m![1]!)).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.demand_knowledge_per_file);
   });
 
-  it('Skill row declares skill_per_file and reference_per_file tokens', () => {
-    const row = rowOf('Skill');
-    const skill = /≤\s*([\d,]+)\s*tokens per skill/.exec(row);
-    const reference = /≤\s*([\d,]+)\s*tokens per reference/.exec(row);
-    expect(skill, 'Skill row must declare "≤ N tokens per skill"').not.toBeNull();
-    expect(reference, 'Skill row must declare "≤ N tokens per reference"').not.toBeNull();
-    expect(num(skill![1]!)).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.skill_per_file);
-    expect(num(reference![1]!)).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  it('carries no Skill row — the shipped budgets are not a project setting and have no table row', () => {
+    expect(rowOf('Skill')).toBe('');
+    expect(index).not.toMatch(/tokens per skill|tokens per reference/);
   });
 
   // The four assertions above are hand-written per row, so a budget added to the
   // code with no row of its own would be pinned by nothing. This closes that gap.
-  it('declares a row for EVERY budget field — a new threshold cannot ship undeclared', () => {
+  it('declares a row for EVERY per-project budget field — a new threshold cannot ship undeclared', () => {
     const declared = new Set<string>();
     const rows: Array<[string, (keyof typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET)[]]> = [
       ['L1', ['l1_per_file']],
       ['L2', ['l2_per_module', 'readme_max_lines']],
       ['Spec', ['spec_per_file']],
       ['Demand', ['demand_knowledge_per_file']],
-      ['Skill', ['skill_per_file', 'reference_per_file']],
     ];
     for (const [layer, fields] of rows) {
       const row = rowOf(layer);
@@ -169,9 +187,10 @@ describe('single-source: index.md declares the DEFAULT budget numbers', () => {
         declared.add(field);
       }
     }
+    // Every per-project threshold has a row; the shipped fields deliberately do not.
     expect([...declared].sort()).toEqual(
       Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET)
-        .filter((k) => k !== 'headroom')
+        .filter((k) => k !== 'headroom' && !isShippedBudgetField(k))
         .sort(),
     );
   });

@@ -21,9 +21,11 @@ import {
   renderFlagContext,
   skillHasReferences,
 } from '../../src/types/skill.js';
-import type { ValidAgent } from '../../src/types/config.js';
+import type { ValidAgent, ProspecConfig } from '../../src/types/config.js';
+import { resolveKnowledgeTokenBudget } from '../../src/lib/config.js';
+import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import {
   PLANNING_VERDICTS,
   PLAN_VERIFIER_DIMENSIONS,
@@ -209,6 +211,54 @@ const KNOWLEDGE_LOADING_SKILLS = [
 // negative guard below asserts they render no budget table and no injected sentinel.
 const NO_BUDGET_PARTIAL_SKILLS = ['prospec-verify', 'prospec-plan', 'prospec-implement'];
 
+describe('Shipped budgets never reach a project loading table', () => {
+  // The skill / reference budgets describe the SKILL.md and reference files prospec
+  // itself ships: a project cannot set them and knowledge-size never grades them
+  // outside the authoring repo, so a row for them is information the reader cannot
+  // act on. Contexts are built through the production resolver, so this pins the
+  // rendered output whatever a downstream .prospec.yaml writes.
+  const configs: Array<[string, ProspecConfig]> = [
+    ['no token_budget', { project: { name: 'down' } } as ProspecConfig],
+    ['writes the old shipped keys', { project: { name: 'down' }, knowledge: { token_budget: { skill_per_file: 5000, reference_per_file: 9000 } as Record<string, number> } } as ProspecConfig],
+    ['widens a per-project field', { project: { name: 'down' }, knowledge: { token_budget: { l1_per_file: 4242 } } } as ProspecConfig],
+  ];
+  const renderAll = (config: ProspecConfig): string[] => {
+    const budget = resolveKnowledgeTokenBudget(config);
+    const skillCtx = { ...TEMPLATE_CONTEXT, ...budget };
+    const indexCtx = buildIndexTemplateContext({
+      projectName: 'down', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge',
+      coreConventions: [], demandConventions: [], tokenBudget: budget,
+    });
+    return [
+      renderTemplate('skills/prospec-knowledge-generate.hbs', skillCtx),
+      renderTemplate('skills/prospec-knowledge-update.hbs', skillCtx),
+      renderTemplate('knowledge/index.md.hbs', indexCtx),
+    ];
+  };
+
+  for (const [label, config] of configs) {
+    it(`renders no Skill row and no shipped budget when the config ${label}`, () => {
+      for (const content of renderAll(config)) {
+        const idx = content.indexOf('## Progressive Knowledge Loading Strategy');
+        expect(idx, 'loading table must be present').toBeGreaterThanOrEqual(0);
+        const table = content.slice(idx);
+        expect(table).not.toContain('**Skill**');
+        expect(table).not.toMatch(/tokens per skill|tokens per reference/);
+        expect(table).not.toContain(String(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.skill_per_file));
+        expect(content).not.toContain('DEFAULT_KNOWLEDGE_TOKEN_BUDGET');
+        expect(content).toMatch(/\.prospec\.yaml[^\n]*knowledge\.token_budget/);
+      }
+    });
+  }
+
+  it('still renders every per-project row from the resolved budget, in all three artifacts', () => {
+    for (const content of renderAll(configs[2]![1])) {
+      expect(content).toContain('≤ 4242 tokens per file');
+      for (const layer of ['L1', 'L2', 'Spec', 'Demand']) expect(content).toContain(`**${layer}**`);
+    }
+  });
+});
+
 describe('Knowledge budget rendering (no leaked symbol, values from injected context)', () => {
   // Sentinel budgets distinct from DEFAULT_KNOWLEDGE_TOKEN_BUDGET prove the rendered
   // numbers come from the injected context (agent-sync's resolveKnowledgeTokenBudget),
@@ -219,9 +269,13 @@ describe('Knowledge budget rendering (no leaked symbol, values from injected con
   // partial keep a stale L2 row (naming Feature Specs at the module budget) while
   // every contract test stayed green: Handlebars renders an unknown variable as the
   // empty string, so an un-sentinelled field cannot be missed by any assertion.
+  // Shipped fields (skill / reference) have no row by design — they are not a
+  // project's to set — so the per-field guard covers the per-project fields only.
   const BUDGET_SENTINELS = Object.fromEntries(
-    Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((field, i) => [field, 4200 + i]),
-  ) as Record<keyof typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET, number>;
+    Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET)
+      .filter((field) => !isShippedBudgetField(field))
+      .map((field, i) => [field, 4200 + i]),
+  ) as Record<string, number>;
   const ctx = { ...TEMPLATE_CONTEXT, ...BUDGET_SENTINELS, l1_per_file: 4242, l2_per_module: 2424, readme_max_lines: 77 };
 
   it('the shared loading-rules partial renders EVERY budget field', () => {

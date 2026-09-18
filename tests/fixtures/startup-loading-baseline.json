@@ -76,7 +76,7 @@
         "{{knowledge_base_path}}/raw-scan.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4913
+      "mandatory_context_tokens": 4829
     },
     "prospec-knowledge-update": {
       "items": [
@@ -87,7 +87,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 4427
+      "mandatory_context_tokens": 4343
     },
     "prospec-learn": {
       "items": [
@@ -191,7 +191,7 @@
     "delegated-evidence-format": 2849,
     "delta-spec-format": 2017,
     "design-spec-format": 930,
-    "drift-report-format": 2693,
+    "drift-report-format": 2692,
     "feature-boundary-criteria": 963,
     "feature-spec-format": 1185,
     "implementation-guide": 1075,

@@ -76,14 +76,12 @@ knowledge:
     # separate from l1_per_file on purpose: a file read in slices has no business
     # being graded against the budget of a document read whole
     demand_knowledge_per_file: 10000
-    # each deployed SKILL.md / reference. Measured only where the project holds
-    # the skill template sources — a project that merely consumes generated skills
-    # cannot act on such a finding, so it is not given one
-    skill_per_file: 5000
-    # each generated skill reference, read on demand by one phase
-    reference_per_file: 2500
     # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
     headroom: 0.85
+    # The skill and reference budgets ship with the prospec version and are not
+    # set here: they describe the SKILL.md and reference files prospec itself
+    # generates, so their only correct value is the one that version was authored
+    # against (measured only where the project holds the skill template sources)
 
 # Language for AI-generated change artifacts (and their archived summaries under
 # specs/_archived-history/). Code, identifiers, technical terms and commit messages

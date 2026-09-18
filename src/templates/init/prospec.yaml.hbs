@@ -53,8 +53,7 @@ knowledge:
     spec_per_file: 5000
     # each load-on-demand knowledge file (lessons ledger, playbook, ...)
     demand_knowledge_per_file: 10000
-    # each deployed SKILL.md / reference — measured only where this project
-    # holds the skill template sources
-    skill_per_file: 5000
-    # each generated skill reference, read on demand by one phase
-    reference_per_file: 2500
+    # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
+    headroom: 0.85
+    # The skill and reference budgets ship with the prospec version and are not
+    # set here — they describe the skill files prospec itself generates.

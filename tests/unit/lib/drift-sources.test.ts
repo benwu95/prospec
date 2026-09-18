@@ -2978,6 +2978,62 @@ describe('collectBudgetOverrides', () => {
     }
   });
 
+  it('routes the shipped keys to `ineffective` with their line, never into overrides', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    l1_per_file: 1800
+    skill_per_file: 5000
+    reference_per_file: 9000
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      // 5000 is BELOW the shipped skill budget and 9000 ABOVE the shipped reference
+      // budget — neither may be judged by size; both are simply not per-project keys.
+      expect(res.overrides).toHaveLength(0);
+      expect(res.ineffective).toEqual([
+        { key: 'skill_per_file', line: 4 },
+        { key: 'reference_per_file', line: 5 },
+      ]);
+    }
+  });
+
+  it('flags a shipped key whatever sits beside it — a list value is still the key that is the finding', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    skill_per_file: 5000
+    reference_per_file: [1]
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.ineffective.map((k) => k.key)).toEqual(['skill_per_file', 'reference_per_file']);
+      expect(res.overrides).toHaveLength(0);
+    }
+  });
+
+  it('reports no ineffective key when the block carries only per-project fields', () => {
+    writeFileSync(
+      path.join(cwd, '.prospec.yaml'),
+      `knowledge:
+  token_budget:
+    l1_per_file: 999999 # justified
+`,
+    );
+    const res = collectBudgetOverrides(cwd);
+    expect(res.available).toBe(true);
+    if (res.available) {
+      expect(res.ineffective).toEqual([]);
+      expect(res.overrides).toHaveLength(1);
+    }
+  });
+
   it('returns unavailable on malformed yaml', () => {
     writeFileSync(path.join(cwd, '.prospec.yaml'), 'knowledge:\n  token_budget: [unclosed');
     const res = collectBudgetOverrides(cwd);

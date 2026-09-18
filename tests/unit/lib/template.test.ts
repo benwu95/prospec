@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema } from '../../../src/types/config.js';
 
 // Mock node:fs with memfs. To keep the existing real-template render tests
 // working, the factory copies the real src/templates tree into the memfs volume
@@ -88,6 +90,23 @@ describe('renderTemplate', () => {
       agents: ['claude'],
     });
     expect(result).toContain('test-project');
+  });
+
+  it('seeds EVERY TokenBudgetSchema field at its shipped default and no shipped key', () => {
+    const result = renderTemplate('init/prospec.yaml.hbs', { project_name: 'seed', agents: [] });
+    expect(result).not.toMatch(/skill_per_file|reference_per_file/);
+    expect(result).toMatch(/skill and reference budgets ship with the prospec version/);
+    // Structural, not textual: the seeded block's key set IS the schema's key set,
+    // and each value is the shipped default — renaming, dropping or drifting any
+    // one field turns this red.
+    const seeded = (parseYaml(result) as { knowledge: { token_budget: Record<string, number> } }).knowledge.token_budget;
+    const schemaKeys = Object.keys(
+      (ProspecConfigSchema.shape.knowledge.unwrap().shape.token_budget.unwrap() as { shape: Record<string, unknown> }).shape,
+    ).sort();
+    expect(Object.keys(seeded).sort()).toEqual(schemaKeys);
+    for (const key of schemaKeys) {
+      expect(seeded[key], key).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET[key as keyof typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET]);
+    }
   });
 
   it('should throw TemplateError for non-existent template', () => {

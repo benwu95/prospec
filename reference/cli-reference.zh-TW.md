@@ -403,7 +403,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。
       - `delta-spec-provenance`：變更的 `delta-spec.md` 指紋必須與 review 基線一致（防止審查後私自修改規格）。
       - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。
-    - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解（WARN）、初始文件漂移（`canonical-doc-drift`，WARN）、憲法 Language Policy 與 resolved 語言範圍一致性（`language-policy-drift`，WARN）。
+    - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解與寫了也不綁定的 shipped 預算鍵（`unjustified-budget-override`，WARN）、初始文件漂移（`canonical-doc-drift`，WARN）、憲法 Language Policy 與 resolved 語言範圍一致性（`language-policy-drift`，WARN）。
     - **Skill 部署**：`skill-reference-map`（FAIL）比對各已設定 host 的實際部署與 station reference registry——載入點不再引用其 reference、已登記的 reference 未部署、已部署的 reference 無任何載入點認領。已設定 host 的部署目錄不存在也會 FAIL。修復方式是以與部署相符的 prospec 版本執行 `prospec agent sync`。未設定 agent，或 host 根目錄無法讀取且沒有其他已確認失敗時，明示 skipped 與原因；可讀 host 不能代替不可讀 host 通過檢查，已確認失敗仍保留 FAIL。
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
@@ -454,7 +454,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 
 #### 調整 `knowledge-size` 預算
 
-`knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設：
+`knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個 per-project 載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設。skill 與 reference 預算是例外：它們描述的是 prospec 自己生成的 skill 檔，所以隨 prospec 版本出貨（12,500 / 2,500 tokens）、不是專案設定 —— 寫了也不綁定，`unjustified-budget-override` 會要求你刪掉該行：
 
 ```yaml
 # .prospec.yaml
@@ -465,8 +465,6 @@ knowledge:
     readme_max_lines: 100           # 每個模組知識檔的行數上限
     spec_per_file: 5000             # 每份 Feature Spec（與 product.md）的 token 上限
     demand_knowledge_per_file: 10000 # 每個 load-on-demand 知識檔的 token 上限
-    skill_per_file: 5000            # 每份生成的 SKILL.md 的 token 上限
-    reference_per_file: 2500        # 每份生成的 skill reference 的 token 上限
     headroom: 0.85                  # 觸發壓力預警的預算水位比例（0.85 = 85%）
 ```
 

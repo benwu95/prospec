@@ -52,6 +52,17 @@ describe('config example completeness contract', () => {
     }
   });
 
+  it('names neither shipped budget — they are not per-project settings — but explains where they come from', async () => {
+    const { content } = await execute();
+    const obj = parse(content) as { knowledge?: { token_budget?: Record<string, unknown> } };
+    expect(obj.knowledge?.token_budget).not.toHaveProperty('skill_per_file');
+    expect(obj.knowledge?.token_budget).not.toHaveProperty('reference_per_file');
+    // The explanation must not smuggle the key names back in as prose (a grep for
+    // the keys must stay at zero hits), so it is pinned by its own wording.
+    expect(content).toMatch(/skill and reference budgets ship with the prospec version/);
+    expect(content).not.toMatch(/skill_per_file|reference_per_file/);
+  });
+
   it('carries no removed dead field (schema is closed on those)', async () => {
     const { content } = await execute();
     const obj = parse(content) as Record<string, Record<string, unknown>>;

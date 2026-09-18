@@ -57,10 +57,9 @@ from the full init, never `--raw-scan-only`, so a first-ever run needs it.
 | **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
-| **Skill** | deployed `SKILL.md` and its `references/*.md` | Injected per station by the harness | ≤ 12500 tokens per skill, ≤ 2500 tokens per reference — measured only where this project holds the skill template sources |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (the numbers reflect this project's current settings — the defaults when a field is unset); over-budget files WARN via `prospec check` `knowledge-size` (warnings start at 0.85 of the limit to provide a pressure signal before drift), never a build breaker — and each finding names the convergence path for its surface. L0 is agent-injected config, out of the check's scope.
+> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (this project's values; defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of the limit, a pressure signal), never a build breaker; each finding names its convergence path. L0 is agent-injected config, out of scope.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"

@@ -407,7 +407,7 @@ deliberately not included in this version.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.
       - `delta-spec-provenance`: Change's `delta-spec.md` fingerprint must match the recorded review baseline.
       - `delta-spec-landing-fidelity`: A MODIFIED delta-spec `**Spec:**` landing block must not drop an authored trust-zone `WHEN/THEN` bullet without declaring it under `**Dropped:**` (FAIL) — surfaces the loss at every check, sharing the archive write path's comparison, not only at archive after the commit.
-    - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (`artifact-language`, WARN), justification comments on budget overrides (WARN), canonical doc drift (`canonical-doc-drift`, WARN), Constitution Language Policy vs. resolved language scope (`language-policy-drift`, WARN).
+    - **Governance**: RFC-2119 tags on Constitution principles (WARN), artifact language consistency (`artifact-language`, WARN), justification comments on budget overrides and shipped budget keys that bind nothing (`unjustified-budget-override`, WARN), canonical doc drift (`canonical-doc-drift`, WARN), Constitution Language Policy vs. resolved language scope (`language-policy-drift`, WARN).
     - **Skill Deployment**: `skill-reference-map` (FAIL) compares every configured host's deployed skills against the station reference registry — a load point that no longer cites its reference, a registered reference that was never deployed, and a deployed reference no load point claims. A missing configured host directory also fails. The remedy is `prospec agent sync` from a prospec version matching the deployment. No configured agent, or an unreadable host root without another proven failure, yields skipped with a reason; a readable host cannot certify an unreadable one, and known failures retain FAIL.
   - **Execution & Exit Codes**:
     - `--json`: Outputs machine-readable `prospec-report.json`.
@@ -458,7 +458,7 @@ Honesty rules: an unavailable source degrades the check to `skipped` with an exp
 
 #### Tuning the `knowledge-size` budgets
 
-`knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default:
+`knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each per-project surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default. The skill and reference budgets are the exception: they describe the skill files prospec itself generates, so they ship with the prospec version (12,500 / 2,500 tokens) and are not project settings — a key written for them binds nothing and `unjustified-budget-override` asks you to remove it:
 
 ```yaml
 # .prospec.yaml
@@ -469,8 +469,6 @@ knowledge:
     readme_max_lines: 100           # max lines per module file
     spec_per_file: 5000             # max tokens per Feature Spec (and product.md)
     demand_knowledge_per_file: 10000 # max tokens per load-on-demand knowledge file
-    skill_per_file: 5000            # max tokens per generated SKILL.md
-    reference_per_file: 2500        # max tokens per generated skill reference
     headroom: 0.85                  # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
 ```
 

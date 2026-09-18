@@ -5,7 +5,7 @@ import {
   ProspecConfigSchema,
   DEFAULT_ARTIFACT_LANGUAGE,
   DEFAULT_BASE_DIR,
-  DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+  DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField,
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
@@ -105,7 +105,9 @@ export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSiz
   const tb: NonNullable<TokenBudget> = config.knowledge?.token_budget ?? {};
   const resolved: KnowledgeSizeBudget = { ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET };
   for (const key of Object.keys(resolved) as (keyof KnowledgeSizeBudget)[]) {
-    const override = tb[key];
+    // Shipped budgets describe prospec's own skill files: never a project's to set.
+    if (isShippedBudgetField(key)) continue;
+    const override = tb[key as keyof NonNullable<TokenBudget>];
     if (override !== undefined) resolved[key] = override;
   }
   return resolved;
