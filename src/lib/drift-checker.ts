@@ -1,4 +1,5 @@
 import { isProvenanceAudited } from '../types/change.js';
+import type { TestEvidenceDecision, TestEvidenceFacts } from '../types/station.js';
 import { assessDrops } from './landing-fidelity.js';
 import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
 import {
@@ -35,6 +36,7 @@ import type {
   SpecCounterSource,
   TaskSource,
   TestProvenanceSource,
+  TestProvenanceChange,
   BudgetOverrideSource,
   CanonicalDocDriftSource,
   LanguagePolicyDriftSource,
@@ -839,6 +841,161 @@ export function evaluateCanonicalDocDrift(src: CanonicalDocDriftSource): CheckOu
  * whole-tree digest is compared against every change, so concurrent changes
  * over-block (fail-closed), never fail-open.
  */
+/**
+ * The status-independent, single-change test-evidence policy both lifecycle
+ * entrances (`change status implemented`, `review merge`) and the drift
+ * evaluator below share (REQ-LIB-080). Pure over the collected facts; it reads
+ * no lifecycle status, so a change at `tasks` is judged exactly like one at
+ * `implemented` — the audit-scope filter is the drift evaluator's alone.
+ *
+ * Branch order is the contract: a known non-zero failure (durable provenance
+ * OR the latest attempt with an actual non-zero exit) refuses FIRST, before the
+ * no-command and proven-backfill exemptions, so neither a stale+failing
+ * backfill record nor a command that stopped resolving can suppress a red run.
+ * The latest attempt is judged before any older passing provenance, so an old
+ * PASS never masks a newer failure. An exemption is `exempt`, never `pass`:
+ * the caller records it as not-adjudicated.
+ */
+export function evaluateChangeTestEvidence(facts: TestEvidenceFacts): TestEvidenceDecision {
+  const attempt = facts.latestAttempt;
+  const attemptDetail = attempt
+    ? [
+        attempt.command ? `command \`${attempt.command}\`` : '',
+        attempt.exitCode !== undefined ? `exited ${attempt.exitCode}` : '',
+        attempt.signal ? `signal ${attempt.signal}` : '',
+        attempt.reason ?? '',
+      ].filter(Boolean).join('; ')
+    : '';
+  const attemptFailed =
+    attempt !== undefined &&
+    attempt.outcome === 'failed' &&
+    typeof attempt.exitCode === 'number' &&
+    attempt.exitCode !== 0;
+  const failedAttemptId = attemptFailed && attempt.id !== '' ? attempt.id : undefined;
+  const refuse = (
+    reason: string,
+    knownFailure = false,
+  ): Extract<TestEvidenceDecision, { verdict: 'refuse' }> => ({
+    verdict: 'refuse',
+    reason,
+    knownFailure,
+    ...(knownFailure && failedAttemptId !== undefined ? { failedAttemptId } : {}),
+  });
+
+  if (
+    facts.recordedExitCode !== 0 &&
+    (facts.recordedExitCode !== null || facts.recordedDigest !== null)
+  ) {
+    return refuse(
+      `failing test run for change "${facts.changeName}": \`${facts.recordedCommand}\` exited ` +
+        `${facts.recordedExitCode === null ? 'without a status' : facts.recordedExitCode}` +
+        (facts.recordedDigest === facts.currentDigest ? '' : ' (and the record is stale)'),
+      true,
+    );
+  }
+  if (attemptFailed) {
+    return refuse(
+      `failing test attempt for change "${facts.changeName}"${attemptDetail ? ` — ${attemptDetail}` : ''}`,
+      true,
+    );
+  }
+  if (facts.commandUnavailableReason != null) {
+    return { verdict: 'exempt', exemption: 'no-command', reason: facts.commandUnavailableReason };
+  }
+  const provenBackfill = facts.scale === 'backfill' && facts.backfillDraftPresent;
+  // Never a `pass`: the two verdicts an unmet-evidence case can take, so the
+  // attempt-unavailable marker below can be spread onto either.
+  const insufficient = (
+    reason: string,
+  ): Extract<TestEvidenceDecision, { verdict: 'exempt' | 'refuse' }> =>
+    provenBackfill ? { verdict: 'exempt', exemption: 'proven-backfill', reason } : refuse(reason);
+
+  if (attempt?.outcome === 'unavailable') {
+    const reason = `test command unavailable: latest attempt for change "${facts.changeName}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``;
+    // The spawn failure proves the command unavailable only for the inputs it
+    // ran against; once the command resolves again and the inputs moved, the
+    // attempt is a stale fact and a re-run is due — never an exemption. The
+    // marker rides BOTH verdicts: the drift evaluator's per-subject skip for an
+    // ungradeable attempt must outrank the proven-backfill relaxation, or a
+    // change whose command cannot even spawn adjudicates as a PASS.
+    if (facts.currentDigest !== null && attempt.beforeDigest === facts.currentDigest) {
+      return { verdict: 'exempt', exemption: 'no-command', reason };
+    }
+    return { ...insufficient(reason), attemptUnavailable: true };
+  }
+
+  if (attempt && attempt.outcome !== 'passed') {
+    return insufficient(
+      `uncertified test attempt (${attempt.outcome}) for change "${facts.changeName}"${attemptDetail ? ` — ${attemptDetail}` : ''} — re-run \`prospec check --record-tests\``,
+    );
+  }
+  if (facts.recordedDigest === null) {
+    return insufficient(
+      `no test run recorded for change "${facts.changeName}" — run \`prospec check --record-tests\` before prospec-verify`,
+    );
+  }
+  if (!facts.versionSupported) {
+    return insufficient(
+      `legacy or unknown test evidence for change "${facts.changeName}" — run one valid test attempt with \`prospec check --record-tests\``,
+    );
+  }
+  const attemptMatches =
+    attempt !== undefined &&
+    attempt.id !== '' &&
+    attempt.id === facts.recordedAttemptId &&
+    attempt.beforeDigest === facts.recordedDigest &&
+    attempt.afterDigest === facts.recordedDigest &&
+    attempt.exitCode === 0;
+  if (!attemptMatches) {
+    return insufficient(
+      `uncertified test attempt (${attempt?.outcome || 'missing'}) for change "${facts.changeName}" — re-run \`prospec check --record-tests\``,
+    );
+  }
+  if (facts.currentDigest === null || facts.recordedDigest !== facts.currentDigest) {
+    return insufficient(
+      `stale test run for change "${facts.changeName}": code changed since the recorded run or current inputs are unprovable${facts.currentDigest === null && facts.snapshotReason ? ` (${facts.snapshotReason})` : ''} — re-run \`prospec check --record-tests\``,
+    );
+  }
+  return { verdict: 'pass', attemptId: attempt.id };
+}
+
+/**
+ * The shared policy's view of one collected drift-source change — a straight
+ * projection of the facts the collector read, with no derived verdict in
+ * between. `evaluateChangeTestEvidence` owns the certification predicate
+ * (linked attempt id + both digests + exit 0); a second, collector-side copy of
+ * it would be one more place for the two to disagree.
+ */
+function testEvidenceFactsOf(
+  c: TestProvenanceChange,
+  src: TestProvenanceSource,
+): TestEvidenceFacts {
+  return {
+    changeName: c.name,
+    scale: c.scale,
+    backfillDraftPresent: c.backfill_draft_present,
+    commandUnavailableReason: src.command_unavailable_reason ?? null,
+    currentDigest: src.current_digest,
+    recordedDigest: c.recorded_digest,
+    recordedExitCode: c.recorded_exit_code,
+    recordedCommand: c.recorded_command,
+    recordedAttemptId: c.recorded_attempt_id,
+    versionSupported: c.version_supported ?? false,
+    latestAttempt: c.attempt_outcome
+      ? {
+          id: c.attempt_id ?? '',
+          outcome: c.attempt_outcome,
+          command: c.attempt_command || undefined,
+          exitCode: c.attempt_exit_code,
+          signal: c.attempt_signal || undefined,
+          reason: c.attempt_reason || undefined,
+          beforeDigest: c.attempt_before_digest,
+          afterDigest: c.attempt_after_digest,
+        }
+      : undefined,
+  };
+}
+
 export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome {
   if (!src.available) {
     return skipped('test-provenance', src.reason ?? 'source unavailable');
@@ -853,72 +1010,26 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   const subjectSkips: Record<string, string> = {};
   for (const c of src.changes) {
     if (!isProvenanceAudited(c.status)) continue;
-    const provenBackfill = c.scale === 'backfill' && c.backfill_draft_present;
-    if (c.recorded_exit_code !== 0 && (c.recorded_exit_code !== null || c.recorded_digest !== null)) {
-      // Checked FIRST — before staleness, before the unresolvable-command skip —
-      // and never exempt under backfill: a recorded failure is a KNOWN failure
-      // whatever the tree or the toolchain did afterwards, and the verify contract
-      // this status feeds is absolute — "never suppress a recorded non-zero exit".
-      // Any later ordering opens a suppression path (stale+failing backfill via the
-      // exempt branch; a red record via a command that stopped resolving — #103).
-      findings.push({
-        check: 'test-provenance',
-        severity: 'fail',
-        source_path: c.source_path,
-        detail:
-          `failing test run for change "${c.name}": \`${c.recorded_command}\` exited ` +
-          `${c.recorded_exit_code === null ? 'without a status' : c.recorded_exit_code}` +
-          (c.recorded_digest === src.current_digest ? '' : ' (and the record is stale)'),
-      });
+    const decision = evaluateChangeTestEvidence(testEvidenceFactsOf(c, src));
+    if (decision.verdict === 'pass') continue;
+    // An attempt-level unavailable command keeps the drift check's historical
+    // honest skip whether or not the inputs moved since (the gates alone demand
+    // the re-run), and it is judged BEFORE the proven-backfill relaxation — the
+    // pre-refactor branch order. Reversing the two drops the change's name from
+    // `subject_skips`, and `adjudicateChangeCheck` then reads "no finding under
+    // its prefix" as a PASS for a change whose suite cannot even spawn.
+    if (decision.attemptUnavailable) {
+      if (src.command_unavailable_reason == null) unavailableReasons.push(decision.reason);
+      subjectSkips[c.name] = decision.reason;
       continue;
     }
-    // Missing/stale demand a (re-)run — meaningless to demand when the command
-    // cannot spawn on this machine; those branches skip honestly below. Loose
-    // `!= null` on purpose: a source built before this field existed must read
-    // as "command resolvable", never as a skip.
-    if (src.command_unavailable_reason != null) {
-      subjectSkips[c.name] = src.command_unavailable_reason;
+    if (decision.verdict === 'exempt') {
+      if (decision.exemption === 'proven-backfill') continue;
+      if (src.command_unavailable_reason == null) unavailableReasons.push(decision.reason);
+      subjectSkips[c.name] = decision.reason;
       continue;
     }
-    const attemptDetail = [
-      c.attempt_command ? `command \`${c.attempt_command}\`` : '',
-      c.attempt_exit_code !== undefined ? `exited ${c.attempt_exit_code}` : '',
-      c.attempt_signal ? `signal ${c.attempt_signal}` : '',
-      c.attempt_reason ?? '',
-    ].filter(Boolean).join('; ');
-    if (c.attempt_outcome === 'unavailable') {
-      const reason = `test command unavailable: latest attempt for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``;
-      unavailableReasons.push(reason);
-      subjectSkips[c.name] = reason;
-      continue;
-    }
-    if (c.attempt_outcome && c.attempt_outcome !== 'passed') {
-      if (provenBackfill) continue;
-      findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path,
-        detail: `uncertified test attempt (${c.attempt_outcome}) for change "${c.name}"${attemptDetail ? ` — ${attemptDetail}` : ''} — re-run \`prospec check --record-tests\``,
-      });
-      continue;
-    }
-    if (c.recorded_digest === null) {
-      if (provenBackfill) continue; // brownfield code legitimately has no run
-      findings.push({
-        check: 'test-provenance',
-        severity: 'fail',
-        source_path: c.source_path,
-        detail:
-          `no test run recorded for change "${c.name}" — run ` +
-          '`prospec check --record-tests` before prospec-verify',
-      });
-    } else if (!c.version_supported || !c.attempt_matches || src.current_digest === null || c.recorded_digest !== src.current_digest) {
-      if (provenBackfill) continue;
-      findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path,
-        detail: !c.version_supported
-          ? `legacy or unknown test evidence for change "${c.name}" — run one valid test attempt with \`prospec check --record-tests\``
-          : !c.attempt_matches
-            ? `uncertified test attempt (${c.attempt_outcome || 'missing'}) for change "${c.name}" — re-run \`prospec check --record-tests\``
-            : `stale test run for change "${c.name}": code changed since the recorded run or current inputs are unprovable — re-run \`prospec check --record-tests\``,
-      });
-    }
+    findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path, detail: decision.reason });
   }
   const subjects = src.changes.map((c) => c.name);
   if (findings.length === 0 && unavailableReasons.length > 0) {

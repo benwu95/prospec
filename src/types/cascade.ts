@@ -38,6 +38,10 @@ export const CircuitBreakerConfigSchema = z.object({
   maxFixInducedRatio: z.number().min(0).max(1).default(0.5),
   /** Maximum allowed cumulative spend in tokens before tripping (optional). */
   maxSpend: z.number().int().nonnegative().optional(),
+  /** Distinct failed test attempts `review merge` may observe in a row before
+   *  `persistent_test_failure` trips (default 3). Independent of the round and
+   *  flip caps; the bounded streak reducer saturates at this same value. */
+  maxConsecutiveTestFailures: z.number().int().positive().default(3),
 });
 
 export type CircuitBreakerConfig = z.infer<typeof CircuitBreakerConfigSchema>;
@@ -46,7 +50,32 @@ export const DEFAULT_CIRCUIT_BREAKER_CONFIG: CircuitBreakerConfig = {
   maxReviewRounds: 3,
   maxOscillationFlips: 2,
   maxFixInducedRatio: 0.5,
+  maxConsecutiveTestFailures: 3,
 };
+
+/**
+ * The bounded test-failure streak `review merge` persists in review.md's metrics:
+ * how many distinct failed attempts it has observed in a row, and which ids
+ * (at most the effective threshold) so a replayed id inside the streak is not
+ * counted twice. Legacy metrics without these fields read as the empty streak.
+ */
+export const TestFailureStreakSchema = z.object({
+  consecutiveTestFailures: z.number().int().nonnegative(),
+  testFailureAttemptIds: z.array(z.string().min(1)),
+});
+export type TestFailureStreak = z.infer<typeof TestFailureStreakSchema>;
+export const EMPTY_TEST_FAILURE_STREAK: TestFailureStreak = {
+  consecutiveTestFailures: 0,
+  testFailureAttemptIds: [],
+};
+
+/** The diagnostics a `persistent_test_failure` escalation report carries. */
+export const PersistentTestFailureDiagnosticsSchema = z.object({
+  count: z.number().int().nonnegative(),
+  threshold: z.number().int().positive(),
+  attemptIds: z.array(z.string()),
+});
+export type PersistentTestFailureDiagnostics = z.infer<typeof PersistentTestFailureDiagnosticsSchema>;
 
 /**
  * Escalation report generated when a circuit breaker trips or unrecoverable defect is hit.

@@ -25,6 +25,7 @@ import {
   collectReviewProvenance,
   collectTaskStates,
   collectTestProvenance,
+  collectChangeTestEvidence,
   computeChangeDigest,
   computeChangeState,
   computeWorkingTreeClean,
@@ -36,9 +37,10 @@ import {
   partitionDiffAttributedModules,
   collectLanguagePolicyDrift,
 } from '../../../src/lib/drift-sources.js';
+import { ProspecError } from '../../../src/types/errors.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
 import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
-import { evaluateKnowledgeHealth, evaluateReqReferences } from '../../../src/lib/drift-checker.js';
+import { evaluateKnowledgeHealth, evaluateReqReferences, evaluateChangeTestEvidence } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
@@ -3395,5 +3397,119 @@ describe('changedPathsFromWorkTree (REQ-LIB-062)', () => {
   it('returns an empty list (not null) when the working tree is clean', () => {
     initRepo();
     expect(changedPathsFromWorkTree(tmpDir)).toEqual([]);
+  });
+});
+
+describe('collectChangeTestEvidence — target-scoped facts for the lifecycle gates (REQ-LIB-080, REQ-LIB-033)', () => {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const initRepo = () => {
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    write('src/lib/x.ts', 'export const a = 1;\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  };
+  const fresh = (name: string, digest: string, over = '') =>
+    `name: ${name}\ncreated_at: "2026-09-01"\nstatus: tasks\nscale: standard\n` +
+    `test_provenance:\n  fingerprint_version: snapshot-v2\n  scope: repository-inputs-v2\n  attempt_id: a1\n  command: pnpm test\n  exit_code: 0\n  digest: ${digest}\n  date: "2026-09-01"\n` +
+    `test_attempt:\n  id: a1\n  outcome: passed\n  command: pnpm test\n  exit_code: 0\n  before_digest: ${digest}\n  after_digest: ${digest}\n${over}`;
+
+  it('outside Git with no command: metadata and policy facts still read, the snapshot is honestly unprovable, the exemption is explicit', () => {
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\ncreated_at: "2026-09-01"\nstatus: tasks\nscale: standard\n');
+    const { facts, metadataBytes } = collectChangeTestEvidence(tmpDir, 'c1', null, computeChangeState(tmpDir));
+    expect(facts).toMatchObject({ changeName: 'c1', scale: 'standard', backfillDraftPresent: false, currentDigest: null, recordedDigest: null, recordedExitCode: null });
+    expect(facts.commandUnavailableReason).toContain('no test command configured');
+    expect(facts.snapshotReason).toBeTruthy();
+    expect(metadataBytes.toString()).toContain('name: c1');
+    expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'exempt', exemption: 'no-command' });
+  });
+
+  it('outside Git a known non-zero failure is still identified before the no-command fact', () => {
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\ncreated_at: "2026-09-01"\nstatus: tasks\nscale: standard\ntest_provenance:\n  command: pnpm test\n  exit_code: 1\n  digest: OLD\n  date: "2026-09-01"\n');
+    const { facts } = collectChangeTestEvidence(tmpDir, 'c1', null, computeChangeState(tmpDir));
+    expect(facts.recordedExitCode).toBe(1);
+    expect(facts.commandUnavailableReason).not.toBeNull();
+    expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'refuse', knownFailure: true });
+  });
+
+  it('a command that resolves but no provable snapshot is a refusal, not a no-command exemption', () => {
+    write('.prospec/changes/c1/metadata.yaml', 'name: c1\ncreated_at: "2026-09-01"\nstatus: tasks\nscale: standard\n');
+    const { facts } = collectChangeTestEvidence(tmpDir, 'c1', `${process.execPath} -e 0`, computeChangeState(tmpDir));
+    expect(facts.commandUnavailableReason).toBeNull();
+    expect(facts.currentDigest).toBeNull();
+    expect(evaluateChangeTestEvidence(facts).verdict).toBe('refuse');
+  });
+
+  it('a proven backfill outside Git reads its draft fact and is exempt without demanding a snapshot', () => {
+    write('.prospec/changes/b1/metadata.yaml', 'name: b1\ncreated_at: "2026-09-01"\nstatus: implemented\nscale: backfill\n');
+    write('.prospec/changes/b1/backfill-draft.md', '# draft\n');
+    const { facts } = collectChangeTestEvidence(tmpDir, 'b1', 'pnpm test', computeChangeState(tmpDir));
+    expect(facts.backfillDraftPresent).toBe(true);
+    expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'exempt', exemption: 'proven-backfill' });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['unparseable', 'name: [unclosed\n'],
+    ['schema-invalid', 'name: c1\ncreated_at: "2026-09-01"\nstatus: bogus\n'],
+  ])('throws on %s target metadata instead of converting the read failure into a no-command fact', (_n, content) => {
+    if (content !== undefined) write('.prospec/changes/c1/metadata.yaml', content);
+    expect(() => collectChangeTestEvidence(tmpDir, 'c1', null, computeChangeState(tmpDir))).toThrow();
+  });
+
+  // F-6 regression pin: a gate reader's refusal must be a CLASSIFIED error carrying
+  // remediation — a raw ENOENT reaches the CLI as "An unexpected error occurred".
+  it('classifies an unreadable target record as a ProspecError naming the change and its remediation (F-6)', () => {
+    let caught: unknown;
+    try {
+      collectChangeTestEvidence(tmpDir, 'c1', null, computeChangeState(tmpDir));
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ProspecError);
+    expect((caught as ProspecError).message).toContain('c1');
+    expect((caught as ProspecError).suggestion).toContain('metadata.yaml');
+    // a directory that exists but holds no metadata.yaml is the reachable shape
+    write('.prospec/changes/c2/proposal.md', '# p\n');
+    expect(() => collectChangeTestEvidence(tmpDir, 'c2', null, computeChangeState(tmpDir))).toThrow(ProspecError);
+  });
+
+  it('isolates the target from a failing sibling and exposes the linked attempt id', () => {
+    initRepo();
+    const snapshot = computeChangeState(tmpDir);
+    expect(snapshot.digest).not.toBeNull();
+    write('.prospec/changes/target/metadata.yaml', fresh('target', snapshot.digest!));
+    write('.prospec/changes/sibling/metadata.yaml', 'name: sibling\ncreated_at: "2026-09-01"\nstatus: implemented\nscale: standard\ntest_provenance:\n  command: pnpm test\n  exit_code: 1\n  digest: X\n  date: "2026-09-01"\n');
+    const { facts } = collectChangeTestEvidence(tmpDir, 'target', 'pnpm test', snapshot);
+    expect(facts.latestAttempt?.id).toBe('a1');
+    expect(facts.recordedAttemptId).toBe('a1');
+    expect(facts.currentDigest).toBe(snapshot.digest);
+    expect(facts.versionSupported).toBe(true);
+    expect(evaluateChangeTestEvidence(facts)).toEqual({ verdict: 'pass', attemptId: 'a1' });
+    // the sibling's red record is judged by the drift collector, never by the target gate
+    const drift = collectTestProvenance(tmpDir, 'pnpm test', snapshot.digest);
+    expect(drift.changes.find((c) => c.name === 'sibling')?.recorded_exit_code).toBe(1);
+  });
+
+  it('shares one metadata→facts mapping with collectTestProvenance (linked attempt fields agree)', () => {
+    initRepo();
+    const snapshot = computeChangeState(tmpDir);
+    write('.prospec/changes/c1/metadata.yaml', fresh('c1', snapshot.digest!));
+    const drift = collectTestProvenance(tmpDir, 'pnpm test', snapshot.digest).changes[0]!;
+    const { facts } = collectChangeTestEvidence(tmpDir, 'c1', 'pnpm test', snapshot);
+    expect(drift).toMatchObject({ attempt_id: 'a1', recorded_attempt_id: 'a1', attempt_outcome: 'passed', attempt_exit_code: 0, attempt_before_digest: snapshot.digest, attempt_after_digest: snapshot.digest });
+    // the collector reports FACTS only — the certification predicate lives in the evaluator
+    expect(drift).not.toHaveProperty('attempt_matches');
+    expect(facts.latestAttempt).toMatchObject({ id: 'a1', outcome: 'passed', exitCode: 0, beforeDigest: snapshot.digest, afterDigest: snapshot.digest });
+  });
+
+  it('reflects a superseding failed attempt over the older passing record', () => {
+    initRepo();
+    const snapshot = computeChangeState(tmpDir);
+    write('.prospec/changes/c1/metadata.yaml', fresh('c1', snapshot.digest!).replace(/test_attempt:[\s\S]*$/, 'test_attempt:\n  id: a2\n  outcome: failed\n  command: pnpm test\n  exit_code: 1\n'));
+    const { facts } = collectChangeTestEvidence(tmpDir, 'c1', 'pnpm test', snapshot);
+    expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a2' });
   });
 });

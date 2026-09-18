@@ -12,6 +12,13 @@ import {
   LESSON_KINDS,
   LessonInputSchema,
   VALIDATE_KINDS,
+  TEST_GATE_PRODUCER,
+  TEST_GATE_NOT_ADJUDICATED,
+  TEST_GATE_ENTRANCES,
+  TEST_EVIDENCE_VERDICTS,
+  TEST_EVIDENCE_EXEMPTIONS,
+  testGateRemediation,
+  type TestEvidenceDecision,
 } from '../../../src/types/station.js';
 
 describe('ReviewFindingSchema', () => {
@@ -299,5 +306,32 @@ describe('VALIDATE_KINDS', () => {
       'design-spec',
       'module-readme',
     ]);
+  });
+});
+
+describe('test gate contracts (REQ-LIB-080, REQ-TYPES-086)', () => {
+  it('names the producer label and WARN prefix the two entrances share — never the review skill', () => {
+    expect(TEST_GATE_PRODUCER).toBe('prospec-test-gate');
+    expect(TEST_GATE_PRODUCER).not.toBe('prospec-review');
+    expect(TEST_GATE_NOT_ADJUDICATED).toBe('tests: not-adjudicated');
+    expect(TEST_GATE_ENTRANCES).toEqual(['implemented', 'review merge']);
+  });
+
+  it('renders the remediation with the target change so a sibling is never re-recorded', () => {
+    expect(testGateRemediation('add-widget')).toBe(
+      'prospec check --record-tests --change add-widget',
+    );
+  });
+
+  it('closes the decision verdict set to pass / exempt / refuse and the exemption set to the two explicit policies', () => {
+    expect(TEST_EVIDENCE_VERDICTS).toEqual(['pass', 'exempt', 'refuse']);
+    expect(TEST_EVIDENCE_EXEMPTIONS).toEqual(['no-command', 'proven-backfill']);
+  });
+
+  it('types the decision union so a refusal carries its reason and known-failure flag', () => {
+    const refuse: TestEvidenceDecision = { verdict: 'refuse', reason: 'no test attempt recorded', knownFailure: false };
+    const pass: TestEvidenceDecision = { verdict: 'pass', attemptId: 'a' };
+    const exempt: TestEvidenceDecision = { verdict: 'exempt', exemption: 'no-command', reason: 'no test command configured' };
+    expect([refuse, pass, exempt].map((d) => d.verdict)).toEqual(['refuse', 'pass', 'exempt']);
   });
 });

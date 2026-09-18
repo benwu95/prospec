@@ -16,6 +16,7 @@ import {
   AlreadyExistsError,
   PrerequisiteError,
   InvalidTransitionError,
+  TestGateError,
 } from '../../../src/types/errors.js';
 
 describe('ProspecError', () => {
@@ -270,5 +271,55 @@ describe('InvalidTransitionError', () => {
     expect(err.suggestion).toBe(
       'archived has no further `change status` target — later statuses (if any) are minted by their own gates',
     );
+  });
+});
+
+describe('TestGateError (REQ-TYPES-086, REQ-CLI-043)', () => {
+  it('carries the entrance, actual reason and remediation with code TEST_GATE_REFUSED', () => {
+    const err = new TestGateError({
+      changeName: 'my-change',
+      entrance: 'implemented',
+      reason: 'no test attempt recorded',
+    });
+    expect(err).toBeInstanceOf(ProspecError);
+    expect(err.name).toBe('TestGateError');
+    expect(err.code).toBe('TEST_GATE_REFUSED');
+    expect(err.entrance).toBe('implemented');
+    expect(err.reason).toBe('no test attempt recorded');
+    expect(err.remediation).toBe('prospec check --record-tests --change my-change');
+    expect(err.message).toBe('implemented refused for my-change: no test attempt recorded');
+    expect(err.suggestion).toBe('Run `prospec check --record-tests --change my-change`, then retry');
+    expect(err.circuitBreaker).toBeUndefined();
+    expect(err.warningRecorded).toBe(false);
+  });
+
+  it('carries the tripped breaker state without turning the refusal into a success', () => {
+    const err = new TestGateError({
+      changeName: 'c',
+      entrance: 'review merge',
+      reason: 'latest test attempt failed (exit 1)',
+      circuitBreaker: {
+        tripped: true,
+        reviewRounds: 1,
+        oscillatingSignatures: [],
+        escalationReport: { type: 'persistent_test_failure', message: 'm', tradeoffOptions: [] },
+      },
+    });
+    expect(err.circuitBreaker?.tripped).toBe(true);
+    expect(err.circuitBreaker?.escalationReport?.type).toBe('persistent_test_failure');
+    expect(err.code).toBe('TEST_GATE_REFUSED');
+  });
+
+  it('discloses a warning-only partial outcome when the exemption WARN was already persisted', () => {
+    const err = new TestGateError({
+      changeName: 'c',
+      entrance: 'review merge',
+      reason: 'review.md changed after the exemption warning was recorded',
+      warningRecorded: true,
+    });
+    expect(err.warningRecorded).toBe(true);
+    expect(err.suggestion).toContain('warning was recorded');
+    expect(err.suggestion).toContain('merge was not completed');
+    expect(err.suggestion).toContain('prospec check --record-tests --change c');
   });
 });

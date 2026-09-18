@@ -30,6 +30,7 @@ function baseResult(overrides: Partial<ReviewMergeResult> = {}): ReviewMergeResu
     criticals: [],
     round: { criticals_found: 1, criticals_fixed: 1, majors: 2, roundNumber: 1 },
     escapedCells: 0,
+    testGate: { verdict: 'pass', warningRecorded: false },
     ...overrides,
   };
 }
@@ -184,3 +185,22 @@ describe('review-merge-output', () => {
   });
 });
 
+
+describe('review-merge-output — test gate outcome (REQ-CLI-043)', () => {
+  it('keeps the success digest unchanged on a pass and prints the exemption WARN otherwise', () => {
+    const passed = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
+    expect(passed).not.toContain('not-adjudicated');
+    const exempt = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({ testGate: { verdict: 'exempt', exemption: 'no-command', reason: `no test${BEL} command configured`, warningRecorded: true } }),
+        'normal',
+      ),
+    );
+    expect(exempt.split('\n').length).toBe(passed.split('\n').length + 1);
+    expect(exempt).toContain('tests: not-adjudicated (no-command): no test command configured');
+    expect(exempt).toContain('recorded in quality_log');
+    expect(exempt.includes(BEL)).toBe(false);
+    // the round-counts parse contract is untouched by the WARN line
+    expect(exempt).toContain('round: round=1 · criticals_found=1 · criticals_fixed=1 · majors=2');
+  });
+});

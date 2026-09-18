@@ -1,10 +1,13 @@
 import {
   CircuitBreakerConfigSchema,
   DEFAULT_CIRCUIT_BREAKER_CONFIG,
+  EMPTY_TEST_FAILURE_STREAK,
   type CircuitBreakerConfig,
   type CircuitBreakerState,
   type EscalationReport,
   type OscillationRecord,
+  type PersistentTestFailureDiagnostics,
+  type TestFailureStreak,
 } from '../types/cascade.js';
 import {
   REVIEW_DISMISSED_STATUSES,
@@ -61,6 +64,7 @@ export class ReviewCircuitBreaker {
   private readonly records = new Map<string, OscillationRecord>();
   private currentReviewRounds = 0;
   private cumulativeSpend = 0;
+  private testFailureStreak: TestFailureStreak = EMPTY_TEST_FAILURE_STREAK;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = CircuitBreakerConfigSchema.parse(config ?? {});
@@ -133,6 +137,24 @@ export class ReviewCircuitBreaker {
   }
 
   /**
+   * Feed the CLI-derived streak of distinct failed test attempts `review merge`
+   * has observed in a row. Replaces, never accumulates — the reducer in
+   * `lib/review-merge` owns the counting and shares this breaker's threshold.
+   */
+  setTestFailureStreak(streak: TestFailureStreak): void {
+    this.testFailureStreak = streak;
+  }
+
+  getTestFailureStreak(): TestFailureStreak {
+    return this.testFailureStreak;
+  }
+
+  /** The effective persistent-failure threshold (the config's single source). */
+  getMaxConsecutiveTestFailures(): number {
+    return this.config.maxConsecutiveTestFailures;
+  }
+
+  /**
    * Get all signatures currently flagged as oscillating.
    */
   getOscillatingSignatures(): string[] {
@@ -171,8 +193,26 @@ export class ReviewCircuitBreaker {
     const oscillating = this.getOscillatingSignatures();
     let escalationReport: EscalationReport | undefined;
 
+    // 0. Persistent test failure — judged first: with a red suite no round can
+    //    merge, so the findings-based axes below have nothing new to say.
+    if (this.testFailureStreak.consecutiveTestFailures >= this.config.maxConsecutiveTestFailures) {
+      const diagnostics: PersistentTestFailureDiagnostics = {
+        count: this.testFailureStreak.consecutiveTestFailures,
+        threshold: this.config.maxConsecutiveTestFailures,
+        attemptIds: [...this.testFailureStreak.testFailureAttemptIds],
+      };
+      escalationReport = {
+        type: 'persistent_test_failure',
+        message: `Review merge observed ${diagnostics.count} consecutive failed test attempts (threshold ${diagnostics.threshold}).`,
+        diagnostics,
+        tradeoffOptions: [
+          'ESCALATE_TO_HUMAN: stop automated review retries and hand the failing suite to the developer',
+          'Revert the latest fix attempts and re-establish a green baseline before re-entering review',
+        ],
+      };
+    }
     // 1. Check oscillation breaker
-    if (oscillating.length > 0) {
+    else if (oscillating.length > 0) {
       escalationReport = {
         type: 'oscillation',
         message: `Oscillation detected across ${oscillating.length} signature(s): ${oscillating.join(', ')}`,
@@ -255,5 +295,6 @@ export class ReviewCircuitBreaker {
     this.records.clear();
     this.currentReviewRounds = 0;
     this.cumulativeSpend = 0;
+    this.testFailureStreak = EMPTY_TEST_FAILURE_STREAK;
   }
 }

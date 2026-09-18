@@ -4,28 +4,72 @@ import {
   execute,
   STATION_SETTABLE_STATUSES,
 } from '../../../src/services/change-status.service.js';
-import { InvalidTransitionError, PrerequisiteError } from '../../../src/types/errors.js';
+import { InvalidTransitionError, PrerequisiteError, TestGateError } from '../../../src/types/errors.js';
+import { TEST_GATE_NOT_ADJUDICATED, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
 
+// memfs is invisible to git, so the whole-tree snapshot is injected: the gate's
+// freshness rule is what these tests pin, not Git's capture.
+const snapshot = vi.hoisted(() => ({ digest: 'D' as string | null, calls: 0, sequence: [] as Array<string | null> }));
+vi.mock('../../../src/lib/drift-sources.js', async (original) => {
+  const actual = await original<typeof import('../../../src/lib/drift-sources.js')>();
+  return {
+    ...actual,
+    computeChangeState: () => {
+      snapshot.calls++;
+      if (snapshot.sequence.length > 1) snapshot.digest = snapshot.sequence.shift()!;
+      else if (snapshot.sequence.length === 1) snapshot.digest = snapshot.sequence[0]!;
+      return snapshot.digest === null
+        ? { digest: null, clean: null, reason: 'not a git repository' }
+        : { digest: snapshot.digest, clean: true };
+    },
+  };
+});
+
 beforeEach(() => {
   vol.reset();
+  snapshot.digest = 'D';
+  snapshot.calls = 0;
+  snapshot.sequence = [];
 });
 
 const CWD = '/repo';
 const PATH = '/repo/.prospec/changes/add-widget/metadata.yaml';
+const CONFIG = '/repo/.prospec.yaml';
+const WITH_COMMAND = 'version: "1.0"\nproject:\n  name: t\ntech_stack:\n  test_command: node -e 0\n';
+const NO_COMMAND = 'version: "1.0"\nproject:\n  name: t\n';
 
-function seed(status: string): void {
+/** A certified fresh green record against snapshot digest `D`. */
+const FRESH_GREEN = `test_provenance:
+  fingerprint_version: snapshot-v2
+  scope: repository-inputs-v2
+  attempt_id: a1
+  command: node -e 0
+  exit_code: 0
+  digest: D
+  date: "2026-09-01"
+test_attempt:
+  id: a1
+  outcome: passed
+  command: node -e 0
+  exit_code: 0
+  before_digest: D
+  after_digest: D
+`;
+
+function seed(status: string, evidence: string = FRESH_GREEN, config: string = WITH_COMMAND): void {
   vol.fromJSON({
+    [CONFIG]: config,
     [PATH]: `name: add-widget
 created_at: 2026-07-13T09:51:00.000Z
 # station note
 status: ${status}
 scale: standard
-`,
+${evidence}`,
   });
 }
 
@@ -165,15 +209,17 @@ describe('change-scale service', () => {
 
 describe('change-status Gate C — implemented requires all code tasks checked', () => {
   const DIR = '/repo/.prospec/changes/add-widget';
-  function seedWithTasks(opts: { scale?: string; status?: string; tasks?: string }): void {
+  function seedWithTasks(opts: { scale?: string; status?: string; tasks?: string; evidence?: string; draft?: boolean }): void {
     const files: Record<string, string> = {
+      [CONFIG]: WITH_COMMAND,
       [PATH]: `name: add-widget
 created_at: 2026-07-13T09:51:00.000Z
 status: ${opts.status ?? 'tasks'}
 scale: ${opts.scale ?? 'standard'}
-`,
+${opts.evidence ?? FRESH_GREEN}`,
     };
     if (opts.tasks !== undefined) files[`${DIR}/tasks.md`] = opts.tasks;
+    if (opts.draft) files[`${DIR}/backfill-draft.md`] = '# draft\n';
     vol.fromJSON(files);
   }
 
@@ -205,10 +251,19 @@ scale: ${opts.scale ?? 'standard'}
     expect(result.changed).toBe(true);
   });
 
-  it('exempts a backfill (no tasks.md by contract)', async () => {
+  it('exempts a backfill from the code-task check (no tasks.md by contract) — the test gate still applies', async () => {
     seedWithTasks({ scale: 'backfill', status: 'story' });
     const result = await execute({ cwd: CWD, to: 'implemented' });
     expect(result.changed).toBe(true);
+    // same shape, proven draft but no evidence: exempt with a WARN, not a silent pass
+    vol.reset();
+    seedWithTasks({ scale: 'backfill', status: 'story', evidence: '', draft: true });
+    const exempt = await execute({ cwd: CWD, to: 'implemented' });
+    expect(exempt.testGate).toMatchObject({ verdict: 'exempt', exemption: 'proven-backfill' });
+    // unproven backfill (scale alone) with no evidence: refused
+    vol.reset();
+    seedWithTasks({ scale: 'backfill', status: 'story', evidence: '' });
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toBeInstanceOf(TestGateError);
   });
 
   it('applies to quick (which does have a tasks.md)', async () => {
@@ -229,5 +284,113 @@ scale: ${opts.scale ?? 'standard'}
     const result = await execute({ cwd: CWD, to: 'implemented' });
     expect(result.changed).toBe(true);
     expect(vol.readFileSync(PATH, 'utf-8')).toContain('status: implemented');
+  });
+});
+
+describe('change-status test gate — implemented requires fresh green evidence (REQ-SERVICES-103, REQ-LIB-080)', () => {
+  const read = () => vol.readFileSync(PATH, 'utf-8') as string;
+
+  it('passes with a fresh certified green attempt and reports the verdict without a WARN entry', async () => {
+    seed('tasks');
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result).toMatchObject({ changed: true, testGate: { verdict: 'pass' } });
+    expect(read()).toContain('status: implemented');
+    expect(read()).not.toContain(TEST_GATE_PRODUCER);
+  });
+
+  const refusals: Array<[string, string | undefined, RegExp]> = [
+    ['no attempt recorded', '', /no test run recorded/],
+    ['stale digest', FRESH_GREEN.replaceAll('digest: D', 'digest: OLD'), /stale test run/],
+    ['latest attempt failed (exit 1)', FRESH_GREEN.replace('outcome: passed', 'outcome: failed').replace('exit_code: 0\n  before', 'exit_code: 1\n  before'), /failing test attempt/],
+    ['durable non-zero provenance', FRESH_GREEN.replace('exit_code: 0\n  digest', 'exit_code: 1\n  digest'), /exited 1/],
+    ['attempt still running', FRESH_GREEN.replace('outcome: passed', 'outcome: running'), /uncertified test attempt \(running\)/],
+  ];
+  it.each(refusals)('refuses %s with the target-scoped remediation and leaves metadata byte-identical', async (_n, evidence, reason) => {
+    seed('tasks', evidence);
+    const before = read();
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, to: 'implemented' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TestGateError);
+    const err = caught as TestGateError;
+    expect(err.entrance).toBe('implemented');
+    expect(err.reason).toMatch(reason);
+    expect(err.suggestion).toContain('prospec check --record-tests --change add-widget');
+    expect(read()).toBe(before);
+  });
+
+  it('refuses an unprovable current snapshot even with a matching record', async () => {
+    seed('tasks');
+    snapshot.digest = null;
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(/stale test run|unprovable/);
+    expect(read()).toContain('status: tasks');
+  });
+
+  it('an older PASS record never masks a newer failed attempt', async () => {
+    seed('tasks', FRESH_GREEN.replace(/test_attempt:[\s\S]*$/, 'test_attempt:\n  id: a2\n  outcome: failed\n  command: node -e 1\n  exit_code: 1\n'));
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(/failing test attempt/);
+  });
+
+  it('applies independently of tasks.md: all code tasks checked cannot bypass missing evidence, nor can a missing tasks.md', async () => {
+    seed('tasks', '');
+    vol.writeFileSync('/repo/.prospec/changes/add-widget/tasks.md', '- [x] T1 done ~1 lines\n');
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toBeInstanceOf(TestGateError);
+    vol.unlinkSync('/repo/.prospec/changes/add-widget/tasks.md');
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toBeInstanceOf(TestGateError);
+  });
+
+  it('a no-command project (non-Git) is exempt: status and the deduplicated WARN land in ONE write under the test-gate producer', async () => {
+    seed('tasks', '', NO_COMMAND);
+    snapshot.digest = null;
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.testGate).toMatchObject({ verdict: 'exempt', exemption: 'no-command', warningRecorded: true });
+    const written = read();
+    expect(written).toContain('status: implemented');
+    expect(written).toContain('# station note');
+    expect(written).toContain(`skill: ${TEST_GATE_PRODUCER}`);
+    expect(written).toContain(TEST_GATE_NOT_ADJUDICATED);
+    expect(written).toContain('(implemented)');
+    expect(written).not.toContain('skill: prospec-review');
+    expect((written.match(/result: WARN/g) ?? []).length).toBe(1);
+  });
+
+  it('a known non-zero failure is refused even when the command no longer resolves', async () => {
+    seed('tasks', FRESH_GREEN.replace('exit_code: 0\n  digest', 'exit_code: 1\n  digest'), NO_COMMAND);
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(/exited 1/);
+  });
+
+  it('does not re-certify or re-warn on the idempotent no-op', async () => {
+    seed('implemented', '', NO_COMMAND);
+    const before = read();
+    const result = await execute({ cwd: CWD, to: 'implemented' });
+    expect(result.changed).toBe(false);
+    expect(result.testGate).toBeUndefined();
+    expect(read()).toBe(before);
+  });
+
+  it('refuses when the evidence changes between assessment and write (pre-write fence)', async () => {
+    seed('tasks');
+    // The snapshot moves under the gate after its first observation.
+    snapshot.sequence = ['D', 'MOVED'];
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(/changed before the write/);
+    expect(read()).toContain('status: tasks');
+  });
+
+  it('refuses (never exempts) when .prospec.yaml is missing — an I/O failure is not a no-command fact', async () => {
+    seed('tasks', '');
+    vol.unlinkSync(CONFIG);
+    await expect(execute({ cwd: CWD, to: 'implemented' })).rejects.toThrow(/Config file/);
+    expect(read()).toContain('status: tasks');
+  });
+
+  it('does not gate a transition that is not into implemented', async () => {
+    seed('story', '');
+    const result = await execute({ cwd: CWD, to: 'tasks' });
+    expect(result.changed).toBe(true);
+    expect(result.testGate).toBeUndefined();
+    expect(snapshot.calls).toBe(0);
   });
 });

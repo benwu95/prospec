@@ -277,6 +277,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec change status <to> [--change <name>]`**
   - **Purpose**: Forward-only lifecycle state advancement (refuses illegal jumps and lists valid targets).
+  - **Test gate on `implemented`**: besides every code task being checked, the change needs a fresh green `test_attempt` — the latest attempt passed with exit 0, linked to its `test_provenance`, against the current snapshot. Missing, stale, running or failing evidence is refused (exit 1) with the remediation `prospec check --record-tests --change <name>`, metadata untouched. Two explicit exemptions advance with a `tests: not-adjudicated` WARN (producer `prospec-test-gate`, deduplicated per entrance and reason, written in the same metadata write as the status): no resolvable test command, or a proven backfill (`backfill-draft.md` present). A known non-zero failure is never exempt; `scale: backfill` alone buys nothing.
 
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
@@ -293,6 +294,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
   - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the finding `id`, never the location text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, tracks cumulative token spend, records invoked lenses, and evaluates the dual-axis circuit breaker (fix-induced ratio / spend budget / oscillation flips / hard cap) to emit an EscalationReport when tripped.
+  - **Test gate**: after the input and round-sequence refusals (which write nothing), every merge requires the change's fresh green `test_attempt` or one of the two explicit exemptions (no resolvable test command, proven backfill), which merge with a `tests: not-adjudicated` WARN. A test refusal exits 1 with `prospec check --record-tests --change <name>`; its ONLY permitted write is the bounded test-failure metrics (`test_failures`, `test_failure_ids`) inside `review.md`'s metrics comment — never a findings merge or round advance. The count is of the distinct failed attempts review merge itself observed (a replayed attempt id never counts twice, a fresh green resets it, an exemption or loop rollover does not); at the default threshold of 3 the refusal also reports `persistent_test_failure` with `ESCALATE_TO_HUMAN`. No threshold flag exists. A malformed or duplicate metrics comment is refused before any write.
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.

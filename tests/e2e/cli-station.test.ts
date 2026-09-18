@@ -835,3 +835,119 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
     expect(neither.stderr).toMatch(/--result|--verifier-report/);
   });
 });
+
+describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-CLI-043)', () => {
+  const metadataOf = (name: string) => fs.readFileSync(path.join(tmpDir, '.prospec/changes', name, 'metadata.yaml'), 'utf8');
+  const writeFindings = () => {
+    // under .prospec/ so the findings file is not itself a repository input
+    const p = path.join(tmpDir, '.prospec/round.json');
+    fs.writeFileSync(p, JSON.stringify([{ id: 'F-1', location: 'src/a.ts:1', severity: 'major', lens: 'correctness', summary: 'fixture' }]));
+    return p;
+  };
+  async function initTasksDone(name: string): Promise<void> {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'gate-test' }));
+    await runCli(['init', '--name', 'gate-test', '--agents', 'claude']);
+    await runCli(['change', 'story', name, '--description', 'gate fixture']);
+    fs.writeFileSync(path.join(tmpDir, '.prospec/changes', name, 'tasks.md'), '- [x] T1 done ~1 lines\n');
+    await runCli(['change', 'status', 'tasks']);
+  }
+  const setTestCommand = (command: string | null) => {
+    const configPath = path.join(tmpDir, '.prospec.yaml');
+    const text = fs.readFileSync(configPath, 'utf8').split('\n').filter((l) => !l.startsWith('  test_command:')).join('\n');
+    fs.writeFileSync(configPath, command === null ? text : text.replace(/^tech_stack:\n/m, `tech_stack:\n  test_command: ${command}\n`));
+  };
+
+  it('no test command (non-Git): both entrances pass with a deduplicated tests: not-adjudicated WARN under prospec-test-gate', async () => {
+    await initTasksDone('nocmd');
+    const status = await runCli(['change', 'status', 'implemented']);
+    expect(status.exitCode).toBe(0);
+    expect(status.stdout).toContain('tests: not-adjudicated (no-command)');
+    expect(status.stdout).toContain('recorded in quality_log');
+    expect(metadataOf('nocmd')).toContain('status: implemented');
+    expect(metadataOf('nocmd')).toContain('skill: prospec-test-gate');
+    const merge = await runCli(['review', 'merge', '--findings', writeFindings()]);
+    expect(merge.exitCode).toBe(0);
+    expect(merge.stdout).toContain('tests: not-adjudicated (no-command)');
+    expect(merge.stdout).toContain('criticals_found=0');
+    const again = await runCli(['review', 'merge', '--findings', writeFindings()]);
+    expect(again.stdout).toContain('already recorded');
+    const meta = metadataOf('nocmd');
+    expect((meta.match(/skill: prospec-test-gate/g) ?? []).length).toBe(2);
+    expect(meta).not.toContain('skill: prospec-review');
+  });
+
+  it('a proven backfill passes with the backfill WARN; scale alone is refused with the remediation', async () => {
+    await initTasksDone('bf');
+    setTestCommand(`${process.execPath} -e 0`);
+    fs.rmSync(path.join(tmpDir, '.prospec/changes/bf/tasks.md'));
+    await runCli(['change', 'scale', 'backfill']);
+    const unproven = await runCli(['change', 'status', 'implemented']);
+    expect(unproven.exitCode).toBe(1);
+    expect(unproven.stderr).toContain('prospec check --record-tests --change bf');
+    expect(metadataOf('bf')).toContain('status: tasks');
+    fs.writeFileSync(path.join(tmpDir, '.prospec/changes/bf/backfill-draft.md'), '# draft\n');
+    const proven = await runCli(['change', 'status', 'implemented']);
+    expect(proven.exitCode).toBe(0);
+    expect(proven.stdout).toContain('tests: not-adjudicated (proven-backfill)');
+    const merge = await runCli(['review', 'merge', '--findings', writeFindings()]);
+    expect(merge.exitCode).toBe(0);
+    expect(merge.stdout).toContain('(proven-backfill)');
+  });
+
+  it('a known-red run is refused at both entrances even after the command stops resolving; a fresh green passes', async () => {
+    await initTasksDone('red');
+    await recordCliEvidence(tmpDir, 'red');
+    fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), 'process.exitCode = 1;\n');
+    const recorded = await runCli(['check', '--record-tests']);
+    expect(recorded.exitCode).toBe(0);
+    const status = await runCli(['change', 'status', 'implemented']);
+    expect(status.exitCode).toBe(1);
+    expect(status.stderr).toContain('exited 1');
+    expect(status.stderr).toContain('prospec check --record-tests --change red');
+    setTestCommand(null);
+    const stillRed = await runCli(['change', 'status', 'implemented']);
+    expect(stillRed.exitCode).toBe(1);
+    expect(stillRed.stderr).toContain('exited 1');
+    expect(metadataOf('red')).toContain('status: tasks');
+    const merge = await runCli(['review', 'merge', '--findings', writeFindings()]);
+    expect(merge.exitCode).toBe(1);
+    expect(merge.stderr).toContain('prospec check --record-tests --change red');
+    // back to green: a fresh certified run admits the transition
+    setTestCommand(`${process.execPath} suite.cjs`);
+    fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), 'process.exitCode = 0;\n');
+    expect((await runCli(['check', '--record-tests'])).exitCode).toBe(0);
+    const green = await runCli(['change', 'status', 'implemented']);
+    expect(green.exitCode).toBe(0);
+    expect(green.stdout).not.toContain('not-adjudicated');
+    expect(metadataOf('red')).toContain('status: implemented');
+  });
+
+  it('three distinct failed attempts trip persistent_test_failure on review merge; a replayed attempt never counts twice', async () => {
+    await initTasksDone('streak');
+    await recordCliEvidence(tmpDir, 'streak');
+    fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), 'process.exitCode = 1;\n');
+    const reviewPath = path.join(tmpDir, '.prospec/changes/streak/review.md');
+    const findings = writeFindings();
+    for (const n of [1, 2]) {
+      await runCli(['check', '--record-tests']);
+      const merge = await runCli(['review', 'merge', '--findings', findings]);
+      expect(merge.exitCode).toBe(1);
+      expect(merge.stderr).not.toContain('ESCALATE_TO_HUMAN');
+      expect(fs.readFileSync(reviewPath, 'utf8')).toContain(`test_failures="${n}"`);
+    }
+    const replay = await runCli(['review', 'merge', '--findings', findings]);
+    expect(replay.exitCode).toBe(1);
+    expect(fs.readFileSync(reviewPath, 'utf8')).toContain('test_failures="2"');
+    await runCli(['check', '--record-tests']);
+    const tripped = await runCli(['review', 'merge', '--findings', findings]);
+    expect(tripped.exitCode).toBe(1);
+    expect(tripped.stderr).toContain('ESCALATE_TO_HUMAN');
+    expect(tripped.stderr).toContain('persistent_test_failure');
+    expect(tripped.stderr).toMatch(/3 \/ 3/);
+    const review = fs.readFileSync(reviewPath, 'utf8');
+    expect(review).toContain('test_failures="3"');
+    expect(review).not.toContain('| F-1 |');
+    // the only prospec-review entry is the fixture's own; no refused merge logged a round
+    expect((metadataOf('streak').match(/skill: prospec-review/g) ?? []).length).toBe(1);
+  });
+});

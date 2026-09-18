@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeStatusResult } from '../../services/change-status.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatTestGateWarning } from './test-gate-output.js';
 
 /** Format the ChangeStatusResult: the transition, or the idempotent no-op. */
 export function formatChangeStatusOutput(
@@ -20,4 +21,6 @@ export function formatChangeStatusOutput(
   process.stdout.write(
     `${pc.green('✓')} ${changeName}: status ${pc.dim(result.from)} → ${pc.cyan(result.to)}\n`,
   );
+  const warning = formatTestGateWarning(result.testGate);
+  if (warning !== undefined) process.stdout.write(`${warning}\n`);
 }

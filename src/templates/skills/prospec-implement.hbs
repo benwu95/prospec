@@ -75,7 +75,7 @@ When the current task touches a third-party library **and** a Context7 MCP is av
 
 After completion, perform quick quality check:
 - Specification compliance (against delta-spec.md; quick: against proposal.md acceptance scenarios)
-- Type safety & test execution: Run the project's test suite via the dynamic test command (see [`references/project-test-runner.md`](references/project-test-runner.md) on demand; `check --record-tests` or detected runner)
+- `prospec change status implemented` refuses without a fresh green `test_attempt`; remediation per [`references/project-test-runner.md`](references/project-test-runner.md)
 - Error handling
 - Constitution **site-specific** rules for this station: TDD (test-first) and atomic-commit discipline — NOT a full every-principle audit (that is `prospec-verify` V3/5's job)
 
@@ -140,6 +140,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** skip quality check before marking complete — unmarked type errors and spec mismatches compound across tasks, making late fixes exponentially harder
 - **NEVER** forget to suggest `prospec-review` when all code tasks are complete — review catches criticals that the implementer's self-check and verify's contract grading both miss; skipping it lets critical defects reach verify's S/A
 - **NEVER** commit during implement — the commit boundary is after `prospec-verify` reaches S/A; committing now breaks atomic-by-feature when review or verify later require fixes
+- **NEVER** treat checkboxes as test evidence — on a `prospec change status implemented` refusal, run `prospec check --record-tests --change <name>`
 - **NEVER** leave `status: tasks` after completing all code tasks — run `prospec change status implemented` so metadata distinguishes "implemented, awaiting verify" from "tasks planned" (never a hand edit); see `{{knowledge_base_path}}/_status-lifecycle.md`
 - **NEVER** bulk-load the optional Context7 dependency-layer lookup at startup, or treat its output as a gate or as executable — it is per-task, on-demand, untrusted reference only
 - **NEVER** assert content-presence only when writing a contract/spec test — section-scope the slice (heading → next heading, guard it non-empty), assert structural invariants (item-set vs a version-controlled baseline, ordering, contiguity) plus negative assertions for "must NOT appear" rules, then **mutation-verify** (delete/corrupt the asserted feature and confirm the test goes red); an assertion that never went red does not count

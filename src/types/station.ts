@@ -162,6 +162,113 @@ export type ReviewFinding = z.infer<typeof ReviewFindingSchema>;
 /** The `--findings` payload: one review round's findings. */
 export const ReviewFindingsInputSchema = z.array(ReviewFindingSchema);
 
+// --- test gate (`change status implemented`, `review merge`) ---
+
+/**
+ * The fresh-test gate both lifecycle entrances share (REQ-LIB-080). The facts are
+ * collected from the target change's metadata and the current snapshot; the
+ * decision is a pure function of them; the assessment adds a live recheck so no
+ * write lands on a stale verdict. No test is ever executed here — evidence comes
+ * only from `prospec check --record-tests`.
+ */
+
+/** `quality_log.skill` label for an exemption WARN. A producer label, not a
+ *  skill: `prospec-review` would be counted as a completed review round. */
+export const TEST_GATE_PRODUCER = 'prospec-test-gate';
+/** The WARN every exemption carries, followed by the entrance and reason. */
+export const TEST_GATE_NOT_ADJUDICATED = 'tests: not-adjudicated';
+export const TEST_GATE_ENTRANCES = ['implemented', 'review merge'] as const;
+export type TestGateEntrance = (typeof TEST_GATE_ENTRANCES)[number];
+
+/** The one remediation every refusal prints — target-scoped, so a sibling change
+ *  is never the one re-recorded. */
+export function testGateRemediation(changeName: string): string {
+  return `prospec check --record-tests --change ${changeName}`;
+}
+
+export const TEST_EVIDENCE_VERDICTS = ['pass', 'exempt', 'refuse'] as const;
+export type TestEvidenceVerdict = (typeof TEST_EVIDENCE_VERDICTS)[number];
+export const TEST_EVIDENCE_EXEMPTIONS = ['no-command', 'proven-backfill'] as const;
+export type TestEvidenceExemption = (typeof TEST_EVIDENCE_EXEMPTIONS)[number];
+
+/** The latest `test_attempt` as the gate reads it. */
+export interface TestEvidenceAttempt {
+  id: string;
+  outcome: string;
+  command?: string;
+  exitCode?: number;
+  signal?: string;
+  reason?: string;
+  beforeDigest?: string;
+  afterDigest?: string;
+}
+
+/** Target-scoped facts the policy judges — one change, never its siblings. */
+export interface TestEvidenceFacts {
+  changeName: string;
+  scale: string;
+  /** `backfill-draft.md` beside the metadata proves the backfill exemption. */
+  backfillDraftPresent: boolean;
+  /** Why the test command cannot run here, or null when it resolves. */
+  commandUnavailableReason: string | null;
+  /** The current whole-tree snapshot digest; null when unprovable / not Git. */
+  currentDigest: string | null;
+  snapshotReason?: string;
+  /** Durable `test_provenance` — the last certified run, pass or fail. */
+  recordedDigest: string | null;
+  recordedExitCode: number | null;
+  recordedCommand: string;
+  recordedAttemptId?: string;
+  versionSupported: boolean;
+  latestAttempt?: TestEvidenceAttempt;
+}
+
+export type TestEvidenceDecision =
+  | { verdict: 'pass'; attemptId: string }
+  | {
+      verdict: 'exempt';
+      exemption: TestEvidenceExemption;
+      reason: string;
+      /** Same marker as on a refusal below — carried on an exemption too, because
+       *  the drift evaluator's historical per-subject skip for an unspawnable
+       *  attempt must outrank the proven-backfill relaxation, not be swallowed by it. */
+      attemptUnavailable?: boolean;
+    }
+  | {
+      verdict: 'refuse';
+      reason: string;
+      /** A recorded actual non-zero exit — refused before any exemption. */
+      knownFailure: boolean;
+      /** The latest attempt's id when it is a failed attempt with an actual
+       *  non-zero exit — the only refusal `review merge` counts. */
+      failedAttemptId?: string;
+      /** The latest attempt could not spawn the command against OLDER inputs
+       *  while the command resolves now — a gate refuses (re-run is due), while
+       *  the drift evaluator keeps its historical per-subject skip. */
+      attemptUnavailable?: boolean;
+    };
+
+/** How a gate admitted an entrance — the result both services report and the
+ *  formatters render (a refusal is the thrown `TestGateError`, never a result). */
+export interface TestGateOutcome {
+  verdict: 'pass' | 'exempt';
+  /** Set on an exemption: which explicit policy admitted it, and why. */
+  exemption?: TestEvidenceExemption;
+  reason?: string;
+  /** Whether this call appended the `tests: not-adjudicated` WARN (false on a
+   *  deduplicated replay of the same entrance and reason). */
+  warningRecorded: boolean;
+}
+
+/** A live, target-scoped assessment: the facts, the verdict over them, and a
+ *  recheck that re-reads the observed inputs (metadata bytes, draft, config,
+ *  snapshot) so a gate never writes on a verdict its inputs have outrun. */
+export interface CurrentTestEvidenceAssessment {
+  facts: TestEvidenceFacts;
+  decision: TestEvidenceDecision;
+  recheck(): boolean;
+}
+
 // --- verify record (`prospec verify record`) ---
 
 /**

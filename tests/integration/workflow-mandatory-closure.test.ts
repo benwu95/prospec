@@ -54,10 +54,17 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
  * fixture can never fail (round-2 T2-2). Unlike the per-skill ledger, this closure
  * measures what a RUN must load, project conventions included — hence `quick`, the one
  * scenario routed through implement, carries its mandatory `_conventions.md`.
+ *
+ * `proven-backfill` 23_318 → 23_372 and `stale-delta` 12_818 → 12_872 (both route through
+ * review): the review skill's Loop step 3 and NEVER list
+ * gained the CLI test-refusal / `ESCALATE_TO_HUMAN` handling and `review-format` its
+ * test-failure metrics paragraph (fresh-test gates) — the duplicated test-policy prose
+ * they replace was shorter than the new behavior they must name; `quick` absorbed the
+ * implement skill's one-sentence change without moving.
  */
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_382, 'standard-ui': 15_282, 'proven-backfill': 23_318, 'equivalent-commit': 12_676,
-  'reverify-c': 15_463, 'missing-receipt': 5_627, 'stale-delta': 12_818, 'multi-change': 12_676,
+  quick: 16_382, 'standard-ui': 15_282, 'proven-backfill': 23_372, 'equivalent-commit': 12_676,
+  'reverify-c': 15_463, 'missing-receipt': 5_627, 'stale-delta': 12_872, 'multi-change': 12_676,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {

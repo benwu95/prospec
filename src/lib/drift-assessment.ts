@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
@@ -9,12 +9,15 @@ import { resolveLanguageScope } from './language-policy.js';
 import { languagePolicyRule } from './constitution-rules.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
 import type { CurrentDriftAssessment } from '../types/drift-report.js';
+import type { CurrentTestEvidenceAssessment } from '../types/station.js';
+import { ConfigNotFound, PrerequisiteError } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import {
   buildDependencyRules,
   constitutionFallbackModuleMap,
   constitutionFallbackRules,
+  evaluateChangeTestEvidence,
   runChecks,
 } from './drift-checker.js';
 import {
@@ -37,6 +40,7 @@ import {
   collectDeltaSpecLandingFidelity,
   collectTaskStates,
   collectTestProvenance,
+  collectChangeTestEvidence,
   computeChangeState,
   collectBudgetOverrides,
   collectCanonicalDocDrift,
@@ -245,6 +249,66 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       return now.snapshot.digest === collected.snapshot.digest && JSON.stringify(now.inputs) === facts && observation === observeFiles(roots);
     } catch { return false; }
   } };
+}
+
+/**
+ * The narrow, target-scoped test-evidence assessment the lifecycle gates use
+ * (REQ-LIB-080): the shared policy over ONE change's live facts, plus a recheck
+ * over exactly the inputs that verdict observed — the config bytes, the resolved
+ * test command, the target's metadata bytes, its backfill draft and, when the
+ * verdict rested on it, the whole-tree snapshot. It runs no drift collectors and
+ * never spawns the suite. An exemption that needs no Git snapshot rechecks its
+ * metadata and policy facts all the same. Unreadable config or metadata throws:
+ * an I/O failure is a refusal upstream, never a fabricated no-command fact.
+ *
+ * Like `assessCurrentDrift`, this is an observed-boundary fence, not a
+ * cross-process transaction: it cannot see a change that was fully restored
+ * between two observations.
+ */
+export async function assessCurrentTestEvidence(
+  cwd: string,
+  changeName: string,
+): Promise<CurrentTestEvidenceAssessment> {
+  const configPath = path.join(cwd, '.prospec.yaml');
+  // Bytes first, parse second, then prove the bytes did not move in between —
+  // the order `assessCurrentDrift` uses. Parsing first would let a rewrite that
+  // lands between the two reads leave `config` stale while the fence compares
+  // the NEW bytes against themselves and passes.
+  if (!existsSync(configPath)) throw new ConfigNotFound(configPath);
+  const configBytes = readFileSync(configPath);
+  const config = await readConfig(cwd);
+  if (!configBytes.equals(readFileSync(configPath))) {
+    throw new PrerequisiteError(
+      '.prospec.yaml changed during the test-evidence assessment',
+      'Retry once the configuration is stable — the verdict never lands on a command the observed bytes do not prove',
+    );
+  }
+  const command = resolveTestCommand(config, cwd);
+  const draftPath = path.join(cwd, '.prospec', 'changes', changeName, 'backfill-draft.md');
+  const observed = collectChangeTestEvidence(cwd, changeName, command, computeChangeState(cwd));
+  const facts = observed.facts;
+  const decision = evaluateChangeTestEvidence(facts);
+  const factsJson = JSON.stringify(facts);
+  return {
+    facts,
+    decision,
+    recheck: () => {
+      try {
+        if (!configBytes.equals(readFileSync(configPath))) return false;
+        if (resolveTestCommand(config, cwd) !== command) return false;
+        if (existsSync(draftPath) !== facts.backfillDraftPresent) return false;
+        // The snapshot is re-proven only when the verdict rested on it; an
+        // exemption outside Git must not start demanding one.
+        const snapshot = facts.currentDigest === null
+          ? { digest: null, clean: null, ...(facts.snapshotReason ? { reason: facts.snapshotReason } : {}) }
+          : computeChangeState(cwd);
+        const now = collectChangeTestEvidence(cwd, changeName, command, snapshot);
+        return observed.metadataBytes.equals(now.metadataBytes) && JSON.stringify(now.facts) === factsJson;
+      } catch {
+        return false;
+      }
+    },
+  };
 }
 
 /**

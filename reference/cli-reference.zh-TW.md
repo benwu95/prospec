@@ -276,6 +276,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec change status <to> [--change <name>]`**
   - **核心用途**：單向推進生命週期狀態（逆向或非法躍遷將被拒絕並列出合法目標）。
+  - **`implemented` 的測試閘門**：除了所有 code task 已勾選，變更還需要一筆 fresh green `test_attempt`——最新 attempt 以 exit 0 通過、與其 `test_provenance` 連結、且對應目前 snapshot。缺失、過期（stale）、執行中或失敗的證據會被拒絕（exit 1）並印出補救指令 `prospec check --record-tests --change <name>`，metadata 不變。兩種明確豁免會以 `tests: not-adjudicated` WARN 放行（producer `prospec-test-gate`，依入口與原因去重，與 status 同一次 metadata 寫入）：無可解析的測試命令，或已證明的 backfill（存在 `backfill-draft.md`）。已知的非零失敗絕不豁免；單靠 `scale: backfill` 不會帶來任何放寬。
 
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
@@ -292,6 +293,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。
+  - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；它唯一允許的寫入是 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
   - **核心用途**：計算驗證評級（S/A/B/C/D）並記錄結果。

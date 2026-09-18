@@ -4,7 +4,7 @@ import {
   formatGenericError,
   handleError,
 } from '../../../src/cli/formatters/error-output.js';
-import { ProspecError, ConfigNotFound } from '../../../src/types/errors.js';
+import { ProspecError, ConfigNotFound, TestGateError } from '../../../src/types/errors.js';
 
 // BEL (0x07) is a C0 control char picocolors never emits (it only uses ESC for
 // color), so asserting "no BEL in output" proves injected control bytes were
@@ -187,5 +187,56 @@ describe('handleError', () => {
 
     expect(out).toContain('no frames');
     expect(out).not.toContain('    at ');
+  });
+});
+
+describe('TestGateError output (REQ-CLI-043, REQ-SERVICES-103)', () => {
+  it('prints the actual reason and the target-scoped remediation, exit code 1', () => {
+    const err = new TestGateError({ changeName: 'feat-x', entrance: 'implemented', reason: 'no test run recorded for change "feat-x"' });
+    const out = captureStderr(() => handleError(err));
+    expect(process.exitCode).toBe(1);
+    expect(out).toContain('implemented refused for feat-x: no test run recorded');
+    expect(out).toContain('prospec check --record-tests --change feat-x');
+    expect(out).not.toContain('ESCALATE_TO_HUMAN');
+  });
+
+  it('prints ESCALATE_TO_HUMAN, the trigger and count/threshold when the test breaker tripped', () => {
+    const err = new TestGateError({
+      changeName: 'feat-x',
+      entrance: 'review merge',
+      reason: 'failing test attempt for change "feat-x" — exited 1',
+      circuitBreaker: {
+        tripped: true,
+        reviewRounds: 1,
+        oscillatingSignatures: [],
+        escalationReport: {
+          type: 'persistent_test_failure',
+          message: `Review merge observed 3 consecutive failed test attempts (threshold 3).${BEL}`,
+          diagnostics: { count: 3, threshold: 3, attemptIds: ['a', 'b', 'c'] },
+          tradeoffOptions: ['ESCALATE_TO_HUMAN: stop automated review retries'],
+        },
+      },
+    });
+    const out = captureStderr(() => handleError(err));
+    expect(process.exitCode).toBe(1);
+    expect(out).toContain('ESCALATE_TO_HUMAN');
+    expect(out).toContain('persistent_test_failure');
+    expect(out).toMatch(/3\s*\/\s*3/);
+    expect(out).toContain('prospec check --record-tests --change feat-x');
+    expect(out.includes(BEL)).toBe(false);
+  });
+
+  it('discloses the warning-only partial outcome after a persisted exemption WARN', () => {
+    const err = new TestGateError({ changeName: 'feat-x', entrance: 'review merge', reason: 'review.md changed', warningRecorded: true });
+    const out = captureStderr(() => handleError(err));
+    expect(out).toContain('warning was recorded');
+    expect(out).toContain('merge was not completed');
+  });
+
+  it('strips control characters from the file-derived reason', () => {
+    const err = new TestGateError({ changeName: 'feat-x', entrance: 'implemented', reason: `bad${BEL}reason` });
+    const out = captureStderr(() => handleError(err));
+    expect(out.includes(BEL)).toBe(false);
+    expect(out).toContain('badreason');
   });
 });

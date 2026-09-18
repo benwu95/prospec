@@ -7,6 +7,9 @@
  * - suggestion: actionable fix recommendation
  */
 
+import type { CircuitBreakerState } from './cascade.js';
+import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
+
 export class ProspecError extends Error {
   readonly code: string;
   readonly suggestion: string;
@@ -218,5 +221,46 @@ export class InvalidTransitionError extends ProspecError {
         : `${current} has no further \`change status\` target — later statuses (if any) are minted by their own gates`,
     );
     this.name = 'InvalidTransitionError';
+  }
+}
+
+// --- Test gate errors ---
+
+/**
+ * A lifecycle entrance refused for missing, stale or failing test evidence
+ * (REQ-LIB-080). Carries the actual reason and the target-scoped remediation;
+ * `circuitBreaker` is set when review merge's persistent-failure breaker
+ * tripped, and `warningRecorded` when an exemption WARN was already persisted
+ * before revalidation refused — the disclosed warning-only partial outcome.
+ */
+export class TestGateError extends ProspecError {
+  readonly entrance: TestGateEntrance;
+  readonly reason: string;
+  readonly remediation: string;
+  readonly circuitBreaker?: CircuitBreakerState;
+  readonly warningRecorded: boolean;
+
+  constructor(options: {
+    changeName: string;
+    entrance: TestGateEntrance;
+    reason: string;
+    circuitBreaker?: CircuitBreakerState;
+    warningRecorded?: boolean;
+  }) {
+    const remediation = testGateRemediation(options.changeName);
+    const warningRecorded = options.warningRecorded ?? false;
+    super(
+      `${options.entrance} refused for ${options.changeName}: ${options.reason}`,
+      'TEST_GATE_REFUSED',
+      warningRecorded
+        ? `The \`${TEST_GATE_NOT_ADJUDICATED}\` warning was recorded in metadata.yaml but the merge was not completed — review.md was left untouched. Run \`${remediation}\`, then retry`
+        : `Run \`${remediation}\`, then retry`,
+    );
+    this.name = 'TestGateError';
+    this.entrance = options.entrance;
+    this.reason = options.reason;
+    this.remediation = remediation;
+    this.circuitBreaker = options.circuitBreaker;
+    this.warningRecorded = warningRecorded;
   }
 }

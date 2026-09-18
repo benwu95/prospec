@@ -213,3 +213,54 @@ describe('ReviewCircuitBreaker', () => {
     expect(breaker.checkCircuitBreaker().reviewRounds).toBe(0);
   });
 });
+
+describe('ReviewCircuitBreaker — persistent_test_failure from the observed streak (REQ-LIB-057, REQ-TYPES-086)', () => {
+  it('trips at the default threshold of three with count/threshold/attempt-id diagnostics, even with no criticals in round 1', () => {
+    const breaker = new ReviewCircuitBreaker();
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 2, testFailureAttemptIds: ['a', 'b'] });
+    expect(breaker.checkCircuitBreaker({ round: 1, findings: [] }).tripped).toBe(false);
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
+    const state = breaker.checkCircuitBreaker({ round: 1, findings: [] });
+    expect(state.tripped).toBe(true);
+    expect(state.escalationReport?.type).toBe('persistent_test_failure');
+    expect(state.escalationReport?.diagnostics).toEqual({ count: 3, threshold: 3, attemptIds: ['a', 'b', 'c'] });
+    expect(state.escalationReport?.message).toMatch(/3 .*3/);
+    expect(state.escalationReport?.tradeoffOptions.join(' ')).toContain('ESCALATE_TO_HUMAN');
+    expect(state.oscillatingSignatures).toEqual([]);
+  });
+
+  it('uses the configured threshold: four distinct failures trip at four, three do not', () => {
+    const breaker = new ReviewCircuitBreaker({ maxConsecutiveTestFailures: 4 });
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
+    expect(breaker.checkCircuitBreaker().tripped).toBe(false);
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 4, testFailureAttemptIds: ['a', 'b', 'c', 'd'] });
+    const state = breaker.checkCircuitBreaker();
+    expect(state.tripped).toBe(true);
+    expect(state.escalationReport?.diagnostics).toMatchObject({ count: 4, threshold: 4 });
+  });
+
+  it('rejects a non-positive-integer threshold through the shared schema', () => {
+    expect(() => new ReviewCircuitBreaker({ maxConsecutiveTestFailures: 0 })).toThrow();
+    expect(() => new ReviewCircuitBreaker({ maxConsecutiveTestFailures: 2.5 })).toThrow();
+  });
+
+  it('keeps reporting while the threshold remains reached, and a green reset clears only the test input', () => {
+    const breaker = new ReviewCircuitBreaker({ maxSpend: 10 });
+    breaker.recordSpend(5);
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
+    expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
+    expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 0, testFailureAttemptIds: [] });
+    const state = breaker.checkCircuitBreaker();
+    expect(state.tripped).toBe(false);
+    expect(state.cumulativeSpend).toBe(5);
+    expect(breaker.getTestFailureStreak()).toEqual({ consecutiveTestFailures: 0, testFailureAttemptIds: [] });
+  });
+
+  it('outranks the findings-based breakers: a red suite is reported before oscillation or spend', () => {
+    const breaker = new ReviewCircuitBreaker({ maxSpend: 1 });
+    breaker.recordSpend(5);
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
+    expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
+  });
+});

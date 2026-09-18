@@ -204,18 +204,24 @@ describe('contained read is single-sourced (REQ-MCP-006 / REQ-LIB-014)', () => {
       reads,
       'a new readFileSync in drift-sources must go through readTextOrSkip / readContainedText — ' +
         'update this baseline only when you have re-argued the failure mode',
-    ).toBe(4);
-    // the four: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
-    // (already try-wrapped), the metadata read (already try-wrapped), and
-    // computeDeltaSpecDigest's single-file hash read. The last one is argued, not
-    // waved through: its whole body is a try/catch returning null, which is the
-    // fail-closed contract this budget exists to protect — an unreadable delta-spec
-    // must degrade to an honest skip, never to a constant that would certify a
-    // stale landing block as current (PB-013).
+    ).toBe(5);
+    // the five: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
+    // (already try-wrapped), the metadata read (already try-wrapped),
+    // computeDeltaSpecDigest's single-file hash read, and collectChangeTestEvidence's
+    // metadata-bytes read. The fourth is argued, not waved through: its whole body
+    // is a try/catch returning null, which is the fail-closed contract this budget
+    // exists to protect — an unreadable delta-spec must degrade to an honest skip,
+    // never to a constant that would certify a stale landing block as current
+    // (PB-013). The fifth is argued the other way round: it is a lifecycle GATE
+    // reader, not a drift source — the failure mode this budget guards ("an
+    // unreadable file aborts the drift run") does not apply, and the gate's own
+    // contract (REQ-LIB-080) requires an unreadable target record to refuse loudly
+    // rather than degrade into a no-command exemption.
     for (const fn of [
       'function readTextOrSkip',
       'function computeChangeDigest',
       'function computeDeltaSpecDigest',
+      'function collectChangeTestEvidence',
     ]) {
       expect(sources, `${fn} is expected to own one of the enumerated reads`).toContain(fn);
     }

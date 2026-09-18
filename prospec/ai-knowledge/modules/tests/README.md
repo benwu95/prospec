@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 231 test files, 5,570 tests (unit 3985, contract 1330, integration 98, e2e 157)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 233 test files, 5,736 tests (unit 4126, contract 1346, integration 103, e2e 161)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -10,7 +10,7 @@
 | File | Purpose |
 |------|---------|
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), service and formatter (incl. `learn-yield.service` / `learn-yield-output`); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
-| `tests/contract/*.test.ts` (25) | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
+| `tests/contract/*.test.ts` (26) | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
 | `tests/unit/scripts/counts-registry.test.ts` | Factual-count registry structure and target completeness, including one total/passed/skipped target in each website language source. |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→plan→tasks), upgrade, skill/agent-config generation, and a real four-host `agent sync` on a real filesystem whose output the station-reference collector and evaluator then judge (mutations asserted applied before their verdict is read). |
 | `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
@@ -45,7 +45,7 @@
 
 - Startup measurements use isolated real-Git status fixtures (no/current/stale report and in-flight change); assert the executed branch, not only a module ceiling, so archive cannot hide a report-dependent path.
 - Invalid UTF-8 path refusal uses a real Git index on macOS and Linux, with additional Linux worktree coverage, keeping both platforms' test counts aligned.
-- Snapshot and live-evidence regressions use real Git fixtures (`input-snapshot`, `drift-assessment`, integration `evidence-validity`); assert identity relations, latest-attempt safety, refusal byte identity and suite invocation counts.
+- Snapshot and live-evidence regressions use real Git fixtures (`input-snapshot`, `drift-assessment`, integration `evidence-validity`, e2e `cli-station`); assert identity relations, latest-attempt safety, refusal byte identity and suite invocation counts. A fixture file the test writes (a findings JSON) must live under `.prospec/` — at the repo root it is an untracked INPUT and stales the very snapshot the gate is judging. memfs service tests inject the snapshot by partially mocking `drift-sources`' `computeChangeState` (a `sequence` of digests models a mid-call change) and `fs-utils`' `atomicWrite` (`failOn` / `afterWrite` model a write failure or a concurrent edit between the exemption WARN and revalidation).
 
 - fast-glob and git do NOT see memfs — drift-sources / check.service / knowledge-reader tests use real temp dirs, not `vi.mock('node:fs')`. Every git/spawn-bound file declares a FILE-level `vi.setConfig({ testTimeout })` (PB-010) — 90_000 where the file shells out to a real subprocess or runs git-bound services (`drift-sources`, `check.service`, `test-runner`, `counts-from-report`, and every `tests/e2e/*` file — the in-process `cli-*` files still drive git via check/archive/status, and the smoke/startup files spawn node), since `prospec check --record-tests` nests the whole suite inside another node process and 30 s did not hold there: full-suite load blows the 5s default, and per-test overrides are outranked by a later file default.
 - The subprocess smokes and the startup-modules guard spawn the built CLI via `process.execPath` — `pnpm build` must run first (no `pretest` hook) or they fail; the in-process `cli-*` e2e files run against `src` and need no build. The in-process runner (`helpers/run-cli.ts`) patches BOTH `process.stdout/stderr.write` AND `console.*` (vitest intercepts `console`, so a stream patch alone misses formatter output) and restores every global in a `finally` — its `run-cli-helper.test.ts` pins that contract.
@@ -57,7 +57,7 @@
 
 ## Sub-Modules
 
-- [Contract Guards](./contract-guards.md) — the 25 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
+- [Contract Guards](./contract-guards.md) — the 26 `tests/contract/` pins and the assertion discipline that keeps them falsifiable
 - [Workflow Evaluator](./workflow-evaluator.md) — the instruction-grading harness's suites, and why they are never model evidence
 
 <!-- prospec:auto-end -->
