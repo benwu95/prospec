@@ -755,7 +755,9 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
 }
 
 /**
- * Budget overrides — any token_budget override > default must have an adjacent YAML comment.
+ * Budget overrides — any token_budget override > default must have an adjacent YAML
+ * comment, and a shipped budget key (skill / reference) written into token_budget is
+ * flagged as ineffective: the schema strips it, so nothing else would tell the user.
  */
 export function evaluateBudgetOverrides(src: BudgetOverrideSource): CheckOutcome {
   if (!src.available) {
@@ -772,6 +774,15 @@ export function evaluateBudgetOverrides(src: BudgetOverrideSource): CheckOutcome
         detail: `unjustified budget override: token_budget.${override.key} is set to ${override.value} (default ${override.defaultValue}) without a comment. Add a comment explaining why this module needs more space.`,
       });
     }
+  }
+  for (const key of src.ineffective) {
+    findings.push({
+      check: 'unjustified-budget-override',
+      severity: 'warn',
+      source_path: src.source_path,
+      line: key.line,
+      detail: `ineffective budget override: token_budget.${key.key} ships with prospec and is not a per-project setting — the value written here binds nothing. Remove the line.`,
+    });
   }
   return outcome('unjustified-budget-override', findings);
 }

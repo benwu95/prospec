@@ -13,7 +13,7 @@ import { renderTemplate } from '../../src/lib/template.js';
 import { collectNonSourceDirectories } from '../../src/lib/module-detector.js';
 import { toInlineCodeSpan } from '../../src/lib/markdown-fences.js';
 import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../src/types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { FeatureMapSchema } from '../../src/types/feature-map.js';
 import {
@@ -227,8 +227,9 @@ describe('Knowledge Format Contract', () => {
     // renders one number per budget field. Handlebars renders an unset variable as
     // the EMPTY STRING, so a context that omits the budget ships an index.md
     // declaring `≤  tokens per file` — silently, in every generated project. The
-    // sentinels are derived from the budget so a new field is covered on arrival.
-    it('renders EVERY budget field in the loading-rules table it embeds', () => {
+    // sentinels are derived from the budget so a new field is covered on arrival;
+    // the shipped skill / reference budgets have no row by design and are skipped.
+    it('renders EVERY per-project budget field in the loading-rules table it embeds', () => {
       const sentinels = Object.fromEntries(
         Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((field, i) => [field, 4200 + i]),
       ) as typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET;
@@ -245,6 +246,7 @@ describe('Knowledge Format Contract', () => {
       );
       const table = content.slice(content.indexOf('## Progressive Knowledge Loading Strategy'));
       for (const [field, sentinel] of Object.entries(sentinels)) {
+        if (isShippedBudgetField(field)) continue;
         expect(table, `${field} renders empty in a generated index.md`).toContain(String(sentinel));
       }
       expect(table, 'an unset budget renders as an empty cell, never an error').not.toMatch(/≤\s{2,}tokens/);

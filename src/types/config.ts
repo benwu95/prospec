@@ -42,16 +42,15 @@ export type KnowledgeStrategy = typeof KNOWLEDGE_STRATEGIES[number];
 //   readme_max_lines — max lines for each L2 module file
 //   spec_per_file    — max tokens for each Feature Spec (and product.md)
 //   demand_knowledge_per_file — max tokens for each load-on-demand knowledge file
-//   skill_per_file   — max tokens for each generated SKILL.md (authoring projects)
-//   reference_per_file — max tokens for each generated skill reference
+// The skill / reference budgets are NOT here: they describe the SKILL.md and
+// reference files prospec itself ships, so a project cannot override them — see
+// SHIPPED_BUDGET_FIELDS.
 const TokenBudgetSchema = z.object({
   l1_per_file: z.number().optional(),
   l2_per_module: z.number().optional(),
   readme_max_lines: z.number().optional(),
   spec_per_file: z.number().optional(),
   demand_knowledge_per_file: z.number().optional(),
-  skill_per_file: z.number().optional(),
-  reference_per_file: z.number().optional(),
   headroom: z.number().min(0).max(1).optional(),
 }).optional();
 
@@ -60,17 +59,23 @@ export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
 /**
  * Single source of truth for the knowledge-size drift check thresholds and the
  * numbers declared in index.md's progressive-loading table. `knowledge.token_budget`
- * in .prospec.yaml overrides individual fields; anything unset falls back here.
+ * in .prospec.yaml overrides the per-project fields; anything unset falls back here.
  *
- * The L1/L2 values were calibrated by slim-knowledge-l1-l2 (#64). The four
- * load-surface values are derived from them rather than guessed:
- * `spec_per_file`/`skill_per_file` are 5x `l2_per_module` — a station loads one or
- * two Feature Specs plus its own instructions, and that trio should stay in the same
- * order of magnitude as the whole L1 layer; `reference_per_file` is half a skill,
- * since "the skill plus the references one phase reads" should fit inside one skill
- * budget; `demand_knowledge_per_file` is ~60% of the ~17.7k tokens at which the
- * lessons ledger's growth was noticed and compressed BY HAND (issue #119), so the
- * signal precedes the manual discovery it replaces.
+ * The L1/L2 values were calibrated by slim-knowledge-l1-l2 (#64). `spec_per_file`
+ * is 5x `l2_per_module` — a station loads one or two Feature Specs plus its own
+ * instructions, and that trio should stay in the same order of magnitude as the
+ * whole L1 layer; `demand_knowledge_per_file` is ~60% of the ~17.7k tokens at which
+ * the lessons ledger's growth was noticed and compressed BY HAND (issue #119), so
+ * the signal precedes the manual discovery it replaces.
+ *
+ * `skill_per_file` and `reference_per_file` are SHIPPED budgets: they describe the
+ * SKILL.md and reference files prospec itself ships, so their only correct value is
+ * the budget those files were authored against, and it moves with the release, not
+ * with a project. 12,500 is the measured operational core of the multi-phase gate
+ * skills after three slimming attempts; 2,500 keeps "a skill plus the references one
+ * phase reads" inside one skill budget. They are graded by `knowledge-size` only in
+ * authoring projects, have no row in a project's loading table, and are never
+ * read from `.prospec.yaml` (`SHIPPED_BUDGET_FIELDS`).
  */
 export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
   l1_per_file: 1800,
@@ -78,10 +83,25 @@ export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
   readme_max_lines: 100,
   spec_per_file: 5000,
   demand_knowledge_per_file: 10000,
-  skill_per_file: 5000,
+  skill_per_file: 12500,
   reference_per_file: 2500,
   headroom: 0.85,
 } as const;
+
+/**
+ * Budget fields that ship with the prospec version and are not per-project
+ * settings — absent from `TokenBudgetSchema`, skipped by the resolver, and flagged
+ * by the `unjustified-budget-override` check when a project writes them anyway.
+ * The schema's key set plus this list equals `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`'s.
+ */
+export const SHIPPED_BUDGET_FIELDS = ['skill_per_file', 'reference_per_file'] as const satisfies readonly (keyof typeof DEFAULT_KNOWLEDGE_TOKEN_BUDGET)[];
+
+export type ShippedBudgetField = (typeof SHIPPED_BUDGET_FIELDS)[number];
+
+/** Type guard over `SHIPPED_BUDGET_FIELDS` — the one place the list is consulted by name. */
+export function isShippedBudgetField(key: string): key is ShippedBudgetField {
+  return (SHIPPED_BUDGET_FIELDS as readonly string[]).includes(key);
+}
 
 /** Resolved token/line budget (DEFAULT_KNOWLEDGE_TOKEN_BUDGET overridden by config). */
 export interface KnowledgeSizeBudget {
@@ -95,9 +115,9 @@ export interface KnowledgeSizeBudget {
   spec_per_file: number;
   /** max tokens per load-on-demand knowledge file (lessons ledger, playbook, ...) */
   demand_knowledge_per_file: number;
-  /** max tokens per generated SKILL.md — graded only where the project authors skills */
+  /** max tokens per shipped SKILL.md — a version constant, not a project setting; graded only where the project authors skills */
   skill_per_file: number;
-  /** max tokens per generated skill reference — graded only where the project authors skills */
+  /** max tokens per shipped skill reference — a version constant, not a project setting; graded only where the project authors skills */
   reference_per_file: number;
   /** headroom threshold (0.0 to 1.0) before early warning is emitted */
   headroom: number;

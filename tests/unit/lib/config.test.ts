@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { vol } from 'memfs';
 import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema, type ProspecConfig } from '../../../src/types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -166,19 +166,23 @@ describe('resolveKnowledgeTokenBudget', () => {
 
   // The resolver derives its field list from DEFAULT_KNOWLEDGE_TOKEN_BUDGET, so a
   // threshold the SCHEMA accepts but the default omits is parsed, then silently
-  // ignored — an override the user wrote and nothing honours. Only a key-set
-  // equality between the two catches that; asserting the resolver against the
-  // default alone is a tautology.
-  it('keeps TokenBudgetSchema and DEFAULT_KNOWLEDGE_TOKEN_BUDGET at the same field set', () => {
+  // ignored — an override the user wrote and nothing honours. The schema is a
+  // strict subset of the default by design: the difference must be EXACTLY the
+  // shipped fields, so neither a schema-only key nor a re-added shipped key can
+  // slip through.
+  it('keeps TokenBudgetSchema at DEFAULT_KNOWLEDGE_TOKEN_BUDGET minus exactly the shipped fields', () => {
     const schemaKeys = Object.keys(
       (ProspecConfigSchema.shape.knowledge.unwrap().shape.token_budget.unwrap() as {
         shape: Record<string, unknown>;
       }).shape,
     ).sort();
-    expect(schemaKeys).toEqual(Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).sort());
+    const expected = Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET)
+      .filter((k) => !isShippedBudgetField(k))
+      .sort();
+    expect(schemaKeys).toEqual(expected);
   });
 
-  it('honours an override of EVERY budget field, not just the three original ones', () => {
+  it('honours an override of EVERY schema-declared field and keeps the shipped fields at DEFAULT', () => {
     const overrides = Object.fromEntries(
       Object.keys(DEFAULT_KNOWLEDGE_TOKEN_BUDGET).map((k, i) => [k, 10_000 + i]),
     );
@@ -186,7 +190,19 @@ describe('resolveKnowledgeTokenBudget', () => {
       project: { name: 't' },
       knowledge: { token_budget: overrides },
     } as ProspecConfig);
-    expect(budget).toEqual(overrides);
+    const expected: Record<string, number> = { ...overrides };
+    for (const shipped of SHIPPED_BUDGET_FIELDS) expected[shipped] = DEFAULT_KNOWLEDGE_TOKEN_BUDGET[shipped];
+    expect(budget).toEqual(expected);
+  });
+
+  it('ignores a written skill_per_file / reference_per_file — the shipped value wins', () => {
+    const budget = resolveKnowledgeTokenBudget({
+      project: { name: 't' },
+      knowledge: { token_budget: { skill_per_file: 5000, reference_per_file: 9000 } as Record<string, number> },
+    } as ProspecConfig);
+    expect(budget.skill_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.skill_per_file);
+    expect(budget.skill_per_file).toBe(12500);
+    expect(budget.reference_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
   });
 });
 

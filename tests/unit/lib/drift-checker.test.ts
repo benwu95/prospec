@@ -98,6 +98,7 @@ const emptyInputs: DriftCheckInputs = {
     available: true,
     source_path: '.prospec.yaml',
     overrides: [],
+    ineffective: [],
   },
   testProvenance: {
     available: true,
@@ -378,12 +379,12 @@ describe('evaluateKnowledgeSize — structured knowledge_size field (REQ-LIB-054
 
 describe('evaluateBudgetOverrides', () => {
   it('passes when source is unavailable', () => {
-    const r = evaluateBudgetOverrides({ available: false, reason: 'no yaml', source_path: '.prospec.yaml', overrides: [] });
+    const r = evaluateBudgetOverrides({ available: false, reason: 'no yaml', source_path: '.prospec.yaml', overrides: [], ineffective: [] });
     expect(r.result.status).toBe('skipped');
   });
 
   it('passes when there are no overrides', () => {
-    const r = evaluateBudgetOverrides({ available: true, source_path: '.prospec.yaml', overrides: [] });
+    const r = evaluateBudgetOverrides({ available: true, source_path: '.prospec.yaml', overrides: [], ineffective: [] });
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
   });
@@ -393,6 +394,7 @@ describe('evaluateBudgetOverrides', () => {
       available: true,
       source_path: '.prospec.yaml',
       overrides: [{ key: 'demand_knowledge_per_file', value: 15000, defaultValue: 10000, hasComment: false, line: 12 }],
+      ineffective: [],
     });
     expect(r.result.status).toBe('warn');
     expect(r.findings).toHaveLength(1);
@@ -406,9 +408,31 @@ describe('evaluateBudgetOverrides', () => {
       available: true,
       source_path: '.prospec.yaml',
       overrides: [{ key: 'demand_knowledge_per_file', value: 15000, defaultValue: 10000, hasComment: true, line: 12 }],
+      ineffective: [],
     });
     expect(r.result.status).toBe('pass');
     expect(r.findings).toHaveLength(0);
+  });
+
+  it('warns once per shipped key written into token_budget, naming the key and the fix', () => {
+    const r = evaluateBudgetOverrides({
+      available: true,
+      source_path: '.prospec.yaml',
+      overrides: [],
+      ineffective: [
+        { key: 'skill_per_file', line: 7 },
+        { key: 'reference_per_file', line: 8 },
+      ],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]?.check).toBe('unjustified-budget-override');
+    expect(r.findings[0]?.detail).toContain('skill_per_file');
+    expect(r.findings[0]?.detail).toMatch(/ships with prospec/i);
+    expect(r.findings[0]?.detail).toMatch(/remove/i);
+    expect(r.findings[0]?.line).toBe(7);
+    expect(r.findings[1]?.detail).toContain('reference_per_file');
+    expect(r.findings[1]?.line).toBe(8);
   });
 });
 

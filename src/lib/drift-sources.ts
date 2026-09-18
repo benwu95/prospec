@@ -5,7 +5,7 @@ import path from 'node:path';
 import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
@@ -185,11 +185,18 @@ export interface BudgetOverride {
   line: number;
 }
 
+/** A shipped budget key written into `token_budget` — parsed away by the schema, binding nothing. */
+export interface IneffectiveBudgetKey {
+  key: ShippedBudgetField;
+  line: number;
+}
+
 export interface BudgetOverrideSource {
   available: boolean;
   reason?: string;
   source_path: string;
   overrides: BudgetOverride[];
+  ineffective: IneffectiveBudgetKey[];
 }
 
 export interface CanonicalDocDriftItem {
@@ -1083,7 +1090,7 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
   const configPath = path.resolve(cwd, '.prospec.yaml');
   const content = readContainedText(configPath, cwd);
   if (!content) {
-    return { available: false, reason: 'source unavailable: .prospec.yaml not found', source_path: '.prospec.yaml', overrides: [] };
+    return { available: false, reason: 'source unavailable: .prospec.yaml not found', source_path: '.prospec.yaml', overrides: [], ineffective: [] };
   }
   
   let doc;
@@ -1092,6 +1099,7 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
     if (doc.errors.length > 0) throw new Error('yaml parse error');
     
     const overrides: BudgetOverride[] = [];
+    const ineffective: IneffectiveBudgetKey[] = [];
     const contents = doc.contents;
     let hasBudgetSection = false;
     
@@ -1103,16 +1111,26 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
           hasBudgetSection = true;
           
           for (const [index, item] of budgetNode.items.entries()) {
-            if (!isScalar(item.key) || !isScalar(item.value)) continue;
-            const keyStr = String(item.key.value);
+            if (!isScalar(item.key)) continue;
+            const keyNode = item.key;
+            const keyStr = String(keyNode.value);
             if (!(keyStr in DEFAULT_KNOWLEDGE_TOKEN_BUDGET)) continue;
+            const lineOf = (): number =>
+              content.substring(0, keyNode.range?.[0] ?? 0).split('\n').length;
+            // A shipped budget is never judged by size: it is not this project's to
+            // set, so the key itself is the finding, whatever sits beside it — a
+            // scalar, a list, a map. Only the override path needs a numeric value.
+            if (isShippedBudgetField(keyStr)) {
+              ineffective.push({ key: keyStr, line: lineOf() });
+              continue;
+            }
+            if (!isScalar(item.value)) continue;
 
             const defaultValue = DEFAULT_KNOWLEDGE_TOKEN_BUDGET[keyStr as keyof KnowledgeSizeBudget];
             const value = Number(item.value.value);
 
             if (value > (defaultValue ?? 0)) {
-              const startPos = item.key.range?.[0] ?? 0;
-              const line = content.substring(0, startPos).split('\n').length;
+              const line = lineOf();
               // A comment introducing the block's first key hangs on the collection,
               // not on that key — so the most natural way to justify an override
               // (a line above it) is invisible from `key.commentBefore` alone.
@@ -1133,16 +1151,17 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
       }
     }
     if (!hasBudgetSection) {
-      return { available: false, reason: 'no knowledge.token_budget section configured', source_path: '.prospec.yaml', overrides: [] };
+      return { available: false, reason: 'no knowledge.token_budget section configured', source_path: '.prospec.yaml', overrides: [], ineffective: [] };
     }
     
     return {
       available: true,
       source_path: '.prospec.yaml',
       overrides,
+      ineffective,
     };
   } catch {
-    return { available: false, reason: 'source unavailable: failed to parse .prospec.yaml AST', source_path: '.prospec.yaml', overrides: [] };
+    return { available: false, reason: 'source unavailable: failed to parse .prospec.yaml AST', source_path: '.prospec.yaml', overrides: [], ineffective: [] };
   }
 }
 

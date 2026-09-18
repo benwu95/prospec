@@ -24,8 +24,8 @@ export interface IndexTemplateOptions {
   demandConventions: string[];
   /**
    * Resolved knowledge-size budget. `index.md.hbs` includes the shared
-   * `knowledge-loading-rules` partial, whose table renders one number per budget
-   * field — Handlebars renders an unset variable as the EMPTY STRING, so omitting
+   * `knowledge-loading-rules` partial, whose table renders one number per
+   * per-project budget field (shipped fields have no row) — Handlebars renders an unset variable as the EMPTY STRING, so omitting
    * this ships an index.md declaring `≤  tokens per file`.
    */
   tokenBudget: KnowledgeSizeBudget;

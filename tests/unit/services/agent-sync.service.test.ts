@@ -73,6 +73,30 @@ knowledge:
     expect(ctx.readme_max_lines).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.readme_max_lines);
   });
 
+  it('keeps the shipped skill/reference budgets at DEFAULT even when .prospec.yaml writes them', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': `project:
+  name: test-project
+agents:
+  - claude
+knowledge:
+  token_budget:
+    skill_per_file: 5000
+    reference_per_file: 9000
+`,
+    });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+
+    await execute({ cwd: '/project' });
+
+    const skillCall = rt.mock.calls.find(([name]) => String(name).startsWith('skills/'));
+    expect(skillCall, 'expected at least one skills/*.hbs render').toBeDefined();
+    const ctx = skillCall![1] as Record<string, unknown>;
+    expect(ctx.skill_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.skill_per_file);
+    expect(ctx.reference_per_file).toBe(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+  });
+
   it('injects the agent-declared harness capabilities into the skill template context', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:

@@ -64,7 +64,7 @@ subject_skips? }`, adopted **verbatim**.
 | `artifact-language` | `warn` | Flags change artifacts whose prose contains no characters in the configured artifact language. | Latin-script languages, unreadable file, scan error. |
 | `delta-spec-provenance` | `fail` | Flags changes whose `delta-spec.md` diverged from the review baseline fingerprint. | `scale: quick`, proven backfill (`backfill-draft.md` present). |
 | `spec-counters` | `warn` | Flags feature specs whose frontmatter `story_count`/`req_count` disagrees with actual headings. | Specs absent or unparseable. |
-| `unjustified-budget-override` | `fail` | Flags `.prospec.yaml` `token_budget` overrides lacking adjacent justification comments. | No budget override configured. |
+| `unjustified-budget-override` | `fail` | Flags unjustified `token_budget` overrides and shipped budget keys that bind nothing. | No budget override configured. |
 | `canonical-doc-drift` | `warn` | Flags canonical project docs drifting from rendered canonical templates. | File absent. |
 | `delta-spec-landing-fidelity` | `fail` | Flags MODIFIED `**Spec:**` blocks omitting existing `WHEN/THEN` bullets without `**Dropped:**` declaration. | ADDED entries, no `**Spec:**` block, no changes dir. |
 | `req-id-uniqueness` | `fail` | Flags duplicate REQ ID definitions across Feature Specs (slices grouped with parent). | Specs absent or unparseable. |
